@@ -105,7 +105,17 @@ function SignIn() {
     return (
       <div className="grid min-h-screen lg:grid-cols-2">
         <div className="hidden flex-col justify-between bg-rail p-10 text-rail-foreground lg:flex">
-          <img src="/mightyfin-logo-light.png" alt="Mightyfin ERP" className="h-8 w-auto" />
+          <div
+            className="flex h-24 w-36 shrink-0 items-start justify-start"
+            data-testid="signin-brand-logo-container"
+          >
+            <img
+              src="/mightyfin-logo-light.png"
+              alt="Mightyfin ERP"
+              data-testid="signin-brand-logo"
+              className="block max-h-full max-w-full object-contain object-left"
+            />
+          </div>
           <div className="max-w-md">
             <h1 className="text-2xl font-semibold">Human resources</h1>
             <p className="mt-3 text-sm text-rail-muted">
@@ -135,7 +145,17 @@ function SignIn() {
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* Brand / context panel */}
       <div className="hidden flex-col justify-between bg-rail p-10 text-rail-foreground lg:flex">
-        <img src="/mightyfin-logo-light.png" alt="Mightyfin ERP" className="h-8 w-auto" />
+        <div
+          className="flex h-24 w-36 shrink-0 items-start justify-start"
+          data-testid="signin-brand-logo-container"
+        >
+          <img
+            src="/mightyfin-logo-light.png"
+            alt="Mightyfin ERP"
+            data-testid="signin-brand-logo"
+            className="block max-h-full max-w-full object-contain object-left"
+          />
+        </div>
         <div className="max-w-md">
           <h1 className="text-2xl font-semibold">Human resources</h1>
           <p className="mt-3 text-sm text-rail-muted">
