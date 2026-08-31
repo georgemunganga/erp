@@ -63,7 +63,12 @@ function SignIn() {
     if (USE_REAL && (params.has("code") || params.has("error"))) {
       callbackInProgress.current = true;
       void handleLoginCallback().then((origin) => {
-        if (origin) void navigate({ to: origin });
+        // The callback stores the new OIDC session outside React state. Force
+        // one clean document load so AuthProvider restores that session before
+        // AuthGate evaluates the protected destination. A client-side navigate
+        // leaves AuthProvider's in-memory session null and bounces the user
+        // straight back to /sign-in even though token exchange succeeded.
+        if (origin) window.location.replace(origin);
         else setSilenceFailed(true);
       });
     }
