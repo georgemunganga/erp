@@ -274,8 +274,9 @@ function EditEmployee() {
                   validate: (v, all) => {
                     if (paymentMethodKey(all.paymentMethod) !== "bank") return null;
                     if (!v) return "Account number is required for bank transfer.";
-                    return v.replace(/\s/g, "").length < 10
-                      ? "A Zambian account number is at least 10 digits. Check it against the bank letter."
+                    const digits = v.replace(/\D/g, "");
+                    return digits.length < 6
+                      ? "Enter the account number shown on the bank letter. Account-number length varies by bank."
                       : null;
                   },
                 },
