@@ -331,6 +331,11 @@ export const configurationGroups: {
     label: "Technical",
     description: "Integrations and data movement. Rarely changed after go-live.",
     items: [
+      {
+        label: "Company branding",
+        detail: "Logo, favicon, and workspace colour palette",
+        to: "/hrm/configuration/technical",
+      },
       { label: "Import and export", detail: "Shared CSV and Excel data movement", to: "/hrm/data/import-export" },
       {
         label: "Payroll interface",
