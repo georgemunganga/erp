@@ -9,7 +9,7 @@
  * fallback data.
  */
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, hrmApi } from "@/platform/api-client";
+import { ApiError, hrmApi, type CompanyBranding, type CompanyBrandingUpdate } from "@/platform/api-client";
 import type { EducationRecord } from "@/mock/employeeprofile";
 
 export interface ApiState<T> {
@@ -996,6 +996,9 @@ export const realApi = {
   updateHoliday: (id: string, body: Record<string, unknown>) => hrmApi.patch<unknown>(`/hrm/admin/holidays/${id}`, body),
   deleteHoliday: (id: string) => hrmApi.delete<unknown>(`/hrm/admin/holidays/${id}`),
   capabilities: () => hrmApi.get<unknown[]>("/hrm/admin/capabilities"),
+  branding: () => hrmApi.get<CompanyBranding>("/hrm/admin/branding"),
+  updateBranding: (body: CompanyBrandingUpdate) => hrmApi.put<CompanyBranding>("/hrm/admin/branding", body),
+  resetBranding: () => hrmApi.post<CompanyBranding>("/hrm/admin/branding/reset", {}),
   // ---------- M28 CRUD audit: jobs catalogue, roles, retention rules ----------
   jobs: (params?: { includeInactive?: boolean }) =>
     hrmApi.get<unknown[]>("/hrm/admin/jobs", params ?? {}),

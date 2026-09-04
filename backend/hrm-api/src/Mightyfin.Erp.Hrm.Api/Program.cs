@@ -118,6 +118,7 @@ builder.Services.AddScoped<IPayrollReportPdfRenderer, PayrollReportPdfRendererIm
 builder.Services.AddScoped<IConfigRepository, ConfigRepository>();
 builder.Services.AddScoped<IConfigService, ConfigServiceImpl>();
 builder.Services.AddScoped<IConfigAdminService, ConfigAdminServiceImpl>();
+builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService, CompanyBrandingService>();
 builder.Services.AddScoped<IJobsAdminService, JobsAdminServiceImpl>();
 builder.Services.AddScoped<IRecruitmentRepository, RecruitmentRepository>();
 builder.Services.AddScoped<IRecruitmentService, RecruitmentServiceImpl>();

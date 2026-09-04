@@ -130,6 +130,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     public DbSet<ComplianceEvidence> ComplianceEvidenceRecords => Set<ComplianceEvidence>();
     public DbSet<GoLiveSignoff> GoLiveSignoffs => Set<GoLiveSignoff>();
     public DbSet<LegalHold> LegalHolds => Set<LegalHold>();
+    public DbSet<CompanyBranding> CompanyBrandings => Set<CompanyBranding>();
 
     // Config & extras
     public DbSet<CapabilityConfig> CapabilityConfigs => Set<CapabilityConfig>();
@@ -302,6 +303,8 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             e.HasIndex(x => new { x.TenantId, x.RoleKey, x.SignedAt }));
         ConfigureEntity<LegalHold>(modelBuilder, "legal_holds", e =>
             e.HasIndex(x => new { x.TenantId, x.Reference }).IsUnique().HasFilter("status = 'active'"));
+        ConfigureEntity<CompanyBranding>(modelBuilder, "company_brandings", e =>
+            e.HasIndex(x => x.TenantId).IsUnique());
         ConfigureEntity<CapabilityConfig>(modelBuilder, "capability_configs");
         ConfigureEntity<AuditEntry>(modelBuilder, "audit_entries", e =>
         {

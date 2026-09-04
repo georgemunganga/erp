@@ -1256,6 +1256,16 @@ public static class Routes
     {
         var g = app.MapGroup($"{HrmPrefix}/admin").RequireAuthorization();
         g.MapGet("/config", async (IConfigService svc, CancellationToken ct) => await svc.GetConfigAsync(ct));
+        g.MapGet("/branding", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(ct)));
+        g.MapPut("/branding", async (HttpContext http, Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+        {
+            var request = await ReadBodyAsync<Mightyfin.Erp.Hrm.Application.Branding.CompanyBrandingUpdateRequest>(http, ct)
+                ?? throw new DomainException("bad-request", "Branding settings are missing or invalid.");
+            return Results.Ok(await svc.UpdateAsync(request, ct));
+        });
+        g.MapPost("/branding/reset", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ResetAsync(ct)));
         g.MapGet("/leave-types", async ([FromQuery] bool includeInactive, IConfigService svc, CancellationToken ct) =>
             await svc.ListLeaveTypesAsync(includeInactive, ct));
 
