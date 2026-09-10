@@ -35,6 +35,7 @@ import { Route as HrmConfigurationIndexRouteImport } from './routes/hrm.configur
 import { Route as HrmConfigurationBranchAccessRouteImport } from './routes/hrm.configuration.branch-access'
 import { Route as HrmConfigurationBusinessRouteImport } from './routes/hrm.configuration.business'
 import { Route as HrmConfigurationComplianceRouteImport } from './routes/hrm.configuration.compliance'
+import { Route as HrmConfigurationContractTypesRouteImport } from './routes/hrm.configuration.contract-types'
 import { Route as HrmConfigurationGoLiveRouteImport } from './routes/hrm.configuration.go-live'
 import { Route as HrmConfigurationHolidaysRouteImport } from './routes/hrm.configuration.holidays'
 import { Route as HrmConfigurationIntegrationsRouteImport } from './routes/hrm.configuration.integrations'
@@ -265,6 +266,12 @@ const HrmConfigurationComplianceRoute =
   HrmConfigurationComplianceRouteImport.update({
     id: '/hrm/configuration/compliance',
     path: '/hrm/configuration/compliance',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const HrmConfigurationContractTypesRoute =
+  HrmConfigurationContractTypesRouteImport.update({
+    id: '/hrm/configuration/contract-types',
+    path: '/hrm/configuration/contract-types',
     getParentRoute: () => rootRouteImport,
   } as any)
 const HrmConfigurationGoLiveRoute = HrmConfigurationGoLiveRouteImport.update({
@@ -800,6 +807,7 @@ export interface FileRoutesByFullPath {
   '/hrm/configuration/branch-access': typeof HrmConfigurationBranchAccessRoute
   '/hrm/configuration/business': typeof HrmConfigurationBusinessRoute
   '/hrm/configuration/compliance': typeof HrmConfigurationComplianceRoute
+  '/hrm/configuration/contract-types': typeof HrmConfigurationContractTypesRoute
   '/hrm/configuration/go-live': typeof HrmConfigurationGoLiveRoute
   '/hrm/configuration/holidays': typeof HrmConfigurationHolidaysRoute
   '/hrm/configuration/integrations': typeof HrmConfigurationIntegrationsRoute
@@ -926,6 +934,7 @@ export interface FileRoutesByTo {
   '/hrm/configuration/branch-access': typeof HrmConfigurationBranchAccessRoute
   '/hrm/configuration/business': typeof HrmConfigurationBusinessRoute
   '/hrm/configuration/compliance': typeof HrmConfigurationComplianceRoute
+  '/hrm/configuration/contract-types': typeof HrmConfigurationContractTypesRoute
   '/hrm/configuration/go-live': typeof HrmConfigurationGoLiveRoute
   '/hrm/configuration/holidays': typeof HrmConfigurationHolidaysRoute
   '/hrm/configuration/integrations': typeof HrmConfigurationIntegrationsRoute
@@ -1053,6 +1062,7 @@ export interface FileRoutesById {
   '/hrm/configuration/branch-access': typeof HrmConfigurationBranchAccessRoute
   '/hrm/configuration/business': typeof HrmConfigurationBusinessRoute
   '/hrm/configuration/compliance': typeof HrmConfigurationComplianceRoute
+  '/hrm/configuration/contract-types': typeof HrmConfigurationContractTypesRoute
   '/hrm/configuration/go-live': typeof HrmConfigurationGoLiveRoute
   '/hrm/configuration/holidays': typeof HrmConfigurationHolidaysRoute
   '/hrm/configuration/integrations': typeof HrmConfigurationIntegrationsRoute
@@ -1181,6 +1191,7 @@ export interface FileRouteTypes {
     | '/hrm/configuration/branch-access'
     | '/hrm/configuration/business'
     | '/hrm/configuration/compliance'
+    | '/hrm/configuration/contract-types'
     | '/hrm/configuration/go-live'
     | '/hrm/configuration/holidays'
     | '/hrm/configuration/integrations'
@@ -1307,6 +1318,7 @@ export interface FileRouteTypes {
     | '/hrm/configuration/branch-access'
     | '/hrm/configuration/business'
     | '/hrm/configuration/compliance'
+    | '/hrm/configuration/contract-types'
     | '/hrm/configuration/go-live'
     | '/hrm/configuration/holidays'
     | '/hrm/configuration/integrations'
@@ -1433,6 +1445,7 @@ export interface FileRouteTypes {
     | '/hrm/configuration/branch-access'
     | '/hrm/configuration/business'
     | '/hrm/configuration/compliance'
+    | '/hrm/configuration/contract-types'
     | '/hrm/configuration/go-live'
     | '/hrm/configuration/holidays'
     | '/hrm/configuration/integrations'
@@ -1560,6 +1573,7 @@ export interface RootRouteChildren {
   HrmConfigurationBranchAccessRoute: typeof HrmConfigurationBranchAccessRoute
   HrmConfigurationBusinessRoute: typeof HrmConfigurationBusinessRoute
   HrmConfigurationComplianceRoute: typeof HrmConfigurationComplianceRoute
+  HrmConfigurationContractTypesRoute: typeof HrmConfigurationContractTypesRoute
   HrmConfigurationGoLiveRoute: typeof HrmConfigurationGoLiveRoute
   HrmConfigurationHolidaysRoute: typeof HrmConfigurationHolidaysRoute
   HrmConfigurationIntegrationsRoute: typeof HrmConfigurationIntegrationsRoute
@@ -1831,6 +1845,13 @@ declare module '@tanstack/react-router' {
       path: '/hrm/configuration/compliance'
       fullPath: '/hrm/configuration/compliance'
       preLoaderRoute: typeof HrmConfigurationComplianceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hrm/configuration/contract-types': {
+      id: '/hrm/configuration/contract-types'
+      path: '/hrm/configuration/contract-types'
+      fullPath: '/hrm/configuration/contract-types'
+      preLoaderRoute: typeof HrmConfigurationContractTypesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hrm/configuration/go-live': {
@@ -2699,6 +2720,7 @@ const rootRouteChildren: RootRouteChildren = {
   HrmConfigurationBranchAccessRoute: HrmConfigurationBranchAccessRoute,
   HrmConfigurationBusinessRoute: HrmConfigurationBusinessRoute,
   HrmConfigurationComplianceRoute: HrmConfigurationComplianceRoute,
+  HrmConfigurationContractTypesRoute: HrmConfigurationContractTypesRoute,
   HrmConfigurationGoLiveRoute: HrmConfigurationGoLiveRoute,
   HrmConfigurationHolidaysRoute: HrmConfigurationHolidaysRoute,
   HrmConfigurationIntegrationsRoute: HrmConfigurationIntegrationsRoute,

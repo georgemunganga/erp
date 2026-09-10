@@ -258,6 +258,11 @@ export const configurationGroups: {
         to: "/hrm/configuration/leave-types",
       },
       {
+        label: "Contract types",
+        detail: "Employment terms, probation and notice periods",
+        to: "/hrm/configuration/contract-types",
+      },
+      {
         label: "Leave policies and accruals",
         detail: "Policy administration and accrual controls",
         to: "/hrm/configuration/process",

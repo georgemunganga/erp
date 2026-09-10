@@ -399,6 +399,16 @@ public sealed record LeaveTypeDtoFull(
     bool AllowNegative, string EffectiveFrom, string? EffectiveTo, bool IsActive,
     DateTimeOffset CreatedAt);
 
+// ---------- Contract types ----------
+public sealed record ContractTypeCreateRequest(
+    string Code, string Name, int ProbationDays = 0, int NoticeDays = 30);
+public sealed record ContractTypeUpdateRequest(
+    string? Name = null, int? ProbationDays = null, int? NoticeDays = null,
+    bool? IsActive = null);
+public sealed record ContractTypeDto(
+    Guid Id, string Code, string Name, int ProbationDays, int NoticeDays,
+    bool IsActive, DateTimeOffset CreatedAt);
+
 // ---------- Capabilities ----------
 public sealed record CapabilityUpdateRequest(string? Tier = null, bool? IsEnabled = null, string? Description = null);
 

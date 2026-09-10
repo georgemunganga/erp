@@ -155,6 +155,7 @@ public interface IConfigRepository
     Task<List<OrgUnit>> ListOrgUnitsAsync(CancellationToken ct);
     Task<List<WorkCalendar>> ListCalendarsAsync(CancellationToken ct);
     Task<List<LeaveType>> ListLeaveTypesAsync(bool includeInactive, CancellationToken ct);
+    Task<List<ContractType>> ListContractTypesAsync(bool includeInactive, CancellationToken ct);
     Task<List<CapabilityConfig>> ListCapabilitiesAsync(CancellationToken ct);
     Task<List<PayGroup>> ListPayGroupsAsync(CancellationToken ct);
     Task<List<Worker>> ListAllWorkersAsync(string? status, CancellationToken ct);
@@ -180,6 +181,9 @@ public interface IConfigRepository
     Task<LeaveType?> GetLeaveTypeAsync(Guid id, CancellationToken ct);
     Task<LeaveType> CreateLeaveTypeAsync(LeaveType leaveType, CancellationToken ct);
     Task<LeaveType> UpdateLeaveTypeAsync(LeaveType leaveType, CancellationToken ct);
+    Task<ContractType?> GetContractTypeAsync(Guid id, CancellationToken ct);
+    Task<ContractType> CreateContractTypeAsync(ContractType contractType, CancellationToken ct);
+    Task<ContractType> UpdateContractTypeAsync(ContractType contractType, CancellationToken ct);
     Task<CapabilityConfig> UpdateCapabilityAsync(CapabilityConfig capability, CancellationToken ct);
 
     // M28: jobs, tenant roles, retention rules

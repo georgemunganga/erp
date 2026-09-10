@@ -403,6 +403,13 @@ export const realApi = {
     }),
   createLeaveType: (body: Record<string, unknown>) => hrmApi.post<unknown>("/hrm/admin/leave-types", body),
   updateLeaveType: (id: string, body: Record<string, unknown>) => hrmApi.patch<unknown>(`/hrm/admin/leave-types/${id}`, body),
+  contractTypes: (params?: Record<string, unknown>) =>
+    hrmApi.get<unknown>("/hrm/admin/contract-types", { includeInactive: false, ...(params ?? {}) }),
+  createContractType: (body: Record<string, unknown>) => hrmApi.post<unknown>("/hrm/admin/contract-types", body),
+  updateContractType: (id: string, body: Record<string, unknown>) => hrmApi.patch<unknown>(`/hrm/admin/contract-types/${id}`, body),
+  workerAssignments: (workerId: string) => hrmApi.get<unknown[]>(`/hrm/workers/${workerId}/assignments`),
+  updateWorkerAssignment: (workerId: string, assignmentId: string, body: Record<string, unknown>) =>
+    hrmApi.patch<unknown>(`/hrm/workers/${workerId}/assignments/${assignmentId}`, body),
   timeCorrections: (params?: Record<string, unknown>) =>
     hrmApi.get<{ items: unknown[] }>("/hrm/time/corrections", params ?? {}),
   createCorrection: (body: Record<string, unknown>) =>

@@ -401,6 +401,64 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         return ToLeaveTypeDto(await repo.UpdateLeaveTypeAsync(leaveType, ct));
     }
 
+    // ================= Contract types =================
+
+    public async Task<Paged<ContractTypeDto>> ListContractTypesAsync(bool includeInactive, CancellationToken ct)
+    {
+        authz.RequireAnyRole("hr_ops", "hr_admin");
+        var items = await repo.ListContractTypesAsync(includeInactive, ct);
+        if (items.Count == 0)
+        {
+            var defaults = new[]
+            {
+                ("permanent", "Permanent", 90, 30),
+                ("fixed-term", "Fixed term", 90, 30),
+                ("part-time", "Part time", 90, 30),
+                ("casual", "Casual", 0, 1),
+                ("internship", "Internship", 0, 7),
+                ("apprenticeship", "Apprenticeship", 90, 30),
+            };
+            foreach (var item in defaults)
+                await repo.CreateContractTypeAsync(new ContractType { Code = item.Item1, Name = item.Item2, ProbationDays = item.Item3, NoticeDays = item.Item4 }, ct);
+            items = await repo.ListContractTypesAsync(includeInactive, ct);
+        }
+        return new Paged<ContractTypeDto>(items.Select(ToContractTypeDto).ToList(), items.Count, 1, 100);
+    }
+
+    public async Task<ContractTypeDto> CreateContractTypeAsync(ContractTypeCreateRequest request, CancellationToken ct)
+    {
+        authz.RequireAnyRole("hr_ops", "hr_admin");
+        RequireNonEmpty(request.Code, "code");
+        RequireNonEmpty(request.Name, "name");
+        var code = request.Code.Trim().ToLowerInvariant();
+        if ((await repo.ListContractTypesAsync(true, ct)).Any(t => t.Code.Equals(code, StringComparison.OrdinalIgnoreCase)))
+            throw new DomainException("contract-type-code-taken", $"Contract type code '{code}' is already in use.");
+        var type = new ContractType
+        {
+            Code = code,
+            Name = request.Name.Trim(),
+            ProbationDays = Math.Max(0, request.ProbationDays),
+            NoticeDays = Math.Max(0, request.NoticeDays),
+        };
+        return ToContractTypeDto(await repo.CreateContractTypeAsync(type, ct));
+    }
+
+    public async Task<ContractTypeDto> UpdateContractTypeAsync(Guid id, ContractTypeUpdateRequest request, CancellationToken ct)
+    {
+        authz.RequireAnyRole("hr_ops", "hr_admin");
+        var type = await repo.GetContractTypeAsync(id, ct)
+            ?? throw new DomainException("contract-type-not-found", $"Contract type {id} does not exist.");
+        if (request.Name is not null)
+        {
+            RequireNonEmpty(request.Name, "name");
+            type.Name = request.Name.Trim();
+        }
+        if (request.ProbationDays.HasValue) type.ProbationDays = Math.Max(0, request.ProbationDays.Value);
+        if (request.NoticeDays.HasValue) type.NoticeDays = Math.Max(0, request.NoticeDays.Value);
+        if (request.IsActive.HasValue) type.IsActive = request.IsActive.Value;
+        return ToContractTypeDto(await repo.UpdateContractTypeAsync(type, ct));
+    }
+
     // ================= Capabilities =================
 
     public async Task<List<CapabilityConfig>> ListCapabilitiesAsync(CancellationToken ct)
@@ -451,6 +509,9 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         t.MinNoticeDays, t.AllowsPartialDays, t.CarryForwardDays, t.CarryForwardExpiryMonths,
         t.AllowNegative, t.EffectiveFrom.ToString("yyyy-MM-dd"), t.EffectiveTo?.ToString("yyyy-MM-dd"),
         t.IsActive, t.CreatedAt);
+
+    private static ContractTypeDto ToContractTypeDto(ContractType t) => new(
+        t.Id, t.Code, t.Name, t.ProbationDays, t.NoticeDays, t.IsActive, t.CreatedAt);
 
     private static void RequireNonEmpty(string? value, string field)
     {

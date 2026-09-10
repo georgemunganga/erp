@@ -1608,6 +1608,8 @@ public sealed class ConfigRepository(HrmDbContext db) : IConfigRepository
     public async Task<List<WorkCalendar>> ListCalendarsAsync(CancellationToken ct) => await db.WorkCalendars.Include(c => c.Holidays).ToListAsync(ct);
     public async Task<List<LeaveType>> ListLeaveTypesAsync(bool includeInactive, CancellationToken ct)
         => await db.LeaveTypes.Where(t => includeInactive || t.IsActive).ToListAsync(ct);
+    public async Task<List<ContractType>> ListContractTypesAsync(bool includeInactive, CancellationToken ct)
+        => await db.ContractTypes.Where(t => includeInactive || t.IsActive).OrderBy(t => t.Name).ToListAsync(ct);
     public async Task<List<CapabilityConfig>> ListCapabilitiesAsync(CancellationToken ct) => await db.CapabilityConfigs.ToListAsync(ct);
     public async Task<List<PayGroup>> ListPayGroupsAsync(CancellationToken ct) => await db.PayGroups.ToListAsync(ct);
     public async Task<List<Worker>> ListAllWorkersAsync(string? status, CancellationToken ct)
@@ -1664,6 +1666,11 @@ public sealed class ConfigRepository(HrmDbContext db) : IConfigRepository
     { db.LeaveTypes.Add(leaveType); await db.SaveChangesAsync(ct); return leaveType; }
     public async Task<LeaveType> UpdateLeaveTypeAsync(LeaveType leaveType, CancellationToken ct)
     { await db.SaveChangesAsync(ct); return leaveType; }
+    public async Task<ContractType?> GetContractTypeAsync(Guid id, CancellationToken ct) => await db.ContractTypes.FirstOrDefaultAsync(t => t.Id == id, ct);
+    public async Task<ContractType> CreateContractTypeAsync(ContractType contractType, CancellationToken ct)
+    { db.ContractTypes.Add(contractType); await db.SaveChangesAsync(ct); return contractType; }
+    public async Task<ContractType> UpdateContractTypeAsync(ContractType contractType, CancellationToken ct)
+    { await db.SaveChangesAsync(ct); return contractType; }
     public async Task<CapabilityConfig> UpdateCapabilityAsync(CapabilityConfig capability, CancellationToken ct)
     { await db.SaveChangesAsync(ct); return capability; }
     public async Task<TenantRoleAssignment> CreateRoleAssignmentAsync(TenantRoleAssignment row, CancellationToken ct)

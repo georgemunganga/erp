@@ -46,6 +46,10 @@ const PAYMENT_METHODS = ["Bank transfer", "Mobile money", "Cash", "Paid through 
 const BLOOD_GROUPS = ["A+", "A−", "B+", "B−", "AB+", "AB−", "O+", "O−"];
 const RELATIONSHIPS = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 const SHIFTS = ["Day shift, Monday to Friday", "Rotating shift", "Night shift", "Site roster — 14 on 7 off"];
+const FALLBACK_CONTRACT_TYPES = ["permanent", "fixed-term", "part-time", "casual", "internship", "apprenticeship"];
+
+type AssignmentRecord = { id: string; contractType?: string; status?: string };
+type ContractTypeRecord = { code: string; name: string; isActive?: boolean };
 
 function paymentMethodKey(value: string) {
   const normalized = value.toLowerCase().replace(/_/g, "-").trim();
@@ -85,6 +89,15 @@ function EditEmployee() {
     () => (USE_REAL ? realApi.worker(id).then(adaptWorkerProfile) : employeeProfileApi.profile(id)),
     [id],
   );
+  const employmentState = useApi(async () => {
+    if (!USE_REAL) return { assignments: [] as AssignmentRecord[], types: [] as ContractTypeRecord[] };
+    const [contractTypes, assignments] = await Promise.all([realApi.contractTypes(), realApi.workerAssignments(id)]);
+    const data = contractTypes as { items?: ContractTypeRecord[] } | ContractTypeRecord[];
+    return {
+      types: Array.isArray(data) ? data : data.items ?? [],
+      assignments: assignments as AssignmentRecord[],
+    };
+  }, [id]);
 
   return (
     <AuthGate>
@@ -95,7 +108,13 @@ function EditEmployee() {
           // The form seeds its state once, on mount, so both records must be
           // in hand before it renders — otherwise it opens with blank fields.
           if (profileState.loading) return <LoadingState rows={4} />;
+          if (employmentState.loading) return <LoadingState rows={4} />;
           const pr = profileState.data;
+          const activeAssignment = employmentState.data?.assignments.find((assignment) => assignment.status === "current")
+            ?? employmentState.data?.assignments[0];
+          const contractTypeOptions = employmentState.data?.types
+            .filter((type) => type.isActive !== false || type.code === activeAssignment?.contractType)
+            .map((type) => type.code) ?? FALLBACK_CONTRACT_TYPES;
 
           // Edit mode: a field that the seeded record has never had cannot be
           // required — otherwise editing an existing record is blocked by the
@@ -200,6 +219,14 @@ function EditEmployee() {
                 { name: "department", label: "Department", type: "select", options: departmentOptions, required: true },
                 { name: "grade", label: "Grade", type: "select", options: gradeOptions, required: !!employee.grade },
                 { name: "employmentType", label: "Employment type", type: "select", options: [...EMPLOYMENT_TYPES], required: true },
+                {
+                  name: "contractType",
+                  label: "Contract type",
+                  type: "select",
+                  options: contractTypeOptions,
+                  required: true,
+                  hint: "Managed in Configuration > Contract types. This updates the employee's active assignment.",
+                },
                 {
                   name: "startDate",
                   label: "Employment start date",
@@ -416,6 +443,7 @@ function EditEmployee() {
                 department: employee.department,
                 grade: employee.grade,
                 employmentType: employee.employmentType,
+                contractType: activeAssignment?.contractType ?? "permanent",
                 startDate: employee.startDate ?? "",
                 reportsTo: pr?.reportsTo ?? "",
                 costCentre: pr?.costCentre ?? "",
@@ -487,6 +515,13 @@ function EditEmployee() {
                   try {
                     if (Object.keys(body).length) {
                       await realApi.updateWorker(id, body);
+                    }
+                    if (changed.includes("contractType")) {
+                      if (!activeAssignment?.id) {
+                        feedback.blocked("Contract type was not saved.", "This employee does not have an active assignment. Create an assignment before changing the contract type.");
+                        return;
+                      }
+                      await realApi.updateWorkerAssignment(id, activeAssignment.id, { contractType: values.contractType });
                     }
                     if (paymentChanged) {
                       const method = paymentMethodKey(values.paymentMethod);

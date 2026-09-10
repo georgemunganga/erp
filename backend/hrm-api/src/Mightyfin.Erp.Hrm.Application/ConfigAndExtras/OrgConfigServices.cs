@@ -40,6 +40,11 @@ public interface IConfigAdminService
     Task<LeaveTypeDtoFull> CreateLeaveTypeAsync(LeaveTypeCreateRequest request, CancellationToken ct);
     Task<LeaveTypeDtoFull> UpdateLeaveTypeAsync(Guid id, LeaveTypeUpdateRequest request, CancellationToken ct);
 
+    // Contract types
+    Task<Paged<ContractTypeDto>> ListContractTypesAsync(bool includeInactive, CancellationToken ct);
+    Task<ContractTypeDto> CreateContractTypeAsync(ContractTypeCreateRequest request, CancellationToken ct);
+    Task<ContractTypeDto> UpdateContractTypeAsync(Guid id, ContractTypeUpdateRequest request, CancellationToken ct);
+
     // Capabilities (feature flags)
     Task<List<CapabilityConfig>> ListCapabilitiesAsync(CancellationToken ct);
     Task<CapabilityConfig> UpdateCapabilityAsync(string featureKey, CapabilityUpdateRequest request, CancellationToken ct);

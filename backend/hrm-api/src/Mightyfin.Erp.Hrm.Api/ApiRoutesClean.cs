@@ -1395,6 +1395,19 @@ public static class Routes
             return Results.Ok(await svc.UpdateLeaveTypeAsync(id, request, ct));
         });
 
+        g.MapGet("/contract-types", async ([FromQuery] bool includeInactive, IConfigAdminService svc, CancellationToken ct) =>
+            await svc.ListContractTypesAsync(includeInactive, ct));
+        g.MapPost("/contract-types", async (HttpContext http, IConfigAdminService svc, CancellationToken ct) =>
+        {
+            var request = await ReadBodyAsync<ContractTypeCreateRequest>(http, ct) ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
+            return Results.Created("", await svc.CreateContractTypeAsync(request, ct));
+        });
+        g.MapPatch("/contract-types/{id:guid}", async (Guid id, HttpContext http, IConfigAdminService svc, CancellationToken ct) =>
+        {
+            var request = await ReadBodyAsync<ContractTypeUpdateRequest>(http, ct) ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
+            return Results.Ok(await svc.UpdateContractTypeAsync(id, request, ct));
+        });
+
         g.MapGet("/capabilities", async (IConfigAdminService svc, CancellationToken ct) => await svc.ListCapabilitiesAsync(ct));
         // ---------- M28: jobs catalogue, tenant roles, retention rules ----------
         g.MapGet("/jobs", async ([FromQuery] bool includeInactive, IJobsAdminService svc, CancellationToken ct) =>

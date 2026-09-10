@@ -118,6 +118,17 @@ public class Assignment : Entity, IEffectiveDated
     public string Status { get; set; } = "current"; // proposed | current | future | ended
 }
 
+/// <summary>Tenant-owned contract policy used by employment assignments.
+/// Archiving preserves historical assignments while preventing new use.</summary>
+public class ContractType : Entity
+{
+    public string Code { get; set; } = null!;
+    public string Name { get; set; } = null!;
+    public int ProbationDays { get; set; }
+    public int NoticeDays { get; set; } = 30;
+    public bool IsActive { get; set; } = true;
+}
+
 /// <summary>HRM-017: Effective-dated movements (transfer, promotion, demotion,
 /// secondment, acting). Submitted movements stay Pending until approved and
 /// their effective date arrives; they never silently overwrite history.</summary>

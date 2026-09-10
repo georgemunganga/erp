@@ -83,6 +83,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
 
     // Policies & time
     public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
+    public DbSet<ContractType> ContractTypes => Set<ContractType>();
     public DbSet<LeaveBalanceLedger> LeaveBalanceLedgers => Set<LeaveBalanceLedger>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
@@ -229,6 +230,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             e.Property(x => x.ErrorsJson).HasColumnType("jsonb");
         });
         ConfigureEntity<LeaveType>(modelBuilder, "leave_types", e => e.HasIndex(x => new { x.TenantId, x.Code }));
+        ConfigureEntity<ContractType>(modelBuilder, "contract_types", e => e.HasIndex(x => new { x.TenantId, x.Code }).IsUnique());
         ConfigureEntity<LeaveBalanceLedger>(modelBuilder, "leave_balance_ledger");
         ConfigureEntity<LeaveRequest>(modelBuilder, "leave_requests");
         ConfigureEntity<AttendanceRecord>(modelBuilder, "attendance_records", e =>
