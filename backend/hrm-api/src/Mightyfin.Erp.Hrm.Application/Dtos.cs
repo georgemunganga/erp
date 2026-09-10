@@ -55,7 +55,7 @@ public sealed record WorkerDto(
     Guid Id, string EmployeeNo, string FirstName, string? MiddleName, string LastName,
     string FullName, string? PreferredName, string? Email, string? PersonalEmail, string? Phone, string? PhotoUrl,
     string? Nrc, string? PassportNo, string? Tpin, string? NapsaNumber, string? NhimaNumber,
-    string? Nationality, string? DateOfBirth, string? SubjectId, string WorkerType, string Status,
+    string? Nationality, string? DateOfBirth, string? SubjectId, string WorkerType, string? ContractType, string Status,
     Guid? OrgUnitId, string? OrgUnitName, Guid? LocationId, string? LocationName,
     Guid? ManagerId, string? ManagerName, string? Grade, string? JobTitle,
     string? StartDate, string? EndDate,

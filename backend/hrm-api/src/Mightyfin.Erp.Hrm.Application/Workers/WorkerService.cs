@@ -364,7 +364,7 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
         w.Id, w.EmployeeNo, w.FirstName, w.MiddleName, w.LastName, w.FullName, w.PreferredName,
         w.Email, includeSensitive ? w.PersonalEmail : null, w.Phone, w.PhotoUrl, Mask(w.Nrc, includeSensitive), Mask(w.PassportNo, includeSensitive),
         Mask(w.Tpin, includeSensitive), Mask(w.NapsaNumber, includeSensitive), Mask(w.NhimaNumber, includeSensitive),
-        w.Nationality, includeSensitive ? w.DateOfBirth : null, includeSensitive ? w.SubjectId : null, w.WorkerType, w.Status,
+        w.Nationality, includeSensitive ? w.DateOfBirth : null, includeSensitive ? w.SubjectId : null, w.WorkerType, w.ContractType, w.Status,
         w.OrgUnitId, w.OrgUnit?.Name, w.LocationId, w.Location?.Name, w.ManagerId,
         w.Manager?.FullName, w.Grade, w.JobTitle,
         w.StartDate?.ToString("yyyy-MM-dd"), w.EndDate?.ToString("yyyy-MM-dd"),

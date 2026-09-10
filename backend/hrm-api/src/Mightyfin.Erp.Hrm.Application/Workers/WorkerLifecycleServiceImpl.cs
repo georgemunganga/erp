@@ -625,6 +625,7 @@ public sealed class WorkerLifecycleServiceImpl(
         worker.ManagerId = assignment.ManagerId;
         worker.JobTitle = assignment.JobTitle ?? worker.JobTitle;
         worker.Grade = assignment.Grade ?? worker.Grade;
+        worker.ContractType = assignment.ContractType;
         worker.StartDate ??= assignment.StartDate;
         if (worker.Status == "pre-hire") worker.Status = "active";
         await repo.UpdateAsync(worker, ct);

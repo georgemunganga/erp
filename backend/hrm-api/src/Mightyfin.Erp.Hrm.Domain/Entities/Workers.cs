@@ -28,6 +28,7 @@ public class Worker : Entity
     // Identity correlation (optional — contingent workers have none)
     public string? SubjectId { get; set; }
     public string WorkerType { get; set; } = "employee"; // employee | contingent | intern | volunteer
+    public string? ContractType { get; set; } // current assignment contract, denormalized for employee lists
     public string Status { get; set; } = "pre-hire";     // pre-hire | active | on-leave | notice | terminated
 
     // Current assignment (denormalized read view; source of truth is Employment/Assignment)

@@ -98,6 +98,8 @@ export function adaptWorkers(backend: unknown): Array<import("@/mock/types").Emp
     const toText = (v: unknown) => (v === undefined || v === null ? "" : String(v));
     const status = toText(w.status).toLowerCase();
     const workerType = toText(w.workerType).toLowerCase();
+    const contractType = toText(w.contractType).toLowerCase();
+    const displayContractType = contractType ? contractType.split("-").map((part) => part ? part[0].toUpperCase() + part.slice(1) : part).join(" ") : "";
     return {
       id: toText(w.id),
       employeeNo: toText(w.employeeNo),
@@ -108,7 +110,7 @@ export function adaptWorkers(backend: unknown): Array<import("@/mock/types").Emp
       entityId: "",
       branch: toText(w.locationName),
       managerId: w.managerId ? toText(w.managerId) : undefined,
-      employmentType: (workerType === "contractor" ? "Contractor" : workerType === "intern" ? "Intern" : "Permanent") as never,
+      employmentType: (displayContractType || (workerType === "contractor" ? "Contractor" : workerType === "intern" ? "Intern" : "Permanent")) as never,
       status: (status === "pre-hire" ? "Pre-hire" : status === "on-leave" ? "On leave" : status === "notice" ? "Notice period" : status === "terminated" || status === "archived" ? "Terminated" : "Active") as never,
       startDate: toText(w.startDate),
       endDate: w.endDate ? toText(w.endDate) : undefined,
