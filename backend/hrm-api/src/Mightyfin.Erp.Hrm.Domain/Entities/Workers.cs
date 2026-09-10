@@ -12,6 +12,7 @@ public class Worker : Entity
     public string FullName => $"{FirstName} {LastName}".Trim();
     public string? PreferredName { get; set; }
     public string? Email { get; set; }
+    public string? PersonalEmail { get; set; }
     public string? Phone { get; set; }
     public string? PhotoUrl { get; set; }
 

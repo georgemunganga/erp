@@ -91,5 +91,6 @@ public sealed record PayslipNotificationTarget(
     Guid WorkerId,
     string? SubjectId,
     string? Email,
+    string? PersonalEmail,
     string FirstName,
     string LastName);

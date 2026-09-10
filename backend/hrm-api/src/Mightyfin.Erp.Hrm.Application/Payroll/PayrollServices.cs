@@ -1613,6 +1613,11 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
                         period_label = target.PeriodLabel,
                         worker_id = target.WorkerId.ToString("D"),
                         email = target.Email ?? "",
+                        emails = new[] { target.Email, target.PersonalEmail }
+                            .Where(email => !string.IsNullOrWhiteSpace(email))
+                            .Select(email => email!.Trim())
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToArray(),
                         first_name = target.FirstName,
                         last_name = target.LastName,
                     },

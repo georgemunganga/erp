@@ -13,7 +13,7 @@ public sealed record WorkerListFilters(
 
 public sealed record WorkerCreateRequest(
     string EmployeeNo, string FirstName, string LastName,
-    string? MiddleName = null, string? PreferredName = null, string? Email = null,
+    string? MiddleName = null, string? PreferredName = null, string? Email = null, string? PersonalEmail = null,
     string? Phone = null, string? Nrc = null, string? PassportNo = null,
     string? Tpin = null, string? NapsaNumber = null, string? NhimaNumber = null,
     string? Nationality = null, string? DateOfBirth = null,
@@ -29,7 +29,7 @@ public sealed record EmergencyContactCreate(string Relationship, string FullName
 // is filled server-side from the token, never from client input.
 public sealed record WorkerSubjectUpdateRequest(
     string SubjectId,
-    string? PreferredName = null, string? Email = null, string? Phone = null,
+    string? PreferredName = null, string? Email = null, string? PersonalEmail = null, string? Phone = null,
     string? Nrc = null, string? PassportNo = null, string? Tpin = null,
     string? NapsaNumber = null, string? NhimaNumber = null,
     string? Nationality = null, string? DateOfBirth = null,
@@ -42,7 +42,7 @@ public sealed record WorkerAccountLinkRequest(string SubjectId);
 
 public sealed record WorkerUpdateRequest(
     string? FirstName = null, string? MiddleName = null, string? LastName = null,
-    string? PreferredName = null, string? Email = null, string? Phone = null,
+    string? PreferredName = null, string? Email = null, string? PersonalEmail = null, string? Phone = null,
     string? Nrc = null, string? PassportNo = null, string? Tpin = null,
     string? NapsaNumber = null, string? NhimaNumber = null, string? Nationality = null,
     string? DateOfBirth = null, Guid? OrgUnitId = null, Guid? LocationId = null,
@@ -53,7 +53,7 @@ public sealed record WorkerUpdateRequest(
 
 public sealed record WorkerDto(
     Guid Id, string EmployeeNo, string FirstName, string? MiddleName, string LastName,
-    string FullName, string? PreferredName, string? Email, string? Phone, string? PhotoUrl,
+    string FullName, string? PreferredName, string? Email, string? PersonalEmail, string? Phone, string? PhotoUrl,
     string? Nrc, string? PassportNo, string? Tpin, string? NapsaNumber, string? NhimaNumber,
     string? Nationality, string? DateOfBirth, string? SubjectId, string WorkerType, string Status,
     Guid? OrgUnitId, string? OrgUnitName, Guid? LocationId, string? LocationName,

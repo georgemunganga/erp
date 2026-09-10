@@ -335,8 +335,9 @@ public sealed class SmtpNotificationFallback : ISmtpNotificationFallback
         try
         {
             using var payload = JsonDocument.Parse(row.PayloadJson);
-            return payload.RootElement.TryGetProperty("email", out var value) &&
-                !string.IsNullOrWhiteSpace(value.GetString());
+            return (payload.RootElement.TryGetProperty("emails", out var emails) && emails.ValueKind == JsonValueKind.Array &&
+                    emails.EnumerateArray().Any(value => !string.IsNullOrWhiteSpace(value.GetString()))) ||
+                (payload.RootElement.TryGetProperty("email", out var value) && !string.IsNullOrWhiteSpace(value.GetString()));
         }
         catch (JsonException)
         {
@@ -352,7 +353,10 @@ public sealed class SmtpNotificationFallback : ISmtpNotificationFallback
             throw new InvalidOperationException($"No SMTP fallback template exists for {row.EventType}.");
         using var payload = JsonDocument.Parse(row.PayloadJson);
         var root = payload.RootElement;
-        var email = Required(root, "email");
+        var recipients = root.TryGetProperty("emails", out var emails) && emails.ValueKind == JsonValueKind.Array
+            ? emails.EnumerateArray().Select(value => value.GetString()?.Trim()).Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            : [Required(root, "email")];
+        if (recipients.Count == 0) throw new InvalidOperationException("No email recipient was supplied.");
         var firstName = Optional(root, "first_name");
         var portalUrl = configuration["HRM:PublicUrl"]?.TrimEnd('/') ?? "https://erp.mightyfinance.co.zm";
         var (subject, plainBody, htmlBody) = row.EventType switch
@@ -437,7 +441,7 @@ public sealed class SmtpNotificationFallback : ISmtpNotificationFallback
             HeadersEncoding = Encoding.UTF8,
             IsBodyHtml = false,
         };
-        message.To.Add(email);
+        foreach (var recipient in recipients) message.To.Add(recipient);
         message.ReplyToList.Add(new MailAddress(configuration["HRM:Smtp:ReplyTo"] ?? from, fromName));
         message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(plainBody, Encoding.UTF8, MediaTypeNames.Text.Plain));
         message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(htmlBody, Encoding.UTF8, MediaTypeNames.Text.Html));

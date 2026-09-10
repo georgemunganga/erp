@@ -1510,6 +1510,7 @@ public sealed class PayrollRepository(HrmDbContext db) : IPayrollRepository
                 line.WorkerId,
                 line.Worker?.SubjectId,
                 line.Worker?.Email,
+                line.Worker?.PersonalEmail,
                 line.Worker?.FirstName ?? "",
                 line.Worker?.LastName ?? ""));
         }

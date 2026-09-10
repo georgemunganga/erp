@@ -235,7 +235,7 @@ export function adaptWorkerProfile(rawValue: unknown): import("@/mock/employeepr
   const bank = banks.find((item) => Boolean(item.isPrimary)) ?? banks[0];
   const text = (value: unknown) => value == null ? "" : String(value);
   return {
-    employeeId: text(raw.id), salutation: "", gender: "", dateOfBirth: text(raw.dateOfBirth),
+    employeeId: text(raw.id), salutation: "", gender: "", dateOfBirth: text(raw.dateOfBirth), personalEmail: text(raw.personalEmail),
     maritalStatus: "", nationality: text(raw.nationality), passportNo: text(raw.passportNo),
     residentialAddress: "", emergency: emergency.map((item) => ({
       id: text(item.id), name: text(item.fullName), relationship: text(item.relationship),

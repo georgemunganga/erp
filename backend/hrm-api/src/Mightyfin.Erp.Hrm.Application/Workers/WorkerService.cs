@@ -80,6 +80,7 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
             LastName = request.LastName,
             PreferredName = request.PreferredName,
             Email = request.Email,
+            PersonalEmail = request.PersonalEmail,
             Phone = request.Phone,
             Nrc = request.Nrc,
             PassportNo = request.PassportNo,
@@ -121,6 +122,7 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
         if (request.LastName is not null) worker.LastName = request.LastName;
         if (request.PreferredName is not null) worker.PreferredName = request.PreferredName;
         if (request.Email is not null) worker.Email = request.Email;
+        if (request.PersonalEmail is not null) worker.PersonalEmail = request.PersonalEmail;
         if (request.Phone is not null) worker.Phone = request.Phone;
         if (request.Nrc is not null) worker.Nrc = request.Nrc;
         if (request.PassportNo is not null) worker.PassportNo = request.PassportNo;
@@ -360,7 +362,7 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
 
     private static WorkerDto Map(Worker w, bool includeSensitive) => new(
         w.Id, w.EmployeeNo, w.FirstName, w.MiddleName, w.LastName, w.FullName, w.PreferredName,
-        w.Email, w.Phone, w.PhotoUrl, Mask(w.Nrc, includeSensitive), Mask(w.PassportNo, includeSensitive),
+        w.Email, includeSensitive ? w.PersonalEmail : null, w.Phone, w.PhotoUrl, Mask(w.Nrc, includeSensitive), Mask(w.PassportNo, includeSensitive),
         Mask(w.Tpin, includeSensitive), Mask(w.NapsaNumber, includeSensitive), Mask(w.NhimaNumber, includeSensitive),
         w.Nationality, includeSensitive ? w.DateOfBirth : null, includeSensitive ? w.SubjectId : null, w.WorkerType, w.Status,
         w.OrgUnitId, w.OrgUnit?.Name, w.LocationId, w.Location?.Name, w.ManagerId,

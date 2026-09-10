@@ -490,6 +490,7 @@ function EditEmployee() {
                     body.lastName = parts[parts.length - 1] ?? "";
                   }
                   if (changed.includes("email")) body.email = values.email || null;
+                  if (changed.includes("personalEmail")) body.personalEmail = values.personalEmail || null;
                   if (changed.includes("phone")) body.phone = values.phone || null;
                   if (changed.includes("preferredName")) body.preferredName = values.preferredName || null;
                   if (changed.includes("nationalId")) body.nrc = values.nationalId || null;
