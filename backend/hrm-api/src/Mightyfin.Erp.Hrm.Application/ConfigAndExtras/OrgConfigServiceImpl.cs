@@ -409,6 +409,10 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         var items = await repo.ListContractTypesAsync(includeInactive, ct);
         if (items.Count == 0)
         {
+            var allTypes = includeInactive ? items : await repo.ListContractTypesAsync(true, ct);
+            if (allTypes.Count > 0)
+                return new Paged<ContractTypeDto>(items.Select(ToContractTypeDto).ToList(), 0, 1, 100);
+
             var defaults = new[]
             {
                 ("permanent", "Permanent", 90, 30),
