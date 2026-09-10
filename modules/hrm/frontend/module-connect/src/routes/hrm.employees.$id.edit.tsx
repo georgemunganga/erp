@@ -511,12 +511,16 @@ function EditEmployee() {
                   if (changed.includes("grade")) body.grade = values.grade || null;
                   if (changed.includes("startDate")) body.startDate = values.startDate || null;
                   if (changed.includes("employmentType"))
+                  {
                     body.workerType =
                       values.employmentType === "Contractor"
                         ? "contractor"
                         : values.employmentType === "Intern"
                           ? "intern"
                           : "employee";
+                    body.contractType = values.employmentType.toLowerCase().replace(/\s+/g, "-");
+                  }
+                  if (changed.includes("contractType")) body.contractType = values.contractType;
                   const paymentChanged = changed.some((field) =>
                     ["paymentMethod", "accountName", "bankName", "bankBranch", "bankAccount", "mobileMoneyNumber"].includes(field),
                   );
@@ -525,11 +529,8 @@ function EditEmployee() {
                       await realApi.updateWorker(id, body);
                     }
                     if (changed.includes("contractType")) {
-                      if (!activeAssignment?.id) {
-                        feedback.blocked("Contract type was not saved.", "This employee does not have an active assignment. Create an assignment before changing the contract type.");
-                        return;
-                      }
-                      await realApi.updateWorkerAssignment(id, activeAssignment.id, { contractType: values.contractType });
+                      if (activeAssignment?.id)
+                        await realApi.updateWorkerAssignment(id, activeAssignment.id, { contractType: values.contractType });
                     }
                     if (paymentChanged) {
                       const method = paymentMethodKey(values.paymentMethod);

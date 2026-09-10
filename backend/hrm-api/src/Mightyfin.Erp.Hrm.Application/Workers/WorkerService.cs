@@ -137,6 +137,7 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
         if (request.Grade is not null) worker.Grade = request.Grade;
         if (request.JobTitle is not null) worker.JobTitle = request.JobTitle;
         if (request.Status is not null) worker.Status = request.Status;
+        if (request.ContractType is not null) worker.ContractType = request.ContractType.Trim().ToLowerInvariant();
         if (request.StartDate is not null)
         {
             if (!DateOnly.TryParse(request.StartDate, out var startDate))

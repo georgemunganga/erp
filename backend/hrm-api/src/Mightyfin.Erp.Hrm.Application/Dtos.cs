@@ -47,7 +47,7 @@ public sealed record WorkerUpdateRequest(
     string? NapsaNumber = null, string? NhimaNumber = null, string? Nationality = null,
     string? DateOfBirth = null, Guid? OrgUnitId = null, Guid? LocationId = null,
     Guid? ManagerId = null, string? Grade = null, string? JobTitle = null,
-    string? Status = null, string? StartDate = null, string? EndDate = null, string? SubjectId = null,
+    string? Status = null, string? ContractType = null, string? StartDate = null, string? EndDate = null, string? SubjectId = null,
     List<EmergencyContactCreate>? EmergencyContacts = null,
     List<WorkerBankDetailCreate>? BankDetails = null);
 
