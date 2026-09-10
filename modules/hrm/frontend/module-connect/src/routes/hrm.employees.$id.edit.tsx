@@ -220,14 +220,6 @@ function EditEmployee() {
                 { name: "grade", label: "Grade", type: "select", options: gradeOptions, required: !!employee.grade },
                 { name: "employmentType", label: "Employment type", type: "select", options: [...EMPLOYMENT_TYPES], required: true },
                 {
-                  name: "contractType",
-                  label: "Contract type",
-                  type: "select",
-                  options: contractTypeOptions,
-                  required: true,
-                  hint: "Managed in Configuration > Contract types. This updates the employee's active assignment.",
-                },
-                {
                   name: "startDate",
                   label: "Employment start date",
                   type: "date",
@@ -245,6 +237,21 @@ function EditEmployee() {
                     v && Number(v) < 30 ? "Zambian law requires at least 30 days for a permanent contract." : null,
                 },
                 { name: "probationEndsOn", label: "Probation ends", type: "date" },
+              ],
+            },
+            {
+              id: "contract",
+              title: "Contract terms",
+              description: "The employment contract that applies to this employee's active assignment.",
+              fields: [
+                {
+                  name: "contractType",
+                  label: "Contract type",
+                  type: "select",
+                  options: contractTypeOptions,
+                  required: true,
+                  hint: "Managed in Configuration > Contract types. This updates the employee's active assignment.",
+                },
               ],
             },
             {
