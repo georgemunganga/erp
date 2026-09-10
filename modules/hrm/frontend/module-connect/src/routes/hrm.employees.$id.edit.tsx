@@ -372,7 +372,7 @@ function EditEmployee() {
           ];
           const liveFields = new Set([
             "fullName", "preferredName", "nationality", "dateOfBirth", "nationalId",
-            "passportNo", "email", "phone", "jobTitle", "grade", "tpin",
+            "passportNo", "email", "personalEmail", "phone", "jobTitle", "grade", "contractType", "tpin",
             "napsaNumber", "nhimaNumber", "startDate", "paymentMethod", "accountName", "bankName",
             "bankBranch", "bankAccount", "mobileMoneyNumber",
           ]);
