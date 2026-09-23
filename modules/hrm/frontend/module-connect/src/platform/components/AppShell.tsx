@@ -72,6 +72,7 @@ import { ScopeSwitchOverlay } from "./ScopeSwitchOverlay";
 import type { ModuleDefinition, NavItem, NavSection } from "@/platform/nav";
 import { useApp, useRoleGate } from "@/platform/app-context";
 import { HRM_STAFF_ROLES, useAuth } from "@/platform/auth";
+import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { adaptWorkers, realApi, useApi } from "@/platform/use-api";
 import { SignedInBadge } from "@/platform/components/AuthGate";
 import { modules } from "@/platform/modules";
@@ -809,8 +810,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2 px-2 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                <img data-company-logo="light" src="/newworld-cargo-logo.png" alt="Newworldcargo" className="h-8 w-auto max-w-[132px] object-contain" />
-                <span className="hidden font-semibold sm:inline">Newworldcargo HRM</span>
+                <BrandIdentity onDark nameClassName="hidden font-semibold sm:inline" />
                 <ChevronDown className="size-3.5" aria-hidden />
               </Button>
             </DropdownMenuTrigger>

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useApp } from "@/platform/app-context";
 import { useAuth } from "@/platform/auth";
 import { ApiError, hrmApi } from "@/platform/api-client";
+import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import {
   getSession,
   handleLoginCallback,
@@ -18,9 +19,9 @@ import {
 export const Route = createFileRoute("/sign-in")({
   head: () => ({
     meta: [
-      { title: "Sign in — Newworldcargo HRM" },
+      { title: "Sign in — HR workspace" },
       { name: "description", content: "Sign in to the HR workspace." },
-      { property: "og:title", content: "Sign in — Newworldcargo HRM" },
+      { property: "og:title", content: "Sign in — HR workspace" },
       { property: "og:description", content: "Sign in to the HR workspace." },
     ],
   }),
@@ -164,15 +165,10 @@ function SignIn() {
       <div className="grid min-h-screen lg:grid-cols-2">
         <div className="hidden flex-col justify-between bg-rail p-10 text-rail-foreground lg:flex">
           <div
-            className="flex h-24 w-36 shrink-0 items-start justify-start"
+            className="flex h-24 max-w-xs shrink-0 items-center gap-3"
             data-testid="signin-brand-logo-container"
           >
-            <img
-              src="/newworld-cargo-logo.png"
-              alt="Newworldcargo"
-              data-testid="signin-brand-logo"
-              className="block max-h-full max-w-full object-contain object-left"
-            />
+            <BrandIdentity onDark logoClassName="max-h-20 max-w-36 object-contain" nameClassName="text-xl font-semibold" />
           </div>
           <div className="max-w-md">
             <h1 className="text-2xl font-semibold">Human resources</h1>
@@ -204,15 +200,10 @@ function SignIn() {
       {/* Brand / context panel */}
       <div className="hidden flex-col justify-between bg-rail p-10 text-rail-foreground lg:flex">
         <div
-          className="flex h-24 w-36 shrink-0 items-start justify-start"
+          className="flex h-24 max-w-xs shrink-0 items-center gap-3"
           data-testid="signin-brand-logo-container"
         >
-          <img
-            src="/newworld-cargo-logo.png"
-            alt="Newworldcargo"
-            data-testid="signin-brand-logo"
-            className="block max-h-full max-w-full object-contain object-left"
-          />
+          <BrandIdentity onDark logoClassName="max-h-20 max-w-36 object-contain" nameClassName="text-xl font-semibold" />
         </div>
         <div className="max-w-md">
           <h1 className="text-2xl font-semibold">Human resources</h1>
@@ -232,7 +223,7 @@ function SignIn() {
           </ul>
         </div>
         <p className="text-xs text-rail-muted">
-          Secure Newworldcargo HRM sign-in.
+          Secure HR workspace sign-in.
         </p>
       </div>
 
@@ -241,19 +232,7 @@ function SignIn() {
         <div className="w-full max-w-sm">
           <div className="lg:hidden">
             <div className="flex items-center gap-2">
-              <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center"
-                data-testid="signin-mobile-brand-logo-container"
-              >
-                <img
-                  src="/newworld-cargo-logo.png"
-                  alt=""
-                  aria-hidden
-                  data-testid="signin-mobile-brand-logo"
-                  className="block max-h-full max-w-full object-contain"
-                />
-              </div>
-              <span className="font-semibold">Newworldcargo HRM</span>
+              <BrandIdentity logoClassName="h-8 w-auto max-w-[96px] object-contain" />
             </div>
           </div>
 
@@ -290,7 +269,7 @@ function SignIn() {
             <>
           <h2 className="mt-6 text-xl font-semibold lg:mt-0">Sign in</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {ORGANISATION_LOGIN ? "Use your organisation account or HRMS local account." : "Use your Newworldcargo HRM local account."}
+            {ORGANISATION_LOGIN ? "Use your organisation account or HRMS local account." : "Use your HRMS local account."}
           </p>
 
           {ORGANISATION_LOGIN ? <Button className="mt-6 w-full" onClick={enterWithOrganisation} disabled={busy}>

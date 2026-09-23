@@ -13,8 +13,8 @@ import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppProvider } from "../platform/app-context";
-import { AuthProvider, useAuth } from "../platform/auth";
-import { realApi } from "@/platform/use-api";
+import { AuthProvider } from "../platform/auth";
+import { BrandingProvider } from "@/platform/branding";
 
 function NotFoundComponent() {
   return (
@@ -88,11 +88,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      // Product identity is Newworldcargo; employer data remains tenant-scoped and configurable.
-      { title: "Newworldcargo HRM — HR workspace" },
-      { name: "description", content: "Newworldcargo HRM workspace for leave, attendance, requests and pay." },
-      { name: "author", content: "Newworldcargo" },
-      { property: "og:title", content: "Newworldcargo HRM — HR workspace" },
+      { title: "HR workspace" },
+      { name: "description", content: "HR workspace for leave, attendance, requests and pay." },
+      { property: "og:title", content: "HR workspace" },
       { property: "og:description", content: "HR operations workspace for leave, attendance, requests and pay." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -108,8 +106,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
       },
-      { rel: "icon", href: "/newworld-cargo-logo.png", type: "image/png" },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
   shellComponent: RootShell,
@@ -139,41 +136,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TenantBranding>
+        <BrandingProvider>
           <AppProvider>
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <Outlet />
           </AppProvider>
-        </TenantBranding>
+        </BrandingProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
-}
-
-/** Applies only the tenant's approved semantic tokens after authentication.
- * The sign-in/IdP screen intentionally retains the platform identity. */
-function TenantBranding({ children }: { children: ReactNode }) {
-  const { authenticated } = useAuth();
-  useEffect(() => {
-    if (!authenticated || import.meta.env.VITE_USE_REAL_API !== "true") return;
-    let active = true;
-    realApi.branding().then((brand) => {
-      if (!active) return;
-      const root = document.documentElement;
-      root.style.setProperty("--primary", brand.primaryColor);
-      root.style.setProperty("--secondary", brand.secondaryColor);
-      root.style.setProperty("--accent", brand.accentColor);
-      root.style.setProperty("--rail", brand.railColor);
-      root.style.setProperty("--ring", brand.primaryColor);
-      document.title = `${brand.displayName} — HR workspace`;
-      if (brand.faviconDataUri) {
-        const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-        if (icon) icon.href = brand.faviconDataUri;
-      }
-      const logo = brand.logoLightDataUri;
-      if (logo) document.querySelectorAll<HTMLImageElement>('img[data-company-logo="light"]').forEach((image) => { image.src = logo; image.alt = brand.displayName; });
-    }).catch(() => { /* Branding must never block the workforce shell. */ });
-    return () => { active = false; };
-  }, [authenticated]);
-  return <>{children}</>;
 }

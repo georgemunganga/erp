@@ -1006,6 +1006,7 @@ export const realApi = {
   deleteHoliday: (id: string) => hrmApi.delete<unknown>(`/hrm/admin/holidays/${id}`),
   capabilities: () => hrmApi.get<unknown[]>("/hrm/admin/capabilities"),
   branding: () => hrmApi.get<CompanyBranding>("/hrm/admin/branding"),
+  publicBranding: () => hrmApi.get<CompanyBranding>("/hrm/branding"),
   updateBranding: (body: CompanyBrandingUpdate) => hrmApi.put<CompanyBranding>("/hrm/admin/branding", body),
   resetBranding: () => hrmApi.post<CompanyBranding>("/hrm/admin/branding/reset", {}),
   // ---------- M28 CRUD audit: jobs catalogue, roles, retention rules ----------

@@ -18,6 +18,9 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
         return ToDto(await GetOrCreateAsync(ct));
     }
 
+    public async Task<CompanyBrandingDto> GetPublicAsync(CancellationToken ct)
+        => ToDto(await GetOrCreateAsync(ct));
+
     public async Task<CompanyBrandingDto> UpdateAsync(CompanyBrandingUpdateRequest request, CancellationToken ct)
     {
         authz.RequireAnyRole("hr_admin");
@@ -29,9 +32,17 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
             item.DisplayName = name;
         }
         item.PrimaryColor = Colour(request.PrimaryColor, item.PrimaryColor, "primaryColor");
+        item.PrimaryForegroundColor = Colour(request.PrimaryForegroundColor, item.PrimaryForegroundColor, "primaryForegroundColor");
+        item.ButtonColor = Colour(request.ButtonColor, item.ButtonColor, "buttonColor");
+        item.ButtonForegroundColor = Colour(request.ButtonForegroundColor, item.ButtonForegroundColor, "buttonForegroundColor");
         item.SecondaryColor = Colour(request.SecondaryColor, item.SecondaryColor, "secondaryColor");
+        item.SecondaryForegroundColor = Colour(request.SecondaryForegroundColor, item.SecondaryForegroundColor, "secondaryForegroundColor");
         item.AccentColor = Colour(request.AccentColor, item.AccentColor, "accentColor");
+        item.AccentForegroundColor = Colour(request.AccentForegroundColor, item.AccentForegroundColor, "accentForegroundColor");
         item.RailColor = Colour(request.RailColor, item.RailColor, "railColor");
+        item.RailForegroundColor = Colour(request.RailForegroundColor, item.RailForegroundColor, "railForegroundColor");
+        item.RailMutedColor = Colour(request.RailMutedColor, item.RailMutedColor, "railMutedColor");
+        item.RailActiveColor = Colour(request.RailActiveColor, item.RailActiveColor, "railActiveColor");
         item.LogoLightDataUri = Asset(request.LogoLightDataUri, item.LogoLightDataUri, "light logo");
         item.LogoDarkDataUri = Asset(request.LogoDarkDataUri, item.LogoDarkDataUri, "dark logo");
         item.FaviconDataUri = Asset(request.FaviconDataUri, item.FaviconDataUri, "favicon");
@@ -43,9 +54,13 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
     {
         authz.RequireAnyRole("hr_admin");
         var item = await GetOrCreateAsync(ct);
-        item.DisplayName = "Newworldcargo HRM";
-        item.PrimaryColor = "#012642"; item.SecondaryColor = "#E8F0F5";
-        item.AccentColor = "#E8F0F5"; item.RailColor = "#012642";
+        item.DisplayName = "HR workspace";
+        item.PrimaryColor = "#012642"; item.PrimaryForegroundColor = "#FFFFFF";
+        item.ButtonColor = "#012642"; item.ButtonForegroundColor = "#FFFFFF";
+        item.SecondaryColor = "#E8F0F5"; item.SecondaryForegroundColor = "#012642";
+        item.AccentColor = "#E8F0F5"; item.AccentForegroundColor = "#012642";
+        item.RailColor = "#012642"; item.RailForegroundColor = "#FFFFFF";
+        item.RailMutedColor = "#A7C7DA"; item.RailActiveColor = "#0B3A5D";
         item.LogoLightDataUri = null; item.LogoDarkDataUri = null; item.FaviconDataUri = null;
         await db.SaveChangesAsync(ct);
         return ToDto(item);
@@ -82,6 +97,9 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
         catch (FormatException) { throw new DomainException("branding-asset-invalid", $"The {field} image data is invalid."); }
         return value;
     }
-    private static CompanyBrandingDto ToDto(CompanyBranding x) => new(x.DisplayName, x.PrimaryColor, x.SecondaryColor,
-        x.AccentColor, x.RailColor, x.LogoLightDataUri, x.LogoDarkDataUri, x.FaviconDataUri, x.UpdatedAt);
+    private static CompanyBrandingDto ToDto(CompanyBranding x) => new(x.DisplayName, x.PrimaryColor, x.PrimaryForegroundColor,
+        x.ButtonColor, x.ButtonForegroundColor,
+        x.SecondaryColor, x.SecondaryForegroundColor, x.AccentColor, x.AccentForegroundColor,
+        x.RailColor, x.RailForegroundColor, x.RailMutedColor, x.RailActiveColor,
+        x.LogoLightDataUri, x.LogoDarkDataUri, x.FaviconDataUri, x.UpdatedAt);
 }

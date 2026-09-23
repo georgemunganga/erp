@@ -5,11 +5,19 @@ namespace Mightyfin.Erp.Hrm.Domain.Entities;
 /// This is presentation only: it never changes statutory documents already issued.</summary>
 public sealed class CompanyBranding : Entity
 {
-    public string DisplayName { get; set; } = "Newworldcargo HRM";
+    public string DisplayName { get; set; } = "HR workspace";
     public string PrimaryColor { get; set; } = "#012642";
+    public string PrimaryForegroundColor { get; set; } = "#FFFFFF";
+    public string ButtonColor { get; set; } = "#012642";
+    public string ButtonForegroundColor { get; set; } = "#FFFFFF";
     public string SecondaryColor { get; set; } = "#E8F0F5";
+    public string SecondaryForegroundColor { get; set; } = "#012642";
     public string AccentColor { get; set; } = "#E8F0F5";
+    public string AccentForegroundColor { get; set; } = "#012642";
     public string RailColor { get; set; } = "#012642";
+    public string RailForegroundColor { get; set; } = "#FFFFFF";
+    public string RailMutedColor { get; set; } = "#A7C7DA";
+    public string RailActiveColor { get; set; } = "#0B3A5D";
     public string? LogoLightDataUri { get; set; }
     public string? LogoDarkDataUri { get; set; }
     public string? FaviconDataUri { get; set; }

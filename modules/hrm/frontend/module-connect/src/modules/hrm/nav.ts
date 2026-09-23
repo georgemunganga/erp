@@ -339,7 +339,7 @@ export const configurationGroups: {
       {
         label: "Company branding",
         detail: "Logo, favicon, and workspace colour palette",
-        to: "/hrm/configuration/technical",
+        to: "/hrm/configuration/branding",
       },
       { label: "Import and export", detail: "Shared CSV and Excel data movement", to: "/hrm/data/import-export" },
       {

@@ -1259,6 +1259,14 @@ public static class Routes
 
     public static void RegisterConfig(WebApplication app)
     {
+        // Visual identity is needed on the sign-in screen before a session exists.
+        // Mutations remain under the authenticated /admin group below.
+        app.MapGet($"{HrmPrefix}/branding", async (HttpContext http,
+            Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(await svc.GetPublicAsync(ct));
+        });
         var g = app.MapGroup($"{HrmPrefix}/admin").RequireAuthorization();
         g.MapGet("/config", async (IConfigService svc, CancellationToken ct) => await svc.GetConfigAsync(ct));
         g.MapGet("/branding", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>

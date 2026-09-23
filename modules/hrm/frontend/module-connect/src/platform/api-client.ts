@@ -99,9 +99,17 @@ export interface IdentityDirectoryUser {
 export interface CompanyBranding {
   displayName: string;
   primaryColor: string;
+  primaryForegroundColor: string;
+  buttonColor: string;
+  buttonForegroundColor: string;
   secondaryColor: string;
+  secondaryForegroundColor: string;
   accentColor: string;
+  accentForegroundColor: string;
   railColor: string;
+  railForegroundColor: string;
+  railMutedColor: string;
+  railActiveColor: string;
   logoLightDataUri?: string | null;
   logoDarkDataUri?: string | null;
   faviconDataUri?: string | null;

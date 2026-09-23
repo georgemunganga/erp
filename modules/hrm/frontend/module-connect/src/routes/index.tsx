@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Clock } from "lucide-react";
 import { modules } from "@/platform/modules";
+import { BrandIdentity } from "@/platform/components/BrandIdentity";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Newworldcargo HRM" },
+      { title: "HR workspace" },
       { name: "description", content: "Choose a module to enter." },
-      { property: "og:title", content: "Newworldcargo HRM" },
+      { property: "og:title", content: "HR workspace" },
       { property: "og:description", content: "Choose a module to enter." },
     ],
   }),
@@ -19,8 +20,7 @@ function Entrance() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-primary/40 bg-primary text-primary-foreground shadow-sm">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
-          <img src="/newworld-cargo-logo.png" alt="Newworldcargo HRM" className="h-8 w-auto max-w-[132px] object-contain" />
-          <span className="font-semibold">Newworldcargo HRM</span>
+          <BrandIdentity onDark />
         </div>
       </header>
 
