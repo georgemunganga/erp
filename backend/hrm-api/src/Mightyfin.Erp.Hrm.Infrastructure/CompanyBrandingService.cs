@@ -43,9 +43,9 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
     {
         authz.RequireAnyRole("hr_admin");
         var item = await GetOrCreateAsync(ct);
-        item.DisplayName = "Mightyfin HRMS";
-        item.PrimaryColor = "#5D2B85"; item.SecondaryColor = "#17212B";
-        item.AccentColor = "#FEC00F"; item.RailColor = "#410064";
+        item.DisplayName = "Newworldcargo HRM";
+        item.PrimaryColor = "#012642"; item.SecondaryColor = "#E8F0F5";
+        item.AccentColor = "#E8F0F5"; item.RailColor = "#012642";
         item.LogoLightDataUri = null; item.LogoDarkDataUri = null; item.FaviconDataUri = null;
         await db.SaveChangesAsync(ct);
         return ToDto(item);
