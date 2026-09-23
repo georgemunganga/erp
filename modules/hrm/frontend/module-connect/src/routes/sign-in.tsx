@@ -8,6 +8,8 @@ import { useApp } from "@/platform/app-context";
 import { useAuth } from "@/platform/auth";
 import { ApiError, hrmApi } from "@/platform/api-client";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
+import { useBranding } from "@/platform/branding";
+import { emailPlaceholderFor, loginHeadingFor } from "@/platform/branding-copy";
 import {
   getSession,
   handleLoginCallback,
@@ -54,6 +56,7 @@ function SignIn() {
   const navigate = useNavigate();
   const { setRole } = useApp();
   const { authenticated, signInLocal } = useAuth();
+  const { branding } = useBranding();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -206,7 +209,7 @@ function SignIn() {
           <BrandIdentity onDark logoClassName="max-h-20 max-w-36 object-contain" nameClassName="text-xl font-semibold" />
         </div>
         <div className="max-w-md">
-          <h1 className="text-2xl font-semibold">Human resources</h1>
+          <h1 className="text-2xl font-semibold">Human resources{branding?.companyName ? ` at ${branding.companyName}` : ""}</h1>
           <p className="mt-3 text-sm text-rail-muted">
             One place for your profile, leave, attendance, pay and requests — and for the people who
             administer them.
@@ -223,7 +226,7 @@ function SignIn() {
           </ul>
         </div>
         <p className="text-xs text-rail-muted">
-          Secure HR workspace sign-in.
+          Secure {branding?.companyName || "HR workspace"} sign-in.
         </p>
       </div>
 
@@ -238,7 +241,7 @@ function SignIn() {
 
           {credentialToken ? (
             <>
-              <h2 className="mt-6 text-xl font-semibold lg:mt-0">Set your HRMS password</h2>
+              <h2 className="mt-6 text-xl font-semibold lg:mt-0">Set your account password</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Complete your local HRMS account setup. This one-time link expires after 24 hours.
               </p>
@@ -267,9 +270,9 @@ function SignIn() {
             </>
           ) : (
             <>
-          <h2 className="mt-6 text-xl font-semibold lg:mt-0">Sign in</h2>
+          <h2 className="mt-6 text-xl font-semibold lg:mt-0">{loginHeadingFor(branding)}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {ORGANISATION_LOGIN ? "Use your organisation account or HRMS local account." : "Use your HRMS local account."}
+            {branding?.loginDescription || (ORGANISATION_LOGIN ? "Use your organisation account or HRMS local account." : "Use your HRMS local account.")}
           </p>
 
           {ORGANISATION_LOGIN ? <Button className="mt-6 w-full" onClick={enterWithOrganisation} disabled={busy}>
@@ -299,7 +302,7 @@ function SignIn() {
                 className="mt-1"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@newworldcargo.com"
+                placeholder={emailPlaceholderFor(branding)}
               />
               {ORGANISATION_LOGIN ? <p className="mt-1 text-xs text-muted-foreground">Use this when HR created an HRMS-local account.</p> : null}
             </div>
@@ -313,6 +316,7 @@ function SignIn() {
                 className="mt-1"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder={branding?.passwordPlaceholder || "Enter your password"}
                 required
               />
             </div>
@@ -333,6 +337,9 @@ function SignIn() {
               </p>
             </div> : null}
           </form>
+          {branding?.supportEmail ? <p className="mt-4 text-center text-xs text-muted-foreground">
+            Need account help? <a className="text-primary underline underline-offset-2" href={`mailto:${branding.supportEmail}`}>{branding.supportEmail}</a>
+          </p> : null}
             </>
           )}
 

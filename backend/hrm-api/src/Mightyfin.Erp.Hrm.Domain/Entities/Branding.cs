@@ -6,6 +6,13 @@ namespace Mightyfin.Erp.Hrm.Domain.Entities;
 public sealed class CompanyBranding : Entity
 {
     public string DisplayName { get; set; } = "HR workspace";
+    public string CompanyName { get; set; } = "Company";
+    public string CompanyDomain { get; set; } = "";
+    public string LoginHeading { get; set; } = "";
+    public string LoginDescription { get; set; } = "";
+    public string EmailPlaceholder { get; set; } = "";
+    public string PasswordPlaceholder { get; set; } = "Enter your password";
+    public string SupportEmail { get; set; } = "";
     public string PrimaryColor { get; set; } = "#012642";
     public string PrimaryForegroundColor { get; set; } = "#FFFFFF";
     public string ButtonColor { get; set; } = "#012642";

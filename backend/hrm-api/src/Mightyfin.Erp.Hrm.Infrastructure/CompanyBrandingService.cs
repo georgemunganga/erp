@@ -10,6 +10,7 @@ namespace Mightyfin.Erp.Hrm.Infrastructure;
 public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz) : ICompanyBrandingService
 {
     private static readonly Regex HexColour = new("^#[0-9a-fA-F]{6}$", RegexOptions.Compiled);
+    private static readonly Regex DomainName = new("^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", RegexOptions.Compiled);
     private const int MaxAssetBytes = 512 * 1024;
 
     public async Task<CompanyBrandingDto> GetAsync(CancellationToken ct)
@@ -30,6 +31,25 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
             var name = request.DisplayName.Trim();
             if (name.Length is < 2 or > 80) throw new DomainException("branding-name-invalid", "Company display name must be between 2 and 80 characters.");
             item.DisplayName = name;
+        }
+        item.CompanyName = Text(request.CompanyName, item.CompanyName, "Company name", 2, 120);
+        if (request.CompanyDomain is not null)
+        {
+            var domain = request.CompanyDomain.Trim().ToLowerInvariant();
+            if (domain.Length > 0 && !DomainName.IsMatch(domain))
+                throw new DomainException("branding-domain-invalid", "Company domain must be a hostname such as example.com, without https:// or a path.");
+            item.CompanyDomain = domain;
+        }
+        item.LoginHeading = Text(request.LoginHeading, item.LoginHeading, "Login heading", 0, 80);
+        item.LoginDescription = Text(request.LoginDescription, item.LoginDescription, "Login description", 0, 240);
+        item.EmailPlaceholder = Text(request.EmailPlaceholder, item.EmailPlaceholder, "Email placeholder", 0, 120);
+        item.PasswordPlaceholder = Text(request.PasswordPlaceholder, item.PasswordPlaceholder, "Password placeholder", 0, 80);
+        if (request.SupportEmail is not null)
+        {
+            var email = request.SupportEmail.Trim().ToLowerInvariant();
+            if (email.Length > 254 || (email.Length > 0 && (!System.Net.Mail.MailAddress.TryCreate(email, out var address) || address.Address != email)))
+                throw new DomainException("branding-support-email-invalid", "Support email must be a valid email address.");
+            item.SupportEmail = email;
         }
         item.PrimaryColor = Colour(request.PrimaryColor, item.PrimaryColor, "primaryColor");
         item.PrimaryForegroundColor = Colour(request.PrimaryForegroundColor, item.PrimaryForegroundColor, "primaryForegroundColor");
@@ -55,6 +75,10 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
         authz.RequireAnyRole("hr_admin");
         var item = await GetOrCreateAsync(ct);
         item.DisplayName = "HR workspace";
+        item.CompanyName = "Company"; item.CompanyDomain = "";
+        item.LoginHeading = ""; item.LoginDescription = "";
+        item.EmailPlaceholder = ""; item.PasswordPlaceholder = "Enter your password";
+        item.SupportEmail = "";
         item.PrimaryColor = "#012642"; item.PrimaryForegroundColor = "#FFFFFF";
         item.ButtonColor = "#012642"; item.ButtonForegroundColor = "#FFFFFF";
         item.SecondaryColor = "#E8F0F5"; item.SecondaryForegroundColor = "#012642";
@@ -82,6 +106,14 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
         if (!HexColour.IsMatch(normal)) throw new DomainException("branding-colour-invalid", $"{field} must be a six-digit hex colour, for example #5D2B85.");
         return normal;
     }
+    private static string Text(string? value, string fallback, string field, int min, int max)
+    {
+        if (value is null) return fallback;
+        var text = value.Trim();
+        if (text.Length < min || text.Length > max || text.Any(char.IsControl))
+            throw new DomainException("branding-text-invalid", $"{field} must be between {min} and {max} characters and contain no control characters.");
+        return text;
+    }
     private static string? Asset(string? value, string? fallback, string field)
     {
         if (value is null) return fallback;
@@ -97,7 +129,9 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
         catch (FormatException) { throw new DomainException("branding-asset-invalid", $"The {field} image data is invalid."); }
         return value;
     }
-    private static CompanyBrandingDto ToDto(CompanyBranding x) => new(x.DisplayName, x.PrimaryColor, x.PrimaryForegroundColor,
+    private static CompanyBrandingDto ToDto(CompanyBranding x) => new(x.DisplayName, x.CompanyName, x.CompanyDomain,
+        x.LoginHeading, x.LoginDescription, x.EmailPlaceholder, x.PasswordPlaceholder, x.SupportEmail,
+        x.PrimaryColor, x.PrimaryForegroundColor,
         x.ButtonColor, x.ButtonForegroundColor,
         x.SecondaryColor, x.SecondaryForegroundColor, x.AccentColor, x.AccentForegroundColor,
         x.RailColor, x.RailForegroundColor, x.RailMutedColor, x.RailActiveColor,

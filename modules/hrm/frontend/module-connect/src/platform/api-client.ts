@@ -98,6 +98,13 @@ export interface IdentityDirectoryUser {
 
 export interface CompanyBranding {
   displayName: string;
+  companyName: string;
+  companyDomain: string;
+  loginHeading: string;
+  loginDescription: string;
+  emailPlaceholder: string;
+  passwordPlaceholder: string;
+  supportEmail: string;
   primaryColor: string;
   primaryForegroundColor: string;
   buttonColor: string;

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CompanyBranding } from "@/platform/api-client";
 import { useBranding } from "@/platform/branding";
+import { emailPlaceholderFor, loginHeadingFor } from "@/platform/branding-copy";
 import { AppShell } from "@/platform/components/AppShell";
 import { Async } from "@/platform/components/Async";
 import { AuthGate } from "@/platform/components/AuthGate";
@@ -20,6 +21,13 @@ export const Route = createFileRoute("/hrm/configuration/branding")({
 
 type BrandingForm = {
   displayName: string;
+  companyName: string;
+  companyDomain: string;
+  loginHeading: string;
+  loginDescription: string;
+  emailPlaceholder: string;
+  passwordPlaceholder: string;
+  supportEmail: string;
   primaryColor: string;
   primaryForegroundColor: string;
   buttonColor: string;
@@ -40,6 +48,13 @@ type AssetKey = "logoLightDataUri" | "logoDarkDataUri" | "faviconDataUri";
 
 const defaults: BrandingForm = {
   displayName: "HR workspace",
+  companyName: "Company",
+  companyDomain: "",
+  loginHeading: "",
+  loginDescription: "",
+  emailPlaceholder: "",
+  passwordPlaceholder: "Enter your password",
+  supportEmail: "",
   primaryColor: "#012642",
   primaryForegroundColor: "#FFFFFF",
   buttonColor: "#012642",
@@ -182,15 +197,25 @@ function BrandingPage() {
     <Link to="/hrm/configuration" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
       <ChevronLeft className="size-3.5" aria-hidden /> All configuration
     </Link>
-    <PageHeader eyebrow="Configuration" title="Company branding" description="Control the logo, name, buttons, and colours used across your HR workspace." />
+    <PageHeader eyebrow="Configuration" title="Company branding" description="Control company identity, sign-in text, logos, buttons, and colours across your HR workspace." />
     <Async state={branding} rows={6}>{() => <div className="space-y-6" data-testid="company-branding-settings">
       <section className="rounded-lg border bg-surface p-5">
         <div className="mb-4 flex items-start gap-3"><Palette className="mt-0.5 size-5 text-primary" aria-hidden /><div>
-          <h2 className="font-semibold">Identity</h2>
-          <p className="text-sm text-muted-foreground">The name and logos also appear on the sign-in page. Nothing shows the old default logo while your branding loads.</p>
+          <h2 className="font-semibold">Company identity</h2>
+          <p className="text-sm text-muted-foreground">These public details identify your organisation on sign-in and in the workspace.</p>
         </div></div>
-        <Label htmlFor="brand-name">Display name</Label>
-        <Input id="brand-name" className="mt-2 max-w-xl" value={form.displayName} maxLength={80} onChange={(event) => set("displayName", event.target.value)} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div><Label htmlFor="company-name">Company name</Label>
+            <Input id="company-name" className="mt-2" value={form.companyName} maxLength={120} onChange={(event) => set("companyName", event.target.value)} />
+          </div>
+          <div><Label htmlFor="brand-name">Workspace display name</Label>
+            <Input id="brand-name" className="mt-2" value={form.displayName} maxLength={80} onChange={(event) => set("displayName", event.target.value)} />
+          </div>
+          <div className="md:col-span-2"><Label htmlFor="company-domain">Company email domain</Label>
+            <Input id="company-domain" className="mt-2 max-w-xl" value={form.companyDomain} maxLength={253} placeholder="example.com" onChange={(event) => set("companyDomain", event.target.value)} />
+            <p className="mt-1 text-xs text-muted-foreground">Used for the email example on sign-in. Adding a domain here does not configure DNS, verify ownership, or route tenants.</p>
+          </div>
+        </div>
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {([ ["logoLightDataUri", "Logo for dark backgrounds"], ["logoDarkDataUri", "Logo for light backgrounds"], ["faviconDataUri", "Browser icon"] ] as const).map(([key, label]) =>
             <div key={key} className="rounded-lg border bg-surface-muted p-4">
@@ -201,6 +226,28 @@ function BrandingPage() {
               {form[key] ? <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => set(key, "")}>Remove image</Button> : null}
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-surface p-5">
+        <h2 className="font-semibold">Sign-in experience</h2>
+        <p className="mb-4 text-sm text-muted-foreground">Set the words people see before they log in. Leave a heading or email example blank to generate it from the company name and domain.</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div><Label htmlFor="login-heading">Sign-in heading</Label>
+            <Input id="login-heading" className="mt-2" value={form.loginHeading} maxLength={80} placeholder={loginHeadingFor(form)} onChange={(event) => set("loginHeading", event.target.value)} />
+          </div>
+          <div><Label htmlFor="email-placeholder">Email input example</Label>
+            <Input id="email-placeholder" className="mt-2" value={form.emailPlaceholder} maxLength={120} placeholder={emailPlaceholderFor(form)} onChange={(event) => set("emailPlaceholder", event.target.value)} />
+          </div>
+          <div className="md:col-span-2"><Label htmlFor="login-description">Sign-in helper text</Label>
+            <Input id="login-description" className="mt-2" value={form.loginDescription} maxLength={240} placeholder="Use your work account to continue." onChange={(event) => set("loginDescription", event.target.value)} />
+          </div>
+          <div><Label htmlFor="password-placeholder">Password input placeholder</Label>
+            <Input id="password-placeholder" className="mt-2" value={form.passwordPlaceholder} maxLength={80} placeholder="Enter your password" onChange={(event) => set("passwordPlaceholder", event.target.value)} />
+          </div>
+          <div><Label htmlFor="support-email">Help email</Label>
+            <Input id="support-email" type="email" className="mt-2" value={form.supportEmail} maxLength={254} placeholder="support@example.com" onChange={(event) => set("supportEmail", event.target.value)} />
+          </div>
         </div>
       </section>
 
@@ -222,6 +269,12 @@ function BrandingPage() {
         <aside className="h-fit space-y-4 rounded-lg border bg-surface p-5 xl:sticky xl:top-20">
           <h2 className="font-semibold">Live preview</h2>
           <p className="text-sm text-muted-foreground">Changes here are a preview until you save.</p>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold">{loginHeadingFor(form)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{form.loginDescription || "Use your work account to continue."}</p>
+            <p className="mt-3 rounded border bg-background px-3 py-2 text-sm text-muted-foreground">{emailPlaceholderFor(form)}</p>
+            <p className="mt-2 rounded border bg-background px-3 py-2 text-sm text-muted-foreground">{form.passwordPlaceholder || "Enter your password"}</p>
+          </div>
           <div className="rounded-lg p-4" style={{ backgroundColor: form.primaryColor, color: form.primaryForegroundColor }}>
             <p className="font-semibold">{form.displayName}</p><p className="text-sm">Header text</p>
           </div>
