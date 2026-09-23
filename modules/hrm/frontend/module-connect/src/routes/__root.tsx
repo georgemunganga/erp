@@ -13,7 +13,8 @@ import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppProvider } from "../platform/app-context";
-import { AuthProvider } from "../platform/auth";
+import { AuthProvider, useAuth } from "../platform/auth";
+import { realApi } from "@/platform/use-api";
 
 function NotFoundComponent() {
   return (
@@ -138,11 +139,41 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AppProvider>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
-        </AppProvider>
+        <TenantBranding>
+          <AppProvider>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+          </AppProvider>
+        </TenantBranding>
       </AuthProvider>
     </QueryClientProvider>
   );
+}
+
+/** Applies only the tenant's approved semantic tokens after authentication.
+ * The sign-in/IdP screen intentionally retains the platform identity. */
+function TenantBranding({ children }: { children: ReactNode }) {
+  const { authenticated } = useAuth();
+  useEffect(() => {
+    if (!authenticated || import.meta.env.VITE_USE_REAL_API !== "true") return;
+    let active = true;
+    realApi.branding().then((brand) => {
+      if (!active) return;
+      const root = document.documentElement;
+      root.style.setProperty("--primary", brand.primaryColor);
+      root.style.setProperty("--secondary", brand.secondaryColor);
+      root.style.setProperty("--accent", brand.accentColor);
+      root.style.setProperty("--rail", brand.railColor);
+      root.style.setProperty("--ring", brand.primaryColor);
+      document.title = `${brand.displayName} — HR workspace`;
+      if (brand.faviconDataUri) {
+        const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+        if (icon) icon.href = brand.faviconDataUri;
+      }
+      const logo = brand.logoLightDataUri;
+      if (logo) document.querySelectorAll<HTMLImageElement>('img[data-company-logo="light"]').forEach((image) => { image.src = logo; image.alt = brand.displayName; });
+    }).catch(() => { /* Branding must never block the workforce shell. */ });
+    return () => { active = false; };
+  }, [authenticated]);
+  return <>{children}</>;
 }

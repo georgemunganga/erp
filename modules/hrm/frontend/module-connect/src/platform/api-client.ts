@@ -96,6 +96,19 @@ export interface IdentityDirectoryUser {
   displayName: string;
 }
 
+export interface CompanyBranding {
+  displayName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  railColor: string;
+  logoLightDataUri?: string | null;
+  logoDarkDataUri?: string | null;
+  faviconDataUri?: string | null;
+  updatedAt?: string | null;
+}
+export type CompanyBrandingUpdate = Partial<CompanyBranding>;
+
 /** Minimal shape of the linked worker returned by `hrmApi.myProfile()`. */
 export interface LinkedWorker {
   id: string;
