@@ -25,9 +25,9 @@ import { PageHeader } from "@/platform/components/PageHeader";
 export const Route = createFileRoute("/hrm/employees/new")({
   head: () => ({
     meta: [
-      { title: "Add an employee — Newworldcargo HRM" },
+      { title: "Add an employee — HRM" },
       { name: "description", content: "Create an employee record, place them in the organisation, and hand over to onboarding." },
-      { property: "og:title", content: "Add an employee — Newworldcargo HRM" },
+      { property: "og:title", content: "Add an employee — HRM" },
       { property: "og:description", content: "Create an employee record, place them in the organisation, and hand over to onboarding." },
     ],
   }),
@@ -60,20 +60,36 @@ function readDateInput(el: HTMLInputElement): string {
 }
 
 const emergencyRelationships = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
+const salutations = ["Mr", "Mrs", "Ms", "Dr", "Prof"];
+const genders = ["Female", "Male", "Prefer not to say"];
+const maritalStatuses = ["Single", "Married", "Divorced", "Widowed", "Prefer not to say"];
 
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
 
 function NewEmployee() {
   const navigate = useNavigate();
   const [ref, setRef] = useState<string | null>(null);
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [middleName, setMiddleName] = useState("");
+  const [salutation, setSalutation] = useState("");
+  const [gender, setGender] = useState("");
+  const [maritalStatus, setMaritalStatus] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [homeTown, setHomeTown] = useState("");
   const [email, setEmail] = useState("");
+  const [personalEmail, setPersonalEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [alternatePhone, setAlternatePhone] = useState("");
+  const [residentialAddress, setResidentialAddress] = useState("");
+  const [postalAddress, setPostalAddress] = useState("");
   const [nrc, setNrc] = useState("");
+  const [passportNo, setPassportNo] = useState("");
+  const [passportExpiry, setPassportExpiry] = useState("");
+  const [bloodGroup, setBloodGroup] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [tpin, setTpin] = useState("");
   const [napsaNumber, setNapsaNumber] = useState("");
@@ -88,8 +104,9 @@ function NewEmployee() {
   const [orgUnitId, setOrgUnitId] = useState("");
   const [managerId, setManagerId] = useState("");
   const [employmentType, setEmploymentType] = useState<string>("Permanent");
-  const [startDate, setStartDate] = useState("2026-09-01");
+  const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [noticePeriodDays, setNoticePeriodDays] = useState("30");
 
   const references = useApi(async () => {
     if (!USE_REAL) return { legalEntities: [], orgUnits: [], locations: [], workers: [], grades: [] as string[] };
@@ -230,11 +247,7 @@ function buildOrgTree(
       purpose: "The details HR collects at the door. Payroll-critical IDs can still be completed later on the profile.",
       validate: () => {
         if (!firstName.trim()) return "First name is required — the record needs a name.";
-        if (!lastName.trim()) return "Last name is required — the record needs a name.";
-        if (!phone.trim()) return "Phone number is required — payroll and notifications depend on it.";
-        if (!dateOfBirth) return "Date of birth is required — pick it from the calendar.";
         if (dobInvalid) return "The date of birth is not valid — pick a realistic date (1900 – today) from the calendar.";
-        if (!nrc.trim()) return "The NRC number is required for a Zambian employee record.";
         if (nrcInvalid) return "The NRC number is not valid — enter it as 123456/78/9 (six digits, two, then one).";
         return null;
       },
@@ -245,7 +258,7 @@ function buildOrgTree(
             <Input id="first" className="mt-1" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
           </div>
           <div>
-            <Label htmlFor="last">Last name</Label>
+            <Label htmlFor="last">Last name (if recorded)</Label>
             <Input id="last" className="mt-1" value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </div>
           <div className="sm:col-span-2">
@@ -253,7 +266,36 @@ function buildOrgTree(
             <Input id="middle" className="mt-1" value={middleName} onChange={(e) => setMiddleName(e.target.value)} />
           </div>
           <div>
-            <Label htmlFor="phone">Phone number</Label>
+            <Label htmlFor="salutation">Salutation (optional)</Label>
+            <Select value={salutation || "none"} onValueChange={(v) => setSalutation(v === "none" ? "" : v)}>
+              <SelectTrigger id="salutation" className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="none">Not recorded</SelectItem>{salutations.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="gender">Gender (optional)</Label>
+            <Select value={gender || "none"} onValueChange={(v) => setGender(v === "none" ? "" : v)}>
+              <SelectTrigger id="gender" className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="none">Not recorded</SelectItem>{genders.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="marital">Marital status (optional)</Label>
+            <Select value={maritalStatus || "none"} onValueChange={(v) => setMaritalStatus(v === "none" ? "" : v)}>
+              <SelectTrigger id="marital" className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="none">Not recorded</SelectItem>{maritalStatuses.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="nationality">Nationality (optional)</Label>
+            <Input id="nationality" className="mt-1" value={nationality} onChange={(e) => setNationality(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="home-town">Home town (optional)</Label>
+            <Input id="home-town" className="mt-1" value={homeTown} onChange={(e) => setHomeTown(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="phone">Phone number (optional)</Label>
             <Input id="phone" className="mt-1" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <p className="mt-1 text-xs text-muted-foreground">For payroll mobile-money payments and notifications.</p>
           </div>
@@ -265,7 +307,15 @@ function buildOrgTree(
             </p>
           </div>
           <div>
-            <Label htmlFor="nrc">NRC number</Label>
+            <Label htmlFor="personal-email">Personal email (optional)</Label>
+            <Input id="personal-email" type="email" className="mt-1" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="alternate-phone">Alternate phone (optional)</Label>
+            <Input id="alternate-phone" className="mt-1" value={alternatePhone} onChange={(e) => setAlternatePhone(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="nrc">NRC number (optional during pre-hire)</Label>
             <Input
               id="nrc"
               className={"mt-1" + (nrcInvalid ? " border-danger" : "")}
@@ -280,7 +330,7 @@ function buildOrgTree(
             )}
           </div>
           <div>
-            <Label htmlFor="dob">Date of birth</Label>
+            <Label htmlFor="dob">Date of birth (optional during pre-hire)</Label>
             <Input
               id="dob"
               type="date"
@@ -296,6 +346,26 @@ function buildOrgTree(
               <p className="mt-1 text-xs text-muted-foreground">Use the calendar to avoid typed-value mix-ups.</p>
             )}
           </div>
+          <div>
+            <Label htmlFor="passport">Passport number (optional)</Label>
+            <Input id="passport" className="mt-1" value={passportNo} onChange={(e) => setPassportNo(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="passport-expiry">Passport expiry (optional)</Label>
+            <Input id="passport-expiry" type="date" className="mt-1" value={passportExpiry} onChange={(e) => setPassportExpiry(readDateInput(e.currentTarget))} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="address">Residential address (optional)</Label>
+            <Input id="address" className="mt-1" value={residentialAddress} onChange={(e) => setResidentialAddress(e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="postal-address">Postal address (optional)</Label>
+            <Input id="postal-address" className="mt-1" value={postalAddress} onChange={(e) => setPostalAddress(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="blood-group">Blood group (optional)</Label>
+            <Input id="blood-group" className="mt-1" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} />
+          </div>
         </div>
       ),
     },
@@ -304,9 +374,11 @@ function buildOrgTree(
       title: "Statutory registrations",
       purpose: "Zambian registrations a pay run cannot run without — complete them now, or finish them on the profile later.",
       validate: () => {
-        if (!emergencyName.trim()) return "Emergency contact name is required.";
-        if (!emergencyRelationship) return "Choose how the emergency contact relates to the employee.";
-        if (!emergencyPhone.trim()) return "Emergency contact phone is required — it is the number called in an emergency.";
+        if (emergencyName.trim() || emergencyRelationship || emergencyPhone.trim()) {
+          if (!emergencyName.trim()) return "Give a name for this emergency contact.";
+          if (!emergencyRelationship) return "Choose the emergency contact relationship.";
+          if (!emergencyPhone.trim()) return "Give a phone number for this emergency contact.";
+        }
         return null;
       },
       render: () => (
@@ -454,9 +526,11 @@ function buildOrgTree(
       validate: () => {
         if (!jobTitle.trim()) return "Job title is required — the contract needs a role.";
         if (!startDate) return "A start date is required.";
-        if (!ISO8601.test(startDate) || startDate > TODAY_ISO) return "The start date is not valid — pick a date from the calendar (today at the latest).";
+        if (!ISO8601.test(startDate)) return "The start date is not valid — pick a date from the calendar.";
         if (needsEndDate && !endDate) return `An end date is required for ${employmentType.toLowerCase()} engagements.`;
         if (needsEndDate && endDate && (startDate && endDate <= startDate)) return "The end date must come after the start date.";
+        if (!/^\d+$/.test(noticePeriodDays) || Number(noticePeriodDays) < 0)
+          return "Notice period must be zero or a positive number of days.";
         return null;
       },
       render: () => (
@@ -501,6 +575,10 @@ function buildOrgTree(
             <Label htmlFor="start">Start date</Label>
             <Input id="start" type="date" className="mt-1" value={startDate} onChange={(e) => setStartDate(readDateInput(e.currentTarget))} />
           </div>
+          <div>
+            <Label htmlFor="notice-days">Notice period (days)</Label>
+            <Input id="notice-days" type="number" min="0" className="mt-1" value={noticePeriodDays} onChange={(e) => setNoticePeriodDays(e.target.value)} />
+          </div>
           {needsEndDate ? (
             <div className="sm:col-span-2">
               <Label htmlFor="end">
@@ -541,9 +619,12 @@ function buildOrgTree(
               ["Department", String(selectedUnit?.name ?? "Not selected")],
               ["Reports to", managerOptions.find((e) => e.id === managerId)?.fullName ?? "—"],
               ["Start date", startDate],
+              ["Notice period", `${noticePeriodDays} days`],
               ...(needsEndDate ? [["End date", endDate || "Not set"]] : []),
               ["Phone", phone.trim() || "Not given"],
+              ["Personal email", personalEmail.trim() || "Not given"],
               ["NRC", nrc.trim() || "Not given"],
+              ["Passport", passportNo.trim() || "Not given"],
               ["Date of birth", dateOfBirth || "Not given"],
               ["TPIN", tpin.trim() || "Not given"],
               ["NAPSA", napsaNumber.trim() || "Not given"],
@@ -557,8 +638,8 @@ function buildOrgTree(
             ))}
           </dl>
           <p className="text-xs text-muted-foreground">
-            The employee number is issued automatically. The record starts as <em>Pre-hire</em> and
-            only becomes active on the start date.
+            The employee number is issued automatically. A future start date creates a <em>Pre-hire</em> record;
+            a start date of today or earlier creates an active record.
           </p>
 
           <div className="rounded-md border border-warning/40 bg-warning-soft p-3">
@@ -594,16 +675,16 @@ function buildOrgTree(
         <PageHeader eyebrow="People" title="Employee record created" />
         <NextSteps
           reference={ref}
-          title={`${fullName || "The employee"} has been added as Pre-hire`}
+          title={`${fullName || "The employee"} has been added as ${startDate > TODAY_ISO ? "Pre-hire" : "Active"}`}
           steps={[
             "Complete the profile — bank details and the NAPSA, NHIMA and TPIN numbers, without which payroll cannot include them.",
             "Record an emergency contact. It is the one field that should never be left blank.",
-            "The record becomes Active automatically on the start date.",
+            startDate > TODAY_ISO ? "Review onboarding before the start date." : "Review the profile and finish any missing payroll details.",
           ]}
           actions={
             <>
               <Button asChild>
-                <Link to="/hrm/employees">Complete the profile</Link>
+                {createdId ? <Link to="/hrm/employees/$id" params={{ id: createdId }}>Complete the profile</Link> : <Link to="/hrm/employees">Employees</Link>}
               </Button>
               <Button variant="outline" asChild>
                 <Link to="/hrm/employees">Back to employees</Link>
@@ -633,8 +714,8 @@ function buildOrgTree(
         steps={steps}
         submitLabel={creating ? "Creating…" : "Create employee record"}
         onSubmit={async () => {
-          if (!firstName.trim() || !lastName.trim()) {
-            feedback.blocked("First and last name are required to create the record.", "Go back to the first step and complete the name fields.");
+          if (!firstName.trim()) {
+            feedback.blocked("A name is required to create the record.", "Go back to the first step and enter the employee's name.");
             setCreating(false);
             return;
           }
@@ -671,14 +752,18 @@ function buildOrgTree(
                 middleName: middleName.trim() || null,
                 lastName: lastName.trim(),
                 email: email.trim() || null,
+                personalEmail: personalEmail.trim() || null,
                 phone: phone.trim() || null,
                 nrc: nrc.trim() || null,
-                passportNo: null,
+                passportNo: passportNo.trim() || null,
                 tpin: tpin.trim() || null,
                 napsaNumber: napsaNumber.trim() || null,
                 nhimaNumber: nhimaNumber.trim() || null,
-                nationality: "Zambian",
+                nationality: nationality.trim() || null,
                 dateOfBirth: dateOfBirth || null,
+                profileDetailsJson: JSON.stringify({ salutation, gender, maritalStatus, residentialAddress,
+                  postalAddress, homeTown, alternatePhone, passportExpiry, bloodGroup,
+                  noticePeriodDays: Number(noticePeriodDays), legalEntityName: String(entity?.registeredName ?? "") }),
                 orgUnitId,
                 locationId,
                 managerId: managerId || null,
@@ -686,7 +771,7 @@ function buildOrgTree(
                 jobTitle: jobTitle.trim() || null,
                 startDate,
                 workerType:
-                  employmentType === "Contractor" ? "contractor" : employmentType === "Intern" ? "intern" : "employee",
+                  employmentType === "Contractor" ? "contingent" : employmentType === "Intern" ? "intern" : "employee",
                 emergencyContacts: hasEmergency
                   ? [{ relationship: emergencyRelationship || "Other", fullName: emergencyName.trim(), phone: emergencyPhone.trim() || null, isPrimary: true }]
                   : [],
@@ -713,8 +798,10 @@ function buildOrgTree(
                           ? "part-time"
                           : "permanent",
                 workPattern: employmentType === "Part time" ? "part-time" : "full-time",
+                noticeDays: Number(noticePeriodDays),
               });
               setRef(String(created.employeeNo || created.id));
+              setCreatedId(String(created.id));
               return;
             }
             const r = await api.submit("employee", { fullName, jobTitle, entityId, locationId, startDate });

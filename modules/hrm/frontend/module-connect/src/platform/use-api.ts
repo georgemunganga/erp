@@ -9,7 +9,7 @@
  * fallback data.
  */
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, hrmApi } from "@/platform/api-client";
+import { ApiError, hrmApi, type CompanyBranding, type CompanyBrandingUpdate } from "@/platform/api-client";
 import type { EducationRecord } from "@/mock/employeeprofile";
 
 export interface ApiState<T> {
@@ -99,6 +99,11 @@ export function adaptWorkers(backend: unknown): Array<import("@/mock/types").Emp
     const status = toText(w.status).toLowerCase();
     const workerType = toText(w.workerType).toLowerCase();
     const contractType = toText(w.contractType).toLowerCase();
+    let legacyEmploymentType = "";
+    try {
+      if (typeof w.profileDetailsJson === "string")
+        legacyEmploymentType = toText((JSON.parse(w.profileDetailsJson) as Record<string, unknown>).legacyEmploymentType);
+    } catch { /* An invalid optional profile must not hide the worker. */ }
     const displayContractType = contractType ? contractType.split("-").map((part) => part ? part[0].toUpperCase() + part.slice(1) : part).join(" ") : "";
     return {
       id: toText(w.id),
@@ -110,7 +115,7 @@ export function adaptWorkers(backend: unknown): Array<import("@/mock/types").Emp
       entityId: "",
       branch: toText(w.locationName),
       managerId: w.managerId ? toText(w.managerId) : undefined,
-      employmentType: (displayContractType || (workerType === "contractor" ? "Contractor" : workerType === "intern" ? "Intern" : "Permanent")) as never,
+      employmentType: (displayContractType || legacyEmploymentType || (workerType === "contingent" ? "Contractor" : workerType === "intern" ? "Intern" : workerType === "volunteer" ? "Volunteer" : "Not recorded")) as never,
       status: (status === "pre-hire" ? "Pre-hire" : status === "on-leave" ? "On leave" : status === "notice" ? "Notice period" : status === "terminated" || status === "archived" ? "Terminated" : "Active") as never,
       startDate: toText(w.startDate),
       endDate: w.endDate ? toText(w.endDate) : undefined,
@@ -232,19 +237,32 @@ function paymentMethodLabel(value: string) {
 
 export function adaptWorkerProfile(rawValue: unknown): import("@/mock/employeeprofile").EmployeeProfile {
   const raw = (rawValue ?? {}) as Record<string, unknown>;
+  let details: Record<string, unknown> = {};
+  try {
+    if (typeof raw.profileDetailsJson === "string") {
+      const parsed: unknown = JSON.parse(raw.profileDetailsJson);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) details = parsed as Record<string, unknown>;
+    }
+  } catch { /* Keep the rest of the live profile readable if old JSON is malformed. */ }
   const emergency = Array.isArray(raw.emergencyContacts) ? raw.emergencyContacts as Record<string, unknown>[] : [];
   const banks = Array.isArray(raw.bankDetails) ? raw.bankDetails as Record<string, unknown>[] : [];
   const bank = banks.find((item) => Boolean(item.isPrimary)) ?? banks[0];
   const text = (value: unknown) => value == null ? "" : String(value);
   return {
-    employeeId: text(raw.id), salutation: "", gender: "", dateOfBirth: text(raw.dateOfBirth), personalEmail: text(raw.personalEmail),
-    maritalStatus: "", nationality: text(raw.nationality), passportNo: text(raw.passportNo),
-    residentialAddress: "", emergency: emergency.map((item) => ({
+    employeeId: text(raw.id), profileDetailsJson: text(raw.profileDetailsJson), salutation: text(details.salutation), gender: text(details.gender), dateOfBirth: text(raw.dateOfBirth), personalEmail: text(raw.personalEmail),
+    maritalStatus: text(details.maritalStatus), nationality: text(raw.nationality), passportNo: text(raw.passportNo),
+    passportExpiry: text(details.passportExpiry), homeTown: text(details.homeTown),
+    alternatePhone: text(details.alternatePhone), residentialAddress: text(details.residentialAddress),
+    postalAddress: text(details.postalAddress), bloodGroup: text(details.bloodGroup),
+    workplaceAdjustments: text(details.workplaceAdjustments), dietaryRequirements: text(details.dietaryRequirements),
+    legacyEmploymentType: text(details.legacyEmploymentType), legalEntityName: text(details.legalEntityName),
+    emergency: emergency.map((item) => ({
       id: text(item.id), name: text(item.fullName), relationship: text(item.relationship),
       phone: text(item.phone), isPrimary: Boolean(item.isPrimary),
     })),
-    noticePeriodDays: 0, reportsTo: text(raw.managerName), costCentre: "", payGroup: "",
-    shiftPattern: "", holidayCalendar: "", leavePolicy: "", attendanceDeviceId: "",
+    noticePeriodDays: Number(details.noticePeriodDays ?? 0), reportsTo: text(raw.managerName), costCentre: text(details.costCentre), payGroup: "",
+    probationEndsOn: text(details.probationEndsOn), confirmedOn: text(details.confirmedOn),
+    shiftPattern: text(details.shiftPattern), holidayCalendar: text(details.holidayCalendar), leavePolicy: "", attendanceDeviceId: text(details.attendanceDeviceId),
     paymentMethod: paymentMethodLabel(text(bank?.paymentMethod)), bankDetailId: text(bank?.id),
     bankName: text(bank?.bankName),
     bankBranch: text(bank?.branchCode), bankAccount: text(bank?.accountNumber),
@@ -255,8 +273,8 @@ export function adaptWorkerProfile(rawValue: unknown): import("@/mock/employeepr
           id: text(item.id),
           qualification: text(item.qualification ?? item.degree ?? ""),
           institution: text(item.institution ?? item.school ?? ""),
-          field: text(item.field ?? ""),
-          completedYear: text(item.completedYear ?? item.endDate ?? item.to ?? ""),
+          field: text(item.fieldOfStudy ?? item.field ?? ""),
+          completedYear: text(item.endYear ?? item.completedYear ?? item.endDate ?? item.to ?? ""),
           verified: Boolean(item.verified),
         }))
       : []) as EducationRecord[],
@@ -311,6 +329,12 @@ export const realApi = {
   /** Patch-update a worker (fields sent as-is, backend accepts partial). */
   updateWorker: (id: string, body: Record<string, unknown>) =>
     hrmApi.put<Record<string, unknown>>(`/hrm/workers/${id}`, body),
+  addEmergencyContact: (workerId: string, body: Record<string, unknown>) =>
+    hrmApi.post<Record<string, unknown>>(`/hrm/workers/${workerId}/emergency-contacts`, body),
+  updateEmergencyContact: (workerId: string, contactId: string, body: Record<string, unknown>) =>
+    hrmApi.patch<Record<string, unknown>>(`/hrm/workers/${workerId}/emergency-contacts/${contactId}`, body),
+  deleteEmergencyContact: (workerId: string, contactId: string) =>
+    hrmApi.delete<unknown>(`/hrm/workers/${workerId}/emergency-contacts/${contactId}`),
   /** Soft-archive a worker. */
   archiveWorker: (id: string) => hrmApi.post<unknown>(`/hrm/workers/${id}/archive`, null),
   masterDataBatches: () =>
@@ -1005,6 +1029,10 @@ export const realApi = {
   updateHoliday: (id: string, body: Record<string, unknown>) => hrmApi.patch<unknown>(`/hrm/admin/holidays/${id}`, body),
   deleteHoliday: (id: string) => hrmApi.delete<unknown>(`/hrm/admin/holidays/${id}`),
   capabilities: () => hrmApi.get<unknown[]>("/hrm/admin/capabilities"),
+  branding: () => hrmApi.get<CompanyBranding>("/hrm/admin/branding"),
+  publicBranding: () => hrmApi.get<CompanyBranding>("/hrm/branding"),
+  updateBranding: (body: CompanyBrandingUpdate) => hrmApi.put<CompanyBranding>("/hrm/admin/branding", body),
+  resetBranding: () => hrmApi.post<CompanyBranding>("/hrm/admin/branding/reset", {}),
   // ---------- M28 CRUD audit: jobs catalogue, roles, retention rules ----------
   jobs: (params?: { includeInactive?: boolean }) =>
     hrmApi.get<unknown[]>("/hrm/admin/jobs", params ?? {}),

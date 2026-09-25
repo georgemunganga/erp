@@ -1,0 +1,40 @@
+x-smtp-environment: &smtp-environment
+      HRM__PublicUrl: https://erp.amizopower.co.zm
+      HRM__NotificationTransport: smtp
+      HRM__NotificationFallback: smtp
+      HRM__Smtp__Host: smtp.hostinger.com
+      HRM__Smtp__Port: "587"
+      HRM__Smtp__UseTls: "true"
+      HRM__Smtp__Username: notify@amizopower.co.zm
+      HRM__Smtp__Password: ${HRM_SMTP_PASSWORD}
+      HRM__Smtp__From: notify@amizopower.co.zm
+      HRM__Smtp__ReplyTo: notify@amizopower.co.zm
+      HRM__Smtp__FromName: Amizopower Engineers
+      HRM__Smtp__TimeoutMs: "15000"
+
+services:
+  hrm-api:
+    ports:
+      - "127.0.0.1:18080:8080"
+    environment: *smtp-environment
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health/live', timeout=3)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  hrm-outbox-publisher:
+    image: hrm-api_hrm-api:latest
+    container_name: erp-hrm-outbox-publisher
+    restart: unless-stopped
+    entrypoint: ["dotnet", "Mightyfin.Erp.Hrm.Api.dll", "--run-outbox-publisher"]
+    healthcheck:
+      disable: true
+    environment:
+      <<: *smtp-environment
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Hrm: Host=postgres;Port=5432;Database=erp;Username=erp;Password=${ERP_DB_PASSWORD}
+      ERP__AuthMode: ${ERP_AUTH_MODE:-local}
+      HRM__DefaultTenantId: ${HRM_DEFAULT_TENANT_ID:-amipower}
+  postgres:
+    ports:
+      - "127.0.0.1:15432:5432"

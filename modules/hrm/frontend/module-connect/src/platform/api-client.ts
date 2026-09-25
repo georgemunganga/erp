@@ -80,6 +80,12 @@ export interface LocalAuthResult {
   user: LocalAuthUser;
 }
 
+export interface AuthCapabilities {
+  mode: "local" | "hybrid" | "oidc" | "disabled";
+  localUsersEnabled: boolean;
+  identityConfigured: boolean;
+}
+
 export interface IdentityAccessUser {
   id: string;
   email: string;
@@ -95,6 +101,34 @@ export interface IdentityDirectoryUser {
   email: string;
   displayName: string;
 }
+
+export interface CompanyBranding {
+  displayName: string;
+  companyName: string;
+  companyDomain: string;
+  loginHeading: string;
+  loginDescription: string;
+  emailPlaceholder: string;
+  passwordPlaceholder: string;
+  supportEmail: string;
+  primaryColor: string;
+  primaryForegroundColor: string;
+  buttonColor: string;
+  buttonForegroundColor: string;
+  secondaryColor: string;
+  secondaryForegroundColor: string;
+  accentColor: string;
+  accentForegroundColor: string;
+  railColor: string;
+  railForegroundColor: string;
+  railMutedColor: string;
+  railActiveColor: string;
+  logoLightDataUri?: string | null;
+  logoDarkDataUri?: string | null;
+  faviconDataUri?: string | null;
+  updatedAt?: string | null;
+}
+export type CompanyBrandingUpdate = Partial<CompanyBranding>;
 
 /** Minimal shape of the linked worker returned by `hrmApi.myProfile()`. */
 export interface LinkedWorker {
@@ -202,6 +236,7 @@ export const hrmApi = {
       hrmApi.post<{ sent: boolean }>(`/hrm/identity/users/${id}/send-password-link`, {}),
   },
   auth: {
+    capabilities: () => hrmApi.get<AuthCapabilities>("/hrm/auth/capabilities"),
     login: (email: string, password: string) =>
       hrmApi.post<LocalAuthResult>("/hrm/auth/login", { email, password }),
     me: () => hrmApi.get<{ authenticated: boolean; user: LocalAuthUser | null }>("/hrm/auth/me"),

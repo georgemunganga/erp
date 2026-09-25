@@ -6,7 +6,7 @@ services:
     container_name: erp-hrm-api
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:18080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       # Keyword-format connection string; NpgsqlConnectionStringNormalizer also
@@ -18,6 +18,8 @@ services:
       - Auth__Audience=${KEYCLOAK_AUDIENCE:-}
     depends_on:
       - postgres
+    volumes:
+      - /home/amizo/hrm-documents:/tmp/erp-docs
 
   # Optional: local Postgres for development (production reuses the shared
   # `erp-postgres-1` container on the host network).
@@ -30,7 +32,7 @@ services:
       POSTGRES_USER: erp
       POSTGRES_PASSWORD: ${ERP_DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:15432:5432"
     volumes:
       - hrm-pgdata:/var/lib/postgresql/data
 

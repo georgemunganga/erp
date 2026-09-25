@@ -40,6 +40,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-button-primary: var(--button-primary);
+  --color-button-primary-foreground: var(--button-primary-foreground);
   --color-primary-soft: var(--primary-soft);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -90,6 +92,8 @@
   /* brand — Newworldcargo */
   --primary: #012642;
   --primary-foreground: #ffffff;
+  --button-primary: #012642;
+  --button-primary-foreground: #ffffff;
   --primary-soft: #e8f0f5;
   /* Yellow is reserved for supporting actions and warnings so navy remains the
      clear primary action throughout operational screens. */
@@ -144,6 +148,8 @@
      following this file's existing dark strategy of light brand + dark text. */
   --primary: #71b7df;
   --primary-foreground: #012642;
+  --button-primary: #71b7df;
+  --button-primary-foreground: #012642;
   --primary-soft: #123d5d;
   --secondary: oklch(0.28 0.02 290);
   --secondary-foreground: oklch(0.95 0.005 290);

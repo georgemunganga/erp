@@ -6603,6 +6603,10 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("preferred_name");
 
+                    b.Property<string>("ProfileDetailsJson")
+                        .HasColumnType("text")
+                        .HasColumnName("profile_details_json");
+
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date")
                         .HasColumnName("start_date");

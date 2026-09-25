@@ -749,7 +749,6 @@ public static class Routes
         // Employee number is auto-issued by the backend when the request leaves it
         // empty — the UI deliberately never asks HR to type one ("issued automatically").
         if (string.IsNullOrWhiteSpace(request.FirstName)) errors.Add("firstName is required");
-        if (string.IsNullOrWhiteSpace(request.LastName)) errors.Add("lastName is required");
         if (request.WorkerType is not ("employee" or "contingent" or "intern" or "volunteer"))
             errors.Add("workerType must be employee|contingent|intern|volunteer");
         return errors;
@@ -1259,8 +1258,26 @@ public static class Routes
 
     public static void RegisterConfig(WebApplication app)
     {
+        // Visual identity is needed on the sign-in screen before a session exists.
+        // Mutations remain under the authenticated /admin group below.
+        app.MapGet($"{HrmPrefix}/branding", async (HttpContext http,
+            Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(await svc.GetPublicAsync(ct));
+        });
         var g = app.MapGroup($"{HrmPrefix}/admin").RequireAuthorization();
         g.MapGet("/config", async (IConfigService svc, CancellationToken ct) => await svc.GetConfigAsync(ct));
+        g.MapGet("/branding", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(ct)));
+        g.MapPut("/branding", async (HttpContext http, Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+        {
+            var request = await ReadBodyAsync<Mightyfin.Erp.Hrm.Application.Branding.CompanyBrandingUpdateRequest>(http, ct)
+                ?? throw new DomainException("bad-request", "Branding settings are missing or invalid.");
+            return Results.Ok(await svc.UpdateAsync(request, ct));
+        });
+        g.MapPost("/branding/reset", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ResetAsync(ct)));
         g.MapGet("/leave-types", async ([FromQuery] bool includeInactive, IConfigService svc, CancellationToken ct) =>
             await svc.ListLeaveTypesAsync(includeInactive, ct));
 

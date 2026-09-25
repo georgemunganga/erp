@@ -45,9 +45,9 @@ import { ExportButton } from "@/platform/components/ImportExport/ExportButton";
 export const Route = createFileRoute("/hrm/employees/")({
   head: () => ({
     meta: [
-      { title: "Employees — Newworldcargo HRM" },
+      { title: "Employees — HRM" },
       { name: "description", content: "Filterable employee directory across entities, branches and employment types." },
-      { property: "og:title", content: "Employees — Newworldcargo HRM" },
+      { property: "og:title", content: "Employees — HRM" },
       { property: "og:description", content: "Filterable employee directory across entities, branches and employment types." },
     ],
   }),
@@ -112,6 +112,7 @@ function EmployeesPage() {
   );
 
   const mockState = useMock(() => api.employees());
+  const listState = USE_REAL ? { ...state, data: state.data?.items ?? null } : mockState;
   const rows: EmployeeRow[] = USE_REAL ? (state.data?.items ?? []) : mockState.data ?? [];
   const totalCount = USE_REAL ? (state.data?.totalCount ?? 0) : rows.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / EMPLOYEE_PAGE_SIZE));
@@ -360,9 +361,9 @@ function EmployeesPage() {
           ))}
         </div>
 
-        <Async state={USE_REAL ? state : mockState} rows={6}>
+        <Async state={listState} rows={6}>
           {(rendered) => {
-            const renderedRows = USE_REAL ? ((rendered as { items: EmployeeRow[] }).items ?? []) : (rendered as EmployeeRow[]);
+            const renderedRows: EmployeeRow[] = rendered;
             return (
               <div className="space-y-4">
                 <ListPage

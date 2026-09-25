@@ -60,12 +60,12 @@ const APPROVER_ROLES: Role[] = ["manager", "hr_ops", "hr_admin", "payroll"];
 export const Route = createFileRoute("/hrm/employees/$id")({
   head: () => ({
     meta: [
-      { title: "Employee profile — Newworldcargo HRM" },
+      { title: "Employee profile — HRM" },
       {
         name: "description",
         content: "Employment record: identity, contract, pay context, history and related records.",
       },
-      { property: "og:title", content: "Employee profile — Newworldcargo HRM" },
+      { property: "og:title", content: "Employee profile — HRM" },
       {
         property: "og:description",
         content: "Employment record: identity, contract, pay context, history and related records.",
@@ -578,7 +578,7 @@ function escapeReportHtml(value: string) {
 function exportReportPdf(employee: EmployeeRecord, report: EmployeeReport) {
   const popup = window.open("", "_blank");
   if (!popup) {
-    feedback.error("PDF export was blocked", "Allow pop-ups for this site, then try again.");
+    feedback.blocked("PDF export was blocked", "Allow pop-ups for this site, then try again.");
     return;
   }
   const rows = report.rows.length
@@ -646,7 +646,7 @@ function EmployeeReportsTab({ employee, profile }: { employee: EmployeeRecord; p
         title: "Employee payment details",
         description: "Recorded payment method and destination details. Sensitive account numbers stay on the protected Pay and statutory tab.",
         columns: ["Employee", "Payment method", "Account holder", "Bank", "Bank branch", "Mobile money"],
-        rows: [[employee.fullName, profile.paymentMethod, profile.accountName, profile.bankName, profile.bankBranch, profile.mobileMoneyNumber]],
+        rows: [[employee.fullName, profile.paymentMethod, profile.accountName ?? "", profile.bankName, profile.bankBranch, profile.mobileMoneyNumber ?? ""]],
         empty: "No payment details are recorded for this employee.",
       };
     }
@@ -908,10 +908,11 @@ function ProfileTabs({
         <DetailSection title="Contract">
           <FieldGrid>
             <Field label="Employment type" value={e.employmentType} />
+            {p.legacyEmploymentType ? <Field label="Previous Frappe employment type" value={p.legacyEmploymentType} /> : null}
             <Field label="Start date" value={e.startDate} />
             <Field label="Probation ends" value={p.probationEndsOn} />
             <Field label="Confirmed on" value={p.confirmedOn} />
-            <Field label="Notice period" value={`${p.noticePeriodDays} days`} />
+            <Field label="Notice period" value={p.noticePeriodDays ? `${p.noticePeriodDays} days` : ""} />
             <Field label="End date" value={e.endDate} />
           </FieldGrid>
         </DetailSection>
@@ -922,7 +923,7 @@ function ProfileTabs({
             <Field label="Department" value={e.department} />
             <Field label="Grade" value={e.grade} />
             <Field label="Reports to" value={p.reportsTo} />
-            <Field label="Legal entity" value={entities.find((x) => x.id === e.entityId)?.name} />
+            <Field label="Legal entity" value={p.legalEntityName || entities.find((x) => x.id === e.entityId)?.name} />
             <Field label="Branch" value={e.branch} />
             <Field label="Work location" value={e.location} />
             <Field

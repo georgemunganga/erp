@@ -52,12 +52,15 @@ export interface EmergencyContact {
 
 export interface EmployeeProfile {
   employeeId: string;
+  profileDetailsJson?: string;
 
   /* Identity */
   salutation: string;
   gender: string;
   dateOfBirth: string;
   maritalStatus: string;
+  legacyEmploymentType?: string;
+  legalEntityName?: string;
   nationality: string;
   passportNo?: string;
   passportExpiry?: string;

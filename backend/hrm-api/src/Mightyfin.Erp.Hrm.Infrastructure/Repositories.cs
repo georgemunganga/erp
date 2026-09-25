@@ -60,6 +60,7 @@ public sealed class WorkerRepository(HrmDbContext db) : IWorkerRepository
 
     public async Task<Worker?> GetByIdAsync(Guid id, CancellationToken ct)
         => await db.Workers.Include(w => w.EmergencyContacts).Include(w => w.BankDetails)
+            .Include(w => w.Education).Include(w => w.ExternalWorkHistory).Include(w => w.InternalWorkHistory)
             .Include(w => w.OrgUnit).Include(w => w.Location).Include(w => w.Manager)
             .FirstOrDefaultAsync(w => w.Id == id, ct);
 

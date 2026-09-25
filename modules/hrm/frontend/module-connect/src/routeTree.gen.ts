@@ -33,6 +33,7 @@ import { Route as HrmAttendanceClockRouteImport } from './routes/hrm.attendance.
 import { Route as HrmAttendanceNewRouteImport } from './routes/hrm.attendance.new'
 import { Route as HrmConfigurationIndexRouteImport } from './routes/hrm.configuration.index'
 import { Route as HrmConfigurationBranchAccessRouteImport } from './routes/hrm.configuration.branch-access'
+import { Route as HrmConfigurationBrandingRouteImport } from './routes/hrm.configuration.branding'
 import { Route as HrmConfigurationBusinessRouteImport } from './routes/hrm.configuration.business'
 import { Route as HrmConfigurationComplianceRouteImport } from './routes/hrm.configuration.compliance'
 import { Route as HrmConfigurationContractTypesRouteImport } from './routes/hrm.configuration.contract-types'
@@ -254,6 +255,12 @@ const HrmConfigurationBranchAccessRoute =
   HrmConfigurationBranchAccessRouteImport.update({
     id: '/hrm/configuration/branch-access',
     path: '/hrm/configuration/branch-access',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const HrmConfigurationBrandingRoute =
+  HrmConfigurationBrandingRouteImport.update({
+    id: '/hrm/configuration/branding',
+    path: '/hrm/configuration/branding',
     getParentRoute: () => rootRouteImport,
   } as any)
 const HrmConfigurationBusinessRoute =
@@ -805,6 +812,7 @@ export interface FileRoutesByFullPath {
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
   '/hrm/configuration/branch-access': typeof HrmConfigurationBranchAccessRoute
+  '/hrm/configuration/branding': typeof HrmConfigurationBrandingRoute
   '/hrm/configuration/business': typeof HrmConfigurationBusinessRoute
   '/hrm/configuration/compliance': typeof HrmConfigurationComplianceRoute
   '/hrm/configuration/contract-types': typeof HrmConfigurationContractTypesRoute
@@ -932,6 +940,7 @@ export interface FileRoutesByTo {
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
   '/hrm/configuration/branch-access': typeof HrmConfigurationBranchAccessRoute
+  '/hrm/configuration/branding': typeof HrmConfigurationBrandingRoute
   '/hrm/configuration/business': typeof HrmConfigurationBusinessRoute
   '/hrm/configuration/compliance': typeof HrmConfigurationComplianceRoute
   '/hrm/configuration/contract-types': typeof HrmConfigurationContractTypesRoute
@@ -1060,6 +1069,7 @@ export interface FileRoutesById {
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
   '/hrm/configuration/branch-access': typeof HrmConfigurationBranchAccessRoute
+  '/hrm/configuration/branding': typeof HrmConfigurationBrandingRoute
   '/hrm/configuration/business': typeof HrmConfigurationBusinessRoute
   '/hrm/configuration/compliance': typeof HrmConfigurationComplianceRoute
   '/hrm/configuration/contract-types': typeof HrmConfigurationContractTypesRoute
@@ -1189,6 +1199,7 @@ export interface FileRouteTypes {
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
     | '/hrm/configuration/branch-access'
+    | '/hrm/configuration/branding'
     | '/hrm/configuration/business'
     | '/hrm/configuration/compliance'
     | '/hrm/configuration/contract-types'
@@ -1316,6 +1327,7 @@ export interface FileRouteTypes {
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
     | '/hrm/configuration/branch-access'
+    | '/hrm/configuration/branding'
     | '/hrm/configuration/business'
     | '/hrm/configuration/compliance'
     | '/hrm/configuration/contract-types'
@@ -1443,6 +1455,7 @@ export interface FileRouteTypes {
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
     | '/hrm/configuration/branch-access'
+    | '/hrm/configuration/branding'
     | '/hrm/configuration/business'
     | '/hrm/configuration/compliance'
     | '/hrm/configuration/contract-types'
@@ -1571,6 +1584,7 @@ export interface RootRouteChildren {
   HrmAttendanceClockRoute: typeof HrmAttendanceClockRoute
   HrmAttendanceNewRoute: typeof HrmAttendanceNewRoute
   HrmConfigurationBranchAccessRoute: typeof HrmConfigurationBranchAccessRoute
+  HrmConfigurationBrandingRoute: typeof HrmConfigurationBrandingRoute
   HrmConfigurationBusinessRoute: typeof HrmConfigurationBusinessRoute
   HrmConfigurationComplianceRoute: typeof HrmConfigurationComplianceRoute
   HrmConfigurationContractTypesRoute: typeof HrmConfigurationContractTypesRoute
@@ -1831,6 +1845,13 @@ declare module '@tanstack/react-router' {
       path: '/hrm/configuration/branch-access'
       fullPath: '/hrm/configuration/branch-access'
       preLoaderRoute: typeof HrmConfigurationBranchAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hrm/configuration/branding': {
+      id: '/hrm/configuration/branding'
+      path: '/hrm/configuration/branding'
+      fullPath: '/hrm/configuration/branding'
+      preLoaderRoute: typeof HrmConfigurationBrandingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hrm/configuration/business': {
@@ -2718,6 +2739,7 @@ const rootRouteChildren: RootRouteChildren = {
   HrmAttendanceClockRoute: HrmAttendanceClockRoute,
   HrmAttendanceNewRoute: HrmAttendanceNewRoute,
   HrmConfigurationBranchAccessRoute: HrmConfigurationBranchAccessRoute,
+  HrmConfigurationBrandingRoute: HrmConfigurationBrandingRoute,
   HrmConfigurationBusinessRoute: HrmConfigurationBusinessRoute,
   HrmConfigurationComplianceRoute: HrmConfigurationComplianceRoute,
   HrmConfigurationContractTypesRoute: HrmConfigurationContractTypesRoute,

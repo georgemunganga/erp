@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppProvider } from "../platform/app-context";
 import { AuthProvider } from "../platform/auth";
+import { BrandingProvider } from "@/platform/branding";
 
 function NotFoundComponent() {
   return (
@@ -87,11 +88,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      // Product identity is Newworldcargo; employer data remains tenant-scoped and configurable.
-      { title: "Newworldcargo HRM — HR workspace" },
-      { name: "description", content: "Newworldcargo HRM workspace for leave, attendance, requests and pay." },
-      { name: "author", content: "Newworldcargo" },
-      { property: "og:title", content: "Newworldcargo HRM — HR workspace" },
+      { title: "HR workspace" },
+      { name: "description", content: "HR workspace for leave, attendance, requests and pay." },
+      { property: "og:title", content: "HR workspace" },
       { property: "og:description", content: "HR operations workspace for leave, attendance, requests and pay." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -107,8 +106,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
       },
-      { rel: "icon", href: "/newworld-cargo-logo.png", type: "image/png" },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
   shellComponent: RootShell,
@@ -138,10 +136,12 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AppProvider>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
-        </AppProvider>
+        <BrandingProvider>
+          <AppProvider>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+          </AppProvider>
+        </BrandingProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
