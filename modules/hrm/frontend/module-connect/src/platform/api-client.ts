@@ -80,6 +80,12 @@ export interface LocalAuthResult {
   user: LocalAuthUser;
 }
 
+export interface AuthCapabilities {
+  mode: "local" | "hybrid" | "oidc" | "disabled";
+  localUsersEnabled: boolean;
+  identityConfigured: boolean;
+}
+
 export interface IdentityAccessUser {
   id: string;
   email: string;
@@ -230,6 +236,7 @@ export const hrmApi = {
       hrmApi.post<{ sent: boolean }>(`/hrm/identity/users/${id}/send-password-link`, {}),
   },
   auth: {
+    capabilities: () => hrmApi.get<AuthCapabilities>("/hrm/auth/capabilities"),
     login: (email: string, password: string) =>
       hrmApi.post<LocalAuthResult>("/hrm/auth/login", { email, password }),
     me: () => hrmApi.get<{ authenticated: boolean; user: LocalAuthUser | null }>("/hrm/auth/me"),

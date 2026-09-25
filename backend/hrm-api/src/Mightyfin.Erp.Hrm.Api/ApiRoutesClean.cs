@@ -749,7 +749,6 @@ public static class Routes
         // Employee number is auto-issued by the backend when the request leaves it
         // empty — the UI deliberately never asks HR to type one ("issued automatically").
         if (string.IsNullOrWhiteSpace(request.FirstName)) errors.Add("firstName is required");
-        if (string.IsNullOrWhiteSpace(request.LastName)) errors.Add("lastName is required");
         if (request.WorkerType is not ("employee" or "contingent" or "intern" or "volunteer"))
             errors.Add("workerType must be employee|contingent|intern|volunteer");
         return errors;

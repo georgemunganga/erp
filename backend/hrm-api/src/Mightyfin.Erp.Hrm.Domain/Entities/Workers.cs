@@ -15,6 +15,7 @@ public class Worker : Entity
     public string? PersonalEmail { get; set; }
     public string? Phone { get; set; }
     public string? PhotoUrl { get; set; }
+    public string? ProfileDetailsJson { get; set; }
 
     // Statutory / Zambian identity pack
     public string? Nrc { get; set; }           // national registration card

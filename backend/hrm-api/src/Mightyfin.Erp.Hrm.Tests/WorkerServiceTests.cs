@@ -106,6 +106,30 @@ public class WorkerServiceTests
     }
 
     [Fact]
+    public async Task PersonnelDetails_RoundTripThroughCreateAndUpdate()
+    {
+        var (service, _) = Build();
+        var created = await service.CreateAsync(new WorkerCreateRequest(
+            EmployeeNo: "EMP-PROFILE", FirstName: "Mina", LastName: "Dube",
+            ProfileDetailsJson: "{\"salutation\":\"Ms\",\"gender\":\"Female\"}"), CancellationToken.None);
+        Assert.Contains("\"salutation\":\"Ms\"", created.ProfileDetailsJson);
+
+        var updated = await service.UpdateAsync(created.Id, new WorkerUpdateRequest(
+            ProfileDetailsJson: "{\"salutation\":\"Dr\",\"gender\":\"Female\"}"), CancellationToken.None);
+        Assert.Contains("\"salutation\":\"Dr\"", updated.ProfileDetailsJson);
+        Assert.Equal(updated.ProfileDetailsJson, (await service.GetByIdAsync(created.Id, CancellationToken.None))?.ProfileDetailsJson);
+    }
+
+    [Fact]
+    public async Task PersonnelDetails_RejectNonObjectJson()
+    {
+        var (service, _) = Build();
+        await Assert.ThrowsAsync<DomainException>(() => service.CreateAsync(new WorkerCreateRequest(
+            EmployeeNo: "EMP-INVALID", FirstName: "Mina", LastName: "Dube",
+            ProfileDetailsJson: "[]"), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task TenantFilter_ScopesQueriesToCurrentTenant()
     {
         var ctx = TestDbContextFactory.Create("tenant-a");
@@ -307,15 +331,14 @@ public class WorkerServiceTests
     }
 
     [Fact]
-    public void CreateWorker_MissingNames_InvalidWorkerType_FailRouteValidation()
+    public void CreateWorker_MissingFirstName_InvalidWorkerType_FailRouteValidation()
     {
         // The API route (ValidateWorkerCreate) is what produces the 422 for HR.
-        // Re-derive the same rules here: empty names and a bogus worker type are
-        // all caught before the service layer is reached.
+        // Re-derive the same rules here: a missing name and a bogus worker type
+        // are caught before the service layer is reached. Mononyms are allowed.
         var bad = new[]
         {
             new WorkerCreateRequest(EmployeeNo: "EMP-A5", FirstName: "", LastName: "Worker", WorkerType: "employee"),
-            new WorkerCreateRequest(EmployeeNo: "EMP-A6", FirstName: "Valid", LastName: "", WorkerType: "employee"),
             new WorkerCreateRequest(EmployeeNo: "EMP-A7", FirstName: "Valid", LastName: "Worker", WorkerType: "freelancer"),
         };
         var allowedTypes = new[] { "employee", "contingent", "intern", "volunteer" };
@@ -323,15 +346,13 @@ public class WorkerServiceTests
         {
             var errors = new List<string>();
             if (string.IsNullOrWhiteSpace(request.FirstName)) errors.Add("firstName is required");
-            if (string.IsNullOrWhiteSpace(request.LastName)) errors.Add("lastName is required");
             if (!allowedTypes.Contains(request.WorkerType)) errors.Add("workerType is invalid");
             Assert.NotEmpty(errors);
         }
         // And the happy path validates clean.
-        var ok = new WorkerCreateRequest(EmployeeNo: "EMP-A8", FirstName: "Bwalya", LastName: "Chanda", WorkerType: "employee");
+        var ok = new WorkerCreateRequest(EmployeeNo: "EMP-A8", FirstName: "Bwalya", LastName: "", WorkerType: "employee");
         var okErrors = new List<string>();
         if (string.IsNullOrWhiteSpace(ok.FirstName)) okErrors.Add("firstName is required");
-        if (string.IsNullOrWhiteSpace(ok.LastName)) okErrors.Add("lastName is required");
         if (!allowedTypes.Contains(ok.WorkerType)) okErrors.Add("workerType is invalid");
         Assert.Empty(okErrors);
     }

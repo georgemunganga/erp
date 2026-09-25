@@ -110,6 +110,7 @@ internal static class LocalIdentityRoutes
         foreach (var prefix in new[] { "/api/hrm/auth", "/api/v1/hrm/auth" })
         {
             var g = app.MapGroup(prefix);
+            g.MapGet("/capabilities", (IConfiguration config) => Results.Ok(AuthCapabilities(config))).AllowAnonymous();
             g.MapPost("/login", LoginAsync).AllowAnonymous();
             g.MapGet("/me", MeAsync).AllowAnonymous();
             g.MapPost("/logout", LogoutAsync).RequireAuthorization();
@@ -122,6 +123,18 @@ internal static class LocalIdentityRoutes
             g.MapPost("/users/{id:guid}/reset-password", ResetPasswordAsync).RequireAuthorization("hrm-admin");
             g.MapPost("/users/{id:guid}/send-password-link", SendPasswordLinkAsync).RequireAuthorization("hrm-admin");
         }
+    }
+
+    internal static object AuthCapabilities(IConfiguration config)
+    {
+        var mode = (config["ERP:AuthMode"] ?? config["HRM:AuthMode"] ?? "local").Trim().ToLowerInvariant();
+        var identityConfigured = !string.IsNullOrWhiteSpace(config["HRM:IdentityBaseUrl"]);
+        return new
+        {
+            mode,
+            localUsersEnabled = mode is "local" or "hybrid",
+            identityConfigured = identityConfigured && (mode is "oidc" or "hybrid"),
+        };
     }
 
     public static string[] ParseRoles(string csv)

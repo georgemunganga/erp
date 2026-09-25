@@ -21,7 +21,8 @@ public sealed record WorkerCreateRequest(
     string? Grade = null, string? JobTitle = null, string? StartDate = null,
     string WorkerType = "employee",
     List<EmergencyContactCreate>? EmergencyContacts = null,
-    List<WorkerBankDetailCreate>? BankDetails = null);
+    List<WorkerBankDetailCreate>? BankDetails = null,
+    string? ProfileDetailsJson = null);
 
 public sealed record EmergencyContactCreate(string Relationship, string FullName, string? Phone, bool IsPrimary);
 
@@ -49,7 +50,8 @@ public sealed record WorkerUpdateRequest(
     Guid? ManagerId = null, string? Grade = null, string? JobTitle = null,
     string? Status = null, string? ContractType = null, string? StartDate = null, string? EndDate = null, string? SubjectId = null,
     List<EmergencyContactCreate>? EmergencyContacts = null,
-    List<WorkerBankDetailCreate>? BankDetails = null);
+    List<WorkerBankDetailCreate>? BankDetails = null,
+    string? ProfileDetailsJson = null);
 
 public sealed record WorkerDto(
     Guid Id, string EmployeeNo, string FirstName, string? MiddleName, string LastName,
@@ -61,7 +63,7 @@ public sealed record WorkerDto(
     string? StartDate, string? EndDate,
     List<EmergencyContactDto> EmergencyContacts, List<WorkerBankDetailDto> BankDetails,
     List<WorkerEducationDto> Education, List<ExternalWorkHistoryDto> ExternalWorkHistory, List<InternalWorkHistoryDto> InternalWorkHistory,
-    DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
+    DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt, string? ProfileDetailsJson = null);
 
 public sealed record EmergencyContactDto(Guid Id, string Relationship, string FullName, string? Phone, bool IsPrimary);
 public sealed record WorkerBankDetailDto(Guid Id, string BankName, string BranchCode, string AccountNumber, string AccountName, string PaymentMethod, string? MobileMoneyNumber, bool IsPrimary);

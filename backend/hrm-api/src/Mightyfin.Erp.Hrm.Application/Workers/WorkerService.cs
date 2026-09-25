@@ -79,6 +79,7 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
             MiddleName = request.MiddleName,
             LastName = request.LastName,
             PreferredName = request.PreferredName,
+            ProfileDetailsJson = ValidateProfileDetails(request.ProfileDetailsJson),
             Email = request.Email,
             PersonalEmail = request.PersonalEmail,
             Phone = request.Phone,
@@ -121,6 +122,8 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
         if (request.MiddleName is not null) worker.MiddleName = request.MiddleName;
         if (request.LastName is not null) worker.LastName = request.LastName;
         if (request.PreferredName is not null) worker.PreferredName = request.PreferredName;
+        if (request.ProfileDetailsJson is not null)
+            worker.ProfileDetailsJson = ValidateProfileDetails(request.ProfileDetailsJson);
         if (request.Email is not null) worker.Email = request.Email;
         if (request.PersonalEmail is not null) worker.PersonalEmail = request.PersonalEmail;
         if (request.Phone is not null) worker.Phone = request.Phone;
@@ -378,7 +381,25 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
         w.Education.Select(e => new WorkerEducationDto(e.Id, e.Institution, e.Qualification, e.FieldOfStudy, e.Grade, e.StartYear, e.EndYear)).ToList(),
         w.ExternalWorkHistory.Select(e => new ExternalWorkHistoryDto(e.Id, e.Company, e.Role, e.StartDate, e.EndDate, e.Responsibilities)).ToList(),
         w.InternalWorkHistory.Select(e => new InternalWorkHistoryDto(e.Id, e.OrgUnitName, e.Role, e.Grade, e.StartDate, e.EndDate, e.Reason)).ToList(),
-        w.CreatedAt, w.UpdatedAt);
+        w.CreatedAt, w.UpdatedAt, includeSensitive ? w.ProfileDetailsJson : null);
+
+    private static string? ValidateProfileDetails(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        if (json.Length > 16_384)
+            throw new DomainException("profile-details-too-large", "Personnel profile details are too large.");
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                throw new DomainException("profile-details-invalid", "Personnel profile details must be a JSON object.");
+            return document.RootElement.GetRawText();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            throw new DomainException("profile-details-invalid", "Personnel profile details must be valid JSON.");
+        }
+    }
 
     // M35: self-service notification preferences
     public async Task<string?> GetMyPreferencesAsync(string subjectId, CancellationToken ct)
