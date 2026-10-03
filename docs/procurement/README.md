@@ -8,6 +8,8 @@
 
 [PROC-UX-03 Lovable Implementation Review](PROC-UX-03-LOVABLE-IMPLEMENTATION-REVIEW.md) compares the prompt pack with the current `module-connect` Procurement UI and provides a corrective prompt to run before Prompt 09.
 
+[PROC-UX-04 Procurement Settings and Empty Record States](PROC-UX-04-SETTINGS-AND-EMPTY-RECORD-STATES.md) defines the configuration directory, Bill approval previews, and working CRUD-oriented empty states for first-use pages.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |
