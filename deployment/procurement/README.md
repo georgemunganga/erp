@@ -1,6 +1,6 @@
 # Procurement UI demo on the ERP hostname
 
-The Procurement button on `https://erp.amizopower.co.zm/` opens `/procurement` in a separately deployed frontend. This is the browser-local UI demo from `georgemunganga/module-connect`, currently at commit `ffe767d`. It does not connect to the live HRM API, Finance, or payments.
+The Procurement button on `https://erp.amizopower.co.zm/` opens `/procurement` in a separately deployed frontend. This is the browser-local UI demo from `georgemunganga/module-connect`. It does not connect to the live HRM API, Finance, or payments.
 
 ## Runtime
 
