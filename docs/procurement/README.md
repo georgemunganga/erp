@@ -6,6 +6,8 @@
 
 [PROC-UX-02 Complete Procurement UI Prompt Pack](PROC-UX-02-COMPLETE-LOVABLE-UI-PROMPT-PACK.md) provides a sequenced Lovable handoff for the entire internal and supplier-facing UI, including role views, exception states, and an end-to-end journey.
 
+[PROC-UX-03 Lovable Implementation Review](PROC-UX-03-LOVABLE-IMPLEMENTATION-REVIEW.md) compares the prompt pack with the current `module-connect` Procurement UI and provides a corrective prompt to run before Prompt 09.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |

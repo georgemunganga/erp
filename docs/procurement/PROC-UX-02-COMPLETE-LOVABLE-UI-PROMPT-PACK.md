@@ -13,6 +13,7 @@ This pack covers the whole planned Procurement UI. It is a sequence of copyable 
 3. Ask Lovable to show changed routes, screens, and working interactions after each prompt. Review those before sending the next prompt.
 4. Use a typed data-access boundary and realistic local demo data if the Procurement API does not exist. Show a visible **Demo data** label. Do not imply a payment, budget reservation, supplier verification, tax validation, bid submission, or notification was executed externally when only local UI state changed.
 5. Make all demo transitions obey the same basic state and permission rules as the feature documents. A button is not complete merely because it changes a label.
+6. For the current `module-connect` implementation, run the corrective prompt in [PROC-UX-03](PROC-UX-03-LOVABLE-IMPLEMENTATION-REVIEW.md) before Prompt 09. Require route, working-action, cross-screen state, refresh, permission, negative-path, and remaining-work evidence before checking off each later milestone.
 
 ## Shared UI contract for every prompt
 
