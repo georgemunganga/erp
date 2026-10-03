@@ -10,6 +10,8 @@
 
 [PROC-UX-04 Procurement Settings and Empty Record States](PROC-UX-04-SETTINGS-AND-EMPTY-RECORD-STATES.md) defines the configuration directory, Bill approval previews, and working CRUD-oriented empty states for first-use pages.
 
+[PROC-UX-05 New Vendor Form](PROC-UX-05-NEW-VENDOR-FORM.md) specifies the tabbed onboarding form, validation, document limits, and review status used by the frontend.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |
