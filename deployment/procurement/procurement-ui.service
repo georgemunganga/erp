@@ -1,0 +1,20 @@
+[Unit]
+Description=Amipower Procurement UI demo
+After=network.target
+
+[Service]
+Type=simple
+User=amizo
+Group=amizo
+WorkingDirectory=/home/amizo/procurement-ui
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3301
+Environment=NITRO_HOST=127.0.0.1
+Environment=NITRO_PORT=3301
+ExecStart=/home/amizo/.nvm/versions/node/v22.23.2/bin/node /home/amizo/procurement-ui/.output/server/index.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

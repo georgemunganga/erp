@@ -864,7 +864,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
             <DropdownMenuContent align="start" className="w-64">
               <DropdownMenuLabel>Modules</DropdownMenuLabel>
               {modules.map((m) => (
-                <DropdownMenuItem key={m.id} disabled={!m.available}>
+                <DropdownMenuItem key={m.id} disabled={!m.available} onSelect={() => { if (m.available) window.location.assign(m.to); }}>
                   {m.label}
                   {!m.available ? <span className="ml-auto text-xs text-muted-foreground">Not enabled</span> : null}
                 </DropdownMenuItem>

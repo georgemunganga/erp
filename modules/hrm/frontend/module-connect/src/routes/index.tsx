@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, Clock } from "lucide-react";
 import { modules } from "@/platform/modules";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
@@ -33,9 +33,9 @@ function Entrance() {
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>
             m.available ? (
-              <Link
+              <a
                 key={m.id}
-                to={m.to}
+                href={m.to}
                 className="group flex flex-col gap-2 rounded-lg border bg-surface p-5 transition-colors hover:border-primary hover:bg-primary-soft"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -46,7 +46,7 @@ function Entrance() {
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">{m.description}</p>
-              </Link>
+              </a>
             ) : (
               <div
                 key={m.id}
