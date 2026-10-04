@@ -115,6 +115,7 @@ builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Analytics.IAnalyticsRep
 builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Analytics.IAnalyticsService, Mightyfin.Erp.Hrm.Application.Analytics.AnalyticsServiceImpl>();
 builder.Services.AddScoped<IOffboardingService, OffboardingServiceImpl>();
 builder.Services.AddScoped<IPayrollRepository, PayrollRepository>();
+builder.Services.AddScoped<IPayslipLeaveSummaryService, PayslipLeaveSummaryService>();
 builder.Services.AddScoped<IPayrollService, PayrollServiceImpl>();
 builder.Services.AddScoped<IPeriodOvertimeService, PeriodOvertimeService>();
 builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Benefits.IPeriodBenefitService, PeriodBenefitService>();

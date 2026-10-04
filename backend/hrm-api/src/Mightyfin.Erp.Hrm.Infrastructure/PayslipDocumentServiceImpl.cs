@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +16,8 @@ namespace Mightyfin.Erp.Hrm.Infrastructure;
 /// converts it to PDF with weasyprint, then uploads to durable object storage.
 /// This is a v1 reference implementation — a template service could swap in a
 /// different renderer without touching the payroll domain.</summary>
-public sealed class PayslipDocumentServiceImpl(HrmDbContext db) : IPayslipDocumentService
+public sealed class PayslipDocumentServiceImpl(HrmDbContext db,
+    IPayslipLeaveSummaryService? leaveSummary = null) : IPayslipDocumentService
 {
     public async Task<string> GenerateAsync(Payslip slip, PayrollRunLine line, CancellationToken ct)
     {
@@ -25,9 +27,12 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db) : IPayslipDocume
         var components = await db.PayrollLineComponents
             .Where(c => c.RunLineId == line.Id).ToListAsync(ct);
         var periodLabel = run.PayPeriod?.PeriodLabel ?? "";
+        List<PayslipLeaveTakenDto> leaveTaken = run.PayPeriod is null || leaveSummary is null
+            ? []
+            : await leaveSummary.GetAsync(line.WorkerId, run.PayPeriod.StartDate, run.PayPeriod.EndDate, ct);
 
         var html = RenderPayslipHtml(worker.FullName, worker.EmployeeNo ?? "", periodLabel,
-            slip.PayslipNo, components, slip.GrossPay, slip.TotalDeductions, slip.NetPay,
+            slip.PayslipNo, components, leaveTaken, slip.GrossPay, slip.TotalDeductions, slip.NetPay,
             slip.YtdGross, slip.YtdTax, slip.YtdNet,
             slip.WorkerNrc, slip.WorkerTpin, slip.WorkerNapsaNumber, slip.WorkerNhimaNumber);
 
@@ -71,7 +76,8 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db) : IPayslipDocume
     }
 
     private static string RenderPayslipHtml(string workerName, string employeeNo, string periodLabel,
-        string payslipNo, List<PayrollLineComponent> components, decimal gross, decimal deductions,
+        string payslipNo, List<PayrollLineComponent> components, List<PayslipLeaveTakenDto> leaveTaken,
+        decimal gross, decimal deductions,
         decimal net, string? ytdGross, string? ytdTax, string? ytdNet,
         string? workerNrc = null, string? workerTpin = null,
         string? workerNapsaNumber = null, string? workerNhimaNumber = null)
@@ -104,6 +110,17 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db) : IPayslipDocume
               .Append($"<td class='muted'>{Escape(c.Explanation)}</td></tr>");
         }
         sb.Append("</table>")
+          .Append("<h2>Leave taken in this pay period</h2>");
+        if (leaveTaken.Count == 0)
+            sb.Append("<p class='muted'>No approved leave recorded for this period.</p>");
+        else
+        {
+            sb.Append("<table><tr><th>Leave type</th><th>Dates</th><th class='right'>Days</th></tr>");
+            foreach (var leave in leaveTaken)
+                sb.Append($"<tr><td>{Escape(leave.LeaveTypeName)}</td><td>{Escape(leave.StartDate)} to {Escape(leave.EndDate)}</td><td class='right'>{leave.Days.ToString("0.##", CultureInfo.InvariantCulture)}</td></tr>");
+            sb.Append($"<tr><th colspan='2'>Total leave taken</th><th class='right'>{leaveTaken.Sum(l => l.Days).ToString("0.##", CultureInfo.InvariantCulture)}</th></tr></table>");
+        }
+        sb
           .Append("<h2>Summary</h2><table>")
           .Append($"<tr><td>Gross pay</td><td class='right'>{gross:N2}</td></tr>")
           .Append($"<tr><td>Total deductions</td><td class='right'>{deductions:N2}</td></tr>")

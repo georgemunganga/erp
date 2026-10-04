@@ -94,9 +94,17 @@ type PreviewComponent = {
   amount: number;
   explanation: string;
 };
+type PreviewLeaveTaken = {
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+};
 type PayslipPreview = {
   status: "ready" | "blocked";
   guardrails: string[];
+  leaveTaken: PreviewLeaveTaken[];
   run?: {
     id: string;
     period: string;
@@ -217,6 +225,19 @@ function previewLine(raw: unknown): NonNullable<PayslipPreview["line"]> {
   };
 }
 
+function previewLeaveTaken(raw: unknown): PreviewLeaveTaken[] {
+  return (Array.isArray(raw) ? raw : []).map((item) => {
+    const row = item as Record<string, unknown>;
+    return {
+      leaveTypeCode: rawText(row, "leaveTypeCode"),
+      leaveTypeName: rawText(row, "leaveTypeName", "leaveTypeCode"),
+      startDate: rawText(row, "startDate"),
+      endDate: rawText(row, "endDate"),
+      days: Number(row.days ?? 0),
+    };
+  }).filter((row) => row.days > 0);
+}
+
 async function currentPayslipSimulationFor(workerId: string): Promise<PayslipPreview> {
   const rawPreview = (await realApi.workerPayslipPreview(workerId)) as Record<string, unknown>;
   const rawLine = rawPreview.line as Record<string, unknown> | undefined;
@@ -231,6 +252,7 @@ async function currentPayslipSimulationFor(workerId: string): Promise<PayslipPre
   return {
     status: rawText(rawPreview, "status") === "ready" && guardrails.length === 0 ? "ready" : "blocked",
     guardrails,
+    leaveTaken: previewLeaveTaken(rawPreview.leaveTaken),
     run: {
       id: "current-preview",
       period: rawText(rawPreview, "periodLabel") || "Current pay period",
@@ -242,7 +264,7 @@ async function currentPayslipSimulationFor(workerId: string): Promise<PayslipPre
   };
 }
 
-async function latestPayslipPreviewFor(workerId: string): Promise<PayslipPreview> {
+async function latestPayslipPreviewFor(workerId: string, selectedRunId = "latest"): Promise<PayslipPreview> {
   const runs = (await realApi.payrollRuns()).items
     .map(previewRun)
     .filter((run) => run.id)
@@ -250,14 +272,15 @@ async function latestPayslipPreviewFor(workerId: string): Promise<PayslipPreview
   const usableRuns = runs.filter(
     (run) => !["draft", "locked", "cancelled", "void", "reversed"].includes(run.status),
   );
-  const searchRuns = usableRuns;
+  const searchRuns = selectedRunId === "latest"
+    ? usableRuns : usableRuns.filter((run) => run.id === selectedRunId);
   const guardrails: string[] = [];
 
   // A current-period simulation is newer than a released historical payslip.
   // Calculated lines for the current period still take precedence over simulations.
   const now = new Date();
   const currentMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-  if ((usableRuns[0]?.periodOrder ?? 0) < currentMonth) {
+  if (selectedRunId === "latest" && (usableRuns[0]?.periodOrder ?? 0) < currentMonth) {
     try {
       const simulation = await currentPayslipSimulationFor(workerId);
       if (periodOrder(simulation.run?.period ?? "") > (usableRuns[0]?.periodOrder ?? 0))
@@ -296,10 +319,14 @@ async function latestPayslipPreviewFor(workerId: string): Promise<PayslipPreview
     return {
       status: guardrails.length ? "blocked" : "ready",
       guardrails,
+      leaveTaken: previewLeaveTaken(await realApi.payrollRunLeaveTaken(run.id, workerId)),
       run,
       line,
     };
   }
+
+  if (selectedRunId !== "latest")
+    return { status: "blocked", guardrails: ["No calculated payroll line was found for this employee in the selected run."], leaveTaken: [] };
 
   try {
     return await currentPayslipSimulationFor(workerId);
@@ -309,6 +336,7 @@ async function latestPayslipPreviewFor(workerId: string): Promise<PayslipPreview
 
   return {
     status: "blocked",
+    leaveTaken: [],
     guardrails: [
       runs.length
         ? "No calculated payroll line was found for this employee."
@@ -329,15 +357,22 @@ function PayslipPreviewDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [selectedRunId, setSelectedRunId] = useState("latest");
+  useEffect(() => { if (!open) setSelectedRunId("latest"); }, [open]);
+  const runsState = useApi(() => open && USE_REAL ? realApi.payrollRuns() : Promise.resolve({ items: [], totalCount: 0 }), [open]);
+  const availableRuns = ((runsState.data?.items ?? []) as unknown[]).map(previewRun)
+    .filter((run) => run.id && !["draft", "locked", "cancelled", "void", "reversed"].includes(run.status))
+    .sort((a, b) => b.periodOrder - a.periodOrder || b.sortKey.localeCompare(a.sortKey));
   const state = useApi(
     () =>
       open && USE_REAL
-        ? latestPayslipPreviewFor(employee.id)
+        ? latestPayslipPreviewFor(employee.id, selectedRunId)
         : Promise.resolve({
             status: "blocked",
             guardrails: ["Payslip preview is available in the live HRMS."],
+            leaveTaken: [],
           } as PayslipPreview),
-    [open, employee.id],
+    [open, employee.id, selectedRunId],
   );
   const preview = state.data;
   const line = preview?.line;
@@ -382,6 +417,18 @@ function PayslipPreviewDialog({
           </div>
         ) : (
           <div className="space-y-5">
+            {availableRuns.length > 0 ? (
+              <div className="max-w-sm space-y-1">
+                <label htmlFor="payslip-preview-period" className="text-sm font-medium">Payslip period</label>
+                <Select value={selectedRunId} onValueChange={setSelectedRunId}>
+                  <SelectTrigger id="payslip-preview-period"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="latest">Latest available period</SelectItem>
+                    {availableRuns.map((run) => <SelectItem key={run.id} value={run.id}>{run.period} · {run.status.replaceAll("-", " ")}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="grid gap-3 md:grid-cols-4">
               <div className="rounded-md border bg-surface p-3">
                 <div className="text-xs text-muted-foreground">Period</div>
@@ -402,6 +449,21 @@ function PayslipPreviewDialog({
                 <div className="mt-1 font-semibold">{line ? money(line.net, currency) : "—"}</div>
               </div>
             </div>
+
+            {line ? (
+              <section className="rounded-md border bg-surface p-4">
+                <h3 className="font-semibold">Leave taken in this pay period</h3>
+                {preview?.leaveTaken.length ? (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b text-left text-muted-foreground"><th className="py-2">Leave type</th><th className="py-2">Dates</th><th className="py-2 text-right">Days</th></tr></thead>
+                      <tbody>{preview.leaveTaken.map((leave, index) => <tr key={`${leave.leaveTypeCode}-${leave.startDate}-${index}`} className="border-b last:border-0"><td className="py-2">{leave.leaveTypeName}</td><td className="py-2">{leave.startDate} to {leave.endDate}</td><td className="py-2 text-right">{leave.days}</td></tr>)}</tbody>
+                      <tfoot><tr className="font-semibold"><td className="pt-2" colSpan={2}>Total leave taken</td><td className="pt-2 text-right">{preview.leaveTaken.reduce((sum, leave) => sum + leave.days, 0)}</td></tr></tfoot>
+                    </table>
+                  </div>
+                ) : <p className="mt-2 text-sm text-muted-foreground">No approved leave recorded for this period.</p>}
+              </section>
+            ) : null}
 
             {preview?.guardrails.length || profileWarnings.length ? (
               <div className="rounded-md border border-warning/40 bg-warning/10 p-4">
