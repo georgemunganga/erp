@@ -11,6 +11,8 @@
 
 This technical foundation follows the HRMS backend pattern: ASP.NET Core 10, Domain/Application/Infrastructure/API projects, EF Core migrations, PostgreSQL, tenant-scoped records, append-only audit metadata, and health probes. It has its own `procurement` schema and migration history in the ERP database. The API project is an isolated development/migration host; the adopted [ERP architecture](../00-architecture-position.md) calls for one production deployment with bounded modules. It has **no business CRUD API routes yet** and has not been applied to the live ERP database.
 
+The initial tables do **not** contain every business field. [PROC-BE-01](PROC-BE-01-FIELD-COVERAGE-AND-SCHEMA-GATES.md) records field-level gaps and the additive migration gate for each CRUD milestone.
+
 ## 1. Feature Identification
 
 `PROC-BE-00` is the backend foundation for `PROC-CFG-01`, `PROC-01`, `PROC-02`, and later child features. Operations: `P0-O1` establish module projects, `P0-O2` create isolated schema/migration, `P0-O3` enforce scoped persistence, `P0-O4` expose health/authenticated metadata, `P0-O5` validate an isolated deployment. The implementation is in [backend/procurement-api](../../backend/procurement-api/README.md).

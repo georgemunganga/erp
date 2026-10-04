@@ -22,6 +22,8 @@
 
 [PROC-BE-00 Backend Foundation and CRUD Milestones](PROC-BE-00-BACKEND-FOUNDATION-MILESTONES.md) applies the 28-section standard to the .NET/PostgreSQL foundation, records the isolated migration evidence, and sets the access gate and CRUD build sequence.
 
+[PROC-BE-01 Field Coverage and Schema Gates](PROC-BE-01-FIELD-COVERAGE-AND-SCHEMA-GATES.md) audits the actual P0 tables against the Procurement specs and public ERPNext/Zoho fields. It identifies the fields and child tables required before Vendor, Item, Purchase Request and later CRUD can use the backend.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |
