@@ -24,6 +24,8 @@
 
 [PROC-BE-01 Field Coverage and Schema Gates](PROC-BE-01-FIELD-COVERAGE-AND-SCHEMA-GATES.md) audits the actual P0 tables against the Procurement specs and public ERPNext/Zoho fields. It identifies the fields and child tables required before Vendor, Item, Purchase Request and later CRUD can use the backend.
 
+[PROC-BE-02 Shared Host and Access Scope](PROC-BE-02-SHARED-HOST-ACCESS.md) documents how Procurement is composed into the existing ERP API and resolves authenticated tenant, company and branch scope before business CRUD.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |

@@ -2,6 +2,8 @@
 docs
 README.md
 **/node_modules
+**/bin
+**/obj
 **/dist
 **/.output
 **/.wrangler

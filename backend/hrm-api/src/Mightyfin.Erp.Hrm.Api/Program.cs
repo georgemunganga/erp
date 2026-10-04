@@ -59,6 +59,15 @@ builder.Services.AddDbContext<HrmDbContext>((services, options) =>
     options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     options.AddInterceptors(services.GetRequiredService<AuditInterceptor>());
 });
+// Procurement is a bounded module in this ERP host. Its schema still has an
+// independent migration command and credential; normal HRM startup never migrates it.
+var procurementConnStr = builder.Configuration.GetConnectionString("Procurement");
+if (!string.IsNullOrWhiteSpace(procurementConnStr))
+{
+    if (procurementConnStr.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && procurementConnStr.Contains('?'))
+        procurementConnStr = NpgsqlConnectionStringNormalizer.Normalize(procurementConnStr);
+    Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.AddServices(builder.Services, procurementConnStr);
+}
 
 // ---------- Tenant / auth principal ----------
 builder.Services.AddHttpContextAccessor();
@@ -203,6 +212,10 @@ builder.Services.AddAuthorization(options =>
         .Build();
     options.AddPolicy("hrm-admin", policy => policy.RequireAuthenticatedUser()
         .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole("hr_admin")));
+    options.AddPolicy("procurement-access", policy => policy.RequireAuthenticatedUser()
+        .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole(
+            "employee", "manager", "procurement_requester", "procurement_buyer",
+            "procurement_manager", "supplier_admin", "ap_processor")));
 });
 
 // ---------- Health: readiness probes the database ----------
@@ -400,6 +413,8 @@ app.UseMiddleware<Mightyfin.Erp.Hrm.Api.TimesheetAccessMiddleware>();
 // it always saw an anonymous principal and confinement was silently skipped
 // (M45 smoke test root cause).
 app.UseMiddleware<Mightyfin.Erp.Hrm.Api.ShellContextMiddleware>();
+if (!string.IsNullOrWhiteSpace(procurementConnStr))
+    app.UseMiddleware<Mightyfin.Erp.Hrm.Api.ProcurementScopeMiddleware>();
 
 // ---------- Route registrations ----------
 // URL-based API versioning: the current version is served at /api/v{n}/hrm
@@ -410,6 +425,8 @@ Routes.HrmPrefix = $"/api/v{versioning.CurrentVersion}/hrm";
 Routes.RegisterAll(app);
 Routes.HrmPrefix = "/api/hrm"; // legacy prefix, kept for existing clients
 Routes.RegisterAll(app);
+if (!string.IsNullOrWhiteSpace(procurementConnStr))
+    Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.MapRoutes(app);
 
 // M28: seed tenant role assignments for the known HRM roles if this tenant has none yet.
 {

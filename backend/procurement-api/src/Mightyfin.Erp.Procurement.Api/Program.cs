@@ -83,6 +83,9 @@ internal sealed class PrincipalProcurementScope(IHttpContextAccessor accessor) :
         ?? throw new InvalidOperationException("Tenant claim is required.");
     public Guid LegalEntityId => Guid.TryParse(User.FindFirstValue("legal_entity_id"), out var id) && id != Guid.Empty
         ? id : throw new InvalidOperationException("Legal entity claim is required.");
+    public Guid? WorkLocationId => null;
+    public Guid? OrgUnitId => null;
+    public bool IsConfined => false;
     public string SubjectId => User.FindFirstValue("sub")
         ?? throw new InvalidOperationException("Subject claim is required.");
     public string? CorrelationId => accessor.HttpContext?.TraceIdentifier;

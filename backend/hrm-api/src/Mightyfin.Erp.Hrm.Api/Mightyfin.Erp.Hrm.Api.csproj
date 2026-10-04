@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Mightyfin.Erp.Hrm.Infrastructure\Mightyfin.Erp.Hrm.Infrastructure.csproj" />
     <ProjectReference Include="..\Mightyfin.Erp.Hrm.Application\Mightyfin.Erp.Hrm.Application.csproj" />
+    <ProjectReference Include="..\..\..\procurement-api\src\Mightyfin.Erp.Procurement.Infrastructure\Mightyfin.Erp.Procurement.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

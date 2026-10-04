@@ -4,7 +4,9 @@
 # runtime stage on distroless ASP.NET base image running as nonroot.
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY backend/hrm-api/ ./
+COPY backend/hrm-api/ backend/hrm-api/
+COPY backend/procurement-api/ backend/procurement-api/
+WORKDIR /src/backend/hrm-api
 RUN dotnet test src/Mightyfin.Erp.Hrm.Tests \
     && dotnet publish src/Mightyfin.Erp.Hrm.Api -c Release -o /app/publish
 

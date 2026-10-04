@@ -47,7 +47,7 @@ An ERP PostgreSQL database and approved connection credential exist; a backup/ch
 
 ## 9. Status / State Transitions
 
-Foundation gate: `Proposed → Built → Migration validated → Shared host/auth/organization bridge validated → CRUD-ready → Production approved`. Current state is **Migration validated**. The bridge remains open because HRMS currently supports local sessions and validates shell entity/location headers against HRMS organization data, while the isolated Procurement host currently accepts OIDC claims. Production composition must respect the adopted modular ERP deployment decision. No business record is activated by P0. Imported vendors later start Proposed; imported items later start Inactive.
+Foundation gate: `Proposed → Built → Migration validated → Shared host/auth/organization bridge validated → CRUD-ready → Production approved`. Current state is **shared host and scope implemented in source; access gate partially validated**. [PROC-BE-02](PROC-BE-02-SHARED-HOST-ACCESS.md) records the ERP host integration and remaining permission and rollout checks. No business record is activated by P0. Imported vendors later start Proposed; imported items later start Inactive.
 
 ## 10. Permissions and Data Scope
 
@@ -92,7 +92,7 @@ Unknown entity/tenant scope blocks writes; cross-scope update and physical delet
 
 ## 18. Integrations / APIs / Events / Sandbox
 
-Database connection uses `ConnectionStrings:Procurement`; migration history is `procurement.__procurement_migrations`. API base is `/api/procurement/v1`. OIDC authority and audience are configurable in the isolated host; production must compose Procurement routes into the approved ERP host and reuse HRMS local-session/identity and authorized shell entity selection, or document an approved architecture change. That is an explicit P0.5 task. Events will be inserted transactionally into `outbox_events`; no publisher or external event is enabled yet. Sandbox validation uses disposable PostgreSQL, not the live ERP database.
+Database connection uses `ConnectionStrings:Procurement`; migration history is `procurement.__procurement_migrations`. API base is `/api/procurement/v1`. OIDC authority and audience are configurable in the isolated host. The ERP host now composes Procurement routes in source and reuses HRMS login and validated shell selection when configured; action-specific permissions and production rollout remain P0.5 tasks. Events will be inserted transactionally into `outbox_events`; no publisher or external event is enabled yet. Sandbox validation uses disposable PostgreSQL, not the live ERP database.
 
 ## 19. Audit / Security / Privacy
 
@@ -153,10 +153,10 @@ Backend implementation owner: Procurement engineering. HRMS/Identity owner must 
 | Milestone | Deliverable | Exit gate |
 |---|---|---|
 | **P0 — Foundation** | Projects, initial schema/migration, scoped context, audit/outbox tables, API probes, isolated tests | **Implemented and validated in source.** No live DB change. |
-| **P0.5 — Shared host and access contract** | Compose Procurement into the approved ERP host; reuse HRMS-compatible authentication, tenant/legal-entity/branch resolver, Procurement role/permission policies and API error contract | Architecture and cross-module owners approve contract; denied and confined-scope tests pass. |
+| **P0.5 — Shared host and access contract** | Shared host, HRMS-compatible authentication and strict tenant/entity/branch resolver implemented; finish action-specific Procurement permissions and production integration | Architecture and cross-module owners approve contract; denied, confined-scope and real-session tests pass. |
 | **P1 — Vendor CRUD** | P1 field tables are migrated; add `PROC-01` draft/propose/read/update/contact list/duplicate review, state transitions and audit/outbox | Section 28 decisions for `PROC-01` resolved; imported rows stay Proposed; no self-approval. |
 | **P2 — Item CRUD** | P2 item/catalog fields are migrated; add `PROC-04` item/category/reference list/create/update/activate with eligibility checks | Ownership of inventory/asset/tax references approved; inactive items excluded from buying. |
 | **P3 — Purchase Request CRUD** | P3 header/line/allocation fields are migrated; add `PROC-02` draft/submit/revise/cancel/read, line balances and concurrency | Budget/approval contracts agreed; line-level accounting tests pass. |
 | **P4 onward** | Approval and budget, sourcing, PO, receiving, invoice/AP, contract and portal children | Each child receives a reviewed schema migration, routes, permissions, events, tests and release evidence before the next. |
 
-The first CRUD milestone can now be designed against a real schema. It cannot be connected to the live Procurement UI until P0.5 resolves shared identity and organization scope, and the relevant child specification's policy decisions are approved.
+The first CRUD milestone can now be designed against a real schema and shared-host scope. It cannot be connected to the live Procurement UI until P0.5 completes action-specific permissions, real-session verification and deployment review, and the relevant child specification's policy decisions are approved.

@@ -21,6 +21,9 @@ internal sealed class DesignTimeScope : IProcurementScope
 {
     public string TenantId => "design-time";
     public Guid LegalEntityId => Guid.Parse("00000000-0000-0000-0000-000000000001");
+    public Guid? WorkLocationId => null;
+    public Guid? OrgUnitId => null;
+    public bool IsConfined => false;
     public string SubjectId => "design-time";
     public string? CorrelationId => null;
 }

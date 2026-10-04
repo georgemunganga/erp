@@ -5,6 +5,9 @@ public interface IProcurementScope
 {
     string TenantId { get; }
     Guid LegalEntityId { get; }
+    Guid? WorkLocationId { get; }
+    Guid? OrgUnitId { get; }
+    bool IsConfined { get; }
     string SubjectId { get; }
     string? CorrelationId { get; }
 }

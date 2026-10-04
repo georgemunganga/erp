@@ -43,8 +43,9 @@ migration creates schemas but does not yet configure those roles.
 The earlier architecture record proposes a Go backend. The implemented HRM backend uses
 ASP.NET Core and EF Core, while the Go ERP API currently provides shared bootstrap facilities.
 The Procurement backend foundation follows HRM's .NET/PostgreSQL conventions. Its isolated
-development host is not a production deployment decision; production composition into the
-approved modular ERP service and shared identity/organization scope are the next access gate.
+development host is not a production deployment decision. The HRM API now composes Procurement
+in source when configured and resolves its tenant/company/branch scope; action permissions and
+production integration remain the next access gate.
 
 ## HRM frontend
 

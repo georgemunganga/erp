@@ -1,8 +1,10 @@
 # ---------- HRM API — multi-stage build ----------
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY global.json ./
-COPY src src
+COPY backend/hrm-api/global.json backend/hrm-api/global.json
+COPY backend/hrm-api/src backend/hrm-api/src
+COPY backend/procurement-api/src backend/procurement-api/src
+WORKDIR /src/backend/hrm-api
 RUN dotnet publish src/Mightyfin.Erp.Hrm.Api \
     -c Release -o /out \
     --no-self-contained

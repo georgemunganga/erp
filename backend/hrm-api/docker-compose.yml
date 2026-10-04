@@ -1,8 +1,8 @@
 services:
   hrm-api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: backend/hrm-api/Dockerfile
     container_name: erp-hrm-api
     restart: unless-stopped
     ports:

@@ -11,6 +11,9 @@ public sealed class FoundationScopeTests
     {
         public string TenantId { get; } = tenant;
         public Guid LegalEntityId { get; } = entity;
+        public Guid? WorkLocationId => null;
+        public Guid? OrgUnitId => null;
+        public bool IsConfined => false;
         public string SubjectId => "test-actor";
         public string? CorrelationId => "test-correlation";
     }
