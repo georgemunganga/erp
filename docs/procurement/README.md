@@ -14,6 +14,8 @@
 
 [PROC-UX-06 Plain Language for Procurement](PROC-UX-06-PLAIN-LANGUAGE.md) gives the UI designer preferred labels, writing rules, and checks for keeping workflows understandable without changing their controls.
 
+[PROC-UX-07 Simple Procurement Screens](PROC-UX-07-SIMPLE-SCREENS.md) turns the supplied Zoho screenshots into layout and interaction guidance for record pages, forms, and lists.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |
