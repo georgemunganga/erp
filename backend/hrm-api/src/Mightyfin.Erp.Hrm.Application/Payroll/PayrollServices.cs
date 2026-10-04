@@ -1960,7 +1960,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         var results = new List<PayslipDto>();
         foreach (var slip in items)
         {
-            if (string.IsNullOrWhiteSpace(slip.DocumentUrl))
+            if (PayslipDocumentMissing(slip))
             {
                 var line = await repo.GetRunLineForPayslipAsync(slip.Id, ct)
                     ?? throw new DomainException("payslip-line-missing", $"Payslip {slip.Id} has no run line.");
@@ -1983,9 +1983,16 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         return await EnsurePayslipPdfBytesAsync(slip, payslipId, ct);
     }
 
+    private static bool PayslipDocumentMissing(Payslip slip)
+    {
+        if (string.IsNullOrWhiteSpace(slip.DocumentUrl)) return true;
+        return slip.DocumentUrl.StartsWith("file://", StringComparison.OrdinalIgnoreCase)
+            && !File.Exists(slip.DocumentUrl["file://".Length..]);
+    }
+
     private async Task<byte[]> EnsurePayslipPdfBytesAsync(Payslip slip, Guid payslipId, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(slip.DocumentUrl))
+        if (PayslipDocumentMissing(slip))
         {
             var line = await repo.GetRunLineForPayslipAsync(slip.Id, ct)
                 ?? throw new DomainException("payslip-line-missing", $"Payslip {payslipId} has no run line.");
@@ -2072,7 +2079,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
             ?? throw new DomainException("payslip-not-found", $"Payslip {id} does not exist.");
         if (worker is null || slip.WorkerId != worker.Id)
             throw new DomainException("payslip-not-owned", "The payslip does not belong to the signed-in worker.");
-        if (string.IsNullOrWhiteSpace(slip.DocumentUrl))
+        if (PayslipDocumentMissing(slip))
         {
             var line = await repo.GetRunLineForPayslipAsync(slip.Id, ct)
                 ?? throw new DomainException("payslip-line-missing", $"Payslip {id} has no run line.");
