@@ -58,7 +58,7 @@ Context fields include tenant ID, worker ID, current company ID/name, optional b
 
 ## 13. Screens and Data Views
 
-The shared Procurement shell displays Demo, Live-ready or Unavailable clearly. Demo selectors are hidden or disabled in live mode. Transaction lists remain demonstration screens until their separate API wiring milestone is accepted.
+The shared Procurement shell displays Demo, Live-ready or Unavailable clearly. Demo selectors are hidden or disabled in live mode. Internal transaction screens and the separate supplier portal are hidden behind a holding state until their API and external identity wiring milestones are accepted.
 
 ## 14. User Experience / Human Behaviour
 
