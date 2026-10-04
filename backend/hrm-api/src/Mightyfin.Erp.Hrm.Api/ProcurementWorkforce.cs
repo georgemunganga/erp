@@ -3,17 +3,20 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Checks the HRMS-owned employee mapping for Procurement mutations.</summary>
+public sealed record ProcurementWorkerHome(Guid WorkerId, Guid? LegalEntityId,
+    Guid? LocationId, Guid? OrgUnitId);
+
+/// <summary>Checks the HRMS-owned employee mapping for Procurement requests.</summary>
 public static class ProcurementWorkforce
 {
-    public static async Task<Guid?> ResolveActiveWorker(HrmDbContext hrm, ProcurementRequestScope scope,
-        CancellationToken ct)
+    public static async Task<ProcurementWorkerHome?> ResolveActiveWorkerHome(HrmDbContext hrm,
+        string tenantId, string subjectId, CancellationToken ct)
     {
         Guid? workerId = null;
-        if (Guid.TryParse(scope.SubjectId, out var accountId))
+        if (Guid.TryParse(subjectId, out var accountId))
         {
             var localAccount = await hrm.LocalUsers.AsNoTracking()
-                .Where(x => x.TenantId == scope.TenantId && x.Id == accountId && !x.IsArchived)
+                .Where(x => x.TenantId == tenantId && x.Id == accountId && !x.IsArchived)
                 .Select(x => new { x.WorkerId, x.IsActive }).SingleOrDefaultAsync(ct);
             if (localAccount is not null)
             {
@@ -23,29 +26,45 @@ public static class ProcurementWorkforce
         }
         if (workerId is null)
             workerId = await hrm.Workers.AsNoTracking()
-                .Where(x => x.TenantId == scope.TenantId && x.SubjectId == scope.SubjectId && !x.IsArchived)
+                .Where(x => x.TenantId == tenantId && x.SubjectId == subjectId && !x.IsArchived)
                 .Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct);
         if (workerId is null) return null;
+
         var worker = await hrm.Workers.AsNoTracking()
-            .Where(x => x.TenantId == scope.TenantId && x.Id == workerId && !x.IsArchived && x.Status == "active")
+            .Where(x => x.TenantId == tenantId && x.Id == workerId && !x.IsArchived && x.Status == "active")
             .Select(x => new { x.Id, x.LocationId, x.OrgUnitId }).SingleOrDefaultAsync(ct);
         if (worker is null) return null;
+
+        Guid? locationEntity = null;
         if (worker.LocationId is Guid locationId)
         {
-            var entity = await hrm.WorkLocations.AsNoTracking()
-                .Where(x => x.TenantId == scope.TenantId && x.Id == locationId && !x.IsArchived)
+            locationEntity = await hrm.WorkLocations.AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.Id == locationId && !x.IsArchived)
                 .Select(x => (Guid?)x.LegalEntityId).SingleOrDefaultAsync(ct);
-            if (entity != scope.LegalEntityId) return null;
+            if (locationEntity is null) return null;
         }
+
+        Guid? unitEntity = null;
         if (worker.OrgUnitId is Guid orgUnitId)
         {
-            var entity = await hrm.OrgUnits.AsNoTracking()
-                .Where(x => x.TenantId == scope.TenantId && x.Id == orgUnitId && !x.IsArchived)
+            unitEntity = await hrm.OrgUnits.AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.Id == orgUnitId && !x.IsArchived && x.Status == "active")
                 .Select(x => (Guid?)x.LegalEntityId).SingleOrDefaultAsync(ct);
-            if (entity != scope.LegalEntityId) return null;
+            if (unitEntity is null) return null;
         }
-        if (worker.LocationId is null && worker.OrgUnitId is null && !scope.IsConfined)
+        if (locationEntity.HasValue && unitEntity.HasValue && locationEntity != unitEntity)
             return null;
-        return worker.Id;
+        return new ProcurementWorkerHome(worker.Id, locationEntity ?? unitEntity,
+            worker.LocationId, worker.OrgUnitId);
+    }
+
+    public static async Task<Guid?> ResolveActiveWorker(HrmDbContext hrm, ProcurementRequestScope scope,
+        CancellationToken ct)
+    {
+        var home = await ResolveActiveWorkerHome(hrm, scope.TenantId, scope.SubjectId, ct);
+        if (home is null) return null;
+        if (home.LegalEntityId.HasValue)
+            return home.LegalEntityId == scope.LegalEntityId ? home.WorkerId : null;
+        return scope.IsConfined ? home.WorkerId : null;
     }
 }

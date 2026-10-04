@@ -41,4 +41,19 @@ public static class ProcurementPermissions
         if (!RoleGrants.TryGetValue(policy, out var roles)) return false;
         return WorkerPrincipal.FromClaims(claims).IsRole(roles);
     }
+
+    public static string[] GrantedPolicies(IEnumerable<Claim> claims)
+    {
+        var principal = WorkerPrincipal.FromClaims(claims);
+        return RoleGrants.Where(x => principal.IsRole(x.Value))
+            .Select(x => x.Key).Order(StringComparer.Ordinal).ToArray();
+    }
+
+    public static string[] ProcurementRoles(IEnumerable<Claim> claims)
+    {
+        var principal = WorkerPrincipal.FromClaims(claims);
+        var knownRoles = RoleGrants.Values.SelectMany(x => x).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return principal.Roles.Where(knownRoles.Contains)
+            .Order(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
 }

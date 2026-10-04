@@ -28,6 +28,8 @@
 
 [PROC-BE-03 First CRUD Operations](PROC-BE-03-FIRST-CRUD-OPERATIONS.md) records the draft Vendor, Item/Catalog and Purchase Request API contract, state limits, permissions and verification gates. These routes are source work until the integrated build, database migration and deployment checks are complete.
 
+[PROC-BE-04 Live Identity and Company Context](PROC-BE-04-LIVE-IDENTITY-AND-COMPANY-CONTEXT.md) defines the server-owned Procurement context and explicit frontend Demo, Live-ready and Unavailable modes required before the draft screens can send live API requests.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |

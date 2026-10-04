@@ -127,6 +127,33 @@ public sealed class ProcurementScopeMiddlewareTests
         Assert.Equal(StatusCodes.Status403Forbidden, inactiveHttp.Response.StatusCode);
     }
 
+    [Fact]
+    public async Task No_header_defaults_to_active_worker_company_instead_of_tenant_default()
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var tenantDefault = new LegalEntity { Code = "A", RegisteredName = "Tenant default", IsDefault = true };
+        var workerCompany = new LegalEntity { Code = "B", RegisteredName = "Worker company" };
+        db.LegalEntities.AddRange(tenantDefault, workerCompany);
+        var branch = new WorkLocation { Code = "B1", Name = "Worker branch", LegalEntityId = workerCompany.Id };
+        db.WorkLocations.Add(branch);
+        var worker = new Worker { EmployeeNo = "EMP-B", FirstName = "Pat", LastName = "Test",
+            Status = "active", LocationId = branch.Id };
+        db.Workers.Add(worker);
+        var user = new LocalUser { Email = "pat-b@example.test", NormalizedEmail = "PAT-B@EXAMPLE.TEST",
+            DisplayName = "Pat Test", PasswordHash = "test", WorkerId = worker.Id, IsActive = true };
+        db.LocalUsers.Add(user);
+        await db.SaveChangesAsync();
+
+        var (http, scope) = Request(user.Id);
+        http.Request.Path = "/api/procurement/v1/context";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+
+        Assert.True(reached);
+        Assert.Equal(workerCompany.Id, scope.LegalEntityId);
+        Assert.Equal(worker.Id, scope.WorkerId);
+    }
+
     private static (DefaultHttpContext Http, ProcurementRequestScope Scope) Request(Guid user)
     {
         var http = new DefaultHttpContext();

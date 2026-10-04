@@ -22,6 +22,7 @@ public static class ProcurementHostIntegration
 
     public static void MapRoutes(WebApplication app)
     {
+        ProcurementContextRoutes.MapRoutes(app);
         ProcurementVendorRoutes.MapRoutes(app);
         ProcurementItemEndpoints.MapRoutes(app);
         ProcurementRequestRoutes.Map(app);
@@ -228,7 +229,14 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             return;
         }
 
-        var selectedEntity = requestedEntity ?? entityFromLocation
+        // Without a shell selection, start in the active worker's HRMS company.
+        // The tenant default may belong to a different company and is not an
+        // authorization grant for this employee.
+        var workerHomeEntity = !requestedEntity.HasValue && !entityFromLocation.HasValue
+            ? (await ProcurementWorkforce.ResolveActiveWorkerHome(db, tenant, subject,
+                http.RequestAborted))?.LegalEntityId
+            : null;
+        var selectedEntity = requestedEntity ?? entityFromLocation ?? workerHomeEntity
             ?? legalEntities.OrderBy(x => x.IsDefault ? 0 : 1).ThenBy(x => x.RegisteredName).First().Id;
         if (!legalEntities.Any(x => x.Id == selectedEntity))
         {

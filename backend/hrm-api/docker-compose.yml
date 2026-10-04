@@ -12,6 +12,8 @@ services:
       # Keyword-format connection string; NpgsqlConnectionStringNormalizer also
       # accepts the postgresql:// URI form used by the Go services.
       - ConnectionStrings__Hrm=Host=postgres;Port=5432;Database=erp;Username=erp;Password=${ERP_DB_PASSWORD}
+      # Keep Procurement disabled until its separate schema migration and live UI gate are approved.
+      - ConnectionStrings__Procurement=${PROCUREMENT_DB_CONNECTION:-}
       - ERP__AuthMode=${ERP_AUTH_MODE:-enabled}
       - HRM__DefaultTenantId=${HRM_DEFAULT_TENANT_ID:-local-tenant}
       - Auth__Issuer=${KEYCLOAK_ISSUER:-}
