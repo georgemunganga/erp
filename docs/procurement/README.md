@@ -12,6 +12,8 @@
 
 [PROC-UX-05 New Vendor Form](PROC-UX-05-NEW-VENDOR-FORM.md) specifies the tabbed onboarding form, validation, document limits, and review status used by the frontend.
 
+[PROC-UX-06 Plain Language for Procurement](PROC-UX-06-PLAIN-LANGUAGE.md) gives the UI designer preferred labels, writing rules, and checks for keeping workflows understandable without changing their controls.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |
