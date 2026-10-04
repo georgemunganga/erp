@@ -18,6 +18,8 @@
 
 [PROC-UX-08 Shared ERP Shell and Procurement Navigation](PROC-UX-08-SHARED-ERP-SHELL.md) records which header, menu, and button patterns are reused from HRM, what stays module-specific, and the current boundary between the two frontend deployments.
 
+[PROC-UX-09 Shared Data Transfer](PROC-UX-09-SHARED-DATA-TRANSFER.md) defines the reused HRM import/export flow for Procurement vendors and items, its demo behavior, and the server contract needed for production data.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |
