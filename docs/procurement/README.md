@@ -16,6 +16,8 @@
 
 [PROC-UX-07 Simple Procurement Screens](PROC-UX-07-SIMPLE-SCREENS.md) turns the supplied Zoho screenshots into layout and interaction guidance for record pages, forms, and lists.
 
+[PROC-UX-08 Shared ERP Shell and Procurement Navigation](PROC-UX-08-SHARED-ERP-SHELL.md) records which header, menu, and button patterns are reused from HRM, what stays module-specific, and the current boundary between the two frontend deployments.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |
