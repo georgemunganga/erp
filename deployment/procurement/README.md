@@ -20,3 +20,5 @@ The Procurement button on `https://erp.amizopower.co.zm/` opens `/procurement` i
 3. Restart `amipower-procurement-ui.service` and check `/procurement`, `/supplier`, a nested Procurement route, and both applications' assets through the public hostname.
 
 The Procurement UI uses browser storage for demo transactions and role selection. Server authorization and ERP integrations must be implemented before operational use.
+
+The first Vendor, Item and Purchase Request draft APIs are implemented in ERP source at commit `510a130`; see [PROC-BE-03](../../docs/procurement/PROC-BE-03-FIRST-CRUD-OPERATIONS.md). They have not been deployed or wired into this UI. The next frontend milestone must replace demo role/company IDs with the authenticated HRMS session and server-resolved Procurement scope before any screen sends writes. A failed live request must show an error rather than falling back to demo records.

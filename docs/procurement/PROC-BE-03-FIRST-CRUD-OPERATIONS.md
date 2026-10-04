@@ -134,3 +134,7 @@ Decide tenant-configurable role grants and data scopes; supplier application/app
 | Items | `GET/POST /items`, `GET/PUT /items/{id}`, `POST /items/{id}/deactivate`, nested catalog-entry draft routes | No activation or publication |
 | Employee catalog | `GET /catalog` | Eligible published entries only |
 | Requests | `GET/POST /requests`, `GET/PUT /requests/{id}`, `POST /requests/{id}/withdraw` | Own drafts only |
+
+## Live UI integration gate
+
+The separately deployed `module-connect` Procurement UI currently stores transactions, role selection and company selection in browser data. Its company IDs and permission persona are demonstration values. A live frontend must use the existing same-origin ERP session, obtain the user's real roles and company scope from the server, and send only server-issued company/branch IDs. The three CRUD screens should then use these routes, keep draft-only actions visible, preserve unsaved form values on errors, and show explicit loading/empty/forbidden/stale states. A failed API request must not silently switch an authenticated user back to demonstration records. Until this bridge is implemented and tested, the live site remains a UI demonstration even though backend source routes exist.
