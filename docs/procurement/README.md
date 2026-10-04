@@ -20,6 +20,8 @@
 
 [PROC-UX-09 Shared Data Transfer](PROC-UX-09-SHARED-DATA-TRANSFER.md) defines the reused HRM import/export flow for Procurement vendors and items, its demo behavior, and the server contract needed for production data.
 
+[PROC-BE-00 Backend Foundation and CRUD Milestones](PROC-BE-00-BACKEND-FOUNDATION-MILESTONES.md) applies the 28-section standard to the .NET/PostgreSQL foundation, records the isolated migration evidence, and sets the access gate and CRUD build sequence.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |

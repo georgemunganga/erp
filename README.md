@@ -1,6 +1,6 @@
 # MightyFin Enterprise ERP
 
-Status: **HRM frontend and ASP.NET Core API present; Procurement is in specification**
+Status: **HRM frontend/API present; Procurement frontend demo and backend foundation present**
 
 MightyFin's internal employee and corporate administration platform — HR and payroll,
 finance, procurement and inventory. It is deliberately separate from the regulated core
@@ -37,12 +37,14 @@ migration creates schemas but does not yet configure those roles.
 | `docs/procurement/` | Procurement module architecture, capability map and feature documentation sequence |
 | `modules/hrm/frontend/module-connect/` | HRM web UI — React, TanStack Router, Vite |
 | `backend/hrm-api/` | ASP.NET Core HRM API and EF Core migrations for the `hrm` schema |
+| `backend/procurement-api/` | Procurement .NET module foundation, isolated development host and EF Core migration for the `procurement` schema |
 | `cmd/`, `internal/` | Go ERP API bootstrap, authentication, migrations and health endpoints |
 
 The earlier architecture record proposes a Go backend. The implemented HRM backend uses
 ASP.NET Core and EF Core, while the Go ERP API currently provides shared bootstrap facilities.
-The Procurement specification records the runtime and migration ownership decision needed
-before its backend is built.
+The Procurement backend foundation follows HRM's .NET/PostgreSQL conventions. Its isolated
+development host is not a production deployment decision; production composition into the
+approved modular ERP service and shared identity/organization scope are the next access gate.
 
 ## HRM frontend
 
@@ -57,10 +59,12 @@ consult the current route and client code to see which screens use each path.
 Branding lives entirely in `src/theme/tokens.css`. MightyFin is the **vendor**; the employer
 whose data appears on screen is a **tenant** and must stay swappable.
 
-## Procurement planning
+## Procurement planning and backend foundation
 
 The [PROC-00 Procurement Module Architecture and Capability Map](docs/procurement/PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 is the current draft source for the module boundary, parent capabilities, data ownership and build order.
-Child features will receive the required 28-section specification before implementation.
+Child features use the required 28-section specification. The
+[backend foundation milestone](docs/procurement/PROC-BE-00-BACKEND-FOUNDATION-MILESTONES.md)
+records the first schema, isolated migration validation and gates before business CRUD routes.
 The [complete Procurement UI prompt pack](docs/procurement/PROC-UX-02-COMPLETE-LOVABLE-UI-PROMPT-PACK.md)
 provides the sequenced Lovable handoff for internal and supplier-facing screens.
