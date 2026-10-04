@@ -30,9 +30,13 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db,
         List<PayslipLeaveTakenDto> leaveTaken = run.PayPeriod is null || leaveSummary is null
             ? []
             : await leaveSummary.GetAsync(line.WorkerId, run.PayPeriod.StartDate, run.PayPeriod.EndDate, ct);
+        List<PayslipLeaveBalanceDto> leaveBalances = run.PayPeriod is null || leaveSummary is null
+            ? []
+            : await leaveSummary.GetBalancesAsync(line.WorkerId, run.PayPeriod.EndDate, ct);
 
         var html = RenderPayslipHtml(worker.FullName, worker.EmployeeNo ?? "", periodLabel,
-            slip.PayslipNo, components, leaveTaken, slip.GrossPay, slip.TotalDeductions, slip.NetPay,
+            slip.PayslipNo, components, leaveTaken, leaveBalances,
+            slip.GrossPay, slip.TotalDeductions, slip.NetPay,
             slip.YtdGross, slip.YtdTax, slip.YtdNet,
             slip.WorkerNrc, slip.WorkerTpin, slip.WorkerNapsaNumber, slip.WorkerNhimaNumber);
 
@@ -77,6 +81,7 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db,
 
     private static string RenderPayslipHtml(string workerName, string employeeNo, string periodLabel,
         string payslipNo, List<PayrollLineComponent> components, List<PayslipLeaveTakenDto> leaveTaken,
+        List<PayslipLeaveBalanceDto> leaveBalances,
         decimal gross, decimal deductions,
         decimal net, string? ytdGross, string? ytdTax, string? ytdNet,
         string? workerNrc = null, string? workerTpin = null,
@@ -119,6 +124,17 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db,
             foreach (var leave in leaveTaken)
                 sb.Append($"<tr><td>{Escape(leave.LeaveTypeName)}</td><td>{Escape(leave.StartDate)} to {Escape(leave.EndDate)}</td><td class='right'>{leave.Days.ToString("0.##", CultureInfo.InvariantCulture)}</td></tr>");
             sb.Append($"<tr><th colspan='2'>Total leave taken</th><th class='right'>{leaveTaken.Sum(l => l.Days).ToString("0.##", CultureInfo.InvariantCulture)}</th></tr></table>");
+        }
+        sb.Append("<h2>Leave balances at period end</h2>");
+        if (leaveBalances.Count == 0)
+            sb.Append("<p class='muted'>No leave balance recorded for this period.</p>");
+        else
+        {
+            sb.Append("<table><tr><th>Leave type</th><th class='right'>Yearly entitlement</th><th class='right'>Credited / allocated</th><th class='right'>Taken to date</th><th class='right'>Reserved</th><th class='right'>Expired</th><th class='right'>Available</th></tr>");
+            foreach (var balance in leaveBalances)
+                sb.Append($"<tr><td>{Escape(balance.LeaveTypeName)}</td><td class='right'>{balance.YearlyEntitlement}</td><td class='right'>{balance.Credited:0.##}</td><td class='right'>{balance.Taken:0.##}</td><td class='right'>{balance.Reserved:0.##}</td><td class='right'>{balance.Expired:0.##}</td><td class='right'>{balance.Available:0.##}</td></tr>");
+            sb.Append("</table>")
+              .Append($"<p class='muted'>Balances use leave entries posted through {Escape(leaveBalances[0].AsOfDate)}.</p>");
         }
         sb
           .Append("<h2>Summary</h2><table>")

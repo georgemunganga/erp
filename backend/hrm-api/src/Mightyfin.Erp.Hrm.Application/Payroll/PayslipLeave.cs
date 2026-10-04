@@ -5,10 +5,16 @@ namespace Mightyfin.Erp.Hrm.Application.Payroll;
 public sealed record PayslipLeaveTakenDto(string LeaveTypeCode, string LeaveTypeName,
     string StartDate, string EndDate, decimal Days);
 
+public sealed record PayslipLeaveBalanceDto(string LeaveTypeCode, string LeaveTypeName,
+    string AsOfDate, int YearlyEntitlement, decimal Credited, decimal Taken,
+    decimal Reserved, decimal Expired, decimal Available);
+
 public interface IPayslipLeaveSummaryService
 {
     Task<List<PayslipLeaveTakenDto>> GetAsync(Guid workerId, DateOnly periodStart,
         DateOnly periodEnd, CancellationToken ct);
+    Task<List<PayslipLeaveBalanceDto>> GetBalancesAsync(Guid workerId, DateOnly periodEnd,
+        CancellationToken ct);
 }
 
 public static class PayslipLeaveDays

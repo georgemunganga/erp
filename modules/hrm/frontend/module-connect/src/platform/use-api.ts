@@ -740,6 +740,8 @@ export const realApi = {
   payrollRunLines: (id: string) => hrmApi.get<unknown>(`/hrm/payroll/runs/${id}/lines`),
   payrollRunLeaveTaken: (id: string, workerId: string) =>
     hrmApi.get<unknown[]>(`/hrm/payroll/runs/${id}/workers/${workerId}/leave-taken`),
+  payrollRunLeaveBalances: (id: string, workerId: string) =>
+    hrmApi.get<unknown[]>(`/hrm/payroll/runs/${id}/workers/${workerId}/leave-balances`),
   workerPayslipPreview: (workerId: string) =>
     hrmApi.get<unknown>(`/hrm/payroll/workers/${workerId}/payslip-preview`),
   payrollExceptionDecision: (id: string, lineId: string, decision: string, reason: string) =>

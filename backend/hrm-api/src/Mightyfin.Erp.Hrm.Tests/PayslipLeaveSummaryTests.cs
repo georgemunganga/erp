@@ -7,6 +7,39 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public class PayslipLeaveSummaryTests
 {
     [Fact]
+    public async Task SeptemberPayslipBalanceExcludesOctoberAccrualAndMatchesLedgerCategories()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var worker = new Worker { EmployeeNo = "TEST-03", FirstName = "Test", LastName = "Worker" };
+        db.Workers.Add(worker);
+        db.LeaveTypes.AddRange(
+            new LeaveType { Code = "uat-annual", Name = "Annual Leave", DefaultDaysPerYear = 24 },
+            new LeaveType { Code = "study", Name = "Study Leave", DefaultDaysPerYear = 14 },
+            new LeaveType { Code = "sick", Name = "Sick Leave" });
+        db.LeaveBalanceLedgers.AddRange(
+            new LeaveBalanceLedger { WorkerId = worker.Id, LeaveTypeCode = "uat-annual", Days = 14, Reason = "manual-adjustment", ForDate = new(2026, 8, 31) },
+            new LeaveBalanceLedger { WorkerId = worker.Id, LeaveTypeCode = "uat-annual", Days = 2, Reason = "monthly-accrual", ForDate = new(2026, 9, 1) },
+            new LeaveBalanceLedger { WorkerId = worker.Id, LeaveTypeCode = "uat-annual", Days = -7, Reason = "taken", ForDate = new(2026, 9, 22) },
+            new LeaveBalanceLedger { WorkerId = worker.Id, LeaveTypeCode = "uat-annual", Days = 2, Reason = "monthly-accrual", ForDate = new(2026, 10, 1) },
+            new LeaveBalanceLedger { WorkerId = worker.Id, LeaveTypeCode = "study", Days = 7, Reason = "manual-adjustment", ForDate = new(2026, 9, 18) },
+            new LeaveBalanceLedger { WorkerId = worker.Id, LeaveTypeCode = "study", Days = -7, Reason = "taken", ForDate = new(2026, 9, 18) });
+        await db.SaveChangesAsync();
+
+        var service = new PayslipLeaveSummaryService(db);
+        var september = await service.GetBalancesAsync(worker.Id, new(2026, 9, 30), default);
+        var annual = Assert.Single(september, row => row.LeaveTypeCode == "uat-annual");
+        Assert.Equal(24, annual.YearlyEntitlement);
+        Assert.Equal(16, annual.Credited);
+        Assert.Equal(7, annual.Taken);
+        Assert.Equal(9, annual.Available);
+        Assert.Equal("2026-09-30", annual.AsOfDate);
+        Assert.Equal(0, Assert.Single(september, row => row.LeaveTypeCode == "study").Available);
+        Assert.DoesNotContain(september, row => row.LeaveTypeCode == "sick");
+        var october = await service.GetBalancesAsync(worker.Id, new(2026, 10, 31), default);
+        Assert.Equal(11, Assert.Single(october, row => row.LeaveTypeCode == "uat-annual").Available);
+    }
+
+    [Fact]
     public async Task ApprovedLeaveAppearsInItsPayPeriodAndCancelledLeaveDoesNot()
     {
         await using var db = TestDbContextFactory.Create();

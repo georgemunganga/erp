@@ -62,6 +62,7 @@ public interface IPayrollService
     Task<WorkerPayslipPreviewDto> PreviewWorkerPayslipAsync(Guid workerId, CancellationToken ct);
     Task<Paged<PayrollRunLineDto>> GetRunLinesAsync(Guid id, CancellationToken ct);
     Task<List<PayslipLeaveTakenDto>> GetRunLeaveTakenAsync(Guid id, Guid workerId, CancellationToken ct);
+    Task<List<PayslipLeaveBalanceDto>> GetRunLeaveBalancesAsync(Guid id, Guid workerId, CancellationToken ct);
     Task<PayrollRunDto> DecideExceptionAsync(Guid id, Guid lineId, PayrollExceptionDecisionRequest request, CancellationToken ct, string actorSubjectId = "system");
     Task<PayrollRunDto> ApplyCorrectionAsync(Guid id, Guid lineId, PayrollCorrectionRequest request, CancellationToken ct, string actorSubjectId = "system");
     Task<PayrollRunDto> ApplyReleasedCorrectionAsync(Guid id, Guid lineId, PayrollCorrectionRequest request, CancellationToken ct, string actorSubjectId = "system");
@@ -125,7 +126,8 @@ public sealed record HistoricalPayPeriodCreateRequest(Guid PayGroupId, string Pe
 public sealed record TaxSlabDto(Guid Id, string TaxYear, decimal MinAmount, decimal? MaxAmount, decimal Rate, int Sequence);
 public sealed record ContributionRuleDto(Guid Id, string Code, string Name, string Payer, decimal Rate, decimal? Ceiling, decimal? Floor);
 public sealed record WorkerPayslipPreviewDto(string Status, string PeriodLabel, string Currency,
-    List<string> Guardrails, PayrollRunLineDto? Line, List<PayslipLeaveTakenDto>? LeaveTaken = null);
+    List<string> Guardrails, PayrollRunLineDto? Line, List<PayslipLeaveTakenDto>? LeaveTaken = null,
+    List<PayslipLeaveBalanceDto>? LeaveBalances = null);
 public sealed record SalaryAdvanceDto(Guid Id, Guid WorkerId, string WorkerName, string? EmployeeNo,
     decimal Amount, decimal InstallmentAmount, decimal RecoveredAmount, decimal RemainingAmount,
     string Currency, string IssueDate, string DeductionStartDate, bool DeductFromPayslip,
@@ -1259,6 +1261,19 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         return leaveSummary is null ? [] : await leaveSummary.GetAsync(workerId, period.StartDate, period.EndDate, ct);
     }
 
+    public async Task<List<PayslipLeaveBalanceDto>> GetRunLeaveBalancesAsync(Guid id, Guid workerId, CancellationToken ct)
+    {
+        authz.RequireAnyRole("payroll", "hr_admin");
+        var run = await repo.GetRunAsync(id, ct)
+            ?? throw new DomainException("payroll-run-not-found", $"Run {id} does not exist.");
+        var (lines, _) = await repo.ListRunLinesAsync(id, ct);
+        if (!lines.Any(line => line.WorkerId == workerId))
+            throw new DomainException("payroll-line-not-found", "This employee has no line in the selected payroll run.");
+        var period = run.PayPeriod ?? await repo.GetPeriodAsync(run.PayPeriodId, ct)
+            ?? throw new DomainException("pay-period-not-found", "The payroll period is unavailable.");
+        return leaveSummary is null ? [] : await leaveSummary.GetBalancesAsync(workerId, period.EndDate, ct);
+    }
+
     public async Task<WorkerPayslipPreviewDto> PreviewWorkerPayslipAsync(Guid workerId, CancellationToken ct)
     {
         authz.RequireAnyRole("hr_ops", "payroll", "hr_admin");
@@ -1332,8 +1347,10 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
 
         var leaveTaken = leaveSummary is null ? []
             : await leaveSummary.GetAsync(worker.Id, period.StartDate, period.EndDate, ct);
+        var leaveBalances = leaveSummary is null ? []
+            : await leaveSummary.GetBalancesAsync(worker.Id, period.EndDate, ct);
         return new WorkerPayslipPreviewDto(guardrails.Count == 0 ? "ready" : "blocked",
-            period.PeriodLabel, payGroup?.Currency ?? "ZMW", guardrails, line, leaveTaken);
+            period.PeriodLabel, payGroup?.Currency ?? "ZMW", guardrails, line, leaveTaken, leaveBalances);
     }
 
     public async Task<PayrollRunDto> DecideExceptionAsync(Guid id, Guid lineId, PayrollExceptionDecisionRequest request,

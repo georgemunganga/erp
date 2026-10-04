@@ -101,10 +101,22 @@ type PreviewLeaveTaken = {
   endDate: string;
   days: number;
 };
+type PreviewLeaveBalance = {
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  asOfDate: string;
+  yearlyEntitlement: number;
+  credited: number;
+  taken: number;
+  reserved: number;
+  expired: number;
+  available: number;
+};
 type PayslipPreview = {
   status: "ready" | "blocked";
   guardrails: string[];
   leaveTaken: PreviewLeaveTaken[];
+  leaveBalances: PreviewLeaveBalance[];
   run?: {
     id: string;
     period: string;
@@ -238,6 +250,23 @@ function previewLeaveTaken(raw: unknown): PreviewLeaveTaken[] {
   }).filter((row) => row.days > 0);
 }
 
+function previewLeaveBalances(raw: unknown): PreviewLeaveBalance[] {
+  return (Array.isArray(raw) ? raw : []).map((item) => {
+    const row = item as Record<string, unknown>;
+    return {
+      leaveTypeCode: rawText(row, "leaveTypeCode"),
+      leaveTypeName: rawText(row, "leaveTypeName", "leaveTypeCode"),
+      asOfDate: rawText(row, "asOfDate"),
+      yearlyEntitlement: Number(row.yearlyEntitlement ?? 0),
+      credited: Number(row.credited ?? 0),
+      taken: Number(row.taken ?? 0),
+      reserved: Number(row.reserved ?? 0),
+      expired: Number(row.expired ?? 0),
+      available: Number(row.available ?? 0),
+    };
+  });
+}
+
 async function currentPayslipSimulationFor(workerId: string): Promise<PayslipPreview> {
   const rawPreview = (await realApi.workerPayslipPreview(workerId)) as Record<string, unknown>;
   const rawLine = rawPreview.line as Record<string, unknown> | undefined;
@@ -253,6 +282,7 @@ async function currentPayslipSimulationFor(workerId: string): Promise<PayslipPre
     status: rawText(rawPreview, "status") === "ready" && guardrails.length === 0 ? "ready" : "blocked",
     guardrails,
     leaveTaken: previewLeaveTaken(rawPreview.leaveTaken),
+    leaveBalances: previewLeaveBalances(rawPreview.leaveBalances),
     run: {
       id: "current-preview",
       period: rawText(rawPreview, "periodLabel") || "Current pay period",
@@ -316,17 +346,22 @@ async function latestPayslipPreviewFor(workerId: string, selectedRunId = "latest
     }
     line.flags.forEach((flag) => guardrails.push(flag));
 
+    const [leaveTaken, leaveBalances] = await Promise.all([
+      realApi.payrollRunLeaveTaken(run.id, workerId),
+      realApi.payrollRunLeaveBalances(run.id, workerId),
+    ]);
     return {
       status: guardrails.length ? "blocked" : "ready",
       guardrails,
-      leaveTaken: previewLeaveTaken(await realApi.payrollRunLeaveTaken(run.id, workerId)),
+      leaveTaken: previewLeaveTaken(leaveTaken),
+      leaveBalances: previewLeaveBalances(leaveBalances),
       run,
       line,
     };
   }
 
   if (selectedRunId !== "latest")
-    return { status: "blocked", guardrails: ["No calculated payroll line was found for this employee in the selected run."], leaveTaken: [] };
+    return { status: "blocked", guardrails: ["No calculated payroll line was found for this employee in the selected run."], leaveTaken: [], leaveBalances: [] };
 
   try {
     return await currentPayslipSimulationFor(workerId);
@@ -337,6 +372,7 @@ async function latestPayslipPreviewFor(workerId: string, selectedRunId = "latest
   return {
     status: "blocked",
     leaveTaken: [],
+    leaveBalances: [],
     guardrails: [
       runs.length
         ? "No calculated payroll line was found for this employee."
@@ -371,6 +407,7 @@ function PayslipPreviewDialog({
             status: "blocked",
             guardrails: ["Payslip preview is available in the live HRMS."],
             leaveTaken: [],
+            leaveBalances: [],
           } as PayslipPreview),
     [open, employee.id, selectedRunId],
   );
@@ -462,6 +499,21 @@ function PayslipPreviewDialog({
                     </table>
                   </div>
                 ) : <p className="mt-2 text-sm text-muted-foreground">No approved leave recorded for this period.</p>}
+              </section>
+            ) : null}
+
+            {line ? (
+              <section className="rounded-md border bg-surface p-4">
+                <h3 className="font-semibold">Leave balances at period end</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Based on leave entries posted through {preview?.leaveBalances[0]?.asOfDate ?? "this pay period"}.</p>
+                {preview?.leaveBalances.length ? (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b text-left text-muted-foreground"><th className="py-2">Leave type</th><th className="py-2 text-right">Yearly entitlement</th><th className="py-2 text-right">Credited / allocated</th><th className="py-2 text-right">Taken to date</th><th className="py-2 text-right">Reserved</th><th className="py-2 text-right">Expired</th><th className="py-2 text-right">Available</th></tr></thead>
+                      <tbody>{preview.leaveBalances.map((balance) => <tr key={balance.leaveTypeCode} className="border-b last:border-0"><td className="py-2">{balance.leaveTypeName}</td><td className="py-2 text-right">{balance.yearlyEntitlement}</td><td className="py-2 text-right">{balance.credited}</td><td className="py-2 text-right">{balance.taken}</td><td className="py-2 text-right">{balance.reserved}</td><td className="py-2 text-right">{balance.expired}</td><td className="py-2 text-right font-semibold">{balance.available}</td></tr>)}</tbody>
+                    </table>
+                  </div>
+                ) : <p className="mt-2 text-sm text-muted-foreground">No leave balance recorded for this period.</p>}
               </section>
             ) : null}
 

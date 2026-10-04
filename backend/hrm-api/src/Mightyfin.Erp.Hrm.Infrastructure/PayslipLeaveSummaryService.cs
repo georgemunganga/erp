@@ -7,6 +7,38 @@ namespace Mightyfin.Erp.Hrm.Infrastructure;
 
 public sealed class PayslipLeaveSummaryService(HrmDbContext db) : IPayslipLeaveSummaryService
 {
+    public async Task<List<PayslipLeaveBalanceDto>> GetBalancesAsync(Guid workerId,
+        DateOnly periodEnd, CancellationToken ct)
+    {
+        var types = await db.LeaveTypes.AsNoTracking()
+            .Where(t => !t.IsArchived && t.IsActive && t.EffectiveFrom <= periodEnd
+                && (t.EffectiveTo == null || t.EffectiveTo >= periodEnd))
+            .OrderBy(t => t.Name).ToListAsync(ct);
+        var ledger = await db.LeaveBalanceLedgers.AsNoTracking()
+            .Where(l => !l.IsArchived && l.WorkerId == workerId && l.ForDate <= periodEnd)
+            .ToListAsync(ct);
+        return types.Select(type =>
+        {
+            var rows = ledger.Where(l => l.LeaveTypeCode == type.Code).ToList();
+            if (rows.Count == 0 && !IsAnnualLeave(type)) return null;
+            // Mirror the balance categories on the HR Leave Allocation screen.
+            var credited = rows.Where(r => r.Days > 0 && r.Reason != "request"
+                && r.Reason != "request-release").Sum(r => r.Days);
+            var taken = -rows.Where(r => r.Days < 0 && r.Reason != "request"
+                && r.Reason != "forfeiture").Sum(r => r.Days);
+            var reserved = -rows.Where(r => r.Days < 0 && r.Reason == "request").Sum(r => r.Days);
+            var expired = -rows.Where(r => r.Days < 0 && r.Reason == "forfeiture").Sum(r => r.Days);
+            return new PayslipLeaveBalanceDto(type.Code, type.Name, periodEnd.ToString("yyyy-MM-dd"),
+                type.DefaultDaysPerYear, credited, taken, reserved, expired,
+                credited - taken - reserved - expired);
+        }).Where(row => row is not null).Cast<PayslipLeaveBalanceDto>().ToList();
+    }
+
+    private static bool IsAnnualLeave(LeaveType type) =>
+        type.Code.Equals("annual", StringComparison.OrdinalIgnoreCase)
+        || type.Code.EndsWith("-annual", StringComparison.OrdinalIgnoreCase)
+        || type.Name.Contains("Annual Leave", StringComparison.OrdinalIgnoreCase);
+
     public async Task<List<PayslipLeaveTakenDto>> GetAsync(Guid workerId, DateOnly periodStart,
         DateOnly periodEnd, CancellationToken ct)
     {
