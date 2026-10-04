@@ -19,6 +19,8 @@
 4. Show a vendor's main contact, open orders/bills, and next step before internal approval evidence. Keep checks and documents reachable together.
 5. Keep buying controls accurate: an unavailable action must say why, and no visual simplification may bypass approval, budget, supplier, or Finance controls.
 6. Use the wording in [PROC-UX-06](PROC-UX-06-PLAIN-LANGUAGE.md) for headings, actions, status labels, and empty states.
+7. Make reports browseable by name and searchable. Show the result first; put calculation rules behind **How this report is calculated**.
+8. When a flow says a draft is saved, save the entered values as well as the current step. Keep the final action unavailable until the required fields are complete, and show what is missing.
 
 ## Review checklist
 
