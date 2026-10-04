@@ -92,4 +92,31 @@ public sealed class FoundationScopeTests
         Assert.Equal("tenant-a", contact.TenantId);
         Assert.Equal(entity, contact.LegalEntityId);
     }
+
+    [Fact]
+    public async Task New_supplier_children_are_scoped_and_decisions_cannot_be_rewritten()
+    {
+        var entity = Guid.NewGuid();
+        await using var db = Context(Guid.NewGuid().ToString(), "tenant-a", entity);
+        var supplier = new Supplier { Number = "SUP-3", LegalName = "Example", DisplayName = "Example", CountryCode = "ZM" };
+        supplier.Sites.Add(new SupplierSite { AddressLine1 = "Test Road", CountryCode = "ZM", IsPrimary = true });
+        supplier.Categories.Add(new SupplierCategory { CategoryCode = "OFFICE", IsPrimary = true });
+        supplier.Decisions.Add(new SupplierDecision
+        {
+            FromStatus = "Draft", ToStatus = "Proposed", ActorSubjectId = "test-actor",
+            Reason = "Submitted for review", DecidedAt = DateTimeOffset.UtcNow,
+        });
+        db.AddScoped(supplier);
+        await db.SaveChangesAsync();
+
+        var site = await db.SupplierSites.SingleAsync();
+        Assert.Equal(supplier.Id, site.SupplierId);
+        Assert.Equal("tenant-a", site.TenantId);
+        Assert.Equal(entity, site.LegalEntityId);
+        Assert.Equal("OFFICE", (await db.SupplierCategories.SingleAsync()).CategoryCode);
+
+        var decision = await db.SupplierDecisions.SingleAsync();
+        decision.Reason = "Changed after approval";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
 }

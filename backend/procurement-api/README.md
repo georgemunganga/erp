@@ -4,7 +4,7 @@ ASP.NET Core 10 module, following the HRMS Domain → Application → Infrastruc
 
 The `Api` project and Docker image are an **isolated development/migration host**. The adopted ERP architecture calls for one modular ERP deployment. Production host composition with HRMS identity and organization scope is a P0.5 gate; this project is not a decision to launch Procurement as a separate production service.
 
-This is foundation milestone **P0**, before business CRUD routes. The database contains entity-scoped Suppliers and contacts, Items, Purchase Requests and lines, versioned policy, import batches, audit metadata, and an integration outbox. Financial ledgers, payment details, stock balances, and employee records remain owned by their modules. External references use stable IDs without cross-schema foreign keys.
+The **P0** migration establishes the foundation. The additive **P1–P3 field-coverage** migration adds supplier sites, qualifications, categories, attributes and decisions; catalog price entries; purchase-request allocations, budget checks and policy evaluations; and document-service references. The current schema has 19 Procurement tables. Business CRUD routes are still a separate milestone. Financial ledgers, payment details, stock balances, and employee records remain owned by their modules. External references use stable IDs without cross-schema foreign keys.
 
 ## Build
 
@@ -33,4 +33,4 @@ ERP__OidcAuthority='https://identity.example/realms/workforce' \
 
 `ERP:AuthMode=oidc` is the default. Development-only `ERP:AuthMode=disabled` supplies a fixed synthetic identity. No business CRUD route is exposed yet. `/health/live` and `/health/ready` are probes; `/api/procurement/v1/meta` requires authenticated tenant and legal-entity claims. The production shared-login bridge is a gate before frontend/API integration.
 
-See [the P0 milestone](../../docs/procurement/PROC-BE-00-BACKEND-FOUNDATION-MILESTONES.md) for schema ownership, migration checks, and CRUD readiness criteria.
+See [the P0 milestone](../../docs/procurement/PROC-BE-00-BACKEND-FOUNDATION-MILESTONES.md) and [field-coverage audit](../../docs/procurement/PROC-BE-01-FIELD-COVERAGE-AND-SCHEMA-GATES.md) for schema ownership, migration checks, and remaining CRUD gates.

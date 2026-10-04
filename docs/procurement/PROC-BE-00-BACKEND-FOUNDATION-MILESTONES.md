@@ -11,7 +11,7 @@
 
 This technical foundation follows the HRMS backend pattern: ASP.NET Core 10, Domain/Application/Infrastructure/API projects, EF Core migrations, PostgreSQL, tenant-scoped records, append-only audit metadata, and health probes. It has its own `procurement` schema and migration history in the ERP database. The API project is an isolated development/migration host; the adopted [ERP architecture](../00-architecture-position.md) calls for one production deployment with bounded modules. It has **no business CRUD API routes yet** and has not been applied to the live ERP database.
 
-The initial tables do **not** contain every business field. [PROC-BE-01](PROC-BE-01-FIELD-COVERAGE-AND-SCHEMA-GATES.md) records field-level gaps and the additive migration gate for each CRUD milestone.
+The initial P0 tables do **not** contain every business field. An additive P1–P3 migration now supplies the first Vendor, Item and Purchase Request field model without enabling CRUD. [PROC-BE-01](PROC-BE-01-FIELD-COVERAGE-AND-SCHEMA-GATES.md) records what was added and the remaining gates for each CRUD milestone.
 
 ## 1. Feature Identification
 
@@ -154,9 +154,9 @@ Backend implementation owner: Procurement engineering. HRMS/Identity owner must 
 |---|---|---|
 | **P0 — Foundation** | Projects, initial schema/migration, scoped context, audit/outbox tables, API probes, isolated tests | **Implemented and validated in source.** No live DB change. |
 | **P0.5 — Shared host and access contract** | Compose Procurement into the approved ERP host; reuse HRMS-compatible authentication, tenant/legal-entity/branch resolver, Procurement role/permission policies and API error contract | Architecture and cross-module owners approve contract; denied and confined-scope tests pass. |
-| **P1 — Vendor CRUD** | `PROC-01` draft/propose/read/update/contact list/duplicate review; state transitions and audit/outbox | Section 28 decisions for `PROC-01` resolved; imported rows stay Proposed; no self-approval. |
-| **P2 — Item CRUD** | `PROC-04` item/category/reference list/create/update/activate with eligibility checks | Ownership of inventory/asset/tax references approved; inactive items excluded from buying. |
-| **P3 — Purchase Request CRUD** | `PROC-02` header and line draft/submit/revise/cancel/read; line balances and concurrency | Budget/approval contracts agreed; line-level accounting tests pass. |
+| **P1 — Vendor CRUD** | P1 field tables are migrated; add `PROC-01` draft/propose/read/update/contact list/duplicate review, state transitions and audit/outbox | Section 28 decisions for `PROC-01` resolved; imported rows stay Proposed; no self-approval. |
+| **P2 — Item CRUD** | P2 item/catalog fields are migrated; add `PROC-04` item/category/reference list/create/update/activate with eligibility checks | Ownership of inventory/asset/tax references approved; inactive items excluded from buying. |
+| **P3 — Purchase Request CRUD** | P3 header/line/allocation fields are migrated; add `PROC-02` draft/submit/revise/cancel/read, line balances and concurrency | Budget/approval contracts agreed; line-level accounting tests pass. |
 | **P4 onward** | Approval and budget, sourcing, PO, receiving, invoice/AP, contract and portal children | Each child receives a reviewed schema migration, routes, permissions, events, tests and release evidence before the next. |
 
 The first CRUD milestone can now be designed against a real schema. It cannot be connected to the live Procurement UI until P0.5 resolves shared identity and organization scope, and the relevant child specification's policy decisions are approved.

@@ -1,6 +1,6 @@
 # PROC-BE-01 — Procurement field coverage and schema gates
 
-**Status:** Reviewed against the P0 migration on 4 October 2026; gaps remain before business CRUD
+**Status:** P0 compared on 4 October 2026; P1–P3 field-coverage migration implemented and validated in isolated PostgreSQL; business CRUD and later lifecycle tables remain
 
 **Hierarchy:** ERP → Procurement → Backend → Field coverage → Migration gates
 
@@ -21,6 +21,12 @@ The committed migration `20261004005431_P0Foundation` creates `suppliers`, `supp
 | Request line | Catalog ref, text/UOM, quantities, estimated unit price, approval status and route | **Partial**; category, supplier preference, tax/discount and line-level date/coding missing |
 | Policy/import/audit/outbox | Versioned rules, import metadata, audit metadata and event envelope | Infrastructure **partial**; approval decisions, evidence and delivery mechanisms are later work |
 
+## Additive P1–P3 migration implemented
+
+`20261004022058_P1P3FieldCoverage` leaves P0 intact and adds ten tables: `supplier_sites`, `supplier_qualifications`, `supplier_attributes`, `supplier_categories`, `supplier_decisions`, `catalog_entries`, `purchase_request_allocations`, `policy_evaluations`, `budget_check_snapshots` and `attachment_refs`. It adds the scalar fields listed below to the original supplier, contact, item, PR and PR-line tables. The combined schema has **19 Procurement tables**, including scoped foreign keys for supplier children, catalog items/suppliers, PR lines and allocations. It was tested both from an empty database and as an upgrade from populated P0 rows; those rows survived with supplier/item orderability set to false.
+
+This is a **persistence model**, not an enabled onboarding or buying workflow. Requiredness by state, allowed values, authorizations, Finance/HRMS validation, document-service checks, and workflow execution still belong in the child CRUD/API milestones.
+
 ## P1 — Vendor CRUD field gate
 
 The [supplier feature](PROC-01-SUPPLIER-ONBOARDING-AND-MANAGEMENT.md) and [New Vendor form](PROC-UX-05-NEW-VENDOR-FORM.md) require the following before their corresponding CRUD UI is connected to the database.
@@ -38,7 +44,7 @@ The [supplier feature](PROC-01-SUPPLIER-ONBOARDING-AND-MANAGEMENT.md) and [New V
 
 Frappe's Supplier DocType includes supplier group/type, language, default currency, payment terms, tax ID, primary address/contact and hold/prevent-PO controls. Zoho's portal onboarding also asks for business, address and bank details. Our previous UI prompt includes these tabs, but the current migration does **not** persist most of them. A visible form is not evidence of backend coverage.
 
-**P1 exit:** approved field/requiredness matrix by Draft, Proposed and Active; country-specific rules decided; normalized supplier/address/contact/qualification tables migrated; contact and site scope tests; Finance verification contract; safe import mapping; duplicate detection; approval/activation state tests. No full bank number in general Procurement tables, audit, search or events.
+**P1 schema progress:** supplier/address/contact/qualification/category/decision tables and fields are migrated. **CRUD exit still requires:** approved field/requiredness matrix by Draft, Proposed and Active; country-specific rules; Finance verification contract; safe import mapping; duplicate detection; approval/activation state tests. No full bank number in general Procurement tables, audit, search or events.
 
 ## P2 — Item and catalog CRUD field gate
 
@@ -52,7 +58,7 @@ The [item/catalog feature](PROC-04-PROCUREMENT-ITEMS-AND-CATALOG.md) needs these
 
 Frappe's Item DocType has many stock, manufacturing and accounting fields. The relevant buying checks are purchase UOM, minimum order, lead time, supplier items, purchase eligibility and inspection need. Zoho's item form exposes cost price, purchase account and preferred vendor. We should model their Procurement-facing equivalents without duplicating stock balance or valuation.
 
-**P2 exit:** canonical item owner decided; item and catalog-entry migrations reviewed; dated price/eligibility behavior tested; supplier suspension makes entries unorderable; import cannot publish/order an item automatically.
+**P2 schema progress:** item buying fields and dated `catalog_entries` are migrated. **CRUD exit still requires:** canonical item owner decision; price/eligibility behavior tests; supplier suspension blocking; import review before publishing/orderability.
 
 ## P3 — Purchase-request CRUD field gate
 
@@ -68,19 +74,19 @@ The [PR feature](PROC-02-PURCHASE-REQUISITION-AND-LINE-ROUTING.md) requires:
 
 Frappe's Material Request and child item definition show request type, schedule date, company, item, quantity/UOM, warehouse, project, cost centre and ordered/received progress. Zoho's request form additionally shows expected date, delivery address, reason, notes to approver, reference, category, preferred vendor, estimated rate and discount. Our current PR migration lacks several of these, especially delivery and line-level financial detail.
 
-**P3 exit:** header/line/additional child migrations; authoritative budget and workflow contracts; line allocation history; submit/revise concurrency tests; no PO creation from unapproved or cancelled demand.
+**P3 schema progress:** header/line fields, line allocation history, policy evaluation and Finance budget-check snapshots are migrated. **CRUD exit still requires:** authoritative budget and workflow contracts; submit/revise concurrency tests; no PO creation from unapproved or cancelled demand.
 
 ## P4 onward — Tables not created yet
 
 | Child area | Minimum Procurement-owned records to plan | External owner boundary |
 |---|---|---|
-| Approvals/budget | Approval instance/step/decision, policy evaluation, budget-check and commitment reference | Shared workflow executes approvals; Finance owns budget balances and reservation truth. |
+| Approvals/budget | Approval instance/step/decision and commitment lifecycle; policy evaluation and budget-check snapshots now have tables | Shared workflow executes approvals; Finance owns budget balances and reservation truth. |
 | Sourcing | RFx event/items/invitations, bid header/lines/versions, evaluation scores, award/line award | Supplier portal has scoped access; no Finance ledger. |
 | Contracts | Contract/version, rates, amendments, ceiling drawdowns, renewal obligations | Legal/e-sign integration supplies signed artifact. |
 | Purchasing | PO/header/lines/schedules, revisions, dispatch and supplier acknowledgment, blanket releases | Finance owns accounting commitment. |
 | Fulfilment | Goods receipt/lines, inspection, service acceptance, return and credit references | Inventory owns stock balance; Assets own asset register. |
 | Invoices | Intake, supplier invoice/lines, match result, exception, AP hand-off, credit/refund references | Finance owns AP posting, payable, payment and bank reconciliation. |
-| Cross-cutting | Document references, comments, notifications and integration delivery/reconciliation | Shared ERP services may own storage/delivery; Procurement keeps scoped references. |
+| Cross-cutting | Comments, notifications and integration delivery/reconciliation; scoped document references now have a table | Shared ERP services may own storage/delivery; Procurement keeps scoped references. |
 
 Frappe's RFQ, PO, receipt and invoice DocTypes confirm the need for supplier, date, line, currency, tax, terms, address, delivery, return and source-document references. They **do not** justify putting full AP payment execution or stock valuation into our Procurement schema. The P0 migration intentionally has no RFx, PO, receipt, invoice or contract tables yet.
 
@@ -89,7 +95,7 @@ Frappe's RFQ, PO, receipt and invoice DocTypes confirm the need for supplier, da
 1. Treat P0 as a **foundation migration**, not the complete Procurement database.
 2. Before each child CRUD milestone, convert its section 12 field groups into a field dictionary: database column or child table, type/precision, requiredness by state, owner, classification, validation, source, API/UI mapping, and retention.
 3. Resolve fields that need shared ownership or policy before generating a migration. Use normalized child tables for addresses, contacts, prices, decisions and allocations rather than an unreviewed JSON blob.
-4. Generate a new additive EF migration for the child; keep the committed P0 migration unchanged. Test it on a disposable copy, including tenant/entity isolation, constraints, indexing and upgrade from the prior migration.
+4. Generate an additive EF migration for each reviewed child or compatible phase; keep committed migrations unchanged. Test on a disposable copy, including tenant/entity isolation, constraints, indexing and upgrade from the prior migration.
 5. Connect a CRUD screen only when every visible field has a persistence/API mapping or an explicit external owner/reference; verify save/reload/export, not just form rendering.
 
-**Conclusion:** The current schema has the right bounded foundation, but it does **not** yet have all fields needed for Vendor, Item, Purchase Request or the full procure-to-pay lifecycle. P1 vendor fields are the first schema expansion; P2 and P3 follow their own reviewed migrations.
+**Conclusion:** The Vendor, Item and Purchase Request field gaps identified above now have a first persistence model. Their CRUD workflows are not yet enabled, and the full procure-to-pay lifecycle still needs the later sourcing, PO, receiving, contract and invoice migrations. No live database was changed.

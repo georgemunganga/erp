@@ -25,7 +25,38 @@ public sealed class Supplier : ProcurementRecord
     public string? CategoryCode { get; set; }
     public string? FinanceSupplierRef { get; set; }
     public Guid? ProposedByWorkerId { get; set; }
+    public string? TradingName { get; set; }
+    public string? Website { get; set; }
+    public string? CompanyIdType { get; set; }
+    public string? TaxIdentifierRef { get; set; }
+    public string? SupplierType { get; set; }
+    public bool IsLocal { get; set; }
+    public bool IsPreferred { get; set; }
+    public bool IsStrategic { get; set; }
+    public string? DefaultCurrencyCode { get; set; }
+    public string? PaymentTermRef { get; set; }
+    public string? TaxCategoryRef { get; set; }
+    public string? LanguageCode { get; set; }
+    public string? RiskTier { get; set; }
+    public bool IsOrderable { get; set; }
+    public DateTimeOffset? EligibleFrom { get; set; }
+    public DateTimeOffset? EligibleUntil { get; set; }
+    public string? HoldReason { get; set; }
+    public string? StatusReason { get; set; }
+    public string? StatusDecidedBy { get; set; }
+    public DateTimeOffset? StatusDecidedAt { get; set; }
+    public Guid? StatusPolicyVersionId { get; set; }
+    public string? PaymentVerificationStatus { get; set; }
+    public string? PaymentVerificationToken { get; set; }
+    public string? PaymentVerificationCallbackRef { get; set; }
+    public string? PortalAccessState { get; set; }
+    public string? Remarks { get; set; }
     public ICollection<SupplierContact> Contacts { get; set; } = new List<SupplierContact>();
+    public ICollection<SupplierSite> Sites { get; set; } = new List<SupplierSite>();
+    public ICollection<SupplierQualification> Qualifications { get; set; } = new List<SupplierQualification>();
+    public ICollection<SupplierAttribute> Attributes { get; set; } = new List<SupplierAttribute>();
+    public ICollection<SupplierCategory> Categories { get; set; } = new List<SupplierCategory>();
+    public ICollection<SupplierDecision> Decisions { get; set; } = new List<SupplierDecision>();
 }
 
 public sealed class SupplierContact : ProcurementRecord
@@ -36,6 +67,69 @@ public sealed class SupplierContact : ProcurementRecord
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public bool IsPrimary { get; set; }
+    public string? Salutation { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? WorkPhone { get; set; }
+    public string? MobilePhone { get; set; }
+    public string? LanguageCode { get; set; }
+}
+
+public sealed class SupplierSite : ProcurementRecord
+{
+    public Guid SupplierId { get; set; }
+    public string Kind { get; set; } = "Physical";
+    public string? Label { get; set; }
+    public string AddressLine1 { get; set; } = null!;
+    public string? AddressLine2 { get; set; }
+    public string? City { get; set; }
+    public string? Region { get; set; }
+    public string? PostalCode { get; set; }
+    public string CountryCode { get; set; } = null!;
+    public bool IsPrimary { get; set; }
+    public bool IsServiceSite { get; set; }
+}
+
+public sealed class SupplierQualification : ProcurementRecord
+{
+    public Guid SupplierId { get; set; }
+    public string QualificationType { get; set; } = null!;
+    public string? Issuer { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public DateOnly? IssuedOn { get; set; }
+    public DateOnly? ExpiresOn { get; set; }
+    public string ReviewStatus { get; set; } = "Pending";
+    public string? ReviewedBy { get; set; }
+    public DateTimeOffset? ReviewedAt { get; set; }
+    public Guid? EvidenceDocumentRefId { get; set; }
+}
+
+public sealed class SupplierAttribute : ProcurementRecord
+{
+    public Guid SupplierId { get; set; }
+    public string Kind { get; set; } = null!; // CustomField or ReportingTag
+    public string FieldKey { get; set; } = null!;
+    public string FieldValue { get; set; } = null!;
+}
+
+public sealed class SupplierCategory : ProcurementRecord
+{
+    public Guid SupplierId { get; set; }
+    public string CategoryCode { get; set; } = null!;
+    public bool IsPrimary { get; set; }
+    public DateOnly? EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+}
+
+public sealed class SupplierDecision : ProcurementRecord
+{
+    public Guid SupplierId { get; set; }
+    public string FromStatus { get; set; } = null!;
+    public string ToStatus { get; set; } = null!;
+    public string ActorSubjectId { get; set; } = null!;
+    public string Reason { get; set; } = null!;
+    public Guid? PolicyVersionId { get; set; }
+    public DateTimeOffset DecidedAt { get; set; }
 }
 
 public sealed class CatalogItem : ProcurementRecord
@@ -50,6 +144,41 @@ public sealed class CatalogItem : ProcurementRecord
     public string Status { get; set; } = "Inactive";
     public Guid? InventoryItemRef { get; set; }
     public Guid? AssetClassRef { get; set; }
+    public string? PurchaseUnitCode { get; set; }
+    public decimal? PurchaseUnitConversion { get; set; }
+    public bool IsPurchasable { get; set; }
+    public string? Brand { get; set; }
+    public string? Manufacturer { get; set; }
+    public string? ManufacturerPartNumber { get; set; }
+    public int? LeadTimeDays { get; set; }
+    public decimal? MinimumOrderQuantity { get; set; }
+    public Guid? SpecificationDocumentRefId { get; set; }
+    public Guid? ImageDocumentRefId { get; set; }
+    public string? ExpenseAccountRef { get; set; }
+    public bool IsStockItem { get; set; }
+    public bool IsAsset { get; set; }
+    public bool InspectionRequired { get; set; }
+    public string? SourceVersion { get; set; }
+    public ICollection<CatalogEntry> Entries { get; set; } = new List<CatalogEntry>();
+}
+
+public sealed class CatalogEntry : ProcurementRecord
+{
+    public Guid CatalogItemId { get; set; }
+    public Guid? SupplierId { get; set; }
+    public Guid? SiteRef { get; set; }
+    public Guid? ContractRef { get; set; }
+    public string CurrencyCode { get; set; } = null!;
+    public string UnitCode { get; set; } = null!;
+    public decimal UnitPrice { get; set; }
+    public string? TaxBasis { get; set; }
+    public decimal? MinimumQuantity { get; set; }
+    public decimal? MaximumQuantity { get; set; }
+    public DateTimeOffset EffectiveFrom { get; set; }
+    public DateTimeOffset? EffectiveTo { get; set; }
+    public string Status { get; set; } = "Draft";
+    public int PublishedVersion { get; set; }
+    public string? AudienceCode { get; set; }
 }
 
 public sealed class PurchaseRequest : ProcurementRecord
@@ -63,7 +192,21 @@ public sealed class PurchaseRequest : ProcurementRecord
     public string Purpose { get; set; } = null!;
     public string Status { get; set; } = "Draft";
     public DateOnly? NeededBy { get; set; }
+    public Guid? BranchRef { get; set; }
+    public Guid? SiteRef { get; set; }
+    public string? DeliveryLocationRef { get; set; }
+    public string? DeliveryAddressText { get; set; }
+    public string? OnBehalfOfSubjectId { get; set; }
+    public string? PlanRef { get; set; }
+    public string? FundingSourceRef { get; set; }
+    public string? NotesToApprover { get; set; }
+    public string? SourceChannel { get; set; }
+    public DateTimeOffset? SubmittedAt { get; set; }
+    public long? SubmittedVersion { get; set; }
+    public string? ApprovalInstanceRef { get; set; }
+    public string? ApprovalState { get; set; }
     public ICollection<PurchaseRequestLine> Lines { get; set; } = new List<PurchaseRequestLine>();
+    public ICollection<PurchaseRequestAllocation> Allocations { get; set; } = new List<PurchaseRequestAllocation>();
 }
 
 public sealed class PurchaseRequestLine : ProcurementRecord
@@ -82,6 +225,69 @@ public sealed class PurchaseRequestLine : ProcurementRecord
     public decimal CancelledQuantity { get; set; }
     public string ApprovalStatus { get; set; } = "Pending";
     public string Route { get; set; } = "Unassigned";
+    public string? PurchaseType { get; set; }
+    public string? CategoryCode { get; set; }
+    public DateOnly? NeededBy { get; set; }
+    public Guid? PreferredSupplierId { get; set; }
+    public string? EstimatedCurrencyCode { get; set; }
+    public decimal? DiscountPercent { get; set; }
+    public string? TaxCodeRef { get; set; }
+    public string? CostCenterRef { get; set; }
+    public string? ProjectRef { get; set; }
+    public Guid? SpecificationDocumentRefId { get; set; }
+}
+
+public sealed class PurchaseRequestAllocation : ProcurementRecord
+{
+    public Guid PurchaseRequestId { get; set; }
+    public Guid PurchaseRequestLineId { get; set; }
+    public string Method { get; set; } = null!;
+    public string Status { get; set; } = "Pending";
+    public string? TargetType { get; set; }
+    public Guid? TargetId { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal EstimatedValue { get; set; }
+    public string CurrencyCode { get; set; } = null!;
+    public string? DecidedBy { get; set; }
+    public string? Reason { get; set; }
+    public DateTimeOffset? DecidedAt { get; set; }
+    public string IdempotencyKey { get; set; } = null!;
+}
+
+public sealed class PolicyEvaluation : ProcurementRecord
+{
+    public Guid PurchaseRequestId { get; set; }
+    public Guid PolicyVersionId { get; set; }
+    public string Outcome { get; set; } = null!;
+    public string? ResultCode { get; set; }
+    public string? Summary { get; set; }
+    public DateTimeOffset EvaluatedAt { get; set; }
+}
+
+public sealed class BudgetCheckSnapshot : ProcurementRecord
+{
+    public Guid PurchaseRequestId { get; set; }
+    public string FinanceCheckRef { get; set; } = null!;
+    public string Status { get; set; } = null!;
+    public decimal CheckedAmount { get; set; }
+    public string CurrencyCode { get; set; } = null!;
+    public DateTimeOffset CheckedAt { get; set; }
+    public string? ReservationRef { get; set; }
+    public string? ReservationStatus { get; set; }
+    public string? ExchangeRateSource { get; set; }
+}
+
+public sealed class ProcurementAttachmentRef : ProcurementRecord
+{
+    public string OwnerType { get; set; } = null!;
+    public Guid OwnerId { get; set; }
+    public string DocumentServiceId { get; set; } = null!;
+    public int DocumentVersion { get; set; }
+    public string FileName { get; set; } = null!;
+    public string? Classification { get; set; }
+    public string? Sha256 { get; set; }
+    public string ScanStatus { get; set; } = "Pending";
+    public DateOnly? ExpiresOn { get; set; }
 }
 
 /// <summary>Approved, effective-dated configuration; policy values are not seeded here.</summary>

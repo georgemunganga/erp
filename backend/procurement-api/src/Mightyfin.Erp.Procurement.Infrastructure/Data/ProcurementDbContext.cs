@@ -11,9 +11,19 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
 {
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierContact> SupplierContacts => Set<SupplierContact>();
+    public DbSet<SupplierSite> SupplierSites => Set<SupplierSite>();
+    public DbSet<SupplierQualification> SupplierQualifications => Set<SupplierQualification>();
+    public DbSet<SupplierAttribute> SupplierAttributes => Set<SupplierAttribute>();
+    public DbSet<SupplierCategory> SupplierCategories => Set<SupplierCategory>();
+    public DbSet<SupplierDecision> SupplierDecisions => Set<SupplierDecision>();
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
+    public DbSet<CatalogEntry> CatalogEntries => Set<CatalogEntry>();
     public DbSet<PurchaseRequest> PurchaseRequests => Set<PurchaseRequest>();
     public DbSet<PurchaseRequestLine> PurchaseRequestLines => Set<PurchaseRequestLine>();
+    public DbSet<PurchaseRequestAllocation> PurchaseRequestAllocations => Set<PurchaseRequestAllocation>();
+    public DbSet<PolicyEvaluation> PolicyEvaluations => Set<PolicyEvaluation>();
+    public DbSet<BudgetCheckSnapshot> BudgetCheckSnapshots => Set<BudgetCheckSnapshot>();
+    public DbSet<ProcurementAttachmentRef> AttachmentRefs => Set<ProcurementAttachmentRef>();
     public DbSet<PolicyVersion> PolicyVersions => Set<PolicyVersion>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
@@ -31,9 +41,21 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         record.TenantId = scope.TenantId;
         record.LegalEntityId = scope.LegalEntityId;
         if (record is Supplier supplier)
+        {
             foreach (var contact in supplier.Contacts) Stamp(contact);
+            foreach (var site in supplier.Sites) Stamp(site);
+            foreach (var qualification in supplier.Qualifications) Stamp(qualification);
+            foreach (var attribute in supplier.Attributes) Stamp(attribute);
+            foreach (var category in supplier.Categories) Stamp(category);
+            foreach (var decision in supplier.Decisions) Stamp(decision);
+        }
+        if (record is CatalogItem item)
+            foreach (var entry in item.Entries) Stamp(entry);
         if (record is PurchaseRequest request)
+        {
             foreach (var line in request.Lines) Stamp(line);
+            foreach (var allocation in request.Allocations) Stamp(allocation);
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -41,9 +63,19 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         modelBuilder.HasDefaultSchema("procurement");
         ConfigureBase<Supplier>(modelBuilder, "suppliers");
         ConfigureBase<SupplierContact>(modelBuilder, "supplier_contacts");
+        ConfigureBase<SupplierSite>(modelBuilder, "supplier_sites");
+        ConfigureBase<SupplierQualification>(modelBuilder, "supplier_qualifications");
+        ConfigureBase<SupplierAttribute>(modelBuilder, "supplier_attributes");
+        ConfigureBase<SupplierCategory>(modelBuilder, "supplier_categories");
+        ConfigureBase<SupplierDecision>(modelBuilder, "supplier_decisions");
         ConfigureBase<CatalogItem>(modelBuilder, "catalog_items");
+        ConfigureBase<CatalogEntry>(modelBuilder, "catalog_entries");
         ConfigureBase<PurchaseRequest>(modelBuilder, "purchase_requests");
         ConfigureBase<PurchaseRequestLine>(modelBuilder, "purchase_request_lines");
+        ConfigureBase<PurchaseRequestAllocation>(modelBuilder, "purchase_request_allocations");
+        ConfigureBase<PolicyEvaluation>(modelBuilder, "policy_evaluations");
+        ConfigureBase<BudgetCheckSnapshot>(modelBuilder, "budget_check_snapshots");
+        ConfigureBase<ProcurementAttachmentRef>(modelBuilder, "attachment_refs");
         ConfigureBase<PolicyVersion>(modelBuilder, "policy_versions");
         ConfigureBase<ImportBatch>(modelBuilder, "import_batches");
         ConfigureBase<AuditEvent>(modelBuilder, "audit_events");
@@ -57,6 +89,14 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
             b.Property(x => x.CountryCode).HasMaxLength(2);
             b.Property(x => x.NormalizedRegistration).HasMaxLength(120);
             b.Property(x => x.Status).HasMaxLength(40);
+            b.Property(x => x.DefaultCurrencyCode).HasMaxLength(3);
+            b.Property(x => x.LanguageCode).HasMaxLength(12);
+            b.Property(x => x.SupplierType).HasMaxLength(60);
+            b.Property(x => x.RiskTier).HasMaxLength(40);
+            b.Property(x => x.PortalAccessState).HasMaxLength(40);
+            b.Property(x => x.PaymentVerificationStatus).HasMaxLength(40);
+            b.Property(x => x.PaymentVerificationToken).HasMaxLength(200);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.IsOrderable, x.Status });
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CountryCode, x.NormalizedRegistration })
                 .IsUnique().HasFilter("normalized_registration IS NOT NULL");
@@ -65,12 +105,66 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
                 .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SupplierId })
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
                 .OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Sites).WithOne()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SupplierId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Qualifications).WithOne()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SupplierId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Attributes).WithOne()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SupplierId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Categories).WithOne()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SupplierId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Decisions).WithOne()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SupplierId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<SupplierContact>(b =>
         {
             b.Property(x => x.Name).HasMaxLength(200);
             b.Property(x => x.Email).HasMaxLength(320);
+            b.Property(x => x.LanguageCode).HasMaxLength(12);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId });
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.IsPrimary })
+                .IsUnique().HasFilter("is_primary = true");
+        });
+        modelBuilder.Entity<SupplierSite>(b =>
+        {
+            b.Property(x => x.Kind).HasMaxLength(40);
+            b.Property(x => x.CountryCode).HasMaxLength(2);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.Kind });
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.Kind, x.IsPrimary })
+                .IsUnique().HasFilter("is_primary = true");
+        });
+        modelBuilder.Entity<SupplierQualification>(b =>
+        {
+            b.Property(x => x.QualificationType).HasMaxLength(80);
+            b.Property(x => x.ReviewStatus).HasMaxLength(40);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.ExpiresOn });
+        });
+        modelBuilder.Entity<SupplierAttribute>(b =>
+        {
+            b.Property(x => x.Kind).HasMaxLength(30);
+            b.Property(x => x.FieldKey).HasMaxLength(120);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.Kind, x.FieldKey }).IsUnique();
+        });
+        modelBuilder.Entity<SupplierCategory>(b =>
+        {
+            b.Property(x => x.CategoryCode).HasMaxLength(100);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.CategoryCode }).IsUnique();
+        });
+        modelBuilder.Entity<SupplierDecision>(b =>
+        {
+            b.Property(x => x.FromStatus).HasMaxLength(40);
+            b.Property(x => x.ToStatus).HasMaxLength(40);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.DecidedAt });
         });
         modelBuilder.Entity<CatalogItem>(b =>
         {
@@ -79,17 +173,49 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
             b.Property(x => x.Kind).HasMaxLength(40);
             b.Property(x => x.Status).HasMaxLength(40);
             b.Property(x => x.UnitCode).HasMaxLength(30);
+            b.Property(x => x.PurchaseUnitCode).HasMaxLength(30);
+            b.Property(x => x.PurchaseUnitConversion).HasPrecision(18, 6);
+            b.Property(x => x.MinimumOrderQuantity).HasPrecision(18, 4);
+            b.ToTable(t => t.HasCheckConstraint("ck_catalog_item_buying_values",
+                "(purchase_unit_conversion IS NULL OR purchase_unit_conversion > 0) AND (minimum_order_quantity IS NULL OR minimum_order_quantity >= 0) AND (lead_time_days IS NULL OR lead_time_days >= 0)"));
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Code }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Status, x.CategoryCode });
+            b.HasMany(x => x.Entries).WithOne()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.CatalogItemId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<CatalogEntry>(b =>
+        {
+            b.Property(x => x.CurrencyCode).HasMaxLength(3);
+            b.Property(x => x.UnitCode).HasMaxLength(30);
+            b.Property(x => x.UnitPrice).HasPrecision(18, 4);
+            b.Property(x => x.MinimumQuantity).HasPrecision(18, 4);
+            b.Property(x => x.MaximumQuantity).HasPrecision(18, 4);
+            b.Property(x => x.Status).HasMaxLength(40);
+            b.Property(x => x.AudienceCode).HasMaxLength(100);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CatalogItemId, x.Status });
+            b.HasOne<Supplier>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SupplierId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.ToTable(t => t.HasCheckConstraint("ck_catalog_entry_values",
+                "unit_price >= 0 AND (minimum_quantity IS NULL OR minimum_quantity >= 0) AND (maximum_quantity IS NULL OR maximum_quantity >= 0) AND (minimum_quantity IS NULL OR maximum_quantity IS NULL OR maximum_quantity >= minimum_quantity)"));
         });
         modelBuilder.Entity<PurchaseRequest>(b =>
         {
             b.Property(x => x.Number).HasMaxLength(40);
             b.Property(x => x.CurrencyCode).HasMaxLength(3);
             b.Property(x => x.Status).HasMaxLength(40);
+            b.Property(x => x.SourceChannel).HasMaxLength(40);
+            b.Property(x => x.ApprovalState).HasMaxLength(40);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.RequesterWorkerId, x.Status });
             b.HasMany(x => x.Lines).WithOne()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Allocations).WithOne()
                 .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
                 .OnDelete(DeleteBehavior.Restrict);
@@ -105,9 +231,68 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
             b.Property(x => x.CancelledQuantity).HasPrecision(18, 4);
             b.Property(x => x.ApprovalStatus).HasMaxLength(40);
             b.Property(x => x.Route).HasMaxLength(40);
+            b.Property(x => x.PurchaseType).HasMaxLength(40);
+            b.Property(x => x.EstimatedCurrencyCode).HasMaxLength(3);
+            b.Property(x => x.DiscountPercent).HasPrecision(7, 4);
+            b.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.Id });
+            b.HasOne<CatalogItem>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.CatalogItemId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Supplier>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PreferredSupplierId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.LineNumber }).IsUnique();
             b.ToTable(t => t.HasCheckConstraint("ck_pr_line_nonnegative",
-                "requested_quantity > 0 AND estimated_unit_price >= 0 AND approved_quantity >= 0 AND allocated_quantity >= 0 AND ordered_quantity >= 0 AND accepted_quantity >= 0 AND cancelled_quantity >= 0"));
+                "requested_quantity > 0 AND estimated_unit_price >= 0 AND approved_quantity >= 0 AND allocated_quantity >= 0 AND ordered_quantity >= 0 AND accepted_quantity >= 0 AND cancelled_quantity >= 0 AND (discount_percent IS NULL OR (discount_percent >= 0 AND discount_percent <= 100))"));
+        });
+        modelBuilder.Entity<PurchaseRequestAllocation>(b =>
+        {
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.EstimatedValue).HasPrecision(18, 4);
+            b.Property(x => x.CurrencyCode).HasMaxLength(3);
+            b.Property(x => x.Method).HasMaxLength(40);
+            b.Property(x => x.Status).HasMaxLength(40);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.IdempotencyKey }).IsUnique();
+            b.HasOne<PurchaseRequestLine>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.PurchaseRequestLineId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.ToTable(t => t.HasCheckConstraint("ck_pr_allocation_nonnegative",
+                "quantity > 0 AND estimated_value >= 0"));
+        });
+        modelBuilder.Entity<PolicyEvaluation>(b =>
+        {
+            b.Property(x => x.Outcome).HasMaxLength(40);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.EvaluatedAt });
+            b.HasOne<PurchaseRequest>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<PolicyVersion>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<BudgetCheckSnapshot>(b =>
+        {
+            b.Property(x => x.Status).HasMaxLength(40);
+            b.Property(x => x.CurrencyCode).HasMaxLength(3);
+            b.Property(x => x.CheckedAmount).HasPrecision(18, 4);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.FinanceCheckRef }).IsUnique();
+            b.HasOne<PurchaseRequest>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<ProcurementAttachmentRef>(b =>
+        {
+            b.Property(x => x.OwnerType).HasMaxLength(80);
+            b.Property(x => x.ScanStatus).HasMaxLength(40);
+            b.Property(x => x.Sha256).HasMaxLength(64);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.OwnerType, x.OwnerId });
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.DocumentServiceId, x.DocumentVersion }).IsUnique();
         });
         modelBuilder.Entity<PolicyVersion>(b =>
         {
@@ -183,8 +368,8 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         {
             if (entry.State == EntityState.Deleted)
                 throw new InvalidOperationException("Procurement records must be closed, cancelled or reversed; physical deletion is not allowed.");
-            if (entry.State == EntityState.Modified && entry.Entity is AuditEvent)
-                throw new InvalidOperationException("Audit events are append-only.");
+            if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot)
+                throw new InvalidOperationException("Decision, evaluation, budget and audit records are append-only.");
             if (entry.State == EntityState.Added)
             {
                 if (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId)
