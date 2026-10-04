@@ -22,6 +22,9 @@ public static class ProcurementHostIntegration
 
     public static void MapRoutes(WebApplication app)
     {
+        ProcurementVendorRoutes.MapRoutes(app);
+        ProcurementItemEndpoints.MapRoutes(app);
+        ProcurementRequestRoutes.Map(app);
         app.MapGet("/api/procurement/v1/meta", (ProcurementRequestScope scope) => Results.Ok(new
         {
             module = "procurement",
@@ -31,8 +34,8 @@ public static class ProcurementHostIntegration
             workLocationId = scope.WorkLocationId,
             orgUnitId = scope.OrgUnitId,
             confined = scope.IsConfined,
-            phase = "shared-host-access",
-            crudEnabled = false,
+            phase = "draft-crud",
+            crudEnabled = true,
         })).RequireAuthorization("procurement-access");
     }
 }
@@ -49,6 +52,7 @@ public sealed class ProcurementRequestScope : IProcurementScope
     public string SubjectId => resolved ? subjectId : throw new InvalidOperationException("Procurement scope has not been resolved.");
     public Guid? WorkLocationId { get; private set; }
     public Guid? OrgUnitId { get; private set; }
+    public Guid? WorkerId { get; private set; }
     public bool IsConfined { get; private set; }
     public string? CorrelationId { get; private set; }
 
@@ -64,6 +68,13 @@ public sealed class ProcurementRequestScope : IProcurementScope
         IsConfined = confined;
         CorrelationId = correlation;
         resolved = true;
+    }
+
+    public void AssignWorker(Guid workerId)
+    {
+        if (!resolved || WorkerId.HasValue || workerId == Guid.Empty)
+            throw new InvalidOperationException("A resolved Procurement scope may receive one worker mapping.");
+        WorkerId = workerId;
     }
 }
 
@@ -226,6 +237,17 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         }
         scope.Set(tenant, selectedEntity, subject, effectiveLocation, effectiveOrgUnit, confined,
             http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier);
+        if (!http.Request.Path.Equals("/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase))
+        {
+            var workerId = await ProcurementWorkforce.ResolveActiveWorker(db, scope, http.RequestAborted);
+            if (workerId is null)
+            {
+                await Deny(http, StatusCodes.Status403Forbidden,
+                    "An active employee in this company is required to use Procurement.");
+                return;
+            }
+            scope.AssignWorker(workerId.Value);
+        }
         await next(http);
     }
 

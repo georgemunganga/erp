@@ -26,6 +26,8 @@
 
 [PROC-BE-02 Shared Host and Access Scope](PROC-BE-02-SHARED-HOST-ACCESS.md) documents how Procurement is composed into the existing ERP API and resolves authenticated tenant, company and branch scope before business CRUD.
 
+[PROC-BE-03 First CRUD Operations](PROC-BE-03-FIRST-CRUD-OPERATIONS.md) records the draft Vendor, Item/Catalog and Purchase Request API contract, state limits, permissions and verification gates. These routes are source work until the integrated build, database migration and deployment checks are complete.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |

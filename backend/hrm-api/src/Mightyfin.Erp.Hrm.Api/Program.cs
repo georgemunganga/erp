@@ -212,10 +212,7 @@ builder.Services.AddAuthorization(options =>
         .Build();
     options.AddPolicy("hrm-admin", policy => policy.RequireAuthenticatedUser()
         .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole("hr_admin")));
-    options.AddPolicy("procurement-access", policy => policy.RequireAuthenticatedUser()
-        .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole(
-            "employee", "manager", "procurement_requester", "procurement_buyer",
-            "procurement_manager", "supplier_admin", "ap_processor")));
+    Mightyfin.Erp.Hrm.Api.ProcurementPermissions.AddPolicies(options);
 });
 
 // ---------- Health: readiness probes the database ----------
@@ -456,6 +453,26 @@ if (!string.IsNullOrWhiteSpace(procurementConnStr))
             })
             {
                 await seedRepo.CreateRoleAssignmentAsync(new TenantRoleAssignment { RoleKey = key.Key, RoleName = key.Name, Category = key.Cat, PermissionsCsv = key.Key, Active = true }, CancellationToken.None);
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(procurementConnStr))
+        {
+            var configuredRoles = await seedRepo.ListRoleAssignmentsAsync(CancellationToken.None);
+            foreach (var key in new (string Key, string Name)[]
+            {
+                ("procurement_requester", "Procurement requester"),
+                ("procurement_buyer", "Procurement buyer"),
+                ("procurement_manager", "Procurement manager"),
+                ("supplier_admin", "Supplier administrator"),
+                ("ap_processor", "AP processor"),
+            })
+            {
+                if (configuredRoles.Any(r => r.RoleKey == key.Key)) continue;
+                await seedRepo.CreateRoleAssignmentAsync(new TenantRoleAssignment
+                {
+                    RoleKey = key.Key, RoleName = key.Name, Category = "procurement",
+                    PermissionsCsv = key.Key, Active = true,
+                }, CancellationToken.None);
             }
         }
     }

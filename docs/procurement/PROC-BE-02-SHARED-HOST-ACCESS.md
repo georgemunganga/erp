@@ -2,7 +2,7 @@
 
 **Document type:** Technical child feature and implementation record
 
-**Status:** Shared-host composition and scope resolution implemented in source; production deployment and action-specific permissions remain open
+**Status:** Shared-host composition and scope resolution implemented in source; initial named action policies added for draft CRUD; production deployment and tenant-configurable permissions remain open
 
 **Prepared:** 4 October 2026
 
@@ -18,7 +18,7 @@ An authenticated employee can enter Procurement under the same login and company
 
 ## 3. Scope and Exclusions
 
-In scope: conditional module registration, existing HRMS local/OIDC authentication, shared-host metadata route, strict header validation, branch confinement, database readiness and tests. Excluded: live rollout, business CRUD, supplier portal identity, action-specific permissions and approved delegated-authority rules.
+In scope: conditional module registration, existing HRMS local/OIDC authentication, shared-host metadata route, strict header validation, branch confinement, database readiness and tests. Initial named action policies and active-worker checks for writes are recorded in [PROC-BE-03](PROC-BE-03-FIRST-CRUD-OPERATIONS.md). Excluded here: live rollout, supplier portal identity, tenant-configurable permission grants and approved delegated-authority rules.
 
 ## 4. Parent and Related Features
 
@@ -58,7 +58,7 @@ Claims: subject and tenant from identity. Selection: entity/location headers fro
 
 ## 13. Screens and Data Views
 
-The existing ERP shell supplies company and branch selectors. The metadata response echoes the resolved scope for developer/UI verification and reports `crudEnabled=false`. No Procurement business screen is newly enabled.
+The existing ERP shell supplies company and branch selectors. The metadata response echoes the resolved scope for developer/UI verification. After the draft CRUD routes were added in source, it reports `crudEnabled=true`; this reports host capability, not production deployment status.
 
 ## 14. User Experience / Human Behaviour
 
@@ -106,7 +106,7 @@ Invalid selection returns 400/403; database outage makes readiness unhealthy. An
 
 ## 25. Acceptance Criteria
 
-The HRMS API builds with the module reference; a confined user cannot select an unassigned branch or another company; default scope is an assigned branch; mismatched headers are denied; Procurement and HRMS projects retain separate migrations; business CRUD remains disabled.
+The HRMS API builds with the module reference; a confined user cannot select an unassigned branch or another company; default scope is an assigned branch; mismatched headers are denied; Procurement and HRMS projects retain separate migrations. Draft CRUD routes are separately recorded in [PROC-BE-03](PROC-BE-03-FIRST-CRUD-OPERATIONS.md).
 
 ## 26. Test Scenarios
 
@@ -118,4 +118,4 @@ ERP host/Identity owns authentication and role claims; Organization/HRMS owns le
 
 ## 28. Open Decisions / Assumptions
 
-Decide the full Procurement permission catalogue and role grants; how OIDC subjects map to workforce GUIDs if they are not GUIDs; how org-unit confinement maps to work-location assignments; and the production connection/credential deployment. Vendor CRUD must be blocked until its action and data-scope policies are implemented and tested.
+Decide tenant-configurable Procurement grants and record scopes; how OIDC subjects map to workforce GUIDs if they are not GUIDs; how org-unit confinement maps to work-location assignments; and the production connection/credential deployment. Draft vendor routes have initial action and data-scope checks; activation remains blocked.

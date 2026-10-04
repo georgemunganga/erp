@@ -11,6 +11,21 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementScopeMiddlewareTests
 {
     [Fact]
+    public void Procurement_actions_require_an_explicit_allowed_role()
+    {
+        Assert.False(ProcurementPermissions.Allows("procurement-item-manage",
+            [new Claim(ClaimTypes.Role, "employee")]));
+        Assert.False(ProcurementPermissions.Allows("procurement-vendor-read",
+            [new Claim(ClaimTypes.Role, "tenant_owner")]));
+        Assert.False(ProcurementPermissions.Allows("procurement-vendor-manage",
+            [new Claim(ClaimTypes.Role, "employee")]));
+        Assert.True(ProcurementPermissions.Allows("procurement-item-manage",
+            [new Claim(ClaimTypes.Role, "procurement_buyer")]));
+        Assert.True(ProcurementPermissions.Allows("procurement-vendor-manage",
+            [new Claim(ClaimTypes.Role, "supplier_admin")]));
+    }
+
+    [Fact]
     public async Task Confined_user_cannot_select_another_branch_or_company()
     {
         await using var db = TestDbContextFactory.Create("tenant-a");
@@ -62,6 +77,54 @@ public sealed class ProcurementScopeMiddlewareTests
         mismatchHttp.Request.Headers["X-Shell-Entity"] = entityB.Id.ToString();
         await Middleware(_ => Task.CompletedTask).InvokeAsync(mismatchHttp, mismatchScope, db);
         Assert.Equal(StatusCodes.Status403Forbidden, mismatchHttp.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Procurement_write_requires_active_worker_in_selected_company()
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var entity = new LegalEntity { Code = "A", RegisteredName = "Company A", IsDefault = true };
+        db.LegalEntities.Add(entity);
+        var branch = new WorkLocation { Code = "A1", Name = "Branch A", LegalEntityId = entity.Id };
+        db.WorkLocations.Add(branch);
+        var worker = new Worker { EmployeeNo = "EMP-1", FirstName = "Pat", LastName = "Test",
+            Status = "active", LocationId = branch.Id };
+        db.Workers.Add(worker);
+        var user = new LocalUser { Email = "pat@example.test", NormalizedEmail = "PAT@EXAMPLE.TEST",
+            DisplayName = "Pat Test", PasswordHash = "test", WorkerId = worker.Id, IsActive = true };
+        db.LocalUsers.Add(user);
+        await db.SaveChangesAsync();
+
+        var (activeHttp, activeScope) = Request(user.Id);
+        activeHttp.Request.Path = "/api/procurement/v1/vendors";
+        activeHttp.Request.Method = "POST";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; })
+            .InvokeAsync(activeHttp, activeScope, db);
+        Assert.True(reached);
+
+        var otherEntity = new LegalEntity { Code = "B", RegisteredName = "Company B" };
+        db.LegalEntities.Add(otherEntity);
+        await db.SaveChangesAsync();
+        var (otherHttp, otherScope) = Request(user.Id);
+        otherHttp.Request.Path = "/api/procurement/v1/vendors";
+        otherHttp.Request.Headers["X-Shell-Entity"] = otherEntity.Id.ToString();
+        reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; })
+            .InvokeAsync(otherHttp, otherScope, db);
+        Assert.False(reached);
+        Assert.Equal(StatusCodes.Status403Forbidden, otherHttp.Response.StatusCode);
+
+        worker.Status = "terminated";
+        await db.SaveChangesAsync();
+        var (inactiveHttp, inactiveScope) = Request(user.Id);
+        inactiveHttp.Request.Path = "/api/procurement/v1/vendors";
+        inactiveHttp.Request.Method = "POST";
+        reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; })
+            .InvokeAsync(inactiveHttp, inactiveScope, db);
+        Assert.False(reached);
+        Assert.Equal(StatusCodes.Status403Forbidden, inactiveHttp.Response.StatusCode);
     }
 
     private static (DefaultHttpContext Http, ProcurementRequestScope Scope) Request(Guid user)
