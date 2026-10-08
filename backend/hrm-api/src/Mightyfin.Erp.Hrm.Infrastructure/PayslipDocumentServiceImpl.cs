@@ -26,6 +26,7 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db,
         var worker = await db.Workers.FirstAsync(w => w.Id == line.WorkerId, ct);
         var components = await db.PayrollLineComponents
             .Where(c => c.RunLineId == line.Id).ToListAsync(ct);
+        var branding = await db.CompanyBrandings.AsNoTracking().SingleOrDefaultAsync(ct);
         var periodLabel = run.PayPeriod?.PeriodLabel ?? "";
         List<PayslipLeaveTakenDto> leaveTaken = run.PayPeriod is null || leaveSummary is null
             ? []
@@ -34,7 +35,8 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db,
             ? []
             : await leaveSummary.GetBalancesAsync(line.WorkerId, run.PayPeriod.EndDate, ct);
 
-        var html = RenderPayslipHtml(worker.FullName, worker.EmployeeNo ?? "", periodLabel,
+        var html = RenderPayslipHtml(branding?.CompanyName ?? "Company",
+            branding?.LogoDarkDataUri, worker.FullName, worker.EmployeeNo ?? "", periodLabel,
             slip.PayslipNo, components, leaveTaken, leaveBalances,
             slip.GrossPay, slip.TotalDeductions, slip.NetPay,
             slip.YtdGross, slip.YtdTax, slip.YtdNet,
@@ -79,7 +81,8 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db,
         return $"file://{destPath}";
     }
 
-    private static string RenderPayslipHtml(string workerName, string employeeNo, string periodLabel,
+    private static string RenderPayslipHtml(string companyName, string? logoForLightBackground,
+        string workerName, string employeeNo, string periodLabel,
         string payslipNo, List<PayrollLineComponent> components, List<PayslipLeaveTakenDto> leaveTaken,
         List<PayslipLeaveBalanceDto> leaveBalances,
         decimal gross, decimal deductions,
@@ -94,8 +97,18 @@ public sealed class PayslipDocumentServiceImpl(HrmDbContext db,
           .Append("td,th{border:1px solid #ccc;padding:4px 6px;text-align:left}")
           .Append(".right{text-align:right} h1{font-size:15px;margin:0}")
           .Append("h2{font-size:12px;margin:14px 0 4px} .muted{color:#666;font-size:10px}")
+          .Append(".payslip-header{width:100%;margin-bottom:18px;border:0}")
+          .Append(".payslip-header td{border:0;padding:0;vertical-align:middle}")
+          .Append(".payslip-header .title{text-align:right}")
+          .Append(".company-logo{display:block;max-width:180px;max-height:64px;width:auto;height:auto}")
+          .Append(".company-name{font-size:15px;font-weight:bold}")
           .Append("</style></head><body>")
-          .Append("<h1>Payslip</h1>")
+          .Append("<table class='payslip-header'><tr><td>");
+        if (!string.IsNullOrWhiteSpace(logoForLightBackground))
+            sb.Append($"<img class='company-logo' src=\"{Escape(logoForLightBackground)}\" alt=\"{Escape(companyName)} logo\">");
+        else
+            sb.Append($"<span class='company-name'>{Escape(companyName)}</span>");
+        sb.Append("</td><td class='title'><h1>Payslip</h1></td></tr></table>")
           .Append($"<div class='muted'>{Escape(payslipNo)} &middot; Period {Escape(periodLabel)}</div>")
           .Append("<h2>Employee</h2><table>")
           .Append($"<tr><td>Name</td><td>{Escape(workerName)}</td><td>Employee No</td><td>{Escape(employeeNo)}</td></tr>")

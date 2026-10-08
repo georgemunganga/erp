@@ -165,6 +165,7 @@ function BrandingPage() {
       reader.readAsDataURL(file);
     });
     set(key, value);
+    feedback.note("Image selected.", "Click Save branding below to keep this logo and use it on future payslips.");
   }
 
   async function save() {
@@ -223,6 +224,7 @@ function BrandingPage() {
               <Input id={key} className="mt-2" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon" onChange={(event) => { void pickAsset(key, event.target.files?.[0]); event.target.value = ""; }} />
               {form[key] ? <div className="mt-3 flex h-20 items-center justify-center rounded border bg-background p-2"><img src={form[key]} alt={`${label} preview`} className="max-h-full max-w-full object-contain" /></div>
                 : <p className="mt-3 text-xs text-muted-foreground">No custom image uploaded.</p>}
+              {key === "logoDarkDataUri" ? <p className="mt-2 text-xs text-muted-foreground">Used on printed payslips with a white background.</p> : null}
               {form[key] ? <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => set(key, "")}>Remove image</Button> : null}
             </div>
           )}
