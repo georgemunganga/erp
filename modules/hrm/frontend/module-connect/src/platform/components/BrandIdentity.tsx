@@ -27,10 +27,10 @@ export function BrandIdentity({
             onDark ? "bg-white/15 text-white" : "bg-primary text-primary-foreground"
           }`}
         >
-          HR
+          ERP
         </span>
       )}
-      {showName ? <span className={nameClassName}>{branding?.displayName || "HR workspace"}</span> : null}
+      {showName ? <span className={nameClassName}>{branding?.displayName || "ERP workspace"}</span> : null}
     </>
   );
 }

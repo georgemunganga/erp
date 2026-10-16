@@ -205,7 +205,7 @@ export const configurationGroups: {
       {
         label: "Legal entities and branches",
         detail: "3 entities · 6 branches",
-        to: "/hrm/configuration/organisation",
+        to: "/core/organization",
       },
       {
         // M45: which platform users are confined to which branches.
@@ -216,7 +216,7 @@ export const configurationGroups: {
       {
         label: "Departments and cost centres",
         detail: "12 departments",
-        to: "/hrm/configuration/organisation",
+        to: "/core/organization#departments",
       },
       {
         label: "Jobs, grades and pay ranges",
@@ -305,12 +305,12 @@ export const configurationGroups: {
       {
         label: "Local users",
         detail: "Accounts, roles, access and passwords",
-        to: "/hrm/configuration/users",
+        to: "/core/users",
       },
       {
         label: "Roles and permissions",
         detail: "Create roles and assign HRMS permissions",
-        to: "/hrm/configuration/roles",
+        to: "/core/roles",
       },
       {
         label: "Sensitive field masking",
@@ -341,7 +341,7 @@ export const configurationGroups: {
       {
         label: "Company branding",
         detail: "Logo, favicon, and workspace colour palette",
-        to: "/hrm/configuration/branding",
+        to: "/core/branding",
       },
       { label: "Import and export", detail: "Shared CSV and Excel data movement", to: "/hrm/data/import-export" },
       {
