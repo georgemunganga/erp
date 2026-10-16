@@ -77,7 +77,6 @@ export const HRM_STAFF_ROLES = [
   "payroll",
   "finance_approver",
   "hr_admin",
-  "erp_admin",
   "investigator",
   "timesheet_operator",
 ] as const;
@@ -96,7 +95,7 @@ export function canAccessProcurement(roles: string[]): boolean {
 
 export function hasErpModuleRole(roles: string[]): boolean {
   const set = new Set(roles.map((role) => role.toLowerCase()));
-  return hasHrmStaffRole(roles) || PROCUREMENT_ROLES.some((role) => set.has(role));
+  return set.has("erp_admin") || hasHrmStaffRole(roles) || PROCUREMENT_ROLES.some((role) => set.has(role));
 }
 
 export function isTimesheetOnly(roles: string[]): boolean {
@@ -109,7 +108,7 @@ function mapRolesToDemoRole(roles: string[]): Role {
   // Users can hold several operational roles. Resolve the most privileged
   // workspace first so an HR administrator who also processes payroll keeps
   // access to Configuration and other administrator-only navigation.
-  if (set.has("erp_admin") || set.has("hr_admin") || set.has("investigator")) return "hr_admin";
+  if (set.has("hr_admin") || set.has("investigator")) return "hr_admin";
   if (set.has("hr_ops")) return "hr_ops";
   if (set.has("payroll") || set.has("finance_approver")) return "payroll";
   if (set.has("manager")) return "manager";

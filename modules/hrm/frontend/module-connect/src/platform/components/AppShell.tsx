@@ -72,11 +72,11 @@ import { ScopeSwitchOverlay } from "./ScopeSwitchOverlay";
 import type { ModuleDefinition, NavItem, NavSection } from "@/platform/nav";
 import { useApp, useRoleGate } from "@/platform/app-context";
 import { canUseTimesheetPath } from "@/platform/components/TimesheetWorkspace";
-import { isTimesheetOnly, HRM_STAFF_ROLES, useAuth } from "@/platform/auth";
+import { isTimesheetOnly, useAuth } from "@/platform/auth";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { adaptWorkers, realApi, useApi } from "@/platform/use-api";
 import { SignedInBadge } from "@/platform/components/AuthGate";
-import { modules } from "@/platform/modules";
+import { ModuleSwitcher } from "@/platform/components/ModuleSwitcher";
 import { cn } from "@/lib/utils";
 
 function useVisibleSections(mod: ModuleDefinition, role: Role) {
@@ -643,7 +643,7 @@ function TimesheetShell({ children }: { children: ReactNode }) {
 
 function FullAppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { role, setRole, entityId, setEntityId, branch, setBranch, theme, toggleTheme } = useApp();
+  const { role, entityId, setEntityId, branch, setBranch, theme, toggleTheme } = useApp();
   const { worker: myWorker, user } = useAuth();
   const shellState = useApi(async () => {
     if (!USE_REAL) return null;
@@ -854,36 +854,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
             </SheetContent>
           </Sheet>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2 px-2 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                <BrandIdentity onDark nameClassName="hidden font-semibold sm:inline" />
-                <ChevronDown className="size-3.5" aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuLabel>Modules</DropdownMenuLabel>
-              {modules.map((m) => (
-                <DropdownMenuItem key={m.id} disabled={!m.available} onSelect={() => { if (m.available) window.location.assign(m.to); }}>
-                  {m.label}
-                  {!m.available ? <span className="ml-auto text-xs text-muted-foreground">Not enabled</span> : null}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Workspace</DropdownMenuLabel>
-              {USE_REAL ? (
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Assigned roles: {(user?.roles ?? []).filter((r) => HRM_STAFF_ROLES.includes(r as never)).join(", ") || "employee"}
-                </div>
-              ) : <DropdownMenuRadioGroup value={role} onValueChange={(v) => setRole(v as Role)}>
-                {workspaces.map((w) => (
-                  <DropdownMenuRadioItem key={w.id} value={w.id}>
-                    {w.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <a href="/" className="flex items-center gap-2 rounded-md px-2 py-1 text-primary-foreground hover:bg-primary-foreground/10"><BrandIdentity onDark nameClassName="hidden font-semibold sm:inline" /></a>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -933,6 +904,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
 
           <div className="ml-auto flex items-center gap-1">
+            <ModuleSwitcher current="hrm" />
             <Button
               variant="outline"
               size="sm"

@@ -44,7 +44,7 @@ export const NoResultsState = (p: { title: string; body: string; action?: ReactN
 
 export const RestrictedState = ({
   title = "You don't have access to this record",
-  body = "This record exists outside your permissions, or it doesn't exist. Ask your HR administrator if you believe this is wrong.",
+  body = "This record is outside your access, or it doesn't exist. Ask an administrator if you believe this is wrong.",
 }: {
   title?: string;
   body?: string;
@@ -77,7 +77,7 @@ export const ErrorState = ({ message, onRetry }: { message: string; onRetry?: ()
         tone="warning"
         icon={<Lock className="size-8" aria-hidden />}
         title="You do not have permission"
-        body="Your account is signed in, but this page needs another HRMS role. Ask an HR administrator to update your access if you should be able to use it."
+        body="Your account is signed in, but this action needs an additional role or access to this record. Ask an administrator to review your access."
       />
     );
   }

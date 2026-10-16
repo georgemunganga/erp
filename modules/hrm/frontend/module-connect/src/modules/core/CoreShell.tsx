@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { Building2, ChevronDown, Menu, X } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, Menu, Settings2, ShieldCheck, SlidersHorizontal, UsersRound, WandSparkles, X } from "lucide-react";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
+import { ModuleSwitcher } from "@/platform/components/ModuleSwitcher";
 import { SignedInBadge } from "@/platform/components/AuthGate";
 import { useApp } from "@/platform/app-context";
 import { realApi, useApi } from "@/platform/use-api";
@@ -16,8 +17,10 @@ const asRows = (value: unknown): Record<string, unknown>[] => {
 export function CoreShell({ children }: { children: ReactNode }) {
   const { entityId, setEntityId, branch, setBranch } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [modulesOpen, setModulesOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
+  const currentPath = typeof window === "undefined" ? "/core" : window.location.pathname;
+  const groupIcons = [Building2, UsersRound, ShieldCheck, Settings2, WandSparkles];
+  const [openGroups, setOpenGroups] = useState<string[]>(() => coreSettingGroups.filter((group) => group.items.some((item) => currentPath === settingPath(item))).map((group) => group.title));
   const context = useApi(async () => {
     const [entityResult, locationResult, shell] = await Promise.all([
       realApi.legalEntities(),
@@ -35,26 +38,26 @@ export function CoreShell({ children }: { children: ReactNode }) {
   const activeEntity = entities.find((item) => item.id === entityId) ?? entities[0];
   const activeBranch = branches.find((item) => item.id === branch);
   const navigation = <>
-    <a href="/core" className="mb-3 block rounded-md bg-rail-active px-3 py-2 text-sm font-semibold text-rail-foreground">ERP Core</a>
-    {coreSettingGroups.map((group) => <div key={group.title} className="mb-4">
-      <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-rail-muted">{group.title}</p>
-      {group.items.map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} className="block rounded-md px-3 py-1.5 text-xs text-rail-muted hover:bg-rail-active hover:text-rail-foreground">{item.label}</a>)}
-    </div>)}
+    <a href="/core" onClick={() => setMobileOpen(false)} className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-rail-foreground ${currentPath === "/core" ? "bg-rail-active" : "hover:bg-rail-active"}`}><Settings2 className="size-4" />Core home</a>
+    {coreSettingGroups.map((group, index) => {
+      const Icon = groupIcons[index];
+      const open = openGroups.includes(group.title);
+      return <div key={group.title} className="mb-1">
+        <button type="button" aria-expanded={open} onClick={() => setOpenGroups((groups) => open ? groups.filter((title) => title !== group.title) : [...groups, group.title])} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-rail-foreground hover:bg-rail-active">
+          <Icon className="size-4 shrink-0" aria-hidden /><span className="min-w-0 flex-1">{group.title}</span>{open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+        </button>
+        {open && <div className="ml-5 border-l border-rail-active pl-2">
+          {group.items.map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} aria-current={currentPath === settingPath(item).split("#")[0] ? "page" : undefined} className={`block rounded-md px-3 py-1.5 text-xs hover:bg-rail-active hover:text-rail-foreground ${currentPath === settingPath(item).split("#")[0] ? "bg-rail-active text-rail-foreground" : "text-rail-muted"}`}>{item.label}</a>)}
+        </div>}
+      </div>;
+    })}
   </>;
   return <div className="min-h-screen bg-background text-foreground">
     <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-primary/40 bg-primary px-3 text-primary-foreground shadow-sm">
       <button type="button" className="rounded-md p-2 lg:hidden" aria-label="Open Core navigation" onClick={() => setMobileOpen(true)}><Menu className="size-5" /></button>
-      <div className="relative">
-        <button type="button" aria-label="Open ERP modules" aria-expanded={modulesOpen} onClick={() => { setModulesOpen(!modulesOpen); setContextOpen(false); }} className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-primary-foreground/10"><BrandIdentity onDark /><ChevronDown className="size-3.5" /></button>
-        {modulesOpen && <div className="absolute left-0 top-11 z-50 w-60 rounded-lg border bg-surface p-2 text-foreground shadow-xl">
-          <p className="px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground">Modules</p>
-          <a href="/hrm" className="block rounded px-2 py-2 text-sm hover:bg-secondary">Human Resources</a>
-          <a href="/procurement" className="block rounded px-2 py-2 text-sm hover:bg-secondary">Procurement</a>
-          <a href="/core" className="block rounded bg-primary-soft px-2 py-2 text-sm font-medium text-primary">ERP Core</a>
-        </div>}
-      </div>
+      <a href="/" className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-primary-foreground/10"><BrandIdentity onDark /></a>
       <div className="relative hidden md:block">
-        <button type="button" aria-label="Organization context" aria-expanded={contextOpen} onClick={() => { setContextOpen(!contextOpen); setModulesOpen(false); }} className="flex max-w-72 items-center gap-2 rounded-full border bg-surface px-3 py-1.5 text-xs text-foreground">
+        <button type="button" aria-label="Organization context" aria-expanded={contextOpen} onClick={() => setContextOpen(!contextOpen)} className="flex max-w-72 items-center gap-2 rounded-full border bg-surface px-3 py-1.5 text-xs text-foreground">
           <Building2 className="size-4 shrink-0" /><span className="truncate">{activeEntity?.name ?? "Organization"}{activeBranch ? ` · ${activeBranch.name}` : ""}</span><ChevronDown className="size-3.5 shrink-0" />
         </button>
         {contextOpen && <div className="absolute left-0 top-11 z-50 max-h-[60vh] w-80 overflow-y-auto rounded-lg border bg-surface p-2 text-foreground shadow-xl">
@@ -65,7 +68,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
           </div>) : <p className="px-2 py-2 text-xs text-muted-foreground">No organization context is available for this account.</p>}
         </div>}
       </div>
-      <span className="ml-auto hidden rounded-full border border-primary-foreground/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide sm:inline">ERP Core</span>
+      <div className="ml-auto"><ModuleSwitcher current="core" /></div>
       <div className="rounded-full bg-surface px-2 py-1 text-foreground"><SignedInBadge /></div>
     </header>
     {mobileOpen && <button type="button" aria-label="Close Core navigation" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-black/40 lg:hidden" />}
