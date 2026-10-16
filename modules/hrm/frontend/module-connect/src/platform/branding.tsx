@@ -6,6 +6,7 @@ import { realApi } from "@/platform/use-api";
 
 type BrandingContextValue = {
   branding: CompanyBranding | null;
+  ready: boolean;
   setBranding: (value: CompanyBranding) => void;
 };
 
@@ -31,16 +32,22 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const { authenticated } = useAuth();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [branding, setBranding] = useState<CompanyBranding | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (import.meta.env.VITE_USE_REAL_API !== "true") return;
+    if (import.meta.env.VITE_USE_REAL_API !== "true") {
+      setReady(true);
+      return;
+    }
     let active = true;
+    const timeout = window.setTimeout(() => { if (active) setReady(true); }, 3000);
     // This endpoint contains public presentation settings only. Fetch it before
     // sign-in and again after authentication so tenant claims are respected.
     realApi.publicBranding().then((value) => {
       if (active) setBranding(value);
-    }).catch(() => { /* A branding outage must not prevent sign-in. */ });
-    return () => { active = false; };
+    }).catch(() => { /* A branding outage must not prevent sign-in. */ })
+      .finally(() => { if (active) setReady(true); window.clearTimeout(timeout); });
+    return () => { active = false; window.clearTimeout(timeout); };
   }, [authenticated]);
 
   useEffect(() => {
@@ -61,7 +68,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     if (icon) icon.href = branding.faviconDataUri || "/favicon.svg";
   }, [branding, pathname]);
 
-  return <BrandingContext.Provider value={{ branding, setBranding }}>{children}</BrandingContext.Provider>;
+  return <BrandingContext.Provider value={{ branding, ready, setBranding }}>{children}</BrandingContext.Provider>;
 }
 
 export function useBranding() {

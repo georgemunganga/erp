@@ -7,15 +7,45 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { TimesheetBoundary } from "../platform/components/TimesheetWorkspace";
 import { AppProvider } from "../platform/app-context";
-import { AuthProvider } from "../platform/auth";
-import { BrandingProvider } from "@/platform/branding";
+import { AuthProvider, useAuth } from "../platform/auth";
+import { BrandingProvider, useBranding } from "@/platform/branding";
+
+function PreloaderController() {
+  const { loading } = useAuth();
+  const { branding, ready } = useBranding();
+  const startedAt = useRef(Date.now());
+
+  useEffect(() => {
+    const image = document.getElementById("erp-preloader-logo") as HTMLImageElement | null;
+    const fallback = document.getElementById("erp-preloader-fallback");
+    const logo = branding?.logoDarkDataUri || branding?.logoLightDataUri;
+    if (image && fallback && logo?.startsWith("data:image/")) {
+      image.src = logo;
+      image.hidden = false;
+      fallback.hidden = true;
+    }
+  }, [branding]);
+
+  useEffect(() => {
+    if (loading || !ready) return;
+    const overlay = document.getElementById("erp-global-preloader");
+    if (!overlay) return;
+    const delay = Math.max(0, 450 - (Date.now() - startedAt.current));
+    const timer = window.setTimeout(() => {
+      overlay.classList.add("is-leaving");
+      window.setTimeout(() => overlay.classList.add("is-gone"), 280);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [loading, ready]);
+  return null;
+}
 
 function NotFoundComponent() {
   return (
@@ -123,6 +153,12 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <div id="erp-global-preloader" className="erp-global-preloader" role="status" aria-label="Loading ERP">
+          <div className="erp-preloader-orbit" aria-hidden="true">
+            <span id="erp-preloader-fallback" className="erp-preloader-fallback">ERP</span>
+            <img id="erp-preloader-logo" className="erp-preloader-logo" alt="" hidden />
+          </div>
+        </div>
         {children}
         <Toaster position="bottom-right" closeButton richColors />
         <Scripts />
@@ -138,6 +174,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrandingProvider>
+          <PreloaderController />
           <AppProvider>
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <TimesheetBoundary><Outlet /></TimesheetBoundary>
