@@ -61,6 +61,7 @@ export function SignIn() {
   const localLogin = authSettings.localEnabled;
   const { branding } = useBranding();
   const [email, setEmail] = useState("");
+  const [emailDomain, setEmailDomain] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [localBusy, setLocalBusy] = useState(false);
@@ -81,6 +82,23 @@ export function SignIn() {
   const returnTo = typeof window === "undefined"
     ? "/"
     : safeEntryPath(new URLSearchParams(window.location.search).get("returnTo"));
+  const selectedEmailDomain = emailDomain ?? branding?.companyDomain ?? "custom";
+  const emailDomainChoices = [branding?.companyDomain, "gmail.com", "outlook.com", "yahoo.com"]
+    .filter((value): value is string => Boolean(value));
+
+  const updateEmail = (value: string) => {
+    setEmail(value);
+    if (value.includes("@")) setEmailDomain("custom");
+  };
+
+  const chooseEmailDomain = (domain: string) => {
+    setEmailDomain(domain);
+    if (domain === "custom") {
+      setEmail((current) => current && !current.includes("@") ? `${current}@` : current);
+    } else {
+      setEmail((current) => current.includes("@") ? current.split("@")[0] : current);
+    }
+  };
 
   // (1) Handle every redirect back from Keycloak before considering another
   // silent attempt. In particular, `login_required` is the expected response
@@ -132,8 +150,8 @@ export function SignIn() {
     setLocalBusy(true);
     setLocalError(null);
     try {
-      const fullEmail = completeWorkEmail(email, branding?.companyDomain);
-      if (!isValidWorkEmail(fullEmail)) throw new Error("Enter a valid work email address.");
+      const fullEmail = completeWorkEmail(email, selectedEmailDomain === "custom" ? null : selectedEmailDomain);
+      if (!isValidWorkEmail(fullEmail)) throw new Error("Enter a valid email address.");
       await signInLocal(fullEmail, password);
       window.location.assign(returnTo);
     } catch (error) {
@@ -146,9 +164,9 @@ export function SignIn() {
   const requestPasswordReset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setResetError(null);
-    const fullEmail = completeWorkEmail(email, branding?.companyDomain);
+    const fullEmail = completeWorkEmail(email, selectedEmailDomain === "custom" ? null : selectedEmailDomain);
     if (!isValidWorkEmail(fullEmail)) {
-      setResetError("Enter a valid work email address.");
+      setResetError("Enter a valid email address.");
       return;
     }
     setResetBusy(true);
@@ -304,7 +322,7 @@ export function SignIn() {
             <>
           <h2 className="mt-6 text-xl font-semibold lg:mt-0">{showReset ? "Reset your password" : loginHeadingFor(branding)}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {showReset ? "Enter your work email and we’ll send you a link to set a new password." : branding?.loginDescription || (organisationLogin ? "Use your organisation account or local account." : "Use your local account.")}
+            {showReset ? "Enter your account email and we’ll send you a link to set a new password." : branding?.loginDescription || (organisationLogin ? "Use your organisation account or local account." : "Use your local account.")}
           </p>
 
           {!showReset && organisationLogin ? <Button className="mt-6 w-full" onClick={enterWithOrganisation} disabled={busy}>
@@ -329,8 +347,8 @@ export function SignIn() {
               If this email has an active local account, we’ll send a reset link. Check your inbox and spam folder.
             </p> : <form className="space-y-4" onSubmit={requestPasswordReset}>
               <div>
-                <Label htmlFor="reset-email">Work email</Label>
-                <div className="mt-1"><WorkEmailInput id="reset-email" autoComplete="email" value={email} onChange={setEmail} domain={branding?.companyDomain} required /></div>
+                <Label htmlFor="reset-email">Email address</Label>
+                <div className="mt-1"><WorkEmailInput id="reset-email" autoComplete="email" value={email} onChange={updateEmail} domain={branding?.companyDomain} domainChoices={emailDomainChoices} selectedDomain={selectedEmailDomain} onDomainChange={chooseEmailDomain} required /></div>
               </div>
               {resetError ? <p className="text-sm text-destructive" role="alert">{resetError}</p> : null}
               <Button type="submit" className="w-full" disabled={resetBusy}>{resetBusy ? "Sending link…" : "Email reset link"}</Button>
@@ -340,16 +358,19 @@ export function SignIn() {
 
           {!showReset && localLogin ? <form className="space-y-4" onSubmit={enterWithLocalAccount}>
             <div>
-              <Label htmlFor="email">Work email</Label>
+              <Label htmlFor="email">Email address</Label>
               <div className="mt-1"><WorkEmailInput
                 id="email"
                 autoComplete="username"
                 value={email}
-                onChange={setEmail}
+                onChange={updateEmail}
                 domain={branding?.companyDomain}
+                domainChoices={emailDomainChoices}
+                selectedDomain={selectedEmailDomain}
+                onDomainChange={chooseEmailDomain}
                 placeholder={branding?.companyDomain ? undefined : emailPlaceholderFor(branding)}
               /></div>
-              {branding?.companyDomain && !email.includes("@") ? <p className="mt-1 text-xs text-muted-foreground">Enter just your name before @{branding.companyDomain}, or type a full email address.</p> : null}
+              <p className="mt-1 text-xs text-muted-foreground">Choose a domain or type your full email address.</p>
               {organisationLogin ? <p className="mt-1 text-xs text-muted-foreground">Use this when your organization gave you a local account.</p> : null}
             </div>
 
