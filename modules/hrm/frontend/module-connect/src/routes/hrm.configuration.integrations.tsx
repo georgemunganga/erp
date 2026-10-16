@@ -10,7 +10,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/integrations")({
-  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/integrations", replace: true }); },
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "integrations" }, replace: true }); },
   head: () => ({
     meta: [
       { title: "Integration operations — Newworldcargo HRM" },

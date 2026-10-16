@@ -16,7 +16,7 @@ import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/branding")({
   head: () => ({ meta: [{ title: "Branding — HR workspace" }] }),
-  component: () => <Navigate to="/core/workspace/settings/branding" replace />,
+  component: () => <Navigate to="/core/workspace/settings/$slug" params={{ slug: "branding" }} replace />,
 });
 
 type BrandingForm = {

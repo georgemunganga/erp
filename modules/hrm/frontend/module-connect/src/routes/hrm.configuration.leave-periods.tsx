@@ -17,7 +17,7 @@ const list = (value: unknown): Row[] => Array.isArray(value) ? value as Row[] : 
 const val = (row: Row, key: string, fallback = "—") => row[key] == null || row[key] === "" ? fallback : String(row[key]);
 
 export const Route = createFileRoute("/hrm/configuration/leave-periods")({
-  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/leave-periods", replace: true }); },
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "leave-periods" }, replace: true }); },
   head: () => ({ meta: [{ title: "Leave Periods — Newworldcargo HRM" }, { name: "description", content: "Live leave accrual periods and runs." }] }),
   component: LeavePeriodsPage,
 });

@@ -13,7 +13,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/holidays")({
-  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/holidays", replace: true }); },
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "holidays" }, replace: true }); },
   head: () => ({ meta: [{ title: "Holiday List — Newworldcargo HRM" }, { name: "description", content: "Live public holiday calendars." }] }),
   component: HolidaysPage,
 });

@@ -36,3 +36,5 @@ Assessed: 16 October 2026. Scope: ERP Core, HRM, and Procurement settings direct
 - The shared configuration page back link points to the HRM settings directory.
 
 The browser check confirmed page rendering and routing. It did not mutate production settings or validate every save path. The next implementation work is the shared Core backend/permission contract and the Procurement settings contract, followed by testing of each editor's save and audit behavior.
+
+The production build succeeds. The frontend's full TypeScript check still reports existing errors outside this route migration, including Branch Access component props and the Roles draft payload; no new typed-route errors remain after the redirect correction.

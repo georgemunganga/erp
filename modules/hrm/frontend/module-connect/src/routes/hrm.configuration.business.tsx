@@ -9,7 +9,7 @@ import { ConfigPage, ConfigTable } from "@/platform/components/ConfigPage";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/business")({
-  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/business", replace: true }); },
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "business" }, replace: true }); },
   head: () => ({
     meta: [
       { title: "Business setup — Newworldcargo HRM" },

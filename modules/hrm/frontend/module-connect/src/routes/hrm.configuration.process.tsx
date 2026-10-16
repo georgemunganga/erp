@@ -11,7 +11,7 @@ import { ConfigPage, ConfigTable } from "@/platform/components/ConfigPage";
 import { useMock } from "@/platform/use-mock";
 
 export const Route = createFileRoute("/hrm/configuration/process")({
-  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/process", replace: true }); },
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "process" }, replace: true }); },
   head: () => ({
     meta: [
       { title: "Process design — Newworldcargo HRM" },

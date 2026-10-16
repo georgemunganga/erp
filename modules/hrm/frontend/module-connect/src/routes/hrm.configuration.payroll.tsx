@@ -31,7 +31,7 @@ const description =
   "Pay groups, ZRA PAYE tax bands, NAPSA and NHIMA contribution rules, and the standard salary components a run can post to. Only HR operations and HR administration can change these values; everyone else reads them.";
 
 export const Route = createFileRoute("/hrm/configuration/payroll")({
-  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/payroll", replace: true }); },
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "payroll" }, replace: true }); },
   head: () => ({
     meta: [
       { title: "Payroll setup — Newworldcargo HRM" },

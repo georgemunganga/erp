@@ -36,7 +36,7 @@ export const Route = createFileRoute("/hrm/configuration/branch-access")({
       { property: "og:title", content: "Branch access — Newworldcargo HRM" },
     ],
   }),
-  component: () => <Navigate to="/core/workspace/settings/branch-access" replace />,
+  component: () => <Navigate to="/core/workspace/settings/$slug" params={{ slug: "branch-access" }} replace />,
 });
 
 export function BranchAccessPage() {
