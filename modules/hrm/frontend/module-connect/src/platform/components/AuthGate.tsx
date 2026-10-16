@@ -20,15 +20,16 @@ const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "
  * role so every existing page gate keeps working. Authenticated identities
  * without an HRM workforce role receive an explicit access-denied screen.
  */
-export function AuthGate({ children }: { children: React.ReactNode }) {
-  const { loading, authenticated, authorized, user, signOut, resolveRole } = useAuth();
+export function AuthGate({ children, module = "hrm" }: { children: React.ReactNode; module?: "hrm" | "erp" }) {
+  const { loading, authenticated, authorized, erpAuthorized, user, signOut, resolveRole } = useAuth();
+  const admitted = module === "erp" ? erpAuthorized : authorized;
   const { role, setRole } = useApp();
 
   useEffect(() => {
-    if (!USE_REAL || loading || !authenticated || !authorized || !user) return;
+    if (!USE_REAL || loading || !authenticated || !admitted || !user) return;
     const next = resolveRole();
     if (next !== role) setRole(next);
-  }, [loading, authenticated, authorized, user, resolveRole, role, setRole]);
+  }, [loading, authenticated, admitted, user, resolveRole, role, setRole]);
 
   useEffect(() => {
     if (!USE_REAL || loading) return;
@@ -60,16 +61,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!authorized) {
+  if (!admitted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="max-w-md text-center" data-testid="hrm-access-denied">
+        <div className="max-w-md text-center" data-testid="erp-access-denied">
           <ShieldAlert className="mx-auto size-9 text-danger" aria-hidden />
-          <h1 className="mt-4 text-xl font-semibold text-foreground">HRM access not assigned</h1>
+          <h1 className="mt-4 text-xl font-semibold text-foreground">{module === "erp" ? "ERP access not assigned" : "HRM access not assigned"}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your organisation account is valid, but it has no ERP workforce role. Ask an identity
-            administrator to assign the appropriate employee, manager, HR, payroll, or investigator
-            role.
+            {module === "erp" ? "Your account is valid, but it has no ERP module role. Ask an administrator to assign access to the workspace you need." : "Your account is valid, but it has no HRM role. Ask an administrator to assign the appropriate HRM access."}
           </p>
           <Button className="mt-6" variant="outline" onClick={() => signOut()}>
             Sign out
@@ -86,12 +85,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 export function CoreAdminGate({ children }: { children: React.ReactNode }) {
   const { user, authenticated, loading } = useAuth();
   if (!USE_REAL) return <>{children}</>;
-  return <AuthGate>{loading || !authenticated ? null : canManageCore(user?.roles ?? []) ? children : <div className="flex min-h-screen items-center justify-center bg-background px-4">
+  return <AuthGate module="erp">{loading || !authenticated ? null : canManageCore(user?.roles ?? []) ? children : <div className="flex min-h-screen items-center justify-center bg-background px-4">
     <div className="max-w-md rounded-xl border bg-surface p-6 text-center">
       <ShieldAlert className="mx-auto size-8 text-danger" aria-hidden />
       <h1 className="mt-3 text-xl font-semibold">Core settings access required</h1>
       <p className="mt-2 text-sm text-muted-foreground">Your account can sign in, but it does not have the administrator role needed to manage shared settings.</p>
-      <Button className="mt-5" variant="outline" onClick={() => window.location.assign("/hrm")}>Go to my dashboard</Button>
+      <Button className="mt-5" variant="outline" onClick={() => window.location.assign("/")}>Choose a module</Button>
     </div>
   </div>}</AuthGate>;
 }

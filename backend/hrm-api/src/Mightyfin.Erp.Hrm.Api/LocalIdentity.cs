@@ -485,12 +485,13 @@ internal static class LocalIdentityRoutes
         var assigned = ParseRoles(user.RolesCsv);
         if (assigned.Length == 0) return false;
         if (roleRows.Count == 0)
-            return assigned.Contains("hr_admin", StringComparer.OrdinalIgnoreCase);
+            return assigned.Any(role => role is "hr_admin" or "erp_admin");
         return assigned.Any(role =>
         {
             var row = roleRows.FirstOrDefault(r => r.RoleKey.Equals(role, StringComparison.OrdinalIgnoreCase));
             if (row is null) return false;
-            return ParseRoles(row.PermissionsCsv).DefaultIfEmpty(row.RoleKey).Contains("hr_admin", StringComparer.OrdinalIgnoreCase);
+            return ParseRoles(row.PermissionsCsv).DefaultIfEmpty(row.RoleKey)
+                .Any(permission => permission is "hr_admin" or "erp_admin");
         });
     }
 
@@ -519,7 +520,7 @@ internal static class LocalIdentityBootstrap
             NormalizedEmail = email.ToUpperInvariant(),
             DisplayName = config["HRM:LocalAdminDisplayName"]?.Trim() ?? "NewWorldCargo Administrator",
             PasswordHash = LocalPasswordHash.Hash(password),
-            RolesCsv = "hr_admin,employee,hr_ops,finance_approver,investigator,payroll,manager",
+            RolesCsv = "erp_admin,hr_admin,employee,hr_ops,finance_approver,investigator,payroll,manager",
             MustChangePassword = true,
         };
         db.LocalUsers.Add(user);

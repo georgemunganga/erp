@@ -44,8 +44,10 @@ interface AuthState {
   loading: boolean;
   /** True when the user is allowed past the sign-in gate. */
   authenticated: boolean;
-  /** True only when the identity has an explicit HRM workforce role. */
+  /** True when the identity has an HRM role or shared ERP administration. */
   authorized: boolean;
+  /** True when the identity is assigned to any ERP module. */
+  erpAuthorized: boolean;
   /** Map Keycloak realm roles to the shell's demo workspace role. */
   resolveRole: () => Role;
   signInInteractive: () => void;
@@ -75,13 +77,26 @@ export const HRM_STAFF_ROLES = [
   "payroll",
   "finance_approver",
   "hr_admin",
+  "erp_admin",
   "investigator",
   "timesheet_operator",
 ] as const;
 
 export function hasHrmStaffRole(roles: string[]): boolean {
-  const set = new Set(roles);
+  const set = new Set(roles.map((role) => role.toLowerCase()));
   return HRM_STAFF_ROLES.some((role) => set.has(role));
+}
+
+const PROCUREMENT_ROLES = ["procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor"];
+
+export function canAccessProcurement(roles: string[]): boolean {
+  const set = new Set(roles.map((role) => role.toLowerCase()));
+  return ["erp_admin", "employee", "manager", ...PROCUREMENT_ROLES].some((role) => set.has(role));
+}
+
+export function hasErpModuleRole(roles: string[]): boolean {
+  const set = new Set(roles.map((role) => role.toLowerCase()));
+  return hasHrmStaffRole(roles) || PROCUREMENT_ROLES.some((role) => set.has(role));
 }
 
 export function isTimesheetOnly(roles: string[]): boolean {
@@ -94,7 +109,7 @@ function mapRolesToDemoRole(roles: string[]): Role {
   // Users can hold several operational roles. Resolve the most privileged
   // workspace first so an HR administrator who also processes payroll keeps
   // access to Configuration and other administrator-only navigation.
-  if (set.has("hr_admin") || set.has("investigator")) return "hr_admin";
+  if (set.has("erp_admin") || set.has("hr_admin") || set.has("investigator")) return "hr_admin";
   if (set.has("hr_ops")) return "hr_ops";
   if (set.has("payroll") || set.has("finance_approver")) return "payroll";
   if (set.has("manager")) return "manager";
@@ -193,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticated = !USE_REAL || isSessionValid(session) || Boolean(localUser);
   const authorized = !USE_REAL || (authenticated && hasHrmStaffRole(user?.roles ?? []));
+  const erpAuthorized = !USE_REAL || (authenticated && hasErpModuleRole(user?.roles ?? []));
 
   const signInInteractive = useCallback(() => {
     const path = PUBLIC_PATHS.has(window.location.pathname) ? "/hrm" : window.location.pathname;
@@ -234,6 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       authenticated,
       authorized,
+      erpAuthorized,
       resolveRole,
       signInInteractive,
       signInLocal,
@@ -248,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       authenticated,
       authorized,
+      erpAuthorized,
       resolveRole,
       signInInteractive,
       signInLocal,

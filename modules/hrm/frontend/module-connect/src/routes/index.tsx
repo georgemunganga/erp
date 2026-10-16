@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { ArrowRight, Clock, Loader2, LogOut } from "lucide-react";
 import { modules } from "@/platform/modules";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/platform/auth";
+import { canAccessProcurement, hasHrmStaffRole, useAuth } from "@/platform/auth";
 import { canManageCore } from "@/platform/entry-route";
 import { SignIn } from "./sign-in";
 
@@ -22,18 +21,14 @@ export const Route = createFileRoute("/")({
 });
 
 function Entrance() {
-  const { loading, authenticated, authorized, user, signOut } = useAuth();
+  const { loading, authenticated, erpAuthorized, user, signOut } = useAuth();
   const real = import.meta.env.VITE_USE_REAL_API === "true";
   const administrator = canManageCore(user?.roles ?? []);
-
-  useEffect(() => {
-    if (real && !loading && authenticated && authorized && !administrator) window.location.replace("/hrm");
-  }, [real, loading, authenticated, authorized, administrator]);
+  const roles = user?.roles ?? [];
 
   if (real && loading) return <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Checking your session…</div>;
   if (real && !authenticated) return <SignIn />;
-  if (real && !authorized) return <AuthGate><span /></AuthGate>;
-  if (real && !administrator) return <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Opening your dashboard…</div>;
+  if (real && !erpAuthorized) return <AuthGate module="erp"><span /></AuthGate>;
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,7 +48,7 @@ function Entrance() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>
-            m.available ? (
+            m.available && (m.id === "core" ? administrator : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? canAccessProcurement(roles) : true) ? (
               <a
                 key={m.id}
                 href={m.to}
@@ -73,13 +68,13 @@ function Entrance() {
                 key={m.id}
                 className="flex cursor-not-allowed flex-col gap-2 rounded-lg border p-5 opacity-60"
                 aria-disabled="true"
-                title={`${m.label} — not enabled`}
+                title={`${m.label} — ${m.available ? "access not assigned" : "not enabled"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-base font-semibold text-foreground">{m.label}</span>
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-info/30 bg-info-soft px-2 py-0.5 text-[10px] font-medium text-info">
                     <Clock className="size-3" aria-hidden />
-                    Not enabled
+                    {m.available ? "Access not assigned" : "Not enabled"}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">{m.description}</p>

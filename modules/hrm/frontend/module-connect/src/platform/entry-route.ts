@@ -4,7 +4,7 @@ export function safeEntryPath(value: string | null | undefined): string {
   return value;
 }
 
-/** The current shared administration role is backed by the HRM identity service. */
+/** ERP Core administration is separate from HRM administration. */
 export function canManageCore(roles: string[]): boolean {
-  return roles.some((role) => role.toLowerCase() === "hr_admin");
+  return roles.some((role) => ["erp_admin", "hr_admin"].includes(role.toLowerCase()));
 }

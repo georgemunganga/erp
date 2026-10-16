@@ -39,13 +39,14 @@ public static class ProcurementPermissions
     public static bool Allows(string policy, IEnumerable<Claim> claims)
     {
         if (!RoleGrants.TryGetValue(policy, out var roles)) return false;
-        return WorkerPrincipal.FromClaims(claims).IsRole(roles);
+        var principal = WorkerPrincipal.FromClaims(claims);
+        return principal.IsRole("erp_admin") || principal.IsRole(roles);
     }
 
     public static string[] GrantedPolicies(IEnumerable<Claim> claims)
     {
         var principal = WorkerPrincipal.FromClaims(claims);
-        return RoleGrants.Where(x => principal.IsRole(x.Value))
+        return RoleGrants.Where(x => principal.IsRole("erp_admin") || principal.IsRole(x.Value))
             .Select(x => x.Key).Order(StringComparer.Ordinal).ToArray();
     }
 
@@ -53,6 +54,7 @@ public static class ProcurementPermissions
     {
         var principal = WorkerPrincipal.FromClaims(claims);
         var knownRoles = RoleGrants.Values.SelectMany(x => x).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        knownRoles.Add("erp_admin");
         return principal.Roles.Where(knownRoles.Contains)
             .Order(StringComparer.OrdinalIgnoreCase).ToArray();
     }

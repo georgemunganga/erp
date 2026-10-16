@@ -229,7 +229,7 @@ builder.Services.AddAuthorization(options =>
         .RequireAssertion(context => HrmStaffAccess.IsStaff(context.User.Claims))
         .Build();
     options.AddPolicy("hrm-admin", policy => policy.RequireAuthenticatedUser()
-        .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole("hr_admin")));
+        .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole("hr_admin", "erp_admin")));
     Mightyfin.Erp.Hrm.Api.ProcurementPermissions.AddPolicies(options);
 });
 
@@ -452,6 +452,12 @@ if (!string.IsNullOrWhiteSpace(procurementConnStr))
         using var seedScope = app.Services.CreateScope();
         var seedRepo = seedScope.ServiceProvider.GetRequiredService<IConfigRepository>();
         var existingRoles = await seedRepo.ListRoleAssignmentsAsync(CancellationToken.None);
+        if (!existingRoles.Any(r => r.RoleKey == "erp_admin"))
+            await seedRepo.CreateRoleAssignmentAsync(new TenantRoleAssignment
+            {
+                RoleKey = "erp_admin", RoleName = "ERP administrator", Category = "system",
+                PermissionsCsv = "erp_admin", Active = true,
+            }, CancellationToken.None);
         if (existingRoles.Any() && !existingRoles.Any(r => r.RoleKey == "timesheet_operator"))
             await seedRepo.CreateRoleAssignmentAsync(new TenantRoleAssignment
             {
