@@ -89,11 +89,13 @@ export function RecordDetail({
 }
 
 export function DetailSection({
+  id,
   title,
   description,
   action,
   children,
 }: {
+  id?: string;
   title: string;
   description?: string;
   /** A control that belongs to this section — usually the way to edit it. */
@@ -101,7 +103,7 @@ export function DetailSection({
   children: ReactNode;
 }) {
   return (
-    <section aria-label={title} className="rounded-lg border bg-surface p-5">
+    <section id={id} aria-label={title} className="scroll-mt-20 rounded-lg border bg-surface p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">{title}</h2>

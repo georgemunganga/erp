@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { AppShell } from "@/platform/components/AppShell";
+import { ConfigurationShell } from "@/modules/core/ConfigurationShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { PageHeader } from "@/platform/components/PageHeader";
 import { StatusBadge } from "@/platform/components/StatusBadge";
@@ -59,7 +59,7 @@ function messageFor(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : error instanceof Error ? error.message : fallback;
 }
 
-function UsersConfiguration() {
+export function UsersConfiguration() {
   const [users, setUsers] = useState<IdentityAccessUser[]>([]);
   const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
   const [identityAvailable, setIdentityAvailable] = useState(false);
@@ -263,7 +263,7 @@ function UsersConfiguration() {
 
   return (
     <AuthGate>
-      <AppShell>
+      <ConfigurationShell>
         <PageHeader
           eyebrow="Configuration · Security"
           title="HRM user access"
@@ -359,7 +359,7 @@ function UsersConfiguration() {
             <DialogFooter><Button variant="outline" type="button" onClick={() => setSelectedUser(null)}>Cancel</Button><Button onClick={() => void resetUserPassword()}>Send reset link</Button></DialogFooter>
           </DialogContent>
         </Dialog>
-      </AppShell>
+      </ConfigurationShell>
     </AuthGate>
   );
 }
