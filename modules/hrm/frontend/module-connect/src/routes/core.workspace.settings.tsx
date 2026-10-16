@@ -1,16 +1,16 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
-import { Building2, SlidersHorizontal, Settings2, ShieldCheck, UsersRound } from "lucide-react";
+import { Building2, FileText, Settings2, UsersRound } from "lucide-react";
 import { CoreShell } from "@/modules/core/CoreShell";
 import { coreSettingGroups, settingPath } from "@/modules/core/settings";
 import { CoreAdminGate } from "@/platform/components/AuthGate";
 import { SettingsDirectory, type SettingsDirectoryGroup } from "@/platform/components/SettingsDirectory";
 
-const icons = [Building2, UsersRound, ShieldCheck, Settings2, SlidersHorizontal];
+const icons = [Building2, UsersRound, Settings2, FileText];
 const groups: SettingsDirectoryGroup[] = coreSettingGroups.map((group, index) => ({
   title: group.title,
   description: group.description,
   icon: icons[index],
-  items: group.items.filter((item) => item.owner === "ERP Core").map((item) => ({ label: item.label, detail: item.detail, to: settingPath(item) })),
+  items: group.items.filter((item) => item.owner === "ERP Core").map((item) => ({ label: item.label, detail: item.detail, to: settingPath(item), status: item.path ? "connected" as const : "planned" as const })),
 })).filter((group) => group.items.length);
 
 export const Route = createFileRoute("/core/workspace/settings")({

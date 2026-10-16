@@ -188,132 +188,48 @@ export const hrmModule: ModuleDefinition = {
   ]
 };
 
-/**
- * The single Configuration entry point, internally grouped.
- * `to` is set only where a real screen exists; everything else renders as an
- * explicitly planned row rather than a button that silently does nothing.
- */
+/** One row per editor. Preview and planned entries must not imply live policy. */
 export const configurationGroups: {
   label: string;
   description: string;
-  items: { label: string; detail: string; to?: string }[];
+  items: { label: string; detail: string; to?: string; status?: "connected" | "preview" | "planned" }[];
 }[] = [
   {
-    label: "Business setup",
-    description: "Employment rules, holidays and payroll setup.",
+    label: "Employment & pay",
+    description: "Employee records, calendars, leave and payroll rules.",
     items: [
-      {
-        label: "Jobs, grades and pay ranges",
-        detail: "9 grades",
-        to: "/hrm/workspace/settings/business",
-      },
-      {
-        label: "Calendars and public holidays",
-        detail: "Calendar administration",
-        to: "/hrm/workspace/settings/holidays",
-      },
-      {
-        label: "Country packs",
-        detail: "NL, KE, DE · effective-dated",
-        to: "/hrm/workspace/settings/business",
-      },
-      {
-        label: "Payroll setup",
-        detail: "Pay groups · ZRA PAYE · NAPSA · NHIMA · components",
-        to: "/hrm/workspace/settings/payroll",
-      },
+      { label: "Jobs & designations", detail: "Create and maintain job titles", to: "/hrm/workspace/settings/business" },
+      { label: "Public holidays", detail: "Dates used by working calendars", to: "/hrm/workspace/settings/holidays" },
+      { label: "Leave types", detail: "Entitlements and carry-forward", to: "/hrm/workspace/settings/leave-types" },
+      { label: "Leave periods & accruals", detail: "Review or run monthly accruals", to: "/hrm/workspace/settings/leave-periods" },
+      { label: "Contract types", detail: "Employment terms and notice periods", to: "/hrm/workspace/settings/contract-types" },
+      { label: "Payroll setup", detail: "Pay groups, components and statutory rules", to: "/hrm/workspace/settings/payroll" },
+      { label: "Grades & pay ranges", detail: "Employee grade master and approved ranges" },
+      { label: "Country packs", detail: "Effective-dated local employment rules" },
     ],
   },
   {
-    label: "Process design",
-    description: "How work moves: policies, approval routes and forms.",
+    label: "Workflows",
+    description: "How HRM requests, approvals and forms should work.",
     items: [
-      {
-        label: "Leave types",
-        detail: "Entitlements, evidence and carry-forward",
-        to: "/hrm/workspace/settings/leave-types",
-      },
-      {
-        label: "Contract types",
-        detail: "Employment terms, probation and notice periods",
-        to: "/hrm/workspace/settings/contract-types",
-      },
-      {
-        label: "Leave policies and accruals",
-        detail: "Policy administration and accrual controls",
-        to: "/hrm/workspace/settings/process",
-      },
-      {
-        label: "Attendance and shift rules",
-        detail: "4 rule sets",
-        to: "/hrm/workspace/settings/process",
-      },
-      { label: "Approval routing", detail: "7 routes", to: "/hrm/workspace/settings/process" },
-      {
-        label: "Request categories and SLAs",
-        detail: "11 categories",
-        to: "/hrm/workspace/settings/process",
-      },
-      {
-        label: "Forms and fields",
-        detail: "Custom fields and validation",
-        to: "/hrm/workspace/settings/process",
-      },
-      {
-        label: "Automation",
-        detail: "Trigger, condition and action rules",
-        to: "/hrm/workspace/settings/process",
-      },
-      { label: "Templates", detail: "Letters and notifications", to: "/hrm/workspace/settings/process" },
-      {
-        label: "Self-service experience",
-        detail: "What employees can see and do",
-        to: "/hrm/workspace/settings/process",
-      },
+      { label: "Process design", detail: "Leave policies, shifts, approvals, forms and automation; preview only", to: "/hrm/workspace/settings/process", status: "preview" },
     ],
   },
   {
-    label: "Security and compliance",
-    description: "Access, sensitive data handling and audit obligations.",
+    label: "Privacy & compliance",
+    description: "Sensitive information, retention and evidence.",
     items: [
-      {
-        label: "Sensitive field masking",
-        detail: "6 masked fields",
-        to: "/hrm/workspace/settings/compliance",
-      },
-      {
-        label: "Protected disclosure handling",
-        detail: "Restricted to 2 handlers",
-        to: "/hrm/workspace/settings/compliance",
-      },
-      {
-        label: "Privacy and consent administration",
-        detail: "Purposes and retention",
-        to: "/hrm/workspace/settings/compliance",
-      },
-      {
-        label: "Retention and audit",
-        detail: "Tenant isolation · audit · legal holds · control evidence",
-        to: "/hrm/workspace/settings/compliance",
-      },
+      { label: "Security & compliance", detail: "Audit, legal holds and control evidence", to: "/hrm/workspace/settings/compliance" },
     ],
   },
   {
-    label: "HRM integrations",
-    description: "HRM data movement and payroll hand-offs.",
+    label: "Operations & integrations",
+    description: "Move HRM data and monitor hand-offs.",
     items: [
-      { label: "Import and export", detail: "Shared CSV and Excel data movement", to: "/hrm/data/import-export" },
-      { label: "Notification delivery", detail: "Review and retry HRM notification hand-offs", to: "/hrm/workspace/settings/technical" },
-      {
-        label: "Payroll interface",
-        detail: "Finance, banking and statutory hand-offs",
-        to: "/hrm/workspace/settings/integrations",
-      },
-      {
-        label: "Production readiness",
-        detail: "Go-live gates, evidence, rehearsals and role sign-off",
-        to: "/hrm/workspace/settings/go-live",
-      },
+      { label: "Import & export", detail: "CSV and Excel data movement", to: "/hrm/data/import-export" },
+      { label: "Notification delivery", detail: "Review and retry HRM notifications", to: "/hrm/workspace/settings/technical" },
+      { label: "Payroll interface", detail: "Finance, banking and statutory hand-offs", to: "/hrm/workspace/settings/integrations" },
+      { label: "Production readiness", detail: "Go-live evidence and sign-off", to: "/hrm/workspace/settings/go-live" },
     ],
   },
 ];

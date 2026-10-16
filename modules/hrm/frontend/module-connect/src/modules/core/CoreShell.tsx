@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Building2, ChevronDown, ChevronRight, Menu, Settings2, ShieldCheck, SlidersHorizontal, UsersRound, WandSparkles, X } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, FileText, Menu, Settings2, UsersRound, X } from "lucide-react";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { ModuleSwitcher } from "@/platform/components/ModuleSwitcher";
 import { SignedInBadge } from "@/platform/components/AuthGate";
@@ -19,8 +19,10 @@ export function CoreShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const currentPath = typeof window === "undefined" ? "/core" : window.location.pathname;
-  const groupIcons = [Building2, UsersRound, ShieldCheck, Settings2, WandSparkles];
-  const [openGroups, setOpenGroups] = useState<string[]>(() => coreSettingGroups.filter((group) => group.items.some((item) => currentPath === settingPath(item))).map((group) => group.title));
+  const currentHash = typeof window === "undefined" ? "" : window.location.hash;
+  const activeSetting = (path: string) => path === `${currentPath}${currentHash}`;
+  const groupIcons = [Building2, UsersRound, Settings2, FileText];
+  const [openGroups, setOpenGroups] = useState<string[]>(() => coreSettingGroups.filter((group) => group.items.some((item) => activeSetting(settingPath(item)))).map((group) => group.title));
   const context = useApi(async () => {
     const [entityResult, locationResult, shell] = await Promise.all([
       realApi.legalEntities(),
@@ -47,7 +49,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
           <Icon className="size-4 shrink-0" aria-hidden /><span className="min-w-0 flex-1">{group.title}</span>{open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </button>
         {open && <div className="ml-5 border-l border-rail-active pl-2">
-          {group.items.filter((item) => item.owner === "ERP Core").map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} aria-current={currentPath === settingPath(item).split("#")[0] ? "page" : undefined} className={`block rounded-md px-3 py-1.5 text-xs hover:bg-rail-active hover:text-rail-foreground ${currentPath === settingPath(item).split("#")[0] ? "bg-rail-active text-rail-foreground" : "text-rail-muted"}`}>{item.label}</a>)}
+          {group.items.filter((item) => item.owner === "ERP Core").map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} aria-current={activeSetting(settingPath(item)) ? "page" : undefined} className={`block rounded-md px-3 py-1.5 text-xs hover:bg-rail-active hover:text-rail-foreground ${activeSetting(settingPath(item)) ? "bg-rail-active text-rail-foreground" : "text-rail-muted"}`}>{item.label}</a>)}
         </div>}
       </div>;
     })}

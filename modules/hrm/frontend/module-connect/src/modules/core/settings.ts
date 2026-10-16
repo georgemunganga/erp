@@ -19,36 +19,30 @@ export const coreSettingGroups: CoreSettingGroup[] = [
       { label: "Profile", path: "/core/workspace/settings/organization", detail: "Legal entities and company structure", owner: "ERP Core" },
       { label: "Branding", path: "/core/workspace/settings/branding", detail: "Logo, colors and sign-in identity", owner: "ERP Core" },
       { label: "Locations", path: "/core/workspace/settings/organization#locations", detail: "Branches and work locations", owner: "ERP Core" },
-    ],
-  },
-  {
-    title: "Users & Roles",
-    description: "Identity, permissions and departments.",
-    items: [
-      { label: "Users", path: "/core/workspace/settings/users", detail: "Organization identities and access", owner: "ERP Core" },
-      { label: "Roles", path: "/core/workspace/settings/roles", detail: "Current HRM role editor; shared roles follow", owner: "ERP Core" },
-      { label: "Branch Access", path: "/core/workspace/settings/branch-access", detail: "Assign users to permitted branches", owner: "ERP Core" },
       { label: "Departments", path: "/core/workspace/settings/organization#departments", detail: "Organization units and cost center references", owner: "ERP Core" },
     ],
   },
   {
-    title: "Taxes & Compliance",
-    description: "Shared reporting dimensions and organization-wide compliance references.",
+    title: "Users & Roles",
+    description: "Who can sign in, what they can do, and where they can work.",
+    items: [
+      { label: "Users", path: "/core/workspace/settings/users", detail: "Organization identities and access", owner: "ERP Core" },
+      { label: "Roles", path: "/core/workspace/settings/roles", detail: "HRM permissions today; shared ERP roles are planned", owner: "ERP Core" },
+      { label: "Branch Access", path: "/core/workspace/settings/branch-access", detail: "Assign users to permitted branches", owner: "ERP Core" },
+    ],
+  },
+  {
+    title: "Shared defaults",
+    description: "Common formats and references used across modules.",
     items: [
       { label: "Reporting Tags", detail: "Cross-module reporting dimensions", owner: "ERP Core" },
-    ],
-  },
-  {
-    title: "Setup & Configurations",
-    description: "Defaults used across all ERP modules.",
-    items: [
       { label: "General", detail: "Locale, time zone and display defaults", owner: "ERP Core" },
-      { label: "Currencies", detail: "Enabled currency reference and formatting", owner: "ERP Core" },
+      { label: "Currencies", detail: "Available currencies and display formats; Finance owns exchange rates", owner: "ERP Core" },
     ],
   },
   {
-    title: "Customization",
-    description: "Shared document and communication templates; no duplicate module editors.",
+    title: "Documents & communication",
+    description: "Shared numbering, templates, notifications and navigation.",
     items: [
       { label: "Transaction Number Series", detail: "Document identifiers by entity and module", owner: "ERP Core" },
       { label: "PDF Templates", detail: "Company letterheads and document formats", owner: "ERP Core" },
