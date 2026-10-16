@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BadgeDollarSign, CalendarClock, Info, Pencil, Plus, ShieldCheck, Unplug } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ const description =
   "Pay groups, ZRA PAYE tax bands, NAPSA and NHIMA contribution rules, and the standard salary components a run can post to. Only HR operations and HR administration can change these values; everyone else reads them.";
 
 export const Route = createFileRoute("/hrm/configuration/payroll")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/payroll", replace: true }); },
   head: () => ({
     meta: [
       { title: "Payroll setup — Newworldcargo HRM" },
@@ -1327,7 +1328,7 @@ function ComponentTable({
 
 /* ---------- page ---------- */
 
-function PayrollSetup() {
+export function PayrollSetup() {
   const state = useApi(loadPayrollSetup);
   const userRoles = new Set(useAuth().user?.roles ?? []);
   const canAct = userRoles.has("hr_admin") || userRoles.has("hr_ops");

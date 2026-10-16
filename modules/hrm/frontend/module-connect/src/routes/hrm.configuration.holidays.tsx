@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useMemo, useState } from "react";
 import { CalendarDays, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/holidays")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/holidays", replace: true }); },
   head: () => ({ meta: [{ title: "Holiday List — Newworldcargo HRM" }, { name: "description", content: "Live public holiday calendars." }] }),
   component: HolidaysPage,
 });
@@ -22,7 +23,7 @@ type Form = { calendarId: string; name: string; holidayDate: string; observedOn:
 const emptyForm = (): Form => ({ calendarId: "", name: "", holidayDate: "", observedOn: "", isRecurring: false, description: "" });
 const list = (value: unknown): Record<string, unknown>[] => Array.isArray(value) ? value as Record<string, unknown>[] : ((value as { items?: unknown[] } | null)?.items ?? []) as Record<string, unknown>[];
 
-function HolidaysPage() {
+export function HolidaysPage() {
   const state = useApi(async () => {
     const calendars = list(await realApi.calendars());
     const details = await Promise.all(calendars.map(async (calendar) => ({ calendar, detail: await realApi.calendar(String(calendar.id)) })));

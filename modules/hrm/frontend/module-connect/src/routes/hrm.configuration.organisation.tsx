@@ -61,7 +61,7 @@ export const Route = createFileRoute("/hrm/configuration/organisation")({
       { property: "og:description", content: description },
     ],
   }),
-  component: () => <Navigate to="/core/organization" replace />,
+  component: () => <Navigate to="/core/workspace/settings/organization" replace />,
 });
 
 const fmt = (iso: string) =>

@@ -38,7 +38,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
   const activeEntity = entities.find((item) => item.id === entityId) ?? entities[0];
   const activeBranch = branches.find((item) => item.id === branch);
   const navigation = <>
-    <a href="/core/workspace/settings" onClick={() => setMobileOpen(false)} className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-rail-foreground ${currentPath === "/core/workspace/settings" ? "bg-rail-active" : "hover:bg-rail-active"}`}><Settings2 className="size-4" />Core settings</a>
+    <a href="/core/workspace/settings" onClick={() => setMobileOpen(false)} className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-rail-foreground ${currentPath.startsWith("/core/workspace/settings") ? "bg-rail-active" : "hover:bg-rail-active"}`}><Settings2 className="size-4" />Core settings</a>
     {coreSettingGroups.map((group, index) => {
       const Icon = groupIcons[index];
       const open = openGroups.includes(group.title);

@@ -43,7 +43,7 @@ export const Route = createFileRoute("/hrm/configuration/users")({
 function LegacyUsersRedirect() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const id = pathname.match(/^\/hrm\/configuration\/users\/([^/]+)\/?$/)?.[1];
-  return id ? <Navigate to="/core/users/$id" params={{ id: decodeURIComponent(id) }} replace /> : <Navigate to="/core/users" replace />;
+  return id ? <Navigate to="/core/workspace/settings/users/$id" params={{ id: decodeURIComponent(id) }} replace /> : <Navigate to="/core/workspace/settings/users" replace />;
 }
 
 interface RoleOption {

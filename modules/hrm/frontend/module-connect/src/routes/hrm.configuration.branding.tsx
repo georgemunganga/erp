@@ -16,7 +16,7 @@ import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/branding")({
   head: () => ({ meta: [{ title: "Branding — HR workspace" }] }),
-  component: () => <Navigate to="/core/branding" replace />,
+  component: () => <Navigate to="/core/workspace/settings/branding" replace />,
 });
 
 type BrandingForm = {
@@ -195,7 +195,7 @@ export function BrandingPage() {
   }
 
   return <AuthGate><ConfigurationShell>
-    <Link to="/core" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+    <Link to="/core/workspace/settings" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
       <ChevronLeft className="size-3.5" aria-hidden /> All configuration
     </Link>
     <PageHeader eyebrow="ERP Core" title="Company branding" description="Control company identity, sign-in text, logos, buttons, and colours across the ERP." />

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/go-live")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/go-live", replace: true }); },
   head: () => ({
     meta: [
       { title: "Production readiness — Newworldcargo HRM" },
@@ -40,7 +41,7 @@ const sections = [
   { id: "runbooks", label: "Runbooks and training" },
 ];
 
-function GoLiveConfiguration() {
+export function GoLiveConfiguration() {
   const [tab, setTab] = useState("decision");
   const dashboard = useApi(() => realApi.goLiveReadiness());
   const [busy, setBusy] = useState(false);

@@ -23,7 +23,7 @@ export const Route = createFileRoute("/hrm/configuration/roles")({
       { property: "og:description", content: "Create HRMS roles and assign the permissions each role grants." },
     ],
   }),
-  component: () => <Navigate to="/core/roles" replace />,
+  component: () => <Navigate to="/core/workspace/settings/roles" replace />,
 });
 
 const description =

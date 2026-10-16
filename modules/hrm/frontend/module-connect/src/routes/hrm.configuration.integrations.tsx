@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowRightLeft, Download, RefreshCw, RotateCcw, Send, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/integrations")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/integrations", replace: true }); },
   head: () => ({
     meta: [
       { title: "Integration operations — Newworldcargo HRM" },
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/hrm/configuration/integrations")({
 
 type Row = Record<string, unknown>;
 
-function IntegrationOperations() {
+export function IntegrationOperations() {
   const dashboard = useApi(() => realApi.integrationDashboard());
   const runs = useApi(() => realApi.payrollRuns());
   const groups = useApi(() => realApi.payrollPayGroups());

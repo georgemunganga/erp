@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { Building2, SlidersHorizontal, Settings2, ShieldCheck, UsersRound } from "lucide-react";
 import { CoreShell } from "@/modules/core/CoreShell";
 import { coreSettingGroups, settingPath } from "@/modules/core/settings";
@@ -15,5 +15,12 @@ const groups: SettingsDirectoryGroup[] = coreSettingGroups.map((group, index) =>
 
 export const Route = createFileRoute("/core/workspace/settings")({
   head: () => ({ meta: [{ title: "Settings — ERP Core" }] }),
-  component: () => <CoreAdminGate><CoreShell><SettingsDirectory moduleName="ERP Core" description="Manage company-wide organization, access, branding and shared defaults in one place." groups={groups} /></CoreShell></CoreAdminGate>,
+  component: CoreSettingsDirectory,
 });
+
+function CoreSettingsDirectory() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return pathname.startsWith("/core/workspace/settings/")
+    ? <Outlet />
+    : <CoreAdminGate><CoreShell><SettingsDirectory moduleName="ERP Core" description="Manage company-wide organization, access, branding and shared defaults in one place." groups={groups} /></CoreShell></CoreAdminGate>;
+}

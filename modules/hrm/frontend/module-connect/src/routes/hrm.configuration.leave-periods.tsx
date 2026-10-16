@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useState } from "react";
 import { CalendarRange, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,11 +17,12 @@ const list = (value: unknown): Row[] => Array.isArray(value) ? value as Row[] : 
 const val = (row: Row, key: string, fallback = "—") => row[key] == null || row[key] === "" ? fallback : String(row[key]);
 
 export const Route = createFileRoute("/hrm/configuration/leave-periods")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/leave-periods", replace: true }); },
   head: () => ({ meta: [{ title: "Leave Periods — Newworldcargo HRM" }, { name: "description", content: "Live leave accrual periods and runs." }] }),
   component: LeavePeriodsPage,
 });
 
-function LeavePeriodsPage() {
+export function LeavePeriodsPage() {
   const state = useApi(realApi.timeOperationsHistory, []);
   const [open, setOpen] = useState(false); const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7)); const [busy, setBusy] = useState(false);
   const history = (state.data ?? {}) as Record<string, unknown>; const accruals = list(history.accruals);

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Archive, FileText, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/contract-types")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/contract-types", replace: true }); },
   head: () => ({ meta: [{ title: "Contract Types - Newworldcargo HRM" }] }),
   component: ContractTypesPage,
 });
@@ -23,7 +24,7 @@ const emptyForm = (): FormState => ({ code: "", name: "", probationDays: "0", no
 const rowsOf = (data: unknown): ContractType[] => Array.isArray(data) ? data as ContractType[] : ((data as { items?: unknown[] } | null)?.items ?? []) as ContractType[];
 const value = (row: ContractType, key: string, fallback = "") => row[key] == null ? fallback : String(row[key]);
 
-function ContractTypesPage() {
+export function ContractTypesPage() {
   const state = useApi(() => realApi.contractTypes({ includeInactive: true }), []);
   const rows = useMemo(() => rowsOf(state.data), [state.data]);
   const [open, setOpen] = useState(false);

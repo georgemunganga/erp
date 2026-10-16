@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight, Lock, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { ConfigPage, ConfigTable } from "@/platform/components/ConfigPage";
 import { useMock } from "@/platform/use-mock";
 
 export const Route = createFileRoute("/hrm/configuration/process")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/process", replace: true }); },
   head: () => ({
     meta: [
       { title: "Process design — Newworldcargo HRM" },
@@ -33,7 +34,7 @@ const SECTIONS = [
   { id: "self", label: "Self-service" },
 ];
 
-function ProcessConfig() {
+export function ProcessConfig() {
   const [tab, setTab] = useState("leave");
   const [editing, setEditing] = useState<{ name: string; entitlement: string; carryOver: string } | null>(null);
   const leave = useMock(() => configurationApi.leavePolicies());

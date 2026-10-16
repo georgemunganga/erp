@@ -170,7 +170,7 @@ export function MyProfilePage() {
                   </Link>
                 </Button>
                 <Button variant="secondary" asChild>
-                  <Link to="/core/users">
+                  <Link to="/core/workspace/settings/users">
                     <Link2 className="size-4" aria-hidden />
                     Link user account
                   </Link>

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Download, LockKeyhole, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/compliance")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/compliance", replace: true }); },
   head: () => ({
     meta: [
       { title: "Security and compliance — Newworldcargo HRM" },
@@ -31,7 +32,7 @@ const sections = [
   { id: "evidence", label: "Control evidence" },
 ];
 
-function ComplianceConfig() {
+export function ComplianceConfig() {
   const [tab, setTab] = useState("posture");
   const dashboard = useApi(() => realApi.securityDashboard());
   const [busy, setBusy] = useState(false);

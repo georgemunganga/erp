@@ -6,7 +6,7 @@ export type CoreSetting = {
 };
 
 export const settingSlug = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-export const settingPath = (setting: CoreSetting) => setting.path ?? `/core/settings/${settingSlug(setting.label)}`;
+export const settingPath = (setting: CoreSetting) => setting.path ?? `/core/workspace/settings/${settingSlug(setting.label)}`;
 
 export type CoreSettingGroup = { title: string; description: string; items: CoreSetting[] };
 
@@ -16,19 +16,19 @@ export const coreSettingGroups: CoreSettingGroup[] = [
     title: "Organization",
     description: "Company identity and the structure shared by every module.",
     items: [
-      { label: "Profile", path: "/core/organization", detail: "Legal entities and company structure", owner: "ERP Core" },
-      { label: "Branding", path: "/core/branding", detail: "Logo, colors and sign-in identity", owner: "ERP Core" },
-      { label: "Locations", path: "/core/organization#locations", detail: "Branches and work locations", owner: "ERP Core" },
+      { label: "Profile", path: "/core/workspace/settings/organization", detail: "Legal entities and company structure", owner: "ERP Core" },
+      { label: "Branding", path: "/core/workspace/settings/branding", detail: "Logo, colors and sign-in identity", owner: "ERP Core" },
+      { label: "Locations", path: "/core/workspace/settings/organization#locations", detail: "Branches and work locations", owner: "ERP Core" },
     ],
   },
   {
     title: "Users & Roles",
     description: "Identity, permissions and departments.",
     items: [
-      { label: "Users", path: "/core/users", detail: "Organization identities and access", owner: "ERP Core" },
-      { label: "Roles", path: "/core/roles", detail: "Current HRM role editor; shared roles follow", owner: "ERP Core" },
-      { label: "Branch Access", path: "/core/branch-access", detail: "Assign users to permitted branches", owner: "ERP Core" },
-      { label: "Departments", path: "/core/organization#departments", detail: "Organization units and cost center references", owner: "ERP Core" },
+      { label: "Users", path: "/core/workspace/settings/users", detail: "Organization identities and access", owner: "ERP Core" },
+      { label: "Roles", path: "/core/workspace/settings/roles", detail: "Current HRM role editor; shared roles follow", owner: "ERP Core" },
+      { label: "Branch Access", path: "/core/workspace/settings/branch-access", detail: "Assign users to permitted branches", owner: "ERP Core" },
+      { label: "Departments", path: "/core/workspace/settings/organization#departments", detail: "Organization units and cost center references", owner: "ERP Core" },
     ],
   },
   {

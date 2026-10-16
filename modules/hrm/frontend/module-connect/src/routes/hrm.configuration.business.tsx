@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Archive, BriefcaseBusiness, Plus, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { ConfigPage, ConfigTable } from "@/platform/components/ConfigPage";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/business")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/business", replace: true }); },
   head: () => ({
     meta: [
       { title: "Business setup — Newworldcargo HRM" },
@@ -49,7 +50,7 @@ function asJob(value: unknown): Job {
   };
 }
 
-function BusinessConfig() {
+export function BusinessConfig() {
   const [tab, setTab] = useState("designations");
   const [editing, setEditing] = useState<Job | null>(null);
   const [creating, setCreating] = useState(false);

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { BriefcaseBusiness, FileCheck2, ShieldCheck, Workflow } from "lucide-react";
 import { configurationGroups } from "@/modules/hrm/nav";
 import { AppShell } from "@/platform/components/AppShell";
@@ -15,5 +15,12 @@ const groups: SettingsDirectoryGroup[] = configurationGroups.map((group, index) 
 
 export const Route = createFileRoute("/hrm/workspace/settings")({
   head: () => ({ meta: [{ title: "Settings — HRM" }] }),
-  component: () => <AuthGate><AppShell><SettingsDirectory moduleName="HRM" description="Set up employment rules, leave, payroll, approvals and HRM integrations." groups={groups} /></AppShell></AuthGate>,
+  component: HrmSettingsDirectory,
 });
+
+function HrmSettingsDirectory() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return pathname.startsWith("/hrm/workspace/settings/")
+    ? <Outlet />
+    : <AuthGate><AppShell><SettingsDirectory moduleName="HRM" description="Set up employment rules, leave, payroll, approvals and HRM integrations." groups={groups} /></AppShell></AuthGate>;
+}

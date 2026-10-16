@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useMemo, useState } from "react";
 import { Archive, CalendarDays, Plus, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/leave-types")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/leave-types", replace: true }); },
   head: () => ({ meta: [{ title: "Leave Types — Newworldcargo HRM" }, { name: "description", content: "Live leave entitlement and policy master data." }] }),
   component: LeaveTypesPage,
 });
@@ -25,7 +26,7 @@ const emptyForm = (): FormState => ({ code: "", name: "", category: "paid", defa
 const asRows = (data: unknown): LeaveType[] => Array.isArray(data) ? data as LeaveType[] : ((data as { items?: unknown[] } | null)?.items ?? []) as LeaveType[];
 const text = (row: LeaveType, key: string, fallback = "—") => row[key] == null || row[key] === "" ? fallback : String(row[key]);
 
-function LeaveTypesPage() {
+export function LeaveTypesPage() {
   const state = useApi(() => realApi.leaveTypes({ includeInactive: true }), []);
   const rows = useMemo(() => asRows(state.data), [state.data]);
   const [open, setOpen] = useState(false);
