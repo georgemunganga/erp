@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import type { CompanyBranding } from "@/platform/api-client";
 import { useBranding } from "@/platform/branding";
 import { emailPlaceholderFor, loginHeadingFor } from "@/platform/branding-copy";
-import { AppShell } from "@/platform/components/AppShell";
+import { ConfigurationShell } from "@/modules/core/ConfigurationShell";
 import { Async } from "@/platform/components/Async";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { PageHeader } from "@/platform/components/PageHeader";
@@ -133,7 +133,7 @@ function ContrastHint({ foreground, background }: { foreground: string; backgrou
   </p>;
 }
 
-function BrandingPage() {
+export function BrandingPage() {
   const branding = useApi(() => realApi.branding());
   const { setBranding } = useBranding();
   const [form, setForm] = useState<BrandingForm>(defaults);
@@ -173,7 +173,7 @@ function BrandingPage() {
       const value = await realApi.updateBranding(form);
       setBranding(value);
       setForm(fromBrand(value));
-      feedback.submitted("Branding saved.", "The logo and colours are now applied throughout this workspace, including sign-in.");
+      feedback.submitted("Branding saved.", "The logo and colours are now applied across the ERP, including sign-in.");
     } catch (error) {
       feedback.blocked("Branding was not saved.", error instanceof Error ? error.message : "Check the values and try again.");
     } finally {
@@ -193,11 +193,11 @@ function BrandingPage() {
     }
   }
 
-  return <AuthGate><AppShell>
-    <Link to="/hrm/configuration" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+  return <AuthGate><ConfigurationShell>
+    <Link to="/core" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
       <ChevronLeft className="size-3.5" aria-hidden /> All configuration
     </Link>
-    <PageHeader eyebrow="Configuration" title="Company branding" description="Control company identity, sign-in text, logos, buttons, and colours across your HR workspace." />
+    <PageHeader eyebrow="ERP Core" title="Company branding" description="Control company identity, sign-in text, logos, buttons, and colours across the ERP." />
     <Async state={branding} rows={6}>{() => <div className="space-y-6" data-testid="company-branding-settings">
       <section className="rounded-lg border bg-surface p-5">
         <div className="mb-4 flex items-start gap-3"><Palette className="mt-0.5 size-5 text-primary" aria-hidden /><div>
@@ -294,5 +294,5 @@ function BrandingPage() {
         <Button type="button" variant="outline" onClick={() => void reset()}><RotateCcw className="size-4" />Restore defaults</Button>
       </div>
     </div>}</Async>
-  </AppShell></AuthGate>;
+  </ConfigurationShell></AuthGate>;
 }

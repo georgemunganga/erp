@@ -33,7 +33,7 @@ import {
   unitState,
   unitStateExplanation,
 } from "@/mock/adminconfig";
-import { AppShell } from "@/platform/components/AppShell";
+import { ConfigurationShell } from "@/modules/core/ConfigurationShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Async } from "@/platform/components/Async";
 import { ListPage } from "@/platform/components/ListPage";
@@ -749,7 +749,7 @@ async function loadOrganisation() {
   };
 }
 
-function OrganisationConfig() {
+export function OrganisationConfig() {
   const state = useApi(loadOrganisation);
   const userRoles = new Set(useAuth().user?.roles ?? []);
   const canAct = userRoles.has("hr_admin") || userRoles.has("hr_ops");
@@ -854,7 +854,7 @@ function OrganisationConfig() {
 
   return (
     <AuthGate>
-      <AppShell>
+      <ConfigurationShell>
       <PageHeader
         eyebrow="Configuration"
         title="Organisation setup"
@@ -950,6 +950,7 @@ function OrganisationConfig() {
             return (
               <div className="space-y-6">
                 <DetailSection
+                  id="profile"
                   title="Legal entities"
                   description="Who employs people, under which registration and in which currency. An entity is never deleted once it has employed anyone."
                 >
@@ -957,6 +958,7 @@ function OrganisationConfig() {
                 </DetailSection>
 
                 <DetailSection
+                  id="locations"
                   title="Branches and work locations"
                   description="Where employees are based. A location can exist in configuration before it opens and stays readable after it closes."
                 >
@@ -973,6 +975,7 @@ function OrganisationConfig() {
                 </DetailSection>
 
                 <DetailSection
+                  id="departments"
                   title="Departments and cost centres"
                   description="The reporting and costing spine. The In use column shows what still points at each unit, which decides whether it can be removed at all."
                 >
@@ -1169,7 +1172,7 @@ function OrganisationConfig() {
           feedback.removed(`${name} deleted.`, () => feedback.note(`${name} restored.`));
         }}
       />
-    </AppShell>
+    </ConfigurationShell>
       </AuthGate>
   );
 }

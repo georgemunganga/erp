@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { AppShell } from "@/platform/components/AppShell";
+import { ConfigurationShell } from "@/modules/core/ConfigurationShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Async } from "@/platform/components/Async";
 import { PageHeader } from "@/platform/components/PageHeader";
@@ -107,7 +107,7 @@ function PermissionGrid({ values, onChange }: { values: string[]; onChange: (nex
   );
 }
 
-function RolesConfig() {
+export function RolesConfig() {
   const [tick, setTick] = useState(0);
   const [draft, setDraft] = useState<DraftRole>(emptyDraft);
   const [editing, setEditing] = useState<Record<string, DraftRole>>({});
@@ -149,7 +149,7 @@ function RolesConfig() {
 
   return (
     <AuthGate>
-      <AppShell>
+      <ConfigurationShell>
         <PageHeader eyebrow="Configuration" title="Roles and permissions" description={description} />
         <Async state={state}>
           {(rows) => {
@@ -253,7 +253,7 @@ function RolesConfig() {
             );
           }}
         </Async>
-      </AppShell>
+      </ConfigurationShell>
     </AuthGate>
   );
 }
