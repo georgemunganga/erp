@@ -370,7 +370,7 @@ export function SignIn() {
                 onDomainChange={chooseEmailDomain}
                 placeholder={branding?.companyDomain ? undefined : emailPlaceholderFor(branding)}
               /></div>
-              <p className="mt-1 text-xs text-muted-foreground">Choose a domain or type your full email address.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Select the @ domain to choose Gmail, Outlook, Yahoo, or another email address.</p>
               {organisationLogin ? <p className="mt-1 text-xs text-muted-foreground">Use this when your organization gave you a local account.</p> : null}
             </div>
 

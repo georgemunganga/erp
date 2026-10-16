@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { ArrowRight, Clock, Loader2 } from "lucide-react";
+import { ArrowRight, Clock, Loader2, LogOut } from "lucide-react";
 import { modules } from "@/platform/modules";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { AuthGate } from "@/platform/components/AuthGate";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/platform/auth";
 import { canManageCore } from "@/platform/entry-route";
 import { SignIn } from "./sign-in";
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Entrance() {
-  const { loading, authenticated, authorized, user } = useAuth();
+  const { loading, authenticated, authorized, user, signOut } = useAuth();
   const real = import.meta.env.VITE_USE_REAL_API === "true";
   const administrator = canManageCore(user?.roles ?? []);
 
@@ -37,8 +38,12 @@ function Entrance() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-primary/40 bg-primary text-primary-foreground shadow-sm">
-        <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-4">
           <BrandIdentity onDark />
+          {real ? <Button variant="ghost" size="sm" className="shrink-0 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground" onClick={() => signOut()}>
+            <LogOut className="size-4" aria-hidden />
+            Switch account
+          </Button> : null}
         </div>
       </header>
 
