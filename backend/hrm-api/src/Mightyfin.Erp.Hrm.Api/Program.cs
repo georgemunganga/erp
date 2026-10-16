@@ -1,6 +1,8 @@
 using Mightyfin.Erp.Hrm.Api.Routing;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Mightyfin.Erp.Hrm.Application.Payroll;
@@ -41,6 +43,21 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi("hrm");
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHealthChecks();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("password-reset-request", http => RateLimitPartition.GetFixedWindowLimiter(
+        // Nginx overwrites X-Real-IP with the connected client address. The API
+        // port is bound to loopback, so direct internet callers cannot set it.
+        http.Request.Headers["X-Real-IP"].FirstOrDefault() ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(15),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        }));
+});
 
 // ---------- Postgres ----------
 var connStr = builder.Configuration.GetConnectionString("Hrm");
@@ -347,6 +364,8 @@ app.Use(async (ctx, next) =>
     }
 });
 
+app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 
 // M34: append-only request evidence for every authenticated privileged

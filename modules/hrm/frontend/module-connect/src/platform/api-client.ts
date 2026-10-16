@@ -255,6 +255,8 @@ export const hrmApi = {
       hrmApi.post<{ sent: boolean }>(`/hrm/auth/users/${id}/send-password-link`, {}),
     setPassword: (token: string, newPassword: string) =>
       hrmApi.post<{ changed: boolean }>("/hrm/auth/set-password", { token, newPassword }),
+    requestPasswordReset: (email: string) =>
+      hrmApi.post<{ requested: boolean }>("/hrm/auth/request-password-reset", { email }),
   },
 
   async get<T>(path: string, params?: Record<string, unknown>): Promise<T> {

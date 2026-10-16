@@ -27,6 +27,7 @@ export const Route = createFileRoute("/sign-in")({
       { name: "description", content: "Sign in to your ERP workspace." },
       { property: "og:title", content: "Sign in — ERP workspace" },
       { property: "og:description", content: "Sign in to your ERP workspace." },
+      { name: "referrer", content: "no-referrer" },
     ],
   }),
   component: SignIn,
@@ -64,6 +65,10 @@ export function SignIn() {
   const [busy, setBusy] = useState(false);
   const [localBusy, setLocalBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showReset, setShowReset] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetRequested, setResetRequested] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
   const [setupPassword, setSetupPassword] = useState("");
   const [setupPasswordConfirmation, setSetupPasswordConfirmation] = useState("");
   const [setupBusy, setSetupBusy] = useState(false);
@@ -135,6 +140,27 @@ export function SignIn() {
       setLocalError(error instanceof ApiError ? error.message : error instanceof Error ? error.message : "Local sign-in failed.");
     } finally {
       setLocalBusy(false);
+    }
+  };
+
+  const requestPasswordReset = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setResetError(null);
+    const fullEmail = completeWorkEmail(email, branding?.companyDomain);
+    if (!isValidWorkEmail(fullEmail)) {
+      setResetError("Enter a valid work email address.");
+      return;
+    }
+    setResetBusy(true);
+    try {
+      await hrmApi.auth.requestPasswordReset(fullEmail);
+      setResetRequested(true);
+    } catch (error) {
+      setResetError(error instanceof ApiError && error.status === 429
+        ? "Too many requests. Please wait and try again."
+        : "We couldn't process this request right now. Please try again later.");
+    } finally {
+      setResetBusy(false);
     }
   };
 
@@ -276,12 +302,12 @@ export function SignIn() {
             </>
           ) : (
             <>
-          <h2 className="mt-6 text-xl font-semibold lg:mt-0">{loginHeadingFor(branding)}</h2>
+          <h2 className="mt-6 text-xl font-semibold lg:mt-0">{showReset ? "Reset your password" : loginHeadingFor(branding)}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {branding?.loginDescription || (organisationLogin ? "Use your organisation account or local account." : "Use your local account.")}
+            {showReset ? "Enter your work email and we’ll send you a link to set a new password." : branding?.loginDescription || (organisationLogin ? "Use your organisation account or local account." : "Use your local account.")}
           </p>
 
-          {organisationLogin ? <Button className="mt-6 w-full" onClick={enterWithOrganisation} disabled={busy}>
+          {!showReset && organisationLogin ? <Button className="mt-6 w-full" onClick={enterWithOrganisation} disabled={busy}>
             {busy ? (
               "Checking your session\u2026"
             ) : (
@@ -292,13 +318,27 @@ export function SignIn() {
             )}
           </Button> : null}
 
-          {organisationLogin && localLogin ? <div className="my-6 flex items-center gap-3">
+          {!showReset && organisationLogin && localLogin ? <div className="my-6 flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
             <span className="text-xs text-muted-foreground">Local account</span>
             <span className="h-px flex-1 bg-border" />
           </div> : null}
 
-          {localLogin ? <form className="space-y-4" onSubmit={enterWithLocalAccount}>
+          {showReset && localLogin ? <div className="mt-6 space-y-4">
+            {resetRequested ? <p className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary" role="status">
+              If this email has an active local account, we’ll send a reset link. Check your inbox and spam folder.
+            </p> : <form className="space-y-4" onSubmit={requestPasswordReset}>
+              <div>
+                <Label htmlFor="reset-email">Work email</Label>
+                <div className="mt-1"><WorkEmailInput id="reset-email" autoComplete="email" value={email} onChange={setEmail} domain={branding?.companyDomain} required /></div>
+              </div>
+              {resetError ? <p className="text-sm text-destructive" role="alert">{resetError}</p> : null}
+              <Button type="submit" className="w-full" disabled={resetBusy}>{resetBusy ? "Sending link…" : "Email reset link"}</Button>
+            </form>}
+            <Button type="button" variant="ghost" className="w-full" onClick={() => { setShowReset(false); setResetError(null); setResetRequested(false); }}>Back to sign in</Button>
+          </div> : null}
+
+          {!showReset && localLogin ? <form className="space-y-4" onSubmit={enterWithLocalAccount}>
             <div>
               <Label htmlFor="email">Work email</Label>
               <div className="mt-1"><WorkEmailInput
@@ -326,6 +366,8 @@ export function SignIn() {
                 required
               />
             </div>
+
+            <div className="text-right"><button type="button" className="text-sm font-medium text-primary underline underline-offset-2" onClick={() => { setShowReset(true); setLocalError(null); }}>Forgot password?</button></div>
 
             {localError ? <p className="text-sm text-destructive" role="alert">{localError}</p> : null}
 

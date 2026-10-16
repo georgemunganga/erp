@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.RateLimiting;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Application.Integration;
@@ -117,6 +118,8 @@ internal static class LocalIdentityRoutes
             g.MapPost("/logout", LogoutAsync).RequireAuthorization().WithMetadata(new TimesheetAccess());
             g.MapPost("/change-password", ChangePasswordAsync).RequireAuthorization().WithMetadata(new TimesheetAccess());
             g.MapPost("/set-password", CompletePasswordSetupAsync).AllowAnonymous();
+            g.MapPost("/request-password-reset", RequestPasswordResetAsync)
+                .AllowAnonymous().RequireRateLimiting("password-reset-request");
             g.MapGet("/users", ListUsersAsync).RequireAuthorization("hrm-admin");
             g.MapGet("/users/{id:guid}", GetUserAsync).RequireAuthorization("hrm-admin");
             g.MapPost("/users", CreateUserAsync).RequireAuthorization("hrm-admin");
@@ -390,6 +393,39 @@ internal static class LocalIdentityRoutes
         return Results.Ok(new { sent = true });
     }
 
+    private static async Task<IResult> RequestPasswordResetAsync(
+        PasswordResetRequest request, HrmDbContext db, IOutboxWriter outbox,
+        IConfiguration config, ILoggerFactory loggerFactory, CancellationToken ct)
+    {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        try
+        {
+            var mode = (config["ERP:AuthMode"] ?? config["HRM:AuthMode"] ?? "local").Trim().ToLowerInvariant();
+            var email = request.Email?.Trim() ?? "";
+            if ((mode is "local" or "hybrid") && email.Length is > 3 and <= 254 && email.Contains('@'))
+            {
+                var user = await db.LocalUsers.FirstOrDefaultAsync(x =>
+                    x.NormalizedEmail == NormalizeEmail(email) && x.IsActive && !x.IsArchived, ct);
+                if (user is not null)
+                {
+                    var recent = await db.LocalCredentialLinks.AnyAsync(x =>
+                        x.LocalUserId == user.Id && x.CreatedAt > DateTimeOffset.UtcNow.AddMinutes(-5), ct);
+                    if (!recent) await QueueCredentialLinkAsync(user, db, outbox, config, ct);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            loggerFactory.CreateLogger("PasswordReset").LogError(ex, "Unable to queue a password reset request");
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+        // Keep account existence out of the response and reduce timing differences.
+        var elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(started);
+        if (elapsed < TimeSpan.FromMilliseconds(450))
+            await Task.Delay(TimeSpan.FromMilliseconds(450) - elapsed, ct);
+        return Results.Ok(new { requested = true });
+    }
+
     private static async Task<IResult> CompletePasswordSetupAsync(CompletePasswordSetupRequest request, HrmDbContext db, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Token))
@@ -463,6 +499,7 @@ internal static class LocalIdentityRoutes
     public sealed record CreateUserRequest(string? Email, string? DisplayName, string? Password, string[]? Roles, Guid? WorkerId);
     public sealed record UpdateUserRequest(string? Email, string? DisplayName, string[]? Roles, bool? IsActive, Guid? WorkerId);
     public sealed record ResetPasswordRequest(string? NewPassword);
+    public sealed record PasswordResetRequest(string? Email);
     public sealed record CompletePasswordSetupRequest(string? Token, string? NewPassword);
 }
 
