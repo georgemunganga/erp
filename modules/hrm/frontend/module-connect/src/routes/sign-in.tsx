@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApp } from "@/platform/app-context";
 import { useAuth } from "@/platform/auth";
+import { safeEntryPath } from "@/platform/entry-route";
 import { ApiError, hrmApi } from "@/platform/api-client";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { useBranding } from "@/platform/branding";
@@ -21,10 +22,10 @@ import {
 export const Route = createFileRoute("/sign-in")({
   head: () => ({
     meta: [
-      { title: "Sign in — HR workspace" },
-      { name: "description", content: "Sign in to the HR workspace." },
-      { property: "og:title", content: "Sign in — HR workspace" },
-      { property: "og:description", content: "Sign in to the HR workspace." },
+      { title: "Sign in — ERP workspace" },
+      { name: "description", content: "Sign in to your ERP workspace." },
+      { property: "og:title", content: "Sign in — ERP workspace" },
+      { property: "og:description", content: "Sign in to your ERP workspace." },
     ],
   }),
   component: SignIn,
@@ -50,7 +51,7 @@ const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "
  * is only for users HR explicitly created inside this HRMS because no shared
  * directory identity exists yet. The demo branch keeps the mock explorer.
  */
-function SignIn() {
+export function SignIn() {
   const navigate = useNavigate();
   const { setRole } = useApp();
   const { authenticated, signInLocal, authSettings, loading } = useAuth();
@@ -71,6 +72,9 @@ function SignIn() {
   const credentialToken = typeof window === "undefined"
     ? ""
     : new URLSearchParams(window.location.search).get("token") ?? "";
+  const returnTo = typeof window === "undefined"
+    ? "/"
+    : safeEntryPath(new URLSearchParams(window.location.search).get("returnTo"));
 
   // (1) Handle every redirect back from Keycloak before considering another
   // silent attempt. In particular, `login_required` is the expected response
@@ -96,7 +100,7 @@ function SignIn() {
     if (!USE_REAL || loading || !authSettings.ready) return;
     if (credentialToken) return;
     if (authenticated) {
-      void navigate({ to: "/hrm", replace: true });
+      window.location.replace(returnTo);
       return;
     }
     if (!organisationLogin || callbackInProgress.current) return;
@@ -109,12 +113,12 @@ function SignIn() {
     if (silenceFailed) return;
     const session = getSession();
     if (isSessionValid(session)) return;
-    startSilentSso(window.location.pathname === "/sign-in" ? "/hrm" : window.location.pathname);
-  }, [authenticated, authSettings.ready, credentialToken, loading, navigate, organisationLogin, silenceFailed]);
+    startSilentSso(returnTo);
+  }, [authenticated, authSettings.ready, credentialToken, loading, organisationLogin, returnTo, silenceFailed]);
 
   const enterWithOrganisation = () => {
     setBusy(true);
-    startInteractiveLogin("/hrm");
+    startInteractiveLogin(returnTo);
   };
 
   const enterWithLocalAccount = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -123,7 +127,7 @@ function SignIn() {
     setLocalError(null);
     try {
       await signInLocal(email, password);
-      window.location.assign("/hrm");
+      window.location.assign(returnTo);
     } catch (error) {
       setLocalError(error instanceof ApiError ? error.message : "Local HRMS sign-in failed.");
     } finally {
@@ -209,10 +213,9 @@ function SignIn() {
           <BrandIdentity onDark logoClassName="max-h-20 max-w-36 object-contain" nameClassName="text-xl font-semibold" />
         </div>
         <div className="max-w-md">
-          <h1 className="text-2xl font-semibold">Human resources{branding?.companyName ? ` at ${branding.companyName}` : ""}</h1>
+          <h1 className="text-2xl font-semibold">ERP workspace{branding?.companyName ? ` at ${branding.companyName}` : ""}</h1>
           <p className="mt-3 text-sm text-rail-muted">
-            One place for your profile, leave, attendance, pay and requests — and for the people who
-            administer them.
+            Sign in once to reach the workspaces and settings assigned to your account.
           </p>
           <ul className="mt-6 space-y-2 text-sm text-rail-muted">
             <li className="flex gap-2">
@@ -221,12 +224,12 @@ function SignIn() {
             </li>
             <li className="flex gap-2">
               <KeyRound className="mt-0.5 size-4 shrink-0" aria-hidden />
-              Your account access is protected and managed by HR.
+              Your account access is managed by your organization.
             </li>
           </ul>
         </div>
         <p className="text-xs text-rail-muted">
-          Secure {branding?.companyName || "HR workspace"} sign-in.
+          Secure {branding?.companyName || "ERP workspace"} sign-in.
         </p>
       </div>
 

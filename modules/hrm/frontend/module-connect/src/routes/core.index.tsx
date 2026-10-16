@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight, Building2, Search, Settings2 } from "lucide-react";
-import { AuthGate } from "@/platform/components/AuthGate";
+import { CoreAdminGate } from "@/platform/components/AuthGate";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { CoreShell } from "@/modules/core/CoreShell";
 import { coreSettingGroups, settingPath } from "@/modules/core/settings";
@@ -18,7 +18,7 @@ function CoreHome() {
     items: group.items.filter((item) => `${group.title} ${item.label} ${item.detail} ${item.owner}`.toLowerCase().includes(query.trim().toLowerCase())),
   })).filter((group) => group.items.length);
   const connected = coreSettingGroups.flatMap((group) => group.items).filter((item) => item.path && item.owner === "ERP Core").length;
-  return <AuthGate><CoreShell>
+  return <CoreAdminGate><CoreShell>
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-primary">ERP Core</p>
@@ -46,5 +46,5 @@ function CoreHome() {
     </div>
     {!visibleGroups.length && <div className="rounded-xl border bg-surface px-6 py-12 text-center text-sm text-muted-foreground">No settings match “{query}”.</div>}
     <p className="rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-xs text-foreground">Organization, branding and identity editors use the existing live ERP APIs. Financial, template and portal settings remain with their owning modules until their shared contracts are ready.</p>
-  </CoreShell></AuthGate>;
+  </CoreShell></CoreAdminGate>;
 }

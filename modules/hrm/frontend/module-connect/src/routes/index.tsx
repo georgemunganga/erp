@@ -1,21 +1,39 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, Clock } from "lucide-react";
+import { useEffect } from "react";
+import { ArrowRight, Clock, Loader2 } from "lucide-react";
 import { modules } from "@/platform/modules";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
+import { AuthGate } from "@/platform/components/AuthGate";
+import { useAuth } from "@/platform/auth";
+import { canManageCore } from "@/platform/entry-route";
+import { SignIn } from "./sign-in";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "HR workspace" },
-      { name: "description", content: "Choose a module to enter." },
-      { property: "og:title", content: "HR workspace" },
-      { property: "og:description", content: "Choose a module to enter." },
+      { title: "ERP workspace" },
+      { name: "description", content: "Sign in to your ERP workspace." },
+      { property: "og:title", content: "ERP workspace" },
+      { property: "og:description", content: "Sign in to your ERP workspace." },
     ],
   }),
   component: Entrance,
 });
 
 function Entrance() {
+  const { loading, authenticated, authorized, user } = useAuth();
+  const real = import.meta.env.VITE_USE_REAL_API === "true";
+  const administrator = canManageCore(user?.roles ?? []);
+
+  useEffect(() => {
+    if (real && !loading && authenticated && authorized && !administrator) window.location.replace("/hrm");
+  }, [real, loading, authenticated, authorized, administrator]);
+
+  if (real && loading) return <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Checking your session…</div>;
+  if (real && !authenticated) return <SignIn />;
+  if (real && !authorized) return <AuthGate><span /></AuthGate>;
+  if (real && !administrator) return <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Opening your dashboard…</div>;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-primary/40 bg-primary text-primary-foreground shadow-sm">
@@ -26,9 +44,7 @@ function Entrance() {
 
       <main className="mx-auto max-w-5xl px-4 py-12">
         <h1 className="text-2xl font-semibold text-foreground">Choose a module</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Modules are isolated workspaces inside the same ERP. Pick one to enter.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Choose the workspace you want to manage.</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>

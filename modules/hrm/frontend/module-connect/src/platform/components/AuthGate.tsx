@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { Loader2, LogOut, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/platform/app-context";
 import { useAuth } from "@/platform/auth";
+import { canManageCore } from "@/platform/entry-route";
 
 const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "true";
 
@@ -21,7 +21,6 @@ const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "
  * without an HRM workforce role receive an explicit access-denied screen.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate();
   const { loading, authenticated, authorized, user, signOut, resolveRole } = useAuth();
   const { role, setRole } = useApp();
 
@@ -34,9 +33,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!USE_REAL || loading) return;
     if (!authenticated) {
-      void navigate({ to: "/sign-in", replace: true });
+      const returnTo = window.location.pathname + window.location.search + window.location.hash;
+      window.location.replace(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`);
     }
-  }, [loading, authenticated, navigate]);
+  }, [loading, authenticated]);
 
   if (!USE_REAL) return <>{children}</>;
   if (loading) {
@@ -80,6 +80,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+/** Shared settings currently use the HR administrator role supported by the API. */
+export function CoreAdminGate({ children }: { children: React.ReactNode }) {
+  const { user, authenticated, loading } = useAuth();
+  if (!USE_REAL) return <>{children}</>;
+  return <AuthGate>{loading || !authenticated ? null : canManageCore(user?.roles ?? []) ? children : <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="max-w-md rounded-xl border bg-surface p-6 text-center">
+      <ShieldAlert className="mx-auto size-8 text-danger" aria-hidden />
+      <h1 className="mt-3 text-xl font-semibold">Core settings access required</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Your account can sign in, but it does not have the administrator role needed to manage shared settings.</p>
+      <Button className="mt-5" variant="outline" onClick={() => window.location.assign("/hrm")}>Go to my dashboard</Button>
+    </div>
+  </div>}</AuthGate>;
 }
 
 /** Small header affordance: who is signed in + sign out. */
