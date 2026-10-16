@@ -129,7 +129,7 @@ export function SignIn() {
       await signInLocal(email, password);
       window.location.assign(returnTo);
     } catch (error) {
-      setLocalError(error instanceof ApiError ? error.message : "Local HRMS sign-in failed.");
+      setLocalError(error instanceof ApiError ? error.message : "Local sign-in failed.");
     } finally {
       setLocalBusy(false);
     }
@@ -275,7 +275,7 @@ export function SignIn() {
             <>
           <h2 className="mt-6 text-xl font-semibold lg:mt-0">{loginHeadingFor(branding)}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {branding?.loginDescription || (organisationLogin ? "Use your organisation account or HRMS local account." : "Use your HRMS local account.")}
+            {branding?.loginDescription || (organisationLogin ? "Use your organisation account or local account." : "Use your local account.")}
           </p>
 
           {organisationLogin ? <Button className="mt-6 w-full" onClick={enterWithOrganisation} disabled={busy}>
@@ -291,7 +291,7 @@ export function SignIn() {
 
           {organisationLogin && localLogin ? <div className="my-6 flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">HRMS local account</span>
+            <span className="text-xs text-muted-foreground">Local account</span>
             <span className="h-px flex-1 bg-border" />
           </div> : null}
 
@@ -327,7 +327,7 @@ export function SignIn() {
             {localError ? <p className="text-sm text-destructive" role="alert">{localError}</p> : null}
 
             <Button type="submit" variant={organisationLogin ? "outline" : "default"} className="w-full" disabled={localBusy}>
-              {localBusy ? "Signing in…" : "Sign in with HRMS local account"}
+              {localBusy ? "Signing in…" : "Sign in with local account"}
             </Button>
 
             {organisationLogin ? <div className="rounded-lg border border-warning/40 bg-warning-soft p-3">
@@ -335,7 +335,7 @@ export function SignIn() {
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                 <span>
                   Prefer the organisation account above whenever one exists. Local accounts are
-                  isolated to this HRMS and should be migrated to the shared identity directory later.
+                  managed in the current identity service and should be migrated to the shared identity directory later.
                 </span>
               </p>
             </div> : null}
