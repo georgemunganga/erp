@@ -16,7 +16,6 @@ export function TimesheetBoundary({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (denied) void navigate({ to: "/hrm/time/timesheets", replace: true });
   }, [denied, navigate]);
-  if ((USE_REAL && loading && pathname !== "/sign-in") || denied)
-    return <div className="p-8 text-sm text-muted-foreground" role="status">Loading your workspace…</div>;
+  if ((USE_REAL && loading && pathname !== "/sign-in") || denied) return null;
   return <>{children}</>;
 }

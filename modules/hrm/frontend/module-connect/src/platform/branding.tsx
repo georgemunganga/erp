@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import type { CompanyBranding } from "@/platform/api-client";
 import { useAuth } from "@/platform/auth";
@@ -11,6 +11,19 @@ type BrandingContextValue = {
 };
 
 const BrandingContext = createContext<BrandingContextValue | null>(null);
+const BRANDING_CACHE_KEY = "erp.company-branding.v1";
+
+function cachedBranding(): CompanyBranding | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = JSON.parse(localStorage.getItem(BRANDING_CACHE_KEY) || "null") as CompanyBranding | null;
+    return value && typeof value.primaryColor === "string" && typeof value.fontFamily === "string" ? value : null;
+  } catch { return null; }
+}
+
+function rememberBranding(value: CompanyBranding) {
+  try { localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify(value)); } catch { /* Storage can be disabled or full. */ }
+}
 
 const colourTokens: Record<string, keyof CompanyBranding> = {
   "--primary": "primaryColor",
@@ -31,8 +44,28 @@ const colourTokens: Record<string, keyof CompanyBranding> = {
 export function BrandingProvider({ children }: { children: ReactNode }) {
   const { authenticated } = useAuth();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const [branding, setBranding] = useState<CompanyBranding | null>(null);
+  const [branding, setCurrentBranding] = useState<CompanyBranding | null>(null);
   const [ready, setReady] = useState(false);
+  const setBranding = (value: CompanyBranding) => {
+    rememberBranding(value);
+    setCurrentBranding(value);
+  };
+
+  useLayoutEffect(() => {
+    const cached = cachedBranding();
+    if (cached) {
+      setCurrentBranding(cached);
+      setReady(true);
+    }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === BRANDING_CACHE_KEY) {
+        const next = cachedBranding();
+        if (next) setCurrentBranding(next);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   useEffect(() => {
     if (import.meta.env.VITE_USE_REAL_API !== "true") {
@@ -50,7 +83,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     return () => { active = false; window.clearTimeout(timeout); };
   }, [authenticated]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!branding) return;
     const root = document.documentElement;
     for (const [token, field] of Object.entries(colourTokens)) {
@@ -59,7 +92,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     }
     const fonts: Record<string, string> = {
       Montserrat: '"Montserrat", ui-sans-serif, system-ui, sans-serif',
-      "Plus Jakarta Sans": '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
+      Poppins: '"Poppins", ui-sans-serif, system-ui, sans-serif',
       Inter: '"Inter", ui-sans-serif, system-ui, sans-serif',
     };
     root.style.setProperty("--erp-font-family", fonts[branding.fontFamily] ?? fonts.Montserrat);

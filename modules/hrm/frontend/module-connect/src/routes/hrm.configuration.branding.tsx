@@ -112,6 +112,7 @@ function fromBrand(value: CompanyBranding): BrandingForm {
   return {
     ...defaults,
     ...value,
+    fontFamily: ["Poppins", "Montserrat", "Inter"].includes(value.fontFamily) ? value.fontFamily : "Montserrat",
     logoLightDataUri: value.logoLightDataUri ?? "",
     logoDarkDataUri: value.logoDarkDataUri ?? "",
     faviconDataUri: value.faviconDataUri ?? "",
@@ -272,7 +273,7 @@ export function BrandingPage() {
         <h2 className="font-semibold">System font</h2>
         <p className="mt-1 text-sm text-muted-foreground">One font for Core, HRM, and Procurement. It also applies on sign-in after you save.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3" role="group" aria-label="System font">
-          {(["Montserrat", "Plus Jakarta Sans", "Inter"] as const).map((font) => <button
+          {(["Poppins", "Montserrat", "Inter"] as const).map((font) => <button
             key={font} type="button" aria-pressed={form.fontFamily === font}
             onClick={() => set("fontFamily", font)}
             className={`rounded-xl border px-4 py-4 text-left transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${form.fontFamily === font ? "border-primary bg-secondary" : "bg-background"}`}

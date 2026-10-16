@@ -12,7 +12,7 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
     private static readonly Regex HexColour = new("^#[0-9a-fA-F]{6}$", RegexOptions.Compiled);
     private static readonly Regex DomainName = new("^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", RegexOptions.Compiled);
     private const int MaxAssetBytes = 512 * 1024;
-    private static readonly HashSet<string> AllowedFonts = ["Montserrat", "Plus Jakarta Sans", "Inter"];
+    private static readonly HashSet<string> AllowedFonts = ["Poppins", "Montserrat", "Inter"];
 
     public async Task<CompanyBrandingDto> GetAsync(CancellationToken ct)
     {
@@ -56,7 +56,7 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
         {
             var font = request.FontFamily.Trim();
             if (!AllowedFonts.Contains(font))
-                throw new DomainException("branding-font-invalid", "Choose Montserrat, Plus Jakarta Sans, or Inter.");
+                throw new DomainException("branding-font-invalid", "Choose Poppins, Montserrat, or Inter.");
             item.FontFamily = font;
         }
         item.PrimaryColor = Colour(request.PrimaryColor, item.PrimaryColor, "primaryColor");
