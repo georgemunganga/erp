@@ -13,6 +13,7 @@ public sealed class CompanyBranding : Entity
     public string EmailPlaceholder { get; set; } = "";
     public string PasswordPlaceholder { get; set; } = "Enter your password";
     public string SupportEmail { get; set; } = "";
+    public string FontFamily { get; set; } = "Montserrat";
     public string PrimaryColor { get; set; } = "#012642";
     public string PrimaryForegroundColor { get; set; } = "#FFFFFF";
     public string ButtonColor { get; set; } = "#012642";

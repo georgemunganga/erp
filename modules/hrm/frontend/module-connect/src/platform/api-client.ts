@@ -111,6 +111,7 @@ export interface CompanyBranding {
   emailPlaceholder: string;
   passwordPlaceholder: string;
   supportEmail: string;
+  fontFamily: string;
   primaryColor: string;
   primaryForegroundColor: string;
   buttonColor: string;

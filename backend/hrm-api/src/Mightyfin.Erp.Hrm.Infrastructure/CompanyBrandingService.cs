@@ -12,10 +12,11 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
     private static readonly Regex HexColour = new("^#[0-9a-fA-F]{6}$", RegexOptions.Compiled);
     private static readonly Regex DomainName = new("^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", RegexOptions.Compiled);
     private const int MaxAssetBytes = 512 * 1024;
+    private static readonly HashSet<string> AllowedFonts = ["Montserrat", "Plus Jakarta Sans", "Inter"];
 
     public async Task<CompanyBrandingDto> GetAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("employee", "manager", "hr_ops", "hr_admin", "payroll", "finance");
+        authz.RequireAnyRole("employee", "manager", "hr_ops", "hr_admin", "payroll", "finance", "erp_admin");
         return ToDto(await GetOrCreateAsync(ct));
     }
 
@@ -24,7 +25,7 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
 
     public async Task<CompanyBrandingDto> UpdateAsync(CompanyBrandingUpdateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_admin");
+        authz.RequireAnyRole("hr_admin", "erp_admin");
         var item = await GetOrCreateAsync(ct);
         if (request.DisplayName is not null)
         {
@@ -51,6 +52,13 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
                 throw new DomainException("branding-support-email-invalid", "Support email must be a valid email address.");
             item.SupportEmail = email;
         }
+        if (request.FontFamily is not null)
+        {
+            var font = request.FontFamily.Trim();
+            if (!AllowedFonts.Contains(font))
+                throw new DomainException("branding-font-invalid", "Choose Montserrat, Plus Jakarta Sans, or Inter.");
+            item.FontFamily = font;
+        }
         item.PrimaryColor = Colour(request.PrimaryColor, item.PrimaryColor, "primaryColor");
         item.PrimaryForegroundColor = Colour(request.PrimaryForegroundColor, item.PrimaryForegroundColor, "primaryForegroundColor");
         item.ButtonColor = Colour(request.ButtonColor, item.ButtonColor, "buttonColor");
@@ -72,13 +80,14 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
 
     public async Task<CompanyBrandingDto> ResetAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_admin");
+        authz.RequireAnyRole("hr_admin", "erp_admin");
         var item = await GetOrCreateAsync(ct);
         item.DisplayName = "HR workspace";
         item.CompanyName = "Company"; item.CompanyDomain = "";
         item.LoginHeading = ""; item.LoginDescription = "";
         item.EmailPlaceholder = ""; item.PasswordPlaceholder = "Enter your password";
         item.SupportEmail = "";
+        item.FontFamily = "Montserrat";
         item.PrimaryColor = "#012642"; item.PrimaryForegroundColor = "#FFFFFF";
         item.ButtonColor = "#012642"; item.ButtonForegroundColor = "#FFFFFF";
         item.SecondaryColor = "#E8F0F5"; item.SecondaryForegroundColor = "#012642";
@@ -130,7 +139,7 @@ public sealed class CompanyBrandingService(HrmDbContext db, IAuthzService authz)
         return value;
     }
     private static CompanyBrandingDto ToDto(CompanyBranding x) => new(x.DisplayName, x.CompanyName, x.CompanyDomain,
-        x.LoginHeading, x.LoginDescription, x.EmailPlaceholder, x.PasswordPlaceholder, x.SupportEmail,
+        x.LoginHeading, x.LoginDescription, x.EmailPlaceholder, x.PasswordPlaceholder, x.SupportEmail, x.FontFamily,
         x.PrimaryColor, x.PrimaryForegroundColor,
         x.ButtonColor, x.ButtonForegroundColor,
         x.SecondaryColor, x.SecondaryForegroundColor, x.AccentColor, x.AccentForegroundColor,

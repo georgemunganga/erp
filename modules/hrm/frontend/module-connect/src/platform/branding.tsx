@@ -50,6 +50,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       const value = branding[field];
       if (typeof value === "string") root.style.setProperty(token, value);
     }
+    const fonts: Record<string, string> = {
+      Montserrat: '"Montserrat", ui-sans-serif, system-ui, sans-serif',
+      "Plus Jakarta Sans": '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
+      Inter: '"Inter", ui-sans-serif, system-ui, sans-serif',
+    };
+    root.style.setProperty("--erp-font-family", fonts[branding.fontFamily] ?? fonts.Montserrat);
     document.title = `${branding.displayName} — HR workspace`;
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (icon) icon.href = branding.faviconDataUri || "/favicon.svg";

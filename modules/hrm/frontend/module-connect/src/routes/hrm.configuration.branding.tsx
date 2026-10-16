@@ -4,6 +4,7 @@ import { ChevronLeft, Palette, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CompanyBranding } from "@/platform/api-client";
 import { useBranding } from "@/platform/branding";
 import { emailPlaceholderFor, loginHeadingFor } from "@/platform/branding-copy";
@@ -28,6 +29,7 @@ type BrandingForm = {
   emailPlaceholder: string;
   passwordPlaceholder: string;
   supportEmail: string;
+  fontFamily: string;
   primaryColor: string;
   primaryForegroundColor: string;
   buttonColor: string;
@@ -55,6 +57,7 @@ const defaults: BrandingForm = {
   emailPlaceholder: "",
   passwordPlaceholder: "Enter your password",
   supportEmail: "",
+  fontFamily: "Montserrat",
   primaryColor: "#012642",
   primaryForegroundColor: "#FFFFFF",
   buttonColor: "#012642",
@@ -165,7 +168,7 @@ export function BrandingPage() {
       reader.readAsDataURL(file);
     });
     set(key, value);
-    feedback.note("Image selected.", "Click Save branding below to keep this logo and use it on future payslips.");
+    feedback.note("Image selected.", "Save branding to use this image across the ERP.");
   }
 
   async function save() {
@@ -174,7 +177,7 @@ export function BrandingPage() {
       const value = await realApi.updateBranding(form);
       setBranding(value);
       setForm(fromBrand(value));
-      feedback.submitted("Branding saved.", "The logo and colours are now applied across the ERP, including sign-in.");
+      feedback.submitted("Branding saved.", "Your identity, font, and colours are now applied across the ERP.");
     } catch (error) {
       feedback.blocked("Branding was not saved.", error instanceof Error ? error.message : "Check the values and try again.");
     } finally {
@@ -198,9 +201,16 @@ export function BrandingPage() {
     <Link to="/core/workspace/settings" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
       <ChevronLeft className="size-3.5" aria-hidden /> All configuration
     </Link>
-    <PageHeader eyebrow="ERP Core" title="Company branding" description="Control company identity, sign-in text, logos, buttons, and colours across the ERP." />
-    <Async state={branding} rows={6}>{() => <div className="space-y-6" data-testid="company-branding-settings">
-      <section className="rounded-lg border bg-surface p-5">
+    <PageHeader eyebrow="ERP Core · Settings" title="Branding" description="Set the look and wording used throughout your ERP." />
+    <Async state={branding} rows={6}>{() => <div className="space-y-5" data-testid="company-branding-settings">
+      <Tabs defaultValue="identity" className="space-y-5">
+        <TabsList aria-label="Branding sections" className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border bg-surface p-1.5 sm:w-auto">
+          <TabsTrigger value="identity" className="px-4 py-2">Company & logos</TabsTrigger>
+          <TabsTrigger value="appearance" className="px-4 py-2">Font & colours</TabsTrigger>
+          <TabsTrigger value="signin" className="px-4 py-2">Sign-in page</TabsTrigger>
+        </TabsList>
+      <TabsContent value="identity" className="m-0 space-y-5">
+      <section className="rounded-xl border bg-surface p-5 shadow-sm sm:p-6">
         <div className="mb-4 flex items-start gap-3"><Palette className="mt-0.5 size-5 text-primary" aria-hidden /><div>
           <h2 className="font-semibold">Company identity</h2>
           <p className="text-sm text-muted-foreground">These public details identify your organisation on sign-in and in the workspace.</p>
@@ -221,17 +231,20 @@ export function BrandingPage() {
           {([ ["logoLightDataUri", "Logo for dark backgrounds"], ["logoDarkDataUri", "Logo for light backgrounds"], ["faviconDataUri", "Browser icon"] ] as const).map(([key, label]) =>
             <div key={key} className="rounded-lg border bg-surface-muted p-4">
               <Label htmlFor={key}>{label}</Label>
-              <Input id={key} className="mt-2" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon" onChange={(event) => { void pickAsset(key, event.target.files?.[0]); event.target.value = ""; }} />
+              <Input id={key} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon" onChange={(event) => { void pickAsset(key, event.target.files?.[0]); event.target.value = ""; }} />
+              <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => document.getElementById(key)?.click()}>{form[key] ? "Replace image" : "Choose image"}</Button>
               {form[key] ? <div className="mt-3 flex h-20 items-center justify-center rounded border bg-background p-2"><img src={form[key]} alt={`${label} preview`} className="max-h-full max-w-full object-contain" /></div>
                 : <p className="mt-3 text-xs text-muted-foreground">No custom image uploaded.</p>}
-              {key === "logoDarkDataUri" ? <p className="mt-2 text-xs text-muted-foreground">Used on printed payslips with a white background.</p> : null}
+              {key === "logoDarkDataUri" ? <p className="mt-2 text-xs text-muted-foreground">Used on light surfaces and printed payslips.</p> : null}
               {form[key] ? <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => set(key, "")}>Remove image</Button> : null}
             </div>
           )}
         </div>
       </section>
+      </TabsContent>
 
-      <section className="rounded-lg border bg-surface p-5">
+      <TabsContent value="signin" className="m-0">
+      <section className="rounded-xl border bg-surface p-5 shadow-sm sm:p-6">
         <h2 className="font-semibold">Sign-in experience</h2>
         <p className="mb-4 text-sm text-muted-foreground">Set the words people see before they log in. Leave a heading or email example blank to generate it from the company name and domain.</p>
         <div className="grid gap-4 md:grid-cols-2">
@@ -252,10 +265,27 @@ export function BrandingPage() {
           </div>
         </div>
       </section>
+      </TabsContent>
 
+      <TabsContent value="appearance" className="m-0 space-y-5">
+      <section className="rounded-xl border bg-surface p-5 shadow-sm sm:p-6">
+        <h2 className="font-semibold">System font</h2>
+        <p className="mt-1 text-sm text-muted-foreground">One font for Core, HRM, and Procurement. It also applies on sign-in after you save.</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3" role="group" aria-label="System font">
+          {(["Montserrat", "Plus Jakarta Sans", "Inter"] as const).map((font) => <button
+            key={font} type="button" aria-pressed={form.fontFamily === font}
+            onClick={() => set("fontFamily", font)}
+            className={`rounded-xl border px-4 py-4 text-left transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${form.fontFamily === font ? "border-primary bg-secondary" : "bg-background"}`}
+          >
+            <span className="block text-xl font-semibold" style={{ fontFamily: `"${font}", sans-serif` }}>Aa</span>
+            <span className="mt-1 block text-sm font-medium">{font}</span>
+            <span className="mt-1 block text-xs text-muted-foreground">The quick brown fox</span>
+          </button>)}
+        </div>
+      </section>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-6">
-          {colourGroups.map((group) => <section key={group.title} className="rounded-lg border bg-surface p-5">
+          {colourGroups.map((group) => <section key={group.title} className="rounded-xl border bg-surface p-5 shadow-sm sm:p-6">
             <h2 className="font-semibold">{group.title}</h2><p className="mb-4 text-sm text-muted-foreground">{group.description}</p>
             <div className="grid gap-4 sm:grid-cols-2">
               {group.fields.map(([key, label]) => <div key={key}>
@@ -268,7 +298,7 @@ export function BrandingPage() {
             </div>
           </section>)}
         </div>
-        <aside className="h-fit space-y-4 rounded-lg border bg-surface p-5 xl:sticky xl:top-20">
+        <aside className="h-fit space-y-4 rounded-xl border bg-surface p-5 shadow-sm xl:sticky xl:top-20" style={{ fontFamily: `"${form.fontFamily}", sans-serif` }}>
           <h2 className="font-semibold">Live preview</h2>
           <p className="text-sm text-muted-foreground">Changes here are a preview until you save.</p>
           <div className="rounded-lg border p-4">
@@ -290,10 +320,13 @@ export function BrandingPage() {
           <ContrastHint foreground={form.railForegroundColor} background={form.railColor} />
         </aside>
       </div>
+      </TabsContent>
+      </Tabs>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-surface px-4 py-3 shadow-sm">
         <Button type="button" onClick={() => void save()} disabled={saving}><Save className="size-4" />{saving ? "Saving…" : "Save branding"}</Button>
         <Button type="button" variant="outline" onClick={() => void reset()}><RotateCcw className="size-4" />Restore defaults</Button>
+        <span className="ml-auto text-xs text-muted-foreground">Changes apply after saving.</span>
       </div>
     </div>}</Async>
   </ConfigurationShell></AuthGate>;

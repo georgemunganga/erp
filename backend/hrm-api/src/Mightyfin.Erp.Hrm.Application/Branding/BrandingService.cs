@@ -2,7 +2,7 @@ namespace Mightyfin.Erp.Hrm.Application.Branding;
 
 public sealed record CompanyBrandingDto(string DisplayName, string CompanyName, string CompanyDomain,
     string LoginHeading, string LoginDescription, string EmailPlaceholder, string PasswordPlaceholder,
-    string SupportEmail, string PrimaryColor, string PrimaryForegroundColor,
+    string SupportEmail, string FontFamily, string PrimaryColor, string PrimaryForegroundColor,
     string ButtonColor, string ButtonForegroundColor,
     string SecondaryColor, string SecondaryForegroundColor, string AccentColor, string AccentForegroundColor,
     string RailColor, string RailForegroundColor, string RailMutedColor, string RailActiveColor,
@@ -10,7 +10,7 @@ public sealed record CompanyBrandingDto(string DisplayName, string CompanyName, 
 
 public sealed record CompanyBrandingUpdateRequest(string? DisplayName, string? CompanyName, string? CompanyDomain,
     string? LoginHeading, string? LoginDescription, string? EmailPlaceholder, string? PasswordPlaceholder,
-    string? SupportEmail, string? PrimaryColor,
+    string? SupportEmail, string? FontFamily, string? PrimaryColor,
     string? PrimaryForegroundColor, string? ButtonColor, string? ButtonForegroundColor,
     string? SecondaryColor, string? SecondaryForegroundColor,
     string? AccentColor, string? AccentForegroundColor, string? RailColor, string? RailForegroundColor,
