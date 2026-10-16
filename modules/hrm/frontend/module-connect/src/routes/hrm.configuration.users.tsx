@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ConfigurationShell } from "@/modules/core/ConfigurationShell";
+import { WorkEmailInput, completeWorkEmail, isValidWorkEmail } from "@/platform/components/WorkEmailInput";
+import { useBranding } from "@/platform/branding";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { PageHeader } from "@/platform/components/PageHeader";
 import { StatusBadge } from "@/platform/components/StatusBadge";
@@ -66,6 +68,8 @@ function messageFor(error: unknown, fallback: string) {
 }
 
 export function UsersConfiguration() {
+  const { branding } = useBranding();
+  const emailDomain = branding?.companyDomain;
   const [users, setUsers] = useState<IdentityAccessUser[]>([]);
   const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
   const [identityAvailable, setIdentityAvailable] = useState(false);
@@ -170,7 +174,7 @@ export function UsersConfiguration() {
     setError(null);
     setSelectedDirectoryUser(null);
     try {
-      const response = await hrmApi.identity.searchDirectory(email.trim());
+      const response = await hrmApi.identity.searchDirectory(completeWorkEmail(email, emailDomain));
       setDirectoryUsers(response.items ?? []);
       setDirectorySearched(true);
     } catch (err) {
@@ -202,8 +206,10 @@ export function UsersConfiguration() {
       } else {
         if (!capabilities.localUsersEnabled)
           throw new Error("This server only accepts organisation identities. Select a directory user to grant access.");
+        const fullEmail = completeWorkEmail(email, emailDomain);
+        if (!isValidWorkEmail(fullEmail)) throw new Error("Enter a valid work email address.");
         await hrmApi.auth.createUser({
-          email: email.trim(),
+          email: fullEmail,
           displayName: displayName.trim(),
           roles: [role],
         });
@@ -274,8 +280,8 @@ export function UsersConfiguration() {
           eyebrow="Configuration · Security"
           title="User access"
           description={localOnly
-            ? "Manage local sign-in accounts and their HRM roles. New users set their password from an emailed link."
-            : "Grant HRM access to organisation identities, with local accounts where this server allows them."}
+            ? "Add people and choose the HRM work they can access. New users set their password from an emailed link."
+            : "Give organization users access to HRM, with local accounts where available."}
           meta={<div className="flex flex-wrap justify-end gap-2"><Button size="sm" onClick={() => setCreateOpen(true)} disabled={!canAddUser || loading || activeRoles.length === 0}><UserPlus className="mr-2 size-3.5" aria-hidden />{localOnly ? "Add local user" : "Invite user"}</Button><Button variant="outline" size="sm" onClick={() => void loadUsers()}><RefreshCw className="mr-2 size-3.5" aria-hidden />Refresh</Button></div>}
         />
 
@@ -298,12 +304,12 @@ export function UsersConfiguration() {
                 </thead>
                 <tbody className="divide-y">
                   {loading ? <tr><td className="px-3 py-5 text-muted-foreground" colSpan={4}>Loading user accounts…</td></tr> : null}
-                  {!loading && users.length === 0 ? <tr><td className="px-3 py-5 text-muted-foreground" colSpan={4}>No HRM users found.</td></tr> : null}
+                  {!loading && users.length === 0 ? <tr><td className="px-3 py-5 text-muted-foreground" colSpan={4}>No users yet.</td></tr> : null}
                   {!loading && users.map((user) => {
                     const currentRole = user.roles.find((candidate) => roles.some((item) => item.roleKey === candidate)) ?? "employee";
                     return <tr key={user.id}>
                       <td className="px-3 py-3"><span className="font-medium text-foreground">{user.displayName}</span><div className="text-xs text-muted-foreground">{user.email}</div><div className="mt-1 text-[11px] text-muted-foreground">{user.source === "local" ? "HRMS local account" : user.federated ? "Shared staff identity" : "ERP realm identity"}</div></td>
-                      <td className="px-3 py-3"><select className="h-8 rounded-md border bg-background px-2 text-xs" value={currentRole} onChange={(event) => void changeRole(user, event.target.value)} aria-label={`Role for ${user.email}`}>{roles.filter((role) => user.source === "local" || IDENTITY_ROLE_KEYS.has(role.roleKey)).map((role) => <option key={role.roleKey} value={role.roleKey} disabled={!role.active}>{role.roleName}{role.active ? "" : " (inactive)"}</option>)}</select></td>
+                      <td className="px-3 py-3"><select className="h-10 rounded-lg border bg-background px-3 text-sm" value={currentRole} onChange={(event) => void changeRole(user, event.target.value)} aria-label={`Role for ${user.email}`}>{roles.filter((role) => user.source === "local" || IDENTITY_ROLE_KEYS.has(role.roleKey)).map((role) => <option key={role.roleKey} value={role.roleKey} disabled={!role.active}>{role.roleName}{role.active ? "" : " (inactive)"}</option>)}</select></td>
                       <td className="px-3 py-3"><StatusBadge status={user.isActive ? "active" : "inactive"} /></td>
                       <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button variant="outline" size="sm" onClick={() => setSelectedUser(user)}><KeyRound className="mr-1.5 size-3.5" aria-hidden />Send reset link</Button><Switch checked={user.isActive} onCheckedChange={(checked) => void toggleUser(user, checked)} aria-label={`${user.isActive ? "Deactivate" : "Activate"} ${user.email}`} /></div></td>
                     </tr>;
@@ -317,7 +323,7 @@ export function UsersConfiguration() {
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{localOnly ? "Add local HRM user" : "Invite HRM user"}</DialogTitle>
+              <DialogTitle>{localOnly ? "Add user" : "Invite user"}</DialogTitle>
               <DialogDescription>{localOnly
                 ? "Enter the account holder's name, email and role. They will choose a password using an emailed setup link."
                 : "Search the organisation directory first. Select an existing identity when found; otherwise HRM can create a local account if enabled."}</DialogDescription>
@@ -326,10 +332,12 @@ export function UsersConfiguration() {
               <div>
                 <Label htmlFor="new-email">{localOnly ? "Email address" : "Work email or directory search"}</Label>
                 <div className="mt-1 flex gap-2">
-                  <Input id="new-email" type="email" autoComplete="off" value={email} onChange={(event) => { setEmail(event.target.value); setDirectorySearched(false); setDirectoryUsers([]); setSelectedDirectoryUser(null); }} required />
+                  <WorkEmailInput id="new-email" value={email} domain={emailDomain} onChange={(value) => { setEmail(value); setDirectorySearched(false); setDirectoryUsers([]); setSelectedDirectoryUser(null); }} required />
                   {directoryRequired ? <Button type="button" variant="outline" onClick={() => void searchDirectory()} disabled={searching || email.trim().length < 2 || !identityAvailable}>{searching ? "Searching…" : "Search directory"}</Button> : null}
                 </div>
+                {emailDomain && !email.includes("@") ? <p className="mt-1 text-xs text-muted-foreground">Enter the first part of the address. @{emailDomain} will be added automatically.</p> : null}
               </div>
+              {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
               {directoryRequired && directorySearched && directoryUsers.length > 0 ? (
                 <div className="space-y-2 rounded-md border p-3">
                   <p className="text-xs font-medium">Select from organisation identity provider</p>
@@ -350,7 +358,7 @@ export function UsersConfiguration() {
                 </div>
               ) : null}
               <div><Label htmlFor="new-display-name">Name</Label><Input id="new-display-name" className="mt-1" value={displayName} onChange={(event) => setDisplayName(event.target.value)} readOnly={Boolean(selectedDirectoryUser)} required /></div>
-              <div><Label htmlFor="new-role">Role</Label><select id="new-role" className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={role} onChange={(event) => setRole(event.target.value)}>{activeRoles.map((role) => <option key={role.roleKey} value={role.roleKey}>{role.roleName}</option>)}</select></div>
+              <div><Label htmlFor="new-role">Role</Label><select id="new-role" className="mt-1 flex h-11 w-full rounded-lg border bg-background px-4 text-sm" value={role} onChange={(event) => setRole(event.target.value)}>{activeRoles.map((role) => <option key={role.roleKey} value={role.roleKey}>{role.roleName}</option>)}</select></div>
               <DialogFooter><Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={creating || !canAddUser || (directoryRequired && !directorySearched) || (directoryRequired && !capabilities?.localUsersEnabled && !selectedDirectoryUser)}>{creating ? "Saving…" : selectedDirectoryUser ? "Grant HRM access" : capabilities?.localUsersEnabled ? "Create local HRM account" : "Select a directory user"}</Button></DialogFooter>
             </form>
           </DialogContent>

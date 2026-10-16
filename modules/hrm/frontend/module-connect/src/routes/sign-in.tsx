@@ -9,6 +9,7 @@ import { useAuth } from "@/platform/auth";
 import { safeEntryPath } from "@/platform/entry-route";
 import { ApiError, hrmApi } from "@/platform/api-client";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
+import { WorkEmailInput, completeWorkEmail, isValidWorkEmail } from "@/platform/components/WorkEmailInput";
 import { useBranding } from "@/platform/branding";
 import { emailPlaceholderFor, loginHeadingFor } from "@/platform/branding-copy";
 import {
@@ -126,10 +127,12 @@ export function SignIn() {
     setLocalBusy(true);
     setLocalError(null);
     try {
-      await signInLocal(email, password);
+      const fullEmail = completeWorkEmail(email, branding?.companyDomain);
+      if (!isValidWorkEmail(fullEmail)) throw new Error("Enter a valid work email address.");
+      await signInLocal(fullEmail, password);
       window.location.assign(returnTo);
     } catch (error) {
-      setLocalError(error instanceof ApiError ? error.message : "Local sign-in failed.");
+      setLocalError(error instanceof ApiError ? error.message : error instanceof Error ? error.message : "Local sign-in failed.");
     } finally {
       setLocalBusy(false);
     }
@@ -298,16 +301,16 @@ export function SignIn() {
           {localLogin ? <form className="space-y-4" onSubmit={enterWithLocalAccount}>
             <div>
               <Label htmlFor="email">Work email</Label>
-              <Input
+              <div className="mt-1"><WorkEmailInput
                 id="email"
-                type="email"
                 autoComplete="username"
-                className="mt-1"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={emailPlaceholderFor(branding)}
-              />
-              {organisationLogin ? <p className="mt-1 text-xs text-muted-foreground">Use this when HR created an HRMS-local account.</p> : null}
+                onChange={setEmail}
+                domain={branding?.companyDomain}
+                placeholder={branding?.companyDomain ? undefined : emailPlaceholderFor(branding)}
+              /></div>
+              {branding?.companyDomain && !email.includes("@") ? <p className="mt-1 text-xs text-muted-foreground">Enter just your name before @{branding.companyDomain}, or type a full email address.</p> : null}
+              {organisationLogin ? <p className="mt-1 text-xs text-muted-foreground">Use this when your organization gave you a local account.</p> : null}
             </div>
 
             <div>
