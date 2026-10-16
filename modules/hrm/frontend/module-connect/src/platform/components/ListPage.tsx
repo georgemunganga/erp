@@ -1,4 +1,4 @@
-import { Columns3, Filter, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Filter, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ export interface ColumnDef<T> {
   /** Columns beyond the first 7 are hidden by default and offered in the column picker. */
   defaultVisible?: boolean;
   cell: (row: T) => ReactNode;
+  /** Enable local sorting where the page supplies an appropriate value. */
+  sortValue?: (row: T) => string | number;
 }
 
 export interface FilterDef<T> {
@@ -50,6 +52,10 @@ export function ListPage<T extends { id: string }>({
   onSearchChange,
   bulkActions = [],
   rowHref,
+  onRowOpen,
+  rowLabel,
+  toolbarActions,
+  footer,
   emptyBody = "No records match the current view.",
 }: {
   rows: T[];
@@ -65,43 +71,66 @@ export function ListPage<T extends { id: string }>({
   onSearchChange?: (value: string) => void;
   bulkActions?: { label: string; onSelect: (ids: string[]) => void }[];
   rowHref?: (row: T) => ReactNode;
+  onRowOpen?: (row: T) => void;
+  rowLabel?: (row: T) => string;
+  toolbarActions?: ReactNode;
+  footer?: ReactNode;
   emptyBody?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<string[]>([]);
+  const [sort, setSort] = useState<{ id: string; direction: "asc" | "desc" } | null>(null);
   const [visible, setVisible] = useState<string[]>(
     columns.filter((c, i) => c.defaultVisible === true || (c.defaultVisible !== false && i < 7)).map((c) => c.id),
   );
 
   const filtered = useMemo(() => {
-    return rows.filter((r) => {
+    const result = rows.filter((r) => {
       if (!onSearchChange && query && !searchFields(r).toLowerCase().includes(query.toLowerCase())) return false;
       return filters.every((f) => {
         const v = filterValues[f.id];
         return !v || v === "all" || f.match(r, v);
       });
     });
-  }, [rows, query, filterValues, filters, searchFields, onSearchChange]);
+    const column = columns.find((item) => item.id === sort?.id);
+    if (column?.sortValue && sort) {
+      const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+      result.sort((a, b) => {
+        const first = column.sortValue!(a);
+        const second = column.sortValue!(b);
+        const comparison = typeof first === "number" && typeof second === "number"
+          ? first - second
+          : collator.compare(String(first ?? ""), String(second ?? ""));
+        return sort.direction === "asc" ? comparison : -comparison;
+      });
+    }
+    return result;
+  }, [rows, query, filterValues, filters, searchFields, onSearchChange, columns, sort]);
 
   const shown = columns.filter((c) => visible.includes(c.id));
-  const allSelected = filtered.length > 0 && selected.length === filtered.length;
+  const allSelected = filtered.length > 0 && filtered.every((row) => selected.includes(row.id));
   const activeFilters = Object.entries(filterValues).filter(([, v]) => v && v !== "all");
+  const toggleSort = (id: string) => setSort((current) => current?.id === id
+    ? { id, direction: current.direction === "asc" ? "desc" : "asc" }
+    : { id, direction: "asc" });
+  const isInteractive = (target: EventTarget | null) =>
+    target instanceof Element && Boolean(target.closest("a, button, input, select, textarea, [role='button'], [role='checkbox']"));
 
   return (
-    <div className="space-y-4">
+    <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm" data-testid="erp-record-list">
       {savedViews.length ? (
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Saved views">
+        <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 pt-2" role="tablist" aria-label="Saved views">
           {savedViews.map((v) => (
             <button
               key={v.id}
               role="tab"
               aria-selected={activeView === v.id}
               onClick={() => onViewChange?.(v.id)}
-              className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+              className={`border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
                 activeView === v.id
-                  ? "border-primary bg-primary-soft font-medium text-primary"
-                  : "bg-surface text-muted-foreground hover:border-border-strong"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               {v.label}
@@ -110,15 +139,15 @@ export function ListPage<T extends { id: string }>({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" aria-hidden />
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+        <div className="relative min-w-44 flex-1 sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
             value={searchValue ?? query}
             onChange={(e) => onSearchChange ? onSearchChange(e.target.value) : setQuery(e.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
-            className="pl-8"
+            className="h-9 rounded-lg pl-9"
           />
         </div>
         {filters.map((f) => (
@@ -127,7 +156,7 @@ export function ListPage<T extends { id: string }>({
             value={filterValues[f.id] ?? "all"}
             onValueChange={(v) => setFilterValues((s) => ({ ...s, [f.id]: v }))}
           >
-            <SelectTrigger className="w-auto min-w-36" aria-label={f.label}>
+            <SelectTrigger className="h-9 w-auto min-w-32 rounded-lg" aria-label={f.label}>
               <Filter className="size-3.5 text-muted-foreground" aria-hidden />
               <SelectValue placeholder={f.label} />
             </SelectTrigger>
@@ -153,7 +182,7 @@ export function ListPage<T extends { id: string }>({
         ))}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="h-9 rounded-lg">
               <Columns3 className="size-4" aria-hidden />
               Columns
             </Button>
@@ -164,24 +193,24 @@ export function ListPage<T extends { id: string }>({
               <DropdownMenuCheckboxItem
                 key={c.id}
                 checked={visible.includes(c.id)}
-                onCheckedChange={(on) =>
-                  setVisible((s) => (on ? [...s, c.id] : s.filter((x) => x !== c.id)))
-                }
+                disabled={visible.length === 1 && visible.includes(c.id)}
+                onCheckedChange={(on) => setVisible((s) => on ? [...s, c.id] : s.filter((x) => x !== c.id))}
               >
                 {c.header}
               </DropdownMenuCheckboxItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        {toolbarActions}
       </div>
 
       {activeFilters.length ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-xs">
           {activeFilters.map(([k, v]) => (
             <button
               key={k}
               onClick={() => setFilterValues((s) => ({ ...s, [k]: "all" }))}
-              className="inline-flex items-center gap-1 rounded-full border bg-surface px-2 py-0.5"
+              className="inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-muted-foreground hover:text-foreground"
             >
               {filters.find((f) => f.id === k)?.label}: {v}
               <X className="size-3" aria-hidden />
@@ -191,12 +220,8 @@ export function ListPage<T extends { id: string }>({
         </div>
       ) : null}
 
-      <p aria-live="polite" className="text-xs text-muted-foreground">
-        {filtered.length} of {rows.length} records
-      </p>
-
       {selected.length > 0 && bulkActions.length ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary-soft p-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-primary/20 bg-primary-soft px-4 py-2">
           <span className="text-sm font-medium text-primary">{selected.length} selected</span>
           {bulkActions.map((a) => (
             <Button key={a.label} size="sm" variant="outline" onClick={() => a.onSelect(selected)}>
@@ -210,51 +235,76 @@ export function ListPage<T extends { id: string }>({
       ) : null}
 
       {filtered.length === 0 ? (
-        <NoResultsState title="No matching records" body={emptyBody} />
+        <div className="p-5"><NoResultsState title="No matching records" body={emptyBody} /></div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-surface">
-          <table className="w-full min-w-[42rem] text-left text-sm">
-            <thead className="border-b bg-surface-muted">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
+            <thead className="border-b border-border bg-surface-muted/60">
               <tr>
-                <th scope="col" className="w-10 px-3 py-2">
+                <th scope="col" className="w-11 px-4 py-3">
                   <Checkbox
-                    aria-label="Select all rows"
+                    aria-label="Select all visible rows"
                     checked={allSelected}
-                    onCheckedChange={(on) => setSelected(on ? filtered.map((r) => r.id) : [])}
+                    onCheckedChange={(on) => setSelected((current) => on
+                      ? [...new Set([...current, ...filtered.map((row) => row.id)])]
+                      : current.filter((id) => !filtered.some((row) => row.id === id)))}
                   />
                 </th>
                 {shown.map((c) => (
-                  <th key={c.id} scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {c.header}
+                  <th key={c.id} scope="col"
+                    aria-sort={sort?.id === c.id ? sort.direction === "asc" ? "ascending" : "descending" : undefined}
+                    className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground">
+                    {c.sortValue ? (
+                      <button type="button" onClick={() => toggleSort(c.id)} className="inline-flex items-center gap-1 hover:text-foreground">
+                        {c.header}
+                        {sort?.id === c.id ? sort.direction === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" /> : <ArrowUpDown className="size-3 opacity-50" />}
+                      </button>
+                    ) : c.header}
                   </th>
                 ))}
-                {rowHref ? <th scope="col" className="px-3 py-2" /> : null}
+                {rowHref ? <th scope="col" className="w-20 px-4 py-3 text-right text-xs font-semibold text-muted-foreground">View</th> : null}
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border">
               {filtered.map((r) => (
-                <tr key={r.id} className="hover:bg-surface-muted">
-                  <td className="px-3 py-2">
+                <tr key={r.id}
+                  tabIndex={onRowOpen ? 0 : undefined}
+                  aria-label={onRowOpen ? rowLabel?.(r) ?? `Open record ${r.id}` : undefined}
+                  onClick={onRowOpen ? (event) => { if (!isInteractive(event.target)) onRowOpen(r); } : undefined}
+                  onKeyDown={onRowOpen ? (event) => {
+                    if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
+                      event.preventDefault();
+                      onRowOpen(r);
+                    }
+                  } : undefined}
+                  className={`transition-colors hover:bg-primary-soft/45 ${onRowOpen ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary" : ""} ${selected.includes(r.id) ? "bg-primary-soft/35" : ""}`}>
+                  <td className="px-4 py-3 align-middle">
                     <Checkbox
-                      aria-label={`Select ${r.id}`}
+                      aria-label={`Select ${rowLabel?.(r) ?? r.id}`}
                       checked={selected.includes(r.id)}
                       onCheckedChange={(on) =>
-                        setSelected((s) => (on ? [...s, r.id] : s.filter((x) => x !== r.id)))
+                        setSelected((s) => (on ? [...new Set([...s, r.id])] : s.filter((x) => x !== r.id)))
                       }
                     />
                   </td>
                   {shown.map((c) => (
-                    <td key={c.id} className="px-3 py-2 align-top">
+                    <td key={c.id} className="px-4 py-3 align-middle text-foreground">
                       {c.cell(r)}
                     </td>
                   ))}
-                  {rowHref ? <td className="px-3 py-2 text-right">{rowHref(r)}</td> : null}
+                  {rowHref ? <td className="px-4 py-3 text-right text-sm font-medium text-primary">
+                    {typeof rowHref(r) === "string" ? <a href={String(rowHref(r))} className="hover:underline">Open</a> : rowHref(r)}
+                  </td> : null}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+        <span aria-live="polite">{filtered.length === rows.length ? `${rows.length} records` : `${filtered.length} of ${rows.length} records`}</span>
+        {footer}
+      </footer>
+    </section>
   );
 }

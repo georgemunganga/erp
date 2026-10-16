@@ -14,10 +14,11 @@
  *
  * Mock mode is untouched so the demo still renders its seeded catalogue.
  */
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Archive, ChevronLeft, ChevronRight, FileSpreadsheet, Pencil, UserPlus } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, FileSpreadsheet, MoreHorizontal, Pencil, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
@@ -66,6 +67,7 @@ const EMPLOYEE_PAGE_SIZE = 25;
 type EmployeeRow = Employee & { rawId?: string; isArchived?: boolean; rawStatus?: string };
 
 function EmployeesPage() {
+  const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -160,6 +162,7 @@ function EmployeesPage() {
     {
       id: "name",
       header: "Employee",
+      sortValue: USE_REAL ? undefined : (e) => e.fullName,
       cell: (e) => (
         <div className="min-w-0 max-w-64">
           <Link
@@ -173,8 +176,8 @@ function EmployeesPage() {
         </div>
       ),
     },
-    { id: "title", header: "Job title", cell: (e) => <span className="block max-w-56 truncate">{e.jobTitle}</span> },
-    { id: "dept", header: "Department", cell: (e) => e.department },
+    { id: "title", header: "Job title", sortValue: USE_REAL ? undefined : (e) => e.jobTitle, cell: (e) => <span className="block max-w-56 truncate">{e.jobTitle}</span> },
+    { id: "dept", header: "Department", sortValue: USE_REAL ? undefined : (e) => e.department, cell: (e) => e.department },
     {
       id: "entity",
       header: "Entity",
@@ -186,6 +189,7 @@ function EmployeesPage() {
     {
       id: "branch",
       header: "Branch",
+      sortValue: USE_REAL ? undefined : (e) => e.branch,
       cell: (e) => e.branch,
     },
     {
@@ -230,18 +234,23 @@ function EmployeesPage() {
             header: "Actions",
             defaultVisible: USE_REAL,
             cell: (e) => (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant="outline" asChild>
-                  <Link to="/hrm/employees/$id/edit" params={{ id: e.rawId ?? e.id }}>
-                    <Pencil className="mr-1 size-3.5" aria-hidden />
-                    Edit
-                  </Link>
-                </Button>
-                <Button size="sm" variant="outline" disabled={e.isArchived} onClick={() => setArchiveTarget(e)}>
-                  <Archive className="mr-1 size-3.5" aria-hidden />
-                  {e.isArchived ? "Archived" : "Archive"}
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="icon" variant="ghost" aria-label={`Actions for ${e.fullName}`}>
+                    <MoreHorizontal className="size-5" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link to="/hrm/employees/$id/edit" params={{ id: e.rawId ?? e.id }}>
+                      <Pencil className="mr-2 size-4" aria-hidden /> Edit
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={e.isArchived} onSelect={() => setArchiveTarget(e)}>
+                    <Archive className="mr-2 size-4" aria-hidden /> {e.isArchived ? "Archived" : "Archive"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ),
           },
         ] as ColumnDef<EmployeeRow>[])
@@ -358,19 +367,6 @@ function EmployeesPage() {
           }
         />
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {views.map((v) => (
-            <Button
-              key={v.id}
-              size="sm"
-              variant={view === v.id ? "default" : "outline"}
-              onClick={() => handleView(v.id)}
-            >
-              {v.label}
-            </Button>
-          ))}
-        </div>
-
         <Async state={listState} rows={6}>
           {(rendered) => {
             const renderedRows: EmployeeRow[] = rendered;
@@ -388,53 +384,28 @@ function EmployeesPage() {
                   searchValue={USE_REAL ? searchInput : undefined}
                   onSearchChange={USE_REAL ? setSearchInput : undefined}
                   filters={clientFilters}
+                  onRowOpen={(e) => void navigate({ to: "/hrm/employees/$id", params: { id: e.rawId ?? e.id } })}
+                  rowLabel={(e) => `Open ${e.fullName}`}
                   emptyBody={
                     archived
                       ? "No archived employees — leavers will surface here when HR archives them."
                       : "No employees found for the current filters."
                   }
-                  rowHref={(e) => (
-                    <Link
-                      to="/hrm/employees/$id"
-                      params={{ id: e.rawId ?? e.id }}
-                      className="text-xs font-medium text-primary underline underline-offset-2"
-                    >
-                      Open
-                    </Link>
-                  )}
-                />
-                {USE_REAL ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2 text-sm">
-                    <span className="text-muted-foreground">
-                      Showing {pageStart}-{pageEnd} of {totalCount} employees
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={page <= 1 || state.loading}
-                        onClick={() => setPage((current) => Math.max(1, current - 1))}
-                      >
-                        <ChevronLeft className="mr-1 size-4" aria-hidden />
-                        Previous
+                  footer={USE_REAL ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="mr-2">Showing {pageStart}-{pageEnd} of {totalCount}</span>
+                      <Button type="button" variant="outline" size="sm" disabled={page <= 1 || state.loading}
+                        onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                        <ChevronLeft className="size-4" aria-hidden /> Previous
                       </Button>
-                      <span className="min-w-24 text-center text-xs text-muted-foreground">
-                        Page {page} of {totalPages}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages || state.loading}
-                        onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                      >
-                        Next
-                        <ChevronRight className="ml-1 size-4" aria-hidden />
+                      <span className="min-w-20 text-center">Page {page} of {totalPages}</span>
+                      <Button type="button" variant="outline" size="sm" disabled={page >= totalPages || state.loading}
+                        onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                        Next <ChevronRight className="size-4" aria-hidden />
                       </Button>
                     </div>
-                  </div>
-                ) : null}
+                  ) : undefined}
+                />
               </div>
             );
           }}
