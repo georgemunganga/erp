@@ -60,6 +60,7 @@ const ENABLED_PREFIXES = [
   "/hrm/recruitment", // M29 vacancy, candidate, offer and preboarding operations
   "/hrm/relations", // M30 employee-relations and investigator workspaces
   "/hrm/configuration",
+  "/hrm/workspace/settings",
   "/hrm/data", // shared Import/Export hub
   "/hrm/setup",
   "/hrm/help",
