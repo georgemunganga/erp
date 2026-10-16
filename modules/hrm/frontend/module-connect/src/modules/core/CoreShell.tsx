@@ -4,7 +4,7 @@ import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { SignedInBadge } from "@/platform/components/AuthGate";
 import { useApp } from "@/platform/app-context";
 import { realApi, useApi } from "@/platform/use-api";
-import { coreSettingGroups } from "./settings";
+import { coreSettingGroups, settingPath } from "./settings";
 
 type Entity = { id: string; name: string };
 type Branch = { id: string; name: string; legalEntityId: string };
@@ -38,7 +38,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
     <a href="/core" className="mb-3 block rounded-md bg-rail-active px-3 py-2 text-sm font-semibold text-rail-foreground">ERP Core</a>
     {coreSettingGroups.map((group) => <div key={group.title} className="mb-4">
       <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-rail-muted">{group.title}</p>
-      {group.items.map((item) => item.path ? <a key={item.label} href={item.path} onClick={() => setMobileOpen(false)} className="block rounded-md px-3 py-1.5 text-xs text-rail-muted hover:bg-rail-active hover:text-rail-foreground">{item.label}</a> : <span key={item.label} className="block px-3 py-1.5 text-xs text-rail-muted/60" title={`${item.owner} configuration is not connected yet`}>{item.label}</span>)}
+      {group.items.map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} className="block rounded-md px-3 py-1.5 text-xs text-rail-muted hover:bg-rail-active hover:text-rail-foreground">{item.label}</a>)}
     </div>)}
   </>;
   return <div className="min-h-screen bg-background text-foreground">

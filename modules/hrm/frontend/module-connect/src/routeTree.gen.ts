@@ -32,6 +32,7 @@ import { Route as HrmOrgChartRouteImport } from './routes/hrm.org-chart'
 import { Route as HrmReportingRouteImport } from './routes/hrm.reporting'
 import { Route as HrmSelfServiceRouteImport } from './routes/hrm.self-service'
 import { Route as HrmSetupRouteImport } from './routes/hrm.setup'
+import { Route as CoreSettingsSlugRouteImport } from './routes/core.settings.$slug'
 import { Route as HrmAttendanceIndexRouteImport } from './routes/hrm.attendance.index'
 import { Route as HrmAttendanceIdRouteImport } from './routes/hrm.attendance.$id'
 import { Route as HrmAttendanceClockRouteImport } from './routes/hrm.attendance.clock'
@@ -256,6 +257,11 @@ const HrmSelfServiceRoute = HrmSelfServiceRouteImport.update({
 const HrmSetupRoute = HrmSetupRouteImport.update({
   id: '/hrm/setup',
   path: '/hrm/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoreSettingsSlugRoute = CoreSettingsSlugRouteImport.update({
+  id: '/core/settings/$slug',
+  path: '/core/settings/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HrmAttendanceIndexRoute = HrmAttendanceIndexRouteImport.update({
@@ -855,6 +861,7 @@ export interface FileRoutesByFullPath {
   '/hrm/setup': typeof HrmSetupRoute
   '/core/': typeof CoreIndexRoute
   '/hrm/': typeof HrmIndexRoute
+  '/core/settings/$slug': typeof CoreSettingsSlugRoute
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -990,6 +997,7 @@ export interface FileRoutesByTo {
   '/hrm/setup': typeof HrmSetupRoute
   '/core': typeof CoreIndexRoute
   '/hrm': typeof HrmIndexRoute
+  '/core/settings/$slug': typeof CoreSettingsSlugRoute
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -1126,6 +1134,7 @@ export interface FileRoutesById {
   '/hrm/setup': typeof HrmSetupRoute
   '/core/': typeof CoreIndexRoute
   '/hrm/': typeof HrmIndexRoute
+  '/core/settings/$slug': typeof CoreSettingsSlugRoute
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -1263,6 +1272,7 @@ export interface FileRouteTypes {
     | '/hrm/setup'
     | '/core/'
     | '/hrm/'
+    | '/core/settings/$slug'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1398,6 +1408,7 @@ export interface FileRouteTypes {
     | '/hrm/setup'
     | '/core'
     | '/hrm'
+    | '/core/settings/$slug'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1533,6 +1544,7 @@ export interface FileRouteTypes {
     | '/hrm/setup'
     | '/core/'
     | '/hrm/'
+    | '/core/settings/$slug'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1669,6 +1681,7 @@ export interface RootRouteChildren {
   HrmSetupRoute: typeof HrmSetupRoute
   CoreIndexRoute: typeof CoreIndexRoute
   HrmIndexRoute: typeof HrmIndexRoute
+  CoreSettingsSlugRoute: typeof CoreSettingsSlugRoute
   HrmAttendanceIdRoute: typeof HrmAttendanceIdRoute
   HrmAttendanceClockRoute: typeof HrmAttendanceClockRoute
   HrmAttendanceNewRoute: typeof HrmAttendanceNewRoute
@@ -1929,6 +1942,13 @@ declare module '@tanstack/react-router' {
       path: '/hrm/setup'
       fullPath: '/hrm/setup'
       preLoaderRoute: typeof HrmSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/core/settings/$slug': {
+      id: '/core/settings/$slug'
+      path: '/core/settings/$slug'
+      fullPath: '/core/settings/$slug'
+      preLoaderRoute: typeof CoreSettingsSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hrm/attendance/': {
@@ -2880,6 +2900,7 @@ const rootRouteChildren: RootRouteChildren = {
   HrmSetupRoute: HrmSetupRoute,
   CoreIndexRoute: CoreIndexRoute,
   HrmIndexRoute: HrmIndexRoute,
+  CoreSettingsSlugRoute: CoreSettingsSlugRoute,
   HrmAttendanceIdRoute: HrmAttendanceIdRoute,
   HrmAttendanceClockRoute: HrmAttendanceClockRoute,
   HrmAttendanceNewRoute: HrmAttendanceNewRoute,

@@ -5,6 +5,9 @@ export type CoreSetting = {
   owner: "ERP Core" | "Finance" | "Procurement";
 };
 
+export const settingSlug = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export const settingPath = (setting: CoreSetting) => setting.path ?? `/core/settings/${settingSlug(setting.label)}`;
+
 export type CoreSettingGroup = { title: string; description: string; items: CoreSetting[] };
 
 /** One directory for ERP configuration. Ownership remains with the named capability. */
@@ -58,3 +61,7 @@ export const coreSettingGroups: CoreSettingGroup[] = [
     ],
   },
 ];
+
+export const findCoreSetting = (slug: string) => coreSettingGroups
+  .flatMap((group) => group.items.map((item) => ({ ...item, group: group.title })))
+  .find((item) => !item.path && settingSlug(item.label) === slug);
