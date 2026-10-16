@@ -23,6 +23,8 @@ ERP Core is the entry point for data and configuration reused by HRM, Procuremen
 
 The ERP home page is the sign-in entry point. After authentication, users with the current `hr_admin` role see the module picker; other admitted workforce users enter the HRM dashboard. Core settings require `hr_admin` until a shared ERP administrator role and cross-module permission service are implemented. The existing HRM identity endpoints remain the current system of record for user and role changes.
 
+Organization, branding, users, roles, and their detail pages have one UI home under `/core`. Old `/hrm/configuration/*` URLs redirect to Core for existing bookmarks. HRM configuration lists only HRM-specific policies and links to Core for shared settings.
+
 1. The Core navigation may link to a module-owned editor, but that module remains the system of record for its rule. A link is not a duplicated setting.
 2. Do not enable a Save action for a planned setting until its persistence, permissions, audit, versioning, and consumer contract exist.
 3. Organization context uses stable legal entity and branch IDs. UI selection is a convenience; every API validates scope and access server-side.

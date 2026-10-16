@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Plus, Save, ShieldCheck, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/hrm/configuration/roles")({
       { property: "og:description", content: "Create HRMS roles and assign the permissions each role grants." },
     ],
   }),
-  component: RolesConfig,
+  component: () => <Navigate to="/core/roles" replace />,
 });
 
 const description =

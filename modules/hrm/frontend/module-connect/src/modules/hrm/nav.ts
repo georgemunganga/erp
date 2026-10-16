@@ -200,23 +200,13 @@ export const configurationGroups: {
 }[] = [
   {
     label: "Business setup",
-    description: "Who you are as an employer and how the organisation is shaped.",
+    description: "HR structure, branch assignments and employment rules.",
     items: [
-      {
-        label: "Legal entities and branches",
-        detail: "3 entities · 6 branches",
-        to: "/core/organization",
-      },
       {
         // M45: which platform users are confined to which branches.
         label: "Branch access",
         detail: "HR staff → branch assignment",
         to: "/hrm/configuration/branch-access",
-      },
-      {
-        label: "Departments and cost centres",
-        detail: "12 departments",
-        to: "/core/organization#departments",
       },
       {
         label: "Jobs, grades and pay ranges",
@@ -303,16 +293,6 @@ export const configurationGroups: {
     description: "Access, sensitive data handling and audit obligations.",
     items: [
       {
-        label: "Local users",
-        detail: "Accounts, roles, access and passwords",
-        to: "/core/users",
-      },
-      {
-        label: "Roles and permissions",
-        detail: "Create roles and assign HRMS permissions",
-        to: "/core/roles",
-      },
-      {
         label: "Sensitive field masking",
         detail: "6 masked fields",
         to: "/hrm/configuration/compliance",
@@ -338,11 +318,6 @@ export const configurationGroups: {
     label: "Technical",
     description: "Integrations and data movement. Rarely changed after go-live.",
     items: [
-      {
-        label: "Company branding",
-        detail: "Logo, favicon, and workspace colour palette",
-        to: "/core/branding",
-      },
       { label: "Import and export", detail: "Shared CSV and Excel data movement", to: "/hrm/data/import-export" },
       {
         label: "Payroll interface",

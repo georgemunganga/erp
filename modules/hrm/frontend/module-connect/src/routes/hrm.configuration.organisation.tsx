@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { CalendarClock, History, Info, Lock, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,7 @@ export const Route = createFileRoute("/hrm/configuration/organisation")({
       { property: "og:description", content: description },
     ],
   }),
-  component: OrganisationConfig,
+  component: () => <Navigate to="/core/organization" replace />,
 });
 
 const fmt = (iso: string) =>

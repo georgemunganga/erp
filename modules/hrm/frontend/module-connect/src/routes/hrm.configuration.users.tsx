@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { KeyRound, RefreshCw, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,8 +35,14 @@ export const Route = createFileRoute("/hrm/configuration/users")({
       { property: "og:description", content: "Manage HRM user accounts, roles and access." },
     ],
   }),
-  component: UsersConfiguration,
+  component: LegacyUsersRedirect,
 });
+
+function LegacyUsersRedirect() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const id = pathname.match(/^\/hrm\/configuration\/users\/([^/]+)\/?$/)?.[1];
+  return id ? <Navigate to="/core/users/$id" params={{ id: decodeURIComponent(id) }} replace /> : <Navigate to="/core/users" replace />;
+}
 
 interface RoleOption {
   roleKey: string;
@@ -266,7 +272,7 @@ export function UsersConfiguration() {
       <ConfigurationShell>
         <PageHeader
           eyebrow="Configuration · Security"
-          title="HRM user access"
+          title="User access"
           description={localOnly
             ? "Manage local sign-in accounts and their HRM roles. New users set their password from an emailed link."
             : "Grant HRM access to organisation identities, with local accounts where this server allows them."}

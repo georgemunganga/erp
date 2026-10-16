@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ChevronLeft, Palette, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/branding")({
   head: () => ({ meta: [{ title: "Branding — HR workspace" }] }),
-  component: BrandingPage,
+  component: () => <Navigate to="/core/branding" replace />,
 });
 
 type BrandingForm = {
