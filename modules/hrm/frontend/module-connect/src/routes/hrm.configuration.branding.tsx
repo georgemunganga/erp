@@ -230,7 +230,7 @@ export function BrandingPage() {
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {([ ["logoLightDataUri", "Logo for dark backgrounds"], ["logoDarkDataUri", "Logo for light backgrounds"], ["faviconDataUri", "Browser icon"] ] as const).map(([key, label]) =>
             <div key={key} className="rounded-lg border bg-surface-muted p-4">
-              <Label htmlFor={key}>{label}</Label>
+              <Label htmlFor={key} className="block">{label}</Label>
               <Input id={key} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon" onChange={(event) => { void pickAsset(key, event.target.files?.[0]); event.target.value = ""; }} />
               <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => document.getElementById(key)?.click()}>{form[key] ? "Replace image" : "Choose image"}</Button>
               {form[key] ? <div className="mt-3 flex h-20 items-center justify-center rounded border bg-background p-2"><img src={form[key]} alt={`${label} preview`} className="max-h-full max-w-full object-contain" /></div>
