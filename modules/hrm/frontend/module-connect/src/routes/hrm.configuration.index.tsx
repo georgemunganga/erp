@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight, CircleDashed } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { configurationGroups } from "@/modules/hrm/nav";
 import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
@@ -27,11 +26,11 @@ function Configuration() {
       <AppShell>
       <PageHeader
         eyebrow="HRM"
-        title="Configuration"
-        description="Set up HR policies and processes here. Company, users, roles and branding are managed in ERP Core."
+        title="HRM settings"
+        description="Set up employment rules, approvals, payroll and HRM integrations."
         meta={<div className="flex flex-wrap items-center gap-3"><span className="rounded-full border bg-surface-muted px-2.5 py-0.5 text-xs text-muted-foreground">
             {ready} of {all.length} settings available in this build
-          </span><Button variant="outline" size="sm" asChild><Link to="/core">ERP Core settings</Link></Button></div>}
+          </span></div>}
       />
       <div className="grid gap-5 sm:grid-cols-2">
         {configurationGroups.map((group) => (

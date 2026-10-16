@@ -200,14 +200,8 @@ export const configurationGroups: {
 }[] = [
   {
     label: "Business setup",
-    description: "HR structure, branch assignments and employment rules.",
+    description: "Employment rules, holidays and payroll setup.",
     items: [
-      {
-        // M45: which platform users are confined to which branches.
-        label: "Branch access",
-        detail: "HR staff → branch assignment",
-        to: "/hrm/configuration/branch-access",
-      },
       {
         label: "Jobs, grades and pay ranges",
         detail: "9 grades",
@@ -224,19 +218,9 @@ export const configurationGroups: {
         to: "/hrm/configuration/business",
       },
       {
-        label: "Language and localisation",
-        detail: "1 language active",
-        to: "/hrm/configuration/business",
-      },
-      {
         label: "Payroll setup",
         detail: "Pay groups · ZRA PAYE · NAPSA · NHIMA · components",
         to: "/hrm/configuration/payroll",
-      },
-      {
-        label: "Payroll configuration",
-        detail: "Legacy page — replaced by Payroll setup",
-        to: "/hrm/configuration/business",
       },
     ],
   },
@@ -315,8 +299,8 @@ export const configurationGroups: {
     ],
   },
   {
-    label: "Technical",
-    description: "Integrations and data movement. Rarely changed after go-live.",
+    label: "HRM integrations",
+    description: "HRM data movement and payroll hand-offs.",
     items: [
       { label: "Import and export", detail: "Shared CSV and Excel data movement", to: "/hrm/data/import-export" },
       {
@@ -325,24 +309,9 @@ export const configurationGroups: {
         to: "/hrm/configuration/integrations",
       },
       {
-        label: "Identity provider",
-        detail: "Workforce link monitoring and sync",
-        to: "/hrm/configuration/integrations",
-      },
-      {
         label: "Production readiness",
         detail: "Go-live gates, evidence, rehearsals and role sign-off",
         to: "/hrm/configuration/go-live",
-      },
-      {
-        label: "Vendor and contract management",
-        detail: "No vendors recorded",
-        to: "/hrm/configuration/technical",
-      },
-      {
-        label: "Numbering and references",
-        detail: "Prefix: HR-",
-        to: "/hrm/configuration/technical",
       },
     ],
   },

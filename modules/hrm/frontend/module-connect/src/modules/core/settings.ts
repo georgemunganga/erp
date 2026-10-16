@@ -27,6 +27,7 @@ export const coreSettingGroups: CoreSettingGroup[] = [
     items: [
       { label: "Users", path: "/core/users", detail: "Organization identities and access", owner: "ERP Core" },
       { label: "Roles", path: "/core/roles", detail: "Current HRM role editor; shared roles follow", owner: "ERP Core" },
+      { label: "Branch Access", path: "/core/branch-access", detail: "Assign users to permitted branches", owner: "ERP Core" },
       { label: "Departments", path: "/core/organization#departments", detail: "Organization units and cost center references", owner: "ERP Core" },
     ],
   },

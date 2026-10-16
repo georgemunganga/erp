@@ -1,8 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Role } from "@/mock/types";
-import { useRoleGate } from "@/platform/app-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AppShell } from "@/platform/components/AppShell";
 import { Async } from "@/platform/components/Async";
 import { PageHeader } from "@/platform/components/PageHeader";
 import { ScopeBadge } from "@/platform/components/ScopeBadge";
@@ -39,28 +36,10 @@ export const Route = createFileRoute("/hrm/configuration/branch-access")({
       { property: "og:title", content: "Branch access — Newworldcargo HRM" },
     ],
   }),
-  component: () => {
-    const mayAct = useRoleGate()(["hr_admin"] as Role[]);
-    return (
-      <AppShell>
-        {mayAct ? <BranchAccessPage /> : <ForbiddenHint />}
-      </AppShell>
-    );
-  },
+  component: () => <Navigate to="/core/branch-access" replace />,
 });
 
-function ForbiddenHint() {
-  return (
-    <div className="mx-auto max-w-5xl px-4 py-10 md:px-8">
-      <EmptyState
-        title="Access restricted"
-        description="Branch access management is limited to hr_admin users."
-      />
-    </div>
-  );
-}
-
-function BranchAccessPage() {
+export function BranchAccessPage() {
   const accessState = useApi(() => realApi.branchAccess());
   const [assigning, setAssigning] = useState(false);
 
