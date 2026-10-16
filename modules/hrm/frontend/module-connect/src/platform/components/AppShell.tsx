@@ -497,7 +497,7 @@ const QUICK_ACCESS_GROUPS: QuickAccessGroup[] = [
     items: [
       { label: "Analytics", detail: "Review workforce analytics", to: "/hrm/analytics", icon: BarChart3, roles: ["hr_ops", "hr_admin"] },
       { label: "Import and export", detail: "Use shared CSV and Excel tools", to: "/hrm/data/import-export", icon: ArrowDownToLine, roles: ["manager", "hr_ops", "hr_admin", "payroll"] },
-      { label: "HR setup", detail: "Configure employer and HR rules", to: "/hrm/configuration", icon: Settings, roles: ["hr_admin"] },
+      { label: "HR setup", detail: "Configure employer and HR rules", to: "/hrm/workspace/settings", icon: Settings, roles: ["hr_admin"] },
       { label: "User access", detail: "Manage users in ERP Core", to: "/core/users", icon: UserCog, roles: ["hr_admin"] },
     ],
   },

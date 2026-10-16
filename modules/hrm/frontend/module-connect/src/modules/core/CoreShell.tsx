@@ -38,7 +38,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
   const activeEntity = entities.find((item) => item.id === entityId) ?? entities[0];
   const activeBranch = branches.find((item) => item.id === branch);
   const navigation = <>
-    <a href="/core" onClick={() => setMobileOpen(false)} className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-rail-foreground ${currentPath === "/core" ? "bg-rail-active" : "hover:bg-rail-active"}`}><Settings2 className="size-4" />Core home</a>
+    <a href="/core/workspace/settings" onClick={() => setMobileOpen(false)} className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-rail-foreground ${currentPath === "/core/workspace/settings" ? "bg-rail-active" : "hover:bg-rail-active"}`}><Settings2 className="size-4" />Core settings</a>
     {coreSettingGroups.map((group, index) => {
       const Icon = groupIcons[index];
       const open = openGroups.includes(group.title);
@@ -47,7 +47,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
           <Icon className="size-4 shrink-0" aria-hidden /><span className="min-w-0 flex-1">{group.title}</span>{open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </button>
         {open && <div className="ml-5 border-l border-rail-active pl-2">
-          {group.items.map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} aria-current={currentPath === settingPath(item).split("#")[0] ? "page" : undefined} className={`block rounded-md px-3 py-1.5 text-xs hover:bg-rail-active hover:text-rail-foreground ${currentPath === settingPath(item).split("#")[0] ? "bg-rail-active text-rail-foreground" : "text-rail-muted"}`}>{item.label}</a>)}
+          {group.items.filter((item) => item.owner === "ERP Core").map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} aria-current={currentPath === settingPath(item).split("#")[0] ? "page" : undefined} className={`block rounded-md px-3 py-1.5 text-xs hover:bg-rail-active hover:text-rail-foreground ${currentPath === settingPath(item).split("#")[0] ? "bg-rail-active text-rail-foreground" : "text-rail-muted"}`}>{item.label}</a>)}
         </div>}
       </div>;
     })}

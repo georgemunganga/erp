@@ -35,6 +35,7 @@ import { Route as HrmSelfServiceRouteImport } from './routes/hrm.self-service'
 import { Route as HrmSetupRouteImport } from './routes/hrm.setup'
 import { Route as CoreSettingsSlugRouteImport } from './routes/core.settings.$slug'
 import { Route as CoreUsersIdRouteImport } from './routes/core.users.$id'
+import { Route as CoreWorkspaceSettingsRouteImport } from './routes/core.workspace.settings'
 import { Route as HrmAttendanceIndexRouteImport } from './routes/hrm.attendance.index'
 import { Route as HrmAttendanceIdRouteImport } from './routes/hrm.attendance.$id'
 import { Route as HrmAttendanceClockRouteImport } from './routes/hrm.attendance.clock'
@@ -128,6 +129,7 @@ import { Route as HrmTimeTimesheetsRouteImport } from './routes/hrm.time.timeshe
 import { Route as HrmTimeToilRouteImport } from './routes/hrm.time.toil'
 import { Route as HrmTimeTravelRouteImport } from './routes/hrm.time.travel'
 import { Route as HrmTimeUtilisationRouteImport } from './routes/hrm.time.utilisation'
+import { Route as HrmWorkspaceSettingsRouteImport } from './routes/hrm.workspace.settings'
 import { Route as HrmConfigurationUsersIdRouteImport } from './routes/hrm.configuration.users.$id'
 import { Route as HrmEmployeesIdEditRouteImport } from './routes/hrm.employees.$id.edit'
 import { Route as HrmLifecycleMovementsNewRouteImport } from './routes/hrm.lifecycle.movements.new'
@@ -275,6 +277,11 @@ const CoreUsersIdRoute = CoreUsersIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => CoreUsersRoute,
+} as any)
+const CoreWorkspaceSettingsRoute = CoreWorkspaceSettingsRouteImport.update({
+  id: '/core/workspace/settings',
+  path: '/core/workspace/settings',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const HrmAttendanceIndexRoute = HrmAttendanceIndexRouteImport.update({
   id: '/hrm/attendance/',
@@ -758,6 +765,11 @@ const HrmTimeUtilisationRoute = HrmTimeUtilisationRouteImport.update({
   path: '/hrm/time/utilisation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HrmWorkspaceSettingsRoute = HrmWorkspaceSettingsRouteImport.update({
+  id: '/hrm/workspace/settings',
+  path: '/hrm/workspace/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HrmConfigurationUsersIdRoute = HrmConfigurationUsersIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -876,6 +888,7 @@ export interface FileRoutesByFullPath {
   '/hrm/': typeof HrmIndexRoute
   '/core/settings/$slug': typeof CoreSettingsSlugRoute
   '/core/users/$id': typeof CoreUsersIdRoute
+  '/core/workspace/settings': typeof CoreWorkspaceSettingsRoute
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -955,6 +968,7 @@ export interface FileRoutesByFullPath {
   '/hrm/time/toil': typeof HrmTimeToilRoute
   '/hrm/time/travel': typeof HrmTimeTravelRoute
   '/hrm/time/utilisation': typeof HrmTimeUtilisationRoute
+  '/hrm/workspace/settings': typeof HrmWorkspaceSettingsRoute
   '/hrm/attendance/': typeof HrmAttendanceIndexRoute
   '/hrm/configuration/': typeof HrmConfigurationIndexRoute
   '/hrm/employees/': typeof HrmEmployeesIndexRoute
@@ -1014,6 +1028,7 @@ export interface FileRoutesByTo {
   '/hrm': typeof HrmIndexRoute
   '/core/settings/$slug': typeof CoreSettingsSlugRoute
   '/core/users/$id': typeof CoreUsersIdRoute
+  '/core/workspace/settings': typeof CoreWorkspaceSettingsRoute
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -1093,6 +1108,7 @@ export interface FileRoutesByTo {
   '/hrm/time/toil': typeof HrmTimeToilRoute
   '/hrm/time/travel': typeof HrmTimeTravelRoute
   '/hrm/time/utilisation': typeof HrmTimeUtilisationRoute
+  '/hrm/workspace/settings': typeof HrmWorkspaceSettingsRoute
   '/hrm/attendance': typeof HrmAttendanceIndexRoute
   '/hrm/configuration': typeof HrmConfigurationIndexRoute
   '/hrm/employees': typeof HrmEmployeesIndexRoute
@@ -1153,6 +1169,7 @@ export interface FileRoutesById {
   '/hrm/': typeof HrmIndexRoute
   '/core/settings/$slug': typeof CoreSettingsSlugRoute
   '/core/users/$id': typeof CoreUsersIdRoute
+  '/core/workspace/settings': typeof CoreWorkspaceSettingsRoute
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -1232,6 +1249,7 @@ export interface FileRoutesById {
   '/hrm/time/toil': typeof HrmTimeToilRoute
   '/hrm/time/travel': typeof HrmTimeTravelRoute
   '/hrm/time/utilisation': typeof HrmTimeUtilisationRoute
+  '/hrm/workspace/settings': typeof HrmWorkspaceSettingsRoute
   '/hrm/attendance/': typeof HrmAttendanceIndexRoute
   '/hrm/configuration/': typeof HrmConfigurationIndexRoute
   '/hrm/employees/': typeof HrmEmployeesIndexRoute
@@ -1293,6 +1311,7 @@ export interface FileRouteTypes {
     | '/hrm/'
     | '/core/settings/$slug'
     | '/core/users/$id'
+    | '/core/workspace/settings'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1372,6 +1391,7 @@ export interface FileRouteTypes {
     | '/hrm/time/toil'
     | '/hrm/time/travel'
     | '/hrm/time/utilisation'
+    | '/hrm/workspace/settings'
     | '/hrm/attendance/'
     | '/hrm/configuration/'
     | '/hrm/employees/'
@@ -1431,6 +1451,7 @@ export interface FileRouteTypes {
     | '/hrm'
     | '/core/settings/$slug'
     | '/core/users/$id'
+    | '/core/workspace/settings'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1510,6 +1531,7 @@ export interface FileRouteTypes {
     | '/hrm/time/toil'
     | '/hrm/time/travel'
     | '/hrm/time/utilisation'
+    | '/hrm/workspace/settings'
     | '/hrm/attendance'
     | '/hrm/configuration'
     | '/hrm/employees'
@@ -1569,6 +1591,7 @@ export interface FileRouteTypes {
     | '/hrm/'
     | '/core/settings/$slug'
     | '/core/users/$id'
+    | '/core/workspace/settings'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1648,6 +1671,7 @@ export interface FileRouteTypes {
     | '/hrm/time/toil'
     | '/hrm/time/travel'
     | '/hrm/time/utilisation'
+    | '/hrm/workspace/settings'
     | '/hrm/attendance/'
     | '/hrm/configuration/'
     | '/hrm/employees/'
@@ -1707,6 +1731,7 @@ export interface RootRouteChildren {
   CoreIndexRoute: typeof CoreIndexRoute
   HrmIndexRoute: typeof HrmIndexRoute
   CoreSettingsSlugRoute: typeof CoreSettingsSlugRoute
+  CoreWorkspaceSettingsRoute: typeof CoreWorkspaceSettingsRoute
   HrmAttendanceIdRoute: typeof HrmAttendanceIdRoute
   HrmAttendanceClockRoute: typeof HrmAttendanceClockRoute
   HrmAttendanceNewRoute: typeof HrmAttendanceNewRoute
@@ -1786,6 +1811,7 @@ export interface RootRouteChildren {
   HrmTimeToilRoute: typeof HrmTimeToilRoute
   HrmTimeTravelRoute: typeof HrmTimeTravelRoute
   HrmTimeUtilisationRoute: typeof HrmTimeUtilisationRoute
+  HrmWorkspaceSettingsRoute: typeof HrmWorkspaceSettingsRoute
   HrmAttendanceIndexRoute: typeof HrmAttendanceIndexRoute
   HrmConfigurationIndexRoute: typeof HrmConfigurationIndexRoute
   HrmEmployeesIndexRoute: typeof HrmEmployeesIndexRoute
@@ -1989,6 +2015,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/core/users/$id'
       preLoaderRoute: typeof CoreUsersIdRouteImport
       parentRoute: typeof CoreUsersRoute
+    }
+    '/core/workspace/settings': {
+      id: '/core/workspace/settings'
+      path: '/core/workspace/settings'
+      fullPath: '/core/workspace/settings'
+      preLoaderRoute: typeof CoreWorkspaceSettingsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/hrm/attendance/': {
       id: '/hrm/attendance/'
@@ -2641,6 +2674,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HrmTimeUtilisationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/hrm/workspace/settings': {
+      id: '/hrm/workspace/settings'
+      path: '/hrm/workspace/settings'
+      fullPath: '/hrm/workspace/settings'
+      preLoaderRoute: typeof HrmWorkspaceSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/hrm/configuration/users/$id': {
       id: '/hrm/configuration/users/$id'
       path: '/$id'
@@ -2953,6 +2993,7 @@ const rootRouteChildren: RootRouteChildren = {
   CoreIndexRoute: CoreIndexRoute,
   HrmIndexRoute: HrmIndexRoute,
   CoreSettingsSlugRoute: CoreSettingsSlugRoute,
+  CoreWorkspaceSettingsRoute: CoreWorkspaceSettingsRoute,
   HrmAttendanceIdRoute: HrmAttendanceIdRoute,
   HrmAttendanceClockRoute: HrmAttendanceClockRoute,
   HrmAttendanceNewRoute: HrmAttendanceNewRoute,
@@ -3032,6 +3073,7 @@ const rootRouteChildren: RootRouteChildren = {
   HrmTimeToilRoute: HrmTimeToilRoute,
   HrmTimeTravelRoute: HrmTimeTravelRoute,
   HrmTimeUtilisationRoute: HrmTimeUtilisationRoute,
+  HrmWorkspaceSettingsRoute: HrmWorkspaceSettingsRoute,
   HrmAttendanceIndexRoute: HrmAttendanceIndexRoute,
   HrmConfigurationIndexRoute: HrmConfigurationIndexRoute,
   HrmEmployeesIndexRoute: HrmEmployeesIndexRoute,

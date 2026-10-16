@@ -182,7 +182,7 @@ export const hrmModule: ModuleDefinition = {
       id: "configuration",
       label: "Configuration",
       icon: Settings,
-      to: "/hrm/configuration",
+      to: "/hrm/workspace/settings",
       roles: ["hr_admin"],
     },
   ]
