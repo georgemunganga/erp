@@ -29,7 +29,7 @@ export function ConfigPage({
   return (
     <AppShell>
       <Link
-        to="/hrm/configuration"
+        to="/hrm/workspace/settings"
         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"
       >
         <ChevronLeft className="size-3.5" aria-hidden />

@@ -148,7 +148,7 @@ export function RolesConfig() {
   };
 
   return (
-    <AuthGate>
+    <AuthGate module="erp">
       <ConfigurationShell>
         <PageHeader eyebrow="Configuration" title="Roles and permissions" description={description} />
         <Async state={state}>

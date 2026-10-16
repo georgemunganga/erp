@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   BellRing,
@@ -18,6 +18,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/technical")({
+  beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/technical", replace: true }); },
   head: () => ({
     meta: [
       { title: "Technical settings — Newworldcargo HRM" },
@@ -44,7 +45,7 @@ const SECTIONS = [
 ];
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
 
-function TechnicalConfig() {
+export function TechnicalConfig() {
   const [tab, setTab] = useState(USE_REAL ? "notifications" : "integrations");
   const integrations = useMock(() => configurationApi.integrations());
   const numbering = useMock(() => configurationApi.numberSeries());

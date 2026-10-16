@@ -303,6 +303,7 @@ export const configurationGroups: {
     description: "HRM data movement and payroll hand-offs.",
     items: [
       { label: "Import and export", detail: "Shared CSV and Excel data movement", to: "/hrm/data/import-export" },
+      { label: "Notification delivery", detail: "Review and retry HRM notification hand-offs", to: "/hrm/workspace/settings/technical" },
       {
         label: "Payroll interface",
         detail: "Finance, banking and statutory hand-offs",
