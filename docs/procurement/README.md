@@ -4,6 +4,8 @@
 
 [Procurement live implementation roadmap](PROC-ROADMAP-LIVE-BUILD.md) is the active build sequence and progress register. It distinguishes source schema, safe draft operations, policy-controlled transitions, UI adapters and production release evidence.
 
+[Workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) maps Zoho's documented user journeys to our child features, ERP data owners and live release gates; ERPNext is a secondary implementation check.
+
 [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) checks identity, organisation, workflow, documents, notifications, audit and event services before Procurement depends on them.
 
 [PROC-UX-01 Procurement Navigation and Lovable Prompts](PROC-UX-01-NAVIGATION-AND-LOVABLE-PROMPTS.md) translates the capability map into role-aware side menus, sublinks, and copyable prompts for the UI designer.
