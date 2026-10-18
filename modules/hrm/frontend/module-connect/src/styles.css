@@ -144,3 +144,8 @@
 .erp-record-table tbody :is(td, th) { padding: .75rem 1rem; vertical-align: middle; }
 .erp-record-table tbody th { text-align: left; }
 .erp-record-table caption:not(.sr-only) { padding: .75rem 1rem; text-align: left; color: var(--color-muted-foreground); }
+.erp-record-table--compact thead th { padding: .5rem .75rem; }
+.erp-record-table--compact tbody :is(td, th) { padding: .5rem .75rem; }
+/* Schedules and pivot matrices keep their cell geometry and sticky axes. */
+.erp-record-table--matrix thead th,
+.erp-record-table--matrix tbody :is(td, th) { padding: revert-layer; }

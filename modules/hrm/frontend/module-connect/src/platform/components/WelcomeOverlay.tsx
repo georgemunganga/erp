@@ -1,3 +1,4 @@
+import { RecordTable } from "./RecordTable";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
@@ -1796,7 +1797,7 @@ function EmployeesStep(props: {
                       Preview — first 5 rows as the system will receive them ({canonical.length} total)
                     </div>
                     <div className="overflow-x-auto rounded-md border">
-                      <table className="w-full text-xs">
+                      <RecordTable variant="compact" className="w-full text-xs">
                         <thead className="bg-muted/50">
                           <tr>
                             {SYSTEM_FIELDS.map((f) => (
@@ -1813,7 +1814,7 @@ function EmployeesStep(props: {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                      </RecordTable>
                     </div>
                   </>
                 )}

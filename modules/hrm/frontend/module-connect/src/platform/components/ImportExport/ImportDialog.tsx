@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 /**
  * M31 — shared Import/Export tool for every CRUD list page.
  *
@@ -956,7 +957,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
             {entryMode === "manual" && schema ? (
               <div className="space-y-3">
                 <div className="w-full min-w-0 overflow-x-scroll rounded-md border pb-2 [scrollbar-gutter:stable]">
-                  <table className="w-max min-w-[1600px] text-xs">
+                  <RecordTable variant="compact" className="w-max min-w-[1600px] text-xs">
                     <thead className="bg-muted/50">
                       <tr>
                         {schema.fields.map((field) => (
@@ -998,7 +999,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
                       );
                       })}
                     </tbody>
-                  </table>
+                  </RecordTable>
                   <PageControls
                     page={manualPage}
                     totalRows={manualRows.length || 1}
@@ -1133,7 +1134,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
                   Map and preview — rows {fileRows.length ? (mapPage - 1) * IMPORT_PAGE_SIZE + 1 : 0}-{Math.min(mapPage * IMPORT_PAGE_SIZE, mappedRows.length)} as the system will receive them
                 </div>
                 <div className="w-full min-w-0 overflow-x-scroll rounded-lg border pb-2 [scrollbar-gutter:stable]">
-                  <table className="w-max min-w-[1600px] border-collapse text-left text-xs">
+                  <RecordTable variant="compact" className="w-max min-w-[1600px] border-collapse text-left text-xs">
                     <thead className="bg-muted/50 text-muted-foreground">
                       <tr>
                         {mappedPreviewFields.map((field) => (
@@ -1173,7 +1174,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </RecordTable>
                   <PageControls
                     page={mapPage}
                     totalRows={mappedRows.length}
@@ -1274,7 +1275,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
             </div>
             <div className="w-full min-w-0 rounded-lg border">
               <div className="max-h-[28rem] overflow-x-scroll overflow-y-auto [scrollbar-gutter:stable]">
-                <table className="w-max min-w-[1600px] border-collapse text-left text-sm">
+                <RecordTable variant="compact" className="w-max min-w-[1600px] border-collapse text-left text-sm">
                   <thead className="sticky top-0 z-10 bg-muted/80 text-xs font-medium uppercase tracking-wide text-muted-foreground backdrop-blur">
                     <tr>
                       <th className="w-16 whitespace-nowrap border-b px-3 py-2">Row</th>
@@ -1323,7 +1324,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
                       );
                     })}
                   </tbody>
-                </table>
+                </RecordTable>
                 <PageControls
                   page={previewPage}
                   totalRows={previewRows?.length ?? 0}

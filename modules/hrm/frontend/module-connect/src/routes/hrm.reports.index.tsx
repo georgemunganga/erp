@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
@@ -566,7 +567,7 @@ function ReportsPage() {
                 subtitle="Payroll dimensions use the assignment effective at each pay-period end."
               />
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <RecordTable variant="compact" className="w-full text-left text-sm">
                   <thead className="border-y bg-muted/40 text-xs text-muted-foreground">
                     <tr>
                       <th className="px-4 py-2">Department</th>
@@ -604,7 +605,7 @@ function ReportsPage() {
                       </tr>
                     ) : null}
                   </tbody>
-                </table>
+                </RecordTable>
               </div>
             </section>
 
@@ -962,7 +963,7 @@ function AuthorityFilingDialog({
             ) : (
               <>
                 <div className="overflow-x-auto rounded-lg border">
-                  <table className="min-w-[980px] text-left text-xs">
+                  <RecordTable variant="compact" className="min-w-[980px] text-left text-xs">
                     <thead className="bg-muted/60">
                       <tr>
                         <th className="px-3 py-2">Use</th>
@@ -1004,13 +1005,13 @@ function AuthorityFilingDialog({
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </RecordTable>
                 </div>
 
                 <div>
                   <div className="mb-2 text-sm font-medium">Data preview</div>
                   <div className="overflow-x-auto rounded-lg border">
-                    <table className="min-w-[1100px] text-left text-xs">
+                    <RecordTable variant="compact" className="min-w-[1100px] text-left text-xs">
                       <thead className="bg-muted/60">
                         <tr>{table.headers.map((header, index) => <th key={`${header}-${index}`} className="px-3 py-2">{header || "Blank"}</th>)}</tr>
                       </thead>
@@ -1025,7 +1026,7 @@ function AuthorityFilingDialog({
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </RecordTable>
                   </div>
                   {(preview.data?.rows.length ?? 0) > 10 ? (
                     <p className="mt-2 text-xs text-muted-foreground">
@@ -1122,7 +1123,7 @@ function CompactTable({
     <section className="rounded-xl border bg-surface">
       <SectionHeading title={title} subtitle="Selected reporting window" />
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
+        <RecordTable variant="compact" className="w-full text-left text-xs">
           <thead className="border-y bg-muted/40 text-muted-foreground">
             <tr>
               {headers.map((x, i) => (
@@ -1156,7 +1157,7 @@ function CompactTable({
               </tr>
             ) : null}
           </tbody>
-        </table>
+        </RecordTable>
       </div>
     </section>
   );

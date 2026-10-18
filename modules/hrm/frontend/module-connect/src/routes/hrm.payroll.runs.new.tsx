@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Ban, Check, Info, Search } from "lucide-react";
@@ -473,7 +474,7 @@ function NewRun() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-left text-sm">
+              <RecordTable className="w-full min-w-[980px] text-left text-sm">
                 <caption className="sr-only">Live payroll population</caption>
                 <thead className="border-b bg-background text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
@@ -501,7 +502,7 @@ function NewRun() {
                     </tr>
                   )) : <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-muted-foreground">No live employees match these filters. Clear the filters or add the missing employee/payroll setup records.</td></tr>}
                 </tbody>
-              </table>
+              </RecordTable>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -83,7 +84,7 @@ function EntryTable() {
       {loading && <p role="status">Loading attendance…</p>}
       {(error || loadError) && <div role="alert" className="rounded-md border border-danger p-3 text-danger">{error || loadError}{loadError && <Button variant="outline" onClick={() => { employees.reload(); attendance.reload(); }}>Retry</Button>}</div>}
       <div className="overflow-x-auto rounded-lg border" aria-busy={loading}>
-        <table className="w-full min-w-[850px] text-left text-sm"><caption className="p-3 text-left font-medium">{visible.length} employees · {date}</caption>
+        <RecordTable className="w-full min-w-[850px] text-left text-sm"><caption className="p-3 text-left font-medium">{visible.length} employees · {date}</caption>
           <thead className="bg-muted"><tr>{["Employee", "Branch", "Department", "Clock in", "Clock out", "Attendance"].map(h => <th key={h} className="p-3" scope="col">{h}</th>)}</tr></thead>
           <tbody>{visible.map(w => {
             const recorded = records.get(w.id); const times = current[w.id] ?? { clockIn: "", clockOut: "" };
@@ -95,7 +96,7 @@ function EntryTable() {
               <td className="p-3">{recorded ? `Recorded · ${recorded.totalHours.toFixed(2)} hours` : times.clockIn && times.clockOut && times.clockOut < times.clockIn ? "Next-day clock-out" : "Not recorded"}</td>
             </tr>;
           })}</tbody>
-        </table>{!loading && !visible.length && <p className="p-4">No employees match these filters.</p>}
+        </RecordTable>{!loading && !visible.length && <p className="p-4">No employees match these filters.</p>}
       </div>
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-4">
         <div><p>{filled.length} filled row{filled.length === 1 ? "" : "s"} in this view</p>{hidden > 0 && <p className="text-sm text-muted-foreground">{hidden} other draft rows are hidden by filters and will not be saved.</p>}{otherDates > 0 && <p className="text-sm text-muted-foreground">Unsaved entries are also held for {otherDates} other date(s) in this page.</p>}</div>

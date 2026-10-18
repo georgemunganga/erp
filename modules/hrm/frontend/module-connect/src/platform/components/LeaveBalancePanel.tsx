@@ -1,3 +1,4 @@
+import { RecordTable } from "./RecordTable";
 import { AlertTriangle, Info } from "lucide-react";
 import type { LeaveBalance } from "@/mock/leavebalance";
 
@@ -62,7 +63,7 @@ export function LeaveBalancePanel({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[22rem] text-left text-sm">
+        <RecordTable className="w-full min-w-[22rem] text-left text-sm">
           <caption className="sr-only">How the leave balance was calculated</caption>
           <tbody className="divide-y">
             {rows.map((r) => (
@@ -93,7 +94,7 @@ export function LeaveBalancePanel({
               </tr>
             ) : null}
           </tbody>
-        </table>
+        </RecordTable>
       </div>
 
       {b.entries.length ? (

@@ -1,3 +1,4 @@
+import { RecordTable } from "./RecordTable";
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Filter, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -238,7 +239,7 @@ export function ListPage<T extends { id: string }>({
         <div className="p-5"><NoResultsState title="No matching records" body={emptyBody} /></div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
+          <RecordTable className="w-full min-w-[42rem] border-collapse text-left text-sm">
             <thead className="border-b border-border bg-surface-muted/60">
               <tr>
                 <th scope="col" className="w-11 px-4 py-3">
@@ -298,7 +299,7 @@ export function ListPage<T extends { id: string }>({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </RecordTable>
         </div>
       )}
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground">

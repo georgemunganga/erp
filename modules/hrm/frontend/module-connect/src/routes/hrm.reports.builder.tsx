@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Play, Plus, Share2, X } from "lucide-react";
@@ -129,7 +130,7 @@ function BuilderPage() {
           <div className="rounded-lg border bg-surface p-4">
             <p className="text-sm font-medium">Preview</p>
             <div className="mt-2 overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <RecordTable variant="compact" className="w-full text-left text-xs">
                 <caption className="sr-only">Preview of the report columns</caption>
                 <thead className="border-b bg-surface-muted">
                   <tr>
@@ -149,7 +150,7 @@ function BuilderPage() {
                     ))}
                   </tr>
                 </tbody>
-              </table>
+              </RecordTable>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Run to fill this in. Results are limited to your entity and branch access.

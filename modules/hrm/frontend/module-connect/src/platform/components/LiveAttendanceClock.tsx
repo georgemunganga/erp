@@ -1,3 +1,4 @@
+import { RecordTable } from "./RecordTable";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
@@ -69,10 +70,10 @@ function OwnClock({ name, employeeNo }: { name: string; employeeNo: string }) {
         </section>
         <section aria-label="Last seven days" className="space-y-3">
           <h2 className="font-semibold">Last 7 days</h2>
-          {!rows.length ? <p>No attendance recorded in the last seven days.</p> : <div className="overflow-x-auto rounded-lg border"><table className="w-full text-left text-sm">
+          {!rows.length ? <p>No attendance recorded in the last seven days.</p> : <div className="overflow-x-auto rounded-lg border"><RecordTable className="w-full text-left text-sm">
             <thead><tr>{["Date", "Clock in (UTC)", "Clock out (UTC)", "Recorded hours", "Status"].map(h => <th key={h} scope="col" className="p-3">{h}</th>)}</tr></thead>
             <tbody>{rows.map(r => <tr key={r.id} className="border-t"><th scope="row" className="p-3 font-normal">{r.workDate}</th><td className="p-3">{r.clockIn?.slice(0, 5) || "—"}</td><td className="p-3">{r.clockOut?.slice(0, 5) || "—"}</td><td className="p-3">{r.clockIn && r.clockOut ? r.totalHours.toFixed(2) : "—"}</td><td className="p-3">{r.derivedStatus}</td></tr>)}</tbody>
-          </table></div>}
+          </RecordTable></div>}
         </section>
       </>;
     }}</Async>

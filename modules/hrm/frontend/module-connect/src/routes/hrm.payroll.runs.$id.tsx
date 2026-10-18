@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { Fragment, useEffect, useState } from "react";
 import {
@@ -152,7 +153,7 @@ function Totals({ run }: { run: PayRun }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] text-left text-sm">
+      <RecordTable variant="compact" className="w-full min-w-[34rem] text-left text-sm">
         <caption className="sr-only">
           Control totals for this run compared with the previous period
         </caption>
@@ -220,7 +221,7 @@ function Totals({ run }: { run: PayRun }) {
             );
           })}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }
@@ -1074,7 +1075,7 @@ function PayLines({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[38rem] text-left text-sm">
+      <RecordTable variant="compact" className="w-full min-w-[38rem] text-left text-sm">
         <caption className="sr-only">
           Every employee in this run with their gross, deductions and net pay
         </caption>
@@ -1205,7 +1206,7 @@ function PayLines({
             );
           })}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }
@@ -1430,7 +1431,7 @@ function RunPayslipsSection({
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <RecordTable variant="compact" className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b bg-surface-muted text-muted-foreground">
                       <th className="px-2 py-1.5">Payslip</th>
@@ -1489,7 +1490,7 @@ function RunPayslipsSection({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </RecordTable>
               </div>
             </div>
           );

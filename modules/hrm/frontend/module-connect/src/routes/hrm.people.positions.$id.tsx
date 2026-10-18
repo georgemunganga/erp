@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -351,7 +352,7 @@ function PositionPage() {
                 description="Budgeted against actual for the current plan year. A position can be on the establishment without being funded, and can cost money without being on it."
               >
                 <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full min-w-[34rem] text-left text-sm">
+                  <RecordTable className="w-full min-w-[34rem] text-left text-sm">
                     <caption className="sr-only">
                       Budgeted against actual establishment figures for {p.positionNo}
                     </caption>
@@ -415,7 +416,7 @@ function PositionPage() {
                         </td>
                       </tr>
                     </tbody>
-                  </table>
+                  </RecordTable>
                 </div>
                 <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>

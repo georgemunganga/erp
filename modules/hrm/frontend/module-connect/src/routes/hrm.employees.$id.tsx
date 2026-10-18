@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -492,11 +493,11 @@ function PayslipPreviewDialog({
                 <h3 className="font-semibold">Leave taken in this pay period</h3>
                 {preview?.leaveTaken.length ? (
                   <div className="mt-3 overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <RecordTable className="w-full text-sm">
                       <thead><tr className="border-b text-left text-muted-foreground"><th className="py-2">Leave type</th><th className="py-2">Dates</th><th className="py-2 text-right">Days</th></tr></thead>
                       <tbody>{preview.leaveTaken.map((leave, index) => <tr key={`${leave.leaveTypeCode}-${leave.startDate}-${index}`} className="border-b last:border-0"><td className="py-2">{leave.leaveTypeName}</td><td className="py-2">{leave.startDate} to {leave.endDate}</td><td className="py-2 text-right">{leave.days}</td></tr>)}</tbody>
                       <tfoot><tr className="font-semibold"><td className="pt-2" colSpan={2}>Total leave taken</td><td className="pt-2 text-right">{preview.leaveTaken.reduce((sum, leave) => sum + leave.days, 0)}</td></tr></tfoot>
-                    </table>
+                    </RecordTable>
                   </div>
                 ) : <p className="mt-2 text-sm text-muted-foreground">No approved leave recorded for this period.</p>}
               </section>
@@ -508,10 +509,10 @@ function PayslipPreviewDialog({
                 <p className="mt-1 text-xs text-muted-foreground">Based on leave entries posted through {preview?.leaveBalances[0]?.asOfDate ?? "this pay period"}.</p>
                 {preview?.leaveBalances.length ? (
                   <div className="mt-3 overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <RecordTable className="w-full text-sm">
                       <thead><tr className="border-b text-left text-muted-foreground"><th className="py-2">Leave type</th><th className="py-2 text-right">Yearly entitlement</th><th className="py-2 text-right">Credited / allocated</th><th className="py-2 text-right">Taken to date</th><th className="py-2 text-right">Reserved</th><th className="py-2 text-right">Expired</th><th className="py-2 text-right">Available</th></tr></thead>
                       <tbody>{preview.leaveBalances.map((balance) => <tr key={balance.leaveTypeCode} className="border-b last:border-0"><td className="py-2">{balance.leaveTypeName}</td><td className="py-2 text-right">{balance.yearlyEntitlement}</td><td className="py-2 text-right">{balance.credited}</td><td className="py-2 text-right">{balance.taken}</td><td className="py-2 text-right">{balance.reserved}</td><td className="py-2 text-right">{balance.expired}</td><td className="py-2 text-right font-semibold">{balance.available}</td></tr>)}</tbody>
-                    </table>
+                    </RecordTable>
                   </div>
                 ) : <p className="mt-2 text-sm text-muted-foreground">No leave balance recorded for this period.</p>}
               </section>
@@ -697,7 +698,7 @@ function ReportTable({ report }: { report: EmployeeReport }) {
     <DetailSection title={report.title} description={report.description}>
       {report.rows.length ? (
         <div className="overflow-x-auto rounded-md border">
-          <table className="w-full min-w-[640px] text-sm">
+          <RecordTable className="w-full min-w-[640px] text-sm">
             <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
               <tr>
                 {report.columns.map((column) => <th key={column} className="px-3 py-2 font-medium">{column}</th>)}
@@ -710,7 +711,7 @@ function ReportTable({ report }: { report: EmployeeReport }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </RecordTable>
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">{report.empty}</p>

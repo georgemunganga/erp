@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import {
   Bar,
   BarChart,
@@ -250,7 +251,7 @@ function PayrollPanelView({ payroll }: { payroll: PayrollPanel }) {
       </PanelCard>
       {runs.length ? (
         <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-xs">
+          <RecordTable variant="compact" className="w-full text-xs">
             <thead>
               <tr className="border-b bg-muted/50 text-left">
                 <th className="p-2 font-semibold">Period</th>
@@ -275,7 +276,7 @@ function PayrollPanelView({ payroll }: { payroll: PayrollPanel }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </RecordTable>
         </div>
       ) : null}
     </div>

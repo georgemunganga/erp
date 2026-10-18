@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AlertTriangle, Ban, Info, Lock, Plus, Trash2 } from "lucide-react";
@@ -234,7 +235,7 @@ function LineRow({
 
       {open ? (
         <div className="border-t px-3 py-3">
-          <table className="w-full text-left text-xs">
+          <RecordTable variant="compact" className="w-full text-left text-xs">
             <caption className="sr-only">Pay components for {line.employee}</caption>
             <thead>
               <tr className="text-muted-foreground">
@@ -273,7 +274,7 @@ function LineRow({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </RecordTable>
 
           <p className="mt-2 flex gap-1.5 text-xs text-muted-foreground">
             <Info className="mt-0.5 size-3 shrink-0" aria-hidden />A statutory line is recalculated

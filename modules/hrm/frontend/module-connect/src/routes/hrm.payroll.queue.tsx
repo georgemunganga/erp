@@ -200,7 +200,8 @@ function PayrollQueue() {
                   ) : (
                     <Card>
                       <CardContent className="p-0">
-                        <RecordTable className="w-full caption-bottom text-sm">
+                        <div className="overflow-x-auto">
+                        <RecordTable className="min-w-[900px] caption-bottom text-sm">
                           <thead>
                             <tr className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                               <th className="h-10 px-4 text-left">Branch</th>
@@ -264,6 +265,7 @@ function PayrollQueue() {
                             ))}
                           </tbody>
                         </RecordTable>
+                        </div>
                       </CardContent>
                     </Card>
                   )}
