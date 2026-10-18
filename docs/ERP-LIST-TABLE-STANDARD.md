@@ -20,6 +20,7 @@ Use the shared list component for ordinary record directories. The visual patter
 ## Rules for new list pages
 
 - Keep search and filtering appropriate to the data source. Do not client-sort a partial server page as though it were the whole dataset; use server sorting for that case.
+- Tell users what the main search covers in its placeholder. Keep the toolbar short: the Filter by control asks which field to use, then shows that field's values. Show active filter chips above the table with individual removal and a clear-all action.
 - Preserve the record-specific actions and permissions. The table must never grant an action merely because it displays a button.
 - Show an honest row count and working pagination. Selection and “select all” apply to the visible rows unless the page explicitly offers cross-page selection.
 - Show a useful empty state and create/import action where the user has permission.
