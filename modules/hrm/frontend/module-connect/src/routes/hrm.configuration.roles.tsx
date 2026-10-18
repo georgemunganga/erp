@@ -57,6 +57,9 @@ const procurementPermissionOptions = [
   { key: "procurement-plan-edit", label: "Edit plans", detail: "Revise or cancel allowed plan drafts." },
   { key: "procurement-configuration-read", label: "View procurement setup", detail: "View categories and methods." },
   { key: "procurement-configuration-edit", label: "Edit procurement setup", detail: "Maintain draft categories and methods." },
+  { key: "procurement-contract-read", label: "View contracts", detail: "View own commercial contract drafts." },
+  { key: "procurement-contract-create", label: "Create contracts", detail: "Create commercial contract drafts." },
+  { key: "procurement-contract-edit", label: "Edit contracts", detail: "Revise or cancel own contract drafts." },
 ];
 
 const categoryLabels: Record<string, string> = {

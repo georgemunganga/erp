@@ -53,7 +53,8 @@ The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppl
 | Planning draft API | Implemented in source with P8 additive migration; own-plan list/detail/create/revise/cancel. Empty database and P7 data upgrade tested on disposable PostgreSQL; an existing line became `Active`. | Scoped HTTP integration tests, Finance period reference, existing planning UI adapter |
 | Category and method draft API | Implemented in source; list/detail/create/update with scoped codes and version checks | Scoped HTTP tests, policy publication authority, existing Settings adapter |
 | UI live readiness | Implemented; off by default | Per-screen capability and API acceptance, then enable individually |
-| Planning, policy, supplier decisions | Schema only | Draft/decision routes and rule tests |
+| Contract drafts | Own-record list/detail/create/revise/cancel API in source, with supplier eligibility and Core company currency defaults; no signature or activation | Scoped HTTP and concurrency tests; signed-document/approval contract; existing Contracts screen adapter |
+| Policy and supplier decisions | Schema only | Draft/decision routes and rule tests |
 | Approval through payment | Schema only | Complete waves 2–6 in order |
 | Portal, performance, analytics | Schema/read-model design only | Complete wave 7 and security/KPI tests |
 

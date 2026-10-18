@@ -2,6 +2,8 @@
 
 **Status:** Draft for business review · **Version:** 0.1 · **Hierarchy:** Procurement → Contracts → Commercial Agreement Management → Operations · **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx) · **Module:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 
+**Implementation note (18 October 2026):** The shared ERP host now has an own-record contract draft API under `/api/procurement/v1/contracts`. It can create, revise and cancel a draft against an available supplier. The first contract version is stored with the header. No approval, signature, activation, drawdown or recurring payable is enabled by this draft API.
+
 ## 1. Feature Identification
 
 `PROC-07`, advanced phase unless contract buying is moved earlier. Business owner: contract/procurement lead; legal and Finance reviewers; product/data/technical owners to name. Operations: `O1` draft/review, `O2` approve/sign/activate, `O3` release/track ceiling, `O4` amend, `O5` renew/expire/terminate, `O6` monitor recurring commitment.
