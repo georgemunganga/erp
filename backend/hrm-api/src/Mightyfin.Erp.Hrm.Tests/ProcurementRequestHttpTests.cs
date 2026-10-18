@@ -376,6 +376,50 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(5, await fixture.DecisionCount(id));
     }
 
+    [Fact]
+    public async Task Vendor_qualification_is_versioned_and_locked_during_review()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/vendors",
+            fixture.Owner, new { legalName = "Office Supply Ltd", displayName = "Office Supply",
+                countryCode = "ZM", categoryCode = "OFFICE",
+                primaryContact = new { name = "Supplier Contact", email = "supplier@example.test" } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var vendor = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = vendor.GetProperty("id").GetGuid();
+        var version = vendor.GetProperty("version").GetInt64();
+        var path = $"/api/procurement/v1/vendors/{id}/qualifications";
+        var invalid = new VersionedQualification(version,
+            new VendorQualificationInput("Tax clearance", "Revenue authority", "TC-1",
+                new DateOnly(2026, 1, 1), new DateOnly(2025, 12, 31), null));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, invalid)).StatusCode);
+        var valid = invalid with { Qualification = invalid.Qualification with
+            { ExpiresOn = new DateOnly(2027, 12, 31) } };
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, valid)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, valid)).StatusCode);
+        var detail = await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/vendors/{id}", fixture.Owner);
+        var saved = await detail.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Pending", saved.GetProperty("qualifications")[0]
+            .GetProperty("reviewStatus").GetString());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, valid)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await SendJson(fixture.Client, HttpMethod.Post,
+                $"/api/procurement/v1/vendors/{id}/submit", fixture.Owner,
+                new VendorSubmitInput(saved.GetProperty("version").GetInt64(),
+                    "Office supplies"))).StatusCode);
+        var afterSubmit = await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/vendors/{id}", fixture.Owner);
+        var submitted = await afterSubmit.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+                valid with { Version = submitted.GetProperty("version").GetInt64() })).StatusCode);
+    }
+
     private static ProcurementRequestRoutes.NewRequest Draft(string purpose) => new(
         purpose, null, null, null, null, null, null, null, null,
         [new ProcurementRequestRoutes.RequestLineInput(null, "Laptop", "each", 2, 100,
