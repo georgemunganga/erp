@@ -21,15 +21,15 @@ function PreloaderController() {
   const { loading } = useAuth();
   const { branding, ready } = useBranding();
   const startedAt = useRef(Date.now());
+  const logoShownAt = useRef<number | null>(null);
 
   useEffect(() => {
     const image = document.getElementById("erp-preloader-logo") as HTMLImageElement | null;
-    const fallback = document.getElementById("erp-preloader-fallback");
     const logo = branding?.logoDarkDataUri || branding?.logoLightDataUri;
-    if (image && fallback && logo?.startsWith("data:image/")) {
+    if (image && logo?.startsWith("data:image/")) {
       image.src = logo;
       image.hidden = false;
-      fallback.hidden = true;
+      logoShownAt.current = Date.now();
     }
   }, [branding]);
 
@@ -37,13 +37,13 @@ function PreloaderController() {
     if (loading || !ready) return;
     const overlay = document.getElementById("erp-global-preloader");
     if (!overlay) return;
-    const delay = Math.max(0, 450 - (Date.now() - startedAt.current));
+    const delay = Math.max(0, 550 - (Date.now() - (logoShownAt.current ?? startedAt.current)));
     const timer = window.setTimeout(() => {
       overlay.classList.add("is-leaving");
       window.setTimeout(() => overlay.classList.add("is-gone"), 280);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [loading, ready]);
+  }, [loading, ready, branding]);
   return null;
 }
 
@@ -155,7 +155,6 @@ function RootShell({ children }: { children: ReactNode }) {
       <body>
         <div id="erp-global-preloader" className="erp-global-preloader" role="status" aria-label="Loading ERP">
           <div className="erp-preloader-orbit" aria-hidden="true">
-            <span id="erp-preloader-fallback" className="erp-preloader-fallback">ERP</span>
             <img id="erp-preloader-logo" className="erp-preloader-logo" alt="" hidden />
           </div>
         </div>
