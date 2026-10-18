@@ -53,7 +53,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import {
   attendanceCorrections,
   employees,
@@ -73,10 +72,9 @@ import type { ModuleDefinition, NavItem, NavSection } from "@/platform/nav";
 import { useApp, useRoleGate } from "@/platform/app-context";
 import { canUseTimesheetPath } from "@/platform/components/TimesheetWorkspace";
 import { isTimesheetOnly, useAuth } from "@/platform/auth";
-import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { adaptWorkers, realApi, useApi } from "@/platform/use-api";
-import { SignedInBadge } from "@/platform/components/AuthGate";
-import { ModuleSwitcher } from "@/platform/components/ModuleSwitcher";
+import { ErpTopNav } from "@/platform/components/ErpTopNav";
+import { ErpAccountMenu } from "@/platform/components/ErpAccountMenu";
 import { cn } from "@/lib/utils";
 
 function useVisibleSections(mod: ModuleDefinition, role: Role) {
@@ -623,19 +621,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 function TimesheetShell({ children }: { children: ReactNode }) {
   const [navigationOpen, setNavigationOpen] = useState(false);
   return <div className="min-h-screen bg-background">
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b bg-primary px-4 text-primary-foreground">
-      <div className="flex items-center gap-3">
-        <Sheet open={navigationOpen} onOpenChange={setNavigationOpen}>
+    <ErpTopNav current="hrm" navigation={<Sheet open={navigationOpen} onOpenChange={setNavigationOpen}>
           <SheetTrigger asChild><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation"><Menu className="size-5" /></Button></SheetTrigger>
           <SheetContent side="left" className="w-72 bg-rail p-0 text-rail-foreground">
             <SheetHeader className="sr-only"><SheetTitle>Navigation</SheetTitle></SheetHeader>
             <RailContent onNavigate={() => setNavigationOpen(false)} />
           </SheetContent>
-        </Sheet>
-        <span className="font-semibold">Mightyfin HRMS · Front Desk</span>
-      </div>
-      <SignedInBadge />
-    </header>
+        </Sheet>} actions={<ErpAccountMenu />} />
     <aside className="fixed bottom-0 left-0 top-14 hidden w-64 bg-rail text-rail-foreground lg:block"><RailContent /></aside>
     <main id="main" className="space-y-6 p-6 lg:ml-64">{children}</main>
   </div>;
@@ -838,9 +830,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-primary/40 bg-primary text-primary-foreground shadow-sm">
-        <div className="flex h-14 items-center gap-2 px-3">
-          <Sheet>
+      <ErpTopNav current="hrm" navigation={<Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation">
                 <Menu className="size-5" aria-hidden />
@@ -852,17 +842,13 @@ function FullAppShell({ children }: { children: ReactNode }) {
               </SheetHeader>
               <RailContent />
             </SheetContent>
-          </Sheet>
-
-          <a href="/" className="flex items-center gap-2 rounded-md px-2 py-1 text-primary-foreground hover:bg-primary-foreground/10"><BrandIdentity onDark nameClassName="hidden font-semibold sm:inline" /></a>
-
-          <DropdownMenu>
+          </Sheet>} context={<DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="hidden min-w-0 gap-2 md:flex">
+              <Button variant="outline" size="sm" aria-label="Organisation and branch" className="flex min-w-0 gap-2 max-md:size-9 max-md:px-0">
                 <Building2 className="size-4 shrink-0" aria-hidden />
-                <span className="max-w-40 truncate font-medium">{entity ? String((entity as Record<string, unknown>).registeredName ?? (entity as Record<string, unknown>).tradingName ?? (entity as Record<string, unknown>).name ?? "Organisation") : "Organisation"}</span>
-                {branch ? <span className="max-w-32 truncate text-muted-foreground">· {liveLocations.find((l) => l.id === branch)?.name ?? branch}</span> : null}
-                <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+                <span className="hidden max-w-40 truncate font-medium md:inline">{entity ? String((entity as Record<string, unknown>).registeredName ?? (entity as Record<string, unknown>).tradingName ?? (entity as Record<string, unknown>).name ?? "Organisation") : "Organisation"}</span>
+                {branch ? <span className="hidden max-w-32 truncate text-muted-foreground md:inline">· {liveLocations.find((l) => l.id === branch)?.name ?? branch}</span> : null}
+                <ChevronDown className="hidden size-3.5 shrink-0 md:block" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-96 max-h-[60vh] overflow-y-auto">
@@ -901,25 +887,22 @@ function FullAppShell({ children }: { children: ReactNode }) {
                 </div>
               ))}
             </DropdownMenuContent>
-          </DropdownMenu>
-
-          <div className="ml-auto flex items-center gap-1">
-            <ModuleSwitcher current="hrm" />
+          </DropdownMenu>} actions={<>
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 text-muted-foreground"
+              className="gap-2 text-muted-foreground max-lg:w-9 max-lg:px-0"
               onClick={() => setPaletteOpen(true)}
             >
               <Search className="size-4" aria-hidden />
-              <span className="hidden sm:inline">Search</span>
-              <kbd className="hidden rounded border px-1 text-[10px] sm:inline">⌘K</kbd>
+              <span className="hidden lg:inline">Search</span>
+              <kbd className="hidden rounded border px-1 text-[10px] lg:inline">⌘K</kbd>
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              className="hidden gap-2 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground lg:inline-flex"
               onClick={() => setQuickAccessOpen(true)}
               aria-label="Open Quick access"
               title="Quick access (⌘J)"
@@ -975,13 +958,13 @@ function FullAppShell({ children }: { children: ReactNode }) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" aria-label="Help" asChild>
+            <Button variant="ghost" size="icon" className="hidden xl:inline-flex" aria-label="Help" asChild>
               <Link to="/hrm/help">
                 <CircleHelp className="size-5" aria-hidden />
               </Link>
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}>
+            <Button variant="ghost" size="icon" className="hidden xl:inline-flex" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}>
               {theme === "light" ? <Moon className="size-5" aria-hidden /> : <Sun className="size-5" aria-hidden />}
             </Button>
 
@@ -1008,16 +991,16 @@ function FullAppShell({ children }: { children: ReactNode }) {
                 {!USE_REAL ? <DropdownMenuItem asChild>
                   <Link to="/hrm/setup">Setup guide</Link>
                 </DropdownMenuItem> : null}
+                <DropdownMenuItem className="lg:hidden" onSelect={() => setQuickAccessOpen(true)}>Quick access</DropdownMenuItem>
+                <DropdownMenuItem className="xl:hidden" asChild><Link to="/hrm/help">Help</Link></DropdownMenuItem>
+                <DropdownMenuItem className="xl:hidden" onSelect={toggleTheme}>Switch to {theme === "light" ? "dark" : "light"} mode</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <RealSignOut />
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        </div>
-        <Separator />
-      </header>
+          </>} />
 
       <div className="flex">
         <aside className={cn(
