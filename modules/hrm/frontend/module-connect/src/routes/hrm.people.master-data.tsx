@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArchiveRestore, FileSpreadsheet, RotateCcw, ShieldCheck, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -132,7 +133,7 @@ function BatchPreview({ batch, onApply }: { batch: Row; onApply: () => Promise<v
         ) : null}
         {samples.length ? (
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full min-w-[38rem] text-left text-sm">
+            <RecordTable className="w-full min-w-[38rem] text-left text-sm">
               <thead className="border-b bg-surface-muted text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">Employee</th>
@@ -153,7 +154,7 @@ function BatchPreview({ batch, onApply }: { batch: Row; onApply: () => Promise<v
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </RecordTable>
           </div>
         ) : null}
         <Button

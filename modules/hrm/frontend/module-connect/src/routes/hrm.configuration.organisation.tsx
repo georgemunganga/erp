@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { CalendarClock, History, Info, Lock, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -424,7 +425,7 @@ function NewLocationDialog({
 function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: string; canAct: boolean }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full min-w-[52rem] text-left text-sm">
+      <RecordTable className="w-full min-w-[52rem] text-left text-sm">
         <caption className="sr-only">
           Legal entities with their registration details and effective dates
         </caption>
@@ -529,7 +530,7 @@ function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: 
             </tr>
           ))}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }
@@ -537,7 +538,7 @@ function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: 
 function LocationTable({ rows, asAt, canAct }: { rows: WorkLocationWithEntity[]; asAt: string; canAct: boolean }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full min-w-[48rem] text-left text-sm">
+      <RecordTable className="w-full min-w-[48rem] text-left text-sm">
         <caption className="sr-only">
           Branches and work locations grouped by the entity that operates them
         </caption>
@@ -648,7 +649,7 @@ function LocationTable({ rows, asAt, canAct }: { rows: WorkLocationWithEntity[];
               </td>              </tr>
           ))}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }

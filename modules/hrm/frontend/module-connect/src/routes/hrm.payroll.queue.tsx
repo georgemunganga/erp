@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 /**
  * M48: the top-HR payroll approval queue.
  *
@@ -199,7 +200,7 @@ function PayrollQueue() {
                   ) : (
                     <Card>
                       <CardContent className="p-0">
-                        <table className="w-full caption-bottom text-sm">
+                        <RecordTable className="w-full caption-bottom text-sm">
                           <thead>
                             <tr className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                               <th className="h-10 px-4 text-left">Branch</th>
@@ -262,7 +263,7 @@ function PayrollQueue() {
                               </tr>
                             ))}
                           </tbody>
-                        </table>
+                        </RecordTable>
                       </CardContent>
                     </Card>
                   )}

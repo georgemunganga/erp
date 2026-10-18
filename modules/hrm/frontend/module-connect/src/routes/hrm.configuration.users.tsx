@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Navigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { KeyRound, RefreshCw, UserPlus, Users } from "lucide-react";
@@ -298,7 +299,7 @@ export function UsersConfiguration() {
               </div>
             </div>
             <div className="mt-4 overflow-x-auto rounded-md border">
-              <table className="w-full min-w-[700px] text-left text-sm">
+              <RecordTable className="w-full min-w-[700px] text-left text-sm">
                 <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
                   <tr><th className="px-3 py-2 font-medium">User</th><th className="px-3 py-2 font-medium">Role</th><th className="px-3 py-2 font-medium">Status</th><th className="px-3 py-2 text-right font-medium">Actions</th></tr>
                 </thead>
@@ -315,7 +316,7 @@ export function UsersConfiguration() {
                     </tr>;
                   })}
                 </tbody>
-              </table>
+              </RecordTable>
             </div>
           </section>
         </div>

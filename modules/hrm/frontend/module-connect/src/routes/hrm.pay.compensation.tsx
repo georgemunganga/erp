@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Info, Pencil, ShieldAlert, Unplug } from "lucide-react";
@@ -610,8 +611,9 @@ function CompensationPage() {
         </p>
       </div>
 
-      <div className="mt-4 grid gap-3 rounded-lg border bg-surface p-3 md:grid-cols-[minmax(16rem,1.5fr)_repeat(3,minmax(9rem,1fr))] xl:grid-cols-[minmax(16rem,1.5fr)_repeat(7,minmax(9rem,1fr))]">
-        <div className="min-w-0 flex-1">
+      <section className="mt-4 min-w-0 overflow-hidden rounded-xl border bg-surface shadow-sm">
+      <div className="grid min-w-0 gap-3 border-b p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="min-w-0 sm:col-span-2">
           <Label htmlFor="cp-search" className="sr-only">
             Search workers
           </Label>
@@ -720,8 +722,8 @@ function CompensationPage() {
 
       <Async state={state} rows={5}>
         {(d) => (
-          <div className="mt-4 overflow-x-auto rounded-lg border bg-surface">
-            <table className="w-full min-w-[56rem] text-left text-sm">
+          <div className="max-w-full overflow-x-auto">
+            <RecordTable className="min-w-[1120px]">
               <caption className="sr-only">Workers and their open pay profiles</caption>
               <thead className="border-b bg-surface-muted">
                 <tr>
@@ -846,12 +848,12 @@ function CompensationPage() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </RecordTable>
           </div>
         )}
       </Async>
       {USE_REAL ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
           <span className="text-muted-foreground">
             Showing {pageStart}-{pageEnd} of {data.totalCount} workers
           </span>
@@ -882,6 +884,7 @@ function CompensationPage() {
           </div>
         </div>
       ) : null}
+      </section>
 
       <p className="mt-3 flex gap-2 text-xs text-muted-foreground">
         <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />

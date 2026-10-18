@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Info, MapPin, ShieldAlert, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -174,7 +175,7 @@ function TravelPage() {
         <Async state={rates} rows={2}>
           {(rows) => (
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[36rem] text-left text-sm">
+              <RecordTable className="w-full min-w-[36rem] text-left text-sm">
                 <caption className="sr-only">Per diem and accommodation caps by destination</caption>
                 <thead className="border-b bg-surface-muted">
                   <tr>
@@ -196,7 +197,7 @@ function TravelPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </RecordTable>
             </div>
           )}
         </Async>

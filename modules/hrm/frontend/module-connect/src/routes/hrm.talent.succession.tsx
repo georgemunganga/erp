@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { TriangleAlert, UserPlus } from "lucide-react";
@@ -99,7 +100,7 @@ function SuccessionPage() {
         <Async state={skills} rows={3}>
           {(rows) => (
             <div className="overflow-x-auto rounded-lg border bg-surface">
-              <table className="w-full min-w-[30rem] text-left text-sm">
+              <RecordTable className="w-full min-w-[30rem] text-left text-sm">
                 <caption className="sr-only">Skills held against skills needed</caption>
                 <thead className="border-b bg-surface-muted">
                   <tr>
@@ -134,7 +135,7 @@ function SuccessionPage() {
                     );
                   })}
                 </tbody>
-              </table>
+              </RecordTable>
             </div>
           )}
         </Async>

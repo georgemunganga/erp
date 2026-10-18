@@ -3,6 +3,7 @@ import { ChevronLeft, Info } from "lucide-react";
 import type { ReactNode } from "react";
 import { AppShell } from "./AppShell";
 import { PageHeader } from "./PageHeader";
+import { RecordTable } from "./RecordTable";
 
 /**
  * Shared shell for a configuration screen: back link to the single hub, a
@@ -80,7 +81,7 @@ export function ConfigTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border bg-surface">
-      <table className="w-full text-left text-sm" style={{ minWidth }}>
+      <RecordTable style={{ minWidth }}>
         <caption className="sr-only">{caption}</caption>
         <thead className="border-b bg-surface-muted">
           <tr>
@@ -112,7 +113,7 @@ export function ConfigTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }

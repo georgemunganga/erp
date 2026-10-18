@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BadgeDollarSign, CalendarClock, Info, Pencil, Plus, ShieldCheck, Unplug } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -978,7 +979,7 @@ function StructureTable({
   }
   return (
     <div className="overflow-x-auto rounded-lg border bg-surface">
-      <table className="w-full min-w-[44rem] text-left text-sm">
+      <RecordTable className="w-full min-w-[44rem] text-left text-sm">
         <caption className="sr-only">Salary structures defining which components employees carry</caption>
         <thead className="border-b bg-surface-muted">
           <tr>
@@ -1023,7 +1024,7 @@ function StructureTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }
@@ -1046,7 +1047,7 @@ function PayGroupTable({
   }
   return (
     <div className="overflow-x-auto rounded-lg border bg-surface">
-      <table className="w-full min-w-[44rem] text-left text-sm">
+      <RecordTable className="w-full min-w-[44rem] text-left text-sm">
         <caption className="sr-only">Pay groups the company runs payroll on</caption>
         <thead className="border-b bg-surface-muted">
           <tr>
@@ -1098,7 +1099,7 @@ function PayGroupTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }
@@ -1121,7 +1122,7 @@ function SlabTable({
   }
   return (
     <div className="overflow-x-auto rounded-lg border bg-surface">
-      <table className="w-full min-w-[40rem] text-left text-sm">
+      <RecordTable className="w-full min-w-[40rem] text-left text-sm">
         <caption className="sr-only">ZRA PAYE bands for the current tax year</caption>
         <thead className="border-b bg-surface-muted">
           <tr>
@@ -1161,7 +1162,7 @@ function SlabTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }
@@ -1184,7 +1185,7 @@ function RuleTable({
   }
   return (
     <div className="overflow-x-auto rounded-lg border bg-surface">
-      <table className="w-full min-w-[44rem] text-left text-sm">
+      <RecordTable className="w-full min-w-[44rem] text-left text-sm">
         <caption className="sr-only">Statutory contribution rules (NAPSA / NHIMA)</caption>
         <thead className="border-b bg-surface-muted">
           <tr>
@@ -1231,7 +1232,7 @@ function RuleTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }
@@ -1262,7 +1263,7 @@ function ComponentTable({
   }
   return (
     <div className="overflow-x-auto rounded-lg border bg-surface">
-      <table className="w-full min-w-[48rem] text-left text-sm">
+      <RecordTable className="w-full min-w-[48rem] text-left text-sm">
         <caption className="sr-only">Standard salary components</caption>
         <thead className="border-b bg-surface-muted">
           <tr>
@@ -1321,7 +1322,7 @@ function ComponentTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </RecordTable>
     </div>
   );
 }

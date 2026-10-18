@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
@@ -244,7 +245,7 @@ function BulkJobCard({ j }: { j: BulkJob }) {
       ) : null}
 
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[34rem] text-left text-xs">
+        <RecordTable className="w-full min-w-[34rem] text-left text-xs">
           <caption className="sr-only">Sample of records this change would affect</caption>
           <thead className="border-b bg-surface-muted">
             <tr>
@@ -276,7 +277,7 @@ function BulkJobCard({ j }: { j: BulkJob }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </RecordTable>
       </div>
 
       {j.status === "Dry run" ? (

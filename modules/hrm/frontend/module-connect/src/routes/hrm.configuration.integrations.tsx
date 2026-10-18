@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowRightLeft, Download, RefreshCw, RotateCcw, Send, ShieldCheck } from "lucide-react";
@@ -284,7 +285,7 @@ export function IntegrationOperations() {
                   Operation history
                 </h2>
                 <div className="mt-3 overflow-x-auto">
-                  <table className="w-full min-w-[62rem] text-left text-xs">
+                  <RecordTable className="w-full min-w-[62rem] text-left text-xs">
                     <thead>
                       <tr className="border-b text-muted-foreground">
                         {[
@@ -363,7 +364,7 @@ export function IntegrationOperations() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </RecordTable>
                 </div>
                 {data.operations.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">

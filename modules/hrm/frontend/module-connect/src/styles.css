@@ -123,3 +123,24 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Standard list-table chrome. Screens retain their own cells, controls and rules. */
+.erp-record-table { color: var(--color-foreground); }
+.erp-record-table thead { background: var(--color-surface-muted); }
+.erp-record-table thead tr { border-bottom: 1px solid var(--color-border); }
+.erp-record-table thead th {
+  padding: .75rem 1rem;
+  color: var(--color-muted-foreground);
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  line-height: 1.25rem;
+  text-transform: none;
+  white-space: nowrap;
+}
+.erp-record-table tbody tr { border-bottom: 1px solid var(--color-border); transition: background-color 150ms ease; }
+.erp-record-table tbody tr:last-child { border-bottom: 0; }
+.erp-record-table tbody tr:hover { background: var(--color-primary-soft); }
+.erp-record-table tbody :is(td, th) { padding: .75rem 1rem; vertical-align: middle; }
+.erp-record-table tbody th { text-align: left; }
+.erp-record-table caption:not(.sr-only) { padding: .75rem 1rem; text-align: left; color: var(--color-muted-foreground); }

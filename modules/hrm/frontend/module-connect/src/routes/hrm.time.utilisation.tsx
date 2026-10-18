@@ -1,3 +1,4 @@
+import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, Check, Clock } from "lucide-react";
 import { extrasApi, money } from "@/mock/extras";
@@ -37,7 +38,7 @@ function UtilisationPage() {
         <Async state={util} rows={3}>
           {(rows) => (
             <div className="mt-3 overflow-x-auto rounded-lg border bg-surface">
-              <table className="w-full min-w-[40rem] text-left text-sm">
+              <RecordTable className="w-full min-w-[40rem] text-left text-sm">
                 <caption className="sr-only">Hours by employee split into billable, non-billable and absence</caption>
                 <thead className="border-b bg-surface-muted">
                   <tr>
@@ -71,7 +72,7 @@ function UtilisationPage() {
                     );
                   })}
                 </tbody>
-              </table>
+              </RecordTable>
             </div>
           )}
         </Async>
