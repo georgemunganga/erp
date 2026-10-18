@@ -49,7 +49,7 @@ The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppl
 |---|---|---|
 | Source schema P0–P9 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
 | ERP identity/entity context | Implemented in shared host; local Core roles can grant or revoke named Procurement actions | Real-session, OIDC mapping and cross-company/API access tests |
-| Vendor, item, PR draft API | Implemented in source | End-to-end scoped route tests and UI adapter |
+| Vendor, item, PR draft API | Implemented in source. The cloned workspace now has a live vendor draft list/create/detail/edit/contact/address/withdraw adapter and mocked Playwright acceptance; other screens remain demo-gated. | Real-session scoped route and database integration tests, production migration/release review; item and PR adapters |
 | Planning draft API | Implemented in source with P8 additive migration; own-plan list/detail/create/revise/cancel. Empty database and P7 data upgrade tested on disposable PostgreSQL; an existing line became `Active`. | Scoped HTTP integration tests, Finance period reference, existing planning UI adapter |
 | Category and method draft API | Implemented in source; list/detail/create/update with scoped codes and version checks | Scoped HTTP tests, policy publication authority, existing Settings adapter |
 | UI live readiness | Implemented; off by default | Per-screen capability and API acceptance, then enable individually |

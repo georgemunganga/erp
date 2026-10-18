@@ -305,7 +305,7 @@ public static class ProcurementVendorRoutes
     private static object ToBasicDetail(Supplier x) => new
     {
         x.Id, x.Number, x.DisplayName, x.CountryCode, x.SupplierType,
-        x.CategoryCode, x.Status, x.IsOrderable,
+        x.CategoryCode, x.Status, x.IsOrderable, x.Version,
     };
 
     private static async Task<bool> CanEditRecord(Supplier supplier, ProcurementRequestScope scope,
