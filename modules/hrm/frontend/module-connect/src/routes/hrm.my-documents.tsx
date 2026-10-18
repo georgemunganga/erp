@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, FileText, Upload } from "lucide-react";
 import { useState } from "react";
@@ -106,7 +107,7 @@ function MyDocuments() {
             <CardContent className="space-y-3">
               <div>
                 <Label htmlFor="personal-document-category">Category</Label>
-                <select
+                <FormSelect
                   id="personal-document-category"
                   className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
                   value={category}
@@ -116,7 +117,7 @@ function MyDocuments() {
                   <option value="qualification">Qualification</option>
                   <option value="medical">Medical</option>
                   <option value="certificate">Certificate</option>
-                </select>
+                </FormSelect>
               </div>
               <div>
                 <Label htmlFor="personal-document-title">Title</Label>

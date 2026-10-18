@@ -1,3 +1,4 @@
+import { FormToggle } from "@/components/ui/form-toggle";
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BadgeDollarSign, CalendarClock, Info, Pencil, Plus, ShieldCheck, Unplug } from "lucide-react";
@@ -911,7 +912,7 @@ function StructureDialog({
                           aria-label={`Default amount for ${String(comp.name ?? comp.code)}`}
                         />
                         <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                          <input
+                          <FormToggle
                             type="checkbox"
                             checked={Boolean(item.isOptional)}
                             onChange={(e) => setItemOptional(String(comp.id), e.target.checked)}

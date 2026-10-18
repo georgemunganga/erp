@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Download, LockKeyhole, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useState } from "react";
@@ -272,7 +273,7 @@ export function ComplianceConfig() {
                   <section className="rounded-lg border bg-surface p-4">
                     <h2 className="text-sm font-semibold">Record completed control evidence</h2>
                     <div className="mt-3 grid gap-3 md:grid-cols-[14rem_1fr_auto]">
-                      <select
+                      <FormSelect
                         aria-label="Compliance control"
                         className="h-10 rounded-md border bg-background px-3 text-sm"
                         value={controlKey}
@@ -281,7 +282,7 @@ export function ComplianceConfig() {
                         <option value="backup-restore">Backup and restore</option>
                         <option value="tenant-isolation">Tenant isolation</option>
                         <option value="security-test">Security test</option>
-                      </select>
+                      </FormSelect>
                       <Input
                         aria-label="Evidence reference"
                         placeholder="Report, ticket or rehearsal reference"

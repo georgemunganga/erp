@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -99,7 +100,7 @@ function RecruitmentOperations() {
             <CardContent className="space-y-3">
               <div>
                 <Label htmlFor="org-unit">Org unit</Label>
-                <select
+                <FormSelect
                   id="org-unit"
                   aria-label="Org unit"
                   className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
@@ -112,7 +113,7 @@ function RecruitmentOperations() {
                       {o.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
               <div>
                 <Label htmlFor="job-title">Job title</Label>
@@ -134,7 +135,7 @@ function RecruitmentOperations() {
                 Create draft
               </Button>
               <div className="grid gap-2 sm:grid-cols-2">
-                <select
+                <FormSelect
                   aria-label="Vacancy"
                   className="h-9 rounded-md border bg-transparent px-3 text-sm"
                   value={vacancyId}
@@ -146,7 +147,7 @@ function RecruitmentOperations() {
                       {String(v.jobTitle)} · {String(v.status)}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
                 <Button
                   variant="outline"
                   disabled={!vacancyId || Boolean(busy)}

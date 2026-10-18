@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -97,7 +98,7 @@ function RelationsOperations() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="case-type">Type</Label>
-                  <select
+                  <FormSelect
                     id="case-type"
                     className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
                     value={caseType}
@@ -107,11 +108,11 @@ function RelationsOperations() {
                     <option value="misconduct">Misconduct</option>
                     <option value="harassment">Harassment</option>
                     <option value="investigation">Investigation</option>
-                  </select>
+                  </FormSelect>
                 </div>
                 <div>
                   <Label htmlFor="case-severity">Severity</Label>
-                  <select
+                  <FormSelect
                     id="case-severity"
                     className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
                     value={severity}
@@ -121,7 +122,7 @@ function RelationsOperations() {
                     <option>medium</option>
                     <option>high</option>
                     <option>critical</option>
-                  </select>
+                  </FormSelect>
                 </div>
               </div>
               <div>
@@ -168,7 +169,7 @@ function RelationsOperations() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <select
+              <FormSelect
                 aria-label="Restricted case"
                 className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
                 value={caseId}
@@ -183,7 +184,7 @@ function RelationsOperations() {
                     {String(c.reference ?? c.id)} · {String(c.caseType)} · {String(c.status)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
               <div className="flex gap-2">
                 <Input
                   aria-label="Investigator subject ID"

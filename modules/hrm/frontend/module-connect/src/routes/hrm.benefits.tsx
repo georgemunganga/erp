@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { PeriodBenefitAssignments, benefitPayrollPeriods } from "@/platform/components/PeriodBenefitAssignments";
 import { useAuth } from "@/platform/auth";
 import { createFileRoute } from "@tanstack/react-router";
@@ -1215,10 +1216,10 @@ function Benefits() {
                 </div>
                 {selectedClaimType?.includeInPayroll && <div>
                   <Label htmlFor="claim-payroll-period">Payroll month</Label>
-                  <select id="claim-payroll-period" className="block h-10 w-full rounded-md border bg-background px-2" value={claimPeriod} onChange={e => setClaimPeriod(e.target.value)} disabled={busy || payrollPeriods.loading}>
+                  <FormSelect id="claim-payroll-period" className="block h-10 w-full rounded-md border bg-background px-2" value={claimPeriod} onChange={e => setClaimPeriod(e.target.value)} disabled={busy || payrollPeriods.loading}>
                     <option value="">Select payroll month...</option>
                     {(payrollPeriods.data ?? []).map(p => <option key={p.id} value={p.id}>{p.periodLabel}</option>)}
-                  </select>
+                  </FormSelect>
                   <p className="mt-1 text-xs text-muted-foreground">Added directly to this month's payroll. Tax follows the benefit settings.</p>
                   {(payrollPeriods.error || payrollPeriods.degraded) && <p role="alert" className="text-sm text-danger">Payroll months could not be loaded. Refresh to retry.</p>}
                 </div>}

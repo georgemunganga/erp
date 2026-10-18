@@ -1,3 +1,4 @@
+import { Textarea } from "@/components/ui/textarea";
 import { RecordTable } from "@/platform/components/RecordTable";
 /**
  * M31 — shared Import/Export tool for every CRUD list page.
@@ -1039,7 +1040,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
               <p className="text-xs text-muted-foreground">
                 Or paste spreadsheet contents below. Any column titles are allowed; you will map the useful columns before anything is imported.
               </p>
-              <textarea
+              <Textarea
                 rows={7}
                 className="w-full rounded-md border bg-background px-3 py-2 font-mono text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 placeholder={"Employee No,First Name,Last Name,Email,Department\nEMP-001,Jane,Mwansa,jane@company.co.zm,Finance"}

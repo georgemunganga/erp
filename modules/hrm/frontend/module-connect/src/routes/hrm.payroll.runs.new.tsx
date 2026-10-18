@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -446,29 +447,29 @@ function NewRun() {
                   <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" aria-hidden />
                   <Input value={populationSearch} onChange={(event) => setPopulationSearch(event.target.value)} placeholder="Search name, employee no., branch…" className="pl-8" />
                 </label>
-                <select aria-label="Filter by pay group" value={populationPayGroup} onChange={(event) => setPopulationPayGroup(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+                <FormSelect aria-label="Filter by pay group" value={populationPayGroup} onChange={(event) => setPopulationPayGroup(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="all">All pay groups</option>
                   {populationOptions.payGroups.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
-                <select aria-label="Filter by branch" value={populationBranch} onChange={(event) => setPopulationBranch(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+                </FormSelect>
+                <FormSelect aria-label="Filter by branch" value={populationBranch} onChange={(event) => setPopulationBranch(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="all">All branches</option>
                   {populationOptions.branches.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
-                <select aria-label="Filter by department" value={populationDepartment} onChange={(event) => setPopulationDepartment(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+                </FormSelect>
+                <FormSelect aria-label="Filter by department" value={populationDepartment} onChange={(event) => setPopulationDepartment(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="all">All departments</option>
                   {populationOptions.departments.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
-                <select aria-label="Filter by eligibility" value={populationEligibility} onChange={(event) => setPopulationEligibility(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+                </FormSelect>
+                <FormSelect aria-label="Filter by eligibility" value={populationEligibility} onChange={(event) => setPopulationEligibility(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="all">All eligibility</option>
                   <option value="eligible">Eligible for this run</option>
                   <option value="excluded">Excluded with reason</option>
-                </select>
+                </FormSelect>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <select aria-label="Filter by employee status" value={populationStatus} onChange={(event) => setPopulationStatus(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+                <FormSelect aria-label="Filter by employee status" value={populationStatus} onChange={(event) => setPopulationStatus(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="all">All employee statuses</option>
                   {populationOptions.statuses.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
+                </FormSelect>
                 <span className="text-xs text-muted-foreground">Showing {filteredPopulation.length} of {population.length} employees. Eligibility is calculated from live payroll profiles and employment dates.</span>
                 <Button type="button" variant="ghost" size="sm" onClick={() => { setPopulationSearch(""); setPopulationPayGroup("all"); setPopulationBranch("all"); setPopulationDepartment("all"); setPopulationStatus("all"); setPopulationEligibility("all"); }}>Clear filters</Button>
               </div>

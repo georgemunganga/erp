@@ -1,3 +1,5 @@
+import { Input } from "@/components/ui/input";
+import { FormSelect } from "@/components/ui/form-select";
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -113,7 +115,7 @@ export function IntegrationOperations() {
                     <label className="text-xs font-medium" htmlFor="integration-run">
                       Released payroll run
                     </label>
-                    <select
+                    <FormSelect
                       id="integration-run"
                       value={runId}
                       onChange={(e) => setRunId(e.target.value)}
@@ -125,7 +127,7 @@ export function IntegrationOperations() {
                           {String(run.periodLabel ?? run.id)} · {String(run.status)}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
                         size="sm"
@@ -151,7 +153,7 @@ export function IntegrationOperations() {
                   <div className="rounded-md border p-4">
                     <p className="text-xs font-medium">Statutory return hand-off</p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                      <select
+                      <FormSelect
                         aria-label="Pay group"
                         value={groupId}
                         onChange={(e) => {
@@ -166,8 +168,8 @@ export function IntegrationOperations() {
                             {String(group.name ?? group.code)}
                           </option>
                         ))}
-                      </select>
-                      <select
+                      </FormSelect>
+                      <FormSelect
                         aria-label="Pay period"
                         value={periodId}
                         onChange={(e) => setPeriodId(e.target.value)}
@@ -179,8 +181,8 @@ export function IntegrationOperations() {
                             {String(period.periodLabel)}
                           </option>
                         ))}
-                      </select>
-                      <select
+                      </FormSelect>
+                      <FormSelect
                         aria-label="Statutory scheme"
                         value={scheme}
                         onChange={(e) => setScheme(e.target.value)}
@@ -189,7 +191,7 @@ export function IntegrationOperations() {
                         <option value="zra">ZRA PAYE</option>
                         <option value="napsa">NAPSA</option>
                         <option value="nhima">NHIMA</option>
-                      </select>
+                      </FormSelect>
                     </div>
                     <Button
                       size="sm"
@@ -380,7 +382,7 @@ export function IntegrationOperations() {
                 >
                   <h2 className="text-sm font-semibold">Record external outcome</h2>
                   <div className="mt-3 grid gap-3 sm:grid-cols-[10rem_1fr_auto]">
-                    <select
+                    <FormSelect
                       aria-label="Outcome"
                       value={outcome}
                       onChange={(e) => setOutcome(e.target.value)}
@@ -390,8 +392,8 @@ export function IntegrationOperations() {
                       <option value="accepted">Accepted</option>
                       <option value="failed">Failed</option>
                       <option value="rejected">Rejected</option>
-                    </select>
-                    <input
+                    </FormSelect>
+                    <Input
                       aria-label="External reference"
                       value={reference}
                       onChange={(e) => setReference(e.target.value)}

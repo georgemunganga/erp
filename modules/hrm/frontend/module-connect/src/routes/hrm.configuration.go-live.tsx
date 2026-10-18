@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { useState } from "react";
@@ -144,7 +145,7 @@ export function GoLiveConfiguration() {
                       record a pass until the control was actually exercised.
                     </p>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <select
+                      <FormSelect
                         aria-label="Evidence control"
                         className="h-10 rounded-md border bg-background px-3 text-sm"
                         value={controlKey}
@@ -155,7 +156,7 @@ export function GoLiveConfiguration() {
                             {label}
                           </option>
                         ))}
-                      </select>
+                      </FormSelect>
                       <Input
                         aria-label="Evidence reference"
                         placeholder="Report, ticket or run reference"

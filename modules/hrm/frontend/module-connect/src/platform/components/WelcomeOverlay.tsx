@@ -1,3 +1,5 @@
+import { Textarea } from "@/components/ui/textarea";
+import { FormToggle } from "@/components/ui/form-toggle";
 import { RecordTable } from "./RecordTable";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
@@ -1039,7 +1041,7 @@ function WorkingTimeStep(props: { sending: boolean; onComplete: (p: Record<strin
         </div>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <input
+            <FormToggle
               id="wt-holidays"
               type="checkbox"
               checked={useHolidays}
@@ -1720,7 +1722,7 @@ function EmployeesStep(props: {
               Or paste the spreadsheet contents below — any shape and any column titles. After loading, you
               map each system field to your column, or leave it unmapped to ignore it.
             </p>
-            <textarea
+            <Textarea
               rows={6}
               className="w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
               placeholder={"<your real headers>,<and data rows below>\nSurname,Jane,Mwansa,jane@co.zm,0970000000,Accountant,Grade 2,2026-01-15,Finance"}
@@ -1851,7 +1853,7 @@ function EmployeesStep(props: {
                 {/* Native date input — the browser only ever emits a valid
                     YYYY-MM-DD value or an empty string, so the backend's
                     strict date gate can no longer be tripped by a typo. */}
-                <input
+                <Input
                   type="date"
                   aria-label="Start date"
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

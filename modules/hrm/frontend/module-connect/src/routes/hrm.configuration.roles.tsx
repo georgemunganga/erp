@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Plus, Save, ShieldCheck, ShieldOff } from "lucide-react";
@@ -190,9 +191,9 @@ export function RolesConfig() {
                       </div>
                       <div>
                         <Label htmlFor="role-category">Category</Label>
-                        <select id="role-category" className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draft.category} onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value }))}>
+                        <FormSelect id="role-category" className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draft.category} onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value }))}>
                           {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                        </select>
+                        </FormSelect>
                       </div>
                     </div>
                     <PermissionGrid values={draft.permissions} onChange={(permissions) => setDraft((d) => ({ ...d, permissions }))} />
@@ -231,9 +232,9 @@ export function RolesConfig() {
                               </div>
                               <div className="max-w-xs">
                                 <Label className="text-xs text-muted-foreground">Category</Label>
-                                <select className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draftRole.category} onChange={(event) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, category: event.target.value } }))} aria-label={`Category for ${role.roleKey}`}>
+                                <FormSelect className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draftRole.category} onChange={(event) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, category: event.target.value } }))} aria-label={`Category for ${role.roleKey}`}>
                                   {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                                </select>
+                                </FormSelect>
                               </div>
                               <PermissionGrid values={draftRole.permissions} onChange={(permissions) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, permissions } }))} />
                             </div>

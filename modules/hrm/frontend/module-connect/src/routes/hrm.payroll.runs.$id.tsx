@@ -1,3 +1,4 @@
+import { Input } from "@/components/ui/input";
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { Fragment, useEffect, useState } from "react";
@@ -1026,7 +1027,7 @@ function PaymentWorkflow({
         <div className="mt-4 flex flex-wrap items-end gap-2">
           <label className="min-w-64 flex-1 text-xs font-medium">
             Bank acknowledgement reference
-            <input
+            <Input
               className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
               value={reference}
               onChange={(e) => setReference(e.target.value)}

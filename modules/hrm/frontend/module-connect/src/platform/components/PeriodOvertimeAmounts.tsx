@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { useEffect, useState } from "react";
 import { hrmApi } from "@/platform/api-client";
 import { Button } from "@/components/ui/button";
@@ -35,10 +36,10 @@ export function PeriodOvertimeAmounts() {
     <CardContent className="space-y-4">
       <p className="text-sm text-muted-foreground">Enter each employee’s total overtime amount for the selected period. Saved amounts replace hours-based overtime for that employee in this period. Leave blank to use approved hours; enter 0 for no overtime payment. Amounts are included when payroll is calculated and go through payroll approval.</p>
       <label className="block space-y-2">Payroll period
-        <select aria-label="Overtime payroll period" className="block w-full rounded-md border bg-background p-2" value={periodId} onChange={e => setPeriodId(e.target.value)}>
+        <FormSelect aria-label="Overtime payroll period" className="block w-full rounded-md border bg-background p-2" value={periodId} onChange={e => setPeriodId(e.target.value)}>
           <option value="">Select a payroll period</option>
           {periods.map(p => <option key={p.id} value={p.id}>{p.periodLabel}</option>)}
-        </select>
+        </FormSelect>
       </label>
       {error && <p role="alert" className="text-danger">{error}</p>}
       {periodId && !batch && !error && <p>Loading overtime amounts…</p>}

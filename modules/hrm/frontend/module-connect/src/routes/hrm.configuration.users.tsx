@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Navigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -310,7 +311,7 @@ export function UsersConfiguration() {
                     const currentRole = user.roles.find((candidate) => roles.some((item) => item.roleKey === candidate)) ?? "employee";
                     return <tr key={user.id}>
                       <td className="px-3 py-3"><span className="font-medium text-foreground">{user.displayName}</span><div className="text-xs text-muted-foreground">{user.email}</div><div className="mt-1 text-[11px] text-muted-foreground">{user.source === "local" ? "HRMS local account" : user.federated ? "Shared staff identity" : "ERP realm identity"}</div></td>
-                      <td className="px-3 py-3"><select className="h-10 rounded-lg border bg-background px-3 text-sm" value={currentRole} onChange={(event) => void changeRole(user, event.target.value)} aria-label={`Role for ${user.email}`}>{roles.filter((role) => user.source === "local" || IDENTITY_ROLE_KEYS.has(role.roleKey)).map((role) => <option key={role.roleKey} value={role.roleKey} disabled={!role.active}>{role.roleName}{role.active ? "" : " (inactive)"}</option>)}</select></td>
+                      <td className="px-3 py-3"><FormSelect className="h-10 rounded-lg border bg-background px-3 text-sm" value={currentRole} onChange={(event) => void changeRole(user, event.target.value)} aria-label={`Role for ${user.email}`}>{roles.filter((role) => user.source === "local" || IDENTITY_ROLE_KEYS.has(role.roleKey)).map((role) => <option key={role.roleKey} value={role.roleKey} disabled={!role.active}>{role.roleName}{role.active ? "" : " (inactive)"}</option>)}</FormSelect></td>
                       <td className="px-3 py-3"><StatusBadge status={user.isActive ? "active" : "inactive"} /></td>
                       <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button variant="outline" size="sm" onClick={() => setSelectedUser(user)}><KeyRound className="mr-1.5 size-3.5" aria-hidden />Send reset link</Button><Switch checked={user.isActive} onCheckedChange={(checked) => void toggleUser(user, checked)} aria-label={`${user.isActive ? "Deactivate" : "Activate"} ${user.email}`} /></div></td>
                     </tr>;
@@ -359,7 +360,7 @@ export function UsersConfiguration() {
                 </div>
               ) : null}
               <div><Label htmlFor="new-display-name">Name</Label><Input id="new-display-name" className="mt-1" value={displayName} onChange={(event) => setDisplayName(event.target.value)} readOnly={Boolean(selectedDirectoryUser)} required /></div>
-              <div><Label htmlFor="new-role">Role</Label><select id="new-role" className="mt-1 flex h-11 w-full rounded-lg border bg-background px-4 text-sm" value={role} onChange={(event) => setRole(event.target.value)}>{activeRoles.map((role) => <option key={role.roleKey} value={role.roleKey}>{role.roleName}</option>)}</select></div>
+              <div><Label htmlFor="new-role">Role</Label><FormSelect id="new-role" className="mt-1 flex h-11 w-full rounded-lg border bg-background px-4 text-sm" value={role} onChange={(event) => setRole(event.target.value)}>{activeRoles.map((role) => <option key={role.roleKey} value={role.roleKey}>{role.roleName}</option>)}</FormSelect></div>
               <DialogFooter><Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={creating || !canAddUser || (directoryRequired && !directorySearched) || (directoryRequired && !capabilities?.localUsersEnabled && !selectedDirectoryUser)}>{creating ? "Saving…" : selectedDirectoryUser ? "Grant HRM access" : capabilities?.localUsersEnabled ? "Create local HRM account" : "Select a directory user"}</Button></DialogFooter>
             </form>
           </DialogContent>

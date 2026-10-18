@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/ui/form-select";
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArchiveRestore, FileSpreadsheet, RotateCcw, ShieldCheck, UsersRound } from "lucide-react";
@@ -374,7 +375,7 @@ function BulkPanel({ onPreview }: { onPreview: (batch: Row) => void }) {
         </div>
         <div>
           <Label htmlFor="bulk-field">Field</Label>
-          <select
+          <FormSelect
             id="bulk-field"
             className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
             value={field}
@@ -385,7 +386,7 @@ function BulkPanel({ onPreview }: { onPreview: (batch: Row) => void }) {
                 {label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
         <div>
           <Label htmlFor="bulk-value">New value</Label>
@@ -492,7 +493,7 @@ function ReactivationPanel({
           {(rows) => (
             <div>
               <Label htmlFor="reactivate-worker">Archived worker</Label>
-              <select
+              <FormSelect
                 id="reactivate-worker"
                 className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
                 value={workerId}
@@ -504,7 +505,7 @@ function ReactivationPanel({
                     {String(worker.employeeNo)} — {String(worker.fullName)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
           )}
         </Async>

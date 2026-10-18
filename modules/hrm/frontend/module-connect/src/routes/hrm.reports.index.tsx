@@ -413,7 +413,7 @@ function ReportsPage() {
           <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
             <div>
               <Label htmlFor="report-from">From</Label>
-              <input
+              <Input
                 id="report-from"
                 type="date"
                 value={draft.fromDate}
@@ -423,7 +423,7 @@ function ReportsPage() {
             </div>
             <div>
               <Label htmlFor="report-to">To</Label>
-              <input
+              <Input
                 id="report-to"
                 type="date"
                 value={draft.toDate}

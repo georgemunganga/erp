@@ -1,3 +1,4 @@
+import { FormToggle } from "@/components/ui/form-toggle";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Lock, Loader2, SendHorizontal } from "lucide-react";
@@ -225,7 +226,7 @@ function RequestDetail() {
                     <div className="mt-5 space-y-3 border-t pt-4">
                       {canAct ? (
                         <label className="flex items-center gap-2 text-sm">
-                          <input
+                          <FormToggle
                             type="checkbox"
                             checked={noteMode}
                             onChange={(e) => setNoteMode(e.target.checked)}
