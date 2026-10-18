@@ -26,18 +26,47 @@ public static class ProcurementHostIntegration
         ProcurementVendorRoutes.MapRoutes(app);
         ProcurementItemEndpoints.MapRoutes(app);
         ProcurementRequestRoutes.Map(app);
-        app.MapGet("/api/procurement/v1/meta", (ProcurementRequestScope scope) => Results.Ok(new
+        app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
+            ProcurementDbContext db, CancellationToken ct) =>
         {
-            module = "procurement",
-            version = 1,
-            tenantId = scope.TenantId,
-            legalEntityId = scope.LegalEntityId,
-            workLocationId = scope.WorkLocationId,
-            orgUnitId = scope.OrgUnitId,
-            confined = scope.IsConfined,
-            phase = "draft-crud",
-            crudEnabled = true,
-        })).RequireAuthorization("procurement-access");
+            try
+            {
+                if (!await db.Database.CanConnectAsync(ct))
+                    return Results.Problem(statusCode: 503, title: "Procurement database unavailable.");
+                var pending = (await db.Database.GetPendingMigrationsAsync(ct)).Any();
+                return Results.Ok(new
+                {
+                    module = "procurement",
+                    version = 1,
+                    tenantId = scope.TenantId,
+                    legalEntityId = scope.LegalEntityId,
+                    workLocationId = scope.WorkLocationId,
+                    orgUnitId = scope.OrgUnitId,
+                    confined = scope.IsConfined,
+                    schemaReady = !pending,
+                    phase = "draft-crud",
+                    crudEnabled = !pending,
+                    capabilities = new
+                    {
+                        vendorDraft = !pending,
+                        itemDraft = !pending,
+                        requestDraft = !pending,
+                        approvals = false,
+                        sourcing = false,
+                        contracts = false,
+                        orders = false,
+                        receiving = false,
+                        invoiceValidation = false,
+                        financeHandoff = false,
+                        supplierPortal = false,
+                    },
+                });
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return Results.Problem(statusCode: 503, title: "Procurement database unavailable.");
+            }
+        }).RequireAuthorization("procurement-access");
     }
 }
 

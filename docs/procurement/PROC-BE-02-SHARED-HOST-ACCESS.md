@@ -58,7 +58,7 @@ Claims: subject and tenant from identity. Selection: entity/location headers fro
 
 ## 13. Screens and Data Views
 
-The existing ERP shell supplies company and branch selectors. The metadata response echoes the resolved scope for developer/UI verification. After the draft CRUD routes were added in source, it reports `crudEnabled=true`; this reports host capability, not production deployment status.
+The existing ERP shell supplies company and branch selectors. The metadata response echoes the resolved scope for developer/UI verification. It reports `schemaReady`, `crudEnabled` and per-capability flags only after checking the configured Procurement database and pending migrations. These flags still report host capability, not production deployment or completed business transitions.
 
 ## 14. User Experience / Human Behaviour
 

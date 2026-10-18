@@ -112,7 +112,7 @@ Schema migrations are repeatable; ordinary API startup does not alter the databa
 
 ## 23. Postconditions
 
-After isolated migration, Procurement business tables plus `__procurement_migrations` exist in the `procurement` schema, with no `hrm` schema created by this migration. After API startup, liveness and database readiness respond; the current shared host metadata reports `crudEnabled=true` for draft routes in source.
+After isolated migration, Procurement business tables plus `__procurement_migrations` exist in the `procurement` schema, with no `hrm` schema created by this migration. After API startup, liveness and database readiness respond; the shared host metadata reports draft CRUD readiness only when the configured Procurement database is reachable and all source migrations have been applied.
 
 ## 24. Failure and Recovery
 

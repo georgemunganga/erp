@@ -28,6 +28,42 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+    public DbSet<SourcingEvent> SourcingEvents => Set<SourcingEvent>();
+    public DbSet<SourcingLine> SourcingLines => Set<SourcingLine>();
+    public DbSet<SourcingInvitation> SourcingInvitations => Set<SourcingInvitation>();
+    public DbSet<SupplierBid> SupplierBids => Set<SupplierBid>();
+    public DbSet<SupplierBidLine> SupplierBidLines => Set<SupplierBidLine>();
+    public DbSet<BidEvaluation> BidEvaluations => Set<BidEvaluation>();
+    public DbSet<SourcingAward> SourcingAwards => Set<SourcingAward>();
+    public DbSet<SourcingAwardLine> SourcingAwardLines => Set<SourcingAwardLine>();
+    public DbSet<SupplierContract> SupplierContracts => Set<SupplierContract>();
+    public DbSet<SupplierContractVersion> SupplierContractVersions => Set<SupplierContractVersion>();
+    public DbSet<ContractRate> ContractRates => Set<ContractRate>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+    public DbSet<PurchaseOrderRevision> PurchaseOrderRevisions => Set<PurchaseOrderRevision>();
+    public DbSet<SupplierOrderAcknowledgement> SupplierOrderAcknowledgements => Set<SupplierOrderAcknowledgement>();
+    public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
+    public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+    public DbSet<ReceiptInspection> ReceiptInspections => Set<ReceiptInspection>();
+    public DbSet<ServiceAcceptance> ServiceAcceptances => Set<ServiceAcceptance>();
+    public DbSet<SupplierReturn> SupplierReturns => Set<SupplierReturn>();
+    public DbSet<SupplierInvoice> SupplierInvoices => Set<SupplierInvoice>();
+    public DbSet<SupplierInvoiceLine> SupplierInvoiceLines => Set<SupplierInvoiceLine>();
+    public DbSet<InvoiceMatchResult> InvoiceMatchResults => Set<InvoiceMatchResult>();
+    public DbSet<InvoiceException> InvoiceExceptions => Set<InvoiceException>();
+    public DbSet<FinanceInvoiceHandoff> FinanceInvoiceHandoffs => Set<FinanceInvoiceHandoff>();
+    public DbSet<FinancePaymentStatusRef> FinancePaymentStatusRefs => Set<FinancePaymentStatusRef>();
+    public DbSet<SupplierCreditNoteRef> SupplierCreditNoteRefs => Set<SupplierCreditNoteRef>();
+    public DbSet<ProcurementCategory> ProcurementCategories => Set<ProcurementCategory>();
+    public DbSet<ProcurementMethod> ProcurementMethods => Set<ProcurementMethod>();
+    public DbSet<ProcurementPlan> ProcurementPlans => Set<ProcurementPlan>();
+    public DbSet<ProcurementPlanLine> ProcurementPlanLines => Set<ProcurementPlanLine>();
+    public DbSet<SupplierPortalMembership> SupplierPortalMemberships => Set<SupplierPortalMembership>();
+    public DbSet<SupplierPerformanceReview> SupplierPerformanceReviews => Set<SupplierPerformanceReview>();
+    public DbSet<SupplierPerformanceCriterion> SupplierPerformanceCriteria => Set<SupplierPerformanceCriterion>();
+    public DbSet<ProcurementComment> ProcurementComments => Set<ProcurementComment>();
+    public DbSet<ProcurementSetupAssessment> ProcurementSetupAssessments => Set<ProcurementSetupAssessment>();
 
     /// <summary>Stamp scope before EF tracks alternate keys used by child foreign keys.</summary>
     public void AddScoped<T>(T record) where T : ProcurementRecord
@@ -80,6 +116,42 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         ConfigureBase<ImportBatch>(modelBuilder, "import_batches");
         ConfigureBase<AuditEvent>(modelBuilder, "audit_events");
         ConfigureBase<OutboxEvent>(modelBuilder, "outbox_events");
+        ConfigureLifecycle<SourcingEvent>(modelBuilder, "sourcing_events");
+        ConfigureLifecycle<SourcingLine>(modelBuilder, "sourcing_lines");
+        ConfigureLifecycle<SourcingInvitation>(modelBuilder, "sourcing_invitations");
+        ConfigureLifecycle<SupplierBid>(modelBuilder, "supplier_bids");
+        ConfigureLifecycle<SupplierBidLine>(modelBuilder, "supplier_bid_lines");
+        ConfigureLifecycle<BidEvaluation>(modelBuilder, "bid_evaluations");
+        ConfigureLifecycle<SourcingAward>(modelBuilder, "sourcing_awards");
+        ConfigureLifecycle<SourcingAwardLine>(modelBuilder, "sourcing_award_lines");
+        ConfigureLifecycle<SupplierContract>(modelBuilder, "supplier_contracts");
+        ConfigureLifecycle<SupplierContractVersion>(modelBuilder, "supplier_contract_versions");
+        ConfigureLifecycle<ContractRate>(modelBuilder, "contract_rates");
+        ConfigureLifecycle<PurchaseOrder>(modelBuilder, "purchase_orders");
+        ConfigureLifecycle<PurchaseOrderLine>(modelBuilder, "purchase_order_lines");
+        ConfigureLifecycle<PurchaseOrderRevision>(modelBuilder, "purchase_order_revisions");
+        ConfigureLifecycle<SupplierOrderAcknowledgement>(modelBuilder, "supplier_order_acknowledgements");
+        ConfigureLifecycle<GoodsReceipt>(modelBuilder, "goods_receipts");
+        ConfigureLifecycle<GoodsReceiptLine>(modelBuilder, "goods_receipt_lines");
+        ConfigureLifecycle<ReceiptInspection>(modelBuilder, "receipt_inspections");
+        ConfigureLifecycle<ServiceAcceptance>(modelBuilder, "service_acceptances");
+        ConfigureLifecycle<SupplierReturn>(modelBuilder, "supplier_returns");
+        ConfigureLifecycle<SupplierInvoice>(modelBuilder, "supplier_invoices");
+        ConfigureLifecycle<SupplierInvoiceLine>(modelBuilder, "supplier_invoice_lines");
+        ConfigureLifecycle<InvoiceMatchResult>(modelBuilder, "invoice_match_results");
+        ConfigureLifecycle<InvoiceException>(modelBuilder, "invoice_exceptions");
+        ConfigureLifecycle<FinanceInvoiceHandoff>(modelBuilder, "finance_invoice_handoffs");
+        ConfigureLifecycle<FinancePaymentStatusRef>(modelBuilder, "finance_payment_status_refs");
+        ConfigureLifecycle<SupplierCreditNoteRef>(modelBuilder, "supplier_credit_note_refs");
+        ConfigureLifecycle<ProcurementCategory>(modelBuilder, "procurement_categories");
+        ConfigureLifecycle<ProcurementMethod>(modelBuilder, "procurement_methods");
+        ConfigureLifecycle<ProcurementPlan>(modelBuilder, "procurement_plans");
+        ConfigureLifecycle<ProcurementPlanLine>(modelBuilder, "procurement_plan_lines");
+        ConfigureLifecycle<SupplierPortalMembership>(modelBuilder, "supplier_portal_memberships");
+        ConfigureLifecycle<SupplierPerformanceReview>(modelBuilder, "supplier_performance_reviews");
+        ConfigureLifecycle<SupplierPerformanceCriterion>(modelBuilder, "supplier_performance_criteria");
+        ConfigureLifecycle<ProcurementComment>(modelBuilder, "procurement_comments");
+        ConfigureLifecycle<ProcurementSetupAssessment>(modelBuilder, "procurement_setup_assessments");
 
         modelBuilder.Entity<Supplier>(b =>
         {
@@ -322,6 +394,8 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
             b.HasIndex(x => new { x.State, x.NextAttemptAt });
         });
 
+        ConfigureCommercialRelationships(modelBuilder);
+
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
                 property.SetColumnName(ToSnake(property.Name));
@@ -338,6 +412,120 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         b.Property(x => x.UpdatedBy).HasMaxLength(200);
         b.Property(x => x.Version).IsConcurrencyToken();
         b.HasQueryFilter(x => x.TenantId == CurrentTenantId && x.LegalEntityId == CurrentLegalEntityId);
+    }
+
+    private void ConfigureLifecycle<T>(ModelBuilder modelBuilder, string table) where T : ProcurementRecord
+    {
+        ConfigureBase<T>(modelBuilder, table);
+        var b = modelBuilder.Entity<T>();
+        foreach (var property in b.Metadata.GetProperties())
+        {
+            if (property.ClrType == typeof(decimal) || property.ClrType == typeof(decimal?))
+                b.Property(property.Name).HasPrecision(18, 4);
+            if (property.Name is "CurrencyCode") b.Property(property.Name).HasMaxLength(3);
+            if (property.Name is "Status" or "Decision" or "Outcome" or "Method" or "MatchType")
+                b.Property(property.Name).HasMaxLength(40);
+            if (property.Name is "Number" or "InvoiceNumber" or "CreditNumber")
+                b.Property(property.Name).HasMaxLength(80);
+        }
+        b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CreatedAt });
+    }
+
+    private static void Link<TChild, TParent>(ModelBuilder modelBuilder, string foreignId)
+        where TChild : ProcurementRecord where TParent : ProcurementRecord =>
+        modelBuilder.Entity<TChild>().HasOne<TParent>().WithMany()
+            .HasForeignKey(nameof(ProcurementRecord.TenantId), nameof(ProcurementRecord.LegalEntityId), foreignId)
+            .HasPrincipalKey(nameof(ProcurementRecord.TenantId), nameof(ProcurementRecord.LegalEntityId), nameof(ProcurementRecord.Id))
+            .OnDelete(DeleteBehavior.Restrict);
+
+    private static void ConfigureCommercialRelationships(ModelBuilder modelBuilder)
+    {
+        Link<SourcingLine, SourcingEvent>(modelBuilder, nameof(SourcingLine.SourcingEventId));
+        Link<SourcingLine, PurchaseRequestLine>(modelBuilder, nameof(SourcingLine.PurchaseRequestLineId));
+        Link<SourcingInvitation, SourcingEvent>(modelBuilder, nameof(SourcingInvitation.SourcingEventId));
+        Link<SourcingInvitation, Supplier>(modelBuilder, nameof(SourcingInvitation.SupplierId));
+        Link<SupplierBid, SourcingEvent>(modelBuilder, nameof(SupplierBid.SourcingEventId));
+        Link<SupplierBid, Supplier>(modelBuilder, nameof(SupplierBid.SupplierId));
+        Link<SupplierBid, SourcingInvitation>(modelBuilder, nameof(SupplierBid.InvitationId));
+        Link<SupplierBidLine, SupplierBid>(modelBuilder, nameof(SupplierBidLine.SupplierBidId));
+        Link<SupplierBidLine, SourcingLine>(modelBuilder, nameof(SupplierBidLine.SourcingLineId));
+        Link<BidEvaluation, SupplierBid>(modelBuilder, nameof(BidEvaluation.SupplierBidId));
+        Link<SourcingAward, SourcingEvent>(modelBuilder, nameof(SourcingAward.SourcingEventId));
+        Link<SourcingAward, Supplier>(modelBuilder, nameof(SourcingAward.SupplierId));
+        Link<SourcingAwardLine, SourcingAward>(modelBuilder, nameof(SourcingAwardLine.SourcingAwardId));
+        Link<SourcingAwardLine, SourcingLine>(modelBuilder, nameof(SourcingAwardLine.SourcingLineId));
+        Link<SupplierContract, Supplier>(modelBuilder, nameof(SupplierContract.SupplierId));
+        Link<SupplierContract, SourcingAward>(modelBuilder, nameof(SupplierContract.SourcingAwardId));
+        Link<SupplierContractVersion, SupplierContract>(modelBuilder, nameof(SupplierContractVersion.SupplierContractId));
+        Link<ContractRate, SupplierContractVersion>(modelBuilder, nameof(ContractRate.SupplierContractVersionId));
+        Link<ContractRate, CatalogItem>(modelBuilder, nameof(ContractRate.CatalogItemId));
+        Link<PurchaseOrder, Supplier>(modelBuilder, nameof(PurchaseOrder.SupplierId));
+        Link<PurchaseOrder, SourcingAward>(modelBuilder, nameof(PurchaseOrder.SourcingAwardId));
+        Link<PurchaseOrder, SupplierContractVersion>(modelBuilder, nameof(PurchaseOrder.SupplierContractVersionId));
+        Link<PurchaseOrderLine, PurchaseOrder>(modelBuilder, nameof(PurchaseOrderLine.PurchaseOrderId));
+        Link<PurchaseOrderLine, PurchaseRequestLine>(modelBuilder, nameof(PurchaseOrderLine.PurchaseRequestLineId));
+        Link<PurchaseOrderLine, CatalogItem>(modelBuilder, nameof(PurchaseOrderLine.CatalogItemId));
+        Link<PurchaseOrderRevision, PurchaseOrder>(modelBuilder, nameof(PurchaseOrderRevision.PurchaseOrderId));
+        Link<SupplierOrderAcknowledgement, PurchaseOrder>(modelBuilder, nameof(SupplierOrderAcknowledgement.PurchaseOrderId));
+        Link<GoodsReceipt, PurchaseOrder>(modelBuilder, nameof(GoodsReceipt.PurchaseOrderId));
+        Link<GoodsReceiptLine, GoodsReceipt>(modelBuilder, nameof(GoodsReceiptLine.GoodsReceiptId));
+        Link<GoodsReceiptLine, PurchaseOrderLine>(modelBuilder, nameof(GoodsReceiptLine.PurchaseOrderLineId));
+        Link<ReceiptInspection, GoodsReceiptLine>(modelBuilder, nameof(ReceiptInspection.GoodsReceiptLineId));
+        Link<ServiceAcceptance, PurchaseOrderLine>(modelBuilder, nameof(ServiceAcceptance.PurchaseOrderLineId));
+        Link<SupplierReturn, GoodsReceiptLine>(modelBuilder, nameof(SupplierReturn.GoodsReceiptLineId));
+        Link<SupplierInvoice, Supplier>(modelBuilder, nameof(SupplierInvoice.SupplierId));
+        Link<SupplierInvoice, PurchaseOrder>(modelBuilder, nameof(SupplierInvoice.PurchaseOrderId));
+        Link<SupplierInvoiceLine, SupplierInvoice>(modelBuilder, nameof(SupplierInvoiceLine.SupplierInvoiceId));
+        Link<SupplierInvoiceLine, PurchaseOrderLine>(modelBuilder, nameof(SupplierInvoiceLine.PurchaseOrderLineId));
+        Link<SupplierInvoiceLine, GoodsReceiptLine>(modelBuilder, nameof(SupplierInvoiceLine.GoodsReceiptLineId));
+        Link<SupplierInvoiceLine, ServiceAcceptance>(modelBuilder, nameof(SupplierInvoiceLine.ServiceAcceptanceId));
+        Link<InvoiceMatchResult, SupplierInvoice>(modelBuilder, nameof(InvoiceMatchResult.SupplierInvoiceId));
+        Link<InvoiceMatchResult, PolicyVersion>(modelBuilder, nameof(InvoiceMatchResult.PolicyVersionId));
+        Link<InvoiceException, SupplierInvoice>(modelBuilder, nameof(InvoiceException.SupplierInvoiceId));
+        Link<FinanceInvoiceHandoff, SupplierInvoice>(modelBuilder, nameof(FinanceInvoiceHandoff.SupplierInvoiceId));
+        Link<FinancePaymentStatusRef, SupplierInvoice>(modelBuilder, nameof(FinancePaymentStatusRef.SupplierInvoiceId));
+        Link<SupplierCreditNoteRef, Supplier>(modelBuilder, nameof(SupplierCreditNoteRef.SupplierId));
+        Link<SupplierCreditNoteRef, SupplierInvoice>(modelBuilder, nameof(SupplierCreditNoteRef.SupplierInvoiceId));
+        Link<SupplierCreditNoteRef, SupplierReturn>(modelBuilder, nameof(SupplierCreditNoteRef.SupplierReturnId));
+
+        modelBuilder.Entity<SourcingEvent>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
+        modelBuilder.Entity<SourcingLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId, x.LineNumber }).IsUnique();
+        modelBuilder.Entity<SourcingInvitation>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId, x.SupplierId }).IsUnique();
+        modelBuilder.Entity<SupplierBid>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId, x.SupplierId, x.SubmissionVersion }).IsUnique();
+        modelBuilder.Entity<SupplierBidLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierBidId, x.SourcingLineId }).IsUnique();
+        modelBuilder.Entity<BidEvaluation>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierBidId, x.EvaluatorSubjectId, x.Stage, x.CriterionCode }).IsUnique();
+        modelBuilder.Entity<SourcingAwardLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingAwardId, x.SourcingLineId }).IsUnique();
+        modelBuilder.Entity<SupplierContract>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
+        modelBuilder.Entity<SupplierContractVersion>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierContractId, x.RevisionNumber }).IsUnique();
+        modelBuilder.Entity<ContractRate>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierContractVersionId, x.LineNumber }).IsUnique();
+        modelBuilder.Entity<PurchaseOrder>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
+        modelBuilder.Entity<PurchaseOrderLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseOrderId, x.LineNumber }).IsUnique();
+        modelBuilder.Entity<PurchaseOrderRevision>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseOrderId, x.RevisionNumber }).IsUnique();
+        modelBuilder.Entity<SupplierOrderAcknowledgement>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseOrderId, x.RevisionNumber }).IsUnique();
+        modelBuilder.Entity<GoodsReceipt>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
+        modelBuilder.Entity<SupplierInvoice>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.InvoiceNumber, x.CurrencyCode }).IsUnique();
+        modelBuilder.Entity<SupplierInvoiceLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierInvoiceId, x.LineNumber }).IsUnique();
+        modelBuilder.Entity<FinanceInvoiceHandoff>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<FinancePaymentStatusRef>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.FinancePaymentRef }).IsUnique();
+        modelBuilder.Entity<SupplierCreditNoteRef>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.CreditNumber }).IsUnique();
+        modelBuilder.Entity<PurchaseOrderRevision>().Property(x => x.BeforeSnapshotJson).HasColumnType("jsonb");
+        modelBuilder.Entity<PurchaseOrderRevision>().Property(x => x.AfterSnapshotJson).HasColumnType("jsonb");
+
+        Link<ProcurementMethod, PolicyVersion>(modelBuilder, nameof(ProcurementMethod.PolicyVersionId));
+        Link<ProcurementPlanLine, ProcurementPlan>(modelBuilder, nameof(ProcurementPlanLine.ProcurementPlanId));
+        Link<ProcurementPlanLine, CatalogItem>(modelBuilder, nameof(ProcurementPlanLine.CatalogItemId));
+        Link<SupplierPortalMembership, Supplier>(modelBuilder, nameof(SupplierPortalMembership.SupplierId));
+        Link<SupplierPerformanceReview, Supplier>(modelBuilder, nameof(SupplierPerformanceReview.SupplierId));
+        Link<SupplierPerformanceCriterion, SupplierPerformanceReview>(modelBuilder, nameof(SupplierPerformanceCriterion.SupplierPerformanceReviewId));
+        modelBuilder.Entity<ProcurementCategory>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Code }).IsUnique();
+        modelBuilder.Entity<ProcurementMethod>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Code }).IsUnique();
+        modelBuilder.Entity<ProcurementPlan>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
+        modelBuilder.Entity<ProcurementPlanLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ProcurementPlanId, x.LineNumber }).IsUnique();
+        modelBuilder.Entity<SupplierPortalMembership>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.IdentitySubjectId }).IsUnique();
+        modelBuilder.Entity<SupplierPerformanceReview>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.PeriodFrom, x.PeriodTo });
+        modelBuilder.Entity<SupplierPerformanceCriterion>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierPerformanceReviewId, x.CriterionCode }).IsUnique();
+        modelBuilder.Entity<ProcurementComment>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.OwnerType, x.OwnerId, x.CreatedAt });
+        modelBuilder.Entity<ProcurementSetupAssessment>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CapabilityKey, x.EvaluatedAt });
     }
 
     private string CurrentTenantId => scope.TenantId;
@@ -368,7 +556,9 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         {
             if (entry.State == EntityState.Deleted)
                 throw new InvalidOperationException("Procurement records must be closed, cancelled or reversed; physical deletion is not allowed.");
-            if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot)
+            if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot
+                or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
+                or ProcurementComment or ProcurementSetupAssessment)
                 throw new InvalidOperationException("Decision, evaluation, budget and audit records are append-only.");
             if (entry.State == EntityState.Added)
             {
