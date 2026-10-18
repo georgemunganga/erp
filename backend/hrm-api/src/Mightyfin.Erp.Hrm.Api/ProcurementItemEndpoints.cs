@@ -45,7 +45,7 @@ public static class ProcurementItemEndpoints
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db, CancellationToken ct)
     {
         var item = await db.CatalogItems.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
-        return item is null ? NotFound() : Results.Ok(ToView(item));
+        return item is null ? NotFound() : Results.Ok(ToDetail(item));
     }
 
     private static async Task<IResult> Catalog(ProcurementDbContext db, string? search, int? page, int? pageSize, CancellationToken ct)
@@ -234,6 +234,14 @@ public static class ProcurementItemEndpoints
 
     private static ItemView ToView(CatalogItem x) => new(x.Id, x.Code, x.Name, x.Kind, x.CategoryCode,
         x.UnitCode, x.Description, x.Status, x.IsPurchasable, x.IsStockItem, x.IsAsset, x.Brand, x.LeadTimeDays, x.Version);
+    private static object ToDetail(CatalogItem x) => new
+    {
+        x.Id, x.Code, x.Name, x.Kind, x.CategoryCode, x.UnitCode, x.Description,
+        x.TaxCodeRef, x.PurchaseUnitCode, x.PurchaseUnitConversion,
+        x.Brand, x.Manufacturer, x.ManufacturerPartNumber, x.LeadTimeDays,
+        x.MinimumOrderQuantity, x.ExpenseAccountRef, x.IsStockItem, x.IsAsset,
+        x.InspectionRequired, x.Status, x.IsPurchasable, x.Version,
+    };
     private static EntryView ToView(CatalogEntry x) => new(x.Id, x.CatalogItemId, x.SupplierId, x.CurrencyCode,
         x.UnitCode, x.UnitPrice, x.EffectiveFrom, x.EffectiveTo, x.MinimumQuantity, x.MaximumQuantity, x.Status, x.Version);
     private static IResult BadRequest(string message) => Results.BadRequest(new { code = "invalid-item", message });
