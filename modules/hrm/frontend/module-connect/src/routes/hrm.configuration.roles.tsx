@@ -28,7 +28,7 @@ export const Route = createFileRoute("/hrm/configuration/roles")({
 });
 
 const description =
-  "Create tenant roles, decide which HRMS permissions each role grants, and switch roles on or off for new sessions.";
+  "Create tenant roles, choose the actions they grant, and switch roles on or off for new sessions.";
 
 const permissionOptions = [
   { key: "timesheet_operator", label: "Timesheet operations", detail: "View, record and import attendance for employees. Overtime approval, payroll and administration require separate permissions." },
@@ -41,10 +41,29 @@ const permissionOptions = [
   { key: "hr_admin", label: "HRMS administration", detail: "Full HRMS setup, users, roles, configuration and privileged controls." },
 ];
 
+const procurementPermissionOptions = [
+  { key: "procurement-access", label: "Open Procurement", detail: "Required before any Procurement action can be used." },
+  { key: "procurement-vendor-read", label: "View suppliers", detail: "View supplier records within the assigned company." },
+  { key: "procurement-vendor-create", label: "Add suppliers", detail: "Create draft supplier records." },
+  { key: "procurement-vendor-edit", label: "Edit suppliers", detail: "Edit allowed draft supplier records." },
+  { key: "procurement-vendor-manage", label: "Manage suppliers", detail: "Use supplier management actions when their workflow is enabled." },
+  { key: "procurement-item-read", label: "View items", detail: "View procurement items and services." },
+  { key: "procurement-item-manage", label: "Manage items", detail: "Create and edit procurement items and services." },
+  { key: "procurement-request-read", label: "View requests", detail: "View purchase requests within the assigned scope." },
+  { key: "procurement-request-create", label: "Create requests", detail: "Create purchase request drafts." },
+  { key: "procurement-request-edit", label: "Edit requests", detail: "Edit allowed purchase request drafts." },
+  { key: "procurement-plan-read", label: "View plans", detail: "View procurement plan drafts." },
+  { key: "procurement-plan-create", label: "Create plans", detail: "Create procurement plan drafts." },
+  { key: "procurement-plan-edit", label: "Edit plans", detail: "Revise or cancel allowed plan drafts." },
+  { key: "procurement-configuration-read", label: "View procurement setup", detail: "View categories and methods." },
+  { key: "procurement-configuration-edit", label: "Edit procurement setup", detail: "Maintain draft categories and methods." },
+];
+
 const categoryLabels: Record<string, string> = {
   hrm: "HR administration",
   payroll: "Payroll",
   system: "System",
+  procurement: "Procurement",
 };
 
 interface RoleRow {
@@ -88,10 +107,11 @@ function togglePermission(values: string[], key: string, checked: boolean) {
   return Array.from(new Set(next));
 }
 
-function PermissionGrid({ values, onChange }: { values: string[]; onChange: (next: string[]) => void }) {
+function PermissionGrid({ values, onChange, category }: { values: string[]; onChange: (next: string[]) => void; category: string }) {
+  const options = category === "procurement" ? procurementPermissionOptions : permissionOptions;
   return (
     <div className="grid gap-2 sm:grid-cols-2">
-      {permissionOptions.map((permission) => (
+      {options.map((permission) => (
         <label key={permission.key} className="flex items-start gap-3 rounded-lg border bg-background p-3 text-sm">
           <Checkbox
             checked={values.includes(permission.key)}
@@ -191,12 +211,12 @@ export function RolesConfig() {
                       </div>
                       <div>
                         <Label htmlFor="role-category">Category</Label>
-                        <FormSelect id="role-category" className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draft.category} onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value }))}>
+                        <FormSelect id="role-category" className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draft.category} onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value, permissions: event.target.value === "procurement" ? ["procurement-access"] : ["employee"] }))}>
                           {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                         </FormSelect>
                       </div>
                     </div>
-                    <PermissionGrid values={draft.permissions} onChange={(permissions) => setDraft((d) => ({ ...d, permissions }))} />
+                    <PermissionGrid category={draft.category} values={draft.permissions} onChange={(permissions) => setDraft((d) => ({ ...d, permissions }))} />
                     <div className="flex justify-end">
                       <Button type="submit" disabled={saving === "new" || draft.permissions.length === 0}>
                         <Plus className="size-4" aria-hidden /> {saving === "new" ? "Creating..." : "Create role"}
@@ -232,11 +252,11 @@ export function RolesConfig() {
                               </div>
                               <div className="max-w-xs">
                                 <Label className="text-xs text-muted-foreground">Category</Label>
-                                <FormSelect className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draftRole.category} onChange={(event) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, category: event.target.value } }))} aria-label={`Category for ${role.roleKey}`}>
+                                <FormSelect className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draftRole.category} onChange={(event) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, category: event.target.value, permissions: event.target.value === "procurement" ? ["procurement-access"] : ["employee"] } }))} aria-label={`Category for ${role.roleKey}`}>
                                   {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                                 </FormSelect>
                               </div>
-                              <PermissionGrid values={draftRole.permissions} onChange={(permissions) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, permissions } }))} />
+                              <PermissionGrid category={draftRole.category} values={draftRole.permissions} onChange={(permissions) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, permissions } }))} />
                             </div>
                           </div>
                           <div className="flex items-center justify-end gap-3 lg:min-w-56">

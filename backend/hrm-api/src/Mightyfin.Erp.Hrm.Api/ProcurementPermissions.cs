@@ -1,34 +1,41 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>
-/// Initial role-to-action grants for Procurement. Every route also checks the
-/// resolved entity and its own record/state scope. Tenant-configured grants
-/// replace this bootstrap map in the next policy milestone.
+/// Every route also checks the resolved entity and its own record/state scope.
+/// Local sessions use Core's configured action grants; OIDC uses bootstrap
+/// roles until the IdP-to-Core permission contract is established.
 /// </summary>
 public static class ProcurementPermissions
 {
-    private static readonly Dictionary<string, string[]> RoleGrants = new(StringComparer.Ordinal)
+    private static readonly IReadOnlyDictionary<string, string[]> RoleGrants = ProcurementActionCatalog.BootstrapGrants;
+    public const string ConfiguredClaim = "procurement_permissions_configured";
+    public const string ActionClaim = "procurement_permission";
+
+    public static async Task<string[]> ResolveConfiguredActionsAsync(HrmDbContext db, string csv, CancellationToken ct)
     {
-        ["procurement-access"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor"],
-        ["procurement-vendor-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
-        ["procurement-vendor-create"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
-        ["procurement-vendor-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
-        ["procurement-vendor-manage"] = ["procurement_buyer", "procurement_manager", "supplier_admin"],
-        ["procurement-item-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
-        ["procurement-item-manage"] = ["procurement_buyer", "procurement_manager"],
-        ["procurement-request-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
-        ["procurement-request-create"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
-        ["procurement-request-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
-        ["procurement-plan-read"] = ["manager", "procurement_buyer", "procurement_manager"],
-        ["procurement-plan-create"] = ["manager", "procurement_buyer", "procurement_manager"],
-        ["procurement-plan-edit"] = ["manager", "procurement_buyer", "procurement_manager"],
-        ["procurement-configuration-read"] = ["procurement_buyer", "procurement_manager"],
-        ["procurement-configuration-edit"] = ["procurement_manager"],
-    };
+        var assigned = LocalIdentityRoutes.ParseRoles(csv);
+        if (assigned.Length == 0) return [];
+        var configured = await db.TenantRoleAssignments.AsNoTracking()
+            .Where(r => r.Active && assigned.Contains(r.RoleKey)).ToListAsync(ct);
+        var known = RoleGrants.Keys.ToHashSet(StringComparer.Ordinal);
+        var grants = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var role in assigned)
+        {
+            var row = configured.FirstOrDefault(r => r.RoleKey.Equals(role, StringComparison.OrdinalIgnoreCase));
+            if (row is null) continue;
+            var explicitActions = row.PermissionsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(known.Contains).ToArray();
+            foreach (var action in explicitActions.Length > 0 ? explicitActions : ProcurementActionCatalog.ForRole(role))
+                grants.Add(action);
+        }
+        return grants.Order(StringComparer.Ordinal).ToArray();
+    }
 
     public static void AddPolicies(AuthorizationOptions options)
     {
@@ -45,13 +52,19 @@ public static class ProcurementPermissions
     {
         if (!RoleGrants.TryGetValue(policy, out var roles)) return false;
         var principal = WorkerPrincipal.FromClaims(claims);
+        if (claims.Any(x => x.Type == ConfiguredClaim))
+        {
+            if (principal.IsRole("erp_admin")) return true;
+            var hasAccess = claims.Any(x => x.Type == ActionClaim && x.Value == "procurement-access");
+            return hasAccess && (policy == "procurement-access"
+                || claims.Any(x => x.Type == ActionClaim && x.Value == policy));
+        }
         return principal.IsRole("erp_admin") || principal.IsRole(roles);
     }
 
     public static string[] GrantedPolicies(IEnumerable<Claim> claims)
     {
-        var principal = WorkerPrincipal.FromClaims(claims);
-        return RoleGrants.Where(x => principal.IsRole("erp_admin") || principal.IsRole(x.Value))
+        return RoleGrants.Where(x => Allows(x.Key, claims))
             .Select(x => x.Key).Order(StringComparer.Ordinal).ToArray();
     }
 

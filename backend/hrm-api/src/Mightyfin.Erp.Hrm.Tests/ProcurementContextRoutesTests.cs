@@ -11,7 +11,7 @@ public sealed class ProcurementContextRoutesTests
     public async Task Context_contains_only_verified_current_company_and_safe_workforce_fields()
     {
         await using var db = TestDbContextFactory.Create("tenant-a");
-        var company = new LegalEntity { Code = "A", RegisteredName = "Company A" };
+        var company = new LegalEntity { Code = "A", RegisteredName = "Company A", Currency = "USD" };
         var otherCompany = new LegalEntity { Code = "B", RegisteredName = "Company B" };
         db.LegalEntities.AddRange(company, otherCompany);
         var branch = new WorkLocation { Code = "A1", Name = "Main branch", LegalEntityId = company.Id };
@@ -33,6 +33,8 @@ public sealed class ProcurementContextRoutesTests
         Assert.Equal(company.Id, response.LegalEntityId);
         Assert.Equal(worker.Id, response.WorkerId);
         Assert.Equal("Company A", response.Company.Name);
+        Assert.Equal("USD", response.Company.CurrencyCode);
+        Assert.Equal("USD", await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(db, scope, default));
         Assert.Equal(branch.Id, response.Branch?.Id);
         Assert.Equal(unit.Id, response.OrgUnit?.Id);
         Assert.Single(response.AllowedCompanies);

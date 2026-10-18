@@ -37,7 +37,7 @@ public static class ProcurementContextRoutes
 
         var company = await db.LegalEntities.AsNoTracking()
             .Where(x => x.TenantId == scope.TenantId && x.Id == scope.LegalEntityId && !x.IsArchived)
-            .Select(x => new ProcurementCompany(x.Id, x.Code, x.RegisteredName))
+            .Select(x => new ProcurementCompany(x.Id, x.Code, x.RegisteredName, x.Currency))
             .SingleOrDefaultAsync(ct);
         if (company is null) return null;
 
@@ -82,7 +82,7 @@ public static class ProcurementContextRoutes
     }
 }
 
-public sealed record ProcurementCompany(Guid Id, string Code, string Name);
+public sealed record ProcurementCompany(Guid Id, string Code, string Name, string CurrencyCode);
 public sealed record ProcurementLocation(Guid Id, string Code, string Name);
 public sealed record ProcurementContextResponse(
     string TenantId,

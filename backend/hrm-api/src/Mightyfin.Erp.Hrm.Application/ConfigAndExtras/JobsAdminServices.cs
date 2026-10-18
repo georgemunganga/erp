@@ -96,24 +96,25 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
 
     public async Task<List<TenantRoleDto>> ListRolesAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_admin");
+        authz.RequireAnyRole("hr_admin", "erp_admin");
         var rows = await repo.ListRoleAssignmentsAsync(ct);
         return rows.OrderBy(r => r.Category).ThenBy(r => r.RoleName).Select(ToRoleDto).ToList();
     }
 
     public async Task<TenantRoleDto> CreateRoleAsync(RoleCreateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_admin");
+        authz.RequireAnyRole("hr_admin", "erp_admin");
         var key = NormalizeRoleKey(request.RoleKey);
         RequireNonEmpty(request.RoleName, "roleName");
         if ((await repo.ListRoleAssignmentsAsync(ct)).Any(r => r.RoleKey.Equals(key, StringComparison.OrdinalIgnoreCase)))
             throw new DomainException("role-key-taken", $"Role '{key}' already exists.");
+        var category = NormalizeCategory(request.Category);
         var row = new TenantRoleAssignment
         {
             RoleKey = key,
             RoleName = request.RoleName.Trim(),
-            Category = NormalizeCategory(request.Category),
-            PermissionsCsv = string.Join(',', NormalizePermissions(request.Permissions ?? [])),
+            Category = category,
+            PermissionsCsv = string.Join(',', NormalizePermissions(category, request.Permissions ?? [])),
             Active = request.Active,
         };
         return ToRoleDto(await repo.CreateRoleAssignmentAsync(row, ct));
@@ -121,7 +122,7 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
 
     public async Task<TenantRoleDto> UpdateRoleAsync(string roleKey, RoleUpdateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_admin");
+        authz.RequireAnyRole("hr_admin", "erp_admin");
         var rows = await repo.ListRoleAssignmentsAsync(ct);
         var row = rows.FirstOrDefault(r => r.RoleKey.Equals(roleKey, StringComparison.OrdinalIgnoreCase));
         if (row is null)
@@ -132,17 +133,30 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
             RequireNonEmpty(request.RoleName, "roleName");
             row.RoleName = request.RoleName.Trim();
         }
-        if (request.Category is not null) row.Category = NormalizeCategory(request.Category);
-        if (request.Permissions is not null) row.PermissionsCsv = string.Join(',', NormalizePermissions(request.Permissions));
+        if (request.Category is not null)
+        {
+            if (request.Permissions is null && NormalizeCategory(request.Category) != row.Category)
+                throw new DomainException("permissions-required", "Choose permissions when changing a role category.");
+            row.Category = NormalizeCategory(request.Category);
+        }
+        if (request.Permissions is not null) row.PermissionsCsv = string.Join(',', NormalizePermissions(row.Category, request.Permissions));
         EnsureAdminAccessRemains(rows);
         row = await repo.UpdateRoleAssignmentAsync(row, ct);
         return ToRoleDto(row);
     }
 
-    public static string[] PermissionKeys = HrmStaffAccess.Roles;
+    public static string[] PermissionKeys = HrmStaffAccess.Roles
+        .Concat(ProcurementActionCatalog.BootstrapGrants.Keys).ToArray();
 
-    private static TenantRoleDto ToRoleDto(TenantRoleAssignment row) =>
-        new(row.Id, row.RoleKey, row.RoleName, row.Category, row.Active, ParseCsv(row.PermissionsCsv).DefaultIfEmpty(row.RoleKey).ToArray());
+    private static TenantRoleDto ToRoleDto(TenantRoleAssignment row)
+    {
+        var stored = ParseCsv(row.PermissionsCsv);
+        var permissions = row.Category == "procurement"
+            && !stored.Any(ProcurementActionCatalog.BootstrapGrants.ContainsKey)
+            ? ProcurementActionCatalog.ForRole(row.RoleKey)
+            : stored.DefaultIfEmpty(row.RoleKey).ToArray();
+        return new(row.Id, row.RoleKey, row.RoleName, row.Category, row.Active, permissions);
+    }
 
     private static string NormalizeRoleKey(string? roleKey)
     {
@@ -155,19 +169,20 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
     private static string NormalizeCategory(string? category)
     {
         var value = (category ?? "hrm").Trim().ToLowerInvariant();
-        return value is "hrm" or "payroll" or "system" ? value : "hrm";
+        return value is "hrm" or "payroll" or "system" or "procurement" ? value : "hrm";
     }
 
-    private static string[] NormalizePermissions(IEnumerable<string> permissions)
+    private static string[] NormalizePermissions(string category, IEnumerable<string> permissions)
     {
-        var allowed = new HashSet<string>(PermissionKeys, StringComparer.OrdinalIgnoreCase);
+        var allowed = new HashSet<string>(category == "procurement"
+            ? ProcurementActionCatalog.BootstrapGrants.Keys
+            : HrmStaffAccess.Roles, StringComparer.OrdinalIgnoreCase);
         var values = permissions.SelectMany(p => ParseCsv(p))
             .Select(p => p.Trim().ToLowerInvariant())
-            .Where(p => allowed.Contains(p))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        if (values.Length == 0)
-            throw new DomainException("invalid-permissions", "Select at least one HRMS permission for this role.");
+        if (values.Length == 0 || values.Any(p => !allowed.Contains(p)))
+            throw new DomainException("invalid-permissions", $"Select only supported {category} permissions for this role.");
         return values;
     }
 

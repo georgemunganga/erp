@@ -98,6 +98,9 @@ internal sealed class LocalAuthenticationHandler(
         identity.AddClaim(new Claim("environment", "standalone"));
         foreach (var role in await LocalIdentityRoutes.ResolveGrantedRolesAsync(db, user.RolesCsv, Context.RequestAborted))
             identity.AddClaim(new Claim(ClaimTypes.Role, role));
+        identity.AddClaim(new Claim(ProcurementPermissions.ConfiguredClaim, "true"));
+        foreach (var action in await ProcurementPermissions.ResolveConfiguredActionsAsync(db, user.RolesCsv, Context.RequestAborted))
+            identity.AddClaim(new Claim(ProcurementPermissions.ActionClaim, action));
         if (user.WorkerId is Guid workerId)
             identity.AddClaim(new Claim("worker_id", workerId.ToString("D")));
 

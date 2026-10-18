@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -43,9 +44,11 @@ public static class ProcurementPlanRoutes
         return plan is null ? Problem("not-found", "Plan not found.", 404) : Results.Ok(Detail(plan));
     }
 
-    private static async Task<IResult> Create(ProcurementPlanInput input, ProcurementDbContext db,
+    private static async Task<IResult> Create(ProcurementPlanInput input, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
+            ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
         var issue = ProcurementPlanRules.Validate(input);
         if (issue is not null) return Problem("validation-failed", issue, 422);
         if (input.Lines!.Any(x => x.Id.HasValue))
@@ -77,18 +80,20 @@ public static class ProcurementPlanRoutes
         if (plan is null) return Problem("not-found", "Plan not found.", 404);
         if (plan.Status != "Draft") return Problem("plan-locked", "Only a draft plan can be changed.", 409);
         if (plan.Version != input.Version) return Problem("version-conflict", "Refresh this plan before saving changes.", 409);
-        var issue = ProcurementPlanRules.Validate(input.Draft);
+        var draft = input.Draft with { CurrencyCode = string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
+            ? plan.CurrencyCode : input.Draft.CurrencyCode };
+        var issue = ProcurementPlanRules.Validate(draft);
         if (issue is not null) return Problem("validation-failed", issue, 422);
-        var lines = input.Draft.Lines!;
+        var lines = draft.Lines!;
         var referenceIssue = await ValidateReferences(lines, db, ct);
         if (referenceIssue is not null) return Problem("validation-failed", referenceIssue, 422);
         var existing = plan.Lines.ToDictionary(x => x.Id);
         if (lines.Any(x => x.Id.HasValue && (!existing.ContainsKey(x.Id.Value) || existing[x.Id.Value].Status != "Active")))
             return Problem("validation-failed", "A planned need is unavailable or belongs to another plan.", 422);
 
-        plan.FinancialPeriodRef = input.Draft.FinancialPeriodRef!.Trim();
-        plan.CurrencyCode = input.Draft.CurrencyCode!.Trim().ToUpperInvariant();
-        plan.FundingSourceRef = Clean(input.Draft.FundingSourceRef);
+        plan.FinancialPeriodRef = draft.FinancialPeriodRef!.Trim();
+        plan.CurrencyCode = draft.CurrencyCode!.Trim().ToUpperInvariant();
+        plan.FundingSourceRef = Clean(draft.FundingSourceRef);
         plan.UpdatedAt = DateTimeOffset.UtcNow; // conflict token also changes for line-only edits
         var included = lines.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
         foreach (var line in plan.Lines.Where(x => x.Status == "Active" && !included.Contains(x.Id)))

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
@@ -41,10 +42,13 @@ public static class ProcurementRequestRoutes
         return request is null ? Error("not-found", "Request not found.", 404) : Results.Ok(ToDetail(request));
     }
 
-    private static async Task<IResult> Create(NewRequest input, ProcurementDbContext db,
+    private static async Task<IResult> Create(NewRequest input, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        var issue = Validate(input.Purpose, input.CurrencyCode, input.Lines);
+        var currency = string.IsNullOrWhiteSpace(input.CurrencyCode)
+            ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct)
+            : input.CurrencyCode;
+        var issue = Validate(input.Purpose, currency, input.Lines);
         if (issue is not null) return Error("validation-failed", issue, 422);
         if (input.Lines!.Any(x => x.Id.HasValue))
             return Error("validation-failed", "New request lines cannot carry an existing line ID.", 422);
@@ -59,7 +63,7 @@ public static class ProcurementRequestRoutes
             Number = "PR-" + Guid.CreateVersion7().ToString("N"),
             RequesterWorkerId = workerId.Value,
             Purpose = input.Purpose!.Trim(),
-            CurrencyCode = input.CurrencyCode!.Trim().ToUpperInvariant(),
+            CurrencyCode = currency!.Trim().ToUpperInvariant(),
             NeededBy = input.NeededBy,
             BranchRef = scope.WorkLocationId,
             DepartmentRef = scope.OrgUnitId,
@@ -89,7 +93,8 @@ public static class ProcurementRequestRoutes
         if (request.Version != input.Version) return Error("version-conflict", "Refresh this request before saving changes.", 409);
         if (scope.WorkerId != request.RequesterWorkerId)
             return Error("employee-unavailable", "An active employee record is needed to change this request.", 403);
-        var issue = Validate(input.Purpose, input.CurrencyCode, input.Lines);
+        var currency = string.IsNullOrWhiteSpace(input.CurrencyCode) ? request.CurrencyCode : input.CurrencyCode;
+        var issue = Validate(input.Purpose, currency, input.Lines);
         if (issue is not null) return Error("validation-failed", issue, 422);
         if (input.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id).Distinct().Count()
             != input.Lines!.Count(x => x.Id.HasValue))
@@ -103,7 +108,7 @@ public static class ProcurementRequestRoutes
             return Error("validation-failed", "A removed line cannot be restored; add a new line.", 422);
 
         request.Purpose = input.Purpose!.Trim();
-        request.CurrencyCode = input.CurrencyCode!.Trim().ToUpperInvariant();
+        request.CurrencyCode = currency!.Trim().ToUpperInvariant();
         request.NeededBy = input.NeededBy;
         request.CostCenterRef = Clean(input.CostCenterRef);
         request.ProjectRef = Clean(input.ProjectRef);

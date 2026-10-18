@@ -8,7 +8,9 @@ The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared 
 
 ## Current baseline
 
-The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppliers, items and purchase requests. The Procurement database has P0–P7 source migrations covering 55 business tables; they have been validated on disposable PostgreSQL, not production. The UI still uses demonstration records, and the live gate holds transaction screens. Core already supplies sign-in and organisation context, but Procurement-specific grants, workflow assignments, document upload, Finance and Inventory/Asset contracts require completion or verification. No purchase commitment, AP posting, payment or supplier activation is enabled merely by a table or screen.
+The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppliers, items, purchase requests, plans, categories and methods. The Procurement database has P0–P8 source migrations validated on disposable PostgreSQL, not production. The UI still uses demonstration records, and the live gate holds transaction screens. Core supplies sign-in and organisation context; local sessions now resolve configurable Procurement action grants from Core tenant roles. OIDC role mapping, workflow assignments, document upload, Finance and Inventory/Asset contracts require completion or verification. No purchase commitment, AP posting, payment or supplier activation is enabled merely by a table or screen.
+
+**Company and currency decision:** New Procurement records use the company selected in Core. Its configured currency is shown in the Procurement context and fills a new supplier, request or plan draft when no currency is supplied. An existing draft keeps its stored currency during an edit that omits currency, even if the company default changes. The first company in the user's setup is Amizo Power; no company ID or currency is hard-coded into Procurement. This follows the distinction in [ERPNext Global Defaults](https://docs.frappe.io/erpnext/global-defaults) between a suggested company/default currency and a document's transaction currency. Spending thresholds, budget actions and supplier activation rules remain company-owned configuration decisions; draft CRUD does not imply approval.
 
 ## Order of implementation
 
@@ -45,8 +47,8 @@ The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppl
 
 | Area | State on 18 October 2026 | Next acceptance evidence |
 |---|---|---|
-| Source schema P0–P7 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
-| ERP identity/entity context | Implemented in shared host | Real-session and cross-company/API access tests |
+| Source schema P0–P8 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
+| ERP identity/entity context | Implemented in shared host; local Core roles can grant or revoke named Procurement actions | Real-session, OIDC mapping and cross-company/API access tests |
 | Vendor, item, PR draft API | Implemented in source | End-to-end scoped route tests and UI adapter |
 | Planning draft API | Implemented in source with P8 additive migration; own-plan list/detail/create/revise/cancel. Empty database and P7 data upgrade tested on disposable PostgreSQL; an existing line became `Active`. | Scoped HTTP integration tests, Finance period reference, existing planning UI adapter |
 | Category and method draft API | Implemented in source; list/detail/create/update with scoped codes and version checks | Scoped HTTP tests, policy publication authority, existing Settings adapter |

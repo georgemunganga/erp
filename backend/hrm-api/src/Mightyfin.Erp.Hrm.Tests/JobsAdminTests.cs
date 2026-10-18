@@ -97,6 +97,34 @@ public sealed class JobsAdminTests
     }
 
     [Fact]
+    public async Task Core_role_admin_can_configure_procurement_actions()
+    {
+        using var db = CreateContext();
+        var svc = CreateService(db);
+        db.TenantRoleAssignments.Add(new TenantRoleAssignment
+        {
+            RoleKey = "hr_admin", RoleName = "HR admin", Category = "system",
+            PermissionsCsv = "hr_admin", Active = true,
+        });
+        await db.SaveChangesAsync();
+
+        var created = await svc.CreateRoleAsync(new RoleCreateRequest("procurement_reviewer",
+            "Procurement reviewer", "procurement",
+            ["procurement-access", "procurement-vendor-read"]), CancellationToken.None);
+        Assert.Equal("procurement", created.Category);
+        Assert.Equal(["procurement-access", "procurement-vendor-read"], created.Permissions);
+
+        var updated = await svc.UpdateRoleAsync("procurement_reviewer",
+            new RoleUpdateRequest(Permissions: ["procurement-access", "procurement-item-read"]), CancellationToken.None);
+        Assert.Contains("procurement-item-read", updated.Permissions);
+        Assert.DoesNotContain("procurement-vendor-read", updated.Permissions);
+        var invalid = await Assert.ThrowsAsync<DomainException>(() => svc.UpdateRoleAsync(
+            "procurement_reviewer", new RoleUpdateRequest(Permissions: ["procurement-access", "hr_admin"]),
+            CancellationToken.None));
+        Assert.Equal("invalid-permissions", invalid.Code);
+    }
+
+    [Fact]
     public async Task Retention_rules_crud()
     {
         using var db = CreateContext();

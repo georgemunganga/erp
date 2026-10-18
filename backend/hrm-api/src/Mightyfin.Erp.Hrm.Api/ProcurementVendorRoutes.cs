@@ -3,6 +3,7 @@ using Mightyfin.Erp.Hrm.Application;
 using Microsoft.AspNetCore.Authorization;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -65,10 +66,12 @@ public static class ProcurementVendorRoutes
             ? ToDetail(supplier) : ToBasicDetail(supplier));
     }
 
-    private static async Task<IResult> CreateAsync(VendorDraftInput input, ProcurementDbContext db,
+    private static async Task<IResult> CreateAsync(VendorDraftInput input, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope,
         CancellationToken ct)
     {
+        input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
+            ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
         var error = Validate(input);
         if (error is not null) return BadInput(error);
         var registration = NormalizeRegistration(input.RegistrationNumber);
@@ -172,7 +175,8 @@ public static class ProcurementVendorRoutes
         supplier.TaxIdentifierRef = Clean(input.Draft.TaxIdentifierRef);
         supplier.SupplierType = Clean(input.Draft.SupplierType);
         supplier.CategoryCode = Clean(input.Draft.CategoryCode);
-        supplier.DefaultCurrencyCode = Code(input.Draft.CurrencyCode);
+        supplier.DefaultCurrencyCode = string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
+            ? supplier.DefaultCurrencyCode : Code(input.Draft.CurrencyCode);
         supplier.PaymentTermRef = Clean(input.Draft.PaymentTermRef);
         supplier.TaxCategoryRef = Clean(input.Draft.TaxCategoryRef);
         supplier.LanguageCode = Clean(input.Draft.LanguageCode);
