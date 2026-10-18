@@ -1952,6 +1952,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("status");
 
+                    b.Property<string>("StatusReason")
+                        .HasColumnType("text")
+                        .HasColumnName("status_reason");
+
                     b.Property<string>("TenantId")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -2041,6 +2045,16 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.Property<Guid>("ProcurementPlanId")
                         .HasColumnType("uuid")
                         .HasColumnName("procurement_plan_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("StatusReason")
+                        .HasColumnType("text")
+                        .HasColumnName("status_reason");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -5621,7 +5635,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.ProcurementPlan", null)
-                        .WithMany()
+                        .WithMany("Lines")
                         .HasForeignKey("TenantId", "LegalEntityId", "ProcurementPlanId")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -6053,6 +6067,11 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.CatalogItem", b =>
                 {
                     b.Navigation("Entries");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.ProcurementPlan", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PurchaseRequest", b =>

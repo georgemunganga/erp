@@ -10,6 +10,8 @@
 
 This feature defines the Procurement-owned settings that other procurement workflows consume. It uses shared ERP identity, organization, workflow, document, notification and audit capabilities where those are available; it does not create another copy of their master data. Values in this document are candidate configuration fields, not approved company policy.
 
+**Implementation note, 18 October 2026:** Tenant/entity-scoped category and procurement-method Draft list/detail/create/update APIs exist in source at `/api/procurement/v1/configuration/categories` and `/methods`. They keep codes stable and use optimistic versions. Policy authoring, validation, simulation, approval, publication and effective-rule resolution are not enabled. The existing Settings UI remains demonstration data until connected and verified.
+
 ## 1. Feature Identification
 
 **Feature ID:** PROC-CFG-01. **Parent:** Procurement Platform and Configuration. **Child:** Procurement Configuration and Policy. **Priority:** foundation prerequisite for supplier and purchase request workflows. **Lifecycle:** draft. **Business owner:** Procurement governance owner, to name. **Data owner:** Procurement for policy definitions and published versions. **Product and technical owners:** to assign. **Target:** documentation/build Phase 1. **Review date:** to agree.

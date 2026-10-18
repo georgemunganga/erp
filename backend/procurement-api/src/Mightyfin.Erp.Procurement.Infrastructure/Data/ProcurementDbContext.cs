@@ -92,6 +92,8 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
             foreach (var line in request.Lines) Stamp(line);
             foreach (var allocation in request.Allocations) Stamp(allocation);
         }
+        if (record is ProcurementPlan plan)
+            foreach (var line in plan.Lines) Stamp(line);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -512,7 +514,10 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         modelBuilder.Entity<PurchaseOrderRevision>().Property(x => x.AfterSnapshotJson).HasColumnType("jsonb");
 
         Link<ProcurementMethod, PolicyVersion>(modelBuilder, nameof(ProcurementMethod.PolicyVersionId));
-        Link<ProcurementPlanLine, ProcurementPlan>(modelBuilder, nameof(ProcurementPlanLine.ProcurementPlanId));
+        modelBuilder.Entity<ProcurementPlanLine>().HasOne<ProcurementPlan>().WithMany(x => x.Lines)
+            .HasForeignKey(nameof(ProcurementRecord.TenantId), nameof(ProcurementRecord.LegalEntityId), nameof(ProcurementPlanLine.ProcurementPlanId))
+            .HasPrincipalKey(nameof(ProcurementRecord.TenantId), nameof(ProcurementRecord.LegalEntityId), nameof(ProcurementRecord.Id))
+            .OnDelete(DeleteBehavior.Restrict);
         Link<ProcurementPlanLine, CatalogItem>(modelBuilder, nameof(ProcurementPlanLine.CatalogItemId));
         Link<SupplierPortalMembership, Supplier>(modelBuilder, nameof(SupplierPortalMembership.SupplierId));
         Link<SupplierPerformanceReview, Supplier>(modelBuilder, nameof(SupplierPerformanceReview.SupplierId));

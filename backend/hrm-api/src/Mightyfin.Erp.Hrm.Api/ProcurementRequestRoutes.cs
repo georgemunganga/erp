@@ -51,7 +51,7 @@ public static class ProcurementRequestRoutes
         var workerId = scope.WorkerId;
         if (workerId is null)
             return Error("employee-unavailable", "An active employee record is needed to create a request.", 403);
-        var referenceIssue = await ValidateReferences(input.Lines, db, ct);
+        var referenceIssue = await ValidateReferences(input.Lines!, db, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
 
         var request = new PurchaseRequest
@@ -92,9 +92,9 @@ public static class ProcurementRequestRoutes
         var issue = Validate(input.Purpose, input.CurrencyCode, input.Lines);
         if (issue is not null) return Error("validation-failed", issue, 422);
         if (input.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id).Distinct().Count()
-            != input.Lines.Count(x => x.Id.HasValue))
+            != input.Lines!.Count(x => x.Id.HasValue))
             return Error("validation-failed", "A request line was repeated.", 422);
-        var referenceIssue = await ValidateReferences(input.Lines, db, ct);
+        var referenceIssue = await ValidateReferences(input.Lines!, db, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
         var existing = request.Lines.ToDictionary(x => x.Id);
         if (input.Lines.Any(x => x.Id.HasValue && !existing.ContainsKey(x.Id.Value)))

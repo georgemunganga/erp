@@ -2,6 +2,8 @@
 
 **Status:** Draft for business review · **Version:** 0.1 · **Hierarchy:** Procurement → Procurement Planning → Annual and Period Procurement Plan → Operations · **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx) · **Module:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 
+**Implementation note, 18 October 2026:** Own-plan Draft list/detail/create/revise/cancel routes are implemented in source at `/api/procurement/v1/plans`; the additive P8 migration was applied to disposable PostgreSQL. They create forecasts only. Submission, review, approval, activation, utilization and Finance budget confirmation remain blocked until the decisions below and their integration contracts are approved. The existing planning UI still uses demonstration records.
+
 ## 1. Feature Identification
 
 `PROC-05`, advanced phase. Business owner: Procurement planning lead; Finance funding owner; product/data/technical owners to name. Operations: `O1` create plan, `O2` consolidate/review, `O3` approve/activate, `O4` revise, `O5` link PR/track utilization, `O6` close period.

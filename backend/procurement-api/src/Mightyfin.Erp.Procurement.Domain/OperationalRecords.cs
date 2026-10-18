@@ -26,10 +26,12 @@ public sealed class ProcurementPlan : ProcurementRecord
     public Guid? DepartmentRef { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public string Status { get; set; } = "Draft";
+    public string? StatusReason { get; set; }
     public string OwnerSubjectId { get; set; } = null!;
     public int RevisionNumber { get; set; } = 1;
     public string? FundingSourceRef { get; set; }
     public string? ApprovalInstanceRef { get; set; }
+    public ICollection<ProcurementPlanLine> Lines { get; set; } = new List<ProcurementPlanLine>();
 }
 
 public sealed class ProcurementPlanLine : ProcurementRecord
@@ -44,6 +46,8 @@ public sealed class ProcurementPlanLine : ProcurementRecord
     public decimal EstimatedAmount { get; set; }
     public DateOnly? ExpectedOn { get; set; }
     public string? FundingSourceRef { get; set; }
+    public string Status { get; set; } = "Active";
+    public string? StatusReason { get; set; }
 }
 
 /// <summary>Membership only. Identity, login, MFA and sessions remain Core-owned.</summary>

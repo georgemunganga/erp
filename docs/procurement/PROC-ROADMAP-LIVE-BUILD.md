@@ -1,0 +1,58 @@
+# Procurement live implementation roadmap
+
+**Status:** Active engineering roadmap, 18 October 2026. Business policies and release approvals remain open.
+**Standard:** [GW-ENG-STD-001](../engineering/GW-ENG-STD-001.md), Tier 3; every child uses the 28-section feature specification.
+**UI contract:** Existing Procurement workspace and `docs/procurement-ui-contract-register.md` in the Procurement UI repository; do not create a second UI.
+
+The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared services can already be reused and which HRMS implementations are still module-specific.
+
+## Current baseline
+
+The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppliers, items and purchase requests. The Procurement database has P0–P7 source migrations covering 55 business tables; they have been validated on disposable PostgreSQL, not production. The UI still uses demonstration records, and the live gate holds transaction screens. Core already supplies sign-in and organisation context, but Procurement-specific grants, workflow assignments, document upload, Finance and Inventory/Asset contracts require completion or verification. No purchase commitment, AP posting, payment or supplier activation is enabled merely by a table or screen.
+
+## Order of implementation
+
+| Wave | Features and operations | Backend deliverable | UI release gate |
+|---|---|---|---|
+| 0 — Shared control | Core entity/branch scope, tenant grants, numbering, document refs, audit/outbox dispatcher, health, test harness | Scoped contracts and denial tests; deployable migrations; operator runbook | No demo fallback in live mode; shared shell context verified |
+| 1 — Masters and demand | PROC-CFG-01 categories/methods/policies; PROC-01 supplier draft/proposal/diligence/decision; PROC-04 items/catalog; PROC-05 plan drafts; PROC-02 PR drafts and line accounting | Draft APIs first, then governed submit/publish/approval; versioned decisions and audit | Vendor, Items, Plans, My Requests screen adapters, each enabled independently |
+| 2 — Authority and budget | PROC-03 need/funding approvals, delegation, policy evaluation and Finance budget reservation | Workflow task and decision API, maker/checker, effective policy, idempotent Finance contract | Approvals and budget states only after Finance test double and real contract agree |
+| 3 — Sourcing and contracts | PROC-06 RFx/invitations/bids/opening/evaluation/award; PROC-07 contracts, amendments and releases | Sealed bid access, surrogate evidence, award guard, signed version/ceiling accounting | RFx, compare, contract screens with supplier isolation and negative tests |
+| 4 — Commercial commitment | PROC-08 PO draft/approve/issue/acknowledge/revise/close, blanket releases | PR line allocation, supplier eligibility, budget commitment, numbered revision and dispatch idempotency | Orders screen; no issue without approved source and commitment |
+| 5 — Fulfilment | PROC-09 goods/service receipt, inspection, reversal, return | Remaining quantity/value control, append-only acceptance, Inventory/Asset events | Delivery and service screens with partial/over-receipt cases |
+| 6 — Invoice to Finance | PROC-10 intake/duplicates/credit refs; PROC-11 matching/exceptions/AP handoff/payment status | Invoice version, two/three-way result, exception owner, idempotent AP event and callback reconciliation | Inbox/Bills/Payment Status; no payment execution in Procurement |
+| 7 — External and intelligence | PROC-12 portal; PROC-13 risk/performance; PROC-14 comments, audit export, analytics | Supplier identity boundary, audience checks, score evidence and governed read models | Portal and dashboards after object/supplier isolation and KPI reconciliation |
+
+## Implementation rule for every operation
+
+1. Confirm the exact child operation in its 28-section spec: entry, state, actor, permission and data scope, guards, owner and failure path.
+2. Add or verify schema constraints and a scoped API contract. Use explicit status transitions and optimistic version checks. Define external effects as durable outbox entries with stable idempotency keys.
+3. Test allowed and denied actors, cross-tenant/entity object IDs, stale versions, duplicate requests, partial/exception flows and a disposable database migration. Do not let a browser record authorize a financial action.
+4. Connect the existing UI screen to the API and verify loading, empty, error, conflict, success and permission-denied states. Keep each remaining demo screen visibly separate.
+5. Record migration, review, backup/restore, staging UAT, monitoring and support evidence before production enablement.
+
+## Contracts that block specific transitions
+
+| Contract/decision | Blocks | Safe work that continues |
+|---|---|---|
+| Procurement thresholds, supplier diligence and delegated authority | Activation, submit/approve, RFx publish/award, PO issue | Draft validation, list/detail/edit, policy editor and test fixtures |
+| Finance budget reservation and AP/payment callback | Budget approval, PO commitment, AP handoff and payment status | Internal estimates, invoice capture, exception drafting and contract tests |
+| Shared document scanning/access and external supplier identity | Evidence-based approval and portal publication | Internal records and attachment-reference contracts |
+| Inventory/Asset item mapping and receipt tolerances | Stock/asset handoff and over-receipt | Receipt draft/inspection evidence and integration outbox contracts |
+| Production backup, migration review, threat model, independent security review and UAT | Production activation | Source implementation and disposable/staging verification |
+
+## Progress register
+
+| Area | State on 18 October 2026 | Next acceptance evidence |
+|---|---|---|
+| Source schema P0–P7 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
+| ERP identity/entity context | Implemented in shared host | Real-session and cross-company/API access tests |
+| Vendor, item, PR draft API | Implemented in source | End-to-end scoped route tests and UI adapter |
+| Planning draft API | Implemented in source with P8 additive migration; own-plan list/detail/create/revise/cancel. Empty database and P7 data upgrade tested on disposable PostgreSQL; an existing line became `Active`. | Scoped HTTP integration tests, Finance period reference, existing planning UI adapter |
+| Category and method draft API | Implemented in source; list/detail/create/update with scoped codes and version checks | Scoped HTTP tests, policy publication authority, existing Settings adapter |
+| UI live readiness | Implemented; off by default | Per-screen capability and API acceptance, then enable individually |
+| Planning, policy, supplier decisions | Schema only | Draft/decision routes and rule tests |
+| Approval through payment | Schema only | Complete waves 2–6 in order |
+| Portal, performance, analytics | Schema/read-model design only | Complete wave 7 and security/KPI tests |
+
+This roadmap is a sequence of implementable increments, not a claim that any undecided policy is approved. Update the progress register with actual evidence as each increment lands.

@@ -2,6 +2,10 @@
 
 [PROC-00 Procurement Module Architecture and Capability Map](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md) is the current draft master document. It defines the module boundary, 12 parent capability groups, line-level request routing, shared ERP dependencies, data ownership, and documentation/build sequence.
 
+[Procurement live implementation roadmap](PROC-ROADMAP-LIVE-BUILD.md) is the active build sequence and progress register. It distinguishes source schema, safe draft operations, policy-controlled transitions, UI adapters and production release evidence.
+
+[Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) checks identity, organisation, workflow, documents, notifications, audit and event services before Procurement depends on them.
+
 [PROC-UX-01 Procurement Navigation and Lovable Prompts](PROC-UX-01-NAVIGATION-AND-LOVABLE-PROMPTS.md) translates the capability map into role-aware side menus, sublinks, and copyable prompts for the UI designer.
 
 [PROC-UX-02 Complete Procurement UI Prompt Pack](PROC-UX-02-COMPLETE-LOVABLE-UI-PROMPT-PACK.md) provides a sequenced Lovable handoff for the entire internal and supplier-facing UI, including role views, exception states, and an end-to-end journey.
@@ -30,6 +34,8 @@
 
 [PROC-BE-04 Live Identity and Company Context](PROC-BE-04-LIVE-IDENTITY-AND-COMPANY-CONTEXT.md) defines the server-owned Procurement context and explicit frontend Demo, Live-ready and Unavailable modes required before the draft screens can send live API requests.
 
+[PROC-BE-05 Lifecycle Schema and Live Integration](PROC-BE-05-LIFECYCLE-SCHEMA-AND-LIVE-INTEGRATION.md) maps the P4–P7 commercial schema to business ownership and activation gates. P8 adds Planning draft line status and is tracked in the live roadmap.
+
 Every current child draft uses the ERP's mandatory **Module → Parent Feature → Child Feature → Operation or Scenario** hierarchy and [28-section framework](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). The full catalogue is:
 
 | Phase | Child feature specification |
@@ -50,7 +56,7 @@ Every current child draft uses the ERP's mandatory **Module → Parent Feature �
 | Advanced | [PROC-13 Supplier Performance and Risk](PROC-13-SUPPLIER-PERFORMANCE-AND-RISK.md) |
 | Cross-cutting | [PROC-14 Analytics, Controls and Record Collaboration](PROC-14-ANALYTICS-CONTROLS-AND-RECORD-COLLABORATION.md) |
 
-The catalogue covers the current [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md) capability map as **draft documentation**. Business policy values, named owners, technical contracts and release scope in each section 28 still need approval before implementation.
+The catalogue covers the current [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md) capability map as **draft documentation**. Safe draft CRUD can be implemented against explicit rules; business policy values, named owners, technical contracts and release scope must be approved before dependent approval, commitment, supplier activation or Finance transitions are enabled.
 
 The [coverage and decision register](COVERAGE-AND-DECISION-REGISTER.md) maps the supplied module outline and later capability findings to these documents and collects the cross-module decisions for stakeholder review.
 
