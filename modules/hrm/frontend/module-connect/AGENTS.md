@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+For ERP frontend UI changes, follow `UI_COMPONENT_STANDARD.md` and reuse the components in `src/components/ui/` and `src/platform/components/` rather than adding page-specific versions of common controls.
