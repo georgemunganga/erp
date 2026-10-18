@@ -119,6 +119,22 @@ function fromBrand(value: CompanyBranding): BrandingForm {
   };
 }
 
+function validateBranding(form: BrandingForm): string | null {
+  if (form.companyName.trim().length < 2) return "Enter a company name with at least two characters.";
+  if (form.displayName.trim().length < 2) return "Enter a workspace display name with at least two characters.";
+  const domain = form.companyDomain.trim().toLowerCase();
+  if (domain && !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain))
+    return "Enter the company email domain as a hostname, such as example.com.";
+  const email = form.supportEmail.trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Enter a valid help email address.";
+  for (const group of colourGroups) {
+    for (const [key, label] of group.fields) {
+      if (!/^#[0-9a-f]{6}$/i.test(form[key])) return `Enter a six-digit hex colour for ${label.toLowerCase()}.`;
+    }
+  }
+  return null;
+}
+
 function contrastRatio(first: string, second: string): number {
   const luminance = (hex: string) => {
     if (!/^#[0-9a-f]{6}$/i.test(hex)) return 0;
@@ -142,12 +158,15 @@ export function BrandingPage() {
   const { setBranding } = useBranding();
   const [form, setForm] = useState<BrandingForm>(defaults);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (branding.data) setForm(fromBrand(branding.data));
   }, [branding.data]);
 
   function set(key: keyof BrandingForm, value: string) {
+    setFormError(null);
     setForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -162,17 +181,28 @@ export function BrandingPage() {
       feedback.blocked("Image is too large.", "Brand assets must be 512 KB or smaller.");
       return;
     }
-    const value = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    set(key, value);
-    feedback.note("Image selected.", "Save branding to use this image across the ERP.");
+    try {
+      const value = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("The image could not be read."));
+        reader.readAsDataURL(file);
+      });
+      set(key, value);
+      feedback.note("Image selected.", "Save branding to use this image across the ERP.");
+    } catch {
+      feedback.blocked("Image could not be loaded.", "Choose the image again or try another file.");
+    }
   }
 
   async function save() {
+    const error = validateBranding(form);
+    if (error) {
+      setFormError(error);
+      feedback.blocked("Check the branding settings.", error);
+      return;
+    }
+    setFormError(null);
     setSaving(true);
     try {
       const value = await realApi.updateBranding(form);
@@ -180,6 +210,7 @@ export function BrandingPage() {
       setForm(fromBrand(value));
       feedback.submitted("Branding saved.", "Your identity, font, and colours are now applied across the ERP.");
     } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Check the values and try again.");
       feedback.blocked("Branding was not saved.", error instanceof Error ? error.message : "Check the values and try again.");
     } finally {
       setSaving(false);
@@ -188,13 +219,17 @@ export function BrandingPage() {
 
   async function reset() {
     if (!window.confirm("Restore the default theme and remove the uploaded logos for this tenant?")) return;
+    setResetting(true);
     try {
       const value = await realApi.resetBranding();
       setBranding(value);
       setForm(fromBrand(value));
+      setFormError(null);
       feedback.submitted("Default branding restored.", "The uploaded logos have been removed from this tenant.");
     } catch (error) {
       feedback.blocked("Branding could not be reset.", error instanceof Error ? error.message : "Try again.");
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -316,7 +351,7 @@ export function BrandingPage() {
             <p className="mt-2 text-sm" style={{ color: form.railMutedColor }}>Secondary navigation text</p>
             <p className="mt-2 rounded px-2 py-1 text-sm" style={{ backgroundColor: form.railActiveColor }}>Selected page</p>
           </div>
-          <button type="button" className="rounded-full px-5 py-2 font-semibold" style={{ backgroundColor: form.buttonColor, color: form.buttonForegroundColor }}>Primary button</button>
+          <span className="inline-block rounded-full px-5 py-2 font-semibold" style={{ backgroundColor: form.buttonColor, color: form.buttonForegroundColor }}>Primary button preview</span>
           <ContrastHint foreground={form.buttonForegroundColor} background={form.buttonColor} />
           <ContrastHint foreground={form.railForegroundColor} background={form.railColor} />
         </aside>
@@ -325,8 +360,9 @@ export function BrandingPage() {
       </Tabs>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-surface px-4 py-3 shadow-sm">
-        <Button type="button" onClick={() => void save()} disabled={saving}><Save className="size-4" />{saving ? "Saving…" : "Save branding"}</Button>
-        <Button type="button" variant="outline" onClick={() => void reset()}><RotateCcw className="size-4" />Restore defaults</Button>
+        <Button type="button" onClick={() => void save()} disabled={saving || resetting}><Save className="size-4" />{saving ? "Saving…" : "Save branding"}</Button>
+        <Button type="button" variant="outline" onClick={() => void reset()} disabled={saving || resetting}><RotateCcw className="size-4" />{resetting ? "Restoring…" : "Restore defaults"}</Button>
+        {formError ? <p role="alert" className="w-full text-sm text-destructive">{formError}</p> : null}
         <span className="ml-auto text-xs text-muted-foreground">Changes apply after saving.</span>
       </div>
     </div>}</Async>
