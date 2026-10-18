@@ -25,6 +25,9 @@ public static class ProcurementActionCatalog
             ["procurement-contract-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-contract-create"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-contract-edit"] = ["procurement_buyer", "procurement_manager"],
+            ["procurement-sourcing-read"] = ["procurement_buyer", "procurement_manager"],
+            ["procurement-sourcing-create"] = ["procurement_buyer", "procurement_manager"],
+            ["procurement-sourcing-edit"] = ["procurement_buyer", "procurement_manager"],
         };
 
     public static string[] ForRole(string role) => BootstrapGrants

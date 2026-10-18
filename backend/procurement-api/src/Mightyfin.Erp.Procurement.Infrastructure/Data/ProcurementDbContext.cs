@@ -490,6 +490,16 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         Link<SupplierCreditNoteRef, SupplierInvoice>(modelBuilder, nameof(SupplierCreditNoteRef.SupplierInvoiceId));
         Link<SupplierCreditNoteRef, SupplierReturn>(modelBuilder, nameof(SupplierCreditNoteRef.SupplierReturnId));
 
+        modelBuilder.Entity<SourcingLine>(b =>
+        {
+            b.Property(x => x.Status).HasMaxLength(30).HasDefaultValue("Active");
+            b.Property(x => x.StatusReason).HasMaxLength(1000);
+        });
+        modelBuilder.Entity<ContractRate>(b =>
+        {
+            b.Property(x => x.Status).HasMaxLength(30).HasDefaultValue("Active");
+            b.Property(x => x.StatusReason).HasMaxLength(1000);
+        });
         modelBuilder.Entity<SourcingEvent>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
         modelBuilder.Entity<SourcingLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId, x.LineNumber }).IsUnique();
         modelBuilder.Entity<SourcingInvitation>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId, x.SupplierId }).IsUnique();

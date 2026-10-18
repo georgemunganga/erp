@@ -60,6 +60,9 @@ const procurementPermissionOptions = [
   { key: "procurement-contract-read", label: "View contracts", detail: "View own commercial contract drafts." },
   { key: "procurement-contract-create", label: "Create contracts", detail: "Create commercial contract drafts." },
   { key: "procurement-contract-edit", label: "Edit contracts", detail: "Revise or cancel own contract drafts." },
+  { key: "procurement-sourcing-read", label: "View sourcing", detail: "View own RFQ and tender drafts." },
+  { key: "procurement-sourcing-create", label: "Create sourcing", detail: "Create RFQ and tender drafts." },
+  { key: "procurement-sourcing-edit", label: "Edit sourcing", detail: "Revise or cancel own sourcing drafts." },
 ];
 
 const categoryLabels: Record<string, string> = {

@@ -620,6 +620,19 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("maximum_quantity");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Active")
+                        .HasColumnName("status");
+
+                    b.Property<string>("StatusReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("status_reason");
+
                     b.Property<Guid>("SupplierContractVersionId")
                         .HasColumnType("uuid")
                         .HasColumnName("supplier_contract_version_id");
@@ -3527,6 +3540,19 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.Property<Guid>("SourcingEventId")
                         .HasColumnType("uuid")
                         .HasColumnName("sourcing_event_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Active")
+                        .HasColumnName("status");
+
+                    b.Property<string>("StatusReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("status_reason");
 
                     b.Property<string>("TenantId")
                         .IsRequired()

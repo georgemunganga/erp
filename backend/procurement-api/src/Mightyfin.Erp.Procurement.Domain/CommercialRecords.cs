@@ -21,6 +21,8 @@ public sealed class SourcingLine : ProcurementRecord
 {
     public Guid SourcingEventId { get; set; }
     public int LineNumber { get; set; }
+    public string Status { get; set; } = "Active";
+    public string? StatusReason { get; set; }
     public Guid? PurchaseRequestLineId { get; set; }
     public string Description { get; set; } = null!;
     public string UnitCode { get; set; } = null!;
@@ -135,6 +137,8 @@ public sealed class ContractRate : ProcurementRecord
 {
     public Guid SupplierContractVersionId { get; set; }
     public int LineNumber { get; set; }
+    public string Status { get; set; } = "Active";
+    public string? StatusReason { get; set; }
     public Guid? CatalogItemId { get; set; }
     public string Description { get; set; } = null!;
     public string UnitCode { get; set; } = null!;

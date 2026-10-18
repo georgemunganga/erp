@@ -8,7 +8,7 @@ The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared 
 
 ## Current baseline
 
-The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppliers, items, purchase requests, plans, categories and methods. The Procurement database has P0–P8 source migrations validated on disposable PostgreSQL, not production. The UI still uses demonstration records, and the live gate holds transaction screens. Core supplies sign-in and organisation context; local sessions now resolve configurable Procurement action grants from Core tenant roles. OIDC role mapping, workflow assignments, document upload, Finance and Inventory/Asset contracts require completion or verification. No purchase commitment, AP posting, payment or supplier activation is enabled merely by a table or screen.
+The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppliers, items, purchase requests, plans, categories, methods, contracts and sourcing events. The Procurement database has P0–P9 source migrations; P9 adds cancellation history for sourcing and contract-rate lines. These migrations are validated on disposable PostgreSQL, not production. The UI still uses demonstration records, and the live gate holds transaction screens. Core supplies sign-in and organisation context; local sessions now resolve configurable Procurement action grants from Core tenant roles. OIDC role mapping, workflow assignments, document upload, Finance and Inventory/Asset contracts require completion or verification. No purchase commitment, AP posting, payment or supplier activation is enabled merely by a table or screen.
 
 **Company and currency decision:** New Procurement records use the company selected in Core. Its configured currency is shown in the Procurement context and fills a new supplier, request or plan draft when no currency is supplied. An existing draft keeps its stored currency during an edit that omits currency, even if the company default changes. The first company in the user's setup is Amizo Power; no company ID or currency is hard-coded into Procurement. This follows the distinction in [ERPNext Global Defaults](https://docs.frappe.io/erpnext/global-defaults) between a suggested company/default currency and a document's transaction currency. Spending thresholds, budget actions and supplier activation rules remain company-owned configuration decisions; draft CRUD does not imply approval.
 
@@ -47,13 +47,14 @@ The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppl
 
 | Area | State on 18 October 2026 | Next acceptance evidence |
 |---|---|---|
-| Source schema P0–P8 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
+| Source schema P0–P9 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
 | ERP identity/entity context | Implemented in shared host; local Core roles can grant or revoke named Procurement actions | Real-session, OIDC mapping and cross-company/API access tests |
 | Vendor, item, PR draft API | Implemented in source | End-to-end scoped route tests and UI adapter |
 | Planning draft API | Implemented in source with P8 additive migration; own-plan list/detail/create/revise/cancel. Empty database and P7 data upgrade tested on disposable PostgreSQL; an existing line became `Active`. | Scoped HTTP integration tests, Finance period reference, existing planning UI adapter |
 | Category and method draft API | Implemented in source; list/detail/create/update with scoped codes and version checks | Scoped HTTP tests, policy publication authority, existing Settings adapter |
 | UI live readiness | Implemented; off by default | Per-screen capability and API acceptance, then enable individually |
 | Contract drafts | Own-record list/detail/create/revise/cancel API in source, with supplier eligibility and Core company currency defaults; no signature or activation | Scoped HTTP and concurrency tests; signed-document/approval contract; existing Contracts screen adapter |
+| Sourcing drafts | Own-record list/detail/create/revise/cancel API in source with line cancellation history; no PR-line link, publish, invitations, bids or award | Scoped HTTP and concurrency tests; approved-demand conversion and publish policy; existing RFQ screen adapter |
 | Policy and supplier decisions | Schema only | Draft/decision routes and rule tests |
 | Approval through payment | Schema only | Complete waves 2–6 in order |
 | Portal, performance, analytics | Schema/read-model design only | Complete wave 7 and security/KPI tests |
