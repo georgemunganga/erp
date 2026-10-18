@@ -196,6 +196,54 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Planning_draft_revisions_keep_removed_lines_and_reject_stale_changes()
+    {
+        await using var fixture = await Fixture.Start();
+        var first = new ProcurementPlanLineInput(null, null, "Office chairs", "OFFICE", "each", 10,
+            5_000, null, null);
+        var second = new ProcurementPlanLineInput(null, null, "Desks", "OFFICE", "each", 5,
+            3_000, null, null);
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
+            fixture.Owner, new ProcurementPlanInput("FY2026", null, null, [first, second]), "manager");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var plan = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = plan.GetProperty("id").GetGuid();
+        var originalVersion = plan.GetProperty("version").GetInt64();
+        var keepId = plan.GetProperty("lines")[0].GetProperty("id").GetGuid();
+        var revisedInput = new ProcurementPlanInput("FY2026", null, "OPS",
+            [first with { Id = keepId, EstimatedQuantity = 8 },
+                new ProcurementPlanLineInput(null, null, "Monitors", "IT", "each", 4, 2_000, null, null)]);
+        var updated = await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/plans/{id}",
+            fixture.Owner, new ProcurementPlanRoutes.UpdatePlan(originalVersion, revisedInput), "manager");
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var revised = await updated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(3, revised.GetProperty("lines").GetArrayLength());
+        Assert.Single(revised.GetProperty("lines").EnumerateArray(),
+            line => line.GetProperty("status").GetString() == "Cancelled");
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/plans/{id}",
+                fixture.Owner, new ProcurementPlanRoutes.UpdatePlan(originalVersion, revisedInput),
+                "manager")).StatusCode);
+        var list = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/plans",
+            fixture.Owner, role: "manager");
+        Assert.Equal(2, (await list.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("items")[0].GetProperty("lineCount").GetInt32());
+
+        var cancelled = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/plans/{id}/cancel", fixture.Owner,
+            new ProcurementPlanRoutes.CancelPlan(revised.GetProperty("version").GetInt64(),
+                "Planning changed"), "manager");
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+        var cancelledPlan = await cancelled.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Cancelled", cancelledPlan.GetProperty("status").GetString());
+        Assert.All(cancelledPlan.GetProperty("lines").EnumerateArray(),
+            line => Assert.Equal("Cancelled", line.GetProperty("status").GetString()));
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/plans/{id}",
+                fixture.Other, role: "manager")).StatusCode);
+    }
+
+    [Fact]
     public async Task Request_list_counts_only_current_lines_after_a_draft_revision()
     {
         await using var fixture = await Fixture.Start();
@@ -217,13 +265,19 @@ public sealed class ProcurementRequestHttpTests
         var keep = record.GetProperty("lines")[0].GetProperty("id").GetGuid();
         var revised = new ProcurementRequestRoutes.UpdateRequest(record.GetProperty("version").GetInt64(),
             "Mixed equipment", null, null, null, null, null, null, null, null,
-            [twoLines.Lines![0] with { Id = keep }]);
-        Assert.Equal(HttpStatusCode.OK,
-            (await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/requests/{id}",
-                fixture.Owner, revised)).StatusCode);
+            [twoLines.Lines![0] with { Id = keep },
+                new ProcurementRequestRoutes.RequestLineInput(null, "Scanner", "each", 1, 60,
+                    null, null, null, "Goods", null, null, null, null, null, null)]);
+        var updated = await SendJson(fixture.Client, HttpMethod.Put,
+            $"/api/procurement/v1/requests/{id}", fixture.Owner, revised);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var revisedRecord = await updated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(3, revisedRecord.GetProperty("lines").GetArrayLength());
+        Assert.Single(revisedRecord.GetProperty("lines").EnumerateArray(),
+            line => line.GetProperty("approvalStatus").GetString() == "Cancelled");
         var list = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/requests", fixture.Owner);
         var summary = (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("records")[0];
-        Assert.Equal(1, summary.GetProperty("lineCount").GetInt32());
+        Assert.Equal(2, summary.GetProperty("lineCount").GetInt32());
     }
 
     [Fact]
@@ -261,6 +315,15 @@ public sealed class ProcurementRequestHttpTests
         var rows = (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items");
         Assert.Contains(rows.EnumerateArray(), row => row.GetProperty("id").GetGuid() == id
             && row.GetProperty("status").GetString() == "Submitted");
+        var reviewerList = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/vendors?status=Submitted", fixture.Other,
+            role: "procurement_manager");
+        Assert.Contains((await reviewerList.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("items").EnumerateArray(), row => row.GetProperty("id").GetGuid() == id);
+        var unrelatedList = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/vendors?status=Submitted", fixture.Other);
+        Assert.Empty((await unrelatedList.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("items").EnumerateArray());
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/vendors/{id}", fixture.Other)).StatusCode);
         var proposerView = await Send(fixture.Client, HttpMethod.Get,

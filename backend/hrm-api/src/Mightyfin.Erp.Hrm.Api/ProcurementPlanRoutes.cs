@@ -110,7 +110,6 @@ public static class ProcurementPlanRoutes
             {
                 var line = NewLine(plan.Id, nextLine++, incoming);
                 db.AddScoped(line);
-                plan.Lines.Add(line);
             }
         }
         try { await db.SaveChangesAsync(ct); }

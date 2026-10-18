@@ -133,7 +133,6 @@ public static class ProcurementRequestRoutes
             {
                 var line = NewLine(request.Id, nextLine++, incoming, request.CurrencyCode);
                 db.AddScoped(line);
-                request.Lines.Add(line);
             }
         }
         try { await db.SaveChangesAsync(ct); }
