@@ -13,6 +13,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@amizopower/erp-ui": "https://codeload.github.com/georgemunganga/erp-ui/tar.gz/4ae7e848360284d78835414e30a7fa4f8b344ac9",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
