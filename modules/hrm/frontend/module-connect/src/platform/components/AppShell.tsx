@@ -26,8 +26,6 @@ import {
   Settings,
   UserCog,
   BarChart3,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -75,6 +73,7 @@ import { isTimesheetOnly, useAuth } from "@/platform/auth";
 import { adaptWorkers, realApi, useApi } from "@/platform/use-api";
 import { ErpTopNav } from "@/platform/components/ErpTopNav";
 import { ErpAccountMenu } from "@/platform/components/ErpAccountMenu";
+import { ErpSidebarHeader, useErpSidebar } from "@/platform/components/ErpSidebar";
 import { cn } from "@/lib/utils";
 
 function useVisibleSections(mod: ModuleDefinition, role: Role) {
@@ -302,32 +301,7 @@ function RailContent({ onNavigate, collapsed = false, onToggleCollapsed }: { onN
 
   return (
     <div className="flex h-full flex-col">
-      <div className={cn("flex items-center gap-2 px-3 py-4", collapsed ? "flex-col justify-center px-2" : "justify-between")}>
-        {collapsed ? (
-          <span className="flex size-9 items-center justify-center rounded-md bg-rail-active" title={hrmModule.name}>
-            <Users className="size-4 text-rail-foreground" aria-hidden />
-            <span className="sr-only">{hrmModule.name}</span>
-          </span>
-        ) : (
-          <div>
-            <p className="px-2 text-xs font-semibold uppercase tracking-wide text-rail-muted">Module</p>
-            <p className="px-2 text-sm font-semibold text-rail-foreground">{hrmModule.name}</p>
-          </div>
-        )}
-        {onToggleCollapsed ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="hidden size-8 text-rail-muted hover:bg-rail-active hover:text-rail-foreground lg:inline-flex"
-            onClick={onToggleCollapsed}
-            aria-label={collapsed ? "Expand side menu" : "Collapse side menu"}
-            title={collapsed ? "Expand side menu" : "Collapse side menu"}
-          >
-            {collapsed ? <PanelLeftOpen className="size-4" aria-hidden /> : <PanelLeftClose className="size-4" aria-hidden />}
-          </Button>
-        ) : null}
-      </div>
+      {onToggleCollapsed && <ErpSidebarHeader moduleName={hrmModule.name} collapsed={collapsed} onToggle={onToggleCollapsed} />}
       <nav aria-label="Main" className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
         {main
           .filter((s) => isSectionEnabled(s.id))
@@ -688,8 +662,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
   const canApprove = useRoleGate()(APPROVER_ROLES);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickAccessOpen, setQuickAccessOpen] = useState(false);
-  const [railCollapsed, setRailCollapsed] = useState(false);
-  const [railPreferenceReady, setRailPreferenceReady] = useState(false);
+  const { collapsed: railCollapsed, toggle: toggleRail } = useErpSidebar();
   const liveEntities = shellState.data?.legalEntities ?? [];
   const liveLocations = shellState.data?.locations ?? [];
   const pendingDecisions = shellState.data?.pendingDecisions ?? 0;
@@ -794,19 +767,6 @@ function FullAppShell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, []);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      setRailCollapsed(localStorage.getItem("erp.hrm.rail.collapsed") === "true");
-    }
-    setRailPreferenceReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!railPreferenceReady) return;
-    if (typeof localStorage === "undefined") return;
-    localStorage.setItem("erp.hrm.rail.collapsed", String(railCollapsed));
-  }, [railCollapsed, railPreferenceReady]);
 
   // M50.11: first-time gate — while setup is PENDING, keep non-confined
   // operators on the dedicated /hrm/setup wizard page (a full route, no
@@ -1009,7 +969,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
         )}>
           <RailContent
             collapsed={railCollapsed}
-            onToggleCollapsed={() => setRailCollapsed((value) => !value)}
+            onToggleCollapsed={toggleRail}
           />
         </aside>
         <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
