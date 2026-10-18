@@ -4,6 +4,8 @@
 **Status:** Source audit; verify behavior and ownership before enabling Procurement transactions
 **Standard:** GW-ENG-STD-001 Tier 3
 
+The ownership decision and activation gates are recorded in [ADR-001 — Procurement ownership and ERP Core reuse](ADR-001-MODULAR-OWNERSHIP-AND-CORE-REUSE.md). Review this audit alongside that decision before wiring any additional UI action.
+
 | Shared capability | Existing ERP source | Procurement decision and gap |
 |---|---|---|
 | Sign-in, active worker, company/branch context | Shared HRMS host and `ProcurementScopeMiddleware` resolve a scoped Procurement principal; `/api/procurement/v1/context` exposes company and role context. | Reuse now. Real-session, company-switch and cross-tenant route tests remain required. |
