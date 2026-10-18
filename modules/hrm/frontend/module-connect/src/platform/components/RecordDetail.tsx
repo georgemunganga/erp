@@ -41,11 +41,11 @@ export function RecordDetail({
 }) {
   return (
     <div className="space-y-6">
-      <header className="rounded-lg border bg-surface p-5">
+      <header>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:flex-wrap sm:justify-between">
           <div className="min-w-0">
             <p className="font-mono text-xs text-muted-foreground">{reference}</p>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
             {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StatusBadge status={status} />

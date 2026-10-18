@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ArrowRight, Check, Search, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { ArrowRight, Search, type LucideIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "./PageHeader";
 
 export type SettingsDirectoryGroup = {
   title: string;
@@ -10,24 +11,16 @@ export type SettingsDirectoryGroup = {
 };
 
 /** Shared settings directory UI. Each module supplies only the records it owns. */
-export function SettingsDirectory({ moduleName, description, groups }: { moduleName: string; description: string; groups: SettingsDirectoryGroup[] }) {
+export function SettingsDirectory({ moduleName, groups }: { moduleName: string; description?: string; groups: SettingsDirectoryGroup[] }) {
   const [query, setQuery] = useState("");
   const term = query.trim().toLowerCase();
   const visible = groups.map((group) => ({
     ...group,
     items: group.items.filter((item) => `${group.title} ${item.label} ${item.detail}`.toLowerCase().includes(term)),
   })).filter((group) => group.items.length);
-  const availableCount = groups.flatMap((group) => group.items).filter((item) => item.to && item.status !== "preview" && item.status !== "planned").length;
-
   return <div className="mx-auto max-w-[1240px] space-y-6">
-    <header className="rounded-2xl border bg-surface p-5 shadow-sm sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary"><SlidersHorizontal className="size-4" aria-hidden />{moduleName} configuration</p><h1 className="mt-2 text-2xl font-semibold tracking-tight">{moduleName} settings</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p></div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1.5 text-xs font-medium text-success"><Check className="size-3.5" aria-hidden />{availableCount} connected settings</span>
-      </div>
-      <div className="relative mt-5 max-w-xl"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden /><Input type="search" aria-label="Search settings" placeholder={`Search ${moduleName} settings`} value={query} onChange={(event) => setQuery(event.target.value)} className="h-11 rounded-lg bg-background pl-10" /></div>
-    </header>
-    <nav aria-label={`${moduleName} settings groups`} className="flex flex-wrap gap-2">{visible.map((group) => <a key={group.title} href={`#${group.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`} className="rounded-full border bg-surface px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">{group.title}</a>)}</nav>
+    <PageHeader title={`${moduleName} settings`} />
+    <div className="relative max-w-xl"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden /><Input type="search" aria-label="Search settings" placeholder="Search settings" value={query} onChange={(event) => setQuery(event.target.value)} className="h-11 rounded-lg bg-background pl-10" /></div>
     <div className="grid items-start gap-4 md:grid-cols-2">
       {visible.map((group) => <section id={group.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")} key={group.title} className="scroll-mt-24 rounded-xl border bg-surface p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2 rounded-lg bg-primary-soft px-3 py-2 text-sm font-semibold text-primary"><group.icon className="size-4" aria-hidden />{group.title}</div>
