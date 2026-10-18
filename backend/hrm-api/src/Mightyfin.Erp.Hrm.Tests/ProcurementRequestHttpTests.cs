@@ -263,6 +263,14 @@ public sealed class ProcurementRequestHttpTests
             && row.GetProperty("status").GetString() == "Submitted");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/vendors/{id}", fixture.Other)).StatusCode);
+        var proposerView = await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/vendors/{id}", fixture.Owner);
+        Assert.False((await proposerView.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("canReturnForInformation").GetBoolean());
+        var reviewerView = await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/vendors/{id}", fixture.Other, role: "procurement_manager");
+        Assert.True((await reviewerView.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("canReturnForInformation").GetBoolean());
 
         var reviewPath = $"/api/procurement/v1/vendors/{id}/return";
         Assert.Equal(HttpStatusCode.Forbidden,

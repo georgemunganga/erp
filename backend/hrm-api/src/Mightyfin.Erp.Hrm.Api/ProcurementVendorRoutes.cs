@@ -65,7 +65,8 @@ public static class ProcurementVendorRoutes
             && supplier.CreatedBy != scope.SubjectId)
             return Results.NotFound();
         return Results.Ok(canManage || supplier.CreatedBy == scope.SubjectId
-            ? ToDetail(supplier) : ToBasicDetail(supplier));
+            ? ToDetail(supplier, canManage && supplier.CreatedBy != scope.SubjectId
+                && supplier.Status == "Submitted") : ToBasicDetail(supplier));
     }
 
     private static async Task<IResult> CreateAsync(VendorDraftInput input, ProcurementDbContext db, HrmDbContext core,
@@ -346,13 +347,14 @@ public static class ProcurementVendorRoutes
         return Results.Created($"/api/procurement/v1/vendors/{id}", new { qualification.Id, supplier.Version });
     }
 
-    private static object ToDetail(Supplier x) => new
+    private static object ToDetail(Supplier x, bool canReturnForInformation) => new
     {
         x.Id, x.Number, x.LegalName, x.DisplayName, x.TradingName, x.CountryCode,
         x.RegistrationNumber, x.CompanyIdType, x.TaxIdentifierRef, x.Website,
         x.SupplierType, x.CategoryCode, x.DefaultCurrencyCode, x.PaymentTermRef,
         x.TaxCategoryRef, x.LanguageCode, x.Remarks, x.IsLocal, x.Status,
         x.StatusReason, x.StatusDecidedAt, x.IsOrderable, x.PortalAccessState,
+        CanReturnForInformation = canReturnForInformation,
         x.Version, x.CreatedAt, x.UpdatedAt,
         contacts = x.Contacts.OrderByDescending(c => c.IsPrimary).ThenBy(c => c.Name)
             .Select(c => new { c.Id, c.Name, c.Salutation, c.FirstName, c.LastName,
