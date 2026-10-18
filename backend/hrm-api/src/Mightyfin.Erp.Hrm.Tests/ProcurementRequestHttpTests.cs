@@ -226,6 +226,45 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(1, summary.GetProperty("lineCount").GetInt32());
     }
 
+    [Fact]
+    public async Task Vendor_submission_requires_details_and_stays_non_orderable_during_review()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/vendors",
+            fixture.Owner, new { legalName = "Acme Zambia Ltd", displayName = "Acme", countryCode = "ZM",
+                categoryCode = "OFFICE", primaryContact = new { name = "A Person", email = "acme@example.test" } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var saved = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = saved.GetProperty("id").GetGuid();
+        var version = saved.GetProperty("version").GetInt64();
+        var path = $"/api/procurement/v1/vendors/{id}/submit";
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+                new VendorSubmitInput(version, ""))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                new VendorSubmitInput(version, "Office supplies"))).StatusCode);
+
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+            new VendorSubmitInput(version, "Office supplies"));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var result = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Submitted", result.GetProperty("status").GetString());
+        Assert.False(result.GetProperty("isOrderable").GetBoolean());
+        Assert.Equal(1, await fixture.DecisionCount(id));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+                new VendorSubmitInput(version, "Repeat"))).StatusCode);
+
+        var list = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/vendors", fixture.Owner);
+        var rows = (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items");
+        Assert.Contains(rows.EnumerateArray(), row => row.GetProperty("id").GetGuid() == id
+            && row.GetProperty("status").GetString() == "Submitted");
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/vendors/{id}", fixture.Other)).StatusCode);
+    }
+
     private static ProcurementRequestRoutes.NewRequest Draft(string purpose) => new(
         purpose, null, null, null, null, null, null, null, null,
         [new ProcurementRequestRoutes.RequestLineInput(null, "Laptop", "each", 2, 100,
@@ -250,7 +289,7 @@ public sealed class ProcurementRequestHttpTests
         return client.SendAsync(request);
     }
 
-    private sealed class Fixture(WebApplication app, Guid owner, Guid other, Guid inactive, Guid otherCompany)
+    private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid inactive, Guid otherCompany)
         : IAsyncDisposable
     {
         public HttpClient Client { get; } = app.GetTestClient();
@@ -258,6 +297,15 @@ public sealed class ProcurementRequestHttpTests
         public Guid Other { get; } = other;
         public Guid Inactive { get; } = inactive;
         public Guid OtherCompany { get; } = otherCompany;
+
+        public async Task<int> DecisionCount(Guid supplierId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return await db.SupplierDecisions.CountAsync(x => x.SupplierId == supplierId);
+        }
 
         public static async Task<Fixture> Start()
         {
@@ -306,7 +354,7 @@ public sealed class ProcurementRequestHttpTests
                 await core.SaveChangesAsync();
             }
             await app.StartAsync();
-            return new Fixture(app, owner, other, inactive, otherCompany.Id);
+            return new Fixture(app, company.Id, owner, other, inactive, otherCompany.Id);
         }
 
         public async ValueTask DisposeAsync()

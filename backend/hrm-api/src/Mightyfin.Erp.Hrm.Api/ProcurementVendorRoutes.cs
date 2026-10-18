@@ -17,6 +17,7 @@ public static class ProcurementVendorRoutes
         group.MapGet("/{id:guid}", GetAsync).RequireAuthorization("procurement-vendor-read");
         group.MapPost("", CreateAsync).RequireAuthorization("procurement-vendor-create");
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization("procurement-vendor-edit");
+        group.MapPost("/{id:guid}/submit", SubmitAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/withdraw", WithdrawAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/contacts", AddContactAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/sites", AddSiteAsync).RequireAuthorization("procurement-vendor-edit");
@@ -32,7 +33,7 @@ public static class ProcurementVendorRoutes
         var query = db.Suppliers.AsNoTracking().AsQueryable();
         if (!(await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded)
             query = query.Where(x => ((x.Status == "Active" || x.Status == "Approved") && x.IsOrderable)
-                || (x.Status == "Draft" && x.CreatedBy == scope.SubjectId));
+                || x.CreatedBy == scope.SubjectId);
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.Trim());
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -60,7 +61,7 @@ public static class ProcurementVendorRoutes
         if (supplier is null) return Results.NotFound();
         var canManage = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded;
         if (!canManage && !((supplier.Status == "Active" || supplier.Status == "Approved") && supplier.IsOrderable)
-            && !(supplier.Status == "Draft" && supplier.CreatedBy == scope.SubjectId))
+            && supplier.CreatedBy != scope.SubjectId)
             return Results.NotFound();
         return Results.Ok(canManage || supplier.CreatedBy == scope.SubjectId
             ? ToDetail(supplier) : ToBasicDetail(supplier));
@@ -210,6 +211,40 @@ public static class ProcurementVendorRoutes
         return Results.Created($"/api/procurement/v1/vendors/{id}", new { contact.Id, supplier.Version });
     }
 
+    private static async Task<IResult> SubmitAsync(Guid id, VendorSubmitInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, IAuthorizationService authorization,
+        HttpContext http, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Contacts)
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http))
+            return Results.NotFound();
+        if (supplier.Status != "Draft") return Conflict("Only a draft vendor can be submitted for review.");
+        if (supplier.Version != input.Version) return Stale();
+        if (string.IsNullOrWhiteSpace(supplier.CategoryCode))
+            return BadInput("Choose a vendor category before submitting for review.");
+        if (supplier.Contacts.Count == 0)
+            return BadInput("Add a contact person before submitting for review.");
+        if (string.IsNullOrWhiteSpace(input.BusinessReason) || input.BusinessReason.Trim().Length > 1000)
+            return BadInput("Give a business reason of up to 1,000 characters.");
+
+        var decidedAt = DateTimeOffset.UtcNow;
+        supplier.Status = "Submitted";
+        supplier.IsOrderable = false;
+        supplier.StatusReason = input.BusinessReason.Trim();
+        supplier.StatusDecidedAt = decidedAt;
+        supplier.StatusDecidedBy = scope.SubjectId;
+        db.AddScoped(new SupplierDecision
+        {
+            SupplierId = id, FromStatus = "Draft", ToStatus = "Submitted",
+            ActorSubjectId = scope.SubjectId, Reason = supplier.StatusReason,
+            DecidedAt = decidedAt,
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { supplier.Id, supplier.Status, supplier.IsOrderable, supplier.Version });
+    }
+
     private static async Task<IResult> WithdrawAsync(Guid id, VendorWithdrawInput input,
         ProcurementDbContext db, ProcurementRequestScope scope, IAuthorizationService authorization,
         HttpContext http, CancellationToken ct)
@@ -283,7 +318,8 @@ public static class ProcurementVendorRoutes
         x.RegistrationNumber, x.CompanyIdType, x.TaxIdentifierRef, x.Website,
         x.SupplierType, x.CategoryCode, x.DefaultCurrencyCode, x.PaymentTermRef,
         x.TaxCategoryRef, x.LanguageCode, x.Remarks, x.IsLocal, x.Status,
-        x.IsOrderable, x.PortalAccessState, x.Version, x.CreatedAt, x.UpdatedAt,
+        x.StatusReason, x.StatusDecidedAt, x.IsOrderable, x.PortalAccessState,
+        x.Version, x.CreatedAt, x.UpdatedAt,
         contacts = x.Contacts.OrderByDescending(c => c.IsPrimary).ThenBy(c => c.Name)
             .Select(c => new { c.Id, c.Name, c.Salutation, c.FirstName, c.LastName,
                 c.Role, c.Email, c.Phone, c.WorkPhone, c.MobilePhone, c.LanguageCode,
@@ -400,6 +436,7 @@ public sealed record VendorDraftInput(string? LegalName, string? DisplayName, st
     List<VendorSiteInput>? Sites, List<VendorQualificationInput>? Qualifications,
     List<VendorAttributeInput>? Attributes);
 public sealed record VendorDraftUpdate(long Version, VendorDraftInput Draft);
+public sealed record VendorSubmitInput(long Version, string? BusinessReason);
 public sealed record VendorWithdrawInput(long Version, string? Reason);
 public sealed record VendorContactInput(string? Name, string? Salutation, string? FirstName,
     string? LastName, string? Role, string? Email, string? Phone, string? WorkPhone,
