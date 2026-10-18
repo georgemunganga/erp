@@ -244,6 +244,55 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Configuration_drafts_require_manager_authority_and_stay_in_selected_company()
+    {
+        await using var fixture = await Fixture.Start();
+        const string categories = "/api/procurement/v1/configuration/categories";
+        const string methods = "/api/procurement/v1/configuration/methods";
+        var category = new ProcurementConfigurationRoutes.CategoryInput("IT", "Technology", null, null);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, categories, fixture.Owner,
+                category, "procurement_buyer")).StatusCode);
+        var created = await SendJson(fixture.Client, HttpMethod.Post, categories, fixture.Owner,
+            category, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var saved = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Draft", saved.GetProperty("status").GetString());
+        var id = saved.GetProperty("id").GetGuid();
+        var version = saved.GetProperty("version").GetInt64();
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, categories, fixture.Owner,
+                category, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"{categories}/{id}", fixture.Owner,
+                new ProcurementConfigurationRoutes.VersionedCategory(version,
+                    category with { Code = "OTHER" }), "procurement_manager")).StatusCode);
+        var updated = await SendJson(fixture.Client, HttpMethod.Put, $"{categories}/{id}",
+            fixture.Owner, new ProcurementConfigurationRoutes.VersionedCategory(version,
+                category with { Name = "IT equipment" }), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var latest = await updated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("IT equipment", latest.GetProperty("name").GetString());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"{categories}/{id}", fixture.Owner,
+                new ProcurementConfigurationRoutes.VersionedCategory(version,
+                    category), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, $"{categories}/{id}", fixture.Owner,
+                fixture.OtherCompany, "procurement_manager")).StatusCode);
+
+        var method = new ProcurementConfigurationRoutes.MethodInput("RFQ", "Request for quotes", null, null);
+        var savedMethod = await SendJson(fixture.Client, HttpMethod.Post, methods, fixture.Owner,
+            method, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, savedMethod.StatusCode);
+        Assert.Equal("Draft", (await savedMethod.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        Assert.Equal(1, (await (await Send(fixture.Client, HttpMethod.Get, methods,
+            fixture.Owner, role: "procurement_buyer")).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+    }
+
+    [Fact]
     public async Task Request_list_counts_only_current_lines_after_a_draft_revision()
     {
         await using var fixture = await Fixture.Start();
@@ -541,6 +590,7 @@ public sealed class ProcurementRequestHttpTests
             ProcurementPlanRoutes.MapRoutes(app);
             ProcurementSourcingDraftRoutes.MapRoutes(app);
             ProcurementContractDraftRoutes.MapRoutes(app);
+            ProcurementConfigurationRoutes.MapRoutes(app);
 
             var company = new LegalEntity { Code = "A", RegisteredName = "Amizo Power", Currency = "ZMW" };
             var otherCompany = new LegalEntity { Code = "B", RegisteredName = "Other company", Currency = "USD" };
