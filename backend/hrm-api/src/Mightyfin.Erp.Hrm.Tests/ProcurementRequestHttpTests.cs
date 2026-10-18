@@ -263,6 +263,46 @@ public sealed class ProcurementRequestHttpTests
             && row.GetProperty("status").GetString() == "Submitted");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/vendors/{id}", fixture.Other)).StatusCode);
+
+        var reviewPath = $"/api/procurement/v1/vendors/{id}/return";
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Owner,
+                new VendorReviewReturnInput(result.GetProperty("version").GetInt64(), "Need more details"),
+                "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Other,
+                new VendorReviewReturnInput(result.GetProperty("version").GetInt64(), ""),
+                "procurement_manager")).StatusCode);
+        var returned = await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Other,
+            new VendorReviewReturnInput(result.GetProperty("version").GetInt64(), "Confirm legal address"),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, returned.StatusCode);
+        var returnedRecord = await returned.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("More Information Required", returnedRecord.GetProperty("status").GetString());
+        Assert.False(returnedRecord.GetProperty("isOrderable").GetBoolean());
+        Assert.Equal(2, await fixture.DecisionCount(id));
+
+        var resubmitted = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+            new VendorSubmitInput(returnedRecord.GetProperty("version").GetInt64(),
+                "Legal address confirmed with contact"));
+        Assert.Equal(HttpStatusCode.OK, resubmitted.StatusCode);
+        var resubmittedRecord = await resubmitted.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Submitted", resubmittedRecord.GetProperty("status").GetString());
+        Assert.Equal(3, await fixture.DecisionCount(id));
+
+        var returnedAgain = await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Other,
+            new VendorReviewReturnInput(resubmittedRecord.GetProperty("version").GetInt64(),
+                "No longer needed"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, returnedAgain.StatusCode);
+        var returnedAgainRecord = await returnedAgain.Content.ReadFromJsonAsync<JsonElement>();
+        var withdrawn = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{id}/withdraw", fixture.Owner,
+            new VendorWithdrawInput(returnedAgainRecord.GetProperty("version").GetInt64(),
+                "Request cancelled"));
+        Assert.Equal(HttpStatusCode.OK, withdrawn.StatusCode);
+        Assert.Equal("Withdrawn", (await withdrawn.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        Assert.Equal(5, await fixture.DecisionCount(id));
     }
 
     private static ProcurementRequestRoutes.NewRequest Draft(string purpose) => new(

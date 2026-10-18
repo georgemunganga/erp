@@ -18,6 +18,7 @@ public static class ProcurementVendorRoutes
         group.MapPost("", CreateAsync).RequireAuthorization("procurement-vendor-create");
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/submit", SubmitAsync).RequireAuthorization("procurement-vendor-edit");
+        group.MapPost("/{id:guid}/return", ReturnForInformationAsync).RequireAuthorization("procurement-vendor-manage");
         group.MapPost("/{id:guid}/withdraw", WithdrawAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/contacts", AddContactAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/sites", AddSiteAsync).RequireAuthorization("procurement-vendor-edit");
@@ -219,7 +220,8 @@ public static class ProcurementVendorRoutes
             .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http))
             return Results.NotFound();
-        if (supplier.Status != "Draft") return Conflict("Only a draft vendor can be submitted for review.");
+        if (supplier.Status is not ("Draft" or "More Information Required"))
+            return Conflict("Only a draft or returned vendor can be submitted for review.");
         if (supplier.Version != input.Version) return Stale();
         if (string.IsNullOrWhiteSpace(supplier.CategoryCode))
             return BadInput("Choose a vendor category before submitting for review.");
@@ -229,6 +231,7 @@ public static class ProcurementVendorRoutes
             return BadInput("Give a business reason of up to 1,000 characters.");
 
         var decidedAt = DateTimeOffset.UtcNow;
+        var priorStatus = supplier.Status;
         supplier.Status = "Submitted";
         supplier.IsOrderable = false;
         supplier.StatusReason = input.BusinessReason.Trim();
@@ -236,7 +239,36 @@ public static class ProcurementVendorRoutes
         supplier.StatusDecidedBy = scope.SubjectId;
         db.AddScoped(new SupplierDecision
         {
-            SupplierId = id, FromStatus = "Draft", ToStatus = "Submitted",
+            SupplierId = id, FromStatus = priorStatus, ToStatus = "Submitted",
+            ActorSubjectId = scope.SubjectId, Reason = supplier.StatusReason,
+            DecidedAt = decidedAt,
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { supplier.Id, supplier.Status, supplier.IsOrderable, supplier.Version });
+    }
+
+    private static async Task<IResult> ReturnForInformationAsync(Guid id, VendorReviewReturnInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null) return Results.NotFound();
+        if (supplier.Status != "Submitted")
+            return Conflict("Only a submitted vendor can be returned for more information.");
+        if (supplier.Version != input.Version) return Stale();
+        if (supplier.CreatedBy == scope.SubjectId)
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return BadInput("Give a reason of up to 1,000 characters for the requested changes.");
+        var decidedAt = DateTimeOffset.UtcNow;
+        supplier.Status = "More Information Required";
+        supplier.IsOrderable = false;
+        supplier.StatusReason = input.Reason.Trim();
+        supplier.StatusDecidedAt = decidedAt;
+        supplier.StatusDecidedBy = scope.SubjectId;
+        db.AddScoped(new SupplierDecision
+        {
+            SupplierId = id, FromStatus = "Submitted", ToStatus = supplier.Status,
             ActorSubjectId = scope.SubjectId, Reason = supplier.StatusReason,
             DecidedAt = decidedAt,
         });
@@ -252,10 +284,12 @@ public static class ProcurementVendorRoutes
         var supplier = await db.Suppliers.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http))
             return Results.NotFound();
-        if (supplier.Status != "Draft") return Conflict("Only a draft vendor can be withdrawn here.");
+        if (supplier.Status is not ("Draft" or "More Information Required"))
+            return Conflict("Only a draft or returned vendor can be withdrawn here.");
         if (supplier.Version != input.Version) return Stale();
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return BadInput("Give a short reason for withdrawing this vendor.");
+        var priorStatus = supplier.Status;
         supplier.Status = "Withdrawn";
         supplier.IsOrderable = false;
         supplier.StatusReason = input.Reason.Trim();
@@ -263,7 +297,7 @@ public static class ProcurementVendorRoutes
         supplier.StatusDecidedBy = scope.SubjectId;
         db.AddScoped(new SupplierDecision
         {
-            SupplierId = supplier.Id, FromStatus = "Draft", ToStatus = "Withdrawn",
+            SupplierId = supplier.Id, FromStatus = priorStatus, ToStatus = "Withdrawn",
             ActorSubjectId = scope.SubjectId, Reason = input.Reason.Trim(),
             DecidedAt = supplier.StatusDecidedAt.Value,
         });
@@ -437,6 +471,7 @@ public sealed record VendorDraftInput(string? LegalName, string? DisplayName, st
     List<VendorAttributeInput>? Attributes);
 public sealed record VendorDraftUpdate(long Version, VendorDraftInput Draft);
 public sealed record VendorSubmitInput(long Version, string? BusinessReason);
+public sealed record VendorReviewReturnInput(long Version, string? Reason);
 public sealed record VendorWithdrawInput(long Version, string? Reason);
 public sealed record VendorContactInput(string? Name, string? Salutation, string? FirstName,
     string? LastName, string? Role, string? Email, string? Phone, string? WorkPhone,
