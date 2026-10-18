@@ -420,6 +420,59 @@ public sealed class ProcurementRequestHttpTests
                 valid with { Version = submitted.GetProperty("version").GetInt64() })).StatusCode);
     }
 
+    [Fact]
+    public async Task Contract_draft_requires_available_supplier_and_remains_non_active()
+    {
+        await using var fixture = await Fixture.Start();
+        var vendorResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/vendors", fixture.Owner,
+            new { legalName = "Contract Supplier Ltd", displayName = "Contract Supplier",
+                countryCode = "ZM" });
+        Assert.Equal(HttpStatusCode.Created, vendorResponse.StatusCode);
+        var vendor = await vendorResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var supplierId = vendor.GetProperty("id").GetGuid();
+        var input = new ContractDraftInput(supplierId, "Office supplies", "Framework", null,
+            10_000, new DateOnly(2026, 10, 1), new DateOnly(2027, 9, 30),
+            new DateOnly(2027, 6, 30));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/contracts",
+                fixture.Other, input, "procurement_buyer")).StatusCode);
+        var created = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/contracts", fixture.Owner, input, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var contract = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Draft", contract.GetProperty("status").GetString());
+        Assert.Equal("ZMW", contract.GetProperty("currencyCode").GetString());
+        Assert.Equal("Draft", contract.GetProperty("draftVersion").GetProperty("status").GetString());
+        var id = contract.GetProperty("id").GetGuid();
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/contracts/{id}",
+                fixture.Other, role: "procurement_buyer")).StatusCode);
+        var updated = await SendJson(fixture.Client, HttpMethod.Put,
+            $"/api/procurement/v1/contracts/{id}", fixture.Owner,
+            new ProcurementContractDraftRoutes.VersionedContractDraft(
+                contract.GetProperty("version").GetInt64(), input with { CeilingAmount = 12_000 }),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var revised = await updated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(12_000, revised.GetProperty("ceilingAmount").GetDecimal());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put,
+                $"/api/procurement/v1/contracts/{id}", fixture.Owner,
+                new ProcurementContractDraftRoutes.VersionedContractDraft(
+                    contract.GetProperty("version").GetInt64(), input), "procurement_buyer")).StatusCode);
+        var cancelled = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/contracts/{id}/cancel", fixture.Owner,
+            new ProcurementContractDraftRoutes.ContractCancel(
+                revised.GetProperty("version").GetInt64(), "Agreement not needed"),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+        var cancelledContract = await cancelled.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Cancelled", cancelledContract.GetProperty("status").GetString());
+        Assert.Equal("Cancelled", cancelledContract.GetProperty("draftVersion")
+            .GetProperty("status").GetString());
+    }
+
     private static ProcurementRequestRoutes.NewRequest Draft(string purpose) => new(
         purpose, null, null, null, null, null, null, null, null,
         [new ProcurementRequestRoutes.RequestLineInput(null, "Laptop", "each", 2, 100,
@@ -487,6 +540,7 @@ public sealed class ProcurementRequestHttpTests
             ProcurementItemEndpoints.MapRoutes(app);
             ProcurementPlanRoutes.MapRoutes(app);
             ProcurementSourcingDraftRoutes.MapRoutes(app);
+            ProcurementContractDraftRoutes.MapRoutes(app);
 
             var company = new LegalEntity { Code = "A", RegisteredName = "Amizo Power", Currency = "ZMW" };
             var otherCompany = new LegalEntity { Code = "B", RegisteredName = "Other company", Currency = "USD" };
