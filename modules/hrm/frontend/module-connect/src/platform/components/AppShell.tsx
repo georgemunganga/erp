@@ -673,6 +673,10 @@ function FullAppShell({ children }: { children: ReactNode }) {
   const entityLocations: { id: string; name: string }[] = USE_REAL
     ? liveLocations.filter((location) => !entity || location.legalEntityId === entity.id)
     : (entity as { branches?: string[] })?.branches?.map((name) => ({ id: String(name), name: String(name) })) ?? [];
+  const entityName = entity
+    ? String((entity as Record<string, unknown>).registeredName ?? (entity as Record<string, unknown>).tradingName ?? (entity as Record<string, unknown>).name ?? "Organisation")
+    : "Organisation";
+  const branchName = branch ? entityLocations.find((location) => location.id === branch || location.name === branch)?.name ?? branch : "";
 
   /** Tree used by the organisation switcher: every legal entity with its branches nested underneath. */
   const entityTree = (USE_REAL ? liveEntities : entities).map((e) => {
@@ -804,10 +808,9 @@ function FullAppShell({ children }: { children: ReactNode }) {
             </SheetContent>
           </Sheet>} context={<DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" aria-label="Organisation and branch" className="flex min-w-0 gap-2 max-md:size-9 max-md:px-0">
+              <Button variant="outline" size="sm" aria-label="Organisation and branch" className="h-9 max-w-64 min-w-0 gap-2 rounded-full border-primary-foreground/40 bg-surface px-2 text-sm text-foreground hover:bg-surface-muted hover:text-foreground md:px-3 max-md:size-9 max-md:px-0">
                 <Building2 className="size-4 shrink-0" aria-hidden />
-                <span className="hidden max-w-40 truncate font-medium md:inline">{entity ? String((entity as Record<string, unknown>).registeredName ?? (entity as Record<string, unknown>).tradingName ?? (entity as Record<string, unknown>).name ?? "Organisation") : "Organisation"}</span>
-                {branch ? <span className="hidden max-w-32 truncate text-muted-foreground md:inline">· {liveLocations.find((l) => l.id === branch)?.name ?? branch}</span> : null}
+                <span className="hidden min-w-0 truncate font-medium md:inline">{entityName}{branchName ? ` · ${branchName}` : ""}</span>
                 <ChevronDown className="hidden size-3.5 shrink-0 md:block" aria-hidden />
               </Button>
             </DropdownMenuTrigger>

@@ -57,7 +57,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
   </>;
   return <div className="min-h-screen bg-background text-foreground">
     <ErpTopNav current="core" navigation={<button type="button" className="rounded-md p-2 lg:hidden" aria-label="Open Core navigation" onClick={() => setMobileOpen(true)}><Menu className="size-5" /></button>} context={<div className="relative">
-        <button type="button" aria-label="Organization and branch" aria-expanded={contextOpen} onClick={() => setContextOpen(!contextOpen)} className="flex max-w-72 items-center gap-2 rounded-full border bg-surface px-2 py-1.5 text-xs text-foreground md:px-3">
+        <button type="button" aria-label="Organization and branch" aria-expanded={contextOpen} onClick={() => setContextOpen(!contextOpen)} className="flex h-9 max-w-64 min-w-0 items-center gap-2 rounded-full border border-primary-foreground/40 bg-surface px-2 text-sm text-foreground hover:bg-surface-muted md:px-3">
           <Building2 className="size-4 shrink-0" /><span className="hidden truncate md:inline">{activeEntity?.name ?? "Organization"}{activeBranch ? ` · ${activeBranch.name}` : ""}</span><ChevronDown className="hidden size-3.5 shrink-0 md:block" />
         </button>
         {contextOpen && <div className="fixed inset-x-3 top-14 z-50 max-h-[60vh] overflow-y-auto rounded-lg border bg-surface p-2 text-foreground shadow-xl md:absolute md:inset-x-auto md:left-0 md:top-11 md:w-80">
