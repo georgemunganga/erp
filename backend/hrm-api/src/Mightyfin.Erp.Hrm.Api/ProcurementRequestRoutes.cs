@@ -29,7 +29,8 @@ public static class ProcurementRequestRoutes
         var records = await own.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip(skip).Take(take)
             .Select(x => new RequestSummary(x.Id, x.Number, x.Purpose, x.Status, x.CurrencyCode,
-                x.NeededBy, x.CreatedAt, x.Version, x.Lines.Count))
+                x.NeededBy, x.CreatedAt, x.Version,
+                x.Lines.Count(line => line.ApprovalStatus != "Cancelled")))
             .ToListAsync(ct);
         return Results.Ok(new { records, count, limit = take, offset = skip });
     }
