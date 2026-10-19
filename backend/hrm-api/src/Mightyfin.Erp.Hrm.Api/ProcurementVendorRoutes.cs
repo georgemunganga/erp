@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using System.Text.Json;
+using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
 using Microsoft.AspNetCore.Authorization;
 using Mightyfin.Erp.Procurement.Domain;
@@ -22,6 +24,8 @@ public static class ProcurementVendorRoutes
         group.MapPost("/{id:guid}/return", ReturnForInformationAsync).RequireAuthorization("procurement-vendor-manage");
         group.MapPost("/{id:guid}/approve", ApproveAsync).RequireAuthorization("procurement-vendor-approve");
         group.MapPost("/{id:guid}/reject", RejectAsync).RequireAuthorization("procurement-vendor-approve");
+        group.MapGet("/{id:guid}/open-orders", OpenOrdersAsync).RequireAuthorization("procurement-vendor-suspend");
+        group.MapPost("/{id:guid}/suspend", SuspendAsync).RequireAuthorization("procurement-vendor-suspend");
         group.MapPost("/{id:guid}/withdraw", WithdrawAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/contacts", AddContactAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/sites", AddSiteAsync).RequireAuthorization("procurement-vendor-edit");
@@ -72,9 +76,12 @@ public static class ProcurementVendorRoutes
         var canDecide = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded
             && supplier.Status == "Submitted" && supplier.CreatedBy != scope.SubjectId
             && supplier.StatusDecidedBy != scope.SubjectId;
+        var canSuspend = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-suspend")).Succeeded
+            && supplier.Status == "Active" && supplier.IsOrderable
+            && supplier.CreatedBy != scope.SubjectId;
         return Results.Ok(canManage || supplier.CreatedBy == scope.SubjectId
             ? ToDetail(supplier, canManage && supplier.CreatedBy != scope.SubjectId
-                && supplier.Status == "Submitted", canDecide) : ToBasicDetail(supplier));
+                && supplier.Status == "Submitted", canDecide, canSuspend) : ToBasicDetail(supplier));
     }
 
     private static async Task<IResult> CreateAsync(VendorDraftInput input, ProcurementDbContext db, HrmDbContext core,
@@ -356,6 +363,67 @@ public static class ProcurementVendorRoutes
         return Results.Ok(new { supplier.Id, supplier.Status, supplier.IsOrderable, supplier.Version });
     }
 
+    private static async Task<IResult> SuspendAsync(Guid id, VendorSuspendInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+        try
+        {
+            var supplier = await db.Suppliers.SingleOrDefaultAsync(x => x.Id == id, ct);
+            if (supplier is null) return Results.NotFound();
+            if (supplier.Status != "Active" || !supplier.IsOrderable)
+                return Conflict("Only an active vendor can be suspended.");
+            if (supplier.Version != input.Version) return Stale();
+            if (supplier.CreatedBy == scope.SubjectId)
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+                return BadInput("Explain why this vendor must be placed on hold in up to 1,000 characters.");
+            var openOrders = await OpenOrders(db, id).CountAsync(ct);
+            if (openOrders > 0 && !input.ExistingOrdersReviewed)
+                return BadInput("Review existing orders before placing this vendor on hold.");
+            var now = DateTimeOffset.UtcNow;
+            supplier.Status = "Suspended";
+            supplier.IsOrderable = false;
+            supplier.EligibleUntil = now;
+            supplier.HoldReason = input.Reason.Trim();
+            supplier.StatusReason = supplier.HoldReason;
+            supplier.StatusDecidedAt = now;
+            supplier.StatusDecidedBy = scope.SubjectId;
+            db.AddScoped(new SupplierDecision
+            {
+                SupplierId = id, FromStatus = "Active", ToStatus = "Suspended",
+                ActorSubjectId = scope.SubjectId, Reason = supplier.HoldReason,
+                DecidedAt = now,
+            });
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return Results.Ok(new { supplier.Id, supplier.Status, supplier.IsOrderable,
+                supplier.Version, supplier.EligibleUntil, supplier.HoldReason, openOrders });
+        }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        { return Conflict("The vendor or its orders changed. Refresh before placing it on hold."); }
+    }
+
+    private static async Task<IResult> OpenOrdersAsync(Guid id, ProcurementDbContext db,
+        CancellationToken ct)
+    {
+        if (!await db.Suppliers.AsNoTracking().AnyAsync(x => x.Id == id, ct))
+            return Results.NotFound();
+        var query = OpenOrders(db, id);
+        var count = await query.CountAsync(ct);
+        var items = await query.OrderBy(x => x.Number).ThenBy(x => x.Id).Take(100)
+            .Select(x => new { x.Id, x.Number, x.Status, x.CurrencyCode, x.IssuedAt })
+            .ToListAsync(ct);
+        return Results.Ok(new { supplierId = id, count, items });
+    }
+
+    private static IQueryable<PurchaseOrder> OpenOrders(ProcurementDbContext db, Guid supplierId) =>
+        db.PurchaseOrders.AsNoTracking().Where(x => x.SupplierId == supplierId
+            && x.Status != "Closed" && x.Status != "Cancelled" && x.Status != "Rejected"
+            && x.Status != "Expired");
+
     private static async Task<IResult> WithdrawAsync(Guid id, VendorWithdrawInput input,
         ProcurementDbContext db, ProcurementRequestScope scope, IAuthorizationService authorization,
         HttpContext http, CancellationToken ct)
@@ -467,7 +535,8 @@ public static class ProcurementVendorRoutes
             qualification.ReviewedAt, qualification.Version, supplierVersion = supplier.Version });
     }
 
-    private static object ToDetail(Supplier x, bool canReturnForInformation, bool canDecide = false) => new
+    private static object ToDetail(Supplier x, bool canReturnForInformation, bool canDecide = false,
+        bool canSuspend = false) => new
     {
         x.Id, x.Number, x.LegalName, x.DisplayName, x.TradingName, x.CountryCode,
         x.RegistrationNumber, x.CompanyIdType, x.TaxIdentifierRef, x.Website,
@@ -475,7 +544,7 @@ public static class ProcurementVendorRoutes
         x.TaxCategoryRef, x.LanguageCode, x.Remarks, x.IsLocal, x.Status,
         x.StatusReason, x.StatusDecidedAt, x.IsOrderable, x.PortalAccessState,
         CanReturnForInformation = canReturnForInformation,
-        CanApprove = canDecide, CanReject = canDecide,
+        CanApprove = canDecide, CanReject = canDecide, CanSuspend = canSuspend,
         x.Version, x.CreatedAt, x.UpdatedAt,
         contacts = x.Contacts.OrderByDescending(c => c.IsPrimary).ThenBy(c => c.Name)
             .Select(c => new { c.Id, c.Name, c.Salutation, c.FirstName, c.LastName,
@@ -596,6 +665,7 @@ public sealed record VendorDraftUpdate(long Version, VendorDraftInput Draft);
 public sealed record VendorSubmitInput(long Version, string? BusinessReason);
 public sealed record VendorReviewReturnInput(long Version, string? Reason);
 public sealed record VendorApprovalInput(long Version, string? Reason, bool DuplicatesReviewed);
+public sealed record VendorSuspendInput(long Version, string? Reason, bool ExistingOrdersReviewed);
 public sealed record VendorWithdrawInput(long Version, string? Reason);
 public sealed record VendorContactInput(string? Name, string? Salutation, string? FirstName,
     string? LastName, string? Role, string? Email, string? Phone, string? WorkPhone,

@@ -1407,6 +1407,72 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Active_vendor_can_be_suspended_only_by_independent_manager_with_reason()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/vendors",
+            fixture.Owner, new { legalName = "Hold Supplier Ltd", displayName = "Hold Supplier",
+                countryCode = "ZM", categoryCode = "OFFICE",
+                primaryContact = new { name = "Supplier Contact" } });
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{id}/submit", fixture.Owner,
+            new VendorSubmitInput(draft.GetProperty("version").GetInt64(), "Supplier review"));
+        var pending = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        var approved = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{id}/approve", fixture.Other,
+            new VendorApprovalInput(pending.GetProperty("version").GetInt64(), "Verified", true),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+        var active = await approved.Content.ReadFromJsonAsync<JsonElement>();
+        var version = active.GetProperty("version").GetInt64();
+        await fixture.AddOpenOrder(id);
+        var ordersPath = $"/api/procurement/v1/vendors/{id}/open-orders";
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, ordersPath, fixture.Owner)).StatusCode);
+        var openOrders = await Send(fixture.Client, HttpMethod.Get, ordersPath, fixture.Other,
+            role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, openOrders.StatusCode);
+        var ordersBody = await openOrders.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, ordersBody.GetProperty("count").GetInt32());
+        Assert.Equal("Issued", ordersBody.GetProperty("items")[0].GetProperty("status").GetString());
+        var path = $"/api/procurement/v1/vendors/{id}/suspend";
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                new VendorSuspendInput(version, "Risk", true),
+                role: "procurement_manager", company: fixture.OtherCompany)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                new VendorSuspendInput(version, "Risk", false))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+                new VendorSuspendInput(version, "Risk", false), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                new VendorSuspendInput(version, "", false), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                new VendorSuspendInput(version - 1, "Risk", false), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                new VendorSuspendInput(version, "Risk", false), "procurement_manager")).StatusCode);
+        var suspended = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            new VendorSuspendInput(version, "Diligence expired", true), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, suspended.StatusCode);
+        var result = await suspended.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Suspended", result.GetProperty("status").GetString());
+        Assert.False(result.GetProperty("isOrderable").GetBoolean());
+        Assert.Equal("Diligence expired", result.GetProperty("holdReason").GetString());
+        Assert.Equal(1, result.GetProperty("openOrders").GetInt32());
+        Assert.Equal(3, await fixture.DecisionCount(id));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                new VendorSuspendInput(result.GetProperty("version").GetInt64(), "Repeat", true),
+                "procurement_manager")).StatusCode);
+    }
+
+    [Fact]
     public async Task Vendor_rejection_keeps_supplier_non_orderable_and_requires_reason()
     {
         await using var fixture = await Fixture.Start();
@@ -1579,10 +1645,11 @@ public sealed class ProcurementRequestHttpTests
     }
 
     private static Task<HttpResponseMessage> SendJson<T>(HttpClient client, HttpMethod method, string path,
-        Guid user, T body, string? role = null)
+        Guid user, T body, string? role = null, Guid? company = null)
     {
         var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         request.Headers.Add("X-Test-User", user.ToString());
+        if (company.HasValue) request.Headers.Add("X-Shell-Entity", company.Value.ToString());
         if (role is not null) request.Headers.Add("X-Test-Role", role);
         return client.SendAsync(request);
     }
@@ -1606,6 +1673,20 @@ public sealed class ProcurementRequestHttpTests
                 .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
             var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             return await db.SupplierDecisions.CountAsync(x => x.SupplierId == supplierId);
+        }
+
+        public async Task AddOpenOrder(Guid supplierId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            db.AddScoped(new PurchaseOrder
+            {
+                Number = "PO-TEST-" + Guid.NewGuid().ToString("N"), SupplierId = supplierId,
+                CurrencyCode = "ZMW", BuyerSubjectId = Owner.ToString(), Status = "Issued",
+            });
+            await db.SaveChangesAsync();
         }
 
         public async Task<int> RequestAuditCount(Guid requestId, string action)

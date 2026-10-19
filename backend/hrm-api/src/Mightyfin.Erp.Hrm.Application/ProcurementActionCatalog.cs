@@ -13,6 +13,7 @@ public static class ProcurementActionCatalog
             ["procurement-vendor-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-manage"] = ["procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-approve"] = ["procurement_manager"],
+            ["procurement-vendor-suspend"] = ["procurement_manager"],
             ["procurement-item-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-item-manage"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-item-approve"] = ["procurement_manager"],

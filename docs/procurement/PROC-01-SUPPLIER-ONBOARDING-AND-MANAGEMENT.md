@@ -10,6 +10,8 @@
 
 This feature establishes a proposed supplier profile, verifies it, decides whether it is orderable, and controls later changes or suspension. It defines business behaviour before implementation. Required documents, screening methods, authority, expiry periods and launch entities remain open decisions; examples are not approved policy.
 
+**Implementation progress, 19 October 2026:** Draft intake, independent approval, qualification review and a controlled active-vendor hold are implemented. A hold requires a separate Procurement manager, current version, reason and acknowledgment of open orders; the reviewer can inspect an access-controlled list of open order references. The hold sets the supplier non-orderable and retains decision history. Reactivation, automated qualification expiry and Finance remittance verification remain open. This progress does not claim the full PROC-01 workflow is complete.
+
 ## 1. Feature Identification
 
 **Feature ID:** PROC-01. **Parent:** Supplier Management. **Child:** Supplier Onboarding and Management. **Priority:** foundation. **Target:** documentation/build Phase 1. **Lifecycle:** draft. **Business owner:** Procurement supplier management lead, to name. **Data owner:** Procurement for supplier commercial profile; Finance for accounting account and verified remittance instructions. **Product and technical owners:** to assign. **Review date:** to agree.
