@@ -535,9 +535,15 @@ public sealed class ProcurementRequestHttpTests
             "/api/procurement/v1/catalog", fixture.Owner);
         Assert.Equal(1, (await catalog.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await SendJson(fixture.Client, HttpMethod.Post,
+                $"{entryPath}/{entry.GetProperty("id").GetGuid()}/withdraw", fixture.Owner,
+                new CatalogWithdrawInput(publishedBody.GetProperty("version").GetInt64(), ""),
+                "procurement_buyer")).StatusCode);
         var withdrawn = await SendJson(fixture.Client, HttpMethod.Post,
             $"{entryPath}/{entry.GetProperty("id").GetGuid()}/withdraw", fixture.Owner,
-            new VersionInput(publishedBody.GetProperty("version").GetInt64()), "procurement_buyer");
+            new CatalogWithdrawInput(publishedBody.GetProperty("version").GetInt64(),
+                "Superseded by a new vendor price"), "procurement_buyer");
         Assert.Equal(HttpStatusCode.OK, withdrawn.StatusCode);
         Assert.Equal(1, await fixture.RequestAuditCount(entry.GetProperty("id").GetGuid(), "Withdrawn"));
         var emptyCatalog = await Send(fixture.Client, HttpMethod.Get,

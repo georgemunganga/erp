@@ -216,7 +216,7 @@ public static class ProcurementItemEndpoints
         return Results.Ok(ToView(entry));
     }
 
-    private static async Task<IResult> WithdrawEntry(Guid id, Guid entryId, VersionInput input, ProcurementDbContext db,
+    private static async Task<IResult> WithdrawEntry(Guid id, Guid entryId, CatalogWithdrawInput input, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
         if (input.Version < 1) return BadRequest("A valid record version is required.");
@@ -224,13 +224,15 @@ public static class ProcurementItemEndpoints
         if (entry is null) return NotFound();
         if (entry.Version != input.Version) return Conflict("This catalog price changed. Refresh and try again.");
         if (entry.Status == "Withdrawn") return Results.Ok(ToView(entry));
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return BadRequest("Enter a withdrawal reason of up to 1,000 characters.");
         var oldStatus = entry.Status;
         entry.Status = "Withdrawn";
         db.AddScoped(new AuditEvent
         {
             RecordType = "CatalogEntry", RecordId = entry.Id, Action = "Withdrawn",
             ActorSubjectId = scope.SubjectId,
-            ChangedFieldsJson = JsonSerializer.Serialize(new { from = oldStatus, to = "Withdrawn" }),
+            ChangedFieldsJson = JsonSerializer.Serialize(new { from = oldStatus, to = "Withdrawn", reason = input.Reason.Trim() }),
         });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Conflict("This catalog price changed. Refresh and try again."); }
@@ -364,6 +366,7 @@ public sealed record ItemUpdate(long Version, ItemInput Item);
 public sealed record VersionInput(long Version);
 public sealed record ItemActivationInput(long Version, string? Reason);
 public sealed record CatalogPublishInput(long Version, string? Reason);
+public sealed record CatalogWithdrawInput(long Version, string? Reason);
 public sealed record ItemView(Guid Id, string Code, string Name, string Kind, string CategoryCode, string UnitCode,
     string? Description, string Status, bool IsPurchasable, bool IsStockItem, bool IsAsset, string? Brand, int? LeadTimeDays, long Version);
 public sealed record EntryInput(Guid? SupplierId, string CurrencyCode, string UnitCode, decimal UnitPrice,
