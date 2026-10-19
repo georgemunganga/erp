@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -469,7 +470,7 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
-    public async Task Policy_drafts_are_scoped_versioned_and_cannot_publish_through_draft_api()
+    public async Task Policy_drafts_are_scoped_versioned_and_cannot_publish_before_review()
     {
         await using var fixture = await Fixture.Start();
         const string policies = "/api/procurement/v1/configuration/policies";
@@ -523,9 +524,12 @@ public sealed class ProcurementRequestHttpTests
             (await SendJson(fixture.Client, HttpMethod.Put, $"{policies}/{id}", fixture.Owner,
                 new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(version, draft),
                 "procurement_manager")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound,
+        var updatedPolicy = await updated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Post, $"{policies}/{id}/publish", fixture.Other,
-                new { reason = "Not supported" }, "procurement_manager")).StatusCode);
+                new ProcurementPolicyDraftRoutes.PublicationInput(
+                    updatedPolicy.GetProperty("version").GetInt64(), "Not reviewed"),
+                "procurement_manager")).StatusCode);
     }
 
     [Fact]
@@ -628,6 +632,141 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Post, route, fixture.Owner,
                 review with { Version = reviewed.GetProperty("version").GetInt64() },
+                "procurement_manager")).StatusCode);
+
+        var publishPath = $"{basePath}/{id}/publish";
+        var publication = new ProcurementPolicyDraftRoutes.PublicationInput(
+            reviewed.GetProperty("version").GetInt64(), "Approved after independent review");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, publishPath, fixture.Owner,
+                publication, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, publishPath, fixture.Other,
+                publication with { Reason = " " }, "procurement_manager")).StatusCode);
+        var published = await SendJson(fixture.Client, HttpMethod.Post, publishPath, fixture.Other,
+            publication, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+        var publishedRecord = await published.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Published", publishedRecord.GetProperty("state").GetString());
+        Assert.Equal(fixture.Other.ToString(), publishedRecord.GetProperty("publishedBy").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "Published"));
+        var before = await Send(fixture.Client, HttpMethod.Get,
+            $"{basePath}/effective?key=PURCHASE_REQUEST", fixture.Owner,
+            role: "procurement_manager");
+        Assert.Equal("MissingPolicy", (await before.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        var effectiveAt = Uri.EscapeDataString(draft.EffectiveFrom.AddMinutes(1).ToString("O"));
+        var after = await Send(fixture.Client, HttpMethod.Get,
+            $"{basePath}/effective?key=PURCHASE_REQUEST&at={effectiveAt}", fixture.Owner,
+            role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, after.StatusCode);
+        var effective = await after.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Valid", effective.GetProperty("status").GetString());
+        Assert.False(effective.GetProperty("isAuthority").GetBoolean());
+        Assert.Equal(id, effective.GetProperty("policy").GetProperty("id").GetGuid());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, publishPath, fixture.Other,
+                publication with { Version = publishedRecord.GetProperty("version").GetInt64() },
+                "procurement_manager")).StatusCode);
+
+        var overlappingDraft = await SendJson(fixture.Client, HttpMethod.Post, basePath,
+            fixture.Owner, draft with { EffectiveFrom = draft.EffectiveFrom },
+            "procurement_manager");
+        var overlapping = await overlappingDraft.Content.ReadFromJsonAsync<JsonElement>();
+        var overlappingId = overlapping.GetProperty("id").GetGuid();
+        var overlappingReview = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{basePath}/{overlappingId}/submit-review", fixture.Owner,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(
+                overlapping.GetProperty("version").GetInt64(), "Review replacement"),
+            "procurement_manager");
+        var ready = await overlappingReview.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post,
+                $"{basePath}/{overlappingId}/publish", fixture.Other,
+                new ProcurementPolicyDraftRoutes.PublicationInput(
+                    ready.GetProperty("version").GetInt64(), "Checked replacement"),
+                "procurement_manager")).StatusCode);
+
+        var successorStart = draft.EffectiveFrom.AddHours(1);
+        var successorDraft = await SendJson(fixture.Client, HttpMethod.Post, basePath,
+            fixture.Owner, draft with { EffectiveFrom = successorStart }, "procurement_manager");
+        var successor = await successorDraft.Content.ReadFromJsonAsync<JsonElement>();
+        var successorId = successor.GetProperty("id").GetGuid();
+        var successorReview = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{basePath}/{successorId}/submit-review", fixture.Owner,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(
+                successor.GetProperty("version").GetInt64(), "Review the new period"),
+            "procurement_manager");
+        var successorReady = await successorReview.Content.ReadFromJsonAsync<JsonElement>();
+        var successorPublish = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{basePath}/{successorId}/publish", fixture.Other,
+            new ProcurementPolicyDraftRoutes.PublicationInput(
+                successorReady.GetProperty("version").GetInt64(), "Replace open-ended rules"),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, successorPublish.StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "Superseded"));
+        var priorAt = Uri.EscapeDataString(successorStart.AddMinutes(-1).ToString("O"));
+        var prior = await Send(fixture.Client, HttpMethod.Get,
+            $"{basePath}/effective?key=PURCHASE_REQUEST&at={priorAt}", fixture.Owner,
+            role: "procurement_manager");
+        Assert.Equal(id, (await prior.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("policy").GetProperty("id").GetGuid());
+        var successorAt = Uri.EscapeDataString(successorStart.AddMinutes(1).ToString("O"));
+        var later = await Send(fixture.Client, HttpMethod.Get,
+            $"{basePath}/effective?key=PURCHASE_REQUEST&at={successorAt}", fixture.Owner,
+            role: "procurement_manager");
+        Assert.Equal(successorId, (await later.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("policy").GetProperty("id").GetGuid());
+
+        var uncoveredRules = rules.Replace("\"minimumAmountInclusive\":null",
+            "\"minimumAmountInclusive\":1000", StringComparison.Ordinal);
+        var uncoveredDraft = await SendJson(fixture.Client, HttpMethod.Post, basePath,
+            fixture.Owner, draft with { RulesJson = uncoveredRules,
+                EffectiveFrom = draft.EffectiveFrom.AddDays(2) }, "procurement_manager");
+        var uncovered = await uncoveredDraft.Content.ReadFromJsonAsync<JsonElement>();
+        var uncoveredId = uncovered.GetProperty("id").GetGuid();
+        var uncoveredReview = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{basePath}/{uncoveredId}/submit-review", fixture.Owner,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(
+                uncovered.GetProperty("version").GetInt64(), "Check the coverage"),
+            "procurement_manager");
+        var awaitingCoverage = await uncoveredReview.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post,
+                $"{basePath}/{uncoveredId}/publish", fixture.Other,
+                new ProcurementPolicyDraftRoutes.PublicationInput(
+                    awaitingCoverage.GetProperty("version").GetInt64(), "Coverage is incomplete"),
+                "procurement_manager")).StatusCode);
+        var returnPath = $"{basePath}/{uncoveredId}/return-for-changes";
+        Assert.Contains(fixture.Routes(), route => route.EndsWith("/{id:guid}/return-for-changes", StringComparison.Ordinal));
+        var beforeReturn = await Send(fixture.Client, HttpMethod.Get, $"{basePath}/{uncoveredId}",
+            fixture.Owner, role: "procurement_manager");
+        Assert.True(beforeReturn.StatusCode == HttpStatusCode.OK,
+            $"Expected policy before return, got {beforeReturn.StatusCode}: {await beforeReturn.Content.ReadAsStringAsync()}");
+        var returnInput = new ProcurementPolicyDraftRoutes.PublicationInput(
+            awaitingCoverage.GetProperty("version").GetInt64(), "Add an unrestricted fallback");
+        var ownerReturn = await SendJson(fixture.Client, HttpMethod.Post, returnPath, fixture.Owner,
+            returnInput, "procurement_manager");
+        Assert.True(ownerReturn.StatusCode == HttpStatusCode.Forbidden,
+            $"Expected Forbidden at {returnPath}, got {ownerReturn.StatusCode}: {await ownerReturn.Content.ReadAsStringAsync()}");
+        var returned = await SendJson(fixture.Client, HttpMethod.Post, returnPath, fixture.Other,
+            returnInput, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, returned.StatusCode);
+        var returnedRecord = await returned.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Draft", returnedRecord.GetProperty("state").GetString());
+        Assert.Equal("Add an unrestricted fallback",
+            returnedRecord.GetProperty("lastReturnReason").GetString());
+        var reloaded = await Send(fixture.Client, HttpMethod.Get,
+            $"{basePath}/{uncoveredId}", fixture.Owner, role: "procurement_manager");
+        Assert.Equal("Add an unrestricted fallback",
+            (await reloaded.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("lastReturnReason").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(uncoveredId, "ReturnedForChanges"));
+        Assert.Equal(HttpStatusCode.OK,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"{basePath}/{uncoveredId}",
+                fixture.Owner, new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(
+                    returnedRecord.GetProperty("version").GetInt64(),
+                    draft with { EffectiveFrom = draft.EffectiveFrom.AddDays(2) }),
                 "procurement_manager")).StatusCode);
 
         var wrongCurrency = await SendJson(fixture.Client, HttpMethod.Post, basePath, fixture.Owner,
@@ -1191,6 +1330,9 @@ public sealed class ProcurementRequestHttpTests
     private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid inactive, Guid otherCompany)
         : IAsyncDisposable
     {
+        public string[] Routes() => ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(source => source.Endpoints.OfType<RouteEndpoint>())
+            .Select(endpoint => endpoint.RoutePattern.RawText ?? "").ToArray();
         public HttpClient Client { get; } = app.GetTestClient();
         public Guid Owner { get; } = owner;
         public Guid Other { get; } = other;

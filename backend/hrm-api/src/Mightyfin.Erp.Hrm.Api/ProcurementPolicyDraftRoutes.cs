@@ -1,7 +1,10 @@
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -16,12 +19,15 @@ public static class ProcurementPolicyDraftRoutes
     {
         var group = app.MapGroup("/api/procurement/v1/configuration/policies");
         group.MapGet("", List).RequireAuthorization("procurement-configuration-read");
+        group.MapGet("/effective", Effective).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-configuration-read");
         group.MapPost("", Create).RequireAuthorization("procurement-configuration-edit");
         group.MapPost("/validate", ValidateRules).RequireAuthorization("procurement-configuration-edit");
         group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-configuration-edit");
         group.MapPost("/{id:guid}/preview", Preview).RequireAuthorization("procurement-configuration-read");
         group.MapPost("/{id:guid}/submit-review", SubmitReview).RequireAuthorization("procurement-configuration-edit");
+        group.MapPost("/{id:guid}/publish", Publish).RequireAuthorization("procurement-configuration-approve");
+        group.MapPost("/{id:guid}/return-for-changes", ReturnForChanges).RequireAuthorization("procurement-configuration-approve");
     }
 
     private static IResult ValidateRules(PolicyValidationRequest input)
@@ -39,6 +45,30 @@ public static class ProcurementPolicyDraftRoutes
         var decision = PolicyRulePreview.Evaluate(policy.RulesJson, scenario);
         return Results.Ok(new { policyId = policy.Id, policy.PolicyVersionNumber,
             policy.State, isAuthority = false, coverageIssues, decision });
+    }
+
+    private static async Task<IResult> Effective(string? key, DateTimeOffset? at,
+        ProcurementDbContext db, CancellationToken ct)
+    {
+        var normalized = key?.Trim().ToUpperInvariant();
+        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER"))
+            return Problem("validation-failed", "Choose purchase requests or purchase orders.", 422);
+        var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        var matches = await db.PolicyVersions.AsNoTracking()
+            .Where(x => x.PolicyKey == normalized && x.State == "Published"
+                && x.EffectiveFrom <= instant && (x.EffectiveTo == null || x.EffectiveTo > instant))
+            .OrderByDescending(x => x.PolicyVersionNumber).Take(2)
+            .Select(x => new { x.Id, x.PolicyKey, x.PolicyVersionNumber,
+                x.EffectiveFrom, x.EffectiveTo, x.PublishedAt })
+            .ToListAsync(ct);
+        if (matches.Count == 0)
+            return Results.Ok(new { status = "MissingPolicy", isAuthority = false,
+                policy = (object?)null, evaluatedAt = instant });
+        if (matches.Count > 1)
+            return Results.Ok(new { status = "AmbiguousPolicy", isAuthority = false,
+                policy = (object?)null, evaluatedAt = instant });
+        return Results.Ok(new { status = "Valid", isAuthority = false,
+            policy = (object)matches[0], evaluatedAt = instant });
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, string? key,
@@ -64,7 +94,23 @@ public static class ProcurementPolicyDraftRoutes
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db, CancellationToken ct)
     {
         var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
-        return policy is null ? Problem("not-found", "Buying policy not found.", 404) : Results.Ok(View(policy));
+        if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        var lastReturn = policy.State == "Draft"
+            ? await db.AuditEvents.AsNoTracking()
+                .Where(x => x.RecordType == "PolicyVersion" && x.RecordId == id
+                    && x.Action == "ReturnedForChanges")
+                .OrderByDescending(x => x.CreatedAt).Select(x => x.ChangedFieldsJson)
+                .FirstOrDefaultAsync(ct)
+            : null;
+        string? lastReturnReason = null;
+        if (!string.IsNullOrWhiteSpace(lastReturn))
+        {
+            using var evidence = JsonDocument.Parse(lastReturn);
+            if (evidence.RootElement.TryGetProperty("reason", out var reason)
+                && reason.ValueKind == JsonValueKind.String)
+                lastReturnReason = reason.GetString();
+        }
+        return Results.Ok(View(policy, lastReturnReason));
     }
 
     private static async Task<IResult> Create(PolicyDraft input, ProcurementDbContext db,
@@ -127,6 +173,108 @@ public static class ProcurementPolicyDraftRoutes
             return Problem("not-author", "Only the draft author can send it for review.", 403);
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return Problem("validation-failed", "Enter a review note of up to 1,000 characters.", 422);
+        var referenceIssue = await CheckCompanyRules(policy, db, organizationDb, scope, ct);
+        if (referenceIssue is not null) return referenceIssue;
+        policy.State = "PendingReview";
+        policy.ReviewRequestedAt = DateTimeOffset.UtcNow;
+        policy.ReviewRequestedBy = scope.SubjectId;
+        policy.ReviewReason = input.Reason.Trim();
+        AddAudit(db, policy, scope.SubjectId, "ReviewRequested");
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        { return Problem("version-conflict", "Refresh this policy draft before sending it for review.", 409); }
+        return Results.Ok(View(policy));
+    }
+
+    private static async Task<IResult> Publish(Guid id, PublicationInput input,
+        ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return Problem("validation-failed", "Enter a publication reason of up to 1,000 characters.", 422);
+        IDbContextTransaction? transaction = null;
+        try
+        {
+            if (db.Database.IsRelational())
+                transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
+            if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+            if (policy.Version != input.Version)
+                return Problem("version-conflict", "Refresh this policy before publication.", 409);
+            if (policy.State != "PendingReview")
+                return Problem("policy-locked", "Only a policy waiting for review can be published.", 409);
+            if (policy.CreatedBy == scope.SubjectId || policy.ReviewRequestedBy == scope.SubjectId)
+                return Problem("self-approval", "Another authorized person must publish this policy.", 403);
+            if (policy.ReviewRequestedAt is null || string.IsNullOrWhiteSpace(policy.ReviewReason))
+                return Problem("review-missing", "Send this policy for review before publication.", 409);
+            if (policy.EffectiveFrom <= DateTimeOffset.UtcNow)
+                return Problem("effective-date", "Choose a future start date in a new draft before publication.", 422);
+            var referenceIssue = await CheckCompanyRules(policy, db, organizationDb, scope, ct);
+            if (referenceIssue is not null) return referenceIssue;
+            var coverage = PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
+            if (coverage.Count != 0)
+                return Results.Json(new { code = "coverage-failed",
+                    message = "Resolve rule coverage and overlaps before publication.", issues = coverage },
+                    statusCode: 422);
+            var start = policy.EffectiveFrom;
+            var end = policy.EffectiveTo;
+            var key = policy.PolicyKey;
+            var overlaps = await db.PolicyVersions.Where(x => x.Id != id
+                    && x.PolicyKey == key && x.State == "Published"
+                    && (end == null || x.EffectiveFrom < end)
+                    && (x.EffectiveTo == null || x.EffectiveTo > start)).ToListAsync(ct);
+            if (overlaps.Count > 1 || overlaps.Count == 1
+                && (overlaps[0].EffectiveTo is not null || overlaps[0].EffectiveFrom >= start))
+                return Problem("effective-overlap", "A published policy already covers part of this period.", 409);
+            if (overlaps.Count == 1)
+            {
+                // Close the prior open-ended period in the same transaction. Its original
+                // decision and the controlled supersession both remain in the audit trail.
+                overlaps[0].EffectiveTo = start;
+                AddAudit(db, overlaps[0], scope.SubjectId, "Superseded",
+                    $"Superseded by policy version {policy.PolicyVersionNumber}.");
+            }
+            policy.State = "Published";
+            policy.PublishedAt = DateTimeOffset.UtcNow;
+            policy.PublishedBy = scope.SubjectId;
+            policy.PublicationReason = input.Reason.Trim();
+            AddAudit(db, policy, scope.SubjectId, "Published");
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return Results.Ok(View(policy));
+        }
+        catch (DbUpdateConcurrencyException)
+        { return Problem("version-conflict", "Refresh this policy before publication.", 409); }
+        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        { return Problem("publication-conflict", "Another policy changed. Refresh and review the effective period.", 409); }
+        finally { if (transaction is not null) await transaction.DisposeAsync(); }
+    }
+
+    private static async Task<IResult> ReturnForChanges(Guid id, PublicationInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.Version != input.Version)
+            return Problem("version-conflict", "Refresh this policy before returning it.", 409);
+        if (policy.State != "PendingReview")
+            return Problem("policy-locked", "Only a policy waiting for review can be returned.", 409);
+        if (policy.CreatedBy == scope.SubjectId || policy.ReviewRequestedBy == scope.SubjectId)
+            return Problem("self-approval", "Another authorized person must return this policy.", 403);
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return Problem("validation-failed", "Enter a return reason of up to 1,000 characters.", 422);
+        policy.State = "Draft";
+        AddAudit(db, policy, scope.SubjectId, "ReturnedForChanges", input.Reason.Trim());
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        { return Problem("version-conflict", "Refresh this policy before returning it.", 409); }
+        return Results.Ok(View(policy, input.Reason.Trim()));
+    }
+
+    private static async Task<IResult?> CheckCompanyRules(PolicyVersion policy,
+        ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
+        CancellationToken ct)
+    {
         var issues = PolicyRuleValidator.Validate(policy.RulesJson);
         if (issues.Count != 0)
             return Results.Json(new { code = "invalid-rules", message = "Correct the buying rules before review.", issues },
@@ -173,15 +321,7 @@ public static class ProcurementPolicyDraftRoutes
                     return Problem("method-unavailable", $"Activate buying method {code} before review.", 422);
             }
         }
-        policy.State = "PendingReview";
-        policy.ReviewRequestedAt = DateTimeOffset.UtcNow;
-        policy.ReviewRequestedBy = scope.SubjectId;
-        policy.ReviewReason = input.Reason.Trim();
-        AddAudit(db, policy, scope.SubjectId, "ReviewRequested");
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateConcurrencyException)
-        { return Problem("version-conflict", "Refresh this policy draft before sending it for review.", 409); }
-        return Results.Ok(View(policy));
+        return null;
     }
 
     private static string? Validate(PolicyDraft input)
@@ -204,7 +344,7 @@ public static class ProcurementPolicyDraftRoutes
     }
 
     private static void AddAudit(ProcurementDbContext db, PolicyVersion policy,
-        string actor, string action)
+        string actor, string action, string? reason = null)
     {
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(policy.RulesJson)));
         db.AddScoped(new AuditEvent
@@ -213,18 +353,20 @@ public static class ProcurementPolicyDraftRoutes
             ActorSubjectId = actor,
             ChangedFieldsJson = JsonSerializer.Serialize(new
             {
-                policy.PolicyKey, policy.PolicyVersionNumber, policy.EffectiveFrom,
-                policy.EffectiveTo, rulesSha256 = hash,
+                policy.PolicyKey, policy.PolicyVersionNumber, policy.State, policy.EffectiveFrom,
+                policy.EffectiveTo, policy.ReviewReason, policy.PublicationReason,
+                policy.PublishedAt, policy.PublishedBy, reason, rulesSha256 = hash,
             }),
         });
     }
 
-    private static object View(PolicyVersion x) => new
+    private static object View(PolicyVersion x, string? lastReturnReason = null) => new
     {
         x.Id, x.PolicyKey, x.PolicyVersionNumber, x.State, x.EffectiveFrom,
         x.EffectiveTo, x.RulesJson, x.Version, x.CreatedAt, x.UpdatedAt,
         x.ReviewRequestedAt, x.ReviewRequestedBy, x.ReviewReason,
         x.PublishedAt, x.PublishedBy, x.PublicationReason,
+        LastReturnReason = lastReturnReason,
     };
     private static IResult Problem(string code, string message, int status) =>
         Results.Json(new { code, message }, statusCode: status);
@@ -234,4 +376,5 @@ public static class ProcurementPolicyDraftRoutes
     public sealed record VersionedPolicyDraft(long Version, PolicyDraft Draft);
     public sealed record PolicyValidationRequest(string? RulesJson);
     public sealed record ReviewSubmission(long Version, string? Reason);
+    public sealed record PublicationInput(long Version, string? Reason);
 }
