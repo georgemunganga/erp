@@ -25,5 +25,6 @@
 4. Validate effective delegation, authority limits and branch/department data scope server-side; the current engine supports assigned actors but does not yet resolve those policies.
 5. Expose assigned queue, decision and history endpoints, then connect the Approvals UI.
 6. Test concurrent quorum decisions on PostgreSQL, stale Finance responses, revoked assignments, self-approval, cross-tenant/entity access and idempotent retries.
+7. Provision a dedicated Core approval database role before enabling writes; the current Procurement connection is composed for schema discovery only and has no grant on `core_approval` tables in production.
 
 `/api/procurement/v1/meta` continues to report `approvals: false`. No PR or PO becomes approved from this foundation alone.
