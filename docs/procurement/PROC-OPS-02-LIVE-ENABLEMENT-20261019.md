@@ -74,6 +74,9 @@ This record describes the database, API and UI deployment checkpoints. It does *
 | v20 request approval readiness | 3 pure rule tests and 1 mapped HTTP test passed; anonymous API denied; current request, pinned policy and recorded Finance evidence checked without approval authority |
 | v20 browser and bundle | Focused Playwright flow passed with mocked ERP responses after a resource-contention setup timeout; TypeScript and live-mode build passed; live route and bundle served HTTP 200 |
 | v20 shadow and live API | Both `/health/ready` HTTP 200; new route returned anonymous HTTP 401; Core schema has five tables and one migration row |
+| v21 vendor hold mapped HTTP suite | 26 passed, including independent manager, current version, reason, open-order review, company scope, and repeat-action denial |
+| v21 vendor hold browser and bundle | Focused Playwright passed with mocked ERP responses; TypeScript and live-mode build passed; public vendor route and versioned bundle HTTP 200 |
+| v21 shadow and live API | Shadow and live `/health/ready` HTTP 200; new hold and open-order routes returned anonymous HTTP 401; no schema migration |
 | Public browser without ERP session | Sign-in state; no demo vendor data |
 
 The public reverse proxy does not expose `/health/ready`; its HTTP 404 does not indicate an API readiness failure. Authenticated Procurement CRUD and browser flows still require a real-session production check. The Playwright suite above uses mocked ERP responses and is not that check.
@@ -82,7 +85,7 @@ The public reverse proxy does not expose `/health/ready`; its HTTP 404 does not 
 
 The host has Docker Compose v1.29.2, which fails to recreate current Docker images with `KeyError: 'ContainerConfig'`. The attempted Compose recreation stopped the former API container. Production was restored with `docker run`, using the same host port, network, environment, document mount and preserved login keys. Use Docker Compose v2 or a reviewed direct-container procedure for subsequent releases; do not repeat the v1 recreate command.
 
-The active image tag is `hrm-api_hrm-api:procure-20261019-v20`. Earlier containers are stopped under `erp-hrm-api-before-*` names, and their tagged images remain available. The current UI build uses the live-mode flag and includes review, return, publish, sample preview, buyer rule queue, request correction and approval blockers; its prior v11 build is `/home/amizo/erp-backups/procurement-ui-dist-before-v11-20261019`. The v20 shadow container and transient rollout environment file were removed after verification. Before rollback, verify current schema compatibility and retain the database backup. A code-only rollback will leave the additive Procurement schema in place. To roll back the static frontend, replace `reference-ui/dist` with the retained previous directory using a reviewed file move.
+The active image tag is `hrm-api_hrm-api:procure-20261019-v21`. Earlier containers are stopped under `erp-hrm-api-before-*` names, and their tagged images remain available. The current UI build uses the live-mode flag and includes review, return, publish, sample preview, buyer rule queue, request correction, approval blockers, and vendor hold review; its prior v11 build is `/home/amizo/erp-backups/procurement-ui-dist-before-v11-20261019`. The v21 shadow container and transient rollout environment file were removed after verification. Before rollback, verify current schema compatibility and retain the database backup. A code-only rollback will leave the additive Procurement schema in place. To roll back the static frontend, replace `reference-ui/dist` with the retained previous directory using a reviewed file move.
 
 ## Remaining release gates
 
