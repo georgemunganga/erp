@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -15,6 +16,7 @@ public static class ProcurementConfigurationRoutes
         categories.MapGet("/{id:guid}", GetCategory).RequireAuthorization("procurement-configuration-read");
         categories.MapPost("", CreateCategory).RequireAuthorization("procurement-configuration-edit");
         categories.MapPut("/{id:guid}", UpdateCategory).RequireAuthorization("procurement-configuration-edit");
+        categories.MapPost("/{id:guid}/activate", ActivateCategory).RequireAuthorization("procurement-configuration-approve");
 
         var methods = app.MapGroup("/api/procurement/v1/configuration/methods");
         methods.MapGet("", ListMethods).RequireAuthorization("procurement-configuration-read");
@@ -85,6 +87,35 @@ public static class ProcurementConfigurationRoutes
         category.UpdatedAt = DateTimeOffset.UtcNow;
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this category before saving.", 409); }
+        return Results.Ok(CategoryDetail(category));
+    }
+
+    private static async Task<IResult> ActivateCategory(Guid id, ActivationInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var category = await db.ProcurementCategories.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (category is null) return Problem("not-found", "Category not found.", 404);
+        if (category.Version != input.Version)
+            return Problem("version-conflict", "Refresh this category before approving it.", 409);
+        if (category.Status != "Draft")
+            return Problem("category-locked", "Only a draft category can be activated.", 409);
+        if (category.CreatedBy == scope.SubjectId)
+            return Problem("self-approval", "Another authorized person must activate this category.", 403);
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return Problem("validation-failed", "Enter a review reason of up to 1,000 characters.", 422);
+        if (category.ParentCode is not null && !await db.ProcurementCategories.AsNoTracking()
+                .AnyAsync(x => x.Code == category.ParentCode && x.Status == "Active", ct))
+            return Problem("parent-inactive", "Activate the parent category first.", 409);
+        category.Status = "Active";
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "ProcurementCategory", RecordId = category.Id,
+            Action = "Activated", ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { from = "Draft", to = "Active",
+                reason = input.Reason.Trim(), category.Code, category.Version }),
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this category before approving it.", 409); }
         return Results.Ok(CategoryDetail(category));
     }
 
@@ -201,5 +232,6 @@ public static class ProcurementConfigurationRoutes
     public sealed record CategoryInput(string? Code, string? Name, string? ParentCode, string? ExpenseAccountRef);
     public sealed record VersionedCategory(long Version, CategoryInput Draft);
     public sealed record MethodInput(string? Code, string? Name, string? Description, Guid? PolicyVersionId);
+    public sealed record ActivationInput(long Version, string? Reason);
     public sealed record VersionedMethod(long Version, MethodInput Draft);
 }

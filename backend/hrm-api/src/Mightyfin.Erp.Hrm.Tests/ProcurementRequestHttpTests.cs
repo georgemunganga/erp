@@ -410,6 +410,65 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Independent_review_activates_category_then_item_without_publishing_a_price()
+    {
+        await using var fixture = await Fixture.Start();
+        const string categories = "/api/procurement/v1/configuration/categories";
+        var createdCategory = await SendJson(fixture.Client, HttpMethod.Post, categories, fixture.Owner,
+            new ProcurementConfigurationRoutes.CategoryInput("OFFICE", "Office equipment", null, null),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, createdCategory.StatusCode);
+        var category = await createdCategory.Content.ReadFromJsonAsync<JsonElement>();
+        var categoryPath = $"{categories}/{category.GetProperty("id").GetGuid()}/activate";
+        var categoryReview = new ProcurementConfigurationRoutes.ActivationInput(
+            category.GetProperty("version").GetInt64(), "Checked category coding");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, categoryPath, fixture.Owner,
+                categoryReview, "procurement_manager")).StatusCode);
+
+        var createdItem = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/items", fixture.Owner,
+            new { code = "CHAIR-1", name = "Office chair", kind = "Goods",
+                categoryCode = "OFFICE", unitCode = "each" }, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, createdItem.StatusCode);
+        var item = await createdItem.Content.ReadFromJsonAsync<JsonElement>();
+        var itemPath = $"/api/procurement/v1/items/{item.GetProperty("id").GetGuid()}/activate";
+        var itemReview = new ItemActivationInput(item.GetProperty("version").GetInt64(),
+            "Checked item details and category");
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, itemPath, fixture.Other,
+                itemReview, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, itemPath, fixture.Owner,
+                itemReview, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, itemPath, fixture.Other,
+                itemReview, "procurement_buyer")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await SendJson(fixture.Client, HttpMethod.Post, categoryPath, fixture.Other,
+                categoryReview, "procurement_manager")).StatusCode);
+        var activated = await SendJson(fixture.Client, HttpMethod.Post, itemPath, fixture.Other,
+            itemReview, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, activated.StatusCode);
+        var active = await activated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Active", active.GetProperty("status").GetString());
+        Assert.True(active.GetProperty("isPurchasable").GetBoolean());
+        Assert.Equal(1, await fixture.RequestAuditCount(item.GetProperty("id").GetGuid(), "Activated"));
+        Assert.Equal(1, await fixture.RequestAuditCount(category.GetProperty("id").GetGuid(), "Activated"));
+        var catalog = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/catalog",
+            fixture.Owner, role: "employee");
+        Assert.Equal(0, (await catalog.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+        var deactivated = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/items/{item.GetProperty("id").GetGuid()}/deactivate",
+            fixture.Other, new VersionInput(active.GetProperty("version").GetInt64()),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, deactivated.StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(item.GetProperty("id").GetGuid(), "Deactivated"));
+    }
+
+    [Fact]
     public async Task Request_list_counts_only_current_lines_after_a_draft_revision()
     {
         await using var fixture = await Fixture.Start();

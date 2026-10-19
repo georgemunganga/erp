@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Item stewardship and unpublished catalog price drafts. Publication requires the policy workflow.</summary>
+/// <summary>Item stewardship, independent activation, and unpublished catalog price drafts.</summary>
 public static class ProcurementItemEndpoints
 {
     public static void MapRoutes(WebApplication app)
@@ -14,6 +15,7 @@ public static class ProcurementItemEndpoints
         items.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-item-manage");
         items.MapPost("", Create).RequireAuthorization("procurement-item-manage");
         items.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-item-manage");
+        items.MapPost("/{id:guid}/activate", Activate).RequireAuthorization("procurement-item-approve");
         items.MapPost("/{id:guid}/deactivate", Deactivate).RequireAuthorization("procurement-item-manage");
         items.MapGet("/{id:guid}/catalog-entries", ListEntries).RequireAuthorization("procurement-item-manage");
         items.MapPost("/{id:guid}/catalog-entries", AddEntry).RequireAuthorization("procurement-item-manage");
@@ -114,7 +116,8 @@ public static class ProcurementItemEndpoints
         return Results.Ok(ToView(item));
     }
 
-    private static async Task<IResult> Deactivate(Guid id, VersionInput input, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> Deactivate(Guid id, VersionInput input, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
     {
         if (input.Version < 1) return BadRequest("A valid record version is required.");
         var item = await db.CatalogItems.SingleOrDefaultAsync(x => x.Id == id, ct);
@@ -126,8 +129,43 @@ public static class ProcurementItemEndpoints
         // Draft prices remain for editing; published prices are withdrawn from future selection.
         var published = await db.CatalogEntries.Where(x => x.CatalogItemId == id && x.Status == "Published").ToListAsync(ct);
         foreach (var entry in published) entry.Status = "Withdrawn";
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "CatalogItem", RecordId = item.Id, Action = "Deactivated",
+            ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { from = "Active", to = "Inactive",
+                withdrawnPrices = published.Count, item.Code, item.Version }),
+        });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Conflict("This item changed since you opened it. Refresh and try again."); }
+        return Results.Ok(ToView(item));
+    }
+
+    private static async Task<IResult> Activate(Guid id, ItemActivationInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var item = await db.CatalogItems.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (item is null) return NotFound();
+        if (item.Version != input.Version) return Conflict("This item changed. Refresh before activating it.");
+        if (item.Status != "Inactive") return Conflict("Only an inactive item can be activated.");
+        if (item.CreatedBy == scope.SubjectId)
+            return Results.Json(new { code = "self-approval", message = "Another authorized person must activate this item." }, statusCode: 403);
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return BadRequest("Enter a review reason of up to 1,000 characters.");
+        if (!await db.ProcurementCategories.AsNoTracking()
+                .AnyAsync(x => x.Code == item.CategoryCode && x.Status == "Active", ct))
+            return Conflict("Activate the item's category before making it available for buying.");
+        item.Status = "Active";
+        item.IsPurchasable = true;
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "CatalogItem", RecordId = item.Id, Action = "Activated",
+            ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { from = "Inactive", to = "Active",
+                reason = input.Reason.Trim(), item.Code, item.Version }),
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Conflict("This item changed. Refresh before activating it."); }
         return Results.Ok(ToView(item));
     }
 
@@ -219,7 +257,7 @@ public static class ProcurementItemEndpoints
         item.ManufacturerPartNumber = x.ManufacturerPartNumber?.Trim(); item.LeadTimeDays = x.LeadTimeDays;
         item.MinimumOrderQuantity = x.MinimumOrderQuantity; item.ExpenseAccountRef = x.ExpenseAccountRef?.Trim();
         item.IsStockItem = x.IsStockItem; item.IsAsset = x.IsAsset; item.InspectionRequired = x.InspectionRequired;
-        // Steward CRUD never makes an item orderable. Activation needs review and policy checks.
+        // Steward CRUD never makes an item orderable. Activation requires a separate reviewer and active category.
         item.IsPurchasable = false;
     }
 
@@ -255,6 +293,7 @@ public sealed record ItemInput(string Code, string Name, string Kind, string Cat
     decimal? MinimumOrderQuantity, string? ExpenseAccountRef, bool IsStockItem, bool IsAsset, bool InspectionRequired);
 public sealed record ItemUpdate(long Version, ItemInput Item);
 public sealed record VersionInput(long Version);
+public sealed record ItemActivationInput(long Version, string? Reason);
 public sealed record ItemView(Guid Id, string Code, string Name, string Kind, string CategoryCode, string UnitCode,
     string? Description, string Status, bool IsPurchasable, bool IsStockItem, bool IsAsset, string? Brand, int? LeadTimeDays, long Version);
 public sealed record EntryInput(Guid? SupplierId, string CurrencyCode, string UnitCode, decimal UnitPrice,
