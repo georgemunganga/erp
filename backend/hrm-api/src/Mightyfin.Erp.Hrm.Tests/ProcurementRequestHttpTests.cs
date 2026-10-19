@@ -424,6 +424,13 @@ public sealed class ProcurementRequestHttpTests
         var version = method.GetProperty("version").GetInt64();
         var path = $"{methods}/{id}/activate";
         var review = new ProcurementConfigurationRoutes.ActivationInput(version, "Reviewed method and scope");
+        using var otherCompanyReview = new HttpRequestMessage(HttpMethod.Post, path)
+        { Content = JsonContent.Create(review) };
+        otherCompanyReview.Headers.Add("X-Test-User", fixture.Other.ToString());
+        otherCompanyReview.Headers.Add("X-Test-Role", "procurement_manager");
+        otherCompanyReview.Headers.Add("X-Shell-Entity", fixture.OtherCompany.ToString());
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await fixture.Client.SendAsync(otherCompanyReview)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, review,
                 "procurement_manager")).StatusCode);
