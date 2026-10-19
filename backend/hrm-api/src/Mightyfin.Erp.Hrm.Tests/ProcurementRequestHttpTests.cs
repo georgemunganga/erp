@@ -1390,6 +1390,73 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Vendor_draft_contacts_and_addresses_can_be_corrected_and_removed_without_erasing_history()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/vendors",
+            fixture.Owner, new { legalName = "Draft Supplies Ltd", displayName = "Draft Supplies",
+                countryCode = "ZM", categoryCode = "OFFICE",
+                primaryContact = new { name = "Old contact", email = "old@example.test" },
+                sites = new[] { new { kind = "Billing", addressLine1 = "Old road", countryCode = "ZM",
+                    isPrimary = true } } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var path = $"/api/procurement/v1/vendors/{id}";
+        var detail = await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner);
+        var body = await detail.Content.ReadFromJsonAsync<JsonElement>();
+        var contactId = body.GetProperty("contacts")[0].GetProperty("id").GetGuid();
+        var siteId = body.GetProperty("sites")[0].GetProperty("id").GetGuid();
+        var version = body.GetProperty("version").GetInt64();
+        var contactPath = $"{path}/contacts/{contactId}";
+        var editContact = new { version, contact = new { name = "New contact", email = "new@example.test",
+            isPrimary = true } };
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Put, contactPath, fixture.Other,
+                editContact)).StatusCode);
+        var updated = await SendJson(fixture.Client, HttpMethod.Put, contactPath,
+            fixture.Owner, editContact);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var current = await updated.Content.ReadFromJsonAsync<JsonElement>();
+        var nextVersion = current.GetProperty("version").GetInt64();
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, contactPath, fixture.Owner,
+                editContact)).StatusCode);
+        var sitePath = $"{path}/sites/{siteId}";
+        var updatedSite = await SendJson(fixture.Client, HttpMethod.Put, sitePath,
+            fixture.Owner, new { version = nextVersion, site = new { kind = "Billing",
+                addressLine1 = "New road", countryCode = "ZM", isPrimary = true } });
+        Assert.Equal(HttpStatusCode.OK, updatedSite.StatusCode);
+        nextVersion = (await updatedSite.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("version").GetInt64();
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, $"{contactPath}/remove",
+                fixture.Owner, new VendorDetailRemoval(nextVersion, ""))).StatusCode);
+        var removedContact = await SendJson(fixture.Client, HttpMethod.Post, $"{contactPath}/remove",
+            fixture.Owner, new VendorDetailRemoval(nextVersion, "Wrong person"));
+        Assert.Equal(HttpStatusCode.OK, removedContact.StatusCode);
+        nextVersion = (await removedContact.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("version").GetInt64();
+        var removedSite = await SendJson(fixture.Client, HttpMethod.Post, $"{sitePath}/remove",
+            fixture.Owner, new VendorDetailRemoval(nextVersion, "Wrong address"));
+        Assert.Equal(HttpStatusCode.OK, removedSite.StatusCode);
+        nextVersion = (await removedSite.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("version").GetInt64();
+        var refreshed = await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner);
+        body = await refreshed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(body.GetProperty("contacts").EnumerateArray());
+        Assert.Empty(body.GetProperty("sites").EnumerateArray());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/submit", fixture.Owner,
+                new VendorSubmitInput(nextVersion, "Need supplier"))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Post, $"{contactPath}/remove", fixture.Owner,
+                new VendorDetailRemoval(nextVersion, "Again"))).StatusCode);
+        Assert.Equal(1, await fixture.VendorDetailAuditCount(contactId, "Removed"));
+        Assert.Equal(1, await fixture.VendorDetailAuditCount(siteId, "Removed"));
+    }
+
+    [Fact]
     public async Task Vendor_activation_requires_independent_manager_review_and_records_decision()
     {
         await using var fixture = await Fixture.Start();
@@ -1798,6 +1865,15 @@ public sealed class ProcurementRequestHttpTests
                 .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
             var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             return await db.AuditEvents.CountAsync(x => x.RecordId == requestId && x.Action == action);
+        }
+
+        public async Task<int> VendorDetailAuditCount(Guid detailId, string action)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return await db.AuditEvents.CountAsync(x => x.RecordId == detailId && x.Action == action);
         }
 
         public async Task<JsonElement> AuditPayload(Guid requestId, string action)

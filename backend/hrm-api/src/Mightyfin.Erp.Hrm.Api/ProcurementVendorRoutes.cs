@@ -29,7 +29,11 @@ public static class ProcurementVendorRoutes
         group.MapPost("/{id:guid}/reactivate", ReactivateAsync).RequireAuthorization("procurement-vendor-approve");
         group.MapPost("/{id:guid}/withdraw", WithdrawAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/contacts", AddContactAsync).RequireAuthorization("procurement-vendor-edit");
+        group.MapPut("/{id:guid}/contacts/{contactId:guid}", UpdateContactAsync).RequireAuthorization("procurement-vendor-edit");
+        group.MapPost("/{id:guid}/contacts/{contactId:guid}/remove", RemoveContactAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/sites", AddSiteAsync).RequireAuthorization("procurement-vendor-edit");
+        group.MapPut("/{id:guid}/sites/{siteId:guid}", UpdateSiteAsync).RequireAuthorization("procurement-vendor-edit");
+        group.MapPost("/{id:guid}/sites/{siteId:guid}/remove", RemoveSiteAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/qualifications", AddQualificationAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/qualifications/{qualificationId:guid}/review", ReviewQualificationAsync)
             .RequireAuthorization("procurement-vendor-manage");
@@ -222,7 +226,7 @@ public static class ProcurementVendorRoutes
         if (input.Version != supplier.Version) return Stale();
         var error = ValidateContact(input.Contact);
         if (error is not null) return BadInput(error);
-        if (input.Contact.IsPrimary && supplier.Contacts.Any(x => x.IsPrimary))
+        if (input.Contact.IsPrimary && supplier.Contacts.Any(x => x.IsActive && x.IsPrimary))
             return Conflict("This vendor already has a primary contact.");
         var contact = NewContact(id, input.Contact, input.Contact.IsPrimary);
         db.AddScoped(contact);
@@ -230,6 +234,54 @@ public static class ProcurementVendorRoutes
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Stale(); }
         return Results.Created($"/api/procurement/v1/vendors/{id}", new { contact.Id, supplier.Version });
+    }
+
+    private static async Task<IResult> UpdateContactAsync(Guid id, Guid contactId, VersionedContact input,
+        ProcurementDbContext db, ProcurementRequestScope scope,
+        IAuthorizationService authorization, HttpContext http, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Contacts).SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http)) return Results.NotFound();
+        if (!CanEdit(supplier)) return Conflict("This vendor is already in review.");
+        if (input.Version != supplier.Version) return Stale();
+        var contact = supplier.Contacts.SingleOrDefault(x => x.Id == contactId && x.IsActive);
+        if (contact is null) return Results.NotFound();
+        var error = ValidateContact(input.Contact);
+        if (error is not null) return BadInput(error);
+        if (input.Contact.IsPrimary && supplier.Contacts.Any(x => x.Id != contactId && x.IsActive && x.IsPrimary))
+            return Conflict("This vendor already has a primary contact.");
+        var revised = NewContact(id, input.Contact, input.Contact.IsPrimary);
+        contact.Name = revised.Name; contact.Salutation = revised.Salutation;
+        contact.FirstName = revised.FirstName; contact.LastName = revised.LastName;
+        contact.Role = revised.Role; contact.Email = revised.Email; contact.Phone = revised.Phone;
+        contact.WorkPhone = revised.WorkPhone; contact.MobilePhone = revised.MobilePhone;
+        contact.LanguageCode = revised.LanguageCode; contact.IsPrimary = revised.IsPrimary;
+        db.Entry(supplier).Property(x => x.UpdatedAt).IsModified = true;
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { contact.Id, supplier.Version });
+    }
+
+    private static async Task<IResult> RemoveContactAsync(Guid id, Guid contactId, VendorDetailRemoval input,
+        ProcurementDbContext db, ProcurementRequestScope scope,
+        IAuthorizationService authorization, HttpContext http, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Contacts).SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http)) return Results.NotFound();
+        if (!CanEdit(supplier)) return Conflict("This vendor is already in review.");
+        if (input.Version != supplier.Version) return Stale();
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
+            return BadInput("Explain why this contact is being removed (up to 500 characters).");
+        var contact = supplier.Contacts.SingleOrDefault(x => x.Id == contactId && x.IsActive);
+        if (contact is null) return Results.NotFound();
+        contact.IsActive = false; contact.IsPrimary = false;
+        db.Entry(supplier).Property(x => x.UpdatedAt).IsModified = true;
+        db.AddScoped(new AuditEvent { RecordType = "SupplierContact", RecordId = contactId,
+            Action = "Removed", ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { supplierId = id, reason = input.Reason.Trim() }) });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { contact.Id, supplier.Version });
     }
 
     private static async Task<IResult> SubmitAsync(Guid id, VendorSubmitInput input,
@@ -245,7 +297,7 @@ public static class ProcurementVendorRoutes
         if (supplier.Version != input.Version) return Stale();
         if (string.IsNullOrWhiteSpace(supplier.CategoryCode))
             return BadInput("Choose a vendor category before submitting for review.");
-        if (supplier.Contacts.Count == 0)
+        if (!supplier.Contacts.Any(x => x.IsActive))
             return BadInput("Add a contact person before submitting for review.");
         if (string.IsNullOrWhiteSpace(input.BusinessReason) || input.BusinessReason.Trim().Length > 1000)
             return BadInput("Give a business reason of up to 1,000 characters.");
@@ -311,7 +363,7 @@ public static class ProcurementVendorRoutes
             return BadInput("Review possible duplicate vendors before approval.");
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return BadInput("Record an approval reason of up to 1,000 characters.");
-        if (string.IsNullOrWhiteSpace(supplier.CategoryCode) || supplier.Contacts.Count == 0)
+        if (string.IsNullOrWhiteSpace(supplier.CategoryCode) || !supplier.Contacts.Any(x => x.IsActive))
             return BadInput("A category and contact person are required before approval.");
         if (supplier.PaymentVerificationToken is not null && supplier.PaymentVerificationStatus != "Verified")
             return Conflict("Finance must verify payment details before this vendor can be approved.");
@@ -443,7 +495,7 @@ public static class ProcurementVendorRoutes
             return BadInput("Explain how the hold was resolved in up to 1,000 characters.");
         if (!input.DueDiligenceReviewed)
             return BadInput("Review the vendor details and current qualifications before reactivation.");
-        if (string.IsNullOrWhiteSpace(supplier.CategoryCode) || supplier.Contacts.Count == 0)
+        if (string.IsNullOrWhiteSpace(supplier.CategoryCode) || !supplier.Contacts.Any(x => x.IsActive))
             return Conflict("A category and contact person are required before reactivation.");
         if (supplier.PaymentVerificationToken is not null && supplier.PaymentVerificationStatus != "Verified")
             return Conflict("Finance must verify payment details before this vendor can be reactivated.");
@@ -511,7 +563,7 @@ public static class ProcurementVendorRoutes
         if (input.Version != supplier.Version) return Stale();
         var error = ValidateSite(input.Site);
         if (error is not null) return BadInput(error);
-        if (input.Site.IsPrimary && supplier.Sites.Any(x => x.Kind == input.Site.Kind && x.IsPrimary))
+        if (input.Site.IsPrimary && supplier.Sites.Any(x => x.IsActive && x.Kind == input.Site.Kind && x.IsPrimary))
             return Conflict("This vendor already has a primary address of that type.");
         var site = NewSite(id, input.Site);
         db.AddScoped(site);
@@ -519,6 +571,55 @@ public static class ProcurementVendorRoutes
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Stale(); }
         return Results.Created($"/api/procurement/v1/vendors/{id}", new { site.Id, supplier.Version });
+    }
+
+    private static async Task<IResult> UpdateSiteAsync(Guid id, Guid siteId, VersionedSite input,
+        ProcurementDbContext db, ProcurementRequestScope scope,
+        IAuthorizationService authorization, HttpContext http, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Sites).SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http)) return Results.NotFound();
+        if (!CanEdit(supplier)) return Conflict("This vendor is already in review.");
+        if (input.Version != supplier.Version) return Stale();
+        var site = supplier.Sites.SingleOrDefault(x => x.Id == siteId && x.IsActive);
+        if (site is null) return Results.NotFound();
+        var error = ValidateSite(input.Site);
+        if (error is not null) return BadInput(error);
+        if (input.Site.IsPrimary && supplier.Sites.Any(x => x.Id != siteId && x.IsActive
+            && x.Kind == input.Site.Kind && x.IsPrimary))
+            return Conflict("This vendor already has a primary address of that type.");
+        var revised = NewSite(id, input.Site);
+        site.Kind = revised.Kind; site.Label = revised.Label;
+        site.AddressLine1 = revised.AddressLine1; site.AddressLine2 = revised.AddressLine2;
+        site.City = revised.City; site.Region = revised.Region; site.PostalCode = revised.PostalCode;
+        site.CountryCode = revised.CountryCode; site.IsPrimary = revised.IsPrimary;
+        site.IsServiceSite = revised.IsServiceSite;
+        db.Entry(supplier).Property(x => x.UpdatedAt).IsModified = true;
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { site.Id, supplier.Version });
+    }
+
+    private static async Task<IResult> RemoveSiteAsync(Guid id, Guid siteId, VendorDetailRemoval input,
+        ProcurementDbContext db, ProcurementRequestScope scope,
+        IAuthorizationService authorization, HttpContext http, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Sites).SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http)) return Results.NotFound();
+        if (!CanEdit(supplier)) return Conflict("This vendor is already in review.");
+        if (input.Version != supplier.Version) return Stale();
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
+            return BadInput("Explain why this address is being removed (up to 500 characters).");
+        var site = supplier.Sites.SingleOrDefault(x => x.Id == siteId && x.IsActive);
+        if (site is null) return Results.NotFound();
+        site.IsActive = false; site.IsPrimary = false;
+        db.Entry(supplier).Property(x => x.UpdatedAt).IsModified = true;
+        db.AddScoped(new AuditEvent { RecordType = "SupplierSite", RecordId = siteId,
+            Action = "Removed", ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { supplierId = id, reason = input.Reason.Trim() }) });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { site.Id, supplier.Version });
     }
 
     private static async Task<IResult> AddQualificationAsync(Guid id, VersionedQualification input,
@@ -594,11 +695,11 @@ public static class ProcurementVendorRoutes
         CanApprove = canDecide, CanReject = canDecide, CanSuspend = canSuspend,
         CanReactivate = canReactivate,
         x.Version, x.CreatedAt, x.UpdatedAt,
-        contacts = x.Contacts.OrderByDescending(c => c.IsPrimary).ThenBy(c => c.Name)
+        contacts = x.Contacts.Where(c => c.IsActive).OrderByDescending(c => c.IsPrimary).ThenBy(c => c.Name)
             .Select(c => new { c.Id, c.Name, c.Salutation, c.FirstName, c.LastName,
                 c.Role, c.Email, c.Phone, c.WorkPhone, c.MobilePhone, c.LanguageCode,
                 c.IsPrimary, c.Version }),
-        sites = x.Sites.OrderByDescending(s => s.IsPrimary).ThenBy(s => s.Kind)
+        sites = x.Sites.Where(s => s.IsActive).OrderByDescending(s => s.IsPrimary).ThenBy(s => s.Kind)
             .Select(s => new { s.Id, s.Kind, s.Label, s.AddressLine1, s.AddressLine2,
                 s.City, s.Region, s.PostalCode, s.CountryCode, s.IsPrimary,
                 s.IsServiceSite, s.Version }),
@@ -727,5 +828,6 @@ public sealed record VendorQualificationInput(string QualificationType, string? 
 public sealed record VendorAttributeInput(string Kind, string Key, string? Value);
 public sealed record VersionedContact(long Version, VendorContactInput Contact);
 public sealed record VersionedSite(long Version, VendorSiteInput Site);
+public sealed record VendorDetailRemoval(long Version, string? Reason);
 public sealed record VersionedQualification(long Version, VendorQualificationInput Qualification);
 public sealed record VendorQualificationReviewInput(long Version, string? Decision, string? Reason);

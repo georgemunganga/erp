@@ -67,6 +67,7 @@ public sealed class SupplierContact : ProcurementRecord
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public bool IsPrimary { get; set; }
+    public bool IsActive { get; set; } = true;
     public string? Salutation { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
@@ -88,6 +89,7 @@ public sealed class SupplierSite : ProcurementRecord
     public string CountryCode { get; set; } = null!;
     public bool IsPrimary { get; set; }
     public bool IsServiceSite { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public sealed class SupplierQualification : ProcurementRecord

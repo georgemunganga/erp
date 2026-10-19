@@ -202,6 +202,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         });
         modelBuilder.Entity<SupplierContact>(b =>
         {
+            b.Property(x => x.IsActive).HasDefaultValue(true);
             b.Property(x => x.Name).HasMaxLength(200);
             b.Property(x => x.Email).HasMaxLength(320);
             b.Property(x => x.LanguageCode).HasMaxLength(12);
@@ -211,6 +212,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         });
         modelBuilder.Entity<SupplierSite>(b =>
         {
+            b.Property(x => x.IsActive).HasDefaultValue(true);
             b.Property(x => x.Kind).HasMaxLength(40);
             b.Property(x => x.CountryCode).HasMaxLength(2);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.Kind });
