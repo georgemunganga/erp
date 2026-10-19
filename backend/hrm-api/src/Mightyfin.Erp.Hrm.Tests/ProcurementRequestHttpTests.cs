@@ -498,6 +498,10 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(1, (await (await Send(fixture.Client, HttpMethod.Get, policies,
             fixture.Owner, role: "procurement_manager")).Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+        Assert.Equal(1, (await (await Send(fixture.Client, HttpMethod.Get,
+            $"{policies}?key=purchase_request", fixture.Owner,
+            role: "procurement_manager")).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
         var successor = await SendJson(fixture.Client, HttpMethod.Post, policies, fixture.Owner,
             draft with { EffectiveFrom = from.AddMonths(1), EffectiveTo = from.AddMonths(2) },
             "procurement_manager");

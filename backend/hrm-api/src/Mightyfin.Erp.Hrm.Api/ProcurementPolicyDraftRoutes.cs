@@ -26,7 +26,10 @@ public static class ProcurementPolicyDraftRoutes
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
         var query = db.PolicyVersions.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(key))
-            query = query.Where(x => x.PolicyKey == key.Trim().ToUpper());
+        {
+            var normalizedKey = key.Trim().ToUpperInvariant();
+            query = query.Where(x => x.PolicyKey == normalizedKey);
+        }
         var total = await query.CountAsync(ct);
         var items = await query.OrderBy(x => x.PolicyKey).ThenByDescending(x => x.PolicyVersionNumber)
             .Skip((number - 1) * size).Take(size)
