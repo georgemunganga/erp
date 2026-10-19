@@ -93,8 +93,8 @@ public static class PolicyRuleValidator
         Only(result, at, issues, "budgetReservation", "sourcingMethodCode", "minimumQuoteCount", "approvalStages");
         if (String(result, "budgetReservation") is not ("Required" or "ExceptionReview"))
             Add(issues, at + ".budgetReservation", "Choose Required or ExceptionReview.");
-        if (result.TryGetProperty("sourcingMethodCode", out var method)
-            && method.ValueKind != JsonValueKind.Null && !ValidCode(method.ValueKind == JsonValueKind.String ? method.GetString() : null))
+        if (!result.TryGetProperty("sourcingMethodCode", out var method)
+            || method.ValueKind != JsonValueKind.Null && !ValidCode(method.ValueKind == JsonValueKind.String ? method.GetString() : null))
             Add(issues, at + ".sourcingMethodCode", "Choose a valid buying method code or leave it empty.");
         if (!result.TryGetProperty("minimumQuoteCount", out var quotes)
             || quotes.ValueKind != JsonValueKind.Null && (quotes.ValueKind != JsonValueKind.Number

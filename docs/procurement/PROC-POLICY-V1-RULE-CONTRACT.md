@@ -54,6 +54,8 @@ The structural validator limits documents to 64 KB and 100 rules, rejects unsupp
 
 The live Procurement Settings editor now builds this JSON from labeled fields for amount bands, categories, purchase type, quote count, budget handling and approvers. It uses the selected company's currency and validates before saving a draft. It refuses to edit a draft with unsupported detailed conditions so those conditions cannot be silently discarded. Publication and decision preview are still absent.
 
+A draft can now be sent to `PendingReview` by its author with a reason and current record version. That transition validates the v1 shape, workflow key, selected company currency and active category, branch and buying-method references; it records the requester and timestamp. Review evidence columns have been added for this step and future publication. `PendingReview` has no spend authority, and published policy resolution is not implemented yet.
+
 ## Deterministic evaluation
 
 1. Resolve the one Published policy version effective at the decision timestamp for the tenant, company and key. Missing or overlapping published versions block the decision.

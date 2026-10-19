@@ -386,6 +386,10 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
             b.Property(x => x.PolicyKey).HasMaxLength(100);
             b.Property(x => x.State).HasMaxLength(30);
             b.Property(x => x.RulesJson).HasColumnType("jsonb");
+            b.Property(x => x.ReviewRequestedBy).HasMaxLength(200);
+            b.Property(x => x.ReviewReason).HasMaxLength(1000);
+            b.Property(x => x.PublishedBy).HasMaxLength(200);
+            b.Property(x => x.PublicationReason).HasMaxLength(1000);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PolicyKey, x.PolicyVersionNumber }).IsUnique();
         });
         modelBuilder.Entity<ImportBatch>(b =>

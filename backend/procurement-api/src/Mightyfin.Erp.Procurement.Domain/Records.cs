@@ -305,6 +305,12 @@ public sealed class PolicyVersion : ProcurementRecord
     public DateTimeOffset? EffectiveTo { get; set; }
     public string State { get; set; } = "Draft";
     public string RulesJson { get; set; } = "{}";
+    public DateTimeOffset? ReviewRequestedAt { get; set; }
+    public string? ReviewRequestedBy { get; set; }
+    public string? ReviewReason { get; set; }
+    public DateTimeOffset? PublishedAt { get; set; }
+    public string? PublishedBy { get; set; }
+    public string? PublicationReason { get; set; }
 }
 
 public sealed class ImportBatch : ProcurementRecord

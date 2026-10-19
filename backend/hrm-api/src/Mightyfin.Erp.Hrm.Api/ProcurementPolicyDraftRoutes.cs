@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -19,6 +20,7 @@ public static class ProcurementPolicyDraftRoutes
         group.MapPost("", Create).RequireAuthorization("procurement-configuration-edit");
         group.MapPost("/validate", ValidateRules).RequireAuthorization("procurement-configuration-edit");
         group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-configuration-edit");
+        group.MapPost("/{id:guid}/submit-review", SubmitReview).RequireAuthorization("procurement-configuration-edit");
     }
 
     private static IResult ValidateRules(PolicyValidationRequest input)
@@ -99,6 +101,77 @@ public static class ProcurementPolicyDraftRoutes
         return Results.Ok(View(policy));
     }
 
+    private static async Task<IResult> SubmitReview(Guid id, ReviewSubmission input,
+        ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
+        CancellationToken ct)
+    {
+        var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.Version != input.Version)
+            return Problem("version-conflict", "Refresh this policy draft before sending it for review.", 409);
+        if (policy.State != "Draft")
+            return Problem("policy-locked", "Only a draft policy can be sent for review.", 409);
+        if (policy.CreatedBy != scope.SubjectId)
+            return Problem("not-author", "Only the draft author can send it for review.", 403);
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return Problem("validation-failed", "Enter a review note of up to 1,000 characters.", 422);
+        var issues = PolicyRuleValidator.Validate(policy.RulesJson);
+        if (issues.Count != 0)
+            return Results.Json(new { code = "invalid-rules", message = "Correct the buying rules before review.", issues },
+                statusCode: 422);
+        if (policy.PolicyKey is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER"))
+            return Problem("unsupported-policy", "Choose purchase requests or purchase orders for this rule.", 422);
+        using var document = JsonDocument.Parse(policy.RulesJson);
+        var root = document.RootElement;
+        var expectedTransaction = policy.PolicyKey == "PURCHASE_ORDER" ? "PurchaseOrder" : "PurchaseRequest";
+        if (root.GetProperty("transactionType").GetString() != expectedTransaction)
+            return Problem("policy-mismatch", "The rule document must match the selected buying workflow.", 422);
+        var companyCurrency = await organizationDb.LegalEntities.AsNoTracking()
+            .Where(x => x.TenantId == scope.TenantId && x.Id == scope.LegalEntityId && !x.IsArchived)
+            .Select(x => x.Currency).SingleOrDefaultAsync(ct);
+        if (companyCurrency is null)
+            return Problem("company-unavailable", "The selected ERP company is unavailable.", 409);
+        if (!string.Equals(root.GetProperty("currencyCode").GetString(), companyCurrency,
+                StringComparison.OrdinalIgnoreCase))
+            return Problem("currency-mismatch", "Use the selected company's currency for this draft.", 422);
+        foreach (var rule in root.GetProperty("rules").EnumerateArray())
+        {
+            var conditions = rule.GetProperty("when");
+            foreach (var category in conditions.GetProperty("categoryCodes").EnumerateArray())
+            {
+                var code = category.GetString()!;
+                if (!await db.ProcurementCategories.AsNoTracking()
+                        .AnyAsync(x => x.Code == code && x.Status == "Active", ct))
+                    return Problem("category-unavailable", $"Activate category {code} before review.", 422);
+            }
+            foreach (var branch in conditions.GetProperty("branchIds").EnumerateArray())
+            {
+                var branchId = branch.GetGuid();
+                if (!await organizationDb.WorkLocations.AsNoTracking()
+                        .AnyAsync(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                            && x.Id == branchId && !x.IsArchived, ct))
+                    return Problem("branch-unavailable", "Choose an active branch in this company.", 422);
+            }
+            var method = rule.GetProperty("result").GetProperty("sourcingMethodCode");
+            if (method.ValueKind == JsonValueKind.String)
+            {
+                var code = method.GetString()!;
+                if (!await db.ProcurementMethods.AsNoTracking()
+                        .AnyAsync(x => x.Code == code && x.Status == "Active", ct))
+                    return Problem("method-unavailable", $"Activate buying method {code} before review.", 422);
+            }
+        }
+        policy.State = "PendingReview";
+        policy.ReviewRequestedAt = DateTimeOffset.UtcNow;
+        policy.ReviewRequestedBy = scope.SubjectId;
+        policy.ReviewReason = input.Reason.Trim();
+        AddAudit(db, policy, scope.SubjectId, "ReviewRequested");
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        { return Problem("version-conflict", "Refresh this policy draft before sending it for review.", 409); }
+        return Results.Ok(View(policy));
+    }
+
     private static string? Validate(PolicyDraft input)
     {
         if (string.IsNullOrWhiteSpace(input.PolicyKey) || input.PolicyKey.Trim().Length > 100
@@ -138,6 +211,8 @@ public static class ProcurementPolicyDraftRoutes
     {
         x.Id, x.PolicyKey, x.PolicyVersionNumber, x.State, x.EffectiveFrom,
         x.EffectiveTo, x.RulesJson, x.Version, x.CreatedAt, x.UpdatedAt,
+        x.ReviewRequestedAt, x.ReviewRequestedBy, x.ReviewReason,
+        x.PublishedAt, x.PublishedBy, x.PublicationReason,
     };
     private static IResult Problem(string code, string message, int status) =>
         Results.Json(new { code, message }, statusCode: status);
@@ -146,4 +221,5 @@ public static class ProcurementPolicyDraftRoutes
         DateTimeOffset? EffectiveTo, string? RulesJson);
     public sealed record VersionedPolicyDraft(long Version, PolicyDraft Draft);
     public sealed record PolicyValidationRequest(string? RulesJson);
+    public sealed record ReviewSubmission(long Version, string? Reason);
 }

@@ -571,6 +571,70 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Policy_review_submission_requires_author_current_version_and_company_rules()
+    {
+        await using var fixture = await Fixture.Start();
+        const string basePath = "/api/procurement/v1/configuration/policies";
+        var rules = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, transactionType = "PurchaseRequest", currencyCode = "ZMW",
+            amountBasis = "EstimatedGross",
+            rules = new[] { new { code = "DEFAULT", priority = 0,
+                when = new { minimumAmountInclusive = (decimal?)null,
+                    maximumAmountExclusive = (decimal?)null, categoryCodes = Array.Empty<string>(),
+                    purchaseTypes = Array.Empty<string>(), branchIds = Array.Empty<string>() },
+                result = new { budgetReservation = "Required", sourcingMethodCode = (string?)null,
+                    minimumQuoteCount = (int?)null,
+                    approvalStages = new[] { new { code = "NEED", assignee = "LineManager", mode = "One" } } } } },
+        });
+        var draft = new ProcurementPolicyDraftRoutes.PolicyDraft("PURCHASE_REQUEST",
+            DateTimeOffset.UtcNow.AddDays(1), null, rules);
+        var created = await SendJson(fixture.Client, HttpMethod.Post, basePath, fixture.Owner,
+            draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var saved = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = saved.GetProperty("id").GetGuid();
+        var version = saved.GetProperty("version").GetInt64();
+        var route = $"{basePath}/{id}/submit-review";
+        var review = new ProcurementPolicyDraftRoutes.ReviewSubmission(version, "Checked the company rules");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, route, fixture.Other,
+                review, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, route, fixture.Owner,
+                review with { Reason = " " }, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, route, fixture.Owner,
+                review with { Version = version + 1 }, "procurement_manager")).StatusCode);
+        var sent = await SendJson(fixture.Client, HttpMethod.Post, route, fixture.Owner,
+            review, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, sent.StatusCode);
+        var reviewed = await sent.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("PendingReview", reviewed.GetProperty("state").GetString());
+        Assert.Equal(fixture.Owner.ToString(), reviewed.GetProperty("reviewRequestedBy").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "ReviewRequested"));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"{basePath}/{id}", fixture.Owner,
+                new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(
+                    reviewed.GetProperty("version").GetInt64(), draft), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, route, fixture.Owner,
+                review with { Version = reviewed.GetProperty("version").GetInt64() },
+                "procurement_manager")).StatusCode);
+
+        var wrongCurrency = await SendJson(fixture.Client, HttpMethod.Post, basePath, fixture.Owner,
+            draft with { RulesJson = rules.Replace("ZMW", "USD", StringComparison.Ordinal) },
+            "procurement_manager");
+        var wrong = await wrongCurrency.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post,
+                $"{basePath}/{wrong.GetProperty("id").GetGuid()}/submit-review", fixture.Owner,
+                new ProcurementPolicyDraftRoutes.ReviewSubmission(
+                    wrong.GetProperty("version").GetInt64(), "Review requested"),
+                "procurement_manager")).StatusCode);
+    }
+
+    [Fact]
     public async Task Independent_review_activates_category_then_item_without_publishing_a_price()
     {
         await using var fixture = await Fixture.Start();

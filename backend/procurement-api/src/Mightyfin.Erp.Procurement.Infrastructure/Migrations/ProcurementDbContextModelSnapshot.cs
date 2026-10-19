@@ -1552,6 +1552,34 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("policy_version_number");
 
+                    b.Property<string>("PublicationReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("publication_reason");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<string>("PublishedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("published_by");
+
+                    b.Property<string>("ReviewReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("review_reason");
+
+                    b.Property<DateTimeOffset?>("ReviewRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("review_requested_at");
+
+                    b.Property<string>("ReviewRequestedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("review_requested_by");
+
                     b.Property<string>("RulesJson")
                         .IsRequired()
                         .HasColumnType("jsonb")
