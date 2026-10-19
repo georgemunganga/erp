@@ -1470,6 +1470,39 @@ public sealed class ProcurementRequestHttpTests
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
                 new VendorSuspendInput(result.GetProperty("version").GetInt64(), "Repeat", true),
                 "procurement_manager")).StatusCode);
+
+        var reactivatePath = $"/api/procurement/v1/vendors/{id}/reactivate";
+        var heldVersion = result.GetProperty("version").GetInt64();
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Other,
+                new VendorReactivateInput(heldVersion, "Resolved", true), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Owner,
+                new VendorReactivateInput(heldVersion, "Resolved", true), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Reviewer,
+                new VendorReactivateInput(heldVersion, "Resolved", true))).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Reviewer,
+                new VendorReactivateInput(heldVersion, "", true), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Reviewer,
+                new VendorReactivateInput(heldVersion, "Resolved", false), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Reviewer,
+                new VendorReactivateInput(heldVersion - 1, "Resolved", true), "procurement_manager")).StatusCode);
+        var reactivated = await SendJson(fixture.Client, HttpMethod.Post, reactivatePath,
+            fixture.Reviewer, new VendorReactivateInput(heldVersion, "Current diligence verified", true),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, reactivated.StatusCode);
+        var reopened = await reactivated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Active", reopened.GetProperty("status").GetString());
+        Assert.True(reopened.GetProperty("isOrderable").GetBoolean());
+        Assert.Equal(4, await fixture.DecisionCount(id));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Reviewer,
+                new VendorReactivateInput(reopened.GetProperty("version").GetInt64(), "Repeat", true),
+                "procurement_manager")).StatusCode);
     }
 
     [Fact]
@@ -1654,7 +1687,7 @@ public sealed class ProcurementRequestHttpTests
         return client.SendAsync(request);
     }
 
-    private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid inactive, Guid otherCompany)
+    private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid reviewer, Guid inactive, Guid otherCompany)
         : IAsyncDisposable
     {
         public string[] Routes() => ((IEndpointRouteBuilder)app).DataSources
@@ -1663,6 +1696,7 @@ public sealed class ProcurementRequestHttpTests
         public HttpClient Client { get; } = app.GetTestClient();
         public Guid Owner { get; } = owner;
         public Guid Other { get; } = other;
+        public Guid Reviewer { get; } = reviewer;
         public Guid Inactive { get; } = inactive;
         public Guid OtherCompany { get; } = otherCompany;
 
@@ -1801,6 +1835,7 @@ public sealed class ProcurementRequestHttpTests
             var branch = new WorkLocation { Code = "A1", Name = "Lusaka", LegalEntityId = company.Id };
             var owner = Guid.NewGuid();
             var other = Guid.NewGuid();
+            var reviewer = Guid.NewGuid();
             var inactive = Guid.NewGuid();
             using (var seed = app.Services.CreateScope())
             {
@@ -1812,12 +1847,14 @@ public sealed class ProcurementRequestHttpTests
                         SubjectId = owner.ToString(), Status = "active", LocationId = branch.Id },
                     new Worker { EmployeeNo = "PROC-2", FirstName = "Other", LastName = "Employee",
                         SubjectId = other.ToString(), Status = "active", LocationId = branch.Id },
+                    new Worker { EmployeeNo = "PROC-4", FirstName = "Reviewer", LastName = "Employee",
+                        SubjectId = reviewer.ToString(), Status = "active", LocationId = branch.Id },
                     new Worker { EmployeeNo = "PROC-3", FirstName = "Inactive", LastName = "Employee",
                         SubjectId = inactive.ToString(), Status = "terminated", LocationId = branch.Id });
                 await core.SaveChangesAsync();
             }
             await app.StartAsync();
-            return new Fixture(app, company.Id, owner, other, inactive, otherCompany.Id);
+            return new Fixture(app, company.Id, owner, other, reviewer, inactive, otherCompany.Id);
         }
 
         public async ValueTask DisposeAsync()
