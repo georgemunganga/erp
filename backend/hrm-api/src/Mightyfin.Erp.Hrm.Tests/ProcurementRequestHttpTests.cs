@@ -535,6 +535,9 @@ public sealed class ProcurementRequestHttpTests
             "/api/procurement/v1/catalog", fixture.Owner);
         Assert.Equal(1, (await catalog.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/catalog",
+                fixture.Owner, fixture.OtherCompany)).StatusCode);
         var invalidPriceRequest = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/requests", fixture.Owner, new
             {
