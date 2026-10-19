@@ -542,6 +542,37 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
                 valid with { Version = submitted.GetProperty("version").GetInt64() })).StatusCode);
+
+        var submittedVersion = submitted.GetProperty("version").GetInt64();
+        var qualificationId = submitted.GetProperty("qualifications")[0].GetProperty("id").GetGuid();
+        var reviewPath = $"/api/procurement/v1/vendors/{id}/qualifications/{qualificationId}/review";
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post,
+                $"/api/procurement/v1/vendors/{id}/approve", fixture.Other,
+                new VendorApprovalInput(submittedVersion, "Ready", true), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Owner,
+                new VendorQualificationReviewInput(submittedVersion, "Verified", "Checked"),
+                "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Other,
+                new VendorQualificationReviewInput(submittedVersion, "Invalid", "Checked"),
+                "procurement_manager")).StatusCode);
+        var reviewed = await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Other,
+            new VendorQualificationReviewInput(submittedVersion, "Verified", "Confirmed with issuer"),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, reviewed.StatusCode);
+        var review = await reviewed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Verified", review.GetProperty("reviewStatus").GetString());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Other,
+                new VendorQualificationReviewInput(review.GetProperty("supplierVersion").GetInt64(),
+                    "Verified", "Repeat"), "procurement_manager")).StatusCode);
+        var approved = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{id}/approve", fixture.Other,
+            new VendorApprovalInput(review.GetProperty("supplierVersion").GetInt64(),
+                "All qualifications checked", true), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
     }
 
     [Fact]

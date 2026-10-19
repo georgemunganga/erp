@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Mightyfin.Erp.Hrm.Application;
 using Microsoft.AspNetCore.Authorization;
 using Mightyfin.Erp.Procurement.Domain;
@@ -25,6 +26,8 @@ public static class ProcurementVendorRoutes
         group.MapPost("/{id:guid}/contacts", AddContactAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/sites", AddSiteAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/qualifications", AddQualificationAsync).RequireAuthorization("procurement-vendor-edit");
+        group.MapPost("/{id:guid}/qualifications/{qualificationId:guid}/review", ReviewQualificationAsync)
+            .RequireAuthorization("procurement-vendor-manage");
     }
 
     private static async Task<IResult> ListAsync(ProcurementDbContext db, ProcurementRequestScope scope,
@@ -301,7 +304,9 @@ public static class ProcurementVendorRoutes
             return BadInput("A category and contact person are required before approval.");
         if (supplier.PaymentVerificationToken is not null && supplier.PaymentVerificationStatus != "Verified")
             return Conflict("Finance must verify payment details before this vendor can be approved.");
-        if (supplier.Qualifications.Any(x => x.ReviewStatus != "Verified"
+        if (supplier.Qualifications.GroupBy(x => x.QualificationType, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.OrderByDescending(q => q.CreatedAt).ThenByDescending(q => q.Id).First())
+            .Any(x => x.ReviewStatus != "Verified"
                 || x.ExpiresOn is { } expiry && expiry < DateOnly.FromDateTime(DateTime.UtcNow)))
             return Conflict("Review and renew all supplied qualifications before approval.");
 
@@ -418,6 +423,48 @@ public static class ProcurementVendorRoutes
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Stale(); }
         return Results.Created($"/api/procurement/v1/vendors/{id}", new { qualification.Id, supplier.Version });
+    }
+
+    private static async Task<IResult> ReviewQualificationAsync(Guid id, Guid qualificationId,
+        VendorQualificationReviewInput input, ProcurementDbContext db, ProcurementRequestScope scope,
+        CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Qualifications)
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null) return Results.NotFound();
+        if (supplier.Status != "Submitted")
+            return Conflict("Qualifications can be reviewed only while the vendor is submitted.");
+        if (supplier.Version != input.Version) return Stale();
+        if (supplier.CreatedBy == scope.SubjectId || supplier.StatusDecidedBy == scope.SubjectId)
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        var qualification = supplier.Qualifications.SingleOrDefault(x => x.Id == qualificationId);
+        if (qualification is null) return Results.NotFound();
+        if (qualification.ReviewStatus != "Pending")
+            return Conflict("This qualification has already been reviewed.");
+        if (input.Decision is not ("Verified" or "Rejected"))
+            return BadInput("Choose Verified or Rejected.");
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return BadInput("Record a review reason of up to 1,000 characters.");
+        if (input.Decision == "Verified" && qualification.ExpiresOn is { } expiry
+            && expiry < DateOnly.FromDateTime(DateTime.UtcNow))
+            return Conflict("An expired qualification cannot be verified.");
+        qualification.ReviewStatus = input.Decision;
+        qualification.ReviewedBy = scope.SubjectId;
+        qualification.ReviewedAt = DateTimeOffset.UtcNow;
+        db.Entry(supplier).Property(x => x.UpdatedAt).IsModified = true;
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "SupplierQualification", RecordId = qualificationId,
+            Action = "Reviewed", ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new
+            {
+                from = "Pending", to = input.Decision, reason = input.Reason.Trim(), supplierId = id,
+            }),
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { qualification.Id, qualification.ReviewStatus,
+            qualification.ReviewedAt, qualification.Version, supplierVersion = supplier.Version });
     }
 
     private static object ToDetail(Supplier x, bool canReturnForInformation, bool canDecide = false) => new
@@ -562,3 +609,4 @@ public sealed record VendorAttributeInput(string Kind, string Key, string? Value
 public sealed record VersionedContact(long Version, VendorContactInput Contact);
 public sealed record VersionedSite(long Version, VendorSiteInput Site);
 public sealed record VersionedQualification(long Version, VendorQualificationInput Qualification);
+public sealed record VendorQualificationReviewInput(long Version, string? Decision, string? Reason);
