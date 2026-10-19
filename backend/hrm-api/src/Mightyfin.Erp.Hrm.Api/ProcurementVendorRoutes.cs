@@ -7,7 +7,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Draft vendor records. Eligibility decisions belong to the later approval workflow.</summary>
+/// <summary>Vendor intake and controlled activation; Finance retains payment-detail ownership.</summary>
 public static class ProcurementVendorRoutes
 {
     public static void MapRoutes(WebApplication app)
@@ -19,6 +19,8 @@ public static class ProcurementVendorRoutes
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/submit", SubmitAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/return", ReturnForInformationAsync).RequireAuthorization("procurement-vendor-manage");
+        group.MapPost("/{id:guid}/approve", ApproveAsync).RequireAuthorization("procurement-vendor-approve");
+        group.MapPost("/{id:guid}/reject", RejectAsync).RequireAuthorization("procurement-vendor-approve");
         group.MapPost("/{id:guid}/withdraw", WithdrawAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/contacts", AddContactAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/sites", AddSiteAsync).RequireAuthorization("procurement-vendor-edit");
@@ -64,9 +66,12 @@ public static class ProcurementVendorRoutes
         if (!canManage && !((supplier.Status == "Active" || supplier.Status == "Approved") && supplier.IsOrderable)
             && supplier.CreatedBy != scope.SubjectId)
             return Results.NotFound();
+        var canDecide = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded
+            && supplier.Status == "Submitted" && supplier.CreatedBy != scope.SubjectId
+            && supplier.StatusDecidedBy != scope.SubjectId;
         return Results.Ok(canManage || supplier.CreatedBy == scope.SubjectId
             ? ToDetail(supplier, canManage && supplier.CreatedBy != scope.SubjectId
-                && supplier.Status == "Submitted") : ToBasicDetail(supplier));
+                && supplier.Status == "Submitted", canDecide) : ToBasicDetail(supplier));
     }
 
     private static async Task<IResult> CreateAsync(VendorDraftInput input, ProcurementDbContext db, HrmDbContext core,
@@ -278,6 +283,74 @@ public static class ProcurementVendorRoutes
         return Results.Ok(new { supplier.Id, supplier.Status, supplier.IsOrderable, supplier.Version });
     }
 
+    private static async Task<IResult> ApproveAsync(Guid id, VendorApprovalInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Contacts).Include(x => x.Qualifications)
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null) return Results.NotFound();
+        if (supplier.Status != "Submitted") return Conflict("Only a submitted vendor can be approved.");
+        if (supplier.Version != input.Version) return Stale();
+        if (supplier.CreatedBy == scope.SubjectId || supplier.StatusDecidedBy == scope.SubjectId)
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        if (!input.DuplicatesReviewed)
+            return BadInput("Review possible duplicate vendors before approval.");
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return BadInput("Record an approval reason of up to 1,000 characters.");
+        if (string.IsNullOrWhiteSpace(supplier.CategoryCode) || supplier.Contacts.Count == 0)
+            return BadInput("A category and contact person are required before approval.");
+        if (supplier.PaymentVerificationToken is not null && supplier.PaymentVerificationStatus != "Verified")
+            return Conflict("Finance must verify payment details before this vendor can be approved.");
+        if (supplier.Qualifications.Any(x => x.ReviewStatus != "Verified"
+                || x.ExpiresOn is { } expiry && expiry < DateOnly.FromDateTime(DateTime.UtcNow)))
+            return Conflict("Review and renew all supplied qualifications before approval.");
+
+        var decidedAt = DateTimeOffset.UtcNow;
+        supplier.Status = "Active";
+        supplier.IsOrderable = true;
+        supplier.EligibleFrom = decidedAt;
+        supplier.StatusReason = input.Reason.Trim();
+        supplier.StatusDecidedAt = decidedAt;
+        supplier.StatusDecidedBy = scope.SubjectId;
+        db.AddScoped(new SupplierDecision
+        {
+            SupplierId = id, FromStatus = "Submitted", ToStatus = "Active",
+            ActorSubjectId = scope.SubjectId, Reason = supplier.StatusReason,
+            DecidedAt = decidedAt,
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { supplier.Id, supplier.Status, supplier.IsOrderable, supplier.Version });
+    }
+
+    private static async Task<IResult> RejectAsync(Guid id, VendorReviewReturnInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null) return Results.NotFound();
+        if (supplier.Status != "Submitted") return Conflict("Only a submitted vendor can be rejected.");
+        if (supplier.Version != input.Version) return Stale();
+        if (supplier.CreatedBy == scope.SubjectId || supplier.StatusDecidedBy == scope.SubjectId)
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return BadInput("Record a rejection reason of up to 1,000 characters.");
+        var decidedAt = DateTimeOffset.UtcNow;
+        supplier.Status = "Rejected";
+        supplier.IsOrderable = false;
+        supplier.StatusReason = input.Reason.Trim();
+        supplier.StatusDecidedAt = decidedAt;
+        supplier.StatusDecidedBy = scope.SubjectId;
+        db.AddScoped(new SupplierDecision
+        {
+            SupplierId = id, FromStatus = "Submitted", ToStatus = "Rejected",
+            ActorSubjectId = scope.SubjectId, Reason = supplier.StatusReason,
+            DecidedAt = decidedAt,
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { supplier.Id, supplier.Status, supplier.IsOrderable, supplier.Version });
+    }
+
     private static async Task<IResult> WithdrawAsync(Guid id, VendorWithdrawInput input,
         ProcurementDbContext db, ProcurementRequestScope scope, IAuthorizationService authorization,
         HttpContext http, CancellationToken ct)
@@ -347,7 +420,7 @@ public static class ProcurementVendorRoutes
         return Results.Created($"/api/procurement/v1/vendors/{id}", new { qualification.Id, supplier.Version });
     }
 
-    private static object ToDetail(Supplier x, bool canReturnForInformation) => new
+    private static object ToDetail(Supplier x, bool canReturnForInformation, bool canDecide = false) => new
     {
         x.Id, x.Number, x.LegalName, x.DisplayName, x.TradingName, x.CountryCode,
         x.RegistrationNumber, x.CompanyIdType, x.TaxIdentifierRef, x.Website,
@@ -355,6 +428,7 @@ public static class ProcurementVendorRoutes
         x.TaxCategoryRef, x.LanguageCode, x.Remarks, x.IsLocal, x.Status,
         x.StatusReason, x.StatusDecidedAt, x.IsOrderable, x.PortalAccessState,
         CanReturnForInformation = canReturnForInformation,
+        CanApprove = canDecide, CanReject = canDecide,
         x.Version, x.CreatedAt, x.UpdatedAt,
         contacts = x.Contacts.OrderByDescending(c => c.IsPrimary).ThenBy(c => c.Name)
             .Select(c => new { c.Id, c.Name, c.Salutation, c.FirstName, c.LastName,
@@ -474,6 +548,7 @@ public sealed record VendorDraftInput(string? LegalName, string? DisplayName, st
 public sealed record VendorDraftUpdate(long Version, VendorDraftInput Draft);
 public sealed record VendorSubmitInput(long Version, string? BusinessReason);
 public sealed record VendorReviewReturnInput(long Version, string? Reason);
+public sealed record VendorApprovalInput(long Version, string? Reason, bool DuplicatesReviewed);
 public sealed record VendorWithdrawInput(long Version, string? Reason);
 public sealed record VendorContactInput(string? Name, string? Salutation, string? FirstName,
     string? LastName, string? Role, string? Email, string? Phone, string? WorkPhone,

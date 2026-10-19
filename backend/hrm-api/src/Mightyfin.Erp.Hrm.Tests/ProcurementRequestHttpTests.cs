@@ -426,6 +426,81 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Vendor_activation_requires_independent_manager_review_and_records_decision()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/vendors",
+            fixture.Owner, new { legalName = "Supply Zambia Ltd", displayName = "Supply Zambia",
+                countryCode = "ZM", categoryCode = "OFFICE",
+                primaryContact = new { name = "Supplier Contact", email = "contact@example.test" } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{id}/submit", fixture.Owner,
+            new VendorSubmitInput(draft.GetProperty("version").GetInt64(), "Required for office supplies"));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var pending = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        var version = pending.GetProperty("version").GetInt64();
+        var approvalPath = $"/api/procurement/v1/vendors/{id}/approve";
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Other,
+                new VendorApprovalInput(version, "Reviewed", true))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Owner,
+                new VendorApprovalInput(version, "Reviewed", true), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Other,
+                new VendorApprovalInput(version, "Reviewed", false), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Other,
+                new VendorApprovalInput(version - 1, "Reviewed", true), "procurement_manager")).StatusCode);
+
+        var approved = await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Other,
+            new VendorApprovalInput(version, "Identity and duplicate check completed", true),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+        var active = await approved.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Active", active.GetProperty("status").GetString());
+        Assert.True(active.GetProperty("isOrderable").GetBoolean());
+        Assert.Equal(2, await fixture.DecisionCount(id));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Other,
+                new VendorApprovalInput(active.GetProperty("version").GetInt64(), "Repeat", true),
+                "procurement_manager")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Vendor_rejection_keeps_supplier_non_orderable_and_requires_reason()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/vendors",
+            fixture.Owner, new { legalName = "Unqualified Ltd", displayName = "Unqualified",
+                countryCode = "ZM", categoryCode = "OFFICE",
+                primaryContact = new { name = "Supplier Contact" } });
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{id}/submit", fixture.Owner,
+            new VendorSubmitInput(draft.GetProperty("version").GetInt64(), "Review"));
+        var pending = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        var version = pending.GetProperty("version").GetInt64();
+        var rejectPath = $"/api/procurement/v1/vendors/{id}/reject";
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, rejectPath, fixture.Other,
+                new VendorReviewReturnInput(version, ""), "procurement_manager")).StatusCode);
+        var rejected = await SendJson(fixture.Client, HttpMethod.Post, rejectPath, fixture.Other,
+            new VendorReviewReturnInput(version, "Company registration could not be confirmed"),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, rejected.StatusCode);
+        var result = await rejected.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Rejected", result.GetProperty("status").GetString());
+        Assert.False(result.GetProperty("isOrderable").GetBoolean());
+        Assert.Equal(2, await fixture.DecisionCount(id));
+    }
+
+    [Fact]
     public async Task Vendor_qualification_is_versioned_and_locked_during_review()
     {
         await using var fixture = await Fixture.Start();
