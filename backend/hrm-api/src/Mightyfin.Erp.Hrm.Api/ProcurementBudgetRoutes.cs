@@ -13,6 +13,7 @@ public static class ProcurementBudgetRoutes
     {
         var group = app.MapGroup("/api/procurement/v1/requests");
         group.MapGet("/budget-queue", Queue).RequireAuthorization("procurement-budget-check");
+        group.MapGet("/{id:guid}/budget-status", OwnStatus).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/budget-checks", List).RequireAuthorization("procurement-budget-check");
         group.MapPost("/{id:guid}/budget-checks", Record).RequireAuthorization("procurement-budget-check");
     }
@@ -46,6 +47,26 @@ public static class ProcurementBudgetRoutes
                 x.EvidenceRef, x.DecisionReason, x.ReservationRef, x.ReservationStatus })
             .ToListAsync(ct);
         return Results.Ok(new { records });
+    }
+
+    private static async Task<IResult> OwnStatus(Guid id, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var request = await db.PurchaseRequests.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
+        if (request is null) return Error("not-found", "Request not found.", 404);
+        var latest = await db.BudgetCheckSnapshots.AsNoTracking()
+            .Where(x => x.PurchaseRequestId == id && x.RequestVersion == request.Version)
+            .OrderByDescending(x => x.CheckedAt).ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(ct);
+        return Results.Ok(new
+        {
+            requestId = id, requestVersion = request.Version,
+            status = latest?.Status ?? "Pending",
+            checkedAt = latest?.CheckedAt,
+            reservationConfirmed = latest?.Status == "Available"
+                && latest.ReservationStatus == "Confirmed",
+        });
     }
 
     private static async Task<IResult> Record(Guid id, BudgetDecision input,

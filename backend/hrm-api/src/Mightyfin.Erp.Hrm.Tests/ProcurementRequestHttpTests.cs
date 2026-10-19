@@ -149,6 +149,12 @@ public sealed class ProcurementRequestHttpTests
         var request = await submitted.Content.ReadFromJsonAsync<JsonElement>();
         version = request.GetProperty("version").GetInt64();
         var path = $"/api/procurement/v1/requests/{id}/budget-checks";
+        var ownStatusPath = $"/api/procurement/v1/requests/{id}/budget-status";
+        var pendingStatus = await Send(fixture.Client, HttpMethod.Get, ownStatusPath, fixture.Owner);
+        Assert.Equal("Pending", (await pendingStatus.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, ownStatusPath, fixture.Other)).StatusCode);
         var decision = new ProcurementBudgetRoutes.BudgetDecision(version, "FIN-001", "Available",
             200, "ZMW", "finance-budget/001", null, "RES-001", "Confirmed");
 
@@ -177,6 +183,11 @@ public sealed class ProcurementRequestHttpTests
                 decision with { Status = "Insufficient", DecisionReason = "No funds" },
                 "finance_approver")).StatusCode);
         Assert.Equal(1, await fixture.RequestAuditCount(id, "BudgetChecked"));
+        var ownBudget = await Send(fixture.Client, HttpMethod.Get, ownStatusPath, fixture.Owner);
+        var budgetStatus = await ownBudget.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Available", budgetStatus.GetProperty("status").GetString());
+        Assert.True(budgetStatus.GetProperty("reservationConfirmed").GetBoolean());
+        Assert.False(budgetStatus.TryGetProperty("evidenceRef", out _));
         var own = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
         Assert.Equal("PendingPolicyAndBudget", (await own.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("approvalState").GetString());
