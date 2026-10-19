@@ -30,15 +30,18 @@ public static class ProcurementApprovalReadinessRoutes
             .OrderByDescending(x => x.CheckedAt).ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
         var readiness = RequestApprovalReadiness.Check(request, evaluation, policy, finance);
-        var route = ApprovalRoutePreview.FromEvaluation(evaluation);
+        var route = ApprovalRoutePreview.FromEvaluation(evaluation,
+            request.Lines.Where(x => x.ApprovalStatus != "Cancelled").Select(x => x.Id).ToArray());
+        var blockers = readiness.Blockers.Concat(route.Blockers).Distinct().ToArray();
         return Results.Ok(new
         {
             requestId = id, readiness.RequestVersion, readiness.EstimatedAmount,
-            readiness.CurrencyCode, readiness.PrerequisitesMet, readiness.Blockers,
+            readiness.CurrencyCode, prerequisitesMet = readiness.PrerequisitesMet && route.HasSingleRoute,
+            blockers,
             approvalRoute = route, canOpenCase = false,
             policyEvaluationId = evaluation?.Id, financeCheckId = finance?.Id,
             isAuthority = false,
-            nextStep = readiness.PrerequisitesMet
+            nextStep = readiness.PrerequisitesMet && route.HasSingleRoute
                 ? "Assign independent approvers and verify Finance integration before opening a workflow."
                 : "Resolve the listed checks before an approval workflow can open.",
         });

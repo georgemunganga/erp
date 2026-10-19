@@ -18,11 +18,19 @@ public sealed class ApprovalRoutePreviewTests
             PurchaseRequestId = requestId, RequestVersion = 3, PolicyVersionId = policyId,
             Outcome = "Matched", DecisionJson = Decision(requestId, policyId, lineOne, lineTwo, "LineManager"),
         };
-        var oneRoute = ApprovalRoutePreview.FromEvaluation(evaluation);
+        var oneRoute = ApprovalRoutePreview.FromEvaluation(evaluation, [lineOne, lineTwo]);
         Assert.True(oneRoute.HasSingleRoute);
         Assert.Empty(oneRoute.Blockers);
         Assert.Equal(2, oneRoute.Lines.Count);
         Assert.Equal("LineManager", oneRoute.Lines[0].Stages[0].Assignee);
+
+        Assert.Contains("PinnedDecisionLinesChanged",
+            ApprovalRoutePreview.FromEvaluation(evaluation, [lineOne]).Blockers);
+        Assert.Contains("PinnedDecisionLinesChanged",
+            ApprovalRoutePreview.FromEvaluation(evaluation, [lineOne, Guid.NewGuid()]).Blockers);
+        evaluation.DecisionJson = Decision(requestId, policyId, lineOne, lineOne, "LineManager");
+        Assert.Contains("PinnedDecisionLinesInvalid",
+            ApprovalRoutePreview.FromEvaluation(evaluation, [lineOne]).Blockers);
 
         evaluation.DecisionJson = Decision(requestId, policyId, lineOne, lineTwo, "BudgetOwner");
         var mixed = ApprovalRoutePreview.FromEvaluation(evaluation);

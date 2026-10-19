@@ -10,7 +10,8 @@ public sealed record ApprovalRoutePreviewResult(bool HasSingleRoute,
 /// <summary>Shows the pinned rule route. This preview cannot assign or approve a case.</summary>
 public static class ApprovalRoutePreview
 {
-    public static ApprovalRoutePreviewResult FromEvaluation(PolicyEvaluation? evaluation)
+    public static ApprovalRoutePreviewResult FromEvaluation(PolicyEvaluation? evaluation,
+        IReadOnlyCollection<Guid>? activeLineIds = null)
     {
         if (evaluation is null || evaluation.Outcome != "Matched")
             return new(false, [], ["BuyingRulesNotMatched"]);
@@ -23,8 +24,12 @@ public static class ApprovalRoutePreview
                 || root.GetProperty("policyId").GetGuid() != evaluation.PolicyVersionId)
                 return new(false, [], ["PinnedDecisionMismatch"]);
             var lines = new List<ApprovalRouteLine>();
+            var seen = new HashSet<Guid>();
             foreach (var line in root.GetProperty("lines").EnumerateArray())
             {
+                var lineId = line.GetProperty("lineId").GetGuid();
+                if (lineId == Guid.Empty || !seen.Add(lineId))
+                    return new(false, [], ["PinnedDecisionLinesInvalid"]);
                 var decision = line.GetProperty("decision");
                 if (decision.GetProperty("status").GetString() != "Match")
                     return new(false, [], ["BuyingRulesNotMatched"]);
@@ -38,9 +43,12 @@ public static class ApprovalRoutePreview
                     string.IsNullOrWhiteSpace(stage.Code) || string.IsNullOrWhiteSpace(stage.Assignee)
                     || string.IsNullOrWhiteSpace(stage.Mode)))
                     return new(false, [], ["ApprovalStageMissing"]);
-                lines.Add(new(line.GetProperty("lineId").GetGuid(), stages));
+                lines.Add(new(lineId, stages));
             }
             if (lines.Count == 0) return new(false, [], ["NoActiveLines"]);
+            if (activeLineIds is not null && (activeLineIds.Count != seen.Count
+                || activeLineIds.Any(lineId => !seen.Contains(lineId))))
+                return new(false, [], ["PinnedDecisionLinesChanged"]);
             var first = JsonSerializer.Serialize(lines[0].Stages);
             var mixed = lines.Skip(1).Any(line => JsonSerializer.Serialize(line.Stages) != first);
             return new(!mixed, lines, mixed ? ["MixedLineApprovalRoutes"] : []);

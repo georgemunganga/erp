@@ -679,6 +679,22 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(200m, evaluation.GetProperty("decision").GetProperty("lines")[0]
             .GetProperty("lineBaseAmount").GetDecimal());
         Assert.Equal(1, await fixture.RequestAuditCount(id, "PolicyEvaluated"));
+        var readinessPath = $"{requests}/{id}/approval-readiness";
+        var routeResponse = await Send(fixture.Client, HttpMethod.Get, readinessPath,
+            fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, routeResponse.StatusCode);
+        var routeBody = await routeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(routeBody.GetProperty("approvalRoute").GetProperty("hasSingleRoute").GetBoolean());
+        Assert.False(routeBody.GetProperty("prerequisitesMet").GetBoolean());
+        Assert.False(routeBody.GetProperty("canOpenCase").GetBoolean());
+        await fixture.AddRequestLineAfterPolicyCheck(id);
+        var staleResponse = await Send(fixture.Client, HttpMethod.Get, readinessPath,
+            fixture.Other, role: "procurement_manager");
+        var staleBody = await staleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains(staleBody.GetProperty("blockers").EnumerateArray(),
+            item => item.GetString() == "PinnedDecisionLinesChanged");
+        Assert.False(staleBody.GetProperty("prerequisitesMet").GetBoolean());
+        Assert.False(staleBody.GetProperty("canOpenCase").GetBoolean());
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post,
                 $"{requests}/{id}/policy-evaluations", fixture.Owner,
@@ -1837,6 +1853,23 @@ public sealed class ProcurementRequestHttpTests
             db.AddScoped(policy);
             await db.SaveChangesAsync();
             return policy.Id;
+        }
+
+        public async Task AddRequestLineAfterPolicyCheck(Guid requestId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Other.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            db.AddScoped(new PurchaseRequestLine
+            {
+                PurchaseRequestId = requestId, LineNumber = 2,
+                Description = "Additional unreviewed item", UnitCode = "each",
+                RequestedQuantity = 1, EstimatedUnitPrice = 1,
+            });
+            await db.SaveChangesAsync();
+            Assert.Equal(2, await db.PurchaseRequestLines.CountAsync(x =>
+                x.PurchaseRequestId == requestId && x.ApprovalStatus != "Cancelled"));
         }
 
         public async Task PublishPolicy(Guid id)
