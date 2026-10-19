@@ -95,6 +95,7 @@ public sealed class SupplierSite : ProcurementRecord
 public sealed class SupplierQualification : ProcurementRecord
 {
     public Guid SupplierId { get; set; }
+    public bool IsActive { get; set; } = true;
     public string QualificationType { get; set; } = null!;
     public string? Issuer { get; set; }
     public string? ReferenceNumber { get; set; }

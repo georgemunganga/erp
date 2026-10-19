@@ -1703,6 +1703,59 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Vendor_draft_qualification_can_be_corrected_and_removed_with_history()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/vendors",
+            fixture.Owner, new { legalName = "Equipment Supplier Ltd", displayName = "Equipment Supplier",
+                countryCode = "ZM", categoryCode = "EQUIPMENT",
+                primaryContact = new { name = "Supplier Contact", email = "equipment@example.test" } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var vendor = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = vendor.GetProperty("id").GetGuid();
+        var qualification = new VendorQualificationInput("Insurance", "Insurer", "POL-1",
+            new DateOnly(2026, 1, 1), new DateOnly(2027, 1, 1), null);
+        var added = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{id}/qualifications", fixture.Owner,
+            new VersionedQualification(vendor.GetProperty("version").GetInt64(), qualification));
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        var current = await (await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/vendors/{id}", fixture.Owner)).Content.ReadFromJsonAsync<JsonElement>();
+        var qualificationId = current.GetProperty("qualifications")[0].GetProperty("id").GetGuid();
+        var path = $"/api/procurement/v1/vendors/{id}/qualifications/{qualificationId}";
+        var revision = new VersionedQualification(current.GetProperty("version").GetInt64(),
+            qualification with { ReferenceNumber = "POL-2" });
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Other, revision)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Owner,
+                revision with { Version = vendor.GetProperty("version").GetInt64() })).StatusCode);
+        var updated = await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Owner, revision);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        Assert.Equal(1, await fixture.VendorDetailAuditCount(qualificationId, "DraftUpdated"));
+        var audit = await fixture.AuditPayload(qualificationId, "DraftUpdated");
+        Assert.Equal("POL-1", audit.GetProperty("before").GetProperty("ReferenceNumber").GetString());
+        Assert.Equal("POL-2", audit.GetProperty("after").GetProperty("ReferenceNumber").GetString());
+        var revised = await (await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/vendors/{id}", fixture.Owner)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("POL-2", revised.GetProperty("qualifications")[0].GetProperty("referenceNumber").GetString());
+        var removalPath = path + "/remove";
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, removalPath, fixture.Owner,
+                new VendorDetailRemoval(revised.GetProperty("version").GetInt64(), ""))).StatusCode);
+        var removed = await SendJson(fixture.Client, HttpMethod.Post, removalPath, fixture.Owner,
+            new VendorDetailRemoval(revised.GetProperty("version").GetInt64(), "Entered by mistake"));
+        Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+        Assert.Equal(1, await fixture.VendorDetailAuditCount(qualificationId, "Removed"));
+        var after = await (await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/vendors/{id}", fixture.Owner)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, after.GetProperty("qualifications").GetArrayLength());
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Owner,
+                revision with { Version = after.GetProperty("version").GetInt64() })).StatusCode);
+    }
+
+    [Fact]
     public async Task Vendor_qualification_is_versioned_and_locked_during_review()
     {
         await using var fixture = await Fixture.Start();

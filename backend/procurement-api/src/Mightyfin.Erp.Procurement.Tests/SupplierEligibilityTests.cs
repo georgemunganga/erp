@@ -25,6 +25,14 @@ public sealed class SupplierEligibilityTests
         Assert.False(SupplierEligibility.CanReceiveNewOrders(supplier, at));
         supplier.Qualifications.Last().ReviewStatus = "Verified";
         Assert.True(SupplierEligibility.CanReceiveNewOrders(supplier, at));
+        supplier.Qualifications.Add(new SupplierQualification
+        {
+            QualificationType = "Insurance", ReviewStatus = "Pending", IsActive = false,
+            ExpiresOn = new DateOnly(2027, 10, 19), CreatedAt = at,
+        });
+        Assert.True(SupplierEligibility.CanReceiveNewOrders(supplier, at));
+        supplier.Qualifications.First(x => x.ReviewStatus == "Verified").IsActive = false;
+        Assert.True(SupplierEligibility.CanReceiveNewOrders(supplier, at));
         supplier.EligibleUntil = at.AddMinutes(-1);
         Assert.False(SupplierEligibility.CanReceiveNewOrders(supplier, at));
     }

@@ -221,6 +221,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         });
         modelBuilder.Entity<SupplierQualification>(b =>
         {
+            b.Property(x => x.IsActive).HasDefaultValue(true);
             b.Property(x => x.QualificationType).HasMaxLength(80);
             b.Property(x => x.ReviewStatus).HasMaxLength(40);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.ExpiresOn });

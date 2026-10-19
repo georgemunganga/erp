@@ -35,6 +35,10 @@ public static class ProcurementVendorRoutes
         group.MapPut("/{id:guid}/sites/{siteId:guid}", UpdateSiteAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/sites/{siteId:guid}/remove", RemoveSiteAsync).RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/qualifications", AddQualificationAsync).RequireAuthorization("procurement-vendor-edit");
+        group.MapPut("/{id:guid}/qualifications/{qualificationId:guid}", UpdateQualificationAsync)
+            .RequireAuthorization("procurement-vendor-edit");
+        group.MapPost("/{id:guid}/qualifications/{qualificationId:guid}/remove", RemoveQualificationAsync)
+            .RequireAuthorization("procurement-vendor-edit");
         group.MapPost("/{id:guid}/qualifications/{qualificationId:guid}/review", ReviewQualificationAsync)
             .RequireAuthorization("procurement-vendor-manage");
     }
@@ -367,7 +371,7 @@ public static class ProcurementVendorRoutes
             return BadInput("A category and contact person are required before approval.");
         if (supplier.PaymentVerificationToken is not null && supplier.PaymentVerificationStatus != "Verified")
             return Conflict("Finance must verify payment details before this vendor can be approved.");
-        if (supplier.Qualifications.GroupBy(x => x.QualificationType, StringComparer.OrdinalIgnoreCase)
+        if (supplier.Qualifications.Where(x => x.IsActive).GroupBy(x => x.QualificationType, StringComparer.OrdinalIgnoreCase)
             .Select(x => x.OrderByDescending(q => q.CreatedAt).ThenByDescending(q => q.Id).First())
             .Any(x => x.ReviewStatus != "Verified"
                 || x.ExpiresOn is { } expiry && expiry < DateOnly.FromDateTime(DateTime.UtcNow)))
@@ -499,7 +503,7 @@ public static class ProcurementVendorRoutes
             return Conflict("A category and contact person are required before reactivation.");
         if (supplier.PaymentVerificationToken is not null && supplier.PaymentVerificationStatus != "Verified")
             return Conflict("Finance must verify payment details before this vendor can be reactivated.");
-        if (supplier.Qualifications.GroupBy(x => x.QualificationType, StringComparer.OrdinalIgnoreCase)
+        if (supplier.Qualifications.Where(x => x.IsActive).GroupBy(x => x.QualificationType, StringComparer.OrdinalIgnoreCase)
             .Select(x => x.OrderByDescending(q => q.CreatedAt).ThenByDescending(q => q.Id).First())
             .Any(x => x.ReviewStatus != "Verified"
                 || x.ExpiresOn is { } expiry && expiry < DateOnly.FromDateTime(DateTime.UtcNow)))
@@ -641,6 +645,65 @@ public static class ProcurementVendorRoutes
         return Results.Created($"/api/procurement/v1/vendors/{id}", new { qualification.Id, supplier.Version });
     }
 
+    private static async Task<IResult> UpdateQualificationAsync(Guid id, Guid qualificationId,
+        VersionedQualification input, ProcurementDbContext db, ProcurementRequestScope scope,
+        IAuthorizationService authorization, HttpContext http, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Qualifications).SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http)) return Results.NotFound();
+        if (!CanEdit(supplier)) return Conflict("This vendor is already in review.");
+        if (input.Version != supplier.Version) return Stale();
+        var qualification = supplier.Qualifications.SingleOrDefault(x => x.Id == qualificationId && x.IsActive);
+        if (qualification is null) return Results.NotFound();
+        if (qualification.ReviewStatus != "Pending") return Conflict("Reviewed qualifications cannot be changed.");
+        var error = ValidateQualification(input.Qualification);
+        if (error is not null) return BadInput(error);
+        var before = new { qualification.QualificationType, qualification.Issuer,
+            qualification.ReferenceNumber, qualification.IssuedOn, qualification.ExpiresOn,
+            qualification.EvidenceDocumentRefId };
+        var revised = NewQualification(id, input.Qualification);
+        qualification.QualificationType = revised.QualificationType;
+        qualification.Issuer = revised.Issuer;
+        qualification.ReferenceNumber = revised.ReferenceNumber;
+        qualification.IssuedOn = revised.IssuedOn;
+        qualification.ExpiresOn = revised.ExpiresOn;
+        qualification.EvidenceDocumentRefId = revised.EvidenceDocumentRefId;
+        db.Entry(supplier).Property(x => x.UpdatedAt).IsModified = true;
+        db.AddScoped(new AuditEvent { RecordType = "SupplierQualification", RecordId = qualificationId,
+            Action = "DraftUpdated", ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { supplierId = id, before,
+                after = new { qualification.QualificationType, qualification.Issuer,
+                    qualification.ReferenceNumber, qualification.IssuedOn, qualification.ExpiresOn,
+                    qualification.EvidenceDocumentRefId } }) });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { qualification.Id, supplier.Version });
+    }
+
+    private static async Task<IResult> RemoveQualificationAsync(Guid id, Guid qualificationId,
+        VendorDetailRemoval input, ProcurementDbContext db, ProcurementRequestScope scope,
+        IAuthorizationService authorization, HttpContext http, CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.Include(x => x.Qualifications).SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (supplier is null || !await CanEditRecord(supplier, scope, authorization, http)) return Results.NotFound();
+        if (!CanEdit(supplier)) return Conflict("This vendor is already in review.");
+        if (input.Version != supplier.Version) return Stale();
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 500)
+            return BadInput("Explain why this qualification is being removed (up to 500 characters).");
+        var qualification = supplier.Qualifications.SingleOrDefault(x => x.Id == qualificationId && x.IsActive);
+        if (qualification is null) return Results.NotFound();
+        if (qualification.ReviewStatus != "Pending") return Conflict("Reviewed qualifications cannot be removed.");
+        qualification.IsActive = false;
+        db.Entry(supplier).Property(x => x.UpdatedAt).IsModified = true;
+        db.AddScoped(new AuditEvent { RecordType = "SupplierQualification", RecordId = qualificationId,
+            Action = "Removed", ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { supplierId = id,
+                qualificationType = qualification.QualificationType, reason = input.Reason.Trim() }) });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return Stale(); }
+        return Results.Ok(new { qualification.Id, supplier.Version });
+    }
+
     private static async Task<IResult> ReviewQualificationAsync(Guid id, Guid qualificationId,
         VendorQualificationReviewInput input, ProcurementDbContext db, ProcurementRequestScope scope,
         CancellationToken ct)
@@ -653,7 +716,7 @@ public static class ProcurementVendorRoutes
         if (supplier.Version != input.Version) return Stale();
         if (supplier.CreatedBy == scope.SubjectId || supplier.StatusDecidedBy == scope.SubjectId)
             return Results.StatusCode(StatusCodes.Status403Forbidden);
-        var qualification = supplier.Qualifications.SingleOrDefault(x => x.Id == qualificationId);
+        var qualification = supplier.Qualifications.SingleOrDefault(x => x.Id == qualificationId && x.IsActive);
         if (qualification is null) return Results.NotFound();
         if (qualification.ReviewStatus != "Pending")
             return Conflict("This qualification has already been reviewed.");
@@ -703,7 +766,7 @@ public static class ProcurementVendorRoutes
             .Select(s => new { s.Id, s.Kind, s.Label, s.AddressLine1, s.AddressLine2,
                 s.City, s.Region, s.PostalCode, s.CountryCode, s.IsPrimary,
                 s.IsServiceSite, s.Version }),
-        qualifications = x.Qualifications.OrderBy(q => q.QualificationType)
+        qualifications = x.Qualifications.Where(q => q.IsActive).OrderBy(q => q.QualificationType)
             .Select(q => new { q.Id, q.QualificationType, q.Issuer, q.ReferenceNumber,
                 q.IssuedOn, q.ExpiresOn, q.ReviewStatus, q.EvidenceDocumentRefId,
                 q.Version }),

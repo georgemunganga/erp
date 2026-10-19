@@ -12,7 +12,8 @@ public static class SupplierEligibility
             || supplier.PaymentVerificationToken is not null && supplier.PaymentVerificationStatus != "Verified")
             return false;
         var today = DateOnly.FromDateTime(at.UtcDateTime);
-        return supplier.Qualifications.GroupBy(x => x.QualificationType, StringComparer.OrdinalIgnoreCase)
+        return supplier.Qualifications.Where(x => x.IsActive)
+            .GroupBy(x => x.QualificationType, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).First())
             .All(x => x.ReviewStatus == "Verified" && (x.ExpiresOn is null || x.ExpiresOn >= today));
     }

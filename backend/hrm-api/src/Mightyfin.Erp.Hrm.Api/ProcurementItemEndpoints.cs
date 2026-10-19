@@ -71,9 +71,11 @@ public static class ProcurementItemEndpoints
                         && (supplier.PaymentVerificationToken == null || supplier.PaymentVerificationStatus == "Verified")
                         && !db.SupplierQualifications.AsNoTracking().Any(qualification =>
                             qualification.SupplierId == supplier.Id
+                            && qualification.IsActive
                             && (qualification.ReviewStatus != "Verified" || qualification.ExpiresOn < today)
                             && !db.SupplierQualifications.AsNoTracking().Any(newer =>
                                 newer.SupplierId == supplier.Id
+                                && newer.IsActive
                                 && newer.QualificationType.ToLower() == qualification.QualificationType.ToLower()
                                 && newer.CreatedAt > qualification.CreatedAt))
                         && entry.EffectiveFrom <= now && (entry.EffectiveTo == null || entry.EffectiveTo > now)

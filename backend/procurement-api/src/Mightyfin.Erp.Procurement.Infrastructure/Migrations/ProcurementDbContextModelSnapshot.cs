@@ -5350,6 +5350,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("date")
                         .HasColumnName("expires_on");
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
                     b.Property<DateOnly?>("IssuedOn")
                         .HasColumnType("date")
                         .HasColumnName("issued_on");
