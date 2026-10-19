@@ -59,14 +59,23 @@ public static class ProcurementItemEndpoints
         var number = Math.Max(1, page ?? 1);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
         var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
         // Until audience/site/contract resolution is implemented, only unrestricted, supplier-backed entries are exposed.
         var query = from entry in db.CatalogEntries.AsNoTracking()
                     join item in db.CatalogItems.AsNoTracking() on entry.CatalogItemId equals item.Id
                     join supplier in db.Suppliers.AsNoTracking() on entry.SupplierId equals (Guid?)supplier.Id
                     where entry.Status == "Published" && item.Status == "Active" && item.IsPurchasable
-                        && (supplier.Status == "Approved" || supplier.Status == "Active") && supplier.IsOrderable
+                        && supplier.Status == "Active" && supplier.IsOrderable
                         && (supplier.EligibleFrom == null || supplier.EligibleFrom <= now)
                         && (supplier.EligibleUntil == null || supplier.EligibleUntil >= now)
+                        && (supplier.PaymentVerificationToken == null || supplier.PaymentVerificationStatus == "Verified")
+                        && !db.SupplierQualifications.AsNoTracking().Any(qualification =>
+                            qualification.SupplierId == supplier.Id
+                            && (qualification.ReviewStatus != "Verified" || qualification.ExpiresOn < today)
+                            && !db.SupplierQualifications.AsNoTracking().Any(newer =>
+                                newer.SupplierId == supplier.Id
+                                && newer.QualificationType.ToLower() == qualification.QualificationType.ToLower()
+                                && newer.CreatedAt > qualification.CreatedAt))
                         && entry.EffectiveFrom <= now && (entry.EffectiveTo == null || entry.EffectiveTo > now)
                         && entry.AudienceCode == null && entry.SiteRef == null && entry.ContractRef == null
                     select new { entry, item, supplier };

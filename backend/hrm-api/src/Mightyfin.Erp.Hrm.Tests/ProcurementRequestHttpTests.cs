@@ -1167,6 +1167,16 @@ public sealed class ProcurementRequestHttpTests
             "/api/procurement/v1/catalog", fixture.Owner);
         Assert.Equal(1, (await catalog.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+        await fixture.AddExpiredQualification(vendorId);
+        var expiredCatalog = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/catalog", fixture.Owner);
+        Assert.Equal(0, (await expiredCatalog.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+        await fixture.AddCurrentQualification(vendorId);
+        var renewedCatalog = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/catalog", fixture.Owner);
+        Assert.Equal(1, (await renewedCatalog.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/catalog",
                 fixture.Owner, fixture.OtherCompany)).StatusCode);
@@ -1743,6 +1753,21 @@ public sealed class ProcurementRequestHttpTests
             {
                 SupplierId = supplierId, QualificationType = "Insurance", ReviewStatus = "Verified",
                 ExpiresOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)),
+            });
+            await db.SaveChangesAsync();
+        }
+
+        public async Task AddCurrentQualification(Guid supplierId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            db.AddScoped(new SupplierQualification
+            {
+                SupplierId = supplierId, QualificationType = "insurance", ReviewStatus = "Verified",
+                ExpiresOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(365)),
+                CreatedAt = DateTimeOffset.UtcNow.AddSeconds(1),
             });
             await db.SaveChangesAsync();
         }
