@@ -6,7 +6,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Draft reference configuration. No route here activates a policy or procurement method.</summary>
+/// <summary>Company-scoped buying references; activation requires an independent review.</summary>
 public static class ProcurementConfigurationRoutes
 {
     public static void MapRoutes(WebApplication app)
@@ -23,6 +23,7 @@ public static class ProcurementConfigurationRoutes
         methods.MapGet("/{id:guid}", GetMethod).RequireAuthorization("procurement-configuration-read");
         methods.MapPost("", CreateMethod).RequireAuthorization("procurement-configuration-edit");
         methods.MapPut("/{id:guid}", UpdateMethod).RequireAuthorization("procurement-configuration-edit");
+        methods.MapPost("/{id:guid}/activate", ActivateMethod).RequireAuthorization("procurement-configuration-approve");
     }
 
     private static async Task<IResult> ListCategories(ProcurementDbContext db, string? status,
@@ -205,6 +206,41 @@ public static class ProcurementConfigurationRoutes
         method.UpdatedAt = DateTimeOffset.UtcNow;
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this method before saving.", 409); }
+        return Results.Ok(MethodDetail(method));
+    }
+
+    private static async Task<IResult> ActivateMethod(Guid id, ActivationInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var method = await db.ProcurementMethods.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (method is null) return Problem("not-found", "Buying method not found.", 404);
+        if (method.Version != input.Version)
+            return Problem("version-conflict", "Refresh this buying method before reviewing it.", 409);
+        if (method.Status != "Draft")
+            return Problem("method-locked", "Only a draft buying method can be activated.", 409);
+        if (method.CreatedBy == scope.SubjectId)
+            return Problem("self-approval", "Another authorized person must review this buying method.", 403);
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return Problem("validation-failed", "Enter a review reason of up to 1,000 characters.", 422);
+        if (method.PolicyVersionId is Guid policyId)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (!await db.PolicyVersions.AsNoTracking().AnyAsync(x => x.Id == policyId
+                    && x.State == "Published" && x.EffectiveFrom <= now
+                    && (x.EffectiveTo == null || x.EffectiveTo > now), ct))
+                return Problem("policy-unavailable", "Approve the linked buying policy before activating this method.", 409);
+        }
+        method.Status = "Active";
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "ProcurementMethod", RecordId = method.Id,
+            Action = "Activated", ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { from = "Draft", to = "Active",
+                reason = input.Reason.Trim(), method.Code, method.PolicyVersionId, method.Version }),
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        { return Problem("version-conflict", "Refresh this buying method before reviewing it.", 409); }
         return Results.Ok(MethodDetail(method));
     }
 

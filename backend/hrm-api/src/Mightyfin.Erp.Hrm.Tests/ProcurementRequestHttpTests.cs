@@ -16,6 +16,7 @@ using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
@@ -407,6 +408,57 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(1, (await (await Send(fixture.Client, HttpMethod.Get, methods,
             fixture.Owner, role: "procurement_buyer")).Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task Buying_method_requires_independent_review_and_active_linked_policy()
+    {
+        await using var fixture = await Fixture.Start();
+        const string methods = "/api/procurement/v1/configuration/methods";
+        var created = await SendJson(fixture.Client, HttpMethod.Post, methods, fixture.Owner,
+            new ProcurementConfigurationRoutes.MethodInput("DIRECT", "Direct purchase", null, null),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var method = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = method.GetProperty("id").GetGuid();
+        var version = method.GetProperty("version").GetInt64();
+        var path = $"{methods}/{id}/activate";
+        var review = new ProcurementConfigurationRoutes.ActivationInput(version, "Reviewed method and scope");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, review,
+                "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                review with { Reason = "" }, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                review with { Version = version + 1 }, "procurement_manager")).StatusCode);
+        var activated = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            review, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, activated.StatusCode);
+        Assert.Equal("Active", (await activated.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "Activated"));
+
+        var draftPolicyId = await fixture.AddDraftPolicy();
+        var linked = await SendJson(fixture.Client, HttpMethod.Post, methods, fixture.Owner,
+            new ProcurementConfigurationRoutes.MethodInput("RFQ", "Request for quotes", null, draftPolicyId),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, linked.StatusCode);
+        var linkedMethod = await linked.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post,
+                $"{methods}/{linkedMethod.GetProperty("id").GetGuid()}/activate", fixture.Other,
+                new ProcurementConfigurationRoutes.ActivationInput(
+                    linkedMethod.GetProperty("version").GetInt64(), "Reviewed"),
+                "procurement_manager")).StatusCode);
+        await fixture.PublishPolicy(draftPolicyId);
+        var linkedActivated = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{methods}/{linkedMethod.GetProperty("id").GetGuid()}/activate", fixture.Other,
+            new ProcurementConfigurationRoutes.ActivationInput(
+                linkedMethod.GetProperty("version").GetInt64(), "Reviewed active policy"),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, linkedActivated.StatusCode);
     }
 
     [Fact]
@@ -980,6 +1032,33 @@ public sealed class ProcurementRequestHttpTests
                 .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
             var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             return await db.AuditEvents.CountAsync(x => x.RecordId == requestId && x.Action == action);
+        }
+
+        public async Task<Guid> AddDraftPolicy()
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var policy = new PolicyVersion
+            {
+                PolicyKey = "RFQ", PolicyVersionNumber = 1,
+                EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), State = "Draft",
+            };
+            db.AddScoped(policy);
+            await db.SaveChangesAsync();
+            return policy.Id;
+        }
+
+        public async Task PublishPolicy(Guid id)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Other.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var policy = await db.PolicyVersions.SingleAsync(x => x.Id == id);
+            policy.State = "Published";
+            await db.SaveChangesAsync();
         }
 
         public static async Task<Fixture> Start()
