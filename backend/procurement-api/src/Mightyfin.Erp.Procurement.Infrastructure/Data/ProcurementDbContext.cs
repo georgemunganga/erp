@@ -348,7 +348,10 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         modelBuilder.Entity<PolicyEvaluation>(b =>
         {
             b.Property(x => x.Outcome).HasMaxLength(40);
+            b.Property(x => x.AmountBasis).HasMaxLength(40);
+            b.Property(x => x.DecisionJson).HasMaxLength(65536);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.EvaluatedAt });
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.RequestVersion }).IsUnique();
             b.HasOne<PurchaseRequest>().WithMany()
                 .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })

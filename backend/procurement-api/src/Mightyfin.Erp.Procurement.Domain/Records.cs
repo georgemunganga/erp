@@ -259,7 +259,11 @@ public sealed class PurchaseRequestAllocation : ProcurementRecord
 public sealed class PolicyEvaluation : ProcurementRecord
 {
     public Guid PurchaseRequestId { get; set; }
+    public long RequestVersion { get; set; }
     public Guid PolicyVersionId { get; set; }
+    public int PolicyVersionNumber { get; set; }
+    public string AmountBasis { get; set; } = null!;
+    public string DecisionJson { get; set; } = null!;
     public string Outcome { get; set; } = null!;
     public string? ResultCode { get; set; }
     public string? Summary { get; set; }

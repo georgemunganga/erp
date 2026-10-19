@@ -2,14 +2,14 @@ using System.Text.Json;
 
 namespace Mightyfin.Erp.Procurement.Application;
 
-public sealed record PolicyScenario(string CurrencyCode, decimal GrossAmount,
+public sealed record PolicyScenario(string CurrencyCode, decimal LineBaseAmount,
     string? CategoryCode, string? PurchaseType, Guid? BranchId);
 public sealed record PolicyPreviewStage(string Code, string Assignee, string Mode);
 public sealed record PolicyPreviewResult(string Status, string? RuleCode, int? Priority,
     string? BudgetReservation, string? SourcingMethodCode, int? MinimumQuoteCount,
     IReadOnlyList<PolicyPreviewStage> ApprovalStages, IReadOnlyList<PolicyRuleIssue> Issues);
 
-/// <summary>Explains a synthetic rule match. This output is never a spending authorization.</summary>
+/// <summary>Pure rule matching for preview and pinned request evidence; neither output grants spending authority.</summary>
 public static class PolicyRulePreview
 {
     public static IReadOnlyList<PolicyRuleIssue> AnalyzeCoverage(string json)
@@ -41,10 +41,10 @@ public static class PolicyRulePreview
     {
         var structural = PolicyRuleValidator.Validate(json);
         if (structural.Count != 0) return Empty("InvalidRules", structural);
-        if (scenario.GrossAmount < 0 || decimal.Round(scenario.GrossAmount, 4) != scenario.GrossAmount
+        if (scenario.LineBaseAmount < 0 || decimal.Round(scenario.LineBaseAmount, 8) != scenario.LineBaseAmount
             || scenario.BranchId == Guid.Empty
             || !ValidOptionalCode(scenario.CategoryCode) || !ValidOptionalCode(scenario.PurchaseType))
-            return Empty("InvalidScenario", [new("$scenario", "Use a nonnegative amount with four decimals and valid category, purchase type and branch values.")]);
+            return Empty("InvalidScenario", [new("$scenario", "Use a nonnegative line base amount with up to eight decimals and valid category, purchase type and branch values.")]);
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         if (!string.Equals(root.GetProperty("currencyCode").GetString(), scenario.CurrencyCode, StringComparison.Ordinal))
@@ -74,8 +74,8 @@ public static class PolicyRulePreview
     {
         var minimum = Amount(when, "minimumAmountInclusive");
         var maximum = Amount(when, "maximumAmountExclusive");
-        return (!minimum.HasValue || scenario.GrossAmount >= minimum)
-            && (!maximum.HasValue || scenario.GrossAmount < maximum)
+        return (!minimum.HasValue || scenario.LineBaseAmount >= minimum)
+            && (!maximum.HasValue || scenario.LineBaseAmount < maximum)
             && CodeMatch(when.GetProperty("categoryCodes"), scenario.CategoryCode)
             && CodeMatch(when.GetProperty("purchaseTypes"), scenario.PurchaseType)
             && BranchMatch(when.GetProperty("branchIds"), scenario.BranchId);

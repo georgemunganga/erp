@@ -214,6 +214,8 @@ public static class ProcurementRequestRoutes
         request.ApprovalState = "PendingPolicyAndBudget";
         request.SubmittedAt = DateTimeOffset.UtcNow;
         request.SubmittedVersion = request.Version + 1;
+        var policyAssessment = await ProcurementPolicyEvaluation.Assess(request, db, scope,
+            "Submission", ct);
         db.AddScoped(new AuditEvent
         {
             RecordType = "PurchaseRequest", RecordId = request.Id, Action = "Submitted",
@@ -222,6 +224,7 @@ public static class ProcurementRequestRoutes
             {
                 from = "Draft", to = "Submitted", version = request.SubmittedVersion,
                 lineCount = currentLines.Length, estimatedTotal, request.CurrencyCode,
+                policyStatus = policyAssessment.Status,
             }),
         });
         try
@@ -233,6 +236,8 @@ public static class ProcurementRequestRoutes
         {
             return Error("version-conflict", "Refresh this request before submitting it.", 409);
         }
+        catch (DbUpdateException)
+        { return Error("submission-conflict", "Another submission or buying-rule check was recorded. Refresh the request.", 409); }
         catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
         { return Error("version-conflict", "A selected item or catalog price changed. Refresh before submitting.", 409); }
         return Results.Ok(ToDetail(request));

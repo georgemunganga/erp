@@ -1442,6 +1442,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AmountBasis")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("amount_basis");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1451,6 +1457,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("created_by");
+
+                    b.Property<string>("DecisionJson")
+                        .IsRequired()
+                        .HasMaxLength(65536)
+                        .HasColumnType("character varying(65536)")
+                        .HasColumnName("decision_json");
 
                     b.Property<DateTimeOffset>("EvaluatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1470,9 +1482,17 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("policy_version_id");
 
+                    b.Property<int>("PolicyVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("policy_version_number");
+
                     b.Property<Guid>("PurchaseRequestId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_request_id");
+
+                    b.Property<long>("RequestVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("request_version");
 
                     b.Property<string>("ResultCode")
                         .HasColumnType("text")
@@ -1509,6 +1529,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.HasIndex("TenantId", "LegalEntityId", "PolicyVersionId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "PurchaseRequestId", "EvaluatedAt");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PurchaseRequestId", "RequestVersion")
+                        .IsUnique()
+                        .HasDatabaseName("IX_policy_evaluations_tenant_id_legal_entity_id_purchase_requ~1");
 
                     b.ToTable("policy_evaluations", "procurement");
                 });

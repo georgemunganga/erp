@@ -34,9 +34,9 @@ public static class PolicyRuleValidator
             if (currency is null || currency.Length != 3 || !currency.All(c => c is >= 'A' and <= 'Z'))
                 Add(issues, "$.currencyCode", "Use a three-letter uppercase currency code.");
             var amountBasis = String(root, "amountBasis");
-            if (transaction == "PurchaseRequest" && amountBasis != "EstimatedGross"
-                || transaction == "PurchaseOrder" && amountBasis != "ApprovedGross")
-                Add(issues, "$.amountBasis", "Use the amount basis for this transaction type.");
+            if (transaction == "PurchaseRequest" && amountBasis != "EstimatedLineBase"
+                || transaction == "PurchaseOrder" && amountBasis != "ApprovedLineBase")
+                Add(issues, "$.amountBasis", "Use the line base amount for this transaction type (quantity × unit price, before discounts, tax and delivery).");
             if (!root.TryGetProperty("rules", out var rules) || rules.ValueKind != JsonValueKind.Array
                 || rules.GetArrayLength() is < 1 or > 100)
             {

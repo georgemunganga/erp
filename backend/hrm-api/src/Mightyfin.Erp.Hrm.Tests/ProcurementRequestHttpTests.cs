@@ -114,6 +114,26 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal("Submitted", pending.GetProperty("status").GetString());
         Assert.Equal("PendingPolicyAndBudget", pending.GetProperty("approvalState").GetString());
         Assert.Equal(1, await fixture.RequestAuditCount(id, "Submitted"));
+        var pendingPolicy = await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/requests/{id}/policy-status", fixture.Owner);
+        Assert.Equal("Pending", (await pendingPolicy.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        var noPolicy = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/requests/{id}/policy-evaluations", fixture.Other,
+            new ProcurementPolicyEvaluationRoutes.EvaluateInput(pending.GetProperty("version").GetInt64()),
+            "procurement_manager");
+        Assert.Equal("MissingPolicy", (await noPolicy.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        Assert.Equal(0, await fixture.RequestAuditCount(id, "PolicyEvaluated"));
+        var policyQueue = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/requests/policy-queue", fixture.Other,
+            role: "procurement_manager");
+        Assert.Equal(1, (await policyQueue.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("count").GetInt32());
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get,
+                "/api/procurement/v1/requests/policy-queue", fixture.Owner,
+                role: "employee")).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Post, submitPath, fixture.Owner,
                 new ProcurementRequestRoutes.VersionCommand(pending.GetProperty("version").GetInt64()))).StatusCode);
@@ -540,7 +560,7 @@ public sealed class ProcurementRequestHttpTests
         var rules = JsonSerializer.Serialize(new
         {
             schemaVersion = 1, transactionType = "PurchaseRequest", currencyCode = "ZMW",
-            amountBasis = "EstimatedGross",
+            amountBasis = "EstimatedLineBase",
             rules = new[] { new
             {
                 code = "DEFAULT", priority = 0,
@@ -561,7 +581,7 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
         Assert.True((await valid.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("isValid").GetBoolean());
         var invalid = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
-            new ProcurementPolicyDraftRoutes.PolicyValidationRequest(rules.Replace("EstimatedGross", "Net", StringComparison.Ordinal)),
+            new ProcurementPolicyDraftRoutes.PolicyValidationRequest(rules.Replace("EstimatedLineBase", "Net", StringComparison.Ordinal)),
             "procurement_manager");
         Assert.Equal(HttpStatusCode.OK, invalid.StatusCode);
         var result = await invalid.Content.ReadFromJsonAsync<JsonElement>();
@@ -575,6 +595,112 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Submitted_request_pins_a_rule_decision_without_approving_spend()
+    {
+        await using var fixture = await Fixture.Start();
+        var policyId = await fixture.AddPublishedBuyingPolicy();
+        const string requests = "/api/procurement/v1/requests";
+        var created = await SendJson(fixture.Client, HttpMethod.Post, requests,
+            fixture.Owner, Draft("Buying rule check"));
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var update = new ProcurementRequestRoutes.UpdateRequest(
+            draft.GetProperty("version").GetInt64(), "Buying rule check", null,
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), null, null, null, null,
+            null, null, Draft("Buying rule check").Lines);
+        var saved = await SendJson(fixture.Client, HttpMethod.Put, $"{requests}/{id}",
+            fixture.Owner, update);
+        var version = (await saved.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("version").GetInt64();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{requests}/{id}/submit", fixture.Owner,
+            new ProcurementRequestRoutes.VersionCommand(version));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var request = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("PendingPolicyAndBudget", request.GetProperty("approvalState").GetString());
+        var requestVersion = request.GetProperty("version").GetInt64();
+        var ownStatus = await Send(fixture.Client, HttpMethod.Get,
+            $"{requests}/{id}/policy-status", fixture.Owner);
+        Assert.Equal(HttpStatusCode.OK, ownStatus.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get,
+                $"{requests}/{id}/policy-status", fixture.Other,
+                role: "procurement_manager")).StatusCode);
+        var status = await ownStatus.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Matched", status.GetProperty("status").GetString());
+        Assert.False(status.GetProperty("isAuthority").GetBoolean());
+        var evaluation = status.GetProperty("evaluation");
+        Assert.Equal(policyId, evaluation.GetProperty("policyVersionId").GetGuid());
+        Assert.Equal(requestVersion, evaluation.GetProperty("requestVersion").GetInt64());
+        Assert.Equal("DEFAULT", evaluation.GetProperty("decision").GetProperty("lines")[0]
+            .GetProperty("decision").GetProperty("ruleCode").GetString());
+        Assert.Equal(200m, evaluation.GetProperty("decision").GetProperty("lines")[0]
+            .GetProperty("lineBaseAmount").GetDecimal());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "PolicyEvaluated"));
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post,
+                $"{requests}/{id}/policy-evaluations", fixture.Owner,
+                new ProcurementPolicyEvaluationRoutes.EvaluateInput(requestVersion),
+                "employee")).StatusCode);
+        var repeat = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{requests}/{id}/policy-evaluations", fixture.Other,
+            new ProcurementPolicyEvaluationRoutes.EvaluateInput(requestVersion),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, repeat.StatusCode);
+        Assert.Equal(evaluation.GetProperty("id").GetGuid(),
+            (await repeat.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("evaluation").GetProperty("id").GetGuid());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "PolicyEvaluated"));
+        var queue = await Send(fixture.Client, HttpMethod.Get,
+            $"{requests}/policy-queue", fixture.Other, role: "procurement_manager");
+        Assert.Equal(0, (await queue.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("count").GetInt32());
+    }
+
+    [Fact]
+    public async Task Blocked_rule_decision_stays_visible_for_procurement_follow_up()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.AddPublishedBuyingPolicy();
+        const string requests = "/api/procurement/v1/requests";
+        var input = Draft("Unlisted category") with
+        {
+            Lines = [Draft("Unlisted category").Lines![0] with { CategoryCode = "UNKNOWN" }],
+        };
+        var created = await SendJson(fixture.Client, HttpMethod.Post, requests,
+            fixture.Owner, input);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var revised = await SendJson(fixture.Client, HttpMethod.Put,
+            $"{requests}/{id}", fixture.Owner,
+            new ProcurementRequestRoutes.UpdateRequest(
+                draft.GetProperty("version").GetInt64(), input.Purpose, null,
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), null, null,
+                null, null, null, null, input.Lines));
+        var version = (await revised.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("version").GetInt64();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{requests}/{id}/submit", fixture.Owner,
+            new ProcurementRequestRoutes.VersionCommand(version));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var status = await Send(fixture.Client, HttpMethod.Get,
+            $"{requests}/{id}/policy-status", fixture.Owner);
+        var own = await status.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Blocked", own.GetProperty("status").GetString());
+        Assert.Equal("InactiveReference", own.GetProperty("evaluation")
+            .GetProperty("resultCode").GetString());
+        Assert.False(own.GetProperty("isAuthority").GetBoolean());
+        var queue = await Send(fixture.Client, HttpMethod.Get,
+            $"{requests}/policy-queue", fixture.Other,
+            role: "procurement_manager");
+        var item = (await queue.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("records")[0];
+        Assert.Equal(id, item.GetProperty("id").GetGuid());
+        Assert.Equal("Blocked", item.GetProperty("policyOutcome").GetString());
+        Assert.Equal("InactiveReference", item.GetProperty("policyResultCode").GetString());
+    }
+
+    [Fact]
     public async Task Policy_review_submission_requires_author_current_version_and_company_rules()
     {
         await using var fixture = await Fixture.Start();
@@ -582,7 +708,7 @@ public sealed class ProcurementRequestHttpTests
         var rules = JsonSerializer.Serialize(new
         {
             schemaVersion = 1, transactionType = "PurchaseRequest", currencyCode = "ZMW",
-            amountBasis = "EstimatedGross",
+            amountBasis = "EstimatedLineBase",
             rules = new[] { new { code = "DEFAULT", priority = 0,
                 when = new { minimumAmountInclusive = (decimal?)null,
                     maximumAmountExclusive = (decimal?)null, categoryCodes = Array.Empty<string>(),
@@ -1373,6 +1499,33 @@ public sealed class ProcurementRequestHttpTests
             return policy.Id;
         }
 
+        public async Task<Guid> AddPublishedBuyingPolicy()
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Other.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var policy = new PolicyVersion
+            {
+                PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
+                EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1),
+                State = "Published", PublishedAt = DateTimeOffset.UtcNow.AddDays(-1),
+                PublishedBy = Other.ToString(),
+                RulesJson = """
+                    {"schemaVersion":1,"transactionType":"PurchaseRequest","currencyCode":"ZMW",
+                    "amountBasis":"EstimatedLineBase","rules":[{"code":"DEFAULT","priority":0,
+                    "when":{"minimumAmountInclusive":null,"maximumAmountExclusive":null,
+                    "categoryCodes":[],"purchaseTypes":[],"branchIds":[]},
+                    "result":{"budgetReservation":"Required","sourcingMethodCode":null,
+                    "minimumQuoteCount":null,"approvalStages":[
+                    {"code":"NEED","assignee":"LineManager","mode":"One"}]}}]}
+                    """,
+            };
+            db.AddScoped(policy);
+            await db.SaveChangesAsync();
+            return policy.Id;
+        }
+
         public async Task PublishPolicy(Guid id)
         {
             using var serviceScope = app.Services.CreateScope();
@@ -1406,6 +1559,7 @@ public sealed class ProcurementRequestHttpTests
             app.UseMiddleware<ProcurementScopeMiddleware>();
             ProcurementRequestRoutes.Map(app);
             ProcurementBudgetRoutes.Map(app);
+            ProcurementPolicyEvaluationRoutes.Map(app);
             ProcurementVendorRoutes.MapRoutes(app);
             ProcurementItemEndpoints.MapRoutes(app);
             ProcurementPlanRoutes.MapRoutes(app);

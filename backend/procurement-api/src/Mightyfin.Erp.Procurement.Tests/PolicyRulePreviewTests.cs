@@ -9,7 +9,7 @@ public sealed class PolicyRulePreviewTests
           "schemaVersion": 1,
           "transactionType": "PurchaseRequest",
           "currencyCode": "ZMW",
-          "amountBasis": "EstimatedGross",
+          "amountBasis": "EstimatedLineBase",
           "rules": [
             {
               "code": "DEFAULT", "priority": 0,
@@ -38,6 +38,10 @@ public sealed class PolicyRulePreviewTests
         var below = PolicyRulePreview.Evaluate(Rules, new("ZMW", 4999.9999m, "IT", null, null));
         Assert.Equal("Match", below.Status);
         Assert.Equal("DEFAULT", below.RuleCode);
+        Assert.Equal("DEFAULT", PolicyRulePreview.Evaluate(Rules,
+            new("ZMW", 4999.99999999m, "IT", null, null)).RuleCode);
+        Assert.Equal("InvalidScenario", PolicyRulePreview.Evaluate(Rules,
+            new("ZMW", 0.111088899m, "IT", null, null)).Status);
         var at = PolicyRulePreview.Evaluate(Rules, new("ZMW", 5000m, "IT", null, null));
         Assert.Equal("IT_HIGH", at.RuleCode);
         Assert.Equal("RFQ", at.SourcingMethodCode);

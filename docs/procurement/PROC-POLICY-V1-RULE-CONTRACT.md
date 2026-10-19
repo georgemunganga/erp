@@ -1,12 +1,12 @@
 # Procurement policy v1 rule contract
 
-**Status:** Versioned draft, review, preview and publication API implemented; real purchase enforcement remains pending, 19 October 2026
+**Status:** Versioned draft, review, publication and submitted-request rule evidence implemented; spending authorization remains pending, 19 October 2026
 **Owner:** Procurement governance and ERP Core
 **Depends on:** [PROC-CFG-01](PROC-CFG-01-PROCUREMENT-CONFIGURATION-AND-POLICY.md), [ADR-002](ADR-002-SHARED-APPROVAL-BOUNDARY.md)
 
 ## Purpose
 
-Define a bounded, testable policy format before a rule can be used to approve spending. The API stores a JSON object for review. `POST /api/procurement/v1/configuration/policies/validate` checks the proposed v1 structure and returns field-specific issues without saving or activating it. Publication and a read-only effective-version resolver are implemented; binding a policy to a real request, Finance evidence and ERP Core approvals remains a design requirement. This is not an approved Amizo Power purchasing policy.
+Define a bounded, testable policy format before a rule can be used to approve spending. The API stores a JSON object for review. `POST /api/procurement/v1/configuration/policies/validate` checks the proposed v1 structure and returns field-specific issues without saving or activating it. Publication, a read-only effective-version resolver and a submitted-request rule check are implemented. Binding a successful check to Finance evidence and ERP Core approval tasks remains a design requirement. This is not an approved Amizo Power purchasing policy.
 
 ERPNext documents workflow states, transition rules and conditional approvals in its [workflow guide](https://docs.frappe.io/erpnext/workflows). GreenWebb should use those concepts while keeping company scope, a typed rule schema and domain guards explicit. No policy field will contain executable code or database expressions.
 
@@ -23,7 +23,7 @@ The first policy keys are `PURCHASE_REQUEST` and `PURCHASE_ORDER`. Other transac
   "schemaVersion": 1,
   "transactionType": "PurchaseRequest",
   "currencyCode": "ZMW",
-  "amountBasis": "EstimatedGross",
+  "amountBasis": "EstimatedLineBase",
   "rules": [
     {
       "code": "EXAMPLE_RULE",
@@ -48,7 +48,7 @@ The first policy keys are `PURCHASE_REQUEST` and `PURCHASE_ORDER`. Other transac
 }
 ```
 
-The example contains **no amount or sourcing threshold**. Business owners must set those values and authorize the policy before publication. `null` amount bounds mean unbounded; an empty dimension list means no restriction for that dimension. A rule with no conditions can serve as an explicit fallback. The editor must display these meanings in plain language.
+The example contains **no amount or sourcing threshold**. Business owners must set those values and authorize the policy before publication. `EstimatedLineBase` means requested quantity × estimated unit price for one line, before discount, tax and delivery charges; `ApprovedLineBase` is the corresponding future PO basis. This matches the amount currently sent for Finance budget review. A gross threshold cannot be configured until the ERP has an authoritative gross amount and conversion contract. `null` amount bounds mean unbounded; an empty dimension list means no restriction for that dimension. A rule with no conditions can serve as an explicit fallback. The editor must display these meanings in plain language.
 
 The structural validator limits documents to 64 KB and 100 rules, rejects unsupported fields, invalid amount bounds and duplicate rule or stage codes, and requires explicit control results. A successful validation response only means the JSON shape is acceptable. It does not verify referenced categories, branches, methods, reviewer authority, rule coverage or overlap; those checks belong to the publication workflow.
 
@@ -58,10 +58,12 @@ A draft can be sent to `PendingReview` by its author with a reason and current r
 
 Reviewers can run a synthetic preview against a saved draft or pending version. The preview returns the winning rule, budget requirement, buying method, quote count, approval stages, and coverage issues, with `isAuthority: false`. Coverage analysis requires one unrestricted fallback below specific rules and flags same-priority overlap. This is explanatory only: it does not check a real request, reserve budget, open approval tasks or publish a policy. Branch-specific samples still need a fuller UI input, though the evaluator accepts a branch ID through its API contract.
 
+For a submitted purchase request, the API now checks the one published policy effective when the check runs. Submission checks automatically when one is available; a permissioned buyer can retry a pending request through the policy queue. One append-only `PolicyEvaluation` per submitted request version pins the policy ID/version, line base amounts, line decisions, trigger and result. The requester sees a separate buying-rule status. A missing or ambiguous policy remains pending without an evaluation record. A blocked result remains in the buyer queue for follow-up; it cannot be retried against a different policy under the same request version. A return, correction and resubmission workflow is still required. `Matched` means the rules were determined; it is **not** approval, a Finance reservation or authority to create a PO. The check uses exact decimal quantity × unit price; products can have eight decimal places. Category and buying-method references must still be active. The decision remains pinned after a later policy publication.
+
 ## Deterministic evaluation
 
 1. Resolve the one Published policy version effective at the decision timestamp for the tenant, company and key. `GET /api/procurement/v1/configuration/policies/effective` currently reports `Valid`, `MissingPolicy` or `AmbiguousPolicy` with `isAuthority: false`; it does not itself authorize a purchase. Missing or overlapping published versions must block a future real transaction decision.
-2. Validate transaction currency and amount basis; reject unknown categories, methods and company references.
+2. Validate transaction currency and line base amount basis; reject unknown categories, methods and company references.
 3. Evaluate each active PR line against rules in descending priority. Exactly one rule must win for each line. Equal-priority overlapping matches are a publication error, not a runtime tie-break.
 4. Return a decision explanation containing policy ID/version, transaction version, line ID, matched rule, required sourcing route, budget requirement, approval stages and rejected/unmatched reasons. Preserve it as a policy evaluation record.
 5. Merge required approval stages across lines through a documented union rule; do not silently remove a stricter stage because another line has a lower value. The final stage list is opened in ERP Core only after current Finance evidence and employee/organization references are verified.
