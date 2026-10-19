@@ -5,6 +5,7 @@ using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -339,9 +340,13 @@ public static class ProcurementRequestRoutes
         if (items.Length > 0 && await db.CatalogItems.AsNoTracking()
                 .CountAsync(x => items.Contains(x.Id) && x.Status == "Active" && x.IsPurchasable, ct) != items.Length)
             return "An item is no longer available for purchase.";
-        if (suppliers.Length > 0 && await db.Suppliers.AsNoTracking()
-                .CountAsync(x => suppliers.Contains(x.Id) && x.Status == "Active" && x.IsOrderable, ct) != suppliers.Length)
-            return "A preferred vendor is no longer available.";
+        if (suppliers.Length > 0)
+        {
+            var selected = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
+                .Where(x => suppliers.Contains(x.Id)).ToListAsync(ct);
+            if (selected.Count != suppliers.Length || selected.Any(x => !SupplierEligibility.CanReceiveNewOrders(x, DateTimeOffset.UtcNow)))
+                return "A preferred vendor is no longer available or its qualification has expired.";
+        }
         var catalogIds = lines.Where(x => x.CatalogEntryId.HasValue)
             .Select(x => x.CatalogEntryId!.Value).Distinct().ToArray();
         if (catalogIds.Length > 0)
@@ -375,9 +380,13 @@ public static class ProcurementRequestRoutes
         if (itemIds.Length > 0 && await db.CatalogItems.AsNoTracking()
                 .CountAsync(x => itemIds.Contains(x.Id) && x.Status == "Active" && x.IsPurchasable, ct) != itemIds.Length)
             return "One or more items are unavailable for purchase.";
-        if (supplierIds.Length > 0 && await db.Suppliers.AsNoTracking()
-                .CountAsync(x => supplierIds.Contains(x.Id) && (x.Status == "Approved" || x.Status == "Active") && x.IsOrderable, ct) != supplierIds.Length)
-            return "One or more preferred vendors are unavailable.";
+        if (supplierIds.Length > 0)
+        {
+            var selected = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
+                .Where(x => supplierIds.Contains(x.Id)).ToListAsync(ct);
+            if (selected.Count != supplierIds.Length || selected.Any(x => !SupplierEligibility.CanReceiveNewOrders(x, DateTimeOffset.UtcNow)))
+                return "One or more preferred vendors are unavailable or have expired qualifications.";
+        }
         var catalogIds = submitted.Where(x => x.CatalogEntryId.HasValue)
             .Select(x => x.CatalogEntryId!.Value).Distinct().ToArray();
         if (catalogIds.Length > 0)

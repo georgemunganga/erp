@@ -1503,6 +1503,16 @@ public sealed class ProcurementRequestHttpTests
             (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Reviewer,
                 new VendorReactivateInput(reopened.GetProperty("version").GetInt64(), "Repeat", true),
                 "procurement_manager")).StatusCode);
+        await fixture.AddExpiredQualification(id);
+        var requestWithExpiredVendor = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/requests", fixture.Owner, new
+            {
+                purpose = "Office supplies", currencyCode = "ZMW",
+                neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+                lines = new[] { new { description = "Paper", unitCode = "each", requestedQuantity = 1,
+                    estimatedUnitPrice = 100, preferredSupplierId = id, categoryCode = "OFFICE" } },
+            }, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, requestWithExpiredVendor.StatusCode);
     }
 
     [Fact]
@@ -1719,6 +1729,20 @@ public sealed class ProcurementRequestHttpTests
             {
                 Number = "PO-TEST-" + Guid.NewGuid().ToString("N"), SupplierId = supplierId,
                 CurrencyCode = "ZMW", BuyerSubjectId = Owner.ToString(), Status = "Issued",
+            });
+            await db.SaveChangesAsync();
+        }
+
+        public async Task AddExpiredQualification(Guid supplierId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            db.AddScoped(new SupplierQualification
+            {
+                SupplierId = supplierId, QualificationType = "Insurance", ReviewStatus = "Verified",
+                ExpiresOn = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)),
             });
             await db.SaveChangesAsync();
         }

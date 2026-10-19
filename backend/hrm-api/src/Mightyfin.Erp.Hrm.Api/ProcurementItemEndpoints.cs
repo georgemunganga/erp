@@ -3,6 +3,7 @@ using System.Data;
 using System.Text.Json;
 using Npgsql;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -263,10 +264,10 @@ public static class ProcurementItemEndpoints
         var now = DateTimeOffset.UtcNow;
         if (entry.EffectiveTo is { } end && end <= now)
             return BadRequest("The catalog price has already expired.");
-        var supplier = await db.Suppliers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == supplierId, ct);
-        if (supplier is null || supplier.Status is not ("Approved" or "Active") || !supplier.IsOrderable
-            || supplier.EligibleFrom > now || supplier.EligibleUntil < now)
-            return Conflict("The vendor must be approved and available for orders.");
+        var supplier = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
+            .SingleOrDefaultAsync(x => x.Id == supplierId, ct);
+        if (supplier is null || !SupplierEligibility.CanReceiveNewOrders(supplier, now))
+            return Conflict("The vendor must be active with current qualifications before a catalog price can be published.");
         if (await db.CatalogEntries.AsNoTracking().AnyAsync(x => x.Id != entryId
             && x.CatalogItemId == id && x.SupplierId == supplierId && x.Status == "Published"
             && x.CurrencyCode == entry.CurrencyCode && x.UnitCode == entry.UnitCode
