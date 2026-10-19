@@ -11,6 +11,7 @@
 - The decision engine checks the authenticated tenant/company, assignee, permission, maker/checker rule, active stage, reason on rejection/return and quorum. A repeated key with the same action is a no-op; reuse for another action fails.
 - The database rejects physical deletion and updates to decision history through the application context. Version fields are concurrency tokens. The first migration creates five tables with tenant/company indexes and separate history.
 - The ERP host composes the Core context with the same authenticated Procurement scope. It does **not** open an approval API or auto-apply the Core migration.
+- A buyer-only read endpoint, `GET /api/procurement/v1/requests/{id}/approval-readiness`, checks the current submitted version against its pinned published policy and latest recorded Finance evidence. It returns named blockers and `isAuthority: false`; it does not open a task or update the request.
 
 ## Migration and rollback
 

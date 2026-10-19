@@ -79,6 +79,30 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Approval_readiness_lists_missing_evidence_without_granting_authority()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+            fixture.Owner, Draft("Approval readiness"));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var path = $"/api/procurement/v1/requests/{id}/approval-readiness";
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner)).StatusCode);
+        var review = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
+            role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, review.StatusCode);
+        var body = await review.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(body.GetProperty("prerequisitesMet").GetBoolean());
+        Assert.False(body.GetProperty("isAuthority").GetBoolean());
+        Assert.Contains(body.GetProperty("blockers").EnumerateArray(),
+            item => item.GetString() == "BuyingRulesNotMatched");
+        Assert.Contains(body.GetProperty("blockers").EnumerateArray(),
+            item => item.GetString() == "FinanceReservationNotConfirmed");
+    }
+
+    [Fact]
     public async Task Request_submission_is_versioned_audited_and_remains_pending_funding()
     {
         await using var fixture = await Fixture.Start();
@@ -1682,6 +1706,7 @@ public sealed class ProcurementRequestHttpTests
             ProcurementRequestRoutes.Map(app);
             ProcurementBudgetRoutes.Map(app);
             ProcurementPolicyEvaluationRoutes.Map(app);
+            ProcurementApprovalReadinessRoutes.Map(app);
             ProcurementVendorRoutes.MapRoutes(app);
             ProcurementItemEndpoints.MapRoutes(app);
             ProcurementPlanRoutes.MapRoutes(app);
