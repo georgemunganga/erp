@@ -66,6 +66,8 @@ public static class ProcurementSourcingDraftRoutes
         var lines = input.Lines.Select((line, index) => NewLine(item.Id, index + 1, line)).ToList();
         db.AddScoped(item);
         foreach (var line in lines) db.AddScoped(line);
+        ProcurementDraftAudit.Add(db, scope, "SourcingEvent", item.Id,
+            "DraftCreated", null, Detail(item, lines));
         await db.SaveChangesAsync(ct);
         return Results.Created($"/api/procurement/v1/sourcing/{item.Id}", Detail(item, lines));
     }
@@ -82,15 +84,13 @@ public static class ProcurementSourcingDraftRoutes
             ? item.CurrencyCode : input.Draft.CurrencyCode };
         var issue = ProcurementSourcingDraftRules.Validate(draft);
         if (issue is not null) return Problem("validation-failed", issue, 422);
-        if (draft.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).Distinct().Count()
-            != draft.Lines!.Count(x => x.Id.HasValue))
-            return Problem("validation-failed", "A sourcing line can appear only once in this revision.", 422);
         var lines = await db.SourcingLines.Where(x => x.SourcingEventId == id)
             .OrderBy(x => x.LineNumber).ToListAsync(ct);
         var existing = lines.ToDictionary(x => x.Id);
         if (draft.Lines!.Any(x => x.Id.HasValue && (!existing.ContainsKey(x.Id.Value)
             || existing[x.Id.Value].Status != "Active")))
             return Problem("validation-failed", "A sourcing line is unavailable or belongs to another event.", 422);
+        var before = ProcurementDraftAudit.Snapshot(Detail(item, lines));
 
         item.Title = draft.Title!.Trim();
         item.Method = draft.Method!.Trim();
@@ -123,6 +123,8 @@ public static class ProcurementSourcingDraftRoutes
                 lines.Add(line);
             }
         }
+        ProcurementDraftAudit.Add(db, scope, "SourcingEvent", item.Id,
+            "DraftUpdated", before, Detail(item, lines));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this event before saving.", 409); }
         return Results.Ok(Detail(item, lines));
@@ -139,6 +141,7 @@ public static class ProcurementSourcingDraftRoutes
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return Problem("validation-failed", "Give a cancellation reason of up to 1,000 characters.", 422);
         var lines = await db.SourcingLines.Where(x => x.SourcingEventId == id).ToListAsync(ct);
+        var before = ProcurementDraftAudit.Snapshot(Detail(item, lines));
         item.Status = "Cancelled";
         item.CancellationReason = input.Reason.Trim();
         foreach (var line in lines.Where(x => x.Status == "Active"))
@@ -146,6 +149,8 @@ public static class ProcurementSourcingDraftRoutes
             line.Status = "Cancelled";
             line.StatusReason = "Event cancelled; see the event reason.";
         }
+        ProcurementDraftAudit.Add(db, scope, "SourcingEvent", item.Id,
+            "DraftCancelled", before, Detail(item, lines));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this event before cancelling.", 409); }
         return Results.Ok(Detail(item, lines));

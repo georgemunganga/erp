@@ -67,6 +67,8 @@ public static class ProcurementContractDraftRoutes
         var version = NewVersion(contract);
         db.AddScoped(contract);
         db.AddScoped(version);
+        ProcurementDraftAudit.Add(db, scope, "SupplierContract", contract.Id,
+            "DraftCreated", null, Detail(contract, version));
         await db.SaveChangesAsync(ct);
         return Results.Created($"/api/procurement/v1/contracts/{contract.Id}", Detail(contract, version));
     }
@@ -89,6 +91,7 @@ public static class ProcurementContractDraftRoutes
             .SingleOrDefaultAsync(x => x.SupplierContractId == id && x.RevisionNumber == 1, ct);
         if (version is null || version.Status != "Draft")
             return Problem("contract-version-unavailable", "The draft version is unavailable.", 409);
+        var before = ProcurementDraftAudit.Snapshot(Detail(contract, version));
 
         contract.SupplierId = draft.SupplierId;
         contract.Title = draft.Title!.Trim();
@@ -102,6 +105,8 @@ public static class ProcurementContractDraftRoutes
         version.CeilingAmount = draft.CeilingAmount;
         version.EffectiveFrom = draft.EffectiveFrom;
         version.ExpiresOn = draft.ExpiresOn;
+        ProcurementDraftAudit.Add(db, scope, "SupplierContract", contract.Id,
+            "DraftUpdated", before, Detail(contract, version));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this contract before saving.", 409); }
         return Results.Ok(Detail(contract, version));
@@ -120,10 +125,13 @@ public static class ProcurementContractDraftRoutes
         var version = await db.SupplierContractVersions
             .SingleOrDefaultAsync(x => x.SupplierContractId == id && x.RevisionNumber == 1, ct);
         if (version is null) return Problem("contract-version-unavailable", "The draft version is unavailable.", 409);
+        var before = ProcurementDraftAudit.Snapshot(Detail(contract, version));
         contract.Status = "Cancelled";
         contract.TerminationReason = input.Reason.Trim();
         version.Status = "Cancelled";
         version.AmendmentReason = input.Reason.Trim();
+        ProcurementDraftAudit.Add(db, scope, "SupplierContract", contract.Id,
+            "DraftCancelled", before, Detail(contract, version));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this contract before cancelling.", 409); }
         return Results.Ok(Detail(contract, version));

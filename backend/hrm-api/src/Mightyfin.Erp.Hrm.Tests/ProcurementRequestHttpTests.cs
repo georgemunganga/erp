@@ -354,6 +354,7 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal("Draft", plan.GetProperty("status").GetString());
         Assert.Equal("ZMW", plan.GetProperty("currencyCode").GetString());
         var planId = plan.GetProperty("id").GetGuid();
+        Assert.Equal(1, await fixture.RequestAuditCount(planId, "DraftCreated"));
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/plans/{planId}",
                 fixture.Other, role: "manager")).StatusCode);
@@ -371,9 +372,29 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal("Draft", source.GetProperty("status").GetString());
         Assert.Equal("ZMW", source.GetProperty("currencyCode").GetString());
         var sourceId = source.GetProperty("id").GetGuid();
+        Assert.Equal(1, await fixture.RequestAuditCount(sourceId, "DraftCreated"));
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/sourcing/{sourceId}",
                 fixture.Other, role: "procurement_buyer")).StatusCode);
+        var revisedSource = await SendJson(fixture.Client, HttpMethod.Put,
+            $"/api/procurement/v1/sourcing/{sourceId}", fixture.Owner,
+            new ProcurementSourcingDraftRoutes.VersionedSourcingDraft(source.GetProperty("version").GetInt64(),
+                sourceInput with { Title = "Office chairs and desks", Lines = [sourceInput.Lines![0] with
+                    { Id = source.GetProperty("lines")[0].GetProperty("id").GetGuid() }] }),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, revisedSource.StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(sourceId, "DraftUpdated"));
+        var sourceAudit = await fixture.AuditPayload(sourceId, "DraftUpdated");
+        Assert.Equal("Office chairs", sourceAudit.GetProperty("before").GetProperty("Title").GetString());
+        Assert.Equal("Office chairs and desks", sourceAudit.GetProperty("after").GetProperty("Title").GetString());
+        var revisedSourceBody = await revisedSource.Content.ReadFromJsonAsync<JsonElement>();
+        var cancelledSource = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/sourcing/{sourceId}/cancel", fixture.Owner,
+            new ProcurementSourcingDraftRoutes.SourcingCancel(
+                revisedSourceBody.GetProperty("version").GetInt64(), "Need withdrawn"),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, cancelledSource.StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(sourceId, "DraftCancelled"));
     }
 
     [Fact]
@@ -423,6 +444,7 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var plan = await created.Content.ReadFromJsonAsync<JsonElement>();
         var id = plan.GetProperty("id").GetGuid();
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftCreated"));
         var originalVersion = plan.GetProperty("version").GetInt64();
         var keepId = plan.GetProperty("lines")[0].GetProperty("id").GetGuid();
         var revisedInput = new ProcurementPlanInput("FY2026", null, "OPS",
@@ -433,12 +455,17 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
         var revised = await updated.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(3, revised.GetProperty("lines").GetArrayLength());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftUpdated"));
+        var planAudit = await fixture.AuditPayload(id, "DraftUpdated");
+        Assert.Equal(JsonValueKind.Null, planAudit.GetProperty("before").GetProperty("FundingSourceRef").ValueKind);
+        Assert.Equal("OPS", planAudit.GetProperty("after").GetProperty("FundingSourceRef").GetString());
         Assert.Single(revised.GetProperty("lines").EnumerateArray(),
             line => line.GetProperty("status").GetString() == "Cancelled");
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/plans/{id}",
                 fixture.Owner, new ProcurementPlanRoutes.UpdatePlan(originalVersion, revisedInput),
                 "manager")).StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftUpdated"));
         var list = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/plans",
             fixture.Owner, role: "manager");
         Assert.Equal(2, (await list.Content.ReadFromJsonAsync<JsonElement>())
@@ -451,6 +478,7 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
         var cancelledPlan = await cancelled.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Cancelled", cancelledPlan.GetProperty("status").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftCancelled"));
         Assert.All(cancelledPlan.GetProperty("lines").EnumerateArray(),
             line => Assert.Equal("Cancelled", line.GetProperty("status").GetString()));
         Assert.Equal(HttpStatusCode.NotFound,
@@ -1774,6 +1802,7 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal("ZMW", contract.GetProperty("currencyCode").GetString());
         Assert.Equal("Draft", contract.GetProperty("draftVersion").GetProperty("status").GetString());
         var id = contract.GetProperty("id").GetGuid();
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftCreated"));
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/contracts/{id}",
                 fixture.Other, role: "procurement_buyer")).StatusCode);
@@ -1785,11 +1814,16 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
         var revised = await updated.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(12_000, revised.GetProperty("ceilingAmount").GetDecimal());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftUpdated"));
+        var contractAudit = await fixture.AuditPayload(id, "DraftUpdated");
+        Assert.Equal(10_000, contractAudit.GetProperty("before").GetProperty("CeilingAmount").GetDecimal());
+        Assert.Equal(12_000, contractAudit.GetProperty("after").GetProperty("CeilingAmount").GetDecimal());
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Put,
                 $"/api/procurement/v1/contracts/{id}", fixture.Owner,
                 new ProcurementContractDraftRoutes.VersionedContractDraft(
                     contract.GetProperty("version").GetInt64(), input), "procurement_buyer")).StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftUpdated"));
         var cancelled = await SendJson(fixture.Client, HttpMethod.Post,
             $"/api/procurement/v1/contracts/{id}/cancel", fixture.Owner,
             new ProcurementContractDraftRoutes.ContractCancel(
@@ -1798,6 +1832,7 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
         var cancelledContract = await cancelled.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Cancelled", cancelledContract.GetProperty("status").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftCancelled"));
         Assert.Equal("Cancelled", cancelledContract.GetProperty("draftVersion")
             .GetProperty("status").GetString());
     }
