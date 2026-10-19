@@ -12,6 +12,7 @@
 - The database rejects physical deletion and updates to decision history through the application context. Version fields are concurrency tokens. The first migration creates five tables with tenant/company indexes and separate history.
 - The ERP host composes the Core context with the same authenticated Procurement scope. It does **not** open an approval API or auto-apply the Core migration.
 - A buyer-only read endpoint, `GET /api/procurement/v1/requests/{id}/approval-readiness`, checks the current submitted version against its pinned published policy and latest recorded Finance evidence. It returns named blockers and `isAuthority: false`; it does not open a task or update the request.
+- The readiness response also previews the pinned approval stages per request line. It flags lines with different routes and reports `canOpenCase: false`. The route preview is informational; assignee resolution, authority limits, delegation, Core write access and atomic case opening remain required.
 
 ## Migration and rollback
 

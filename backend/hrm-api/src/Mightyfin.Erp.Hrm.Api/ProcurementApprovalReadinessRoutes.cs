@@ -30,10 +30,12 @@ public static class ProcurementApprovalReadinessRoutes
             .OrderByDescending(x => x.CheckedAt).ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
         var readiness = RequestApprovalReadiness.Check(request, evaluation, policy, finance);
+        var route = ApprovalRoutePreview.FromEvaluation(evaluation);
         return Results.Ok(new
         {
             requestId = id, readiness.RequestVersion, readiness.EstimatedAmount,
             readiness.CurrencyCode, readiness.PrerequisitesMet, readiness.Blockers,
+            approvalRoute = route, canOpenCase = false,
             policyEvaluationId = evaluation?.Id, financeCheckId = finance?.Id,
             isAuthority = false,
             nextStep = readiness.PrerequisitesMet

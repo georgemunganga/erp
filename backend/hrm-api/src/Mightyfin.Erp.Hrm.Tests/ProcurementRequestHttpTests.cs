@@ -96,6 +96,9 @@ public sealed class ProcurementRequestHttpTests
         var body = await review.Content.ReadFromJsonAsync<JsonElement>();
         Assert.False(body.GetProperty("prerequisitesMet").GetBoolean());
         Assert.False(body.GetProperty("isAuthority").GetBoolean());
+        Assert.False(body.GetProperty("canOpenCase").GetBoolean());
+        Assert.Contains(body.GetProperty("approvalRoute").GetProperty("blockers").EnumerateArray(),
+            item => item.GetString() == "BuyingRulesNotMatched");
         Assert.Contains(body.GetProperty("blockers").EnumerateArray(),
             item => item.GetString() == "BuyingRulesNotMatched");
         Assert.Contains(body.GetProperty("blockers").EnumerateArray(),
