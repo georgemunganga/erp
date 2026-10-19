@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using System.Text.Json;
+using Npgsql;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
@@ -20,6 +22,7 @@ public static class ProcurementItemEndpoints
         items.MapGet("/{id:guid}/catalog-entries", ListEntries).RequireAuthorization("procurement-item-manage");
         items.MapPost("/{id:guid}/catalog-entries", AddEntry).RequireAuthorization("procurement-item-manage");
         items.MapPut("/{id:guid}/catalog-entries/{entryId:guid}", UpdateEntry).RequireAuthorization("procurement-item-manage");
+        items.MapPost("/{id:guid}/catalog-entries/{entryId:guid}/publish", PublishEntry).RequireAuthorization("procurement-catalog-approve");
         items.MapPost("/{id:guid}/catalog-entries/{entryId:guid}/withdraw", WithdrawEntry).RequireAuthorization("procurement-item-manage");
         app.MapGet("/api/procurement/v1/catalog", Catalog).RequireAuthorization("procurement-item-read");
     }
@@ -213,16 +216,82 @@ public static class ProcurementItemEndpoints
         return Results.Ok(ToView(entry));
     }
 
-    private static async Task<IResult> WithdrawEntry(Guid id, Guid entryId, VersionInput input, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> WithdrawEntry(Guid id, Guid entryId, VersionInput input, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
     {
         if (input.Version < 1) return BadRequest("A valid record version is required.");
         var entry = await db.CatalogEntries.SingleOrDefaultAsync(x => x.Id == entryId && x.CatalogItemId == id, ct);
         if (entry is null) return NotFound();
         if (entry.Version != input.Version) return Conflict("This catalog price changed. Refresh and try again.");
         if (entry.Status == "Withdrawn") return Results.Ok(ToView(entry));
+        var oldStatus = entry.Status;
         entry.Status = "Withdrawn";
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "CatalogEntry", RecordId = entry.Id, Action = "Withdrawn",
+            ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { from = oldStatus, to = "Withdrawn" }),
+        });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Conflict("This catalog price changed. Refresh and try again."); }
+        return Results.Ok(ToView(entry));
+    }
+
+    private static async Task<IResult> PublishEntry(Guid id, Guid entryId, CatalogPublishInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        // Serializable predicate reads prevent two reviewers from publishing overlapping prices at once.
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+        var entry = await db.CatalogEntries.SingleOrDefaultAsync(x => x.Id == entryId && x.CatalogItemId == id, ct);
+        if (entry is null) return NotFound();
+        if (entry.Version != input.Version) return Conflict("This catalog price changed. Refresh before approving it.");
+        if (entry.Status != "Draft") return Conflict("Only a draft catalog price can be published.");
+        if (entry.CreatedBy == scope.SubjectId)
+            return Results.Json(new { code = "self-approval", message = "Another authorized person must publish this price." }, statusCode: 403);
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            return BadRequest("Enter a review reason of up to 1,000 characters.");
+        var item = await db.CatalogItems.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (item is null || item.Status != "Active" || !item.IsPurchasable)
+            return Conflict("Activate the item before publishing a catalog price.");
+        if (entry.UnitCode != item.UnitCode && entry.UnitCode != item.PurchaseUnitCode)
+            return BadRequest("Use the item's unit or approved purchase unit for the catalog price.");
+        if (entry.SupplierId is not Guid supplierId)
+            return BadRequest("Choose an approved vendor for the catalog price.");
+        var now = DateTimeOffset.UtcNow;
+        if (entry.EffectiveTo is { } end && end <= now)
+            return BadRequest("The catalog price has already expired.");
+        var supplier = await db.Suppliers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == supplierId, ct);
+        if (supplier is null || supplier.Status is not ("Approved" or "Active") || !supplier.IsOrderable
+            || supplier.EligibleFrom > now || supplier.EligibleUntil < now)
+            return Conflict("The vendor must be approved and available for orders.");
+        if (await db.CatalogEntries.AsNoTracking().AnyAsync(x => x.Id != entryId
+            && x.CatalogItemId == id && x.SupplierId == supplierId && x.Status == "Published"
+            && x.CurrencyCode == entry.CurrencyCode && x.UnitCode == entry.UnitCode
+            && x.AudienceCode == entry.AudienceCode && x.SiteRef == entry.SiteRef
+            && x.ContractRef == entry.ContractRef
+            && (x.EffectiveTo == null || x.EffectiveTo > entry.EffectiveFrom)
+            && (entry.EffectiveTo == null || x.EffectiveFrom < entry.EffectiveTo), ct))
+            return Conflict("This vendor already has an overlapping published price for the item.");
+        entry.Status = "Published";
+        entry.PublishedVersion++;
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "CatalogEntry", RecordId = entry.Id, Action = "Published",
+            ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new { from = "Draft", to = "Published",
+                reason = input.Reason.Trim(), entry.CatalogItemId, entry.SupplierId,
+                entry.UnitPrice, entry.CurrencyCode, entry.PublishedVersion }),
+        });
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException) { return Conflict("This catalog price changed. Refresh before approving it."); }
+        catch (DbUpdateException) { return Conflict("The catalog price changed during review. Refresh and try again."); }
+        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        { return Conflict("Another catalog price was published during review. Refresh and try again."); }
         return Results.Ok(ToView(entry));
     }
 
@@ -294,6 +363,7 @@ public sealed record ItemInput(string Code, string Name, string Kind, string Cat
 public sealed record ItemUpdate(long Version, ItemInput Item);
 public sealed record VersionInput(long Version);
 public sealed record ItemActivationInput(long Version, string? Reason);
+public sealed record CatalogPublishInput(long Version, string? Reason);
 public sealed record ItemView(Guid Id, string Code, string Name, string Kind, string CategoryCode, string UnitCode,
     string? Description, string Status, bool IsPurchasable, bool IsStockItem, bool IsAsset, string? Brand, int? LeadTimeDays, long Version);
 public sealed record EntryInput(Guid? SupplierId, string CurrencyCode, string UnitCode, decimal UnitPrice,

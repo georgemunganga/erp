@@ -16,6 +16,7 @@ public static class ProcurementActionCatalog
             ["procurement-item-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-item-manage"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-item-approve"] = ["procurement_manager"],
+            ["procurement-catalog-approve"] = ["procurement_manager"],
             ["procurement-request-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
             ["procurement-request-create"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
             ["procurement-request-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],

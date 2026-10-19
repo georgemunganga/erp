@@ -469,6 +469,84 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Catalog_price_publication_requires_active_item_vendor_and_independent_review()
+    {
+        await using var fixture = await Fixture.Start();
+        var categoryResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/configuration/categories", fixture.Owner,
+            new ProcurementConfigurationRoutes.CategoryInput("OFFICE", "Office", null, null),
+            "procurement_manager");
+        var category = await categoryResponse.Content.ReadFromJsonAsync<JsonElement>();
+        await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/configuration/categories/{category.GetProperty("id").GetGuid()}/activate",
+            fixture.Other, new ProcurementConfigurationRoutes.ActivationInput(
+                category.GetProperty("version").GetInt64(), "Reviewed"), "procurement_manager");
+        var itemResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/items", fixture.Owner,
+            new { code = "CHAIR-1", name = "Chair", kind = "Goods", categoryCode = "OFFICE", unitCode = "each" },
+            "procurement_buyer");
+        var item = await itemResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var itemId = item.GetProperty("id").GetGuid();
+        await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/items/{itemId}/activate", fixture.Other,
+            new ItemActivationInput(item.GetProperty("version").GetInt64(), "Reviewed"),
+            "procurement_manager");
+        var vendorResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/vendors", fixture.Owner,
+            new { legalName = "Office Supply Ltd", displayName = "Office Supply", countryCode = "ZM",
+                categoryCode = "OFFICE",
+                primaryContact = new { name = "Sales", email = "sales@example.test" } });
+        var vendor = await vendorResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var vendorId = vendor.GetProperty("id").GetGuid();
+        var entryPath = $"/api/procurement/v1/items/{itemId}/catalog-entries";
+        var entryResponse = await SendJson(fixture.Client, HttpMethod.Post, entryPath,
+            fixture.Owner, new EntryInput(vendorId, "ZMW", "each", 250,
+                null, null, null, DateTimeOffset.UtcNow.AddDays(-1),
+                DateTimeOffset.UtcNow.AddMonths(1), null), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, entryResponse.StatusCode);
+        var entry = await entryResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var publishPath = $"{entryPath}/{entry.GetProperty("id").GetGuid()}/publish";
+        var publish = new CatalogPublishInput(entry.GetProperty("version").GetInt64(),
+            "Checked approved vendor and price");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, publishPath, fixture.Owner,
+                publish, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, publishPath, fixture.Other,
+                publish, "procurement_manager")).StatusCode);
+
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{vendorId}/submit", fixture.Owner,
+            new VendorSubmitInput(vendor.GetProperty("version").GetInt64(), "Catalog supply"));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var pending = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        var approved = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/vendors/{vendorId}/approve", fixture.Other,
+            new VendorApprovalInput(pending.GetProperty("version").GetInt64(),
+                "Duplicate and identity checks completed", true), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+        var published = await SendJson(fixture.Client, HttpMethod.Post, publishPath,
+            fixture.Other, publish, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+        var publishedBody = await published.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Published", publishedBody.GetProperty("status").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(entry.GetProperty("id").GetGuid(), "Published"));
+        var catalog = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/catalog", fixture.Owner);
+        Assert.Equal(1, (await catalog.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+        var withdrawn = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{entryPath}/{entry.GetProperty("id").GetGuid()}/withdraw", fixture.Owner,
+            new VersionInput(publishedBody.GetProperty("version").GetInt64()), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, withdrawn.StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(entry.GetProperty("id").GetGuid(), "Withdrawn"));
+        var emptyCatalog = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/catalog", fixture.Owner);
+        Assert.Equal(0, (await emptyCatalog.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+    }
+
+    [Fact]
     public async Task Request_list_counts_only_current_lines_after_a_draft_revision()
     {
         await using var fixture = await Fixture.Start();
