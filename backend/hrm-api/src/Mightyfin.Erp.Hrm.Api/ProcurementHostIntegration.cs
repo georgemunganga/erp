@@ -4,6 +4,8 @@ using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Core.Approvals.Domain;
+using Mightyfin.Erp.Core.Approvals.Infrastructure;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -17,6 +19,13 @@ public static class ProcurementHostIntegration
         services.AddDbContext<ProcurementDbContext>(options =>
             options.UseNpgsql(connection, provider =>
                 provider.MigrationsHistoryTable("__procurement_migrations", "procurement")));
+        // The Core approval model shares the ERP database but owns a separate
+        // schema and migration history. Its workflow endpoints stay disabled
+        // until Procurement's Finance and policy guards are connected.
+        services.AddScoped<IApprovalScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
+        services.AddDbContext<ApprovalDbContext>(options =>
+            options.UseNpgsql(connection, provider =>
+                provider.MigrationsHistoryTable("__EFMigrationsHistory", "core_approval")));
         services.AddHealthChecks().AddNpgSql(connection, name: "procurement-db");
     }
 
@@ -81,7 +90,7 @@ public static class ProcurementHostIntegration
     }
 }
 
-public sealed class ProcurementRequestScope : IProcurementScope
+public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope
 {
     private bool resolved;
     private string tenantId = "";

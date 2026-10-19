@@ -4,6 +4,7 @@ WORKDIR /src
 COPY backend/hrm-api/global.json backend/hrm-api/global.json
 COPY backend/hrm-api/src backend/hrm-api/src
 COPY backend/procurement-api/src backend/procurement-api/src
+COPY backend/core-api/src backend/core-api/src
 WORKDIR /src/backend/hrm-api
 RUN dotnet publish src/Mightyfin.Erp.Hrm.Api \
     -c Release -o /out \
