@@ -10,7 +10,7 @@
 
 This feature defines the Procurement-owned settings that other procurement workflows consume. It uses shared ERP identity, organization, workflow, document, notification and audit capabilities where those are available; it does not create another copy of their master data. Values in this document are candidate configuration fields, not approved company policy.
 
-**Implementation note, 19 October 2026:** Tenant/entity-scoped category and buying-method list/detail/create/update APIs and live Settings UI are deployed. Category activation requires an independent reviewer and recorded reason. The next source increment adds the same review, version and audit control for buying methods; a linked policy must already be Published and currently effective before its method can activate. A method without a linked policy can be activated as a reference only; that does not grant purchase authority or set a sourcing threshold. Policy authoring, simulation, publication and effective-rule resolution are still unimplemented.
+**Implementation note, 19 October 2026:** Tenant/entity-scoped category and buying-method list/detail/create/update APIs and live Settings UI are deployed. Category and buying-method activation require an independent reviewer, recorded reason, current version and audit record. A linked policy must already be Published and currently effective before its method can activate. A method without a linked policy can be activated as a reference only; that does not grant purchase authority or set a sourcing threshold. Policy authoring, simulation, publication and effective-rule resolution are still unimplemented.
 
 ## 1. Feature Identification
 
