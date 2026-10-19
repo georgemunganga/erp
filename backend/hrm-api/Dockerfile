@@ -24,5 +24,5 @@ ENV ASPNETCORE_URLS=http://+:8080 \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -fsS http://localhost:8080/api/hrm/health || exit 1
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health/live', timeout=3)" || exit 1
 ENTRYPOINT ["dotnet", "Mightyfin.Erp.Hrm.Api.dll"]
