@@ -313,13 +313,22 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
                 .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.CatalogItemId })
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
                 .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<CatalogEntry>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.CatalogEntryId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Supplier>().WithMany()
                 .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PreferredSupplierId })
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
                 .OnDelete(DeleteBehavior.Restrict);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.LineNumber }).IsUnique();
-            b.ToTable(t => t.HasCheckConstraint("ck_pr_line_nonnegative",
-                "requested_quantity > 0 AND estimated_unit_price >= 0 AND approved_quantity >= 0 AND allocated_quantity >= 0 AND ordered_quantity >= 0 AND accepted_quantity >= 0 AND cancelled_quantity >= 0 AND (discount_percent IS NULL OR (discount_percent >= 0 AND discount_percent <= 100))"));
+            b.ToTable(t =>
+            {
+                t.HasCheckConstraint("ck_pr_line_nonnegative",
+                    "requested_quantity > 0 AND estimated_unit_price >= 0 AND approved_quantity >= 0 AND allocated_quantity >= 0 AND ordered_quantity >= 0 AND accepted_quantity >= 0 AND cancelled_quantity >= 0 AND (discount_percent IS NULL OR (discount_percent >= 0 AND discount_percent <= 100))");
+                t.HasCheckConstraint("ck_pr_line_catalog_ref",
+                    "(catalog_entry_id IS NULL AND catalog_published_version IS NULL) OR (catalog_entry_id IS NOT NULL AND catalog_published_version > 0)");
+            });
         });
         modelBuilder.Entity<PurchaseRequestAllocation>(b =>
         {

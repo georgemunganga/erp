@@ -80,7 +80,7 @@ public static class ProcurementItemEndpoints
             .Skip((number - 1) * size).Take(size)
             .Select(x => new CatalogView(x.entry.Id, x.item.Id, x.item.Code, x.item.Name,
                 x.item.Kind, x.item.Description, x.item.CategoryCode, x.entry.UnitCode,
-                x.entry.UnitPrice, x.entry.CurrencyCode, x.supplier.DisplayName,
+                x.entry.UnitPrice, x.entry.CurrencyCode, x.supplier.Id, x.supplier.DisplayName,
                 x.entry.EffectiveTo, x.entry.PublishedVersion))
             .ToListAsync(ct);
         return Results.Ok(new { items = rows, total, page = number, pageSize = size });
@@ -378,4 +378,4 @@ public sealed record EntryView(Guid Id, Guid CatalogItemId, Guid? SupplierId, st
     decimal? MaximumQuantity, string Status, long Version);
 public sealed record CatalogView(Guid EntryId, Guid ItemId, string Code, string Name, string Kind,
     string? Description, string CategoryCode, string UnitCode, decimal EstimatedUnitPrice,
-    string CurrencyCode, string SupplierName, DateTimeOffset? PriceValidUntil, int PublishedVersion);
+    string CurrencyCode, Guid SupplierId, string SupplierName, DateTimeOffset? PriceValidUntil, int PublishedVersion);

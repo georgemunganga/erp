@@ -214,6 +214,8 @@ public sealed class PurchaseRequestLine : ProcurementRecord
     public Guid PurchaseRequestId { get; set; }
     public int LineNumber { get; set; }
     public Guid? CatalogItemId { get; set; }
+    public Guid? CatalogEntryId { get; set; }
+    public int? CatalogPublishedVersion { get; set; }
     public string Description { get; set; } = null!;
     public string UnitCode { get; set; } = null!;
     public decimal RequestedQuantity { get; set; }

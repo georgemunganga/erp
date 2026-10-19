@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using System.Text.Json;
+using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Domain;
@@ -58,8 +60,9 @@ public static class ProcurementRequestRoutes
         var workerId = scope.WorkerId;
         if (workerId is null)
             return Error("employee-unavailable", "An active employee record is needed to create a request.", 403);
-        var referenceIssue = await ValidateReferences(input.Lines!, db, ct);
+        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
+        var catalogVersions = await CatalogVersions(input.Lines!, db, ct);
 
         var request = new PurchaseRequest
         {
@@ -80,7 +83,7 @@ public static class ProcurementRequestRoutes
             Status = "Draft",
         };
         for (var i = 0; i < input.Lines!.Count; i++)
-            request.Lines.Add(NewLine(request.Id, i + 1, input.Lines[i], request.CurrencyCode));
+            request.Lines.Add(NewLine(request.Id, i + 1, input.Lines[i], request.CurrencyCode, catalogVersions));
         db.AddScoped(request);
         await db.SaveChangesAsync(ct);
         return Results.Created($"/api/procurement/v1/requests/{request.Id}", ToDetail(request));
@@ -102,8 +105,9 @@ public static class ProcurementRequestRoutes
         if (input.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id).Distinct().Count()
             != input.Lines!.Count(x => x.Id.HasValue))
             return Error("validation-failed", "A request line was repeated.", 422);
-        var referenceIssue = await ValidateReferences(input.Lines!, db, ct);
+        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
+        var catalogVersions = await CatalogVersions(input.Lines!, db, ct);
         var existing = request.Lines.ToDictionary(x => x.Id);
         if (input.Lines.Any(x => x.Id.HasValue && !existing.ContainsKey(x.Id.Value)))
             return Error("validation-failed", "A request line does not belong to this request.", 422);
@@ -130,10 +134,10 @@ public static class ProcurementRequestRoutes
         foreach (var incoming in input.Lines)
         {
             if (incoming.Id is Guid lineId)
-                ApplyLine(existing[lineId], incoming, request.CurrencyCode);
+                ApplyLine(existing[lineId], incoming, request.CurrencyCode, catalogVersions);
             else
             {
-                var line = NewLine(request.Id, nextLine++, incoming, request.CurrencyCode);
+                var line = NewLine(request.Id, nextLine++, incoming, request.CurrencyCode, catalogVersions);
                 db.AddScoped(line);
             }
         }
@@ -181,6 +185,8 @@ public static class ProcurementRequestRoutes
     private static async Task<IResult> Submit(Guid id, VersionCommand input, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
@@ -199,7 +205,7 @@ public static class ProcurementRequestRoutes
             return Error("validation-failed", "A request line has a needed-by date in the past.", 422);
         if (request.NeededBy is { } neededBy && neededBy < DateOnly.FromDateTime(DateTime.UtcNow))
             return Error("validation-failed", "The needed-by date is in the past.", 422);
-        var referenceIssue = await ValidateStoredReferences(currentLines, db, ct);
+        var referenceIssue = await ValidateStoredReferences(currentLines, request.CurrencyCode, db, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
         decimal estimatedTotal;
         try { estimatedTotal = currentLines.Sum(x => x.RequestedQuantity * x.EstimatedUnitPrice); }
@@ -218,16 +224,22 @@ public static class ProcurementRequestRoutes
                 lineCount = currentLines.Length, estimatedTotal, request.CurrencyCode,
             }),
         });
-        try { await db.SaveChangesAsync(ct); }
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+        }
         catch (DbUpdateConcurrencyException)
         {
             return Error("version-conflict", "Refresh this request before submitting it.", 409);
         }
+        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        { return Error("version-conflict", "A selected item or catalog price changed. Refresh before submitting.", 409); }
         return Results.Ok(ToDetail(request));
     }
 
     private static async Task<string?> ValidateStoredReferences(PurchaseRequestLine[] lines,
-        ProcurementDbContext db, CancellationToken ct)
+        string currency, ProcurementDbContext db, CancellationToken ct)
     {
         var items = lines.Where(x => x.CatalogItemId.HasValue).Select(x => x.CatalogItemId!.Value).Distinct().ToArray();
         var suppliers = lines.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
@@ -237,21 +249,80 @@ public static class ProcurementRequestRoutes
         if (suppliers.Length > 0 && await db.Suppliers.AsNoTracking()
                 .CountAsync(x => suppliers.Contains(x.Id) && x.Status == "Active" && x.IsOrderable, ct) != suppliers.Length)
             return "A preferred vendor is no longer available.";
+        var catalogIds = lines.Where(x => x.CatalogEntryId.HasValue)
+            .Select(x => x.CatalogEntryId!.Value).Distinct().ToArray();
+        if (catalogIds.Length > 0)
+        {
+            var entries = await db.CatalogEntries.AsNoTracking().Where(x => catalogIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, ct);
+            foreach (var line in lines.Where(x => x.CatalogEntryId.HasValue))
+            {
+                if (!entries.TryGetValue(line.CatalogEntryId!.Value, out var entry)
+                    || !CatalogEntryIsAvailable(entry)
+                    || entry.CatalogItemId != line.CatalogItemId
+                    || entry.SupplierId != line.PreferredSupplierId
+                    || entry.UnitCode != line.UnitCode
+                    || entry.CurrencyCode != currency
+                    || entry.UnitPrice != line.EstimatedUnitPrice
+                    || entry.MinimumQuantity is decimal minimum && line.RequestedQuantity < minimum
+                    || entry.MaximumQuantity is decimal maximum && line.RequestedQuantity > maximum
+                    || entry.PublishedVersion != line.CatalogPublishedVersion)
+                    return "A selected catalog price changed or is no longer available. Update the request line before submitting.";
+            }
+        }
         return null;
     }
 
     private static async Task<string?> ValidateReferences(IEnumerable<RequestLineInput> lines,
-        ProcurementDbContext db, CancellationToken ct)
+        string currency, ProcurementDbContext db, CancellationToken ct)
     {
-        var itemIds = lines.Where(x => x.CatalogItemId.HasValue).Select(x => x.CatalogItemId!.Value).Distinct().ToArray();
-        var supplierIds = lines.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
+        var submitted = lines.ToArray();
+        var itemIds = submitted.Where(x => x.CatalogItemId.HasValue).Select(x => x.CatalogItemId!.Value).Distinct().ToArray();
+        var supplierIds = submitted.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
         if (itemIds.Length > 0 && await db.CatalogItems.AsNoTracking()
                 .CountAsync(x => itemIds.Contains(x.Id) && x.Status == "Active" && x.IsPurchasable, ct) != itemIds.Length)
             return "One or more items are unavailable for purchase.";
         if (supplierIds.Length > 0 && await db.Suppliers.AsNoTracking()
                 .CountAsync(x => supplierIds.Contains(x.Id) && (x.Status == "Approved" || x.Status == "Active") && x.IsOrderable, ct) != supplierIds.Length)
             return "One or more preferred vendors are unavailable.";
+        var catalogIds = submitted.Where(x => x.CatalogEntryId.HasValue)
+            .Select(x => x.CatalogEntryId!.Value).Distinct().ToArray();
+        if (catalogIds.Length > 0)
+        {
+            var entries = await db.CatalogEntries.AsNoTracking().Where(x => catalogIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, ct);
+            foreach (var line in submitted.Where(x => x.CatalogEntryId.HasValue))
+            {
+                if (!entries.TryGetValue(line.CatalogEntryId!.Value, out var entry)
+                    || !CatalogEntryIsAvailable(entry)
+                    || entry.CatalogItemId != line.CatalogItemId
+                    || entry.SupplierId != line.PreferredSupplierId
+                    || entry.UnitCode != line.UnitCode
+                    || entry.CurrencyCode != currency.Trim().ToUpperInvariant()
+                    || entry.UnitPrice != line.EstimatedUnitPrice
+                    || entry.MinimumQuantity is decimal minimum && line.RequestedQuantity < minimum
+                    || entry.MaximumQuantity is decimal maximum && line.RequestedQuantity > maximum)
+                    return "Choose an available catalog price with the same item, vendor, unit, currency and price.";
+            }
+        }
         return null;
+    }
+
+    private static bool CatalogEntryIsAvailable(CatalogEntry entry)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return entry.Status == "Published" && entry.PublishedVersion > 0
+            && entry.EffectiveFrom <= now && (entry.EffectiveTo is null || entry.EffectiveTo > now)
+            && entry.AudienceCode is null && entry.SiteRef is null && entry.ContractRef is null;
+    }
+
+    private static async Task<Dictionary<Guid, int>> CatalogVersions(IEnumerable<RequestLineInput> lines,
+        ProcurementDbContext db, CancellationToken ct)
+    {
+        var ids = lines.Where(x => x.CatalogEntryId.HasValue).Select(x => x.CatalogEntryId!.Value)
+            .Distinct().ToArray();
+        return await db.CatalogEntries.AsNoTracking().Where(x => ids.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.PublishedVersion, ct);
     }
 
     private static string? Validate(string? purpose, string? currency, IReadOnlyList<RequestLineInput>? lines)
@@ -285,20 +356,25 @@ public static class ProcurementRequestRoutes
         (positive ? value > 0 : value >= 0) && value <= 99_999_999_999_999.9999m
         && decimal.Round(value, 4) == value;
 
-    private static PurchaseRequestLine NewLine(Guid requestId, int number, RequestLineInput input, string currency)
+    private static PurchaseRequestLine NewLine(Guid requestId, int number, RequestLineInput input, string currency,
+        IReadOnlyDictionary<Guid, int> catalogVersions)
     {
         var line = new PurchaseRequestLine { PurchaseRequestId = requestId, LineNumber = number };
-        ApplyLine(line, input, currency);
+        ApplyLine(line, input, currency, catalogVersions);
         return line;
     }
 
-    private static void ApplyLine(PurchaseRequestLine line, RequestLineInput input, string currency)
+    private static void ApplyLine(PurchaseRequestLine line, RequestLineInput input, string currency,
+        IReadOnlyDictionary<Guid, int> catalogVersions)
     {
         line.Description = input.Description!.Trim();
         line.UnitCode = input.UnitCode!.Trim();
         line.RequestedQuantity = input.RequestedQuantity;
         line.EstimatedUnitPrice = input.EstimatedUnitPrice;
         line.CatalogItemId = input.CatalogItemId;
+        line.CatalogEntryId = input.CatalogEntryId;
+        line.CatalogPublishedVersion = input.CatalogEntryId is Guid catalogEntryId
+            ? catalogVersions[catalogEntryId] : null;
         line.PreferredSupplierId = input.PreferredSupplierId;
         line.CategoryCode = Clean(input.CategoryCode);
         line.PurchaseType = Clean(input.PurchaseType);
@@ -322,7 +398,8 @@ public static class ProcurementRequestRoutes
         {
             line.Id, line.LineNumber, line.Version, line.Description, line.UnitCode,
             line.RequestedQuantity, line.EstimatedUnitPrice, line.EstimatedCurrencyCode,
-            line.CatalogItemId, line.PreferredSupplierId, line.CategoryCode, line.PurchaseType,
+            line.CatalogItemId, line.CatalogEntryId, line.CatalogPublishedVersion,
+            line.PreferredSupplierId, line.CategoryCode, line.PurchaseType,
             line.NeededBy, line.DiscountPercent, line.TaxCodeRef, line.CostCenterRef,
             line.ProjectRef, line.SpecificationDocumentRefId, line.ApprovalStatus,
             line.CancelledQuantity,
@@ -349,7 +426,8 @@ public static class ProcurementRequestRoutes
         decimal RequestedQuantity, decimal EstimatedUnitPrice, Guid? CatalogItemId,
         Guid? PreferredSupplierId, string? CategoryCode, string? PurchaseType,
         DateOnly? NeededBy, decimal? DiscountPercent, string? TaxCodeRef,
-        string? CostCenterRef, string? ProjectRef, Guid? SpecificationDocumentRefId);
+        string? CostCenterRef, string? ProjectRef, Guid? SpecificationDocumentRefId,
+        Guid? CatalogEntryId = null);
     public sealed record VersionCommand(long Version);
     public sealed record WithdrawCommand(long Version, string? Reason = null);
 }

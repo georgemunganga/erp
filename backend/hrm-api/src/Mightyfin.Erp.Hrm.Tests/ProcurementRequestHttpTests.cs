@@ -535,6 +535,28 @@ public sealed class ProcurementRequestHttpTests
             "/api/procurement/v1/catalog", fixture.Owner);
         Assert.Equal(1, (await catalog.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+        var invalidPriceRequest = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/requests", fixture.Owner, new
+            {
+                purpose = "Office chair", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+                lines = new[] { new { description = "Chair", unitCode = "each", requestedQuantity = 1,
+                    estimatedUnitPrice = 249, catalogItemId = itemId, preferredSupplierId = vendorId,
+                    catalogEntryId = entry.GetProperty("id").GetGuid(), categoryCode = "OFFICE" } },
+            }, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, invalidPriceRequest.StatusCode);
+        var requestResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/requests", fixture.Owner, new
+            {
+                purpose = "Office chair", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+                lines = new[] { new { description = "Chair", unitCode = "each", requestedQuantity = 1,
+                    estimatedUnitPrice = 250, catalogItemId = itemId, preferredSupplierId = vendorId,
+                    catalogEntryId = entry.GetProperty("id").GetGuid(), categoryCode = "OFFICE" } },
+            }, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, requestResponse.StatusCode);
+        var request = await requestResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(entry.GetProperty("id").GetGuid(), request.GetProperty("lines")[0]
+            .GetProperty("catalogEntryId").GetGuid());
+        Assert.Equal(1, request.GetProperty("lines")[0].GetProperty("catalogPublishedVersion").GetInt32());
         Assert.Equal(HttpStatusCode.BadRequest,
             (await SendJson(fixture.Client, HttpMethod.Post,
                 $"{entryPath}/{entry.GetProperty("id").GetGuid()}/withdraw", fixture.Owner,
@@ -550,6 +572,11 @@ public sealed class ProcurementRequestHttpTests
             "/api/procurement/v1/catalog", fixture.Owner);
         Assert.Equal(0, (await emptyCatalog.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+        var staleCatalogSubmit = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/requests/{request.GetProperty("id").GetGuid()}/submit",
+            fixture.Owner, new ProcurementRequestRoutes.VersionCommand(request.GetProperty("version").GetInt64()),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, staleCatalogSubmit.StatusCode);
     }
 
     [Fact]

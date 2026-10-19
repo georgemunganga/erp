@@ -422,8 +422,6 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
-
                     b.HasIndex("TenantId", "LegalEntityId", "SupplierId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "CatalogItemId", "Status");
@@ -2846,9 +2844,17 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("cancelled_quantity");
 
+                    b.Property<Guid?>("CatalogEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("catalog_entry_id");
+
                     b.Property<Guid?>("CatalogItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("catalog_item_id");
+
+                    b.Property<int?>("CatalogPublishedVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("catalog_published_version");
 
                     b.Property<string>("CategoryCode")
                         .HasColumnType("text")
@@ -2968,6 +2974,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "LegalEntityId", "CatalogEntryId");
+
                     b.HasIndex("TenantId", "LegalEntityId", "CatalogItemId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "PreferredSupplierId");
@@ -2977,6 +2985,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.ToTable("purchase_request_lines", "procurement", t =>
                         {
+                            t.HasCheckConstraint("ck_pr_line_catalog_ref", "(catalog_entry_id IS NULL AND catalog_published_version IS NULL) OR (catalog_entry_id IS NOT NULL AND catalog_published_version > 0)");
+
                             t.HasCheckConstraint("ck_pr_line_nonnegative", "requested_quantity > 0 AND estimated_unit_price >= 0 AND approved_quantity >= 0 AND allocated_quantity >= 0 AND ordered_quantity >= 0 AND accepted_quantity >= 0 AND cancelled_quantity >= 0 AND (discount_percent IS NULL OR (discount_percent >= 0 AND discount_percent <= 100))");
                         });
                 });
@@ -5762,6 +5772,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PurchaseRequestLine", b =>
                 {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.CatalogEntry", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "CatalogEntryId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.CatalogItem", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "LegalEntityId", "CatalogItemId")
