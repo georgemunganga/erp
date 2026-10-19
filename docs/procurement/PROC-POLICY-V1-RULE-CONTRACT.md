@@ -52,6 +52,8 @@ The example contains **no amount or sourcing threshold**. Business owners must s
 
 The structural validator limits documents to 64 KB and 100 rules, rejects unsupported fields, invalid amount bounds and duplicate rule or stage codes, and requires explicit control results. A successful validation response only means the JSON shape is acceptable. It does not verify referenced categories, branches, methods, reviewer authority, rule coverage or overlap; those checks belong to the publication workflow.
 
+The live Procurement Settings editor now builds this JSON from labeled fields for amount bands, categories, purchase type, quote count, budget handling and approvers. It uses the selected company's currency and validates before saving a draft. It refuses to edit a draft with unsupported detailed conditions so those conditions cannot be silently discarded. Publication and decision preview are still absent.
+
 ## Deterministic evaluation
 
 1. Resolve the one Published policy version effective at the decision timestamp for the tenant, company and key. Missing or overlapping published versions block the decision.
