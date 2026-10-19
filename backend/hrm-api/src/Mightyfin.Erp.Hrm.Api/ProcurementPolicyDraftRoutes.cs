@@ -20,6 +20,7 @@ public static class ProcurementPolicyDraftRoutes
         group.MapPost("", Create).RequireAuthorization("procurement-configuration-edit");
         group.MapPost("/validate", ValidateRules).RequireAuthorization("procurement-configuration-edit");
         group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-configuration-edit");
+        group.MapPost("/{id:guid}/preview", Preview).RequireAuthorization("procurement-configuration-read");
         group.MapPost("/{id:guid}/submit-review", SubmitReview).RequireAuthorization("procurement-configuration-edit");
     }
 
@@ -27,6 +28,17 @@ public static class ProcurementPolicyDraftRoutes
     {
         var issues = PolicyRuleValidator.Validate(input.RulesJson);
         return Results.Ok(new { isValid = issues.Count == 0, issues });
+    }
+
+    private static async Task<IResult> Preview(Guid id, PolicyScenario scenario,
+        ProcurementDbContext db, CancellationToken ct)
+    {
+        var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        var coverageIssues = PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
+        var decision = PolicyRulePreview.Evaluate(policy.RulesJson, scenario);
+        return Results.Ok(new { policyId = policy.Id, policy.PolicyVersionNumber,
+            policy.State, isAuthority = false, coverageIssues, decision });
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, string? key,

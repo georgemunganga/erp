@@ -595,6 +595,14 @@ public sealed class ProcurementRequestHttpTests
         var saved = await created.Content.ReadFromJsonAsync<JsonElement>();
         var id = saved.GetProperty("id").GetGuid();
         var version = saved.GetProperty("version").GetInt64();
+        var preview = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{basePath}/{id}/preview", fixture.Owner,
+            new PolicyScenario("ZMW", 100m, null, null, null), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+        var explanation = await preview.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(explanation.GetProperty("isAuthority").GetBoolean());
+        Assert.Equal("DEFAULT", explanation.GetProperty("decision").GetProperty("ruleCode").GetString());
+        Assert.Empty(explanation.GetProperty("coverageIssues").EnumerateArray());
         var route = $"{basePath}/{id}/submit-review";
         var review = new ProcurementPolicyDraftRoutes.ReviewSubmission(version, "Checked the company rules");
         Assert.Equal(HttpStatusCode.Forbidden,

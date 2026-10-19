@@ -56,6 +56,8 @@ The live Procurement Settings editor now builds this JSON from labeled fields fo
 
 A draft can now be sent to `PendingReview` by its author with a reason and current record version. That transition validates the v1 shape, workflow key, selected company currency and active category, branch and buying-method references; it records the requester and timestamp. Review evidence columns have been added for this step and future publication. `PendingReview` has no spend authority, and published policy resolution is not implemented yet.
 
+Reviewers can run a synthetic preview against a saved draft or pending version. The preview returns the winning rule, budget requirement, buying method, quote count, approval stages, and coverage issues, with `isAuthority: false`. Coverage analysis requires one unrestricted fallback below specific rules and flags same-priority overlap. This is explanatory only: it does not check a real request, reserve budget, open approval tasks or publish a policy. Branch-specific samples still need a fuller UI input, though the evaluator accepts a branch ID through its API contract.
+
 ## Deterministic evaluation
 
 1. Resolve the one Published policy version effective at the decision timestamp for the tenant, company and key. Missing or overlapping published versions block the decision.
