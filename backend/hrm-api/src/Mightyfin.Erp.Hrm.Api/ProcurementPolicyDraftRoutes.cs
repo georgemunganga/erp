@@ -1,0 +1,136 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
+
+namespace Mightyfin.Erp.Hrm.Api;
+
+/// <summary>Company-scoped policy authoring. Drafts are never effective purchase authority.</summary>
+public static class ProcurementPolicyDraftRoutes
+{
+    public static void MapRoutes(WebApplication app)
+    {
+        var group = app.MapGroup("/api/procurement/v1/configuration/policies");
+        group.MapGet("", List).RequireAuthorization("procurement-configuration-read");
+        group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-configuration-read");
+        group.MapPost("", Create).RequireAuthorization("procurement-configuration-edit");
+        group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-configuration-edit");
+    }
+
+    private static async Task<IResult> List(ProcurementDbContext db, string? key,
+        int? page, int? pageSize, CancellationToken ct)
+    {
+        var number = Math.Clamp(page ?? 1, 1, 100000);
+        var size = Math.Clamp(pageSize ?? 25, 1, 100);
+        var query = db.PolicyVersions.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(key))
+            query = query.Where(x => x.PolicyKey == key.Trim().ToUpper());
+        var total = await query.CountAsync(ct);
+        var items = await query.OrderBy(x => x.PolicyKey).ThenByDescending(x => x.PolicyVersionNumber)
+            .Skip((number - 1) * size).Take(size)
+            .Select(x => new { x.Id, x.PolicyKey, x.PolicyVersionNumber, x.State,
+                x.EffectiveFrom, x.EffectiveTo, x.Version, x.CreatedAt })
+            .ToListAsync(ct);
+        return Results.Ok(new { items, total, page = number, pageSize = size });
+    }
+
+    private static async Task<IResult> Get(Guid id, ProcurementDbContext db, CancellationToken ct)
+    {
+        var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
+        return policy is null ? Problem("not-found", "Buying policy not found.", 404) : Results.Ok(View(policy));
+    }
+
+    private static async Task<IResult> Create(PolicyDraft input, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var issue = Validate(input);
+        if (issue is not null) return Problem("validation-failed", issue, 422);
+        var key = input.PolicyKey!.Trim().ToUpperInvariant();
+        var next = (await db.PolicyVersions.AsNoTracking()
+            .Where(x => x.PolicyKey == key).MaxAsync(x => (int?)x.PolicyVersionNumber, ct) ?? 0) + 1;
+        var policy = new PolicyVersion
+        {
+            PolicyKey = key, PolicyVersionNumber = next, State = "Draft",
+            EffectiveFrom = input.EffectiveFrom, EffectiveTo = input.EffectiveTo,
+            RulesJson = input.RulesJson!.Trim(),
+        };
+        db.AddScoped(policy);
+        AddAudit(db, policy, scope.SubjectId, "DraftCreated");
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateException)
+        { return Problem("version-conflict", "Another policy draft was added. Refresh and try again.", 409); }
+        return Results.Created($"/api/procurement/v1/configuration/policies/{policy.Id}", View(policy));
+    }
+
+    private static async Task<IResult> Update(Guid id, VersionedPolicyDraft input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.Version != input.Version)
+            return Problem("version-conflict", "Refresh this policy draft before saving.", 409);
+        if (policy.State != "Draft")
+            return Problem("policy-locked", "Only a draft policy can be changed.", 409);
+        var issue = Validate(input.Draft);
+        if (issue is not null) return Problem("validation-failed", issue, 422);
+        if (!string.Equals(policy.PolicyKey, input.Draft.PolicyKey!.Trim(), StringComparison.OrdinalIgnoreCase))
+            return Problem("key-locked", "A policy key cannot be changed. Start another draft.", 409);
+        policy.EffectiveFrom = input.Draft.EffectiveFrom;
+        policy.EffectiveTo = input.Draft.EffectiveTo;
+        policy.RulesJson = input.Draft.RulesJson!.Trim();
+        AddAudit(db, policy, scope.SubjectId, "DraftUpdated");
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        { return Problem("version-conflict", "Refresh this policy draft before saving.", 409); }
+        return Results.Ok(View(policy));
+    }
+
+    private static string? Validate(PolicyDraft input)
+    {
+        if (string.IsNullOrWhiteSpace(input.PolicyKey) || input.PolicyKey.Trim().Length > 100
+            || !input.PolicyKey.Trim().All(x => char.IsAsciiLetterOrDigit(x) || x is '_' or '-'))
+            return "Enter a policy key of up to 100 letters, numbers, dashes or underscores.";
+        if (input.EffectiveFrom == default || input.EffectiveTo is { } to && to <= input.EffectiveFrom)
+            return "Choose a valid effective period.";
+        if (string.IsNullOrWhiteSpace(input.RulesJson) || Encoding.UTF8.GetByteCount(input.RulesJson) > 65536)
+            return "Enter a policy draft of no more than 64 KB.";
+        try
+        {
+            using var document = JsonDocument.Parse(input.RulesJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                return "The policy draft must be a JSON object.";
+        }
+        catch (JsonException) { return "The policy draft is not valid JSON."; }
+        return null;
+    }
+
+    private static void AddAudit(ProcurementDbContext db, PolicyVersion policy,
+        string actor, string action)
+    {
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(policy.RulesJson)));
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "PolicyVersion", RecordId = policy.Id, Action = action,
+            ActorSubjectId = actor,
+            ChangedFieldsJson = JsonSerializer.Serialize(new
+            {
+                policy.PolicyKey, policy.PolicyVersionNumber, policy.EffectiveFrom,
+                policy.EffectiveTo, rulesSha256 = hash,
+            }),
+        });
+    }
+
+    private static object View(PolicyVersion x) => new
+    {
+        x.Id, x.PolicyKey, x.PolicyVersionNumber, x.State, x.EffectiveFrom,
+        x.EffectiveTo, x.RulesJson, x.Version, x.CreatedAt, x.UpdatedAt,
+    };
+    private static IResult Problem(string code, string message, int status) =>
+        Results.Json(new { code, message }, statusCode: status);
+
+    public sealed record PolicyDraft(string? PolicyKey, DateTimeOffset EffectiveFrom,
+        DateTimeOffset? EffectiveTo, string? RulesJson);
+    public sealed record VersionedPolicyDraft(long Version, PolicyDraft Draft);
+}

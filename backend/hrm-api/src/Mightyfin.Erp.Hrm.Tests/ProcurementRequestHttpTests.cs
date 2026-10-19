@@ -469,6 +469,60 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Policy_drafts_are_scoped_versioned_and_cannot_publish_through_draft_api()
+    {
+        await using var fixture = await Fixture.Start();
+        const string policies = "/api/procurement/v1/configuration/policies";
+        var from = DateTimeOffset.UtcNow.AddDays(1);
+        var draft = new ProcurementPolicyDraftRoutes.PolicyDraft("PURCHASE_REQUEST", from,
+            from.AddMonths(1), "{\"schemaVersion\":1}");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, policies, fixture.Owner,
+                draft, "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, policies, fixture.Owner,
+                draft with { RulesJson = "[1,2]" }, "procurement_manager")).StatusCode);
+        var created = await SendJson(fixture.Client, HttpMethod.Post, policies, fixture.Owner,
+            draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var policy = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = policy.GetProperty("id").GetGuid();
+        Assert.Equal("Draft", policy.GetProperty("state").GetString());
+        Assert.Equal(1, policy.GetProperty("policyVersionNumber").GetInt32());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftCreated"));
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, $"{policies}/{id}", fixture.Owner,
+                fixture.OtherCompany, "procurement_manager")).StatusCode);
+        Assert.Equal(1, (await (await Send(fixture.Client, HttpMethod.Get, policies,
+            fixture.Owner, role: "procurement_manager")).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+        var successor = await SendJson(fixture.Client, HttpMethod.Post, policies, fixture.Owner,
+            draft with { EffectiveFrom = from.AddMonths(1), EffectiveTo = from.AddMonths(2) },
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, successor.StatusCode);
+        Assert.Equal(2, (await successor.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("policyVersionNumber").GetInt32());
+        var version = policy.GetProperty("version").GetInt64();
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"{policies}/{id}", fixture.Owner,
+                new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(version,
+                    draft with { PolicyKey = "OTHER" }), "procurement_manager")).StatusCode);
+        var updated = await SendJson(fixture.Client, HttpMethod.Put, $"{policies}/{id}", fixture.Owner,
+            new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(version,
+                draft with { RulesJson = "{\"schemaVersion\":1,\"note\":\"for review\"}" }),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftUpdated"));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"{policies}/{id}", fixture.Owner,
+                new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(version, draft),
+                "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Post, $"{policies}/{id}/publish", fixture.Other,
+                new { reason = "Not supported" }, "procurement_manager")).StatusCode);
+    }
+
+    [Fact]
     public async Task Independent_review_activates_category_then_item_without_publishing_a_price()
     {
         await using var fixture = await Fixture.Start();
@@ -1096,6 +1150,7 @@ public sealed class ProcurementRequestHttpTests
             ProcurementSourcingDraftRoutes.MapRoutes(app);
             ProcurementContractDraftRoutes.MapRoutes(app);
             ProcurementConfigurationRoutes.MapRoutes(app);
+            ProcurementPolicyDraftRoutes.MapRoutes(app);
 
             var company = new LegalEntity { Code = "A", RegisteredName = "Amizo Power", Currency = "ZMW" };
             var otherCompany = new LegalEntity { Code = "B", RegisteredName = "Other company", Currency = "USD" };
