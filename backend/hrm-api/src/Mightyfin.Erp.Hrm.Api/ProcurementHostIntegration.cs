@@ -26,6 +26,7 @@ public static class ProcurementHostIntegration
         ProcurementVendorRoutes.MapRoutes(app);
         ProcurementItemEndpoints.MapRoutes(app);
         ProcurementRequestRoutes.Map(app);
+        ProcurementBudgetRoutes.Map(app);
         ProcurementPlanRoutes.MapRoutes(app);
         ProcurementConfigurationRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);

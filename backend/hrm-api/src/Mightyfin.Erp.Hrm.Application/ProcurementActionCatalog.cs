@@ -7,7 +7,7 @@ public static class ProcurementActionCatalog
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            ["procurement-access"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor"],
+            ["procurement-access"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor", "finance_approver"],
             ["procurement-vendor-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-create"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
@@ -19,6 +19,7 @@ public static class ProcurementActionCatalog
             ["procurement-request-create"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
             ["procurement-request-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
             ["procurement-request-submit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
+            ["procurement-budget-check"] = ["finance_approver"],
             ["procurement-plan-read"] = ["manager", "procurement_buyer", "procurement_manager"],
             ["procurement-plan-create"] = ["manager", "procurement_buyer", "procurement_manager"],
             ["procurement-plan-edit"] = ["manager", "procurement_buyer", "procurement_manager"],

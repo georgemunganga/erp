@@ -354,6 +354,10 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
             b.Property(x => x.Status).HasMaxLength(40);
             b.Property(x => x.CurrencyCode).HasMaxLength(3);
             b.Property(x => x.CheckedAmount).HasPrecision(18, 4);
+            b.Property(x => x.CheckedBySubjectId).HasMaxLength(200);
+            b.Property(x => x.FinanceCheckRef).HasMaxLength(200);
+            b.Property(x => x.EvidenceRef).HasMaxLength(500);
+            b.Property(x => x.DecisionReason).HasMaxLength(1000);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.FinanceCheckRef }).IsUnique();
             b.HasOne<PurchaseRequest>().WithMany()
                 .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })

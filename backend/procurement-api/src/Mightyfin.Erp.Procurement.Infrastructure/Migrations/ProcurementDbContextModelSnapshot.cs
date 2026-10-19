@@ -209,6 +209,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("checked_at");
 
+                    b.Property<string>("CheckedBySubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("checked_by_subject_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -225,13 +231,24 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency_code");
 
+                    b.Property<string>("DecisionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("decision_reason");
+
+                    b.Property<string>("EvidenceRef")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("evidence_ref");
+
                     b.Property<string>("ExchangeRateSource")
                         .HasColumnType("text")
                         .HasColumnName("exchange_rate_source");
 
                     b.Property<string>("FinanceCheckRef")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
                         .HasColumnName("finance_check_ref");
 
                     b.Property<Guid>("LegalEntityId")
@@ -241,6 +258,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.Property<Guid>("PurchaseRequestId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_request_id");
+
+                    b.Property<long>("RequestVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("request_version");
 
                     b.Property<string>("ReservationRef")
                         .HasColumnType("text")

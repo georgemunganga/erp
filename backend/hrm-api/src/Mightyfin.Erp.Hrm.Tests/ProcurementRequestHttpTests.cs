@@ -129,6 +129,60 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Finance_budget_decision_requires_distinct_reviewer_and_confirmed_reservation()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+            fixture.Owner, Draft("Finance review"));
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var version = draft.GetProperty("version").GetInt64();
+        var update = new ProcurementRequestRoutes.UpdateRequest(version, "Finance review", null,
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), null, null, null, null,
+            null, null, Draft("Finance review").Lines);
+        var revised = await SendJson(fixture.Client, HttpMethod.Put,
+            $"/api/procurement/v1/requests/{id}", fixture.Owner, update);
+        var saved = await revised.Content.ReadFromJsonAsync<JsonElement>();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/requests/{id}/submit", fixture.Owner,
+            new ProcurementRequestRoutes.VersionCommand(saved.GetProperty("version").GetInt64()));
+        var request = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        version = request.GetProperty("version").GetInt64();
+        var path = $"/api/procurement/v1/requests/{id}/budget-checks";
+        var decision = new ProcurementBudgetRoutes.BudgetDecision(version, "FIN-001", "Available",
+            200, "ZMW", "finance-budget/001", null, "RES-001", "Confirmed");
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, decision)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, decision,
+                "finance_approver")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                decision with { ReservationRef = null }, "finance_approver")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                decision with { RequestVersion = version - 1 }, "finance_approver")).StatusCode);
+        var recorded = await SendJson(fixture.Client, HttpMethod.Post, path,
+            fixture.Other, decision, "finance_approver");
+        Assert.Equal(HttpStatusCode.Created, recorded.StatusCode);
+        var result = await recorded.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Confirmed", result.GetProperty("reservationStatus").GetString());
+        Assert.Equal(fixture.Other.ToString(), result.GetProperty("checkedBySubjectId").GetString());
+        Assert.Equal(HttpStatusCode.OK,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                decision, "finance_approver")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                decision with { Status = "Insufficient", DecisionReason = "No funds" },
+                "finance_approver")).StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "BudgetChecked"));
+        var own = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
+        Assert.Equal("PendingPolicyAndBudget", (await own.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("approvalState").GetString());
+    }
+
+    [Fact]
     public async Task Vendor_and_item_drafts_respect_their_distinct_record_and_action_scopes()
     {
         await using var fixture = await Fixture.Start();
@@ -752,6 +806,7 @@ public sealed class ProcurementRequestHttpTests
             app.UseAuthorization();
             app.UseMiddleware<ProcurementScopeMiddleware>();
             ProcurementRequestRoutes.Map(app);
+            ProcurementBudgetRoutes.Map(app);
             ProcurementVendorRoutes.MapRoutes(app);
             ProcurementItemEndpoints.MapRoutes(app);
             ProcurementPlanRoutes.MapRoutes(app);

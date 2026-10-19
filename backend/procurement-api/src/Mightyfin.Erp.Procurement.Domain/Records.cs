@@ -267,11 +267,15 @@ public sealed class PolicyEvaluation : ProcurementRecord
 public sealed class BudgetCheckSnapshot : ProcurementRecord
 {
     public Guid PurchaseRequestId { get; set; }
+    public long RequestVersion { get; set; }
     public string FinanceCheckRef { get; set; } = null!;
     public string Status { get; set; } = null!;
     public decimal CheckedAmount { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public DateTimeOffset CheckedAt { get; set; }
+    public string CheckedBySubjectId { get; set; } = null!;
+    public string? EvidenceRef { get; set; }
+    public string? DecisionReason { get; set; }
     public string? ReservationRef { get; set; }
     public string? ReservationStatus { get; set; }
     public string? ExchangeRateSource { get; set; }
