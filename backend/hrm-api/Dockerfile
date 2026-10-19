@@ -11,14 +11,15 @@ RUN dotnet publish src/Mightyfin.Erp.Hrm.Api \
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
-COPY --from=build /out .
 
 # M34: weasyprint for payslip PDF rendering
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         python3 python3-pip libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-        libgdk-pixbuf2.0-0 libffi-dev shared-mime-info libcairo2 fonts-dejavu-core \
+        libgdk-pixbuf2.0-0 libffi-dev libgssapi-krb5-2 shared-mime-info libcairo2 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && pip3 install --no-cache-dir --break-system-packages weasyprint
+
+COPY --from=build /out .
 
 ENV ASPNETCORE_URLS=http://+:8080 \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
