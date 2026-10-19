@@ -377,6 +377,40 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Draft_plan_and_sourcing_revisions_reject_duplicate_saved_line_ids()
+    {
+        await using var fixture = await Fixture.Start();
+        var planLine = new ProcurementPlanLineInput(null, null, "Office chairs", "OFFICE", "each",
+            10, 5_000, null, null);
+        var planResponse = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
+            fixture.Owner, new ProcurementPlanInput("FY2026", null, null, [planLine]), "manager");
+        Assert.Equal(HttpStatusCode.Created, planResponse.StatusCode);
+        var plan = await planResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var savedPlanLine = planLine with { Id = plan.GetProperty("lines")[0].GetProperty("id").GetGuid() };
+        var duplicatePlan = await SendJson(fixture.Client, HttpMethod.Put,
+            $"/api/procurement/v1/plans/{plan.GetProperty("id").GetGuid()}", fixture.Owner,
+            new ProcurementPlanRoutes.UpdatePlan(plan.GetProperty("version").GetInt64(),
+                new ProcurementPlanInput("FY2026", null, null, [savedPlanLine, savedPlanLine])), "manager");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, duplicatePlan.StatusCode);
+
+        var sourcingLine = new SourcingLineInput(null, null, "Office chairs", "each", 10, "OFFICE", null);
+        var sourceResponse = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/sourcing",
+            fixture.Owner, new SourcingDraftInput("Office chairs", "RFQ", null,
+                DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddDays(8), [sourcingLine]),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, sourceResponse.StatusCode);
+        var source = await sourceResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var savedSourceLine = sourcingLine with { Id = source.GetProperty("lines")[0].GetProperty("id").GetGuid() };
+        var duplicateSource = await SendJson(fixture.Client, HttpMethod.Put,
+            $"/api/procurement/v1/sourcing/{source.GetProperty("id").GetGuid()}", fixture.Owner,
+            new ProcurementSourcingDraftRoutes.VersionedSourcingDraft(source.GetProperty("version").GetInt64(),
+                new SourcingDraftInput("Office chairs", "RFQ", null,
+                    DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddDays(8),
+                    [savedSourceLine, savedSourceLine])), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, duplicateSource.StatusCode);
+    }
+
+    [Fact]
     public async Task Planning_draft_revisions_keep_removed_lines_and_reject_stale_changes()
     {
         await using var fixture = await Fixture.Start();

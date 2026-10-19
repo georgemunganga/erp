@@ -82,6 +82,9 @@ public static class ProcurementSourcingDraftRoutes
             ? item.CurrencyCode : input.Draft.CurrencyCode };
         var issue = ProcurementSourcingDraftRules.Validate(draft);
         if (issue is not null) return Problem("validation-failed", issue, 422);
+        if (draft.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).Distinct().Count()
+            != draft.Lines!.Count(x => x.Id.HasValue))
+            return Problem("validation-failed", "A sourcing line can appear only once in this revision.", 422);
         var lines = await db.SourcingLines.Where(x => x.SourcingEventId == id)
             .OrderBy(x => x.LineNumber).ToListAsync(ct);
         var existing = lines.ToDictionary(x => x.Id);

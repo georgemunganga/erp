@@ -85,6 +85,9 @@ public static class ProcurementPlanRoutes
         var issue = ProcurementPlanRules.Validate(draft);
         if (issue is not null) return Problem("validation-failed", issue, 422);
         var lines = draft.Lines!;
+        if (lines.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).Distinct().Count()
+            != lines.Count(x => x.Id.HasValue))
+            return Problem("validation-failed", "A planned need can appear only once in this revision.", 422);
         var referenceIssue = await ValidateReferences(lines, db, ct);
         if (referenceIssue is not null) return Problem("validation-failed", referenceIssue, 422);
         var existing = plan.Lines.ToDictionary(x => x.Id);
