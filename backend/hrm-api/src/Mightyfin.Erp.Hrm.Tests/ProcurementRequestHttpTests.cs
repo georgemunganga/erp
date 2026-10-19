@@ -77,6 +77,58 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Request_submission_is_versioned_audited_and_remains_pending_funding()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+            fixture.Owner, Draft("Buy office laptops"));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var version = draft.GetProperty("version").GetInt64();
+        var submitPath = $"/api/procurement/v1/requests/{id}/submit";
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Post, submitPath, fixture.Other,
+                new ProcurementRequestRoutes.VersionCommand(version))).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, submitPath, fixture.Owner,
+                new ProcurementRequestRoutes.VersionCommand(version))).StatusCode);
+
+        var update = new ProcurementRequestRoutes.UpdateRequest(version, "Buy office laptops", null,
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), null, null, null, null,
+            null, null, Draft("Buy office laptops").Lines);
+        var revised = await SendJson(fixture.Client, HttpMethod.Put,
+            $"/api/procurement/v1/requests/{id}", fixture.Owner, update);
+        Assert.Equal(HttpStatusCode.OK, revised.StatusCode);
+        var saved = await revised.Content.ReadFromJsonAsync<JsonElement>();
+        version = saved.GetProperty("version").GetInt64();
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, submitPath, fixture.Owner,
+                new ProcurementRequestRoutes.VersionCommand(version - 1))).StatusCode);
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, submitPath, fixture.Owner,
+            new ProcurementRequestRoutes.VersionCommand(version));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var pending = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Submitted", pending.GetProperty("status").GetString());
+        Assert.Equal("PendingPolicyAndBudget", pending.GetProperty("approvalState").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "Submitted"));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, submitPath, fixture.Owner,
+                new ProcurementRequestRoutes.VersionCommand(pending.GetProperty("version").GetInt64()))).StatusCode);
+        var withdrawPath = $"/api/procurement/v1/requests/{id}/withdraw";
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, withdrawPath, fixture.Owner,
+                new ProcurementRequestRoutes.WithdrawCommand(pending.GetProperty("version").GetInt64()))).StatusCode);
+        var withdrawn = await SendJson(fixture.Client, HttpMethod.Post, withdrawPath, fixture.Owner,
+            new ProcurementRequestRoutes.WithdrawCommand(pending.GetProperty("version").GetInt64(),
+                "Need no longer exists"));
+        Assert.Equal(HttpStatusCode.OK, withdrawn.StatusCode);
+        Assert.Equal("Withdrawn", (await withdrawn.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "Withdrawn"));
+    }
+
+    [Fact]
     public async Task Vendor_and_item_drafts_respect_their_distinct_record_and_action_scopes()
     {
         await using var fixture = await Fixture.Start();
@@ -668,6 +720,15 @@ public sealed class ProcurementRequestHttpTests
                 .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
             var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             return await db.SupplierDecisions.CountAsync(x => x.SupplierId == supplierId);
+        }
+
+        public async Task<int> RequestAuditCount(Guid requestId, string action)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return await db.AuditEvents.CountAsync(x => x.RecordId == requestId && x.Action == action);
         }
 
         public static async Task<Fixture> Start()

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Domain;
@@ -6,7 +7,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Own, draft-only purchase requests. Submission awaits policy, budget and approval integration.</summary>
+/// <summary>Own purchase requests. Submission queues a policy and budget decision; it grants no buying authority.</summary>
 public static class ProcurementRequestRoutes
 {
     public static void Map(WebApplication app)
@@ -16,6 +17,7 @@ public static class ProcurementRequestRoutes
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-request-read");
         group.MapPost("", Create).RequireAuthorization("procurement-request-create");
         group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-request-edit");
+        group.MapPost("/{id:guid}/submit", Submit).RequireAuthorization("procurement-request-submit");
         group.MapPost("/{id:guid}/withdraw", Withdraw).RequireAuthorization("procurement-request-edit");
     }
 
@@ -140,25 +142,102 @@ public static class ProcurementRequestRoutes
         return Results.Ok(ToDetail(request));
     }
 
-    private static async Task<IResult> Withdraw(Guid id, VersionCommand input, ProcurementDbContext db,
+    private static async Task<IResult> Withdraw(Guid id, WithdrawCommand input, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
-        if (request.Status != "Draft") return Error("request-locked", "Only a draft request can be withdrawn here.", 409);
+        if (request.Status is not ("Draft" or "Submitted"))
+            return Error("request-locked", "Only a draft or submitted request can be withdrawn here.", 409);
         if (request.Version != input.Version) return Error("version-conflict", "Refresh this request before withdrawing it.", 409);
         if (scope.WorkerId != request.RequesterWorkerId)
             return Error("employee-unavailable", "An active employee record is needed to withdraw this request.", 403);
+        if (request.Status == "Submitted" && (string.IsNullOrWhiteSpace(input.Reason)
+            || input.Reason.Trim().Length > 1000))
+            return Error("validation-failed", "Give a reason of up to 1,000 characters for withdrawing a submitted request.", 422);
+        var priorStatus = request.Status;
         request.Status = "Withdrawn";
+        request.ApprovalState = "Withdrawn";
         foreach (var line in request.Lines.Where(x => x.ApprovalStatus != "Cancelled"))
         {
             line.ApprovalStatus = "Cancelled";
             line.CancelledQuantity = line.RequestedQuantity;
         }
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "PurchaseRequest", RecordId = request.Id, Action = "Withdrawn",
+            ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new
+            {
+                from = priorStatus, to = "Withdrawn", reason = input.Reason?.Trim(),
+            }),
+        });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Error("version-conflict", "Refresh this request before withdrawing it.", 409); }
         return Results.Ok(ToDetail(request));
+    }
+
+    private static async Task<IResult> Submit(Guid id, VersionCommand input, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var request = await db.PurchaseRequests.Include(x => x.Lines)
+            .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
+        if (request is null) return Error("not-found", "Request not found.", 404);
+        if (request.Status != "Draft")
+            return Error("request-locked", "Only a draft request can be submitted.", 409);
+        if (request.Version != input.Version)
+            return Error("version-conflict", "Refresh this request before submitting it.", 409);
+        if (scope.WorkerId != request.RequesterWorkerId)
+            return Error("employee-unavailable", "An active employee record is needed to submit this request.", 403);
+        var currentLines = request.Lines.Where(x => x.ApprovalStatus != "Cancelled").ToArray();
+        if (currentLines.Length == 0)
+            return Error("validation-failed", "Add at least one request line before submitting.", 422);
+        if (request.NeededBy is null && currentLines.Any(x => x.NeededBy is null))
+            return Error("validation-failed", "Choose a needed-by date for each line or the whole request.", 422);
+        if (currentLines.Any(x => x.NeededBy is { } date && date < DateOnly.FromDateTime(DateTime.UtcNow)))
+            return Error("validation-failed", "A request line has a needed-by date in the past.", 422);
+        if (request.NeededBy is { } neededBy && neededBy < DateOnly.FromDateTime(DateTime.UtcNow))
+            return Error("validation-failed", "The needed-by date is in the past.", 422);
+        var referenceIssue = await ValidateStoredReferences(currentLines, db, ct);
+        if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
+        decimal estimatedTotal;
+        try { estimatedTotal = currentLines.Sum(x => x.RequestedQuantity * x.EstimatedUnitPrice); }
+        catch (OverflowException) { return Error("validation-failed", "The estimated amount is too large.", 422); }
+        request.Status = "Submitted";
+        request.ApprovalState = "PendingPolicyAndBudget";
+        request.SubmittedAt = DateTimeOffset.UtcNow;
+        request.SubmittedVersion = request.Version + 1;
+        db.AddScoped(new AuditEvent
+        {
+            RecordType = "PurchaseRequest", RecordId = request.Id, Action = "Submitted",
+            ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = JsonSerializer.Serialize(new
+            {
+                from = "Draft", to = "Submitted", version = request.SubmittedVersion,
+                lineCount = currentLines.Length, estimatedTotal, request.CurrencyCode,
+            }),
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Error("version-conflict", "Refresh this request before submitting it.", 409);
+        }
+        return Results.Ok(ToDetail(request));
+    }
+
+    private static async Task<string?> ValidateStoredReferences(PurchaseRequestLine[] lines,
+        ProcurementDbContext db, CancellationToken ct)
+    {
+        var items = lines.Where(x => x.CatalogItemId.HasValue).Select(x => x.CatalogItemId!.Value).Distinct().ToArray();
+        var suppliers = lines.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
+        if (items.Length > 0 && await db.CatalogItems.AsNoTracking()
+                .CountAsync(x => items.Contains(x.Id) && x.Status == "Active" && x.IsPurchasable, ct) != items.Length)
+            return "An item is no longer available for purchase.";
+        if (suppliers.Length > 0 && await db.Suppliers.AsNoTracking()
+                .CountAsync(x => suppliers.Contains(x.Id) && x.Status == "Active" && x.IsOrderable, ct) != suppliers.Length)
+            return "A preferred vendor is no longer available.";
+        return null;
     }
 
     private static async Task<string?> ValidateReferences(IEnumerable<RequestLineInput> lines,
@@ -234,7 +313,8 @@ public static class ProcurementRequestRoutes
 
     private static object ToDetail(PurchaseRequest x) => new
     {
-        x.Id, x.Number, x.Status, x.Version, x.RequesterWorkerId, x.Purpose, x.CurrencyCode,
+        x.Id, x.Number, x.Status, x.ApprovalState, x.SubmittedAt, x.SubmittedVersion,
+        x.Version, x.RequesterWorkerId, x.Purpose, x.CurrencyCode,
         x.NeededBy, x.BranchRef, x.DepartmentRef, x.CostCenterRef, x.ProjectRef,
         x.DeliveryLocationRef, x.DeliveryAddressText, x.FundingSourceRef, x.NotesToApprover,
         x.CreatedAt, x.UpdatedAt,
@@ -271,4 +351,5 @@ public static class ProcurementRequestRoutes
         DateOnly? NeededBy, decimal? DiscountPercent, string? TaxCodeRef,
         string? CostCenterRef, string? ProjectRef, Guid? SpecificationDocumentRefId);
     public sealed record VersionCommand(long Version);
+    public sealed record WithdrawCommand(long Version, string? Reason = null);
 }
