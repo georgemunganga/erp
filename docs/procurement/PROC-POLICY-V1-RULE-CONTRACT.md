@@ -74,7 +74,7 @@ Money comparisons use decimal arithmetic in the declared currency. Start bounds 
 
 Publication requires structural validation, reference checks, fallback coverage, equal-priority overlap analysis, a reason and a reviewer distinct from the author. The implemented permission is `procurement-configuration-approve`; a Core approval task and delegated-authority decision are still outstanding. Every approval stage needs an assignable Core role/relationship and a positive quorum before real transaction enforcement. `NoApproval` is an explicit policy result only where governance authorizes it and never bypasses a required Finance reservation or legal/PO control. Published rule content is immutable; change creates a successor version. Controlled supersession may close the previous open-ended effective period and records that change in audit.
 
-The read-only version resolver returns `MissingPolicy`, `AmbiguousPolicy` or `Valid`. The future real-request evaluator will need `CurrencyMismatch`, `NoMatchingRule`, `AmbiguousRule` and `InactiveReference` results. These are business results, not server errors. No failure state grants purchase authority.
+The read-only version resolver returns `MissingPolicy`, `AmbiguousPolicy` or `Valid`. The submitted-request check records `CurrencyMismatch`, `NoMatchingRule`, `AmbiguousRule` and `InactiveReference` as business results where applicable. Missing and ambiguous policy versions remain pending without a persisted evaluation. No failure state grants purchase authority.
 
 ## Test obligations
 
