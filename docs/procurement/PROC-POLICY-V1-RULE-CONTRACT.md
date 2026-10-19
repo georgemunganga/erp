@@ -1,12 +1,12 @@
 # Procurement policy v1 rule contract
 
-**Status:** Design draft for product and engineering review, 19 October 2026
+**Status:** Design draft with a structural validator implemented, 19 October 2026
 **Owner:** Procurement governance and ERP Core
 **Depends on:** [PROC-CFG-01](PROC-CFG-01-PROCUREMENT-CONFIGURATION-AND-POLICY.md), [ADR-002](ADR-002-SHARED-APPROVAL-BOUNDARY.md)
 
 ## Purpose
 
-Define a bounded, testable policy format before a draft can be published or used to approve spending. The existing policy-draft API stores a JSON object for review but does not interpret it. This contract describes the next validation and resolver increment; it is not an approved Amizo Power purchasing policy.
+Define a bounded, testable policy format before a draft can be published or used to approve spending. The policy-draft API stores a JSON object for review. `POST /api/procurement/v1/configuration/policies/validate` now checks the proposed v1 structure and returns field-specific issues without saving or activating it. The resolver and publication gates below remain design requirements. This is not an approved Amizo Power purchasing policy.
 
 ERPNext documents workflow states, transition rules and conditional approvals in its [workflow guide](https://docs.frappe.io/erpnext/workflows). GreenWebb should use those concepts while keeping company scope, a typed rule schema and domain guards explicit. No policy field will contain executable code or database expressions.
 
@@ -49,6 +49,8 @@ The first policy keys are `PURCHASE_REQUEST` and `PURCHASE_ORDER`. Other transac
 ```
 
 The example contains **no amount or sourcing threshold**. Business owners must set those values and authorize the policy before publication. `null` amount bounds mean unbounded; an empty dimension list means no restriction for that dimension. A rule with no conditions can serve as an explicit fallback. The editor must display these meanings in plain language.
+
+The structural validator limits documents to 64 KB and 100 rules, rejects unsupported fields, invalid amount bounds and duplicate rule or stage codes, and requires explicit control results. A successful validation response only means the JSON shape is acceptable. It does not verify referenced categories, branches, methods, reviewer authority, rule coverage or overlap; those checks belong to the publication workflow.
 
 ## Deterministic evaluation
 

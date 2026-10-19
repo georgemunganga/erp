@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
@@ -16,7 +17,14 @@ public static class ProcurementPolicyDraftRoutes
         group.MapGet("", List).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-configuration-read");
         group.MapPost("", Create).RequireAuthorization("procurement-configuration-edit");
+        group.MapPost("/validate", ValidateRules).RequireAuthorization("procurement-configuration-edit");
         group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-configuration-edit");
+    }
+
+    private static IResult ValidateRules(PolicyValidationRequest input)
+    {
+        var issues = PolicyRuleValidator.Validate(input.RulesJson);
+        return Results.Ok(new { isValid = issues.Count == 0, issues });
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, string? key,
@@ -137,4 +145,5 @@ public static class ProcurementPolicyDraftRoutes
     public sealed record PolicyDraft(string? PolicyKey, DateTimeOffset EffectiveFrom,
         DateTimeOffset? EffectiveTo, string? RulesJson);
     public sealed record VersionedPolicyDraft(long Version, PolicyDraft Draft);
+    public sealed record PolicyValidationRequest(string? RulesJson);
 }

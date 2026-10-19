@@ -529,6 +529,48 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Policy_rule_validation_reports_field_issues_without_publishing()
+    {
+        await using var fixture = await Fixture.Start();
+        const string path = "/api/procurement/v1/configuration/policies/validate";
+        var rules = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, transactionType = "PurchaseRequest", currencyCode = "ZMW",
+            amountBasis = "EstimatedGross",
+            rules = new[] { new
+            {
+                code = "DEFAULT", priority = 0,
+                when = new { minimumAmountInclusive = (decimal?)null,
+                    maximumAmountExclusive = (decimal?)null, categoryCodes = Array.Empty<string>(),
+                    purchaseTypes = Array.Empty<string>(), branchIds = Array.Empty<string>() },
+                result = new { budgetReservation = "Required", sourcingMethodCode = (string?)null,
+                    minimumQuoteCount = (int?)null, approvalStages = new[]
+                    { new { code = "NEED", assignee = "LineManager", mode = "One" } } },
+            } },
+        });
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+                new ProcurementPolicyDraftRoutes.PolicyValidationRequest(rules),
+                "procurement_buyer")).StatusCode);
+        var valid = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+            new ProcurementPolicyDraftRoutes.PolicyValidationRequest(rules), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+        Assert.True((await valid.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("isValid").GetBoolean());
+        var invalid = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+            new ProcurementPolicyDraftRoutes.PolicyValidationRequest(rules.Replace("EstimatedGross", "Net", StringComparison.Ordinal)),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, invalid.StatusCode);
+        var result = await invalid.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(result.GetProperty("isValid").GetBoolean());
+        Assert.Contains(result.GetProperty("issues").EnumerateArray(), x =>
+            x.GetProperty("path").GetString() == "$.amountBasis");
+        Assert.Equal(0, (await (await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/configuration/policies", fixture.Owner,
+            role: "procurement_manager")).Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+    }
+
+    [Fact]
     public async Task Independent_review_activates_category_then_item_without_publishing_a_price()
     {
         await using var fixture = await Fixture.Start();
