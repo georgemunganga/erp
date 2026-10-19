@@ -53,7 +53,8 @@ public static class ProcurementPolicyDraftRoutes
         var policy = new PolicyVersion
         {
             PolicyKey = key, PolicyVersionNumber = next, State = "Draft",
-            EffectiveFrom = input.EffectiveFrom, EffectiveTo = input.EffectiveTo,
+            EffectiveFrom = input.EffectiveFrom.ToUniversalTime(),
+            EffectiveTo = input.EffectiveTo?.ToUniversalTime(),
             RulesJson = input.RulesJson!.Trim(),
         };
         db.AddScoped(policy);
@@ -77,8 +78,8 @@ public static class ProcurementPolicyDraftRoutes
         if (issue is not null) return Problem("validation-failed", issue, 422);
         if (!string.Equals(policy.PolicyKey, input.Draft.PolicyKey!.Trim(), StringComparison.OrdinalIgnoreCase))
             return Problem("key-locked", "A policy key cannot be changed. Start another draft.", 409);
-        policy.EffectiveFrom = input.Draft.EffectiveFrom;
-        policy.EffectiveTo = input.Draft.EffectiveTo;
+        policy.EffectiveFrom = input.Draft.EffectiveFrom.ToUniversalTime();
+        policy.EffectiveTo = input.Draft.EffectiveTo?.ToUniversalTime();
         policy.RulesJson = input.Draft.RulesJson!.Trim();
         AddAudit(db, policy, scope.SubjectId, "DraftUpdated");
         try { await db.SaveChangesAsync(ct); }

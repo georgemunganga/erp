@@ -473,7 +473,7 @@ public sealed class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start();
         const string policies = "/api/procurement/v1/configuration/policies";
-        var from = DateTimeOffset.UtcNow.AddDays(1);
+        var from = DateTimeOffset.UtcNow.AddDays(1).ToOffset(TimeSpan.FromHours(2));
         var draft = new ProcurementPolicyDraftRoutes.PolicyDraft("PURCHASE_REQUEST", from,
             from.AddMonths(1), "{\"schemaVersion\":1}");
         Assert.Equal(HttpStatusCode.Forbidden,
@@ -489,6 +489,8 @@ public sealed class ProcurementRequestHttpTests
         var id = policy.GetProperty("id").GetGuid();
         Assert.Equal("Draft", policy.GetProperty("state").GetString());
         Assert.Equal(1, policy.GetProperty("policyVersionNumber").GetInt32());
+        Assert.Equal(TimeSpan.Zero, policy.GetProperty("effectiveFrom").GetDateTimeOffset().Offset);
+        Assert.Equal(from.ToUniversalTime(), policy.GetProperty("effectiveFrom").GetDateTimeOffset());
         Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftCreated"));
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, $"{policies}/{id}", fixture.Owner,
