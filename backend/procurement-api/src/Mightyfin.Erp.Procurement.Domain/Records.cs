@@ -203,6 +203,9 @@ public sealed class PurchaseRequest : ProcurementRecord
     public string? SourceChannel { get; set; }
     public DateTimeOffset? SubmittedAt { get; set; }
     public long? SubmittedVersion { get; set; }
+    public DateTimeOffset? ReturnedAt { get; set; }
+    public string? ReturnedBySubjectId { get; set; }
+    public string? ReturnReason { get; set; }
     public string? ApprovalInstanceRef { get; set; }
     public string? ApprovalState { get; set; }
     public ICollection<PurchaseRequestLine> Lines { get; set; } = new List<PurchaseRequestLine>();

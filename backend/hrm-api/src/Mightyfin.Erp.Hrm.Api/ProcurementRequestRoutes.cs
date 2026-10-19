@@ -17,9 +17,12 @@ public static class ProcurementRequestRoutes
         var group = app.MapGroup("/api/procurement/v1/requests");
         group.MapGet("", List).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-request-read");
+        group.MapGet("/{id:guid}/review", GetForReview).RequireAuthorization("procurement-request-return");
         group.MapPost("", Create).RequireAuthorization("procurement-request-create");
         group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-request-edit");
         group.MapPost("/{id:guid}/submit", Submit).RequireAuthorization("procurement-request-submit");
+        group.MapPost("/{id:guid}/return-for-changes", ReturnForChanges)
+            .RequireAuthorization("procurement-request-return");
         group.MapPost("/{id:guid}/withdraw", Withdraw).RequireAuthorization("procurement-request-edit");
     }
 
@@ -45,6 +48,16 @@ public static class ProcurementRequestRoutes
         var request = await db.PurchaseRequests.AsNoTracking().Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         return request is null ? Error("not-found", "Request not found.", 404) : Results.Ok(ToDetail(request));
+    }
+
+    private static async Task<IResult> GetForReview(Guid id, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var request = await db.PurchaseRequests.AsNoTracking().Include(x => x.Lines)
+            .SingleOrDefaultAsync(x => x.Id == id && x.Status == "Submitted", ct);
+        if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
+            return Error("not-found", "Request not found.", 404);
+        return Results.Ok(ToDetail(request));
     }
 
     private static async Task<IResult> Create(NewRequest input, ProcurementDbContext db, HrmDbContext core,
@@ -95,7 +108,8 @@ public static class ProcurementRequestRoutes
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
-        if (request.Status != "Draft") return Error("request-locked", "Only a draft request can be changed.", 409);
+        if (request.Status is not ("Draft" or "ReturnedForChanges"))
+            return Error("request-locked", "Only a draft or returned request can be changed.", 409);
         if (request.Version != input.Version) return Error("version-conflict", "Refresh this request before saving changes.", 409);
         if (scope.WorkerId != request.RequesterWorkerId)
             return Error("employee-unavailable", "An active employee record is needed to change this request.", 403);
@@ -149,17 +163,28 @@ public static class ProcurementRequestRoutes
     private static async Task<IResult> Withdraw(Guid id, WithdrawCommand input, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+        try
+        {
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
-        if (request.Status is not ("Draft" or "Submitted"))
-            return Error("request-locked", "Only a draft or submitted request can be withdrawn here.", 409);
+        if (request.Status is not ("Draft" or "Submitted" or "ReturnedForChanges"))
+            return Error("request-locked", "Only a draft, returned or submitted request can be withdrawn here.", 409);
         if (request.Version != input.Version) return Error("version-conflict", "Refresh this request before withdrawing it.", 409);
         if (scope.WorkerId != request.RequesterWorkerId)
             return Error("employee-unavailable", "An active employee record is needed to withdraw this request.", 403);
         if (request.Status == "Submitted" && (string.IsNullOrWhiteSpace(input.Reason)
             || input.Reason.Trim().Length > 1000))
             return Error("validation-failed", "Give a reason of up to 1,000 characters for withdrawing a submitted request.", 422);
+        if (request.Status == "Submitted" && request.ApprovalInstanceRef is not null)
+            return Error("request-locked", "Cancel the active approval before withdrawing this request.", 409);
+        if (request.Status == "Submitted" && await db.BudgetCheckSnapshots.AsNoTracking()
+                .AnyAsync(x => x.PurchaseRequestId == id && x.RequestVersion == request.Version
+                    && x.ReservationStatus == "Confirmed", ct))
+            return Error("budget-reservation-active",
+                "Finance must release the confirmed reservation before this request can be withdrawn.", 409);
         var priorStatus = request.Status;
         request.Status = "Withdrawn";
         request.ApprovalState = "Withdrawn";
@@ -177,9 +202,13 @@ public static class ProcurementRequestRoutes
                 from = priorStatus, to = "Withdrawn", reason = input.Reason?.Trim(),
             }),
         });
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateConcurrencyException) { return Error("version-conflict", "Refresh this request before withdrawing it.", 409); }
+        await db.SaveChangesAsync(ct);
+        if (transaction is not null) await transaction.CommitAsync(ct);
         return Results.Ok(ToDetail(request));
+        }
+        catch (DbUpdateConcurrencyException) { return Error("version-conflict", "Refresh this request before withdrawing it.", 409); }
+        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        { return Error("withdrawal-conflict", "The funding or request state changed. Refresh before withdrawing it.", 409); }
     }
 
     private static async Task<IResult> Submit(Guid id, VersionCommand input, ProcurementDbContext db,
@@ -190,8 +219,8 @@ public static class ProcurementRequestRoutes
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
-        if (request.Status != "Draft")
-            return Error("request-locked", "Only a draft request can be submitted.", 409);
+        if (request.Status is not ("Draft" or "ReturnedForChanges"))
+            return Error("request-locked", "Only a draft or returned request can be submitted.", 409);
         if (request.Version != input.Version)
             return Error("version-conflict", "Refresh this request before submitting it.", 409);
         if (scope.WorkerId != request.RequesterWorkerId)
@@ -210,10 +239,14 @@ public static class ProcurementRequestRoutes
         decimal estimatedTotal;
         try { estimatedTotal = currentLines.Sum(x => x.RequestedQuantity * x.EstimatedUnitPrice); }
         catch (OverflowException) { return Error("validation-failed", "The estimated amount is too large.", 422); }
+        var priorStatus = request.Status;
         request.Status = "Submitted";
         request.ApprovalState = "PendingPolicyAndBudget";
         request.SubmittedAt = DateTimeOffset.UtcNow;
         request.SubmittedVersion = request.Version + 1;
+        request.ReturnedAt = null;
+        request.ReturnedBySubjectId = null;
+        request.ReturnReason = null;
         var policyAssessment = await ProcurementPolicyEvaluation.Assess(request, db, scope,
             "Submission", ct);
         db.AddScoped(new AuditEvent
@@ -222,9 +255,10 @@ public static class ProcurementRequestRoutes
             ActorSubjectId = scope.SubjectId,
             ChangedFieldsJson = JsonSerializer.Serialize(new
             {
-                from = "Draft", to = "Submitted", version = request.SubmittedVersion,
+                from = priorStatus, to = "Submitted", version = request.SubmittedVersion,
                 lineCount = currentLines.Length, estimatedTotal, request.CurrencyCode,
                 policyStatus = policyAssessment.Status,
+                snapshot = SubmissionSnapshot(request, currentLines),
             }),
         });
         try
@@ -241,6 +275,60 @@ public static class ProcurementRequestRoutes
         catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
         { return Error("version-conflict", "A selected item or catalog price changed. Refresh before submitting.", 409); }
         return Results.Ok(ToDetail(request));
+    }
+
+    private static async Task<IResult> ReturnForChanges(Guid id, ReturnInput input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+        try
+        {
+            var request = await db.PurchaseRequests.Include(x => x.Lines)
+                .SingleOrDefaultAsync(x => x.Id == id, ct);
+            if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
+                return Error("not-found", "Request not found.", 404);
+            if (request.CreatedBy == scope.SubjectId)
+                return Error("self-review", "The requester cannot return their own request for changes.", 403);
+            if (request.Status != "Submitted" || request.ApprovalInstanceRef is not null)
+                return Error("request-locked", "Only a submitted request without an active approval can be returned here.", 409);
+            if (request.Version != input.Version)
+                return Error("version-conflict", "Refresh this request before returning it.", 409);
+            var reason = input.Reason?.Trim();
+            if (string.IsNullOrWhiteSpace(reason) || reason.Length > 1000)
+                return Error("validation-failed", "Explain what needs to change in up to 1,000 characters.", 422);
+            if (await db.BudgetCheckSnapshots.AsNoTracking().AnyAsync(x =>
+                    x.PurchaseRequestId == id && x.RequestVersion == request.Version
+                    && x.ReservationStatus == "Confirmed", ct))
+                return Error("budget-reservation-active",
+                    "Finance must release the confirmed reservation before this request can be returned.", 409);
+
+            request.Status = "ReturnedForChanges";
+            request.ApprovalState = "ReturnedForChanges";
+            request.ReturnedAt = DateTimeOffset.UtcNow;
+            request.ReturnedBySubjectId = scope.SubjectId;
+            request.ReturnReason = reason;
+            db.AddScoped(new AuditEvent
+            {
+                RecordType = "PurchaseRequest", RecordId = id, Action = "ReturnedForChanges",
+                ActorSubjectId = scope.SubjectId,
+                ChangedFieldsJson = JsonSerializer.Serialize(new
+                {
+                    from = "Submitted", to = "ReturnedForChanges", requestVersion = input.Version,
+                    reason, returnedAt = request.ReturnedAt,
+                    submittedSnapshot = SubmissionSnapshot(request,
+                        request.Lines.Where(x => x.ApprovalStatus != "Cancelled")
+                            .OrderBy(x => x.LineNumber).ToArray()),
+                }),
+            });
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return Results.Ok(ToDetail(request));
+        }
+        catch (DbUpdateConcurrencyException)
+        { return Error("version-conflict", "Refresh this request before returning it.", 409); }
+        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        { return Error("return-conflict", "The funding or request state changed. Refresh before returning it.", 409); }
     }
 
     private static async Task<string?> ValidateStoredReferences(PurchaseRequestLine[] lines,
@@ -395,6 +483,7 @@ public static class ProcurementRequestRoutes
     private static object ToDetail(PurchaseRequest x) => new
     {
         x.Id, x.Number, x.Status, x.ApprovalState, x.SubmittedAt, x.SubmittedVersion,
+        x.ReturnedAt, x.ReturnedBySubjectId, x.ReturnReason,
         x.Version, x.RequesterWorkerId, x.Purpose, x.CurrencyCode,
         x.NeededBy, x.BranchRef, x.DepartmentRef, x.CostCenterRef, x.ProjectRef,
         x.DeliveryLocationRef, x.DeliveryAddressText, x.FundingSourceRef, x.NotesToApprover,
@@ -409,6 +498,23 @@ public static class ProcurementRequestRoutes
             line.ProjectRef, line.SpecificationDocumentRefId, line.ApprovalStatus,
             line.CancelledQuantity,
         }),
+    };
+
+    private static object SubmissionSnapshot(PurchaseRequest request, PurchaseRequestLine[] lines) => new
+    {
+        request.Id, request.SubmittedVersion, request.Purpose,
+        request.CurrencyCode, request.NeededBy, request.BranchRef, request.DepartmentRef,
+        request.CostCenterRef, request.ProjectRef, request.DeliveryLocationRef,
+        request.DeliveryAddressText, request.FundingSourceRef, request.NotesToApprover,
+        lines = lines.Select(line => new
+        {
+            line.Id, line.LineNumber, line.Description, line.UnitCode,
+            line.RequestedQuantity, line.EstimatedUnitPrice, line.DiscountPercent,
+            line.CategoryCode, line.PurchaseType, line.NeededBy,
+            line.CatalogItemId, line.CatalogEntryId, line.CatalogPublishedVersion,
+            line.PreferredSupplierId, line.CostCenterRef, line.ProjectRef,
+            line.SpecificationDocumentRefId,
+        }).ToArray(),
     };
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
@@ -434,5 +540,6 @@ public static class ProcurementRequestRoutes
         string? CostCenterRef, string? ProjectRef, Guid? SpecificationDocumentRefId,
         Guid? CatalogEntryId = null);
     public sealed record VersionCommand(long Version);
+    public sealed record ReturnInput(long Version, string? Reason);
     public sealed record WithdrawCommand(long Version, string? Reason = null);
 }

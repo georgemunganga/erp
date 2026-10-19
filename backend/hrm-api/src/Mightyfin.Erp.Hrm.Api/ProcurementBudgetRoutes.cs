@@ -1,5 +1,7 @@
+using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -72,6 +74,8 @@ public static class ProcurementBudgetRoutes
     private static async Task<IResult> Record(Guid id, BudgetDecision input,
         ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
@@ -139,8 +143,14 @@ public static class ProcurementBudgetRoutes
                 reservationRef, reservationStatus, reason,
             }),
         });
-        try { await db.SaveChangesAsync(ct); }
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+        }
         catch (DbUpdateException) { return Error("finance-reference-conflict", "This Finance check reference has already been used.", 409); }
+        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        { return Error("budget-check-conflict", "The request or funding changed. Refresh before recording the Finance check.", 409); }
         return Results.Created($"/api/procurement/v1/requests/{id}/budget-checks", ToResult(decision));
     }
 

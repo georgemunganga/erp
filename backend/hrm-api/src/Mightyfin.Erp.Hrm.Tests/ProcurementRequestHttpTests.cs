@@ -213,6 +213,21 @@ public sealed class ProcurementRequestHttpTests
         var own = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
         Assert.Equal("PendingPolicyAndBudget", (await own.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("approvalState").GetString());
+        var protectedReturn = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/requests/{id}/return-for-changes", fixture.Other,
+            new ProcurementRequestRoutes.ReturnInput(version, "Correct the requested amount"),
+            "procurement_manager");
+        Assert.Equal(HttpStatusCode.Conflict, protectedReturn.StatusCode);
+        Assert.Equal("budget-reservation-active",
+            (await protectedReturn.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("code").GetString());
+        var protectedWithdrawal = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/requests/{id}/withdraw", fixture.Owner,
+            new ProcurementRequestRoutes.WithdrawCommand(version, "Need has changed"));
+        Assert.Equal(HttpStatusCode.Conflict, protectedWithdrawal.StatusCode);
+        Assert.Equal("budget-reservation-active",
+            (await protectedWithdrawal.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("code").GetString());
     }
 
     [Fact]
@@ -698,6 +713,101 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(id, item.GetProperty("id").GetGuid());
         Assert.Equal("Blocked", item.GetProperty("policyOutcome").GetString());
         Assert.Equal("InactiveReference", item.GetProperty("policyResultCode").GetString());
+    }
+
+    [Fact]
+    public async Task Buyer_can_return_a_blocked_request_for_correction_and_new_rule_evidence()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.AddPublishedBuyingPolicy();
+        const string requests = "/api/procurement/v1/requests";
+        var input = Draft("Correct category") with
+        {
+            NeededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+            Lines = [Draft("Correct category").Lines![0] with { CategoryCode = "UNKNOWN" }],
+        };
+        var created = await SendJson(fixture.Client, HttpMethod.Post, requests, fixture.Owner, input);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{requests}/{id}/submit", fixture.Owner,
+            new ProcurementRequestRoutes.VersionCommand(draft.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var first = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        var oldVersion = first.GetProperty("version").GetInt64();
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, $"{requests}/{id}/review",
+                fixture.Owner, role: "employee")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, $"{requests}/{id}/review",
+                fixture.Other, fixture.OtherCompany, "procurement_manager")).StatusCode);
+        var review = await Send(fixture.Client, HttpMethod.Get,
+            $"{requests}/{id}/review", fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, review.StatusCode);
+        Assert.Equal("UNKNOWN", (await review.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("lines")[0].GetProperty("categoryCode").GetString());
+        var path = $"{requests}/{id}/return-for-changes";
+        var command = new ProcurementRequestRoutes.ReturnInput(oldVersion, "Choose an active buying category.");
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await fixture.Client.PostAsJsonAsync(path, command)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+                command, "employee")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
+                command, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                command with { Reason = " " }, "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                command with { Version = oldVersion - 1 }, "procurement_manager")).StatusCode);
+        var returned = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            command, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, returned.StatusCode);
+        var correction = await returned.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("ReturnedForChanges", correction.GetProperty("status").GetString());
+        Assert.Equal(command.Reason, correction.GetProperty("returnReason").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "ReturnedForChanges"));
+        var returnEvidence = await fixture.AuditPayload(id, "ReturnedForChanges");
+        Assert.Equal("UNKNOWN", returnEvidence.GetProperty("submittedSnapshot")
+            .GetProperty("lines")[0].GetProperty("CategoryCode").GetString());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                command, "procurement_manager")).StatusCode);
+        var priorStatus = await Send(fixture.Client, HttpMethod.Get,
+            $"{requests}/{id}/policy-status", fixture.Owner);
+        Assert.Equal("NotSubmitted", (await priorStatus.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+
+        var fixedLine = input.Lines![0] with
+        {
+            Id = correction.GetProperty("lines")[0].GetProperty("id").GetGuid(),
+            CategoryCode = null,
+        };
+        var updated = await SendJson(fixture.Client, HttpMethod.Put,
+            $"{requests}/{id}", fixture.Owner,
+            new ProcurementRequestRoutes.UpdateRequest(
+                correction.GetProperty("version").GetInt64(), input.Purpose, null,
+                input.NeededBy, null, null, null, null, null, null, [fixedLine]));
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var revised = await updated.Content.ReadFromJsonAsync<JsonElement>();
+        var resubmitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"{requests}/{id}/submit", fixture.Owner,
+            new ProcurementRequestRoutes.VersionCommand(revised.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.OK, resubmitted.StatusCode);
+        var current = await resubmitted.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Submitted", current.GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.Null, current.GetProperty("returnReason").ValueKind);
+        Assert.True(current.GetProperty("version").GetInt64() > oldVersion);
+        var policy = await Send(fixture.Client, HttpMethod.Get,
+            $"{requests}/{id}/policy-status", fixture.Owner);
+        Assert.Equal("Matched", (await policy.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("status").GetString());
+        Assert.Equal(2, await fixture.RequestAuditCount(id, "PolicyEvaluated"));
+        var originalEvidence = await fixture.AuditPayload(id, "ReturnedForChanges");
+        Assert.Equal("UNKNOWN", originalEvidence.GetProperty("submittedSnapshot")
+            .GetProperty("lines")[0].GetProperty("CategoryCode").GetString());
     }
 
     [Fact]
@@ -1481,6 +1591,18 @@ public sealed class ProcurementRequestHttpTests
                 .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
             var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             return await db.AuditEvents.CountAsync(x => x.RecordId == requestId && x.Action == action);
+        }
+
+        public async Task<JsonElement> AuditPayload(Guid requestId, string action)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var json = await db.AuditEvents.Where(x => x.RecordId == requestId && x.Action == action)
+                .OrderByDescending(x => x.CreatedAt).Select(x => x.ChangedFieldsJson)
+                .FirstAsync();
+            return JsonDocument.Parse(json!).RootElement.Clone();
         }
 
         public async Task<Guid> AddDraftPolicy()

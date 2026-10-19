@@ -2693,6 +2693,20 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("requester_worker_id");
 
+                    b.Property<string>("ReturnReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("return_reason");
+
+                    b.Property<DateTimeOffset?>("ReturnedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("returned_at");
+
+                    b.Property<string>("ReturnedBySubjectId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("returned_by_subject_id");
+
                     b.Property<Guid?>("SiteRef")
                         .HasColumnType("uuid")
                         .HasColumnName("site_ref");

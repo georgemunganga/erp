@@ -283,6 +283,8 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
             b.Property(x => x.Status).HasMaxLength(40);
             b.Property(x => x.SourceChannel).HasMaxLength(40);
             b.Property(x => x.ApprovalState).HasMaxLength(40);
+            b.Property(x => x.ReturnedBySubjectId).HasMaxLength(200);
+            b.Property(x => x.ReturnReason).HasMaxLength(1000);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.RequesterWorkerId, x.Status });
             b.HasMany(x => x.Lines).WithOne()

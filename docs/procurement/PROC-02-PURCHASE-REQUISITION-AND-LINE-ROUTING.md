@@ -69,6 +69,8 @@ An authenticated, active workforce subject has a permitted tenant/entity and org
 
 Every scenario records actor, effective policy, source version, reason where required, timestamp, related documents and correlation. The buyer's route decision is distinct from the requester's need and from the approver's authority.
 
+**Correction implementation checkpoint:** A buyer or procurement manager with `procurement-request-return` may return a Submitted PR for changes with a reason and current version, provided no approval instance or confirmed Finance reservation is active. The requester can revise and resubmit; the earlier submitted contents and return reason remain in append-only audit evidence. Resubmission creates a new request version and buying-rule check; the previous Finance check is stale and must be redone. The return route is a correction control, not an approval or a Finance reservation release. Return and withdrawal of a reserved submitted request are blocked until Finance releases the reservation through its own authorized process.
+
 ## 9. Status and State Transitions
 
 **Model:** a PR has a submission/approval status; each line also has route and fulfillment dimensions. Do not encode all three dimensions in one mutable string. The header is derived from its lines plus the current approval instance.
