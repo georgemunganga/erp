@@ -544,19 +544,32 @@ public sealed class ProcurementRequestHttpTests
                     catalogEntryId = entry.GetProperty("id").GetGuid(), categoryCode = "OFFICE" } },
             }, "procurement_buyer");
         Assert.Equal(HttpStatusCode.UnprocessableEntity, invalidPriceRequest.StatusCode);
+        var wrongCurrencyRequest = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/requests", fixture.Owner, new
+            {
+                purpose = "Office chair", currencyCode = "USD", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+                lines = new[] { new { description = "Chair", unitCode = "each", requestedQuantity = 1,
+                    estimatedUnitPrice = 250, catalogItemId = itemId, preferredSupplierId = vendorId,
+                    catalogEntryId = entry.GetProperty("id").GetGuid(), categoryCode = "OFFICE" } },
+            }, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, wrongCurrencyRequest.StatusCode);
         var requestResponse = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/requests", fixture.Owner, new
             {
                 purpose = "Office chair", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
                 lines = new[] { new { description = "Chair", unitCode = "each", requestedQuantity = 1,
-                    estimatedUnitPrice = 250, catalogItemId = itemId, preferredSupplierId = vendorId,
-                    catalogEntryId = entry.GetProperty("id").GetGuid(), categoryCode = "OFFICE" } },
+                    estimatedUnitPrice = 250, catalogItemId = (Guid?)itemId, preferredSupplierId = (Guid?)vendorId,
+                    catalogEntryId = (Guid?)entry.GetProperty("id").GetGuid(), categoryCode = "OFFICE" },
+                    new { description = "Office supplies", unitCode = "each", requestedQuantity = 1,
+                        estimatedUnitPrice = 25, catalogItemId = (Guid?)null, preferredSupplierId = (Guid?)null,
+                        catalogEntryId = (Guid?)null, categoryCode = "OFFICE" } },
             }, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Created, requestResponse.StatusCode);
         var request = await requestResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(entry.GetProperty("id").GetGuid(), request.GetProperty("lines")[0]
             .GetProperty("catalogEntryId").GetGuid());
         Assert.Equal(1, request.GetProperty("lines")[0].GetProperty("catalogPublishedVersion").GetInt32());
+        Assert.Equal(JsonValueKind.Null, request.GetProperty("lines")[1].GetProperty("catalogEntryId").ValueKind);
         Assert.Equal(HttpStatusCode.BadRequest,
             (await SendJson(fixture.Client, HttpMethod.Post,
                 $"{entryPath}/{entry.GetProperty("id").GetGuid()}/withdraw", fixture.Owner,

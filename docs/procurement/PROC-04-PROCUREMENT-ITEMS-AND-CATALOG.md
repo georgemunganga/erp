@@ -2,6 +2,8 @@
 
 **Status:** Draft for business review · **Version:** 0.1 · **Hierarchy:** Procurement → Items and Procurement Catalog → Item Reference and Employee Catalog → Operations · **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx) · **Module:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 
+**Implementation checkpoint, 19 October 2026:** P11 adds an optional, company-scoped catalog entry reference and published version to each purchase-request line. The employee catalog exposes only currently published, broadly eligible entries. Request draft create/update verifies item, supplier, unit, currency, unit price, quantity limits and effective period against the selected entry. Submission repeats those checks in a serializable transaction, so a withdrawn or changed price cannot be submitted from an old draft. The request detail retains the entry ID and published version. This is guided draft buying; it does not approve spend, reserve a budget, issue a PO or make site/contract-restricted catalog entries available. API workflow tests, mocked browser flows and a restored PostgreSQL migration rehearsal provide the current evidence; a real-session production transaction remains a release check.
+
 ## 1. Feature Identification
 
 `PROC-04`, later phase after shared item ownership is agreed. Business owner: category/catalog lead; product, data and technical owners to name. Operations: `O1` create/classify item, `O2` approve/publish catalog entry, `O3` request from catalog, `O4` update price/availability, `O5` retire and reconcile open requests.
