@@ -33,13 +33,13 @@ Source model regression asserts GoodsReceiptLine SourceStateBindingId/PhysicalBi
 
 ## Down — first operation must be a literal used-evidence stop guard
 
-A transactionally executed guard must run **before** dropping any pointer, FK, check, index, column or table. Refuse with an actionable exception if any of these exists:
+A transactionally executed guard must acquire `ACCESS EXCLUSIVE` locks on every inspected matching, invoice, result, exception, commercial receipt, audit and outbox table **before** its first existence check. Retain those locks through the migration transaction so concurrent commands cannot create evidence between inspection and DDL. The guard must run **before** dropping any pointer, FK, check, index, column or table. Refuse with an actionable exception if any of these exists:
 
 - Any row in any of the three new matching tables, including an Unknown/sequence0 exposure checkpoint or an unverified mapping. Blocked results and unverified proposals are retained evidence too; no claimed-capacity-only loophole.
 - Any invoice nonzero MappingRevision/MatchRevision, nonnull mapping/result/active-claim pointer, or MatchingState other than the untouched default NotCompared (null/unexpected raw values also require review).
 - Any existing match result ExecutionVersion<>0 or any nondefault new execution metadata: mapping/PO/issued pins, InvoiceVersion<>0, actor/worker/command/hash/evidence/source-watermark values. Do not rely only on Outcome, because legacy outcome strings overlap.
 - Any exception new matching/result/line/discrepancy/worker/resolving-result metadata populated. Preserve legacy exceptions unchanged rather than deleting them to permit reversal.
-- Any durable commercial receipt for InvoiceMapping/InvoiceCompare or matching outbox/audit evidence referring to these operations. Do not strand replay or audit evidence by removing its schema.
+- Any durable commercial receipt for InvoiceMapping/InvoiceCompare, operation-named matching audit evidence, generic audit records with RecordType InvoiceMatchMappingVersion/InvoiceMatchExposureState/InvoiceMatchAllocation (regardless create/update action), or supplier_invoice.compared.v1 outbox evidence. Do not strand replay or audit evidence by removing its schema.
 - Any nonnull TaxVariance that cannot round-trip to numeric18,4 exactly: `abs(tax_variance)>99999999999999.9999 OR tax_variance<>round(tax_variance,4)`. No USING round()/truncation or overflow fallback. Check before narrowing even when ExecutionVersion0.
 
 A pristine matching schema with unrelated retained legacy invoice/results may reverse only after these checks pass, within the same transaction. Retained external Finance/AP policy/configuration records are not erased by Down. If used evidence exists, roll back code using compatible disabled capabilities or restore a reviewed backup; do not delete evidence or force the migration history.
