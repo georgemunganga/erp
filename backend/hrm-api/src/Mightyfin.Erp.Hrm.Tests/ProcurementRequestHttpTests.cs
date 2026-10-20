@@ -1928,6 +1928,69 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(0, await fixture.InvoiceHandoffCount());
     }
 
+    [Theory]
+    [InlineData("quantity","1.00000000000000000000000000001")]
+    [InlineData("unitPrice","1.00000000000000000000000000001")]
+    [InlineData("taxAmount","1.00000000000000000000000000001")]
+    [InlineData("quantity","\"1.00000000000000000000000000001\"")]
+    [InlineData("unitPrice","\"0.00001\"")]
+    [InlineData("taxAmount","1e-1000")]
+    [InlineData("quantity","100000000000000")]
+    public async Task Invoice_raw_decimal_lexemes_reject_without_rounding_or_any_writes(string field,string token)
+    {
+        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        var before=await fixture.InvoiceReadinessFootprint();
+        var values=new Dictionary<string,string> { ["quantity"]="1",["unitPrice"]="1",["taxAmount"]="0" };values[field]=token;
+        var line="{\"description\":\"Raw exact invoice\",\"quantity\":"+values["quantity"]+",\"unitPrice\":"+values["unitPrice"]+",\"taxAmount\":"+values["taxAmount"]+"}";
+        using var response=await RawInvoice(fixture,supplier,"RAW-LEXEME",line);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Contains("four decimal",error.GetProperty("message").GetString());
+        Assert.Equal(before,await fixture.InvoiceReadinessFootprint());
+    }
+    [Theory]
+    [InlineData("product-overflow")][InlineData("aggregate-overflow")][InlineData("gross-overflow")]
+    [InlineData("header-scale")][InlineData("invoice-number")][InlineData("null-line")]
+    public async Task Invoice_exact_header_contract_rejects_before_tracking_or_persisting(string scenario)
+    {
+        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        var before=await fixture.InvoiceReadinessFootprint();var number="INVALID-HEADER";
+        var lines=scenario switch
+        {
+            "product-overflow"=>"{\"description\":\"Overflow\",\"quantity\":\"99999999999999.9999\",\"unitPrice\":\"99999999999999.9999\",\"taxAmount\":0}",
+            "aggregate-overflow"=>string.Join(',',Enumerable.Repeat("{\"description\":\"Aggregate\",\"quantity\":1,\"unitPrice\":999999999999.9999,\"taxAmount\":0}",200)),
+            "gross-overflow"=>"{\"description\":\"Gross\",\"quantity\":1,\"unitPrice\":\"99999999999999.9999\",\"taxAmount\":0.0001}",
+            "header-scale"=>"{\"description\":\"No rounding\",\"quantity\":0.0001,\"unitPrice\":0.0001,\"taxAmount\":0}",
+            "null-line"=>"null",
+            _=>"{\"description\":\"Long number\",\"quantity\":1,\"unitPrice\":1,\"taxAmount\":0}"
+        };
+        if(scenario=="invoice-number") number=new string('N',81);
+        using var response=await RawInvoice(fixture,supplier,number,lines);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Equal(before,await fixture.InvoiceReadinessFootprint());
+    }
+    [Fact]
+    public async Task Invoice_exact_eight_place_products_may_sum_to_representable_header_without_line_rounding()
+    {
+        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        const string lines="{\"description\":\"First exact product\",\"quantity\":\"0.0001\",\"unitPrice\":0.0001,\"taxAmount\":0},{\"description\":\"Second exact product\",\"quantity\":0.0001,\"unitPrice\":\"0.9999\",\"taxAmount\":0}";
+        using var response=await RawInvoice(fixture,supplier,"EXACT-PRODUCT-SUM",lines);Assert.Equal(HttpStatusCode.Created,response.StatusCode);
+        var captured=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal(.0001m,captured.GetProperty("grossAmount").GetDecimal());
+        using var detail=await Send(fixture.Client,HttpMethod.Get,"/api/procurement/v1/invoices/"+captured.GetProperty("id").GetGuid(),fixture.Other,role:"ap_processor");
+        var saved=await detail.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal(.0001m,saved.GetProperty("netAmount").GetDecimal());
+        Assert.Equal(.0001m,saved.GetProperty("grossAmount").GetDecimal());Assert.Equal(0m,saved.GetProperty("taxAmount").GetDecimal());
+        Assert.Equal(.0001m,saved.GetProperty("lines")[0].GetProperty("unitPrice").GetDecimal());
+        Assert.Equal(.9999m,saved.GetProperty("lines")[1].GetProperty("unitPrice").GetDecimal());
+    }
+    private static Task<HttpResponseMessage> RawInvoice(Fixture fixture,Guid supplier,string number,string lines)
+    {
+        var body="{\"supplierId\":\""+supplier+"\",\"invoiceNumber\":\""+number+"\",\"invoiceDate\":\"2026-10-20\",\"currencyCode\":\"ZMW\",\"lines\":["+lines+"]}";
+        var request=new HttpRequestMessage(HttpMethod.Post,"/api/procurement/v1/invoices") { Content=new StringContent(body,System.Text.Encoding.UTF8,"application/json") };
+        request.Headers.Add("X-Test-User",fixture.Other.ToString());request.Headers.Add("X-Test-Role","ap_processor");
+        return fixture.Client.SendAsync(request);
+    }
+
     [Fact]
     public async Task Invoice_intake_hides_other_branches_and_rejects_out_of_scope_order_links()
     {

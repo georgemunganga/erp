@@ -22,6 +22,7 @@ sealed partial class Probe
             orderId=effect.Source.PurchaseOrderId; lineId=effect.Source.PurchaseOrderLineId; issuedId=effect.Source.IssuedVersionId;
             receiptLineId=effect.GoodsReceiptLineId!.Value; supplierId=await db.PurchaseOrders.Where(x=>x.Id==orderId).Select(x=>x.SupplierId).SingleAsync();
         }
+        await VerifyExactInvoiceIntake(supplierId);
         var capture=await Send(HttpMethod.Post,Root+"/invoices",OrderBuyer,new { supplierId,purchaseOrderId=orderId,
             invoiceNumber="MATCHING-UNAVAILABLE-1",invoiceDate=new DateOnly(2026,10,20),currencyCode="ZMW",
             lines=new[] { new { description="Original invoice",quantity=1m,unitPrice=100m,taxAmount=0m } } });

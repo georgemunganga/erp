@@ -121,3 +121,40 @@ AP intake lead owns capture, Procurement owns commercial evidence, Finance owns 
 ## 28. Open Decisions and Assumptions
 
 Confirm invoice system of record, intake channels at launch, duplicate-key scope, tax validation owner, OCR timing, supplier portal timing, credit/refund workflow, retention and service targets. Owners: AP, Procurement, Finance and Security; resolve before implementation.
+
+## Existing intake exact-value correction — source only
+
+Isolated from P26 compilation source `d2ea852`; no schema widening, historical backfill,
+matching approval, Finance authority or production change. Compilation and actual gates are
+pending. This is a boundary correction to the existing child feature, not a parallel intake.
+
+- **Workflow/rules/fields:** Quantity, unit price and line tax reuse the existing
+  CommercialLineDecimalJsonConverter on raw JSON numeric **or string** tokens. Values must
+  fit numeric18,4 exactly before decimal conversion can discard precision. Typed validation
+  repeats representability checks. Quantity is positive; price/tax nonnegative;1–200 nonnull
+  lines remain required. Original input amounts are not rounded.
+- **Header arithmetic:** Use ExactDecimalArithmetic products and sums, reject overflow or
+  unrepresentable net/tax/gross with actionable422 **before AddScoped**. Individual products
+  may retain eight places:0.0001×0.0001 plus0.0001×0.9999 equals exact0.0001 and is accepted.
+  A lone0.00000001 header is rejected because the existing stored header is18,4. No currency
+  rounding policy, per-line net rounding or invented historical precision is introduced.
+- **Actual schema limits:** InvoiceNumber max80 matches the existing lifecycle mapping
+  (previous120 validation could fail at persistence). Description keeps its existing500
+  business limit. TaxCodeRef/CostCenterRef are existing PostgreSQL text with no mapped maximum;
+  this fix does not invent a smaller maximum or alter their ownership.
+- **API/failure/recovery:** Existing POST URL, permissions/company scope and numeric output
+  stay compatible. Handler explicitly reads the typed body so malformed/excess-precision
+  input returns validation-failed422; non-JSON remains415. Only a PostgreSQL unique violation
+  naming an actual invoice-number unique index is duplicate-invoice409. Other DbUpdate errors
+  are save-unconfirmed503 and instruct checking the invoice number before retry, rather than
+  falsely claiming a duplicate. No automatic retry/idempotency authority is added.
+- **Security/audit/postconditions:** Rejection leaves invoice/line/evidence/claim/audit/outbox
+  and Finance rows unchanged. Existing authorization still runs before parsing. No new
+  notification, event or document write is added to GET/intake validation.
+- **Acceptance/test source:** Mapped tests cover raw29-digit number/string tokens, fifth-place
+  fractions/tiny exponents/range, product overflow,200-line aggregate overflow, gross overflow,
+  unrepresentable header scale, null lines, schema number bound and writeless negatives.
+  Positive coverage keeps legacy numeric clients and eight-place-products/four-place-sum.
+  Actual private --matching probe additionally checks exact PostgreSQL read-after-capture,
+  maximum18,4 value roundtrip, and genuine duplicate409 with unchanged persisted footprint.
+  Authored scenarios have not run; no passing API/PG or release claim is made.
