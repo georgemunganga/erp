@@ -40,6 +40,9 @@ rehearsals passed fresh apply-twice, unused Down/Up, and a restored P23 backup u
 twice with all previous business row counts and allocation amounts preserved. Rollback-only
 DDL checks rejected sub-four-place allocation values, numeric(18,4) overflow and configured
 execution routes; exact maximum and zero allocation values remained downgradeable.
+The consumed restricted-runtime database also rejected the actual rollback-only Down
+script with `P24RollbackRequiresEvidencePreservingRecovery`; its 21 migration entries,
+one Finance evidence row and two commercial receipts remained present afterwards.
 Protected evidence is in `/home/amizo/erp-backups/procurement-orders-postgres-20261020/`.
 Production remains at P19; none of these migrations were applied there.
 
