@@ -50,9 +50,12 @@ public static class ProcurementVendorRoutes
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
         var query = db.Suppliers.AsNoTracking().AsQueryable();
-        if (!(await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded)
+        var canManage = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded;
+        var canApprove = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded;
+        if (!canManage)
             query = query.Where(x => ((x.Status == "Active" || x.Status == "Approved") && x.IsOrderable)
-                || x.CreatedBy == scope.SubjectId);
+                || x.CreatedBy == scope.SubjectId
+                || (canApprove && (x.Status == "Submitted" || x.Status == "Suspended")));
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.Trim());
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -79,19 +82,21 @@ public static class ProcurementVendorRoutes
             .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (supplier is null) return Results.NotFound();
         var canManage = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded;
+        var canApprove = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded;
+        var canReview = canApprove && supplier.Status is ("Submitted" or "Suspended");
         if (!canManage && !((supplier.Status == "Active" || supplier.Status == "Approved") && supplier.IsOrderable)
-            && supplier.CreatedBy != scope.SubjectId)
+            && supplier.CreatedBy != scope.SubjectId && !canReview)
             return Results.NotFound();
-        var canDecide = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded
+        var canDecide = canApprove
             && supplier.Status == "Submitted" && supplier.CreatedBy != scope.SubjectId
             && supplier.StatusDecidedBy != scope.SubjectId;
         var canSuspend = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-suspend")).Succeeded
             && supplier.Status == "Active" && supplier.IsOrderable
             && supplier.CreatedBy != scope.SubjectId;
-        var canReactivate = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded
+        var canReactivate = canApprove
             && supplier.Status == "Suspended" && !supplier.IsOrderable
             && supplier.CreatedBy != scope.SubjectId && supplier.StatusDecidedBy != scope.SubjectId;
-        return Results.Ok(canManage || supplier.CreatedBy == scope.SubjectId
+        return Results.Ok(canManage || supplier.CreatedBy == scope.SubjectId || canReview
             ? ToDetail(supplier, canManage && supplier.CreatedBy != scope.SubjectId
                 && supplier.Status == "Submitted", canDecide, canSuspend, canReactivate) : ToBasicDetail(supplier));
     }

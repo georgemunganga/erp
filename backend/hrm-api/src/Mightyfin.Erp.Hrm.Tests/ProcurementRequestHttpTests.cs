@@ -1565,6 +1565,52 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Independent_vendor_approver_can_review_submitted_vendor_without_manage_grant()
+    {
+        await using var fixture = await Fixture.Start();
+        const string reviewerActions = "procurement-access,procurement-vendor-read,procurement-vendor-approve";
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/vendors",
+            fixture.Owner, new { legalName = "Review Supplier Ltd", displayName = "Review Supplier",
+                countryCode = "ZM", categoryCode = "OFFICE",
+                primaryContact = new { name = "Supplier Contact" } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var path = $"/api/procurement/v1/vendors/{id}";
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, path, fixture.Reviewer,
+                actions: reviewerActions)).StatusCode);
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, path + "/submit",
+            fixture.Owner, new VendorSubmitInput(draft.GetProperty("version").GetInt64(), "Needed"));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+
+        var reviewerList = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/vendors?status=Submitted", fixture.Reviewer, actions: reviewerActions);
+        Assert.Equal(HttpStatusCode.OK, reviewerList.StatusCode);
+        var rows = (await reviewerList.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items");
+        Assert.Contains(rows.EnumerateArray(), x => x.GetProperty("id").GetGuid() == id);
+
+        var reviewerDetail = await Send(fixture.Client, HttpMethod.Get, path, fixture.Reviewer,
+            actions: reviewerActions);
+        Assert.Equal(HttpStatusCode.OK, reviewerDetail.StatusCode);
+        var detail = await reviewerDetail.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(detail.GetProperty("canApprove").GetBoolean());
+        Assert.Single(detail.GetProperty("contacts").EnumerateArray());
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Reviewer,
+                new { version = detail.GetProperty("version").GetInt64() },
+                actions: reviewerActions)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
+                role: "employee")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, path, fixture.Reviewer,
+                company: fixture.OtherCompany, actions: reviewerActions)).StatusCode);
+    }
+
+    [Fact]
     public async Task Active_vendor_can_be_suspended_only_by_independent_manager_with_reason()
     {
         await using var fixture = await Fixture.Start();
@@ -1896,22 +1942,24 @@ public sealed class ProcurementRequestHttpTests
             null, null, null, "Goods", null, null, null, null, null, null)]);
 
     private static Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path,
-        Guid user, Guid? company = null, string? role = null)
+        Guid user, Guid? company = null, string? role = null, string? actions = null)
     {
         var request = new HttpRequestMessage(method, path);
         request.Headers.Add("X-Test-User", user.ToString());
         if (company.HasValue) request.Headers.Add("X-Shell-Entity", company.Value.ToString());
         if (role is not null) request.Headers.Add("X-Test-Role", role);
+        if (actions is not null) request.Headers.Add("X-Test-Actions", actions);
         return client.SendAsync(request);
     }
 
     private static Task<HttpResponseMessage> SendJson<T>(HttpClient client, HttpMethod method, string path,
-        Guid user, T body, string? role = null, Guid? company = null)
+        Guid user, T body, string? role = null, Guid? company = null, string? actions = null)
     {
         var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         request.Headers.Add("X-Test-User", user.ToString());
         if (company.HasValue) request.Headers.Add("X-Shell-Entity", company.Value.ToString());
         if (role is not null) request.Headers.Add("X-Test-Role", role);
+        if (actions is not null) request.Headers.Add("X-Test-Actions", actions);
         return client.SendAsync(request);
     }
 
@@ -2156,12 +2204,21 @@ public sealed class ProcurementRequestHttpTests
             if (!Guid.TryParse(Request.Headers["X-Test-User"], out var user))
                 return Task.FromResult(AuthenticateResult.NoResult());
             var role = Request.Headers["X-Test-Role"].FirstOrDefault() ?? "employee";
+            var actions = Request.Headers["X-Test-Actions"].FirstOrDefault();
+            var claims = new List<Claim>
+            {
+                new("tenant", "tenant-a"),
+                new("sub", user.ToString()),
+                new(ClaimTypes.Role, role),
+            };
+            if (actions is not null)
+            {
+                claims.Add(new Claim(ProcurementPermissions.ConfiguredClaim, "true"));
+                claims.AddRange(actions.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(action => new Claim(ProcurementPermissions.ActionClaim, action)));
+            }
             var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim("tenant", "tenant-a"),
-                new Claim("sub", user.ToString()),
-                new Claim(ClaimTypes.Role, role),
-            ], "test"));
+                claims, "test"));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, "test")));
         }
     }
