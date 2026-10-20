@@ -9,6 +9,8 @@ public sealed record ApprovedPurchaseSource(PurchaseRequest Request, PurchaseReq
     ApprovalCase CoreCase, ApprovalDecision FinalDecision, PolicyEvaluation Evaluation,
     PolicyVersion Policy, BudgetCheckSnapshot Finance, ProcurementMethod Method,
     IReadOnlyList<PurchaseRequestAllocation> Allocations,
+    // Current database ownership proof; never part of any frozen business/evidence payload.
+    [property: System.Text.Json.Serialization.JsonIgnore]
     IReadOnlyList<PurchaseDemandAllocationOwner>? AllocationOwners = null);
 public sealed record PurchaseSourceAvailability(decimal AvailableQuantity, decimal ApprovedUnitPrice,
     decimal ApprovedLineBase, string CurrencyCode, Guid SourceSubmissionId, Guid SourceCaseId);
