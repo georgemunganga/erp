@@ -13,3 +13,13 @@ export function canManageCore(roles: string[]): boolean {
 export function canManageOrganisation(roles: string[]): boolean {
   return canManageCore(roles) || roles.some((role) => role.toLowerCase() === "hr_ops");
 }
+
+/** Counts reuse the workforce read contract only for its existing HRM roles. */
+export function canReadOrganisationHeadcounts(roles: string[]): boolean {
+  return roles.some((role) => ["hr_ops", "hr_admin", "payroll", "manager"].includes(role.toLowerCase()));
+}
+
+/** A Core-only administrator never probes the employee-details endpoint for optional counts. */
+export async function optionalOrganisationHeadcounts<T>(roles: string[], load: () => Promise<T>): Promise<T | null> {
+  return canReadOrganisationHeadcounts(roles) ? load() : null;
+}

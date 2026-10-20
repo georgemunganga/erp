@@ -47,7 +47,7 @@ import { StatusTimeline } from "@/platform/components/StatusTimeline";
 import type { TimelineEvent } from "@/mock/types";
 import { realApi, useApi } from "@/platform/use-api";
 import { useAuth } from "@/platform/auth";
-import { canManageOrganisation } from "@/platform/entry-route";
+import { canManageOrganisation, canReadOrganisationHeadcounts, optionalOrganisationHeadcounts } from "@/platform/entry-route";
 import { feedback } from "@/platform/feedback";
 import { ConfirmDialog } from "@/platform/components/ConfirmDialog";
 
@@ -265,11 +265,10 @@ function CloseUnitForm({
       {unit ? (
         <div className="rounded-md border bg-surface-muted px-3 py-2 text-sm">
           <p className="font-medium">
-            {unit.employees} employee{unit.employees === 1 ? "" : "s"} and {unit.positions} position
-            {unit.positions === 1 ? "" : "s"} sit under {unit.name}.
+            {USE_REAL ? `Closing ${unit.name}. Employee and position impacts must be reviewed separately.` : `${unit.employees} employee${unit.employees === 1 ? "" : "s"} and ${unit.positions} position${unit.positions === 1 ? "" : "s"} sit under ${unit.name}.`}
           </p>
           <p className="mt-1 text-muted-foreground">
-            {canDeleteUnit(unit)
+            {!USE_REAL && canDeleteUnit(unit)
               ? "Nothing references this unit, so it can also be removed outright."
               : `Closing does not move them. Reassign them before ${
                   unit.name
@@ -423,7 +422,7 @@ function NewLocationDialog({
 
 /* -------------------------------------------------------------------------- */
 
-function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: string; canAct: boolean }) {
+function EntityTable({ rows, asAt, canAct, workforceCountsAvailable }: { rows: LegalEntityConfig[]; asAt: string; canAct: boolean; workforceCountsAvailable: boolean }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
       <RecordTable className="w-full min-w-[52rem] text-left text-sm">
@@ -503,7 +502,7 @@ function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: 
               <td className="px-3 py-3">
                 <StatusBadge status={unitState(e, asAt)} />
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  {e.employees} employee{e.employees === 1 ? "" : "s"} · {e.branches} location
+                  {workforceCountsAvailable ? `${e.employees} employee${e.employees === 1 ? "" : "s"}` : "Employee counts unavailable"} · {e.branches} location
                   {e.branches === 1 ? "" : "s"}
                 </span>
               </td>
@@ -536,7 +535,7 @@ function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: 
   );
 }
 
-function LocationTable({ rows, asAt, canAct }: { rows: WorkLocationWithEntity[]; asAt: string; canAct: boolean }) {
+function LocationTable({ rows, asAt, canAct, workforceCountsAvailable }: { rows: WorkLocationWithEntity[]; asAt: string; canAct: boolean; workforceCountsAvailable: boolean }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
       <RecordTable className="w-full min-w-[48rem] text-left text-sm">
@@ -614,9 +613,9 @@ function LocationTable({ rows, asAt, canAct }: { rows: WorkLocationWithEntity[];
                 </span>
               </td>
               <td className="px-3 py-3">
-                {l.employees} employee{l.employees === 1 ? "" : "s"}
+                {workforceCountsAvailable ? `${l.employees} employee${l.employees === 1 ? "" : "s"}` : "Employee counts unavailable"}
                 <span className="block text-xs text-muted-foreground">
-                  {l.positions} position{l.positions === 1 ? "" : "s"}
+                  {USE_REAL ? "Position counts unavailable" : `${l.positions} position${l.positions === 1 ? "" : "s"}`}
                 </span>
               </td>
               <td className="px-3 py-3">
@@ -715,13 +714,13 @@ function ScheduledChangeItem({
 
 /* -------------------------------------------------------------------------- */
 
-async function loadOrganisation() {
+async function loadOrganisation(roles: string[]) {
   if (!USE_REAL) return adminConfigApi.organisation();
   const [rawEntities, units, locations, workerPage] = await Promise.all([
     realApi.legalEntities(),
     realApi.orgUnits(),
     realApi.locations(),
-    realApi.employees({ page: 1, pageSize: 500, includeArchived: false }),
+    optionalOrganisationHeadcounts(roles, () => realApi.employees({ page: 1, pageSize: 500, includeArchived: false })),
   ]);
   const entities = Array.isArray(rawEntities) ? rawEntities : (rawEntities as { items?: unknown[] }).items ?? [];
   const adaptedEntities = adaptEntities(entities);
@@ -729,7 +728,7 @@ async function loadOrganisation() {
   const locationsArr = Array.isArray(locations) ? locations : (locations as { items?: unknown[] }).items ?? [];
   const adaptedUnits = adaptUnits(unitsArr);
   const adaptedLocations = adaptLocations(locationsArr);
-  const workers = (workerPage.items ?? []) as Record<string, unknown>[];
+  const workers = (workerPage?.items ?? []) as Record<string, unknown>[];
   const locationEntity = new Map(locationsArr.map((row) => {
     const location = row as Record<string, unknown>;
     return [String(location.id ?? ""), String(location.legalEntityId ?? "")];
@@ -743,6 +742,7 @@ async function loadOrganisation() {
     entity.employees = workers.filter((worker) => locationEntity.get(String(worker.locationId ?? "")) === entity.id).length;
   }
   return {
+    workforceCountsAvailable: workerPage !== null,
     entities: adaptedEntities,
     units: adaptedUnits as OrgUnitConfig[],
     locations: adaptedLocations as WorkLocation[],
@@ -752,8 +752,11 @@ async function loadOrganisation() {
 }
 
 export function OrganisationConfig() {
-  const state = useApi(loadOrganisation);
-  const canAct = canManageOrganisation(useAuth().user?.roles ?? []);
+  const roles = useAuth().user?.roles ?? [];
+  const state = useApi(() => loadOrganisation(roles), [roles.join("|")]);
+  const canAct = canManageOrganisation(roles);
+  // The capped workforce endpoint is not an authoritative organization-wide total.
+  const workforceCountsAvailable = !USE_REAL || (canReadOrganisationHeadcounts(roles) && state.data !== null && "workforceCountsAvailable" in state.data && state.data.workforceCountsAvailable === true);
   const [asAt, setAsAt] = useState(todayIso);
   const [drafts, setDrafts] = useState<DraftClosure[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -837,9 +840,9 @@ export function OrganisationConfig() {
       id: "employees",
       header: "Employees",
       defaultVisible: false,
-      cell: (u) => u.employees,
+      cell: (u) => workforceCountsAvailable ? u.employees : "Unavailable",
     },
-    { id: "positions", header: "Positions", defaultVisible: false, cell: (u) => u.positions },
+    { id: "positions", header: "Positions", defaultVisible: false, cell: (u) => USE_REAL ? "Unavailable" : u.positions },
     {
       id: "note",
       header: "Administrator note",
@@ -955,7 +958,7 @@ export function OrganisationConfig() {
                   title="Legal entities"
                   description="Who employs people, under which registration and in which currency. An entity is never deleted once it has employed anyone."
                 >
-                  <EntityTable rows={data.entities} asAt={asAt} canAct={canAct && !USE_REAL} />
+                  <EntityTable rows={data.entities} asAt={asAt} canAct={canAct && !USE_REAL} workforceCountsAvailable={workforceCountsAvailable} />
                 </DetailSection>
 
                 <DetailSection
@@ -963,7 +966,7 @@ export function OrganisationConfig() {
                   title="Branches and work locations"
                   description="Where employees are based. A location can exist in configuration before it opens and stays readable after it closes."
                 >
-                  <LocationTable rows={data.locations} asAt={asAt} canAct={canAct && !USE_REAL} />
+                  <LocationTable rows={data.locations} asAt={asAt} canAct={canAct && !USE_REAL} workforceCountsAvailable={workforceCountsAvailable} />
                   <NewLocationDialog
                     open={newLocation}
                     onOpenChange={setNewLocation}
