@@ -128,7 +128,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                         if (!validation.IsValid) throw Conflict("ApprovalPinnedEvidenceChanged");
                         allowed.AddRange(["Reject", "Return"]);
                         var current = await Evidence(db, request, pin, ct);
-                        var mode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, current.Finance, options, core, scope, DateTimeOffset.UtcNow, ct);
+                        var mode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, current.Finance, options, core, db, scope, DateTimeOffset.UtcNow, ct);
                         if (mode.Mode != pin.FinanceEvidenceMode || mode.Reference != pin.ManualEvidenceAuthorityRef)
                             throw Conflict("ApprovalFinanceAuthorityChanged");
                         var assignmentPins = await db.AssignmentAuthorityEvidence.AsNoTracking()

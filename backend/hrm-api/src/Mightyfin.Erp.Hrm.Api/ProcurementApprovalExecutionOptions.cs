@@ -53,7 +53,7 @@ internal static class ProcurementApprovalExecutionLocks
 internal static class ProcurementApprovalFinanceEligibility
 {
     internal static async Task<(string Mode, string Reference)> CheckAsync(PurchaseRequest request,
-        BudgetCheckSnapshot finance, ProcurementApprovalExecutionOptions options, HrmDbContext core,
+        BudgetCheckSnapshot finance, ProcurementApprovalExecutionOptions options, HrmDbContext core, ProcurementDbContext db,
         ProcurementRequestScope scope, DateTimeOffset now, CancellationToken ct)
     {
         var policies = options.ManualFinancePolicies.Where(x => x.Enabled && x.LegalEntityId == scope.LegalEntityId
@@ -69,6 +69,7 @@ internal static class ProcurementApprovalFinanceEligibility
         var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
             scope.LegalEntityId, finance.CheckedBySubjectId, ct);
         if (verifier is null) throw new InvalidOperationException("FinanceEvidenceVerifierUnavailable");
+        await ProcurementFinanceWorkerIndependence.RequireAsync(request, verifier.WorkerId, core, db, scope, ct);
         var permissions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, verifier.RolesCsv, ct);
         var admin = LocalIdentityRoutes.ParseRoles(verifier.RolesCsv).Contains("erp_admin", StringComparer.OrdinalIgnoreCase);
         if (!admin && (!permissions.Contains("procurement-access") || !permissions.Contains("procurement-budget-check")))
