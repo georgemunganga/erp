@@ -29,7 +29,9 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         RequireNonEmpty(request.Code, "code");
         RequireNonEmpty(request.RegisteredName, "registeredName");
-        var existing = (await repo.ListLegalEntitiesAsync(ct)).FirstOrDefault(e => e.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase));
+        var currency = NormalizeReferenceCode(request.Currency, 3, "currency");
+        var country = NormalizeReferenceCode(request.CountryCode, 2, "country");
+        var existing = (await repo.ListLegalEntitiesAsync(ct)).FirstOrDefault(e => e.Code.Equals(request.Code.Trim(), StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
             throw new DomainException("legal-entity-code-taken", $"Code '{request.Code}' is already in use.");
         var entity = new LegalEntity
@@ -37,8 +39,8 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
             Code = request.Code.Trim(), RegisteredName = request.RegisteredName.Trim(), TradingName = request.TradingName?.Trim(),
             PacraNumber = request.PacraNumber?.Trim(), Tpin = request.Tpin?.Trim(),
             NapsaEmployerRef = request.NapsaEmployerRef?.Trim(), NhimaEmployerRef = request.NhimaEmployerRef?.Trim(),
-            WcfcbEmployerRef = request.WcfcbEmployerRef?.Trim(), Currency = request.Currency.ToUpperInvariant(),
-            CountryCode = request.CountryCode.ToUpperInvariant(), IsDefault = request.IsDefault,
+            WcfcbEmployerRef = request.WcfcbEmployerRef?.Trim(), Currency = currency,
+            CountryCode = country, IsDefault = request.IsDefault,
         };
         return ToLegalEntityDto(await repo.CreateLegalEntityAsync(entity, ct));
     }
@@ -46,6 +48,9 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
     public async Task<LegalEntityDtoFull> UpdateLegalEntityAsync(Guid id, LegalEntityUpdateRequest request, CancellationToken ct)
     {
         authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
+        // Validate the entire supported change before touching a tracked company.
+        if (request.RegisteredName is not null) RequireNonEmpty(request.RegisteredName, "registeredName");
+        var currency = request.Currency is null ? null : NormalizeReferenceCode(request.Currency, 3, "currency");
         var entity = await repo.GetLegalEntityAsync(id, ct)
             ?? throw new DomainException("legal-entity-not-found", $"Legal entity {id} does not exist.");
         if (request.RegisteredName is not null) entity.RegisteredName = request.RegisteredName.Trim();
@@ -55,7 +60,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         if (request.NapsaEmployerRef is not null) entity.NapsaEmployerRef = request.NapsaEmployerRef.Trim();
         if (request.NhimaEmployerRef is not null) entity.NhimaEmployerRef = request.NhimaEmployerRef.Trim();
         if (request.WcfcbEmployerRef is not null) entity.WcfcbEmployerRef = request.WcfcbEmployerRef.Trim();
-        if (request.Currency is not null) entity.Currency = request.Currency.ToUpperInvariant();
+        if (currency is not null) entity.Currency = currency;
         if (request.IsDefault.HasValue) entity.IsDefault = request.IsDefault.Value;
         return ToLegalEntityDto(await repo.UpdateLegalEntityAsync(entity, ct));
     }
@@ -232,6 +237,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
     public async Task<OrgUnitDtoFull> UpdateOrgUnitAsync(Guid id, OrgUnitUpdateRequest request, CancellationToken ct)
     {
         authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
+        if (request.Name is not null) RequireNonEmpty(request.Name, "name");
         if (request.ManagerId.HasValue) authz.RequireAnyRole("hr_ops", "hr_admin");
         var unit = await repo.GetOrgUnitAsync(id, ct)
             ?? throw new DomainException("org-unit-not-found", $"Org unit {id} does not exist.");
@@ -555,6 +561,14 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     private static ContractTypeDto ToContractTypeDto(ContractType t) => new(
         t.Id, t.Code, t.Name, t.ProbationDays, t.NoticeDays, t.IsActive, t.CreatedAt);
+
+    private static string NormalizeReferenceCode(string? value, int length, string field)
+    {
+        var normalized = value?.Trim().ToUpperInvariant();
+        if (normalized is null || normalized.Length != length || normalized.Any(c => c is < 'A' or > 'Z'))
+            throw new DomainException($"{field}-invalid", $"Enter a {length}-letter {field} code using A to Z.");
+        return normalized;
+    }
 
     private static void RequireNonEmpty(string? value, string field)
     {

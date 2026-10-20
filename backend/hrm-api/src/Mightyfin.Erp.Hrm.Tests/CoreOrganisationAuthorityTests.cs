@@ -161,4 +161,41 @@ public sealed class CoreOrganisationAuthorityTests
         Assert.True(counter.Reads > 0);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("ZMWX")]
+    [InlineData("12A")]
+    [InlineData("€MW")]
+    public async Task InvalidCurrency_DeniesBeforeAnyCompanyMutation(string currency)
+    {
+        await using var db = TestDbContextFactory.Create();
+        var service = Service(db, "erp_admin");
+        var entity = await service.CreateLegalEntityAsync(new("CORE", "Original"), default);
+        await Assert.ThrowsAsync<DomainException>(() => service.CreateLegalEntityAsync(new("BAD", "Denied", Currency: currency), default));
+        await Assert.ThrowsAsync<DomainException>(() => service.UpdateLegalEntityAsync(entity.Id, new(RegisteredName: "Must not change", Currency: currency), default));
+        Assert.False(db.ChangeTracker.HasChanges());
+        Assert.Equal("Original", (await db.LegalEntities.SingleAsync()).RegisteredName);
+        Assert.Equal("ZMW", (await db.LegalEntities.SingleAsync()).Currency);
+    }
+
+    [Fact]
+    public async Task ReferenceCodesNormalize_AndInvalidNamesDoNotPartiallyMutate()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var service = Service(db, "erp_admin");
+        var entity = await service.CreateLegalEntityAsync(new("CORE", "Original", Currency: " zmw ", CountryCode: " zm "), default);
+        Assert.Equal("ZMW", entity.Currency);
+        Assert.Equal("ZM", entity.CountryCode);
+        Assert.Equal("USD", (await service.UpdateLegalEntityAsync(entity.Id, new(Currency: " usd "), default)).Currency);
+        await Assert.ThrowsAsync<DomainException>(() => service.UpdateLegalEntityAsync(entity.Id, new(RegisteredName: " ", Currency: "EUR"), default));
+        await Assert.ThrowsAsync<DomainException>(() => service.CreateLegalEntityAsync(new("BAD", "Denied", CountryCode: "ZMB"), default));
+        var unit = await service.CreateOrgUnitAsync(new("OPS", "Operations", entity.Id), default);
+        await Assert.ThrowsAsync<DomainException>(() => service.UpdateOrgUnitAsync(unit.Id, new(Name: " ", CostCentreRef: "Must not change"), default));
+        Assert.False(db.ChangeTracker.HasChanges());
+        Assert.Equal("Operations", (await db.OrgUnits.SingleAsync()).Name);
+        Assert.Null((await db.OrgUnits.SingleAsync()).CostCentreRef);
+        Assert.Equal("USD", (await db.LegalEntities.SingleAsync()).Currency);
+    }
+
 }
