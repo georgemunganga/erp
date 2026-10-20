@@ -3,6 +3,10 @@ namespace Mightyfin.Erp.Procurement.Domain;
 /// <summary>
 /// Procurement-owned, explicitly configured spending authority for one canonical ERP
 /// principal. This references identity and organization; it does not define either.
+/// Logical authority key: tenant/entity/principal/permission/action/AuthorityReference
+/// (ordinal identifiers). AuthorityVersion is unique within that key; effective Active
+/// versions must never overlap. Currency, amount limit and record scope are versioned
+/// attributes, NOT part of the key. Close/revoke the old version when replacing it.
 /// Publish a new grant/version when the business authority changes. A role is not a grant.
 /// </summary>
 public sealed class ProcurementSpendingAuthorityGrant : ProcurementRecord
