@@ -189,7 +189,7 @@ sealed partial class Probe
             foreach (var principal in new[] { OrderBuyer, OrderFinance })
                 foreach (var location in new[] { OrderBranch, otherSite })
                     if (!await core.UserBranchAssignments.AnyAsync(x => x.UserId == principal && x.LocationId == location && !x.IsArchived))
-                        core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Domain.Entities.HrUserBranchAssignment { UserId = principal, LocationId = location });
+                        core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = principal, LocationId = location });
             await core.SaveChangesAsync();
         }
         await PublishReceivingPolicy(otherSite);
