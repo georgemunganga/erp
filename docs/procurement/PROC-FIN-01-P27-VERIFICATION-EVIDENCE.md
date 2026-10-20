@@ -1,0 +1,23 @@
+# P27 — retained Finance checker identity verification
+
+Status: source integrated; verification pending. Recorded 20 October 2026.
+
+## Candidate and boundary
+
+`cc7ac5c` on `codex/procurement-finance-identity-integration` consolidates reviewed Finance checker binding, persistence, consumer guards and owning-context readiness onto the P26 application baseline. It preserves historical unbound evidence; it does not infer a worker for old rows. New positive funding use requires the retained independent checker and current authority. Core remains owner of identities and grants; this change adds no employee master, budget ledger or payment executor.
+
+This record distinguishes source review from execution. No P27 migration, test, PostgreSQL rehearsal, browser run or production rollout has passed at this checkpoint. The prior P26 passes do not certify this new source.
+
+## Required verification sequence
+
+1. Restore from the protected local package cache and compile the new domain/persistence tests. Retain actual runner counts and any failure before correction.
+2. Generate one parent-owned `P27FinanceCheckerIdentity` migration. Expected change: four columns and two CHECKs, with no new principal key, cross-module FK, table or financial precision change. Inspect actual generated operations rather than assuming this expected shape.
+3. Seal Down with deterministic locks and a used/partial identity, approval pin, audit and outbox evidence veto before dropping any field. Never remove business history to permit rollback.
+4. Capture the actual PostgreSQL17 CHECK expressions and freeze the readiness manifest. Missing, lookalike, unvalidated or inaccessible schema must fail closed under the actual finite runtime role.
+5. Rehearse fresh and populated P26 upgrades, repeated upgrade, unchanged legacy bytes, unused rollback/re-upgrade and loss-denied rollback with unchanged schema/history/data.
+6. Run mapped business API and genuine restricted PostgreSQL cases for capture/reload, exact reference replay, alias/rebinding, grant revocation, legacy read/review-required behavior, source approval/order use and retained cancellation/recovery. Retain separate source scopes/results.
+7. Review RFQ's dependent version-dispatch restoration and owning-context schema gate before its separate migration. Do not import RFQ schema into P27.
+
+## Release
+
+Production remains unchanged. Existing full-host release, recovery and independent review gates remain. An authentic retained checker is not proof of complete external Finance commitment history or payment authority.
