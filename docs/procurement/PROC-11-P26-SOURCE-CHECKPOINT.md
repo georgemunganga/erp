@@ -230,3 +230,25 @@ a pending row's state/effect binding. Its actual-route probe source covers two p
 certificates consuming one issued line with the second draft's server-provided concurrency
 token. This changes read readiness only; P26 continues to bind accepted effect/state versions
 and no pending draft can become acceptance authority. No execution gate was run for this merge.
+
+## Authoritative central P25 schema consolidation — root1fa7375
+
+Ordinary merge `cd7832a` retains root `1fa7375`, including the single centrally generated
+`20261020133820_P25PositiveReceivingExecution` migration, Designer and authoritative P25
+snapshot, null-sequence correction `35e3780`, distinct generated-schema review and root's
+recorded verification evidence. Git merged this increment without conflicts; no migration
+or source model was regenerated in the P26 worktree.
+
+Source comparison confirms all three generated artifacts, receiving mapping/read/probe files,
+new named-null-sequence probe, PO exact-input helper and actual browser fixture match root
+`1fa7375` exactly. Exactly one P25 migration identity is retained. Both required-null predicates,
+service Notes/sourceVersion fixes, protected Down and existing root features survive. P26
+comparison/receiving CLI additions and one-per-fixture disabled registrations remain intact.
+
+The snapshot intentionally describes P25, not the additional P26 source model. A pending P26
+model delta is expected until root authorizes its own generation/review/rehearsal. It must add
+only the separately reviewed P26 evidence/extensions/keys; it must not recreate P25 tables,
+renumber duplicate migrations or rewrite P25 historical snapshots. P25 finalizer/runtime
+results and P26 compile/migration/runtime gates remain independent. No SDK/build/test, SQL,
+database, browser or production action occurred during this consolidation, and matching
+remains disabled without its own schema and real owner readiness.
