@@ -67,7 +67,8 @@ public static partial class ProcurementSpendingAuthorityRoutes
             var items = new List<object>();
             foreach (var grant in records) items.Add(await ReadView(grant, db, core, scope, permissions, ct));
             return Results.Ok(new { items, total, page = number, pageSize = size,
-                currentActorPrincipalId = scope.SubjectId, canCreate = permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission) });
+                currentActorPrincipalId = scope.SubjectId, canCreate = permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission),
+                scope = new { branchId = scope.WorkLocationId, departmentId = scope.OrgUnitId, confined = scope.IsConfined } });
         }
         catch (Exception ex) when (Handled(ex)) { return Failure(ex); }
     }
@@ -271,7 +272,8 @@ public static partial class ProcurementSpendingAuthorityRoutes
             DepartmentRef = input.AllDepartments ? input.DepartmentRef : input.DepartmentRef ?? scope.OrgUnitId,
         };
     private static object View(ProcurementSpendingAuthorityGrant grant, string? principalDisplayName = null,
-        string[]? allowedActions = null, Guid? previousGrantId = null, long? previousVersion = null) => new
+        string[]? allowedActions = null, Guid? previousGrantId = null, long? previousVersion = null,
+        object[]? blockingReasons = null) => new
     {
         grant.Id, grant.AuthorityReference, grant.AuthorityVersion, grant.PrincipalId,
         grant.Permission, grant.Action, grant.State, grant.ConfigurationOwnerPrincipalId,
@@ -283,6 +285,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
         grant.RevokedByPrincipalId, grant.RevokedAt, grant.RevocationReason,
         grant.SupersededByGrantId, grant.SupersededAt, grant.Version, grant.CreatedAt, grant.UpdatedAt,
         principalDisplayName, allowedActions = allowedActions ?? [], previousGrantId, previousVersion,
+        blockingReasons = blockingReasons ?? [],
     };
     private static IResult Missing() => Results.Problem(statusCode: 404, title: "Spending authority not found.", extensions: new Dictionary<string, object?> { ["code"] = "AuthorityNotFound" });
     private static IResult AccessDenied() => Results.Problem(statusCode: 403, title: "An active company account with this configuration permission is required.");

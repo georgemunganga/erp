@@ -23,29 +23,62 @@ public static partial class ProcurementSpendingAuthorityRoutes
         HrmDbContext core, ProcurementRequestScope scope, HashSet<string> permissions, CancellationToken ct)
     {
         var actions = new List<string>();
+        var blockers = new List<object>();
         Guid? previousId = null; long? previousVersion = null;
+        var actor = new SpendingAuthorityConfigurationActor(scope.TenantId, scope.LegalEntityId, scope.SubjectId, true, permissions);
+        var subject = await ProcurementAuthorityIdentity.SubjectAsync(core, scope, grant.PrincipalId, ct);
+        var now = DateTimeOffset.UtcNow;
+        bool Eligible(string action, Action validate)
+        {
+            try { validate(); return true; }
+            catch (InvalidOperationException ex) { blockers.Add(new { action, code = ex.Message }); return false; }
+        }
+        async Task<bool> References(string action)
+        {
+            var issue = subject is null ? "AuthoritySubjectUnavailable" : await ProcurementAuthorityIdentity.ReferenceIssueAsync(core,
+                db, scope, ProcurementAuthorityIdentity.Draft(grant), true, ct);
+            if (issue is null) return true;
+            blockers.Add(new { action, code = issue }); return false;
+        }
         if (grant.State == "Draft" && grant.ConfigurationOwnerPrincipalId == scope.SubjectId
-            && permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission)) actions.AddRange(["Edit", "Submit"]);
+            && permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission))
+        {
+            actions.Add("Edit");
+            if (await References("Submit") && Eligible("Submit", () => SpendingAuthorityConfiguration.AssertCanSubmit(
+                grant, grant.Version, actor, subject!, now))) actions.Add("Submit");
+        }
         if (grant.State == "PendingReview" && permissions.Contains(SpendingAuthorityConfiguration.ReviewPermission))
         {
             try
             {
                 await ProcurementAuthorityIdentity.RequireIndependentReviewerAsync(core, scope, grant, ct);
-                actions.Add("Return");
-                var previous = await Scoped(db, scope).AsNoTracking().Where(x => x.Id != grant.Id
-                    && x.PrincipalId == grant.PrincipalId && x.Permission == grant.Permission && x.Action == grant.Action
-                    && x.AuthorityReference == grant.AuthorityReference && x.State == "Active")
-                    .Select(x => new { x.Id, x.Version }).Take(2).ToArrayAsync(ct);
-                if (previous.Length == 0) actions.Add("Activate");
-                else if (previous.Length == 1)
-                { actions.Add("Supersede"); previousId = previous[0].Id; previousVersion = previous[0].Version; }
+                if (Eligible("Return", () => SpendingAuthorityConfiguration.AssertCanReturn(grant, grant.Version, actor))) actions.Add("Return");
+                // A complete internal family is required even when a predecessor is outside
+                // caller scope. Never publish from a filtered family or expose hidden IDs.
+                var family = await Load(db, grant, ct);
+                var current = family.Single(x => x.Id == grant.Id);
+                var predecessors = family.Where(x => x.Id != grant.Id && x.State == "Active").ToArray();
+                if (predecessors.Length == 0)
+                {
+                    if (await References("Activate") && Eligible("Activate", () => SpendingAuthorityConfiguration.AssertCanActivate(
+                        current, grant.Version, actor, subject!, now, family))) actions.Add("Activate");
+                }
+                else if (predecessors.Length == 1 && InScope(predecessors[0], scope))
+                {
+                    var previous = predecessors[0];
+                    if (await References("Supersede") && Eligible("Supersede", () => SpendingAuthorityConfiguration.AssertCanSupersede(
+                        current, grant.Version, previous, previous.Version, actor, subject!, now, family)))
+                    { actions.Add("Supersede"); previousId = previous.Id; previousVersion = previous.Version; }
+                }
+                else blockers.Add(new { action = "Activate", code = "AuthorityActionUnavailableInCurrentScope" });
             }
             catch (InvalidOperationException ex) when (ex.Message == "IndependentAuthorityReviewerRequired") { }
         }
         // Revocation deliberately follows the existing permission policy; no invented maker/checker requirement.
-        if (grant.State == "Active" && permissions.Contains(SpendingAuthorityConfiguration.RevokePermission)) actions.Add("Revoke");
+        if (grant.State == "Active" && permissions.Contains(SpendingAuthorityConfiguration.RevokePermission)
+            && Eligible("Revoke", () => SpendingAuthorityConfiguration.AssertCanRevoke(grant, grant.Version, actor))) actions.Add("Revoke");
         var person = await ProcurementAuthorityIdentity.NamedAccountAsync(core, scope, grant.PrincipalId, ct);
-        return View(grant, person?.DisplayName, actions.ToArray(), previousId, previousVersion);
+        return View(grant, person?.DisplayName, actions.ToArray(), previousId, previousVersion, blockers.ToArray());
     }
 
     private static async Task<IResult> Lookups(string kind, string? search, int? offset, int? limit,
@@ -128,7 +161,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
             // Eligibility is rechecked after the bounded Core page. An empty eligible page
             // can have a nextOffset; never misrepresent raw candidates as a total of eligible people.
             return Results.Ok(new { items, offset = skip, limit = take,
-                nextOffset = scanned == take ? (int?)(skip + scanned) : null });
+                nextOffset = scanned == take && skip + scanned <= 100000 ? (int?)(skip + scanned) : null });
         }
         catch (Exception ex) when (Handled(ex)) { return Failure(ex); }
     }
