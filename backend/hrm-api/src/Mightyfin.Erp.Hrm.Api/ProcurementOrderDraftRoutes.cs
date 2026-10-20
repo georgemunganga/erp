@@ -162,9 +162,13 @@ public static class ProcurementOrderDraftRoutes
         return Results.Ok(Detail(order, lines, null));
     }
 
-    private static Task<bool> SupplierAvailable(ProcurementDbContext db, Guid supplierId,
-        CancellationToken ct) => db.Suppliers.AsNoTracking().AnyAsync(x => x.Id == supplierId
-            && (x.Status == "Active" || x.Status == "Approved") && x.IsOrderable, ct);
+    private static async Task<bool> SupplierAvailable(ProcurementDbContext db, Guid supplierId,
+        CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
+            .SingleOrDefaultAsync(x => x.Id == supplierId, ct);
+        return supplier is not null && SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow);
+    }
 
     private static string? Validate(OrderDraftInput input)
     {

@@ -148,6 +148,9 @@ public sealed class ContractRate : ProcurementRecord
 
 public sealed class PurchaseOrder : ProcurementRecord
 {
+    public long? SubmittedBusinessVersion { get; set; }
+    public DateTimeOffset? SubmittedAt { get; set; }
+    public string? ReturnReason { get; set; }
     public string Number { get; set; } = null!;
     public Guid SupplierId { get; set; }
     public Guid? SourcingAwardId { get; set; }
