@@ -152,6 +152,9 @@ public static class ProcurementSpendingAuthorityRoutes
             var before = View(grant);
             db.SpendingAuthorityCategories.RemoveRange(grant.Categories);
             SpendingAuthorityConfiguration.EditDraft(grant, input.Version, draft, actor, DateTimeOffset.UtcNow);
+            // Category IDs are assigned in the domain. Explicitly mark replacement
+            // rows Added; graph discovery otherwise treats nonempty IDs as updates.
+            db.SpendingAuthorityCategories.AddRange(grant.Categories);
             ProcurementDraftAudit.Add(db, scope, nameof(ProcurementSpendingAuthorityGrant), id,
                 "authority.draft_updated", before, View(grant));
             await db.SaveChangesAsync(ct);

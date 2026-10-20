@@ -93,6 +93,7 @@ public sealed class SpendingAuthorityPersistenceTests
         db.SpendingAuthorityCategories.RemoveRange(grant.Categories);
         SpendingAuthorityConfiguration.EditDraft(grant, grant.Version, Draft() with { CategoryCodes = ["OFFICE"] },
             Actor(company, "owner", SpendingAuthorityConfiguration.ConfigurePermission), DateTimeOffset.UtcNow);
+        db.SpendingAuthorityCategories.AddRange(grant.Categories);
         await db.SaveChangesAsync();
         Assert.Equal("OFFICE", (await db.SpendingAuthorityCategories.SingleAsync()).CategoryCode);
         grant.AuthorityReference = "RENAMED";
