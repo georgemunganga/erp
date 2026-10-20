@@ -59,6 +59,12 @@ public static class ProcurementHostIntegration
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
+        MapMetadataRoute(app);
+    }
+
+    /// <summary>Maps module availability using the same checks as the complete host.</summary>
+    public static void MapMetadataRoute(WebApplication app)
+    {
         app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
             ProcurementDbContext db, IServiceProvider services, CancellationToken ct) =>
         {
