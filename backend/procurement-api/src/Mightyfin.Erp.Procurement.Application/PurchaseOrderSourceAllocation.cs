@@ -92,7 +92,10 @@ public static class PurchaseOrderSourceAllocation
             || !string.Equals(line.UnitCode, source.Line.UnitCode, StringComparison.OrdinalIgnoreCase)
             || commandKey == Guid.Empty || string.IsNullOrWhiteSpace(actor)
             || quantity <= 0 || decimal.Round(quantity, 4) != quantity || quantity > available.AvailableQuantity
-            || line.Quantity != quantity || line.UnitPrice < 0 || decimal.Round(line.UnitPrice, 4) != line.UnitPrice)
+            || line.Quantity != quantity || line.UnitPrice < 0 || decimal.Round(line.UnitPrice, 4) != line.UnitPrice
+            || !ExactDecimalJsonCodec.IsRepresentable(quantity, 18, 4)
+            || !ExactDecimalJsonCodec.IsRepresentable(line.UnitPrice, 18, 4)
+            || line.TaxAmount < 0 || !ExactDecimalJsonCodec.IsRepresentable(line.TaxAmount, 18, 4))
             Fail("OrderSourceAllocationInvalid");
         var key = $"order.reserve.{commandKey:N}.{source.Line.Id:N}";
         if (source.Allocations.Any(x => x.IdempotencyKey == key || x.TargetId == order.Id && x.Status != "Released"))
@@ -122,6 +125,9 @@ public static class PurchaseOrderSourceAllocation
             || quantity > ExactDecimalArithmetic.Add(available.AvailableQuantity, allocation.Quantity) || string.IsNullOrWhiteSpace(reason)
             || line.PurchaseRequestLineId != source.Line.Id || line.PurchaseOrderId != order.Id
             || line.UnitPrice < 0 || decimal.Round(line.UnitPrice, 4) != line.UnitPrice
+            || !ExactDecimalJsonCodec.IsRepresentable(quantity, 18, 4)
+            || !ExactDecimalJsonCodec.IsRepresentable(line.UnitPrice, 18, 4)
+            || line.TaxAmount < 0 || !ExactDecimalJsonCodec.IsRepresentable(line.TaxAmount, 18, 4)
             || order.CurrencyCode != source.Request.CurrencyCode
             || !string.Equals(line.UnitCode, source.Line.UnitCode, StringComparison.OrdinalIgnoreCase))
             Fail("OrderSourceResizeInvalid");
