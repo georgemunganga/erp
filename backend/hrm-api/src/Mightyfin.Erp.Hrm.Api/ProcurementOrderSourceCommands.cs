@@ -59,6 +59,7 @@ public static partial class ProcurementOrderExecutionRoutes
                     await CatalogClassification(db, [source.Line], token);
                     if (source.Request.Version != selection.ExpectedRequestVersion) Conflict("OrderSourceVersionChanged");
                     await CurrentRecordScope(core, scope, source.Request.BranchRef, true, token);
+                    await CurrentSourceCheckers(db, core, scope, [source], token);
                     if (lines.Count == 0) order.BranchRef = source.Request.BranchRef;
                     else if (order.BranchRef != source.Request.BranchRef) Conflict("OrderMixedBranchesUnsupported");
                     var line = ProcurementOrderDraftRoutes.NewLine(order.Id, selection.DraftLineIndex + 1,
@@ -114,6 +115,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 var supplier = await db.Suppliers.Include(x => x.Qualifications).SingleOrDefaultAsync(x => x.Id == draft.SupplierId, token);
                 if (supplier is null || !SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow))
                     Conflict("OrderSupplierUnavailable");
+                await CurrentSourceCheckers(db, core, scope, load.Sources.Select(x => x.Source), token);
                 var proposedLines = draft.Lines!.Select(inputLine =>
                 {
                     var source = load.Sources.Single(x => x.OrderLine.Id == inputLine.Id);

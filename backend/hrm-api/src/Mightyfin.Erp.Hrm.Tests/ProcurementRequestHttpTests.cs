@@ -31,7 +31,8 @@ public sealed class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start();
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
-            new { purpose = "Worker independent funding", currencyCode = "ZMW", lines = new[] {
+            new { purpose = "Worker independent funding", currencyCode = "ZMW",
+                neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] {
                 new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var original = await created.Content.ReadFromJsonAsync<JsonElement>();
@@ -66,6 +67,96 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal("FinanceEvidenceVerifierUnavailable", await fixture.FinanceEligibility(id, fixture.Other));
     }
 
+    [Fact]
+    public async Task Retained_checker_survives_account_reassignment_without_reinterpreting_original_or_replaying_as_new_worker()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        var (id, version) = await SubmittedFundingRequest(fixture);
+        var input = new ProcurementBudgetRoutes.BudgetDecision(version, "RETAINED-CHECKER", "Available", 20m,
+            "ZMW", "synthetic-retained-checker-document", null, "RES-RETAINED", "Confirmed");
+        var path = $"/api/procurement/v1/requests/{id}/budget-checks";
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "finance_approver");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var output = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, output.GetProperty("checkerIdentitySchemaVersion").GetInt32());
+        var originalWorker = output.GetProperty("checkedByWorkerId").GetGuid();
+        var original = await fixture.StoredFinance(id);
+        Assert.True(FinanceCheckerIdentityEvidence.HasValidBinding(original));
+        Assert.Equal(originalWorker, original.CheckedByWorkerId);
+        Assert.Null(await fixture.FinanceEligibility(id, fixture.Other));
+        var replay = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "finance_approver");
+        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+        Assert.Equal(output.GetRawText(), (await replay.Content.ReadFromJsonAsync<JsonElement>()).GetRawText());
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Reviewer); // Still independent/currently permitted; identity alone changed.
+        var before = await fixture.OriginalValueFootprint();
+        Assert.Equal("FinanceEvidenceCheckerIdentityChanged", await fixture.FinanceEligibility(id, fixture.Other));
+        var denied = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "finance_approver");
+        Assert.Equal(HttpStatusCode.Conflict, denied.StatusCode);
+        Assert.Equal("finance-checker-identity-changed", (await denied.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+        var retained = await fixture.StoredFinance(id);
+        Assert.Equal(originalWorker, retained.CheckedByWorkerId);
+        Assert.Equal(original.CheckerIdentitySha256, retained.CheckerIdentitySha256);
+        Assert.True(FinanceCheckerIdentityEvidence.HasValidBinding(retained));
+    }
+
+    [Fact]
+    public async Task Legacy_finance_reference_cannot_be_backfilled_by_replay_or_authorize_new_positive_use()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        var (id, version) = await SubmittedFundingRequest(fixture);
+        await fixture.InsertLegacyFinance(id, version);
+        var original = await fixture.StoredFinance(id); var before = await fixture.OriginalValueFootprint();
+        Assert.Equal(0, original.CheckerIdentitySchemaVersion); Assert.Null(original.CheckedByWorkerId);
+        Assert.Equal("FinanceEvidenceCheckerIdentityMissingOrInvalid", await fixture.FinanceEligibility(id, fixture.Other));
+        var response = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/budget-checks",
+            fixture.Other, new ProcurementBudgetRoutes.BudgetDecision(version, "LEGACY-CHECK", "Available", 20m,
+                "ZMW", "legacy-synthetic-evidence", null, "LEGACY-RESERVATION", "Confirmed"), "finance_approver");
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+        Assert.Equal(JsonSerializer.Serialize(original), JsonSerializer.Serialize(await fixture.StoredFinance(id)));
+    }
+
+    [Fact]
+    public async Task Current_Core_finance_permission_is_required_for_new_capture_and_exact_reference_recovery()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        var (id, version) = await SubmittedFundingRequest(fixture);
+        var input = new ProcurementBudgetRoutes.BudgetDecision(version, "CURRENT-FINANCE-GRANT", "Available", 20m,
+            "ZMW", "synthetic-current-permission", null, "RES-CURRENT-GRANT", "Confirmed");
+        var path = $"/api/procurement/v1/requests/{id}/budget-checks";
+        await fixture.SetFinancePermission(false);
+        var before = await fixture.OriginalValueFootprint();
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "finance_approver")).StatusCode);
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+        await fixture.SetFinancePermission(true);
+        Assert.Equal(HttpStatusCode.Created,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "finance_approver")).StatusCode);
+        await fixture.SetFinancePermission(false);
+        before = await fixture.OriginalValueFootprint();
+        Assert.Equal("FinanceEvidenceVerifierPermissionRevoked", await fixture.FinanceEligibility(id, fixture.Other));
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "finance_approver")).StatusCode);
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+    }
+
+    private static async Task<(Guid Id, long Version)> SubmittedFundingRequest(Fixture fixture)
+    {
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
+            new { purpose = "Retained funding worker", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+                lines = new[] { new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var row = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = row.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/submit", fixture.Owner,
+            new ProcurementRequestRoutes.VersionCommand(row.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        return (id, (await submitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("version").GetInt64());
+    }
+
     [Theory]
     [InlineData("LegacyImport", null)]
     [InlineData("ERP", "unproven-on-behalf-maker")]
@@ -73,7 +164,8 @@ public sealed class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start();
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
-            new { purpose = "Unknown maker provenance", currencyCode = "ZMW", lines = new[] {
+            new { purpose = "Unknown maker provenance", currencyCode = "ZMW",
+                neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] {
                 new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var original = await created.Content.ReadFromJsonAsync<JsonElement>();
@@ -345,6 +437,7 @@ public sealed class ProcurementRequestHttpTests
     public async Task Finance_budget_decision_requires_distinct_reviewer_and_confirmed_reservation()
     {
         await using var fixture = await Fixture.Start();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
             fixture.Owner, Draft("Finance review"));
         var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
@@ -425,6 +518,7 @@ public sealed class ProcurementRequestHttpTests
     public async Task Finance_budget_review_is_confined_to_assigned_branch()
     {
         await using var fixture = await Fixture.Start();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
             fixture.Owner, Draft("Branch-restricted funding"));
         var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
@@ -2789,6 +2883,37 @@ public sealed class ProcurementRequestHttpTests
             await core.SaveChangesAsync();
         }
 
+        public async Task SetFinancePermission(bool active)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "finance_approver")).Active = active;
+            await core.SaveChangesAsync();
+        }
+
+        public async Task<BudgetCheckSnapshot> StoredFinance(Guid requestId)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
+                "tenant-a", company, Other.ToString(), null, null, false, "retained-finance-test");
+            return await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().BudgetCheckSnapshots.AsNoTracking()
+                .SingleAsync(x => x.PurchaseRequestId == requestId);
+        }
+
+        public async Task InsertLegacyFinance(Guid requestId, long version)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
+                "tenant-a", company, Other.ToString(), null, null, false, "explicit-legacy-finance-fixture");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            // Synthetic unbound legacy storage fixture, not a forged historical authoritative reservation.
+            db.AddScoped(new BudgetCheckSnapshot { PurchaseRequestId = requestId, RequestVersion = version,
+                FinanceCheckRef = "LEGACY-CHECK", Status = "Available", CheckedAmount = 20, CurrencyCode = "ZMW",
+                CheckedBySubjectId = Other.ToString(), CheckedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
+                EvidenceRef = "legacy-synthetic-evidence", ReservationRef = "LEGACY-RESERVATION", ReservationStatus = "Confirmed" });
+            await db.SaveChangesAsync();
+        }
+
         public async Task<string?> FinanceEligibility(Guid requestId, Guid verifier)
         {
             using var services = app.Services.CreateScope();
@@ -2797,9 +2922,22 @@ public sealed class ProcurementRequestHttpTests
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             var request = await db.PurchaseRequests.AsNoTracking().SingleAsync(x => x.Id == requestId);
-            var finance = new BudgetCheckSnapshot { CheckedBySubjectId = verifier.ToString(),
-                CheckedAt = DateTimeOffset.UtcNow.AddSeconds(-1) };
-            // Historical input is deliberately synthetic; CheckAsync must reject it before eligibility.
+            var finance = await db.BudgetCheckSnapshots.AsNoTracking().Where(x => x.PurchaseRequestId == requestId)
+                .OrderByDescending(x => x.CheckedAt).FirstOrDefaultAsync();
+            if (finance is null)
+            {
+                // Only this pre-capture eligibility test projection is synthetic. Real stored evidence
+                // takes precedence so account reassignment cannot be hidden by constructing new identity.
+                finance = new BudgetCheckSnapshot { TenantId = scope.TenantId, LegalEntityId = company,
+                    PurchaseRequestId = request.Id, RequestVersion = request.SubmittedVersion ?? request.Version,
+                    CheckedBySubjectId = verifier.ToString(), CheckedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
+                    FinanceCheckRef = "SYNTHETIC-PRECAPTURE", EvidenceRef = "SYNTHETIC-EVIDENCE", Status = "Available",
+                    CheckedAmount = 20, CurrencyCode = request.CurrencyCode };
+                var account = await core.LocalUsers.SingleAsync(x => x.Id == verifier);
+                var binding = FinanceCheckerIdentityEvidence.CreateForNewSnapshot(finance, verifier.ToString(), account.WorkerId ?? throw new InvalidOperationException("Fixture worker missing"));
+                finance.CheckerIdentitySchemaVersion = binding.SchemaVersion; finance.CheckedByWorkerId = binding.WorkerId;
+                finance.CheckerIdentitySha256 = binding.Sha256;
+            }
             try
             {
                 await ProcurementApprovalFinanceEligibility.CheckAsync(request, finance,

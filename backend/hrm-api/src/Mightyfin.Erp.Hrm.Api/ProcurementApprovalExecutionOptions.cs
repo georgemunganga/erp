@@ -66,14 +66,37 @@ internal static class ProcurementApprovalFinanceEligibility
             || finance.CheckedAt.AddMinutes(minutes) < now)) throw new InvalidOperationException("FinanceEvidenceExpired");
         if (finance.CheckedAt > now || finance.CheckedBySubjectId == request.CreatedBy)
             throw new InvalidOperationException("FinanceEvidenceVerifierInvalid");
+        _ = await RequireCurrentCheckerAsync(request, finance, core, db, scope, ct);
+        return (PurchaseRequestApprovalPinning.ApprovedManualEvidence, policy.ApprovedPolicyReference);
+    }
+
+    /// <summary>New positive use only. Historic source restore/cancel/release uses original bytes,
+    /// not a fabricated active historic account. Does not attest external Finance reservation truth.</summary>
+    internal static async Task<ProcurementAuthorityIdentity.CanonicalAccount> RequireCurrentCheckerAsync(
+        PurchaseRequest request, BudgetCheckSnapshot finance, HrmDbContext core, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
         var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
             scope.LegalEntityId, finance.CheckedBySubjectId, ct);
         if (verifier is null) throw new InvalidOperationException("FinanceEvidenceVerifierUnavailable");
         await ProcurementFinanceWorkerIndependence.RequireAsync(request, verifier.WorkerId, core, db, scope, ct);
-        var permissions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, verifier.RolesCsv, ct);
-        var admin = LocalIdentityRoutes.ParseRoles(verifier.RolesCsv).Contains("erp_admin", StringComparer.OrdinalIgnoreCase);
-        if (!admin && (!permissions.Contains("procurement-access") || !permissions.Contains("procurement-budget-check")))
-            throw new InvalidOperationException("FinanceEvidenceVerifierPermissionRevoked");
-        return (PurchaseRequestApprovalPinning.ApprovedManualEvidence, policy.ApprovedPolicyReference);
+        if (!FinanceCheckerIdentityEvidence.HasValidBinding(finance))
+            throw new InvalidOperationException("FinanceEvidenceCheckerIdentityMissingOrInvalid");
+        if (!FinanceCheckerIdentityEvidence.MatchesCurrentCanonical(finance, scope.TenantId, scope.LegalEntityId,
+                request.Id, request.SubmittedVersion ?? request.Version, verifier.PrincipalId, verifier.WorkerId))
+            throw new InvalidOperationException("FinanceEvidenceCheckerIdentityChanged");
+        await RequireCurrentBudgetPermissionAsync(core, verifier, ct);
+        return verifier;
     }
+
+
+    internal static async Task RequireCurrentBudgetPermissionAsync(HrmDbContext core,
+        ProcurementAuthorityIdentity.CanonicalAccount verifier, CancellationToken ct)
+    {
+        var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, verifier.RolesCsv, ct);
+        var admin = LocalIdentityRoutes.ParseRoles(verifier.RolesCsv).Contains("erp_admin", StringComparer.OrdinalIgnoreCase);
+        if (!admin && (!actions.Contains("procurement-access") || !actions.Contains("procurement-budget-check")))
+            throw new InvalidOperationException("FinanceEvidenceVerifierPermissionRevoked");
+    }
+
 }

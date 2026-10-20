@@ -26,6 +26,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 await Actor(core, scope, http, auth, "procurement-po-submit", token, load.Order.BranchRef, true);
                 var prior = await Receipt(db, scope, "Submit", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
+                await CurrentSourceCheckers(db, core, scope, load.Sources.Select(x => x.Source), token);
                 await CatalogCommercial(db, load.Order.SupplierId, load.Order.CurrencyCode,
                     load.Sources.Select(x => (x.Source.Line, x.OrderLine)), token);
                 var order = load.Order; var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
@@ -118,6 +119,8 @@ public static partial class ProcurementOrderExecutionRoutes
                 var finance = input.Action == "Approve"
                     ? await CurrentFinance(db, core, scope, load, options, pin.CommercialRevision, now, token)
                     : await db.OrderFinanceEvidence.SingleAsync(x => x.Id == pin.FinanceEvidenceId, token);
+                if (input.Action == "Approve")
+                    await CurrentSourceCheckers(db, core, scope, load.Sources.Select(x => x.Source), token);
                 if (input.Action == "Approve")
                     PurchaseOrderCommercialWorkflow.Verify(load.Order, load.Sources, load.Supplier, pin, policy, finance, now);
                 else PurchaseOrderCommercialWorkflow.VerifyForReturn(load.Order, load.Sources, pin, policy, finance);

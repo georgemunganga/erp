@@ -35,6 +35,7 @@ public static partial class ProcurementOrderExecutionRoutes
                         || !PurchaseOrderWorkerIdentity.IsIndependent(recorded.ParticipantWorkersJson, verifier.WorkerId)) Deny();
                     return prior.ResponseJson;
                 }
+                await CurrentSourceCheckers(db, core, scope, load.Sources.Select(x => x.Source), token);
                 await CatalogCommercial(db, load.Order.SupplierId, load.Order.CurrencyCode,
                     load.Sources.Select(x => (x.Source.Line, x.OrderLine)), token);
                 var order = load.Order; var now = DateTimeOffset.UtcNow;

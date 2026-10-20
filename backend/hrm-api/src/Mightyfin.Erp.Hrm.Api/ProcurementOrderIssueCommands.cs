@@ -40,6 +40,7 @@ public static partial class ProcurementOrderExecutionRoutes
                         core, db, scope, now, token);
                 var prior = await Receipt(db, scope, "Issue", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
+                await CurrentSourceCheckers(db, core, scope, load.Sources.Select(x => x.Source), token);
                 await CatalogCommercial(db, load.Order.SupplierId, load.Order.CurrencyCode,
                     load.Sources.Select(x => (x.Source.Line, x.OrderLine)), token);
                 if (load.Order.Version != input.ExpectedOrderVersion) Conflict("OrderIssueVersionChanged");
