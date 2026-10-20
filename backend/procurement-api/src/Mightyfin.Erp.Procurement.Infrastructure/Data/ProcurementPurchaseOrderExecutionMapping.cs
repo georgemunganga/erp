@@ -44,9 +44,11 @@ public sealed partial class ProcurementDbContext
             "commercial_revision > 0 AND status IN ('Confirmed','Revoked') AND confirmed_gross_amount >= 0 " +
             "AND currency_code ~ '^[A-Z]{3}$' AND length(btrim(commitment_reference)) > 0 " +
             "AND length(btrim(evidence_reference)) > 0 AND evidence_mode = 'ApprovedManualEvidence' " +
-            "AND length(btrim(approved_manual_policy_reference)) > 0 AND length(btrim(verified_by_principal_id)) > 0"));
+            "AND length(btrim(approved_manual_policy_reference)) > 0 AND length(btrim(verified_by_principal_id)) > 0 AND verified_by_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid"));
         var submission = model.Entity<PurchaseOrderSubmission>();
         submission.Property(x => x.CommercialSnapshotJson).HasColumnType("text");
+        submission.Property(x => x.ParticipantWorkersJson).HasColumnType("text");
+        submission.Property(x => x.WorkerIdentitySha256).HasMaxLength(64);
         submission.Property(x => x.SourceEvidenceJson).HasColumnType("text");
         submission.Property(x => x.PolicyDecisionJson).HasColumnType("text");
         submission.Property(x => x.CommercialSnapshotSha256).HasMaxLength(64);
@@ -69,7 +71,7 @@ public sealed partial class ProcurementDbContext
         submission.ToTable(t => t.HasCheckConstraint("ck_order_submission_evidence",
             "commercial_revision > 0 AND submitted_row_version > 0 AND amount_basis = 'ApprovedLineBase' " +
             "AND line_base_amount >= 0 AND gross_amount >= line_base_amount " +
-            "AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 ~ '^[0-9a-f]{64}$'"));
+            "AND buyer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND worker_identity_sha256 ~ '^[0-9a-f]{64}$' AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 ~ '^[0-9a-f]{64}$'"));
         var authority = model.Entity<PurchaseOrderAssignmentAuthorityEvidence>();
         authority.Property(x => x.PrincipalId).HasMaxLength(200);
         authority.Property(x => x.AssigneeKind).HasMaxLength(50);
@@ -81,6 +83,7 @@ public sealed partial class ProcurementDbContext
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.CoreApprovalCaseId }).OnDelete(DeleteBehavior.Restrict);
         Link<PurchaseOrderAssignmentAuthorityEvidence, ProcurementSpendingAuthorityGrant>(model, nameof(PurchaseOrderAssignmentAuthorityEvidence.GrantId));
         var issued = model.Entity<PurchaseOrderIssuedVersion>();
+        issued.Property(x => x.ParticipantWorkersJson).HasColumnType("text");
         issued.Property(x => x.CommercialSnapshotJson).HasColumnType("text");
         issued.Property(x => x.CommercialSnapshotSha256).HasMaxLength(64);
         issued.Property(x => x.IssueEffectKey).HasMaxLength(150);
@@ -122,11 +125,14 @@ public sealed partial class ProcurementDbContext
             if (entry.Entity is ProcurementCommercialCommandReceipt receipt && (receipt.ActorPrincipalId != scope.SubjectId
                 || receipt.CommandKey == Guid.Empty || receipt.Fingerprint.Length != 64 || receipt.CompletedAt == default))
                 throw new InvalidOperationException("OrderCommandReceiptActorInvalid");
-            if (entry.Entity is PurchaseOrderFinanceEvidence finance && finance.VerifiedByPrincipalId != scope.SubjectId)
+            if (entry.Entity is PurchaseOrderAssignmentAuthorityEvidence assignment
+                && Mightyfin.Erp.Procurement.Application.PurchaseOrderAssignmentIdentity.ReadVerified(assignment) is null)
+                throw new InvalidOperationException("OrderAssignmentWorkerEvidenceInvalid");
+            if (entry.Entity is PurchaseOrderFinanceEvidence finance && (finance.VerifiedByPrincipalId != scope.SubjectId || finance.VerifiedByWorkerId == Guid.Empty))
                 throw new InvalidOperationException("OrderFinanceVerifierActorInvalid");
             if (entry.Entity is PurchaseOrderIssuedVersion issued && issued.IssuedByPrincipalId != scope.SubjectId)
                 throw new InvalidOperationException("OrderIssueActorInvalid");
-            if (entry.Entity is PurchaseOrderDeliveryEvidence delivery && delivery.VerifiedByPrincipalId != scope.SubjectId)
+            if (entry.Entity is PurchaseOrderDeliveryEvidence delivery && (delivery.VerifiedByPrincipalId != scope.SubjectId || delivery.VerifiedByWorkerId == Guid.Empty))
                 throw new InvalidOperationException("OrderDeliveryActorInvalid");
         }
     }

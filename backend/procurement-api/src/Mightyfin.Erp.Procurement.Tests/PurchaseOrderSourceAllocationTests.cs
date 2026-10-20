@@ -149,7 +149,7 @@ public sealed class PurchaseOrderSourceAllocationTests
                 StageId = stage.Id, AssigneeSubjectId = "independent-approver", PermissionKey = "procurement-approval-decide" };
             stage.Assignments.Add(assignment); Case.Stages.Add(stage);
             var pin = PurchaseRequestApprovalPinning.Pin(Request, evaluation, policy, finance, Tenant, Company,
-                Case.Id, Guid.NewGuid(), "ApprovedManualEvidence", "SYNTHETIC", Now.AddSeconds(1));
+                Case.Id, Guid.NewGuid(), "ApprovedManualEvidence", "SYNTHETIC", Now.AddSeconds(1), Guid.NewGuid(), Request.RequesterWorkerId);
             Request.ApprovalInstanceRef = Case.Id.ToString("D"); Request.Version++;
             var decisions = new List<ApprovalDecision>();
             ApprovalEngine.Decide(Case, assignment, new("independent-approver", Tenant, Company,

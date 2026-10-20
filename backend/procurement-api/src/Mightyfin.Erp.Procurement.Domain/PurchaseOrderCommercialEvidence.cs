@@ -16,6 +16,7 @@ public sealed class PurchaseOrderFinanceEvidence : ProcurementRecord
     public string SourceReservationsJson { get; init; } = null!;
     public string CommercialSnapshotSha256 { get; init; } = null!;
     public string VerifiedByPrincipalId { get; init; } = null!;
+    public Guid VerifiedByWorkerId { get; init; }
     public DateTimeOffset ConfirmedAt { get; init; }
     public string? ReplacesCommitmentReference { get; init; }
 }
@@ -31,6 +32,9 @@ public sealed class PurchaseOrderSubmission : ProcurementRecord
     public int PolicyVersionNumber { get; init; }
     public Guid FinanceEvidenceId { get; init; }
     public string BuyerPrincipalId { get; init; } = null!;
+    public Guid BuyerWorkerId { get; init; }
+    public string ParticipantWorkersJson { get; init; } = null!;
+    public string WorkerIdentitySha256 { get; init; } = null!;
     public string CurrencyCode { get; init; } = null!;
     public string AmountBasis { get; init; } = null!;
     public decimal LineBaseAmount { get; init; }
@@ -52,6 +56,7 @@ public sealed class PurchaseOrderAssignmentAuthorityEvidence : ProcurementRecord
     public long GrantRevision { get; init; }
     public int AuthorityVersion { get; init; }
     public string PrincipalId { get; init; } = null!;
+    public Guid AssigneeWorkerId { get; init; }
     public string AssigneeKind { get; init; } = null!;
     public string AuthorityEvidenceJson { get; init; } = null!;
     public string AuthorityEvidenceSha256 { get; init; } = null!;
@@ -68,6 +73,7 @@ public sealed class PurchaseOrderIssuedVersion : ProcurementRecord
     public string FinanceCommitmentReference { get; init; } = null!;
     public string IssueEffectKey { get; init; } = null!;
     public string IssuedByPrincipalId { get; init; } = null!;
+    public string ParticipantWorkersJson { get; init; } = null!;
     public DateTimeOffset AuthorizedAt { get; init; }
 }
 
@@ -79,6 +85,7 @@ public sealed class PurchaseOrderDeliveryEvidence : ProcurementRecord
     public string Channel { get; init; } = null!;
     public string EvidenceReference { get; init; } = null!;
     public string VerifiedByPrincipalId { get; init; } = null!;
+    public Guid VerifiedByWorkerId { get; init; }
     public DateTimeOffset ObservedAt { get; init; }
 }
 

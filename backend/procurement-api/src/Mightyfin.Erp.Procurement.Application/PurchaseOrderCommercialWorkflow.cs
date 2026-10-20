@@ -17,7 +17,7 @@ public static class PurchaseOrderCommercialWorkflow
 {
     public static PurchaseOrderSubmission Submit(PurchaseOrder order, IReadOnlyList<PurchaseOrderSourceLine> lines,
         Supplier supplier, PolicyVersion policy, PurchaseOrderFinanceEvidence finance,
-        Guid coreCaseId, DateTimeOffset now)
+        Guid coreCaseId, DateTimeOffset now, Guid buyerWorkerId)
     {
         if (order.Status is not ("Draft" or "Returned") || coreCaseId == Guid.Empty || order.CurrentRevision < 0)
             Fail("OrderSubmissionStateInvalid");
@@ -25,14 +25,17 @@ public static class PurchaseOrderCommercialWorkflow
         var revision = checked(order.CurrentRevision + 1);
         var route = PolicyRoute(order, lines, policy, now);
         var (lineBase, gross) = Totals(lines.Select(x => x.OrderLine));
-        ValidateFinance(order, lines, supplier, finance, revision, gross, now);
+        ValidateFinance(order, lines, supplier, finance, revision, gross, now, buyerWorkerId);
         var snapshot = Snapshot(order, lines.Select(x => x.OrderLine).ToArray(), supplier, revision);
         var pin = new PurchaseOrderSubmission
         {
             TenantId = order.TenantId, LegalEntityId = order.LegalEntityId, PurchaseOrderId = order.Id,
             CommercialRevision = revision, SubmittedRowVersion = checked(order.Version + 1), CoreApprovalCaseId = coreCaseId,
             PolicyVersionId = policy.Id, PolicyVersionNumber = policy.PolicyVersionNumber, FinanceEvidenceId = finance.Id,
-            BuyerPrincipalId = order.BuyerSubjectId, CurrencyCode = order.CurrencyCode, AmountBasis = "ApprovedLineBase",
+            BuyerPrincipalId = order.BuyerSubjectId, BuyerWorkerId = buyerWorkerId,
+            ParticipantWorkersJson = PurchaseOrderWorkerIdentity.Participants(lines, buyerWorkerId),
+            WorkerIdentitySha256 = PurchaseOrderWorkerIdentity.Digest(order, revision, coreCaseId, buyerWorkerId,
+                PurchaseOrderWorkerIdentity.Participants(lines, buyerWorkerId)), CurrencyCode = order.CurrencyCode, AmountBasis = "ApprovedLineBase",
             LineBaseAmount = lineBase, GrossAmount = gross, CommercialSnapshotJson = snapshot,
             CommercialSnapshotSha256 = ProcurementEvidenceEncoding.Digest(snapshot), SourceEvidenceJson = SourceSnapshot(lines),
             PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson), PolicyDecisionJson = route.DecisionJson,
@@ -51,6 +54,7 @@ public static class PurchaseOrderCommercialWorkflow
         ValidateLines(order, lines, supplier, now, ordered ? "Ordered" : "Reserved");
         var (lineBase, gross) = Totals(lines.Select(x => x.OrderLine));
         if (pin.TenantId != order.TenantId || pin.LegalEntityId != order.LegalEntityId || pin.PurchaseOrderId != order.Id
+            || !PurchaseOrderWorkerIdentity.Verify(pin, order, lines)
             || pin.CommercialRevision != order.CurrentRevision || order.SubmittedBusinessVersion != pin.CommercialRevision
             || order.Version < pin.SubmittedRowVersion || pin.BuyerPrincipalId != order.BuyerSubjectId
             || order.ApprovalInstanceRef != pin.CoreApprovalCaseId.ToString("D")
@@ -64,11 +68,11 @@ public static class PurchaseOrderCommercialWorkflow
             || pin.PolicyDecisionJson != PolicyRoute(order, lines, policy, pin.SubmittedAt).DecisionJson
             || pin.FinanceEvidenceId != finance.Id || order.FinanceCommitmentRef != finance.CommitmentReference)
             Fail("OrderSubmittedEvidenceChanged");
-        ValidateFinance(order, lines, supplier, finance, pin.CommercialRevision, gross, now);
+        ValidateFinance(order, lines, supplier, finance, pin.CommercialRevision, gross, now, pin.BuyerWorkerId);
     }
 
     public static void ApplyDecision(PurchaseOrder order, PurchaseOrderSubmission pin,
-        ApprovalCase approvalCase, ApprovalDecision decision, string? reason)
+        ApprovalCase approvalCase, ApprovalDecision decision, string? reason, Guid actorWorkerId)
     {
         if (approvalCase.TenantId != order.TenantId || approvalCase.LegalEntityId != order.LegalEntityId
             || approvalCase.Id != pin.CoreApprovalCaseId || approvalCase.SourceModule != "procurement"
@@ -76,6 +80,7 @@ public static class PurchaseOrderCommercialWorkflow
             || approvalCase.SourceVersion != pin.CommercialRevision || approvalCase.PolicyVersionId != pin.PolicyVersionId
             || approvalCase.PolicyVersionNumber != pin.PolicyVersionNumber || approvalCase.MakerSubjectId != order.BuyerSubjectId
             || decision.CaseId != approvalCase.Id || decision.TenantId != order.TenantId || decision.LegalEntityId != order.LegalEntityId
+            || !PurchaseOrderWorkerIdentity.IsIndependent(pin.ParticipantWorkersJson, actorWorkerId)
             || decision.ActorSubjectId == order.BuyerSubjectId || order.Status != "PendingApproval")
             Fail("OrderCoreDecisionMismatch");
         if (approvalCase.State == "Pending") return;
@@ -110,6 +115,7 @@ public static class PurchaseOrderCommercialWorkflow
             SubmissionId = pin.Id, RevisionNumber = pin.CommercialRevision, CommercialSnapshotJson = pin.CommercialSnapshotJson,
             CommercialSnapshotSha256 = pin.CommercialSnapshotSha256, FinanceCommitmentReference = finance.CommitmentReference,
             IssueEffectKey = $"procurement.po.issue.{pin.Id:N}.v1", IssuedByPrincipalId = actor,
+            ParticipantWorkersJson = pin.ParticipantWorkersJson,
             AuthorizedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(now)!.Value,
         };
         order.Status = "IssuePending";
@@ -118,11 +124,12 @@ public static class PurchaseOrderCommercialWorkflow
 
     public static PurchaseOrderDeliveryEvidence ConfirmDelivery(PurchaseOrder order,
         PurchaseOrderIssuedVersion issued, string reference, string outcome, string channel,
-        string evidenceReference, string verifier, DateTimeOffset observedAt, DateTimeOffset now)
+        string evidenceReference, string verifier, DateTimeOffset observedAt, DateTimeOffset now, Guid verifierWorkerId)
     {
         if (order.Status is not ("IssuePending" or "Issued") || issued.PurchaseOrderId != order.Id
             || issued.TenantId != order.TenantId || issued.LegalEntityId != order.LegalEntityId
             || issued.RevisionNumber != order.CurrentRevision || observedAt < issued.AuthorizedAt || observedAt > now
+            || !PurchaseOrderWorkerIdentity.IsIndependent(issued.ParticipantWorkersJson, verifierWorkerId)
             || outcome is not ("Delivered" or "Failed" or "Unknown")
             || new[] { reference, channel, evidenceReference, verifier }.Any(string.IsNullOrWhiteSpace))
             Fail("OrderDeliveryEvidenceInvalid");
@@ -132,7 +139,7 @@ public static class PurchaseOrderCommercialWorkflow
         {
             TenantId = order.TenantId, LegalEntityId = order.LegalEntityId, IssuedVersionId = issued.Id,
             DeliveryReference = reference, Outcome = outcome, Channel = channel, EvidenceReference = evidenceReference,
-            VerifiedByPrincipalId = verifier, ObservedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(observedAt)!.Value,
+            VerifiedByPrincipalId = verifier, VerifiedByWorkerId = verifierWorkerId, ObservedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(observedAt)!.Value,
         };
     }
 
@@ -209,7 +216,7 @@ public static class PurchaseOrderCommercialWorkflow
     }
 
     private static void ValidateFinance(PurchaseOrder order, IReadOnlyList<PurchaseOrderSourceLine> lines,
-        Supplier supplier, PurchaseOrderFinanceEvidence finance, int revision, decimal gross, DateTimeOffset now)
+        Supplier supplier, PurchaseOrderFinanceEvidence finance, int revision, decimal gross, DateTimeOffset now, Guid buyerWorkerId)
     {
         if (finance.TenantId != order.TenantId || finance.LegalEntityId != order.LegalEntityId
             || finance.PurchaseOrderId != order.Id || finance.SupplierId != order.SupplierId
@@ -217,6 +224,8 @@ public static class PurchaseOrderCommercialWorkflow
             || finance.CurrencyCode != order.CurrencyCode || finance.ConfirmedGrossAmount != gross
             || finance.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(
                 Snapshot(order, lines.Select(x => x.OrderLine).ToArray(), supplier, revision))
+            || !PurchaseOrderWorkerIdentity.IsIndependent(PurchaseOrderWorkerIdentity.Participants(lines, buyerWorkerId),
+                finance.VerifiedByWorkerId)
             || finance.EvidenceMode != "ApprovedManualEvidence" || string.IsNullOrWhiteSpace(finance.ApprovedManualPolicyReference)
             || finance.ConfirmedAt == default || finance.ConfirmedAt > now || finance.VerifiedByPrincipalId == order.BuyerSubjectId
             || new[] { finance.CommitmentReference, finance.EvidenceReference, finance.VerifiedByPrincipalId }.Any(string.IsNullOrWhiteSpace))

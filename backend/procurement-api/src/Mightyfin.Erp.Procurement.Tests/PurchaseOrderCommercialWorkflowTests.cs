@@ -22,10 +22,10 @@ public sealed class PurchaseOrderCommercialWorkflowTests
             f.Lines, f.Supplier, pin, f.Policy, f.Finance, f.Case!, "buyer", f.Now.AddMinutes(1)));
         Assert.Equal(1, f.Source.Line.OrderedQuantity);
         var delivery = PurchaseOrderCommercialWorkflow.ConfirmDelivery(f.Source.Order, issued, "DELIVERY-1",
-            "Unknown", "SecureEmail", "SYNTHETIC-EVIDENCE", "delivery-operator", f.Now.AddMinutes(2), f.Now.AddMinutes(2));
+            "Unknown", "SecureEmail", "SYNTHETIC-EVIDENCE", "delivery-operator", f.Now.AddMinutes(2), f.Now.AddMinutes(2), Guid.NewGuid());
         Assert.Equal("Unknown", delivery.Outcome); Assert.Equal("IssuePending", f.Source.Order.Status);
         _ = PurchaseOrderCommercialWorkflow.ConfirmDelivery(f.Source.Order, issued, "DELIVERY-2", "Delivered",
-            "SecureEmail", "SYNTHETIC-EVIDENCE-2", "delivery-operator", f.Now.AddMinutes(3), f.Now.AddMinutes(3));
+            "SecureEmail", "SYNTHETIC-EVIDENCE-2", "delivery-operator", f.Now.AddMinutes(3), f.Now.AddMinutes(3), Guid.NewGuid());
         Assert.Equal("Issued", f.Source.Order.Status);
         Assert.Equal(pin.CommercialSnapshotSha256, issued.CommercialSnapshotSha256);
     }
@@ -60,9 +60,9 @@ public sealed class PurchaseOrderCommercialWorkflowTests
     {
         var f = new Fixture();
         Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.Submit(f.Source.Order,
-            f.Lines, f.Supplier, f.Policy, f.MakeFinance(9), Guid.NewGuid(), f.Now));
+            f.Lines, f.Supplier, f.Policy, f.MakeFinance(9), Guid.NewGuid(), f.Now, f.BuyerWorker));
         Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.Submit(f.Source.Order,
-            f.Lines, f.Supplier, f.Policy, f.MakeFinance(11), Guid.NewGuid(), f.Now));
+            f.Lines, f.Supplier, f.Policy, f.MakeFinance(11), Guid.NewGuid(), f.Now, f.BuyerWorker));
         Assert.Equal("Draft", f.Source.Order.Status);
     }
 
@@ -72,15 +72,44 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         var f = new Fixture();
         f.Source.PoLine.CostCenterRef = "OTHER-COST-CENTRE";
         Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.Submit(f.Source.Order,
-            f.Lines, f.Supplier, f.Policy, f.Finance, Guid.NewGuid(), f.Now));
+            f.Lines, f.Supplier, f.Policy, f.Finance, Guid.NewGuid(), f.Now, f.BuyerWorker));
         Assert.Equal("Draft", f.Source.Order.Status);
         Assert.Equal(0, f.Source.Order.CurrentRevision);
+    }
+
+    [Fact]
+    public void Different_accounts_for_the_same_buyer_cannot_approve_or_confirm_vendor_delivery()
+    {
+        var f = new Fixture(); var pin = f.Submit();
+        var syntheticDecision = new ApprovalDecision { TenantId = f.Supplier.TenantId,
+            LegalEntityId = f.Supplier.LegalEntityId, CaseId = f.Case!.Id, ActorSubjectId = "buyer-alias" };
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.ApplyDecision(
+            f.Source.Order, pin, f.Case!, syntheticDecision, null, f.BuyerWorker));
+        f.Approve(pin);
+        var issued = PurchaseOrderCommercialWorkflow.AuthorizeIssue(f.Source.Order, f.Lines, f.Supplier,
+            pin, f.Policy, f.Finance, f.Case!, "buyer", f.Now.AddMinutes(1));
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.ConfirmDelivery(
+            f.Source.Order, issued, "DELIVERY", "Delivered", "SecureEmail", "EVIDENCE", "buyer-alias",
+            f.Now.AddMinutes(2), f.Now.AddMinutes(2), f.BuyerWorker));
+        Assert.Equal("IssuePending", f.Source.Order.Status);
+    }
+
+    [Fact]
+    public void Retained_requester_identity_prevents_finance_alias_independence()
+    {
+        var f = new Fixture();
+        var participants = PurchaseOrderWorkerIdentity.Participants(f.Lines, f.BuyerWorker);
+        Assert.False(PurchaseOrderWorkerIdentity.IsIndependent(participants, f.Source.Request.RequesterWorkerId));
+        Assert.False(PurchaseOrderWorkerIdentity.IsIndependent(participants, f.BuyerWorker));
+        Assert.True(PurchaseOrderWorkerIdentity.IsIndependent(participants, Guid.NewGuid()));
+        Assert.False(PurchaseOrderWorkerIdentity.IsIndependent("[]", Guid.NewGuid()));
     }
 
     private sealed class Fixture
     {
         public PurchaseOrderSourceAllocationTests.Fixture Source { get; } = new();
         public DateTimeOffset Now => Source.Now.AddMinutes(2);
+        public Guid BuyerWorker { get; } = Guid.NewGuid();
         public IReadOnlyList<PurchaseOrderSourceLine> Lines { get; }
         public Supplier Supplier { get; }
         public PolicyVersion Policy { get; }
@@ -114,12 +143,12 @@ public sealed class PurchaseOrderCommercialWorkflowTests
             SourceReservationsJson = JsonSerializer.Serialize(new[] { Source.Source.Finance.ReservationRef }),
             CommercialSnapshotSha256 = ProcurementEvidenceEncoding.Digest(PurchaseOrderCommercialWorkflow.Snapshot(
                 Source.Order, Lines.Select(x => x.OrderLine).ToArray(), Supplier, 1)),
-            VerifiedByPrincipalId = "independent-finance", ConfirmedAt = Now,
+            VerifiedByPrincipalId = "independent-finance", VerifiedByWorkerId = Guid.NewGuid(), ConfirmedAt = Now,
         };
         public PurchaseOrderSubmission Submit()
         {
             var id = Guid.NewGuid();
-            var pin = PurchaseOrderCommercialWorkflow.Submit(Source.Order, Lines, Supplier, Policy, Finance, id, Now);
+            var pin = PurchaseOrderCommercialWorkflow.Submit(Source.Order, Lines, Supplier, Policy, Finance, id, Now, BuyerWorker);
             Source.Order.Version++; // persistence advances the operational row revision.
             Case = new() { Id = id, TenantId = Supplier.TenantId, LegalEntityId = Supplier.LegalEntityId,
                 SourceModule = "procurement", SourceType = "purchase_order", SourceId = Source.Order.Id,
@@ -136,7 +165,7 @@ public sealed class PurchaseOrderCommercialWorkflowTests
             var decisions = new List<ApprovalDecision>();
             ApprovalEngine.Decide(Case, assignment, new("independent-po-approver", Supplier.TenantId, Supplier.LegalEntityId,
                 new HashSet<string> { "procurement-po-approve" }), "Approve", Guid.NewGuid().ToString("D"), null, decisions, Now);
-            PurchaseOrderCommercialWorkflow.ApplyDecision(Source.Order, pin, Case, decisions.Single(), null);
+            PurchaseOrderCommercialWorkflow.ApplyDecision(Source.Order, pin, Case, decisions.Single(), null, Guid.NewGuid());
             Source.Order.Version++;
         }
     }
