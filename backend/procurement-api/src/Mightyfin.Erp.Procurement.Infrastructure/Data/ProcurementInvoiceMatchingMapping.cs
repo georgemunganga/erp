@@ -192,7 +192,7 @@ public sealed partial class ProcurementDbContext
             {
                 var result = ChangeTracker.Entries<InvoiceMatchResult>().Where(x => x.State == EntityState.Added && x.Entity.Id == entry.Entity.LastMatchResultId).Select(x => x.Entity).SingleOrDefault();
                 if (result is null || result.SupplierInvoiceId != entry.Entity.Id || result.InvoiceVersion != entry.Entity.Version
-                    || entry.Entity.MatchRevision != checked(entry.OriginalValues.GetValue<int>(nameof(SupplierInvoice.MatchRevision)) + 1))
+                    || entry.Entity.MatchRevision != checked(entry.OriginalValues.GetValue<long>(nameof(SupplierInvoice.MatchRevision)) + 1))
                     throw new InvalidOperationException("InvoiceComparisonPointerFactRequired");
             }
             if (entry.Property(x => x.ActiveMatchClaimResultId).IsModified)
