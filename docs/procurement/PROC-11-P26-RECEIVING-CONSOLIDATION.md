@@ -94,3 +94,15 @@ merged here pending independent review. No new SDK/Node/API/DB/browser job was r
 
 This is the runnable plan, not execution evidence. Root owns migration generation, synthetic
 connection provisioning, resource scheduling and any later release decision.
+
+### Subsequent reviewed source alignment
+
+After the plan checkpoint, parent reported independent AP-readiness review accepted `df3df8b`
+(no blocker; scoped/current-version/privacy projection with handoff always false). It was
+ordinarily merged into P26. Its new pure `InvoiceApReadinessProjectionTests` and mapped
+readiness cases must join the gates above; the read-only explanation does not add a Finance
+owner or lift any matching/AP control. The fixture namespace correction `ec52410` was also
+cherry-picked: `HrUserBranchAssignment` lives in the Application namespace. Parent retains
+the original tool compile failure evidence; this source fix does not claim a passing rebuild.
+Neither integration changes the central P25 migration or generates P26 schema. No local SDK,
+Node, database, browser or API process was started for these source changes.
