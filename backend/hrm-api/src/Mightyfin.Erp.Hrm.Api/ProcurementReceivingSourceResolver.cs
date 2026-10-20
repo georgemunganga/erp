@@ -72,20 +72,21 @@ public static partial class ProcurementReceivingRoutes
         return new(order, line, submission, issued, delivery, lineage.GetProperty("CategoryCode").GetString()!, lineage.GetProperty("PurchaseType").GetString()!);
     }
     private static decimal SealedDecimal(JsonElement value) => decimal.Parse(value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText(), CultureInfo.InvariantCulture);
-    private static async Task<(PolicyVersion Policy, ReceivingRule Rule)> Policy(ProcurementDbContext db, SourceLoad source, Guid? retained, CancellationToken ct)
+    private static async Task<(PolicyVersion Policy, ReceivingRule Rule)> Policy(ProcurementDbContext db, SourceLoad source, Guid? retained, CancellationToken ct, bool requireCurrent = true)
     {
         var now = DateTimeOffset.UtcNow;
         var matches = await db.PolicyVersions.Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
-            && (retained == null || x.Id == retained) && x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo)).Take(2).ToArrayAsync(ct);
+            && (retained == null || x.Id == retained) && ((!requireCurrent && retained != null)
+                || x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo))).Take(2).ToArrayAsync(ct);
         if (matches.Length != 1) throw new ReceivingProblem("ReceivingPublishedPolicyUnavailable", 409);
         var document = ReceivingPolicyRules.Parse(matches[0].RulesJson);
         if (document.CurrencyCode != source.Order.CurrencyCode) throw new ReceivingProblem("ReceivingPolicyCurrencyMismatch", 409);
         var rule = ReceivingPolicyRules.Select(document, source.Category, source.PurchaseType);
         return (matches[0], rule);
     }
-    private static async Task<FinalSource> Resolve(ProcurementDbContext db, SourceLoad source, Guid? retainedPolicy, CancellationToken ct)
+    private static async Task<FinalSource> Resolve(ProcurementDbContext db, SourceLoad source, Guid? retainedPolicy, CancellationToken ct, bool persistState = true, bool requireCurrentPolicy = true)
     {
-        var (policy, rule) = await Policy(db, source, retainedPolicy, ct);
+        var (policy, rule) = await Policy(db, source, retainedPolicy, ct, requireCurrentPolicy);
         var state = await db.ReceivingSourceStates.SingleOrDefaultAsync(x => x.IssuedVersionId == source.Issued.Id && x.PurchaseOrderLineId == source.Line.Id, ct);
         if (state is null)
         {
@@ -103,7 +104,7 @@ public static partial class ProcurementReceivingRoutes
                 PurchaseOrderLineId = pin.PurchaseOrderLineId, SubmissionId = source.Submission.Id, IssuedVersionId = pin.IssuedVersionId,
                 DeliveryEvidenceId = source.Delivery.Id, Source = pin, SourceSha256 = ReceivingPersistenceProjection.PinDigest(pin),
                 ClassificationJson = classification, ClassificationPolicyVersionId = policy.Id };
-            db.AddScoped(state);
+            if (persistState) db.AddScoped(state);
         }
         else source = source with { Delivery = await db.OrderDeliveryEvidence.SingleAsync(x => x.Id == state.DeliveryEvidenceId && x.IssuedVersionId == state.IssuedVersionId, ct) };
         ReceivingPersistenceProjection.VerifyState(state);
@@ -148,7 +149,7 @@ public static partial class ProcurementReceivingRoutes
         var quantities = new Dictionary<Guid, decimal>();
         foreach (var state in states)
         {
-            if (db.Entry(state).State != EntityState.Added)
+            if (db.Entry(state).State is not (EntityState.Added or EntityState.Detached))
                 await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.receiving_source_states WHERE tenant_id={state.TenantId} AND legal_entity_id={state.LegalEntityId} AND id={state.Id} FOR UPDATE", ct);
             if (state.Source.PurchaseRequestLineId != requestLineId) verified = false;
             var facts = await Facts(db, state, false, ct);

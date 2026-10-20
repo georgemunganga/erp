@@ -108,6 +108,7 @@ internal static class RuntimePrivileges
         }
         if (receiving)
         {
+            await Grant(procurement, typeof(ProcurementAttachmentRef), "SELECT");
             foreach (var type in new[] { typeof(ReceivingSourceState), typeof(GoodsReceipt), typeof(GoodsReceiptLine), typeof(ServiceAcceptance), typeof(PolicyVersion) })
                 await Grant(procurement, type, "SELECT,INSERT,UPDATE");
             foreach (var type in new[] { typeof(ReceivingAcceptanceEffect), typeof(ReceiptInspection) })

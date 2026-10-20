@@ -81,11 +81,10 @@ public static partial class ProcurementReceivingRoutes
         => Run(http, scope, false, async (db, cases, core, auth, token) =>
         {
             var (header, lines) = await LoadReceipt(db, id, token);
-            var branch = header.ExecutionVersion == 0
-                ? await db.PurchaseOrders.Where(x => x.Id == header.PurchaseOrderId).Select(x => x.BranchRef).SingleAsync(token) : header.BranchRef;
+            var branch = await db.PurchaseOrders.Where(x => x.Id == header.PurchaseOrderId).Select(x => x.BranchRef).SingleAsync(token);
             await Actor(core, scope, http, auth, "procurement-receipt-view", branch, null, token);
-            var (states, inspections) = await ReceiptProjection(db, lines, token);
-            return System.Text.Json.JsonSerializer.Serialize(View(header, lines, states, inspections), Json);
+            if (header.ExecutionVersion == 1 && header.BranchRef != branch) throw new ReceivingProblem("ReceivingCurrentIssuedAuthorityChanged", 409);
+            return await ReceiptRead(db, cases, core, auth, scope, http, header, lines, token);
         }, ct);
     private static Task<IResult> CancelReceipt(Guid id, CancelDraft input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => Run(http, scope, false, async (db, cases, core, auth, token) =>
@@ -164,7 +163,6 @@ public static partial class ProcurementReceivingRoutes
             var orderId = row.SourcePurchaseOrderId ?? await db.PurchaseOrderLines.Where(x => x.Id == row.PurchaseOrderLineId).Select(x => x.PurchaseOrderId).SingleAsync(token);
             var branch = await db.PurchaseOrders.Where(x => x.Id == orderId).Select(x => x.BranchRef).SingleAsync(token);
             await Actor(core, scope, http, auth, "procurement-receipt-view", branch, null, token);
-            var state = row.ReceivingSourceStateId is { } stateId ? await db.ReceivingSourceStates.SingleOrDefaultAsync(x => x.Id == stateId, token) : null;
-            return System.Text.Json.JsonSerializer.Serialize(View(row, state), Json);
+            return await ServiceRead(db, cases, core, auth, scope, http, row, token);
         }, ct);
 }

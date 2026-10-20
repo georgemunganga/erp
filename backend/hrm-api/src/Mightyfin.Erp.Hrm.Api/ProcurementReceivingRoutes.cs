@@ -32,6 +32,10 @@ public static partial class ProcurementReceivingRoutes
         var root = app.MapGroup("/api/procurement/v1");
         root.MapGet("/receiving/sources", Sources).RequireAuthorization("procurement-receipt-view");
         root.MapGet("/receiving/worklist", Worklist).RequireAuthorization("procurement-receipt-view");
+        root.MapGet("/receiving/inspection-tasks", InspectionTasks).RequireAuthorization(ControlledReceiving.InspectPermission);
+        root.MapGet("/receiving/service-tasks", ServiceTasks).RequireAuthorization(ControlledReceiving.CertifyPermission);
+        root.MapGet("/receipts/{id:guid}/inspection-task", InspectionTask).RequireAuthorization(ControlledReceiving.InspectPermission);
+        root.MapGet("/service-acceptances/{id:guid}/certification-task", ServiceTask).RequireAuthorization(ControlledReceiving.CertifyPermission);
         root.MapPost("/receipts/drafts", CreateReceipt).RequireAuthorization("procurement-receipt-create");
         root.MapPut("/receipts/{id:guid}/draft", EditReceipt).RequireAuthorization("procurement-receipt-edit");
         root.MapGet("/receipts/{id:guid}", ReceiptDetail).RequireAuthorization("procurement-receipt-view");
