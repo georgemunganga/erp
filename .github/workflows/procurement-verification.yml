@@ -58,6 +58,7 @@ jobs:
           dotnet tool install dotnet-ef --tool-path ../../.tools --version 10.0.11
           ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure --context ProcurementDbContext
           ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure --context ApprovalDbContext
+          ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure --context DocumentDbContext
       - name: Publish verified ERP host
         run: >-
           dotnet publish src/Mightyfin.Erp.Hrm.Api --configuration Release

@@ -2,7 +2,7 @@
 
 Status: implementation specification; first consumer is supplier invoice intake. Related issue: [#23](https://github.com/georgemunganga/module-connect/issues/23). Prepared: 20 October 2026. This specification does not enable uploads or claim a deployed scanner.
 
-Foundation checkpoint: `Mightyfin.Erp.Core.Documents.Domain` implements scoped ownership, immutable content metadata, bounded scan leases/retries, fail-closed outcomes and retained retirement. Its 13 lifecycle tests passed locally on 20 October. Persistence, storage, the real scanner, owner adapters and UI wiring remain pending; no Core document migration or upload endpoint has been enabled.
+Foundation checkpoint: `Mightyfin.Erp.Core.Documents.Domain` implements scoped ownership, immutable content metadata, bounded scan leases/retries, fail-closed outcomes and retained retirement. The domain and scoped EF persistence suite passed 17/17 locally on 20 October, without build warnings after package alignment. Core document P01 (`20261020060744_P01CoreDocumentFoundation`) is generated and its snapshot has no pending model changes. Its idempotent SQL applied twice to a disposable restored database; relational tests rejected cross-tenant/company versions, cross-tenant scan evidence, duplicate version numbers and deletion of a document with retained versions. The test fixtures rolled back and the disposable database was removed. Production P01 is not applied. Private storage, the real scanner, owner adapters and UI wiring remain pending; no upload endpoint is enabled.
 
 ## 1. Feature Identification
 
