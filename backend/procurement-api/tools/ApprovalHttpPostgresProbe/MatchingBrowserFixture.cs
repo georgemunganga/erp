@@ -132,11 +132,12 @@ sealed partial class Probe
         var source=matchingBrowserSource??throw new InvalidOperationException("Matching browser source missing.");
         using var services=Scope(OrderBuyer); var db=services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
         var line=await db.PurchaseOrderLines.AsNoTracking().SingleAsync(x=>x.Id==source.Line);
+        var sourceState=await db.ReceivingSourceStates.AsNoTracking().SingleAsync(x=>x.PurchaseOrderLineId==source.Line);
         return JsonSerializer.Serialize(new
         {
             line,requestLine=await db.PurchaseRequestLines.AsNoTracking().SingleAsync(x=>x.Id==line.PurchaseRequestLineId),
-            state=await db.ReceivingSourceStates.AsNoTracking().SingleAsync(x=>x.PurchaseOrderLineId==source.Line),
-            effects=await db.ReceivingAcceptanceEffects.AsNoTracking().Where(x=>x.Source.PurchaseOrderLineId==source.Line).OrderBy(x=>x.Id).ToArrayAsync(),
+            state=sourceState,
+            effects=await db.ReceivingAcceptanceEffects.AsNoTracking().Where(x=>x.ReceivingSourceStateId==sourceState.Id).OrderBy(x=>x.Id).ToArrayAsync(),
             receiptLine=await db.GoodsReceiptLines.AsNoTracking().SingleAsync(x=>x.Id==source.ReceiptLine),
         },Json);
     }
