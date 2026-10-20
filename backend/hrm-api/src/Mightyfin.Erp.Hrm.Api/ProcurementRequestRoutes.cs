@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -19,8 +20,8 @@ public static class ProcurementRequestRoutes
         group.MapGet("", List).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/review", GetForReview).RequireAuthorization("procurement-request-return");
-        group.MapPost("", Create).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-create");
-        group.MapPut("/{id:guid}", Update).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-edit");
+        group.MapPost("", Create).Accepts<NewRequest>("application/json").AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-create");
+        group.MapPut("/{id:guid}", Update).Accepts<UpdateRequest>("application/json").AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-edit");
         group.MapPost("/{id:guid}/submit", Submit).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-submit");
         group.MapPost("/{id:guid}/return-for-changes", ReturnForChanges)
             .RequireAuthorization("procurement-request-return");
@@ -61,9 +62,12 @@ public static class ProcurementRequestRoutes
         return Results.Ok(ToDetail(request));
     }
 
-    private static async Task<IResult> Create(NewRequest input, ProcurementDbContext db, HrmDbContext core,
+    private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<NewRequest>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var currency = string.IsNullOrWhiteSpace(input.CurrencyCode)
             ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct)
             : input.CurrencyCode;
@@ -104,9 +108,12 @@ public static class ProcurementRequestRoutes
         return Results.Created($"/api/procurement/v1/requests/{request.Id}", ToDetail(request));
     }
 
-    private static async Task<IResult> Update(Guid id, UpdateRequest input, ProcurementDbContext db,
+    private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<UpdateRequest>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
@@ -540,9 +547,10 @@ public static class ProcurementRequestRoutes
         : NewRequest(Purpose, CurrencyCode, NeededBy, CostCenterRef, ProjectRef,
             DeliveryLocationRef, DeliveryAddressText, FundingSourceRef, NotesToApprover, Lines);
     public sealed record RequestLineInput(Guid? Id, string? Description, string? UnitCode,
-        decimal RequestedQuantity, decimal EstimatedUnitPrice, Guid? CatalogItemId,
+        [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal RequestedQuantity,
+        [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal EstimatedUnitPrice, Guid? CatalogItemId,
         Guid? PreferredSupplierId, string? CategoryCode, string? PurchaseType,
-        DateOnly? NeededBy, decimal? DiscountPercent, string? TaxCodeRef,
+        DateOnly? NeededBy, [property: JsonConverter(typeof(RequestDiscountJsonConverter))] decimal? DiscountPercent, string? TaxCodeRef,
         string? CostCenterRef, string? ProjectRef, Guid? SpecificationDocumentRefId,
         Guid? CatalogEntryId = null);
     public sealed record VersionCommand(long Version);

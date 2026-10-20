@@ -12,7 +12,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
 /// <summary>Disposable-database rehearsal only. Never provision production roles with this tool.</summary>
-internal static class RuntimePrivileges
+internal static partial class RuntimePrivileges
 {
     public static void ValidateConnections(string runtime, string bootstrap)
     {
@@ -24,7 +24,7 @@ internal static class RuntimePrivileges
             throw new InvalidOperationException("Distinct bootstrap/runtime identities on the same guarded disposable database are required; runtime role must use proc_approval_runtime_ prefix.");
     }
 
-    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false, bool receiving = false)
+    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false, bool receiving = false, bool matching = false, bool matchingDocuments = false)
     {
         ValidateConnections(runtime, bootstrap);
         var options = new NpgsqlConnectionStringBuilder(runtime); var role = options.Username!;
@@ -114,15 +114,24 @@ internal static class RuntimePrivileges
             foreach (var type in new[] { typeof(ReceivingAcceptanceEffect), typeof(ReceiptInspection) })
                 await Grant(procurement, type, "SELECT,INSERT");
         }
+        if (matching)
+        {
+            foreach (var type in new[] { typeof(SupplierInvoice), typeof(InvoiceMatchExposureState), typeof(InvoiceException) })
+                await Grant(procurement,type,"SELECT,INSERT,UPDATE");
+            foreach (var type in new[] { typeof(SupplierInvoiceLine), typeof(InvoiceMatchMappingVersion), typeof(InvoiceMatchAllocation), typeof(InvoiceMatchResult) })
+                await Grant(procurement,type,"SELECT,INSERT");
+        }
         if (migrations)
         {
             await Sql(owner, $"GRANT SELECT ON procurement.__procurement_migrations TO {quotedRole}");
             await Sql(owner, $"GRANT SELECT ON core_approval.\"__EFMigrationsHistory\" TO {quotedRole}");
         }
-        await AssertDeniedAsync(runtime, fixture);
+        if(matchingDocuments) await GrantMatchingDocumentsAsync(owner,quotedRole,fixture);
+        await AssertDeniedAsync(runtime, fixture, matching);
+        if(matchingDocuments) await AssertMatchingDocumentWritesDeniedAsync(runtime,fixture);
     }
 
-    public static async Task AssertDeniedAsync(string runtime, IServiceProvider fixture)
+    public static async Task AssertDeniedAsync(string runtime, IServiceProvider fixture, bool matching = false)
     {
         using var services = fixture.CreateScope();
         var hrm = services.ServiceProvider.GetRequiredService<HrmDbContext>();
@@ -143,7 +152,7 @@ internal static class RuntimePrivileges
             $"SELECT {password} FROM {Table(local)} LIMIT 0",
             "UPDATE core_approval.decisions SET \"Id\"=\"Id\" WHERE FALSE", "DELETE FROM core_approval.decisions WHERE FALSE",
         };
-        foreach (var type in immutable)
+        foreach (var type in immutable.Concat(matching ? new[] { typeof(InvoiceMatchMappingVersion), typeof(InvoiceMatchAllocation), typeof(InvoiceMatchResult) } : []))
         {
             var entity = procurement.Model.FindEntityType(type)!;
             var store = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());

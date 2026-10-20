@@ -54,7 +54,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 var evidence = await Evidence(db, request, null, token);
                 var now = DateTimeOffset.UtcNow;
                 var financeMode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, evidence.Finance,
-                    options, core, scope, now, token);
+                    options, core, db, scope, now, token);
                 var plan = await ProcurementApprovalAssigneeResolver.ResolveAsync(request, evidence.Evaluation,
                     core, db, scope, now, token);
                 var makerIdentity = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
@@ -169,7 +169,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 if (!check.IsValid) throw Conflict("ApprovalPinnedEvidenceChanged");
                 if (input.Action == "Approve")
                 {
-                    var financeMode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, evidence.Finance, options, core, scope, now, token);
+                    var financeMode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, evidence.Finance, options, core, db, scope, now, token);
                     if (financeMode.Mode != pin.FinanceEvidenceMode || financeMode.Reference != pin.ManualEvidenceAuthorityRef)
                         throw Conflict("ApprovalFinanceAuthorityChanged");
                 }

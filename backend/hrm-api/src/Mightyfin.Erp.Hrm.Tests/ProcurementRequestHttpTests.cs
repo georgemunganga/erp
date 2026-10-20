@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -25,6 +26,72 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// <summary>Exercises the mapped HTTP routes with the real Core scope middleware and Procurement query filters.</summary>
 public sealed class ProcurementRequestHttpTests
 {
+    [Fact]
+    public async Task Funding_alias_is_denied_without_effects_and_independent_worker_survives_creator_offboarding()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
+            new { purpose = "Worker independent funding", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] {
+                new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/submit",
+            fixture.Owner, new ProcurementRequestRoutes.VersionCommand(original.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var version = (await submitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("version").GetInt64();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Owner); // Two active accounts, one actual worker.
+        var decision = new ProcurementBudgetRoutes.BudgetDecision(version, "FIN-WORKER", "Available", 20m,
+            "ZMW", "synthetic-independent-evidence", null, "RES-WORKER", "Confirmed");
+        var path = $"/api/procurement/v1/requests/{id}/budget-checks";
+        var before = await fixture.OriginalValueFootprint();
+        var denied = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, decision, "finance_approver");
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        Assert.Equal("self-review", (await denied.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+        Assert.Equal("FinanceEvidenceVerifierInvalid", await fixture.FinanceEligibility(id, fixture.Other));
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        await fixture.SetFinanceWorker(fixture.Owner, fixture.Owner, active: false);
+        Assert.Null(await fixture.FinanceEligibility(id, fixture.Other));
+        Assert.Equal(HttpStatusCode.Created,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, decision, "finance_approver")).StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "BudgetChecked"));
+        // Exact replay is also checked against the current worker binding before returning evidence.
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Owner);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, decision, "finance_approver")).StatusCode);
+        Assert.Equal("FinanceEvidenceVerifierInvalid", await fixture.FinanceEligibility(id, fixture.Other));
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "BudgetChecked"));
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other, active: false);
+        Assert.Equal("FinanceEvidenceVerifierUnavailable", await fixture.FinanceEligibility(id, fixture.Other));
+    }
+
+    [Theory]
+    [InlineData("LegacyImport", null)]
+    [InlineData("ERP", "unproven-on-behalf-maker")]
+    public async Task Funding_without_retained_maker_provenance_is_denied_before_mutation(string channel, string? onBehalf)
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
+            new { purpose = "Unknown maker provenance", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] {
+                new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/submit",
+            fixture.Owner, new ProcurementRequestRoutes.VersionCommand(original.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        await fixture.SetRequestProvenance(id, channel, onBehalf);
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        var before = await fixture.OriginalValueFootprint();
+        Assert.Equal("FinanceEvidenceMakerIdentityUnavailable", await fixture.FinanceEligibility(id, fixture.Other));
+        var response = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/budget-checks",
+            fixture.Other, new ProcurementBudgetRoutes.BudgetDecision(1, "FIN-UNKNOWN", "Available", 20m, "ZMW",
+                "synthetic-evidence", null, "RES-UNKNOWN", "Confirmed"), "finance_approver");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+    }
+
     [Theory]
     [InlineData(" Goods ", " office_it_2 ", "GOODS", "OFFICE_IT_2")]
     [InlineData("Service", "IT", "SERVICE", "IT")]
@@ -1275,6 +1342,107 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Null_nested_item_update_returns_scoped_validation_without_changing_record_or_version()
+    {
+        await using var fixture=await Fixture.Start();
+        using var created=await SendJson(fixture.Client,HttpMethod.Post,"/api/procurement/v1/items",fixture.Owner,
+            new { code="NULL-UPDATE",name="Retained item",kind="Goods",categoryCode="IT",unitCode="each" },"procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created,created.StatusCode);var item=await created.Content.ReadFromJsonAsync<JsonElement>();
+        var path="/api/procurement/v1/items/"+item.GetProperty("id").GetGuid();
+        var payload=new { version=item.GetProperty("version").GetInt64(),item=(object?)null };
+        var before=await fixture.OriginalValueFootprint();
+        using var denied=await SendJson(fixture.Client,HttpMethod.Put,path,fixture.Owner,payload,"procurement_buyer",company:fixture.OtherCompany);
+        Assert.Equal(HttpStatusCode.Forbidden,denied.StatusCode);
+        using var response=await SendJson(fixture.Client,HttpMethod.Put,path,fixture.Owner,payload,"procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Contains("item details",error.GetProperty("message").GetString());
+        Assert.Equal(before,await fixture.OriginalValueFootprint());
+        using var restored=await Send(fixture.Client,HttpMethod.Get,path,fixture.Owner,role:"procurement_buyer");
+        var saved=await restored.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("Retained item",saved.GetProperty("name").GetString());
+        Assert.Equal(item.GetProperty("version").GetInt64(),saved.GetProperty("version").GetInt64());
+    }
+
+    [Theory]
+    [InlineData("item-moq","0.00001")]
+    [InlineData("item-conversion","1.0000001")]
+    [InlineData("item-conversion","1000000000000")]
+    [InlineData("entry-price","0.00001")]
+    [InlineData("entry-price","1.00000000000000000000000000001")]
+    [InlineData("entry-min","0.00001")]
+    [InlineData("entry-max","100000000000000")]
+    public async Task Catalog_original_values_reject_precision_or_range_without_any_persisted_effect(string field,string token)
+    {
+        await using var fixture=await Fixture.Start();
+        var created=await SendJson(fixture.Client,HttpMethod.Post,"/api/procurement/v1/items",fixture.Owner,
+            new { code="EXACT-PARENT",name="Existing draft",kind="Goods",categoryCode="IT",unitCode="each" },"procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created,created.StatusCode);var item=await created.Content.ReadFromJsonAsync<JsonElement>();
+        var path="/api/procurement/v1/items";string body;
+        if(field.StartsWith("item-")) body="{\"code\":\"RAW-REJECT\",\"name\":\"Original value\",\"kind\":\"Goods\",\"categoryCode\":\"IT\",\"unitCode\":\"each\",\""
+            +(field=="item-moq"?"minimumOrderQuantity":"purchaseUnitConversion")+"\":"+token+"}";
+        else
+        {
+            path+="/"+item.GetProperty("id").GetGuid()+"/catalog-entries";
+            var values=new Dictionary<string,string> { ["unitPrice"]="1",["minimumQuantity"]="null",["maximumQuantity"]="null" };
+            values[field=="entry-price"?"unitPrice":field=="entry-min"?"minimumQuantity":"maximumQuantity"]=token;
+            body="{\"currencyCode\":\"ZMW\",\"unitCode\":\"each\",\"effectiveFrom\":\"2026-10-20T00:00:00Z\",\"unitPrice\":"+values["unitPrice"]+",\"minimumQuantity\":"+values["minimumQuantity"]+",\"maximumQuantity\":"+values["maximumQuantity"]+"}";
+        }
+        var before=await fixture.OriginalValueFootprint();using var response=await RawOriginalValue(fixture,path,body,"procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Equal(before,await fixture.OriginalValueFootprint());
+    }
+    [Theory]
+    [InlineData("request")][InlineData("request-update")][InlineData("plan")][InlineData("plan-update")]
+    [InlineData("contract")][InlineData("contract-update")][InlineData("budget")]
+    public async Task Shared_original_amount_boundaries_do_not_round_raw_tokens_before_validation(string feature)
+    {
+        await using var fixture=await Fixture.Start();const string invalid="1.00000000000000000000000000001";
+        var suffix=Guid.NewGuid().ToString("D");
+        var (path,body,method)=feature switch
+        {
+            "request"=>("/requests","{\"lines\":[{\"requestedQuantity\":"+invalid+"}]}",HttpMethod.Post),
+            "request-update"=>("/requests/"+suffix,"{\"version\":1,\"lines\":[{\"estimatedUnitPrice\":"+invalid+"}]}",HttpMethod.Put),
+            "plan"=>("/plans","{\"lines\":[{\"estimatedAmount\":"+invalid+"}]}",HttpMethod.Post),
+            "plan-update"=>("/plans/"+suffix,"{\"version\":1,\"draft\":{\"lines\":[{\"estimatedQuantity\":"+invalid+"}]}}",HttpMethod.Put),
+            "contract"=>("/contracts","{\"ceilingAmount\":"+invalid+"}",HttpMethod.Post),
+            "contract-update"=>("/contracts/"+suffix,"{\"version\":1,\"draft\":{\"ceilingAmount\":"+invalid+"}}",HttpMethod.Put),
+            _=>("/requests/"+suffix+"/budget-checks","{\"checkedAmount\":"+invalid+"}",HttpMethod.Post)
+        };
+        var role=feature=="budget"?"finance_approver":feature.StartsWith("request")?"employee":feature.StartsWith("plan")?"manager":"procurement_buyer";
+        var before=await fixture.OriginalValueFootprint();using var response=await RawOriginalValue(fixture,"/api/procurement/v1"+path,body,role,method);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Contains("exact amounts",error.GetProperty("message").GetString());
+        Assert.Equal(before,await fixture.OriginalValueFootprint());
+    }
+    [Fact]
+    public async Task Catalog_original_exact_bounds_round_trip_and_invalid_update_retains_version_and_price()
+    {
+        await using var fixture=await Fixture.Start();
+        var body="{\"code\":\"EXACT-VALID\",\"name\":\"Exact units\",\"kind\":\"Goods\",\"categoryCode\":\"IT\",\"unitCode\":\"each\",\"purchaseUnitConversion\":\"1.000001\",\"minimumOrderQuantity\":0.0001}";
+        using var created=await RawOriginalValue(fixture,"/api/procurement/v1/items",body,"procurement_buyer");Assert.Equal(HttpStatusCode.Created,created.StatusCode);
+        var item=await created.Content.ReadFromJsonAsync<JsonElement>();var path="/api/procurement/v1/items/"+item.GetProperty("id").GetGuid();
+        using var restored=await Send(fixture.Client,HttpMethod.Get,path,fixture.Owner,role:"procurement_buyer");var detail=await restored.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1.000001m,detail.GetProperty("purchaseUnitConversion").GetDecimal());Assert.Equal(.0001m,detail.GetProperty("minimumOrderQuantity").GetDecimal());
+        const string price="{\"currencyCode\":\"ZMW\",\"unitCode\":\"each\",\"effectiveFrom\":\"2026-10-20T00:00:00Z\",\"unitPrice\":\"99999999999999.9999\",\"minimumQuantity\":\"0.0001\",\"maximumQuantity\":null}";
+        using var added=await RawOriginalValue(fixture,path+"/catalog-entries",price,"procurement_buyer");Assert.Equal(HttpStatusCode.Created,added.StatusCode);
+        var entry=await added.Content.ReadFromJsonAsync<JsonElement>();var before=await fixture.OriginalValueFootprint();
+        var invalid="{\"version\":"+entry.GetProperty("version").GetInt64()+",\"entry\":"+price.Replace("99999999999999.9999","0.00001")+"}";
+        using var rejected=await RawOriginalValue(fixture,path+"/catalog-entries/"+entry.GetProperty("id").GetGuid(),invalid,"procurement_buyer",HttpMethod.Put);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,rejected.StatusCode);Assert.Equal(before,await fixture.OriginalValueFootprint());
+        using var entries=await Send(fixture.Client,HttpMethod.Get,path+"/catalog-entries",fixture.Owner,role:"procurement_buyer");
+        var stored=(await entries.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items")[0];
+        Assert.Equal(99999999999999.9999m,stored.GetProperty("unitPrice").GetDecimal());Assert.Equal(.0001m,stored.GetProperty("minimumQuantity").GetDecimal());
+    }
+    private static Task<HttpResponseMessage> RawOriginalValue(Fixture fixture,string path,string body,string role,HttpMethod? method=null)
+    {
+        var request=new HttpRequestMessage(method??HttpMethod.Post,path) { Content=new StringContent(body,System.Text.Encoding.UTF8,"application/json") };
+        request.Headers.Add("X-Test-User",fixture.Owner.ToString());request.Headers.Add("X-Test-Role",role);
+        return fixture.Client.SendAsync(request);
+    }
+
+    [Fact]
     public async Task Independent_review_activates_category_then_item_without_publishing_a_price()
     {
         await using var fixture = await Fixture.Start();
@@ -1832,6 +2000,57 @@ public sealed class ProcurementRequestHttpTests
                 company: fixture.OtherCompany, actions: reviewerActions)).StatusCode);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Invoice_finance_readiness_explains_missing_steps_without_new_authority_or_writes(bool matchingSchema)
+    {
+        await using var fixture = await Fixture.Start(matchingSchema: matchingSchema);
+        var supplier = await fixture.AddInvoiceSupplier();
+        var captured = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/invoices", fixture.Other,
+            new InvoiceIntakeInput(supplier, null, "READINESS-1", DateOnly.FromDateTime(DateTime.UtcNow), null, "ZMW",
+                [new InvoiceIntakeLineInput("Recorded invoice", 1, 100, 0, null, null)]), "ap_processor");
+        Assert.Equal(HttpStatusCode.Created, captured.StatusCode);
+        var invoice = await captured.Content.ReadFromJsonAsync<JsonElement>(); var id = invoice.GetProperty("id").GetGuid();
+        var before = await fixture.InvoiceReadinessFootprint();
+        var path = $"/api/procurement/v1/invoices/{id}/finance-readiness";
+        Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.Client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner)).StatusCode);
+        foreach (var role in new[] { "ap_processor", "erp_admin" })
+        {
+            var response = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: role);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(id, body.GetProperty("invoiceId").GetGuid());
+            Assert.Equal(invoice.GetProperty("version").GetInt64(), body.GetProperty("invoiceVersion").GetInt64());
+            Assert.Equal("Blocked", body.GetProperty("state").GetString()); Assert.False(body.GetProperty("canPrepareHandoff").GetBoolean());
+            var codes = body.GetProperty("blockers").EnumerateArray().Select(x => x.GetProperty("code").GetString()).ToArray();
+            Assert.Contains("InvoiceValidationAuthorityUnavailable", codes); Assert.Contains("FinanceReceiverUnavailable", codes);
+            Assert.Contains(matchingSchema ? "InvoiceNotCompared" : "MatchingEvidenceUnavailable", codes);
+            Assert.Equal(matchingSchema, body.GetProperty("evidence").GetProperty("matchingSchemaAvailable").GetBoolean());
+            Assert.Equal("NotRevalidated", body.GetProperty("evidence").GetProperty("comparisonCurrentness").GetString());
+            if (!matchingSchema)
+            {
+                Assert.DoesNotContain("InvoiceNotCompared", codes);
+                Assert.Equal(JsonValueKind.Null, body.GetProperty("evidence").GetProperty("unresolvedExceptionCount").ValueKind);
+            }
+            Assert.NotEmpty(body.GetProperty("nextSteps").EnumerateArray());
+        }
+        Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/invoices/" + Guid.NewGuid() + "/finance-readiness", fixture.Other, role: "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
+            company: fixture.OtherCompany, role: "erp_admin")).StatusCode);
+        var foreignInvoiceId = await fixture.AddForeignTenantReadinessInvoice();
+        var foreignRead = await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/invoices/{foreignInvoiceId}/finance-readiness", fixture.Other, role: "erp_admin");
+        Assert.Equal(HttpStatusCode.NotFound, foreignRead.StatusCode);
+        Assert.DoesNotContain("FOREIGN-TENANT-PRIVATE", await foreignRead.Content.ReadAsStringAsync());
+        Assert.Equal(before, await fixture.InvoiceReadinessFootprint());
+        await fixture.ConfineInvoiceReaderElsewhere(fixture.Other);
+        Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor")).StatusCode);
+        Assert.Equal(before, await fixture.InvoiceReadinessFootprint());
+    }
+
     [Fact]
     public async Task Manual_invoice_intake_is_scoped_deduplicated_and_never_posts_to_finance()
     {
@@ -1877,6 +2096,69 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(0, await fixture.InvoiceHandoffCount());
     }
 
+    [Theory]
+    [InlineData("quantity","1.00000000000000000000000000001")]
+    [InlineData("unitPrice","1.00000000000000000000000000001")]
+    [InlineData("taxAmount","1.00000000000000000000000000001")]
+    [InlineData("quantity","\"1.00000000000000000000000000001\"")]
+    [InlineData("unitPrice","\"0.00001\"")]
+    [InlineData("taxAmount","1e-1000")]
+    [InlineData("quantity","100000000000000")]
+    public async Task Invoice_raw_decimal_lexemes_reject_without_rounding_or_any_writes(string field,string token)
+    {
+        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        var before=await fixture.InvoiceReadinessFootprint();
+        var values=new Dictionary<string,string> { ["quantity"]="1",["unitPrice"]="1",["taxAmount"]="0" };values[field]=token;
+        var line="{\"description\":\"Raw exact invoice\",\"quantity\":"+values["quantity"]+",\"unitPrice\":"+values["unitPrice"]+",\"taxAmount\":"+values["taxAmount"]+"}";
+        using var response=await RawInvoice(fixture,supplier,"RAW-LEXEME",line);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Contains("four decimal",error.GetProperty("message").GetString());
+        Assert.Equal(before,await fixture.InvoiceReadinessFootprint());
+    }
+    [Theory]
+    [InlineData("product-overflow")][InlineData("aggregate-overflow")][InlineData("gross-overflow")]
+    [InlineData("header-scale")][InlineData("invoice-number")][InlineData("null-line")]
+    public async Task Invoice_exact_header_contract_rejects_before_tracking_or_persisting(string scenario)
+    {
+        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        var before=await fixture.InvoiceReadinessFootprint();var number="INVALID-HEADER";
+        var lines=scenario switch
+        {
+            "product-overflow"=>"{\"description\":\"Overflow\",\"quantity\":\"99999999999999.9999\",\"unitPrice\":\"99999999999999.9999\",\"taxAmount\":0}",
+            "aggregate-overflow"=>string.Join(',',Enumerable.Repeat("{\"description\":\"Aggregate\",\"quantity\":1,\"unitPrice\":999999999999.9999,\"taxAmount\":0}",200)),
+            "gross-overflow"=>"{\"description\":\"Gross\",\"quantity\":1,\"unitPrice\":\"99999999999999.9999\",\"taxAmount\":0.0001}",
+            "header-scale"=>"{\"description\":\"No rounding\",\"quantity\":0.0001,\"unitPrice\":0.0001,\"taxAmount\":0}",
+            "null-line"=>"null",
+            _=>"{\"description\":\"Long number\",\"quantity\":1,\"unitPrice\":1,\"taxAmount\":0}"
+        };
+        if(scenario=="invoice-number") number=new string('N',81);
+        using var response=await RawInvoice(fixture,supplier,number,lines);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Equal(before,await fixture.InvoiceReadinessFootprint());
+    }
+    [Fact]
+    public async Task Invoice_exact_eight_place_products_may_sum_to_representable_header_without_line_rounding()
+    {
+        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        const string lines="{\"description\":\"First exact product\",\"quantity\":\"0.0001\",\"unitPrice\":0.0001,\"taxAmount\":0},{\"description\":\"Second exact product\",\"quantity\":0.0001,\"unitPrice\":\"0.9999\",\"taxAmount\":0}";
+        using var response=await RawInvoice(fixture,supplier,"EXACT-PRODUCT-SUM",lines);Assert.Equal(HttpStatusCode.Created,response.StatusCode);
+        var captured=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal(.0001m,captured.GetProperty("grossAmount").GetDecimal());
+        using var detail=await Send(fixture.Client,HttpMethod.Get,"/api/procurement/v1/invoices/"+captured.GetProperty("id").GetGuid(),fixture.Other,role:"ap_processor");
+        var saved=await detail.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal(.0001m,saved.GetProperty("netAmount").GetDecimal());
+        Assert.Equal(.0001m,saved.GetProperty("grossAmount").GetDecimal());Assert.Equal(0m,saved.GetProperty("taxAmount").GetDecimal());
+        Assert.Equal(.0001m,saved.GetProperty("lines")[0].GetProperty("unitPrice").GetDecimal());
+        Assert.Equal(.9999m,saved.GetProperty("lines")[1].GetProperty("unitPrice").GetDecimal());
+    }
+    private static Task<HttpResponseMessage> RawInvoice(Fixture fixture,Guid supplier,string number,string lines)
+    {
+        var body="{\"supplierId\":\""+supplier+"\",\"invoiceNumber\":\""+number+"\",\"invoiceDate\":\"2026-10-20\",\"currencyCode\":\"ZMW\",\"lines\":["+lines+"]}";
+        var request=new HttpRequestMessage(HttpMethod.Post,"/api/procurement/v1/invoices") { Content=new StringContent(body,System.Text.Encoding.UTF8,"application/json") };
+        request.Headers.Add("X-Test-User",fixture.Other.ToString());request.Headers.Add("X-Test-Role","ap_processor");
+        return fixture.Client.SendAsync(request);
+    }
+
     [Fact]
     public async Task Invoice_intake_hides_other_branches_and_rejects_out_of_scope_order_links()
     {
@@ -1892,11 +2174,15 @@ public sealed class ProcurementRequestHttpTests
         var input = new InvoiceIntakeInput(supplierId, null, "BRANCH-INV-001",
             DateOnly.FromDateTime(DateTime.UtcNow), null, null,
             [new InvoiceIntakeLineInput("Office supplies", 1, 100, 0, null, null)]);
-        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "ap_processor");
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         var assignedBranch = await fixture.ConfineBuyerAndMoveOrderToOtherBranch(orderId);
-        await fixture.MoveInvoiceToOrderBranch(id, orderId);
+        var invoiceBranch = await fixture.OrderBranch(orderId);
+        // Capture the original in its real branch; never rewrite a captured invoice to arrange scope.
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Reviewer, input,
+            "ap_processor", selectedLocation: invoiceBranch);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        Assert.Equal(invoiceBranch, original.GetProperty("branchRef").GetGuid());
 
         var list = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor");
         Assert.Equal(0, (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
@@ -2379,13 +2665,14 @@ public sealed class ProcurementRequestHttpTests
     }
 
     private static Task<HttpResponseMessage> SendJson<T>(HttpClient client, HttpMethod method, string path,
-        Guid user, T body, string? role = null, Guid? company = null, string? actions = null)
+        Guid user, T body, string? role = null, Guid? company = null, string? actions = null, Guid? selectedLocation = null)
     {
         var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         request.Headers.Add("X-Test-User", user.ToString());
         if (company.HasValue) request.Headers.Add("X-Shell-Entity", company.Value.ToString());
         if (role is not null) request.Headers.Add("X-Test-Role", role);
         if (actions is not null) request.Headers.Add("X-Test-Actions", actions);
+        if (selectedLocation.HasValue) request.Headers.Add("X-Shell-Location", selectedLocation.Value.ToString());
         return client.SendAsync(request);
     }
 
@@ -2419,7 +2706,7 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, download.StatusCode);
         Assert.Equal("%PDF-1.7 evidence", await download.Content.ReadAsStringAsync());
         Assert.Equal("no-store", download.Headers.CacheControl?.ToString());
-        await fixture.MoveInvoiceOutsideOtherBranch(id);
+        await fixture.ConfineInvoiceReaderElsewhere(fixture.Other);
         Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path + $"/{version}/download", fixture.Other, role: "ap_processor")).StatusCode);
         fixture.FailDocumentScan(true);
@@ -2477,6 +2764,53 @@ public sealed class ProcurementRequestHttpTests
         public Guid Inactive { get; } = inactive;
         public Guid OtherCompany { get; } = otherCompany;
 
+        public async Task SetRequestProvenance(Guid requestId, string channel, string? onBehalf)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
+                "tenant-a", company, Owner.ToString(), null, null, false, "legacy-provenance-fixture");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var request = await db.PurchaseRequests.SingleAsync(x => x.Id == requestId);
+            request.SourceChannel = channel; request.OnBehalfOfSubjectId = onBehalf;
+            await db.SaveChangesAsync();
+        }
+
+        public async Task SetFinanceWorker(Guid subject, Guid workerSubject, bool active = true)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var account = await core.LocalUsers.SingleAsync(x => x.Id == subject);
+            account.WorkerId = (await core.Workers.SingleAsync(x => x.SubjectId == workerSubject.ToString())).Id;
+            account.IsActive = active;
+            account.RolesCsv = "finance_approver";
+            if (!await core.TenantRoleAssignments.AnyAsync(x => x.RoleKey == "finance_approver"))
+                core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "finance_approver", RoleName = "Synthetic Finance", Active = true,
+                    PermissionsCsv = "procurement-access,procurement-budget-check" });
+            await core.SaveChangesAsync();
+        }
+
+        public async Task<string?> FinanceEligibility(Guid requestId, Guid verifier)
+        {
+            using var services = app.Services.CreateScope();
+            var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
+            scope.Set("tenant-a", company, verifier.ToString(), null, null, false, "finance-independence-test");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var request = await db.PurchaseRequests.AsNoTracking().SingleAsync(x => x.Id == requestId);
+            var finance = new BudgetCheckSnapshot { CheckedBySubjectId = verifier.ToString(),
+                CheckedAt = DateTimeOffset.UtcNow.AddSeconds(-1) };
+            // Historical input is deliberately synthetic; CheckAsync must reject it before eligibility.
+            try
+            {
+                await ProcurementApprovalFinanceEligibility.CheckAsync(request, finance,
+                    new ProcurementApprovalExecutionOptions { ManualFinancePolicies = [new() {
+                        LegalEntityId = company, Enabled = true, ApprovedPolicyReference = "synthetic-approved-policy",
+                        EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1) }] }, core, db, scope, DateTimeOffset.UtcNow, default);
+                return null;
+            }
+            catch (InvalidOperationException error) { return error.Message; }
+        }
+
         public async Task MoveRequestToOtherBranchAndConfineReviewer(Guid requestId)
         {
             using var serviceScope = app.Services.CreateScope();
@@ -2526,31 +2860,13 @@ public sealed class ProcurementRequestHttpTests
 
         public void SetDocumentReadiness(bool ready) => ((DocumentTestReadiness)app.Services.GetRequiredService<IDocumentSchemaReadiness>()).Ready = ready;
         public void FailDocumentScan(bool fail) => app.Services.GetRequiredService<DocumentTestScanner>().Fail = fail;
-        public async Task MoveInvoiceOutsideOtherBranch(Guid id)
-        {
-            using var serviceScope = app.Services.CreateScope();
-            var core = serviceScope.ServiceProvider.GetRequiredService<HrmDbContext>();
-            var home = await core.WorkLocations.SingleAsync(x => x.LegalEntityId == company);
-            var remote = new WorkLocation { Code = "A2", Name = "Other branch", LegalEntityId = company };
-            core.WorkLocations.Add(remote);
-            core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = Other, LocationId = home.Id });
-            await core.SaveChangesAsync();
-            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
-                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
-            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            (await db.SupplierInvoices.SingleAsync(x => x.Id == id)).BranchRef = remote.Id;
-            await db.SaveChangesAsync();
-        }
-
-        public async Task MoveInvoiceToOrderBranch(Guid invoiceId, Guid orderId)
+        public async Task<Guid> OrderBranch(Guid orderId)
         {
             using var serviceScope = app.Services.CreateScope();
             serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
                 .Set("tenant-a", company, Other.ToString(), null, null, false, "test");
             var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            var invoice = await db.SupplierInvoices.SingleAsync(x => x.Id == invoiceId);
-            invoice.BranchRef = (await db.PurchaseOrders.SingleAsync(x => x.Id == orderId)).BranchRef;
-            await db.SaveChangesAsync();
+            return (await db.PurchaseOrders.AsNoTracking().SingleAsync(x => x.Id == orderId)).BranchRef!.Value;
         }
 
         public async Task<int> DecisionCount(Guid supplierId)
@@ -2577,6 +2893,59 @@ public sealed class ProcurementRequestHttpTests
             db.AddScoped(supplier);
             await db.SaveChangesAsync();
             return supplier.Id;
+        }
+
+        public async Task<string> OriginalValueFootprint()
+        {
+            using var services=app.Services.CreateScope();services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a",company,Owner.ToString(),null,null,false,"original-value-test");
+            var db=services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return JsonSerializer.Serialize(new { items=await db.CatalogItems.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                prices=await db.CatalogEntries.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                requests=await db.PurchaseRequests.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),requestLines=await db.PurchaseRequestLines.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                plans=await db.ProcurementPlans.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),planLines=await db.ProcurementPlanLines.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                contracts=await db.SupplierContracts.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),contractVersions=await db.SupplierContractVersions.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                budget=await db.BudgetCheckSnapshots.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),audit=await db.AuditEvents.CountAsync(),outbox=await db.OutboxEvents.CountAsync() });
+        }
+        public async Task<string> InvoiceReadinessFootprint()
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return JsonSerializer.Serialize(new
+            {
+                invoices = await db.SupplierInvoices.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+                lines = await db.SupplierInvoiceLines.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+                mappings = await db.InvoiceMatchMappingVersions.CountAsync(), comparisons = await db.InvoiceMatchResults.CountAsync(),
+                exceptions = await db.InvoiceExceptions.CountAsync(), handoffs = await db.FinanceInvoiceHandoffs.CountAsync(),
+                payments = await db.FinancePaymentStatusRefs.CountAsync(), claims = await db.InvoiceMatchAllocations.CountAsync(),
+                exposure = await db.InvoiceMatchExposureStates.CountAsync(), receipts = await db.CommercialCommandReceipts.CountAsync(),
+                audit = await db.AuditEvents.CountAsync(), outbox = await db.OutboxEvents.CountAsync(),
+            });
+        }
+
+        public async Task<Guid> AddForeignTenantReadinessInvoice()
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-foreign", company, Owner.ToString(), null, null, false, "foreign-fixture");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var supplier = new Supplier { Number = "FOREIGN", LegalName = "Foreign", DisplayName = "Foreign", CountryCode = "ZM" };
+            db.AddScoped(supplier);
+            var invoice = new SupplierInvoice { SupplierId = supplier.Id, InvoiceNumber = "FOREIGN-TENANT-PRIVATE",
+                NormalizedInvoiceNumber = "FOREIGN-TENANT-PRIVATE", CurrencyCode = "ZMW", IntakeChannel = "Manual" };
+            db.AddScoped(invoice); await db.SaveChangesAsync(); return invoice.Id;
+        }
+
+        public async Task ConfineInvoiceReaderElsewhere(Guid user)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var location = new WorkLocation { Code = "OTHER-INVOICE-BRANCH", Name = "Other invoice branch", LegalEntityId = company };
+            core.WorkLocations.Add(location);
+            core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = user, LocationId = location.Id });
+            await core.SaveChangesAsync();
         }
 
         public async Task<int> InvoiceHandoffCount()
@@ -2804,7 +3173,7 @@ public sealed class ProcurementRequestHttpTests
             await db.SaveChangesAsync();
         }
 
-        public static async Task<Fixture> Start(bool documents = false)
+        public static async Task<Fixture> Start(bool documents = false, bool matchingSchema = false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
@@ -2831,6 +3200,8 @@ public sealed class ProcurementRequestHttpTests
                 builder.Services.AddScoped<Mightyfin.Erp.Core.Documents.Application.RecordDocumentService>();
                 builder.Services.AddSingleton<IDocumentSchemaReadiness>(new DocumentTestReadiness());
             }
+            if (matchingSchema)
+                builder.Services.AddSingleton<IProcurementInvoiceMatchingSchemaReadiness>(new InvoiceReadinessSchema());
             builder.Services.AddAuthentication("test")
                 .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
@@ -2875,6 +3246,15 @@ public sealed class ProcurementRequestHttpTests
                         SubjectId = reviewer.ToString(), Status = "active", LocationId = branch.Id },
                     new Worker { EmployeeNo = "PROC-3", FirstName = "Inactive", LastName = "Employee",
                         SubjectId = inactive.ToString(), Status = "terminated", LocationId = branch.Id });
+                // Finance writes require a canonical Core account, not merely a test role claim.
+                foreach (var principal in new[] { owner, other, reviewer })
+                {
+                    var worker = core.Workers.Local.Single(x => x.SubjectId == principal.ToString());
+                    core.LocalUsers.Add(new LocalUser { Id = principal, WorkerId = worker.Id,
+                        Email = principal + "@example.test", NormalizedEmail = (principal + "@example.test").ToUpperInvariant(),
+                        DisplayName = "Synthetic canonical account", PasswordHash = "synthetic-unused",
+                        RolesCsv = principal == owner ? "employee" : "procurement_manager" });
+                }
                 await core.SaveChangesAsync();
             }
             await app.StartAsync();
@@ -2887,6 +3267,11 @@ public sealed class ProcurementRequestHttpTests
             await app.DisposeAsync();
             if (documentRoot is not null && Directory.Exists(documentRoot)) Directory.Delete(documentRoot, true);
         }
+    }
+
+    private sealed class InvoiceReadinessSchema : IProcurementInvoiceMatchingSchemaReadiness
+    {
+        public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(true);
     }
 
     public sealed class TestAuthenticationHandler(

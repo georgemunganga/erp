@@ -61,7 +61,7 @@ public static class ProcurementApprovalReadinessRoutes
                             candidates.GetValueOrDefault(stage.Route.Assignee)?.FirstOrDefault(x => x.SubjectId == person.PrincipalId)?.DisplayName
                                 ?? person.PrincipalId)).ToArray(), null)).ToArray(), []);
                     blockers = readiness.Blockers.Concat(route.Blockers).ToList();
-                    _ = await ProcurementApprovalFinanceEligibility.CheckAsync(request, finance!, options, core, scope, DateTimeOffset.UtcNow, ct);
+                    _ = await ProcurementApprovalFinanceEligibility.CheckAsync(request, finance!, options, core, db, scope, DateTimeOffset.UtcNow, ct);
                     canOpen = true;
                 }
                 catch (InvalidOperationException error)

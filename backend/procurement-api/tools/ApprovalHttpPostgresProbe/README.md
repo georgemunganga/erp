@@ -260,6 +260,16 @@ selected-A denial, and selected/unselected B-only denial after A→B header corr
 records must survive with missing bindings and no certification evidence. This is explicit
 read scope control; it does not backfill a historical branch or confer matching authority.
 
+### Invoice comparison unavailable-owner boundary (source authored; unexecuted)
+
+`--matching` is mutually exclusive with all other modes and includes the reviewed receiving
+fixture before the new invoice adapter scenarios. It requires the eventual P25/P26 migrations,
+separate guarded disposable bootstrap/runtime users and an explicitly unpublished-production
+fixture. It exercises actual invoice mapping, independently governed matching policy, durable
+Blocked comparison under the real unavailable owner/reviewer adapters, exact retry/recovery,
+permission/body-conflict denials, exceptions/outbox and no fabricated capacity/AP effects.
+It does not prove a real Finance owner/reviewer integration or final payable approval.
+No new mode or grant in this tool authorizes production mutation.
 ### Receiving browser fixture (source candidate, not yet verified)
 
 `--serve --receiving` is a separate disposable Kestrel mode; never combine it with
