@@ -430,12 +430,19 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                     x.PurchaseRequestId, x.RequestVersion })
                 .OnDelete(DeleteBehavior.Restrict);
             // Core owns execution in its separate schema. CoreApprovalCaseId is an explicit reference, not a Core FK.
+            b.Property(x => x.WorkerIdentitySha256).HasMaxLength(64);
             b.ToTable(t =>
             {
                 t.HasCheckConstraint("ck_pr_approval_submission_identity",
-                    "snapshot_schema_version = 1 AND submitted_business_version > 0 AND policy_version_number > 0 " +
+                    "snapshot_schema_version IN (1,2) AND submitted_business_version > 0 AND policy_version_number > 0 " +
                     "AND core_approval_case_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
                     "AND opening_command_key <> '00000000-0000-0000-0000-000000000000'::uuid");
+                t.HasCheckConstraint("ck_pr_approval_worker_identity",
+                    "(snapshot_schema_version = 1 AND maker_worker_id IS NULL AND requester_worker_id IS NULL AND worker_identity_sha256 IS NULL) OR " +
+                    "(snapshot_schema_version = 2 AND maker_worker_id IS NOT NULL AND requester_worker_id IS NOT NULL " +
+                    "AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+                    "AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+                    "AND worker_identity_sha256 IS NOT NULL AND worker_identity_sha256 ~ '^[a-f0-9]{64}$')");
                 t.HasCheckConstraint("ck_pr_approval_submission_amount",
                     "estimated_amount >= 0 AND amount_basis = 'EstimatedLineBase' AND currency_code ~ '^[A-Z]{3}$'");
                 t.HasCheckConstraint("ck_pr_approval_submission_digest",

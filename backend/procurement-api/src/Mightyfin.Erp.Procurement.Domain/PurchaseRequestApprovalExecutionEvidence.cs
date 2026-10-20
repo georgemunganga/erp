@@ -21,6 +21,7 @@ public sealed class PurchaseRequestAssignmentAuthorityEvidence : ProcurementReco
     public Guid CoreApprovalCaseId { get; init; }
     public Guid CoreStageId { get; init; }
     public Guid CoreAssignmentId { get; init; }
+    public Guid? AssigneeWorkerId { get; init; }
     public string PrincipalId { get; init; } = null!;
     public string AssigneeKind { get; init; } = null!;
     public Guid GrantId { get; init; }

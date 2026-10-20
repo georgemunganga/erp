@@ -39,7 +39,8 @@ public sealed partial class ProcurementDbContext
             "core_stage_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
             "AND core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
             "AND grant_revision > 0 AND authority_version > 0 AND length(btrim(principal_id)) > 0 " +
-            "AND assignee_kind IN ('LineManager','ProcurementManager') AND evidence_sha256 ~ '^[a-f0-9]{64}$'"));
+            "AND assignee_kind IN ('LineManager','ProcurementManager') AND evidence_sha256 ~ '^[a-f0-9]{64}$' " +
+            "AND (assignee_worker_id IS NULL OR assignee_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
     }
     private void GuardApprovalExecution()
     {
@@ -57,13 +58,14 @@ public sealed partial class ProcurementDbContext
                 ?? (pin is null ? null : PurchaseRequests.Include(x => x.Lines).SingleOrDefault(x => x.Id == pin.PurchaseRequestId));
             var grant = SpendingAuthorityGrants.Local.SingleOrDefault(x => x.Id == value.GrantId)
                 ?? SpendingAuthorityGrants.Include(x => x.Categories).SingleOrDefault(x => x.Id == value.GrantId);
-            PurchaseRequestAuthorityEvidence? supplied;
-            try { supplied = JsonSerializer.Deserialize<PurchaseRequestAuthorityEvidence>(value.EvidenceJson); }
-            catch (JsonException) { throw new InvalidOperationException("ApprovalAssignmentAuthorityEvidenceInvalid"); }
-            if (pin is null || request is null || grant is null || supplied is null
+            var retained = PurchaseRequestAssignmentIdentity.ReadVerified(value);
+            var supplied = retained?.Authority;
+            if (pin is null || !PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(pin)
+                || request is null || pin.RequesterWorkerId != request.RequesterWorkerId || pin.MakerSubjectId != request.CreatedBy || grant is null || supplied is null
                 || value.TenantId != scope.TenantId || value.LegalEntityId != scope.LegalEntityId
                 || pin.CoreApprovalCaseId != value.CoreApprovalCaseId || value.CoreStageId == Guid.Empty
                 || value.CoreAssignmentId == Guid.Empty || value.AssigneeKind is not ("LineManager" or "ProcurementManager")
+                || value.AssigneeWorkerId == pin.MakerWorkerId || value.AssigneeWorkerId == pin.RequesterWorkerId
                 || grant.PrincipalId != value.PrincipalId || grant.Version != value.GrantRevision
                 || grant.AuthorityVersion != value.AuthorityVersion || supplied.EvaluatedAt != pin.PinnedAt
                 || value.EvidenceSha256 != Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value.EvidenceJson))))

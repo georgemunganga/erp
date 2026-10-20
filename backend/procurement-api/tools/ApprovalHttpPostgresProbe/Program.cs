@@ -304,6 +304,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         await FinanceChangedReturnAndRelease();
         await ReceiptFailureRollsBackBothContexts();
         await FinalFinanceRace();
+        await OffboardedHistoricalWorkersDoNotStrandFinanceRelease();
     }
 
     private async Task OtherAssigneeRevocationHidesApprove()
@@ -356,7 +357,6 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             core.LocalUsers.Add(alias); await core.SaveChangesAsync(); aliasId = alias.Id;
         }
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", aliasId, body, Guid.NewGuid());
-        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
         using (var services = Scope(finance))
         {
             Require(!await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().FinanceReleaseConfirmations
@@ -403,6 +403,77 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             Decision(detail, assignment, "Approve"), Guid.NewGuid());
         var history = await Get($"{Root}/requests/{id}/approval-history", requester);
         Require(history.GetProperty("records")[0].GetProperty("financeRelease").GetProperty("state").GetString() == "Confirmed", "Release recovery missing from history.");
+    }
+
+    private async Task OffboardedHistoricalWorkersDoNotStrandFinanceRelease()
+    {
+        var request = await NewFundedRequest("Release after historical employees leave");
+        var id = request.GetProperty("id").GetGuid(); var opened = await Open(request);
+        var caseId = opened.GetProperty("caseId").GetGuid();
+        var detail = await Get($"{Root}/approvals/{caseId}", manager1); var assignment = ActiveAssignment(detail, manager1);
+        var returned = await Send(HttpMethod.Post, DecisionPath(caseId, assignment), manager1,
+            Decision(detail, assignment, "Return", "Historical worker offboarding fixture"), Guid.NewGuid());
+        await Check(returned, HttpStatusCode.OK); var result = await returned.Content.ReadFromJsonAsync<JsonElement>();
+        var queue = await Get(Root + "/requests/finance-release-queue", finance);
+        var release = queue.GetProperty("records").EnumerateArray().Single(x => x.GetProperty("requestId").GetGuid() == id);
+        var body = new { expectedRequestVersion = result.GetProperty("requestVersion").GetInt64(),
+            reservationReference = release.GetProperty("reservationReference").GetString(),
+            releasedAmount = release.GetProperty("reservedAmount").GetDecimal(), currencyCode = "ZMW",
+            evidenceReference = "SYNTHETIC-OFFBOARD-RELEASE", confirmedAt = DateTimeOffset.UtcNow,
+            reason = "Independent Finance verified full release despite historical employee offboarding" };
+        using (var services = Scope(finance))
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var pin = await db.ApprovalSubmissions.AsNoTracking().SingleAsync(x => x.CoreApprovalCaseId == caseId);
+            // Deliberate corrupt/legacy fixture rows exercise read-side rejection, not application update permissions.
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_request_approval_submissions SET worker_identity_sha256={new string('f', 64)} WHERE id={pin.Id}");
+            await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_request_approval_submissions SET snapshot_schema_version=1,maker_worker_id=NULL,requester_worker_id=NULL,worker_identity_sha256=NULL WHERE id={pin.Id}");
+            await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_request_approval_submissions SET snapshot_schema_version=2,maker_worker_id={pin.MakerWorkerId},requester_worker_id={pin.RequesterWorkerId},worker_identity_sha256={pin.WorkerIdentitySha256} WHERE id={pin.Id}");
+            var terminal = await db.AssignmentAuthorityEvidence.AsNoTracking().SingleAsync(x => x.CoreAssignmentId == assignment.GetProperty("id").GetGuid());
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.assignment_authority_evidence SET assignee_worker_id={Guid.NewGuid()} WHERE id={terminal.Id}");
+            await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.assignment_authority_evidence SET assignee_worker_id={terminal.AssigneeWorkerId} WHERE id={terminal.Id}");
+        }
+        var aliases = new List<Guid>();
+        var workerIds = new List<Guid>();
+        using (var services = app.Services.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            foreach (var principal in new[] { requester, manager1 })
+            {
+                var user = await core.LocalUsers.SingleAsync(x => x.Id == principal); workerIds.Add(user.WorkerId!.Value);
+                user.IsActive = false;
+                var alias = new LocalUser { Email = "offboard-alias-" + principal + "@example.test",
+                    NormalizedEmail = ("OFFBOARD-ALIAS-" + principal + "@EXAMPLE.TEST").ToUpperInvariant(),
+                    DisplayName = "Historical worker active alias", PasswordHash = "synthetic-no-login-secret",
+                    RolesCsv = "finance_approver", WorkerId = user.WorkerId };
+                core.LocalUsers.Add(alias); aliases.Add(alias.Id);
+            }
+            await core.SaveChangesAsync();
+        }
+        foreach (var alias in aliases)
+            await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", alias, body, Guid.NewGuid());
+        using (var services = app.Services.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            foreach (var worker in await core.Workers.Where(x => workerIds.Contains(x.Id)).ToArrayAsync()) worker.Status = "terminated";
+            await core.SaveChangesAsync();
+        }
+        var confirmation = await Send(HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+        await Check(confirmation, HttpStatusCode.OK);
+        Require((await confirmation.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestState").GetString() == "ReturnedForChanges",
+            "Historical offboarding stranded independent Finance release.");
+        // Restore only this disposable fixture so later operator/browser scenarios can reuse its actors.
+        using (var services = app.Services.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            foreach (var user in await core.LocalUsers.Where(x => x.Id == requester || x.Id == manager1).ToArrayAsync()) user.IsActive = true;
+            foreach (var user in await core.LocalUsers.Where(x => aliases.Contains(x.Id)).ToArrayAsync()) user.IsArchived = true;
+            foreach (var worker in await core.Workers.Where(x => workerIds.Contains(x.Id)).ToArrayAsync()) worker.Status = "active";
+            await core.SaveChangesAsync();
+        }
     }
 
     private async Task ReceiptFailureRollsBackBothContexts()

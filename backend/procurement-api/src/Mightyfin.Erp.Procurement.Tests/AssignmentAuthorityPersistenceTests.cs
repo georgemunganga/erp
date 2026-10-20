@@ -21,6 +21,8 @@ public sealed class AssignmentAuthorityPersistenceTests
     [InlineData("stage")]
     [InlineData("assignee-kind")]
     [InlineData("source-amount")]
+    [InlineData("worker")]
+    [InlineData("legacy-worker")]
     public async Task Added_assignment_evidence_must_match_exact_local_source_and_current_grant(string mutation)
     {
         var scope = new Scope();
@@ -40,16 +42,20 @@ public sealed class AssignmentAuthorityPersistenceTests
             actor with { PrincipalId = scope.SubjectId, Permissions = new HashSet<string>([SpendingAuthorityConfiguration.ReviewPermission]) },
             subject, "Independently reviewed", time, [grant]);
         await db.SaveChangesAsync();
-        var request = new PurchaseRequest { Number = "PR-1", Purpose = "Synthetic need", CurrencyCode = "ZMW" };
+        var request = new PurchaseRequest { RequesterWorkerId = Guid.NewGuid(), Number = "PR-1", Purpose = "Synthetic need", CurrencyCode = "ZMW" };
         db.AddScoped(request);
         var line = new PurchaseRequestLine { PurchaseRequestId = request.Id, LineNumber = 1,
             Description = "Synthetic item", UnitCode = "each", RequestedQuantity = 1, EstimatedUnitPrice = 100,
             EstimatedCurrencyCode = "ZMW", CategoryCode = "IT" };
         db.AddScoped(line); request.Lines.Add(line);
+        var caseId = Guid.NewGuid(); var makerWorker = Guid.NewGuid();
         var pin = new PurchaseRequestApprovalSubmission
         {
-            PurchaseRequestId = request.Id, SubmittedBusinessVersion = 1, CoreApprovalCaseId = Guid.NewGuid(),
-            OpeningCommandKey = Guid.NewGuid(), MakerSubjectId = "requester", RequestSnapshotJson = "{}",
+            PurchaseRequestId = request.Id, SubmittedBusinessVersion = 1, CoreApprovalCaseId = caseId, SnapshotSchemaVersion = 2,
+            MakerWorkerId = makerWorker, RequesterWorkerId = request.RequesterWorkerId,
+            WorkerIdentitySha256 = PurchaseRequestApprovalPinning.WorkerIdentityDigest(scope.TenantId, scope.LegalEntityId,
+                request.Id, 1, caseId, scope.SubjectId, makerWorker, request.RequesterWorkerId),
+            OpeningCommandKey = Guid.NewGuid(), MakerSubjectId = scope.SubjectId, RequestSnapshotJson = "{}",
             RequestSnapshotSha256 = new string('a', 64), PolicyEvaluationId = Guid.NewGuid(), PolicyVersionId = Guid.NewGuid(),
             PolicyVersionNumber = 1, PolicyDecisionSha256 = new string('b', 64), PolicyRulesSha256 = new string('c', 64),
             FinanceSnapshotId = Guid.NewGuid(), FinanceSnapshotJson = "{}", FinanceSnapshotSha256 = new string('d', 64),
@@ -60,11 +66,12 @@ public sealed class AssignmentAuthorityPersistenceTests
         var evaluated = PurchaseRequestSpendingAuthority.Evaluate(request, "approver", SpendingAuthorityConfiguration.ApprovalPermission,
             SpendingAuthorityConfiguration.ApprovalAction, "EstimatedLineBase", time, [grant]);
         Assert.True(evaluated.Eligible);
-        var json = JsonSerializer.Serialize(evaluated.Evidence);
+        var workerId = Guid.NewGuid();
+        var json = JsonSerializer.Serialize(new PurchaseRequestAssignmentIdentityEvidence(workerId, evaluated.Evidence!));
         var evidence = new PurchaseRequestAssignmentAuthorityEvidence
         {
             SubmissionId = pin.Id, CoreApprovalCaseId = pin.CoreApprovalCaseId, CoreStageId = Guid.NewGuid(),
-            CoreAssignmentId = Guid.NewGuid(), PrincipalId = "approver", AssigneeKind = "LineManager",
+            CoreAssignmentId = Guid.NewGuid(), PrincipalId = "approver", AssigneeWorkerId = workerId, AssigneeKind = "LineManager",
             GrantId = grant.Id, GrantRevision = grant.Version, AuthorityVersion = grant.AuthorityVersion,
             EvidenceJson = json, EvidenceSha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json))),
         };
@@ -79,6 +86,8 @@ public sealed class AssignmentAuthorityPersistenceTests
             case "json": db.Entry(evidence).Property(x => x.EvidenceJson).CurrentValue = "invalid json"; break;
             case "stage": db.Entry(evidence).Property(x => x.CoreStageId).CurrentValue = Guid.Empty; break;
             case "assignee-kind": db.Entry(evidence).Property(x => x.AssigneeKind).CurrentValue = "BudgetOwner"; break;
+            case "worker": db.Entry(evidence).Property(x => x.AssigneeWorkerId).CurrentValue = Guid.NewGuid(); break;
+            case "legacy-worker": db.Entry(evidence).Property(x => x.AssigneeWorkerId).CurrentValue = null; break;
             case "source-amount": line.EstimatedUnitPrice = 101; break;
         }
         if (mutation == "valid") Assert.True(await db.SaveChangesAsync() > 0);

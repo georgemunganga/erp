@@ -234,7 +234,7 @@ public sealed class PurchaseRequestApprovalOutcomeTests
             stage.Assignments.Add(assignment);
             Case.Stages.Add(stage);
             Pin = PurchaseRequestApprovalPinning.Pin(Request, Evaluation, Policy, Finance, Tenant, company,
-                Case.Id, Guid.NewGuid(), PurchaseRequestApprovalPinning.AutomatedFinance, null, Now.AddMinutes(1));
+                Case.Id, Guid.NewGuid(), PurchaseRequestApprovalPinning.AutomatedFinance, null, Now.AddMinutes(1), Guid.NewGuid(), Request.RequesterWorkerId);
             Request.ApprovalInstanceRef = Case.Id.ToString();
             Request.Version++;
             var decisions = new List<ApprovalDecision>();

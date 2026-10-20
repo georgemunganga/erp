@@ -66,7 +66,7 @@ await using (var db = Context())
     // Pin tracked values without reloading first: this catches sub-microsecond digest drift.
     pin = PurchaseRequestApprovalPinning.Pin(request, evaluation, policy, finance, scope.TenantId,
         scope.LegalEntityId, Guid.NewGuid(), Guid.NewGuid(), PurchaseRequestApprovalPinning.ApprovedManualEvidence,
-        "SYNTHETIC-FIXTURE-ONLY-NOT-AUTHORITY", now.AddMinutes(1));
+        "SYNTHETIC-FIXTURE-ONLY-NOT-AUTHORITY", now.AddMinutes(1), Guid.NewGuid(), request.RequesterWorkerId);
     db.AddScoped(pin);
     request.ApprovalInstanceRef = pin.CoreApprovalCaseId.ToString();
     request.ApprovalState = "Pending";

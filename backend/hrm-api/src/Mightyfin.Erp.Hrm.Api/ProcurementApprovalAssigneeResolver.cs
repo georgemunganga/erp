@@ -11,7 +11,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 internal sealed record ProcurementResolvedApprovalStage(PolicyPreviewStage Route,
     IReadOnlyList<ProcurementResolvedApprovalAssignee> Assignees);
-internal sealed record ProcurementResolvedApprovalAssignee(string PrincipalId,
+internal sealed record ProcurementResolvedApprovalAssignee(string PrincipalId, Guid WorkerId,
     PurchaseRequestAuthorityEvidence Authority);
 
 internal static class ProcurementApprovalAssigneeResolver
@@ -62,9 +62,10 @@ internal static class ProcurementApprovalAssigneeResolver
             var eligible = new List<ProcurementResolvedApprovalAssignee>();
             foreach (var account in accounts.DistinctBy(x => x.PrincipalId))
             {
-                if (account.PrincipalId == maker.PrincipalId || account.PrincipalId == requester.PrincipalId) continue;
+                if (account.PrincipalId == maker.PrincipalId || account.PrincipalId == requester.PrincipalId
+                    || account.WorkerId == maker.WorkerId || account.WorkerId == requester.WorkerId) continue;
                 var authority = await AuthorityAsync(account, request, core, db, scope, now, ct);
-                if (authority is not null) eligible.Add(new(account.PrincipalId, authority));
+                if (authority is not null) eligible.Add(new(account.PrincipalId, account.WorkerId, authority));
             }
             if (eligible.Count == 0) throw new InvalidOperationException("ApprovalAssigneeAuthorityUnavailable");
             if (stage.Mode == "One" && eligible.Count != 1) throw new InvalidOperationException("ApprovalAssigneeAmbiguous");
@@ -81,7 +82,11 @@ internal static class ProcurementApprovalAssigneeResolver
             scope.LegalEntityId, pin.PrincipalId, ct);
         var requester = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,
             scope.TenantId, scope.LegalEntityId, request.RequesterWorkerId, ct);
-        if (account is null || requester is null || account.PrincipalId == request.CreatedBy
+        var sourceIdentity = await db.ApprovalSubmissions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == pin.SubmissionId, ct);
+        if (sourceIdentity is null || !PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(sourceIdentity))
+            throw new InvalidOperationException("ApprovalHistoricalWorkerEvidenceMissing");
+        if (account is null || requester is null || pin.AssigneeWorkerId != account.WorkerId
+            || account.WorkerId == sourceIdentity.MakerWorkerId || account.WorkerId == sourceIdentity.RequesterWorkerId || account.PrincipalId == request.CreatedBy
             || account.PrincipalId == requester.PrincipalId) throw new InvalidOperationException("ApprovalIdentityChanged");
         if (pin.AssigneeKind == "LineManager")
         {
@@ -96,8 +101,10 @@ internal static class ProcurementApprovalAssigneeResolver
         if (current is null || current.GrantId != pin.GrantId || current.GrantRevision != pin.GrantRevision
             || current.AuthorityVersion != pin.AuthorityVersion || Hash(pin.EvidenceJson) != pin.EvidenceSha256)
             throw new InvalidOperationException("ApprovalSpendingAuthorityChanged");
-        var evidence = JsonSerializer.Deserialize<PurchaseRequestAuthorityEvidence>(pin.EvidenceJson);
-        if (evidence is null || evidence.GrantId != pin.GrantId || evidence.GrantRevision != pin.GrantRevision
+        var retained = PurchaseRequestAssignmentIdentity.ReadVerified(pin);
+        var evidence = retained?.Authority;
+        if (retained is null || retained.AssigneeWorkerId == Guid.Empty || retained.AssigneeWorkerId != pin.AssigneeWorkerId
+            || evidence is null || evidence.GrantId != pin.GrantId || evidence.GrantRevision != pin.GrantRevision
             || evidence.AuthorityVersion != pin.AuthorityVersion || evidence.PrincipalId != pin.PrincipalId)
             throw new InvalidOperationException("ApprovalSpendingAuthorityEvidenceInvalid");
     }
