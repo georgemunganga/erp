@@ -112,8 +112,8 @@ public static partial class ProcurementOrderExecutionRoutes
     private static async Task CatalogClassification(ProcurementDbContext db,
         IEnumerable<PurchaseRequestLine> lines, CancellationToken ct)
     {
-        if (!await ProcurementCatalogClassificationBinding.StoredMatches(db, lines, ct))
-            Conflict("OrderSourceCatalogClassificationUnverified");
+        var issue = await ProcurementCatalogClassificationBinding.StoredIssue(db, lines, ct);
+        if (issue is not null) Conflict(issue);
     }
 
     private static async Task<ProcurementCommercialCommandReceipt?> Receipt(ProcurementDbContext db,

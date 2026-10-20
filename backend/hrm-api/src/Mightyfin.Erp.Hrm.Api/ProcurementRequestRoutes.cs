@@ -19,9 +19,9 @@ public static class ProcurementRequestRoutes
         group.MapGet("", List).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/review", GetForReview).RequireAuthorization("procurement-request-return");
-        group.MapPost("", Create).RequireAuthorization("procurement-request-create");
-        group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-request-edit");
-        group.MapPost("/{id:guid}/submit", Submit).RequireAuthorization("procurement-request-submit");
+        group.MapPost("", Create).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-create");
+        group.MapPut("/{id:guid}", Update).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-edit");
+        group.MapPost("/{id:guid}/submit", Submit).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-submit");
         group.MapPost("/{id:guid}/return-for-changes", ReturnForChanges)
             .RequireAuthorization("procurement-request-return");
         group.MapPost("/{id:guid}/withdraw", Withdraw).RequireAuthorization("procurement-request-edit");
@@ -357,35 +357,14 @@ public static class ProcurementRequestRoutes
         string currency, ProcurementDbContext db, CancellationToken ct)
     {
         var suppliers = lines.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
-        if (!await ProcurementCatalogClassificationBinding.StoredMatches(db, lines, ct))
-            return "A catalog category or purchase type is unavailable or changed. Edit the draft to select the item classification again.";
+        if (await ProcurementCatalogClassificationBinding.StoredIssue(db, lines, ct, currency) is not null)
+            return "A selected catalog item or price is unavailable or changed. Edit the draft to select the current catalog classification and price.";
         if (suppliers.Length > 0)
         {
             var selected = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
                 .Where(x => suppliers.Contains(x.Id)).ToListAsync(ct);
             if (selected.Count != suppliers.Length || selected.Any(x => !SupplierEligibility.CanReceiveNewOrders(x, DateTimeOffset.UtcNow)))
                 return "A preferred vendor is no longer available or its qualification has expired.";
-        }
-        var catalogIds = lines.Where(x => x.CatalogEntryId.HasValue)
-            .Select(x => x.CatalogEntryId!.Value).Distinct().ToArray();
-        if (catalogIds.Length > 0)
-        {
-            var entries = await db.CatalogEntries.AsNoTracking().Where(x => catalogIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, ct);
-            foreach (var line in lines.Where(x => x.CatalogEntryId.HasValue))
-            {
-                if (!entries.TryGetValue(line.CatalogEntryId!.Value, out var entry)
-                    || !CatalogEntryIsAvailable(entry)
-                    || entry.CatalogItemId != line.CatalogItemId
-                    || entry.SupplierId != line.PreferredSupplierId
-                    || entry.UnitCode != line.UnitCode
-                    || entry.CurrencyCode != currency
-                    || entry.UnitPrice != line.EstimatedUnitPrice
-                    || entry.MinimumQuantity is decimal minimum && line.RequestedQuantity < minimum
-                    || entry.MaximumQuantity is decimal maximum && line.RequestedQuantity > maximum
-                    || entry.PublishedVersion != line.CatalogPublishedVersion)
-                    return "A selected catalog price changed or is no longer available. Update the request line before submitting.";
-            }
         }
         return null;
     }
@@ -418,26 +397,13 @@ public static class ProcurementRequestRoutes
             foreach (var line in submitted.Where(x => x.CatalogEntryId.HasValue))
             {
                 if (!entries.TryGetValue(line.CatalogEntryId!.Value, out var entry)
-                    || !CatalogEntryIsAvailable(entry)
-                    || entry.CatalogItemId != line.CatalogItemId
-                    || entry.SupplierId != line.PreferredSupplierId
-                    || entry.UnitCode != line.UnitCode
-                    || entry.CurrencyCode != currency.Trim().ToUpperInvariant()
-                    || entry.UnitPrice != line.EstimatedUnitPrice
-                    || entry.MinimumQuantity is decimal minimum && line.RequestedQuantity < minimum
-                    || entry.MaximumQuantity is decimal maximum && line.RequestedQuantity > maximum)
+                    || !CatalogRequestClassification.OfferMatches(entry, line.CatalogItemId, line.PreferredSupplierId,
+                        line.UnitCode, currency.Trim().ToUpperInvariant(), line.RequestedQuantity,
+                        line.EstimatedUnitPrice, publishedVersion: null, DateTimeOffset.UtcNow))
                     return "Choose an available catalog price with the same item, vendor, unit, currency and price.";
             }
         }
         return null;
-    }
-
-    private static bool CatalogEntryIsAvailable(CatalogEntry entry)
-    {
-        var now = DateTimeOffset.UtcNow;
-        return entry.Status == "Published" && entry.PublishedVersion > 0
-            && entry.EffectiveFrom <= now && (entry.EffectiveTo is null || entry.EffectiveTo > now)
-            && entry.AudienceCode is null && entry.SiteRef is null && entry.ContractRef is null;
     }
 
     private static async Task<Dictionary<Guid, int>> CatalogVersions(IEnumerable<RequestLineInput> lines,
