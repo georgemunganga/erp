@@ -311,7 +311,7 @@ public static class PurchaseOrderCommercialWorkflow
             quantity = ProcurementEvidenceEncoding.Decimal(x.Allocation.Quantity),
             approvedUnitPrice = ProcurementEvidenceEncoding.Decimal(x.Source.Line.EstimatedUnitPrice),
             x.Source.Line.UnitCode, x.Source.Line.CategoryCode, x.Source.Line.PurchaseType,
-            methodId = x.Source.Method.Id, methodVersion = x.Source.Method.Version,
+            methodId = x.Source.Method.Id, methodCode = x.Source.Method.Code, executionRoute = x.Source.Method.ExecutionRoute,
             financeSnapshotId = x.Source.Finance.Id, x.Source.Finance.ReservationRef,
         }).ToArray());
 

@@ -185,6 +185,18 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         Assert.Null(f.Source.Order.FinanceCommitmentRef);
     }
 
+    [Fact]
+    public void Operational_source_and_method_row_revisions_do_not_rewrite_submitted_business_evidence()
+    {
+        var f = new Fixture(); var pin = f.Submit(); f.Approve(pin);
+        f.Source.Request.Version++; f.Source.Source.Method.Version++;
+        f.Source.Source.Method.Name = "Updated administrative display label";
+        var issued = PurchaseOrderCommercialWorkflow.AuthorizeIssue(f.Source.Order, f.Lines, f.Supplier,
+            pin, f.Policy, f.Finance, f.Case!, "buyer", f.Now.AddMinutes(1));
+        Assert.Equal(pin.CommercialSnapshotSha256, issued.CommercialSnapshotSha256);
+        Assert.Equal("IssuePending", f.Source.Order.Status);
+    }
+
     private sealed class Fixture
     {
         public PurchaseOrderSourceAllocationTests.Fixture Source { get; } = new();

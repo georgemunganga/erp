@@ -90,6 +90,7 @@ sealed partial class Probe
         }
         Console.WriteLine("PASS order: independent funding + Core assignment/decision + supplier denial + seal/replay + actual delivery");
         await VerifyCommitmentOwnershipAndDraftCancel(supplier, commitment);
+        await VerifyFundedUnsubmittedCancellation(supplier);
         await VerifyOrderRevokedGrantReplay(orderId, decisionPath, decisionBody, decisionKey, issueBody, issueKey);
     }
 
@@ -111,6 +112,36 @@ sealed partial class Probe
         Require(line.AllocatedQuantity == 0 && line.OrderedQuantity == 0 && await db.OrderCommitmentOwnership.CountAsync() == 1
             && !await db.OrderFinanceEvidence.AnyAsync(x => x.PurchaseOrderId == id), "Failed commitment ownership/cancel corrupted funding or quantities.");
         Console.WriteLine("PASS order: cross-PO commitment reference denial + unfunded cancel exact replay + source release");
+    }
+
+    private async Task VerifyFundedUnsubmittedCancellation(Guid supplier)
+    {
+        var source = await NewApprovedOrderSource("Funded unsubmitted cancellation");
+        var sourceId = source.GetProperty("id").GetGuid(); var reservation = await SourceReservation(sourceId);
+        var converted = await Send(HttpMethod.Post, Root + "/orders/from-approved-sources", OrderBuyer, OrderConversion(source, supplier), Guid.NewGuid());
+        await Check(converted, HttpStatusCode.Created); var order = await converted.Content.ReadFromJsonAsync<JsonElement>();
+        var id = order.GetProperty("id").GetGuid();
+        var funded = await Send(HttpMethod.Post, $"{Root}/orders/{id}/finance-confirmations", OrderFinance,
+            OrderFunding(order, "SYNTHETIC-UNSUBMITTED-HELD", reservation, "UNSUBMITTED-FINANCE-EVIDENCE"), Guid.NewGuid());
+        await Check(funded, HttpStatusCode.OK); order = await funded.Content.ReadFromJsonAsync<JsonElement>();
+        await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/orders/{id}/source-cancel", OrderBuyer,
+            new { expectedOrderVersion = order.GetProperty("version").GetInt64(), reason = "Cannot drop a held commitment" }, Guid.NewGuid());
+        var key = Guid.NewGuid(); var body = new { expectedOrderVersion = order.GetProperty("version").GetInt64(),
+            evidenceReference = "UNSUBMITTED-RELEASE", releasedGrossAmount = 100, currencyCode = "ZMW",
+            restoredReservationReferences = new[] { reservation }, reason = "External Finance release and PR restoration verified",
+            confirmedAt = DateTimeOffset.UtcNow };
+        var released = await Send(HttpMethod.Post, $"{Root}/orders/{id}/draft-finance-release-confirmations", OrderFinance, body, key);
+        await Check(released, HttpStatusCode.OK); var first = await released.Content.ReadAsStringAsync();
+        var replay = await Send(HttpMethod.Post, $"{Root}/orders/{id}/draft-finance-release-confirmations", OrderFinance, body, key);
+        await Check(replay, HttpStatusCode.OK); Require(first == await replay.Content.ReadAsStringAsync(), "Unsubmitted Finance release retry changed response.");
+        using var services = Scope(OrderBuyer); var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+        var resolution = await db.OrderFinanceResolutions.SingleAsync(x => x.PurchaseOrderId == id);
+        var line = await db.PurchaseRequestLines.SingleAsync(x => x.PurchaseRequestId == sourceId);
+        Require(resolution.SubmissionId is null && resolution.Outcome == "CancelledUnsubmittedOrder"
+            && !await db.OrderSubmissions.AnyAsync(x => x.PurchaseOrderId == id) && line.AllocatedQuantity == 0
+            && (await db.PurchaseOrders.SingleAsync(x => x.Id == id)).FinanceCommitmentRef is null,
+            "Unsubmitted cancellation invented an approval case or stranded source/funding state.");
+        Console.WriteLine("PASS order: funded Draft cannot cancel without independent release; no-Core release exact replay frees quantity");
     }
 
     private async Task VerifyQueuedBranchRevocation(Guid orderId, Guid sourceId, long version)
