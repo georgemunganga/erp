@@ -20,7 +20,7 @@ public static partial class ProcurementApprovalExecutionRoutes
     {
         try
         {
-            Enabled(options); _ = await Actor(core, scope, http, authorization, OpenPermission, ct);
+            Enabled(options); await RequireCheckerSchema(db, http, ct); _ = await Actor(core, scope, http, authorization, OpenPermission, ct);
             var branches = await core.UserBranchAssignments.AsNoTracking().Where(x => x.UserId == Guid.Parse(scope.SubjectId)
                 && !x.IsArchived).Select(x => x.LocationId).ToArrayAsync(ct);
             var query = ScopedRequests(db, scope).AsNoTracking().Where(x => x.Status == "Submitted" && x.ApprovalInstanceRef == null
@@ -49,7 +49,7 @@ public static partial class ProcurementApprovalExecutionRoutes
     {
         try
         {
-            Enabled(options); _ = await Actor(core, scope, http, authorization, ReadPermission, ct);
+            Enabled(options); await RequireCheckerSchema(db, http, ct); _ = await Actor(core, scope, http, authorization, ReadPermission, ct);
             if (state is not (null or "Pending")) throw Invalid("ApprovalQueueStateUnsupported");
             var size = Math.Clamp(limit ?? 50, 1, 100); var skip = Math.Clamp(offset ?? 0, 0, 100000);
             var branches = await core.UserBranchAssignments.AsNoTracking().Where(x => x.UserId == Guid.Parse(scope.SubjectId)
@@ -99,7 +99,7 @@ public static partial class ProcurementApprovalExecutionRoutes
     {
         try
         {
-            Enabled(options); _ = await Actor(core, scope, http, authorization, ReadPermission, ct);
+            Enabled(options); await RequireCheckerSchema(db, http, ct); _ = await Actor(core, scope, http, authorization, ReadPermission, ct);
             var approvalCase = await Case(workflow, caseId, ct);
             if (!approvalCase.Stages.SelectMany(x => x.Assignments).Any(x => x.AssigneeSubjectId == scope.SubjectId)) throw Missing();
             var request = await Request(db, scope, approvalCase.SourceId, ct);
@@ -177,7 +177,7 @@ public static partial class ProcurementApprovalExecutionRoutes
     {
         try
         {
-            Enabled(options);
+            Enabled(options); await RequireCheckerSchema(db, http, ct);
             _ = await Actor(core, scope, http, authorization, "procurement-request-read", ct);
             var request = await Request(db, scope, id, ct); await RecordScope(core, scope, request, ct);
             if (request.CreatedBy != scope.SubjectId
@@ -286,6 +286,12 @@ public static partial class ProcurementApprovalExecutionRoutes
     private static string? NormalizeReason(string? value)
     { var reason = string.Join(" ", (value ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)); return reason.Length == 0 ? null : reason; }
     private static string Hash(object payload) => ProcurementApprovalAssigneeResolver.Hash(JsonSerializer.Serialize(payload, Json));
+    private static async Task RequireCheckerSchema(ProcurementDbContext db, HttpContext http, CancellationToken ct)
+    {
+        if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, ct))
+            throw new ApprovalHttpError(503, "FinanceCheckerSchemaUnavailable", "Funding evidence database setup is incomplete.");
+    }
+
     private static void Enabled(ProcurementApprovalExecutionOptions options)
     {
         if (!options.Enabled) throw new ApprovalHttpError(503, "ApprovalsNotEnabled", "Purchase approvals are not enabled yet. Your draft requests remain available.");

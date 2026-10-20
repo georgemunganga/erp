@@ -18,6 +18,8 @@ public static partial class ProcurementOrderExecutionRoutes
             var fingerprint = Fingerprint(new { operation = "Issue", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
+                if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, token))
+                    throw new OrderProblem("FinanceCheckerSchemaUnavailable", 503);
                 var load = await Load(db, cases, scope, id, true, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-issue", token, load.Order.BranchRef, true);
@@ -40,6 +42,7 @@ public static partial class ProcurementOrderExecutionRoutes
                         core, db, scope, now, token);
                 var prior = await Receipt(db, scope, "Issue", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
+                await CurrentSourceCheckers(db, core, scope, load.Sources.Select(x => x.Source), token);
                 await CatalogCommercial(db, load.Order.SupplierId, load.Order.CurrencyCode,
                     load.Sources.Select(x => (x.Source.Line, x.OrderLine)), token);
                 if (load.Order.Version != input.ExpectedOrderVersion) Conflict("OrderIssueVersionChanged");
@@ -66,6 +69,8 @@ public static partial class ProcurementOrderExecutionRoutes
             var fingerprint = Fingerprint(new { operation = "Delivery", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
+                if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, token))
+                    throw new OrderProblem("FinanceCheckerSchemaUnavailable", 503);
                 // Delivery confirms an already sealed payload, so master-data suspension or
                 // historical source offboarding must not hide the external delivery outcome.
                 await LockOrder(db, scope, id, token);

@@ -171,7 +171,7 @@ public static class GovernedRfqRestoration
             || p.PolicyDecisionSha256 != pin.PolicyDecisionSha || p.PolicyRulesSha256 != pin.PolicyRulesSha
             || p.FinanceSnapshotId != pin.FinanceId || p.FinanceSnapshotSha256 != pin.FinanceSha
             || p.FinanceSnapshotSha256 != ProcurementEvidenceEncoding.Digest(p.FinanceSnapshotJson)
-            || p.FinanceSnapshotJson != PurchaseRequestApprovalPinning.FinanceSnapshot(f)
+            || !FinanceSnapshotCodec.Matches(f, p.FinanceIdentitySchemaVersion, p.FinanceSnapshotJson, p.FinanceSnapshotSha256)
             || p.PolicyEvaluationId != e.Id || p.PolicyVersionId != policy.Id || p.PolicyVersionNumber != policy.PolicyVersionNumber
             || p.PolicyDecisionSha256 != ProcurementEvidenceEncoding.Digest(e.DecisionJson)
             || p.PolicyRulesSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)

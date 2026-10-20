@@ -91,6 +91,23 @@ public static partial class ProcurementOrderExecutionRoutes
         }
     }
 
+    // New commitments only: do not call from historic receipt/cancel/release/delivery paths.
+    private static async Task CurrentSourceCheckers(ProcurementDbContext db, HrmDbContext core,
+        ProcurementRequestScope scope, IEnumerable<ApprovedPurchaseSource> sources, CancellationToken ct)
+    {
+        foreach (var source in sources.DistinctBy(x => x.Submission.Id))
+        {
+            if (source.Submission.FinanceIdentitySchemaVersion != 1)
+                Conflict("OrderSourceFinanceCheckerNeedsReview");
+            try
+            {
+                _ = await ProcurementApprovalFinanceEligibility.RequireCurrentCheckerAsync(source.Request, source.Finance,
+                    core, db, scope, ct);
+            }
+            catch (InvalidOperationException) { Conflict("OrderSourceFinanceCheckerNeedsReview"); }
+        }
+    }
+
     private static async Task CatalogClassification(ProcurementDbContext db,
         IEnumerable<PurchaseRequestLine> lines, CancellationToken ct)
     {

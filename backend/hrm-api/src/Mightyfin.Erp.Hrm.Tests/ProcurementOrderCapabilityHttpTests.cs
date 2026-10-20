@@ -34,6 +34,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
     [InlineData("unapproved-policy", false)]
     [InlineData("disabled-policy", false)]
     [InlineData("schema-not-ready", false)]
+    [InlineData("finance-checker-schema-not-ready", false)]
     [InlineData("pending-procurement-schema", false)]
     [InlineData("absent-delivery-policy", false)]
     [InlineData("absent-delivery-channels", false)]
@@ -83,6 +84,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
         builder.Services.AddSingleton<IProcurementOrderSchemaReadiness>(readiness);
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
         builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions());
+        builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness { Ready = scenario != "finance-checker-schema-not-ready" });
         builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions());
         builder.Services.AddSingleton(new CoreDocumentFeature(false));
         builder.Services.AddAuthentication("capability-test")

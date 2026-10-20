@@ -17,7 +17,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementSourcingExecutionRoutes
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private sealed class Problem(string code, int status) : Exception(code) { public int Status { get; } = status; }
+    internal sealed class Problem(string code, int status) : Exception(code) { public int Status { get; } = status; }
     private sealed record Reply(string Body, int Status = 200);
     public sealed record Selection(Guid PurchaseRequestId, Guid PurchaseRequestLineId, long ExpectedRequestVersion,
         [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal Quantity);
@@ -47,6 +47,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (scope.OrgUnitId is not null) throw new Problem("RfqDepartmentScopeUnsupported", 503);
             var result = await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async (db, cases, token) =>
             {
+                await RequireFinanceSchema(db, http.RequestServices.GetRequiredService<IProcurementFinanceCheckerSchemaReadiness>(), token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 return await command(db, cases, core, http.RequestServices.GetRequiredService<IAuthorizationService>(), token);
             }, ct);
@@ -70,7 +71,16 @@ public static partial class ProcurementSourcingExecutionRoutes
             return Error(error is Problem ? error.Message : status == 503 ? "SourcingSaveUnconfirmed" : "SourcingEvidenceNeedsReview", status);
         }
     }
-    private static IResult Error(string code, int status) => Results.Json(new { code,
+    // The coordinator's exact owning Procurement context is authoritative. Never substitute
+    // the ordinary host connection when execution uses its dedicated finite connection.
+    internal static async Task RequireFinanceSchema(ProcurementDbContext owner,
+        IProcurementFinanceCheckerSchemaReadiness readiness, CancellationToken ct)
+    {
+        if (!await readiness.IsReadyAsync(owner, false, ct))
+            throw new Problem("SourcingFinanceCheckerSchemaUnavailable", 503);
+    }
+
+    internal static IResult Error(string code, int status) => Results.Json(new { code,
         message = status == 503 ? "Quote requests are not ready, or this save could not be confirmed. Keep the original save reference and check again."
             : "Refresh the quote request and check your access, selected sources and available quantities.", details = Array.Empty<string>() }, statusCode: status);
     private static Guid Key(HttpContext http) => Guid.TryParse(http.Request.Headers["Idempotency-Key"], out var key) && key != Guid.Empty

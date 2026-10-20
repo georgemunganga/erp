@@ -92,6 +92,33 @@ public sealed class GovernedRfqRestorationTests
             f.Bindings, new[] { f.History[0], f.History[0] }));
     }
 
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public void Restore_and_cancel_preserve_exact_versioned_Finance_without_current_identity_lookup(bool bound)
+    {
+        var f = new Fixture(boundFinance: bound); var source = f.Source.Source;
+        var bytes = source.Submission.FinanceSnapshotJson; var hash = source.Submission.FinanceSnapshotSha256;
+        Assert.Equal(bound ? 1 : 0, source.Submission.FinanceIdentitySchemaVersion);
+        Assert.Equal(FinanceSnapshotCodec.Encode(source.Finance, bound ? 1 : 0), bytes);
+        var restored = f.Restore();
+        _ = GovernedRfqDraft.Cancel(f.Actor, restored, Guid.NewGuid(), restored.Fingerprint,
+            "Retained source only; old Finance account may be inactive", new[] { source });
+        Assert.Equal(bytes, source.Submission.FinanceSnapshotJson); Assert.Equal(hash, source.Submission.FinanceSnapshotSha256);
+    }
+
+    [Theory]
+    [InlineData("downgrade")][InlineData("worker")][InlineData("unknown")]
+    public void Bound_history_cannot_downgrade_or_rebind_checker(string change)
+    {
+        var f = new Fixture(boundFinance: true); var source = f.Source.Source;
+        var allocation = (f.Allocation.Status, f.Source.Line.AllocatedQuantity, f.Event.Version);
+        if (change == "downgrade") source.Submission.FinanceIdentitySchemaVersion = 0;
+        if (change == "worker") source.Finance.CheckedByWorkerId = Guid.NewGuid();
+        if (change == "unknown") source.Submission.FinanceIdentitySchemaVersion = 99;
+        Assert.Equal("RfqRetainedDraftInvalid", Assert.Throws<InvalidOperationException>(() => f.Restore()).Message);
+        Assert.Equal(allocation, (f.Allocation.Status, f.Source.Line.AllocatedQuantity, f.Event.Version));
+    }
+
     private sealed class Fixture
     {
         public PurchaseOrderSourceAllocationTests.Fixture Source { get; }
@@ -103,9 +130,9 @@ public sealed class GovernedRfqRestorationTests
         public PurchaseRequestAllocation Allocation { get; }
         public List<RfqOwnedDraftLine> Bindings { get; } = [];
         public List<RfqHistoricalApproval> History { get; } = [];
-        public Fixture(decimal quantity = 2, decimal rate = 10)
+        public Fixture(decimal quantity = 2, decimal rate = 10, bool boundFinance = false)
         {
-            Source = new(quantity, rate, executionRoute: "CompetitiveSourcing", minimumQuoteCount: 0);
+            Source = new(quantity, rate, executionRoute: "CompetitiveSourcing", minimumQuoteCount: 0, boundFinance: boundFinance);
             Actor = new("buyer", Guid.NewGuid(), Source.Request.TenantId, Source.Company, null,
                 new HashSet<Guid>(), true, new HashSet<string> { "procurement-sourcing-convert", "procurement-sourcing-cancel" },
                 true, new HashSet<Guid>());

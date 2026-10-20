@@ -175,7 +175,7 @@ public sealed class PurchaseOrderSourceAllocationTests
 
         public Fixture(decimal requestedQuantity = 10m, decimal estimatedUnitPrice = 10m,
             string sourceUnitCode = "EA", string? purchaseType = null,
-            string executionRoute = "DirectPurchase", int? minimumQuoteCount = 0, bool omitMinimumQuoteCount = false)
+            string executionRoute = "DirectPurchase", int? minimumQuoteCount = 0, bool omitMinimumQuoteCount = false, bool boundFinance = false)
         {
             Request = Scoped(new PurchaseRequest { Number = "PR-TEST", RequesterWorkerId = Guid.NewGuid(),
                 CurrencyCode = "ZMW", Purpose = "Source authority test", Status = "Submitted", Version = 1,
@@ -199,6 +199,13 @@ public sealed class PurchaseOrderSourceAllocationTests
             var finance = Scoped(new BudgetCheckSnapshot { PurchaseRequestId = Request.Id, RequestVersion = 1,
                 Status = "Available", CheckedAmount = requestedQuantity * estimatedUnitPrice, CurrencyCode = "ZMW", FinanceCheckRef = "CHECK",
                 EvidenceRef = "SYNTHETIC", ReservationRef = "RESERVE", ReservationStatus = "Confirmed", CheckedAt = Now });
+            if (boundFinance)
+            {
+                finance.CheckedBySubjectId = "independent-finance";
+                var binding = FinanceCheckerIdentityEvidence.CreateForNewSnapshot(finance, finance.CheckedBySubjectId, Guid.NewGuid());
+                finance.CheckerIdentitySchemaVersion = binding.SchemaVersion;
+                finance.CheckedByWorkerId = binding.WorkerId; finance.CheckerIdentitySha256 = binding.Sha256;
+            }
             Case = new ApprovalCase { TenantId = Tenant, LegalEntityId = Company, SourceModule = "procurement",
                 SourceType = "purchase_request", SourceId = Request.Id, SourceVersion = 1,
                 PolicyVersionId = policy.Id, PolicyVersionNumber = 1, MakerSubjectId = "requester" };

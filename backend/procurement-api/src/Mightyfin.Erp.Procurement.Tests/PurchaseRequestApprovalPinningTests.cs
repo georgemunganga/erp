@@ -368,6 +368,45 @@ public sealed class PurchaseRequestApprovalPinningTests
         Assert.Throws<ArgumentException>(() => f.Pin());
     }
 
+    [Fact]
+    public void Legacy_pin_and_terminal_source_restore_keep_original_finance_bytes_and_worker_identities()
+    {
+        var f = new Fixture(); var pin = f.Pin(); f.Link(pin);
+        Assert.Equal(0, pin.FinanceIdentitySchemaVersion);
+        Assert.DoesNotContain("FinanceIdentitySchemaVersion", JsonSerializer.Serialize(pin));
+        Assert.Equal(FinanceSnapshotCodec.Legacy(f.Finance), pin.FinanceSnapshotJson);
+        var restored = JsonSerializer.Deserialize<PurchaseRequestApprovalSubmission>(JsonSerializer.Serialize(pin))!;
+        f.Request.Status = "Returned";
+        Assert.True(PurchaseRequestApprovalPinning.VerifyBusinessEvidence(restored, f.Request, f.Evaluation,
+            f.Policy, f.Finance, Fixture.Tenant, f.Company).IsValid);
+        Assert.True(PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(restored));
+        Assert.Equal(f.MakerWorkerId, restored.MakerWorkerId);
+        Assert.Equal(f.Request.RequesterWorkerId, restored.RequesterWorkerId);
+        Assert.Equal(pin.FinanceSnapshotJson, restored.FinanceSnapshotJson);
+        Assert.Equal(pin.FinanceSnapshotSha256, restored.FinanceSnapshotSha256);
+        // Historic source decoding does not become new independent-checker authorization.
+        Assert.False(FinanceCheckerIdentityEvidence.HasValidBinding(f.Finance));
+    }
+
+    [Fact]
+    public void Bound_finance_pin_dispatches_independently_of_existing_schema_two_maker_requester_identity()
+    {
+        var f = new Fixture(); var worker = Guid.NewGuid();
+        var binding = FinanceCheckerIdentityEvidence.CreateForNewSnapshot(f.Finance, f.Finance.CheckedBySubjectId, worker);
+        f.Finance.CheckerIdentitySchemaVersion = binding.SchemaVersion;
+        f.Finance.CheckedByWorkerId = binding.WorkerId; f.Finance.CheckerIdentitySha256 = binding.Sha256;
+        var pin = f.Pin(); f.Link(pin);
+        Assert.Equal(2, pin.SnapshotSchemaVersion); Assert.Equal(1, pin.FinanceIdentitySchemaVersion);
+        Assert.True(f.Verify(pin).IsValid);
+        Assert.True(PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(pin));
+        var json = JsonNode.Parse(JsonSerializer.Serialize(pin))!;
+        json["FinanceIdentitySchemaVersion"] = 0;
+        var downgraded = JsonSerializer.Deserialize<PurchaseRequestApprovalSubmission>(json.ToJsonString())!;
+        Assert.Contains("PinnedFinanceMismatch", f.Verify(downgraded).Blockers);
+        f.Finance.CheckedByWorkerId = Guid.NewGuid();
+        Assert.Contains("PinnedFinanceMismatch", f.Verify(pin).Blockers);
+    }
+
     private sealed class Fixture
     {
         public const string Tenant = "tenant-a";

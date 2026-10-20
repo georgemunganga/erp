@@ -34,6 +34,7 @@ public sealed class ProcurementApprovalCapabilityHttpTests
     [InlineData("unapproved-policy", false)]
     [InlineData("disabled-policy", false)]
     [InlineData("schema-not-ready", false)]
+    [InlineData("finance-checker-schema-not-ready", false)]
     [InlineData("pending-procurement-schema", false)]
     [InlineData("configured", true)]
     public async Task Mapped_metadata_exposes_only_configured_current_available_approvals(string scenario, bool expected)
@@ -76,6 +77,7 @@ public sealed class ProcurementApprovalCapabilityHttpTests
         builder.Services.AddSingleton<IProcurementApprovalSchemaReadiness>(readiness);
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
         builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions());
+        builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness { Ready = scenario != "finance-checker-schema-not-ready" });
         builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions());
         builder.Services.AddSingleton(new CoreDocumentFeature(false));
         builder.Services.AddAuthentication("capability-test")

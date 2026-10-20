@@ -43,7 +43,7 @@ public static class PurchaseRequestApprovalPinning
             issues.Add("PinTimeInvalid");
         if (issues.Count != 0) throw new ArgumentException(string.Join(",", issues.Distinct()));
         var snapshot = RequestSnapshot(request);
-        var financeSnapshot = FinanceSnapshot(finance);
+        var financeSnapshot = FinanceSnapshotCodec.Encode(finance, finance.CheckerIdentitySchemaVersion);
         return new PurchaseRequestApprovalSubmission
         {
             TenantId = tenantId, LegalEntityId = legalEntityId,
@@ -57,6 +57,7 @@ public static class PurchaseRequestApprovalPinning
             PolicyEvaluationId = evaluation.Id, PolicyVersionId = policy.Id,
             PolicyVersionNumber = policy.PolicyVersionNumber,
             PolicyDecisionSha256 = Digest(evaluation.DecisionJson), PolicyRulesSha256 = PolicyRulesDigest(policy.RulesJson),
+            FinanceIdentitySchemaVersion = finance.CheckerIdentitySchemaVersion,
             FinanceSnapshotId = finance.Id, FinanceSnapshotJson = financeSnapshot,
             FinanceSnapshotSha256 = Digest(financeSnapshot), FinanceEvidenceMode = financeEvidenceMode,
             ManualEvidenceAuthorityRef = manualEvidenceAuthorityRef,
@@ -113,8 +114,8 @@ public static class PurchaseRequestApprovalPinning
             || pin.PolicyRulesSha256 != PolicyRulesDigest(policy.RulesJson))
             issues.Add("PinnedPolicyMismatch");
         if (pin.FinanceSnapshotId != currentFinance.Id
-            || pin.FinanceSnapshotSha256 != Digest(pin.FinanceSnapshotJson)
-            || pin.FinanceSnapshotJson != FinanceSnapshot(currentFinance))
+            || !FinanceSnapshotCodec.Matches(currentFinance, pin.FinanceIdentitySchemaVersion,
+                pin.FinanceSnapshotJson, pin.FinanceSnapshotSha256))
             issues.Add("PinnedFinanceMismatch");
         if (pin.FinanceEvidenceMode is not (AutomatedFinance or ApprovedManualEvidence)
             || pin.FinanceEvidenceMode == ApprovedManualEvidence && string.IsNullOrWhiteSpace(pin.ManualEvidenceAuthorityRef)
@@ -217,11 +218,6 @@ public static class PurchaseRequestApprovalPinning
             }).ToArray(),
     });
 
-    internal static string FinanceSnapshot(BudgetCheckSnapshot f) => JsonSerializer.Serialize(new
-    {
-        f.Id, f.TenantId, f.LegalEntityId, f.PurchaseRequestId, f.RequestVersion, f.FinanceCheckRef,
-        f.Status, checkedAmount = Decimal(f.CheckedAmount), f.CurrencyCode, CheckedAt = DatabaseTimestamp(f.CheckedAt),
-        f.CheckedBySubjectId, f.EvidenceRef, f.DecisionReason, f.ReservationRef,
-        f.ReservationStatus, f.ExchangeRateSource,
-    });
+    // Internal source owners retain the exact legacy encoder for schema0 history.
+    internal static string FinanceSnapshot(BudgetCheckSnapshot f) => FinanceSnapshotCodec.Legacy(f);
 }
