@@ -129,7 +129,7 @@ public sealed class ReceivingPersistenceModelTests
         state.Sequence = 1; state.CurrentAcceptedQuantity = 1; state.CurrentAcceptedNetAmount = 10; db.AddScoped(state);
         var actor = Guid.NewGuid();
         var effect = new ReceivingAcceptanceEffect { Source = state.Source, ReceivingSourceStateId = state.Id,
-            ServiceAcceptanceId = row.Id, AcceptanceRecordId = row.Id, Kind = AcceptanceEffectKind.Acceptance,
+            ServiceAcceptanceId = row.Id, AcceptanceRecordId = row.Id, CreatedBy = "receiver", Kind = AcceptanceEffectKind.Acceptance,
             QuantityDelta = 1, NetAmountDelta = 10, ActorWorkerId = actor, ReceivingPolicyVersionId = state.ClassificationPolicyVersionId,
             LedgerSequence = 1, EffectKey = Guid.NewGuid(), EvidenceReference = "CERTIFY", OccurredAt = DateTimeOffset.UtcNow };
         db.AddScoped(effect);
