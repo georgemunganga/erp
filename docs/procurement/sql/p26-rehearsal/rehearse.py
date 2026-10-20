@@ -82,7 +82,7 @@ def main():
         return result
 
     def history(db):
-        return sql(db, "SELECT migration_id FROM procurement.__procurement_migrations ORDER BY migration_id").stdout.splitlines()
+        return sql(db, 'SELECT "MigrationId" FROM procurement.__procurement_migrations ORDER BY "MigrationId"').stdout.splitlines()
 
     def schema(db):
         dump = run("pg_dump", "-U", "postgres", "-d", db, "--schema-only", "--schema=procurement",
