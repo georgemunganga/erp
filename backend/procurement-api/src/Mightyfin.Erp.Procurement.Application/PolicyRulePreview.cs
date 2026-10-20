@@ -108,8 +108,7 @@ public static class PolicyRulePreview
         && values.EnumerateArray().Any(value => value.GetGuid() == branch.Value);
     private static decimal? Amount(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null ? value.GetDecimal() : null;
-    private static bool ValidOptionalCode(string? value) => value is null || value.Length is > 0 and <= 100
-        && value.All(c => c is >= 'A' and <= 'Z' or >= '0' and <= '9' or '_');
+    private static bool ValidOptionalCode(string? value) => value is null || ProcurementPolicyCode.IsValid(value);
     private static PolicyPreviewResult Empty(string status, IReadOnlyList<PolicyRuleIssue> issues) =>
         new(status, null, null, null, null, null, [], issues);
 }
