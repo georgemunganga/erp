@@ -88,7 +88,7 @@ public static class PurchaseRequestApprovalOutcomes
             foreach (var line in request.Lines.Where(Active)) line.ApprovalStatus = approvalCase.State;
             release = new PurchaseRequestFinanceReleaseRequest
             {
-                TenantId = tenant, LegalEntityId = entity, ApprovalOutcomeId = outcome.Id, SubmissionId = pin.Id,
+                TenantId = tenant, LegalEntityId = entity, ApprovalOutcomeId = outcome.Id, Outcome = outcome.Outcome, SubmissionId = pin.Id,
                 PurchaseRequestId = request.Id, SubmittedBusinessVersion = pin.SubmittedBusinessVersion,
                 CoreApprovalCaseId = approvalCase.Id, FinanceSnapshotId = pinnedFinance.Id, BranchRef = request.BranchRef,
                 ReservationRef = pinnedFinance.ReservationRef!, ReservedAmount = pinnedFinance.CheckedAmount,
@@ -189,7 +189,7 @@ public static class PurchaseRequestApprovalOutcomes
     private static void RequireRelease(PurchaseRequestFinanceReleaseRequest? release, PurchaseRequestApprovalOutcome outcome,
         PurchaseRequestApprovalSubmission pin, PurchaseRequest request, BudgetCheckSnapshot finance, string tenant, Guid entity)
     {
-        if (release is null || !Scoped(release, tenant, entity) || release.ApprovalOutcomeId != outcome.Id
+        if (release is null || !Scoped(release, tenant, entity) || release.ApprovalOutcomeId != outcome.Id || release.Outcome != outcome.Outcome
             || release.SubmissionId != pin.Id || release.PurchaseRequestId != request.Id
             || release.SubmittedBusinessVersion != pin.SubmittedBusinessVersion || release.CoreApprovalCaseId != pin.CoreApprovalCaseId
             || release.BranchRef != request.BranchRef || release.RequestedBySubjectId != outcome.ActorSubjectId

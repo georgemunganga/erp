@@ -77,7 +77,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
-        if (record is PurchaseRequestApprovalSubmission &&
+        if ((record is PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
+                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation) &&
             (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
             throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
         record.TenantId = scope.TenantId;
@@ -488,6 +489,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
 
         ConfigureCommercialRelationships(modelBuilder);
         ConfigureSpendingAuthority(modelBuilder);
+        ConfigureApprovalOutcomes(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
@@ -663,6 +665,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         if (string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(scope.SubjectId))
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
         GuardSpendingAuthorityChanges();
+        GuardApprovalOutcomeChanges();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();
@@ -672,7 +675,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 throw new InvalidOperationException("Procurement records must be closed, cancelled or reversed; physical deletion is not allowed.");
             if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot or PurchaseRequestApprovalSubmission
                 or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
-                or ProcurementComment or ProcurementSetupAssessment)
+                or ProcurementComment or ProcurementSetupAssessment or PurchaseRequestApprovalOutcome
+                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation)
                 throw new InvalidOperationException("Decision, evaluation, budget and audit records are append-only.");
             if (entry.State == EntityState.Added)
             {

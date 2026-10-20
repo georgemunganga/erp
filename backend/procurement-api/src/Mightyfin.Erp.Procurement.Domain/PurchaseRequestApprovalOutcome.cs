@@ -19,6 +19,7 @@ public sealed class PurchaseRequestApprovalOutcome : ProcurementRecord
 public sealed class PurchaseRequestFinanceReleaseRequest : ProcurementRecord
 {
     public Guid ApprovalOutcomeId { get; init; }
+    public string Outcome { get; init; } = null!;
     public Guid SubmissionId { get; init; }
     public Guid PurchaseRequestId { get; init; }
     public long SubmittedBusinessVersion { get; init; }
