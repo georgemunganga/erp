@@ -1,5 +1,7 @@
 # P26 invoice comparison — verification evidence
 
+**Latest checkpoint (20 October,18:42UTC):** actual Bills browser2/2 and independent persisted owner verification passed; final CLI branch/race/readiness rerun remains active. Production unchanged. Earlier sections retain source-scoped failures and superseded checkpoints.
+
 ## Scope and release boundary
 
 P26 adds explicit original-invoice mapping and comparison, scoped source selectors and read-only Finance readiness to the existing Procurement API. It reuses Core identity, branch scope and documents, and retained issued orders and receiving evidence. Missing independent original-unit review or complete Finance consumption evidence remains Blocked. This document does not claim AP posting, payment, full Procurement completion or production deployment.
@@ -133,3 +135,13 @@ This correction is authored only. No SDK, database or browser run was performed 
 Session75982/private `20261020_182836_browser` terminated139 before manifest publication or any Playwright case. Real source setup created one PR, one PO, one goods receipt and one accepted effect, with zero invoices (independent owner count). `MatchingSourceFootprint` then used unmapped domain `effect.Source.PurchaseOrderLineId` inside an EF predicate; Npgsql could not translate it. The correction loads the actual mapped receiving source state and filters effects by mapped `ReceivingSourceStateId`. No API/domain/schema behavior changes. Fresh browser setup and independent terminal owner verification remain required.
 
 Independent read-only owner checkpoint for the third CLI failure (`20261020_182114_matching`) confirms invoice version3, mapping revision1, ComparisonBlocked, null FinancePostingRef/active claim pointer, one mapping, one comparison and zero allocations. This is a preserved checkpoint, not completion of the remaining CLI denials/race/readiness gates.
+
+## Actual Bills browser and independent persisted owner — PASS
+
+Protected fresh fixture `20261020_183557_browser`, backend session20786, application source3613559/test-only tool36c5d38. Candidate frontend applicationdccbc14 (docs0420489) passed **2/2 real-business-API Playwright cases in2.3m**, session26932. This covers actual capture, Core-owned document upload/scan/download bytes, source and acceptance selection, Unverified mapping, explicit Blocked comparison, lost downstream response with original-key GET-only recovery, finite reader403 and authorized foreign-branch404 denials, history/readiness with no AP authority.
+
+After browser completion, SIGTERM stopped the owned API. Its NEW independent owner contexts verified exact originals/version3, one mapping, one comparison, exact command receipts/audit/outbox, Unknown exposure with zero capacity allocations/active claim, real document hashes/lifecycle, and unchanged PO/PR/receipt effects. **Backend and independent owner process exited0.** The known-fixture-only scanner is test-only byte validation, not production malware protection or independent unit review.
+
+Frozen frontend SHA256: HTML `60196e68e0918e56cdae6300f98f4750b5d8ba16817f848a013f077188f0ebf6`; JSindex-Bj0myMuD `bb816e26955de8be16b13e7e31cc2a59de84b6b51691ba823f9d031176933064`; CSSindex-Bddc462I `7f163297e91fa0e3fc3cde778b88996063082e96fb088d9866bfac750639d888`. Tool SHA256 `d55b8a275d29456640db9044203819fc9e4ff1cf60fc63d1f86d02d7c261fcf5`; API unchanged `4cb6f14612afa75ccfe9f73f064bc89331b718d3436e77875e4c7034d69b7f12`. Private API/owner log, browser log,0600 manifest, full transport traces and copied Playwright results are retained under the protected fixture directory.
+
+Fourth fresh CLI run27214 uses `20261020_184252_matching` with the corrected two-stage branch fixture and mapped browser footprint. Its terminal outcome remains pending. The browser PASS does not certify that separate concurrency/whole-CLI gate or enable qualified matching/AP/payment or production.
