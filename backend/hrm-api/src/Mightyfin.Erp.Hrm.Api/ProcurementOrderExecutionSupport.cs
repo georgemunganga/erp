@@ -83,54 +83,22 @@ public static partial class ProcurementOrderExecutionRoutes
     private static async Task<ApprovedPurchaseSource> Source(ProcurementDbContext db, ApprovalDbContext core,
         ProcurementRequestScope scope, Guid requestId, Guid lineId, CancellationToken ct)
     {
-        var request = await db.PurchaseRequests.Include(x => x.Lines).SingleOrDefaultAsync(x => x.Id == requestId, ct)
-            ?? throw new OrderProblem("OrderSourceNotFound", 404);
-        if (scope.WorkLocationId is { } selected && request.BranchRef != selected
-            || scope.IsConfined && request.BranchRef != scope.WorkLocationId) Missing();
-        var line = request.Lines.SingleOrDefault(x => x.Id == lineId) ?? throw new OrderProblem("OrderSourceNotFound", 404);
-        if (!Guid.TryParse(request.ApprovalInstanceRef, out var caseId)) Conflict("OrderSourceNotApproved");
-        var pin = await db.ApprovalSubmissions.SingleOrDefaultAsync(x => x.CoreApprovalCaseId == caseId, ct)
-            ?? throw new OrderProblem("OrderSourceApprovalEvidenceMissing", 409);
-        var outcome = await db.ApprovalOutcomes.SingleOrDefaultAsync(x => x.SubmissionId == pin.Id && x.Outcome == "Approved", ct)
-            ?? throw new OrderProblem("OrderSourceNotApproved", 409);
-        var workflow = await core.Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)
-            ?? throw new OrderProblem("OrderSourceCaseMissing", 409);
-        var decision = await core.Decisions.SingleOrDefaultAsync(x => x.Id == outcome.CoreDecisionId, ct)
-            ?? throw new OrderProblem("OrderSourceDecisionMissing", 409);
-        var evaluation = await db.PolicyEvaluations.SingleAsync(x => x.Id == pin.PolicyEvaluationId, ct);
-        var policy = await db.PolicyVersions.SingleAsync(x => x.Id == pin.PolicyVersionId, ct);
-        var finance = await db.BudgetCheckSnapshots.SingleAsync(x => x.Id == pin.FinanceSnapshotId, ct);
-        using var json = JsonDocument.Parse(evaluation.DecisionJson);
-        var methodCode = json.RootElement.GetProperty("lines").EnumerateArray().Single(x => x.GetProperty("lineId").GetGuid() == lineId)
-            .GetProperty("decision").GetProperty("sourcingMethodCode").GetString();
-        var method = await db.ProcurementMethods.SingleOrDefaultAsync(x => x.Code == methodCode, ct)
-            ?? throw new OrderProblem("OrderSourceMethodUnavailable", 409);
-        var allocations = await db.PurchaseRequestAllocations.Where(x => x.PurchaseRequestLineId == lineId).ToListAsync(ct);
-        // Complete target ownership, including inactive retained lines. Never infer ownership from a UUID/string.
-        var orderTargets = allocations.Where(x => x.TargetType == "PurchaseOrder" && x.TargetId != null).Select(x => x.TargetId!.Value).Distinct().ToArray();
-        var sourcingTargets = allocations.Where(x => x.TargetType == "SourcingEvent" && x.TargetId != null).Select(x => x.TargetId!.Value).Distinct().ToArray();
-        var owners = new List<PurchaseDemandAllocationOwner>();
-        if (orderTargets.Length != 0)
+        try { return await ApprovedDemandSourceLoader.LoadAsync(db, core, scope, requestId, lineId, ct); }
+        catch (ApprovedDemandLoadException error)
         {
-            var owned = await (from target in db.PurchaseOrders.AsNoTracking()
-                join targetLine in db.PurchaseOrderLines.AsNoTracking() on target.Id equals targetLine.PurchaseOrderId
-                where orderTargets.Contains(target.Id) && targetLine.PurchaseRequestLineId == lineId
-                select new { Target = new PurchaseOrder { Id = target.Id, TenantId = target.TenantId, LegalEntityId = target.LegalEntityId },
-                    Line = new PurchaseOrderLine { Id = targetLine.Id, TenantId = targetLine.TenantId, LegalEntityId = targetLine.LegalEntityId,
-                        PurchaseOrderId = targetLine.PurchaseOrderId, PurchaseRequestLineId = targetLine.PurchaseRequestLineId } }).ToArrayAsync(ct);
-            owners.AddRange(owned.Select(x => PurchaseDemandAllocationOwner.FromOrder(x.Target, x.Line)));
+            var code = error.Failure switch
+            {
+                ApprovedDemandLoadFailure.SourceNotFound => "OrderSourceNotFound",
+                ApprovedDemandLoadFailure.SourceOutsideScope => "OrderNotFound",
+                ApprovedDemandLoadFailure.SourceNotApproved => "OrderSourceNotApproved",
+                ApprovedDemandLoadFailure.ApprovalEvidenceMissing => "OrderSourceApprovalEvidenceMissing",
+                ApprovedDemandLoadFailure.CoreCaseMissing => "OrderSourceCaseMissing",
+                ApprovedDemandLoadFailure.CoreDecisionMissing => "OrderSourceDecisionMissing",
+                ApprovedDemandLoadFailure.MethodUnavailable => "OrderSourceMethodUnavailable",
+                _ => throw new InvalidOperationException("Unknown approved-demand load failure."),
+            };
+            throw new OrderProblem(code, error.Status);
         }
-        if (sourcingTargets.Length != 0)
-        {
-            var owned = await (from target in db.SourcingEvents.AsNoTracking()
-                join targetLine in db.SourcingLines.AsNoTracking() on target.Id equals targetLine.SourcingEventId
-                where sourcingTargets.Contains(target.Id) && targetLine.PurchaseRequestLineId == lineId
-                select new { Target = new SourcingEvent { Id = target.Id, TenantId = target.TenantId, LegalEntityId = target.LegalEntityId },
-                    Line = new SourcingLine { Id = targetLine.Id, TenantId = targetLine.TenantId, LegalEntityId = targetLine.LegalEntityId,
-                        SourcingEventId = targetLine.SourcingEventId, PurchaseRequestLineId = targetLine.PurchaseRequestLineId } }).ToArrayAsync(ct);
-            owners.AddRange(owned.Select(x => PurchaseDemandAllocationOwner.FromSourcing(x.Target, x.Line)));
-        }
-        return new(request, line, pin, outcome, workflow, decision, evaluation, policy, finance, method, allocations, owners);
     }
 
     private static async Task CatalogClassification(ProcurementDbContext db,
