@@ -28,3 +28,13 @@ Production remains unchanged. Existing full-host release, recovery and independe
 Session71911 restored from the read-only local cache and compiled the new domain/application/infrastructure/test source. Actual runner result: **43 passed,1 failed,0 skipped,44 total**. The exact legacy tuple assertion failed because JsonElement reserialization in the new v1 wrapper escaped the timestamp plus sign as a Unicode escape. The legacy0 encoder/golden digest passed; the script stopped before migration generation. No P27 migration or runtime pass is inferred.
 
 The source correction embeds only the owned legacy encoder's validated JSON using Utf8JsonWriter.WriteRawValue, retaining its exact bytes without changing global JSON escaping or accepting caller raw JSON. The existing failing exact-byte assertion is retained. Distinct review and a fresh focused rerun are required; first-run TRX/log remain in artifacts/p27/checker-domain and prepare-schema.log.
+
+
+## Corrected focused gate — PASS
+
+Session6810 rebuilt source213a6af (later commits change documentation only) and passed **44/44**,zero failed/skipped,27seconds. The exact nested legacy golden-byte assertion now passes without relaxing it. Evidence: artifacts/p27/prepare-schema-corrected.log and checker-domain-corrected TRX. Distinct source review accepted the owned raw-JSON boundary. The separate migration-generation command follows this pass; its output/review/rehearsal remain pending at this checkpoint.
+
+
+## Generated migration — source reviewed, runtime pending
+
+Corrected preparation session6810 terminated0 after44/44 tests and generated `20261020190554_P27FinanceCheckerIdentity`. Actual Up is exactly four additive fields/two CHECKs; no key/FK/index/table/precision rewrite or backfill. Root sealed Down with the first four-table lock/used-or-partial metadata/pin/audit/outbox field-token veto; exact actual BudgetChecked audit is covered without inventing an event. Distinct source review accepted migration, Designer and Snapshot consistency. SQL generation, actual PostgreSQL17 literal freeze/rehearsal, full regression and actual restricted HTTP remain pending. Generation is not database application or migration acceptance.

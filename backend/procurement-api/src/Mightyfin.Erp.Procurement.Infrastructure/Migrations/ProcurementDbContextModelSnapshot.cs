@@ -215,6 +215,21 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("checked_by_subject_id");
 
+                    b.Property<Guid?>("CheckedByWorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checked_by_worker_id");
+
+                    b.Property<int>("CheckerIdentitySchemaVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("checker_identity_schema_version");
+
+                    b.Property<string>("CheckerIdentitySha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("checker_identity_sha256");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -306,7 +321,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "LegalEntityId", "PurchaseRequestId");
 
-                    b.ToTable("budget_check_snapshots", "procurement");
+                    b.ToTable("budget_check_snapshots", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_budget_checker_identity", "(checker_identity_schema_version = 0 AND checked_by_worker_id IS NULL AND checker_identity_sha256 IS NULL) OR (checker_identity_schema_version = 1 AND checked_by_worker_id IS NOT NULL AND checked_by_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND checker_identity_sha256 IS NOT NULL AND checker_identity_sha256 ~ '^[a-f0-9]{64}$')");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.CatalogEntry", b =>
@@ -5007,6 +5025,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("finance_evidence_mode");
 
+                    b.Property<int>("FinanceIdentitySchemaVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("finance_identity_schema_version");
+
                     b.Property<Guid>("FinanceSnapshotId")
                         .HasColumnType("uuid")
                         .HasColumnName("finance_snapshot_id");
@@ -5169,6 +5193,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_pr_approval_submission_identity", "snapshot_schema_version IN (1,2) AND submitted_business_version > 0 AND policy_version_number > 0 AND core_approval_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND opening_command_key <> '00000000-0000-0000-0000-000000000000'::uuid");
 
                             t.HasCheckConstraint("ck_pr_approval_worker_identity", "(snapshot_schema_version = 1 AND maker_worker_id IS NULL AND requester_worker_id IS NULL AND worker_identity_sha256 IS NULL) OR (snapshot_schema_version = 2 AND maker_worker_id IS NOT NULL AND requester_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND worker_identity_sha256 IS NOT NULL AND worker_identity_sha256 ~ '^[a-f0-9]{64}$')");
+
+                            t.HasCheckConstraint("ck_pr_finance_identity_version", "finance_identity_schema_version = 0 OR (finance_identity_schema_version = 1 AND snapshot_schema_version = 2)");
                         });
                 });
 
