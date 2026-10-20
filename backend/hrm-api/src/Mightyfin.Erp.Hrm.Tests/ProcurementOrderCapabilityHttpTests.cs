@@ -124,7 +124,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
         {
             var identity = new ClaimsIdentity(new[]
             {
-                new Claim("sub", "fixture"), new Claim(ClaimTypes.Role, "erp_admin"),
+                new Claim("sub", "fixture"), new Claim("tenant", "capability-test"), new Claim(ClaimTypes.Role, "erp_admin"),
             }, Scheme.Name);
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));
         }
