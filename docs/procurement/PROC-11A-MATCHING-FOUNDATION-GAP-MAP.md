@@ -1,13 +1,13 @@
 # PROC-11A — Invoice matching foundation and integration gaps
 
-**Status:** Source foundation, not an operational matching/posting workflow. **Issue:** [module-connect#30](https://github.com/georgemunganga/module-connect/issues/30). **Parent:** [PROC-11](PROC-11-INVOICE-MATCH-AP-HANDOFF-AND-PAYMENT-VISIBILITY.md). No production activation, migration, browser or runtime test result is implied.
+**Status:** Source foundation, not an operational matching/posting workflow. **Issue:** [module-connect#30](https://github.com/georgemunganga/module-connect/issues/30). **28-section source contract:** [PROC-11B](PROC-11B-INVOICE-MATCHING-COMPARISON.md). **Parent:** [PROC-11](PROC-11-INVOICE-MATCH-AP-HANDOFF-AND-PAYMENT-VISIBILITY.md). No production activation, migration, browser or runtime test result is implied.
 
 ## Audited surfaces
 
 | Surface | Existing behavior | Required integration gap |
 |---|---|---|
 | UI `reference-ui/src/features/LiveInvoices.tsx` | Bills list, structured intake, document panel; amounts use JS numbers | Retain UI; exact string transport and matching workbench binding follow a verified API contract. No fake match/payment action. |
-| `ProcurementInvoiceIntakeRoutes` | Supplier/company/branch, dates, invoice amounts, immutable original lines; normalized duplicate index | Intake line transport omits PO line, goods receipt and service acceptance IDs. No source-line mapping or invoice revision workflow yet. |
+| `ProcurementInvoiceIntakeRoutes` | Supplier/company/branch, dates, invoice amounts, immutable original lines; normalized duplicate index | Intake line transport omits PO line, goods receipt and service acceptance IDs. No source-line/UOM mapping or invoice revision workflow yet; a verified UOM projection is mandatory and never inferred from the PO. |
 | SupplierInvoice/Line | Existing scoped header/line records and source reference columns | No validated immutable invoice snapshot, cumulative allocation version or match command receipt yet. |
 | PO/Revision | Draft CRUD and source/revision fields | Require authoritative issued revision, permitted buying category/UOM and immutable line terms. Mutable current PO counters are not evidence. |
 | GoodsReceipt/Line and ServiceAcceptance | Scoped models and accepted quantity/value fields | Require certified/accepted, unreversed evidence and exact issued-revision relationships; no fabricated accepted rows. Returns must reduce capacity. |
