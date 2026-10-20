@@ -43,3 +43,8 @@ Corrected preparation session6810 terminated0 after44/44 tests and generated `20
 ## Original Finance tuple read privilege correction — source only
 
 Independent review confirmed that SELECT on only the new checker columns could satisfy the new-field manifest while denying the original Finance tuple used by queue/materialization/reference-replay queries. Read and capture readiness now additionally require finite table SELECT on the single owned BudgetCheckSnapshot table, matching the existing finite table INSERT guard. No Core or schema-wide grant is added. The rollback-only actual restricted-role probe now revokes table SELECT, grants only the three new checker columns and requires both read/capture readiness false, then restores privileges by rollback. This API/tool correction does not change the accepted-source model/migration or the44 focused domain test inputs; its actual SQL/runtime outcome remains pending.
+
+
+## Full domain/model regression — PASS; API gate active
+
+Session62163 passed **601/601 Procurement domain/model tests**,zero failed/skipped,55seconds, using the compiled source213a6af domain/application/model code. Migration-source1d0498a and API/tool-only f08ae1f do not change those test inputs; their compilation, drift/SQL and runtime checks remain separate. Domain TRX: artifacts/p27/domain-all; shared job log: artifacts/p27/source-verification.log. The offline shared-test restore also passed. The API/test/tool compilation and mapped Procurement/Finance readiness cases are still active at this checkpoint; no API, generated-SQL or private PostgreSQL pass is inferred.
