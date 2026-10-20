@@ -61,3 +61,15 @@ Malformed JSON, absent keys or wrong field types throw from `JsonDocument.Parse`
 - The qualified-claim helper adds a hard accepted-quantity ceiling even where diagnostic policy tolerances permit variance.
 - This increment has only negative/unavailable mapping-owner tests; the positive/mismatched claim and owner evidence regressions above remain necessary.
 - EF constraints, transaction/lease ownership, historical reconciliation, API authorization, immutable persistence and real PostgreSQL/browser evidence require separate inspection and tests after source integration. No release or positive Finance/AP authority is established here.
+
+## Source correction review — 4ee1286 and 1eb52f6
+
+Reviewed both committed corrections by source inspection only. No SDK/test/database/browser job was run for this review.
+
+- `4ee1286` adds typed review scope/identity/mapping/original/document envelopes and exact owner allocation/scope/policy/expiry hashes. Malformed or duplicate owner evidence returns false. Claim creation reconstructs complete owner/local history, checks result/current mapping/original/version/scope pins, recomputes the foundation evaluation and emits recomputed lines. Detached prior line objects cannot increase a new claim.
+- The first correction still accepted a caller-supplied policy digest unrelated to the actual input policy. This residual was reported independently rather than treating equality between two claimed hashes as proof of the current policy.
+- `1eb52f6` closes that residual by accepting the existing owned `PolicyVersion`, deriving a strict independently published matching projection, checking its actual `RulesJson` digest against review/owner/result bindings, and comparing its complete projection to the evaluated input. Document review additionally checks each version/hash against the expected immutable Core version hash projection.
+
+**Source review disposition:** The four findings above and the residual policy/document binding issue are addressed at the pure-helper source level by `1eb52f6`; no further concrete blocker was found in that bounded review. Authored synthetic positive/negative tests still require execution. This does not certify the whole P26 persistence/API slice or enable live matching.
+
+**Remaining release evidence:** Canonical identity and permission/data-scope checks; independent policy maker/checker ownership; actual Core document version authorization, scan status and hash lookup; a configured reconciled Finance history owner with a durable lease/concurrency protocol; all historical/local claim loading and immutable database constraints; actual transaction/retry/recovery tests; and real HTTP/PostgreSQL/browser verification. The shipped owner/reviewer defaults remain unavailable. Uncommitted EF/API work was outside this correction review.
