@@ -172,3 +172,33 @@ BOX and USD require the exact commercial blocker and no persisted effects. A val
 EACH succeeds; proposed source edits below MOQ or substituting price/vendor/unit fail before
 mutation. Withdrawal then leaves its exact historical conversion receipt unchanged and
 unfunded cancellation usable. These are authored sources, not executed test evidence.
+
+
+## Actual catalog/order HTTP/PostgreSQL checkpoint — PASS, 20 October 2026
+
+Fresh guarded `20261020_154534` completed the full actual `--orders` verification
+with terminal exit0 using probe9554b4e. This is actual restricted-runtime API and
+PostgreSQL evidence, not an InMemory or mocked browser result.
+
+The catalog-specific gates passed:
+
+- Owned catalog classification drift blocks conversion, funding, submission and
+  issue without rewriting approved evidence; restoring the exact owner permits
+  the intended action.
+- Partial minimum-order quantity, upper quantity limit and actual PO price,
+  supplier, unit and currency substitutions are denied. The supported
+  case-equivalent unit path, exact receipt replay and cancellation remain usable.
+- Reader-first mapped withdrawal waits for the current publication fence;
+  writer-first commitment observes the withdrawn offer. Historical exact command
+  recovery and cancellation continue to work.
+
+The same run passed the complete initial direct-order lifecycle, scoped
+conversion/read/recovery, finite approval revocation, Core branch publication
+fences, commitment ownership, independent Finance release/cancellation,
+unrepresentable amount denial and exact decimal transport/zero-effect negatives.
+
+Protected evidence retains the terminal log, private provisioning manifest and
+checkpoint. No production migration, deployment or automatic Finance/Inventory
+integration occurred. P26 combined source and its migrations remain separate
+unverified work; the earlier480-domain/111-API checkpoint is not an additive
+claim for that combined source.

@@ -13,6 +13,8 @@ The [workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) ties Zoho's hel
 
 ### Evidence boundary and release stop
 
+- Catalog-to-order owner classification, actual PO commercial tiers and publication/withdrawal fences passed the fresh full actual `--orders` HTTP/PostgreSQL checkpoint `20261020_154534` (exit0). See [catalog evidence](PROC-04-CATALOG-CLASSIFICATION-BINDING.md).
+
 - PR finite authority, canonical-person independence, immutable submission/outcome evidence, Core One/All task execution and controlled manual Finance reservation/release paths exist. Actual restricted-runtime HTTP/PostgreSQL and browser verification has been recorded by the coordinator for the bounded PR/PO paths; these results do not cover other approval types, all possible policies, automatic Finance integration or production enablement.
 - The direct-buy PO path has actual browser and persisted-database proof through approved source → conversion → independent Finance commitment evidence → submit → independent finite-authority approval → issue → independently verified dispatch. P24 migration/recovery gates passed. Amendments, supplier acknowledgement, blanket releases and award/contract conversion remain unsupported.
 - P25 positive receiving and additive stable-binding correction `20261020144755_P25ReceivingStableEvidenceBindings` passed reviewed Up/Down, no model drift, fresh/restored/legacy/used evidence rehearsals, **480 domain / 111 shared-host Procurement API tests**, and the full actual restricted-runtime HTTP/PostgreSQL probe including scope, concurrency, replay and unknown-history denials. See [P25 evidence](PROC-09-P25-VERIFICATION-EVIDENCE.md). Counts are one latest checkpoint, not additive overlapping totals.
