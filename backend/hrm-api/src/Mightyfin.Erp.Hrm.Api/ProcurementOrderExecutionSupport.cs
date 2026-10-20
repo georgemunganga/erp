@@ -106,7 +106,31 @@ public static partial class ProcurementOrderExecutionRoutes
         var method = await db.ProcurementMethods.SingleOrDefaultAsync(x => x.Code == methodCode, ct)
             ?? throw new OrderProblem("OrderSourceMethodUnavailable", 409);
         var allocations = await db.PurchaseRequestAllocations.Where(x => x.PurchaseRequestLineId == lineId).ToListAsync(ct);
-        return new(request, line, pin, outcome, workflow, decision, evaluation, policy, finance, method, allocations);
+        // Complete target ownership, including inactive retained lines. Never infer ownership from a UUID/string.
+        var orderTargets = allocations.Where(x => x.TargetType == "PurchaseOrder" && x.TargetId != null).Select(x => x.TargetId!.Value).Distinct().ToArray();
+        var sourcingTargets = allocations.Where(x => x.TargetType == "SourcingEvent" && x.TargetId != null).Select(x => x.TargetId!.Value).Distinct().ToArray();
+        var owners = new List<PurchaseDemandAllocationOwner>();
+        if (orderTargets.Length != 0)
+        {
+            var owned = await (from target in db.PurchaseOrders.AsNoTracking()
+                join targetLine in db.PurchaseOrderLines.AsNoTracking() on target.Id equals targetLine.PurchaseOrderId
+                where orderTargets.Contains(target.Id) && targetLine.PurchaseRequestLineId == lineId
+                select new { Target = new PurchaseOrder { Id = target.Id, TenantId = target.TenantId, LegalEntityId = target.LegalEntityId },
+                    Line = new PurchaseOrderLine { Id = targetLine.Id, TenantId = targetLine.TenantId, LegalEntityId = targetLine.LegalEntityId,
+                        PurchaseOrderId = targetLine.PurchaseOrderId, PurchaseRequestLineId = targetLine.PurchaseRequestLineId } }).ToArrayAsync(ct);
+            owners.AddRange(owned.Select(x => PurchaseDemandAllocationOwner.FromOrder(x.Target, x.Line)));
+        }
+        if (sourcingTargets.Length != 0)
+        {
+            var owned = await (from target in db.SourcingEvents.AsNoTracking()
+                join targetLine in db.SourcingLines.AsNoTracking() on target.Id equals targetLine.SourcingEventId
+                where sourcingTargets.Contains(target.Id) && targetLine.PurchaseRequestLineId == lineId
+                select new { Target = new SourcingEvent { Id = target.Id, TenantId = target.TenantId, LegalEntityId = target.LegalEntityId },
+                    Line = new SourcingLine { Id = targetLine.Id, TenantId = targetLine.TenantId, LegalEntityId = targetLine.LegalEntityId,
+                        SourcingEventId = targetLine.SourcingEventId, PurchaseRequestLineId = targetLine.PurchaseRequestLineId } }).ToArrayAsync(ct);
+            owners.AddRange(owned.Select(x => PurchaseDemandAllocationOwner.FromSourcing(x.Target, x.Line)));
+        }
+        return new(request, line, pin, outcome, workflow, decision, evaluation, policy, finance, method, allocations, owners);
     }
 
     private static async Task CatalogClassification(ProcurementDbContext db,
