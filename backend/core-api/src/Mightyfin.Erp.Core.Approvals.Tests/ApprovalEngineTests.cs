@@ -90,6 +90,48 @@ public sealed class ApprovalEngineTests
         Assert.Throws<InvalidOperationException>(() => ApprovalEngine.Decide(approvalCase, second, Actor("manager-b"), "Approve", "same", null, decisions, now));
     }
 
+    [Theory]
+    [InlineData("Approve")]
+    [InlineData("Reject")]
+    [InlineData("Return")]
+    public void Replay_compares_normalized_reason_and_key_without_mutating_decisions(string action)
+    {
+        var (approvalCase, first, _, decisions) = CreateCase();
+        var now = DateTimeOffset.UtcNow;
+        ApprovalEngine.Decide(approvalCase, first, Actor("manager-a"), action, " key ",
+            "  Checked\t delivery\n details  ", decisions, now);
+        var stored = Assert.Single(decisions);
+        Assert.Equal("key", stored.IdempotencyKey);
+        Assert.Equal("Checked delivery details", stored.Reason);
+        Assert.False(ApprovalEngine.Decide(approvalCase, first, Actor("manager-a"), action, "key",
+            "Checked  delivery details", decisions, now).Recorded);
+        Assert.Throws<InvalidOperationException>(() => ApprovalEngine.Decide(approvalCase, first,
+            Actor("manager-a"), action, "key", "Different reason", decisions, now));
+        Assert.Single(decisions);
+    }
+
+    [Fact]
+    public void Empty_approval_reason_and_whitespace_are_the_same_replay()
+    {
+        var (approvalCase, first, _, decisions) = CreateCase();
+        var now = DateTimeOffset.UtcNow;
+        ApprovalEngine.Decide(approvalCase, first, Actor("manager-a"), "Approve", "key", null, decisions, now);
+        Assert.False(ApprovalEngine.Decide(approvalCase, first, Actor("manager-a"), "Approve", "key",
+            " \t\n ", decisions, now).Recorded);
+    }
+
+    [Theory]
+    [InlineData(151, 0)]
+    [InlineData(1, 2001)]
+    public void Oversized_decision_inputs_are_rejected_before_mutation(int keyLength, int reasonLength)
+    {
+        var (approvalCase, first, _, decisions) = CreateCase();
+        Assert.Throws<ArgumentException>(() => ApprovalEngine.Decide(approvalCase, first, Actor("manager-a"),
+            "Approve", new string('k', keyLength), new string('r', reasonLength), decisions, DateTimeOffset.UtcNow));
+        Assert.Empty(decisions);
+        Assert.Equal("Pending", first.State);
+    }
+
     [Fact]
     public void Invalid_quorum_and_maker_assignment_cannot_open_case()
     {
