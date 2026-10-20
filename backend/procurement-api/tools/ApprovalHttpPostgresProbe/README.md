@@ -259,3 +259,45 @@ creates untouched v0 goods/service records and checks organisation-wide/no-selec
 selected-A denial, and selected/unselected B-only denial after A→B header corruption. Both
 records must survive with missing bindings and no certification evidence. This is explicit
 read scope control; it does not backfill a historical branch or confer matching authority.
+
+### Receiving browser fixture (source candidate, not yet verified)
+
+`--serve --receiving` is a separate disposable Kestrel mode; never combine it with
+`--orders` or reuse a consumed PO/settings fixture. It retains the existing guarded
+`proc_approval_http_*` database prefix, distinct bootstrap/runtime identities,
+loopback-only port and private create-new manifest contract. Runtime privileges and
+committed migrations must pass before startup. No production configuration/role is
+changed by this tool-only fixture.
+
+Setup reuses actual mapped PR approval, source conversion, independent Finance,
+PO approval, issue and sending helpers for one goods and one service obligation.
+The RECEIVING policy is independently published through its real existing endpoint.
+Only supporting synthetic Core/master rows use the fixture owner; zero receiving
+operational records/effects are seeded. Named worker/site policy and typed Goods/Service
+kinds remain distinct from canonical GOODS/SERVICE purchase codes.
+
+After upstream setup, all participating users are narrowed to finite scoped Core roles:
+
+| Manifest actor | Receiving responsibility | Exact permissions in addition to procurement-access |
+|---|---|---|
+| requester | Receiver/draft maker | receipt-view, receipt-create, receipt-edit, receipt-record |
+| manager1 | Named inspector | receipt-inspect only |
+| manager2 | Named service owner | service-certify only |
+| acceptor | Independent goods acceptor | receipt-view, receipt-accept |
+| unassigned | Unnamed purpose-negative actor | receipt-inspect, service-certify |
+| buyer / finance | Supporting read-only verification | receipt-view only |
+
+Permission names above carry the normal `procurement-` prefix. Inspector/service-owner
+have no broad receipt/PO/PR reads. Startup verifies actual context permissions and real
+403 broad reads/empty assigned queues; source reads must not create receiving state.
+The manifest adds `receiving` source descriptors and actual actor contexts, exact string
+quantities/prices, `RCP:` evidence prefix and synthetic long notes. It contains no credentials.
+Do not interpret the fixture header authentication as production authentication proof.
+
+The planned browser uses existing receiving UI to create physical2, record, independently
+inspect2 and accept1 (held1), then create/certify two service0.5 records. It must test
+unassigned/broad-read denials, exact retries and current source CAS without mock business
+responses. With `PROCUREMENT_RECEIVING_BROWSER_VERIFY_ON_STOP=1`, the coordinator's graceful
+stop checks exact PR/PO conservation, independent actors, effect sequences, long notes,
+exactly8 receiving command/audit records and5 outbox effects, and no invoice/AP creation.
+This source increment starts no API/database and has not been compiled or browser-tested.
