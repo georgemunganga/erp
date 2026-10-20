@@ -129,7 +129,12 @@ public static partial class ProcurementReceivingRoutes
                 }
                 catch (ReceivingProblem ex) when (ex.Status == 403) { node["draftActionCandidates"] = new JsonArray(); }
             }
-            var final = await Resolve(db, source, row.PolicyVersionId, ct, persistState: false, requireCurrentPolicy: false); var ledger = await Ledger(db, final, ct);
+            var final = await Resolve(db, source, row.PolicyVersionId, ct, persistState: false, requireCurrentPolicy: false);
+            // A pending certificate is not yet bound to the source state. A prior delivery
+            // can already own that state, whose current version is the command CAS token.
+            // Expose the verified source revision without fabricating a row state binding.
+            node["sourceVersion"] = db.Entry(final.State).State is EntityState.Added or EntityState.Detached ? 0 : final.State.Version;
+            var ledger = await Ledger(db, final, ct);
             var candidate = await CurrentHint(core, scope, http, auth, final, ledger, ControlledReceiving.CertifyPermission, source.Order.BranchRef,
                 actor => ReceivingPositiveReadModel.Certify(final.Source, final.Rules, actor, ledger, row, Now()), ct);
             node["capacity"] = JsonSerializer.SerializeToNode(CapacityView(ReceivingPositiveReadModel.Capacity(ledger, final.Rules, null)), Json);
