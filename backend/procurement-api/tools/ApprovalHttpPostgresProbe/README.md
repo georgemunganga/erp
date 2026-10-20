@@ -125,3 +125,31 @@ Unexpected API permission failures are defects to investigate, not permission to
 ownership or blanket write access. This is source for a disposable privilege rehearsal;
 only a completed runtime test establishes its result, and real production rollout still
 requires protected role provisioning and independent release review.
+
+## Actual authority-settings browser fixture
+
+`--serve` additionally seeds a synthetic read-only settings account, gives the existing
+independent Finance reviewer `procurement-authority-read`, and confines both to the fixture
+branch using Core-owned branch assignments. These are disposable bootstrap rows, not a
+production role change. The protected manifest includes `actors.reader` and a `settings`
+seed descriptor; it contains no password, connection string, bank detail or token. Existing
+finite approval grants remain unchanged. The browser creates a separate named branch-only
+limit with exact `99999999999999.9999`, an explicit expiry, and independent Finance activation.
+
+After source compilation and migration compatibility have been verified and an operator has
+started a fresh restricted-runtime `--serve` sandbox, run the frontend test against its
+separately verified staged settings assets:
+
+```sh
+PROCUREMENT_APPROVAL_BROWSER_MANIFEST=/absolute/private/manifest.json \
+  ./node_modules/.bin/playwright test tests/backend-browser/authority-settings.spec.ts \
+  --config playwright.backend.config.ts --workers=1
+```
+
+The test refuses non-loopback/non-synthetic manifests and group/world-readable files. All
+Procurement traffic, capabilities, lookups, actions and state come from the real mapped API;
+only HRM shell login/branding presentation is synthetic. It checks persisted exact amount,
+branch scope, creator self-review denial, independent activation, read-only current actions,
+server denial of reader mutations and absence of private identity/payment fields. Use a
+fresh disposable fixture for a rerun after a committed create; do not erase evidence/reset a
+consumed record to make a test pass. Source is authored only until a recorded execution gate.

@@ -128,7 +128,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 new TenantRoleAssignment { RoleKey = "procurement_manager", RoleName = "Procurement manager", Active = true,
                     PermissionsCsv = "procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide" },
                 new TenantRoleAssignment { RoleKey = "finance_approver", RoleName = "Finance", Active = true,
-                    PermissionsCsv = "procurement-access,procurement-budget-check,procurement-request-read,procurement-approval-read,procurement-authority-review,procurement-authority-revoke" });
+                    PermissionsCsv = "procurement-access,procurement-budget-check,procurement-request-read,procurement-approval-read,procurement-authority-read,procurement-authority-review,procurement-authority-revoke" });
             await core.SaveChangesAsync();
             var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
             scope.Set("probe", company.Id, people["buyer"].User.Id.ToString("D"), null, null, false, "probe-seed");
@@ -172,9 +172,26 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             await NewFundedRequest("Browser full One and All approval"),
             await NewFundedRequest("Browser return and independent Finance release"),
         };
+        // Synthetic browser-only reader and reviewer confinement. These Core rows are
+        // seeded by the separate fixture owner, never through runtime write grants.
+        Guid reader;
+        using (var services = fixtureServices.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var worker = new Worker { EmployeeNo = "HTTP-settings-reader", FirstName = "Settings", LastName = "Reader",
+                Status = "active", LocationId = branch };
+            var user = new LocalUser { Email = "settings-reader@example.test", NormalizedEmail = "SETTINGS-READER@EXAMPLE.TEST",
+                DisplayName = "Settings reader", PasswordHash = "synthetic-no-login-secret", RolesCsv = "procurement_settings_reader", WorkerId = worker.Id };
+            core.Workers.Add(worker); core.LocalUsers.Add(user);
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "procurement_settings_reader", RoleName = "Synthetic settings reader",
+                Active = true, PermissionsCsv = "procurement-access,procurement-authority-read" });
+            foreach (var principal in new[] { finance, user.Id })
+                core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = principal, LocationId = branch });
+            await core.SaveChangesAsync(); reader = user.Id;
+        }
         var actors = new Dictionary<string, object>();
         foreach (var (name, principal) in new[] { ("requester", requester), ("buyer", buyer), ("finance", finance),
-            ("manager1", manager1), ("manager2", manager2) })
+            ("manager1", manager1), ("manager2", manager2), ("reader", reader) })
         {
             var context = await Get(Root + "/context", principal);
             actors[name] = new { principalId = principal, context };
@@ -191,6 +208,8 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 new { code = "NEED", assignee = "LineManager", mode = "One", principals = new[] { manager1 } },
                 new { code = "PROC", assignee = "ProcurementManager", mode = "All", principals = new[] { manager1, manager2 } },
             },
+            settings = new { authorityReference = "BROWSER-EXACT-SCOPED-LIMIT", principalId = manager1,
+                principalDisplayName = "manager1", maximumAmount = "99999999999999.9999", branchId = branch },
             warning = "Synthetic disposable sandbox only. Header authentication and fixture database owner are not production security evidence.",
         };
         var requestedPath = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_MANIFEST");
