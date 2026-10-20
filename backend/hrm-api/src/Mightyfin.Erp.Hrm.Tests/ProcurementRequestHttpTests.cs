@@ -29,7 +29,9 @@ public sealed class ProcurementRequestHttpTests
     public async Task Delayed_buying_rule_check_uses_submission_policy_not_current_successor()
     {
         await using var fixture = await Fixture.Start();
-        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner, Draft("Delayed rule check"));
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
+            Draft("Delayed rule check") with { NeededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)) });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
         var id = draft.GetProperty("id").GetGuid();
         var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/submit",
