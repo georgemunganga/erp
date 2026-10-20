@@ -62,3 +62,16 @@ Independent review of the actual generated scripts found no blocker: one atomic 
 The first tool build failed on a missing test-tool namespace and nullable command-key formatting; `ea7982b` corrected both. Evidence remains in `artifacts/p26/generated-source-verification-first.log`. The successful subsequent build and550-test result are in `artifacts/p26/generated-source-reverification.log`, with domain TRX in `domain-final-generated`.
 
 Rehearsal helper correction `bedcb5f` reads quoted EF `"MigrationId"`; Python compilation passed. Private migration execution, actual restricted HTTP/PostgreSQL comparison and actual browser/independent-owner verification remain pending. No P26 production migration, qualified invoice approval, Finance posting or payment is claimed.
+
+
+## Actual private PostgreSQL migration rehearsal — PASS
+
+Session17430 terminated0 at17:21:52UTC. Protected evidence: `/home/amizo/erp-backups/procurement-invoice-postgres-20261020/20261020_1711_migration/result.json` and1415 retained operation logs. The helper used the actual accepted generated Up/Down SQL and private PostgreSQL17; no source or production database was migrated.
+
+- Fresh database and four separately cloned used-P25 databases upgraded twice, retaining exactly one P26 history entry and both exact P25/P26 ownership manifests.
+- Synthetic legacy original invoice/line/result/exception values remained exactly preserved and unverified. Original used P25 receiving evidence remained unchanged.
+- Populated but unused P26 rollback/re-upgrade passed with exact retained values, history and full P25 schema equality, including defaults and constraint names.
+- Three independent rollback denials passed with unchanged data/schema/history: used P26 evidence; NULL variance that old NOT NULL schema cannot retain; tax variance whose precision cannot fit18,4.
+- Original retained P25 source remained unchanged. Fresh/clone names and SQL hashes are recorded in the protected result.
+
+This proves the migration lifecycle and representative loss stops, not API authorization, every guard branch, runtime least privilege, row-level FK tamper or external owner authenticity. The next actual HTTP/PostgreSQL matching run uses a new restricted-runtime database under protected `20261020_172220_matching`; its terminal result remains pending.
