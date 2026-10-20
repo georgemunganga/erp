@@ -52,6 +52,7 @@ public sealed class PurchaseOrderAssignmentAuthorityEvidence : ProcurementRecord
     public Guid SubmissionId { get; init; }
     public Guid CoreApprovalCaseId { get; init; }
     public Guid CoreAssignmentId { get; init; }
+    public Guid CoreStageId { get; init; }
     public Guid GrantId { get; init; }
     public long GrantRevision { get; init; }
     public int AuthorityVersion { get; init; }

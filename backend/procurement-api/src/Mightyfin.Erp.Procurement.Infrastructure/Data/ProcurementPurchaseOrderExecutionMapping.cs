@@ -81,7 +81,15 @@ public sealed partial class ProcurementDbContext
         authority.HasOne<PurchaseOrderSubmission>().WithMany()
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SubmissionId, x.CoreApprovalCaseId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.CoreApprovalCaseId }).OnDelete(DeleteBehavior.Restrict);
-        Link<PurchaseOrderAssignmentAuthorityEvidence, ProcurementSpendingAuthorityGrant>(model, nameof(PurchaseOrderAssignmentAuthorityEvidence.GrantId));
+        authority.HasOne<ProcurementSpendingAuthorityGrant>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GrantId, x.PrincipalId, x.AuthorityVersion })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PrincipalId, x.AuthorityVersion }).OnDelete(DeleteBehavior.Restrict);
+        authority.ToTable(t => t.HasCheckConstraint("ck_po_assignment_identity",
+            "core_stage_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+            "AND core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+            "AND assignee_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+            "AND grant_revision > 0 AND authority_version > 0 AND assignee_kind = 'ProcurementManager' " +
+            "AND authority_evidence_sha256 ~ '^[0-9a-f]{64}$'"));
         var issued = model.Entity<PurchaseOrderIssuedVersion>();
         issued.Property(x => x.ParticipantWorkersJson).HasColumnType("text");
         issued.Property(x => x.CommercialSnapshotJson).HasColumnType("text");
