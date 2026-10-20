@@ -1,9 +1,9 @@
 # PROC-09-P01 — Controlled Receipt and Acceptance Evidence
 
 **Status:** Draft specification with pure domain/application source authored; compile/tests pending. No runtime API, persistence mapping, migration, activation or deployment.
-**Hierarchy:** Procurement → Receiving and Inspection → Receipt and Acceptance → Record / Inspect / Certify / Correct.  
-**Base:** Initial PO source checkpoint `9a2c074`; depends on its reviewed issued-version and authorization concurrency contracts.  
-**Related:** [PROC-09](PROC-09-RECEIVING-INSPECTION-AND-RETURNS.md), [initial PO contract](PROC-08-P01-COMMERCIAL-EXECUTION-CONTRACT.md), [engineering standard](../engineering/GW-ENG-STD-001.md).  
+**Hierarchy:** Procurement → Receiving and Inspection → Receipt and Acceptance → Record / Inspect / Certify / Correct.
+**Base:** Initial PO source checkpoint `9a2c074`; depends on its reviewed issued-version and authorization concurrency contracts.
+**Related:** [PROC-09](PROC-09-RECEIVING-INSPECTION-AND-RETURNS.md), [initial PO contract](PROC-08-P01-COMMERCIAL-EXECUTION-CONTRACT.md), [engineering standard](../engineering/GW-ENG-STD-001.md).
 **Tracking:** [module-connect#31](https://github.com/georgemunganga/module-connect/issues/31); depends on #5 and #30. Receiving implementation remains a separate next milestone.
 
 ### Pure source checkpoint (awaiting verification)
