@@ -28,3 +28,35 @@ Settings `80ff610`, reviewed fulfilment domain `db1f033`, and browser fixture `f
 P24 was scaffolded from the compiled PO model; EF mapping source was unchanged from `92abe51` at generation. A rebuilt model drift check is mandatory after all source integration. Its forward amount alteration widens `numeric(18,4)` to `numeric(38,8)` and does not discard decimal digits. Existing methods receive `Unconfigured`, requiring deliberate routing configuration.
 
 The initial generation/build job was deliberately stopped (exit 137) for migration review, not because of an out-of-memory failure. Its log was retained. Generated Down was amended to lock affected tables, block removal after execution/configuration is used, and reject any amount that would lose digits or overflow `numeric(18,4)`. Only an unused, exactly representable schema may downgrade. Forward fixes or a separately reviewed protected recovery plan are required after use. Actual apply-twice, unused downgrade/upgrade, used downgrade denial and row-preservation checks remain pending until their recorded PostgreSQL runs.
+
+## Integrated P24 checkpoint and real HTTP findings
+
+At `5278267`, the combined source passed 375/375 Procurement domain tests and
+91/91 Procurement shared-host tests. The PostgreSQL HTTP probe compiled with zero
+warnings/errors. These supersede the earlier narrower source test counts.
+
+The rebuilt integrated model has no pending migrations. Actual isolated PostgreSQL
+rehearsals passed fresh apply-twice, unused Down/Up, and a restored P23 backup upgraded
+twice with all previous business row counts and allocation amounts preserved. Rollback-only
+DDL checks rejected sub-four-place allocation values, numeric(18,4) overflow and configured
+execution routes; exact maximum and zero allocation values remained downgradeable.
+Protected evidence is in `/home/amizo/erp-backups/procurement-orders-postgres-20261020/`.
+Production remains at P19; none of these migrations were applied there.
+
+The first restricted-runtime `--orders` run passed Core branch fence cleanup/concurrency,
+typed PR/PO settings, conversion/replay/source conservation, current target scope and
+purpose-specific Finance reads. It then correctly rejected a synthetically published PO
+policy whose stage code used a prohibited hyphen. The fixture now uses `PO_COMMERCIAL`
+and validates its policy before seeding. Production policy validation was not relaxed.
+The original database and `runtime-orders-first.log` are retained. A fresh database and
+restricted role are provisioned for the retry.
+
+The successor also integrates exact numeric-lexeme input checks for PO lines and Finance
+amounts (`ae60ea5`), preventing silent decimal or database rounding before writes. Its
+combined tests, probe build and actual database execution are pending. An initial test
+launcher omitted its read-only NuGet package mount and failed to resolve cached assemblies;
+the corrected launch is running, with the initial log preserved. This was an environment
+failure, not a passed source gate.
+
+Frontend verification and actual API browser execution remain separate gates. No complete
+Procurement release or production workflow activation is claimed by this checkpoint.
