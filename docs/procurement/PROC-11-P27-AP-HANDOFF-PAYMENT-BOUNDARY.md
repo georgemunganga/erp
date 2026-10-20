@@ -354,3 +354,23 @@ A received-for-review inbox alone cannot satisfy that provider's completeness co
 All eight groups require pure/current-authorization tests, mapped API tests and genuine
 isolated PostgreSQL duplicate/race/rollback/lease tests; real owner contract sandbox and Bills
 browser acceptance follow. No implementation or verification was executed by this audit.
+
+
+## ERPNext implementation benchmark checked 20 October 2026
+
+ERPNext distinguishes a saved purchasing draft and PO commitment from a submitted
+accounting transaction; its purchase-cycle documentation explains separate receipt,
+payable and payment ledger effects. [Purchase cycle ledger impact](https://docs.frappe.io/erpnext/purchase-cycle-ledger-impact).
+
+Its Purchase Invoice submission creates the supplier payable and requires company
+accounting, expense/item and tax references. [Purchase Invoice](https://docs.frappe.io/erpnext/purchase-invoice).
+Supplier payment is a separate Payment Entry with accounting allocations and a
+bank/cash effect. [Payment Entry](https://docs.frappe.io/erpnext/payment-entry).
+
+**Application to this ERP (design decision):** retain Procurement validation and
+Finance-owned accounting/payment as distinct authorities. An integration receipt
+or `ReceivedForReview` inbox record cannot imply a posted payable or paid invoice.
+Reuse this lifecycle distinction without copying ERPNext's ledger into Procurement
+or enabling its optional combined stock/billing behavior by default. These product
+references inform workflow design; they do not supply this organisation's tax,
+accounting or delegated-authority policy.
