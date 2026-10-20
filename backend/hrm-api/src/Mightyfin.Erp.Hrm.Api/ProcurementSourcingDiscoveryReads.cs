@@ -51,7 +51,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     var (source, available) = await EligibleSource(db, cases, core, scope, http, auth,
                         row.PurchaseRequestId, row.Id, now, token);
                     items.Add(new { purchaseRequestId = row.PurchaseRequestId, purchaseRequestLineId = row.Id,
-                        requestNumber = row.Number, source.Line.Description, source.Line.UnitCode, source.Line.CategoryCode,
+                        requestNumber = row.Number, branchRef = source.Request.BranchRef, source.Line.Description, source.Line.UnitCode, source.Line.CategoryCode,
                         expectedRequestVersion = source.Request.Version, sourceLineVersion = source.Line.Version,
                         availableQuantity = ProcurementEvidenceEncoding.Decimal(available.AvailableQuantity),
                         approvedUnitEstimate = ProcurementEvidenceEncoding.Decimal(available.ApprovedUnitPrice),
