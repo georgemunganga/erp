@@ -1,9 +1,9 @@
 # PROC-09 — Existing receiving UI integration plan
 
-**Status:** Source audit and proposed adapter plan; no frontend implementation or runtime verification in this document.  
-**Backend checkpoint:** `40c4c5a` plus review correction `e2049ab`.  
-**Frontend audited:** `codex/procurement-final-ui-integration`, checkpoint `613ae83`.  
-**Scope:** Reuse the existing Purchase Receives screens and ERP components for the bounded P25 goods/service slice.  
+**Status:** Source audit and proposed adapter plan; no frontend implementation or runtime verification in this document.
+**Backend checkpoint:** `40c4c5a` plus review correction `e2049ab`.
+**Frontend audited:** `codex/procurement-final-ui-integration`, checkpoint `613ae83`.
+**Scope:** Reuse the existing Purchase Receives screens and ERP components for the bounded P25 goods/service slice.
 **Specification:** [28-section receiving adapter](PROC-09-P02-RECEIVING-PERSISTENCE-API-ADAPTER.md), [P25 implementation plan](PROC-09-P25-IMPLEMENTATION-PLAN.md).
 
 ## 1. Existing screens and reusable components
