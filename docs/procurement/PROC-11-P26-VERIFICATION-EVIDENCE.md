@@ -37,6 +37,28 @@ EF generated draft `20261020163750_P26InvoiceMatchingExecution`. Independent rev
 1. A new four-column issued-order alternate key consumed a truncated existing constraint name and would cause EF to drop the retained five-column key with dependent P25 foreign keys. The new key now has explicit short name `ak_invoice_issued_order_binding`; a model regression freezes the retained and new names.
 2. The actual preceding schema requires all three variance fields. P26 permits unknown NULL variances. The generated Down would replace NULL with0. The protected reverse now additionally refuses NULL variance via `P26RollbackWouldLoseUnknownVariance`; its generated default-zero reverse operations must be removed.
 
-The unapplied first draft/designer/snapshot are preserved in ignored `artifacts/p26/unaccepted-first-generation`. Only those untracked new files were removed and the tracked snapshot restored to its preceding version before regeneration. Neither existing P25 migration was edited. Correction `b593730` is undergoing a new domain/model gate and regeneration. No accepted P26 migration or database execution is claimed yet.
+The unapplied first draft/designer/snapshot are preserved in ignored `artifacts/p26/unaccepted-first-generation`. Only those untracked new files were removed and the tracked snapshot restored to its preceding version before regeneration. Neither existing P25 migration was edited. Correction `b593730` was regenerated after the PostgreSQL key-name regression correction described below. The first draft was never applied.
 
 The private rehearsal helper is versioned under `docs/procurement/sql/p26-rehearsal`; Python compilation and help checks passed. It adds original unverified legacy invoice/line/result/exception preservation and separate used-evidence, unknown-variance and precision-loss stops. No database rehearsal result is inferred from these source checks.
+
+
+## Accepted generated migration and source gate
+
+Accepted migration `20261020164745_P26InvoiceMatchingExecution` is committed in `3481d7b`. Migration source SHA256: `808a22945a5e02016b84ee712ced702b42ca511428a70c67953da96f3dcf82e5`. Its literal ownership constraints and first-operation rollback guard preserve the existing P25 key and refuse used evidence, unknown variance or tax precision loss. The three generated reverse default-zero operations were removed before acceptance.
+
+The preceding revised domain run had548 passes and one failed provider-name assertion: the regression used the InMemory provider to inspect PostgreSQL truncation. Correction `9e60c2a` uses the actual Npgsql model without opening a connection. The targeted regression then passed; these split runs are not described as an uninterrupted549-test pass.
+
+On source `ea7982b`, serial container `procurement-p26-generated-source-reverification` has completed:
+
+- Actual PostgreSQL verification-tool Release build: passed, zero warnings/errors.
+- EF pending-model check: no changes detected.
+- Idempotent Up SQL and P26-to-P25 guarded reverse SQL generated.
+- Full Procurement domain/model regression: **550 passed, zero failed/skipped**,44s.
+
+The full Procurement API regression in this same serial run is still pending terminal evidence. Earlier140-pass evidence does not cover later guards.
+
+Independent review of the actual generated scripts found no blocker: one atomic transaction; no retained issued-key drop; exact ownership constraints after their parent indexes; reverse locks and all three loss stops before destructive operations; no silent NULL-to-zero update. SQL SHA256: Up `1e70840e8b5c03ee07681d740ea13cc5ecb702c1311c7370d7970f3a6ff26849`; Down `15a8a6d2e47dcf72b7a44467b380074a613a1b2ff878191147414c04c80b3d77`.
+
+The first tool build failed on a missing test-tool namespace and nullable command-key formatting; `ea7982b` corrected both. Evidence remains in `artifacts/p26/generated-source-verification-first.log`. The successful subsequent build and550-test result are in `artifacts/p26/generated-source-reverification.log`, with domain TRX in `domain-final-generated`.
+
+Rehearsal helper correction `bedcb5f` reads quoted EF `"MigrationId"`; Python compilation passed. Private migration execution, actual restricted HTTP/PostgreSQL comparison and actual browser/independent-owner verification remain pending. No P26 production migration, qualified invoice approval, Finance posting or payment is claimed.
