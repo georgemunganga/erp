@@ -14,6 +14,7 @@ public sealed record SpendingAuthoritySubject(string TenantId, Guid LegalEntityI
 
 /// <summary>Incomplete values are permitted in a draft; nothing here confers authority.</summary>
 public sealed record SpendingAuthorityDraft(string? CurrencyCode = null, string? AmountBasis = null,
+    [property: System.Text.Json.Serialization.JsonConverter(typeof(AuthorityAmountJsonConverter))]
     decimal MaximumAmount = 0, DateTimeOffset EffectiveFrom = default,
     DateTimeOffset? EffectiveUntil = null, bool AllBranches = false, Guid? BranchRef = null,
     bool AllDepartments = false, Guid? DepartmentRef = null, bool AllCategories = false,
