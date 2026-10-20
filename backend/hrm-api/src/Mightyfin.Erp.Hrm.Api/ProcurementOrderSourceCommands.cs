@@ -56,6 +56,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 foreach (var selection in input.Sources.OrderBy(x => x.DraftLineIndex))
                 {
                     var source = await Source(db, cases, scope, selection.PurchaseRequestId, selection.PurchaseRequestLineId, token);
+                    await CatalogClassification(db, [source.Line], token);
                     if (source.Request.Version != selection.ExpectedRequestVersion) Conflict("OrderSourceVersionChanged");
                     await CurrentRecordScope(core, scope, source.Request.BranchRef, true, token);
                     if (lines.Count == 0) order.BranchRef = source.Request.BranchRef;
@@ -92,6 +93,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 await Actor(core, scope, http, auth, "procurement-po-edit", token, load.Order.BranchRef, true);
                 var prior = await Receipt(db, scope, "SourceEdit", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
+                await CatalogClassification(db, load.Sources.Select(x => x.Source.Line), token);
                 var order = load.Order;
                 if (order.Version != input.ExpectedOrderVersion || order.Status != "Draft"
                     || order.FinanceCommitmentRef is not null)

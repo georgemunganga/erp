@@ -35,6 +35,7 @@ public static partial class ProcurementOrderExecutionRoutes
                         || !PurchaseOrderWorkerIdentity.IsIndependent(recorded.ParticipantWorkersJson, verifier.WorkerId)) Deny();
                     return prior.ResponseJson;
                 }
+                await CatalogClassification(db, load.Sources.Select(x => x.Source.Line), token);
                 var order = load.Order; var now = DateTimeOffset.UtcNow;
                 if (order.Status != "Draft" || order.Version != input.ExpectedOrderVersion
                     || input.CommercialRevision != order.CurrentRevision + 1 || input.ConfirmedAt == default
