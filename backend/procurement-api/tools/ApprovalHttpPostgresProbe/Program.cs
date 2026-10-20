@@ -60,7 +60,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         var app = builder.Build();
         app.UseRouting(); app.UseAuthentication(); app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
         ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
-        ProcurementBudgetRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
+        ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
         var branch = new WorkLocation { Code = "HTTP-BRANCH", Name = "Synthetic branch", LegalEntityId = company.Id };
         var people = new Dictionary<string, (Worker Worker, LocalUser User)>();
@@ -111,6 +111,9 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         feature.Enabled = false;
         await Expect(HttpStatusCode.ServiceUnavailable, HttpMethod.Get, Root + "/approvals", manager1);
         feature.Enabled = true;
+        feature.ExecutionDatabaseConfigured = false;
+        await Expect(HttpStatusCode.ServiceUnavailable, HttpMethod.Get, Root + "/approvals", manager1);
+        feature.ExecutionDatabaseConfigured = true;
         var request = await NewFundedRequest("Happy complete route");
         var requestId = request.GetProperty("id").GetGuid();
         var manualPolicies = feature.ManualFinancePolicies; feature.ManualFinancePolicies = [];
@@ -123,6 +126,9 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             Require(await services.ServiceProvider.GetRequiredService<ApprovalDbContext>().Cases.CountAsync() == 0,
                 "Blocked prerequisites left a partial Core case.");
         await Authority(manager1, "AUTH-M1"); await Authority(manager2, "AUTH-M2");
+        var readiness = await Get($"{Root}/requests/{requestId}/approval-readiness", buyer);
+        Require(readiness.GetProperty("canOpenCase").GetBoolean()
+            && !readiness.GetProperty("isAuthority").GetBoolean(), "Enabled canonical readiness disagrees with actual opening eligibility.");
         var openingQueue = await Get(Root + "/requests/approval-opening-queue", buyer);
         Require(openingQueue.GetProperty("records").EnumerateArray().Any(x => x.GetProperty("requestId").GetGuid() == requestId),
             "Designated buyer cannot discover requests needing case opening.");
