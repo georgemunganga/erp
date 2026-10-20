@@ -471,3 +471,13 @@ limit is not represented as a historical database constraint. No legacy field is
 or copied. Authored actual-probe cases use1500-character notes through certification and a
 separate cancelled draft, assert independent cancellationReason and purpose-view privacy.
 Model tests cover nullable/max2000 metadata, unchanged legacy Reason and final-note immutability.
+
+Pending service source revision correction: the service record's state link remains null
+until certification, but a prior certificate may already have created the shared issued-line
+state. Normal and purpose detail now return that verified persisted state's current version
+as `sourceVersion`; only a detached preview of a genuinely absent state returns0. The row's
+nullable receivingSourceStateId stays truthful and is not backfilled by reading. Clients fetch
+the scoped current detail before certification rather than treating a draft-save response's
+zero source version as authority. The authored actual probe certifies two0.5 milestones against
+one issued quantity1, obtains the second token from purpose detail, and asserts two effects,
+exact cumulative quantity1/net100 and no invented pending-row state binding.

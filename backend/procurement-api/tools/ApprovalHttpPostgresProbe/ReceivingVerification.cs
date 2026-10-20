@@ -92,7 +92,7 @@ sealed partial class Probe
         var longServiceNotes = new string('n', 1500);
         var serviceDraftResponse = await Send(HttpMethod.Post, Root + "/service-acceptances/drafts", OrderRequester,
             new { purchaseOrderId = service.OrderId, issuedVersionId = service.IssuedId, purchaseOrderLineId = service.LineId,
-                deliverableReference = "DELIVERABLE-1", periodFrom = today, periodTo = today, quantity = "1", notes = longServiceNotes }, Guid.NewGuid());
+                deliverableReference = "DELIVERABLE-1", periodFrom = today, periodTo = today, quantity = "0.5", notes = longServiceNotes }, Guid.NewGuid());
         await Check(serviceDraftResponse, HttpStatusCode.OK); var certificate = await serviceDraftResponse.Content.ReadFromJsonAsync<JsonElement>();
         var serviceId = certificate.GetProperty("id").GetGuid();
         await WithoutReceivingBroadRead(async () =>
@@ -111,10 +111,41 @@ sealed partial class Probe
                 "Read preview created a receiving source state.");
         });
         await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/service-acceptances/{serviceId}/certify", OrderManager2,
-            new { version = certificate.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:SERVICE-COMPLETE" }, Guid.NewGuid());
+            new { version = certificate.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "0.5", evidenceReference = "RCP:SERVICE-COMPLETE" }, Guid.NewGuid());
         var finalCertificate = await Get($"{Root}/service-acceptances/{serviceId}", OrderManager2);
-        Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "1" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "100"
+        Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "0.5" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "50"
             && finalCertificate.GetProperty("notes").GetString() == longServiceNotes, "Service exact certification mismatch.");
+        var secondDraftResponse = await Send(HttpMethod.Post, Root + "/service-acceptances/drafts", OrderRequester,
+            new { purchaseOrderId = service.OrderId, issuedVersionId = service.IssuedId, purchaseOrderLineId = service.LineId,
+                deliverableReference = "DELIVERABLE-2", periodFrom = today, periodTo = today, quantity = "0.5", notes = "Second pending milestone" }, Guid.NewGuid());
+        await Check(secondDraftResponse, HttpStatusCode.OK); var secondDraft = await secondDraftResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var secondId = secondDraft.GetProperty("id").GetGuid();
+        var secondDetail = await Get($"{Root}/service-acceptances/{secondId}/certification-task", OrderManager2);
+        long currentSourceVersion;
+        using (var services = Scope(OrderBuyer))
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var sourceState = await db.ReceivingSourceStates.SingleAsync(x => x.PurchaseOrderLineId == service.LineId);
+            currentSourceVersion = sourceState.Version;
+            Require((await db.ServiceAcceptances.SingleAsync(x => x.Id == secondId)).ReceivingSourceStateId == null,
+                "Pending service read fabricated a persisted state binding.");
+        }
+        Require(currentSourceVersion > 0 && secondDetail.GetProperty("sourceVersion").GetInt64() == currentSourceVersion
+            && secondDetail.GetProperty("receivingSourceStateId").ValueKind == JsonValueKind.Null
+            && secondDetail.GetProperty("capacity").GetProperty("acceptableQuantity").GetString() == "0.5"
+            && secondDetail.GetProperty("actionCandidates")[0].GetProperty("candidate").GetBoolean(),
+            "Second pending service draft lost the current existing-state CAS version or remaining capacity.");
+        await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/service-acceptances/{secondId}/certify", OrderManager2,
+            new { version = secondDetail.GetProperty("version").GetInt64(), sourceVersion = currentSourceVersion,
+                quantity = "0.5", evidenceReference = "RCP:SERVICE-SECOND-COMPLETE" }, Guid.NewGuid());
+        using (var services = Scope(OrderBuyer))
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var sourceState = await db.ReceivingSourceStates.SingleAsync(x => x.PurchaseOrderLineId == service.LineId);
+            Require(sourceState.Sequence == 2 && sourceState.CurrentAcceptedQuantity == 1 && sourceState.CurrentAcceptedNetAmount == 100
+                && await db.ReceivingAcceptanceEffects.CountAsync(x => x.ReceivingSourceStateId == sourceState.Id) == 2,
+                "Two partial service certifications drifted exact cumulative accepted state.");
+        }
         var cancellationNotes = longServiceNotes + "-cancel";
         var cancelDraftResponse = await Send(HttpMethod.Post, Root + "/service-acceptances/drafts", OrderRequester,
             new { purchaseOrderId = service.OrderId, issuedVersionId = service.IssuedId, purchaseOrderLineId = service.LineId,
