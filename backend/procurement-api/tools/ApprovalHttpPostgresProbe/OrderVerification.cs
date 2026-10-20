@@ -46,6 +46,7 @@ sealed partial class Probe
                 "Actual conversion failed scoped allocation/counter invariants.");
         }
         Console.WriteLine("PASS order: mapped positive conversion + exact replay + exhausted/unauthorized denial + rollback counters");
+        await VerifyConversionReplayTargetScope(orderId, conversion, convertKey, convertedText);
         var commitment = "SYNTHETIC-SINGLE-PO-COMMITMENT";
         var reservation = await SourceReservation(sourceId);
         var funded = await Send(HttpMethod.Post, $"{Root}/orders/{orderId}/finance-confirmations", OrderFinance,

@@ -21,7 +21,17 @@ public static partial class ProcurementOrderExecutionRoutes
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-convert", token);
                 var prior = await Receipt(db, scope, "Convert", key, fingerprint, null, token);
-                if (prior is not null) return prior.ResponseJson;
+                if (prior is not null)
+                {
+                    // The command key proves the recorded actor/payload, not today's target
+                    // visibility. Resolve the actual saved PO rather than trusting source IDs
+                    // or the newly selected branch in this retried request body/context.
+                    var target = await db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == prior.PurchaseOrderId, token)
+                        ?? throw new OrderProblem("OrderNotFound", 404);
+                    Scope(target, scope, true);
+                    await CurrentRecordScope(core, scope, target.BranchRef, true, token);
+                    return prior.ResponseJson;
+                }
                 if (input.Draft is null || input.Sources is null || input.Draft.Lines is null
                     || input.Sources.Count != input.Draft.Lines.Count || input.Sources.Count is < 1 or > 100
                     || input.Sources.Select(x => x.DraftLineIndex).Distinct().Count() != input.Sources.Count
