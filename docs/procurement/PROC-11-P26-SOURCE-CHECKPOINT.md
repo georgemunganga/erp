@@ -49,3 +49,22 @@ must equal the reviewed version/hash pairs. Adapters still own authentication of
 client mapping input cannot supply either authority. Same-ID changed rules, changed projection,
 invalid publication independence and changed document hash have authored denial regressions.
 These source changes remain unexecuted and the governed matching-policy HTTP extension is pending.
+
+## Persistence mapping slice — source only, no P26 migration generated
+
+The next partial maps the three planned owned evidence records onto the existing Procurement
+context. Same-invoice composite foreign keys bind mapping/result/current pointers, exceptions
+and original invoice lines. Claims bind exact issued PO/line, exposure state and (when used)
+P25 receiving source-state plus typed goods/service record. Batch sequence uniqueness includes
+the invoice line because one comparison can atomically claim multiple original lines.
+
+Mapping and claim rows are append-only. Original intake records still create normally; material
+invoice/header line overwrites are denied. Operational mapping/comparison pointers require their
+new immutable fact; a live claim cannot be removed or replaced without a future authenticated
+owner-resolution contract. Exposure sequence changes require a matching added immutable batch.
+There is no inferred AP liability, payment or Finance balance. Nullable variance fields preserve
+unknown/incomparable legacy variance rather than manufacture zero.
+
+Model/denial test source is authored in `InvoiceMatchingPersistenceTests`. It is not evidence of
+PostgreSQL constraint enforcement; migration generation, real FK/rollback/numeric rehearsal,
+restricted runtime-role tests and actual mapped HTTP concurrency/replay gates remain required.
