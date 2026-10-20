@@ -410,7 +410,12 @@ sealed partial class Probe
     }
     private async Task<(Guid OrderId, Guid LineId, Guid IssuedId)> DeliveredReceivingOrder(Guid supplier, string kind)
     {
-        var source = await NewApprovedOrderSource("Controlled receiving " + kind, purchaseType: ReceivingPurchaseType(kind));
+        var expectedPurchaseType = ReceivingPurchaseType(kind); // policy/preflight always uses explicit codes.
+        // Exercise ordinary catalog-style display input through real draft intake; never patch approved evidence.
+        var source = await NewApprovedOrderSource("Controlled receiving " + kind, purchaseType: kind);
+        var approvedPurchaseType = source.GetProperty("lines")[0].GetProperty("purchaseType").GetString();
+        Require(approvedPurchaseType == expectedPurchaseType,
+            $"Receiving approved-source intake canonicalization failed before PO conversion: input={kind}, expected={expectedPurchaseType}, actual={approvedPurchaseType ?? "<null>"}.");
         var converted = await Send(HttpMethod.Post, Root + "/orders/from-approved-sources", OrderBuyer, OrderConversion(source, supplier), Guid.NewGuid());
         await Check(converted, HttpStatusCode.Created); var order = await converted.Content.ReadFromJsonAsync<JsonElement>(); var id = order.GetProperty("id").GetGuid();
         var funding = await Send(HttpMethod.Post, $"{Root}/orders/{id}/finance-confirmations", OrderFinance,
