@@ -179,3 +179,62 @@ Authored additive domain fields, `FinanceCheckerIdentityEvidence` and `FinanceSn
 PR pinning dispatches Finance representation using the separate discriminator, leaving maker/requester schema 2 unchanged. Zero/null new domain fields are omitted from ordinary JSON serialization to preserve unchanged legacy object representations as well as the explicit original Finance bytes. Legacy verification remains available for original historic source use; Step C must explicitly deny it at new positive eligibility boundaries. Existing internal legacy encoder compatibility is retained for integration branches.
 
 This checkpoint has **no EF mapping, migration, HTTP capture/eligibility wiring or capability activation**. New model fields require Step B before runtime use. Tests are authored, not executed: legacy literal JSON/SHA, full-object absent-field compatibility, timestamp/scale round-trip, binding tamper/partial/unknown schemas, canonical worker reassignment, old terminal source identity/Finance restoration, new Finance pin dispatch and downgrade denial. Current activity, permission, worker independence and external Finance truth remain caller/owner gates. No SDK, database or browser verification was run for this checkpoint.
+
+## Step B source checkpoint — mapping, write guards and migration contract
+
+**Status:** explicit model/write-guard source and authored tests only; no migration generated/applied, no readiness provider or route wiring implemented. This branch remains isolated from runtime integration until Step C and parent migration/gates are complete. The Step A fields are convention-discoverable by EF; do not merge only its domain files into a running host without this complete migration/consumer sequence.
+
+`ProcurementFinanceCheckerIdentityMapping.cs` explicitly maps the three BudgetCheckSnapshot fields and the separate submission discriminator. The two integer discriminators are required/default 0; nullable worker uses ValueGeneratedNever; digest is nullable varchar(64). `ck_budget_checker_identity` accepts only v0 with BOTH identity fields NULL, or v1 with explicit nonnull/nonzero worker AND explicit nonnull lowercase 64-character hash. `ck_pr_finance_identity_version` accepts 0, or 1 with the existing maker/requester schema 2. No new key, unique index, table or FK is introduced; existing scoped source-version FK/key tuples and numeric precision are unchanged. Cross-row digest/scope correctness is enforced by the application guard, not falsely attributed to SQL CHECK.
+
+Before any generic audit is added, SaveChanges rejects updates/deletes to Finance snapshots, incomplete/unknown/digest-mismatched added v1 records, and records whose checked subject differs from the authenticated recording subject. Added v1 pins must bind the exact owned Finance row, PR/submitted version and exact encoded JSON/hash. A new v0 pin cannot downgrade an existing bound Finance parent. Existing empty v0 graphs remain compatible; this is not permission for new positive eligibility, which Step C must enforce. Current Core account mapping and independence are still server application guards; storage hashes cannot establish those authorities.
+
+### Parent-generated additive migration: exact reviewed delta
+
+1. Verify the latest central model/snapshot first; choose the next migration ID centrally, not a guessed P-number.
+2. Add `budget_check_snapshots.checker_identity_schema_version integer NOT NULL DEFAULT 0`, `checked_by_worker_id uuid NULL`, `checker_identity_sha256 varchar(64) NULL`; add `purchase_request_approval_submissions.finance_identity_schema_version integer NOT NULL DEFAULT 0`. Confirm that existing name remains unchanged in generated SQL.
+3. Add exactly the two named CHECKs above; preserve all prior table names, scoped keys, FKs, indexes, precision, exact stored JSON/hash bytes and audit/history. No UPDATE/backfill, new table, default worker/digest, or identity lookup in migration.
+4. Review generated Up/Down/Designer/Snapshot and compiled idempotent SQL. Up on populated legacy evidence must retain each row's original values and assign only discriminator 0 / NULL new fields.
+5. Down begins with the locking/use veto below; then removes only these two CHECKs/four columns. No COALESCE, default identity, or old evidence JSON/hash rewrite. An unused reversal leaves all legacy Finance/submission history intact.
+
+**Physical name verification:** `ConfigureBase<PurchaseRequestApprovalSubmission>` currently maps `purchase_request_approval_submissions`; the SQL below uses that existing name. Confirm generated SQL preserves it; do not create a second submissions table.
+
+### Used-evidence Down veto (seal literal against actual generated names)
+
+Lock the Finance, submission, audit and outbox tables **before** testing usage, in a deterministic order. Fail with `FinanceCheckerIdentityRollbackWouldLoseEvidence` if either snapshot has any nondefault identity metadata (including partial metadata), any submission uses a nonzero Finance discriminator, or retained audit/outbox identifies this increment after an owner-only selective evidence purge. Conservative audit matching may stop rollback after any post-upgrade capture that audited the new field names, even if that capture remained unbound; forward-fix is acceptable. Never delete audit/outbox to make rollback pass.
+
+```sql
+-- Source plan only: parent must review/seal this literal with the generated migration.
+LOCK TABLE procurement.budget_check_snapshots, procurement.purchase_request_approval_submissions,
+           procurement.audit_events, procurement.outbox_events IN ACCESS EXCLUSIVE MODE;
+DO $guard$
+BEGIN
+  IF EXISTS (SELECT 1 FROM procurement.budget_check_snapshots
+      WHERE checker_identity_schema_version <> 0 OR checked_by_worker_id IS NOT NULL
+         OR checker_identity_sha256 IS NOT NULL)
+    OR EXISTS (SELECT 1 FROM procurement.purchase_request_approval_submissions
+      WHERE finance_identity_schema_version <> 0)
+    OR EXISTS (SELECT 1 FROM procurement.audit_events
+      WHERE record_type IN ('BudgetCheckSnapshot','PurchaseRequestApprovalSubmission')
+        AND (COALESCE(changed_fields_json::text,'') LIKE '%"CheckerIdentitySchemaVersion"%'
+          OR COALESCE(changed_fields_json::text,'') LIKE '%"CheckedByWorkerId"%'
+          OR COALESCE(changed_fields_json::text,'') LIKE '%"CheckerIdentitySha256"%'
+          OR COALESCE(changed_fields_json::text,'') LIKE '%"FinanceIdentitySchemaVersion"%'))
+    OR EXISTS (SELECT 1 FROM procurement.outbox_events
+      WHERE event_type = 'procurement.finance_checker_identity.recorded.v1'
+        OR (aggregate_type IN ('BudgetCheckSnapshot','PurchaseRequestApprovalSubmission')
+          AND (payload_json::text LIKE '%CheckerIdentitySchemaVersion%'
+            OR payload_json::text LIKE '%CheckedByWorkerId%'
+            OR payload_json::text LIKE '%CheckerIdentitySha256%'
+            OR payload_json::text LIKE '%FinanceIdentitySchemaVersion%')))
+  THEN RAISE EXCEPTION 'FinanceCheckerIdentityRollbackWouldLoseEvidence'; END IF;
+END $guard$;
+```
+
+No new event is implemented here. Step C must either use its reviewed exact event name/payload names or amend this conservative veto before migration sealing; this example does not claim a notification publisher exists. Literal Up/Down must be reviewed against actual snake-case generated columns and the complete Step C audit/outbox inventory.
+
+### Readiness and required gates before integration
+
+- Existing migration-history/pending-model checks must include the centrally generated increment. Positive Finance capture/eligibility readiness additionally requires the four exact column types/default/nullability, both named **validated** CHECK definitions (not merely lookalike names), existing scoped source-version FK, and runtime SELECT/INSERT privileges on the new fields. Use read-only catalog/schema probes; do not test readiness by writing.
+- Missing columns, partial migration, invalid/removed/wrong-shape CHECK, inaccessible metadata/columns or pending model means unavailable positive operations. Readiness is not authority, external Finance completeness or retroactive independent-checker evidence.
+- Authored context tests cover valid new save/reload/pin + field-name-only audit; invalid v1/partial0/unknown/valid-digest-wrong-recording-subject with zero effects; malformed/wrong-source-version/downgraded pins; immutable old/new snapshots. Npgsql design-model assertions cover NULL-safe predicates, defaults, nullable UUID non-generation, exact digest length, unchanged 18,4 amount and existing key/FK shape. None were executed for this source checkpoint.
+- Parent runtime tests must prove raw PostgreSQL rejection of each v1 NULL/zero/uppercase-hash and v0 partial case, plus unsupported versions, while positive legacy0 and exact v1 save pass. Rehearse populated legacy Up twice; unused Down/Up; used metadata and audit-only veto with unchanged rows/history/schema on denial. Then run Step C mapped/current-identity/replay and real restricted-role API gates. No old row is promoted during these rehearsals.
