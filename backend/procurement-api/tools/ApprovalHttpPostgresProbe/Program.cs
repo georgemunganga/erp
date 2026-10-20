@@ -757,11 +757,11 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     { var response = await Send(HttpMethod.Get, path, actor); await Check(response, HttpStatusCode.OK); return await response.Content.ReadFromJsonAsync<JsonElement>(); }
     private async Task Expect(HttpStatusCode status, HttpMethod method, string path, Guid actor, object? body = null, Guid? key = null, bool selectedBranch = true)
         => await Check(await Send(method, path, actor, body, key, selectedBranch), status);
-    private Task<HttpResponseMessage> Send(HttpMethod method, string path, Guid actor, object? body = null, Guid? key = null, bool selectedBranch = true)
+    private Task<HttpResponseMessage> Send(HttpMethod method, string path, Guid actor, object? body = null, Guid? key = null, bool selectedBranch = true, Guid? selectedLocation = null)
     {
         var request = new HttpRequestMessage(method, path); request.Headers.Add("X-Probe-User", actor.ToString("D"));
         request.Headers.Add("X-Shell-Entity", company.ToString("D"));
-        if (selectedBranch) request.Headers.Add("X-Shell-Location", branch.ToString("D"));
+        if (selectedBranch) request.Headers.Add("X-Shell-Location", (selectedLocation ?? branch).ToString("D"));
         if (key.HasValue) request.Headers.Add("Idempotency-Key", key.Value.ToString("D"));
         if (body is not null) request.Content = JsonContent.Create(body, options: Json); return client.SendAsync(request);
     }
