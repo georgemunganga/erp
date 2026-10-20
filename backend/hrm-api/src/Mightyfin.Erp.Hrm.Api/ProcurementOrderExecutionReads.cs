@@ -39,7 +39,9 @@ public static partial class ProcurementOrderExecutionRoutes
                         rows.Add(new { requestId = source.Request.Id, requestNumber = source.Request.Number,
                             lineId = source.Line.Id, requestVersion = source.Request.Version, source.Line.Description,
                             source.Line.UnitCode, source.Line.CategoryCode, source.Line.PurchaseType, source.Request.BranchRef,
-                            availability.AvailableQuantity, availability.ApprovedUnitPrice, availability.CurrencyCode,
+                            availability.AvailableQuantity, availability.ApprovedUnitPrice,
+                            availableQuantityExact = ProcurementEvidenceEncoding.Decimal(availability.AvailableQuantity),
+                            approvedUnitPriceExact = ProcurementEvidenceEncoding.Decimal(availability.ApprovedUnitPrice), availability.CurrencyCode,
                             eligibility = availability.AvailableQuantity > 0 ? "Available" : "FullyAllocated", blocker = (string?)null });
                     }
                     catch (Exception error) when (error is InvalidOperationException or OrderProblem)

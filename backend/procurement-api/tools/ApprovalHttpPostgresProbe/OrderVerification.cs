@@ -47,6 +47,7 @@ sealed partial class Probe
         }
         Console.WriteLine("PASS order: mapped positive conversion + exact replay + exhausted/unauthorized denial + rollback counters");
         await VerifyConversionReplayTargetScope(orderId, conversion, convertKey, convertedText);
+        await VerifyOrderDraftReadContract(orderId, convertKey);
         var commitment = "SYNTHETIC-SINGLE-PO-COMMITMENT";
         var reservation = await SourceReservation(sourceId);
         var funded = await Send(HttpMethod.Post, $"{Root}/orders/{orderId}/finance-confirmations", OrderFinance,
@@ -79,6 +80,7 @@ sealed partial class Probe
         await Check(issueReplay, HttpStatusCode.OK); Require(await issueReplay.Content.ReadAsStringAsync() == issueText, "Issue duplicated or lost receipt.");
         history = await Get($"{Root}/orders/{orderId}/commercial-history", OrderBuyer);
         var issuedVersionId = history.GetProperty("issued")[0].GetProperty("id").GetGuid();
+        await VerifyOrderDispatchReadContract(orderId, issuedVersionId, issueKey);
         var delivered = await Send(HttpMethod.Post, $"{Root}/orders/{orderId}/delivery-confirmations", OrderManager1,
             new { expectedOrderVersion = order.GetProperty("version").GetInt64(), issuedVersionId, deliveryReference = "DELIVERY-1",
                 outcome = "Delivered", channel = "SecureEmail", evidenceReference = "SYNTHETIC-DELIVERY", observedAt = DateTimeOffset.UtcNow }, Guid.NewGuid());
@@ -95,6 +97,7 @@ sealed partial class Probe
         await VerifyCommitmentOwnershipAndDraftCancel(supplier, commitment);
         await VerifyFundedUnsubmittedCancellation(supplier);
         await VerifyOrderAmountNotRepresentable(supplier);
+        await VerifyDecimalStringOrderTransport(supplier);
         await VerifyOrderRevokedGrantReplay(orderId, decisionPath, decisionBody, decisionKey, issueBody, issueKey);
     }
 
