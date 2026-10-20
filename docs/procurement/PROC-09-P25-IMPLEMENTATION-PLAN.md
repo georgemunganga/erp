@@ -120,3 +120,13 @@ Enable each live action only from compatible capability metadata and mapped allo
 Example: two deliveries of 80 against an order of 100 may both be recorded/held. After inspection, certifying 80 from the first leaves only 20 authorised acceptance for the second; its remaining 60 stays held/rejected/exception evidence and is not stock or invoice eligibility. Received 120 / rejected 20 against an order of 100 records both actual values, then at most 100 can be certified. Received 120 / rejected 0 must not be rewritten to 100 merely to pass validation. Display physical totals and held/disposition independently from accepted capacity.
 
 Add mapped HTTP/concurrency tests for those cases and confirm no acceptance/counter/outbox entitlement is created by physical intake alone. If source classification or policy is unknown, preserve draft intake and original documents, clearly marked not authoritative acceptance; never silently relabel its purchase type to finalise. An unaccepted physical return has zero acceptance effect and must not be forged as a negative effect referencing an unrelated accepted fragment.
+
+
+## Mandatory review regression gate (source follow-up to 40c4c5a)
+
+Before P25 activation verify exact current issued header/line/Core-pointer agreement,
+retained original policy proof, historical inactive PO acceptance and symmetric malformed
+v1 goods/service bindings. Run the current-site service-policy denial/replay case and the
+final inspection rejection/qualified-completion case. Physical truth must remain available
+when inherited acceptance is unverified, while certification remains blocked. No successful
+result or migration execution is implied by the authored fixes/tests.

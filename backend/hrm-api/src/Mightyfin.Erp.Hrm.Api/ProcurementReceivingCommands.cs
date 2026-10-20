@@ -84,6 +84,7 @@ public static partial class ProcurementReceivingRoutes
                     InspectorWorkerId = actor.WorkerId, ChecklistRef = fact.ChecklistReference, PolicyVersionId = fact.ReceivingPolicyVersionId,
                     EvidenceRef = fact.EvidenceReference, LedgerSequence = fact.LedgerSequence, EffectKey = fact.EffectKey, InspectedAt = fact.InspectedAt });
                 final.State.Sequence = fact.LedgerSequence; line.Status = fact.QualifiedQuantity == 0 ? "Rejected" : "Inspected";
+                line.RejectedQuantity = ExactDecimalArithmetic.Add(line.InitiallyRejectedQuantity, ExactDecimalArithmetic.Subtract(fact.InspectedQuantity, fact.QualifiedQuantity));
                 Event(db, id, "procurement.goods.inspected.v1", fact.EffectKey, new { fact.Id, receiptLineId = line.Id,
                     sourceStateId = final.State.Id, qualifiedQuantity = Exact(fact.QualifiedQuantity), fact.LedgerSequence });
             }
@@ -92,10 +93,15 @@ public static partial class ProcurementReceivingRoutes
                 var fact = ControlledReceiving.AcceptGoods(final.Source, final.Rules, actor, ledger, line.PhysicalObservationId.Value,
                     quantity, input.EvidenceReference, Guid.NewGuid(), now);
                 await ApplyAcceptance(db, final, ledger, fact, line, null, token);
-                line.Status = line.AcceptedQuantity == ExactDecimalArithmetic.Subtract(line.ReceivedQuantity, line.InitiallyRejectedQuantity) ? "Accepted" : "Partially Accepted";
-                header.Status = lines.All(x => x.Status is "Accepted" or "Rejected") ? "Accepted" : "Partially Accepted";
+                var qualified = ledger.Inspections.SingleOrDefault(x => x.PhysicalObservationId == line.PhysicalObservationId)?.QualifiedQuantity
+                    ?? ExactDecimalArithmetic.Subtract(line.ReceivedQuantity, line.InitiallyRejectedQuantity);
+                line.Status = line.AcceptedQuantity == qualified ? "Accepted" : "Partially Accepted";
             }
-            return await Save(db, scope, header.PurchaseOrderId, id, operation, key, fingerprint, () => View(header, lines, new Dictionary<Guid, ReceivingSourceState> { [final.State.Id] = final.State }), token);
+            header.Status = lines.All(x => x.Status == "Rejected") ? "Rejected" : lines.All(x => x.Status is "Accepted" or "Rejected") ? "Accepted"
+                : lines.Any(x => x.AcceptedQuantity > 0) ? "Partially Accepted" : "Recorded";
+            var (responseStates, responseInspections) = await ReceiptProjection(db, lines, token);
+            return await Save(db, scope, header.PurchaseOrderId, id, operation, key, fingerprint,
+                () => View(header, lines, responseStates, responseInspections), token);
         }, ct);
     private static Task<IResult> CertifyService(Guid id, ReceivingAction input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => Run(http, scope, true, async (db, cases, core, auth, token) =>
@@ -135,6 +141,7 @@ public static partial class ProcurementReceivingRoutes
         var poQuantity = ExactDecimalArithmetic.Add(source.Load.Line.AcceptedQuantity, effect.QuantityDelta);
         var requestLine = await db.PurchaseRequestLines.SingleAsync(x => x.Id == source.Load.Line.PurchaseRequestLineId, ct);
         var prQuantity = ExactDecimalArithmetic.Add(requestLine.AcceptedQuantity, effect.QuantityDelta);
+        if (prQuantity > requestLine.ApprovedQuantity) throw new ReceivingProblem("ReceivingApprovedRequestCapacityExceeded", 409);
         var recordQuantity = ExactDecimalArithmetic.Add(line?.AcceptedQuantity ?? service!.CurrentAcceptedQuantity, effect.QuantityDelta);
         var recordAmount = service is null ? 0 : ExactDecimalArithmetic.Add(service.CurrentAcceptedNetAmount, effect.NetAmountDelta);
         var persisted = ReceivingPersistenceProjection.PersistedEffect(effect, source.State.Id);

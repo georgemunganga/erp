@@ -447,6 +447,25 @@ public sealed class ControlledReceivingTests
         Assert.Throws<InvalidOperationException>(() => ControlledReceiving.Balance(unknown, physical.GoodsReceiptLineId));
     }
 
+    [Fact]
+    public void Service_owner_and_exact_replay_must_use_an_explicit_policy_site_even_when_organisation_wide()
+    {
+        var f = new Fixture(ReceivingKind.Service);
+        var actor = f.Certifier with { OrganisationWide = true, SelectedBranchId = null, BranchIds = new HashSet<Guid>() };
+        var wrongSite = f.Policy with { BranchId = null, ReceivingSiteIds = new HashSet<Guid> { Guid.NewGuid() } };
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.VerifyCurrentActor(f.Source, wrongSite, actor,
+            f.Ledger, ControlledReceiving.CertifyPermission, f.Now));
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.CertifyService(f.Source, wrongSite, actor, f.Ledger,
+            Guid.NewGuid(), 1, f.Source.Pin.NetUnitPrice, "SERVICE-AT-WRONG-SITE", DateOnly.FromDateTime(f.Now.UtcDateTime),
+            DateOnly.FromDateTime(f.Now.UtcDateTime), "EVIDENCE", Guid.NewGuid(), f.Now));
+        var allowed = f.Policy with { BranchId = null, ReceivingSiteIds = new HashSet<Guid> { f.Site } };
+        ControlledReceiving.VerifyCurrentActor(f.Source, allowed, actor, f.Ledger, ControlledReceiving.CertifyPermission, f.Now);
+        var result = ControlledReceiving.CertifyService(f.Source, allowed, actor, f.Ledger, Guid.NewGuid(), 1,
+            f.Source.Pin.NetUnitPrice, "SERVICE-AT-EXPLICIT-SITE", DateOnly.FromDateTime(f.Now.UtcDateTime),
+            DateOnly.FromDateTime(f.Now.UtcDateTime), "EVIDENCE", Guid.NewGuid(), f.Now);
+        Assert.Equal(1, result.QuantityDelta);
+    }
+
     private sealed class Fixture
     {
         public DateTimeOffset Now { get; } = new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero).AddTicks(7);
@@ -460,7 +479,7 @@ public sealed class ControlledReceivingTests
         public ReceivingLedger Ledger { get; private set; }
         public Fixture(ReceivingKind kind = ReceivingKind.Goods, decimal authorizedQuantity = 10m, decimal unitPrice = 0.005m)
         {
-            var entity = Guid.NewGuid(); var branch = Guid.NewGuid(); var order = Guid.NewGuid();
+            var entity = Guid.NewGuid(); var branch = Site; var order = Guid.NewGuid();
             var issuedId = Guid.NewGuid(); var line = Guid.NewGuid(); var requestLine = Guid.NewGuid();
             var buyer = Guid.NewGuid(); var requester = Guid.NewGuid(); var submissionId = Guid.NewGuid();
             var category = kind == ReceivingKind.Goods ? "GOODS" : "CONSULTING";

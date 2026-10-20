@@ -472,7 +472,9 @@ public static class ControlledReceiving
             && policy.CategoryCode == p.CategoryCode && policy.Kind == p.Kind
             && policy.EffectiveFrom <= at && (!policy.EffectiveTo.HasValue || at < policy.EffectiveTo)
             && (!policy.InspectionRequired || p.Kind == ReceivingKind.Goods)
-            && (!site.HasValue || policy.ReceivingSiteIds.Contains(site.Value)), "ReceivingPublishedPolicyRequired");
+            && (!site.HasValue || policy.ReceivingSiteIds.Contains(site.Value))
+            && (p.Kind != ReceivingKind.Service || p.BranchId is { } serviceSite && actor.SiteIds.Contains(serviceSite)
+                && policy.ReceivingSiteIds.Contains(serviceSite)), "ReceivingPublishedPolicyRequired");
     }
     private static void CertificationActor(ReceivingSourceProjection source, ReceivingPolicyProjection policy,
         ReceivingActorProjection actor) => Require((policy.AllowBuyerCertification || actor.WorkerId != source.BuyerWorkerId)

@@ -84,9 +84,8 @@ public static partial class ProcurementReceivingRoutes
             var branch = header.ExecutionVersion == 0
                 ? await db.PurchaseOrders.Where(x => x.Id == header.PurchaseOrderId).Select(x => x.BranchRef).SingleAsync(token) : header.BranchRef;
             await Actor(core, scope, http, auth, "procurement-receipt-view", branch, null, token);
-            var stateIds = lines.Where(x => x.ReceivingSourceStateId != null).Select(x => x.ReceivingSourceStateId!.Value).ToArray();
-            var states = await db.ReceivingSourceStates.Where(x => stateIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, token);
-            return System.Text.Json.JsonSerializer.Serialize(View(header, lines, states), Json);
+            var (states, inspections) = await ReceiptProjection(db, lines, token);
+            return System.Text.Json.JsonSerializer.Serialize(View(header, lines, states, inspections), Json);
         }, ct);
     private static Task<IResult> CancelReceipt(Guid id, CancelDraft input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => Run(http, scope, false, async (db, cases, core, auth, token) =>

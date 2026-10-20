@@ -83,7 +83,10 @@ public static class ReceivingPersistenceProjection
         foreach (var line in lines)
         {
             var accepted = ExactDecimalArithmetic.Sum(effects.Where(x => x.AcceptanceRecordId == line.Line.Id).Select(x => x.QuantityDelta));
-            Need(line.Line.AcceptedQuantity == accepted, "ReceivingCounterReconciliationRequired");
+            var inspection = ledger.Inspections.SingleOrDefault(x => x.GoodsReceiptLineId == line.Line.Id);
+            var rejected = ExactDecimalArithmetic.Add(line.Line.InitiallyRejectedQuantity, inspection is null ? 0
+                : ExactDecimalArithmetic.Subtract(inspection.InspectedQuantity, inspection.QualifiedQuantity));
+            Need(line.Line.AcceptedQuantity == accepted && line.Line.RejectedQuantity == rejected, "ReceivingCounterReconciliationRequired");
         }
         foreach (var row in services)
         {

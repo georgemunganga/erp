@@ -112,13 +112,33 @@ public static partial class ProcurementReceivingRoutes
             ChangedFieldsJson = JsonSerializer.Serialize(new { commandKey = key, orderId, response = JsonDocument.Parse(json).RootElement }) });
         return json;
     }
-    private static object View(GoodsReceipt header, IEnumerable<GoodsReceiptLine> lines, IReadOnlyDictionary<Guid, ReceivingSourceState>? states = null) => new { header.Id, header.Number, header.Version, header.Status,
+    private static async Task<(Dictionary<Guid, ReceivingSourceState> States, Dictionary<Guid, GoodsInspectionEvidence> Inspections)> ReceiptProjection(
+        ProcurementDbContext db, IReadOnlyList<GoodsReceiptLine> lines, CancellationToken ct)
+    {
+        var stateIds = lines.Where(x => x.ReceivingSourceStateId != null).Select(x => x.ReceivingSourceStateId!.Value).Distinct().ToArray();
+        var states = await db.ReceivingSourceStates.Where(x => stateIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
+        foreach (var entry in db.ChangeTracker.Entries<ReceivingSourceState>().Where(x => x.State == EntityState.Added && stateIds.Contains(x.Entity.Id)))
+            states[entry.Entity.Id] = entry.Entity;
+        var lineIds = lines.Select(x => x.Id).ToArray();
+        var rows = await db.ReceiptInspections.Where(x => lineIds.Contains(x.GoodsReceiptLineId) && x.ExecutionVersion == 1).ToArrayAsync(ct);
+        // Before Save the new inspection is only in the tracked graph; keep all other lines' retained facts too.
+        var allRows = rows.Concat(db.ChangeTracker.Entries<ReceiptInspection>().Where(x => x.State == EntityState.Added
+            && lineIds.Contains(x.Entity.GoodsReceiptLineId) && x.Entity.ExecutionVersion == 1).Select(x => x.Entity));
+        var inspections = allRows.ToDictionary(x => x.GoodsReceiptLineId,
+            x => ReceivingPersistenceProjection.Inspection(states[x.ReceivingSourceStateId!.Value], x));
+        return (states, inspections);
+    }
+    private static object View(GoodsReceipt header, IEnumerable<GoodsReceiptLine> lines, IReadOnlyDictionary<Guid, ReceivingSourceState>? states = null, IReadOnlyDictionary<Guid, GoodsInspectionEvidence>? inspections = null) => new { header.Id, header.Number, header.Version, header.Status,
         header.ExecutionVersion, header.PurchaseOrderId, header.IssuedVersionId, header.SiteRef, header.ReceivedAt, header.RecordedAt,
         header.DeliveryNoteRef, header.Notes, physicalEvidenceRecorded = header.ExecutionVersion == 1 && header.RecordedAt != null, matchingAuthorityAvailable = false,
         lines = lines.Where(x => x.Status != "Cancelled").OrderBy(x => x.Id).Select(x => new { x.Id, x.Version, x.PurchaseOrderLineId, x.ReceivingSourceStateId,
             sourceVersion = x.ReceivingSourceStateId is { } stateId && states != null && states.TryGetValue(stateId, out var state) ? state.Version : 0,
             x.PhysicalObservationId, x.PhysicalSequence, x.PhysicalPolicyVersionId, x.PhysicalRecordedAt, x.Status,
-            receivedQuantity = Exact(x.ReceivedQuantity), initiallyRejectedQuantity = Exact(x.InitiallyRejectedQuantity), acceptedQuantity = Exact(x.AcceptedQuantity) }) };
+            receivedQuantity = Exact(x.ReceivedQuantity), initiallyRejectedQuantity = Exact(x.InitiallyRejectedQuantity), rejectedQuantity = Exact(x.RejectedQuantity), acceptedQuantity = Exact(x.AcceptedQuantity),
+            inspection = inspections != null && inspections.TryGetValue(x.Id, out var inspection) ? new { inspection.Id, outcome = inspection.Outcome.ToString(),
+                qualifiedQuantity = Exact(inspection.QualifiedQuantity), inspectionRejectedQuantity = Exact(ExactDecimalArithmetic.Subtract(inspection.InspectedQuantity, inspection.QualifiedQuantity)),
+                inspection.ReceivingPolicyVersionId, inspection.ChecklistReference, inspection.InspectedAt } : null,
+            unacceptedHeldQuantity = x.ExecutionVersion == 1 ? Exact(ExactDecimalArithmetic.Subtract(ExactDecimalArithmetic.Subtract(x.ReceivedQuantity, x.RejectedQuantity), x.AcceptedQuantity)) : null }) };
     private static object View(ServiceAcceptance row, ReceivingSourceState? state = null) => new { row.Id, row.Version, row.Status, row.ExecutionVersion, row.PurchaseOrderLineId,
         row.SourcePurchaseOrderId, row.IssuedBindingId, row.ReceivingSourceStateId, sourceVersion = state?.Version ?? 0, row.PeriodFrom, row.PeriodTo, row.DeliverableRef, row.CertifiedAt,
         isCertifiedRecord = row.ExecutionVersion == 1 && row.CertifiedAt != null, matchingAuthorityAvailable = false,

@@ -184,3 +184,11 @@ DML to the private runtime. This source has not been built/run and is not comple
 This branch's program additions are based on e752ed1; when combining with the separate
 order-browser `--serve --orders` increment, preserve that explicitly allowed pair while
 keeping `--receiving` single and rejecting other unsupported/duplicated combinations.
+
+
+Receiving review follow-up (source only): `--receiving` now includes an inactive historical
+PO-line acceptance cache that must block certification without erasing physical truth,
+and a separately governed service policy restricted to another site that must deny an
+otherwise named organisation-wide owner. Existing receiving policy creation/publication
+is used; no synthetic published receiving policy or successful owner posting is fabricated.
+The probe remains unrun for P25 until its migration and centralized runtime gate are ready.

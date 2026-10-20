@@ -56,6 +56,10 @@ public static partial class ProcurementReceivingRoutes
             || !await cases.Cases.AnyAsync(x => x.Id == submission.CoreApprovalCaseId && x.SourceModule == "procurement"
                 && x.SourceType == "purchase_order" && x.SourceId == orderId && x.State == "Approved", ct))
             throw new ReceivingProblem("ReceivingCurrentIssuedAuthorityRequired", 409);
+        var currentLines = await db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == orderId && x.IsActive).OrderBy(x => x.LineNumber).ToArrayAsync(ct);
+        var workflow = await cases.Cases.SingleAsync(x => x.Id == submission.CoreApprovalCaseId, ct);
+        var originalPolicy = await db.PolicyVersions.AsNoTracking().SingleAsync(x => x.Id == submission.PolicyVersionId, ct);
+        ReceivingIssuedAuthority.Verify(order, currentLines, issued, submission, workflow, originalPolicy);
         using var snapshot = JsonDocument.Parse(issued.CommercialSnapshotJson);
         var sealedLine = snapshot.RootElement.GetProperty("lines").EnumerateArray().Single(x => x.GetProperty("Id").GetGuid() == lineId);
         if (issued.CommercialSnapshotJson != submission.CommercialSnapshotJson || issued.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(issued.CommercialSnapshotJson)
@@ -134,27 +138,25 @@ public static partial class ProcurementReceivingRoutes
     private static async Task<ReceivingLedger> Ledger(ProcurementDbContext db, FinalSource source, CancellationToken ct)
     {
         var requestLineId = source.Load.Line.PurchaseRequestLineId!.Value;
-        var orderLines = await db.PurchaseOrderLines.Where(x => x.PurchaseRequestLineId == requestLineId && x.IsActive).ToArrayAsync(ct);
+        var orderLines = await db.PurchaseOrderLines.Where(x => x.PurchaseRequestLineId == requestLineId).ToArrayAsync(ct);
         var ids = orderLines.Select(x => x.Id).ToArray();
         var states = await db.ReceivingSourceStates.Where(x => ids.Contains(x.PurchaseOrderLineId)).OrderBy(x => x.Id).ToArrayAsync(ct);
         if (!states.Any(x => x.Id == source.State.Id)) states = states.Append(source.State).ToArray();
-        var verified = !await db.GoodsReceiptLines.AnyAsync(x => ids.Contains(x.PurchaseOrderLineId)
-            && (x.ExecutionVersion != 1 && (x.AcceptedQuantity != 0 || x.ReceivedQuantity != 0 || x.Status != "Draft" && x.Status != "Cancelled")
-                || x.ExecutionVersion == 1 && (x.ReceivingSourceStateId == null || x.SourceStateBindingId != x.ReceivingSourceStateId)
-                    && (x.AcceptedQuantity != 0 || x.PhysicalObservationId != null || x.Status != "Draft" && x.Status != "Cancelled")), ct)
-            && !await db.ServiceAcceptances.AnyAsync(x => ids.Contains(x.PurchaseOrderLineId) && x.ExecutionVersion != 1
-                && (x.AcceptedQuantity != 0 || x.AcceptedAmount != 0 || x.CertifiedAt != null), ct);
+        var receipts = await db.GoodsReceiptLines.Where(x => ids.Contains(x.PurchaseOrderLineId)).ToArrayAsync(ct);
+        var services = await db.ServiceAcceptances.Where(x => ids.Contains(x.PurchaseOrderLineId)).ToArrayAsync(ct);
+        var verified = true; var verifiedStateIds = new HashSet<Guid>();
         var quantities = new Dictionary<Guid, decimal>();
         foreach (var state in states)
         {
             if (db.Entry(state).State != EntityState.Added)
                 await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.receiving_source_states WHERE tenant_id={state.TenantId} AND legal_entity_id={state.LegalEntityId} AND id={state.Id} FOR UPDATE", ct);
+            if (state.Source.PurchaseRequestLineId != requestLineId) verified = false;
             var facts = await Facts(db, state, false, ct);
+            verifiedStateIds.Add(state.Id);
             quantities[state.PurchaseOrderLineId] = ExactDecimalArithmetic.Add(quantities.GetValueOrDefault(state.PurchaseOrderLineId), ExactDecimalArithmetic.Sum(facts.Effects.Select(x => x.QuantityDelta)));
         }
-        verified &= orderLines.All(x => x.AcceptedQuantity == quantities.GetValueOrDefault(x.Id));
         var requestLine = await db.PurchaseRequestLines.SingleAsync(x => x.Id == requestLineId, ct);
-        verified &= requestLine.AcceptedQuantity == ExactDecimalArithmetic.Sum(orderLines.Select(x => x.AcceptedQuantity));
+        verified &= ReceivingAcceptanceHistory.IsVerified(orderLines, receipts, services, quantities, verifiedStateIds, requestLine.AcceptedQuantity);
         return await Facts(db, source.State, verified, ct);
     }
 }

@@ -329,3 +329,39 @@ Provenance: shared ExactDecimalJsonCodec is byte-identical7bd6555; source reuses
 parser rather than another decimal implementation. Synthetic PO stagecode/preseed
 validation follows root3b57299. Inherited invoice tax-only fixture correction3b5bda9
 was narrowly picked; no production matcher change is included by that correction.
+
+
+## Independent review corrections after checkpoint 40c4c5a
+
+This remains authored source, **not verified runtime readiness**. The independent source
+review identified four consequential gaps and a disposition display defect. The follow-up
+adds these controls without broadening activation or creating additional tables:
+
+- The current PO must still reproduce its exact issued commercial snapshot, including
+  branch, currency, supplier identity, buyer, terms, source references and every active line.
+  Its submitted revision/case pointer and the approved Core case's source/policy identity
+  must agree with retained submission/issued evidence. Original PO policy publication and
+  effective-at-submission evidence/hash are checked; later expiry does not rewrite history.
+  Supplier display/legal/country labels come from the retained snapshot, so a later supplier
+  profile rename or suspension is not treated as evidence corruption.
+- Acceptance completeness examines **all** linked PO lines, including inactive history,
+  all existing receipt/service rows, verified controlled ledgers and PR/PO cached acceptance.
+  A missing ledger does not establish zero. Both goods and service version-one consequential
+  rows require an exact loaded state binding. A service draft's intended quantity alone
+  does not establish certification. Newly persisted certification must have its matching
+  typed positive effect, canonical worker and advanced source sequence.
+- Service certification and exact replay both enforce the source site's membership in
+  the published rule and current actor's site scope, even for organisation-wide users.
+  A named owner does not waive a policy's site restriction.
+- Final inspection rejection augments the derived rejected quantity; initial rejection
+  and original received quantity stay immutable. Terminal acceptance compares certified
+  quantity to final qualified quantity. Detail and command responses include each line's
+  inspection/held disposition and current source revision, including multi-line receipts.
+
+New source tests exercise header/Core/line corruption, historical inactive acceptance,
+missing/malformed service and goods bindings, service site denial, stale rejection caches,
+and a certified service lacking its positive fact. The actual HTTP/PostgreSQL probe adds
+an inactive historical-line case and a governed site-restricted service-policy case.
+These tests have **not been executed** in this worktree. P25 migration generation,
+restricted-runtime SQL/HTTP verification, compatible UI integration and browser tests
+remain centralized release gates; all production receiving capabilities remain default-off.

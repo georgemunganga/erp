@@ -64,7 +64,7 @@ public sealed partial class ProcurementDbContext
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId }).OnDelete(DeleteBehavior.Restrict);
         Link<ServiceAcceptance, PolicyVersion>(model, nameof(ServiceAcceptance.PolicyVersionId));
         service.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ReceivingSourceStateId, x.DeliverableRef }).IsUnique().HasFilter("certified_at IS NOT NULL AND execution_version = 1");
-        service.ToTable(t => t.HasCheckConstraint("ck_service_execution", "execution_version = 0 OR (execution_version = 1 AND source_purchase_order_id IS NOT NULL AND issued_binding_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (receiving_source_state_id IS NULL OR source_state_binding_id = receiving_source_state_id) AND (certified_at IS NULL OR (certification_effect_id IS NOT NULL AND owner_worker_id IS NOT NULL AND policy_version_id IS NOT NULL AND accepted_quantity > 0 AND accepted_amount >= 0)))"));
+        service.ToTable(t => t.HasCheckConstraint("ck_service_execution", "execution_version = 0 OR (execution_version = 1 AND source_purchase_order_id IS NOT NULL AND issued_binding_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (receiving_source_state_id IS NULL OR source_state_binding_id = receiving_source_state_id) AND (certified_at IS NULL OR (receiving_source_state_id IS NOT NULL AND certification_effect_id IS NOT NULL AND owner_worker_id IS NOT NULL AND policy_version_id IS NOT NULL AND accepted_quantity > 0 AND accepted_amount >= 0)))"));
         var effect = model.Entity<ReceivingAcceptanceEffect>();
         effect.Property(x => x.Source).HasConversion(x => JsonSerializer.Serialize(x, (JsonSerializerOptions?)null),
             x => JsonSerializer.Deserialize<ReceivingSourcePin>(x, (JsonSerializerOptions?)null)!).HasColumnType("text");
@@ -95,7 +95,8 @@ public sealed partial class ProcurementDbContext
             if (entry.State == EntityState.Added)
             {
                 var effect = entry.Entity; var state = ApprovalEvidence<ReceivingSourceState>(effect.ReceivingSourceStateId);
-                if (state is null || effect.Source != state.Source || effect.ActorWorkerId == Guid.Empty
+                if (state is null || Entry(state).State is not (EntityState.Added or EntityState.Modified) || state.Sequence != effect.LedgerSequence
+                    || effect.Source != state.Source || effect.ActorWorkerId == Guid.Empty
                     || effect.CreatedBy != scope.SubjectId || effect.QuantityDelta <= 0
                     || effect.NetAmountDelta != ExactDecimalArithmetic.Multiply(effect.QuantityDelta, effect.Source.NetUnitPrice)
                     || effect.Source.Kind == ReceivingKind.Goods && (effect.GoodsReceiptLineId != effect.AcceptanceRecordId || effect.ServiceAcceptanceId != null)
@@ -138,7 +139,7 @@ public sealed partial class ProcurementDbContext
         }
         foreach (var entry in ChangeTracker.Entries<GoodsReceiptLine>())
             if (entry.State == EntityState.Modified && entry.OriginalValues.GetValue<Guid?>(nameof(GoodsReceiptLine.PhysicalObservationId)) is not null
-                && entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not ("AcceptedQuantity" or "Status" or "Version" or "UpdatedAt" or "UpdatedBy")))
+                && entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not ("AcceptedQuantity" or "RejectedQuantity" or "Status" or "Version" or "UpdatedAt" or "UpdatedBy")))
                 throw new InvalidOperationException("PhysicalReceiptEvidenceImmutable");
         foreach (var entry in ChangeTracker.Entries<GoodsReceiptLine>())
             if (entry.State == EntityState.Modified && entry.Property(x => x.AcceptedQuantity).IsModified)
@@ -146,6 +147,15 @@ public sealed partial class ProcurementDbContext
                 var effects = ChangeTracker.Entries<ReceivingAcceptanceEffect>().Where(x => x.State == EntityState.Added && x.Entity.GoodsReceiptLineId == entry.Entity.Id).Select(x => x.Entity).ToArray();
                 if (effects.Length == 0 || entry.Entity.AcceptedQuantity != ExactDecimalArithmetic.Add(entry.OriginalValues.GetValue<decimal>(nameof(GoodsReceiptLine.AcceptedQuantity)), ExactDecimalArithmetic.Sum(effects.Select(x => x.QuantityDelta))))
                     throw new InvalidOperationException("ReceivingCounterEffectRequired");
+            }
+        foreach (var entry in ChangeTracker.Entries<GoodsReceiptLine>())
+            if (entry.State == EntityState.Modified && entry.Property(x => x.RejectedQuantity).IsModified
+                && entry.OriginalValues.GetValue<Guid?>(nameof(GoodsReceiptLine.PhysicalObservationId)) is not null)
+            {
+                var disposition = ChangeTracker.Entries<ReceiptInspection>().Where(x => x.State == EntityState.Added && x.Entity.GoodsReceiptLineId == entry.Entity.Id).Select(x => x.Entity).SingleOrDefault();
+                if (disposition is null || entry.Entity.RejectedQuantity != ExactDecimalArithmetic.Add(entry.Entity.InitiallyRejectedQuantity,
+                    ExactDecimalArithmetic.Subtract(disposition.InspectedQuantity, disposition.QualifiedQuantity)))
+                    throw new InvalidOperationException("ReceivingInspectionDispositionRequired");
             }
         foreach (var entry in ChangeTracker.Entries<PurchaseOrderLine>())
             if (entry.State == EntityState.Modified && entry.Property(x => x.AcceptedQuantity).IsModified)
@@ -172,6 +182,17 @@ public sealed partial class ProcurementDbContext
         foreach (var entry in ChangeTracker.Entries<ReceiptInspection>())
             if (entry.State == EntityState.Modified && entry.OriginalValues.GetValue<int>(nameof(ReceiptInspection.ExecutionVersion)) == 1)
                 throw new InvalidOperationException("InspectionEvidenceImmutable");
+        foreach (var entry in ChangeTracker.Entries<ServiceAcceptance>())
+            if ((entry.State is EntityState.Added or EntityState.Modified) && entry.Entity.ExecutionVersion == 1 && entry.Entity.CertifiedAt != null
+                && (entry.State == EntityState.Added || entry.OriginalValues.GetValue<DateTimeOffset?>(nameof(ServiceAcceptance.CertifiedAt)) == null))
+            {
+                var effect = ChangeTracker.Entries<ReceivingAcceptanceEffect>().Where(x => x.State == EntityState.Added && x.Entity.Id == entry.Entity.CertificationEffectId
+                    && x.Entity.ServiceAcceptanceId == entry.Entity.Id).Select(x => x.Entity).SingleOrDefault();
+                if (effect is null || entry.Entity.ReceivingSourceStateId != effect.ReceivingSourceStateId
+                    || entry.Entity.SourceStateBindingId != effect.ReceivingSourceStateId || entry.Entity.AcceptedQuantity != effect.QuantityDelta
+                    || entry.Entity.AcceptedAmount != effect.NetAmountDelta || entry.Entity.OwnerWorkerId != effect.ActorWorkerId)
+                    throw new InvalidOperationException("ReceivingServicePositiveEffectRequired");
+            }
         foreach (var entry in ChangeTracker.Entries<ServiceAcceptance>())
             if (entry.State == EntityState.Modified && entry.OriginalValues.GetValue<DateTimeOffset?>(nameof(ServiceAcceptance.CertifiedAt)) is not null
                 && entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not ("CurrentAcceptedQuantity" or "CurrentAcceptedNetAmount" or "Status" or "Version" or "UpdatedAt" or "UpdatedBy")))

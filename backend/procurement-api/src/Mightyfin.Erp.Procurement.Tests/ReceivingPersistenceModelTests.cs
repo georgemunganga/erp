@@ -59,4 +59,17 @@ public sealed class ReceivingPersistenceModelTests
         db.AddScoped(line); await db.SaveChangesAsync(); line.AcceptedQuantity = 1;
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
     }
+    [Fact]
+    public async Task A_new_certified_service_cannot_bypass_the_typed_positive_effect()
+    {
+        await using var db = Context();
+        var certificate = new ServiceAcceptance { PurchaseOrderLineId = Guid.NewGuid(), ExecutionVersion = 1,
+            SourcePurchaseOrderId = Guid.NewGuid(), IssuedBindingId = Guid.NewGuid(), ReceivingSourceStateId = Guid.NewGuid(),
+            SourceStateBindingId = Guid.NewGuid(), CertificationEffectId = Guid.NewGuid(), CertifiedAt = DateTimeOffset.UtcNow,
+            OwnerWorkerId = Guid.NewGuid(), AcceptedQuantity = 1, AcceptedAmount = 100, Status = "Accepted" };
+        db.AddScoped(certificate);
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        Assert.Equal("ReceivingServicePositiveEffectRequired", failure.Message);
+    }
+
 }

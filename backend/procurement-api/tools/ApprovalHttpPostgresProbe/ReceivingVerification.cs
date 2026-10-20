@@ -83,6 +83,20 @@ sealed partial class Probe
             new { version = certificate.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:SERVICE-COMPLETE" }, Guid.NewGuid());
         var finalCertificate = await Get($"{Root}/service-acceptances/{serviceId}", OrderManager2);
         Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "1" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "100", "Service exact certification mismatch.");
+        var crossSite = await DeliveredReceivingOrder(supplier, "Service"); Guid otherSite;
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var site = new Mightyfin.Erp.Hrm.Domain.Entities.WorkLocation { LegalEntityId = OrderCompany, Code = "RECEIVING-OTHER-SITE", Name = "Other configured receiving site" };
+            core.WorkLocations.Add(site); await core.SaveChangesAsync(); otherSite = site.Id;
+        }
+        await PublishReceivingPolicy(otherSite);
+        var wrongSiteDraft = await Send(HttpMethod.Post, Root + "/service-acceptances/drafts", OrderRequester,
+            new { purchaseOrderId = crossSite.OrderId, issuedVersionId = crossSite.IssuedId, purchaseOrderLineId = crossSite.LineId,
+                deliverableReference = "WRONG-SITE-DELIVERABLE", periodFrom = today, periodTo = today, quantity = "1" }, Guid.NewGuid());
+        await Check(wrongSiteDraft, HttpStatusCode.OK); var wrongSiteRow = await wrongSiteDraft.Content.ReadFromJsonAsync<JsonElement>();
+        await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/service-acceptances/{wrongSiteRow.GetProperty("id").GetGuid()}/certify", OrderManager2,
+            new { version = wrongSiteRow.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:WRONG-POLICY-SITE" }, Guid.NewGuid());
         await VerifyConcurrentReceivingAcceptance(supplier);
         // Explicitly corrupt a separate linked source's historic counter as an owner-only fixture.
         // The HTTP runtime must never interpret absent new effects as a complete zero history.
@@ -90,7 +104,12 @@ sealed partial class Probe
         using (var services = Scope(OrderBuyer))
         {
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_order_lines SET accepted_quantity=0.25 WHERE id={legacy.LineId}");
+            var currentLine = await db.PurchaseOrderLines.AsNoTracking().SingleAsync(x => x.Id == legacy.LineId);
+            // A retained inactive legacy line for the same PR is deliberately outside the current sealed line set.
+            db.AddScoped(new PurchaseOrderLine { PurchaseOrderId = legacy.OrderId, PurchaseRequestLineId = currentLine.PurchaseRequestLineId,
+                IsActive = false, LineNumber = 2, Description = "Inherited inactive accepted line", UnitCode = "each", Quantity = 0.25m,
+                UnitPrice = 100, AcceptedQuantity = 0.25m });
+            await db.SaveChangesAsync();
         }
         var heldResponse = await Send(HttpMethod.Post, Root + "/receipts/drafts", OrderRequester,
             new { purchaseOrderId = legacy.OrderId, issuedVersionId = legacy.IssuedId, siteId = OrderBranch, receivedAt = DateTimeOffset.UtcNow,
@@ -147,7 +166,7 @@ sealed partial class Probe
             "Concurrent acceptance duplicated capacity or left a partial losing effect.");
     }
 
-    private async Task PublishReceivingPolicy()
+    private async Task PublishReceivingPolicy(Guid? serviceSite = null)
     {
         Guid inspector, owner;
         using (var services = Scope(OrderBuyer))
@@ -156,12 +175,12 @@ sealed partial class Probe
             inspector = (await core.LocalUsers.Where(x => x.Id == OrderManager1).Select(x => x.WorkerId).SingleAsync())!.Value;
             owner = (await core.LocalUsers.Where(x => x.Id == OrderManager2).Select(x => x.WorkerId).SingleAsync())!.Value;
         }
-        object Rule(string kind) => new { code = kind, categoryCode = "IT", purchaseType = kind, kind, siteIds = new[] { OrderBranch },
+        object Rule(string kind) => new { code = kind, categoryCode = "IT", purchaseType = kind, kind, siteIds = new[] { kind == "Service" ? serviceSite ?? OrderBranch : OrderBranch },
             inspectionRequired = kind == "Goods", checklistReference = kind == "Goods" ? "APPROVED-CHECKLIST" : null,
             inspectorWorkerIds = kind == "Goods" ? new[] { inspector } : [], serviceOwnerWorkerIds = kind == "Service" ? new[] { owner } : [],
             allowRequesterCertification = false, allowBuyerCertification = false, allowReceiverCertification = false, requireIndependentInspector = true,
             evidenceMode = "ControlledManualReference", evidenceReferencePrefix = "RCP:" };
-        var starts = DateTimeOffset.UtcNow.AddSeconds(3);
+        var starts = DateTimeOffset.UtcNow.AddSeconds(10);
         var created = await Send(HttpMethod.Post, Root + "/configuration/policies", OrderBuyer, new { policyKey = "RECEIVING", effectiveFrom = starts,
             rulesJson = JsonSerializer.Serialize(new { schemaVersion = 1, transactionType = "Receiving", currencyCode = "ZMW", rules = new[] { Rule("Goods"), Rule("Service") } }) });
         await Check(created, HttpStatusCode.Created); var policy = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = policy.GetProperty("id").GetGuid();

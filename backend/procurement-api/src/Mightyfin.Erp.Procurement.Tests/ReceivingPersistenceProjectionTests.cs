@@ -49,13 +49,41 @@ public sealed class ReceivingPersistenceProjectionTests
         var (state, _, _) = Fixture(); state.LegalEntityId = Guid.NewGuid();
         Assert.Throws<InvalidOperationException>(() => ReceivingPersistenceProjection.VerifyState(state));
     }
-    private static (ReceivingSourceState, GoodsReceipt, GoodsReceiptLine) Fixture()
+    [Fact]
+    public void Final_inspection_rejections_are_derived_without_rewriting_physical_truth()
+    {
+        var (state, header, line) = Fixture(); state.Sequence = 2;
+        var inspection = new ReceiptInspection { TenantId = state.TenantId, LegalEntityId = state.LegalEntityId,
+            ExecutionVersion = 1, ReceivingSourceStateId = state.Id, SourceStateBindingId = state.Id,
+            GoodsReceiptLineId = line.Id, PhysicalObservationId = line.PhysicalObservationId, PhysicalBindingId = line.PhysicalBindingId,
+            InspectorWorkerId = Guid.NewGuid(), PolicyVersionId = line.PhysicalPolicyVersionId,
+            LedgerSequence = 2, EffectKey = Guid.NewGuid(), InspectedAt = line.PhysicalRecordedAt,
+            ChecklistRef = "CHECKLIST", EvidenceRef = "INSPECTION", Status = "PartiallyPassed", InspectedQuantity = 10, QualifiedQuantity = 8 };
+        line.RejectedQuantity = 4; // Two initially rejected plus two rejected at inspection.
+        var ledger = ReceivingPersistenceProjection.Ledger(state, [(header, line)], [inspection], [], [], true, true);
+        Assert.Equal(12, ledger.Observations.Single().ReceivedQuantity);
+        Assert.Equal(2, ledger.Observations.Single().InitiallyRejectedQuantity);
+        Assert.Equal(8, ledger.Inspections.Single().QualifiedQuantity);
+        line.RejectedQuantity = 2; // A stale cached disposition must never hide the inspection rejects.
+        Assert.Throws<InvalidOperationException>(() => ReceivingPersistenceProjection.Ledger(state, [(header, line)], [inspection], [], [], true, true));
+    }
+    [Fact]
+    public void A_certified_service_with_a_bound_state_but_no_positive_fact_is_not_acceptance()
+    {
+        var (state, _, _) = Fixture(ReceivingKind.Service);
+        var service = new ServiceAcceptance { TenantId = state.TenantId, LegalEntityId = state.LegalEntityId,
+            ExecutionVersion = 1, ReceivingSourceStateId = state.Id, SourceStateBindingId = state.Id,
+            SourcePurchaseOrderId = state.PurchaseOrderId, IssuedBindingId = state.IssuedVersionId, PurchaseOrderLineId = state.PurchaseOrderLineId,
+            CertifiedAt = DateTimeOffset.UtcNow, CertificationEffectId = Guid.NewGuid(), AcceptedQuantity = 1, AcceptedAmount = 100 };
+        Assert.Throws<InvalidOperationException>(() => ReceivingPersistenceProjection.Ledger(state, [], [], [service], [], true, true));
+    }
+    private static (ReceivingSourceState, GoodsReceipt, GoodsReceiptLine) Fixture(ReceivingKind kind = ReceivingKind.Goods)
     {
         var entity = Guid.NewGuid(); var order = Guid.NewGuid(); var issued = Guid.NewGuid(); var poLine = Guid.NewGuid(); var submission = Guid.NewGuid();
         var classification = "{\"fixture\":\"explicit-test-only\"}";
         var source = new ReceivingSourcePin("test", entity, Guid.NewGuid(), order, issued, poLine, Guid.NewGuid(), 1,
             new string('a', 64), new string('b', 64), "CLASSIFICATION", ProcurementEvidenceEncoding.PolicyJsonDigest(classification),
-            ReceivingKind.Goods, "IT", "Goods", "ZMW", "EA", 10, 100, ControlledReceiving.NetPriceBasis);
+            kind, "IT", kind.ToString(), "ZMW", "EA", 10, 100, ControlledReceiving.NetPriceBasis);
         var state = new ReceivingSourceState { TenantId = "test", LegalEntityId = entity, PurchaseOrderId = order, PurchaseOrderLineId = poLine,
             IssuedVersionId = issued, SubmissionId = submission, DeliveryEvidenceId = Guid.NewGuid(), Source = source,
             SourceSha256 = ReceivingPersistenceProjection.PinDigest(source), ClassificationJson = classification, ClassificationPolicyVersionId = Guid.NewGuid() };
@@ -65,7 +93,7 @@ public sealed class ReceivingPersistenceProjectionTests
             ReceiverSubjectId = "receiver", RecordedAt = now, SiteRef = source.BranchId };
         var line = new GoodsReceiptLine { TenantId = "test", LegalEntityId = entity, GoodsReceiptId = header.Id, PurchaseOrderLineId = poLine,
             ExecutionVersion = 1, ReceivingSourceStateId = state.Id, SourceStateBindingId = state.Id, SourcePurchaseOrderId = order,
-            IssuedBindingId = issued, ReceivedQuantity = 12, InitiallyRejectedQuantity = 2, PhysicalObservationId = Guid.NewGuid(),
+            IssuedBindingId = issued, ReceivedQuantity = 12, InitiallyRejectedQuantity = 2, RejectedQuantity = 2, PhysicalObservationId = Guid.NewGuid(),
             PhysicalPolicyVersionId = Guid.NewGuid(), PhysicalEvidenceRef = "EVIDENCE", PhysicalSequence = 1,
             PhysicalRecordedAt = now, PhysicalEffectKey = Guid.NewGuid() };
         line.PhysicalBindingId = line.PhysicalObservationId.Value;
