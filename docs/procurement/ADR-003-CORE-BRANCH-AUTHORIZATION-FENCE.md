@@ -51,6 +51,11 @@ request(s) -> order/case. Branch writers must not acquire Procurement business l
 
 ## Session lifecycle and failure
 
+- Production connections must be direct PostgreSQL or traverse an explicitly session-pinned
+  proxy. External transaction/statement pooling (including PgBouncer transaction mode) is
+  unsupported: two statements could reach different physical sessions and defeat the fence.
+  `Multiplexing=false` cannot detect such an external proxy. Operations must attest the
+  complete connection path and verify session affinity before enabling execution.
 - Session leases require nonmultiplexed physical connections and ordinary pool reset;
   `Multiplexing=true` and `No Reset On Close=true` are rejected.
 - Acquisition runs outside the transaction. Acquiring a transaction-scoped fence inside
@@ -103,7 +108,13 @@ ApprovalHttpPostgresProbe `--orders` now authors actual PostgreSQL cases:
    snapshot; after writer commit the mapped HTTP mutation returns 403 without changing PO.
 3. Transaction rollback releases shared lease; canceled acquisition discards its physical
    session; fresh pooled reader and exclusive writer remain usable without leaked locks.
-4. Existing restricted-runtime assertions remain: no HRM writes are granted to Procurement.
+4. A separate Core fixture host maps the same RegisterBranchAccess POST/DELETE handlers
+   used by production. Each endpoint must wait while a restricted-runtime shared lease is
+   held, then persist the expected membership change. Its separate fixture Core administrator
+   uses the bootstrap connection; this tests actual route coupling, not production Core
+   database least privilege. The Procurement app retains its restricted runtime connection.
+5. Existing restricted-runtime assertions remain: no HRM writes are granted to Procurement;
+   the additional probe explicitly asserts direct branch-table deletion is denied.
 
 These tests are authored, not executed in this source increment. Root verification must
 compile, run the real disposable database probe and verify Core endpoint behavior before

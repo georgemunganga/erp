@@ -14,6 +14,7 @@ sealed partial class Probe
     {
         Require(OrderDistinctRuntime, "Order proof must use a restricted runtime principal.");
         await VerifyBranchFenceCleanup();
+        await VerifyCoreBranchEndpointCoupling();
         await Authority(OrderManager1, "ORDER-SOURCE-M1"); await Authority(OrderManager2, "ORDER-SOURCE-M2");
         await Authority(OrderManager2, "ORDER-COMMERCIAL-M2", "PurchaseOrder.Approve");
         Guid supplier;

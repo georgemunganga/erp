@@ -1311,46 +1311,9 @@ public static class Routes
         });
     }
 
-    public static void RegisterConfig(WebApplication app)
+    /// <summary>Maps the owning Core branch routes; kept reusable for bounded real-host verification.</summary>
+    public static void RegisterBranchAccess(RouteGroupBuilder g)
     {
-        // Visual identity is needed on the sign-in screen before a session exists.
-        // Mutations remain under the authenticated /admin group below.
-        app.MapGet($"{HrmPrefix}/branding", async (HttpContext http,
-            Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
-        {
-            http.Response.Headers.CacheControl = "no-store";
-            return Results.Ok(await svc.GetPublicAsync(ct));
-        }).WithMetadata(new TimesheetAccess());
-        var g = app.MapGroup($"{HrmPrefix}/admin").RequireAuthorization();
-        g.MapGet("/config", async (IConfigService svc, CancellationToken ct) => await svc.GetConfigAsync(ct));
-        g.MapGet("/branding", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
-            Results.Ok(await svc.GetAsync(ct)));
-        g.MapPut("/branding", async (HttpContext http, Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
-        {
-            var request = await ReadBodyAsync<Mightyfin.Erp.Hrm.Application.Branding.CompanyBrandingUpdateRequest>(http, ct)
-                ?? throw new DomainException("bad-request", "Branding settings are missing or invalid.");
-            return Results.Ok(await svc.UpdateAsync(request, ct));
-        });
-        g.MapPost("/branding/reset", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
-            Results.Ok(await svc.ResetAsync(ct)));
-        g.MapGet("/leave-types", async ([FromQuery] bool includeInactive, IConfigService svc, CancellationToken ct) =>
-            await svc.ListLeaveTypesAsync(includeInactive, ct));
-
-        // ---------- M1: organization configuration CRUD ----------
-        g.MapGet("/legal-entities", async (IConfigAdminService svc, CancellationToken ct) => await svc.ListLegalEntitiesAsync(ct));
-        g.MapGet("/legal-entities/{id:guid}", async (Guid id, IConfigAdminService svc, CancellationToken ct) => await svc.GetLegalEntityAsync(id, ct));
-        g.MapPost("/legal-entities", async (HttpContext http, IConfigAdminService svc, CancellationToken ct) =>
-        {
-            var request = await ReadBodyAsync<LegalEntityCreateRequest>(http, ct) ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
-            return Results.Created($"{HrmPrefix}/admin/legal-entities/{request.Code}", await svc.CreateLegalEntityAsync(request, ct));
-        });
-        g.MapPatch("/legal-entities/{id:guid}", async (Guid id, HttpContext http, IConfigAdminService svc, CancellationToken ct) =>
-        {
-            var request = await ReadBodyAsync<LegalEntityUpdateRequest>(http, ct) ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
-            return Results.Ok(await svc.UpdateLegalEntityAsync(id, request, ct));
-        });
-
-        g.MapGet("/locations", async (IConfigAdminService svc, CancellationToken ct) => await svc.ListLocationsAsync(ct));
         // M45: branch access (confinement) — hr_admin maps platform users to the
         // branches they are allowed to work in. Operators WITH assignments can
         // never widen past them (middleware enforces); operators WITHOUT
@@ -1401,6 +1364,49 @@ public static class Routes
                 return Results.Ok(new { deleted = id });
             }, ct);
         });
+    }
+
+    public static void RegisterConfig(WebApplication app)
+    {
+        // Visual identity is needed on the sign-in screen before a session exists.
+        // Mutations remain under the authenticated /admin group below.
+        app.MapGet($"{HrmPrefix}/branding", async (HttpContext http,
+            Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(await svc.GetPublicAsync(ct));
+        }).WithMetadata(new TimesheetAccess());
+        var g = app.MapGroup($"{HrmPrefix}/admin").RequireAuthorization();
+        g.MapGet("/config", async (IConfigService svc, CancellationToken ct) => await svc.GetConfigAsync(ct));
+        g.MapGet("/branding", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(ct)));
+        g.MapPut("/branding", async (HttpContext http, Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+        {
+            var request = await ReadBodyAsync<Mightyfin.Erp.Hrm.Application.Branding.CompanyBrandingUpdateRequest>(http, ct)
+                ?? throw new DomainException("bad-request", "Branding settings are missing or invalid.");
+            return Results.Ok(await svc.UpdateAsync(request, ct));
+        });
+        g.MapPost("/branding/reset", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ResetAsync(ct)));
+        g.MapGet("/leave-types", async ([FromQuery] bool includeInactive, IConfigService svc, CancellationToken ct) =>
+            await svc.ListLeaveTypesAsync(includeInactive, ct));
+
+        // ---------- M1: organization configuration CRUD ----------
+        g.MapGet("/legal-entities", async (IConfigAdminService svc, CancellationToken ct) => await svc.ListLegalEntitiesAsync(ct));
+        g.MapGet("/legal-entities/{id:guid}", async (Guid id, IConfigAdminService svc, CancellationToken ct) => await svc.GetLegalEntityAsync(id, ct));
+        g.MapPost("/legal-entities", async (HttpContext http, IConfigAdminService svc, CancellationToken ct) =>
+        {
+            var request = await ReadBodyAsync<LegalEntityCreateRequest>(http, ct) ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
+            return Results.Created($"{HrmPrefix}/admin/legal-entities/{request.Code}", await svc.CreateLegalEntityAsync(request, ct));
+        });
+        g.MapPatch("/legal-entities/{id:guid}", async (Guid id, HttpContext http, IConfigAdminService svc, CancellationToken ct) =>
+        {
+            var request = await ReadBodyAsync<LegalEntityUpdateRequest>(http, ct) ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
+            return Results.Ok(await svc.UpdateLegalEntityAsync(id, request, ct));
+        });
+
+        g.MapGet("/locations", async (IConfigAdminService svc, CancellationToken ct) => await svc.ListLocationsAsync(ct));
+        RegisterBranchAccess(g);
         g.MapPost("/locations", async (HttpContext http, IConfigAdminService svc, CancellationToken ct) =>
         {
             var request = await ReadBodyAsync<WorkLocationCreateRequest>(http, ct) ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
