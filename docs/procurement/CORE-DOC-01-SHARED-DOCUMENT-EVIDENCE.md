@@ -2,6 +2,8 @@
 
 Status: implementation specification; first consumer is supplier invoice intake. Related issue: [#23](https://github.com/georgemunganga/module-connect/issues/23). Prepared: 20 October 2026. This specification does not enable uploads or claim a deployed scanner.
 
+Foundation checkpoint: `Mightyfin.Erp.Core.Documents.Domain` implements scoped ownership, immutable content metadata, bounded scan leases/retries, fail-closed outcomes and retained retirement. Its 13 lifecycle tests passed locally on 20 October. Persistence, storage, the real scanner, owner adapters and UI wiring remain pending; no Core document migration or upload endpoint has been enabled.
+
 ## 1. Feature Identification
 
 Core → Documents → Record Evidence → Upload, inspect scan status, download, append a version and retire a reference. Core owns document metadata, immutable file versions, storage and scan evidence. Procurement owns the commercial record and its document references.
