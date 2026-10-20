@@ -160,6 +160,33 @@ public sealed class PurchaseRequestApprovalPinningTests
         Assert.False(f.Verify(pin).IsValid);
     }
 
+    [Theory]
+    [InlineData("approved")]
+    [InlineData("allocated")]
+    [InlineData("ordered")]
+    [InlineData("accepted")]
+    [InlineData("cancelled")]
+    [InlineData("route")]
+    [InlineData("approvalStatus")]
+    public void Pending_source_cannot_hide_prior_quantity_effects_or_routing(string change)
+    {
+        var f = new Fixture();
+        var pin = f.Pin();
+        f.Link(pin);
+        var line = f.Request.Lines.First();
+        switch (change)
+        {
+            case "approved": line.ApprovedQuantity = 1; break;
+            case "allocated": line.AllocatedQuantity = 1; break;
+            case "ordered": line.OrderedQuantity = 1; break;
+            case "accepted": line.AcceptedQuantity = 1; break;
+            case "cancelled": line.CancelledQuantity = 1; break;
+            case "route": line.Route = "DirectPO"; break;
+            case "approvalStatus": line.ApprovalStatus = "Approved"; break;
+        }
+        Assert.Contains("InvalidLines", f.Verify(pin).Blockers);
+    }
+
     [Fact]
     public void Manual_evidence_requires_an_explicit_governance_reference_and_does_not_approve_request()
     {
