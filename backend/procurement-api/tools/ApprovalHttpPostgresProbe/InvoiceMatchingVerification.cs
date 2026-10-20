@@ -71,9 +71,55 @@ sealed partial class Probe
             if(body is not null) request.Content=JsonContent.Create(body,options:Json);
             return await client.SendAsync(request);
         }
+        // Gate 1: the selected branch is not assigned. Middleware must deny before any
+        // invoice/replay lookup; a record-level 404 is not the expected contract here.
+        Guid? buyerWorker; string buyerRoles;
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var identity = await core.LocalUsers.AsNoTracking().SingleAsync(x => x.Id == OrderBuyer);
+            buyerWorker = identity.WorkerId; buyerRoles = identity.RolesCsv;
+            Require(identity.IsActive && !identity.IsArchived && buyerWorker is not null,
+                "Foreign-branch probe requires the existing active canonical buyer.");
+            Require(await core.UserBranchAssignments.AnyAsync(x => x.UserId == OrderBuyer && x.LocationId == OrderBranch && !x.IsArchived)
+                && !await core.UserBranchAssignments.AnyAsync(x => x.UserId == OrderBuyer && x.LocationId == otherBranch && !x.IsArchived),
+                "Foreign-branch probe must begin confined to its actual home assignment, not empty=organisation-wide access.");
+        }
+        var beforeUnassigned = await InvoiceApReadFootprint(id);
+        await Check(await AtOtherBranch(HttpMethod.Post,$"{Root}/invoices/{id}/matching/compare",compareInput,compareKey),HttpStatusCode.Forbidden);
+        await Check(await AtOtherBranch(HttpMethod.Get,$"{Root}/invoices/{id}/matching/commands/{compareKey}?operation=InvoiceCompare"),HttpStatusCode.Forbidden);
+        await Check(await AtOtherBranch(HttpMethod.Get,$"{Root}/invoices/{id}/matching"),HttpStatusCode.Forbidden);
+        Require(beforeUnassigned == await InvoiceApReadFootprint(id), "Unassigned selected-branch denials changed invoice/history/claim/audit/outbox evidence.");
+
+        // Gate 2: explicitly grant only the synthetic new branch through the existing
+        // Core membership model. Current action grants/account/worker and home access stay intact.
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment
+                { UserId = OrderBuyer, LocationId = otherBranch });
+            await core.SaveChangesAsync();
+            var identity = await core.LocalUsers.AsNoTracking().SingleAsync(x => x.Id == OrderBuyer);
+            Require(identity.IsActive && !identity.IsArchived && identity.WorkerId == buyerWorker && identity.RolesCsv == buyerRoles
+                && await core.UserBranchAssignments.AnyAsync(x => x.UserId == OrderBuyer && x.LocationId == OrderBranch && !x.IsArchived)
+                && await core.UserBranchAssignments.AnyAsync(x => x.UserId == OrderBuyer && x.LocationId == otherBranch && !x.IsArchived),
+                "Adding synthetic branch membership changed canonical identity/actions or removed the original home scope.");
+        }
+        var beforeForeignInvoice = await InvoiceApReadFootprint(id);
         await Check(await AtOtherBranch(HttpMethod.Post,$"{Root}/invoices/{id}/matching/compare",compareInput,compareKey),HttpStatusCode.NotFound);
         await Check(await AtOtherBranch(HttpMethod.Get,$"{Root}/invoices/{id}/matching/commands/{compareKey}?operation=InvoiceCompare"),HttpStatusCode.NotFound);
         await Check(await AtOtherBranch(HttpMethod.Get,$"{Root}/invoices/{id}/matching"),HttpStatusCode.NotFound);
+        Require(beforeForeignInvoice == await InvoiceApReadFootprint(id), "Authorized foreign-branch invoice denials changed invoice/history/claim/audit/outbox evidence.");
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            // Unselected confined context picks the first assigned UUID, not necessarily home.
+            // Retire only this temporary fixture membership before later original-branch scenarios.
+            (await core.UserBranchAssignments.SingleAsync(x => x.UserId == OrderBuyer && x.LocationId == otherBranch && !x.IsArchived)).IsArchived = true;
+            await core.SaveChangesAsync();
+            Require(await core.UserBranchAssignments.AnyAsync(x => x.UserId == OrderBuyer && x.LocationId == OrderBranch && !x.IsArchived),
+                "Foreign-branch cleanup removed original home access.");
+        }
         var state=await Get($"{Root}/invoices/{id}/matching",OrderBuyer);
         Require(state.GetProperty("comparisons").GetArrayLength()==1 && !state.GetProperty("canPostToFinance").GetBoolean(),"Matching history duplicated a retry or claimed AP readiness.");
         var concurrentInput=new { version=result.GetProperty("version").GetInt64(),compareInput.mappingVersionId,reason="Two separate comparison attempts on one invoice version" };
