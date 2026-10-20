@@ -127,3 +127,12 @@ Restored the existing live SalaryAdvance model (nullable issue date, record type
 The rebuilt API passed the strict retained-data contract/JIT probe for all three loan fields and the actual recovery state machine. The combined mapped Procurement HTTP and targeted loan/payroll regression suite passed **58/58** (5 minutes 17 seconds executing tests). Structured results and probe evidence are retained at `/home/amizo/erp-backups/procurement-host-compatibility-20261020/`. Compilation emitted existing HRM/host warnings; this is not a zero-warning build claim.
 
 A read-only production check confirmed both loan columns and exactly the existing migration history entry. No production schema or financial data was changed. Inherited HRM model-snapshot drift (including omission of SalaryAdvance) also exists in retained staging and is not repaired by this narrow restoration; do not generate a broad inferred corrective migration as part of it. Production remains v36; coordinated API release, Procurement P20 and Core document activation gates remain outstanding.
+
+
+Historical provenance imported from 66e1cf2; prior test results below are not a new candidate gate.
+
+### Remaining retained-source preservation — 20 October, 08:11 UTC
+
+Restored the retained v36 partial payroll-import behavior (omitted components and effective dates stay unchanged), setup completion/re-save guards, camel-case setup inputs and existing taxable PAYE seed basis. These four source/test files match the retained staging versions; no new HRMS feature or tax policy is introduced. The complete shared host rebuilt, then **84/84** mapped Procurement HTTP, import/setup, loan, payroll engine and leave-summary regression cases passed, with no failures or skips. Existing compilation/analyzer warnings remain. TRX evidence is retained at `/home/amizo/erp-backups/procurement-host-compatibility-20261020/source-preservation-84/`.
+
+This closes the identified retained-source differences; it does not establish full procurement completion or lift the coordinated production API release hold. Production stays v36, Procurement P20/P21 and Core documents are not newly applied, and approval execution remains disabled pending actual integration and release verification.
