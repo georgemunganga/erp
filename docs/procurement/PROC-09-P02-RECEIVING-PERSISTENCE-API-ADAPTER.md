@@ -20,7 +20,7 @@ Make an existing Purchase Receives screen save real Procurement records and prod
 
 Includes partial deliveries, four-decimal quantities, exact eight-decimal net values when CLR decimal can represent them, required inspection, quantity-priced service periods/deliverables, current scoped queues, document references and durable event publication.
 
-Excludes over-receipt/over-acceptance exceptions, reinspection, conditional acceptance, serial tracking redesign, arbitrary milestone-value allocation, new PO revisions, invoice posting, Inventory/Asset execution and financial release. Draft save does not require an invented published policy. Consequential transitions require a published supported receiving policy. Unknown classification blocks recording/certification; unknown consumption blocks negative effects. No receipt count, accepted counter, absent invoice or disabled matcher is evidence of zero consumption.
+Excludes authorizing over-acceptance, reinspection, conditional acceptance, serial tracking redesign, arbitrary milestone-value allocation, new PO revisions, invoice posting, Inventory/Asset execution and financial release. Truthful physical over-delivery and rejection evidence is retained as held/exception intake; it does not authorize acceptance or stock. Draft save does not require an invented published policy. Consequential transitions require a published supported receiving policy. Unknown classification blocks recording/certification; unknown consumption blocks negative effects. No receipt count, accepted counter, absent invoice or disabled matcher is evidence of zero consumption.
 
 ## 4. Parent & Related Features
 
@@ -88,7 +88,7 @@ Command permissions may imply narrowly documented task-detail visibility for tha
 ## 11. Business Rules
 
 - Accepted capacity is cumulative for exact issued PO line, across every receipt and service fragment. Lock/CAS the same line state before calculating it.
-- Physical received/initially rejected are immutable facts. P25 rejects new physical totals above sealed authorised quantity; replacement/over-delivery routes are deferred. Pure `RecordGoods` currently does not impose this cumulative physical bound, so the adapter/application contract must add and test it explicitly.
+- Physical received/initially rejected are immutable facts. `RecordGoods` intentionally does not bound cumulative physical observations by ordered quantity: actual delivery can exceed it, and several receipts can await inspection concurrently. Retain truthful received/rejected evidence and expose an over-delivery/held exception. Such quantities create no extra accepted authority, inventory posting or available invoice quantity. Do not add a physical-capacity rejection that discards actual evidence. A replacement remains a new observation; it cannot reuse the original physical acceptance capacity.
 - Goods positive effects cannot exceed qualified physical quantity or reuse previously certified physical capacity after a return/reversal. Acceptance capacity remains independently bounded by sealed source authority.
 - Service net amount equals exact quantity × sealed net unit price, before tax, with no additional discount inferred. Unique deliverable and completed period are required. No unsupported UOM, FX, tax-inclusive proration or current catalog rate substitution.
 - `AcceptedQuantity` counters are projections, never evidence. Compare them with reconstructed effects; corruption is a blocker, not a reason to trust the larger balance.
@@ -142,7 +142,7 @@ Proposed `/api/procurement/v1` contracts:
 
 | Route | Contract |
 |---|---|
-| GET `/receiving/sources` | Scoped delivered issued-line picker; exact IDs/hash, category/type/kind, available physical/acceptance quantities and decimal strings |
+| GET `/receiving/sources` | Scoped delivered issued-line picker; exact IDs/hash, category/type/kind, physical recorded/held totals, authorised acceptance remaining, exception indicators and decimal strings |
 | GET `/receiving/worklist?view=receipts|inspection|services` | State/resource filtered before count/page; current action candidates with explicit blockers |
 | POST `/receipts/drafts`, PUT `/receipts/{id}/draft` | Header + line exact IDs, expected versions, site/note/date; no acceptance authority |
 | POST `/receipts/{id}/record` | Atomic multi-line physical disposition, command key, expected header/line/source versions, evidence |
@@ -208,7 +208,7 @@ Accepted projection uses `ControlledReceiving.Balance`: accepted = positive minu
 
 ## 26. Test Scenarios
 
-Run the reviewed pure receiving/matcher suites first, then new model/adapter/mapped HTTP tests and PostgreSQL rehearsal. Required cases: source/header/line/issued/tenant/company FK mismatch; duplicate observation/inspection/effect key/sequence; final-row mutation/delete; source classification tamper/null; unsupported source schema; site mismatches; no policy and expired policy; required inspection and alias independence; partial accepted capacity races across different receipts; multi-line final failure rolls all back; cumulative physical bound; one service deliverable across concurrent certificates; exact minimum/maximum representable products and overflow denial; DB microsecond/JSON canonical round trips; old scope replay/recovery; current principal suspension; reader-first/writer-first Core fence ordering; full reversal versus physical return projection; legacy Accepted rows excluded; no consumption adapter cannot produce a negative effect; outbox redelivery idempotency with no claimed owner acknowledgement.
+Run the reviewed pure receiving/matcher suites first, then new model/adapter/mapped HTTP tests and PostgreSQL rehearsal. Required cases: source/header/line/issued/tenant/company FK mismatch; duplicate observation/inspection/effect key/sequence; final-row mutation/delete; source classification tamper/null; unsupported source schema; site mismatches; no policy and expired policy; required inspection and alias independence; partial accepted capacity races across different receipts; multi-line final failure rolls all back; actual over-delivery and multiple pending inspection receipts remain recorded while concurrent certification cannot exceed accepted authority; one service deliverable across concurrent certificates; exact minimum/maximum representable products and overflow denial; DB microsecond/JSON canonical round trips; old scope replay/recovery; current principal suspension; reader-first/writer-first Core fence ordering; full reversal versus physical return projection; legacy Accepted rows excluded; no consumption adapter cannot produce a negative effect; outbox redelivery idempotency with no claimed owner acknowledgement.
 
 Add Playwright against the real mapped API for empty/add/edit draft → record → inspection → accept, plus service draft → certify. Confirm normal error/loading/uncertain-result states and reload persistence. Local mock-only browser tests do not satisfy this gate.
 
@@ -223,6 +223,6 @@ Implementation order and file ownership are explicit in the linked plan. Parent 
 - Business must publish category/purchase-type mapping, inspection checklist/worker/site assignments and maker/checker choices. No default policy is silently approved.
 - Confirm first site's equivalence to Core WorkLocation; subordinate warehouses/sites need a Core relationship contract before cross-location receipt.
 - Confirm policy expiry/withdrawal resolution for already recorded goods; initial behavior blocks unsupported continuation without rewriting the retained policy.
-- Confirm whether gross physical over-delivery should be recorded into a separate held exception later; P25 conservatively blocks over-source recording.
+- Physical over-delivery must be retained as held/exception evidence in the existing receipt detail. Business must choose its later disposition/return authorization. P25 does not authorize over-acceptance; an unaccepted physical return has no accepted-entitlement delta and needs its own documented physical-disposition route before execution.
 - Inventory/Asset routing classifier, complete matcher consumption store and downstream correction authority remain subsequent explicit integrations. Their absence does not block supported positive acceptance, but blocks unsafe negative changes.
 - Root must verify P24 migration numbering/current base and source tests before P25 generation. No author, product owner or operational approval is fabricated by this document.
