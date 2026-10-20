@@ -199,3 +199,20 @@ The first failed fixtures and their logs remain preserved. This gate does not
 claim an actual UI/browser pass, P26 matching, Finance/AP, production migration
 or complete Procurement. A separately provisioned actual receiving browser
 fixture is the next gate.
+
+
+## First actual browser run — incomplete, retained
+
+The fresh `20261020_151917_browser` fixture prepared real approved/issued sources.
+The actual Playwright case reached goods acceptance, two service drafts and one
+service certification, then hit its 180-second total case budget. The first
+screenshot/trace/log/database are retained. Graceful fixture shutdown ran the
+independent persisted verifier, which correctly rejected the incomplete service
+certificates; it did not certify the partial run.
+
+Frontend test-only `a563616` separates goods and services into two serial cases
+with the original per-case budget and all original assertions retained. It also
+persists each response and final traffic before page teardown. Distinct source
+review passed, and Playwright `--list` discovers both cases. Frozen application
+assets are unchanged. The fresh `20261020_153636_browser` fixture is being
+prepared for that retry; actual UI completion remains pending at this checkpoint.
