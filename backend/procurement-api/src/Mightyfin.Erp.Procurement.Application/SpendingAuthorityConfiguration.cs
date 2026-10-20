@@ -189,7 +189,8 @@ public static class SpendingAuthorityConfiguration
         if (categories.Length > 100 || categories.Any(x => !ValidIdentifier(x, 100))
             || categories.Distinct(StringComparer.Ordinal).Count() != categories.Length
             || input.CurrencyCode is { Length: > 3 } || input.AmountBasis is { Length: > 100 }
-            || input.MaximumAmount < 0)
+            || input.MaximumAmount < 0 || input.MaximumAmount > 99_999_999_999_999.9999m
+            || decimal.Round(input.MaximumAmount, 4) != input.MaximumAmount)
             throw new InvalidOperationException("AuthorityDraftFieldsInvalid");
         grant.CurrencyCode = input.CurrencyCode?.Trim().ToUpperInvariant() ?? "";
         grant.AmountBasis = input.AmountBasis ?? "";

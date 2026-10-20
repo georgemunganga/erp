@@ -264,6 +264,20 @@ public sealed class SpendingAuthorityConfigurationTests
         Assert.Equal("PendingReview", grant.State);
     }
 
+    [Theory]
+    [InlineData("0.00005")]
+    [InlineData("100000000000000")]
+    public void Draft_rejects_values_that_PostgreSQL_numeric_cannot_store_exactly(string value)
+    {
+        var amount = decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Throws<InvalidOperationException>(() => Create(Complete with { MaximumAmount = amount }));
+        var draft = Create(new());
+        Assert.Throws<InvalidOperationException>(() => SpendingAuthorityConfiguration.EditDraft(draft,
+            draft.Version, Complete with { MaximumAmount = amount }, Owner, Now));
+        Assert.Equal(0, draft.MaximumAmount);
+        Assert.Equal("Draft", draft.State);
+    }
+
     private static ProcurementSpendingAuthorityGrant Create(SpendingAuthorityDraft input,
         IReadOnlyCollection<ProcurementSpendingAuthorityGrant>? family = null)
         => SpendingAuthorityConfiguration.CreateDraft("AUTH-001", "subject", input, Owner, Now, family ?? []);
