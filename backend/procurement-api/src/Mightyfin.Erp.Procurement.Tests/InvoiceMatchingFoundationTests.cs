@@ -16,7 +16,7 @@ public sealed class InvoiceMatchingFoundationTests
         {
             Order = f.Input.Order with { Lines = [f.OrderLine with
                 { Quantity = 2, UnitPrice = taxOnly ? 0m : .005m, TaxAmount = taxOnly ? .01m : 0m }] },
-            Invoice = f.Input.Invoice with { Lines = [f.Line with
+            Invoice = f.Input.Invoice with { TaxAmount = taxOnly ? .01m : 0m, Lines = [f.Line with
                 { UnitPrice = taxOnly ? 0m : .005m, TaxAmount = taxOnly ? .01m : 0m }] },
         };
         f.Quantity(2);
@@ -36,7 +36,8 @@ public sealed class InvoiceMatchingFoundationTests
         // commercial credit, without itself restoring any additional quantity.
         var remainder = f.Credit(debit, 0, taxOnly ? 0m : .01m) with { TaxAmount = taxOnly ? .01m : 0m };
         f.History(debit, first, second, remainder);
-        Assert.True(f.Evaluate().ComparisonPassed);
+        var completed = f.Evaluate();
+        Assert.True(completed.ComparisonPassed, string.Join(", ", completed.Discrepancies.Select(x => x.Code)));
     }
 
     [Theory]
