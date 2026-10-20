@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -41,7 +42,7 @@ sealed partial class Probe
             message.Headers.Add("X-Shell-Location", branch.ToString("D"));
             return writerClient.SendAsync(message);
         }
-        async Task<(Guid Item, Guid Entry, long Version, JsonElement Source)> Seed(string suffix)
+        async Task<(Guid Item, Guid Entry, long Version, JsonElement Source)> Seed(string suffix, decimal? minimum = null)
         {
             Guid itemId, entryId; long version;
             using (var services = Scope(OrderBuyer))
@@ -51,7 +52,7 @@ sealed partial class Probe
                     Kind = "Goods", CategoryCode = "IT", UnitCode = "each", Status = "Active", IsPurchasable = true };
                 db.AddScoped(item);
                 var entry = new CatalogEntry { CatalogItemId = item.Id, SupplierId = supplier,
-                    CurrencyCode = "ZMW", UnitCode = "each", UnitPrice = 100, Status = "Published", PublishedVersion = 1,
+                    CurrencyCode = "ZMW", UnitCode = "each", UnitPrice = 100, MinimumQuantity = minimum, MaximumQuantity = 2, Status = "Published", PublishedVersion = 1,
                     EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EffectiveTo = DateTimeOffset.UtcNow.AddDays(1) };
                 db.AddScoped(entry); await db.SaveChangesAsync(); itemId = item.Id; entryId = entry.Id; version = entry.Version;
             }
@@ -110,6 +111,66 @@ sealed partial class Probe
                 "Writer-first commitment failed for an unrelated reason.");
             Require(before == await ExactInputFootprint(), "Writer-first withdrawn offer persisted a commitment.");
         }
+        // Offer MOQ belongs to actual commercial intent; a qualifying PR cannot justify
+        // splitting below the selected price tier or substituting a supplier/price/unit.
+        var tier = await Seed("COMMERCIAL-TIER", minimum: 2);
+        Guid alternateSupplier;
+        using (var services = Scope(OrderBuyer))
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var other = new Supplier { Number = "CATALOG-ALTERNATE", LegalName = "Synthetic alternate supplier",
+                DisplayName = "Synthetic alternate", CountryCode = "ZM", Status = "Active", IsOrderable = true };
+            db.AddScoped(other); await db.SaveChangesAsync(); alternateSupplier = other.Id;
+        }
+        var validTier = JsonSerializer.SerializeToNode(OrderConversion(tier.Source, supplier), Json)!;
+        validTier["draft"]!["lines"]![0]!["quantity"] = 2;
+        validTier["draft"]!["lines"]![0]!["unitCode"] = "EACH"; // PO-owned case-equivalent unit is valid.
+        foreach (var (field, value) in new (string, JsonNode?)[] {
+            ("quantity", JsonValue.Create(1)), ("quantity", JsonValue.Create(3)),
+            ("unitPrice", JsonValue.Create(99)), ("unitCode", JsonValue.Create("BOX")),
+            ("supplierId", JsonValue.Create(alternateSupplier)), ("currencyCode", JsonValue.Create("USD")),
+        })
+        {
+            var invalid = validTier.DeepClone();
+            if (field is "supplierId" or "currencyCode") invalid["draft"]![field] = value?.DeepClone();
+            else invalid["draft"]!["lines"]![0]![field] = value?.DeepClone();
+            before = await ExactInputFootprint();
+            var denied = await SendRawOrder(HttpMethod.Post, Root + "/orders/from-approved-sources", OrderBuyer, invalid, Guid.NewGuid());
+            await Check(denied, HttpStatusCode.Conflict);
+            Require((await denied.Content.ReadAsStringAsync()).Contains("OrderCatalogCommercialTermsMismatch", StringComparison.Ordinal),
+                "Actual tier/substitution failed for an unrelated source reason: " + field);
+            Require(before == await ExactInputFootprint(), "Ineligible actual catalog intent persisted effects: " + field);
+        }
+        var tierKey = Guid.NewGuid();
+        var tierConverted = await SendRawOrder(HttpMethod.Post, Root + "/orders/from-approved-sources", OrderBuyer, validTier, tierKey);
+        await Check(tierConverted, HttpStatusCode.Created);
+        var tierText = await tierConverted.Content.ReadAsStringAsync();
+        var tierOrder = JsonDocument.Parse(tierText).RootElement.Clone(); var tierOrderId = tierOrder.GetProperty("id").GetGuid();
+        var tierDetail = await Get($"{Root}/orders/{tierOrderId}", OrderBuyer);
+        foreach (var (field, value) in new (string, JsonNode?)[] {
+            ("quantity", JsonValue.Create(1)), ("unitPrice", JsonValue.Create(99)),
+            ("unitCode", JsonValue.Create("BOX")), ("supplierId", JsonValue.Create(alternateSupplier)),
+        })
+        {
+            var draft = validTier["draft"]!.DeepClone();
+            draft["lines"]![0]!["id"] = tierDetail.GetProperty("lines")[0].GetProperty("id").GetGuid();
+            if (field == "supplierId") draft[field] = value?.DeepClone(); else draft["lines"]![0]![field] = value?.DeepClone();
+            var edit = new JsonObject { ["expectedOrderVersion"] = tierOrder.GetProperty("version").GetInt64(),
+                ["reason"] = "Invalid proposed catalog terms cannot mutate stored intent", ["draft"] = draft };
+            before = await ExactInputFootprint();
+            var denied = await SendRawOrder(HttpMethod.Put, $"{Root}/orders/{tierOrderId}/source-draft", OrderBuyer, edit, Guid.NewGuid());
+            await Check(denied, HttpStatusCode.Conflict);
+            Require((await denied.Content.ReadAsStringAsync()).Contains("OrderCatalogCommercialTermsMismatch", StringComparison.Ordinal),
+                "Actual source edit tier/substitution failed for an unrelated reason: " + field);
+            Require(before == await ExactInputFootprint(), "Denied proposed catalog edit persisted changes: " + field);
+        }
+        await Check(await Withdraw(tier.Item, tier.Entry, tier.Version), HttpStatusCode.OK);
+        var historicalTier = await SendRawOrder(HttpMethod.Post, Root + "/orders/from-approved-sources", OrderBuyer, validTier, tierKey);
+        await Check(historicalTier, HttpStatusCode.Created);
+        Require(await historicalTier.Content.ReadAsStringAsync() == tierText, "Exact historical tier conversion receipt was reinterpreted.");
+        await Check(await Send(HttpMethod.Post, $"{Root}/orders/{tierOrderId}/source-cancel", OrderBuyer,
+            new { expectedOrderVersion = tierOrder.GetProperty("version").GetInt64(), reason = "Catalog tier withdrawal cleanup" }, Guid.NewGuid()), HttpStatusCode.OK);
+        Console.WriteLine("PASS catalog commercial tiers: partial MOQ, quantity ceiling, actual price/vendor/unit/currency substitutions denied; exact case-equivalent positive/replay/cancel retained.");
         Console.WriteLine("PASS catalog fence: mapped reader-first withdrawal waits, writer-first commitment sees withdrawal; exact receipt and cancel remain usable.");
     }
 }

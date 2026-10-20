@@ -64,6 +64,7 @@ public static partial class ProcurementOrderExecutionRoutes
                     var line = ProcurementOrderDraftRoutes.NewLine(order.Id, selection.DraftLineIndex + 1,
                         draft.Lines![selection.DraftLineIndex]);
                     line.PurchaseRequestLineId = source.Line.Id;
+                    await CatalogCommercial(db, order.SupplierId, order.CurrencyCode, [(source.Line, line)], token);
                     db.AddScoped(line);
                     db.AddScoped(PurchaseOrderSourceAllocation.Reserve(source, order, line, line.Quantity, key, scope.SubjectId, now));
                     lines.Add(line);
@@ -113,6 +114,12 @@ public static partial class ProcurementOrderExecutionRoutes
                 var supplier = await db.Suppliers.Include(x => x.Qualifications).SingleOrDefaultAsync(x => x.Id == draft.SupplierId, token);
                 if (supplier is null || !SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow))
                     Conflict("OrderSupplierUnavailable");
+                var proposedLines = draft.Lines!.Select(inputLine =>
+                {
+                    var source = load.Sources.Single(x => x.OrderLine.Id == inputLine.Id);
+                    return (source.Source.Line, ProcurementOrderDraftRoutes.NewLine(order.Id, source.OrderLine.LineNumber, inputLine));
+                }).ToArray();
+                await CatalogCommercial(db, draft.SupplierId, order.CurrencyCode, proposedLines, token);
                 var now = DateTimeOffset.UtcNow;
                 foreach (var inputLine in draft.Lines!)
                 {

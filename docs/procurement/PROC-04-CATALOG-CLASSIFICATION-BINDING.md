@@ -141,3 +141,34 @@ and reader/writer probes exercise the extracted same lease mechanism too.
 No SDK, SQL, database, browser, migration or production action has run for these additions.
 Distinct review and actual mapped PostgreSQL concurrency evidence are required before this
 correction can be described as verified or enabled.
+
+## Distinct review correction — actual PO commercial intent and price tiers
+
+Original PR selection eligibility does not prove a partial or edited PO qualifies for the
+selected offer. A PR for ten may satisfy minimum ten while a later PO for one does not. No
+cross-line/request/PO tier aggregation or negotiated replacement mechanism is implemented.
+Therefore the catalog path applies min/max **per actual PO line** and fails closed rather
+than inferring an aggregate discount.
+
+At conversion before Reserve, source edit before ApplyLine/ResizeReservation, and new Finance
+confirmation/commercial submission/issue, the selected current pinned catalog entry must
+match actual PO supplier, source item identity, PO unit, currency, unit price and line quantity.
+The original PR classification/publication checks remain necessary and unchanged. A source
+edit validates a detached proposed line projection plus proposed supplier before any tracked
+line/header/allocation mutation. No current command is rescued by rewriting historical terms.
+`OrderCatalogCommercialTermsMismatch` explains an actual offer mismatch; old command receipt
+recovery, cancellation and Finance release remain outside new commercial qualification.
+
+PO units already fold case, so actual offer matching uses the established OrdinalIgnoreCase
+unit convention (`each` and `EACH`), without EA/EACH synonyms or whitespace inference. Original
+PR draft/stored catalog selection retains its previous exact unit semantics; the pure shared
+offer predicate exposes the explicit commercial comparison mode only at this boundary.
+
+Authored pure tests demonstrate original PR10 passing while actual PO1/min10 fails; max,
+price, vendor, unit/synonym/whitespace and currency changes fail, with valid case-equivalent
+PO units accepted. The actual mapped PostgreSQL probe additionally seeds a published min2/max2
+offer and a genuinely approved PR2. New conversions for1/3, price99, another active vendor,
+BOX and USD require the exact commercial blocker and no persisted effects. A valid PO2 with
+EACH succeeds; proposed source edits below MOQ or substituting price/vendor/unit fail before
+mutation. Withdrawal then leaves its exact historical conversion receipt unchanged and
+unfunded cancellation usable. These are authored sources, not executed test evidence.
