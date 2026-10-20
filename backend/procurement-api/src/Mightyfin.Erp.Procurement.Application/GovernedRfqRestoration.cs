@@ -43,6 +43,37 @@ public static class GovernedRfqRestoration
             draft.MakerWorkerId, createCommandKey, draft.Fingerprint, payload, ProcurementEvidenceEncoding.Digest(payload));
     }
 
+    /// <summary>Persistence consistency only, NOT original-source approval or current authorization.
+    /// RestoreVerified remains mandatory before executing historical cancellation.</summary>
+    public static void VerifyEnvelopeAndPins(RfqOwnedDraftEvidence evidence, SourcingEvent current,
+        IReadOnlyList<RfqDemandPin> pins)
+    {
+        if (evidence.SchemaVersion != 1 || evidence.PayloadJson is null || evidence.PayloadJson.Length > 1000000
+            || evidence.PayloadSha256 != ProcurementEvidenceEncoding.Digest(evidence.PayloadJson)) Fail();
+        using var document = StrictDocument(evidence.PayloadJson);
+        Fields(document.RootElement, EnvelopeFields);
+        var jsonLines = document.RootElement.GetProperty("Lines");
+        if (jsonLines.ValueKind != JsonValueKind.Array || jsonLines.GetArrayLength() is < 1 or > 200) Fail();
+        foreach (var line in jsonLines.EnumerateArray()) Fields(line, PinFields);
+        var value = JsonSerializer.Deserialize<Envelope>(evidence.PayloadJson, Json);
+        if (value is null || value.Lines is null || value.Lines.Any(x => x is null)
+            || value.SchemaVersion != 1 || value.EventId != evidence.EventId || value.EventId != current.Id
+            || value.TenantId != evidence.TenantId || value.TenantId != current.TenantId
+            || value.CompanyId != evidence.CompanyId || value.CompanyId != current.LegalEntityId
+            || value.BranchId != evidence.BranchId || value.BranchId != current.BranchRef
+            || value.MakerSubjectId != evidence.MakerSubjectId || value.MakerSubjectId != current.OwnerSubjectId
+            || value.MakerWorkerId != evidence.MakerWorkerId || value.MakerWorkerId != current.MakerWorkerId
+            || value.CreateCommandKey != evidence.CreateCommandKey || value.CreateCommandKey == Guid.Empty
+            || value.OriginalFingerprint != evidence.OriginalFingerprint || value.OriginalFingerprint != current.OriginalDraftFingerprint
+            || value.CurrencyCode != current.CurrencyCode || value.Title != current.Title
+            || !pins.OrderBy(x => x.LineId).SequenceEqual(value.Lines)
+            || pins.Select(x => x.LineId).Distinct().Count() != pins.Count) Fail();
+        var actor = new RfqCurrentActor(value.MakerSubjectId, value.MakerWorkerId, value.TenantId, value.CompanyId,
+            value.BranchId, new HashSet<Guid>(), true, new HashSet<string>(), true, new HashSet<Guid>());
+        var original = GovernedRfqDraft.Draft.Create(value.EventId, actor, value.BranchId, value.CurrencyCode, value.Title, "Draft", value.Lines);
+        if (original.Fingerprint != evidence.OriginalFingerprint) Fail();
+    }
+
     public static GovernedRfqDraft.Draft RestoreVerified(RfqOwnedDraftEvidence evidence, SourcingEvent current,
         IReadOnlyList<RfqOwnedDraftLine> bindings, IReadOnlyList<RfqHistoricalApproval> approvals)
     {

@@ -4,6 +4,14 @@ namespace Mightyfin.Erp.Procurement.Domain;
 // authorities are referenced by stable IDs rather than copied into this schema.
 public sealed class SourcingEvent : ProcurementRecord
 {
+    // Legacy rows stay execution0. Never infer retained source authority from old draft fields.
+    public int ExecutionVersion { get; set; }
+    public Guid? BranchRef { get; set; }
+    public Guid? MakerWorkerId { get; set; }
+    public Guid? SourceEvidenceId { get; set; }
+    public Guid? MethodId { get; set; }
+    public long? MethodRevision { get; set; }
+    public string? OriginalDraftFingerprint { get; set; }
     public string Number { get; set; } = null!;
     public string Title { get; set; } = null!;
     public string Method { get; set; } = null!;
