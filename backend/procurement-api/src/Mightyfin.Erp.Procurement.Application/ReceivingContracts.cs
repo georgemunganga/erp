@@ -43,11 +43,14 @@ public sealed record ReceivingConsumptionProjection(
     string? OwnerEvidenceReference);
 
 /// <summary>Resolved from the configured correction/return authority (Core case when required).
-/// Physical dispatch is independently verified; a requested/approved return is not a dispatch.</summary>
+/// RequesterWorkerId comes from the immutable owning correction/return request, not the
+/// dispatcher or current account alias. Its approver must be a different worker; an approver
+/// may dispatch if independently authorized. Physical dispatch is independently verified;
+/// a requested/approved return is not a dispatch.</summary>
 public sealed record ReceivingCorrectionAuthorityProjection(
     ReceivingSourcePin Source, Guid OriginalAcceptanceEffectId, Guid EffectKey,
     AcceptanceEffectKind Kind, bool CurrentAndGranted, decimal AuthorizedQuantity,
-    Guid AuthorizerWorkerId, string DecisionReference, bool DispatchVerified,
+    Guid RequesterWorkerId, Guid AuthorizerWorkerId, string DecisionReference, bool DispatchVerified,
     string? DispatchEvidenceReference);
 
 /// <summary>Matches InvoiceAcceptedFulfilment semantics: accepted excludes administrative
@@ -56,6 +59,6 @@ public sealed record ReceivingAcceptanceBalance(
     Guid AcceptanceRecordId, long Sequence, decimal AcceptedQuantity, decimal AcceptedNetAmount,
     decimal ReturnedQuantity, decimal ReturnedNetAmount, bool Reversed, string EffectsSha256)
 {
-    public decimal AvailableQuantity => AcceptedQuantity - ReturnedQuantity;
-    public decimal AvailableNetAmount => AcceptedNetAmount - ReturnedNetAmount;
+    public decimal AvailableQuantity => ExactDecimalArithmetic.Subtract(AcceptedQuantity, ReturnedQuantity);
+    public decimal AvailableNetAmount => ExactDecimalArithmetic.Subtract(AcceptedNetAmount, ReturnedNetAmount);
 }

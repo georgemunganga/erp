@@ -333,6 +333,93 @@ public sealed class ControlledReceivingTests
         ControlledReceiving.ValidateLedger(f.Ledger);
     }
 
+    [Fact]
+    public void Unrepresentable_exact_net_product_is_rejected_instead_of_silently_rounded()
+    {
+        const decimal maximum = 99999999999999.9999m;
+        var f = new Fixture(authorizedQuantity: maximum, unitPrice: maximum);
+        var physical = f.Record(maximum); f.Inspect(physical, maximum);
+        var error = Assert.Throws<InvalidOperationException>(() => f.Accept(physical, maximum));
+        Assert.Equal("ExactDecimalNotRepresentable", error.Message);
+        Assert.Empty(f.Ledger.Effects);
+        var service = new Fixture(ReceivingKind.Service, maximum, maximum);
+        var rounded = checked(maximum * maximum); // old implementation would accept this value
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.CertifyService(service.Source,
+            service.Policy, service.Certifier, service.Ledger, Guid.NewGuid(), maximum, rounded, "EXACT-SERVICE",
+            new(2026, 10, 1), new(2026, 10, 20), "SERVICE", Guid.NewGuid(), service.Now));
+    }
+
+    [Fact]
+    public void Individually_exact_fragments_cannot_create_an_unrepresentable_cumulative_net_balance()
+    {
+        var f = new Fixture(authorizedQuantity: 99999999999999.9999m, unitPrice: 99999999999999.9999m);
+        var physical = f.Record(10000000000000.0001m); f.Inspect(physical, 10000000000000.0001m);
+        f.Append(f.Accept(physical, 10000000000000m));
+        var prior = ControlledReceiving.Balance(f.Ledger, physical.GoodsReceiptLineId);
+        Assert.Throws<InvalidOperationException>(() => f.Accept(physical, 0.0001m));
+        Assert.Single(f.Ledger.Effects);
+        Assert.Equal(prior, ControlledReceiving.Balance(f.Ledger, physical.GoodsReceiptLineId));
+    }
+
+    [Fact]
+    public void Return_requester_cannot_approve_own_request_but_an_independent_approver_may_dispatch()
+    {
+        var f = new Fixture(); var physical = f.Record(2); f.Inspect(physical, 2);
+        var original = f.Accept(physical, 2); f.Append(original);
+        var key = Guid.NewGuid(); var authority = f.Authority(original, key, AcceptanceEffectKind.ReturnDispatched, 1);
+        Assert.Throws<InvalidOperationException>(() => f.Correct(original, 1, AcceptanceEffectKind.ReturnDispatched,
+            key, authority: authority with { RequesterWorkerId = authority.AuthorizerWorkerId }));
+        Assert.Throws<InvalidOperationException>(() => f.Correct(original, 1, AcceptanceEffectKind.ReturnDispatched,
+            key, authority: authority with { RequesterWorkerId = Guid.Empty }));
+        var returned = f.Correct(original, 1, AcceptanceEffectKind.ReturnDispatched, key, authority: authority);
+        Assert.Equal(f.Corrector.WorkerId, returned.ActorWorkerId);
+        Assert.Equal(returned.ActorWorkerId, returned.CorrectionEvidence!.AuthorizerWorkerId);
+        Assert.NotEqual(returned.ActorWorkerId, returned.CorrectionEvidence.RequesterWorkerId);
+        f.Append(returned);
+        typeof(ReceivingAcceptanceEffect).GetProperty(nameof(ReceivingAcceptanceEffect.CorrectionEvidence))!
+            .SetValue(returned, returned.CorrectionEvidence with { RequesterWorkerId = returned.CorrectionEvidence.AuthorizerWorkerId });
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.ValidateLedger(f.Ledger));
+    }
+
+    [Fact]
+    public void Correction_requester_worker_is_bound_to_the_acceptance_consumption_digest()
+    {
+        var f = new Fixture(); var physical = f.Record(2); f.Inspect(physical, 2);
+        var original = f.Accept(physical, 2); f.Append(original);
+        var returned = f.Correct(original, 1, AcceptanceEffectKind.ReturnDispatched); f.Append(returned);
+        var before = ControlledReceiving.Balance(f.Ledger, original.AcceptanceRecordId).EffectsSha256;
+        // Simulate corrupt retained evidence; persistence must additionally prevent any edit.
+        typeof(ReceivingAcceptanceEffect).GetProperty(nameof(ReceivingAcceptanceEffect.CorrectionEvidence))!
+            .SetValue(returned, returned.CorrectionEvidence! with { RequesterWorkerId = Guid.NewGuid() });
+        var after = ControlledReceiving.Balance(f.Ledger, original.AcceptanceRecordId).EffectsSha256;
+        Assert.NotEqual(before, after);
+        var key = Guid.NewGuid();
+        var stale = f.Consumption(original, key) with { AcceptanceEffectsSha256 = before };
+        Assert.Throws<InvalidOperationException>(() => f.Correct(original, 1,
+            AcceptanceEffectKind.ReturnDispatched, key, stale));
+    }
+
+    [Fact]
+    public void Inspection_acceptance_and_correction_cannot_predate_their_referenced_facts()
+    {
+        var f = new Fixture(); var physical = f.Record(2);
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.InspectGoods(f.Source, f.Policy,
+            f.Inspector, f.Ledger, physical.Id, 2, "INSPECT", Guid.NewGuid(), f.Now.AddMinutes(-1)));
+        f.Inspect(physical, 2);
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.AcceptGoods(f.Source, f.Policy,
+            f.Certifier, f.Ledger, physical.Id, 2, "ACCEPT", Guid.NewGuid(), f.Now.AddMinutes(-1)));
+        var original = f.Accept(physical, 2); f.Append(original);
+        var key = Guid.NewGuid();
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.CorrectAcceptance(f.Source, f.Policy,
+            f.Corrector, f.Ledger, f.Consumption(original, key), f.Authority(original, key, AcceptanceEffectKind.ReturnDispatched, 1),
+            original.Id, 1, AcceptanceEffectKind.ReturnDispatched, "REASON", "RETURN", key, f.Now.AddMinutes(-1)));
+        // Rehydration rejects a historical inspection which precedes the physical observation.
+        var inspection = f.Ledger.Inspections.Single();
+        typeof(GoodsInspectionEvidence).GetProperty(nameof(GoodsInspectionEvidence.InspectedAt))!
+            .SetValue(inspection, physical.RecordedAt.AddMinutes(-1));
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.ValidateLedger(f.Ledger));
+    }
+
     private sealed class Fixture
     {
         public DateTimeOffset Now { get; } = new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero).AddTicks(7);
@@ -344,7 +431,7 @@ public sealed class ControlledReceivingTests
         public ReceivingActorProjection Certifier { get; }
         public ReceivingActorProjection Corrector { get; }
         public ReceivingLedger Ledger { get; private set; }
-        public Fixture(ReceivingKind kind = ReceivingKind.Goods)
+        public Fixture(ReceivingKind kind = ReceivingKind.Goods, decimal authorizedQuantity = 10m, decimal unitPrice = 0.005m)
         {
             var entity = Guid.NewGuid(); var branch = Guid.NewGuid(); var order = Guid.NewGuid();
             var issuedId = Guid.NewGuid(); var line = Guid.NewGuid(); var requestLine = Guid.NewGuid();
@@ -352,9 +439,9 @@ public sealed class ControlledReceivingTests
             var category = kind == ReceivingKind.Goods ? "GOODS" : "CONSULTING";
             var snapshot = JsonSerializer.Serialize(new { schemaVersion = 1, TenantId = "test", LegalEntityId = entity,
                 Id = order, revision = 1, BuyerSubjectId = "buyer", BranchRef = branch, CurrencyCode = "ZMW",
-                lines = new[] { new { Id = line, PurchaseRequestLineId = requestLine, UnitCode = "EA", quantity = "10", unitPrice = "0.005", tax = "1.5" } } });
+                lines = new[] { new { Id = line, PurchaseRequestLineId = requestLine, UnitCode = "EA", quantity = ProcurementEvidenceEncoding.Decimal(authorizedQuantity), unitPrice = ProcurementEvidenceEncoding.Decimal(unitPrice), tax = "1.5" } } });
             var sourceJson = JsonSerializer.Serialize(new[] { new { orderLineId = line, requestLineId = requestLine,
-                CategoryCode = category, PurchaseType = kind.ToString(), UnitCode = "EA", quantity = "10" } });
+                CategoryCode = category, PurchaseType = kind.ToString(), UnitCode = "EA", quantity = ProcurementEvidenceEncoding.Decimal(authorizedQuantity) } });
             var sourceHash = ProcurementEvidenceEncoding.PolicyJsonDigest("{\"sources\":" + sourceJson + "}");
             var classification = JsonSerializer.Serialize(new { tenantId = "test", legalEntityId = entity,
                 issuedVersionId = issuedId, orderLineId = line, sourceEvidenceSha256 = sourceHash,
@@ -365,7 +452,7 @@ public sealed class ControlledReceivingTests
             var hash = ProcurementEvidenceEncoding.Digest(snapshot);
             var pin = new ReceivingSourcePin("test", entity, branch, order, issuedId, line, requestLine, 1,
                 hash, sourceHash, "CLASSIFICATION-V1", ProcurementEvidenceEncoding.PolicyJsonDigest(classification),
-                kind, category, kind.ToString(), "ZMW", "EA", 10, 0.005m, ControlledReceiving.NetPriceBasis);
+                kind, category, kind.ToString(), "ZMW", "EA", authorizedQuantity, unitPrice, ControlledReceiving.NetPriceBasis);
             Source = new(new() { Id = issuedId, TenantId = "test", LegalEntityId = entity,
                     PurchaseOrderId = order, SubmissionId = submissionId, RevisionNumber = 1,
                     CommercialSnapshotJson = snapshot, CommercialSnapshotSha256 = hash, ParticipantWorkersJson = workers, AuthorizedAt = Now.AddHours(-1) },
@@ -420,7 +507,7 @@ public sealed class ControlledReceivingTests
         }
         public ReceivingCorrectionAuthorityProjection Authority(ReceivingAcceptanceEffect original, Guid key,
             AcceptanceEffectKind kind, decimal quantity) => new(Source.Pin, original.Id, key, kind, true, quantity,
-                Corrector.WorkerId, "AUTHORITY-DECISION", true, "VERIFIED-PHYSICAL-DISPATCH");
+                Guid.NewGuid(), Corrector.WorkerId, "AUTHORITY-DECISION", true, "VERIFIED-PHYSICAL-DISPATCH");
         public ReceivingAcceptanceEffect Correct(ReceivingAcceptanceEffect original, decimal quantity, AcceptanceEffectKind kind,
             Guid? key = null, ReceivingConsumptionProjection? consumption = null, ReceivingCorrectionAuthorityProjection? authority = null)
         {

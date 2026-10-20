@@ -7,7 +7,7 @@ public enum ReceivingOwnerCorrectionState { Unknown = 0, Unprocessed = 1, Compen
 public sealed record ReceivingCorrectionPin(
     long AcceptanceSequence, string AcceptanceEffectsSha256, string ConsumptionEvidenceReference,
     decimal ConsumedQuantity, decimal ConsumedNetAmount, ReceivingOwnerCorrectionState OwnerState,
-    Guid CorrectionEffectKey, string OwnerEvidenceReference, Guid AuthorizerWorkerId,
+    Guid CorrectionEffectKey, string OwnerEvidenceReference, Guid RequesterWorkerId, Guid AuthorizerWorkerId,
     string AuthorityDecisionReference, decimal AuthorizedQuantity, string? DispatchEvidenceReference);
 
 public enum ReceivingInspectionOutcome { Passed = 1, PartiallyPassed = 2, Rejected = 3 }

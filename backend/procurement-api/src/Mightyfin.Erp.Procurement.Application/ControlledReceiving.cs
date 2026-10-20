@@ -52,7 +52,7 @@ public static class ControlledReceiving
             "InspectorMustBeIndependent");
         Require(observation.ReceivingPolicyVersionId == policy.VersionId
             && !ledger.Inspections.Any(x => x.PhysicalObservationId == observationId), "InspectionAlreadyFinalOrPolicyChanged");
-        var inspected = observation.ReceivedQuantity - observation.InitiallyRejectedQuantity;
+        var inspected = ExactDecimalArithmetic.Subtract(observation.ReceivedQuantity, observation.InitiallyRejectedQuantity);
         Require(inspected > 0 && qualified >= 0 && qualified <= inspected && QuantityPrecision(qualified), "InvalidInspectionDisposition");
         return new GoodsInspectionEvidence
         {
@@ -80,7 +80,7 @@ public static class ControlledReceiving
         Require(policy.AllowReceiverCertification || observation.ReceiverWorkerId != actor.WorkerId,
             "ReceiverCannotCertify");
         var inspection = ledger.Inspections.SingleOrDefault(x => x.PhysicalObservationId == observationId);
-        var available = observation.ReceivedQuantity - observation.InitiallyRejectedQuantity;
+        var available = ExactDecimalArithmetic.Subtract(observation.ReceivedQuantity, observation.InitiallyRejectedQuantity);
         if (policy.InspectionRequired)
         {
             Require(inspection is not null && inspection.ReceivingPolicyVersionId == policy.VersionId
@@ -88,11 +88,11 @@ public static class ControlledReceiving
             available = inspection!.QualifiedQuantity;
         }
         // Returned/reversed goods cannot be accepted a second time from the same physical observation.
-        var alreadyCertified = ledger.Effects.Where(x => x.PhysicalObservationId == observationId
-            && x.Kind == AcceptanceEffectKind.Acceptance).Sum(x => x.QuantityDelta);
-        Require(quantity > 0 && QuantityPrecision(quantity) && quantity <= available - alreadyCertified, "PhysicalAcceptanceCapacityExceeded");
+        var alreadyCertified = ExactDecimalArithmetic.Sum(ledger.Effects.Where(x => x.PhysicalObservationId == observationId
+            && x.Kind == AcceptanceEffectKind.Acceptance).Select(x => x.QuantityDelta));
+        Require(quantity > 0 && QuantityPrecision(quantity) && quantity <= ExactDecimalArithmetic.Subtract(available, alreadyCertified), "PhysicalAcceptanceCapacityExceeded");
         Capacity(source.Pin, ledger, quantity);
-        return Effect(source.Pin, policy, actor, observation.GoodsReceiptLineId, observationId,
+        return Effect(source.Pin, ledger, policy, actor, observation.GoodsReceiptLineId, observationId,
             policy.InspectionRequired ? inspection!.Id : null, null, AcceptanceEffectKind.Acceptance,
             quantity, evidence, null, null, null, null, effectKey, at, checked(ledger.Sequence + 1));
     }
@@ -107,14 +107,14 @@ public static class ControlledReceiving
         NewKey(ledger, effectKey, evidence);
         Require(source.Pin.Kind == ReceivingKind.Service && serviceAcceptanceId != Guid.Empty
             && policy.ServiceOwnerWorkerIds.Contains(actor.WorkerId), "ServiceCertificationAuthorityRequired");
-        Require(quantity > 0 && QuantityPrecision(quantity) && netAmount == checked(quantity * source.Pin.NetUnitPrice)
+        Require(quantity > 0 && QuantityPrecision(quantity) && netAmount == ExactDecimalArithmetic.Multiply(quantity, source.Pin.NetUnitPrice)
             && periodFrom <= periodTo && periodTo <= DateOnly.FromDateTime(at.UtcDateTime)
             && !string.IsNullOrWhiteSpace(deliverable), "InvalidServiceCertification");
         Require(!ledger.Effects.Any(x => x.Kind == AcceptanceEffectKind.Acceptance
             && (x.AcceptanceRecordId == serviceAcceptanceId || x.DeliverableReference == deliverable)),
             "ServiceDeliverableAlreadyCertified");
         Capacity(source.Pin, ledger, quantity);
-        return Effect(source.Pin, policy, actor, serviceAcceptanceId, null, null, null,
+        return Effect(source.Pin, ledger, policy, actor, serviceAcceptanceId, null, null, null,
             AcceptanceEffectKind.Acceptance, quantity, evidence, null, deliverable,
             periodFrom, periodTo, effectKey, at, checked(ledger.Sequence + 1));
     }
@@ -142,14 +142,15 @@ public static class ControlledReceiving
         Require(quantity > 0 && QuantityPrecision(quantity) && !string.IsNullOrWhiteSpace(reason), "CorrectionReasonAndQuantityRequired");
         Require(authority.Source == source.Pin && authority.OriginalAcceptanceEffectId == originalEffectId
             && authority.EffectKey == effectKey && authority.Kind == kind && authority.CurrentAndGranted
-            && authority.AuthorizedQuantity >= quantity && authority.AuthorizerWorkerId != Guid.Empty
+            && authority.AuthorizedQuantity >= quantity && authority.RequesterWorkerId != Guid.Empty
+            && authority.AuthorizerWorkerId != authority.RequesterWorkerId && authority.AuthorizerWorkerId != Guid.Empty
             && authority.AuthorizerWorkerId != original.ActorWorkerId
             && !string.IsNullOrWhiteSpace(authority.DecisionReference), "CorrectionDecisionRequired");
         Require(kind != AcceptanceEffectKind.ReturnDispatched || authority.DispatchVerified
             && !string.IsNullOrWhiteSpace(authority.DispatchEvidenceReference), "PhysicalReturnDispatchEvidenceRequired");
-        var alreadyRemoved = -ledger.Effects.Where(x => x.OriginalAcceptanceEffectId == originalEffectId)
-            .Sum(x => x.QuantityDelta);
-        Require(quantity <= original.QuantityDelta - alreadyRemoved, "OriginalAcceptanceCapacityExceeded");
+        var alreadyRemoved = -ExactDecimalArithmetic.Sum(ledger.Effects.Where(x => x.OriginalAcceptanceEffectId == originalEffectId)
+            .Select(x => x.QuantityDelta));
+        Require(quantity <= ExactDecimalArithmetic.Subtract(original.QuantityDelta, alreadyRemoved), "OriginalAcceptanceCapacityExceeded");
         var balance = Balance(ledger, original.AcceptanceRecordId);
         Require(consumption.Source == source.Pin && consumption.AcceptanceRecordId == original.AcceptanceRecordId
             && consumption.AcceptanceSequence == ledger.Sequence && consumption.AcceptanceEffectsSha256 == balance.EffectsSha256
@@ -160,15 +161,15 @@ public static class ControlledReceiving
         Require(consumption.OwnerState is ReceivingOwnerCorrectionState.Unprocessed or ReceivingOwnerCorrectionState.CompensationConfirmed
             && consumption.CorrectionEffectKey == effectKey && !string.IsNullOrWhiteSpace(consumption.OwnerEvidenceReference),
             "OwnerCorrectionEvidenceRequired");
-        var amount = checked(quantity * source.Pin.NetUnitPrice);
-        Require(balance.AvailableQuantity - quantity >= consumption.ConsumedQuantity
-            && balance.AvailableNetAmount - amount >= consumption.ConsumedNetAmount, "ConsumedAcceptanceCannotBeRemoved");
-        return Effect(source.Pin, policy, actor, original.AcceptanceRecordId, original.PhysicalObservationId,
+        var amount = ExactDecimalArithmetic.Multiply(quantity, source.Pin.NetUnitPrice);
+        Require(ExactDecimalArithmetic.Subtract(balance.AvailableQuantity, quantity) >= consumption.ConsumedQuantity
+            && ExactDecimalArithmetic.Subtract(balance.AvailableNetAmount, amount) >= consumption.ConsumedNetAmount, "ConsumedAcceptanceCannotBeRemoved");
+        return Effect(source.Pin, ledger, policy, actor, original.AcceptanceRecordId, original.PhysicalObservationId,
             original.InspectionEvidenceId, original.Id, kind, -quantity, evidence, reason,
             original.DeliverableReference, original.PeriodFrom, original.PeriodTo, effectKey, at, checked(ledger.Sequence + 1),
             new(consumption.AcceptanceSequence, consumption.AcceptanceEffectsSha256, consumption.EvidenceReference,
                 consumption.ConsumedQuantity, consumption.ConsumedNetAmount, consumption.OwnerState,
-                effectKey, consumption.OwnerEvidenceReference!, authority.AuthorizerWorkerId,
+                effectKey, consumption.OwnerEvidenceReference!, authority.RequesterWorkerId, authority.AuthorizerWorkerId,
                 authority.DecisionReference, authority.AuthorizedQuantity, kind == AcceptanceEffectKind.ReturnDispatched ? authority.DispatchEvidenceReference : null));
     }
 
@@ -185,16 +186,20 @@ public static class ControlledReceiving
         var positive = effects.Where(x => x.Kind == AcceptanceEffectKind.Acceptance).ToArray();
         var reversed = effects.Where(x => x.Kind == AcceptanceEffectKind.AdministrativeReversal).ToArray();
         var returned = effects.Where(x => x.Kind == AcceptanceEffectKind.ReturnDispatched).ToArray();
-        var acceptedQuantity = positive.Sum(x => x.QuantityDelta) + reversed.Sum(x => x.QuantityDelta);
-        var acceptedNet = positive.Sum(x => x.NetAmountDelta) + reversed.Sum(x => x.NetAmountDelta);
+        var accepted = positive.Concat(reversed).ToArray();
+        var acceptedQuantity = ExactDecimalArithmetic.Sum(accepted.Select(x => x.QuantityDelta));
+        var acceptedNet = ExactDecimalArithmetic.Sum(accepted.Select(x => x.NetAmountDelta));
         var digest = ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new
         {
             Source = source, Sequence = sequence, acceptanceRecordId,
             effects = effects.Select(x => new { x.Id, x.LedgerSequence, x.EffectKey, x.Kind, x.OriginalAcceptanceEffectId,
-                quantity = ProcurementEvidenceEncoding.Decimal(x.QuantityDelta), amount = ProcurementEvidenceEncoding.Decimal(x.NetAmountDelta) }),
+                quantity = ProcurementEvidenceEncoding.Decimal(x.QuantityDelta), amount = ProcurementEvidenceEncoding.Decimal(x.NetAmountDelta),
+                x.ActorWorkerId, x.CreatedBy, x.ReceivingPolicyVersionId, x.EvidenceReference, x.OccurredAt,
+                x.PhysicalObservationId, x.InspectionEvidenceId, x.DeliverableReference, x.PeriodFrom, x.PeriodTo,
+                x.CorrectionEvidence }),
         }));
         return new(acceptanceRecordId, sequence, acceptedQuantity, acceptedNet,
-            -returned.Sum(x => x.QuantityDelta), -returned.Sum(x => x.NetAmountDelta),
+            -ExactDecimalArithmetic.Sum(returned.Select(x => x.QuantityDelta)), -ExactDecimalArithmetic.Sum(returned.Select(x => x.NetAmountDelta)),
             positive.Length > 0 && acceptedQuantity == 0 && returned.Length == 0, digest);
     }
 
@@ -302,6 +307,10 @@ public static class ControlledReceiving
             .Concat(ledger.Effects.Select(x => x.LedgerSequence)).Order().ToArray();
         Require(sequences.LongLength == ledger.Sequence
             && sequences.Select((value, index) => value == (long)index + 1).All(x => x), "ReceivingLedgerSequenceMismatch");
+        var facts = Facts(ledger).OrderBy(x => x.Sequence).ToArray();
+        Require(facts.All(x => x.At != default && Time(x.At) == x.At)
+            && facts.Zip(facts.Skip(1), (previous, next) => previous.At <= next.At).All(x => x),
+            "ReceivingFactChronologyMismatch");
         var keys = ledger.Observations.Select(x => x.EffectKey).Concat(ledger.Inspections.Select(x => x.EffectKey))
             .Concat(ledger.Effects.Select(x => x.EffectKey)).ToArray();
         Require(keys.All(x => x != Guid.Empty) && keys.Distinct().Count() == keys.Length, "ReceivingEffectKeyCollision");
@@ -319,7 +328,7 @@ public static class ControlledReceiving
         {
             var observation = Observation(ledger, inspection.PhysicalObservationId);
             Require(inspection.Source == p && inspection.GoodsReceiptLineId == observation.GoodsReceiptLineId
-                && inspection.InspectedQuantity == observation.ReceivedQuantity - observation.InitiallyRejectedQuantity
+                && inspection.InspectedQuantity == ExactDecimalArithmetic.Subtract(observation.ReceivedQuantity, observation.InitiallyRejectedQuantity)
                 && inspection.QualifiedQuantity >= 0 && QuantityPrecision(inspection.QualifiedQuantity)
                 && inspection.QualifiedQuantity <= inspection.InspectedQuantity
                 && inspection.InspectorWorkerId != Guid.Empty && observation.LedgerSequence < inspection.LedgerSequence
@@ -334,7 +343,7 @@ public static class ControlledReceiving
         {
             Require(effect.Source == p && effect.AcceptanceRecordId != Guid.Empty && effect.ActorWorkerId != Guid.Empty
                 && effect.ReceivingPolicyVersionId != Guid.Empty && !string.IsNullOrWhiteSpace(effect.EvidenceReference)
-                && QuantityPrecision(effect.QuantityDelta) && effect.NetAmountDelta == checked(effect.QuantityDelta * p.NetUnitPrice), "AcceptanceEffectBasisMismatch");
+                && QuantityPrecision(effect.QuantityDelta) && effect.NetAmountDelta == ExactDecimalArithmetic.Multiply(effect.QuantityDelta, p.NetUnitPrice), "AcceptanceEffectBasisMismatch");
             if (effect.Kind == AcceptanceEffectKind.Acceptance)
             {
                 Require(effect.QuantityDelta > 0 && effect.OriginalAcceptanceEffectId is null && effect.CorrectionEvidence is null, "InvalidPositiveAcceptance");
@@ -343,7 +352,7 @@ public static class ControlledReceiving
                     Require(effect.PhysicalObservationId.HasValue, "AcceptanceObservationRequired");
                     var observation = Observation(ledger, effect.PhysicalObservationId!.Value);
                     Require(observation.GoodsReceiptLineId == effect.AcceptanceRecordId && observation.LedgerSequence < effect.LedgerSequence, "AcceptancePhysicalIdentityMismatch");
-                    var available = observation.ReceivedQuantity - observation.InitiallyRejectedQuantity;
+                    var available = ExactDecimalArithmetic.Subtract(observation.ReceivedQuantity, observation.InitiallyRejectedQuantity);
                     if (effect.InspectionEvidenceId is { } inspectionId)
                     {
                         var inspection = ledger.Inspections.SingleOrDefault(x => x.Id == inspectionId);
@@ -352,8 +361,8 @@ public static class ControlledReceiving
                             "AcceptanceInspectionMismatch");
                         available = inspection!.QualifiedQuantity;
                     }
-                    Require(ledger.Effects.Where(x => x.PhysicalObservationId == observation.Id
-                        && x.Kind == AcceptanceEffectKind.Acceptance).Sum(x => x.QuantityDelta) <= available,
+                    Require(ExactDecimalArithmetic.Sum(ledger.Effects.Where(x => x.PhysicalObservationId == observation.Id
+                        && x.Kind == AcceptanceEffectKind.Acceptance).Select(x => x.QuantityDelta)) <= available,
                         "PhysicalAcceptanceCapacityExceeded");
                 }
                 else Require(p.Kind == ReceivingKind.Service && effect.PhysicalObservationId is null
@@ -371,7 +380,7 @@ public static class ControlledReceiving
                 Require(parent is not null && parent.LedgerSequence < effect.LedgerSequence && parent.AcceptanceRecordId == effect.AcceptanceRecordId
                     && parent.PhysicalObservationId == effect.PhysicalObservationId
                     && parent.InspectionEvidenceId == effect.InspectionEvidenceId
-                    && -ledger.Effects.Where(x => x.OriginalAcceptanceEffectId == parent.Id).Sum(x => x.QuantityDelta)
+                    && -ExactDecimalArithmetic.Sum(ledger.Effects.Where(x => x.OriginalAcceptanceEffectId == parent.Id).Select(x => x.QuantityDelta))
                         <= parent.QuantityDelta, "CorrectionParentCapacityMismatch");
                 var correction = effect.CorrectionEvidence;
                 Require(correction is not null && correction.AcceptanceSequence == effect.LedgerSequence - 1
@@ -380,6 +389,7 @@ public static class ControlledReceiving
                     && !string.IsNullOrWhiteSpace(correction.OwnerEvidenceReference)
                     && !string.IsNullOrWhiteSpace(correction.ConsumptionEvidenceReference)
                     && correction.ConsumedQuantity >= 0 && correction.ConsumedNetAmount >= 0
+                    && correction.RequesterWorkerId != Guid.Empty && correction.AuthorizerWorkerId != correction.RequesterWorkerId
                     && correction.AuthorizerWorkerId != Guid.Empty && correction.AuthorizerWorkerId != parent!.ActorWorkerId
                     && !string.IsNullOrWhiteSpace(correction.AuthorityDecisionReference) && correction.AuthorizedQuantity >= -effect.QuantityDelta
                     && (effect.Kind != AcceptanceEffectKind.ReturnDispatched || !string.IsNullOrWhiteSpace(correction.DispatchEvidenceReference)),
@@ -387,30 +397,43 @@ public static class ControlledReceiving
                 var prior = BalanceCore(p, correction!.AcceptanceSequence,
                     ledger.Effects.Where(x => x.LedgerSequence < effect.LedgerSequence).ToArray(), effect.AcceptanceRecordId);
                 Require(prior.EffectsSha256 == correction.AcceptanceEffectsSha256
-                    && prior.AvailableQuantity + effect.QuantityDelta >= correction.ConsumedQuantity
-                    && prior.AvailableNetAmount + effect.NetAmountDelta >= correction.ConsumedNetAmount,
+                    && ExactDecimalArithmetic.Add(prior.AvailableQuantity, effect.QuantityDelta) >= correction.ConsumedQuantity
+                    && ExactDecimalArithmetic.Add(prior.AvailableNetAmount, effect.NetAmountDelta) >= correction.ConsumedNetAmount,
                     "CorrectionConsumptionEvidenceMismatch");
             }
         }
-        Require(ledger.Effects.Sum(x => x.QuantityDelta) >= 0
-            && ledger.Effects.Sum(x => x.QuantityDelta) <= p.AuthorizedQuantity, "IssuedAcceptanceCapacityExceeded");
+        Require(ExactDecimalArithmetic.Sum(ledger.Effects.Select(x => x.QuantityDelta)) >= 0
+            && ExactDecimalArithmetic.Sum(ledger.Effects.Select(x => x.QuantityDelta)) <= p.AuthorizedQuantity, "IssuedAcceptanceCapacityExceeded");
         decimal runningQuantity = 0;
         foreach (var historical in ledger.Effects.OrderBy(x => x.LedgerSequence))
         {
-            runningQuantity = checked(runningQuantity + historical.QuantityDelta);
+            runningQuantity = ExactDecimalArithmetic.Add(runningQuantity, historical.QuantityDelta);
             Require(runningQuantity >= 0 && runningQuantity <= p.AuthorizedQuantity, "HistoricalIssuedAcceptanceCapacityExceeded");
         }
+        // Decimal-valued projections/counters must also represent aggregate values exactly.
+        _ = ExactDecimalArithmetic.Sum(ledger.Effects.Select(x => x.NetAmountDelta));
+        _ = ExactDecimalArithmetic.Sum(ledger.Effects.Where(x => x.Kind != AcceptanceEffectKind.ReturnDispatched).Select(x => x.NetAmountDelta));
+        _ = ExactDecimalArithmetic.Sum(ledger.Effects.Where(x => x.Kind == AcceptanceEffectKind.ReturnDispatched).Select(x => x.NetAmountDelta));
+        foreach (var recordId in ledger.Effects.Select(x => x.AcceptanceRecordId).Distinct())
+            _ = BalanceCore(p, ledger.Sequence, ledger.Effects, recordId);
         var service = ledger.Effects.Where(x => x.Kind == AcceptanceEffectKind.Acceptance && p.Kind == ReceivingKind.Service).ToArray();
         Require(service.Select(x => x.AcceptanceRecordId).Distinct().Count() == service.Length
             && service.Select(x => x.DeliverableReference).Distinct(StringComparer.Ordinal).Count() == service.Length,
             "DuplicateServiceCertification");
     }
 
+    private static IEnumerable<(long Sequence, DateTimeOffset At)> Facts(ReceivingLedger ledger) =>
+        ledger.Observations.Select(x => (x.LedgerSequence, x.RecordedAt))
+            .Concat(ledger.Inspections.Select(x => (x.LedgerSequence, x.InspectedAt)))
+            .Concat(ledger.Effects.Select(x => (x.LedgerSequence, x.OccurredAt)));
+
     private static void Guard(ReceivingSourceProjection source, ReceivingPolicyProjection policy,
         ReceivingActorProjection actor, ReceivingLedger ledger, string permission, DateTimeOffset at, Guid? site = null)
     {
         VerifySource(source); ValidateLedger(ledger);
-        Require(source.Delivery.ObservedAt <= at, "ReceivingDeliveryEvidenceFromFuture");
+        Require(source.Delivery.ObservedAt <= Time(at), "ReceivingDeliveryEvidenceFromFuture");
+        Require(Facts(ledger).All(x => x.At >= source.Delivery.ObservedAt && x.At <= Time(at)),
+            "ReceivingFactChronologyMismatch");
         var p = source.Pin;
         Require(ledger.Source == p, "ReceivingLedgerSourceMismatch");
         Require(actor.Active && actor.WorkerId != Guid.Empty && !string.IsNullOrWhiteSpace(actor.PrincipalId)
@@ -431,26 +454,33 @@ public static class ControlledReceiving
             && (policy.AllowRequesterCertification || actor.WorkerId == source.BuyerWorkerId
                 || PurchaseOrderWorkerIdentity.IsIndependent(source.Submission.ParticipantWorkersJson, actor.WorkerId)), "CertificationMakerCheckerDenied");
     private static void Capacity(ReceivingSourcePin source, ReceivingLedger ledger, decimal quantity) =>
-        Require(ledger.Effects.Sum(x => x.QuantityDelta) + quantity <= source.AuthorizedQuantity, "IssuedAcceptanceCapacityExceeded");
+        Require(ExactDecimalArithmetic.Sum(ledger.Effects.Select(x => x.QuantityDelta).Append(quantity)) <= source.AuthorizedQuantity, "IssuedAcceptanceCapacityExceeded");
     private static void NewKey(ReceivingLedger ledger, Guid key, string evidence) => Require(key != Guid.Empty
         && !string.IsNullOrWhiteSpace(evidence) && !ledger.Observations.Any(x => x.EffectKey == key)
         && !ledger.Inspections.Any(x => x.EffectKey == key) && !ledger.Effects.Any(x => x.EffectKey == key), "ReceivingEffectKeyCollision");
     private static GoodsPhysicalObservation Observation(ReceivingLedger ledger, Guid id) =>
         ledger.Observations.SingleOrDefault(x => x.Id == id) ?? throw new InvalidOperationException("PhysicalObservationRequired");
-    private static ReceivingAcceptanceEffect Effect(ReceivingSourcePin source, ReceivingPolicyProjection policy,
+    private static ReceivingAcceptanceEffect Effect(ReceivingSourcePin source, ReceivingLedger ledger, ReceivingPolicyProjection policy,
         ReceivingActorProjection actor, Guid recordId, Guid? physical, Guid? inspection, Guid? original,
         AcceptanceEffectKind kind, decimal quantity, string evidence, string? reason, string? deliverable,
         DateOnly? from, DateOnly? to, Guid key, DateTimeOffset at, long sequence,
-        ReceivingCorrectionPin? correction = null) => new()
+        ReceivingCorrectionPin? correction = null)
+    {
+        var effect = new ReceivingAcceptanceEffect
         {
             TenantId = source.TenantId, LegalEntityId = source.LegalEntityId, CreatedBy = actor.PrincipalId,
             CreatedAt = Time(at), Source = source, AcceptanceRecordId = recordId, PhysicalObservationId = physical,
             InspectionEvidenceId = inspection, OriginalAcceptanceEffectId = original, CorrectionEvidence = correction, Kind = kind,
-            QuantityDelta = quantity, NetAmountDelta = checked(quantity * source.NetUnitPrice),
+            QuantityDelta = quantity, NetAmountDelta = ExactDecimalArithmetic.Multiply(quantity, source.NetUnitPrice),
             ActorWorkerId = actor.WorkerId, ReceivingPolicyVersionId = policy.VersionId,
             EvidenceReference = evidence, Reason = reason, DeliverableReference = deliverable,
             PeriodFrom = from, PeriodTo = to, LedgerSequence = sequence, EffectKey = key, OccurredAt = Time(at),
         };
+        // Never propose a fact whose resulting decimal balance would silently round or
+        // become unreadable. Persistence still owns atomic CAS and idempotent recovery.
+        ValidateLedger(ledger with { Sequence = sequence, Effects = ledger.Effects.Append(effect).ToArray() });
+        return effect;
+    }
     private static bool Scope(ProcurementRecord row, ReceivingSourcePin source) =>
         row.TenantId == source.TenantId && row.LegalEntityId == source.LegalEntityId;
     private static decimal ExactDecimal(JsonElement value)
