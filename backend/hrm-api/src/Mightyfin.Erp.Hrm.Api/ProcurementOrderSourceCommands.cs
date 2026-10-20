@@ -84,8 +84,12 @@ public static partial class ProcurementOrderExecutionRoutes
                 if (prior is not null) return prior.ResponseJson;
                 var order = load.Order;
                 if (order.Version != input.ExpectedOrderVersion || order.Status != "Draft"
-                    || order.FinanceCommitmentRef is not null || await db.OrderFinanceEvidence.AnyAsync(x => x.PurchaseOrderId == id, token))
+                    || order.FinanceCommitmentRef is not null)
                     Conflict("OrderDraftNeedsFundingResolution");
+                var lastSubmission = await db.OrderSubmissions.Where(x => x.PurchaseOrderId == id)
+                    .OrderByDescending(x => x.CommercialRevision).FirstOrDefaultAsync(token);
+                if (lastSubmission is not null && !await db.OrderFinanceResolutions.AnyAsync(x => x.SubmissionId == lastSubmission.Id
+                    && x.Outcome == "ReopenedDraft", token)) Conflict("OrderDraftNeedsFundingResolution");
                 if (input.Draft is null || string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Length > 1000
                     || ProcurementOrderDraftRoutes.Validate(input.Draft) is not null) Conflict("OrderDraftInvalid");
                 var draft = input.Draft;

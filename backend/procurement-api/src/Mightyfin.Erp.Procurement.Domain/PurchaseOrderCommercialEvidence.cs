@@ -101,3 +101,23 @@ public sealed class ProcurementCommercialCommandReceipt : ProcurementRecord
     public string ResponseJson { get; init; } = null!;
     public DateTimeOffset CompletedAt { get; init; }
 }
+
+/// <summary>Finance attests release of the PO commitment and restoration of the original PR
+/// reservations. Procurement records evidence only; no balance is changed here.</summary>
+public sealed class PurchaseOrderFinanceResolution : ProcurementRecord
+{
+    public Guid PurchaseOrderId { get; init; }
+    public Guid SubmissionId { get; init; }
+    public Guid FinanceEvidenceId { get; init; }
+    public string CommitmentReference { get; init; } = null!;
+    public string EvidenceReference { get; init; } = null!;
+    public string ApprovedManualPolicyReference { get; init; } = null!;
+    public string SourceReservationsJson { get; init; } = null!;
+    public decimal ReleasedGrossAmount { get; init; }
+    public string CurrencyCode { get; init; } = null!;
+    public string Outcome { get; init; } = null!;
+    public string Reason { get; init; } = null!;
+    public string VerifiedByPrincipalId { get; init; } = null!;
+    public Guid VerifiedByWorkerId { get; init; }
+    public DateTimeOffset ConfirmedAt { get; init; }
+}

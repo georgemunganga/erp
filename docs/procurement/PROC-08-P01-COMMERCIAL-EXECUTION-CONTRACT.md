@@ -113,3 +113,21 @@ Procurement owns commercial invariants and supplier engagement, Core owns task/i
 ## 28. Open Decisions / Assumptions
 
 Approved direct-buy method codes, PO route/authority, manual Finance policy/freshness, tax/document templates, dispatch integration and amendment/cancellation release rules require business configuration. Missing decisions block commercial issue, not existing draft CRUD. This document does not claim those configurations or the workflow are complete.
+
+### Implementation record — PROC-M5 / module-connect#5 (source only)
+
+The isolated `codex/procurement-order-execution` branch has candidate source for:
+
+- Existing-action-compatible PR/PO spending authority contracts, with mutually exclusive permission/basis matching.
+- Full PR line allocation evidence and source-version guards for direct-buy conversion, preserving standalone draft CRUD.
+- PO commercial submission, Core stages/assignments/decisions, assigned queue and authorized history; no second approval engine.
+- Exact PO snapshot/gross-amount/source-reservation Finance confirmation under explicit deployment-owned manual policy.
+- Sealed issue authorization, one outbox effect and separate independent authenticated delivery observation. `IssuePending` is not `Issued`.
+- Immutable worker identities from original PR pins and PO assignment envelopes. Different accounts for one worker cannot provide independence.
+- Return/reject original-evidence verification, plus explicit Finance release/restoration evidence before reopening a returned draft or cancelling a rejected order. Historical offboarding does not require resolving old approver accounts to perform the independent Finance resolution.
+
+Candidate typed HTTP contracts are in `ProcurementOrderExecutionContracts.cs`. Routes are defined separately in `ProcurementOrderExecutionRoutes.cs` and intentionally **not composed into the running host**. No deployment option, database migration, production data or feature activation is changed by this record.
+
+Numbered post-issue amendments remain a subsequent source increment: the currently issued payload must stay authoritative while a proposed delta is reviewed; reserved positive deltas must not reclassify an existing ordered commitment. Existing order editing rejects any approved/submitted/issued state. This guard is not a claim that the amendment workflow has been implemented.
+
+Before composition/enablement: compile/full Procurement and HTTP tests; inspect/generate separate P24 after P23; isolated PostgreSQL apply-twice/rollback/replay/concurrency and scoped-constraint tests; restricted runtime grants/schema readiness; existing buyer/approver UI adapters and real API Playwright. All new candidate source remains unverified until these gates produce evidence. No completion or deployment claim is made.

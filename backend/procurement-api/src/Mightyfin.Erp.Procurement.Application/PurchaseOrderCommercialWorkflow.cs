@@ -71,6 +71,63 @@ public static class PurchaseOrderCommercialWorkflow
         ValidateFinance(order, lines, supplier, finance, pin.CommercialRevision, gross, now, pin.BuyerWorkerId);
     }
 
+    /// <summary>Returning/rejecting a pending case requires current actor authority but must
+    /// remain possible after an external supplier suspension or commitment revocation.
+    /// This verifies the original immutable commercial evidence, not current buying eligibility.</summary>
+    public static void VerifyForReturn(PurchaseOrder order, IReadOnlyList<PurchaseOrderSourceLine> lines,
+        PurchaseOrderSubmission pin, PolicyVersion originalPolicy, PurchaseOrderFinanceEvidence originalFinance)
+    {
+        if (order.Status is not ("PendingApproval" or "Returned" or "Rejected") || pin.TenantId != order.TenantId
+            || pin.LegalEntityId != order.LegalEntityId || pin.PurchaseOrderId != order.Id
+            || pin.CommercialRevision != order.CurrentRevision || order.SubmittedBusinessVersion != pin.CommercialRevision
+            || pin.SubmittedRowVersion > order.Version || pin.BuyerPrincipalId != order.BuyerSubjectId
+            || order.ApprovalInstanceRef != pin.CoreApprovalCaseId.ToString("D")
+            || !PurchaseOrderWorkerIdentity.Verify(pin, order, lines)
+            || pin.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(pin.CommercialSnapshotJson)
+            || pin.PolicyVersionId != originalPolicy.Id || originalPolicy.TenantId != order.TenantId
+            || originalPolicy.LegalEntityId != order.LegalEntityId || originalPolicy.PolicyKey != "PURCHASE_ORDER"
+            || pin.PolicyVersionNumber != originalPolicy.PolicyVersionNumber
+            || pin.PolicyRulesSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(originalPolicy.RulesJson)
+            || pin.FinanceEvidenceId != originalFinance.Id || originalFinance.CommitmentReference != order.FinanceCommitmentRef)
+            Fail("OrderOriginalEvidenceMismatch");
+        using var snapshot = JsonDocument.Parse(pin.CommercialSnapshotJson);
+        // Supplier master details can legitimately change independently of this case.
+        // The already submitted commercial name remains part of the original evidence.
+        var originalSupplier = new Supplier { Id = order.SupplierId, TenantId = order.TenantId,
+            LegalEntityId = order.LegalEntityId,
+            LegalName = snapshot.RootElement.GetProperty("LegalName").GetString()!,
+            DisplayName = snapshot.RootElement.GetProperty("DisplayName").GetString()!,
+            CountryCode = snapshot.RootElement.GetProperty("CountryCode").GetString()! };
+        if (pin.CommercialSnapshotJson != Snapshot(order, lines.Select(x => x.OrderLine).ToArray(), originalSupplier, pin.CommercialRevision)
+            || Totals(lines.Select(x => x.OrderLine)) != (pin.LineBaseAmount, pin.GrossAmount)
+            || pin.CurrencyCode != order.CurrencyCode || pin.AmountBasis != "ApprovedLineBase")
+            Fail("OrderOriginalCommercialInputsChanged");
+        using var sourceEvidence = JsonDocument.Parse(pin.SourceEvidenceJson);
+        var retained = sourceEvidence.RootElement.EnumerateArray().ToArray();
+        if (retained.Length != lines.Count || lines.Select(x => x.OrderLine.Id).Distinct().Count() != lines.Count)
+            Fail("OrderOriginalSourceSetChanged");
+        foreach (var line in lines)
+        {
+            var matches = retained.Where(x => x.GetProperty("orderLineId").GetGuid() == line.OrderLine.Id).ToArray();
+            if (matches.Length != 1) Fail("OrderOriginalSourceSetChanged");
+            var item = matches[0];
+            if (item.GetProperty("allocationId").GetGuid() != line.Allocation.Id
+                || item.GetProperty("requestId").GetGuid() != line.Source.Request.Id
+                || item.GetProperty("requestLineId").GetGuid() != line.Source.Line.Id
+                || item.GetProperty("sourceSubmissionId").GetGuid() != line.Source.Submission.Id
+                || item.GetProperty("sourceOutcomeId").GetGuid() != line.Source.Outcome.Id
+                || item.GetProperty("sourceCaseId").GetGuid() != line.Source.CoreCase.Id
+                || item.GetProperty("sourceSnapshotHash").GetString() != line.Source.Submission.RequestSnapshotSha256
+                || line.Allocation.TargetId != order.Id || line.Allocation.TargetType != "PurchaseOrder"
+                || line.Allocation.Status != "Reserved" || line.Allocation.Quantity != line.OrderLine.Quantity
+                || !PurchaseRequestApprovalPinning.VerifyBusinessEvidence(line.Source.Submission, line.Source.Request,
+                    line.Source.Evaluation, line.Source.Policy, line.Source.Finance, order.TenantId, order.LegalEntityId).IsValid)
+                Fail("OrderOriginalSourceEvidenceChanged");
+        }
+        ValidateFinance(order, lines, originalSupplier, originalFinance, pin.CommercialRevision,
+            pin.GrossAmount, pin.SubmittedAt, pin.BuyerWorkerId);
+    }
+
     public static void ApplyDecision(PurchaseOrder order, PurchaseOrderSubmission pin,
         ApprovalCase approvalCase, ApprovalDecision decision, string? reason, Guid actorWorkerId)
     {

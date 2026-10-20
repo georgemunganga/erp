@@ -9,12 +9,14 @@ public sealed partial class ProcurementDbContext
     public DbSet<PurchaseOrderSubmission> OrderSubmissions => Set<PurchaseOrderSubmission>();
     public DbSet<PurchaseOrderAssignmentAuthorityEvidence> OrderAssignmentAuthority => Set<PurchaseOrderAssignmentAuthorityEvidence>();
     public DbSet<PurchaseOrderIssuedVersion> OrderIssuedVersions => Set<PurchaseOrderIssuedVersion>();
+    public DbSet<PurchaseOrderFinanceResolution> OrderFinanceResolutions => Set<PurchaseOrderFinanceResolution>();
     public DbSet<PurchaseOrderDeliveryEvidence> OrderDeliveryEvidence => Set<PurchaseOrderDeliveryEvidence>();
     public DbSet<ProcurementCommercialCommandReceipt> CommercialCommandReceipts => Set<ProcurementCommercialCommandReceipt>();
 
     private void ConfigurePurchaseOrderExecution(ModelBuilder model)
     {
         ConfigureBase<PurchaseOrderFinanceEvidence>(model, "purchase_order_finance_evidence");
+        ConfigureBase<PurchaseOrderFinanceResolution>(model, "purchase_order_finance_resolutions");
         ConfigureBase<PurchaseOrderSubmission>(model, "purchase_order_submissions");
         ConfigureBase<PurchaseOrderAssignmentAuthorityEvidence>(model, "purchase_order_assignment_authority");
         ConfigureBase<PurchaseOrderIssuedVersion>(model, "purchase_order_issued_versions");
@@ -112,6 +114,21 @@ public sealed partial class ProcurementDbContext
         delivery.Property(x => x.VerifiedByPrincipalId).HasMaxLength(200);
         delivery.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.IssuedVersionId, x.DeliveryReference }).IsUnique();
         Link<PurchaseOrderDeliveryEvidence, PurchaseOrderIssuedVersion>(model, nameof(PurchaseOrderDeliveryEvidence.IssuedVersionId));
+        var resolution = model.Entity<PurchaseOrderFinanceResolution>();
+        resolution.Property(x => x.CommitmentReference).HasMaxLength(200);
+        resolution.Property(x => x.EvidenceReference).HasMaxLength(500);
+        resolution.Property(x => x.ApprovedManualPolicyReference).HasMaxLength(500);
+        resolution.Property(x => x.SourceReservationsJson).HasColumnType("text");
+        resolution.Property(x => x.ReleasedGrossAmount).HasPrecision(38, 8);
+        resolution.Property(x => x.CurrencyCode).HasMaxLength(3);
+        resolution.Property(x => x.Outcome).HasMaxLength(50);
+        resolution.Property(x => x.Reason).HasMaxLength(2000);
+        resolution.Property(x => x.VerifiedByPrincipalId).HasMaxLength(200);
+        resolution.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SubmissionId }).IsUnique();
+        resolution.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.EvidenceReference }).IsUnique();
+        resolution.HasOne<PurchaseOrderSubmission>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SubmissionId, x.PurchaseOrderId, x.FinanceEvidenceId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.FinanceEvidenceId }).OnDelete(DeleteBehavior.Restrict);
         var receipt = model.Entity<ProcurementCommercialCommandReceipt>();
         receipt.Property(x => x.Operation).HasMaxLength(40);
         receipt.Property(x => x.ActorPrincipalId).HasMaxLength(200);
@@ -125,7 +142,7 @@ public sealed partial class ProcurementDbContext
     {
         foreach (var entry in ChangeTracker.Entries().Where(x => x.Entity is PurchaseOrderFinanceEvidence
             or PurchaseOrderSubmission or PurchaseOrderAssignmentAuthorityEvidence or PurchaseOrderIssuedVersion
-            or PurchaseOrderDeliveryEvidence or ProcurementCommercialCommandReceipt))
+            or PurchaseOrderDeliveryEvidence or PurchaseOrderFinanceResolution or ProcurementCommercialCommandReceipt))
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new InvalidOperationException("Purchase-order commercial authority and dispatch evidence are append-only.");
@@ -136,6 +153,9 @@ public sealed partial class ProcurementDbContext
             if (entry.Entity is PurchaseOrderAssignmentAuthorityEvidence assignment
                 && Mightyfin.Erp.Procurement.Application.PurchaseOrderAssignmentIdentity.ReadVerified(assignment) is null)
                 throw new InvalidOperationException("OrderAssignmentWorkerEvidenceInvalid");
+            if (entry.Entity is PurchaseOrderFinanceResolution release && (release.VerifiedByPrincipalId != scope.SubjectId
+                || release.VerifiedByWorkerId == Guid.Empty || release.ConfirmedAt == default))
+                throw new InvalidOperationException("OrderFinanceReleaseActorInvalid");
             if (entry.Entity is PurchaseOrderFinanceEvidence finance && (finance.VerifiedByPrincipalId != scope.SubjectId || finance.VerifiedByWorkerId == Guid.Empty))
                 throw new InvalidOperationException("OrderFinanceVerifierActorInvalid");
             if (entry.Entity is PurchaseOrderIssuedVersion issued && issued.IssuedByPrincipalId != scope.SubjectId)

@@ -105,6 +105,55 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         Assert.False(PurchaseOrderWorkerIdentity.IsIndependent("[]", Guid.NewGuid()));
     }
 
+    [Fact]
+    public void Return_can_verify_original_evidence_after_supplier_suspension_and_rename()
+    {
+        var f = new Fixture(); var pin = f.Submit();
+        f.Supplier.Status = "Suspended"; f.Supplier.LegalName = "Updated supplier legal name";
+        PurchaseOrderCommercialWorkflow.VerifyForReturn(f.Source.Order, f.Lines, pin, f.Policy, f.Finance);
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.Verify(f.Source.Order,
+            f.Lines, f.Supplier, pin, f.Policy, f.Finance, f.Now));
+        f.Source.PoLine.UnitPrice++;
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.VerifyForReturn(
+            f.Source.Order, f.Lines, pin, f.Policy, f.Finance));
+    }
+
+    [Theory]
+    [InlineData("Return", "Draft", "ReopenedDraft", 1)]
+    [InlineData("Reject", "Cancelled", "CancelledRejectedOrder", 0)]
+    public void Confirmed_finance_release_reopens_return_or_releases_rejected_quantities(
+        string action, string finalState, string resolutionOutcome, int reservedQuantity)
+    {
+        var f = new Fixture(); var pin = f.Submit(); f.Decide(pin, action);
+        var resolution = Release(f, pin, Guid.NewGuid());
+        Assert.Equal(resolutionOutcome, resolution.Outcome);
+        Assert.Equal(finalState, f.Source.Order.Status);
+        Assert.Equal(reservedQuantity, f.Source.Line.AllocatedQuantity);
+        Assert.Equal(0, f.Source.Line.OrderedQuantity);
+        Assert.Null(f.Source.Order.FinanceCommitmentRef);
+        Assert.Null(f.Source.Order.ApprovalInstanceRef);
+        Assert.Throws<InvalidOperationException>(() => Release(f, pin, Guid.NewGuid()));
+        Assert.Equal(reservedQuantity, f.Source.Line.AllocatedQuantity);
+    }
+
+    [Fact]
+    public void Release_requires_independent_retained_worker_and_exact_finance_amount()
+    {
+        var f = new Fixture(); var pin = f.Submit(); f.Decide(pin, "Return");
+        Assert.Throws<InvalidOperationException>(() => Release(f, pin, f.BuyerWorker));
+        Assert.Throws<InvalidOperationException>(() => Release(f, pin, f.ApproverWorker));
+        Assert.Throws<InvalidOperationException>(() => Release(f, pin, Guid.NewGuid(), 9));
+        Assert.Equal("Returned", f.Source.Order.Status);
+        Assert.Equal(1, f.Source.Line.AllocatedQuantity);
+        Assert.NotNull(f.Source.Order.FinanceCommitmentRef);
+    }
+
+    private static PurchaseOrderFinanceResolution Release(Fixture f, PurchaseOrderSubmission pin, Guid verifier,
+        decimal amount = 10) => PurchaseOrderFinanceResolutionWorkflow.Resolve(f.Source.Order, f.Lines,
+            pin, f.Policy, f.Finance, f.Case!, f.Assignments, "SYNTHETIC-RELEASE", "SYNTHETIC-POLICY",
+            amount, "ZMW", [f.Source.Source.Finance.ReservationRef!], "finance-release-account", verifier,
+            "Release externally confirmed", f.Now.AddMinutes(1), f.Now.AddMinutes(1));
+
     private sealed class Fixture
     {
         public PurchaseOrderSourceAllocationTests.Fixture Source { get; } = new();
@@ -115,6 +164,8 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         public PolicyVersion Policy { get; }
         public PurchaseOrderFinanceEvidence Finance { get; }
         public ApprovalCase? Case { get; private set; }
+        public Guid ApproverWorker { get; } = Guid.NewGuid();
+        public List<PurchaseOrderAssignmentAuthorityEvidence> Assignments { get; } = [];
         public Fixture()
         {
             var allocation = Source.Reserve(1);
@@ -155,17 +206,33 @@ public sealed class PurchaseOrderCommercialWorkflowTests
                 SourceVersion = 1, PolicyVersionId = Policy.Id, PolicyVersionNumber = 1, MakerSubjectId = "buyer" };
             return pin;
         }
-        public void Approve(PurchaseOrderSubmission pin)
+        public void Approve(PurchaseOrderSubmission pin) => Decide(pin, "Approve");
+        public void Decide(PurchaseOrderSubmission pin, string action)
         {
             var stage = new ApprovalStage { TenantId = Supplier.TenantId, LegalEntityId = Supplier.LegalEntityId,
                 CaseId = Case!.Id, Sequence = 1, Code = "COMMERCIAL", Mode = "Any", RequiredApprovals = 1, State = "Active" };
             var assignment = new ApprovalAssignment { TenantId = Supplier.TenantId, LegalEntityId = Supplier.LegalEntityId,
                 CaseId = Case.Id, StageId = stage.Id, AssigneeSubjectId = "independent-po-approver", PermissionKey = "procurement-po-approve" };
             stage.Assignments.Add(assignment); Case.Stages.Add(stage);
+            var grant = new ProcurementSpendingAuthorityGrant { TenantId = Supplier.TenantId,
+                LegalEntityId = Supplier.LegalEntityId, PrincipalId = assignment.AssigneeSubjectId,
+                AuthorityReference = "SYNTHETIC-PO-AUTHORITY", AuthorityVersion = 1, Version = 1,
+                Permission = "procurement-po-approve", Action = "PurchaseOrder.Approve", AmountBasis = "ApprovedLineBase",
+                State = "Active", CurrencyCode = "ZMW", MaximumAmount = 100, EffectiveFrom = Now.AddDays(-1),
+                AllBranches = true, AllDepartments = true, AllCategories = true };
+            var authority = ProcurementSpendingAuthority.Evaluate(PurchaseOrderCommercialWorkflow.SpendingContext(Source.Order, Lines),
+                assignment.AssigneeSubjectId, grant.Permission, grant.Action, Now, [grant]).Evidence!;
+            var authorityJson = JsonSerializer.Serialize(new PurchaseOrderAssignmentIdentityEvidence(ApproverWorker, authority));
+            Assignments.Add(new PurchaseOrderAssignmentAuthorityEvidence { TenantId = Supplier.TenantId,
+                LegalEntityId = Supplier.LegalEntityId, SubmissionId = pin.Id, CoreApprovalCaseId = Case.Id,
+                CoreStageId = stage.Id, CoreAssignmentId = assignment.Id, GrantId = grant.Id, GrantRevision = grant.Version,
+                AuthorityVersion = grant.AuthorityVersion, PrincipalId = assignment.AssigneeSubjectId,
+                AssigneeWorkerId = ApproverWorker, AssigneeKind = "ProcurementManager", AuthorityEvidenceJson = authorityJson,
+                AuthorityEvidenceSha256 = ProcurementEvidenceEncoding.Digest(authorityJson) });
             var decisions = new List<ApprovalDecision>();
             ApprovalEngine.Decide(Case, assignment, new("independent-po-approver", Supplier.TenantId, Supplier.LegalEntityId,
-                new HashSet<string> { "procurement-po-approve" }), "Approve", Guid.NewGuid().ToString("D"), null, decisions, Now);
-            PurchaseOrderCommercialWorkflow.ApplyDecision(Source.Order, pin, Case, decisions.Single(), null, Guid.NewGuid());
+                new HashSet<string> { "procurement-po-approve" }), action, Guid.NewGuid().ToString("D"), action == "Approve" ? null : "Review required", decisions, Now);
+            PurchaseOrderCommercialWorkflow.ApplyDecision(Source.Order, pin, Case, decisions.Single(), action == "Approve" ? null : "Review required", ApproverWorker);
             Source.Order.Version++;
         }
     }

@@ -56,7 +56,8 @@ public static partial class ProcurementOrderExecutionRoutes
                 .Select(x => x.PurchaseRequestId).SingleAsync(ct);
             var source = await Source(db, coreCases, scope, requestId, line.PurchaseRequestLineId!.Value, ct);
             var allocation = source.Allocations.SingleOrDefault(x => x.TargetType == "PurchaseOrder"
-                && x.TargetId == id && x.Status != "Released") ?? throw new OrderProblem("OrderSourceAllocationMissing", 409);
+                && x.TargetId == id && (x.Status != "Released" || order!.Status == "Cancelled"))
+                ?? throw new OrderProblem("OrderSourceAllocationMissing", 409);
             sources.Add(new(line, source, allocation));
         }
         return new(order!, lines, supplier, sources);

@@ -111,8 +111,12 @@ public static partial class ProcurementOrderExecutionRoutes
                     || load.Order.Version != input.ExpectedOrderVersion) Conflict("OrderDecisionVersionChanged");
                 var now = DateTimeOffset.UtcNow;
                 var policy = await db.PolicyVersions.SingleAsync(x => x.Id == pin.PolicyVersionId, token);
-                var finance = await CurrentFinance(db, core, scope, load, options, pin.CommercialRevision, now, token);
-                PurchaseOrderCommercialWorkflow.Verify(load.Order, load.Sources, load.Supplier, pin, policy, finance, now);
+                var finance = input.Action == "Approve"
+                    ? await CurrentFinance(db, core, scope, load, options, pin.CommercialRevision, now, token)
+                    : await db.OrderFinanceEvidence.SingleAsync(x => x.Id == pin.FinanceEvidenceId, token);
+                if (input.Action == "Approve")
+                    PurchaseOrderCommercialWorkflow.Verify(load.Order, load.Sources, load.Supplier, pin, policy, finance, now);
+                else PurchaseOrderCommercialWorkflow.VerifyForReturn(load.Order, load.Sources, pin, policy, finance);
                 var actor = await ProcurementOrderAuthorityResolver.ValidateAsync(load.Order, load.Sources, pin,
                     assignmentPin, core, db, scope, now, token);
                 if (input.Action == "Approve")
