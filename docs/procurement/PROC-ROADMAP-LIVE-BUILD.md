@@ -133,6 +133,39 @@ Protected raw logs, TRXs, migration SQL, browser traces and hashes are retained 
 `/home/amizo/erp-backups/procurement-approvals-ui-20261020/` on the verification host.
 Synthetic fixture manifests remain private and are not committed.
 
+### Approval settings verification checkpoint — 20 October 2026
+
+The authority settings backend is now integrated through `af15adf`. All **225**
+Procurement Release tests passed, followed by **8/8** mapped settings HTTP tests.
+The first HTTP compilation exposed a missing fixture namespace; the first runnable
+suite exposed two fixture attempts to change an immutable request scope. Both were
+corrected using fresh actor scopes, with original failure logs retained. No production
+business control was weakened to accommodate the fixtures.
+
+A new `--settings` mode of the guarded disposable HTTP/PostgreSQL probe passed using
+a distinct restricted non-owner runtime role. It exercised all four lookup queries,
+bounded/minimal people responses, employee denial, the exact persisted/output amount
+`99999999999999.9999`, current named actions and negative database privilege checks.
+This is actual API/database evidence; production settings deployment remains pending.
+
+Frontend `0339522` passed 11 exact-money/policy unit tests, TypeScript, and two real
+React StrictMode development-server Playwright scenarios with mocked API responses.
+Those browser scenarios verify exact save and interrupted-create reconciliation; they
+do not constitute a combined browser/actual-backend settings workflow. Its earlier
+staged assets were not replaced or published by these checks.
+
+Purchase-order source `6225867` (including independently reviewed Core branch-fence
+source) has entered the first isolated compile/domain/HTTP gate. Its P24 migration,
+restricted PostgreSQL workflow and UI acceptance remain pending. The branch-fence
+contract orders commands and cooperative Core branch mutations; role/account/worker
+changes are outside its stated guarantee. Receiving contract `be08e8a` is documented
+in 28 sections; its domain increment is being authored separately. Invoice comparison
+review found and corrected a cumulative credit-rounding gap in source `0feb1da`;
+that correction has not yet run its SDK tests.
+
+Production remains v36/P19 with approval execution disabled. Source candidates and
+passing isolated gates are not a claim that the full Procurement module is live.
+
 | Area | State on 18 October 2026 | Next acceptance evidence |
 |---|---|---|
 | Source schema P0–P9 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
