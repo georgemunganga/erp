@@ -248,6 +248,18 @@ otherwise named organisation-wide owner. Existing receiving policy creation/publ
 is used; no synthetic published receiving policy or successful owner posting is fabricated.
 The probe remains unrun for P25 until its migration and centralized runtime gate are ready.
 
+Receiving read-scope regression (source only): the controlled `--receiving` fixture records
+a legitimate issued-A positive path, then bootstrap-corrupts only its current PO header to
+B while a named policy-site-B owner is restricted to Core B. Actual API assigned/source/v1
+worklist rows and counts must remain zero and details denied. Cleanup restores original A
+and membership; runtime privileges are unchanged. This scenario has not been executed here.
+
+Unknown legacy visibility follow-up (unrun source): the same receiving scope scenario now
+creates untouched v0 goods/service records and checks organisation-wide/no-selection access,
+selected-A denial, and selected/unselected B-only denial after A→B header corruption. Both
+records must survive with missing bindings and no certification evidence. This is explicit
+read scope control; it does not backfill a historical branch or confer matching authority.
+
 ### Invoice comparison unavailable-owner boundary (source authored; unexecuted)
 
 `--matching` is mutually exclusive with all other modes and includes the reviewed receiving
@@ -258,4 +270,3 @@ Blocked comparison under the real unavailable owner/reviewer adapters, exact ret
 permission/body-conflict denials, exceptions/outbox and no fabricated capacity/AP effects.
 It does not prove a real Finance owner/reviewer integration or final payable approval.
 No new mode or grant in this tool authorizes production mutation.
-

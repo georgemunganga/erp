@@ -466,6 +466,54 @@ public sealed class ControlledReceivingTests
         Assert.Equal(1, result.QuantityDelta);
     }
 
+    [Fact]
+    public void Read_capacity_is_unknown_until_complete_history_and_never_invents_zero()
+    {
+        var f = new Fixture(); var physical = f.Record(2);
+        var unknown = f.Ledger with { AcceptanceHistoryVerified = false };
+        var value = ReceivingPositiveReadModel.Capacity(unknown, f.Policy, physical.Id);
+        Assert.False(value.Verified); Assert.Null(value.OrderRemainingQuantity); Assert.Null(value.AcceptableQuantity);
+        Assert.False(ReceivingPositiveReadModel.Accept(f.Source, f.Policy, f.Certifier, unknown, physical.Id, f.Now).Candidate);
+        Assert.Empty(f.Ledger.Effects); Assert.Equal(1, f.Ledger.Sequence);
+    }
+    [Fact]
+    public void Read_candidates_use_real_guards_and_exact_remaining_qualified_capacity_without_mutating()
+    {
+        var f = new Fixture(); var physical = f.Record(12);
+        var uninspected = ReceivingPositiveReadModel.Capacity(f.Ledger, f.Policy, physical.Id);
+        Assert.True(uninspected.Verified); Assert.Null(uninspected.AcceptableQuantity);
+        Assert.True(ReceivingPositiveReadModel.Inspect(f.Source, f.Policy, f.Inspector, f.Ledger, physical.Id, f.Now).Candidate);
+        Assert.False(ReceivingPositiveReadModel.Inspect(f.Source, f.Policy, f.Inspector with { WorkerId = physical.ReceiverWorkerId },
+            f.Ledger, physical.Id, f.Now).Candidate);
+        f.Inspect(physical, 8); f.Append(f.Accept(physical, 3));
+        var capacity = ReceivingPositiveReadModel.Capacity(f.Ledger, f.Policy, physical.Id);
+        Assert.Equal(7, capacity.OrderRemainingQuantity); Assert.Equal(5, capacity.PhysicalRemainingQuantity); Assert.Equal(5, capacity.AcceptableQuantity);
+        var before = f.Ledger;
+        Assert.True(ReceivingPositiveReadModel.Accept(f.Source, f.Policy, f.Certifier, f.Ledger, physical.Id, f.Now).Candidate);
+        Assert.False(ReceivingPositiveReadModel.Inspect(f.Source, f.Policy, f.Inspector, f.Ledger, physical.Id, f.Now).Candidate);
+        Assert.Same(before, f.Ledger); Assert.Single(f.Ledger.Effects);
+    }
+    [Fact]
+    public void Read_capacity_does_not_reuse_returned_physical_goods()
+    {
+        var f = new Fixture(); var physical = f.Record(2); f.Inspect(physical, 2);
+        var accepted = f.Accept(physical, 2); f.Append(accepted); f.Append(f.Correct(accepted, 1, AcceptanceEffectKind.ReturnDispatched));
+        var capacity = ReceivingPositiveReadModel.Capacity(f.Ledger, f.Policy, physical.Id);
+        Assert.Equal(9, capacity.OrderRemainingQuantity); Assert.Equal(0, capacity.PhysicalRemainingQuantity);
+        Assert.False(ReceivingPositiveReadModel.Accept(f.Source, f.Policy, f.Certifier, f.Ledger, physical.Id, f.Now).Candidate);
+    }
+
+    [Fact]
+    public void Historic_capacity_survives_policy_expiry_but_current_action_candidate_does_not()
+    {
+        var f = new Fixture(); var physical = f.Record(2); f.Inspect(physical, 2);
+        var expired = f.Policy with { EffectiveTo = f.Now.AddMinutes(-1) };
+        var value = ReceivingPositiveReadModel.Capacity(f.Ledger, expired, physical.Id);
+        Assert.True(value.Verified); Assert.Equal(2, value.AcceptableQuantity);
+        Assert.False(ReceivingPositiveReadModel.Accept(f.Source, expired, f.Certifier, f.Ledger, physical.Id, f.Now).Candidate);
+        Assert.Empty(f.Ledger.Effects);
+    }
+
     private sealed class Fixture
     {
         public DateTimeOffset Now { get; } = new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero).AddTicks(7);

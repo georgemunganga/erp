@@ -365,3 +365,97 @@ an inactive historical-line case and a governed site-restricted service-policy c
 These tests have **not been executed** in this worktree. P25 migration generation,
 restricted-runtime SQL/HTTP verification, compatible UI integration and browser tests
 remain centralized release gates; all production receiving capabilities remain default-off.
+
+## Additive P25 read-contract increment (source only)
+
+This increment adds no tables or permissions and does not enable receiving. Existing broad
+receipt detail now includes `lineReadiness` with retained issued supplier/order/line labels,
+exact-string capacity, immutable acceptance effect references and current action candidates.
+Service detail has the corresponding `capacity`, `actionCandidates`, labels and effects.
+Draft owner edit/cancel candidates remain usable when receiving policy is not configured,
+provided current issued source and Core edit/scope checks pass. Candidates are hints; the
+actual command/replay always revalidates canonical identity, policy, source, scope and effects.
+
+New purpose-only routes use existing granular permissions, without `procurement-po-read`
+or `procurement-receipt-view`:
+
+| Route | Required action | Visibility |
+|---|---|---|
+| `GET /receiving/inspection-tasks?page&pageSize` | `procurement-receipt-inspect` | Current named inspector's current-policy/site/source-classification pending physical lines |
+| `GET /receipts/{id}/inspection-task` | Same | Assigned lines only; omits whole-receipt notes/delivery note/document references |
+| `GET /receiving/service-tasks?page&pageSize` | `procurement-service-certify` | Current named service owner's pending certifications in explicit policy sites |
+| `GET /service-acceptances/{id}/certification-task` | Same | Assigned service record; no broad source PO or other receiving records |
+
+The task queries resolve the current canonical worker/permission/Core branch scope and one
+valid published policy, then apply explicit category/purchase-type/site/currency and scope
+filters **in SQL before count/page** using immutable submitted source lineage. Page size is
+bounded to100. Queue membership is not a promise that maker/checker, evidence or capacity
+allows completion; detail returns current guarded candidate/blocker. General receipt reads
+continue to require their existing broad receipt-view permission.
+
+Read previews use an explicitly nonpersisting source-state projection and never create or
+advance receiving state/effects. Unknown inherited acceptance yields `verified=false` and
+null remaining quantities, not zero or positive availability. Missing required inspection
+has known order history but null physical/acceptable quantity and a qualification blocker.
+Returned/reversed physical fragments do not restore capacity to reuse the original arrival.
+
+`documents` reports only real existing ProcurementAttachmentRef metadata, preserving Core
+DocumentServiceId/version identity. It explicitly says content/upload access is unavailable:
+the current Core document owner adapter supports supplier invoices, not receiving owners.
+No filename-only browser selection or `CoreOwned` reference is represented as a scanned,
+uploaded or downloadable file. A later shared Procurement document owner adapter must
+add receiving ownership/access before those actions appear. Purpose-only tasks do not
+expose whole-record document references that could belong to other unassigned lines.
+
+Authored verification covers real mapped default-off/access gates; pure unknown/qualified/
+returned-capacity and current-guard nonmutation; actual PostgreSQL probe task pagination,
+unassigned denial, no broad PO/receipt read, and service previews creating no state. These
+are source tests, not execution results. Migration/runtime/UI/browser gates remain open.
+
+Historical read clarification: an explicitly retained published receiving policy may be
+loaded after its effective interval to describe immutable recorded acceptance/inspection.
+Current action hints still run the policy's effective-time guards and become false on
+expiry. No retained-policy exception is applied to commands, replay or task assignment;
+those retain their existing effective-now defaults. A draft without a retained policy
+still needs a single configured current policy for positive-action hints.
+
+### Retained scope before paging (review correction to aee034a)
+
+Current mutable PO branch alone is insufficient to authorize a receiving list row. A shared
+SQL read fence now compares current PO scope/identity/revision/number/supplier/buyer with
+retained issued commercial evidence, the matching submission and its approved Core case
+source/version/policy/maker pointers. The branch key must exist in the sealed document;
+null branches use exact null equality. This fence composes into assigned inspection/service
+queries, issued source picker, and version-one receipt/service worklists **before count and
+page**. General v1 detail rejects a source outside this retained lineage as well. The detailed
+Source verifier still checks full canonical intent and hashes; SQL predicates do not replace
+that final proof or authorize a write.
+
+The authored restricted-runtime probe preserves a legitimate A positive task, then uses the
+bootstrap owner only to corrupt its current PO branch to B. A named current policy/site-B
+owner restricted to Core branch B must see zero assigned tasks, sources and v1 worklist rows,
+including zero counts; purpose detail is404 and broad detail409. The fixture restores both
+branch and membership without granting the runtime PO-tamper/Core-write permission.
+
+Legacy executionVersion0 has no fabricated issued authority. Because its historical branch
+cannot be proved from a missing issued pin, read visibility is restricted to a current
+organisation-wide receipt-view actor with **no selected branch and no Core branch restriction**.
+Selected-branch and branch-confined requests omit these rows before count/page and receive404
+for their detail, even when the mutable linked PO now points to that branch. No legacy site
+or branch is guessed, backfilled or treated as matching/acceptance evidence. Existing records
+remain intact and explicitly unverified for authorised organisation-wide inspection/recovery.
+Unknown execution versions are excluded from bounded worklists/detail and cannot execute.
+
+
+Legacy visibility verification (source only): the actual receiving PostgreSQL probe creates
+untouched executionVersion0 goods/service rows against a real A source. Organisation-wide,
+no-selection inspection succeeds and retains missing pins/uncertified flags; selecting A
+hides rows and detail. After bootstrap-corrupting the current PO to B and restricting the
+reader to B, selected and unselected B requests see no legacy rows/counts/details. Cleanup
+asserts both legacy records and missing evidence remain unchanged. No verification result
+is claimed until the central actual-runtime gate runs this scenario.
+
+Service draft round-trip: normal authorised `GET /service-acceptances/{id}` additionally
+returns `notes`, mapped from the existing service record's Reason field used by draft Notes.
+Purpose-only certification detail omits this field. The source probe asserts normal notes
+survive certification and are absent from purpose detail; no new field/table is persisted.

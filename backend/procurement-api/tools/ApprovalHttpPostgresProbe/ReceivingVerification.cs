@@ -42,6 +42,21 @@ sealed partial class Probe
         await Check(recordedResponse, HttpStatusCode.OK); var recordedText = await recordedResponse.Content.ReadAsStringAsync();
         var recorded = JsonDocument.Parse(recordedText).RootElement.Clone(); var line = recorded.GetProperty("lines")[0]; var lineId = line.GetProperty("id").GetGuid();
         Require(line.GetProperty("receivedQuantity").GetString() == "2" && line.GetProperty("acceptedQuantity").GetString() == "0", "Physical overdelivery was discarded or auto-accepted.");
+        await WithoutReceivingBroadRead(async () =>
+        {
+            var tasks = await Get(Root + "/receiving/inspection-tasks?page=1&pageSize=1", OrderManager1);
+            Require(tasks.GetProperty("total").GetInt32() == 1 && tasks.GetProperty("items")[0].GetProperty("receiptId").GetGuid() == id,
+                "Assigned inspector queue missing exact scoped delivery.");
+            var emptyPage = await Get(Root + "/receiving/inspection-tasks?page=2&pageSize=1", OrderManager1);
+            Require(emptyPage.GetProperty("total").GetInt32() == 1 && emptyPage.GetProperty("items").GetArrayLength() == 0, "Assigned pagination changed scoped count.");
+            var task = await Get($"{Root}/receipts/{id}/inspection-task", OrderManager1);
+            Require(task.GetProperty("readPurpose").GetString() == "AssignedInspection" && !task.TryGetProperty("notes", out _)
+                && task.GetProperty("lineReadiness")[0].GetProperty("actionCandidates")[0].GetProperty("candidate").GetBoolean(), "Purpose inspection leaked broad notes or lost current candidate.");
+            var other = await Get(Root + "/receiving/inspection-tasks", OrderManager2);
+            Require(other.GetProperty("total").GetInt32() == 0, "Unnamed inspector saw assigned delivery.");
+            await Expect(HttpStatusCode.NotFound, HttpMethod.Get, $"{Root}/receipts/{id}/inspection-task", OrderManager2, null);
+            await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, $"{Root}/receipts/{id}", OrderManager1, null);
+        });
         var inspect = new { version = line.GetProperty("version").GetInt64(), sourceVersion = line.GetProperty("sourceVersion").GetInt64(), quantity = "2", evidenceReference = "RCP:INSPECTION" };
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/inspect", OrderRequester, inspect, Guid.NewGuid());
         await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/inspect", OrderManager1, inspect, Guid.NewGuid());
@@ -79,10 +94,26 @@ sealed partial class Probe
                 deliverableReference = "DELIVERABLE-1", periodFrom = today, periodTo = today, quantity = "1", notes = "Completed service" }, Guid.NewGuid());
         await Check(serviceDraftResponse, HttpStatusCode.OK); var certificate = await serviceDraftResponse.Content.ReadFromJsonAsync<JsonElement>();
         var serviceId = certificate.GetProperty("id").GetGuid();
+        await WithoutReceivingBroadRead(async () =>
+        {
+            long before;
+            using (var services = Scope(OrderBuyer)) before = await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().ReceivingSourceStates.LongCountAsync();
+            var tasks = await Get(Root + "/receiving/service-tasks", OrderManager2);
+            Require(tasks.GetProperty("total").GetInt32() == 1 && tasks.GetProperty("items")[0].GetProperty("id").GetGuid() == serviceId, "Service-only owner queue missing pending certificate.");
+            var task = await Get($"{Root}/service-acceptances/{serviceId}/certification-task", OrderManager2);
+            Require(task.GetProperty("capacity").GetProperty("verified").GetBoolean()
+                && !task.TryGetProperty("notes", out _)
+                && task.GetProperty("actionCandidates")[0].GetProperty("candidate").GetBoolean(), "Service preview lost exact current authority.");
+            await Expect(HttpStatusCode.NotFound, HttpMethod.Get, $"{Root}/service-acceptances/{serviceId}/certification-task", OrderManager1, null);
+            await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, $"{Root}/service-acceptances/{serviceId}", OrderManager2, null);
+            using (var services = Scope(OrderBuyer)) Require(await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().ReceivingSourceStates.LongCountAsync() == before,
+                "Read preview created a receiving source state.");
+        });
         await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/service-acceptances/{serviceId}/certify", OrderManager2,
             new { version = certificate.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:SERVICE-COMPLETE" }, Guid.NewGuid());
         var finalCertificate = await Get($"{Root}/service-acceptances/{serviceId}", OrderManager2);
-        Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "1" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "100", "Service exact certification mismatch.");
+        Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "1" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "100"
+            && finalCertificate.GetProperty("notes").GetString() == "Completed service", "Service exact certification mismatch.");
         var crossSite = await DeliveredReceivingOrder(supplier, "Service"); Guid otherSite;
         using (var services = Scope(OrderBuyer))
         {
@@ -97,6 +128,7 @@ sealed partial class Probe
         await Check(wrongSiteDraft, HttpStatusCode.OK); var wrongSiteRow = await wrongSiteDraft.Content.ReadFromJsonAsync<JsonElement>();
         await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/service-acceptances/{wrongSiteRow.GetProperty("id").GetGuid()}/certify", OrderManager2,
             new { version = wrongSiteRow.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:WRONG-POLICY-SITE" }, Guid.NewGuid());
+        await VerifyReceivingRetainedScope(crossSite.OrderId, wrongSiteRow.GetProperty("id").GetGuid(), otherSite);
         await VerifyConcurrentReceivingAcceptance(supplier);
         // Explicitly corrupt a separate linked source's historic counter as an owner-only fixture.
         // The HTTP runtime must never interpret absent new effects as a complete zero history.
@@ -121,6 +153,9 @@ sealed partial class Probe
         await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/receipts/{heldId}/lines/{heldLineId}/inspect", OrderManager1,
             new { version = heldLine.GetProperty("version").GetInt64(), sourceVersion = heldLine.GetProperty("sourceVersion").GetInt64(), quantity = "1", evidenceReference = "RCP:INSPECT-HELD" }, Guid.NewGuid());
         held = await Get($"{Root}/receipts/{heldId}", OrderManager2); heldLine = held.GetProperty("lines")[0];
+        Require(!held.GetProperty("lineReadiness")[0].GetProperty("capacity").GetProperty("verified").GetBoolean()
+            && held.GetProperty("lineReadiness")[0].GetProperty("capacity").GetProperty("acceptableQuantity").ValueKind == JsonValueKind.Null,
+            "Unknown historic acceptance preview pretended zero/available capacity.");
         await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/receipts/{heldId}/lines/{heldLineId}/accept", OrderManager2,
             new { version = heldLine.GetProperty("version").GetInt64(), sourceVersion = heldLine.GetProperty("sourceVersion").GetInt64(), quantity = "1", evidenceReference = "RCP:UNKNOWN-NOT-ZERO" }, Guid.NewGuid());
         using (var services = Scope(OrderBuyer))
@@ -131,6 +166,110 @@ sealed partial class Probe
         }
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/accept", OrderManager2, accept, acceptKey);
         Console.WriteLine("PASS receiving: real goods/service lifecycle, overdelivery truth, exact evidence/replay/denied edits, missing policy and unknown historic capacity, current permission revocation");
+    }
+    private async Task VerifyReceivingRetainedScope(Guid orderId, Guid serviceId, Guid otherSite)
+    {
+        Guid legacyReceiptId, legacyServiceId;
+        using (var services = Scope(OrderBuyer))
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var lineId = await db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == orderId && x.IsActive).Select(x => x.Id).SingleAsync();
+            var receipt = new GoodsReceipt { PurchaseOrderId = orderId, Number = "LEGACY-UNKNOWN-" + Guid.NewGuid().ToString("N"),
+                ReceiverSubjectId = OrderRequester.ToString("D"), ReceivedAt = DateTimeOffset.UtcNow, Status = "Draft" };
+            var service = new ServiceAcceptance { PurchaseOrderLineId = lineId, OwnerSubjectId = OrderRequester.ToString("D"),
+                Status = "PendingCertification", PeriodFrom = DateOnly.FromDateTime(DateTime.UtcNow), PeriodTo = DateOnly.FromDateTime(DateTime.UtcNow) };
+            db.AddScoped(receipt); db.AddScoped(service); await db.SaveChangesAsync(); legacyReceiptId = receipt.Id; legacyServiceId = service.Id;
+        }
+        // Unrestricted, no-selected-branch readers can inspect unknown legacy records,
+        // without acquiring issued/certified evidence. Merely selecting A must hide them.
+        foreach (var target in new[] { (Path: $"/receipts/{legacyReceiptId}", Field: "physicalEvidenceRecorded"),
+                     (Path: $"/service-acceptances/{legacyServiceId}", Field: "isCertifiedRecord") })
+        {
+            using var wide = await Send(HttpMethod.Get, Root + target.Path, OrderManager2, selectedBranch: false); await Check(wide, HttpStatusCode.OK);
+            var value = await wide.Content.ReadFromJsonAsync<JsonElement>();
+            Require(value.GetProperty("executionVersion").GetInt32() == 0 && !value.GetProperty(target.Field).GetBoolean()
+                && !value.GetProperty("matchingAuthorityAvailable").GetBoolean(), "Legacy inspection manufactured final authority.");
+            await Expect(HttpStatusCode.NotFound, HttpMethod.Get, Root + target.Path, OrderManager2);
+        }
+        foreach (var target in new[] { (View: "receipts", Id: legacyReceiptId), (View: "services", Id: legacyServiceId) })
+        {
+            using var wide = await Send(HttpMethod.Get, Root + "/receiving/worklist?view=" + target.View + "&pageSize=100", OrderManager2, selectedBranch: false);
+            await Check(wide, HttpStatusCode.OK); var widePage = await wide.Content.ReadFromJsonAsync<JsonElement>();
+            Require(widePage.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("id").GetGuid() == target.Id), "Organisation-wide unverified history disappeared.");
+            var selected = await Get(Root + "/receiving/worklist?view=" + target.View + "&pageSize=100", OrderManager2);
+            Require(!selected.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("id").GetGuid() == target.Id), "Selected A exposed unproved legacy scope.");
+        }
+        Guid assignmentId;
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            Require(!await core.UserBranchAssignments.AnyAsync(x => x.UserId == OrderManager2 && !x.IsArchived), "Scope corruption fixture requires initially organisation-wide owner.");
+            var assignment = new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = OrderManager2, LocationId = otherSite };
+            core.UserBranchAssignments.Add(assignment); await core.SaveChangesAsync(); assignmentId = assignment.Id;
+            // Owner-only corruption fixture: do not grant this ability to the runtime role.
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_orders SET branch_ref={otherSite} WHERE tenant_id={"probe"} AND legal_entity_id={OrderCompany} AND id={orderId}");
+        }
+        async Task<HttpResponseMessage> AtB(string path)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            request.Headers.Add("X-Probe-User", OrderManager2.ToString("D"));
+            request.Headers.Add("X-Shell-Entity", OrderCompany.ToString("D"));
+            request.Headers.Add("X-Shell-Location", otherSite.ToString("D"));
+            return await client.SendAsync(request);
+        }
+        try
+        {
+            foreach (var path in new[] { "/receiving/service-tasks?page=1&pageSize=1", "/receiving/worklist?view=services&page=1&pageSize=1", "/receiving/sources?page=1&pageSize=1" })
+            {
+                using var response = await AtB(Root + path); await Check(response, HttpStatusCode.OK);
+                var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+                Require(page.GetProperty("total").GetInt32() == 0 && page.GetProperty("items").GetArrayLength() == 0,
+                    "Current header B leaked an issued-A task/source/worklist row or count.");
+            }
+            foreach (var target in new[] { $"/receipts/{legacyReceiptId}", $"/service-acceptances/{legacyServiceId}" })
+            {
+                using var selected = await AtB(Root + target); await Check(selected, HttpStatusCode.NotFound);
+                using var unselected = await Send(HttpMethod.Get, Root + target, OrderManager2, selectedBranch: false); await Check(unselected, HttpStatusCode.NotFound);
+            }
+            foreach (var view in new[] { "receipts", "services" })
+            {
+                using var response = await Send(HttpMethod.Get, Root + "/receiving/worklist?view=" + view + "&pageSize=1", OrderManager2, selectedBranch: false);
+                await Check(response, HttpStatusCode.OK); var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+                Require(page.GetProperty("total").GetInt32() == 0 && page.GetProperty("items").GetArrayLength() == 0,
+                    "B-only actor without a selected branch saw unproved A legacy rows or counts.");
+            }
+            using var purpose = await AtB($"{Root}/service-acceptances/{serviceId}/certification-task"); await Check(purpose, HttpStatusCode.NotFound);
+            using var general = await AtB($"{Root}/service-acceptances/{serviceId}"); await Check(general, HttpStatusCode.Conflict);
+        }
+        finally
+        {
+            using var services = Scope(OrderBuyer); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var assignment = await core.UserBranchAssignments.SingleAsync(x => x.Id == assignmentId); assignment.IsArchived = true; await core.SaveChangesAsync();
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_orders SET branch_ref={OrderBranch} WHERE tenant_id={"probe"} AND legal_entity_id={OrderCompany} AND id={orderId}");
+            Require(await db.GoodsReceipts.AnyAsync(x => x.Id == legacyReceiptId && x.ExecutionVersion == 0 && x.IssuedVersionId == null && x.IssuedBindingId == Guid.Empty)
+                && await db.ServiceAcceptances.AnyAsync(x => x.Id == legacyServiceId && x.ExecutionVersion == 0 && x.CertifiedAt == null && x.CertificationEffectId == null),
+                "Legacy scope recovery altered/backfilled or removed original records.");
+        }
+    }
+    private async Task WithoutReceivingBroadRead(Func<Task> checks)
+    {
+        string original;
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var role = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_manager"); original = role.PermissionsCsv;
+            role.PermissionsCsv = string.Join(',', original.Split(',').Where(x => x is not ("procurement-receipt-view" or "procurement-po-read")));
+            await core.SaveChangesAsync();
+        }
+        try { await checks(); }
+        finally
+        {
+            using var services = Scope(OrderBuyer); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var role = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_manager"); role.PermissionsCsv = original;
+            await core.SaveChangesAsync();
+        }
     }
     private async Task VerifyConcurrentReceivingAcceptance(Guid supplier)
     {
