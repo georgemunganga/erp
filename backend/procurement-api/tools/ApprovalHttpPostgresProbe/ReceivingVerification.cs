@@ -60,6 +60,7 @@ sealed partial class Probe
         var inspect = new { version = line.GetProperty("version").GetInt64(), sourceVersion = line.GetProperty("sourceVersion").GetInt64(), quantity = "2", evidenceReference = "RCP:INSPECTION" };
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/inspect", OrderRequester, inspect, Guid.NewGuid());
         await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/inspect", OrderManager1, inspect, Guid.NewGuid());
+        await VerifyReceivingRequiredSequences(lineId);
         var inspected = await Get($"{Root}/receipts/{id}", OrderManager2); line = inspected.GetProperty("lines")[0];
         var accept = new { version = line.GetProperty("version").GetInt64(), sourceVersion = line.GetProperty("sourceVersion").GetInt64(), quantity = "1", evidenceReference = "RCP:ACCEPTANCE" };
         var acceptKey = Guid.NewGuid(); var acceptedResponse = await Send(HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/accept", OrderManager2, accept, acceptKey);
