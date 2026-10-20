@@ -38,3 +38,8 @@ Session6810 rebuilt source213a6af (later commits change documentation only) and 
 ## Generated migration — source reviewed, runtime pending
 
 Corrected preparation session6810 terminated0 after44/44 tests and generated `20261020190554_P27FinanceCheckerIdentity`. Actual Up is exactly four additive fields/two CHECKs; no key/FK/index/table/precision rewrite or backfill. Root sealed Down with the first four-table lock/used-or-partial metadata/pin/audit/outbox field-token veto; exact actual BudgetChecked audit is covered without inventing an event. Distinct source review accepted migration, Designer and Snapshot consistency. SQL generation, actual PostgreSQL17 literal freeze/rehearsal, full regression and actual restricted HTTP remain pending. Generation is not database application or migration acceptance.
+
+
+## Original Finance tuple read privilege correction — source only
+
+Independent review confirmed that SELECT on only the new checker columns could satisfy the new-field manifest while denying the original Finance tuple used by queue/materialization/reference-replay queries. Read and capture readiness now additionally require finite table SELECT on the single owned BudgetCheckSnapshot table, matching the existing finite table INSERT guard. No Core or schema-wide grant is added. The rollback-only actual restricted-role probe now revokes table SELECT, grants only the three new checker columns and requires both read/capture readiness false, then restores privileges by rollback. This API/tool correction does not change the accepted-source model/migration or the44 focused domain test inputs; its actual SQL/runtime outcome remains pending.

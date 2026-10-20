@@ -88,6 +88,7 @@ public sealed class ProcurementFinanceCheckerSchemaReadiness : IProcurementFinan
           LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum
         )
         SELECT (SELECT ready FROM columns_ready)
+          AND has_table_privilege(current_user,to_regclass('procurement.budget_check_snapshots'),'SELECT')
           AND (NOT @capture OR (has_table_privilege(current_user,to_regclass('procurement.budget_check_snapshots'),'INSERT')
               AND has_table_privilege(current_user,to_regclass('procurement.audit_events'),'INSERT')))
           AND EXISTS (
