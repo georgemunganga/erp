@@ -43,7 +43,7 @@ public static class ProcurementApprovalReadinessRoutes
         var options = services.GetService<ProcurementApprovalExecutionOptions>() ?? new ProcurementApprovalExecutionOptions();
         var canOpen = false;
         if (options.Enabled && !options.ExecutionDatabaseConfigured) blockers.Add("ApprovalExecutionDatabaseNotConfigured");
-        if (options.Enabled && options.ExecutionDatabaseConfigured && readiness.PrerequisitesMet && route.HasSingleRoute && assignments.Resolved)
+        if (options.Enabled && options.ExecutionDatabaseConfigured && readiness.PrerequisitesMet && route.HasSingleRoute)
         {
             if (await ProcurementAuthorityIdentity.ActorAsync(core, scope, http.User, authorization,
                     ProcurementApprovalExecutionRoutes.OpenPermission, ct) is null)
@@ -52,7 +52,15 @@ public static class ProcurementApprovalReadinessRoutes
             {
                 try
                 {
-                    _ = await ProcurementApprovalAssigneeResolver.ResolveAsync(request, evaluation!, core, db, scope, DateTimeOffset.UtcNow, ct);
+                    var resolved = await ProcurementApprovalAssigneeResolver.ResolveAsync(request, evaluation!, core, db, scope, DateTimeOffset.UtcNow, ct);
+                    // The enabled preview must use the same eligible set as Open. A broad
+                    // role preview may be ambiguous while only one scoped finite grant fits.
+                    assignments = new(true, resolved.Select(stage => new ApprovalStageAssignees(
+                        stage.Route.Code, stage.Route.Assignee, stage.Route.Mode,
+                        stage.Assignees.Select(person => new ApprovalAssignee(person.PrincipalId,
+                            candidates.GetValueOrDefault(stage.Route.Assignee)?.FirstOrDefault(x => x.SubjectId == person.PrincipalId)?.DisplayName
+                                ?? person.PrincipalId)).ToArray(), null)).ToArray(), []);
+                    blockers = readiness.Blockers.Concat(route.Blockers).ToList();
                     _ = await ProcurementApprovalFinanceEligibility.CheckAsync(request, finance!, options, core, scope, DateTimeOffset.UtcNow, ct);
                     canOpen = true;
                 }
