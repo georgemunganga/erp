@@ -111,6 +111,56 @@ Assert(attempts == 2, "Confirmed transaction abort was not retried exactly once.
 await AssertRecordCounts(retryId, 1);
 Console.WriteLine("PASS serialization abort retries whole command with fresh contexts and one final effect");
 
+// Exercise the real EF SaveChanges wrapper, not only ExecuteSqlRawAsync. This
+// sequence is solely a disposable fault-injection counter: nextval is deliberately
+// nontransactional so precisely the first attempt aborts. No business code uses it.
+var wrappedRetryId = Guid.NewGuid();
+attempts = 0;
+await using (var setup = new NpgsqlConnection(connection))
+{
+    await setup.OpenAsync();
+    async Task FixtureSql(string sql)
+    {
+        await using var command = new NpgsqlCommand(sql, setup);
+        await command.ExecuteNonQueryAsync();
+    }
+    const string cleanup = """
+        DROP TRIGGER IF EXISTS rehearsal_abort_once ON procurement.purchase_requests;
+        DROP FUNCTION IF EXISTS procurement.rehearsal_abort_once();
+        DROP SEQUENCE IF EXISTS procurement.rehearsal_abort_once_sequence;
+        """;
+    await FixtureSql(cleanup);
+    try
+    {
+        await FixtureSql("""
+            CREATE SEQUENCE procurement.rehearsal_abort_once_sequence;
+            CREATE FUNCTION procurement.rehearsal_abort_once() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+                IF NEW.purpose = 'Synthetic EF serialization wrapper'
+                    AND nextval('procurement.rehearsal_abort_once_sequence') = 1 THEN
+                    RAISE EXCEPTION 'synthetic EF serialization abort' USING ERRCODE = '40001';
+                END IF;
+                RETURN NEW;
+            END $$;
+            CREATE TRIGGER rehearsal_abort_once BEFORE INSERT ON procurement.purchase_requests
+                FOR EACH ROW EXECUTE FUNCTION procurement.rehearsal_abort_once();
+            """);
+        await runner.ExecuteAsync(async (proc, core, ct) =>
+        {
+            attempts++;
+            AddRecords(proc, core, wrappedRetryId);
+            proc.PurchaseRequests.Local.Single(x => x.Id == wrappedRetryId).Purpose = "Synthetic EF serialization wrapper";
+            await proc.SaveChangesAsync(ct);
+            await core.SaveChangesAsync(ct);
+            return wrappedRetryId;
+        });
+    }
+    finally { await FixtureSql(cleanup); }
+}
+Assert(attempts == 2, "EF-wrapped serialization abort was not retried exactly once.");
+await AssertRecordCounts(wrappedRetryId, 1);
+Console.WriteLine("PASS actual EF SaveChanges serialization wrapper retries once and commits one complete effect");
+
 var exhausted = Guid.NewGuid();
 attempts = 0;
 await Expect<PostgresException>(async () => await runner.ExecuteAsync(async (proc, core, ct) =>

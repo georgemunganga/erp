@@ -23,6 +23,8 @@ Checks:
   fresh reload completes quorum, and exact terminal replay changes no rows.
 - A PostgreSQL-raised serialization SQLSTATE rolls back both schemas and retries the
   whole callback with fresh contexts; repeated deadlock SQLSTATE stops after three attempts.
+- A disposable trigger aborts the first real EF `SaveChanges` with SQLSTATE40001;
+  provider-wrapped exceptions still retry the whole transaction and leave one final effect.
 - Pre-commit IO error and cancellation roll back without automatic IO retry.
 - Mismatched canonical actor scope is denied before database work.
 

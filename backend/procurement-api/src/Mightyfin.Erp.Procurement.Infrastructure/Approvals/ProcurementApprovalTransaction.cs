@@ -87,9 +87,10 @@ public sealed class ProcurementApprovalTransaction
     }
 
     private static bool IsConfirmedTransactionAbort(Exception exception)
-        => exception is PostgresException { SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected }
-            || exception is DbUpdateException { InnerException: PostgresException
-                { SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected } };
+        // Npgsql's execution strategy can wrap DbUpdateException in an
+        // InvalidOperationException even when automatic provider retries are off.
+        => exception.GetBaseException() is PostgresException
+            { SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected };
 
     private sealed record TransactionScope(string TenantId, Guid LegalEntityId, string SubjectId,
         Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId)

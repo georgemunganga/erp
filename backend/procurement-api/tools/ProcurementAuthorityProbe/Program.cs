@@ -115,7 +115,7 @@ await using (var db = Db("reviewer"))
 Console.WriteLine("PASS: scoped PostgreSQL authority lifecycle, publication, rollback, terminal revocation, immutable fields and concurrent version allocation.");
 
 static bool Retryable(Exception ex)
-    => (ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState
+    => (ex.GetBaseException() as PostgresException)?.SqlState
         is PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected or PostgresErrorCodes.UniqueViolation;
 static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 sealed class InjectedFailure : Exception { }
