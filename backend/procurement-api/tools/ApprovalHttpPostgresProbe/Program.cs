@@ -185,6 +185,20 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             var lines = await db.PurchaseRequestLines.Where(x => x.PurchaseRequestId == id).ToArrayAsync();
             Require(lines.All(x => x.ApprovedQuantity == x.RequestedQuantity && x.ApprovalStatus == "Approved"), "Approved line quantities not persisted.");
         }
+        using (var services = app.Services.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_manager")).IsArchived = true;
+            await core.SaveChangesAsync();
+        }
+        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, DecisionPath(caseId, firstAssignment), manager1, firstBody, voteKey);
+        using (var services = app.Services.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.TenantRoleAssignments.IgnoreQueryFilters().SingleAsync(x => x.TenantId == "probe"
+                && x.RoleKey == "procurement_manager")).IsArchived = false;
+            await core.SaveChangesAsync();
+        }
         await Revoke(manager1);
         await Expect(HttpStatusCode.Conflict, HttpMethod.Post, DecisionPath(caseId, firstAssignment), manager1, firstBody, voteKey);
         await Authority(manager1, "AUTH-M1-RESTORED");
