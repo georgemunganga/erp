@@ -134,7 +134,7 @@ public sealed class InvoiceUnitReviewTransitionTests
         Assert.Equal(before, JsonSerializer.Serialize(old.Case)); // No fake cancellation/rewriting of original Core case.
     }
 
-    private sealed class Fixture
+    internal sealed class Fixture
     {
         public InvoiceUnitReviewPolicyRulesTests.Fixture Policy = new();
         public SupplierInvoice Invoice; public SupplierInvoiceLine Line; public InvoiceMatchMappingVersion Mapping;

@@ -35,6 +35,10 @@ public sealed record InvoiceUnitReviewConsumer(string TenantId, Guid LegalEntity
     IReadOnlyDictionary<Guid, string> DocumentVersionHashes, Guid? SelectedBranchId,
     IReadOnlySet<Guid> AllowedBranches, bool OrganisationWide);
 
+// Internal owning-proof validation has no caller authorization grants and is not a runtime provider.
+internal sealed record InvoiceUnitReviewOwnedProofContext(string TenantId, Guid LegalEntityId, Guid? BranchId,
+    DateTimeOffset At, IReadOnlyDictionary<Guid, string> DocumentVersionHashes);
+
 public static class InvoiceRetainedUnitReview
 {
     public const string ReviewPolicyKey = "INVOICE_UNIT_REVIEW";
@@ -71,6 +75,20 @@ public static class InvoiceRetainedUnitReview
             && consumer.Permissions.Contains("procurement-access") && consumer.Permissions.Contains("procurement-invoice-match")
             && consumer.DocumentVersionHashes is not null && invoice.CurrentMappingVersionId == mapping.Id
             && invoice.MappingRevision == mapping.MappingRevision);
+        return VerifyOwnedProof(authority, invoice, originalLines, mapping,
+            new(consumer.TenantId, consumer.LegalEntityId, consumer.BranchId, consumer.At, consumer.DocumentVersionHashes));
+    }
+
+    /// <summary>Binding/actual Core completion only, for the owning terminal sealer. This
+    /// never authenticates an HTTP caller or supplies comparison/Finance permissions.</summary>
+    internal static IReadOnlyDictionary<Guid, string> VerifyOwnedProof(InvoiceRetainedUnitReviewAuthority authority,
+        SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originalLines,
+        InvoiceMatchMappingVersion mapping, InvoiceUnitReviewOwnedProofContext context)
+    {
+        Need(authority is not null && invoice is not null && mapping is not null && context is not null
+            && context.TenantId == invoice.TenantId && context.LegalEntityId == invoice.LegalEntityId
+            && context.BranchId == invoice.BranchRef && context.At != default && context.DocumentVersionHashes is not null
+            && invoice.CurrentMappingVersionId == mapping.Id && invoice.MappingRevision == mapping.MappingRevision);
         Need(originalLines is not null && originalLines.Count is > 0 and <= 200);
         var snapshot = InvoiceMappingEvidence.Verify(mapping, invoice, originalLines);
         Need(authority.ReviewId != Guid.Empty && authority.ReviewSourceVersion > 0
@@ -91,15 +109,15 @@ public static class InvoiceRetainedUnitReview
             && evidence.MakerWorkerId != Guid.Empty && !string.IsNullOrWhiteSpace(evidence.MakerPrincipalId)
             && evidence.ReviewerWorkerId != Guid.Empty && !string.IsNullOrWhiteSpace(evidence.ReviewerPrincipalId)
             && evidence.MakerPrincipalId != evidence.ReviewerPrincipalId && evidence.MakerWorkerId != evidence.ReviewerWorkerId
-            && evidence.ReviewedAt >= mapping.ReviewedAt && evidence.ReviewedAt <= consumer.At);
+            && evidence.ReviewedAt >= mapping.ReviewedAt && evidence.ReviewedAt <= context.At);
 
         // Policy identities are intentionally distinct. No current matching rule is relabelled
         // as a review assignment policy and no rule defaults are invented by this verifier.
         var matching = authority.MatchingPolicy; var review = authority.ReviewPolicy;
         Need(matching is not null && review is not null && matching.Id != review.Id
             && matching.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey && review.PolicyKey == ReviewPolicyKey
-            && Policy(matching, invoice, evidence.ReviewedAt, consumer.At)
-            && Policy(review, invoice, evidence.ReviewedAt, consumer.At)
+            && Policy(matching, invoice, evidence.ReviewedAt, context.At)
+            && Policy(review, invoice, evidence.ReviewedAt, context.At)
             && evidence.MatchingPolicyId == matching.Id && evidence.MatchingPolicyVersion == matching.PolicyVersionNumber
             && evidence.MatchingPolicySha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(matching.RulesJson)
             && evidence.ReviewPolicyId == review.Id && evidence.ReviewPolicyVersion == review.PolicyVersionNumber
@@ -113,7 +131,7 @@ public static class InvoiceRetainedUnitReview
         {
             var retained = evidence.Lines.SingleOrDefault(x => x.InvoiceLineId == link.InvoiceLineId);
             Need(retained is not null && link.DocumentVersionId != Guid.Empty && retained.DocumentVersionId == link.DocumentVersionId
-                && Sha(retained.DocumentSha256) && consumer.DocumentVersionHashes.TryGetValue(link.DocumentVersionId, out var expectedHash)
+                && Sha(retained.DocumentSha256) && context.DocumentVersionHashes.TryGetValue(link.DocumentVersionId, out var expectedHash)
                 && expectedHash == retained.DocumentSha256 && !string.IsNullOrWhiteSpace(link.DocumentLineReference)
                 && retained.DocumentLineReference == link.DocumentLineReference && retained.UnitCode == link.InvoiceUnitCode);
             units.Add(link.InvoiceLineId, retained!.UnitCode);

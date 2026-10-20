@@ -80,8 +80,27 @@ public static class InvoiceUnitReviewTransitions
         var source = owned.Source; var workflow = owned.Case;
         Need(command.Key != Guid.Empty && command.At >= source.OpenedAt && workflow.State == "Pending"
             && workflow.CompletedAt is null && workflow.CompletionKey is null
-            && invoice.Version == command.ExpectedInvoiceVersion && workflow.Version == command.ExpectedCaseVersion
-            && source.CoreCaseId == workflow.Id && workflow.OpenedAt == source.OpenedAt
+            && invoice.Version == command.ExpectedInvoiceVersion && workflow.Version == command.ExpectedCaseVersion);
+        ValidateOwnedEvidence(owned, invoice, originalLines, mapping, issued, matchingPolicy, reviewPolicy, ownedDocumentHashes, command.At);
+        PersonScope(actor, invoice, InvoiceRetainedUnitReview.ReviewPermission);
+        Need(actor.WorkerId != source.ReviewPolicy.MakerWorkerId && actor.PrincipalId != source.ReviewPolicy.MakerPrincipalId);
+        var assignment = workflow.Stages.SelectMany(x => x.Assignments).SingleOrDefault(x => x.Id == assignmentId);
+        Need(assignment is not null && assignment.Version == command.ExpectedAssignmentVersion
+            && owned.AssignmentWorkers.Any(x => x.AssignmentId == assignmentId && x.PrincipalId == actor.PrincipalId && x.WorkerId == actor.WorkerId)
+            && command.Action is "Approve" or "Reject" or "Return");
+        var reason = Reason(command.Reason); Need(command.Action == "Approve" || reason is not null);
+        return ApprovalEngine.Decide(workflow, assignment!, new(actor.PrincipalId, actor.TenantId, actor.LegalEntityId,
+            actor.Permissions), command.Action, command.Key.ToString("D"), reason, decisions,
+            ProcurementEvidenceEncoding.DatabaseTimestamp(command.At)!.Value);
+    }
+
+    // Shared by new decisions and terminal sealing; never authenticates a public caller.
+    internal static void ValidateOwnedEvidence(OpeningPlan owned, SupplierInvoice invoice,
+        IReadOnlyList<SupplierInvoiceLine> originalLines, InvoiceMatchMappingVersion mapping, InvoiceIssuedOrder issued,
+        PolicyVersion matchingPolicy, PolicyVersion reviewPolicy, IReadOnlyDictionary<Guid, string> ownedDocumentHashes, DateTimeOffset at)
+    {
+        var source = owned.Source; var workflow = owned.Case;
+        Need(at >= source.OpenedAt && source.CoreCaseId == workflow.Id && workflow.OpenedAt == source.OpenedAt
             && source.InvoiceVersionAtOpen > 0 && invoice.Version >= source.InvoiceVersionAtOpen
             && source.ReviewPolicy.MakerPrincipalId == mapping.ActorPrincipalId && source.ReviewPolicy.MakerWorkerId == mapping.ActorWorkerId
             && source.ReviewId == workflow.SourceId && source.SourceVersion == workflow.SourceVersion
@@ -91,22 +110,13 @@ public static class InvoiceUnitReviewTransitions
             && source.MappingSha256 == mapping.MappingSha256 && source.OriginalSha256 == mapping.InvoiceOriginalSha256
             && source.PurchaseOrderId == mapping.PurchaseOrderId && source.IssuedVersionId == mapping.IssuedVersionId
             && owned.SourceJson == JsonSerializer.Serialize(source) && owned.SourceSha256 == ProcurementEvidenceEncoding.Digest(owned.SourceJson));
-        CurrentMapping(invoice, originalLines, mapping); PersonScope(actor, invoice, InvoiceRetainedUnitReview.ReviewPermission);
-        Need(actor.WorkerId != source.ReviewPolicy.MakerWorkerId && actor.PrincipalId != source.ReviewPolicy.MakerPrincipalId);
-        Rules.VerifyRetainedProjection(source.ReviewPolicy, reviewPolicy, command.At);
+        CurrentMapping(invoice, originalLines, mapping);
+        Rules.VerifyRetainedProjection(source.ReviewPolicy, reviewPolicy, at);
         Need(matchingPolicy.Id == source.MatchingPolicyId && matchingPolicy.PolicyVersionNumber == source.MatchingPolicyVersion
-            && MatchingPolicy(matchingPolicy, invoice, command.At) == source.MatchingPolicySha256
-            && IssuedFingerprint(issued, mapping, invoice, originalLines, command.At) == source.IssuedEvidenceSha256
+            && MatchingPolicy(matchingPolicy, invoice, at) == source.MatchingPolicySha256
+            && IssuedFingerprint(issued, mapping, invoice, originalLines, at) == source.IssuedEvidenceSha256
             && DocumentLines(mapping, invoice, originalLines, ownedDocumentHashes).SequenceEqual(source.Lines));
         Rules.VerifyCaseGraph(source.ReviewPolicy, workflow, owned.AssignmentWorkers);
-        var assignment = workflow.Stages.SelectMany(x => x.Assignments).SingleOrDefault(x => x.Id == assignmentId);
-        Need(assignment is not null && assignment.Version == command.ExpectedAssignmentVersion
-            && owned.AssignmentWorkers.Any(x => x.AssignmentId == assignmentId && x.PrincipalId == actor.PrincipalId && x.WorkerId == actor.WorkerId)
-            && command.Action is "Approve" or "Reject" or "Return");
-        var reason = Reason(command.Reason); Need(command.Action == "Approve" || reason is not null);
-        return ApprovalEngine.Decide(workflow, assignment!, new(actor.PrincipalId, actor.TenantId, actor.LegalEntityId,
-            actor.Permissions), command.Action, command.Key.ToString("D"), reason, decisions,
-            ProcurementEvidenceEncoding.DatabaseTimestamp(command.At)!.Value);
     }
 
     // This is an owner-produced immutable issued projection, not a public DTO or receiving-state loader.
