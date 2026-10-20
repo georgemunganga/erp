@@ -178,3 +178,47 @@ filtered read privacy, store binding and disabled mapped endpoint gates. **No SD
 P25/P26 migration generation, database or browser execution was performed for consolidation.**
 Root's centrally generated P25 snapshot is intentionally not invented here; it must be merged
 later before the separate P26 generation/rehearsal gate. Production remains unchanged.
+
+## P25 central compile and independent service-note follow-up consolidation
+
+Source-only follow-up merges preserve ancestry without force operations:
+
+- `0437de2` merges root `f9c15b9`, retaining central P25 integration `ee4d229`, actual
+  compile correction `bfc12e1` (`new HashSet<Guid>()` for the required `IReadOnlySet<Guid>`),
+  typed audit recovery veto and historical settings-browser acceptance record.
+- `9380113` merges independent additive service-note correction `6b574d7`. The existing
+  `ServiceAcceptance` gains nullable max2000 Notes, while legacy Reason/cancellation text
+  remains separate and unchanged. Draft/detail/cancel-preservation tests and probe scenarios
+  are retained. Purpose-only tasks omit both notes and cancellation reason. No Reason backfill
+  is inferred. Candidate Down rejects any new Notes as well as typed receiving audit evidence.
+
+Conflicts involved additive probe CLI/docs from the separately integrated histories and the
+candidate Down/plan's added Notes predicate. Supported `--serve --orders`, all original modes,
+new single receiving/matching modes and duplicate/mixed-mode rejection remain intact. Exact
+root input guard/codec/browser files and the HashSet fix match `f9c15b9`; service Notes model,
+context mapping, draft/read and probe files match `6b574d7` exactly. Both disabled fixture
+option registrations remain once each. No centrally generated migration/snapshot is created
+or replaced by these merges.
+
+### P26 evidence impact of ServiceAcceptance.Notes
+
+Notes are nonfinancial draft annotations, not source identity or accepted entitlement. P26's
+original-invoice digest hashes only original SupplierInvoice/Line fields. Its issued source
+binds the sealed PO commercial snapshot and PR lineage; accepted authority binds retained
+receiving classification and immutable acceptance effects, exact deliverable/period/unit/
+quantity/net amounts and certified worker/policy/evidence. None derives authority from Notes
+or cancellation Reason, before or after this correction. The ledger/effects digest and P26
+projection therefore require no schema-version/hash rebinding for Notes. Existing published
+or captured records are not silently recalculated or backfilled.
+
+Changing Notes while a service is still a draft does not create an acceptance or invoice
+claim; after certification the existing `ServiceCertificationImmutable` context guard already
+denies a Notes edit. Cancellation preserves Notes and does not manufacture a negative effect.
+Consequently no new Notes field enters a matching or Finance completeness contract, and the
+purpose-read privacy exclusion remains appropriate. The P25 migration must still add this
+nullable existing-table column, and runtime tests must verify draft max-length/cancel behavior.
+
+No SDK/build/test, database, migration generation or production enable occurred in this source
+consolidation. Root's reported central P25 test results belong to its tested checkpoint; the
+combined P26 candidate still needs its own gates. The sourceVersion read follow-up and central
+P25 schema snapshot will be merged separately when available.
