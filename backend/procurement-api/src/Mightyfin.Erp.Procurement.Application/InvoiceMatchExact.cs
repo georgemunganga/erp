@@ -42,7 +42,8 @@ internal static class InvoiceMatchExact
         => Round(amount * numerator, denominator * BigInteger.Pow(10, Scale - policy.MoneyScale), policy.Rounding)
             * BigInteger.Pow(10, Scale - policy.MoneyScale);
     internal static bool MoneyInput(decimal value, InvoiceMatchingPolicy policy)
-        => Input(value) && Units(value) % BigInteger.Pow(10, Scale - policy.MoneyScale) == 0;
+        => policy.MoneyScale is >= 0 and <= 4
+            && Input(value) && Units(value) % BigInteger.Pow(10, Scale - policy.MoneyScale) == 0;
     internal static bool Within(BigInteger variance, BigInteger baseline, InvoiceFieldTolerance tolerance)
     {
         variance = BigInteger.Abs(variance); baseline = BigInteger.Abs(baseline);
