@@ -510,7 +510,7 @@ public static class ProcurementRequestRoutes
 
     private static object ToDetail(PurchaseRequest x) => new
     {
-        x.Id, x.Number, x.Status, x.ApprovalState, x.SubmittedAt, x.SubmittedVersion,
+        x.Id, x.Number, x.Status, x.ApprovalState, x.ApprovalInstanceRef, x.SubmittedAt, x.SubmittedVersion,
         x.ReturnedAt, x.ReturnedBySubjectId, x.ReturnReason,
         x.Version, x.RequesterWorkerId, x.Purpose, x.CurrencyCode,
         x.NeededBy, x.BranchRef, x.DepartmentRef, x.CostCenterRef, x.ProjectRef,
@@ -519,7 +519,7 @@ public static class ProcurementRequestRoutes
         Lines = x.Lines.OrderBy(line => line.LineNumber).Select(line => new
         {
             line.Id, line.LineNumber, line.Version, line.Description, line.UnitCode,
-            line.RequestedQuantity, line.EstimatedUnitPrice, line.EstimatedCurrencyCode,
+            line.RequestedQuantity, line.ApprovedQuantity, line.EstimatedUnitPrice, line.EstimatedCurrencyCode,
             line.CatalogItemId, line.CatalogEntryId, line.CatalogPublishedVersion,
             line.PreferredSupplierId, line.CategoryCode, line.PurchaseType,
             line.NeededBy, line.DiscountPercent, line.TaxCodeRef, line.CostCenterRef,

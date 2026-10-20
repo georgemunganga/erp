@@ -263,6 +263,13 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             Decision(finalDetail, remaining, "Approve"), Guid.NewGuid()); await Check(completed, HttpStatusCode.OK);
         var state = await completed.Content.ReadFromJsonAsync<JsonElement>();
         Require(state.GetProperty("requestState").GetString() == "Approved", "Final approval did not update source.");
+        var approvedSource = await Get($"{Root}/requests/{id}", requester);
+        Require(approvedSource.GetProperty("approvalInstanceRef").GetGuid() == caseId,
+            "Scoped request detail lost its real approval case reference.");
+        Require(approvedSource.GetProperty("lines").EnumerateArray().All(line =>
+            line.GetProperty("approvedQuantity").GetDecimal() == line.GetProperty("requestedQuantity").GetDecimal()
+            && line.GetProperty("approvalStatus").GetString() == "Approved"),
+            "Scoped request detail does not expose persisted approved line quantities.");
         var history = await Get($"{Root}/requests/{id}/approval-history", requester);
         Require(history.GetProperty("records")[0].GetProperty("decisions").GetArrayLength() == 3, "History lost stage decisions.");
         var finalReplay = await Send(HttpMethod.Post, DecisionPath(caseId, firstAssignment), manager1, firstBody, voteKey);
