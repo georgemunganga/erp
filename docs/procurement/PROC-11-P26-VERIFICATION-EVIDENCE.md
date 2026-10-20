@@ -75,3 +75,10 @@ Session17430 terminated0 at17:21:52UTC. Protected evidence: `/home/amizo/erp-bac
 - Original retained P25 source remained unchanged. Fresh/clone names and SQL hashes are recorded in the protected result.
 
 This proves the migration lifecycle and representative loss stops, not API authorization, every guard branch, runtime least privilege, row-level FK tamper or external owner authenticity. The next actual HTTP/PostgreSQL matching run uses a new restricted-runtime database under protected `20261020_172220_matching`; its terminal result remains pending.
+
+
+## First actual restricted HTTP/PostgreSQL matching run — retained failure
+
+Fresh private `20261020_172220_matching`, session49719, terminated139 after the tool's unhandled failed expectation. Receiving lifecycle, named ownership/sequence denials and exact original invoice intake passed. First mapping expected200 but returned409 `InvoiceMatchingEvidenceNeedsReview`; comparison/browser did not run.
+
+Source diagnosis: the existing commercial receipt operation allowlist omitted `InvoiceMapping` and `InvoiceCompare`. The mapping's first save occurred inside the shared transaction; final receipt save denied the new operation and the entire transaction rolled back. Independent owner SQL confirms captured invoice remains version1, mapping revision0, null current mapping and NotCompared, with zero mapping rows and zero invoice-operation receipts. The protected log/checkpoint and failed database are retained. Correction must register only the exact operations, preserve actor/key/scoped FK checks and add a full-save regression before a fresh actual rerun. The prior167 API/550 domain passes did not cover this missing receipt integration.
