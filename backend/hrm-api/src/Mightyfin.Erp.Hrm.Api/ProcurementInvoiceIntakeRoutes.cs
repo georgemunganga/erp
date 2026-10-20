@@ -58,7 +58,7 @@ public static class ProcurementInvoiceIntakeRoutes
             invoice.InvoiceNumber, invoice.InvoiceDate, invoice.DueDate, invoice.CurrencyCode,
             invoice.NetAmount, invoice.TaxAmount, invoice.GrossAmount, invoice.IntakeChannel,
             invoice.Status, invoice.Version, invoice.CreatedAt, lines,
-            nextStep = "Confirm source evidence and resolve duplicate or PO exceptions before matching." });
+            nextStep = "Check the order, what was received and the invoice details before matching." });
     }
 
     private static async Task<IResult> Capture(HttpRequest request, ProcurementDbContext db,
