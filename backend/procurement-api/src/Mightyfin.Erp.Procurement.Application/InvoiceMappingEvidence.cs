@@ -58,14 +58,10 @@ public static class InvoiceMappingEvidence
     }
 
     public static InvoiceMatchDocument Project(InvoiceMatchMappingVersion mapping, SupplierInvoice invoice,
-        IReadOnlyList<SupplierInvoiceLine> originalLines, InvoiceMappingReview review)
+        IReadOnlyList<SupplierInvoiceLine> originalLines, InvoiceMappingReview review, InvoiceMappingReviewContext? context = null)
     {
         var snapshot = Verify(mapping, invoice, originalLines);
-        var verified = review.Verified && review.State == "Verified" && review.EvidenceJson != "{}"
-            && ProcurementEvidenceEncoding.PolicyJsonDigest(review.EvidenceJson).Length == 64
-            && review.VerifiedUnits.Count == snapshot.Lines.Count && snapshot.Lines.All(x => x.DocumentVersionId != Guid.Empty
-                && !string.IsNullOrWhiteSpace(x.DocumentLineReference)
-                && review.VerifiedUnits.TryGetValue(x.InvoiceLineId, out var unit) && unit == x.InvoiceUnitCode);
+        var verified = ReviewCovers(mapping, invoice, snapshot, review, context);
         Need(!review.Verified || verified, "InvoiceUnitReviewEvidenceInvalid");
         var document = InvoiceMatchDocument.From(invoice, originalLines);
         return document with { PurchaseOrderId = mapping.PurchaseOrderId, Lines = document.Lines.Select(line =>
@@ -75,6 +71,38 @@ public static class InvoiceMappingEvidence
                 ServiceAcceptanceId = link.ServiceAcceptanceId, UnitCode = verified ? review.VerifiedUnits[line.Id] : "" };
         }).ToArray() };
     }
+    public static bool ReviewCovers(InvoiceMatchMappingVersion mapping, SupplierInvoice invoice,
+        InvoiceMappingSnapshot snapshot, InvoiceMappingReview review, InvoiceMappingReviewContext? context)
+    {
+        if (!review.Verified || review.State != "Verified" || context is null
+            || context.TenantId != invoice.TenantId || context.LegalEntityId != invoice.LegalEntityId
+            || context.BranchId != invoice.BranchRef || string.IsNullOrWhiteSpace(context.PrincipalId)
+            || context.WorkerId == Guid.Empty || context.PolicyId == Guid.Empty || !Sha(context.PolicyRulesSha256)
+            || context.At == default || review.VerifiedUnits.Count != snapshot.Lines.Count) return false;
+        try
+        {
+            // Canonical parsing rejects duplicate keys and unsupported JSON before typed deserialization.
+            if (ProcurementEvidenceEncoding.PolicyJsonDigest(review.EvidenceJson).Length != 64) return false;
+            var evidence = JsonSerializer.Deserialize<InvoiceMappingReviewEnvelope>(review.EvidenceJson, Json);
+            if (evidence is null || evidence.SchemaVersion != 1 || evidence.TenantId != context.TenantId
+                || evidence.LegalEntityId != context.LegalEntityId || evidence.BranchId != context.BranchId
+                || evidence.InvoiceId != invoice.Id || evidence.MappingVersionId != mapping.Id
+                || evidence.MappingSha256 != mapping.MappingSha256 || evidence.InvoiceOriginalSha256 != mapping.InvoiceOriginalSha256
+                || evidence.PurchaseOrderId != mapping.PurchaseOrderId || evidence.IssuedVersionId != mapping.IssuedVersionId
+                || evidence.PrincipalId != context.PrincipalId || evidence.WorkerId != context.WorkerId
+                || evidence.PolicyId != context.PolicyId || evidence.PolicyRulesSha256 != context.PolicyRulesSha256
+                || evidence.ReviewedAt != context.At || evidence.Lines is null || evidence.Lines.Any(x => x is null) || evidence.Lines.Count != snapshot.Lines.Count
+                || evidence.Lines.Select(x => x.InvoiceLineId).Distinct().Count() != snapshot.Lines.Count) return false;
+            return snapshot.Lines.All(link => link.DocumentVersionId != Guid.Empty && !string.IsNullOrWhiteSpace(link.DocumentLineReference)
+                && review.VerifiedUnits.TryGetValue(link.InvoiceLineId, out var unit) && unit == link.InvoiceUnitCode
+                && evidence.Lines.SingleOrDefault(x => x.InvoiceLineId == link.InvoiceLineId) is { } document
+                && document.DocumentVersionId == link.DocumentVersionId && Sha(document.DocumentSha256)
+                && document.DocumentLineReference == link.DocumentLineReference && document.UnitCode == unit);
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException or FormatException)
+        { return false; }
+    }
+    private static bool Sha(string? value) => value is { Length: 64 } && value.All(Uri.IsHexDigit);
     private static string Exact(decimal value) => ProcurementEvidenceEncoding.Decimal(value);
     private static void Need(bool condition, string code) { if (!condition) throw new InvalidOperationException(code); }
 }

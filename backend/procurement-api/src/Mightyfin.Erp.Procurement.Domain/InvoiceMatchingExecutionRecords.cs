@@ -29,6 +29,7 @@ public sealed class InvoiceMatchAllocation : ProcurementRecord
     public Guid IssuedVersionId { get; init; }
     public Guid PurchaseOrderLineId { get; init; }
     public Guid SupplierId { get; init; }
+    public Guid? ReceivingSourceStateId { get; init; }
     public Guid? GoodsReceiptLineId { get; init; }
     public Guid? ServiceAcceptanceId { get; init; }
     public Guid? OriginalDebitId { get; init; }
