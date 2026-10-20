@@ -53,6 +53,69 @@ public sealed class PurchaseRequestApprovalPinningTests
         finally { CultureInfo.CurrentCulture = original; }
     }
 
+    [Fact]
+    public void PostgreSQL_microsecond_and_jsonb_roundtrips_preserve_business_evidence()
+    {
+        var f = new Fixture();
+        f.Request.SubmittedAt = f.Request.SubmittedAt!.Value.AddTicks(7);
+        f.Finance.CheckedAt = f.Finance.CheckedAt.AddTicks(7);
+        f.Policy.RulesJson = "{\"z\":[1.0000,{\"b\":true,\"a\":null}],\"a\":2}";
+        var pin = f.Pin();
+        f.Link(pin);
+        f.Request.SubmittedAt = f.Request.SubmittedAt.Value.AddTicks(-7);
+        f.Finance.CheckedAt = f.Finance.CheckedAt.AddTicks(-7);
+        f.Policy.RulesJson = "{ \"a\": 2.0, \"z\": [1, {\"a\": null, \"b\": true}] }";
+        Assert.True(f.Verify(pin).IsValid);
+    }
+
+    [Fact]
+    public void Duplicate_policy_object_keys_are_not_valid_pin_evidence()
+    {
+        var f = new Fixture();
+        f.Policy.RulesJson = "{\"limit\":1,\"limit\":2}";
+        Assert.Throws<ArgumentException>(() => f.Pin());
+    }
+
+    [Theory]
+    [InlineData("1e2", "100.0000")]
+    [InlineData("1.2500E-4", "0.000125")]
+    [InlineData("9007199254740993", "9007199254740993.0")]
+    [InlineData("79228162514264337593543950335", "7.9228162514264337593543950335E28")]
+    [InlineData("-0.0000", "0")]
+    public void Policy_number_formatting_is_exact_and_semantic(string original, string stored)
+    {
+        var f = new Fixture();
+        f.Policy.RulesJson = "{\"amount\":" + original + "}";
+        var pin = f.Pin();
+        f.Link(pin);
+        f.Policy.RulesJson = "{ \"amount\": " + stored + " }";
+        Assert.True(f.Verify(pin).IsValid);
+    }
+
+    [Theory]
+    [InlineData("1e100")]
+    [InlineData("1e-100")]
+    [InlineData("1.234567890123456789012345678901")]
+    public void Unsupported_or_lossy_policy_numbers_are_rejected(string number)
+    {
+        var f = new Fixture();
+        f.Policy.RulesJson = "{\"amount\":" + number + "}";
+        Assert.Throws<ArgumentException>(() => f.Pin());
+    }
+
+    [Fact]
+    public void Policy_array_order_and_large_integer_changes_remain_material()
+    {
+        var f = new Fixture();
+        f.Policy.RulesJson = "{\"steps\":[1,2],\"amount\":9007199254740993}";
+        var pin = f.Pin();
+        f.Link(pin);
+        f.Policy.RulesJson = "{\"steps\":[2,1],\"amount\":9007199254740993}";
+        Assert.Contains("PinnedPolicyMismatch", f.Verify(pin).Blockers);
+        f.Policy.RulesJson = "{\"steps\":[1,2],\"amount\":9007199254740994}";
+        Assert.Contains("PinnedPolicyMismatch", f.Verify(pin).Blockers);
+    }
+
     [Theory]
     [InlineData("description")]
     [InlineData("quantity")]

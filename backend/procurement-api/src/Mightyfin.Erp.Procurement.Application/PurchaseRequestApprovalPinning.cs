@@ -53,7 +53,7 @@ public static class PurchaseRequestApprovalPinning
             RequestSnapshotJson = snapshot, RequestSnapshotSha256 = Digest(snapshot),
             PolicyEvaluationId = evaluation.Id, PolicyVersionId = policy.Id,
             PolicyVersionNumber = policy.PolicyVersionNumber,
-            PolicyDecisionSha256 = Digest(evaluation.DecisionJson), PolicyRulesSha256 = Digest(policy.RulesJson),
+            PolicyDecisionSha256 = Digest(evaluation.DecisionJson), PolicyRulesSha256 = PolicyRulesDigest(policy.RulesJson),
             FinanceSnapshotId = finance.Id, FinanceSnapshotJson = financeSnapshot,
             FinanceSnapshotSha256 = Digest(financeSnapshot), FinanceEvidenceMode = financeEvidenceMode,
             ManualEvidenceAuthorityRef = manualEvidenceAuthorityRef,
@@ -81,7 +81,7 @@ public static class PurchaseRequestApprovalPinning
         if (pin.PolicyEvaluationId != evaluation.Id || pin.PolicyVersionId != policy.Id
             || pin.PolicyVersionNumber != policy.PolicyVersionNumber
             || pin.PolicyDecisionSha256 != Digest(evaluation.DecisionJson)
-            || pin.PolicyRulesSha256 != Digest(policy.RulesJson))
+            || pin.PolicyRulesSha256 != PolicyRulesDigest(policy.RulesJson))
             issues.Add("PinnedPolicyMismatch");
         if (pin.FinanceSnapshotId != currentFinance.Id
             || pin.FinanceSnapshotSha256 != Digest(pin.FinanceSnapshotJson)
@@ -133,7 +133,7 @@ public static class PurchaseRequestApprovalPinning
             || evaluation.AmountBasis != EstimatedLineBase || string.IsNullOrWhiteSpace(evaluation.DecisionJson)
             || evaluation.PolicyVersionId != policy.Id || evaluation.PolicyVersionNumber != policy.PolicyVersionNumber
             || policy.Id == Guid.Empty || policy.PolicyKey != "PURCHASE_REQUEST" || policy.State != "Published"
-            || policy.PolicyVersionNumber < 1 || string.IsNullOrWhiteSpace(policy.RulesJson)
+            || policy.PolicyVersionNumber < 1 || PolicyRulesDigest(policy.RulesJson).Length == 0
             || request.SubmittedAt is { } time && (policy.EffectiveFrom > time || policy.EffectiveTo <= time))
             issues.Add("PolicyEvidenceInvalid");
         var route = ApprovalRoutePreview.FromEvaluation(evaluation, lines.Select(x => x.Id).ToArray());
@@ -158,11 +158,84 @@ public static class PurchaseRequestApprovalPinning
     private static string Decimal(decimal value) => value.ToString("G29", CultureInfo.InvariantCulture);
     private static string Digest(string? value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value ?? string.Empty)));
 
+    // PostgreSQL timestamptz stores microseconds; normalize before hashing tracked or reloaded values.
+    private static DateTimeOffset? DatabaseTimestamp(DateTimeOffset? value) => value is { } time
+        ? new DateTimeOffset(time.UtcTicks - time.UtcTicks % 10, TimeSpan.Zero) : null;
+
+    // Rules are jsonb in the existing policy store. Whitespace/property order and decimal
+    // scale are not policy changes; duplicate keys or unsupported numbers are ambiguous.
+    private static string PolicyRulesDigest(string? value)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(value ?? "");
+            if (json.RootElement.ValueKind != JsonValueKind.Object) return "";
+            using var bytes = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(bytes)) WriteCanonicalJson(writer, json.RootElement);
+            return Convert.ToHexStringLower(SHA256.HashData(bytes.ToArray()));
+        }
+        catch (Exception error) when (error is JsonException or FormatException or OverflowException) { return ""; }
+    }
+
+    private static void WriteCanonicalJson(Utf8JsonWriter writer, JsonElement value)
+    {
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.Object:
+                var properties = value.EnumerateObject().OrderBy(x => x.Name, StringComparer.Ordinal).ToArray();
+                if (properties.GroupBy(x => x.Name, StringComparer.Ordinal).Any(x => x.Count() > 1))
+                    throw new FormatException("Ambiguous policy object.");
+                writer.WriteStartObject();
+                foreach (var property in properties)
+                { writer.WritePropertyName(property.Name); WriteCanonicalJson(writer, property.Value); }
+                writer.WriteEndObject(); break;
+            case JsonValueKind.Array:
+                writer.WriteStartArray();
+                foreach (var item in value.EnumerateArray()) WriteCanonicalJson(writer, item);
+                writer.WriteEndArray(); break;
+            case JsonValueKind.Number:
+                if (!value.TryGetDecimal(out var number)) throw new FormatException("Unsupported policy number.");
+                var exact = NormalizeNumber(value.GetRawText());
+                if (exact != NormalizeNumber(Decimal(number)))
+                    throw new FormatException("Policy number loses decimal precision.");
+                writer.WriteRawValue(exact); break;
+            case JsonValueKind.String: writer.WriteStringValue(value.GetString()); break;
+            case JsonValueKind.True: writer.WriteBooleanValue(true); break;
+            case JsonValueKind.False: writer.WriteBooleanValue(false); break;
+            case JsonValueKind.Null: writer.WriteNullValue(); break;
+            default: throw new FormatException("Unsupported policy value.");
+        }
+    }
+
+    // Normalize exact base-10 coefficient/exponent strings, never binary floating point.
+    // Comparing the raw and decimal forms detects TryGetDecimal's possible rounding.
+    private static string NormalizeNumber(string literal)
+    {
+        var exponentAt = literal.IndexOf('e');
+        if (exponentAt < 0) exponentAt = literal.IndexOf('E');
+        var exponent = 0;
+        if (exponentAt >= 0 && !int.TryParse(literal[(exponentAt + 1)..],
+            NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out exponent))
+            throw new FormatException("Unsupported policy exponent.");
+        var mantissa = exponentAt < 0 ? literal : literal[..exponentAt];
+        var negative = mantissa[0] == '-';
+        if (negative) mantissa = mantissa[1..];
+        var point = mantissa.IndexOf('.');
+        var fractionDigits = point < 0 ? 0 : mantissa.Length - point - 1;
+        var digits = mantissa.Replace(".", "", StringComparison.Ordinal).TrimStart('0');
+        if (digits.Length == 0) return "0";
+        var trailing = 0;
+        while (digits[digits.Length - trailing - 1] == '0') trailing++;
+        if (trailing != 0) digits = digits[..^trailing];
+        exponent = checked(exponent - fractionDigits + trailing);
+        return (negative ? "-" : "") + digits + "e" + exponent.ToString(CultureInfo.InvariantCulture);
+    }
+
     // Explicit schema avoids accidentally pinning mutable execution fields or omitting new business fields unnoticed.
     private static string RequestSnapshot(PurchaseRequest r) => JsonSerializer.Serialize(new
     {
         schemaVersion = 1, r.TenantId, r.LegalEntityId, r.Id, r.Number, r.CreatedBy,
-        r.RequesterWorkerId, r.SubmittedVersion, r.SubmittedAt, r.Purpose, r.CurrencyCode,
+        r.RequesterWorkerId, r.SubmittedVersion, SubmittedAt = DatabaseTimestamp(r.SubmittedAt), r.Purpose, r.CurrencyCode,
         r.NeededBy, r.BranchRef, r.SiteRef, r.DepartmentRef, r.CostCenterRef, r.ProjectRef,
         r.DeliveryLocationRef, r.DeliveryAddressText, r.OnBehalfOfSubjectId, r.PlanRef,
         r.FundingSourceRef, r.NotesToApprover, r.SourceChannel,
@@ -181,7 +254,7 @@ public static class PurchaseRequestApprovalPinning
     private static string FinanceSnapshot(BudgetCheckSnapshot f) => JsonSerializer.Serialize(new
     {
         f.Id, f.TenantId, f.LegalEntityId, f.PurchaseRequestId, f.RequestVersion, f.FinanceCheckRef,
-        f.Status, checkedAmount = Decimal(f.CheckedAmount), f.CurrencyCode, f.CheckedAt,
+        f.Status, checkedAmount = Decimal(f.CheckedAmount), f.CurrencyCode, CheckedAt = DatabaseTimestamp(f.CheckedAt),
         f.CheckedBySubjectId, f.EvidenceRef, f.DecisionReason, f.ReservationRef,
         f.ReservationStatus, f.ExchangeRateSource,
     });
