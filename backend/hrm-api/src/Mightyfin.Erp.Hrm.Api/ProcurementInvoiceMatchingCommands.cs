@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using Mightyfin.Erp.Core.Documents.Domain;
 using Mightyfin.Erp.Core.Documents.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
@@ -106,6 +107,9 @@ public static partial class ProcurementInvoiceMatchingRoutes
         if(!http.RequestServices.GetRequiredService<CoreDocumentFeature>().Enabled
             || !(await http.RequestServices.GetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationService>()
                 .AuthorizeAsync(http.User,null,"procurement-invoice-read")).Succeeded) return new Dictionary<Guid,string>();
+        var configuration=http.RequestServices.GetRequiredService<IConfiguration>();
+        if(!InvoiceDocumentStoreBinding.SamePhysicalDatabase(configuration.GetConnectionString("CoreDocuments"),db.Database.GetDbConnection().ConnectionString))
+            return new Dictionary<Guid,string>(); // A separate owner store needs its own authenticated reader, never guessed local tables.
         var ids=mapping.Lines.Select(x=>x.DocumentVersionId).Where(x=>x!=Guid.Empty).Distinct().ToArray();
         if(ids.Length==0) return new Dictionary<Guid,string>();
         await using var documents=new DocumentDbContext(new DbContextOptionsBuilder<DocumentDbContext>().UseNpgsql(db.Database.GetDbConnection()).Options,scope);

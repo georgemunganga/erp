@@ -131,3 +131,16 @@ P26 migration/SQL/model review; raw FK/unique/precision/rollback and CAS Postgre
 restricted-role actual `--matching` HTTP execution; current scope/revocation and race scenarios;
 compatible existing frontend wiring/browser checks; real owner/document-review contracts before
 qualified claims can be enabled. This source is not deployed, migrated or production complete.
+
+Distinct route review found three concrete issues before compilation. Ordinary invoice history
+now uses a filtered read projection: only its own original-line comparison/discrepancy results
+and opaque evidence/source watermarks are exposed. Full immutable evidence containing other
+invoices' billing allocations and unrelated PO lines remains server-side. A regression embeds
+unrelated private source facts and proves they are absent from the projected transport.
+
+Core document hash reads now require explicit identical single server/port/database settings
+between the configured Core Documents owner store and the execution connection. Different
+finite credentials are allowed; separate/ambiguous stores return unavailable pins instead of
+reading guessed local tables. Store-binding positive/denial tests are authored. Direct PostgreSQL
+serialization/deadlock failures are classified409 before the generic database503 fallback.
+All remain source-only; these corrections confer no release or production owner authority.

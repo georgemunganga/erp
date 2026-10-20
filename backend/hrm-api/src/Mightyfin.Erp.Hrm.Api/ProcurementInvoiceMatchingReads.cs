@@ -27,7 +27,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
                     snapshot=JsonDocument.Parse(x.MappingJson).RootElement }),
                 comparisons=results.Select(x=>new { x.Id,x.Outcome,x.MatchedAt,x.InvoiceVersion,x.MappingVersionId,x.PurchaseOrderId,x.IssuedVersionId,
                     x.PolicyVersionId,x.PolicyRulesSha256,hasHeldCapacityClaim=invoice.ActiveMatchClaimResultId==x.Id,
-                    evidence=JsonDocument.Parse(x.EvidenceJson!).RootElement,recordedHistoricalResult=true,isCurrentApproval=false,canPostToFinance=false }),
+                    comparison=InvoiceMatchReadProjection.Summary(x,originalLines.Select(line=>line.Id).ToHashSet()),
+                    recordedHistoricalResult=true,isCurrentApproval=false,canPostToFinance=false }),
                 exceptions=exceptions.Select(x=>new { x.Id,x.MatchResultId,x.SupplierInvoiceLineId,x.Type,x.Status,x.OwnerSubjectId,x.OwnerWorkerId,x.DueAt,x.Resolution }),
                 capabilities=new { requiresVerifiedOriginalUnits=true,requiresCompleteAuthenticatedOwnerHistory=true,
                     negativeClaimEffectsAvailable=false,invoiceApprovalAvailable=false,apHandoffAvailable=false } },Json);

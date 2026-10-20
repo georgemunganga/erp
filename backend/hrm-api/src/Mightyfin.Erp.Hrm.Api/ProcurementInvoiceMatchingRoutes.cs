@@ -46,7 +46,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
         {
             var pg=error.GetBaseException() as PostgresException;
             var status=error is MatchingProblem p ? p.Status : error is UnauthorizedAccessException ? 403 : error is KeyNotFoundException ? 404
-                : error is NpgsqlException ? 503 : pg?.SqlState is "40001" or "40P01" || error is DbUpdateConcurrencyException ? 409 : 409;
+                : pg?.SqlState is "40001" or "40P01" || error is DbUpdateConcurrencyException ? 409 : error is NpgsqlException ? 503 : 409;
             return Results.Json(new { code=error is MatchingProblem ? error.Message : "InvoiceMatchingEvidenceNeedsReview",
                 message=status==503 ? "Invoice matching is not ready. Ask your administrator to check its configuration."
                     : "Refresh the invoice and review its original documents, current access and source evidence. No new payment was created." },statusCode:status);
