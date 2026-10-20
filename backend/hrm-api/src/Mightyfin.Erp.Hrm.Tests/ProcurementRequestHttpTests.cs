@@ -258,6 +258,50 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Finance_budget_review_is_confined_to_assigned_branch()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+            fixture.Owner, Draft("Branch-restricted funding"));
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var revised = await SendJson(fixture.Client, HttpMethod.Put,
+            $"/api/procurement/v1/requests/{id}", fixture.Owner,
+            new ProcurementRequestRoutes.UpdateRequest(draft.GetProperty("version").GetInt64(),
+                "Branch-restricted funding", null, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+                null, null, null, null, null, null, Draft("Branch-restricted funding").Lines));
+        var saved = await revised.Content.ReadFromJsonAsync<JsonElement>();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/requests/{id}/submit", fixture.Owner,
+            new ProcurementRequestRoutes.VersionCommand(saved.GetProperty("version").GetInt64()));
+        var request = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        var version = request.GetProperty("version").GetInt64();
+        await fixture.MoveRequestToOtherBranchAndConfineReviewer(id);
+
+        var queue = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/requests/budget-queue", fixture.Other, role: "finance_approver");
+        Assert.Equal(HttpStatusCode.OK, queue.StatusCode);
+        Assert.Equal(0, (await queue.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("count").GetInt32());
+        var path = $"/api/procurement/v1/requests/{id}/budget-checks";
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
+                role: "finance_approver")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                new ProcurementBudgetRoutes.BudgetDecision(version, "FIN-BRANCH", "Available",
+                    200, "ZMW", "finance-budget/branch", null, "RES-BRANCH", "Confirmed"),
+                "finance_approver")).StatusCode);
+        Assert.Equal(0, await fixture.RequestAuditCount(id, "BudgetChecked"));
+
+        var companyQueue = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/requests/budget-queue", fixture.Reviewer,
+            role: "finance_approver");
+        Assert.Equal(1, (await companyQueue.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("count").GetInt32());
+    }
+
+    [Fact]
     public async Task Vendor_and_item_drafts_respect_their_distinct_record_and_action_scopes()
     {
         await using var fixture = await Fixture.Start();
@@ -2101,6 +2145,29 @@ public sealed class ProcurementRequestHttpTests
         public Guid Reviewer { get; } = reviewer;
         public Guid Inactive { get; } = inactive;
         public Guid OtherCompany { get; } = otherCompany;
+
+        public async Task MoveRequestToOtherBranchAndConfineReviewer(Guid requestId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            var core = serviceScope.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var existingBranch = await core.WorkLocations.SingleAsync(x => x.LegalEntityId == company);
+            core.WorkLocations.Add(new WorkLocation
+            {
+                Code = "A2", Name = "Other branch", LegalEntityId = company,
+            });
+            core.UserBranchAssignments.Add(new HrUserBranchAssignment
+            {
+                UserId = Other, LocationId = existingBranch.Id,
+            });
+            await core.SaveChangesAsync();
+            var secondBranch = await core.WorkLocations.SingleAsync(x => x.Code == "A2");
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var procurement = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var request = await procurement.PurchaseRequests.SingleAsync(x => x.Id == requestId);
+            request.BranchRef = secondBranch.Id;
+            await procurement.SaveChangesAsync();
+        }
 
         public async Task<int> DecisionCount(Guid supplierId)
         {

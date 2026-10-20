@@ -20,12 +20,16 @@ public static class ProcurementBudgetRoutes
         group.MapPost("/{id:guid}/budget-checks", Record).RequireAuthorization("procurement-budget-check");
     }
 
-    private static async Task<IResult> Queue(ProcurementDbContext db, int? limit, int? offset,
+    private static async Task<IResult> Queue(ProcurementDbContext db, ProcurementRequestScope scope,
+        int? limit, int? offset,
         CancellationToken ct)
     {
         var take = Math.Clamp(limit ?? 50, 1, 100);
         var skip = Math.Clamp(offset ?? 0, 0, 100_000);
-        var query = db.PurchaseRequests.AsNoTracking().Where(x => x.Status == "Submitted");
+        var query = db.PurchaseRequests.AsNoTracking()
+            .Where(x => x.Status == "Submitted" && x.CreatedBy != scope.SubjectId);
+        if (scope.IsConfined)
+            query = query.Where(x => x.BranchRef == scope.WorkLocationId);
         var count = await query.CountAsync(ct);
         var records = await query.OrderBy(x => x.SubmittedAt).ThenBy(x => x.Id)
             .Skip(skip).Take(take).Select(x => new
@@ -38,9 +42,11 @@ public static class ProcurementBudgetRoutes
         return Results.Ok(new { records, count, limit = take, offset = skip });
     }
 
-    private static async Task<IResult> List(Guid id, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> List(Guid id, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
     {
-        if (!await db.PurchaseRequests.AsNoTracking().AnyAsync(x => x.Id == id, ct))
+        if (!await db.PurchaseRequests.AsNoTracking().AnyAsync(x => x.Id == id
+                && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct))
             return Error("not-found", "Request not found.", 404);
         var records = await db.BudgetCheckSnapshots.AsNoTracking()
             .Where(x => x.PurchaseRequestId == id).OrderByDescending(x => x.CheckedAt)
@@ -56,7 +62,8 @@ public static class ProcurementBudgetRoutes
     {
         var request = await db.PurchaseRequests.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
-        if (request is null) return Error("not-found", "Request not found.", 404);
+        if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
+            return Error("not-found", "Request not found.", 404);
         var latest = await db.BudgetCheckSnapshots.AsNoTracking()
             .Where(x => x.PurchaseRequestId == id && x.RequestVersion == request.Version)
             .OrderByDescending(x => x.CheckedAt).ThenByDescending(x => x.Id)
@@ -78,7 +85,8 @@ public static class ProcurementBudgetRoutes
             ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id, ct);
-        if (request is null) return Error("not-found", "Request not found.", 404);
+        if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
+            return Error("not-found", "Request not found.", 404);
         if (request.CreatedBy == scope.SubjectId)
             return Error("self-review", "The requester cannot confirm their own funding.", 403);
         if (request.Status != "Submitted")
