@@ -75,7 +75,7 @@ public static class ReceivingPolicyRules
         return new(policy.Id, policy.TenantId, policy.LegalEntityId, null, rule.CategoryCode, rule.Kind, true,
             policy.EffectiveFrom, policy.EffectiveTo, rule.InspectionRequired, rule.ChecklistReference,
             rule.AllowRequesterCertification, rule.AllowBuyerCertification, rule.AllowReceiverCertification,
-            rule.RequireIndependentInspector, rule.InspectorWorkerIds.ToHashSet(), rule.ServiceOwnerWorkerIds.ToHashSet(), [], rule.SiteIds.ToHashSet());
+            rule.RequireIndependentInspector, rule.InspectorWorkerIds.ToHashSet(), rule.ServiceOwnerWorkerIds.ToHashSet(), new HashSet<Guid>(), rule.SiteIds.ToHashSet());
     }
     public static void VerifyReference(ReceivingRule rule, string evidence)
         => Require(!string.IsNullOrWhiteSpace(evidence) && evidence.Length <= 500 && evidence == evidence.Trim()
