@@ -56,3 +56,14 @@ GoodsAction derives Accepted by comparing accepted with received minus initial r
 ## Remaining gates
 
 Review correction commit, compile/full tests, additive P25 migration/model check, restricted real PostgreSQL lifecycle/FK/immutability/multiline rollback/concurrency/fence/replay probes, purpose-specific inspection reads and existing UI adapter, actual API Playwright, policy/UAT/operations/release approval. No completion/production activation is implied.
+
+## Correction follow-up — e2049ab
+
+Distinct adapter review of `40c4c5a..e2049ab` finds all four identified source issues addressed:
+
+- R1: shared Guard requires service source branch/site in actor.SiteIds and policy.ReceivingSiteIds, so both factory and current exact-replay authorization enforce it.
+- R2: ReceivingIssuedAuthority verifies current stable PO header/full active commercial snapshot against retained issued JSON using retained supplier labels, plus exact Core source/case/policy/submission pointers and historical effective period. It does not reauthorize current supplier activation/Finance availability.
+- R3: Ledger loads inactive historical PO lines and all associated receipts/services, then uses explicit ReceivingAcceptanceHistory. Malformed certified service binding blocks; final service Added/context/SQL guards require its positive effect/state. Existing fact/counter/sequence validation remains.
+- R4: inspection updates derived rejection; certification compares against qualified quantity. Detail exposes inspection qualification/rejection and held quantity, and multi-line response projection preserves other lines' retained facts. Original physical observation stays frozen.
+
+The additional source-state/effect guard requires a changed source sequence for every added effect, and acceptance also checks approved PR capacity. No new blocker was found in this correction diff. This closes the four **source review findings only**; authored tests/probes, EF model/migration and actual runtime/UI behavior remain unexecuted/unproved by this reviewer. Source-only positive receiving remains off by default. Root retains independent deployment/UAT gates and exact-input probe changes when consolidating.
