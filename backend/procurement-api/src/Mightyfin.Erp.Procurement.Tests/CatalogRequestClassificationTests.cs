@@ -82,4 +82,27 @@ public sealed class CatalogRequestClassificationTests
         entry.SiteRef = Guid.NewGuid(); Assert.False(Matches()); entry.SiteRef = null;
         entry.ContractRef = Guid.NewGuid(); Assert.False(Matches());
     }
+
+    [Fact]
+    public void Actual_commercial_quantity_and_terms_must_qualify_even_when_original_request_does()
+    {
+        var now = DateTimeOffset.UtcNow; var item = Guid.NewGuid(); var supplier = Guid.NewGuid();
+        var offer = new CatalogEntry { CatalogItemId = item, SupplierId = supplier, UnitCode = "each",
+            CurrencyCode = "ZMW", UnitPrice = 100, MinimumQuantity = 10, MaximumQuantity = 20,
+            Status = "Published", PublishedVersion = 1, EffectiveFrom = now.AddDays(-1) };
+        bool Actual(decimal quantity = 10, decimal price = 100, string unit = "EACH", Guid? vendor = null, string currency = "ZMW") =>
+            CatalogRequestClassification.OfferMatches(offer, item, vendor ?? supplier, unit, currency,
+                quantity, price, 1, now, commercialUnitComparison: true);
+        Assert.True(CatalogRequestClassification.OfferMatches(offer, item, supplier, "each", "ZMW", 10, 100, 1, now));
+        Assert.True(Actual()); // existing PO unit owner folds case; no EA/EACH synonym inference.
+        Assert.False(Actual(quantity: 1));
+        Assert.False(Actual(quantity: 21));
+        Assert.False(Actual(price: 99));
+        Assert.False(Actual(vendor: Guid.NewGuid()));
+        Assert.False(Actual(unit: "BOX"));
+        Assert.False(Actual(unit: "EA"));
+        Assert.False(Actual(unit: " EACH "));
+        Assert.False(Actual(currency: "USD"));
+        Assert.False(CatalogRequestClassification.OfferMatches(offer, item, supplier, "EACH", "ZMW", 10, 100, 1, now));
+    }
 }
