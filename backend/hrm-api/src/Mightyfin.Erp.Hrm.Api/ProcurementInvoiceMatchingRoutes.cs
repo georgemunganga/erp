@@ -46,12 +46,15 @@ public static partial class ProcurementInvoiceMatchingRoutes
         catch(Exception error) when(error is MatchingProblem or InvalidOperationException or ArgumentException or UnauthorizedAccessException
             or KeyNotFoundException or JsonException or DbUpdateException or NpgsqlException or OverflowException or FormatException)
         {
-            // Keep diagnostic detail in the internal log; the client receives the safe
-            // business response below. Never log the submitted invoice/body or headers.
+            var pg=error.GetBaseException() as PostgresException;
+            // Exception messages/details may contain database row values. Log only
+            // diagnostic metadata; never pass the exception, body or headers to the sink.
             if (error is not MatchingProblem)
                 http.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("Procurement.InvoiceMatching")
-                    .LogWarning(error, "Invoice matching command rejected. TraceId: {TraceId}", http.TraceIdentifier);
-            var pg=error.GetBaseException() as PostgresException;
+                    .LogWarning("Invoice matching command rejected. TraceId: {TraceId}; ExceptionType: {ExceptionType}; FailureSite: {FailureSite}; SqlState: {SqlState}; Constraint: {Constraint}",
+                        http.TraceIdentifier, error.GetType().FullName,
+                        error.TargetSite?.DeclaringType?.FullName + "." + error.TargetSite?.Name,
+                        pg?.SqlState, pg?.ConstraintName);
             var status=error is MatchingProblem p ? p.Status : error is UnauthorizedAccessException ? 403 : error is KeyNotFoundException ? 404
                 : pg?.SqlState is "40001" or "40P01" || error is DbUpdateConcurrencyException ? 409 : error is NpgsqlException ? 503 : 409;
             return Results.Json(new { code=error is MatchingProblem ? error.Message : "InvoiceMatchingEvidenceNeedsReview",
