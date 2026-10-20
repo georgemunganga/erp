@@ -21,3 +21,10 @@ This record distinguishes source review from execution. No P27 migration, test, 
 ## Release
 
 Production remains unchanged. Existing full-host release, recovery and independent review gates remain. An authentic retained checker is not proof of complete external Finance commitment history or payment authority.
+
+
+## First focused compile/test gate — retained failure
+
+Session71911 restored from the read-only local cache and compiled the new domain/application/infrastructure/test source. Actual runner result: **43 passed,1 failed,0 skipped,44 total**. The exact legacy tuple assertion failed because JsonElement reserialization in the new v1 wrapper escaped the timestamp plus sign as a Unicode escape. The legacy0 encoder/golden digest passed; the script stopped before migration generation. No P27 migration or runtime pass is inferred.
+
+The source correction embeds only the owned legacy encoder's validated JSON using Utf8JsonWriter.WriteRawValue, retaining its exact bytes without changing global JSON escaping or accepting caller raw JSON. The existing failing exact-byte assertion is retained. Distinct review and a fresh focused rerun are required; first-run TRX/log remain in artifacts/p27/checker-domain and prepare-schema.log.

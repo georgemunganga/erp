@@ -80,13 +80,22 @@ public static class FinanceSnapshotCodec
             return Legacy(snapshot);
         if (identitySchemaVersion == FinanceCheckerIdentityEvidence.BoundVersion
             && FinanceCheckerIdentityEvidence.HasValidBinding(snapshot))
-            return JsonSerializer.Serialize(new
+        {
+            using var output = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(output))
             {
-                financeIdentitySchemaVersion = identitySchemaVersion,
-                // JsonElement embeds the original financial tuple as JSON, not an escaped mutable string.
-                finance = JsonSerializer.Deserialize<JsonElement>(Legacy(snapshot)),
-                snapshot.CheckedByWorkerId, snapshot.CheckerIdentitySha256,
-            });
+                writer.WriteStartObject();
+                writer.WriteNumber("financeIdentitySchemaVersion", identitySchemaVersion);
+                writer.WritePropertyName("finance");
+                // This is the owned legacy encoder's valid JSON, never caller-supplied raw input.
+                // Re-serializing JsonElement would escape '+' in the timestamp and change its bytes.
+                writer.WriteRawValue(Legacy(snapshot), skipInputValidation: false);
+                writer.WriteString(nameof(snapshot.CheckedByWorkerId), snapshot.CheckedByWorkerId!.Value);
+                writer.WriteString(nameof(snapshot.CheckerIdentitySha256), snapshot.CheckerIdentitySha256);
+                writer.WriteEndObject();
+            }
+            return System.Text.Encoding.UTF8.GetString(output.ToArray());
+        }
         throw new ArgumentException("FinanceCheckerIdentityMissingOrInvalid");
     }
 
