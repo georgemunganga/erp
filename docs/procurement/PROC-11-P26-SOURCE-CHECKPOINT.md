@@ -144,3 +144,37 @@ finite credentials are allowed; separate/ambiguous stores return unavailable pin
 reading guessed local tables. Store-binding positive/denial tests are authored. Direct PostgreSQL
 serialization/deadlock failures are classified409 before the generic database503 fallback.
 All remain source-only; these corrections confer no release or production owner authority.
+
+## Source consolidation — root947ff04 + reviewed P25 reads d44be49
+
+P26 now retains both histories through ordinary merges, without rebasing/force-pushing:
+
+- `6248385` merges root `947ff04`, including the verified exact-input/tax guards and actual
+  `OrderExactInputVerification` call, exact codec/converters, mapped input tests, PO browser
+  fixture and `f9fca21` PO-only policy-role correction. Root verification evidence remains
+  historical evidence for that source; it does not verify this combined P25/P26 branch.
+- `b9499fa` merges reviewed P25 read source `d44be49` (including `2d8b35f` service notes and
+  disabled receiving metadata-fixture setup). Full source/read/purpose/legacy/preview behavior
+  is retained, not reimplemented by the P26 bridge.
+
+Conflict resolutions were confined to probe CLI validation, additive probe README sections and
+metadata test registrations. The CLI keeps the explicitly supported `--serve --orders` pair,
+all original single modes/no-argument PR mode, and the new single `--receiving`/`--matching`
+modes. Duplicate flags, unsupported mixed modes and more than two flags remain rejected.
+Browser preparation receives the actual `orders` flag and retains optional persisted outcome
+verification on graceful stop. Both capability fixtures have exactly one disabled Receiving
+and one disabled Matching registration.
+
+Source comparison confirms root order drafts/contracts/codec/source-allocation/exact-input and
+browser fixture files unchanged; `OrderVerification` differs only by the existing optional
+`purchaseType` argument needed by receiving. Reviewed P25 resolver/read-scope/receiving probe
+files match their branch exactly. Finite runtime grants preserve existing mode behavior and
+add P25/P26 grants only behind their explicit private probe modes.
+
+Distinct route review `99df2ab` records source closure of the `3b97559` privacy/store/abort
+corrections. Authored tests from both histories are retained, including mapped raw input,
+amount/tax denials, source allocation, receiving read scope/legacy/notes, P26 evidence/CAS,
+filtered read privacy, store binding and disabled mapped endpoint gates. **No SDK/build/test,
+P25/P26 migration generation, database or browser execution was performed for consolidation.**
+Root's centrally generated P25 snapshot is intentionally not invented here; it must be merged
+later before the separate P26 generation/rehearsal gate. Production remains unchanged.
