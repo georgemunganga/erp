@@ -54,6 +54,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 input.CurrencyCode, evidenceReference = input.EvidenceReference.Trim(), input.ConfirmedAt, reason });
             var reply = await transaction.ExecuteAsync(async (db, workflow, token) =>
             {
+                await RequireCheckerSchema(db, http, token);
                 await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, token);
                 var request = await Request(db, scope, id, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);

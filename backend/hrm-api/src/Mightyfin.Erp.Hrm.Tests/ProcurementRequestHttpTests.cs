@@ -68,6 +68,33 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Missing_Finance_schema_denies_budget_reads_capture_and_readiness_before_effects()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        var (id, version) = await SubmittedFundingRequest(fixture);
+        fixture.SetFinanceCheckerReadiness(false);
+        var before = await fixture.OriginalValueFootprint();
+        var paths = new[] { "/api/procurement/v1/requests/budget-queue", $"/api/procurement/v1/requests/{id}/budget-checks",
+            $"/api/procurement/v1/requests/{id}/budget-status", $"/api/procurement/v1/requests/{id}/approval-readiness" };
+        foreach (var path in paths)
+        {
+            var own = path.EndsWith("/budget-status", StringComparison.Ordinal);
+            var preview = path.EndsWith("/approval-readiness", StringComparison.Ordinal);
+            var actor = own ? fixture.Owner : preview ? fixture.Reviewer : fixture.Other;
+            var role = own ? "employee" : preview ? "procurement_manager" : "finance_approver";
+            var denied = await Send(fixture.Client, HttpMethod.Get, path, actor, role: role);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, denied.StatusCode);
+            Assert.Equal("FinanceCheckerSchemaUnavailable", (await denied.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        }
+        var capture = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/budget-checks", fixture.Other,
+            new ProcurementBudgetRoutes.BudgetDecision(version, "SCHEMA-BLOCK", "Available", 20, "ZMW", "synthetic-schema-evidence", null,
+                "SCHEMA-RESERVATION", "Confirmed"), "finance_approver");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, capture.StatusCode);
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+    }
+
+    [Fact]
     public async Task Retained_checker_survives_account_reassignment_without_reinterpreting_original_or_replaying_as_new_worker()
     {
         await using var fixture = await Fixture.Start();
@@ -2996,6 +3023,9 @@ public sealed class ProcurementRequestHttpTests
             return assignedBranch.Id;
         }
 
+        public void SetFinanceCheckerReadiness(bool ready) =>
+            ((FinanceCheckerTestSchemaReadiness)app.Services.GetRequiredService<IProcurementFinanceCheckerSchemaReadiness>()).Ready = ready;
+
         public void SetDocumentReadiness(bool ready) => ((DocumentTestReadiness)app.Services.GetRequiredService<IDocumentSchemaReadiness>()).Ready = ready;
         public void FailDocumentScan(bool fail) => app.Services.GetRequiredService<DocumentTestScanner>().Fail = fail;
         public async Task<Guid> OrderBranch(Guid orderId)
@@ -3323,6 +3353,7 @@ public sealed class ProcurementRequestHttpTests
             builder.Services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
             builder.Services.AddDbContext<ProcurementDbContext>(options =>
                 options.UseInMemoryDatabase("proc-drafts-" + databaseId));
+            builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness());
             var documentRoot = documents ? Path.Combine(Path.GetTempPath(), "erp-http-documents-" + databaseId) : null;
             if (documents)
             {

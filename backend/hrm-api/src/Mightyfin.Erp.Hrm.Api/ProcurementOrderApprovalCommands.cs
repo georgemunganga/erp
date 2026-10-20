@@ -21,6 +21,8 @@ public static partial class ProcurementOrderExecutionRoutes
             var fingerprint = Fingerprint(new { operation = "Submit", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
+                if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, token))
+                    throw new OrderProblem("FinanceCheckerSchemaUnavailable", 503);
                 var load = await Load(db, cases, scope, id, true, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-submit", token, load.Order.BranchRef, true);
@@ -94,6 +96,8 @@ public static partial class ProcurementOrderExecutionRoutes
                 input.Action, reason, input.ExpectedOrderVersion, input.ExpectedCaseVersion, input.ExpectedAssignmentVersion });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
+                if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, token))
+                    throw new OrderProblem("FinanceCheckerSchemaUnavailable", 503);
                 var load = await Load(db, cases, scope, id, false, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-approve", token, load.Order.BranchRef, true);

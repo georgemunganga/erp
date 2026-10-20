@@ -17,6 +17,15 @@ public static class ProcurementBudgetRoutes
     public static void Map(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/requests");
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            var http = context.HttpContext;
+            var owner = http.RequestServices.GetRequiredService<ProcurementDbContext>();
+            if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(owner, http.RequestServices,
+                    HttpMethods.IsPost(http.Request.Method), http.RequestAborted))
+                return ProcurementFinanceCheckerSchemaGuard.Unavailable();
+            return await next(context);
+        });
         group.MapGet("/budget-queue", Queue).RequireAuthorization("procurement-budget-check");
         group.MapGet("/{id:guid}/budget-status", OwnStatus).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/budget-checks", List).RequireAuthorization("procurement-budget-check");
