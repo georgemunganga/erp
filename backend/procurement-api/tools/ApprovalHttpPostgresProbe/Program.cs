@@ -300,9 +300,28 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         await Revoke(manager1);
         await Expect(HttpStatusCode.Conflict, HttpMethod.Post, DecisionPath(caseId, firstAssignment), manager1, firstBody, voteKey);
         await Authority(manager1, "AUTH-M1-RESTORED");
+        await OtherAssigneeRevocationHidesApprove();
         await FinanceChangedReturnAndRelease();
         await ReceiptFailureRollsBackBothContexts();
         await FinalFinanceRace();
+    }
+
+    private async Task OtherAssigneeRevocationHidesApprove()
+    {
+        var request = await NewFundedRequest("Another assignee authority revoked");
+        var opened = await Open(request); var caseId = opened.GetProperty("caseId").GetGuid();
+        await Revoke(manager2);
+        var detail = await Get($"{Root}/approvals/{caseId}", manager1);
+        var assignment = ActiveAssignment(detail, manager1);
+        var actions = assignment.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray();
+        Require(!actions.Contains("Approve") && actions.Contains("Return") && actions.Contains("Reject")
+            && detail.GetProperty("blockers").GetArrayLength() != 0,
+            "Detail advertised approval despite a revoked other-stage assignment authority.");
+        await Expect(HttpStatusCode.Conflict, HttpMethod.Post, DecisionPath(caseId, assignment), manager1,
+            Decision(detail, assignment, "Approve"), Guid.NewGuid());
+        await Expect(HttpStatusCode.OK, HttpMethod.Post, DecisionPath(caseId, assignment), manager1,
+            Decision(detail, assignment, "Return", "Other-stage authority needs independent reconfiguration"), Guid.NewGuid());
+        await Authority(manager2, "AUTH-M2-RESTORED");
     }
 
     private async Task FinanceChangedReturnAndRelease()
