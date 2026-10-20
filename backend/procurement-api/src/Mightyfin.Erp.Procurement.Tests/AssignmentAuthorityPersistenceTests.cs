@@ -47,7 +47,8 @@ public sealed class AssignmentAuthorityPersistenceTests
         var line = new PurchaseRequestLine { PurchaseRequestId = request.Id, LineNumber = 1,
             Description = "Synthetic item", UnitCode = "each", RequestedQuantity = 1, EstimatedUnitPrice = 100,
             EstimatedCurrencyCode = "ZMW", CategoryCode = "IT" };
-        db.AddScoped(line); request.Lines.Add(line);
+        db.AddScoped(line);
+        Assert.Single(request.Lines);
         var caseId = Guid.NewGuid(); var makerWorker = Guid.NewGuid();
         var pin = new PurchaseRequestApprovalSubmission
         {
@@ -66,7 +67,7 @@ public sealed class AssignmentAuthorityPersistenceTests
         db.AddScoped(pin); await db.SaveChangesAsync();
         var evaluated = PurchaseRequestSpendingAuthority.Evaluate(request, "approver", SpendingAuthorityConfiguration.ApprovalPermission,
             SpendingAuthorityConfiguration.ApprovalAction, "EstimatedLineBase", time, [grant]);
-        Assert.True(evaluated.Eligible);
+        Assert.True(evaluated.Eligible, string.Join(", ", evaluated.Blockers));
         var workerId = Guid.NewGuid();
         var json = JsonSerializer.Serialize(new PurchaseRequestAssignmentIdentityEvidence(workerId, evaluated.Evidence!));
         var evidence = new PurchaseRequestAssignmentAuthorityEvidence
