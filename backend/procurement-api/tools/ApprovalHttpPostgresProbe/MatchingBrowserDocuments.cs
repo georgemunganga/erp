@@ -48,7 +48,7 @@ sealed partial class Probe
     private static void RegisterMatchingBrowserScanner(IServiceCollection services)
     {
         services.RemoveAll<IDocumentScanner>();
-        services.AddSingleton<IDocumentScanner,KnownFixtureOnlyDocumentScanner>();
+        services.AddSingleton<IDocumentScanner>(new KnownFixtureOnlyDocumentScanner());
     }
     private static async Task VerifyMatchingScannerBoundary()
     {
@@ -83,7 +83,7 @@ sealed partial class Probe
             var allowed=expectedBytes==expected.Length && expectedSha256==MatchingDocumentSha && length==expected.Length
                 && bytes.AsSpan(0,length).SequenceEqual(expected);
             return new(allowed?ScannerVerdict.Clean:ScannerVerdict.Infected,observed,
-                "TEST-ONLY KnownFixtureOnlyDocumentScanner","synthetic-exact-benign-bytes-only",allowed?null:"test-fixture-content-rejected");
+                "TEST-ONLY KnownFixtureOnlyDocumentScanner","synthetic-exact-benign-bytes-only");
         }
     }
 }
