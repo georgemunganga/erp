@@ -1,3 +1,4 @@
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using System.Text.Json.Serialization;
 using System.Data;
 using System.Text.Json;
@@ -81,7 +82,7 @@ public static class ProcurementBudgetRoutes
     }
 
     private static async Task<IResult> Record(Guid id, JsonElement body,
-        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+        ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope, CancellationToken ct)
     {
         var parsed=ProcurementOriginalValueInput.Read<BudgetDecision>(body);
         if(parsed.Error is not null) return parsed.Error;
@@ -97,6 +98,16 @@ public static class ProcurementBudgetRoutes
             return Error("not-found", "Request not found.", 404);
         if (request.CreatedBy == scope.SubjectId)
             return Error("self-review", "The requester cannot confirm their own funding.", 403);
+        await using var enlistedCore = transaction is not null
+            ? await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, ct) : null;
+        var identityCore = enlistedCore ?? core;
+        var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(identityCore, scope.TenantId,
+            scope.LegalEntityId, scope.SubjectId, ct);
+        if (verifier is null)
+            return Error("finance-identity-unavailable", "An active organisation workforce account is required to confirm funding.", 403);
+        try { await ProcurementFinanceWorkerIndependence.RequireAsync(request, verifier.WorkerId, identityCore, db, scope, ct); }
+        catch (InvalidOperationException)
+        { return Error("self-review", "Funding requires an independent worker and retained requester identity.", 403); }
         if (request.Status != "Submitted")
             return Error("request-locked", "Only submitted requests can be checked.", 409);
         if (request.Version != input.RequestVersion)

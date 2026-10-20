@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -25,6 +26,72 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// <summary>Exercises the mapped HTTP routes with the real Core scope middleware and Procurement query filters.</summary>
 public sealed class ProcurementRequestHttpTests
 {
+    [Fact]
+    public async Task Funding_alias_is_denied_without_effects_and_independent_worker_survives_creator_offboarding()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
+            new { purpose = "Worker independent funding", currencyCode = "ZMW", lines = new[] {
+                new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/submit",
+            fixture.Owner, new ProcurementRequestRoutes.VersionCommand(original.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var version = (await submitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("version").GetInt64();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Owner); // Two active accounts, one actual worker.
+        var decision = new ProcurementBudgetRoutes.BudgetDecision(version, "FIN-WORKER", "Available", 20m,
+            "ZMW", "synthetic-independent-evidence", null, "RES-WORKER", "Confirmed");
+        var path = $"/api/procurement/v1/requests/{id}/budget-checks";
+        var before = await fixture.OriginalValueFootprint();
+        var denied = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, decision, "finance_approver");
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        Assert.Equal("self-review", (await denied.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+        Assert.Equal("FinanceEvidenceVerifierInvalid", await fixture.FinanceEligibility(id, fixture.Other));
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        await fixture.SetFinanceWorker(fixture.Owner, fixture.Owner, active: false);
+        Assert.Null(await fixture.FinanceEligibility(id, fixture.Other));
+        Assert.Equal(HttpStatusCode.Created,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, decision, "finance_approver")).StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "BudgetChecked"));
+        // Exact replay is also checked against the current worker binding before returning evidence.
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Owner);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, decision, "finance_approver")).StatusCode);
+        Assert.Equal("FinanceEvidenceVerifierInvalid", await fixture.FinanceEligibility(id, fixture.Other));
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "BudgetChecked"));
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other, active: false);
+        Assert.Equal("FinanceEvidenceVerifierUnavailable", await fixture.FinanceEligibility(id, fixture.Other));
+    }
+
+    [Theory]
+    [InlineData("LegacyImport", null)]
+    [InlineData("ERP", "unproven-on-behalf-maker")]
+    public async Task Funding_without_retained_maker_provenance_is_denied_before_mutation(string channel, string? onBehalf)
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
+            new { purpose = "Unknown maker provenance", currencyCode = "ZMW", lines = new[] {
+                new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/submit",
+            fixture.Owner, new ProcurementRequestRoutes.VersionCommand(original.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        await fixture.SetRequestProvenance(id, channel, onBehalf);
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        var before = await fixture.OriginalValueFootprint();
+        Assert.Equal("FinanceEvidenceMakerIdentityUnavailable", await fixture.FinanceEligibility(id, fixture.Other));
+        var response = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/budget-checks",
+            fixture.Other, new ProcurementBudgetRoutes.BudgetDecision(1, "FIN-UNKNOWN", "Available", 20m, "ZMW",
+                "synthetic-evidence", null, "RES-UNKNOWN", "Confirmed"), "finance_approver");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(before, await fixture.OriginalValueFootprint());
+    }
+
     [Theory]
     [InlineData(" Goods ", " office_it_2 ", "GOODS", "OFFICE_IT_2")]
     [InlineData("Service", "IT", "SERVICE", "IT")]
@@ -2697,6 +2764,53 @@ public sealed class ProcurementRequestHttpTests
         public Guid Inactive { get; } = inactive;
         public Guid OtherCompany { get; } = otherCompany;
 
+        public async Task SetRequestProvenance(Guid requestId, string channel, string? onBehalf)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
+                "tenant-a", company, Owner.ToString(), null, null, false, "legacy-provenance-fixture");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var request = await db.PurchaseRequests.SingleAsync(x => x.Id == requestId);
+            request.SourceChannel = channel; request.OnBehalfOfSubjectId = onBehalf;
+            await db.SaveChangesAsync();
+        }
+
+        public async Task SetFinanceWorker(Guid subject, Guid workerSubject, bool active = true)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var account = await core.LocalUsers.SingleAsync(x => x.Id == subject);
+            account.WorkerId = (await core.Workers.SingleAsync(x => x.SubjectId == workerSubject.ToString())).Id;
+            account.IsActive = active;
+            account.RolesCsv = "finance_approver";
+            if (!await core.TenantRoleAssignments.AnyAsync(x => x.RoleKey == "finance_approver"))
+                core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "finance_approver", RoleName = "Synthetic Finance", Active = true,
+                    PermissionsCsv = "procurement-access,procurement-budget-check" });
+            await core.SaveChangesAsync();
+        }
+
+        public async Task<string?> FinanceEligibility(Guid requestId, Guid verifier)
+        {
+            using var services = app.Services.CreateScope();
+            var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
+            scope.Set("tenant-a", company, verifier.ToString(), null, null, false, "finance-independence-test");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var request = await db.PurchaseRequests.AsNoTracking().SingleAsync(x => x.Id == requestId);
+            var finance = new BudgetCheckSnapshot { CheckedBySubjectId = verifier.ToString(),
+                CheckedAt = DateTimeOffset.UtcNow.AddSeconds(-1) };
+            // Historical input is deliberately synthetic; CheckAsync must reject it before eligibility.
+            try
+            {
+                await ProcurementApprovalFinanceEligibility.CheckAsync(request, finance,
+                    new ProcurementApprovalExecutionOptions { ManualFinancePolicies = [new() {
+                        LegalEntityId = company, Enabled = true, ApprovedPolicyReference = "synthetic-approved-policy",
+                        EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1) }] }, core, db, scope, DateTimeOffset.UtcNow, default);
+                return null;
+            }
+            catch (InvalidOperationException error) { return error.Message; }
+        }
+
         public async Task MoveRequestToOtherBranchAndConfineReviewer(Guid requestId)
         {
             using var serviceScope = app.Services.CreateScope();
@@ -3132,6 +3246,15 @@ public sealed class ProcurementRequestHttpTests
                         SubjectId = reviewer.ToString(), Status = "active", LocationId = branch.Id },
                     new Worker { EmployeeNo = "PROC-3", FirstName = "Inactive", LastName = "Employee",
                         SubjectId = inactive.ToString(), Status = "terminated", LocationId = branch.Id });
+                // Finance writes require a canonical Core account, not merely a test role claim.
+                foreach (var principal in new[] { owner, other, reviewer })
+                {
+                    var worker = core.Workers.Local.Single(x => x.SubjectId == principal.ToString());
+                    core.LocalUsers.Add(new LocalUser { Id = principal, WorkerId = worker.Id,
+                        Email = principal + "@example.test", NormalizedEmail = (principal + "@example.test").ToUpperInvariant(),
+                        DisplayName = "Synthetic canonical account", PasswordHash = "synthetic-unused",
+                        RolesCsv = principal == owner ? "employee" : "procurement_manager" });
+                }
                 await core.SaveChangesAsync();
             }
             await app.StartAsync();
