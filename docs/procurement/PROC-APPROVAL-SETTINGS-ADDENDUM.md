@@ -39,7 +39,7 @@ Finite positive amount on submission, company currency only, fixed EstimatedLine
 Procurement owns grant reference/version, principal reference, maximum amount, dates, scope selections, categories, state, configuration owner and review evidence. Core owns identity/name/worker/company/branch/department; Procurement owns active procurement category references. No email, credentials or unrelated employee data in lookup responses.
 
 ## 13. Screens & Data Views
-Reuse existing settings shell, page header, tabs, table, fields, selectors, switches and review modal. List/detail show person, currency, exact finite limit, scope, effective dates, version and state. Unknown policy JSON remains read-only rather than being rewritten by a partial editor.
+Reuse existing settings shell, page header, tabs, table, fields, selectors, switches and review modal. List/detail show person, currency, exact finite limit, scope, effective dates, version and state. Lists provide selected branch/department/confinement scope to constrain the form. One/All policy steps preserve explicit order and supported custom step codes. BudgetOwner remains unavailable until its assignment mapping exists; such policies and unknown policy JSON stay read-only rather than being rewritten by a partial editor.
 
 ## 14. User Experience / Human Behaviour
 Use “Approval steps”, “Approval limits”, “Send for review”, “Activate limit”, “Return for changes”, “Replace active limit” and “Revoke limit”. Explain that a saved draft grants no authority. Clearly label the amount as before discounts, tax and delivery.
@@ -63,7 +63,7 @@ All consequential commands retain their existing transactional audit. Lookup nam
 Paged configuration inventory and current state are operational views. Do not equate “Active” with applicable authority without effective-date, scope, category and action eligibility checks.
 
 ## 21. Configuration & Localization
-Default currency comes from selected company. Numeric transport is invariant; display may localise without converting exact amount strings to JavaScript Number. Effective timestamps require explicit timezone handling. Global branding and components remain shared.
+Default currency comes from selected company. Numeric transport is invariant; display may localise without converting exact amount strings to JavaScript Number. The existing policy API continues to receive numeric JSON inside rulesJson: the editor preserves monetary number lexemes before JSON.parse and emits validated exact decimal tokens directly, escaping every nonmonetary field with JSON.stringify. Unsupported precision/range is read-only. The existing numeric sample-preview API is blocked when conversion would round a monetary amount. Effective timestamps require explicit timezone handling. Global branding and components remain shared.
 
 ## 22. Non-Functional Requirements
 Bounded lookups and pagination, cancellation of obsolete reads, no previous-record actions after denied navigation, accessible form labels, loading/empty/error/denied states. No production capability activation in this change.
