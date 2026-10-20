@@ -557,16 +557,22 @@ public static class ProcurementRequestRoutes
     private static async Task<bool> ReleasedPriorCase(ProcurementDbContext db, PurchaseRequest request, CancellationToken ct)
     {
         if (request.Status != "ReturnedForChanges" || !Guid.TryParse(request.ApprovalInstanceRef, out var caseId)) return false;
-        var submission = await db.ApprovalSubmissions.AsNoTracking().SingleOrDefaultAsync(x =>
-            x.PurchaseRequestId == request.Id && x.CoreApprovalCaseId == caseId
-            && x.SubmittedBusinessVersion == request.SubmittedVersion, ct);
-        if (submission is null) return false;
-        return await db.FinanceReleaseRequests.AsNoTracking().Where(x => x.SubmissionId == submission.Id
+        var submissionId = await ReleasedPriorSubmissionIds(db, request.Id, caseId, request.SubmittedVersion)
+            .SingleOrDefaultAsync(ct);
+        if (submissionId is null) return false;
+        return await db.FinanceReleaseRequests.AsNoTracking().Where(x => x.SubmissionId == submissionId.Value
             && x.CoreApprovalCaseId == caseId && x.Outcome == "Returned")
             .Join(db.FinanceReleaseConfirmations.AsNoTracking(), r => r.Id, c => c.ReleaseRequestId,
                 (r, c) => new { r, c }).AnyAsync(x => x.c.ReservationRef == x.r.ReservationRef
                     && x.c.ReleasedAmount == x.r.ReservedAmount && x.c.CurrencyCode == x.r.CurrencyCode, ct);
     }
+
+    // Draft CRUD needs only the old scoped source ID. Do not materialize new Finance identity
+    // columns here or make historical return/release proof depend on positive-use schema readiness.
+    internal static IQueryable<Guid?> ReleasedPriorSubmissionIds(ProcurementDbContext db, Guid requestId,
+        Guid caseId, long? submittedVersion) => db.ApprovalSubmissions.AsNoTracking()
+        .Where(x => x.PurchaseRequestId == requestId && x.CoreApprovalCaseId == caseId
+            && x.SubmittedBusinessVersion == submittedVersion).Select(x => (Guid?)x.Id);
 
     public sealed record ReturnInput(long Version, string? Reason);
     public sealed record WithdrawCommand(long Version, string? Reason = null);

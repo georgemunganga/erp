@@ -17,6 +17,15 @@ public static class ProcurementBudgetRoutes
     public static void Map(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/requests");
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            var http = context.HttpContext;
+            var owner = http.RequestServices.GetRequiredService<ProcurementDbContext>();
+            if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(owner, http.RequestServices,
+                    HttpMethods.IsPost(http.Request.Method), http.RequestAborted))
+                return ProcurementFinanceCheckerSchemaGuard.Unavailable();
+            return await next(context);
+        });
         group.MapGet("/budget-queue", Queue).RequireAuthorization("procurement-budget-check");
         group.MapGet("/{id:guid}/budget-status", OwnStatus).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/budget-checks", List).RequireAuthorization("procurement-budget-check");
@@ -55,6 +64,7 @@ public static class ProcurementBudgetRoutes
             .Where(x => x.PurchaseRequestId == id).OrderByDescending(x => x.CheckedAt)
             .Select(x => new { x.Id, x.RequestVersion, x.FinanceCheckRef, x.Status,
                 x.CheckedAmount, x.CurrencyCode, x.CheckedAt, x.CheckedBySubjectId,
+        x.CheckerIdentitySchemaVersion, x.CheckedByWorkerId,
                 x.EvidenceRef, x.DecisionReason, x.ReservationRef, x.ReservationStatus })
             .ToListAsync(ct);
         return Results.Ok(new { records });
@@ -76,6 +86,10 @@ public static class ProcurementBudgetRoutes
             requestId = id, requestVersion = request.Version, submittedVersion = request.SubmittedVersion,
             status = latest?.Status ?? "Pending",
             checkedAt = latest?.CheckedAt,
+            checkerIdentitySchemaVersion = latest?.CheckerIdentitySchemaVersion,
+            // Retained integrity only, not current authorisation or external reservation verification.
+            retainedCheckerIdentity = latest is not null && FinanceCheckerIdentityEvidence.HasValidBinding(latest),
+            needsIndependentFinanceReview = latest is not null && !FinanceCheckerIdentityEvidence.HasValidBinding(latest),
             reservationConfirmed = latest?.Status == "Available"
                 && latest.ReservationStatus == "Confirmed",
         });
@@ -105,6 +119,9 @@ public static class ProcurementBudgetRoutes
             scope.LegalEntityId, scope.SubjectId, ct);
         if (verifier is null)
             return Error("finance-identity-unavailable", "An active organisation workforce account is required to confirm funding.", 403);
+        try { await ProcurementApprovalFinanceEligibility.RequireCurrentBudgetPermissionAsync(identityCore, verifier, ct); }
+        catch (InvalidOperationException)
+        { return Error("finance-access-revoked", "Current Finance permission is required to confirm funding.", 403); }
         try { await ProcurementFinanceWorkerIndependence.RequireAsync(request, verifier.WorkerId, identityCore, db, scope, ct); }
         catch (InvalidOperationException)
         { return Error("self-review", "Funding requires an independent worker and retained requester identity.", 403); }
@@ -147,19 +164,29 @@ public static class ProcurementBudgetRoutes
                 && prior.CurrencyCode == request.CurrencyCode && prior.EvidenceRef == evidenceRef
                 && prior.DecisionReason == reason && prior.ReservationRef == reservationRef
                 && prior.ReservationStatus == reservationStatus)
+            {
+                // Recovery proves the original recorder's retained identity, never today's reassigned subject.
+                if (!FinanceCheckerIdentityEvidence.MatchesCurrentCanonical(prior, scope.TenantId, scope.LegalEntityId,
+                        id, businessVersion, scope.SubjectId, verifier.WorkerId))
+                    return Error("finance-checker-identity-changed", "This funding evidence needs a new independent Finance review. The original check was not changed.", 409);
                 return Results.Ok(ToResult(prior));
+            }
             return Error("finance-reference-conflict", "This Finance check reference has already been used.", 409);
         }
         var decision = new BudgetCheckSnapshot
         {
             PurchaseRequestId = id, RequestVersion = businessVersion, FinanceCheckRef = financeRef,
             Status = input.Status, CheckedAmount = input.CheckedAmount,
-            CurrencyCode = request.CurrencyCode, CheckedAt = DateTimeOffset.UtcNow,
+            CurrencyCode = request.CurrencyCode, CheckedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value,
             CheckedBySubjectId = scope.SubjectId, EvidenceRef = evidenceRef,
             DecisionReason = reason, ReservationRef = reservationRef,
             ReservationStatus = reservationStatus,
         };
         db.AddScoped(decision);
+        var checker = FinanceCheckerIdentityEvidence.CreateForNewSnapshot(decision, scope.SubjectId, verifier.WorkerId);
+        decision.CheckerIdentitySchemaVersion = checker.SchemaVersion;
+        decision.CheckedByWorkerId = checker.WorkerId;
+        decision.CheckerIdentitySha256 = checker.Sha256;
         db.AddScoped(new AuditEvent
         {
             RecordType = "PurchaseRequest", RecordId = id, Action = "BudgetChecked",
@@ -167,6 +194,7 @@ public static class ProcurementBudgetRoutes
             ChangedFieldsJson = JsonSerializer.Serialize(new
             {
                 requestVersion = businessVersion, sourceRevision = request.Version, financeRef, input.Status,
+                decision.CheckerIdentitySchemaVersion, decision.CheckedByWorkerId, decision.CheckerIdentitySha256,
                 input.CheckedAmount, request.CurrencyCode, evidenceRef,
                 reservationRef, reservationStatus, reason,
             }),
@@ -189,6 +217,7 @@ public static class ProcurementBudgetRoutes
     {
         x.Id, x.PurchaseRequestId, x.RequestVersion, x.FinanceCheckRef, x.Status,
         x.CheckedAmount, x.CurrencyCode, x.CheckedAt, x.CheckedBySubjectId,
+        x.CheckerIdentitySchemaVersion, x.CheckedByWorkerId,
         x.EvidenceRef, x.DecisionReason, x.ReservationRef, x.ReservationStatus,
     };
     private static IResult Error(string code, string message, int status) =>

@@ -21,6 +21,8 @@ public static partial class ProcurementOrderExecutionRoutes
             var fingerprint = Fingerprint(new { operation = "Finance", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
+                if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, token))
+                    throw new OrderProblem("FinanceCheckerSchemaUnavailable", 503);
                 var load = await Load(db, cases, scope, id, false, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-finance-confirm", token, load.Order.BranchRef, true);
@@ -35,6 +37,7 @@ public static partial class ProcurementOrderExecutionRoutes
                         || !PurchaseOrderWorkerIdentity.IsIndependent(recorded.ParticipantWorkersJson, verifier.WorkerId)) Deny();
                     return prior.ResponseJson;
                 }
+                await CurrentSourceCheckers(db, core, scope, load.Sources.Select(x => x.Source), token);
                 await CatalogCommercial(db, load.Order.SupplierId, load.Order.CurrencyCode,
                     load.Sources.Select(x => (x.Source.Line, x.OrderLine)), token);
                 var order = load.Order; var now = DateTimeOffset.UtcNow;

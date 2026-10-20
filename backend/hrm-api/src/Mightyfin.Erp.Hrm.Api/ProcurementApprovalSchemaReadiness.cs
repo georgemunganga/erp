@@ -10,7 +10,8 @@ public interface IProcurementApprovalSchemaReadiness
 }
 
 /// <summary>Read-only schema/access discovery using the dedicated execution connection.</summary>
-public sealed class ProcurementApprovalSchemaReadiness(IConfiguration configuration, IApprovalScope scope)
+public sealed class ProcurementApprovalSchemaReadiness(IConfiguration configuration, IApprovalScope scope,
+    Mightyfin.Erp.Procurement.Application.IProcurementScope procurementScope)
     : IProcurementApprovalSchemaReadiness
 {
     public async Task<bool> IsReadyAsync(CancellationToken ct)
@@ -31,7 +32,10 @@ public sealed class ProcurementApprovalSchemaReadiness(IConfiguration configurat
             _ = await db.Assignments.AsNoTracking().Select(x => x.Id).Take(1).ToArrayAsync(ct);
             _ = await db.Decisions.AsNoTracking().Select(x => x.Id).Take(1).ToArrayAsync(ct);
             _ = await db.Delegations.AsNoTracking().Select(x => x.Id).Take(1).ToArrayAsync(ct);
-            return true;
+            await using var procurement = new Mightyfin.Erp.Procurement.Infrastructure.Data.ProcurementDbContext(
+                new DbContextOptionsBuilder<Mightyfin.Erp.Procurement.Infrastructure.Data.ProcurementDbContext>()
+                    .UseNpgsql(connection, x => x.MigrationsHistoryTable("__procurement_migrations", "procurement")).Options, procurementScope);
+            return await new ProcurementFinanceCheckerSchemaReadiness().IsReadyAsync(procurement, false, ct);
         }
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
     }
