@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -24,7 +25,7 @@ public sealed class InvoiceMatchingPersistenceTests
             && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","ReceivingSourceStateId","PurchaseOrderId","IssuedVersionId","PurchaseOrderLineId" }));
         foreach (var target in new[] { typeof(GoodsReceiptLine),typeof(ServiceAcceptance) })
             Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == target
-                && fk.Properties.Any(x => x.Name == "ReceivingSourceStateId") && fk.Properties.Any(x => x.Name == "PurchaseOrderLineId"));
+                && fk.Properties.Select(x=>x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId",target==typeof(GoodsReceiptLine)?"GoodsReceiptLineId":"ServiceAcceptanceId" }));
         Assert.Equal(38,allocation.FindProperty(nameof(InvoiceMatchAllocation.NetAmount))!.GetPrecision());
         Assert.Equal(8,allocation.FindProperty(nameof(InvoiceMatchAllocation.NetAmount))!.GetScale());
         Assert.Contains(allocation.GetIndexes(), x => x.IsUnique && x.Properties.Select(p => p.Name).SequenceEqual(
@@ -32,6 +33,25 @@ public sealed class InvoiceMatchingPersistenceTests
         var exception = db.Model.FindEntityType(typeof(InvoiceException))!;
         Assert.Contains(exception.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(InvoiceMatchResult)
             && fk.Properties.Any(x => x.Name == "SupplierInvoiceId") && fk.Properties.Any(x => x.Name == "MatchResultId"));
+    }
+    [Fact]
+    public void Matching_does_not_reintroduce_mutable_receiving_completion_pins_as_EF_keys()
+    {
+        using var db=Context();
+        foreach(var (type,names) in new[] {
+            (typeof(GoodsReceiptLine),new[] { "SourceStateBindingId","PhysicalBindingId","ReceivingSourceStateId","PhysicalObservationId" }),
+            (typeof(ServiceAcceptance),new[] { "SourceStateBindingId","ReceivingSourceStateId","CertificationEffectId" }) })
+        {
+            var entity=db.Model.FindEntityType(type)!;
+            foreach(var name in names)
+            {
+                var property=entity.FindProperty(name)!;
+                Assert.DoesNotContain(entity.GetKeys(),key=>key.Properties.Contains(property));
+                Assert.Equal(ValueGenerated.Never,property.ValueGenerated);
+            }
+            Assert.Contains(entity.GetIndexes(),index=>index.IsUnique && index.Properties.Select(x=>x.Name)
+                .SequenceEqual(new[] { "TenantId","LegalEntityId","Id","PurchaseOrderLineId","SourceStateBindingId" }));
+        }
     }
     [Theory]
     [InlineData(true)][InlineData(false)]

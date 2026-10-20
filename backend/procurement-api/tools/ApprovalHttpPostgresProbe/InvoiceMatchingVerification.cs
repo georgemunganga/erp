@@ -46,6 +46,7 @@ sealed partial class Probe
         await Check(compared,HttpStatusCode.OK); var comparedText=await compared.Content.ReadAsStringAsync(); var result=JsonDocument.Parse(comparedText).RootElement.GetProperty("result");
         Require(result.GetProperty("outcome").GetString()=="Blocked" && !result.GetProperty("hasCapacityClaim").GetBoolean()
             && !result.GetProperty("canPostToFinance").GetBoolean(),"Unavailable owner/reviewer fabricated matching/AP authority.");
+        await VerifyInvoiceAllocationOwnership(id,result.GetProperty("id").GetGuid());
         var retry=await Send(HttpMethod.Post,$"{Root}/invoices/{id}/matching/compare",OrderBuyer,compareInput,compareKey);
         await Check(retry,HttpStatusCode.OK); Require(await retry.Content.ReadAsStringAsync()==comparedText,"Blocked comparison exact retry changed durable receipt.");
         await Expect(HttpStatusCode.Conflict,HttpMethod.Post,$"{Root}/invoices/{id}/matching/compare",OrderBuyer,

@@ -44,6 +44,8 @@ public sealed class ProcurementInvoiceMatchingSchemaReadiness(IConfiguration con
             // A delegated readiness result (or EF/column compatibility alone) cannot
             // prove the ownership tuples backing accepted evidence are still enforced.
             command.CommandText=ReceivingOwnershipConstraintSql.ManifestQuery;
+            if(await command.ExecuteScalarAsync(ct) is not true) return false;
+            command.CommandText=InvoiceMatchingOwnershipConstraintSql.ManifestQuery;
             return await command.ExecuteScalarAsync(ct) is true;
         }
         catch(Exception error) when(error is not OperationCanceledException) { return false; }

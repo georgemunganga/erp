@@ -68,10 +68,16 @@ public sealed partial class ProcurementDbContext
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
         allocation.HasOne<ReceivingSourceState>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReceivingSourceStateId, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId }).OnDelete(DeleteBehavior.Restrict);
-        allocation.HasOne<GoodsReceiptLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GoodsReceiptLineId, x.PurchaseOrderLineId, x.ReceivingSourceStateId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderLineId, x.SourceStateBindingId }).OnDelete(DeleteBehavior.Restrict);
-        allocation.HasOne<ServiceAcceptance>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ServiceAcceptanceId, x.PurchaseOrderLineId, x.ReceivingSourceStateId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderLineId, x.SourceStateBindingId }).OnDelete(DeleteBehavior.Restrict);
+        // Mutable receiving completion pins must never become EF principal keys.
+        // The migration-owned deferred overlay below binds the exact line/state tuple.
+        allocation.HasOne<GoodsReceiptLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GoodsReceiptLineId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        allocation.HasOne<ServiceAcceptance>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ServiceAcceptanceId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<GoodsReceiptLine>().HasIndex(x => new { x.TenantId,x.LegalEntityId,x.Id,x.PurchaseOrderLineId,x.SourceStateBindingId })
+            .IsUnique().HasDatabaseName("ux_invoice_goods_exact_source_binding");
+        model.Entity<ServiceAcceptance>().HasIndex(x => new { x.TenantId,x.LegalEntityId,x.Id,x.PurchaseOrderLineId,x.SourceStateBindingId })
+            .IsUnique().HasDatabaseName("ux_invoice_service_exact_source_binding");
         Link<InvoiceMatchAllocation, Supplier>(model, nameof(InvoiceMatchAllocation.SupplierId));
         Link<InvoiceMatchAllocation, InvoiceMatchAllocation>(model, nameof(InvoiceMatchAllocation.OriginalDebitId));
         allocation.ToTable(t => t.HasCheckConstraint("ck_invoice_match_allocation", "kind = 'Debit' AND original_debit_id IS NULL AND quantity > 0 AND net_amount >= 0 AND tax_amount >= 0 AND exposure_sequence > 0 AND (goods_receipt_line_id IS NULL OR service_acceptance_id IS NULL) AND ((goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL AND receiving_source_state_id IS NULL) OR (receiving_source_state_id IS NOT NULL AND (goods_receipt_line_id IS NOT NULL OR service_acceptance_id IS NOT NULL)))"));
