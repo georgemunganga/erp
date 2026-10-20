@@ -73,6 +73,13 @@ public sealed class ReceivingPersistenceModelTests
                 Assert.Equal(ValueGenerated.Never, entity.FindProperty(name)!.ValueGenerated);
             }
         }
+        foreach (var (type, names) in new[] {
+            (typeof(GoodsReceipt), new[] { "IssuedBindingId" }),
+            (typeof(GoodsReceiptLine), new[] { "SourceStateBindingId", "PhysicalBindingId", "IssuedBindingId" }),
+            (typeof(ReceiptInspection), new[] { "SourceStateBindingId", "PhysicalBindingId" }),
+            (typeof(ServiceAcceptance), new[] { "SourceStateBindingId", "IssuedBindingId" }) })
+            foreach (var name in names)
+                Assert.Equal(ValueGenerated.Never, db.Model.FindEntityType(type)!.FindProperty(name)!.ValueGenerated);
         var sql = ReceivingOwnershipConstraintSql.Install;
         Assert.Equal(3, sql.Split("DEFERRABLE INITIALLY DEFERRED").Length - 1);
         Assert.Contains("REFERENCES procurement.goods_receipt_lines (tenant_id, legal_entity_id, id, source_state_binding_id, physical_binding_id)", sql);
