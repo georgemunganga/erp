@@ -117,8 +117,8 @@ public static class InvoiceMatchingFoundation
                 || acceptance.State is not ("Accepted" or "PartiallyAccepted")
                 || string.IsNullOrWhiteSpace(acceptance.AcceptanceReference) || acceptance.AcceptedAt == default || acceptance.AcceptedAt > command.EvaluatedAt
                 || !InvoiceMatchExact.Input(acceptance.AcceptedQuantity) || !InvoiceMatchExact.Input(acceptance.ReturnedQuantity)
-                || acceptance.ReturnedQuantity > acceptance.AcceptedQuantity || !InvoiceMatchExact.MoneyInput(acceptance.AcceptedNetAmount, policy)
-                || !InvoiceMatchExact.MoneyInput(acceptance.ReturnedNetAmount, policy) || acceptance.ReturnedNetAmount > acceptance.AcceptedNetAmount)
+                || acceptance.ReturnedQuantity > acceptance.AcceptedQuantity || !InvoiceMatchExact.AcceptedNetInput(acceptance.AcceptedNetAmount)
+                || !InvoiceMatchExact.AcceptedNetInput(acceptance.ReturnedNetAmount) || acceptance.ReturnedNetAmount > acceptance.AcceptedNetAmount)
                 Block("AuthoritativeAcceptedEvidenceInvalid");
         var work = new List<LineWork>();
         foreach (var line in invoice.Lines)
@@ -170,14 +170,14 @@ public static class InvoiceMatchingFoundation
             {
                 var receipt = accepted[receiptGroup.Key]; var used = prior.Where(x => x.AcceptanceId == receipt.Id).ToArray();
                 var receiptQuantity = Sum(used, x => x.Quantity) + receiptGroup.Aggregate(BigInteger.Zero, (sum, x) => sum + x.Quantity);
-                var available = InvoiceMatchExact.Units(receipt.AcceptedQuantity - receipt.ReturnedQuantity);
+                var available = InvoiceMatchExact.Units(receipt.AcceptedQuantity) - InvoiceMatchExact.Units(receipt.ReturnedQuantity);
                 if (receiptQuantity > available && !InvoiceMatchExact.Within(receiptQuantity - available, available, rule.Quantity))
                     Block("CumulativeAcceptedQuantityOutsideTolerance", receiptGroup.First().Invoice.Id);
                 if (receipt.Kind == InvoiceAcceptanceKind.Service)
                 {
                     var value = Sum(used, x => x.NetAmount) + receiptGroup.Aggregate(BigInteger.Zero, (sum, x) => sum + x.Net);
                     // Certified service value is a hard ceiling; commercial variance does not invent acceptance.
-                    if (value > InvoiceMatchExact.Units(receipt.AcceptedNetAmount - receipt.ReturnedNetAmount))
+                    if (value > InvoiceMatchExact.Units(receipt.AcceptedNetAmount) - InvoiceMatchExact.Units(receipt.ReturnedNetAmount))
                         Block("CertifiedServiceValueExceeded", receiptGroup.First().Invoice.Id);
                 }
             }
