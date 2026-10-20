@@ -1,6 +1,6 @@
 # P26 invoice comparison — verification evidence
 
-**Latest checkpoint (20 October,18:42UTC):** actual Bills browser2/2 and independent persisted owner verification passed; final CLI branch/race/readiness rerun remains active. Production unchanged. Earlier sections retain source-scoped failures and superseded checkpoints.
+**Latest checkpoint (20 October,18:50UTC):** actual Bills browser2/2, independent persisted owner verification and the complete fresh restricted HTTP/PostgreSQL CLI passed. Production unchanged. Earlier sections retain source-scoped failures and superseded checkpoints.
 
 ## Scope and release boundary
 
@@ -145,3 +145,10 @@ After browser completion, SIGTERM stopped the owned API. Its NEW independent own
 Frozen frontend SHA256: HTML `60196e68e0918e56cdae6300f98f4750b5d8ba16817f848a013f077188f0ebf6`; JSindex-Bj0myMuD `bb816e26955de8be16b13e7e31cc2a59de84b6b51691ba823f9d031176933064`; CSSindex-Bddc462I `7f163297e91fa0e3fc3cde778b88996063082e96fb088d9866bfac750639d888`. Tool SHA256 `d55b8a275d29456640db9044203819fc9e4ff1cf60fc63d1f86d02d7c261fcf5`; API unchanged `4cb6f14612afa75ccfe9f73f064bc89331b718d3436e77875e4c7034d69b7f12`. Private API/owner log, browser log,0600 manifest, full transport traces and copied Playwright results are retained under the protected fixture directory.
 
 Fourth fresh CLI run27214 uses `20261020_184252_matching` with the corrected two-stage branch fixture and mapped browser footprint. Its terminal outcome remains pending. The browser PASS does not certify that separate concurrency/whole-CLI gate or enable qualified matching/AP/payment or production.
+
+
+## Fourth actual restricted HTTP/PostgreSQL CLI — PASS
+
+Session27214, protected fresh `20261020_184252_matching`, terminated0. Frozen source36c5d38 and tool/API hashes equal the actual browser candidate above. The real finite-role run passed receiving lifecycle/ownership/readiness, exact invoice input boundaries and database roundtrip, source selector privacy/scoping with zero GET writes, exact ownership/tamper and required-evidence constraints, mapping and explicit Blocked comparison, original-key replay/recovery, unassigned-branch403 then assigned foreign-branch404 with unchanged footprints, one-success/one-conflict concurrent comparison and repeated read-only readiness checks. Final output confirms no AP/claim authority fabricated when independent original-unit and complete Finance owners are unavailable.
+
+Actual log and terminal status0 are retained privately in that fixture directory. Expected foreign-branch warning logs contain safe diagnostic metadata only. The prior three failed CLI databases/logs remain preserved; this fresh terminal pass supersedes their pending completion checkpoints without erasing them. No migration or production flag was changed by this verification milestone. Next increment is separately scoped P27 Finance checker identity verification, not an assertion of complete Procurement implementation.
