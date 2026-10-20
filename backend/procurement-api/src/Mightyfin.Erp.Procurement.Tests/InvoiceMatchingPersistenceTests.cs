@@ -82,12 +82,18 @@ public sealed class InvoiceMatchingPersistenceTests
     [Fact]
     public async Task A_new_claim_cannot_reuse_an_unchanged_previously_consumed_exposure_sequence()
     {
-        await using var db=Context();
-        var exposure=new InvoiceMatchExposureState { PurchaseOrderId=Guid.NewGuid(),IssuedVersionId=Guid.NewGuid(),SupplierId=Guid.NewGuid(),CurrencyCode="ZMW",Sequence=1,CoverageState="Verified" };
-        db.AddScoped(exposure); db.Entry(exposure).State=EntityState.Unchanged;
-        db.AddScoped(new InvoiceMatchAllocation { ExposureStateId=exposure.Id,ExposureSequence=1,SupplierInvoiceId=Guid.NewGuid(),
-            SupplierInvoiceLineId=Guid.NewGuid(),MatchResultId=Guid.NewGuid(),PurchaseOrderId=exposure.PurchaseOrderId,
-            IssuedVersionId=exposure.IssuedVersionId,SupplierId=exposure.SupplierId,CurrencyCode="ZMW",UnitCode="each",Quantity=1,NetAmount=1 });
+        var f=new InvoiceMatchExecutionEvidenceTests.Fixture();
+        var claim=Assert.Single(f.Claims()); // Positive pure authority check first; no fabricated incomplete source rows.
+        await using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,f);
+        f.Exposure.Sequence=claim.ExposureSequence; f.Exposure.CoverageState="Verified";
+        f.Exposure.OwnerReference=f.Owner.OwnerReference; f.Exposure.OwnerWatermark=f.Owner.Watermark;
+        f.Exposure.OwnerEvidenceSha256=f.Owner.EvidenceSha256; f.Exposure.OwnerValidUntil=f.Owner.ValidUntil;
+        f.Invoice.ActiveMatchClaimResultId=f.Result.Id;
+        db.Attach(f.Invoice); db.Attach(f.Line); db.Attach(f.Mapping); db.Attach(f.Result); db.Attach(f.Exposure);
+        Assert.Equal(EntityState.Unchanged,db.Entry(f.Exposure).State);
+        db.AddScoped(claim);
+        // All current original/mapping/Compared result/lease/source/amount bindings are valid.
+        // Only the absence of a new tracked exposure advancement must deny this new claim.
         Assert.Equal("InvoiceAllocationAuthorityRequired",(await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync())).Message);
     }
     [Fact]

@@ -126,7 +126,7 @@ public sealed class InvoiceMatchExecutionEvidenceTests
 
     private static string Serialize<T>(T value) => JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
     private static string Digest(string json) => ProcurementEvidenceEncoding.PolicyJsonDigest(json);
-    private sealed class Fixture : IProcurementScope
+    internal sealed class Fixture : IProcurementScope
     {
         public string TenantId => "execution-test";
         public Guid LegalEntityId { get; } = Guid.NewGuid();
