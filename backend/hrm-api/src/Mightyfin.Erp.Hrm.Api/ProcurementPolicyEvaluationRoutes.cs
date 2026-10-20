@@ -25,9 +25,9 @@ public static class ProcurementPolicyEvaluationRoutes
         var take = Math.Clamp(limit ?? 50, 1, 100);
         var skip = Math.Clamp(offset ?? 0, 0, 100_000);
         var query = db.PurchaseRequests.AsNoTracking()
-            .Where(x => x.Status == "Submitted"
+            .Where(x => x.Status == "Submitted" && x.ApprovalInstanceRef == null
                 && !db.PolicyEvaluations.Any(e => e.PurchaseRequestId == x.Id
-                    && e.RequestVersion == x.Version && e.Outcome == "Matched"));
+                    && e.RequestVersion == (x.SubmittedVersion ?? x.Version) && e.Outcome == "Matched"));
         if (scope.IsConfined)
             query = query.Where(x => x.BranchRef == scope.WorkLocationId);
         var count = await query.CountAsync(ct);
@@ -37,9 +37,9 @@ public static class ProcurementPolicyEvaluationRoutes
                 x.Id, x.Number, x.Purpose, x.CurrencyCode, x.SubmittedAt,
                 x.Version, x.CreatedBy,
                 PolicyOutcome = db.PolicyEvaluations.Where(e => e.PurchaseRequestId == x.Id
-                    && e.RequestVersion == x.Version).Select(e => e.Outcome).FirstOrDefault(),
+                    && e.RequestVersion == (x.SubmittedVersion ?? x.Version)).Select(e => e.Outcome).FirstOrDefault(),
                 PolicyResultCode = db.PolicyEvaluations.Where(e => e.PurchaseRequestId == x.Id
-                    && e.RequestVersion == x.Version).Select(e => e.ResultCode).FirstOrDefault(),
+                    && e.RequestVersion == (x.SubmittedVersion ?? x.Version)).Select(e => e.ResultCode).FirstOrDefault(),
                 LineCount = x.Lines.Count(line => line.ApprovalStatus != "Cancelled"),
                 EstimatedBaseAmount = x.Lines.Where(line => line.ApprovalStatus != "Cancelled")
                     .Sum(line => line.RequestedQuantity * line.EstimatedUnitPrice),
@@ -55,10 +55,10 @@ public static class ProcurementPolicyEvaluationRoutes
         if (request is null) return Error("not-found", "Request not found.", 404);
         var evaluation = await db.PolicyEvaluations.AsNoTracking()
             .SingleOrDefaultAsync(x => x.PurchaseRequestId == id
-                && x.RequestVersion == request.Version, ct);
+                && x.RequestVersion == (request.SubmittedVersion ?? request.Version), ct);
         return Results.Ok(new
         {
-            requestId = id, requestVersion = request.Version,
+            requestId = id, requestVersion = request.Version, submittedVersion = request.SubmittedVersion,
             status = request.Status != "Submitted" ? "NotSubmitted"
                 : evaluation?.Outcome ?? "Pending",
             isAuthority = false,
@@ -73,6 +73,7 @@ public static class ProcurementPolicyEvaluationRoutes
             ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
         try
         {
+            await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
             var request = await db.PurchaseRequests.Include(x => x.Lines)
                 .SingleOrDefaultAsync(x => x.Id == id, ct);
             if (request is null) return Error("not-found", "Request not found.", 404);
@@ -97,7 +98,7 @@ public static class ProcurementPolicyEvaluationRoutes
         }
         catch (DbUpdateException)
         { return Error("evaluation-conflict", "Another rule check was recorded. Refresh the request.", 409); }
-        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        catch (Exception error) when (ProcurementPostgresFailures.IsConcurrency(error))
         { return Error("evaluation-conflict", "The request or buying rule changed. Refresh and check again.", 409); }
     }
 

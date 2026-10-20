@@ -277,7 +277,11 @@ public static partial class ProcurementApprovalExecutionRoutes
     { var reason = string.Join(" ", (value ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)); return reason.Length == 0 ? null : reason; }
     private static string Hash(object payload) => ProcurementApprovalAssigneeResolver.Hash(JsonSerializer.Serialize(payload, Json));
     private static void Enabled(ProcurementApprovalExecutionOptions options)
-    { if (!options.Enabled) throw new ApprovalHttpError(503, "ApprovalsNotEnabled", "Purchase approvals are not enabled yet. Your draft requests remain available."); }
+    {
+        if (!options.Enabled) throw new ApprovalHttpError(503, "ApprovalsNotEnabled", "Purchase approvals are not enabled yet. Your draft requests remain available.");
+        if (!options.ExecutionDatabaseConfigured) throw new ApprovalHttpError(503, "ApprovalExecutionDatabaseNotConfigured",
+            "Purchase approvals need their database access configured before they can start.");
+    }
     private static ApprovalHttpError Missing() => new(404, "ApprovalNotFound", "Approval or request not found.");
     private static ApprovalHttpError Conflict(string code) => new(409, code, "The request, funding or approval changed. Refresh it and resolve the listed check before trying again.");
     private static ApprovalHttpError Invalid(string code) => new(422, code, "Check the approval details and try again.");

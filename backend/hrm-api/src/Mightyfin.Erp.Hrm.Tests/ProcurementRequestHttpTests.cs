@@ -26,6 +26,28 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementRequestHttpTests
 {
     [Fact]
+    public async Task Delayed_buying_rule_check_uses_submission_policy_not_current_successor()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner, Draft("Delayed rule check"));
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/submit",
+            fixture.Owner, new { version = draft.GetProperty("version").GetInt64() });
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var source = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        var priorPolicy = await fixture.AddHistoricalBuyingPoliciesForDelayedCheck(id);
+        var currentResponse = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
+        var current = await currentResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var evaluated = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/policy-evaluations",
+            fixture.Other, new { requestVersion = current.GetProperty("version").GetInt64() }, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, evaluated.StatusCode);
+        var body = await evaluated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Matched", body.GetProperty("status").GetString());
+        Assert.Equal(priorPolicy, body.GetProperty("evaluation").GetProperty("policyVersionId").GetGuid());
+    }
+
+    [Fact]
     public async Task Draft_request_persists_and_is_hidden_from_another_employee()
     {
         await using var fixture = await Fixture.Start();
@@ -2490,6 +2512,12 @@ public sealed class ProcurementRequestHttpTests
             var owner = await core.Workers.SingleAsync(x => x.SubjectId == Owner.ToString());
             var manager = await core.Workers.SingleAsync(x => x.SubjectId == Other.ToString());
             owner.ManagerId = manager.Id;
+            // Readiness now references the same canonical account as execution, rather
+            // than treating Worker.SubjectId as an interchangeable login principal.
+            if (!await core.LocalUsers.AnyAsync(x => x.Id == Other))
+                core.LocalUsers.Add(new LocalUser { Id = Other, WorkerId = manager.Id, IsActive = true,
+                    Email = "preview-manager@example.test", NormalizedEmail = "PREVIEW-MANAGER@EXAMPLE.TEST",
+                    DisplayName = "Preview Manager", PasswordHash = "synthetic-unused", RolesCsv = "procurement_manager" });
             await core.SaveChangesAsync();
         }
 
@@ -2555,6 +2583,27 @@ public sealed class ProcurementRequestHttpTests
             db.AddScoped(policy);
             await db.SaveChangesAsync();
             return policy.Id;
+        }
+
+        public async Task<Guid> AddHistoricalBuyingPoliciesForDelayedCheck(Guid requestId)
+        {
+            var priorId = await AddPublishedBuyingPolicy();
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Other.ToString(), null, null, false, "delayed-policy-fixture");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var request = await db.PurchaseRequests.SingleAsync(x => x.Id == requestId);
+            request.SubmittedAt = DateTimeOffset.UtcNow.AddDays(-2);
+            var prior = await db.PolicyVersions.SingleAsync(x => x.Id == priorId);
+            prior.EffectiveFrom = request.SubmittedAt.Value.AddDays(-1);
+            prior.PublishedAt = request.SubmittedAt.Value.AddDays(-1);
+            prior.PublicationReason = "Synthetic prior approved policy";
+            prior.EffectiveTo = request.SubmittedAt.Value.AddDays(1);
+            db.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 2,
+                EffectiveFrom = prior.EffectiveTo.Value, State = "Published", RulesJson = prior.RulesJson,
+                PublishedBy = Other.ToString(), PublishedAt = request.SubmittedAt.Value });
+            await db.SaveChangesAsync();
+            return priorId;
         }
 
         public async Task AddRequestLineAfterPolicyCheck(Guid requestId)

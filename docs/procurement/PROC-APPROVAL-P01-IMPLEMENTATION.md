@@ -139,3 +139,32 @@ Draft, pending-review, revoked or otherwise unrecognized policy states do not au
 existing case. An explicit revocation workflow is not supplied by this increment; changing
 published rule content remains a pin mismatch, not an implicit reroute. Scope, published
 status, policy version, effective-at-submission bounds and pinned hashes remain mandatory.
+
+### Execution database access and activation
+
+Approval execution is disabled by default. Activation additionally requires an explicit
+`ConnectionStrings:ProcurementApprovalExecution` connection. With the feature enabled but
+that connection absent or blank, execution routes return `503` with
+`ApprovalExecutionDatabaseNotConfigured`; readiness reports the same unmet setup check.
+The shared host connection is not an approved substitute for the dedicated execution role.
+Normal module draft/read contexts can retain their separately managed connection.
+
+Before production enablement, provision and verify a least-privilege execution role in the
+same PostgreSQL database. It needs the scoped Procurement source/line reads and controlled
+updates, append-only evidence/audit/outbox inserts and reads, Core case/stage/assignment
+execution inserts and controlled updates, and Core decision insert/read. It must not have
+`UPDATE`/`DELETE` on decision, submission, command receipt, authority-pin, outcome, release,
+confirmation or audit history. Outbox delivery updates belong to a separate publisher role.
+Shared identity, worker/reporting-line, company/location/department, role and branch-grant
+access is `SELECT` only. The canonical account adapter projects the required account linkage,
+lock status and roles; Procurement execution does not need password hashes, payroll, bank
+records or identity master writes. No runtime role receives migration ownership.
+
+Core and Procurement contexts enlist one physical execution connection/transaction, including
+the read-only Core identity/organization adapter. Verify role/schema access, unauthorized
+history mutations, company/tenant isolation, rollback, and a real mapped HTTP workflow under
+that dedicated role before enabling the feature. The disposable HTTP probe explicitly supplies
+its own isolated test connection; a synthetic database owner/superuser run does not prove
+production grants. Protected deployment configuration, role credentials and review evidence
+must be recorded in the operational release pack. Capability stays off until these gates and
+the browser/source/Finance checks pass.

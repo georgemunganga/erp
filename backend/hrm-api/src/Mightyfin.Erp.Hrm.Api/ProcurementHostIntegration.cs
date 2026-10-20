@@ -15,10 +15,15 @@ public static class ProcurementHostIntegration
     public static void AddServices(IServiceCollection services, string connection, IConfiguration configuration)
     {
         services.AddScoped<ProcurementRequestScope>();
-        services.AddSingleton(configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
-            ?? new ProcurementApprovalExecutionOptions());
+        var executionConnection = configuration.GetConnectionString("ProcurementApprovalExecution");
+        var approvalOptions = configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
+            ?? new ProcurementApprovalExecutionOptions();
+        approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(approvalOptions);
         services.AddScoped(sp => new Mightyfin.Erp.Procurement.Infrastructure.Approvals.ProcurementApprovalTransaction(
-            connection, sp.GetRequiredService<IProcurementScope>(), sp.GetRequiredService<IApprovalScope>()));
+            // The normal host connection may be composed while disabled, but every execution
+            // route refuses to run until the explicit least-privilege connection is configured.
+            string.IsNullOrWhiteSpace(executionConnection) ? connection : executionConnection, sp.GetRequiredService<IProcurementScope>(), sp.GetRequiredService<IApprovalScope>()));
         ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
         services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
         services.AddDbContext<ProcurementDbContext>(options =>

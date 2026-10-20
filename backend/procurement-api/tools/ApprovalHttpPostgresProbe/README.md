@@ -25,3 +25,8 @@ This program rehearses the mapped model. Migration idempotency, runtime database
 production configuration, notification dispatch and browser verification remain separate gates.
 No email, payment, reservation API call or production write is performed. A manual Finance
 attestation is never represented as an automated external confirmation.
+
+The probe explicitly registers its disposable connection as
+`ConnectionStrings:ProcurementApprovalExecution`. Production activation must instead use a
+verified dedicated execution database role; the probe's owner-level schema setup cannot
+establish that production permission gate.

@@ -43,8 +43,9 @@ internal static class ProcurementAuthorityIdentity
         string tenantId, Guid legalEntityId, string principalId, CancellationToken ct)
     {
         if (!Guid.TryParse(principalId, out var id) || principalId != id.ToString("D")) return null;
-        var account = await core.LocalUsers.AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenantId
-            && x.Id == id && !x.IsArchived && x.IsActive, ct);
+        var account = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == tenantId
+            && x.Id == id && !x.IsArchived && x.IsActive)
+            .Select(x => new { x.WorkerId, x.LockedUntil, x.RolesCsv }).SingleOrDefaultAsync(ct);
         if (account is null || account.WorkerId is null
             || account.LockedUntil is { } lockedUntil && lockedUntil > DateTimeOffset.UtcNow) return null;
         var home = await ProcurementWorkforce.ResolveActiveWorkerHome(core, tenantId, principalId, ct);

@@ -10,6 +10,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 public sealed class ProcurementApprovalExecutionOptions
 {
     public bool Enabled { get; set; }
+    // Set from the explicit connection-string registration, never from an HTTP body.
+    public bool ExecutionDatabaseConfigured { get; set; }
     public ProcurementManualFinancePolicy[] ManualFinancePolicies { get; set; } = [];
 }
 public sealed class ProcurementManualFinancePolicy

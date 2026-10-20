@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
@@ -48,8 +49,11 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         builder.WebHost.UseTestServer();
         builder.Services.AddScoped<ITenantAccessor>(_ => new Tenant());
         builder.Services.AddDbContext<HrmDbContext>(o => o.UseNpgsql(connection));
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            { ["ConnectionStrings:ProcurementApprovalExecution"] = connection });
         ProcurementHostIntegration.AddServices(builder.Services, connection, builder.Configuration);
-        var feature = new ProcurementApprovalExecutionOptions { Enabled = true };
+        // Explicit isolated fixture override is not evidence of production least privilege.
+        var feature = new ProcurementApprovalExecutionOptions { Enabled = true, ExecutionDatabaseConfigured = true };
         builder.Services.AddSingleton(feature);
         builder.Services.AddAuthentication("probe").AddScheme<AuthenticationSchemeOptions, ProbeAuthentication>("probe", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
