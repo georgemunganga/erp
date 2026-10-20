@@ -20,6 +20,7 @@ public static class ProcurementHostIntegration
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(approvalOptions);
+        services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddScoped(sp => new Mightyfin.Erp.Procurement.Infrastructure.Approvals.ProcurementApprovalTransaction(
             // The normal host connection may be composed while disabled, but every execution
             // route refuses to run until the explicit least-privilege connection is configured.
@@ -58,6 +59,12 @@ public static class ProcurementHostIntegration
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
+        MapMetadataRoute(app);
+    }
+
+    /// <summary>Maps module availability using the same checks as the complete host.</summary>
+    public static void MapMetadataRoute(WebApplication app)
+    {
         app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
             ProcurementDbContext db, IServiceProvider services, CancellationToken ct) =>
         {
@@ -87,7 +94,14 @@ public static class ProcurementHostIntegration
                         configurationDraft = !pending,
                         contractDraft = !pending,
                         sourcingDraft = !pending,
-                        approvals = false,
+                        // Capability describes configured availability; each command still
+                        // checks current identity, record scope, policy, authority and Finance.
+                        approvals = !pending
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>().ExecutionDatabaseConfigured
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>()
+                                .HasCurrentManualEvidencePolicy(scope.LegalEntityId, DateTimeOffset.UtcNow)
+                            && await services.GetRequiredService<IProcurementApprovalSchemaReadiness>().IsReadyAsync(ct),
                         sourcing = false,
                         contracts = false,
                         orders = false,

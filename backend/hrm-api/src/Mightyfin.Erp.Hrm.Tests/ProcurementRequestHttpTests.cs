@@ -64,6 +64,8 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal("ZMW", record.GetProperty("currencyCode").GetString());
         Assert.Equal("Draft", record.GetProperty("status").GetString());
         Assert.Single(record.GetProperty("lines").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null, record.GetProperty("approvalInstanceRef").ValueKind);
+        Assert.Equal(0m, record.GetProperty("lines")[0].GetProperty("approvedQuantity").GetDecimal());
 
         var own = await Send(client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
         Assert.Equal(HttpStatusCode.OK, own.StatusCode);

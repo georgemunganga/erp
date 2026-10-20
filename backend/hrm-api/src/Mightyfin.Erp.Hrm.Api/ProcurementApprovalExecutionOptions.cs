@@ -13,6 +13,14 @@ public sealed class ProcurementApprovalExecutionOptions
     // Set from the explicit connection-string registration, never from an HTTP body.
     public bool ExecutionDatabaseConfigured { get; set; }
     public ProcurementManualFinancePolicy[] ManualFinancePolicies { get; set; } = [];
+
+    public bool HasCurrentManualEvidencePolicy(Guid company, DateTimeOffset now)
+    {
+        var policies = ManualFinancePolicies.Where(x => x.Enabled && x.LegalEntityId == company
+            && x.EffectiveFrom != default && x.EffectiveFrom <= now
+            && (x.EffectiveUntil is null || now < x.EffectiveUntil)).ToArray();
+        return policies.Length == 1 && !string.IsNullOrWhiteSpace(policies[0].ApprovedPolicyReference);
+    }
 }
 public sealed class ProcurementManualFinancePolicy
 {

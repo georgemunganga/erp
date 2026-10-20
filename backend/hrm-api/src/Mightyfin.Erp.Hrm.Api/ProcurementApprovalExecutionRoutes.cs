@@ -57,6 +57,10 @@ public static partial class ProcurementApprovalExecutionRoutes
                     options, core, scope, now, token);
                 var plan = await ProcurementApprovalAssigneeResolver.ResolveAsync(request, evidence.Evaluation,
                     core, db, scope, now, token);
+                var makerIdentity = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
+                    scope.LegalEntityId, request.CreatedBy, token) ?? throw Conflict("ApprovalMakerIdentityUnavailable");
+                var requesterIdentity = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
+                    scope.LegalEntityId, request.RequesterWorkerId, token) ?? throw Conflict("ApprovalRequesterIdentityUnavailable");
                 var approvalCase = new ApprovalCase
                 {
                     TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
@@ -67,7 +71,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 };
                 var pin = PurchaseRequestApprovalPinning.Pin(request, evidence.Evaluation, evidence.Policy,
                     evidence.Finance, scope.TenantId, scope.LegalEntityId, approvalCase.Id, key,
-                    financeMode.Mode, financeMode.Reference, now);
+                    financeMode.Mode, financeMode.Reference, now, makerIdentity.WorkerId, requesterIdentity.WorkerId);
                 var sequence = 0;
                 foreach (var resolved in plan)
                 {
@@ -88,12 +92,12 @@ public static partial class ProcurementApprovalExecutionRoutes
                             PermissionKey = DecidePermission,
                         };
                         stage.Assignments.Add(assignment);
-                        var json = JsonSerializer.Serialize(candidate.Authority);
+                        var json = JsonSerializer.Serialize(new PurchaseRequestAssignmentIdentityEvidence(candidate.WorkerId, candidate.Authority));
                         db.AddScoped(new PurchaseRequestAssignmentAuthorityEvidence
                         {
                             SubmissionId = pin.Id, CoreApprovalCaseId = approvalCase.Id, CoreStageId = stage.Id,
                             CoreAssignmentId = assignment.Id, PrincipalId = candidate.PrincipalId,
-                            AssigneeKind = resolved.Route.Assignee, GrantId = candidate.Authority.GrantId,
+                            AssigneeWorkerId = candidate.WorkerId, AssigneeKind = resolved.Route.Assignee, GrantId = candidate.Authority.GrantId,
                             GrantRevision = candidate.Authority.GrantRevision, AuthorityVersion = candidate.Authority.AuthorityVersion,
                             EvidenceJson = json, EvidenceSha256 = ProcurementApprovalAssigneeResolver.Hash(json),
                         });

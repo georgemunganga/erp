@@ -1,4 +1,7 @@
 using Mightyfin.Erp.Procurement.Domain;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace Mightyfin.Erp.Procurement.Application;
 
@@ -10,6 +13,27 @@ public sealed record PurchaseRequestAuthorityEvidence(
     DateTimeOffset EffectiveFrom, DateTimeOffset? EffectiveUntil, DateTimeOffset EvaluatedAt,
     bool AllBranches, Guid? BranchRef, bool AllDepartments, Guid? DepartmentRef,
     bool AllCategories, IReadOnlyList<string> CategoryCodes);
+
+/// <summary>Canonical worker identity captured at opening; hash the entire envelope for retained evidence.</summary>
+public sealed record PurchaseRequestAssignmentIdentityEvidence(Guid AssigneeWorkerId, PurchaseRequestAuthorityEvidence Authority);
+
+public static class PurchaseRequestAssignmentIdentity
+{
+    public static PurchaseRequestAssignmentIdentityEvidence? ReadVerified(PurchaseRequestAssignmentAuthorityEvidence value)
+    {
+        if (value.AssigneeWorkerId is not { } worker || worker == Guid.Empty || string.IsNullOrWhiteSpace(value.EvidenceJson)
+            || value.EvidenceSha256 != Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value.EvidenceJson)))) return null;
+        PurchaseRequestAssignmentIdentityEvidence? retained;
+        try { retained = JsonSerializer.Deserialize<PurchaseRequestAssignmentIdentityEvidence>(value.EvidenceJson); }
+        catch (JsonException) { return null; }
+        var authority = retained?.Authority;
+        if (retained is null || authority is null || retained.AssigneeWorkerId != worker
+            || authority.TenantId != value.TenantId || authority.LegalEntityId != value.LegalEntityId
+            || authority.PrincipalId != value.PrincipalId || authority.GrantId != value.GrantId
+            || authority.GrantRevision != value.GrantRevision || authority.AuthorityVersion != value.AuthorityVersion) return null;
+        return retained;
+    }
+}
 
 public sealed record PurchaseRequestAuthorityResult(bool Eligible,
     PurchaseRequestAuthorityEvidence? Evidence, IReadOnlyList<string> Blockers);

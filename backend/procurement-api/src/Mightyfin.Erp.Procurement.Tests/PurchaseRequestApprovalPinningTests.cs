@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -7,6 +8,28 @@ namespace Mightyfin.Erp.Procurement.Tests;
 
 public sealed class PurchaseRequestApprovalPinningTests
 {
+    [Theory]
+    [InlineData("MakerWorkerId")]
+    [InlineData("RequesterWorkerId")]
+    [InlineData("WorkerIdentitySha256")]
+    [InlineData("Legacy")]
+    public void Missing_or_modified_retained_worker_identity_never_authorizes_old_or_changed_pins(string field)
+    {
+        var f = new Fixture(); var pin = f.Pin(); f.Link(pin);
+        Assert.True(PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(pin));
+        var json = JsonNode.Parse(JsonSerializer.Serialize(pin))!;
+        if (field == "Legacy")
+        {
+            json["SnapshotSchemaVersion"] = 1; json["MakerWorkerId"] = null;
+            json["RequesterWorkerId"] = null; json["WorkerIdentitySha256"] = null;
+        }
+        else if (field == "WorkerIdentitySha256") json[field] = new string('f', 64);
+        else json[field] = Guid.NewGuid().ToString("D");
+        var changed = JsonSerializer.Deserialize<PurchaseRequestApprovalSubmission>(json.ToJsonString())!;
+        Assert.False(PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(changed));
+        Assert.Contains("PinnedWorkerIdentityMissingOrInvalid", f.Verify(changed).Blockers);
+    }
+
     [Fact]
     public void Published_successor_closing_prior_period_does_not_strand_pinned_pending_case()
     {
@@ -400,9 +423,10 @@ public sealed class PurchaseRequestApprovalPinningTests
                     { new { code = "NEED", assignee = "LineManager", mode = "One" } } },
             }),
         });
+        public Guid MakerWorkerId { get; } = Guid.NewGuid();
         public PurchaseRequestApprovalSubmission Pin(string mode = PurchaseRequestApprovalPinning.AutomatedFinance,
             string? authority = null) => PurchaseRequestApprovalPinning.Pin(Request, Evaluation, Policy, Finance,
-                Tenant, Company, Guid.NewGuid(), Guid.NewGuid(), mode, authority, Now.AddMinutes(1));
+                Tenant, Company, Guid.NewGuid(), Guid.NewGuid(), mode, authority, Now.AddMinutes(1), MakerWorkerId, Request.RequesterWorkerId);
         public void Link(PurchaseRequestApprovalSubmission pin)
         {
             Request.ApprovalInstanceRef = pin.CoreApprovalCaseId.ToString();

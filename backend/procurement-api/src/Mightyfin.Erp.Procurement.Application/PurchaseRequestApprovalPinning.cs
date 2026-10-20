@@ -24,11 +24,14 @@ public static class PurchaseRequestApprovalPinning
     public static PurchaseRequestApprovalSubmission Pin(PurchaseRequest request,
         PolicyEvaluation evaluation, PolicyVersion policy, BudgetCheckSnapshot finance,
         string tenantId, Guid legalEntityId, Guid coreCaseId, Guid openingCommandKey,
-        string financeEvidenceMode, string? manualEvidenceAuthorityRef, DateTimeOffset pinnedAt)
+        string financeEvidenceMode, string? manualEvidenceAuthorityRef, DateTimeOffset pinnedAt,
+        Guid makerWorkerId, Guid requesterWorkerId)
     {
         var issues = ValidateInputs(request, evaluation, policy, finance, tenantId, legalEntityId);
         if (request.Version != request.SubmittedVersion || request.ApprovalInstanceRef is not null)
             issues.Add("SourceAlreadyChangedOrLinked");
+        if (makerWorkerId == Guid.Empty || requesterWorkerId == Guid.Empty || requesterWorkerId != request.RequesterWorkerId)
+            issues.Add("OpeningWorkerIdentityRequired");
         if (coreCaseId == Guid.Empty || openingCommandKey == Guid.Empty)
             issues.Add("OpeningIdentityRequired");
         if (financeEvidenceMode is not (AutomatedFinance or ApprovedManualEvidence)
@@ -46,7 +49,10 @@ public static class PurchaseRequestApprovalPinning
             TenantId = tenantId, LegalEntityId = legalEntityId,
             PurchaseRequestId = request.Id, SubmittedBusinessVersion = request.SubmittedVersion!.Value,
             CoreApprovalCaseId = coreCaseId, OpeningCommandKey = openingCommandKey,
-            MakerSubjectId = request.CreatedBy,
+            SnapshotSchemaVersion = 2, MakerSubjectId = request.CreatedBy,
+            MakerWorkerId = makerWorkerId, RequesterWorkerId = requesterWorkerId,
+            WorkerIdentitySha256 = WorkerIdentityDigest(tenantId, legalEntityId, request.Id,
+                request.SubmittedVersion.Value, coreCaseId, request.CreatedBy, makerWorkerId, requesterWorkerId),
             RequestSnapshotJson = snapshot, RequestSnapshotSha256 = Digest(snapshot),
             PolicyEvaluationId = evaluation.Id, PolicyVersionId = policy.Id,
             PolicyVersionNumber = policy.PolicyVersionNumber,
@@ -58,6 +64,18 @@ public static class PurchaseRequestApprovalPinning
             CurrencyCode = request.CurrencyCode, PinnedAt = pinnedAt,
         };
     }
+
+    public static string WorkerIdentityDigest(string tenant, Guid company, Guid request, long submittedVersion,
+        Guid caseId, string makerSubject, Guid makerWorker, Guid requesterWorker) => Digest(JsonSerializer.Serialize(new
+        {
+            schemaVersion = 2, tenant, company, request, submittedVersion, caseId, makerSubject, makerWorker, requesterWorker,
+        }));
+
+    public static bool HasRetainedWorkerIdentity(PurchaseRequestApprovalSubmission pin) => pin.SnapshotSchemaVersion == 2
+        && pin.MakerWorkerId is { } maker && maker != Guid.Empty
+        && pin.RequesterWorkerId is { } requester && requester != Guid.Empty
+        && pin.WorkerIdentitySha256 == WorkerIdentityDigest(pin.TenantId, pin.LegalEntityId, pin.PurchaseRequestId,
+            pin.SubmittedBusinessVersion, pin.CoreApprovalCaseId, pin.MakerSubjectId, maker, requester);
 
     public static ApprovalPinValidation Verify(PurchaseRequestApprovalSubmission pin,
         PurchaseRequest request, PolicyEvaluation evaluation, PolicyVersion policy,
@@ -80,7 +98,9 @@ public static class PurchaseRequestApprovalPinning
         if (pin.OpeningCommandKey == Guid.Empty || pin.CoreApprovalCaseId == Guid.Empty || pin.PinnedAt == default
             || pin.PinnedAt < request.SubmittedAt || currentFinance.CheckedAt > pin.PinnedAt)
             issues.Add("PinnedMetadataInvalid");
-        if (pin.SnapshotSchemaVersion != 1 || pin.PurchaseRequestId != request.Id
+        if (!HasRetainedWorkerIdentity(pin) || pin.RequesterWorkerId != request.RequesterWorkerId)
+            issues.Add("PinnedWorkerIdentityMissingOrInvalid");
+        if (pin.SnapshotSchemaVersion != 2 || pin.PurchaseRequestId != request.Id
             || pin.SubmittedBusinessVersion != request.SubmittedVersion
             || pin.MakerSubjectId != request.CreatedBy)
             issues.Add("PinnedSourceMismatch");

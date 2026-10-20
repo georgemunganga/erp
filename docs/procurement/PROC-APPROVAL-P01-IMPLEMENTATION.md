@@ -168,3 +168,35 @@ its own isolated test connection; a synthetic database owner/superuser run does 
 production grants. Protected deployment configuration, role credentials and review evidence
 must be recorded in the operational release pack. Capability stays off until these gates and
 the browser/source/Finance checks pass.
+
+
+### Retained worker identity and offboarding compatibility
+
+New submissions use snapshot schema version 2. At opening, the transaction resolves active
+canonical maker/requester identities and each assigned principal's worker, then retains
+`MakerWorkerId`, `RequesterWorkerId`, and `AssigneeWorkerId`. The submission identity digest
+binds tenant, entity, source, submitted version, Core case, maker principal and both workers.
+Assignment `EvidenceJson` is an envelope containing its worker and exact finite authority
+result; its digest binds both. New assignment writes validate source/case, immutable grant
+identity, current revision, amount/context, worker evidence and digest. There are no Core FKs
+and no copied identity masters.
+
+Existing schema version 1 submissions remain unchanged. New columns are nullable for
+migration compatibility, with an explicit v1-all-null/v2-complete database check. Historical
+assignment rows lacking their worker envelope remain unchanged. Read-side execution and
+release reject missing/legacy or inconsistent evidence with an explicit blocker; the upgrade
+never guesses a worker from today's possibly changed account mapping. A separately approved,
+audited historical identity-resolution migration would be needed for such legacy cases; no
+runtime bypass is supplied.
+
+Approvals still require current active canonical assignees, current permissions, current
+finite configured authority and all other source/policy/Finance checks. Release after a
+terminal return/rejection instead compares the current active authorized Finance verifier
+against retained maker/requester workers and the terminal decision assignment's retained
+worker. Historical offboarding, locks or account deactivation do not require reactivating
+those people to release the original reservation. Alias accounts for those same workers
+remain ineligible, including exact-retry paths. The original Finance evidence, full amount,
+currency, reservation, controlled manual policy and independent verification requirements
+continue to apply. Tests deliberately mutate only disposable fixture evidence to prove
+legacy/digest mismatch rejection and use real mapped HTTP to confirm independent recovery
+after historical worker/account offboarding. These source assertions are not a test result.

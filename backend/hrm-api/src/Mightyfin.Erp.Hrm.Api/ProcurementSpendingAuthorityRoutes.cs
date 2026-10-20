@@ -197,6 +197,8 @@ public static class ProcurementSpendingAuthorityRoutes
                     ProcurementAuthorityIdentity.Draft(grant), true, ct);
                 if (issue is not null) return Invalid(issue);
             }
+            if (operation is "activate" or "supersede" or "return")
+                await ProcurementAuthorityIdentity.RequireIndependentReviewerAsync(core, scope, grant, ct);
             switch (operation)
             {
                 case "submit": SpendingAuthorityConfiguration.Submit(grant, version, actor, subject!, now); break;

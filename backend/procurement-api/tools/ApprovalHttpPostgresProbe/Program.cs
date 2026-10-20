@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Hrm.Api;
@@ -29,24 +30,57 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-await using var probe = await Probe.Start(connection);
-await probe.Verify();
-Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
+if (args.Any(x => x != "--serve") || args.Count(x => x == "--serve") > 1)
+    throw new ArgumentException("The only supported optional argument is --serve.");
+var serve = args.Contains("--serve", StringComparer.Ordinal);
+var port = 5197;
+if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
+    && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
+    throw new ArgumentException("The sandbox loopback port must be between 1024 and 65535.");
+var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
+if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection);
+if (serve)
+{
+    var manifest = await probe.PrepareBrowserFixture(port);
+    Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
+    await probe.WaitForShutdown();
+}
+else
+{
+    await probe.Verify();
+    Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
+}
 
 sealed class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
-    Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature) : IAsyncDisposable
+    Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient, ServiceProvider fixtureServices,
+    string runtimeConnection, bool distinctRuntime) : IAsyncDisposable
 {
-    private readonly HttpClient client = app.GetTestClient();
+    private readonly HttpClient client = httpClient;
     private readonly string databaseConnection = connection;
     private const string Root = "/api/procurement/v1";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly Dictionary<Guid, Guid> grantIds = [];
 
-    public static async Task<Probe> Start(string connection)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null)
     {
+        var ownerConnection = bootstrapConnection ?? connection;
+        // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
+        var fixtureCollection = new ServiceCollection();
+        fixtureCollection.AddScoped<ITenantAccessor>(_ => new Tenant());
+        fixtureCollection.AddScoped<ProcurementRequestScope>();
+        fixtureCollection.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
+        fixtureCollection.AddScoped<Mightyfin.Erp.Core.Approvals.Domain.IApprovalScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
+        fixtureCollection.AddDbContext<HrmDbContext>(o => o.UseNpgsql(ownerConnection));
+        fixtureCollection.AddDbContext<ProcurementDbContext>(o => o.UseNpgsql(ownerConnection,
+            n => n.MigrationsHistoryTable("__procurement_migrations", "procurement")));
+        fixtureCollection.AddDbContext<ApprovalDbContext>(o => o.UseNpgsql(ownerConnection,
+            n => n.MigrationsHistoryTable("__EFMigrationsHistory", "core_approval")));
+        var fixtureServices = fixtureCollection.BuildServiceProvider();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
-        builder.WebHost.UseTestServer();
+        if (serve) builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
+        else builder.WebHost.UseTestServer();
         builder.Services.AddScoped<ITenantAccessor>(_ => new Tenant());
         builder.Services.AddDbContext<HrmDbContext>(o => o.UseNpgsql(connection));
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -59,8 +93,12 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build();
         app.UseRouting(); app.UseAuthentication(); app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
-        ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
-        ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
+        if (serve) ProcurementHostIntegration.MapRoutes(app);
+        else
+        {
+            ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
+            ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
+        }
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
         var branch = new WorkLocation { Code = "HTTP-BRANCH", Name = "Synthetic branch", LegalEntityId = company.Id };
         var people = new Dictionary<string, (Worker Worker, LocalUser User)>();
@@ -73,7 +111,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             people[name] = (worker, user);
         }
         people["requester"].Worker.ManagerId = people["manager1"].Worker.Id;
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             await core.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
@@ -90,9 +128,21 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
             scope.Set("probe", company.Id, people["buyer"].User.Id.ToString("D"), null, null, false, "probe-seed");
             var procurement = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            await procurement.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
             var workflow = services.ServiceProvider.GetRequiredService<ApprovalDbContext>();
-            await workflow.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+            if (serve)
+            {
+                // Browser proof uses the actual migration history consumed by /meta.
+                // A source model ahead of committed migrations must never advertise readiness.
+                if (procurement.Database.HasPendingModelChanges() || workflow.Database.HasPendingModelChanges())
+                    throw new InvalidOperationException("Sandbox serve mode requires committed migrations matching both Procurement and Core approval models.");
+                await procurement.Database.MigrateAsync();
+                await workflow.Database.MigrateAsync();
+            }
+            else
+            {
+                await procurement.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+                await workflow.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+            }
             procurement.AddScoped(new ProcurementCategory { Code = "IT", Name = "Synthetic IT", Status = "Active" });
             procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
                 State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = Rules() });
@@ -100,13 +150,73 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         }
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
+        if (bootstrapConnection is not null)
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve);
         await app.StartAsync();
-        return new(app, connection, company.Id, branch.Id, people["requester"].User.Id,
-            people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature);
+        return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
+            people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature,
+            serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null);
     }
+
+    public async Task<string> PrepareBrowserFixture(int port)
+    {
+        await Authority(manager1, "BROWSER-AUTH-M1");
+        await Authority(manager2, "BROWSER-AUTH-M2");
+        var requests = new[]
+        {
+            await NewFundedRequest("Browser full One and All approval"),
+            await NewFundedRequest("Browser return and independent Finance release"),
+        };
+        var actors = new Dictionary<string, object>();
+        foreach (var (name, principal) in new[] { ("requester", requester), ("buyer", buyer), ("finance", finance),
+            ("manager1", manager1), ("manager2", manager2) })
+        {
+            var context = await Get(Root + "/context", principal);
+            actors[name] = new { principalId = principal, context };
+        }
+        var meta = await Get(Root + "/meta", buyer);
+        Require(meta.GetProperty("schemaReady").GetBoolean() && meta.GetProperty("capabilities").GetProperty("approvals").GetBoolean(),
+            "Migrated sandbox does not expose the actual configured approval capability.");
+        var manifest = new
+        {
+            baseUrl = $"http://127.0.0.1:{port}", tenantId = "probe", companyId = company, branchId = branch,
+            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests,
+            workflow = new[]
+            {
+                new { code = "NEED", assignee = "LineManager", mode = "One", principals = new[] { manager1 } },
+                new { code = "PROC", assignee = "ProcurementManager", mode = "All", principals = new[] { manager1, manager2 } },
+            },
+            warning = "Synthetic disposable sandbox only. Header authentication and fixture database owner are not production security evidence.",
+        };
+        var requestedPath = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_MANIFEST");
+        var directory = Path.Combine(Path.GetTempPath(), "erp-approval-browser-" + Guid.NewGuid().ToString("N"));
+        if (requestedPath is not null)
+        {
+            if (!Path.IsPathFullyQualified(requestedPath)) throw new ArgumentException("The private manifest path must be absolute.");
+            directory = Path.GetDirectoryName(requestedPath)!;
+            if (Directory.Exists(directory))
+            {
+                if (!OperatingSystem.IsWindows() && (File.GetUnixFileMode(directory) &
+                    (UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                     UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute)) != 0)
+                    throw new ArgumentException("An existing manifest directory must be private to its owner.");
+            }
+        }
+        if (OperatingSystem.IsWindows()) Directory.CreateDirectory(directory);
+        else Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var path = requestedPath ?? Path.Combine(directory, "manifest.json");
+        var fileOptions = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (!OperatingSystem.IsWindows()) fileOptions.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        await using var output = new FileStream(path, fileOptions);
+        await JsonSerializer.SerializeAsync(output, manifest, new JsonSerializerOptions(Json) { WriteIndented = true });
+        return path;
+    }
+
+    public Task WaitForShutdown() => app.WaitForShutdownAsync();
 
     public async Task Verify()
     {
+        if (distinctRuntime) await RuntimePrivileges.AssertDeniedAsync(runtimeConnection, fixtureServices);
         Require((await client.GetAsync(Root + "/approvals")).StatusCode == HttpStatusCode.Unauthorized, "Anonymous queue access.");
         feature.Enabled = false;
         await Expect(HttpStatusCode.ServiceUnavailable, HttpMethod.Get, Root + "/approvals", manager1);
@@ -172,6 +282,13 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             Decision(finalDetail, remaining, "Approve"), Guid.NewGuid()); await Check(completed, HttpStatusCode.OK);
         var state = await completed.Content.ReadFromJsonAsync<JsonElement>();
         Require(state.GetProperty("requestState").GetString() == "Approved", "Final approval did not update source.");
+        var approvedSource = await Get($"{Root}/requests/{id}", requester);
+        Require(approvedSource.GetProperty("approvalInstanceRef").GetGuid() == caseId,
+            "Scoped request detail lost its real approval case reference.");
+        Require(approvedSource.GetProperty("lines").EnumerateArray().All(line =>
+            line.GetProperty("approvedQuantity").GetDecimal() == line.GetProperty("requestedQuantity").GetDecimal()
+            && line.GetProperty("approvalStatus").GetString() == "Approved"),
+            "Scoped request detail does not expose persisted approved line quantities.");
         var history = await Get($"{Root}/requests/{id}/approval-history", requester);
         Require(history.GetProperty("records")[0].GetProperty("decisions").GetArrayLength() == 3, "History lost stage decisions.");
         var finalReplay = await Send(HttpMethod.Post, DecisionPath(caseId, firstAssignment), manager1, firstBody, voteKey);
@@ -185,14 +302,14 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             var lines = await db.PurchaseRequestLines.Where(x => x.PurchaseRequestId == id).ToArrayAsync();
             Require(lines.All(x => x.ApprovedQuantity == x.RequestedQuantity && x.ApprovalStatus == "Approved"), "Approved line quantities not persisted.");
         }
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_manager")).IsArchived = true;
             await core.SaveChangesAsync();
         }
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, DecisionPath(caseId, firstAssignment), manager1, firstBody, voteKey);
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             (await core.TenantRoleAssignments.IgnoreQueryFilters().SingleAsync(x => x.TenantId == "probe"
@@ -202,9 +319,29 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         await Revoke(manager1);
         await Expect(HttpStatusCode.Conflict, HttpMethod.Post, DecisionPath(caseId, firstAssignment), manager1, firstBody, voteKey);
         await Authority(manager1, "AUTH-M1-RESTORED");
+        await OtherAssigneeRevocationHidesApprove();
         await FinanceChangedReturnAndRelease();
         await ReceiptFailureRollsBackBothContexts();
         await FinalFinanceRace();
+        await OffboardedHistoricalWorkersDoNotStrandFinanceRelease();
+    }
+
+    private async Task OtherAssigneeRevocationHidesApprove()
+    {
+        var request = await NewFundedRequest("Another assignee authority revoked");
+        var opened = await Open(request); var caseId = opened.GetProperty("caseId").GetGuid();
+        await Revoke(manager2);
+        var detail = await Get($"{Root}/approvals/{caseId}", manager1);
+        var assignment = ActiveAssignment(detail, manager1);
+        var actions = assignment.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray();
+        Require(!actions.Contains("Approve") && actions.Contains("Return") && actions.Contains("Reject")
+            && detail.GetProperty("blockers").GetArrayLength() != 0,
+            "Detail advertised approval despite a revoked other-stage assignment authority.");
+        await Expect(HttpStatusCode.Conflict, HttpMethod.Post, DecisionPath(caseId, assignment), manager1,
+            Decision(detail, assignment, "Approve"), Guid.NewGuid());
+        await Expect(HttpStatusCode.OK, HttpMethod.Post, DecisionPath(caseId, assignment), manager1,
+            Decision(detail, assignment, "Return", "Other-stage authority needs independent reconfiguration"), Guid.NewGuid());
+        await Authority(manager2, "AUTH-M2-RESTORED");
     }
 
     private async Task FinanceChangedReturnAndRelease()
@@ -228,6 +365,46 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             reservationReference = release.GetProperty("reservationReference").GetString(),
             releasedAmount = release.GetProperty("reservedAmount").GetDecimal(), currencyCode = "ZMW",
             evidenceReference = "SYNTHETIC-RELEASE-EVIDENCE", confirmedAt = DateTimeOffset.UtcNow, reason = "Finance verified full release under the fixture manual policy" };
+        Guid aliasId;
+        using (var services = fixtureServices.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var requesterWorker = await core.LocalUsers.Where(x => x.Id == requester).Select(x => x.WorkerId).SingleAsync();
+            var alias = new LocalUser { Email = "requester-alias@example.test", NormalizedEmail = "REQUESTER-ALIAS@EXAMPLE.TEST",
+                DisplayName = "Requester second account", PasswordHash = "synthetic-no-login-secret",
+                RolesCsv = "finance_approver", WorkerId = requesterWorker };
+            core.LocalUsers.Add(alias); await core.SaveChangesAsync(); aliasId = alias.Id;
+        }
+        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", aliasId, body, Guid.NewGuid());
+        using (var services = Scope(finance))
+        {
+            Require(!await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().FinanceReleaseConfirmations
+                .AnyAsync(x => x.ReleaseRequestId == release.GetProperty("releaseRequestId").GetGuid()),
+                "Ambiguous/requester-linked Finance account recorded a release confirmation.");
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.LocalUsers.SingleAsync(x => x.Id == aliasId)).IsArchived = true;
+            await core.SaveChangesAsync();
+        }
+        Guid decisionAliasId;
+        using (var services = fixtureServices.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var decisionWorker = await core.LocalUsers.Where(x => x.Id == manager1).Select(x => x.WorkerId).SingleAsync();
+            var alias = new LocalUser { Email = "decision-maker-alias@example.test", NormalizedEmail = "DECISION-MAKER-ALIAS@EXAMPLE.TEST",
+                DisplayName = "Decision maker second account", PasswordHash = "synthetic-no-login-secret",
+                RolesCsv = "finance_approver", WorkerId = decisionWorker };
+            core.LocalUsers.Add(alias); await core.SaveChangesAsync(); decisionAliasId = alias.Id;
+        }
+        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", decisionAliasId, body, Guid.NewGuid());
+        using (var services = Scope(finance))
+        {
+            Require(!await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().FinanceReleaseConfirmations
+                .AnyAsync(x => x.ReleaseRequestId == release.GetProperty("releaseRequestId").GetGuid()),
+                "Decision-maker worker alias recorded its own release confirmation.");
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.LocalUsers.SingleAsync(x => x.Id == decisionAliasId)).IsArchived = true;
+            await core.SaveChangesAsync();
+        }
         await Expect(HttpStatusCode.UnprocessableEntity, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance,
             new { body.expectedRequestVersion, body.reservationReference, releasedAmount = body.releasedAmount + 1,
                 body.currencyCode, body.evidenceReference, body.confirmedAt, body.reason }, Guid.NewGuid());
@@ -245,6 +422,77 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             Decision(detail, assignment, "Approve"), Guid.NewGuid());
         var history = await Get($"{Root}/requests/{id}/approval-history", requester);
         Require(history.GetProperty("records")[0].GetProperty("financeRelease").GetProperty("state").GetString() == "Confirmed", "Release recovery missing from history.");
+    }
+
+    private async Task OffboardedHistoricalWorkersDoNotStrandFinanceRelease()
+    {
+        var request = await NewFundedRequest("Release after historical employees leave");
+        var id = request.GetProperty("id").GetGuid(); var opened = await Open(request);
+        var caseId = opened.GetProperty("caseId").GetGuid();
+        var detail = await Get($"{Root}/approvals/{caseId}", manager1); var assignment = ActiveAssignment(detail, manager1);
+        var returned = await Send(HttpMethod.Post, DecisionPath(caseId, assignment), manager1,
+            Decision(detail, assignment, "Return", "Historical worker offboarding fixture"), Guid.NewGuid());
+        await Check(returned, HttpStatusCode.OK); var result = await returned.Content.ReadFromJsonAsync<JsonElement>();
+        var queue = await Get(Root + "/requests/finance-release-queue", finance);
+        var release = queue.GetProperty("records").EnumerateArray().Single(x => x.GetProperty("requestId").GetGuid() == id);
+        var body = new { expectedRequestVersion = result.GetProperty("requestVersion").GetInt64(),
+            reservationReference = release.GetProperty("reservationReference").GetString(),
+            releasedAmount = release.GetProperty("reservedAmount").GetDecimal(), currencyCode = "ZMW",
+            evidenceReference = "SYNTHETIC-OFFBOARD-RELEASE", confirmedAt = DateTimeOffset.UtcNow,
+            reason = "Independent Finance verified full release despite historical employee offboarding" };
+        using (var services = Scope(finance))
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var pin = await db.ApprovalSubmissions.AsNoTracking().SingleAsync(x => x.CoreApprovalCaseId == caseId);
+            // Deliberate corrupt/legacy fixture rows exercise read-side rejection, not application update permissions.
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_request_approval_submissions SET worker_identity_sha256={new string('f', 64)} WHERE id={pin.Id}");
+            await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_request_approval_submissions SET snapshot_schema_version=1,maker_worker_id=NULL,requester_worker_id=NULL,worker_identity_sha256=NULL WHERE id={pin.Id}");
+            await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_request_approval_submissions SET snapshot_schema_version=2,maker_worker_id={pin.MakerWorkerId},requester_worker_id={pin.RequesterWorkerId},worker_identity_sha256={pin.WorkerIdentitySha256} WHERE id={pin.Id}");
+            var terminal = await db.AssignmentAuthorityEvidence.AsNoTracking().SingleAsync(x => x.CoreAssignmentId == assignment.GetProperty("id").GetGuid());
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.assignment_authority_evidence SET assignee_worker_id={Guid.NewGuid()} WHERE id={terminal.Id}");
+            await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.assignment_authority_evidence SET assignee_worker_id={terminal.AssigneeWorkerId} WHERE id={terminal.Id}");
+        }
+        var aliases = new List<Guid>();
+        var workerIds = new List<Guid>();
+        using (var services = fixtureServices.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            foreach (var principal in new[] { requester, manager1 })
+            {
+                var user = await core.LocalUsers.SingleAsync(x => x.Id == principal); workerIds.Add(user.WorkerId!.Value);
+                user.IsActive = false;
+                var alias = new LocalUser { Email = "offboard-alias-" + principal + "@example.test",
+                    NormalizedEmail = ("OFFBOARD-ALIAS-" + principal + "@EXAMPLE.TEST").ToUpperInvariant(),
+                    DisplayName = "Historical worker active alias", PasswordHash = "synthetic-no-login-secret",
+                    RolesCsv = "finance_approver", WorkerId = user.WorkerId };
+                core.LocalUsers.Add(alias); aliases.Add(alias.Id);
+            }
+            await core.SaveChangesAsync();
+        }
+        foreach (var alias in aliases)
+            await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", alias, body, Guid.NewGuid());
+        using (var services = fixtureServices.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            foreach (var worker in await core.Workers.Where(x => workerIds.Contains(x.Id)).ToArrayAsync()) worker.Status = "terminated";
+            await core.SaveChangesAsync();
+        }
+        var confirmation = await Send(HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+        await Check(confirmation, HttpStatusCode.OK);
+        Require((await confirmation.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestState").GetString() == "ReturnedForChanges",
+            "Historical offboarding stranded independent Finance release.");
+        // Restore only this disposable fixture so later operator/browser scenarios can reuse its actors.
+        using (var services = fixtureServices.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            foreach (var user in await core.LocalUsers.Where(x => x.Id == requester || x.Id == manager1).ToArrayAsync()) user.IsActive = true;
+            foreach (var user in await core.LocalUsers.Where(x => aliases.Contains(x.Id)).ToArrayAsync()) user.IsArchived = true;
+            foreach (var worker in await core.Workers.Where(x => workerIds.Contains(x.Id)).ToArrayAsync()) worker.Status = "active";
+            await core.SaveChangesAsync();
+        }
     }
 
     private async Task ReceiptFailureRollsBackBothContexts()
@@ -318,6 +566,33 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         await Check(created, HttpStatusCode.Created); var grant = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = grant.GetProperty("id").GetGuid();
         var submitted = await Send(HttpMethod.Post, path + "/" + id + "/submit", buyer, new { version = grant.GetProperty("version").GetInt64() }, selectedBranch: false);
         await Check(submitted, HttpStatusCode.OK); var pending = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        if (reference == "AUTH-M1")
+        {
+            foreach (var participant in new[] { principal, buyer })
+            {
+                Guid aliasId;
+                using (var services = fixtureServices.CreateScope())
+                {
+                    var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+                    var workerId = await core.LocalUsers.Where(x => x.Id == participant).Select(x => x.WorkerId).SingleAsync();
+                    var alias = new LocalUser { Email = "review-alias-" + participant + "@example.test",
+                        NormalizedEmail = ("REVIEW-ALIAS-" + participant + "@EXAMPLE.TEST").ToUpperInvariant(),
+                        DisplayName = "Authority participant second account", PasswordHash = "synthetic-no-login-secret",
+                        RolesCsv = "finance_approver", WorkerId = workerId };
+                    core.LocalUsers.Add(alias); await core.SaveChangesAsync(); aliasId = alias.Id;
+                }
+                foreach (var operation in new[] { "activate", "return", "supersede" })
+                    await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, path + "/" + id + "/" + operation, aliasId,
+                        new { version = pending.GetProperty("version").GetInt64(), reason = "Alias must not review its own worker",
+                            previousGrantId = id, previousVersion = pending.GetProperty("version").GetInt64() }, selectedBranch: false);
+                await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, path + "/" + id + "/activate", finance,
+                    new { version = pending.GetProperty("version").GetInt64(), reason = "Ambiguous participant identity must block review" }, selectedBranch: false);
+                using var cleanup = fixtureServices.CreateScope();
+                var cleanupCore = cleanup.ServiceProvider.GetRequiredService<HrmDbContext>();
+                (await cleanupCore.LocalUsers.SingleAsync(x => x.Id == aliasId)).IsArchived = true;
+                await cleanupCore.SaveChangesAsync();
+            }
+        }
         await Expect(HttpStatusCode.OK, HttpMethod.Post, path + "/" + id + "/activate", finance,
             new { version = pending.GetProperty("version").GetInt64(), reason = "Independent synthetic grant review" }, selectedBranch: false);
         grantIds[principal] = id;
@@ -368,7 +643,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
     }
     private IServiceScope Scope(Guid actor)
     {
-        var services = app.Services.CreateScope(); services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+        var services = fixtureServices.CreateScope(); services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
             .Set("probe", company, actor.ToString("D"), null, null, false, "probe-inspect"); return services;
     }
     private static JsonElement ActiveAssignment(JsonElement detail, Guid actor) => detail.GetProperty("stages").EnumerateArray()
@@ -390,7 +665,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             result = new { budgetReservation = "Required", sourcingMethodCode = (string?)null, minimumQuoteCount = (int?)null,
                 approvalStages = new[] { new { code = "NEED", assignee = "LineManager", mode = "One" }, new { code = "PROC", assignee = "ProcurementManager", mode = "All" } } } } },
     });
-    public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); }
+    public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); await fixtureServices.DisposeAsync(); }
 }
 sealed class Tenant : ITenantAccessor { public string GetTenantId() => "probe"; }
 sealed class ProbeAuthentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
@@ -399,7 +674,8 @@ sealed class ProbeAuthentication(IOptionsMonitor<AuthenticationSchemeOptions> op
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         if (!Guid.TryParse(Request.Headers["X-Probe-User"], out var id)) return AuthenticateResult.NoResult();
-        var user = await core.LocalUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && x.IsActive && !x.IsArchived);
+        var user = await core.LocalUsers.AsNoTracking().Where(x => x.Id == id && x.IsActive && !x.IsArchived)
+            .Select(x => new { x.RolesCsv }).SingleOrDefaultAsync();
         if (user is null) return AuthenticateResult.Fail("Inactive fixture account.");
         var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, user.RolesCsv, Context.RequestAborted);
         var claims = new List<Claim> { new("tenant", "probe"), new("sub", id.ToString("D")), new(ProcurementPermissions.ConfiguredClaim, "true") };

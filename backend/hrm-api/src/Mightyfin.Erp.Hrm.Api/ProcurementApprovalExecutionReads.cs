@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
+using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -130,6 +131,15 @@ public static partial class ProcurementApprovalExecutionRoutes
                         var mode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, current.Finance, options, core, scope, DateTimeOffset.UtcNow, ct);
                         if (mode.Mode != pin.FinanceEvidenceMode || mode.Reference != pin.ManualEvidenceAuthorityRef)
                             throw Conflict("ApprovalFinanceAuthorityChanged");
+                        var assignmentPins = await db.AssignmentAuthorityEvidence.AsNoTracking()
+                            .Where(x => x.SubmissionId == pin.Id).ToListAsync(ct);
+                        var caseAssignments = approvalCase.Stages.SelectMany(x => x.Assignments).ToArray();
+                        if (assignmentPins.Count != caseAssignments.Length || caseAssignments.Any(x =>
+                            !assignmentPins.Any(p => p.CoreAssignmentId == x.Id && p.PrincipalId == x.AssigneeSubjectId
+                                && p.CoreStageId == x.StageId))) throw Conflict("ApprovalAssignmentSetChanged");
+                        foreach (var assignmentPin in assignmentPins)
+                            await ProcurementApprovalAssigneeResolver.ValidateAssignmentAsync(request, assignmentPin,
+                                core, db, scope, DateTimeOffset.UtcNow, ct);
                         allowed.Insert(0, "Approve");
                     }
                 }
