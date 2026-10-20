@@ -62,5 +62,14 @@ launcher omitted its read-only NuGet package mount and failed to resolve cached 
 the corrected launch is running, with the initial log preserved. This was an environment
 failure, not a passed source gate.
 
-Frontend verification and actual API browser execution remain separate gates. No complete
-Procurement release or production workflow activation is claimed by this checkpoint.
+The UI branch `codex/procurement-final-ui-integration` at `1a023ac` records passing
+checkpoints for 75 unique mocked browser scenarios. This was not one uninterrupted 75-case
+run: all first failures are retained, test selector/copy defects were corrected, and the
+activation-conflict message defect required an application fix. The 14 PR cases retain
+their earlier source-identical proof; 61 remaining cases passed against frozen corrected
+assets (`index-D-b3C2fm.js`, SHA-256
+`714a19b5a7c25ef03d9170af68121e6544250731826593a601ad93525f146e83`).
+The UI repository's `docs/PROCUREMENT-FINAL-UI-BROWSER-EVIDENCE.md` contains case provenance.
+
+Actual API browser execution remains a separate gate. No complete Procurement release
+or production workflow activation is claimed by this checkpoint.
