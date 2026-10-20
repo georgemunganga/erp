@@ -1005,17 +1005,17 @@ export function OrganisationConfig() {
                         options: ["Active", "Closing", "Closed", "Not yet in force"],
                         match: (u, v) => unitState(u, asAt) === v,
                       },
-                      {
+                      ...(!USE_REAL ? [{
                         id: "use",
                         label: "In use",
                         options: ["Referenced elsewhere", "Nothing references it", "Has employees"],
-                        match: (u, v) =>
+                        match: (u: OrgUnitConfig, v: string) =>
                           v === "Referenced elsewhere"
                             ? !canDeleteUnit(u)
                             : v === "Has employees"
                               ? u.employees > 0
                               : canDeleteUnit(u),
-                      },
+                      }] : []),
                     ]}
                     bulkActions={USE_REAL ? [] : [
                       { label: "Export selection", onSelect: () => undefined },
@@ -1045,10 +1045,11 @@ export function OrganisationConfig() {
                 </DetailSection>
 
                 <DetailSection
-                  title="Removing a unit safely"
-                  description="Deletion is only offered where nothing at all points at the unit."
+                  title={USE_REAL ? "Closing a department" : "Removing a unit safely"}
+                  description={USE_REAL ? "Close a department with a date; existing records remain stored." : "Deletion is only offered where nothing at all points at the unit."}
                 >
                   <div className="space-y-4">
+                    {!USE_REAL ? <>
                     <p className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning">
                       <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                       <span>
@@ -1088,6 +1089,7 @@ export function OrganisationConfig() {
                         </ul>
                       </div>
                     </div>
+                    </> : <p className="text-sm text-muted-foreground">Employee, position and historical reference checks are not supplied by this page. Review those impacts before closing. Departments cannot be deleted here.</p>}
                     <CloseUnitForm
                       units={closable}
                       onAdd={(d) =>
