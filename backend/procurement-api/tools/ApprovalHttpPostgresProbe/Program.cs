@@ -90,6 +90,8 @@ else
     Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
 }
 
+if (!serve) await probe.VerifyFinanceCheckerSubmissionCheck();
+
 sealed partial class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
     Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient, ServiceProvider fixtureServices,
     string runtimeConnection, bool distinctRuntime) : IAsyncDisposable
