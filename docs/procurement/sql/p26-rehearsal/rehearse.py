@@ -36,7 +36,7 @@ def main():
     up, down = args.up_sql.read_text(), args.down_sql.read_text()
     if args.migration_id not in up or args.migration_id not in down:
         parser.error("Both generated scripts must reference the exact reviewed P26 migration ID")
-    if "P26RollbackRequiresEvidencePreservingRecovery" not in down or "P26RollbackWouldLoseTaxPrecision" not in down:
+    if "P26RollbackRequiresEvidencePreservingRecovery" not in down or "P26RollbackWouldLoseTaxPrecision" not in down or "P26RollbackWouldLoseUnknownVariance" not in down:
         parser.error("Down SQL lacks the reviewed used-evidence/precision stops")
     if args.output.exists():
         parser.error("Evidence output must be new; previous failures must remain intact")
@@ -106,7 +106,7 @@ def main():
         raise RuntimeError("Source must be the retained used-P25, pre-P26 database")
     if not old_values.get('receiving_acceptance_effects'):
         raise RuntimeError("Source lacks actual used P25 acceptance evidence")
-    names = {name: args.prefix + '_' + name for name in ('fresh', 'populated', 'used', 'precision')}
+    names = {name: args.prefix + '_' + name for name in ('fresh', 'populated', 'used', 'precision', 'unknown')}
     clone_baselines = {}
     for name, db in names.items():
         # createdb fails on any existing database; never overwrite, drop or terminate sessions.
@@ -140,9 +140,12 @@ def main():
     for case, filename, expected in (
         ('used', 'used-exposure.sql', 'P26RollbackRequiresEvidencePreservingRecovery'),
         ('precision', 'legacy-tax-precision.sql', 'P26RollbackWouldLoseTaxPrecision'),
+        ('unknown', 'legacy-tax-precision.sql', 'P26RollbackWouldLoseUnknownVariance'),
     ):
         db = names[case]
         sql(db, (Path(__file__).parent / filename).read_text())
+        if case == 'unknown':
+            sql(db, (Path(__file__).parent / 'unknown-variance.sql').read_text())
         before = (data_snapshot(db), history(db), schema(db))
         denied = sql(db, down, allowed_failure=True)
         if denied.returncode == 0 or expected not in denied.stderr:
@@ -156,7 +159,7 @@ def main():
         'status': 'PASS', 'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'databases': names,
         'sourceDatabase': args.source_db, 'migration': args.migration_id,
         'upSha256': hashlib.sha256(up.encode()).hexdigest(), 'downSha256': hashlib.sha256(down.encode()).hexdigest(),
-        'scope': 'fresh/populated Up twice; exact P25 values; unused DownUp; two protected Down denials; exact manifests',
+        'scope': 'fresh/populated Up twice; exact P25 values; unused DownUp; three protected Down denials; exact manifests',
         'limits': 'Not HTTP authorization, row-level FK tamper, runtime least privilege or business-owner verification',
     }, indent=2) + '\n')
     print("PASS private migration rehearsal; retained evidence:", args.output)
