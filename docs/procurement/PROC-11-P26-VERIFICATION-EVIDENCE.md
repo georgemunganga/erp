@@ -97,3 +97,9 @@ Session2127/container `procurement-p26-receipt-fix-verification` terminated0:
 - EF model drift check: no changes. Accepted migration/SQL remain unchanged; the actual migration rehearsal remains valid.
 
 Evidence `artifacts/p26/receipt-fix-verification.log` and `domain-receipt-fix` TRX. Domain/application correction source is `f402462`; the API/tool includes the safe logging correction `bda8e5e`, committed before its compiler ran. The earlier167 API regression remains source-scoped evidence; no new full167-API rerun is inferred here. Fresh actual restricted HTTP/PostgreSQL rerun is now using private `20261020_174133_matching`; terminal outcome/browser remain pending.
+
+## Second actual matching run and real-context tool correction
+
+Fresh private `20261020_174133_matching`, session44134, terminated139 on a tool expectation. Receiving and exact original intake passed. The corrected invoice mapping persisted successfully: invoice version2, mapping revision1, non-null current mapping, MappingUnverified; one mapping and one InvoiceMapping command receipt, with zero comparison results. The database and private failure log remain retained.
+
+The next source-selector request returned404 because the matching CLI host had not mapped the real `/context` endpoint. This was a verification-host composition gap: `fc0e608` maps the existing `ProcurementContextRoutes` in that host; it adds no fake permission response and changes no product authorization. Tool-only Release rebuild, session61717, terminated0 with zero warnings/errors (`artifacts/p26/context-tool-build.log`). A third fresh actual run and browser/independent-owner verification are still required. This second run is not reported as a matching pass.
