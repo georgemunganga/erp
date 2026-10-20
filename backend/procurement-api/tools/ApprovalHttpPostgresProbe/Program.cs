@@ -30,8 +30,10 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Length > 1 || args.Any(x => x is not ("--serve" or "--orders" or "--settings")))
-    throw new ArgumentException("Use at most one of --serve, --orders or --settings.");
+if (args.Any(x => x is not ("--serve" or "--orders" or "--settings"))
+    || args.Distinct(StringComparer.Ordinal).Count() != args.Length
+    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && args.Contains("--orders", StringComparer.Ordinal))))
+    throw new ArgumentException("Use --serve, --orders, --settings, or the supported --serve --orders browser fixture combination.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
 var orders = args.Contains("--orders", StringComparer.Ordinal);
 var port = 5197;
@@ -44,9 +46,11 @@ if (orders && bootstrapConnection is null) throw new InvalidOperationException("
 await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders);
 if (serve)
 {
-    var manifest = await probe.PrepareBrowserFixture(port);
+    var manifest = await probe.PrepareBrowserFixture(port, orders);
     Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
+    if (orders && Environment.GetEnvironmentVariable("PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP") == "1")
+        await probe.VerifyOrderBrowserCompletion();
 }
 else if (orders)
 {
@@ -198,7 +202,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null);
     }
 
-    public async Task<string> PrepareBrowserFixture(int port)
+    public async Task<string> PrepareBrowserFixture(int port, bool orders = false)
     {
         await Authority(manager1, "BROWSER-AUTH-M1");
         await Authority(manager2, "BROWSER-AUTH-M2");
@@ -207,6 +211,10 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             await NewFundedRequest("Browser full One and All approval"),
             await NewFundedRequest("Browser return and independent Finance release"),
         };
+        // The order fixture approves its PR through real HTTP commands; it never fabricates
+        // an Approved source, Core case, vote or Finance evidence row for the browser.
+        if (orders) await RuntimePrivileges.AssertDeniedAsync(runtimeConnection, fixtureServices);
+        var orderFixture = orders ? await PrepareOrderBrowserFixture() : null;
         // Synthetic browser-only reader and reviewer confinement. These Core rows are
         // seeded by the separate fixture owner, never through runtime write grants.
         Guid reader;
@@ -224,6 +232,23 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = principal, LocationId = branch });
             await core.SaveChangesAsync(); reader = user.Id;
         }
+        if (orders)
+        {
+            // Purpose-scoped PO browser actors are narrowed only after real PR approval
+            // and grant review. Existing --serve and --orders role fixtures stay unchanged.
+            using var purpose = fixtureServices.CreateScope();
+            var core = purpose.ServiceProvider.GetRequiredService<HrmDbContext>();
+            core.TenantRoleAssignments.AddRange(
+                new TenantRoleAssignment { RoleKey = "browser_po_reviewer", RoleName = "Synthetic PO reviewer", Active = true,
+                    PermissionsCsv = "procurement-access,procurement-po-approve" },
+                new TenantRoleAssignment { RoleKey = "browser_po_dispatcher", RoleName = "Synthetic PO dispatcher", Active = true,
+                    PermissionsCsv = "procurement-access,procurement-po-dispatch-confirm" });
+            (await core.LocalUsers.SingleAsync(x => x.Id == manager2)).RolesCsv = "browser_po_reviewer";
+            (await core.LocalUsers.SingleAsync(x => x.Id == manager1)).RolesCsv = "browser_po_dispatcher";
+            var financeRole = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "finance_approver");
+            financeRole.PermissionsCsv = string.Join(',', financeRole.PermissionsCsv.Split(',').Where(x => x != "procurement-po-read"));
+            await core.SaveChangesAsync();
+        }
         var actors = new Dictionary<string, object>();
         foreach (var (name, principal) in new[] { ("requester", requester), ("buyer", buyer), ("finance", finance),
             ("manager1", manager1), ("manager2", manager2), ("reader", reader) })
@@ -234,10 +259,12 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         var meta = await Get(Root + "/meta", buyer);
         Require(meta.GetProperty("schemaReady").GetBoolean() && meta.GetProperty("capabilities").GetProperty("approvals").GetBoolean(),
             "Migrated sandbox does not expose the actual configured approval capability.");
+        if (orders) Require(meta.GetProperty("capabilities").GetProperty("orders").GetBoolean(),
+            "Migrated order sandbox does not expose the actual configured orders capability.");
         var manifest = new
         {
             baseUrl = $"http://127.0.0.1:{port}", tenantId = "probe", companyId = company, branchId = branch,
-            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests,
+            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests, orders = orderFixture,
             workflow = new[]
             {
                 new { code = "NEED", assignee = "LineManager", mode = "One", principals = new[] { manager1 } },

@@ -128,7 +128,7 @@ requires protected role provisioning and independent release review.
 
 ## Initial PO workflow probe — source candidate
 
-`--orders` is separate from `--serve` and the original PR probe. It requires the existing disposable `proc_approval_http_...` database guard, a distinct `proc_approval_runtime_...` login and bootstrap connection, and committed Procurement/Core migrations matching the source model. It applies those migrations in the disposable database and provisions only the synthetic runtime grants required by the first PO route. It does not provision or contact production.
+Single `--orders` runs separately from single `--serve` and the original PR probe; the explicitly documented browser pair below is also supported. It requires the existing disposable `proc_approval_http_...` database guard, a distinct `proc_approval_runtime_...` login and bootstrap connection, and committed Procurement/Core migrations matching the source model. It applies those migrations in the disposable database and provisions only the synthetic runtime grants required by the first PO route. It does not provision or contact production.
 
 After the centralized build/migration gates clear, use the same approved environment variables and run the tool with `--orders`. This source adds actual HTTP evidence for scoped positive PR conversion, exact retries and denied allocations, independent Finance/Core approval, unique commitment ownership, supplier eligibility, seal versus delivery, unfunded cancellation, revoked-authority replay and a deterministically queued branch-revocation scenario. It has not been run in this increment.
 
@@ -161,3 +161,58 @@ branch scope, creator self-review denial, independent activation, read-only curr
 server denial of reader mutations and absence of private identity/payment fields. Use a
 fresh disposable fixture for a rerun after a committed create; do not erase evidence/reset a
 consumed record to make a test pass. Source is authored only until a recorded execution gate.
+
+## Actual order browser fixture — source candidate
+
+The explicitly supported pair `--serve --orders` runs the migrated loopback browser sandbox
+with the real initial order feature enabled **only in this synthetic process**. Single
+`--serve`, single `--orders`, single `--settings` and the original no-argument PR verification
+retain their behavior. Duplicated flags, unknown flags, `--serve --settings`,
+`--orders --settings` and three-flag combinations are rejected.
+
+The pair requires both existing private connection variables, a fresh guarded disposable
+`proc_approval_http_...` database, a distinct finite `proc_approval_runtime_...` role, and
+committed Procurement/Core migrations matching the model. The bootstrap connection owns
+fixture DDL/master/role setup; HTTP runtime still cannot write HRM or mutate Core decisions.
+No production identity handler, config flag, database or listener is changed.
+
+Before publishing the private0600 manifest, it activates finite PR/PO authorities through
+the real configuration lifecycle, seeds the approved direct-buy method/PO policy, and
+creates an additional PR using actual create → submit → controlled Finance evidence →
+Core One/All decisions. It asserts the resulting approved quantity is1 and allocated/ordered
+quantities are0. This source is not consumed by a fabricated PO or by the standalone order
+verification suite. The manifest `orders` entry supplies its source/line/supplier/reservation
+references, exact1×100 ZMW values and separate buyer/Finance/reviewer/dispatcher identities.
+
+Only after that legitimate setup, the pair narrows synthetic roles: Finance loses general
+`procurement-po-read`; manager2 becomes a PO-only reviewer with access+po-approve;
+manager1 becomes a sending-only operator with access+po-dispatch-confirm. Neither reviewer
+nor sending operator has PO read/PR read/PR decision permissions. The browser therefore
+must exercise purpose-specific order reads and the PO-only assigned queue. Actual context
+responses record these permissions. Original single-flag fixtures remain unchanged.
+
+Run only after centralized compile/migration/assets gates have passed:
+
+```sh
+# Connections are privately supplied; never put their values in a command or artefact.
+PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP=1 \
+  dotnet run --project backend/procurement-api/tools/ApprovalHttpPostgresProbe -- --serve --orders
+```
+
+With that optional verification flag, gracefully stopping the process **after** the browser
+flow queries the actual disposable PostgreSQL records through the fixture-owner inspection
+scope. It requires exactly one allocation, order line, Finance confirmation, submission,
+Core approval decision, issued revision and delivery; exact1×100 ZMW; distinct expected
+actors; and source ordered1/allocated0. A premature stop fails rather than claiming proof.
+Do not terminate by SIGKILL if requesting this DB check. The flag is irrelevant to the
+original modes. A failed browser/DB check is a retained gate failure, never a reason to
+fabricate state or relax runtime grants.
+
+The companion frontend `tests/backend-browser/orders.spec.ts` forwards every Procurement
+response unchanged and performs convert → independent Finance → buyer submit → assigned
+PO approval → buyer authorise → independent sending evidence. It verifies exact read
+strings, original reservation references, PO-only navigation, immutable outcome counts and
+exact delivery replay through real API reads. Shell authentication/branding alone are
+synthetic presentation fixtures. This increment is **source-only and unverified**; it has
+not run a compiler, browser, database, migration or server and does not enable live orders.
+Use a fresh fixture for each destructive business-flow test and clean it up afterwards.
