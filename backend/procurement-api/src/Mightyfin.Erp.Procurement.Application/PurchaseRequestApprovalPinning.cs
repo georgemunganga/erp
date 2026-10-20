@@ -217,7 +217,7 @@ public static class PurchaseRequestApprovalPinning
             }).ToArray(),
     });
 
-    private static string FinanceSnapshot(BudgetCheckSnapshot f) => JsonSerializer.Serialize(new
+    internal static string FinanceSnapshot(BudgetCheckSnapshot f) => JsonSerializer.Serialize(new
     {
         f.Id, f.TenantId, f.LegalEntityId, f.PurchaseRequestId, f.RequestVersion, f.FinanceCheckRef,
         f.Status, checkedAmount = Decimal(f.CheckedAmount), f.CurrencyCode, CheckedAt = DatabaseTimestamp(f.CheckedAt),

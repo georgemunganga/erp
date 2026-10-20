@@ -44,8 +44,7 @@ public static class GovernedRfqDraft
             Id = id; TenantId = actor.TenantId; CompanyId = actor.CompanyId; BranchId = branch;
             CurrencyCode = currency; Title = title; MakerSubjectId = actor.SubjectId; MakerWorkerId = actor.WorkerId;
             State = state; Lines = Array.AsReadOnly(lines.ToArray());
-            Fingerprint = Hash(new { Id, TenantId, CompanyId, BranchId, CurrencyCode, Title,
-                MakerSubjectId, MakerWorkerId, State, Lines });
+            Fingerprint = FingerprintV1(this);
         }
         internal static Draft Create(Guid id, RfqCurrentActor actor, Guid? branch, string currency,
             string title, string state, IEnumerable<RfqDemandPin> lines) => new(id, actor, branch, currency, title, state, lines);
@@ -206,8 +205,25 @@ public static class GovernedRfqDraft
         if (department == Guid.Empty || !actor.AllDepartments && (department is null || !actor.Departments.Contains(department.Value)))
             Fail("RfqDepartmentDenied");
     }
+    // Frozen schema1 projection: future runtime pin fields must not rewrite retained fingerprints.
+    private static string FingerprintV1(Draft draft) => Hash(new
+    {
+        schemaVersion = 1, draft.Id, draft.TenantId, draft.CompanyId, draft.BranchId, draft.CurrencyCode,
+        draft.Title, draft.MakerSubjectId, draft.MakerWorkerId, draft.State,
+        Lines = draft.Lines.Select(x => new
+        {
+            x.RequestId, x.LineId, x.RequestVersion, x.SubmissionId, x.SubmittedVersion, x.CaseId,
+            x.OutcomeId, x.DecisionId, x.RequestSha, x.PolicyDecisionSha, x.PolicyRulesSha, x.FinanceId,
+            x.FinanceSha, x.MethodId, x.MethodRevision, x.MethodCode, x.MinimumQuoteCount,
+            x.MakerWorkerId, x.RequesterWorkerId, x.AllocationId, x.EventLineId,
+            Quantity = ProcurementEvidenceEncoding.Decimal(x.Quantity),
+            UnitEstimate = ProcurementEvidenceEncoding.Decimal(x.UnitEstimate),
+            EstimatedValue = ProcurementEvidenceEncoding.Decimal(x.EstimatedValue),
+            x.UnitCode, x.CategoryCode, x.DepartmentId,
+        }).ToArray(),
+    });
     private static Guid EffectId(Guid key, Guid line, string purpose) => new(Convert.FromHexString(Hash(new { key, line, purpose })[..32]));
-    private static string Hash<T>(T value) => ProcurementEvidenceEncoding.Digest(JsonSerializer.Serialize(value));
+    private static string Hash<T>(T value) => ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(value));
     private static string Normalize(string? value) => string.Join(" ", (value ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     private static void Fail(string code) => throw new InvalidOperationException(code);
 }
