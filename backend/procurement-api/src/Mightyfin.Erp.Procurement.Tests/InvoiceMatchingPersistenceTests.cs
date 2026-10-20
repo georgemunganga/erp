@@ -151,6 +151,82 @@ public sealed class InvoiceMatchingPersistenceTests
         Assert.Equal("InvoiceMatchCurrentSourceRequired",(await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync())).Message);
     }
     [Fact]
+    public async Task First_blocked_comparison_persists_bigint_revision_but_revision_only_change_is_denied()
+    {
+        await using var db = Context();
+        var invoice = new SupplierInvoice { SupplierId = Guid.NewGuid(), InvoiceNumber = "INV-FIRST-COMPARISON",
+            NormalizedInvoiceNumber = "INV-FIRST-COMPARISON", CurrencyCode = "ZMW", IntakeChannel = "Manual",
+            InvoiceDate = new(2026, 10, 20), NetAmount = 1m, GrossAmount = 1m };
+        db.AddScoped(invoice);
+        var line = new SupplierInvoiceLine { SupplierInvoiceId = invoice.Id, LineNumber = 1,
+            Description = "Original captured line", Quantity = 1m, UnitPrice = 1m };
+        db.AddScoped(line);
+        await db.SaveChangesAsync();
+        Assert.Equal(1L, invoice.Version);
+        Assert.Equal(0L, invoice.MatchRevision);
+
+        var actorWorkerId = Guid.NewGuid();
+        var at = new DateTimeOffset(2026, 10, 20, 16, 0, 0, TimeSpan.Zero);
+        var mapping = InvoiceMappingEvidence.Create(invoice, [line], Guid.NewGuid(), Guid.NewGuid(),
+            [new(line.Id, Guid.NewGuid(), null, null, "each", Guid.Empty, "")], "matcher", actorWorkerId, at);
+        db.AddScoped(mapping);
+        invoice.CurrentMappingVersionId = mapping.Id;
+        invoice.MappingRevision = mapping.MappingRevision;
+        await db.SaveChangesAsync();
+        Assert.Equal(2L, invoice.Version);
+        Assert.Equal("Unverified", mapping.VerificationState);
+
+        // A blocked comparison needs durable evidence, but grants no unit-review, historical
+        // exposure, capacity claim or Finance authority. This tests SaveChanges, not SQL FKs.
+        const string policyJson = "{\"schemaVersion\":1,\"moneyScale\":2}";
+        const string evidenceJson = "{\"schemaVersion\":1,\"outcome\":\"Blocked\",\"unitReview\":\"Unverified\",\"consumption\":\"Unavailable\"}";
+        var watermarks = System.Text.Json.JsonSerializer.Serialize(new { schemaVersion = 1,
+            invoiceId = invoice.Id, invoiceVersion = invoice.Version, mappingVersionId = mapping.Id,
+            mapping.InvoiceOriginalSha256, purchaseOrderId = mapping.PurchaseOrderId,
+            issuedVersionId = mapping.IssuedVersionId, consumptionState = "Unavailable" });
+        var result = new InvoiceMatchResult { SupplierInvoiceId = invoice.Id, MatchType = "ThreeWay",
+            Outcome = "Blocked", PolicyVersionId = Guid.NewGuid(), MatchedAt = at, ExecutionVersion = 1,
+            MappingVersionId = mapping.Id, PurchaseOrderId = mapping.PurchaseOrderId,
+            IssuedVersionId = mapping.IssuedVersionId, InvoiceVersion = invoice.Version,
+            InvoiceOriginalSha256 = mapping.InvoiceOriginalSha256, ActorPrincipalId = "matcher",
+            ActorWorkerId = actorWorkerId, CommandKey = Guid.NewGuid(),
+            InputFingerprint = ProcurementEvidenceEncoding.Digest(watermarks), EvidenceJson = evidenceJson,
+            EvidenceSha256 = ProcurementEvidenceEncoding.Digest(evidenceJson),
+            PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policyJson), SourceWatermarksJson = watermarks };
+        db.AddScoped(result);
+        invoice.LastMatchResultId = result.Id;
+        invoice.MatchingState = "Blocked";
+        invoice.MatchRevision = 1L;
+        await db.SaveChangesAsync(); // The former GetValue<int>(MatchRevision) throws here.
+
+        db.ChangeTracker.Clear();
+        var saved = await db.SupplierInvoices.SingleAsync();
+        var retained = await db.InvoiceMatchResults.SingleAsync();
+        Assert.Equal(3L, saved.Version);
+        Assert.Equal(1L, saved.MatchRevision);
+        Assert.Equal(result.Id, saved.LastMatchResultId);
+        Assert.Equal("Blocked", saved.MatchingState);
+        Assert.Equal(2L, retained.InvoiceVersion);
+        Assert.Equal(mapping.Id, retained.MappingVersionId);
+        Assert.Equal(mapping.InvoiceOriginalSha256, retained.InvoiceOriginalSha256);
+        Assert.Equal(evidenceJson, retained.EvidenceJson);
+        Assert.Equal(watermarks, retained.SourceWatermarksJson);
+        Assert.Null(saved.ActiveMatchClaimResultId);
+        Assert.Null(saved.FinancePostingRef);
+        Assert.Equal("Received", saved.Status);
+        Assert.Empty(await db.InvoiceMatchAllocations.ToListAsync());
+
+        saved.MatchRevision = 2L;
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        Assert.Equal("InvoiceComparisonPointerFactRequired", error.Message);
+        db.ChangeTracker.Clear();
+        var unchanged = await db.SupplierInvoices.SingleAsync();
+        Assert.Equal(1L, unchanged.MatchRevision);
+        Assert.Equal(3L, unchanged.Version);
+        Assert.Equal(result.Id, unchanged.LastMatchResultId);
+        Assert.Single(await db.InvoiceMatchResults.ToListAsync());
+    }
+    [Fact]
     public async Task A_new_claim_cannot_reuse_an_unchanged_previously_consumed_exposure_sequence()
     {
         var f=new InvoiceMatchExecutionEvidenceTests.Fixture();
