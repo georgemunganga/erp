@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -7,6 +8,69 @@ namespace Mightyfin.Erp.Procurement.Tests;
 
 public sealed class PurchaseRequestApprovalPinningTests
 {
+    [Theory]
+    [InlineData("MakerWorkerId")]
+    [InlineData("RequesterWorkerId")]
+    [InlineData("WorkerIdentitySha256")]
+    [InlineData("Legacy")]
+    public void Missing_or_modified_retained_worker_identity_never_authorizes_old_or_changed_pins(string field)
+    {
+        var f = new Fixture(); var pin = f.Pin(); f.Link(pin);
+        Assert.True(PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(pin));
+        var json = JsonNode.Parse(JsonSerializer.Serialize(pin))!;
+        if (field == "Legacy")
+        {
+            json["SnapshotSchemaVersion"] = 1; json["MakerWorkerId"] = null;
+            json["RequesterWorkerId"] = null; json["WorkerIdentitySha256"] = null;
+        }
+        else if (field == "WorkerIdentitySha256") json[field] = new string('f', 64);
+        else json[field] = Guid.NewGuid().ToString("D");
+        var changed = JsonSerializer.Deserialize<PurchaseRequestApprovalSubmission>(json.ToJsonString())!;
+        Assert.False(PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(changed));
+        Assert.Contains("PinnedWorkerIdentityMissingOrInvalid", f.Verify(changed).Blockers);
+    }
+
+    [Fact]
+    public void Published_successor_closing_prior_period_does_not_strand_pinned_pending_case()
+    {
+        var f = new Fixture();
+        var pin = f.Pin();
+        f.Link(pin);
+        // Policy publication leaves the old row Published and closes only its future
+        // selection interval. It does not rewrite the rule/version already submitted.
+        f.Policy.EffectiveTo = f.Now.AddDays(1);
+        f.Policy.Version++;
+        f.Request.UpdatedAt = f.Now.AddDays(2); // Case work can continue past the successor start.
+        f.Request.Version++;
+        Assert.True(f.Verify(pin).IsValid);
+        Assert.Equal(f.Policy.Id, pin.PolicyVersionId);
+        Assert.Equal(f.Policy.PolicyVersionNumber, pin.PolicyVersionNumber);
+    }
+
+    [Theory]
+    [InlineData("Draft")]
+    [InlineData("PendingReview")]
+    [InlineData("Revoked")]
+    [InlineData("Superseded")]
+    public void Unpublished_or_unrecognized_policy_state_cannot_replace_published_pin_authority(string state)
+    {
+        var f = new Fixture();
+        var pin = f.Pin(); f.Link(pin);
+        f.Policy.State = state;
+        Assert.Contains("PolicyEvidenceInvalid", f.Verify(pin).Blockers);
+    }
+
+    [Fact]
+    public void Closing_prior_policy_before_submission_or_changing_its_rules_still_invalidates_pin()
+    {
+        var f = new Fixture(); var pin = f.Pin(); f.Link(pin);
+        f.Policy.EffectiveTo = f.Request.SubmittedAt;
+        Assert.Contains("PolicyEvidenceInvalid", f.Verify(pin).Blockers);
+        f.Policy.EffectiveTo = f.Now.AddDays(1);
+        f.Policy.RulesJson = "{\"changed\":true}";
+        Assert.Contains("PinnedPolicyMismatch", f.Verify(pin).Blockers);
+    }
+
     [Fact]
     public void Operational_revision_and_approval_link_do_not_change_submitted_business_evidence()
     {
@@ -359,9 +423,10 @@ public sealed class PurchaseRequestApprovalPinningTests
                     { new { code = "NEED", assignee = "LineManager", mode = "One" } } },
             }),
         });
+        public Guid MakerWorkerId { get; } = Guid.NewGuid();
         public PurchaseRequestApprovalSubmission Pin(string mode = PurchaseRequestApprovalPinning.AutomatedFinance,
             string? authority = null) => PurchaseRequestApprovalPinning.Pin(Request, Evaluation, Policy, Finance,
-                Tenant, Company, Guid.NewGuid(), Guid.NewGuid(), mode, authority, Now.AddMinutes(1));
+                Tenant, Company, Guid.NewGuid(), Guid.NewGuid(), mode, authority, Now.AddMinutes(1), MakerWorkerId, Request.RequesterWorkerId);
         public void Link(PurchaseRequestApprovalSubmission pin)
         {
             Request.ApprovalInstanceRef = pin.CoreApprovalCaseId.ToString();

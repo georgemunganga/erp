@@ -27,11 +27,14 @@ public static class PurchaseRequestApprovalPinning
     public static PurchaseRequestApprovalSubmission Pin(PurchaseRequest request,
         PolicyEvaluation evaluation, PolicyVersion policy, BudgetCheckSnapshot finance,
         string tenantId, Guid legalEntityId, Guid coreCaseId, Guid openingCommandKey,
-        string financeEvidenceMode, string? manualEvidenceAuthorityRef, DateTimeOffset pinnedAt)
+        string financeEvidenceMode, string? manualEvidenceAuthorityRef, DateTimeOffset pinnedAt,
+        Guid makerWorkerId, Guid requesterWorkerId)
     {
         var issues = ValidateInputs(request, evaluation, policy, finance, tenantId, legalEntityId);
         if (request.Version != request.SubmittedVersion || request.ApprovalInstanceRef is not null)
             issues.Add("SourceAlreadyChangedOrLinked");
+        if (makerWorkerId == Guid.Empty || requesterWorkerId == Guid.Empty || requesterWorkerId != request.RequesterWorkerId)
+            issues.Add("OpeningWorkerIdentityRequired");
         if (coreCaseId == Guid.Empty || openingCommandKey == Guid.Empty)
             issues.Add("OpeningIdentityRequired");
         if (financeEvidenceMode is not (AutomatedFinance or ApprovedManualEvidence)
@@ -49,7 +52,10 @@ public static class PurchaseRequestApprovalPinning
             TenantId = tenantId, LegalEntityId = legalEntityId,
             PurchaseRequestId = request.Id, SubmittedBusinessVersion = request.SubmittedVersion!.Value,
             CoreApprovalCaseId = coreCaseId, OpeningCommandKey = openingCommandKey,
-            MakerSubjectId = request.CreatedBy,
+            SnapshotSchemaVersion = 2, MakerSubjectId = request.CreatedBy,
+            MakerWorkerId = makerWorkerId, RequesterWorkerId = requesterWorkerId,
+            WorkerIdentitySha256 = WorkerIdentityDigest(tenantId, legalEntityId, request.Id,
+                request.SubmittedVersion.Value, coreCaseId, request.CreatedBy, makerWorkerId, requesterWorkerId),
             RequestSnapshotJson = snapshot, RequestSnapshotSha256 = Digest(snapshot),
             PolicyEvaluationId = evaluation.Id, PolicyVersionId = policy.Id,
             PolicyVersionNumber = policy.PolicyVersionNumber,
@@ -62,16 +68,42 @@ public static class PurchaseRequestApprovalPinning
         };
     }
 
+    public static string WorkerIdentityDigest(string tenant, Guid company, Guid request, long submittedVersion,
+        Guid caseId, string makerSubject, Guid makerWorker, Guid requesterWorker) => Digest(JsonSerializer.Serialize(new
+        {
+            schemaVersion = 2, tenant, company, request, submittedVersion, caseId, makerSubject, makerWorker, requesterWorker,
+        }));
+
+    public static bool HasRetainedWorkerIdentity(PurchaseRequestApprovalSubmission pin) => pin.SnapshotSchemaVersion == 2
+        && pin.MakerWorkerId is { } maker && maker != Guid.Empty
+        && pin.RequesterWorkerId is { } requester && requester != Guid.Empty
+        && pin.WorkerIdentitySha256 == WorkerIdentityDigest(pin.TenantId, pin.LegalEntityId, pin.PurchaseRequestId,
+            pin.SubmittedBusinessVersion, pin.CoreApprovalCaseId, pin.MakerSubjectId, maker, requester);
+
     public static ApprovalPinValidation Verify(PurchaseRequestApprovalSubmission pin,
         PurchaseRequest request, PolicyEvaluation evaluation, PolicyVersion policy,
-        BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId)
+        BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId) =>
+        VerifyEvidence(pin, request, evaluation, policy, currentFinance, tenantId, legalEntityId, true);
+
+    /// <summary>For exact terminal-effect replay/release resolution only. Business evidence remains immutable;
+    /// the caller separately verifies the matching terminal Core case and resulting Procurement state.</summary>
+    public static ApprovalPinValidation VerifyBusinessEvidence(PurchaseRequestApprovalSubmission pin,
+        PurchaseRequest request, PolicyEvaluation evaluation, PolicyVersion policy,
+        BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId) =>
+        VerifyEvidence(pin, request, evaluation, policy, currentFinance, tenantId, legalEntityId, false);
+
+    private static ApprovalPinValidation VerifyEvidence(PurchaseRequestApprovalSubmission pin,
+        PurchaseRequest request, PolicyEvaluation evaluation, PolicyVersion policy,
+        BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId, bool requirePendingState)
     {
-        var issues = ValidateInputs(request, evaluation, policy, currentFinance, tenantId, legalEntityId);
+        var issues = ValidateInputs(request, evaluation, policy, currentFinance, tenantId, legalEntityId, requirePendingState);
         if (!InScope(pin, tenantId, legalEntityId)) issues.Add("PinnedScopeMismatch");
         if (pin.OpeningCommandKey == Guid.Empty || pin.CoreApprovalCaseId == Guid.Empty || pin.PinnedAt == default
             || pin.PinnedAt < request.SubmittedAt || currentFinance.CheckedAt > pin.PinnedAt)
             issues.Add("PinnedMetadataInvalid");
-        if (pin.SnapshotSchemaVersion != 1 || pin.PurchaseRequestId != request.Id
+        if (!HasRetainedWorkerIdentity(pin) || pin.RequesterWorkerId != request.RequesterWorkerId)
+            issues.Add("PinnedWorkerIdentityMissingOrInvalid");
+        if (pin.SnapshotSchemaVersion != 2 || pin.PurchaseRequestId != request.Id
             || pin.SubmittedBusinessVersion != request.SubmittedVersion
             || pin.MakerSubjectId != request.CreatedBy)
             issues.Add("PinnedSourceMismatch");
@@ -107,14 +139,14 @@ public static class PurchaseRequestApprovalPinning
     }
 
     private static List<string> ValidateInputs(PurchaseRequest request, PolicyEvaluation evaluation,
-        PolicyVersion policy, BudgetCheckSnapshot finance, string tenantId, Guid legalEntityId)
+        PolicyVersion policy, BudgetCheckSnapshot finance, string tenantId, Guid legalEntityId, bool requirePendingState = true)
     {
         var issues = new List<string>();
         if (string.IsNullOrWhiteSpace(tenantId) || legalEntityId == Guid.Empty
             || new ProcurementRecord[] { request, evaluation, policy, finance }.Any(x => !InScope(x, tenantId, legalEntityId)))
             issues.Add("SourceScopeMismatch");
         if (request.Id == Guid.Empty || request.SubmittedVersion is not > 0
-            || request.Version < request.SubmittedVersion || request.Status != "Submitted"
+            || request.Version < request.SubmittedVersion || requirePendingState && request.Status != "Submitted"
             || request.SubmittedAt is null || string.IsNullOrWhiteSpace(request.CreatedBy)
             || request.RequesterWorkerId == Guid.Empty || string.IsNullOrWhiteSpace(request.CurrencyCode))
             issues.Add("InvalidSource");
@@ -122,12 +154,15 @@ public static class PurchaseRequestApprovalPinning
         if (lines.Length == 0 || lines.Any(x => !InScope(x, tenantId, legalEntityId)
                 || x.PurchaseRequestId != request.Id || x.Id == Guid.Empty || x.LineNumber < 1
                 || x.RequestedQuantity <= 0 || x.EstimatedUnitPrice < 0
-                || x.ApprovalStatus != "Pending" || x.ApprovedQuantity != 0
-                || x.AllocatedQuantity != 0 || x.OrderedQuantity != 0 || x.AcceptedQuantity != 0
-                || x.CancelledQuantity != 0 || x.Route != "Unassigned")
+                || requirePendingState && (x.ApprovalStatus != "Pending" || x.ApprovedQuantity != 0
+                    || x.AllocatedQuantity != 0 || x.OrderedQuantity != 0 || x.AcceptedQuantity != 0
+                    || x.CancelledQuantity != 0 || x.Route != "Unassigned"))
             || lines.Select(x => x.Id).Distinct().Count() != lines.Length
             || lines.Select(x => x.LineNumber).Distinct().Count() != lines.Length)
             issues.Add("InvalidLines");
+        // A successor publication keeps the prior row Published and closes its future
+        // selection interval. Eligibility is checked at submission, never at today's date;
+        // hash/version checks below still prevent silently changing the pinned rules.
         if (evaluation.Id == Guid.Empty || evaluation.PurchaseRequestId != request.Id
             || evaluation.RequestVersion != request.SubmittedVersion || evaluation.Outcome != "Matched"
             || evaluation.AmountBasis != EstimatedLineBase || string.IsNullOrWhiteSpace(evaluation.DecisionJson)

@@ -28,6 +28,15 @@ public static class ProcurementActionCatalog
             ["procurement-plan-read"] = ["manager", "procurement_buyer", "procurement_manager"],
             ["procurement-plan-create"] = ["manager", "procurement_buyer", "procurement_manager"],
             ["procurement-plan-edit"] = ["manager", "procurement_buyer", "procurement_manager"],
+            // These actions require explicit configured grants (or existing ERP administrator
+            // governance access). Neither role bootstrap nor this catalog grants spending limits.
+            ["procurement-authority-read"] = [],
+            ["procurement-authority-configure"] = [],
+            ["procurement-authority-review"] = [],
+            ["procurement-authority-revoke"] = [],
+            ["procurement-approval-decide"] = [],
+            ["procurement-approval-open"] = [],
+            ["procurement-approval-read"] = [],
             ["procurement-configuration-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-configuration-edit"] = ["procurement_manager"],
             ["procurement-configuration-approve"] = ["procurement_manager"],

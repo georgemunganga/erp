@@ -7,7 +7,7 @@ using Mightyfin.Erp.Procurement.Domain;
 namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 /// <summary>Procurement owns the `procurement` schema and migration history.</summary>
-public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> options, IProcurementScope scope) : DbContext(options)
+public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbContext> options, IProcurementScope scope) : DbContext(options)
 {
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierContact> SupplierContacts => Set<SupplierContact>();
@@ -77,7 +77,8 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
     {
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
-        if (record is PurchaseRequestApprovalSubmission &&
+        if ((record is PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
+                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation) &&
             (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
             throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
         record.TenantId = scope.TenantId;
@@ -429,12 +430,19 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
                     x.PurchaseRequestId, x.RequestVersion })
                 .OnDelete(DeleteBehavior.Restrict);
             // Core owns execution in its separate schema. CoreApprovalCaseId is an explicit reference, not a Core FK.
+            b.Property(x => x.WorkerIdentitySha256).HasMaxLength(64);
             b.ToTable(t =>
             {
                 t.HasCheckConstraint("ck_pr_approval_submission_identity",
-                    "snapshot_schema_version = 1 AND submitted_business_version > 0 AND policy_version_number > 0 " +
+                    "snapshot_schema_version IN (1,2) AND submitted_business_version > 0 AND policy_version_number > 0 " +
                     "AND core_approval_case_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
                     "AND opening_command_key <> '00000000-0000-0000-0000-000000000000'::uuid");
+                t.HasCheckConstraint("ck_pr_approval_worker_identity",
+                    "(snapshot_schema_version = 1 AND maker_worker_id IS NULL AND requester_worker_id IS NULL AND worker_identity_sha256 IS NULL) OR " +
+                    "(snapshot_schema_version = 2 AND maker_worker_id IS NOT NULL AND requester_worker_id IS NOT NULL " +
+                    "AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+                    "AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+                    "AND worker_identity_sha256 IS NOT NULL AND worker_identity_sha256 ~ '^[a-f0-9]{64}$')");
                 t.HasCheckConstraint("ck_pr_approval_submission_amount",
                     "estimated_amount >= 0 AND amount_basis = 'EstimatedLineBase' AND currency_code ~ '^[A-Z]{3}$'");
                 t.HasCheckConstraint("ck_pr_approval_submission_digest",
@@ -487,6 +495,9 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         });
 
         ConfigureCommercialRelationships(modelBuilder);
+        ConfigureSpendingAuthority(modelBuilder);
+        ConfigureApprovalOutcomes(modelBuilder);
+        ConfigureApprovalExecution(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
@@ -640,32 +651,41 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
     private static string ToSnake(string name) => string.Concat(name.Select((letter, index) =>
         index > 0 && char.IsUpper(letter) ? "_" + char.ToLowerInvariant(letter) : char.ToLowerInvariant(letter).ToString()));
 
-    public override int SaveChanges()
+    public override int SaveChanges() => SaveChanges(true);
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         PrepareChanges();
-        return base.SaveChanges();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        => SaveChangesAsync(true, cancellationToken);
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         PrepareChanges();
-        return base.SaveChangesAsync(cancellationToken);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     private void PrepareChanges()
     {
         if (string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(scope.SubjectId))
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
+        GuardSpendingAuthorityChanges();
+        GuardApprovalOutcomeChanges();
+        GuardApprovalExecution();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();
         foreach (var entry in changes)
         {
-            if (entry.State == EntityState.Deleted)
+            if (entry.State == EntityState.Deleted && entry.Entity is not ProcurementSpendingAuthorityCategory)
                 throw new InvalidOperationException("Procurement records must be closed, cancelled or reversed; physical deletion is not allowed.");
             if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot or PurchaseRequestApprovalSubmission
                 or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
-                or ProcurementComment or ProcurementSetupAssessment)
+                or ProcurementComment or ProcurementSetupAssessment or PurchaseRequestApprovalOutcome
+                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation)
                 throw new InvalidOperationException("Decision, evaluation, budget and audit records are append-only.");
             if (entry.State == EntityState.Added)
             {
@@ -681,7 +701,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
                     throw new InvalidOperationException("A record outside the authenticated scope cannot be changed.");
                 entry.Entity.UpdatedAt = now;
                 entry.Entity.UpdatedBy = scope.SubjectId;
-                entry.Entity.Version++;
+                entry.Entity.Version = checked(entry.OriginalValues.GetValue<long>(nameof(ProcurementRecord.Version)) + 1);
             }
             if (entry.Entity is AuditEvent or OutboxEvent) continue;
             AuditEvents.Add(new AuditEvent

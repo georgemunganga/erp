@@ -17,6 +17,20 @@ public sealed class ProcurementSpendingAuthorityGrant : ProcurementRecord
     public string Permission { get; set; } = null!;
     public string Action { get; set; } = null!;
     public string State { get; set; } = "Draft";
+    public string ConfigurationOwnerPrincipalId { get; set; } = null!;
+    public string? SubmittedByPrincipalId { get; set; }
+    public DateTimeOffset? SubmittedAt { get; set; }
+    public string? SubmittedBusinessFingerprint { get; set; }
+    public string? ReviewReturnReason { get; set; }
+    public string? ActivatedByPrincipalId { get; set; }
+    public DateTimeOffset? ActivatedAt { get; set; }
+    public string? ActivationReason { get; set; }
+    public string? PublishedBusinessFingerprint { get; set; }
+    public string? RevokedByPrincipalId { get; set; }
+    public DateTimeOffset? RevokedAt { get; set; }
+    public string? RevocationReason { get; set; }
+    public Guid? SupersededByGrantId { get; set; }
+    public DateTimeOffset? SupersededAt { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public string AmountBasis { get; set; } = null!;
     public decimal MaximumAmount { get; set; }

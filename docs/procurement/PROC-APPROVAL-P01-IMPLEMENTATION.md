@@ -117,6 +117,112 @@ Release integration is Finance-owned. The first execution implementation may acc
 
 Keep `approvals: false` until the complete supported route, source/Finance guards, schema/runtime grants, real PostgreSQL concurrency tests, HTTP authorization checks and browser evidence pass. Then expose readiness per company/policy rather than treating a global capability flag as spending authorization. Production activation additionally requires the existing shared-host compatibility and coordinated release gates; this design does not claim those gates have passed.
 
+### Atomic execution infrastructure and spending authority rehearsal — 20 October
+
+The isolated integration candidate passed **180/180 Procurement tests** and **20/20 Core approval tests**. P22 (`20261020084544_P22SpendingAuthorityConfiguration`) adds only grant/category tables; its model matched the compiled snapshot and idempotent SQL applied twice to disposable PostgreSQL17 with19 Procurement migration records.
+
+The shared-connection coordinator passed actual PostgreSQL rollback before saves, after either context save and after both; one-commit source/Core/audit/outbox; stale intermediate vote rejection, fresh quorum completion and terminal replay; bounded confirmed-abort retries; real EF SaveChanges wrapper retry; cancellation; and mismatched-scope denial. A separate PostgreSQL authority probe passed independent publication, atomic supersession rollback including audit, revocation without old-limit revival, immutable fields and concurrent logical-version allocation.
+
+Testing exposed and corrected replacement category graph state, an oversized synthetic request number, an EF relational package conflict, and Npgsql wrapping serialization failures in InvalidOperationException. First-failure logs are retained alongside final results. Protected evidence and SHA-256 manifest: `/home/amizo/erp-backups/procurement-approval-transaction-20261020/`. Tested retry fix source is `1b28f54` on `codex/procurement-approval-transaction`.
+
+These checks prove the named infrastructure and persistence behaviour. They do not prove the newly written full HTTP command path, real user sessions, production database grants, operational notification delivery or production activation. The mapped HTTP/PostgreSQL workflow and browser integration remain separate gates. No production API/schema change was made.
+
+### Policy supersession and pending cases
+
+Publishing a new policy currently retains the predecessor's `Published` state and closes
+its open-ended `EffectiveTo` at the successor's future start. The audit action is named
+`Superseded`; it is not a state change. New submissions select the policy effective at their
+submission time. A case already pinned to the predecessor continues to validate that exact
+policy ID/version and canonical rules hash against its original submitted timestamp, even
+when work finishes after the successor starts. A current wall-clock check must not strand it.
+Draft, pending-review, revoked or otherwise unrecognized policy states do not authorize an
+existing case. An explicit revocation workflow is not supplied by this increment; changing
+published rule content remains a pin mismatch, not an implicit reroute. Scope, published
+status, policy version, effective-at-submission bounds and pinned hashes remain mandatory.
+
+### Execution database access and activation
+
+Approval execution is disabled by default. Activation additionally requires an explicit
+`ConnectionStrings:ProcurementApprovalExecution` connection. With the feature enabled but
+that connection absent or blank, execution routes return `503` with
+`ApprovalExecutionDatabaseNotConfigured`; readiness reports the same unmet setup check.
+The shared host connection is not an approved substitute for the dedicated execution role.
+Normal module draft/read contexts can retain their separately managed connection.
+
+Before production enablement, provision and verify a least-privilege execution role in the
+same PostgreSQL database. It needs the scoped Procurement source/line reads and controlled
+updates, append-only evidence/audit/outbox inserts and reads, Core case/stage/assignment
+execution inserts and controlled updates, and Core decision insert/read. It must not have
+`UPDATE`/`DELETE` on decision, submission, command receipt, authority-pin, outcome, release,
+confirmation or audit history. Outbox delivery updates belong to a separate publisher role.
+Shared identity, worker/reporting-line, company/location/department, role and branch-grant
+access is `SELECT` only. The canonical account adapter projects the required account linkage,
+lock status and roles; Procurement execution does not need password hashes, payroll, bank
+records or identity master writes. No runtime role receives migration ownership.
+
+Core and Procurement contexts enlist one physical execution connection/transaction, including
+the read-only Core identity/organization adapter. Verify role/schema access, unauthorized
+history mutations, company/tenant isolation, rollback, and a real mapped HTTP workflow under
+that dedicated role before enabling the feature. The disposable HTTP probe explicitly supplies
+its own isolated test connection; a synthetic database owner/superuser run does not prove
+production grants. Protected deployment configuration, role credentials and review evidence
+must be recorded in the operational release pack. Capability stays off until these gates and
+the browser/source/Finance checks pass.
+
+
+### Retained worker identity and offboarding compatibility
+
+New submissions use snapshot schema version 2. At opening, the transaction resolves active
+canonical maker/requester identities and each assigned principal's worker, then retains
+`MakerWorkerId`, `RequesterWorkerId`, and `AssigneeWorkerId`. The submission identity digest
+binds tenant, entity, source, submitted version, Core case, maker principal and both workers.
+Assignment `EvidenceJson` is an envelope containing its worker and exact finite authority
+result; its digest binds both. New assignment writes validate source/case, immutable grant
+identity, current revision, amount/context, worker evidence and digest. There are no Core FKs
+and no copied identity masters.
+
+Existing schema version 1 submissions remain unchanged. New columns are nullable for
+migration compatibility, with an explicit v1-all-null/v2-complete database check. Historical
+assignment rows lacking their worker envelope remain unchanged. Read-side execution and
+release reject missing/legacy or inconsistent evidence with an explicit blocker; the upgrade
+never guesses a worker from today's possibly changed account mapping. A separately approved,
+audited historical identity-resolution migration would be needed for such legacy cases; no
+runtime bypass is supplied.
+
+Approvals still require current active canonical assignees, current permissions, current
+finite configured authority and all other source/policy/Finance checks. Release after a
+terminal return/rejection instead compares the current active authorized Finance verifier
+against retained maker/requester workers and the terminal decision assignment's retained
+worker. Historical offboarding, locks or account deactivation do not require reactivating
+those people to release the original reservation. Alias accounts for those same workers
+remain ineligible, including exact-retry paths. The original Finance evidence, full amount,
+currency, reservation, controlled manual policy and independent verification requirements
+continue to apply. Tests deliberately mutate only disposable fixture evidence to prove
+legacy/digest mismatch rejection and use real mapped HTTP to confirm independent recovery
+after historical worker/account offboarding. These source assertions are not a test result.
+
+### P23 migration verification checkpoint — 20 October 2026
+
+`20261020095652_P23PurchaseRequestApprovalExecution` adds five Procurement-owned
+execution/effect tables and the nullable retained worker identity fields. Composite local
+foreign keys bind assignment evidence to its submission/case and immutable grant identity;
+outcomes and release evidence bind the exact submitted source and reservation. No foreign
+key or migration changes a Core, HRM or Finance-owned table.
+
+The combined source passed **213/213 Procurement Release tests**. Infrastructure then
+built with zero warnings/errors and EF reported no pending model changes. The generated
+idempotent SQL was applied twice to disposable PostgreSQL 17: both runs succeeded, the
+history contained 20 migrations, and all five new tables were present. Private logs/SQL/TRX
+are retained under `procurement-approval-transaction-20261020` in the operator evidence pack.
+This is schema and unit verification; mapped shared-host, restricted-runtime HTTP and actual
+API browser gates are still pending. Production remains on P19 with execution disabled.
+
+P23 preserves legacy rows without guessing historical worker identities. Once v2 submissions
+or execution evidence exist, **do not run the Down migration as an operational rollback**:
+it removes retained evidence and the prior constraint cannot represent v2 submissions.
+Disable execution and use a compatible code rollback or reviewed forward repair. A destructive
+schema rollback requires a separately verified database restore and reconciliation plan.
+
 ### Submission evidence verification — 20 October 2026
 
 P21 (`20261020073918_P21PurchaseRequestApprovalSubmission`) adds immutable Procurement submission evidence and scoped source/evaluation/policy/Finance relationships. Its idempotent SQL applied twice to isolated PostgreSQL17, retaining18 Procurement migration entries. The final source passed **133/133** Procurement tests and the real PostgreSQL probe: unchanged evidence survives jsonb property ordering/number formatting and UTC microsecond timestamps, eight-decimal amount roundtrip remains exact, operational source revisions preserve the submitted version, and uniqueness plus cross-tenant/entity/source/version/policy/Finance mismatches are denied. Decimal canonicalization rejects lossy precision rather than using floating point.
