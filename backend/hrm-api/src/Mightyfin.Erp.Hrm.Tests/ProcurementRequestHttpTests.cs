@@ -25,6 +25,77 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// <summary>Exercises the mapped HTTP routes with the real Core scope middleware and Procurement query filters.</summary>
 public sealed class ProcurementRequestHttpTests
 {
+    [Theory]
+    [InlineData(" Goods ", " office_it_2 ", "GOODS", "OFFICE_IT_2")]
+    [InlineData("Service", "IT", "SERVICE", "IT")]
+    [InlineData("Asset", "IT", "ASSET", "IT")]
+    [InlineData("Subscription", "IT", "SUBSCRIPTION", "IT")]
+    [InlineData("  ", "  ", null, null)]
+    public async Task Editable_request_codes_are_canonical_on_create_update_and_reload(
+        string type, string category, string? expectedType, string? expectedCategory)
+    {
+        await using var fixture = await Fixture.Start();
+        var draft = Draft("Canonical request");
+        var line = draft.Lines![0] with { PurchaseType = type, CategoryCode = category };
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+            fixture.Owner, draft with { Lines = [line] });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = body.GetProperty("id").GetGuid();
+        Assert.Equal(expectedType, body.GetProperty("lines")[0].GetProperty("purchaseType").GetString());
+        Assert.Equal(expectedCategory, body.GetProperty("lines")[0].GetProperty("categoryCode").GetString());
+        var edited = await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/requests/{id}",
+            fixture.Owner, new ProcurementRequestRoutes.UpdateRequest(body.GetProperty("version").GetInt64(),
+                "Edited canonical request", "ZMW", null, null, null, null, null, null, null,
+                [line with { Id = body.GetProperty("lines")[0].GetProperty("id").GetGuid() }]));
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+        var reloaded = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
+        var stored = await reloaded.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(expectedType, stored.GetProperty("lines")[0].GetProperty("purchaseType").GetString());
+        Assert.Equal(expectedCategory, stored.GetProperty("lines")[0].GetProperty("categoryCode").GetString());
+    }
+
+    [Theory]
+    [InlineData("purchaseType", "GOODS-SERVICE")]
+    [InlineData("categoryCode", "OFFICE IT")]
+    [InlineData("purchaseType", "ſervice")]
+    [InlineData("categoryCode", "IT/OPS")]
+    [InlineData("purchaseType", "TOO_LONG")]
+    [InlineData("purchaseType", "TYPE_TOO_LONG")]
+    [InlineData("categoryCode", "TOO_LONG")]
+    public async Task Invalid_request_codes_reject_create_and_update_without_any_persistence(
+        string field, string invalid)
+    {
+        await using var fixture = await Fixture.Start();
+        if (invalid == "TOO_LONG") invalid = new string('A', 101);
+        if (invalid == "TYPE_TOO_LONG") invalid = new string('A', 41);
+        var draft = Draft("Unchanged request");
+        var invalidLine = field == "purchaseType" ? draft.Lines![0] with { PurchaseType = invalid }
+            : draft.Lines![0] with { CategoryCode = invalid };
+        var before = await fixture.RequestPersistenceCounts();
+        var rejected = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+            fixture.Owner, draft with { Lines = [draft.Lines![0], invalidLine] });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, rejected.StatusCode);
+        Assert.Contains("validation-failed", await rejected.Content.ReadAsStringAsync());
+        Assert.Equal(before, await fixture.RequestPersistenceCounts());
+
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner, draft);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        var originalGet = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
+        var originalJson = await originalGet.Content.ReadAsStringAsync();
+        before = await fixture.RequestPersistenceCounts();
+        var edit = await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/requests/{id}", fixture.Owner,
+            new ProcurementRequestRoutes.UpdateRequest(original.GetProperty("version").GetInt64(),
+                "Must not save header or cancel old line", "USD", null, null, null, null, null, null, null,
+                [invalidLine]));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, edit.StatusCode);
+        Assert.Equal(before, await fixture.RequestPersistenceCounts());
+        var unchanged = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
+        Assert.Equal(originalJson, await unchanged.Content.ReadAsStringAsync());
+    }
+
     [Fact]
     public async Task Delayed_buying_rule_check_uses_submission_policy_not_current_successor()
     {
@@ -1366,16 +1437,23 @@ public sealed class ProcurementRequestHttpTests
                 purpose = "Office chair", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
                 lines = new[] { new { description = "Chair", unitCode = "each", requestedQuantity = 1,
                     estimatedUnitPrice = 250, catalogItemId = (Guid?)itemId, preferredSupplierId = (Guid?)vendorId,
-                    catalogEntryId = (Guid?)entry.GetProperty("id").GetGuid(), categoryCode = "OFFICE" },
+                    catalogEntryId = (Guid?)entry.GetProperty("id").GetGuid(), categoryCode = " office ", purchaseType = "Goods" },
                     new { description = "Office supplies", unitCode = "each", requestedQuantity = 1,
                         estimatedUnitPrice = 25, catalogItemId = (Guid?)null, preferredSupplierId = (Guid?)null,
-                        catalogEntryId = (Guid?)null, categoryCode = "OFFICE" } },
+                        catalogEntryId = (Guid?)null, categoryCode = "OFFICE", purchaseType = "Service" } },
             }, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Created, requestResponse.StatusCode);
         var request = await requestResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(entry.GetProperty("id").GetGuid(), request.GetProperty("lines")[0]
             .GetProperty("catalogEntryId").GetGuid());
         Assert.Equal(1, request.GetProperty("lines")[0].GetProperty("catalogPublishedVersion").GetInt32());
+        Assert.Equal("GOODS", request.GetProperty("lines")[0].GetProperty("purchaseType").GetString());
+        Assert.Equal("OFFICE", request.GetProperty("lines")[0].GetProperty("categoryCode").GetString());
+        Assert.Equal("SERVICE", request.GetProperty("lines")[1].GetProperty("purchaseType").GetString());
+        var unchangedItem = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/items/{itemId}",
+            fixture.Owner, role: "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, unchangedItem.StatusCode);
+        Assert.Equal("Goods", (await unchangedItem.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("kind").GetString());
         Assert.Equal(JsonValueKind.Null, request.GetProperty("lines")[1].GetProperty("catalogEntryId").ValueKind);
         Assert.Equal(HttpStatusCode.BadRequest,
             (await SendJson(fixture.Client, HttpMethod.Post,
@@ -2498,6 +2576,16 @@ public sealed class ProcurementRequestHttpTests
                 CreatedAt = DateTimeOffset.UtcNow.AddSeconds(1),
             });
             await db.SaveChangesAsync();
+        }
+
+        public async Task<(int Requests, int Lines, int Audit, int Outbox)> RequestPersistenceCounts()
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return (await db.PurchaseRequests.CountAsync(), await db.PurchaseRequestLines.CountAsync(),
+                await db.AuditEvents.CountAsync(), await db.OutboxEvents.CountAsync());
         }
 
         public async Task<int> RequestAuditCount(Guid requestId, string action)
