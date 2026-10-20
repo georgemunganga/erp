@@ -171,6 +171,48 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(before, await fixture.OriginalValueFootprint());
     }
 
+    [Fact]
+    public async Task Funding_queue_distinguishes_current_CAS_from_retained_business_version_and_replay_does_not_repin()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.SetFinanceWorker(fixture.Other, fixture.Other);
+        var (id, submittedVersion) = await SubmittedFundingRequest(fixture);
+        // Owner-only operational timestamp revision: no Core approval/evidence is fabricated.
+        // The normal SaveChanges version increment makes current CAS differ from submitted intent.
+        var currentVersion = await fixture.AdvanceFundingMetadataRevision(id);
+        Assert.True(currentVersion > submittedVersion);
+        var queue = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/requests/budget-queue",
+            fixture.Other, "finance_approver");
+        Assert.Equal(HttpStatusCode.OK, queue.StatusCode);
+        var page = await queue.Content.ReadFromJsonAsync<JsonElement>();
+        var row = Assert.Single(page.GetProperty("records").EnumerateArray(), x => x.GetProperty("id").GetGuid() == id);
+        Assert.Equal(currentVersion, row.GetProperty("version").GetInt64());
+        Assert.Equal(submittedVersion, row.GetProperty("businessVersion").GetInt64());
+        var decision = new ProcurementBudgetRoutes.BudgetDecision(currentVersion, "TWO-VERSION-CAPTURE", "Available",
+            20m, "ZMW", "synthetic-versioned-funding-evidence", null, "RES-TWO-VERSIONS", "Confirmed");
+        var path = $"/api/procurement/v1/requests/{id}/budget-checks";
+        var beforeStale = await fixture.OriginalValueFootprint();
+        var stale = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            decision with { RequestVersion = submittedVersion }, "finance_approver");
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal(beforeStale, await fixture.OriginalValueFootprint());
+        var workflow = await fixture.FundingWorkflowState(id);
+        var capture = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, decision, "finance_approver");
+        Assert.Equal(HttpStatusCode.Created, capture.StatusCode);
+        var response = await capture.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(submittedVersion, response.GetProperty("requestVersion").GetInt64());
+        var stored = await fixture.StoredFinance(id);
+        Assert.Equal(submittedVersion, stored.RequestVersion);
+        Assert.True(FinanceCheckerIdentityEvidence.HasValidBinding(stored));
+        Assert.Equal(workflow, await fixture.FundingWorkflowState(id));
+        var afterCapture = await fixture.OriginalValueFootprint();
+        var replay = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, decision, "finance_approver");
+        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+        Assert.Equal(response.GetRawText(), (await replay.Content.ReadFromJsonAsync<JsonElement>()).GetRawText());
+        Assert.Equal(afterCapture, await fixture.OriginalValueFootprint());
+        Assert.Equal(workflow, await fixture.FundingWorkflowState(id));
+    }
+
     private static async Task<(Guid Id, long Version)> SubmittedFundingRequest(Fixture fixture)
     {
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
@@ -2884,6 +2926,32 @@ public sealed class ProcurementRequestHttpTests
         public Guid Reviewer { get; } = reviewer;
         public Guid Inactive { get; } = inactive;
         public Guid OtherCompany { get; } = otherCompany;
+
+        public async Task<long> AdvanceFundingMetadataRevision(Guid requestId)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
+                "tenant-a", company, Owner.ToString(), null, null, false, "synthetic-operational-metadata-revision");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var request = await db.PurchaseRequests.SingleAsync(x => x.Id == requestId);
+            Assert.Equal("Submitted", request.Status);
+            request.UpdatedAt = DateTimeOffset.UtcNow; // Technical revision only; retain all submitted business intent.
+            await db.SaveChangesAsync();
+            return request.Version;
+        }
+
+        public async Task<string> FundingWorkflowState(Guid requestId)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
+                "tenant-a", company, Owner.ToString(), null, null, false, "funding-workflow-state");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var request = await db.PurchaseRequests.AsNoTracking().SingleAsync(x => x.Id == requestId);
+            var pins = await db.ApprovalSubmissions.AsNoTracking().Where(x => x.PurchaseRequestId == requestId)
+                .OrderBy(x => x.Id).ToArrayAsync();
+            return JsonSerializer.Serialize(new { request.Id, request.Version, request.SubmittedVersion,
+                request.Status, request.ApprovalState, request.ApprovalInstanceRef, pins });
+        }
 
         public async Task SetRequestProvenance(Guid requestId, string channel, string? onBehalf)
         {
