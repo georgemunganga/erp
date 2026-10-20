@@ -113,3 +113,71 @@ The first failure is retained for diagnosis; no actual receiving pass is claimed
 Receiving UI source
 `2546465` restores existing presentation controls but has not yet passed its
 unit, TypeScript, staged build or browser gates. Production remains unchanged.
+
+
+## Stable binding correction and subsequent verification — 20 October 2026
+
+The retained `20261020_141959` failure exposed mutable receiving binding fields
+being mapped as EF principal alternate keys. The stable-key correction preserves
+exact physical/service ownership with migration-owned composite constraints while
+using stable entity IDs for tracked relationships. Correction migration
+`20261020144755_P25ReceivingStableEvidenceBindings` is additive to the original
+P25 migration; it does not rewrite receiving records. Its distinct review is in
+`PROC-09-P25-STABLE-BINDINGS-DISTINCT-REVIEW.md`.
+
+`artifacts/order-execution/p25-stable-regression.log` records the newer complete
+checkpoint: **480 domain tests passed; 111 shared-host Procurement API tests
+passed; the PostgreSQL verification tool built with zero warnings/errors; EF
+reported no pending model changes**. These replace the earlier checkpoint for
+this source baseline and are not additional test totals. Existing shared-host
+build warnings remain outside the verification tool's warning-free result.
+
+Actual PostgreSQL migration rehearsals under protected evidence
+`20261020_143802/migration-rehearsal` passed fresh idempotent application,
+unused correction/full receiving reversal and reapplication, restored legacy
+field preservation, and denial of reversal after receiving evidence exists.
+The restored fixture preserved 73 tables / 11 records; the retained used fixture
+preserved 73 tables / 138 records. The original P24 baseline was also checked at
+the full receiving rollback boundary. Production was not migrated.
+
+The subsequent actual HTTP/PostgreSQL workflow under `20261020_143802` passed
+physical arrival, inspection, goods acceptance, two partial service certifications,
+conservation/replay checks, purpose-specific access checks, and exact binding
+constraint negatives. It then stopped at multi-site policy fixture setup: the
+fixture requested a two-site policy while selecting one site. That rejected
+request is correct server behaviour, not a completed receiving gate.
+
+Tool-only commit `ebe07f6` grants both sites explicitly to the synthetic policy
+maker and independent reviewer, then configures the policy in company context.
+It retains a single-site rejection with no saved policy and grants no extra site
+to receiving workers. A distinct source reviewer found no business-guard
+relaxation. Its initial rebuild caught a test-only incorrect branch-assignment namespace;
+`ec52410` corrects that reference to the existing shared application type. The
+first failed build log is retained. The corrected tool rebuild passed with zero
+warnings/errors (`p25-cross-site-probe-build-corrected.log`); a fresh full
+receiving retry is running under protected `20261020_151428` evidence.
+
+Receiving UI now has a separate executed adapter checkpoint documented in
+`PROC-RECEIVING-UI-PARITY-AUDIT.md`: 12 focused unit tests passed; TypeScript and
+staged build passed after retained corrections; all 16 distinct mocked browser
+scenarios passed across recorded checkpoints, including a test-only accessible
+name locator correction. This is not one uninterrupted 16-case run and is not
+actual backend browser evidence. The actual API receiving browser gate remains
+pending. No deployment or full-module completion is claimed.
+
+
+### Correction to the cross-site fixture checkpoint
+
+The `20261020_151428` run again passed physical/inspection/service evidence
+checks but correctly returned 201 for policy **draft capture**. The fixture's
+422 assertion was at the wrong boundary: actual receiving site validation runs
+on submit-for-review and publication. For confined users, omitting a shell
+location also defaults to an assigned branch; it does not establish company-wide
+scope. The earlier fixture interpretation above is superseded by this finding.
+
+`9554b4e` changes only the verification tool: it captures a service-only policy
+for site B, proves submission from site A fails without changing draft/version,
+then submits and independently publishes in explicitly assigned site B. Workers
+performing receiving remain confined to A. After the retained-scope negative,
+the normal site-A policy is restored before subsequent goods checks. A separate
+fresh full probe is required. Product configuration guards are unchanged.
