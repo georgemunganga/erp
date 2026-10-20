@@ -33,7 +33,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 var issue = await ProcurementCatalogClassificationBinding.StoredIssue(db, new[] { source.Line }, token);
                 if (issue is not null) throw new Problem("SourcingCatalogSourceUnavailable", 409);
                 var finance = await ProcurementApprovalFinanceEligibility.CheckAsync(source.Request, source.Finance,
-                    http.RequestServices.GetRequiredService<ProcurementApprovalExecutionOptions>(), core, scope, now, token);
+                    http.RequestServices.GetRequiredService<ProcurementApprovalExecutionOptions>(), core, db, scope, now, token);
                 if (source.Submission.FinanceEvidenceMode != finance.Mode || source.Submission.ManualEvidenceAuthorityRef != finance.Reference)
                     throw new Problem("SourcingFinanceAuthorityChanged", 409);
                 loaded.Add(new(source, selected.ExpectedRequestVersion, selected.Quantity));
