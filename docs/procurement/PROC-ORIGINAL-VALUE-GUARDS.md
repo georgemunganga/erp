@@ -58,3 +58,12 @@ Existing catalog publish/withdraw fencing and independent approval rules remain 
   prove PostgreSQL coercion/locking behavior.
 
 No passing test, release or full Procurement completion claim follows from source authorship.
+
+## Narrow malformed-item correction
+
+Distinct review accepted the precision increment and identified inherited ItemUpdate.Item=null
+reaching ValidateItem and throwing instead of returning validation. The validator now explicitly
+returns actionable422 before mutation. Source HTTP regression checks cross-company403, own-scope
+422, unchanged item/name/version and complete row/audit/outbox footprint. Existing PR and planning
+validators already reject missing/null Lines before enumeration; those paths were left intact.
+This follow-up has no schema or execution evidence and has not been compiled/tested.
