@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Mightyfin.Erp.Procurement.Domain;
 
 /// <summary>
@@ -24,6 +26,9 @@ public sealed class PurchaseRequestApprovalSubmission : ProcurementRecord
     public int PolicyVersionNumber { get; init; }
     public string PolicyDecisionSha256 { get; init; } = null!;
     public string PolicyRulesSha256 { get; init; } = null!;
+    // Independent of maker/requester SnapshotSchemaVersion. Zero preserves original Finance bytes.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int FinanceIdentitySchemaVersion { get; init; }
     public Guid FinanceSnapshotId { get; init; }
     public string FinanceSnapshotJson { get; init; } = null!;
     public string FinanceSnapshotSha256 { get; init; } = null!;
