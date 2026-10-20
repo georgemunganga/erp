@@ -67,3 +67,43 @@ Distinct adapter review of `40c4c5a..e2049ab` finds all four identified source i
 - R4: inspection updates derived rejection; certification compares against qualified quantity. Detail exposes inspection qualification/rejection and held quantity, and multi-line response projection preserves other lines' retained facts. Original physical observation stays frozen.
 
 The additional source-state/effect guard requires a changed source sequence for every added effect, and acceptance also checks approved PR capacity. No new blocker was found in this correction diff. This closes the four **source review findings only**; authored tests/probes, EF model/migration and actual runtime/UI behavior remain unexecuted/unproved by this reviewer. Source-only positive receiving remains off by default. Root retains independent deployment/UAT gates and exact-input probe changes when consolidating.
+
+## Distinct read-contract and downgrade-plan review — 2d8b35f / 2e6a795
+
+**Scope:** Read-only source review, 20 October 2026. No build, SDK, database, browser,
+migration generation, production access or runtime certification was performed.
+
+- `ProcurementReceivingReadScope.BoundIssuedOrders` uses the actual P24 Procurement
+  snake-case tables/columns and existing Core `core_approval.cases` quoted PascalCase
+  columns from `ApprovalDbContext`. Snapshot `TenantId`/`BranchRef`/other retained header
+  keys and lower-case `revision` match the commercial snapshot contract. Source/issued/
+  submission/current-PO/Core-case identities are scoped together before caller filters,
+  counts and pagination. Full policy rules hash/current line integrity remains the
+  existing per-record `Source` verifier's responsibility; list inclusion is not approval.
+- Assigned inspector/service-owner queues use current canonical worker, explicit granular
+  permission, configured named assignment, active sites and selected/permitted branch
+  filters before count/page. They do not require or create a broad PO-read grant.
+  Detail verifies the actual source and current task actor. Purpose detail omits receipt
+  notes/delivery note and service notes; broader receiving detail round-trips stored notes.
+- `Resolve(...persistState:false)` does not add a transient source state to the context.
+  Explicit retained published policies may describe historical facts after expiry, while
+  current action candidates still use effective-now pure guards. Missing proof is blocked,
+  not an enabled action. No receiving state/effect is invented by a read preview.
+- Execution-version-zero history is visible only with organisation-wide authority and no
+  selected location. Unknown versions are denied. No branch backfill is inferred from a
+  mutable current PO for legacy records.
+- The P25 candidate Down inventory covers all extension fields in
+  `ReceivingPersistenceRecords`, either new receiving table, configured RECEIVING policy,
+  controlled command/audit/outbox evidence, and exact numeric(18,4) restoration of the
+  widened existing service amount. It uses bounded ACCESS EXCLUSIVE locks in the ordinary
+  migration transaction before destructive work. Actual generated identifiers/DDL,
+  transactional failure, unused Down/Up and used-Down denial remain release gates.
+
+No new blocking read-contract source defect was found in this bounded pass. One defensive
+Down addition is recommended before generated SQL review: also reject generic audit rows
+whose `record_type` is `ReceivingSourceState` or `ReceivingAcceptanceEffect`. These types
+are unambiguously P25-only, even when the shared context action is `create`/`update` rather
+than a named receiving command. This preserves a clear retained-evidence-only downgrade
+stop if an owner-only selective purge removed business/explicit-command rows. Add a private
+rehearsal case containing only such an audit row and assert atomic Down denial. The root and
+author received this recommendation; this review does not mutate their source or candidate SQL.
