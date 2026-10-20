@@ -169,6 +169,7 @@ public sealed class PurchaseOrderSourceAllocationTests
         public ApprovalCase Case { get; }
         public ApprovedPurchaseSource Source { get; }
         public List<PurchaseRequestAllocation> Ledger { get; } = [];
+        public List<PurchaseDemandAllocationOwner> Owners { get; } = [];
         public PurchaseOrder Order { get; }
         public PurchaseOrderLine PoLine { get; }
 
@@ -212,14 +213,18 @@ public sealed class PurchaseOrderSourceAllocationTests
             var decision = decisions.Single();
             var effects = PurchaseRequestApprovalOutcomes.Apply(Request, pin, Case, decision, evaluation, policy,
                 finance, Tenant, Company, Now.AddSeconds(2));
-            Source = new(Request, Line, pin, effects.Outcome, Case, decision, evaluation, policy, finance, Method, Ledger);
+            Source = new(Request, Line, pin, effects.Outcome, Case, decision, evaluation, policy, finance, Method, Ledger, Owners);
             Order = NewOrder(); PoLine = NewPoLine(Order, 1);
         }
         public PurchaseOrder NewOrder() => Scoped(new PurchaseOrder { Number = Guid.NewGuid().ToString(),
             CurrencyCode = "ZMW", BuyerSubjectId = "buyer", SupplierId = Guid.NewGuid(), Status = "Draft" });
-        public PurchaseOrderLine NewPoLine(PurchaseOrder order, decimal quantity) => Scoped(new PurchaseOrderLine
-        { PurchaseOrderId = order.Id, PurchaseRequestLineId = Line.Id, LineNumber = 1, Description = "Item",
-            UnitCode = "EA", Quantity = quantity, UnitPrice = 10 });
+        public PurchaseOrderLine NewPoLine(PurchaseOrder order, decimal quantity)
+        {
+            var row = Scoped(new PurchaseOrderLine { PurchaseOrderId = order.Id, PurchaseRequestLineId = Line.Id,
+                LineNumber = 1, Description = "Item", UnitCode = "EA", Quantity = quantity, UnitPrice = 10 });
+            Owners.Add(PurchaseDemandAllocationOwner.FromOrder(order, row));
+            return row;
+        }
         public PurchaseRequestAllocation Reserve(decimal quantity)
         {
             PoLine.Quantity = quantity;
