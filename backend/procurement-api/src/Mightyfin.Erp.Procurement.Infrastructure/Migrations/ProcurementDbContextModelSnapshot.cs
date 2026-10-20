@@ -4829,6 +4829,11 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("net_amount");
 
+                    b.Property<string>("NormalizedInvoiceNumber")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("normalized_invoice_number");
+
                     b.Property<Guid?>("PurchaseOrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_order_id");
@@ -4875,6 +4880,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.HasIndex("TenantId", "LegalEntityId", "PurchaseOrderId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "SupplierId", "InvoiceNumber", "CurrencyCode")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierId", "NormalizedInvoiceNumber", "CurrencyCode")
                         .IsUnique();
 
                     b.ToTable("supplier_invoices", "procurement");

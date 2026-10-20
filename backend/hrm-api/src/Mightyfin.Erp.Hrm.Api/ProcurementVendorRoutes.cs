@@ -52,10 +52,12 @@ public static class ProcurementVendorRoutes
         var query = db.Suppliers.AsNoTracking().AsQueryable();
         var canManage = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded;
         var canApprove = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded;
+        var canCaptureInvoice = (await authorization.AuthorizeAsync(http.User, "procurement-invoice-capture")).Succeeded;
         if (!canManage)
             query = query.Where(x => ((x.Status == "Active" || x.Status == "Approved") && x.IsOrderable)
                 || x.CreatedBy == scope.SubjectId
-                || (canApprove && (x.Status == "Submitted" || x.Status == "Suspended")));
+                || (canApprove && (x.Status == "Submitted" || x.Status == "Suspended"))
+                || (canCaptureInvoice && (x.Status == "Suspended" || x.Status == "Inactive")));
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.Trim());
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -83,9 +85,11 @@ public static class ProcurementVendorRoutes
         if (supplier is null) return Results.NotFound();
         var canManage = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded;
         var canApprove = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded;
+        var canCaptureInvoice = (await authorization.AuthorizeAsync(http.User, "procurement-invoice-capture")).Succeeded;
         var canReview = canApprove && supplier.Status is ("Submitted" or "Suspended");
+        var canViewHistoricObligation = canCaptureInvoice && supplier.Status is ("Suspended" or "Inactive");
         if (!canManage && !((supplier.Status == "Active" || supplier.Status == "Approved") && supplier.IsOrderable)
-            && supplier.CreatedBy != scope.SubjectId && !canReview)
+            && supplier.CreatedBy != scope.SubjectId && !canReview && !canViewHistoricObligation)
             return Results.NotFound();
         var canDecide = canApprove
             && supplier.Status == "Submitted" && supplier.CreatedBy != scope.SubjectId

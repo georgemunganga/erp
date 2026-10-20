@@ -541,6 +541,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         modelBuilder.Entity<SupplierOrderAcknowledgement>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseOrderId, x.RevisionNumber }).IsUnique();
         modelBuilder.Entity<GoodsReceipt>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
         modelBuilder.Entity<SupplierInvoice>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.InvoiceNumber, x.CurrencyCode }).IsUnique();
+        modelBuilder.Entity<SupplierInvoice>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.NormalizedInvoiceNumber, x.CurrencyCode }).IsUnique();
         modelBuilder.Entity<SupplierInvoiceLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierInvoiceId, x.LineNumber }).IsUnique();
         modelBuilder.Entity<FinanceInvoiceHandoff>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.IdempotencyKey }).IsUnique();
         modelBuilder.Entity<FinancePaymentStatusRef>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.FinancePaymentRef }).IsUnique();

@@ -2,6 +2,8 @@
 
 **Status:** Draft for business review · **Version:** 0.1 · **Hierarchy:** Procurement → Supplier Invoices and Procure-to-Pay → Invoice Intake and Commercial Adjustments → Operations · **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx) · **Module:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 
+**Implementation boundary (20 October 2026):** The first live slice records a structured manual invoice for a scoped company as `Received`, with supplier, date, currency, lines, calculated totals and a case-insensitive trimmed invoice-number duplicate key. It supports an optional PO reference belonging to the same supplier. AP processors can capture; scoped invoice readers can inspect. The shared Procurement audit records creation. The UI has list, empty, capture and detail states. Source-document upload, tax verification, correction/versioning, credit notes, matching, AP posting and payment status remain pending. A `Received` invoice cannot be handed to Finance by this slice.
+
 ## 1. Feature Identification
 
 `PROC-10`, procure-to-pay phase. Business owner: AP intake lead with Procurement commercial owner; data/technical/product owners to name. Operations: `O1` receive/import, `O2` identify/validate, `O3` detect duplicate, `O4` correct/version, `O5` record credit/refund commercial reason, `O6` route to match.

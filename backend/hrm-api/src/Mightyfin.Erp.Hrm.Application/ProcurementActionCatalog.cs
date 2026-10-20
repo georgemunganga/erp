@@ -8,7 +8,7 @@ public static class ProcurementActionCatalog
         new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
             ["procurement-access"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor", "finance_approver"],
-            ["procurement-vendor-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
+            ["procurement-vendor-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor"],
             ["procurement-vendor-create"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-manage"] = ["procurement_buyer", "procurement_manager", "supplier_admin"],
@@ -37,6 +37,8 @@ public static class ProcurementActionCatalog
             ["procurement-sourcing-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-sourcing-create"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-sourcing-edit"] = ["procurement_buyer", "procurement_manager"],
+            ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
+            ["procurement-invoice-capture"] = ["ap_processor"],
         };
 
     public static string[] ForRole(string role) => BootstrapGrants

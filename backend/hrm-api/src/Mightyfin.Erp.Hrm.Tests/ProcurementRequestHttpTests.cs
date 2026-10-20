@@ -1611,6 +1611,51 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Manual_invoice_intake_is_scoped_deduplicated_and_never_posts_to_finance()
+    {
+        await using var fixture = await Fixture.Start();
+        var supplierId = await fixture.AddInvoiceSupplier();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var input = new InvoiceIntakeInput(supplierId, null, " INV-001 ", today,
+            today.AddDays(30), "zmw", [new InvoiceIntakeLineInput("Office supplies", 2, 125, 25, null, "OPS")]);
+        var path = "/api/procurement/v1/invoices";
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await fixture.Client.PostAsJsonAsync(path, input)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, input)).StatusCode);
+
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input,
+            "ap_processor");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var row = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = row.GetProperty("id").GetGuid();
+        Assert.Equal("Received", row.GetProperty("status").GetString());
+        Assert.Equal(275m, row.GetProperty("grossAmount").GetDecimal());
+
+        var detail = await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other,
+            role: "ap_processor");
+        Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+        var saved = await detail.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("INV-001", saved.GetProperty("invoiceNumber").GetString());
+        Assert.Single(saved.GetProperty("lines").EnumerateArray());
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other,
+                company: fixture.OtherCompany, role: "ap_processor")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                input with { InvoiceNumber = "inv-001" }, "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                input with { InvoiceNumber = "INV-002", DueDate = today.AddDays(-1) }, "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                input with { InvoiceNumber = "INV-003", Lines = [new InvoiceIntakeLineInput("Invalid", 0, 1, 0, null, null)] },
+                "ap_processor")).StatusCode);
+        Assert.Equal(0, await fixture.InvoiceHandoffCount());
+    }
+
+    [Fact]
     public async Task Active_vendor_can_be_suspended_only_by_independent_manager_with_reason()
     {
         await using var fixture = await Fixture.Start();
@@ -1985,6 +2030,32 @@ public sealed class ProcurementRequestHttpTests
             return await db.SupplierDecisions.CountAsync(x => x.SupplierId == supplierId);
         }
 
+        public async Task<Guid> AddInvoiceSupplier()
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var supplier = new Supplier
+            {
+                Number = "VEN-INVOICE-" + Guid.NewGuid().ToString("N"),
+                LegalName = "Invoice Supplier Ltd", DisplayName = "Invoice Supplier",
+                CountryCode = "ZM", Status = "Active", IsOrderable = true,
+            };
+            db.AddScoped(supplier);
+            await db.SaveChangesAsync();
+            return supplier.Id;
+        }
+
+        public async Task<int> InvoiceHandoffCount()
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return await db.FinanceInvoiceHandoffs.CountAsync();
+        }
+
         public async Task AddOpenOrder(Guid supplierId)
         {
             using var serviceScope = app.Services.CreateScope();
@@ -2158,6 +2229,7 @@ public sealed class ProcurementRequestHttpTests
             ProcurementPlanRoutes.MapRoutes(app);
             ProcurementSourcingDraftRoutes.MapRoutes(app);
             ProcurementContractDraftRoutes.MapRoutes(app);
+            ProcurementInvoiceIntakeRoutes.MapRoutes(app);
             ProcurementConfigurationRoutes.MapRoutes(app);
             ProcurementPolicyDraftRoutes.MapRoutes(app);
 

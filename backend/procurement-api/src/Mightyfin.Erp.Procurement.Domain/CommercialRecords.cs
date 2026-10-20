@@ -275,6 +275,7 @@ public sealed class SupplierInvoice : ProcurementRecord
     public Guid SupplierId { get; set; }
     public Guid? PurchaseOrderId { get; set; }
     public string InvoiceNumber { get; set; } = null!;
+    public string NormalizedInvoiceNumber { get; set; } = null!;
     public string Status { get; set; } = "Received";
     public string IntakeChannel { get; set; } = null!;
     public string CurrencyCode { get; set; } = null!;
