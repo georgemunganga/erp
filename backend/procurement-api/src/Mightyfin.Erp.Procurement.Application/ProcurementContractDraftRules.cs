@@ -1,7 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace Mightyfin.Erp.Procurement.Application;
 
 public sealed record ContractDraftInput(Guid SupplierId, string? Title, string? ContractType,
-    string? CurrencyCode, decimal CeilingAmount, DateOnly? EffectiveFrom,
+    string? CurrencyCode, [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal CeilingAmount, DateOnly? EffectiveFrom,
     DateOnly? ExpiresOn, DateOnly? RenewalNoticeOn);
 
 public static class ProcurementContractDraftRules
