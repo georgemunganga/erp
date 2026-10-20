@@ -25,6 +25,9 @@ public sealed class SourcingDraftPersistenceTests
         Assert.True(header.FindProperty(nameof(SourcingEvent.SourceEvidenceId))!.IsNullable);
         foreach (var property in new[] { nameof(SourcingEvent.SourceEvidenceId), nameof(SourcingEvent.MakerWorkerId), nameof(SourcingEvent.ExecutionVersion), nameof(SourcingEvent.BranchRef), nameof(SourcingEvent.OriginalDraftFingerprint) })
             Assert.False(header.FindProperty(property)!.IsKey());
+        var ownedCheck = header.GetCheckConstraints().Single(x => x.Name == "ck_sourcing_owned_draft").Sql;
+        Assert.Contains("method_revision IS NOT NULL AND method_revision>0", ownedCheck);
+        Assert.Contains("original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~", ownedCheck);
         var binding = model.FindEntityType(typeof(SourcingDemandBinding))!;
         Assert.Equal(38, binding.FindProperty(nameof(SourcingDemandBinding.EstimatedValue))!.GetPrecision());
         Assert.Equal(8, binding.FindProperty(nameof(SourcingDemandBinding.EstimatedValue))!.GetScale());

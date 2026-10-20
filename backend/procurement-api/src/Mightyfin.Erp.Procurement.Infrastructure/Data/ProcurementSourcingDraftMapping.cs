@@ -20,7 +20,7 @@ public sealed partial class ProcurementDbContext
         ev.Property(x => x.SourceEvidenceId).ValueGeneratedNever();
         ev.Property(x => x.OriginalDraftFingerprint).HasMaxLength(64);
         Link<SourcingEvent, ProcurementMethod>(model, nameof(SourcingEvent.MethodId));
-        ev.ToTable(t => t.HasCheckConstraint("ck_sourcing_owned_draft", "execution_version IN (0,1) AND ((execution_version=0 AND source_evidence_id IS NULL AND maker_worker_id IS NULL AND method_id IS NULL AND method_revision IS NULL AND original_draft_fingerprint IS NULL AND branch_ref IS NULL) OR (execution_version=1 AND source_evidence_id IS NOT NULL AND maker_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND method_id IS NOT NULL AND method_revision>0 AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled')))"));
+        ev.ToTable(t => t.HasCheckConstraint("ck_sourcing_owned_draft", "execution_version IN (0,1) AND ((execution_version=0 AND source_evidence_id IS NULL AND maker_worker_id IS NULL AND method_id IS NULL AND method_revision IS NULL AND original_draft_fingerprint IS NULL AND branch_ref IS NULL) OR (execution_version=1 AND source_evidence_id IS NOT NULL AND maker_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled')))"));
         var evidence = model.Entity<SourcingDraftEvidence>();
         evidence.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_rfq_evidence_scope");
         evidence.Property(x => x.PayloadJson).HasColumnType("text");
@@ -145,7 +145,7 @@ public sealed partial class ProcurementDbContext
             || ev.MethodId != binding.MethodId || ev.MethodRevision != binding.MethodRevision || ev.Method != binding.MethodCode
             || line.SourcingEventId != ev.Id || line.PurchaseRequestLineId != binding.PurchaseRequestLineId || line.Quantity != binding.Quantity
             || line.UnitCode != binding.UnitCode || line.CategoryCode != binding.CategoryCode || line.Status != "Active"
-            || allocation.TargetType != "SourcingEvent" || allocation.TargetId != ev.Id || allocation.Status != "Reserved"
+            || Entry(allocation).State != EntityState.Added || allocation.TargetType != "SourcingEvent" || allocation.TargetId != ev.Id || allocation.Status != "Reserved"
             || allocation.PurchaseRequestId != binding.PurchaseRequestId || allocation.PurchaseRequestLineId != binding.PurchaseRequestLineId
             || allocation.Method != binding.MethodCode || allocation.Quantity != binding.Quantity || allocation.EstimatedValue != binding.EstimatedValue || allocation.CurrencyCode != ev.CurrencyCode
             || allocation.IdempotencyKey != $"rfq.reserve.{evidence.CreateCommandKey:N}.{binding.PurchaseRequestLineId:N}"
