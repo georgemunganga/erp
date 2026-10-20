@@ -30,8 +30,8 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x != "--serve") || args.Count(x => x == "--serve") > 1)
-    throw new ArgumentException("The only supported optional argument is --serve.");
+if (args.Length > 1 || args.Any(x => x is not ("--serve" or "--settings")))
+    throw new ArgumentException("Use either --serve or --settings.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
@@ -46,13 +46,18 @@ if (serve)
     Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
 }
+else if (args.Contains("--settings", StringComparer.Ordinal))
+{
+    await probe.VerifySettings();
+    Console.WriteLine("PASS: actual settings HTTP/PostgreSQL lookups, exact amounts, actions and restricted runtime privileges.");
+}
 else
 {
     await probe.Verify();
     Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
 }
 
-sealed class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
+sealed partial class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
     Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient, ServiceProvider fixtureServices,
     string runtimeConnection, bool distinctRuntime) : IAsyncDisposable
 {
