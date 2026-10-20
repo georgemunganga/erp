@@ -90,7 +90,7 @@ public static class GovernedRfqDraft
                 || r.Version != selection.ExpectedRequestVersion || selection.Quantity <= 0
                 || !ExactDecimalJsonCodec.IsRepresentable(selection.Quantity, 18, 4)) Fail("RfqSourceChangedOrMixed");
             var available = CompetitiveSourcingSource.Check(s, actor.TenantId, actor.CompanyId, at);
-            if (selection.Quantity > available.AvailableQuantity || s.Allocations.Any(x => x.TargetId == eventId)
+            if (selection.Quantity > available.AvailableQuantity || s.Allocations.Any(x => x.TargetType == "SourcingEvent" && x.TargetId == eventId)
                 || available.MethodId != selections[0].Source.Method.Id
                 || available.MethodRevision != selections[0].Source.Method.Version) Fail("RfqSourceUnavailable");
             var p = s.Submission;
@@ -138,6 +138,11 @@ public static class GovernedRfqDraft
             if (rows.Length != 1 || rows[0].Id != pin.AllocationId || rows[0].Status != "Reserved"
                 || rows[0].Quantity != pin.Quantity || rows[0].EstimatedValue != pin.EstimatedValue)
                 Fail("RfqReleaseAllocationMismatch");
+            if ((source.AllocationOwners ?? []).Count(x => x.TargetType == "SourcingEvent"
+                    && x.TargetId == draft.Id && x.TargetLineId == pin.EventLineId
+                    && x.PurchaseRequestLineId == pin.LineId && x.TenantId == draft.TenantId
+                    && x.LegalEntityId == draft.CompanyId) != 1)
+                Fail("RfqReleaseOwnerPinMismatch");
             var row = rows[0];
             effects.Add(new("Release", row.Id, row.Version, pin.RequestId, pin.LineId, source.Request.Version, draft.Id, pin.EventLineId,
                 row.Quantity, row.EstimatedValue, draft.CurrencyCode, $"rfq.release.{commandKey:N}.{row.Id:N}",
