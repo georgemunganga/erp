@@ -51,18 +51,33 @@ typed PR/PO settings, conversion/replay/source conservation, current target scop
 purpose-specific Finance reads. It then correctly rejected a synthetically published PO
 policy whose stage code used a prohibited hyphen. The fixture now uses `PO_COMMERCIAL`
 and validates its policy before seeding. Production policy validation was not relaxed.
-The original database and `runtime-orders-first.log` are retained. A fresh database and
-restricted role are provisioned for the retry.
+The original database and `runtime-orders-first.log` are retained.
 
 The successor also integrates exact numeric-lexeme input checks for PO lines and Finance
 amounts (`ae60ea5`), preventing silent decimal or database rounding before writes. Its
 400/400 domain tests and 95/95 Procurement shared-host tests passed with zero failures
 or skips. The PostgreSQL probe build succeeded with zero warnings/errors; the preceding
-shared-host rebuild retained pre-existing nullable/analyzer warnings. Actual restricted
-database execution is running on the fresh retry database. An initial test
+shared-host rebuild retained pre-existing nullable/analyzer warnings. An initial test
 launcher omitted its read-only NuGet package mount and failed to resolve cached assemblies;
-the corrected launch is running, with the initial log preserved. This was an environment
+the corrected launch passed, with the initial log preserved. This was an environment
 failure, not a passed source gate.
+
+The second real database run passed submission, approval and issuing, then exposed another
+fixture defect: its grant-revocation assertion changed a buyer role while the acting account
+was still an explicit ERP administrator. `9bc3f7f` changes that scenario to the actual
+non-administrator buyer role and checks permitted → revoked/403 → restored/permitted.
+Production privilege rules were unchanged; `runtime-orders-exact-retry.log` and that
+consumed database are retained.
+
+The fresh restricted-runtime retry at `9bc3f7f` passed the complete actual mapped HTTP /
+PostgreSQL PO workflow (exit 0): independent funding, Core decisions, supplier denial,
+sealed issue and actual delivery; source conservation, branch writer/reader races and
+grant revocation; commitment ownership and cancellation/release; exact decimal-string
+round-trips, unrepresentable amounts returning 422 without partial effects, invalid raw
+lexemes returning 400 without persisted effects, and exact 1E-08 Finance confirmation /
+release. Revoked finite authority also denied exact decision and issue replay. Protected
+`runtime-orders-checkpoint.json` records source, database, runtime role, DLL/log hashes
+and each passing checkpoint. No production database was involved.
 
 The UI branch `codex/procurement-final-ui-integration` at `1a023ac` records passing
 checkpoints for 75 unique mocked browser scenarios. This was not one uninterrupted 75-case
