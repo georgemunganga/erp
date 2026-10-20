@@ -181,3 +181,21 @@ then submits and independently publishes in explicitly assigned site B. Workers
 performing receiving remain confined to A. After the retained-scope negative,
 the normal site-A policy is restored before subsequent goods checks. A separate
 fresh full probe is required. Product configuration guards are unchanged.
+
+
+## Full actual receiving HTTP/PostgreSQL gate — PASS
+
+The fresh guarded `20261020_152211` run completed with terminal exit **0** on
+probe source `9554b4e` (business/schema baseline unchanged from the complete
+480-domain / 111-API regression). The corrected tool build had zero warnings/errors.
+The full `--receiving` gate passed actual goods/service lifecycle, truthful
+physical overdelivery and held excess, independent inspection/acceptance,
+partial service certification, exact response replay, forbidden edits, missing
+policy, retained site scope, concurrent acceptance conservation, unknown legacy
+capacity denial, and current permission revocation. All three exact ownership
+FK negatives and required sequence CHECK negatives passed on actual valid rows.
+
+The first failed fixtures and their logs remain preserved. This gate does not
+claim an actual UI/browser pass, P26 matching, Finance/AP, production migration
+or complete Procurement. A separately provisioned actual receiving browser
+fixture is the next gate.
