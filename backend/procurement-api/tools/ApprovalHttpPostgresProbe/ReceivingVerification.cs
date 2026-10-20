@@ -184,6 +184,13 @@ sealed partial class Probe
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             var site = new Mightyfin.Erp.Hrm.Domain.Entities.WorkLocation { LegalEntityId = OrderCompany, Code = "RECEIVING-OTHER-SITE", Name = "Other configured receiving site" };
             core.WorkLocations.Add(site); await core.SaveChangesAsync(); otherSite = site.Id;
+            // A company-context policy configurator needs explicit access to both sites.
+            // Do not grant the receiver, inspector or service owner access to the other site.
+            foreach (var principal in new[] { OrderBuyer, OrderFinance })
+                foreach (var location in new[] { OrderBranch, otherSite })
+                    if (!await core.UserBranchAssignments.AnyAsync(x => x.UserId == principal && x.LocationId == location && !x.IsArchived))
+                        core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Domain.Entities.HrUserBranchAssignment { UserId = principal, LocationId = location });
+            await core.SaveChangesAsync();
         }
         await PublishReceivingPolicy(otherSite);
         var wrongSiteDraft = await Send(HttpMethod.Post, Root + "/service-acceptances/drafts", OrderRequester,
@@ -384,16 +391,25 @@ sealed partial class Probe
             allowRequesterCertification = false, allowBuyerCertification = false, allowReceiverCertification = false, requireIndependentInspector = true,
             evidenceMode = "ControlledManualReference", evidenceReferencePrefix = "RCP:" };
         var starts = DateTimeOffset.UtcNow.AddSeconds(10);
-        var created = await Send(HttpMethod.Post, Root + "/configuration/policies", OrderBuyer, new { policyKey = "RECEIVING", effectiveFrom = starts,
-            rulesJson = JsonSerializer.Serialize(new { schemaVersion = 1, transactionType = "Receiving", currencyCode = "ZMW", rules = new[] { Rule("Goods"), Rule("Service") } }) });
+        var input = new { policyKey = "RECEIVING", effectiveFrom = starts,
+            rulesJson = JsonSerializer.Serialize(new { schemaVersion = 1, transactionType = "Receiving", currencyCode = "ZMW", rules = new[] { Rule("Goods"), Rule("Service") } }) };
+        if (serviceSite.HasValue && serviceSite != OrderBranch)
+        {
+            using var services = Scope(OrderBuyer);
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var before = await db.PolicyVersions.CountAsync();
+            await Expect(HttpStatusCode.UnprocessableEntity, HttpMethod.Post, Root + "/configuration/policies", OrderBuyer, input);
+            Require(await db.PolicyVersions.CountAsync() == before, "A single-site context saved multi-site receiving rules.");
+        }
+        var created = await Send(HttpMethod.Post, Root + "/configuration/policies", OrderBuyer, input, selectedBranch: false);
         await Check(created, HttpStatusCode.Created); var policy = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = policy.GetProperty("id").GetGuid();
         var submitted = await Send(HttpMethod.Post, $"{Root}/configuration/policies/{id}/submit-review", OrderBuyer,
-            new { version = policy.GetProperty("version").GetInt64(), reason = "Synthetic receiving policy review" });
+            new { version = policy.GetProperty("version").GetInt64(), reason = "Synthetic receiving policy review" }, selectedBranch: false);
         await Check(submitted, HttpStatusCode.OK); policy = await submitted.Content.ReadFromJsonAsync<JsonElement>();
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/configuration/policies/{id}/publish", OrderBuyer,
-            new { version = policy.GetProperty("version").GetInt64(), reason = "Maker must not publish own policy" });
+            new { version = policy.GetProperty("version").GetInt64(), reason = "Maker must not publish own policy" }, selectedBranch: false);
         await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/configuration/policies/{id}/publish", OrderFinance,
-            new { version = policy.GetProperty("version").GetInt64(), reason = "Independent synthetic receiving site, worker and checklist review" });
+            new { version = policy.GetProperty("version").GetInt64(), reason = "Independent synthetic receiving site, worker and checklist review" }, selectedBranch: false);
         var delay = starts - DateTimeOffset.UtcNow;
         if (delay > TimeSpan.Zero) await Task.Delay(delay + TimeSpan.FromMilliseconds(50));
     }
