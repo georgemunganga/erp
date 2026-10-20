@@ -32,14 +32,15 @@ internal static class ProcurementApprovalAssigneeResolver
         var requester = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
             scope.LegalEntityId, request.RequesterWorkerId, ct);
         if (maker is null || requester is null) throw new InvalidOperationException("ApprovalMakerIdentityUnavailable");
-        var requesterRow = await core.Workers.AsNoTracking().SingleAsync(x => x.Id == request.RequesterWorkerId, ct);
+        var requesterManagerId = await core.Workers.AsNoTracking().Where(x => x.Id == request.RequesterWorkerId)
+            .Select(x => x.ManagerId).SingleAsync(ct);
         var output = new List<ProcurementResolvedApprovalStage>();
         foreach (var stage in stages)
         {
             if (stage.Mode is not ("One" or "All")) throw new InvalidOperationException("ApprovalModeUnsupported");
             var accounts = new List<ProcurementAuthorityIdentity.CanonicalAccount>();
             if (stage.Assignee == "BudgetOwner") throw new InvalidOperationException("BudgetOwnerMappingRequired");
-            if (stage.Assignee == "LineManager" && requesterRow.ManagerId is { } managerId)
+            if (stage.Assignee == "LineManager" && requesterManagerId is { } managerId)
             {
                 var account = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,
                     scope.TenantId, scope.LegalEntityId, managerId, ct);
