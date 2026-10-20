@@ -47,6 +47,7 @@ import { StatusTimeline } from "@/platform/components/StatusTimeline";
 import type { TimelineEvent } from "@/mock/types";
 import { realApi, useApi } from "@/platform/use-api";
 import { useAuth } from "@/platform/auth";
+import { canManageOrganisation } from "@/platform/entry-route";
 import { feedback } from "@/platform/feedback";
 import { ConfirmDialog } from "@/platform/components/ConfirmDialog";
 
@@ -752,8 +753,7 @@ async function loadOrganisation() {
 
 export function OrganisationConfig() {
   const state = useApi(loadOrganisation);
-  const userRoles = new Set(useAuth().user?.roles ?? []);
-  const canAct = userRoles.has("hr_admin") || userRoles.has("hr_ops");
+  const canAct = canManageOrganisation(useAuth().user?.roles ?? []);
   const [asAt, setAsAt] = useState(todayIso);
   const [drafts, setDrafts] = useState<DraftClosure[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);

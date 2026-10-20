@@ -5,18 +5,20 @@ namespace Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 /// <summary>M1 CRUD implementation for organization configuration.</summary>
 public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService authz) : IConfigAdminService
 {
+    // Core organization administration is tenant-wide, independent of HRM operational authority.
+    // Repository tenant filters remain authoritative; ERP admins gain no HRM calendar/payroll grants.
     // ================= Legal entities =================
 
     public async Task<Paged<LegalEntityDtoFull>> ListLegalEntitiesAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var items = await repo.ListLegalEntitiesAsync(ct);
         return new Paged<LegalEntityDtoFull>(items.Select(ToLegalEntityDto).ToList(), items.Count, 1, 100);
     }
 
     public async Task<LegalEntityDtoFull> GetLegalEntityAsync(Guid id, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var e = await repo.GetLegalEntityAsync(id, ct)
             ?? throw new DomainException("legal-entity-not-found", $"Legal entity {id} does not exist.");
         return ToLegalEntityDto(e);
@@ -24,7 +26,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<LegalEntityDtoFull> CreateLegalEntityAsync(LegalEntityCreateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         RequireNonEmpty(request.Code, "code");
         RequireNonEmpty(request.RegisteredName, "registeredName");
         var existing = (await repo.ListLegalEntitiesAsync(ct)).FirstOrDefault(e => e.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase));
@@ -43,7 +45,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<LegalEntityDtoFull> UpdateLegalEntityAsync(Guid id, LegalEntityUpdateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var entity = await repo.GetLegalEntityAsync(id, ct)
             ?? throw new DomainException("legal-entity-not-found", $"Legal entity {id} does not exist.");
         if (request.RegisteredName is not null) entity.RegisteredName = request.RegisteredName.Trim();
@@ -62,7 +64,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<Paged<WorkLocationDtoFull>> ListLocationsAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var items = await repo.ListLocationsAsync(ct);
         var entities = await repo.ListLegalEntitiesAsync(ct);
         var calendars = await repo.ListCalendarsAsync(ct);
@@ -71,7 +73,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<WorkLocationDtoFull> CreateLocationAsync(WorkLocationCreateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         RequireNonEmpty(request.Code, "code");
         RequireNonEmpty(request.Name, "name");
         var existing = (await repo.ListLocationsAsync(ct)).FirstOrDefault(l => l.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase));
@@ -98,7 +100,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<WorkLocationDtoFull> UpdateLocationAsync(Guid id, WorkLocationUpdateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var location = await repo.GetLocationAsync(id, ct)
             ?? throw new DomainException("location-not-found", $"Work location {id} does not exist.");
         if (request.Name is not null) location.Name = request.Name.Trim();
@@ -121,7 +123,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<List<OrgUnitDtoFull>> ListOrgUnitsAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
         var entities = await repo.ListLegalEntitiesAsync(ct);
         var workers = await repo.ListAllWorkersAsync(null, ct);
@@ -130,7 +132,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<List<OrgUnitTreeDto>> GetOrgUnitTreeAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
         var workers = await repo.ListAllWorkersAsync(null, ct);
         var now = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -159,7 +161,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
     /// Units whose legal entity is missing or unknown fall under an "Unassigned" root so nothing disappears.</summary>
     public async Task<List<OrgUnitTreeDto>> GetEntityTreeAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
         var workers = await repo.ListAllWorkersAsync(null, ct);
         var now = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -202,7 +204,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<OrgUnitDtoFull> CreateOrgUnitAsync(OrgUnitCreateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         RequireNonEmpty(request.Code, "code");
         RequireNonEmpty(request.Name, "name");
         var effectiveFrom = string.IsNullOrWhiteSpace(request.EffectiveFrom) ? DateOnly.FromDateTime(DateTime.UtcNow) : DateOnly.Parse(request.EffectiveFrom);
@@ -228,7 +230,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<OrgUnitDtoFull> UpdateOrgUnitAsync(Guid id, OrgUnitUpdateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var unit = await repo.GetOrgUnitAsync(id, ct)
             ?? throw new DomainException("org-unit-not-found", $"Org unit {id} does not exist.");
         if (request.Name is not null) unit.Name = request.Name.Trim();
@@ -252,7 +254,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
     /// effective-to date rather than hard-deleted, preserving history.</summary>
     public async Task CloseOrgUnitAsync(Guid id, OrgUnitCloseRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var unit = await repo.GetOrgUnitAsync(id, ct)
             ?? throw new DomainException("org-unit-not-found", $"Org unit {id} does not exist.");
         var effectiveDate = DateOnly.Parse(request.EffectiveDate);

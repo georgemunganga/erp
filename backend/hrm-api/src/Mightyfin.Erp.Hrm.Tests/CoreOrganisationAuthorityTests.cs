@@ -1,0 +1,105 @@
+using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
+using Mightyfin.Erp.Hrm.Infrastructure;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Xunit;
+
+namespace Mightyfin.Erp.Hrm.Tests;
+
+public sealed class CoreOrganisationAuthorityTests
+{
+    private sealed class RoleAuthz(params string[] assigned) : IAuthzService
+    {
+        public string CurrentSubjectId => "synthetic-core-admin";
+        public bool IsRole(params string[] roles) => roles.Any(assigned.Contains);
+        public void RequireAnyRole(params string[] roles)
+        {
+            if (!IsRole(roles)) throw new DomainException("forbidden", "Access denied.");
+        }
+        public bool CanAccessSensitive(string category) => false;
+    }
+
+    private static ConfigAdminServiceImpl Service(HrmDbContext db, string role) =>
+        new(new ConfigRepository(db), new RoleAuthz(role));
+
+    [Fact]
+    public async Task ErpAdminOnly_ManagesExistingCoreMasters_WithoutHrmAuthority()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var service = Service(db, "erp_admin");
+        var entity = await service.CreateLegalEntityAsync(new("CORE", "Core Company"), default);
+        var updated = await service.UpdateLegalEntityAsync(entity.Id, new(Currency: "USD", RegisteredName: "Core Profile"), default);
+        Assert.Equal("USD", updated.Currency);
+        Assert.Equal("Core Profile", (await service.GetLegalEntityAsync(entity.Id, default)).RegisteredName);
+        Assert.Single((await service.ListLegalEntitiesAsync(default)).Items);
+        var location = await service.CreateLocationAsync(new("HQ", "Headquarters", entity.Id), default);
+        await service.UpdateLocationAsync(location.Id, new(Name: "Main office"), default);
+        Assert.Equal("Main office", Assert.Single((await service.ListLocationsAsync(default)).Items).Name);
+        var unit = await service.CreateOrgUnitAsync(new("OPS", "Operations", entity.Id), default);
+        await service.UpdateOrgUnitAsync(unit.Id, new(Name: "Shared Operations"), default);
+        Assert.Equal("Shared Operations", Assert.Single(await service.ListOrgUnitsAsync(default)).Name);
+        Assert.Single(await service.GetOrgUnitTreeAsync(default));
+        Assert.Single(await service.GetEntityTreeAsync(default));
+        await service.CloseOrgUnitAsync(unit.Id, new(DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd")), default);
+        Assert.Equal("closed", (await db.OrgUnits.SingleAsync()).Status);
+        await Assert.ThrowsAsync<DomainException>(() => service.CreateCalendarAsync(new("Payroll calendar", entity.Id), default));
+        Assert.Empty(await db.WorkCalendars.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Employee_CannotMutateCoreMasters_ExistingReadsRemainAllowed()
+    {
+        await using var db = TestDbContextFactory.Create();
+        var admin = Service(db, "erp_admin");
+        var entity = await admin.CreateLegalEntityAsync(new("CORE", "Core Company"), default);
+        var location = await admin.CreateLocationAsync(new("HQ", "Headquarters", entity.Id), default);
+        var unit = await admin.CreateOrgUnitAsync(new("OPS", "Operations", entity.Id), default);
+        var employee = Service(db, "employee");
+        await Assert.ThrowsAsync<DomainException>(() => employee.CreateLegalEntityAsync(new("BAD", "Denied"), default));
+        await Assert.ThrowsAsync<DomainException>(() => employee.UpdateLegalEntityAsync(entity.Id, new(Currency: "USD"), default));
+        await Assert.ThrowsAsync<DomainException>(() => employee.CreateLocationAsync(new("BAD", "Denied", entity.Id), default));
+        await Assert.ThrowsAsync<DomainException>(() => employee.UpdateLocationAsync(location.Id, new(Name: "Denied"), default));
+        await Assert.ThrowsAsync<DomainException>(() => employee.CreateOrgUnitAsync(new("BAD", "Denied", entity.Id), default));
+        await Assert.ThrowsAsync<DomainException>(() => employee.UpdateOrgUnitAsync(unit.Id, new(Name: "Denied"), default));
+        await Assert.ThrowsAsync<DomainException>(() => employee.CloseOrgUnitAsync(unit.Id, new(DateTime.UtcNow.ToString("yyyy-MM-dd")), default));
+        Assert.Single((await employee.ListLocationsAsync(default)).Items);
+        Assert.Single(await employee.ListOrgUnitsAsync(default));
+        Assert.Single(await db.LegalEntities.ToListAsync());
+        Assert.Equal("ZMW", (await db.LegalEntities.SingleAsync()).Currency);
+        Assert.Equal("Headquarters", (await db.WorkLocations.SingleAsync()).Name);
+        Assert.Equal("Operations", (await db.OrgUnits.SingleAsync()).Name);
+        Assert.Null((await db.OrgUnits.SingleAsync()).EffectiveTo);
+        Assert.False(db.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
+    public async Task ErpAdmin_DoesNotReadOrMutateForeignTenantReferences()
+    {
+        await using var foreign = TestDbContextFactory.Create("foreign");
+        var owner = Service(foreign, "erp_admin");
+        var entity = await owner.CreateLegalEntityAsync(new("PRIVATE", "Foreign Company"), default);
+        var location = await owner.CreateLocationAsync(new("PRIVATE", "Foreign Location", entity.Id), default);
+        var unit = await owner.CreateOrgUnitAsync(new("PRIVATE", "Foreign Department", entity.Id), default);
+        // Same relational database, different current tenant: an empty independent database would not test isolation.
+        var options = new DbContextOptionsBuilder<HrmDbContext>().UseSqlite(foreign.Database.GetDbConnection()).Options;
+        await using var current = new HrmDbContext(options, new FixedTenantAccessor("current"));
+        var admin = Service(current, "erp_admin");
+        Assert.Empty((await admin.ListLegalEntitiesAsync(default)).Items);
+        Assert.Empty((await admin.ListLocationsAsync(default)).Items);
+        Assert.Empty(await admin.ListOrgUnitsAsync(default));
+        await Assert.ThrowsAsync<DomainException>(() => admin.GetLegalEntityAsync(entity.Id, default));
+        await Assert.ThrowsAsync<DomainException>(() => admin.UpdateLegalEntityAsync(entity.Id, new(Currency: "USD"), default));
+        await Assert.ThrowsAsync<DomainException>(() => admin.UpdateLocationAsync(location.Id, new(Name: "Denied"), default));
+        await Assert.ThrowsAsync<DomainException>(() => admin.UpdateOrgUnitAsync(unit.Id, new(Name: "Denied"), default));
+        await Assert.ThrowsAsync<DomainException>(() => admin.CloseOrgUnitAsync(unit.Id, new(DateTime.UtcNow.ToString("yyyy-MM-dd")), default));
+        await Assert.ThrowsAsync<DomainException>(() => admin.CreateLocationAsync(new("BAD", "Denied", entity.Id), default));
+        await Assert.ThrowsAsync<DomainException>(() => admin.CreateOrgUnitAsync(new("BAD", "Denied", entity.Id), default));
+        Assert.False(current.ChangeTracker.HasChanges());
+        foreign.ChangeTracker.Clear();
+        Assert.Equal("ZMW", (await foreign.LegalEntities.SingleAsync()).Currency);
+        Assert.Equal("Foreign Location", (await foreign.WorkLocations.SingleAsync()).Name);
+        Assert.Equal("Foreign Department", (await foreign.OrgUnits.SingleAsync()).Name);
+        Assert.Null((await foreign.OrgUnits.SingleAsync()).EffectiveTo);
+    }
+}

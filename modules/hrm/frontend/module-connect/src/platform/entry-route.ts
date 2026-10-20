@@ -8,3 +8,8 @@ export function safeEntryPath(value: string | null | undefined): string {
 export function canManageCore(roles: string[]): boolean {
   return roles.some((role) => ["erp_admin", "hr_admin"].includes(role.toLowerCase()));
 }
+
+/** Shared organization configuration retains the existing HR operations editor. */
+export function canManageOrganisation(roles: string[]): boolean {
+  return canManageCore(roles) || roles.some((role) => role.toLowerCase() === "hr_ops");
+}

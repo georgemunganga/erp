@@ -29,3 +29,9 @@ Author restricted-role service tests: erp_admin-only CRUD/read/tree/close; emplo
 5. Define Finance-owned tax/terms/reference contracts; keep unavailable paths honest until implemented.
 
 No new organization, employee, role or branding master is justified. Existing issue `module-connect#20` concerns Procurement approval cases, not completion of all Core CRUD. Old Core/dependency documents are historical architecture snapshots and must not be read as current runtime completion evidence.
+
+## First authority source increment
+
+`codex/core-organisation-admin-authority` adds ERP-only admin to existing global company/location/department service role guards and enables existing organization UI actions through a shared helper. It does not grant HRM calendar/payroll authority, change persistence or remove tenant filtering. Restricted-role SQLite service regressions and a frontend authorization-helper regression are authored but not executed. Additional UI prerequisite discovered: organization loading currently requests HRM employee details for counts even for ERP-only admins; that dependency must be removed or made permission-aware with explicitly unavailable counts before claiming usable ERP-only organization UX. Existing live company/location editing remains disabled and is a separate integration gap.
+
+Deferred gates: `dotnet test backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/Mightyfin.Erp.Hrm.Tests.csproj --filter FullyQualifiedName~CoreOrganisationAuthorityTests`; existing ConfigAdminServiceTests/EntityTreeTests; frontend TypeScript and `core-organisation-authority.spec.ts`; then actual mapped HTTP and role-specific organization browser flow. No execution or deployment evidence is asserted by this source increment.
