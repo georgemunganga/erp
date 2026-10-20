@@ -181,3 +181,62 @@ then submits and independently publishes in explicitly assigned site B. Workers
 performing receiving remain confined to A. After the retained-scope negative,
 the normal site-A policy is restored before subsequent goods checks. A separate
 fresh full probe is required. Product configuration guards are unchanged.
+
+
+## Full actual receiving HTTP/PostgreSQL gate — PASS
+
+The fresh guarded `20261020_152211` run completed with terminal exit **0** on
+probe source `9554b4e` (business/schema baseline unchanged from the complete
+480-domain / 111-API regression). The corrected tool build had zero warnings/errors.
+The full `--receiving` gate passed actual goods/service lifecycle, truthful
+physical overdelivery and held excess, independent inspection/acceptance,
+partial service certification, exact response replay, forbidden edits, missing
+policy, retained site scope, concurrent acceptance conservation, unknown legacy
+capacity denial, and current permission revocation. All three exact ownership
+FK negatives and required sequence CHECK negatives passed on actual valid rows.
+
+The first failed fixtures and their logs remain preserved. This gate does not
+claim an actual UI/browser pass, P26 matching, Finance/AP, production migration
+or complete Procurement. A separately provisioned actual receiving browser
+fixture is the next gate.
+
+
+## First actual browser run — incomplete, retained
+
+The fresh `20261020_151917_browser` fixture prepared real approved/issued sources.
+The actual Playwright case reached goods acceptance, two service drafts and one
+service certification, then hit its 180-second total case budget. The first
+screenshot/trace/log/database are retained. Graceful fixture shutdown ran the
+independent persisted verifier, which correctly rejected the incomplete service
+certificates; it did not certify the partial run.
+
+Frontend test-only `a563616` separates goods and services into two serial cases
+with the original per-case budget and all original assertions retained. It also
+persists each response and final traffic before page teardown. Distinct source
+review passed, and Playwright `--list` discovers both cases. Frozen application
+assets are unchanged. The fresh `20261020_153636_browser` fixture is being
+prepared for that retry; actual UI completion remains pending at this checkpoint.
+
+
+## Actual receiving browser and independent persisted gate — PASS
+
+Fresh protected `20261020_153636_browser` completed both serial Playwright cases
+with terminal exit **0**, **2 passed in 2.8 minutes**: goods physical excess,
+independent inspection/acceptance, followed by two current-version partial
+service certificates and complete command evidence. Test source `a563616` ran
+against the unchanged frozen `132ab18` staged application; HTML/JS/CSS SHA-256
+checks passed again after the browser. Business responses were forwarded to the
+actual API, not mocked.
+
+After browser completion, graceful fixture shutdown ran the independent owner
+DB verifier and exited **0**. It confirmed physical2 / qualified2 / accepted1 /
+held1, two service0.5/net50 certificates, independent scoped actors, conserved
+PR/PO counters, exactly eight command/audit records and five outbox effects,
+and no invoice/AP authority. Per-case private response traffic, terminal logs
+and a checkpoint are retained beside the private fixture manifest. The initial
+combined-case timeout remains retained separately and is not counted as a pass.
+
+Together with the full actual receiving CLI and migration gates above, this
+closes the receiving integration verification checkpoint. Production is still
+unchanged; P26 invoice comparison, Finance/AP, later Procurement capabilities
+and full source release gates remain separate outstanding milestones.
