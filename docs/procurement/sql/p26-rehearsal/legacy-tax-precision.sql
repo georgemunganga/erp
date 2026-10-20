@@ -13,8 +13,8 @@ BEGIN
            'P26-LEGACY-TAX-GUARD','P26-LEGACY-TAX-GUARD','Received','Manual','ZMW',0,0,0,current_date,0,0,'NotCompared');
     INSERT INTO procurement.invoice_match_results
         (id,tenant_id,legal_entity_id,created_at,created_by,version,supplier_invoice_id,
-         match_type,outcome,matched_at,tax_variance,execution_version,invoice_version)
+         match_type,outcome,matched_at,quantity_variance,price_variance,tax_variance,execution_version,invoice_version)
     VALUES(gen_random_uuid(),supplier.tenant_id,supplier.legal_entity_id,now(),'p26-guard-rehearsal',1,original,
-           'UnverifiedRehearsal','UnverifiedRehearsal',now(),0.00000001,0,0);
+           'UnverifiedRehearsal','UnverifiedRehearsal',now(),0,0,0.00000001,0,0);
 END $fixture$;
 COMMIT;
