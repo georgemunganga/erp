@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Hrm.Api;
@@ -29,24 +30,41 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-await using var probe = await Probe.Start(connection);
-await probe.Verify();
-Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
+if (args.Any(x => x != "--serve") || args.Count(x => x == "--serve") > 1)
+    throw new ArgumentException("The only supported optional argument is --serve.");
+var serve = args.Contains("--serve", StringComparer.Ordinal);
+var port = 5197;
+if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
+    && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
+    throw new ArgumentException("The sandbox loopback port must be between 1024 and 65535.");
+await using var probe = await Probe.Start(connection, serve, port);
+if (serve)
+{
+    var manifest = await probe.PrepareBrowserFixture(port);
+    Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
+    await probe.WaitForShutdown();
+}
+else
+{
+    await probe.Verify();
+    Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
+}
 
 sealed class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
-    Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature) : IAsyncDisposable
+    Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient) : IAsyncDisposable
 {
-    private readonly HttpClient client = app.GetTestClient();
+    private readonly HttpClient client = httpClient;
     private readonly string databaseConnection = connection;
     private const string Root = "/api/procurement/v1";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly Dictionary<Guid, Guid> grantIds = [];
 
-    public static async Task<Probe> Start(string connection)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
-        builder.WebHost.UseTestServer();
+        if (serve) builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
+        else builder.WebHost.UseTestServer();
         builder.Services.AddScoped<ITenantAccessor>(_ => new Tenant());
         builder.Services.AddDbContext<HrmDbContext>(o => o.UseNpgsql(connection));
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -59,8 +77,12 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build();
         app.UseRouting(); app.UseAuthentication(); app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
-        ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
-        ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
+        if (serve) ProcurementHostIntegration.MapRoutes(app);
+        else
+        {
+            ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
+            ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
+        }
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
         var branch = new WorkLocation { Code = "HTTP-BRANCH", Name = "Synthetic branch", LegalEntityId = company.Id };
         var people = new Dictionary<string, (Worker Worker, LocalUser User)>();
@@ -90,9 +112,21 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
             scope.Set("probe", company.Id, people["buyer"].User.Id.ToString("D"), null, null, false, "probe-seed");
             var procurement = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            await procurement.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
             var workflow = services.ServiceProvider.GetRequiredService<ApprovalDbContext>();
-            await workflow.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+            if (serve)
+            {
+                // Browser proof uses the actual migration history consumed by /meta.
+                // A source model ahead of committed migrations must never advertise readiness.
+                if (procurement.Database.HasPendingModelChanges() || workflow.Database.HasPendingModelChanges())
+                    throw new InvalidOperationException("Sandbox serve mode requires committed migrations matching both Procurement and Core approval models.");
+                await procurement.Database.MigrateAsync();
+                await workflow.Database.MigrateAsync();
+            }
+            else
+            {
+                await procurement.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+                await workflow.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+            }
             procurement.AddScoped(new ProcurementCategory { Code = "IT", Name = "Synthetic IT", Status = "Active" });
             procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
                 State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = Rules() });
@@ -102,8 +136,65 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         await app.StartAsync();
         return new(app, connection, company.Id, branch.Id, people["requester"].User.Id,
-            people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature);
+            people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature,
+            serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient());
     }
+
+    public async Task<string> PrepareBrowserFixture(int port)
+    {
+        await Authority(manager1, "BROWSER-AUTH-M1");
+        await Authority(manager2, "BROWSER-AUTH-M2");
+        var requests = new[]
+        {
+            await NewFundedRequest("Browser full One and All approval"),
+            await NewFundedRequest("Browser return and independent Finance release"),
+        };
+        var actors = new Dictionary<string, object>();
+        foreach (var (name, principal) in new[] { ("requester", requester), ("buyer", buyer), ("finance", finance),
+            ("manager1", manager1), ("manager2", manager2) })
+        {
+            var context = await Get(Root + "/context", principal);
+            actors[name] = new { principalId = principal, context };
+        }
+        var meta = await Get(Root + "/meta", buyer);
+        Require(meta.GetProperty("schemaReady").GetBoolean() && meta.GetProperty("capabilities").GetProperty("approvals").GetBoolean(),
+            "Migrated sandbox does not expose the actual configured approval capability.");
+        var manifest = new
+        {
+            baseUrl = $"http://127.0.0.1:{port}", tenantId = "probe", companyId = company, branchId = branch,
+            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests,
+            workflow = new[]
+            {
+                new { code = "NEED", assignee = "LineManager", mode = "One", principals = new[] { manager1 } },
+                new { code = "PROC", assignee = "ProcurementManager", mode = "All", principals = new[] { manager1, manager2 } },
+            },
+            warning = "Synthetic disposable sandbox only. Header authentication and fixture database owner are not production security evidence.",
+        };
+        var requestedPath = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_MANIFEST");
+        var directory = Path.Combine(Path.GetTempPath(), "erp-approval-browser-" + Guid.NewGuid().ToString("N"));
+        if (requestedPath is not null)
+        {
+            if (!Path.IsPathFullyQualified(requestedPath)) throw new ArgumentException("The private manifest path must be absolute.");
+            directory = Path.GetDirectoryName(requestedPath)!;
+            if (Directory.Exists(directory))
+            {
+                if (!OperatingSystem.IsWindows() && (File.GetUnixFileMode(directory) &
+                    (UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                     UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute)) != 0)
+                    throw new ArgumentException("An existing manifest directory must be private to its owner.");
+            }
+        }
+        if (OperatingSystem.IsWindows()) Directory.CreateDirectory(directory);
+        else Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var path = requestedPath ?? Path.Combine(directory, "manifest.json");
+        var fileOptions = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (!OperatingSystem.IsWindows()) fileOptions.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        await using var output = new FileStream(path, fileOptions);
+        await JsonSerializer.SerializeAsync(output, manifest, new JsonSerializerOptions(Json) { WriteIndented = true });
+        return path;
+    }
+
+    public Task WaitForShutdown() => app.WaitForShutdownAsync();
 
     public async Task Verify()
     {

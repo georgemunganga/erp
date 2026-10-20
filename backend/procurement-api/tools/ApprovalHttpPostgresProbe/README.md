@@ -30,3 +30,43 @@ The probe explicitly registers its disposable connection as
 `ConnectionStrings:ProcurementApprovalExecution`. Production activation must instead use a
 verified dedicated execution database role; the probe's owner-level schema setup cannot
 establish that production permission gate.
+
+## Actual browser sandbox mode
+
+With a **fresh**, separately provisioned `proc_approval_http_<unique>` database and the same
+private connection environment variable, run the optional mode:
+
+```sh
+dotnet run --project backend/procurement-api/tools/ApprovalHttpPostgresProbe -- --serve
+```
+
+This listens only on IPv4 loopback (`127.0.0.1:5197`). Override the port with
+`PROCUREMENT_APPROVAL_HTTP_PROBE_PORT` (1024–65535). Do not expose or proxy this sandbox
+on a public interface: its `X-Probe-User` header authentication is deliberately test-only.
+It maps the real complete Procurement routes, including `/context` and `/meta`. Core/HRM
+identity tables are synthetic fixture tables; Procurement and shared Core approval tables
+are created using their **committed migrations**. Serve refuses a model newer than its
+migration snapshot. It is therefore only runnable after all model changes have migrations.
+
+Serve seeds two **unopened**, submitted requests with controlled manual Finance evidence,
+and finite independently activated spending authority for the two manager identities. It
+does not consume the normal HTTP verification scenarios. The configured route is:
+
+1. NEED: current requester line manager (`manager1`), `One`.
+2. PROC: explicitly authorized procurement managers (`manager1`, `manager2`), `All`.
+
+Actor `buyer` can open cases; `requester` owns the requests; `finance` can independently
+record the controlled manual Finance release after a return. Exact current roles, worker
+IDs and permissions are obtained from the actual `/context` endpoint and written into the
+manifest, together with raw seeded request responses and company/branch IDs. Pass these
+IDs in `X-Probe-User`, `X-Shell-Entity` and `X-Shell-Location` when forwarding browser API
+requests. Forward business requests/responses unchanged; do not mock approval results.
+
+A generated private directory contains `manifest.json` and its path is printed. Optionally
+set `PROCUREMENT_APPROVAL_HTTP_PROBE_MANIFEST` to an absolute **new file** path; an existing
+parent directory must be private to its owner. Directories/files are created with owner-only
+permissions on Unix. The manifest contains no database credentials or login passwords.
+Keep the process running during browser verification; stop it afterwards and remove the
+disposable database and manifest using the sandbox operator's normal cleanup procedure.
+This mode is verification tooling and does not enable production approvals or prove
+production least-privilege database grants.
