@@ -84,6 +84,22 @@ public sealed class InvoiceMatchingFoundationTests
         Assert.True(f.Evaluate().ComparisonPassed);
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(5)]
+    [InlineData(9)]
+    [InlineData(int.MinValue)]
+    [InlineData(int.MaxValue)]
+    public void Unsupported_stored_money_scale_is_a_policy_blocker_not_an_arithmetic_exception(int scale)
+    {
+        var f = new Fixture(true, service: true);
+        f.Input = f.Input with { Policy = f.Input.Policy with { MoneyScale = scale } };
+        var result = f.Evaluate();
+        Assert.False(result.ComparisonPassed);
+        Assert.Contains(result.Discrepancies, x => x.Code == "MatchPolicyUnavailable");
+        Assert.False(result.CanPostToFinance);
+    }
+
     [Fact]
     public void Exact_eight_decimal_certified_net_is_not_forced_to_invoice_money_scale()
     {
