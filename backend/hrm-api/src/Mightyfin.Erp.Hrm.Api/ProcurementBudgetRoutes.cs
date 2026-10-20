@@ -47,7 +47,7 @@ public static class ProcurementBudgetRoutes
             .Skip(skip).Take(take).Select(x => new
             {
                 x.Id, x.Number, x.Purpose, x.CurrencyCode, x.SubmittedAt,
-                x.Version, x.ApprovalState, x.CreatedBy,
+                x.Version, BusinessVersion = x.SubmittedVersion ?? x.Version, x.ApprovalState, x.CreatedBy,
                 EstimatedAmount = x.Lines.Where(line => line.ApprovalStatus != "Cancelled")
                     .Sum(line => line.RequestedQuantity * line.EstimatedUnitPrice),
             }).ToListAsync(ct);
