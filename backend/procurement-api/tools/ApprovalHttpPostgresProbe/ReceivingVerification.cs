@@ -89,9 +89,10 @@ sealed partial class Probe
         }
         var service = await DeliveredReceivingOrder(supplier, "Service");
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var longServiceNotes = new string('n', 1500);
         var serviceDraftResponse = await Send(HttpMethod.Post, Root + "/service-acceptances/drafts", OrderRequester,
             new { purchaseOrderId = service.OrderId, issuedVersionId = service.IssuedId, purchaseOrderLineId = service.LineId,
-                deliverableReference = "DELIVERABLE-1", periodFrom = today, periodTo = today, quantity = "1", notes = "Completed service" }, Guid.NewGuid());
+                deliverableReference = "DELIVERABLE-1", periodFrom = today, periodTo = today, quantity = "1", notes = longServiceNotes }, Guid.NewGuid());
         await Check(serviceDraftResponse, HttpStatusCode.OK); var certificate = await serviceDraftResponse.Content.ReadFromJsonAsync<JsonElement>();
         var serviceId = certificate.GetProperty("id").GetGuid();
         await WithoutReceivingBroadRead(async () =>
@@ -102,7 +103,7 @@ sealed partial class Probe
             Require(tasks.GetProperty("total").GetInt32() == 1 && tasks.GetProperty("items")[0].GetProperty("id").GetGuid() == serviceId, "Service-only owner queue missing pending certificate.");
             var task = await Get($"{Root}/service-acceptances/{serviceId}/certification-task", OrderManager2);
             Require(task.GetProperty("capacity").GetProperty("verified").GetBoolean()
-                && !task.TryGetProperty("notes", out _)
+                && !task.TryGetProperty("notes", out _) && !task.TryGetProperty("cancellationReason", out _) && !task.TryGetProperty("reason", out _)
                 && task.GetProperty("actionCandidates")[0].GetProperty("candidate").GetBoolean(), "Service preview lost exact current authority.");
             await Expect(HttpStatusCode.NotFound, HttpMethod.Get, $"{Root}/service-acceptances/{serviceId}/certification-task", OrderManager1, null);
             await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, $"{Root}/service-acceptances/{serviceId}", OrderManager2, null);
@@ -113,7 +114,30 @@ sealed partial class Probe
             new { version = certificate.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:SERVICE-COMPLETE" }, Guid.NewGuid());
         var finalCertificate = await Get($"{Root}/service-acceptances/{serviceId}", OrderManager2);
         Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "1" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "100"
-            && finalCertificate.GetProperty("notes").GetString() == "Completed service", "Service exact certification mismatch.");
+            && finalCertificate.GetProperty("notes").GetString() == longServiceNotes, "Service exact certification mismatch.");
+        var cancellationNotes = longServiceNotes + "-cancel";
+        var cancelDraftResponse = await Send(HttpMethod.Post, Root + "/service-acceptances/drafts", OrderRequester,
+            new { purchaseOrderId = service.OrderId, issuedVersionId = service.IssuedId, purchaseOrderLineId = service.LineId,
+                deliverableReference = "CANCELLED-DELIVERABLE", periodFrom = today, periodTo = today, quantity = "0.5", notes = cancellationNotes }, Guid.NewGuid());
+        await Check(cancelDraftResponse, HttpStatusCode.OK); var cancelDraft = await cancelDraftResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var cancelledId = cancelDraft.GetProperty("id").GetGuid(); const string cancellationReason = "Service no longer needed";
+        await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/service-acceptances/{cancelledId}/cancel-draft", OrderRequester,
+            new { version = cancelDraft.GetProperty("version").GetInt64(), reason = cancellationReason }, Guid.NewGuid());
+        var cancelled = await Get($"{Root}/service-acceptances/{cancelledId}", OrderRequester);
+        Require(cancelled.GetProperty("status").GetString() == "Cancelled" && cancelled.GetProperty("notes").GetString() == cancellationNotes
+            && cancelled.GetProperty("cancellationReason").GetString() == cancellationReason && !cancelled.GetProperty("isCertifiedRecord").GetBoolean(),
+            "Cancellation overwrote long notes or labelled them as a cancellation reason.");
+        var cancelledPurpose = await Get($"{Root}/service-acceptances/{cancelledId}/certification-task", OrderManager2);
+        Require(!cancelledPurpose.TryGetProperty("notes", out _) && !cancelledPurpose.TryGetProperty("cancellationReason", out _)
+            && !cancelledPurpose.TryGetProperty("reason", out _), "Purpose-only task exposed service narrative/cancellation notes.");
+        using (var services = Scope(OrderBuyer))
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var certifiedRow = await db.ServiceAcceptances.SingleAsync(x => x.Id == serviceId);
+            var cancelledRow = await db.ServiceAcceptances.SingleAsync(x => x.Id == cancelledId);
+            Require(certifiedRow.Notes == longServiceNotes && certifiedRow.Reason == null && cancelledRow.Notes == cancellationNotes
+                && cancelledRow.Reason == cancellationReason, "Persisted service notes/cancellation fields drifted.");
+        }
         var crossSite = await DeliveredReceivingOrder(supplier, "Service"); Guid otherSite;
         using (var services = Scope(OrderBuyer))
         {

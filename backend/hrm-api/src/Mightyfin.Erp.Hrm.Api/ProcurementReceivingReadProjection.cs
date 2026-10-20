@@ -109,7 +109,11 @@ public static partial class ProcurementReceivingRoutes
         var state = row.ReceivingSourceStateId is { } stateId ? await db.ReceivingSourceStates.SingleOrDefaultAsync(x => x.Id == stateId, ct) : null;
         var node = JsonSerializer.SerializeToNode(View(row, state), Json)!.AsObject();
         node["readPurpose"] = purposeOnly ? "AssignedServiceCertification" : "Receipt";
-        if (!purposeOnly) node["notes"] = row.Reason; // Draft notes round-trip; never exposed by purpose-only tasks.
+        if (!purposeOnly)
+        {
+            node["notes"] = row.Notes;
+            node["cancellationReason"] = row.Status == "Cancelled" ? row.Reason : null;
+        } // Purpose-only tasks never expose narrative notes or cancellation reasons.
         try
         {
             if (row.ExecutionVersion != 1 || row.SourcePurchaseOrderId is null) throw new ReceivingProblem("ReceivingLegacyOrUnsupportedEvidence", 409);

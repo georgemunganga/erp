@@ -32,6 +32,9 @@ and `ReceivingPersistenceRecords.cs`; this document is not a replacement for tha
 - Unknown legacy historical branch is not guessed from mutable current PO ownership:
   its read path is organisation-wide with no selected branch only. This is code/read policy,
   not a database backfill. Unknown execution versions fail closed.
+- Add nullable `ServiceAcceptance.Notes` with max2000 separately from the existing text
+  Reason field (cancellation input remains bounded to1000). Never copy or guess legacy Reason into Notes. Cancellation changes Reason
+  and preserves Notes. Any nonnull new service Notes blocks destructive Down, even on v0.
 - `ServiceAcceptance.AcceptedAmount` widens from numeric(18,4) to numeric(38,8). Existing
   values must survive exactly. This is storage range, not a promise that CLR decimal can
   represent arbitrary38-digit values; exact arithmetic/transport remain required.
