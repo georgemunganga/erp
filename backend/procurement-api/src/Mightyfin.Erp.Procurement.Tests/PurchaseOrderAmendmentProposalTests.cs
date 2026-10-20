@@ -30,6 +30,8 @@ public sealed class PurchaseOrderAmendmentProposalTests
     }
 
     [Theory]
+    [InlineData("number")]
+    [InlineData("finance-reference")]
     [InlineData("supplier")]
     [InlineData("currency")]
     [InlineData("unit")]
@@ -45,6 +47,8 @@ public sealed class PurchaseOrderAmendmentProposalTests
         var f = new Fixture(); f.ProposedLine.Description = "Authorized proposed wording";
         switch (mutation)
         {
+            case "number": f.Proposed.Number = "OTHER-ORDER"; break;
+            case "finance-reference": f.Current.FinanceCommitmentRef = "OTHER-COMMITMENT"; break;
             case "supplier": f.Proposed.SupplierId = Guid.NewGuid(); break;
             case "currency": f.Proposed.CurrencyCode = "USD"; break;
             case "unit": f.ProposedLine.UnitCode = "BOX"; break;
@@ -94,7 +98,7 @@ public sealed class PurchaseOrderAmendmentProposalTests
             var company = Guid.NewGuid(); var supplier = Guid.NewGuid();
             Current = new() { TenantId = "tenant", LegalEntityId = company, SupplierId = supplier,
                 Number = "PO-TEST", BuyerSubjectId = "buyer", CurrencyCode = "ZMW", CurrentRevision = 1,
-                Status = "Issued", IssuedAt = DateTimeOffset.UtcNow, Version = 17 };
+                FinanceCommitmentRef = "SYNTHETIC-COMMITMENT", Status = "Issued", IssuedAt = DateTimeOffset.UtcNow, Version = 17 };
             Proposed = new() { Id = Current.Id, TenantId = "tenant", LegalEntityId = company, SupplierId = supplier,
                 Number = Current.Number, BuyerSubjectId = "buyer", CurrencyCode = "ZMW", CurrentRevision = 1 };
             CurrentLine = new() { TenantId = "tenant", LegalEntityId = company, PurchaseOrderId = Current.Id,
@@ -107,11 +111,11 @@ public sealed class PurchaseOrderAmendmentProposalTests
                 LegalName = "Synthetic Supplier", DisplayName = "Supplier", CountryCode = "ZM" };
             var json = PurchaseOrderCommercialWorkflow.Snapshot(Current, [CurrentLine], Supplier, 1);
             Baseline = new() { TenantId = "tenant", LegalEntityId = company, PurchaseOrderId = Current.Id,
-                RevisionNumber = 1, CommercialSnapshotJson = json, CommercialSnapshotSha256 = ProcurementEvidenceEncoding.Digest(json) };
+                RevisionNumber = 1, FinanceCommitmentReference = "SYNTHETIC-COMMITMENT", CommercialSnapshotJson = json, CommercialSnapshotSha256 = ProcurementEvidenceEncoding.Digest(json) };
         }
         public PurchaseOrderIssuedVersion BaselineCopy(string hash) => new() { Id = Baseline.Id,
             TenantId = Baseline.TenantId, LegalEntityId = Baseline.LegalEntityId, PurchaseOrderId = Baseline.PurchaseOrderId,
-            RevisionNumber = Baseline.RevisionNumber, CommercialSnapshotJson = Baseline.CommercialSnapshotJson,
+            RevisionNumber = Baseline.RevisionNumber, FinanceCommitmentReference = Baseline.FinanceCommitmentReference, CommercialSnapshotJson = Baseline.CommercialSnapshotJson,
             CommercialSnapshotSha256 = hash };
         public PurchaseOrderAmendmentDraft Propose() => PurchaseOrderAmendmentProposal.Create(Current,
             [CurrentLine], Supplier, Baseline, Proposed, [ProposedLine], "Delivery/quantity change requested");

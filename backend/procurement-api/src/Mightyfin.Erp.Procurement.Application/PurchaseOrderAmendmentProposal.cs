@@ -23,7 +23,7 @@ public static class PurchaseOrderAmendmentProposal
         RequireBaseline(current, currentLines, supplier, baseline);
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 2000)
             Fail("OrderAmendmentReasonRequired");
-        if (proposed.Id != current.Id || proposed.TenantId != current.TenantId
+        if (proposed.Id != current.Id || proposed.Number != current.Number || proposed.TenantId != current.TenantId
             || proposed.LegalEntityId != current.LegalEntityId || proposed.SupplierId != current.SupplierId
             || proposed.CurrencyCode != current.CurrencyCode || proposed.BuyerSubjectId != current.BuyerSubjectId
             || proposed.BranchRef != current.BranchRef || proposed.SourcingAwardId != current.SourcingAwardId
@@ -74,6 +74,8 @@ public static class PurchaseOrderAmendmentProposal
         if (current.Status != "Issued" || current.IssuedAt is null || current.CurrentRevision < 1
             || baseline.PurchaseOrderId != current.Id || baseline.TenantId != current.TenantId
             || baseline.LegalEntityId != current.LegalEntityId || baseline.RevisionNumber != current.CurrentRevision
+            || string.IsNullOrWhiteSpace(baseline.FinanceCommitmentReference)
+            || current.FinanceCommitmentRef != baseline.FinanceCommitmentReference
             || baseline.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(baseline.CommercialSnapshotJson)
             || supplier.Id != current.SupplierId || supplier.TenantId != current.TenantId || supplier.LegalEntityId != current.LegalEntityId
             || lines.Count == 0 || lines.Select(x => x.Id).Distinct().Count() != lines.Count
