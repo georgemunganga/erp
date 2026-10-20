@@ -35,8 +35,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
         _=await Actor(core,scope,http,auth,"procurement-invoice-match",invoice.BranchRef,ct);
         return invoice;
     }
-    private static IQueryable<PurchaseOrder> SelectorOrders(ProcurementDbContext db,SupplierInvoice invoice)
-        =>db.PurchaseOrders.AsNoTracking().Where(x=>x.SupplierId==invoice.SupplierId && x.CurrencyCode==invoice.CurrencyCode
+    private static IQueryable<PurchaseOrder> SelectorOrders(ProcurementDbContext db,ProcurementRequestScope scope,SupplierInvoice invoice)
+        =>ProcurementReceivingRoutes.InvoiceBoundIssuedOrders(db,scope).AsNoTracking().Where(x=>x.SupplierId==invoice.SupplierId && x.CurrencyCode==invoice.CurrencyCode
             && x.BranchRef==invoice.BranchRef && x.Status=="Issued" && (invoice.PurchaseOrderId==null || x.Id==invoice.PurchaseOrderId));
 
     private static Task<IResult> Sources(Guid id,int? page,int? pageSize,string? q,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
@@ -44,7 +44,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
         {
             var paging=SelectorPage(page,pageSize,q); var invoice=await SelectorInvoice(db,core,scope,http,auth,id,token);
             var policy=await SelectorPolicy(db,invoice,token);
-            var query=from order in SelectorOrders(db,invoice)
+            var query=from order in SelectorOrders(db,scope,invoice)
                 join issued in db.OrderIssuedVersions.AsNoTracking() on new { order.Id,Revision=order.CurrentRevision } equals new { Id=issued.PurchaseOrderId,Revision=issued.RevisionNumber }
                 join line in db.PurchaseOrderLines.AsNoTracking() on order.Id equals line.PurchaseOrderId
                 where line.IsActive && (paging.Pattern==null || EF.Functions.ILike(order.Number,paging.Pattern,"\\") || EF.Functions.ILike(line.Description,paging.Pattern,"\\"))
@@ -61,7 +61,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
                     var rule=policy.Rules.SingleOrDefault(x=>x.CategoryCode==source.CategoryCode && x.CurrencyCode==invoice.CurrencyCode);
                     items.Add(new { row.orderId,row.orderNumber,row.issuedVersionId,purchaseOrderLineId=row.lineId,row.Description,
                         source.UnitCode,source.Quantity,source.UnitPrice,source.TaxAmount,source.CategoryCode,
-                        method=rule?.Method.ToString(),acceptanceKind=rule?.AcceptanceKind.ToString(),sourceState="VerifiedIssued",
+                        method=rule?.Method.ToString(),acceptanceKind=rule?.AcceptanceKind?.ToString(),sourceState="VerifiedIssued",
                         blocker=rule is null?"MatchingCategoryUnavailable":null,canAllocate=false,canPostToFinance=false });
                 }
                 catch(Exception error) when(error is InvalidOperationException or JsonException or KeyNotFoundException)
@@ -80,7 +80,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
         {
             var paging=SelectorPage(page,pageSize,q); var invoice=await SelectorInvoice(db,core,scope,http,auth,id,token);
             var policy=await SelectorPolicy(db,invoice,token);
-            var order=await SelectorOrders(db,invoice).SingleOrDefaultAsync(x=>x.Id==orderId,token)??throw new MatchingProblem("InvoiceMatchingOrderNotFound",404);
+            var order=await SelectorOrders(db,scope,invoice).SingleOrDefaultAsync(x=>x.Id==orderId,token)??throw new MatchingProblem("InvoiceMatchingOrderNotFound",404);
             var issued=await db.OrderIssuedVersions.AsNoTracking().SingleOrDefaultAsync(x=>x.PurchaseOrderId==orderId && x.RevisionNumber==order.CurrentRevision,token)
                 ??throw new MatchingProblem("InvoiceIssuedSourceUnavailable",409);
             if(!await db.PurchaseOrderLines.AsNoTracking().AnyAsync(x=>x.Id==lineId && x.PurchaseOrderId==orderId && x.IsActive,token))

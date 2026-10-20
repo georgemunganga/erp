@@ -2,12 +2,16 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
 public static partial class ProcurementReceivingRoutes
 {
+    // The owner SQL fence must run before selector counts/pages, not only in row verification.
+    internal static IQueryable<PurchaseOrder> InvoiceBoundIssuedOrders(ProcurementDbContext db,ProcurementRequestScope scope)
+        => BoundIssuedOrders(db,scope);
     internal sealed record InvoiceSelectorSource(string UnitCode,string Quantity,string UnitPrice,string TaxAmount,string CategoryCode);
     internal static async Task<InvoiceSelectorSource> InvoiceSelectorLine(ProcurementDbContext db,ApprovalDbContext cases,
         ProcurementRequestScope scope,Guid orderId,Guid issuedId,Guid lineId,CancellationToken ct)
