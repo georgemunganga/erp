@@ -67,6 +67,10 @@ public sealed class ProcurementApprovalTransaction
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(ct);
+        // Session fence must precede BEGIN/snapshot acquisition, including on retries/replays.
+        // Declaration order releases the transaction before unlocking the pooled session.
+        await using var branchFence = await CoreBranchAuthorizationFence.AcquireAsync(connection,
+            scope.TenantId, exclusive: false, ct);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var procurementOptions = new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseNpgsql(connection, provider => provider.MigrationsHistoryTable("__procurement_migrations", "procurement"))

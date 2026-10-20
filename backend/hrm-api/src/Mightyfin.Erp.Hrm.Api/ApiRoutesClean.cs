@@ -1366,7 +1366,7 @@ public static class Routes
                 locations = locs,
             });
         });
-        g.MapPost("/branch-access", async (HttpContext http, ShellContext scope, HrmDbContext db, CancellationToken ct) =>
+        g.MapPost("/branch-access", async (HttpContext http, ShellContext scope, ITenantAccessor tenant, HrmDbContext db, CancellationToken ct) =>
         {
             if (!WorkerPrincipal.FromClaims(http.User.Claims).IsRole("hr_admin"))
                 throw new DomainException("forbidden", "Branch access management requires the hr_admin role.");
@@ -1374,26 +1374,32 @@ public static class Routes
                 ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
             if (request.UserId == Guid.Empty)
                 throw new DomainException("bad-request", "userId is required.");
-            var exists = await db.UserBranchAssignments.AnyAsync(x => x.UserId == request.UserId && x.LocationId == request.LocationId, ct);
-            if (exists)
-                return Results.Conflict(new { error = "duplicate", message = "User is already assigned to this branch." });
-            if (!await db.WorkLocations.AnyAsync(x => x.Id == request.LocationId, ct))
-                throw new DomainException("bad-request", "The target location does not exist.");
-            var row = new HrUserBranchAssignment { UserId = request.UserId, UserEmail = request.UserEmail ?? "" };
-            row.LocationId = request.LocationId;
-            db.UserBranchAssignments.Add(row);
-            await db.SaveChangesAsync(ct);
-            return Results.Created("", new { id = row.Id, userId = row.UserId, userEmail = row.UserEmail, locationId = row.LocationId });
+            return await CoreBranchAccessMutation.ExecuteAsync(db, tenant.GetTenantId(), async () =>
+            {
+                var exists = await db.UserBranchAssignments.AnyAsync(x => x.UserId == request.UserId && x.LocationId == request.LocationId, ct);
+                if (exists)
+                    return Results.Conflict(new { error = "duplicate", message = "User is already assigned to this branch." });
+                if (!await db.WorkLocations.AnyAsync(x => x.Id == request.LocationId, ct))
+                    throw new DomainException("bad-request", "The target location does not exist.");
+                var row = new HrUserBranchAssignment { UserId = request.UserId, UserEmail = request.UserEmail ?? "" };
+                row.LocationId = request.LocationId;
+                db.UserBranchAssignments.Add(row);
+                await db.SaveChangesAsync(ct);
+                return Results.Created("", new { id = row.Id, userId = row.UserId, userEmail = row.UserEmail, locationId = row.LocationId });
+            }, ct);
         });
-        g.MapDelete("/branch-access/{id:guid}", async (Guid id, HttpContext http, ShellContext scope, HrmDbContext db, CancellationToken ct) =>
+        g.MapDelete("/branch-access/{id:guid}", async (Guid id, HttpContext http, ShellContext scope, ITenantAccessor tenant, HrmDbContext db, CancellationToken ct) =>
         {
             if (!WorkerPrincipal.FromClaims(http.User.Claims).IsRole("hr_admin"))
                 throw new DomainException("forbidden", "Branch access management requires the hr_admin role.");
-            var row = await db.UserBranchAssignments.FindAsync([id], ct)
-                ?? throw new DomainException("not-found", "Assignment not found.");
-            db.UserBranchAssignments.Remove(row);
-            await db.SaveChangesAsync(ct);
-            return Results.Ok(new { deleted = id });
+            return await CoreBranchAccessMutation.ExecuteAsync(db, tenant.GetTenantId(), async () =>
+            {
+                var row = await db.UserBranchAssignments.FindAsync([id], ct)
+                    ?? throw new DomainException("not-found", "Assignment not found.");
+                db.UserBranchAssignments.Remove(row);
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { deleted = id });
+            }, ct);
         });
         g.MapPost("/locations", async (HttpContext http, IConfigAdminService svc, CancellationToken ct) =>
         {

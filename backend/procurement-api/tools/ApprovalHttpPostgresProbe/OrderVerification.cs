@@ -13,6 +13,7 @@ sealed partial class Probe
     public async Task VerifyInitialOrders()
     {
         Require(OrderDistinctRuntime, "Order proof must use a restricted runtime principal.");
+        await VerifyBranchFenceCleanup();
         await Authority(OrderManager1, "ORDER-SOURCE-M1"); await Authority(OrderManager2, "ORDER-SOURCE-M2");
         await Authority(OrderManager2, "ORDER-COMMERCIAL-M2", "PurchaseOrder.Approve");
         Guid supplier;
@@ -102,6 +103,7 @@ sealed partial class Probe
         await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/orders/{id}/finance-confirmations", OrderFinance,
             OrderFunding(order, existingCommitment, await SourceReservation(sourceId), "DIFFERENT-EVIDENCE-SAME-COMMITMENT"), Guid.NewGuid());
         await VerifyQueuedBranchRevocation(id, sourceId, order.GetProperty("version").GetInt64());
+        order = await Get($"{Root}/orders/{id}", OrderBuyer);
         var key = Guid.NewGuid(); var body = new { expectedOrderVersion = order.GetProperty("version").GetInt64(), reason = "Cancel unfunded draft" };
         var cancelled = await Send(HttpMethod.Post, $"{Root}/orders/{id}/source-cancel", OrderBuyer, body, key);
         await Check(cancelled, HttpStatusCode.OK); var first = await cancelled.Content.ReadAsStringAsync();
@@ -142,62 +144,6 @@ sealed partial class Probe
             && (await db.PurchaseOrders.SingleAsync(x => x.Id == id)).FinanceCommitmentRef is null,
             "Unsubmitted cancellation invented an approval case or stranded source/funding state.");
         Console.WriteLine("PASS order: funded Draft cannot cancel without independent release; no-Core release exact replay frees quantity");
-    }
-
-    private async Task VerifyQueuedBranchRevocation(Guid orderId, Guid sourceId, long version)
-    {
-        Guid firstAssignment, secondAssignment;
-        using (var services = Scope(OrderBuyer))
-        {
-            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
-            var other = new Mightyfin.Erp.Hrm.Domain.Entities.WorkLocation { Code = "PO-OTHER", Name = "Other synthetic OrderBranch", LegalEntityId = OrderCompany };
-            core.WorkLocations.Add(other);
-            var first = new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = OrderBuyer, LocationId = OrderBranch };
-            var second = new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = OrderBuyer, LocationId = other.Id };
-            core.UserBranchAssignments.AddRange(first, second); await core.SaveChangesAsync();
-            firstAssignment = first.Id; secondAssignment = second.Id;
-        }
-        var detail = await Get($"{Root}/orders/{orderId}", OrderBuyer);
-        var line = detail.GetProperty("lines")[0];
-        var edit = new { expectedOrderVersion = version, reason = "Should be denied after queued branch revocation",
-            draft = new { supplierId = detail.GetProperty("supplierId").GetGuid(), currencyCode = "ZMW",
-                lines = new[] { new { id = line.GetProperty("id").GetGuid(), description = "Queued forbidden edit",
-                    unitCode = "each", quantity = 1, unitPrice = 100, taxAmount = 0 } } } };
-        await using var blocker = new Npgsql.NpgsqlConnection(databaseConnection); await blocker.OpenAsync();
-        await using var hold = await blocker.BeginTransactionAsync();
-        await using (var command = new Npgsql.NpgsqlCommand("SELECT id FROM procurement.purchase_requests WHERE id=@id FOR UPDATE", blocker, hold))
-        { command.Parameters.AddWithValue("id", sourceId); await command.ExecuteScalarAsync(); }
-        var queued = Send(HttpMethod.Put, $"{Root}/orders/{orderId}/source-draft", OrderBuyer, edit, Guid.NewGuid());
-        var observed = false;
-        await using (var inspect = new Npgsql.NpgsqlConnection(databaseConnection))
-        {
-            await inspect.OpenAsync();
-            for (var attempt = 0; attempt < 100 && !observed; attempt++)
-            {
-                await using var command = new Npgsql.NpgsqlCommand("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%procurement.purchase_requests%' AND query LIKE '%FOR UPDATE%')", inspect);
-                observed = await command.ExecuteScalarAsync() is true;
-                if (!observed) await Task.Delay(20);
-            }
-        }
-        Require(observed, "Queued source edit never reached its deterministic source row lock.");
-        using (var services = Scope(OrderBuyer))
-        {
-            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
-            (await core.UserBranchAssignments.SingleAsync(x => x.Id == firstAssignment)).IsArchived = true;
-            await core.SaveChangesAsync();
-        }
-        await hold.CommitAsync(); await Check(await queued.WaitAsync(TimeSpan.FromSeconds(15)), HttpStatusCode.Forbidden);
-        using (var services = Scope(OrderBuyer))
-        {
-            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
-            (await core.UserBranchAssignments.SingleAsync(x => x.Id == secondAssignment)).IsArchived = true;
-            await core.SaveChangesAsync();
-            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            Require((await db.PurchaseOrders.SingleAsync(x => x.Id == orderId)).Version == version
-                && (await db.PurchaseOrderLines.SingleAsync(x => x.PurchaseOrderId == orderId)).Description == "Synthetic item",
-                "Queued revoked-scope command wrote data before denial.");
-        }
-        Console.WriteLine("PASS order: actual queued command rechecks revoked branch inside transaction before mutation");
     }
 
     private async Task VerifyOrderRevokedGrantReplay(Guid orderId, string decisionPath, object decisionBody,
