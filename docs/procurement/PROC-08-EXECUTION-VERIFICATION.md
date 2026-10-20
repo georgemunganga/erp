@@ -56,7 +56,8 @@ restricted role are provisioned for the retry.
 
 The successor also integrates exact numeric-lexeme input checks for PO lines and Finance
 amounts (`ae60ea5`), preventing silent decimal or database rounding before writes. Its
-combined tests, probe build and actual database execution are pending. An initial test
+400/400 domain tests passed with zero failures or skips. Shared-host tests, probe build
+and actual database execution are pending. An initial test
 launcher omitted its read-only NuGet package mount and failed to resolve cached assemblies;
 the corrected launch is running, with the initial log preserved. This was an environment
 failure, not a passed source gate.
