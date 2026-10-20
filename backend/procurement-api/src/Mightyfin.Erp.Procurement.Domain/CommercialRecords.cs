@@ -155,6 +155,7 @@ public sealed class PurchaseOrder : ProcurementRecord
     public string Status { get; set; } = "Draft";
     public string CurrencyCode { get; set; } = null!;
     public string BuyerSubjectId { get; set; } = null!;
+    public Guid? BranchRef { get; set; }
     public string? ShipToRef { get; set; }
     public string? BillToRef { get; set; }
     public string? PaymentTermRef { get; set; }

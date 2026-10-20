@@ -1781,6 +1781,48 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Buyer_order_drafts_keep_the_selected_branch_and_hide_other_branches()
+    {
+        await using var fixture = await Fixture.Start();
+        var supplierId = await fixture.AddInvoiceSupplier();
+        var input = new OrderDraftInput(supplierId, null, "Lusaka office", null, "Net 30", null,
+            [new OrderDraftLineInput(null, "Laptop", "EA", 1, 500, 0, null, null, null)]);
+        const string path = "/api/procurement/v1/orders";
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            input, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var first = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = first.GetProperty("id").GetGuid();
+        var assignedBranch = await fixture.ConfineBuyerAndMoveOrderToOtherBranch(id);
+
+        var list = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
+            role: "procurement_buyer");
+        Assert.Equal(0, (await list.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other,
+                role: "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"{path}/{id}", fixture.Other,
+                new ProcurementOrderDraftRoutes.VersionedOrderDraft(1, null, input),
+                "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/cancel", fixture.Other,
+                new ProcurementOrderDraftRoutes.OrderDraftCancel(1, "No longer needed"),
+                "procurement_buyer")).StatusCode);
+
+        var scoped = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            input, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, scoped.StatusCode);
+        var own = await scoped.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(assignedBranch, own.GetProperty("branchRef").GetGuid());
+        var ownList = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
+            role: "procurement_buyer");
+        Assert.Equal(1, (await ownList.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("total").GetInt32());
+    }
+
+    [Fact]
     public async Task Active_vendor_can_be_suspended_only_by_independent_manager_with_reason()
     {
         await using var fixture = await Fixture.Start();
@@ -2167,6 +2209,30 @@ public sealed class ProcurementRequestHttpTests
             var request = await procurement.PurchaseRequests.SingleAsync(x => x.Id == requestId);
             request.BranchRef = secondBranch.Id;
             await procurement.SaveChangesAsync();
+        }
+
+        public async Task<Guid> ConfineBuyerAndMoveOrderToOtherBranch(Guid orderId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            var core = serviceScope.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var assignedBranch = await core.WorkLocations.SingleAsync(x => x.LegalEntityId == company);
+            var secondBranch = new WorkLocation
+            {
+                Code = "A2", Name = "Other branch", LegalEntityId = company,
+            };
+            core.WorkLocations.Add(secondBranch);
+            core.UserBranchAssignments.Add(new HrUserBranchAssignment
+            {
+                UserId = Other, LocationId = assignedBranch.Id,
+            });
+            await core.SaveChangesAsync();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Other.ToString(), null, null, false, "test");
+            var procurement = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var order = await procurement.PurchaseOrders.SingleAsync(x => x.Id == orderId);
+            order.BranchRef = secondBranch.Id;
+            await procurement.SaveChangesAsync();
+            return assignedBranch.Id;
         }
 
         public async Task<int> DecisionCount(Guid supplierId)

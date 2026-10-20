@@ -2273,6 +2273,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("bill_to_ref");
 
+                    b.Property<Guid?>("BranchRef")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_ref");
+
                     b.Property<string>("BuyerSubjectId")
                         .IsRequired()
                         .HasColumnType("text")

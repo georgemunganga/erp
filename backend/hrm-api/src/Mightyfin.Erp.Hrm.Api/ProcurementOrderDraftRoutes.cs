@@ -25,10 +25,12 @@ public static class ProcurementOrderDraftRoutes
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
         var own = db.PurchaseOrders.AsNoTracking().Where(x => x.BuyerSubjectId == scope.SubjectId);
+        if (scope.IsConfined)
+            own = own.Where(x => x.BranchRef == scope.WorkLocationId);
         var total = await own.CountAsync(ct);
         var rows = await own.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip((number - 1) * size).Take(size)
-            .Select(x => new { x.Id, x.Number, x.SupplierId,
+            .Select(x => new { x.Id, x.Number, x.SupplierId, x.BranchRef,
                 SupplierName = db.Suppliers.Where(s => s.Id == x.SupplierId).Select(s => s.DisplayName).FirstOrDefault(),
                 x.CurrencyCode, x.Status, x.ExpectedDeliveryOn, x.Version, x.CreatedAt })
             .ToListAsync(ct);
@@ -39,7 +41,8 @@ public static class ProcurementOrderDraftRoutes
         ProcurementRequestScope scope, CancellationToken ct)
     {
         var order = await db.PurchaseOrders.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId, ct);
+            .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId
+                && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
         if (order is null) return Problem("not-found", "Purchase order not found.", 404);
         var lines = await db.PurchaseOrderLines.AsNoTracking()
             .Where(x => x.PurchaseOrderId == id && x.IsActive).OrderBy(x => x.LineNumber).ToListAsync(ct);
@@ -61,6 +64,7 @@ public static class ProcurementOrderDraftRoutes
         {
             Number = "PO-" + Guid.CreateVersion7().ToString("N"), SupplierId = input.SupplierId,
             CurrencyCode = input.CurrencyCode!.Trim().ToUpperInvariant(), BuyerSubjectId = scope.SubjectId,
+            BranchRef = scope.WorkLocationId,
             ShipToRef = Clean(input.ShipToRef), BillToRef = Clean(input.BillToRef),
             PaymentTermRef = Clean(input.PaymentTermRef), ExpectedDeliveryOn = input.ExpectedDeliveryOn,
             Status = "Draft",
@@ -83,7 +87,8 @@ public static class ProcurementOrderDraftRoutes
         ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         var order = await db.PurchaseOrders
-            .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId, ct);
+            .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId
+                && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
         if (order is null) return Problem("not-found", "Purchase order not found.", 404);
         if (order.Status != "Draft") return Problem("order-locked", "Only a draft order can be changed.", 409);
         if (order.Version != input.Version) return Problem("version-conflict", "Refresh this order before saving.", 409);
@@ -137,7 +142,8 @@ public static class ProcurementOrderDraftRoutes
         ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         var order = await db.PurchaseOrders
-            .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId, ct);
+            .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId
+                && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
         if (order is null) return Problem("not-found", "Purchase order not found.", 404);
         if (order.Status != "Draft") return Problem("order-locked", "Only a draft order can be cancelled.", 409);
         if (order.Version != input.Version) return Problem("version-conflict", "Refresh this order before cancelling.", 409);
@@ -207,7 +213,7 @@ public static class ProcurementOrderDraftRoutes
         string? supplierName) => new
     {
         order.Id, order.Number, order.SupplierId, supplierName, order.CurrencyCode,
-        order.Status, order.BuyerSubjectId, order.ShipToRef, order.BillToRef,
+        order.Status, order.BuyerSubjectId, order.BranchRef, order.ShipToRef, order.BillToRef,
         order.PaymentTermRef, order.ExpectedDeliveryOn, order.ClosureReason,
         order.Version, order.CreatedAt,
         total = lines.Sum(x => x.Quantity * x.UnitPrice + x.TaxAmount),
