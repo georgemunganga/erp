@@ -186,3 +186,171 @@ Finance/AP implementation/provider, invoice authority/approver and coding/tax ow
 8. **Verification/release:** focused pure/model/mapped tests; additive migration/model check/apply twice; restricted PostgreSQL race/replay/lease/result/source rollback; controlled owner-contract sandbox; HRM regressions for extracted transport; real API Bills UI and independent review/UAT/owner acceptance/operations. Production enablement requires real Finance confirmation, not a sandbox green test.
 
 **Evidence:** Read-only source audit and documentation. No code implementation, SDK/build/test/DB/browser operation, migration or deployment performed by this task.
+
+## Appendix C — Concrete owner audit and smallest next boundary, 20 October 2026
+
+This supplements the original source baseline; it does not replace the 28-section contract
+or claim P25/P26 runtime completion. Reviewed current root source in
+`procurement-order-execution`, the P26 candidate's contracts/options and capability roadmap
+checkpoint `db1a9b9`. Only this existing plan is changed; no Finance code/schema is introduced.
+
+### C1. Repository evidence: the receiving Finance owner is absent
+
+| Exact source | Finding and implementation consequence |
+|---|---|
+| `backend/` | Present business projects are Core, HRM and Procurement. No Finance/AP domain, payable aggregate, supplier accounting-account master, invoice posting receiver or owner-query service was found. Do not treat names/references as a hidden Finance implementation. |
+| `backend/procurement-api/src/Mightyfin.Erp.Procurement.Domain/CommercialRecords.cs`, `FinanceInvoiceHandoff`, `FinancePaymentStatusRef` | Existing Procurement records track external references/status only. They do not constitute a Finance-owned payable or inbound acceptance service. Reuse them for local projections, not Finance business truth. |
+| `backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementDbContext.cs` | Current handoff uniqueness is tenant/entity/key; payment uniqueness is tenant/entity/payment-reference and payment snapshots are append-only. Preserve these records and migrate exact event/allocation semantics before supporting repeated/multi-invoice payments. |
+| `backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/IntegrationOperations.cs`, static `Contracts`, `CreateFinancePostingAsync`, `ReconcileAsync` | The displayed `finance/available` label is a static payroll integration catalogue. Creation reads PayrollRun and emits payroll account names; reconciliation is a payroll/hr_admin manual accepted/matched setter. Neither proves an AP receiver or authenticated supplier-invoice result. Do not copy its account defaults or let its manual result setter mark Procurement Posted/Paid. |
+| `backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Outbox.cs` | Existing SKIP LOCKED leasing, stale-claim recovery, backoff and JetStream message ID are reusable transport mechanics through a reviewed extraction. The concrete store is `hrm.outbox_messages`, and published/fallback-delivered is transport state. Reuse does not make SMTP or broker acknowledgement an AP business decision. |
+| `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs`, `ProcurementScopeMiddleware` | Current Procurement request pipeline resolves workforce/local user, shell entity/branch, role and active worker for human commands. Machine ingress must not impersonate an employee, accept a UI admin role as Finance service proof, or trust caller-supplied shell headers for connection scope. |
+| P26 `InvoiceMatchingExecutionContracts.cs` and `ProcurementInvoiceMatchingExecutionOptions.cs` | Historical-exposure owner and document-line mapping reviewer default explicitly Unavailable. Qualified comparison requires verified owner evidence, immutable mapping/documents and current source/receiving constraints. A new AP inbox with zero rows cannot make those older histories complete. |
+| Existing `reference-ui/src/features/LiveInvoices.tsx` | Current live UI records and displays received invoices and Core document evidence. It has no valid send-to-AP authority hidden behind its status badge. Existing payment/batch editors are not evidence of a Finance API. |
+
+**Important prerequisite missing before P27 send:** P26 comparison/claims are not an invoice
+validation/approval transition. The current Core approval engine is reusable, but the
+Procurement authority catalogue currently implements PR/PO-specific actions/policy bases.
+Invoice approval/accounting authority needs its own documented exact action/policy/source
+contract using that engine; reusing a PR/PO grant or merely setting invoice.Status=Validated
+would create an unauthorized bridge. Supplier accounting mapping and tax/coding ownership
+must also be resolved by the actual Finance owner rather than copied from payroll defaults.
+
+### C2. Narrowest honest implementation sequence
+
+1. **Readiness/read contract now:** implement the proposed scoped finance-readiness/history
+   query over existing invoice/match/handoff references with explicit individual blockers:
+   `InvoiceValidationAuthorityUnavailable`, `MappingEvidenceUnavailable`,
+   `HistoricalExposureUnavailable`, `FinanceOwnerNotConfigured`,
+   `FinanceSupplierAccountMappingUnavailable`, `MachineConnectionNotConfigured` as applicable.
+   These describe source facts, not client-selected flags. Intake/documents and draft review
+   stay usable. No blocker may create a Prepared/Queued handoff, outbox delivery or AP status.
+2. **Validated-invoice boundary:** implement the missing Procurement invoice validation and
+   accounting-approval workflow using existing Core approval/exact identity/branch fence,
+   pinned current P26 claim/mapping/evidence and governed authority. Define authoritative tax,
+   coding, supplier-account and currency evidence as typed owner interfaces. Unavailable
+   owners remain unavailable. Acceptance is a pinned validated-invoice version, not a bare
+   mutable status string or a ComparisonPassed row.
+3. **Select and implement one real receiving owner:** if Finance is external, implement its
+   documented authenticated intake/query adapter. If this ERP will own Finance, first define
+   a minimal **Finance-owned AP intake** capability and its owner/schema/permissions; do not
+   place it in Procurement or repurpose HRM's IntegrationOperation as the payable owner. The
+   bounded business outcome is **ReceivedForReview** of an immutable approved request. It
+   creates no AP ledger, posting, tax entry, payment schedule or balance. It is separate from
+   a generic integration message receipt, which only proves authenticated delivery/deduping.
+   Creating that new owner requires an explicit module definition, not an assumption that
+   Finance already exists. No Finance module path/table name is reserved by this plan.
+4. **Then connect preparation/sender/owner receipt:** use the existing Procurement handoff,
+   transactional outbox/audit and command receipt. Send outside the transaction with one
+   immutable key/digest. Couple owner dedupe and its intake creation atomically on the
+   Finance side; callback/poll/query returns the same typed owner fact. Unknown delivery must
+   query that same key. Do not send until steps 2–3 are actual capabilities.
+5. **Owner review/posting remains separate:** ReceivedForReview means the Finance owner has
+   custody for review; it does not establish a payable, accounting approval or Posted state.
+   Actual AP acceptance/posting/credit/reversal needs the Finance-owned continuation and its
+   evidence. Payment visibility is another owner-fact contract after that, not a substitute
+   for completing AP or permission to enable local bank/payment buttons.
+
+This is an executable dependency sequence, not a proposal to leave P26 permanently blocked.
+It identifies exactly which missing owner capabilities must be implemented or connected.
+They cannot be replaced with a successful stub, human-entered Complete=true or a silent
+empty-history assumption to make the existing UI appear integrated.
+
+### C3. Minimal versioned inbound contract after validated invoice
+
+A proposed Finance owner intake API (or equivalent authenticated bus command) must bind:
+
+- Schema/contract version, authenticated sending connection/service principal, tenant/entity,
+  unique handoff intent and original idempotency key, canonical immutable payload SHA.
+- Invoice ID/original version and digest, supplier and Finance-account mapping ID/version,
+  currency, exact approved invoice lines/coding/tax references and approved totals as decimal
+  strings; immutable Core document-version references/hash/access contract as required.
+- Procurement validation authority reference: exact current invoice version, Core case/terminal
+  decision and governed policy version, approved business-snapshot SHA and validity/freeze
+  evidence. P26 comparison result/claim/mapping and owner exposure watermark/lease remain
+  separately referenced. The receiver validates authoritative evidence; callers cannot grant
+  themselves authority by submitting a convincing-looking case ID or Verified=true field.
+- Source/receipt accepted allocation identity and original credit linkage when applicable,
+  sufficient for later owner reconciliation without creating another goods/stock ledger.
+
+The exact same scope/key/payload returns the recorded owner intake reference; the same key
+with different bytes conflicts. Owner receipt authentication binds issuer/audience/connection,
+not a browser workforce session or organisation header. The receiver checks destination
+scope independently and stores source/connection provenance durably. A lost acknowledgement
+is recovered by querying the original key; a 404 while requests are in flight is not proof
+that no owner binding occurred.
+
+Initial owner results are deliberately limited to `ReceivedForReview`, a correlated
+`RejectedEnvelope` with reason, or an explicit unknown/pending outcome. An HTTP202/broker ACK
+is only transport acknowledgement unless the authenticated response proves the atomic owner
+intake record. `ReceivedForReview` never maps to SupplierInvoice.Approved/Posted/Paid. Later
+Finance business decisions need their own separate authentic event/sequence and workflow.
+
+A shared inbound receipt, if implemented in Core, may dedupe authentic connection messages;
+it must not duplicate the Finance intake business entity or act as a generic success setter.
+Do not create both a new generic operations table and another Procurement inbox when the
+same receipt contract can serve the boundary. Decide ownership before migration generation.
+
+### C4. Consumption/obligation ordering: avoid circular fake completeness
+
+Finance intake, posting and external obligations can exist independently of a local P26
+claim. The later real exposure owner must provide complete authoritative history with an
+explicit scope, migration/legacy coverage boundary, watermark, lease and allocation digest;
+it must include pending/unknown handoffs that may already bind the invoice. Starting a new
+Finance intake table empty proves nothing about existing external or legacy payables.
+
+One invoice/handoff/allocation identity must correlate local claims with owner obligations,
+so transfer does not double-count both while also never releasing capacity prematurely.
+An uncertain send keeps the local hold until an authenticated owner proves never bound,
+rejected/compensated or transferred under the agreed protocol. The owner decides accounting
+facts; Procurement preserves operational accepted capacity and its immutable claim history.
+This contract must precede implementing a real `IInvoiceHistoricalExposureOwner` provider.
+A received-for-review inbox alone cannot satisfy that provider's completeness contract.
+
+### C5. Backend and existing UI contracts for the bounded next slice
+
+- Human GET finance-readiness returns invoice/source/version refs, `handoffState`,
+  `ownerState`, separate `paymentState`, `capabilities` and stable blocker code/message pairs.
+  Unknown histories are Unknown/Unavailable, not empty complete arrays or zero balances.
+  Current tenant/company/selected-branch/action filters apply before counts/pagination.
+- Human prepare/retry/recovery uses an actor-owned stable command key and exact current
+  validated source versions. `allowedActions` comes from current server guards. No Paid,
+  Posted, accepted-result or free-text Finance-reference mutation is offered to the browser.
+- Machine owner ingress/lookup needs a separate exact authenticated connection capability
+  and scope adapter. Reuse Core token/security/audit primitives where present; add missing
+  machine identity plumbing explicitly rather than silently bypassing workforce checks.
+- Extend the existing LiveInvoices detail with clear sections for validation, handoff,
+  Finance review and payment evidence. Examples: “Invoice review not complete”, “Finance
+  connection not set up”, “Sent; confirmation pending”, “Received by Finance; review pending”.
+  Preserve the existing table/forms/documents; do not create a second invoice editor.
+- Payments Made becomes a read-only owner projection only when its provider is real. Keep
+  Recurring Bills/Batch Payments/Vendor Credit execution separate and unavailable until their
+  accounting/settlement contracts exist. Do not delete reference UI or present it as live.
+
+### C6. Negative acceptance cases that must precede send/receiver enablement
+
+1. Received or ComparisonPassed invoice, missing/expired/revoked invoice approval, mismatched
+   source/mapping/claim/approval digest, stale worker/branch scope or unreviewed coding cannot
+   prepare a sendable intent; all invoice/handoff/outbox/audit/receipt writes roll back.
+2. Missing Finance owner/account mapping, disabled machine connection, fake issuer/audience,
+   wrong tenant/company/connection, shell-header substitution and human admin token on
+   machine ingress cannot create an owner intake/result or reveal another scope's status.
+3. Same key/same digest retries return exactly one intent/owner intake; same key/new bytes,
+   conflicting owner reference and callback hash/sequence conflict fail or quarantine, never
+   overwrite confirmed history. Concurrent duplicate delivery must not create two intakes.
+4. Worker crash before/after send or owner commit, stale lease completion, timeout and response
+   loss preserve the original payload/key. Do not regenerate an invoice or release its claim
+   merely because no local posting reference exists. Lookup404 while in flight stays uncertain.
+5. ReceivedForReview/HTTP202/JetStream publish/manual reconciliation note cannot set AP
+   Accepted/Posted or Paid. No payroll default accounts or notification fallback can cross it.
+6. Empty new inbox/local rows cannot mark old exposure Complete. Missing legacy coverage,
+   unavailable owner watermark/lease, pending unknown delivery and uncorrelated local/owner
+   allocations block any comparison/claim release dependent on that history.
+7. Invoice corrections/credit/reversal after possible owner binding require the exact owner
+   rejection/compensation protocol; neither status edit nor deletion can erase obligations.
+8. UI handles loading, exact empty/not-connected states, forbidden scope, stale version,
+   uncertain retry/recovery and authentic owner review history without enabling payments.
+   Exact decimal strings and references survive reload without JS-number rounding.
+
+All eight groups require pure/current-authorization tests, mapped API tests and genuine
+isolated PostgreSQL duplicate/race/rollback/lease tests; real owner contract sandbox and Bills
+browser acceptance follow. No implementation or verification was executed by this audit.
