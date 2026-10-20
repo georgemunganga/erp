@@ -201,5 +201,5 @@ sealed partial class Probe
         rules = new[] { new { code = "COMMERCIAL", priority = 0,
             when = new { categoryCodes = Array.Empty<string>(), purchaseTypes = Array.Empty<string>(), branchIds = Array.Empty<Guid>() },
             result = new { budgetReservation = "Required", sourcingMethodCode = (string?)null, minimumQuoteCount = (int?)null,
-                approvalStages = new[] { new { code = "PO-COMMERCIAL", assignee = "ProcurementManager", mode = "One" } } } } } });
+                approvalStages = new[] { new { code = "PO_COMMERCIAL", assignee = "ProcurementManager", mode = "One" } } } } } });
 }

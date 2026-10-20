@@ -183,10 +183,13 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = Rules(orders) });
             if (orders)
             {
+                var orderRules = InitialOrderRules();
+                if (Mightyfin.Erp.Procurement.Application.PolicyRuleValidator.Validate(orderRules).Count != 0)
+                    throw new InvalidOperationException("Synthetic published PO policy must satisfy the production rule validator.");
                 procurement.AddScoped(new ProcurementMethod { Code = "DIRECT", Name = "Synthetic approved direct buy",
                     Status = "Active", ExecutionRoute = "DirectPurchase" });
                 procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_ORDER", PolicyVersionNumber = 1,
-                    State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = InitialOrderRules() });
+                    State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = orderRules });
             }
             await procurement.SaveChangesAsync();
         }

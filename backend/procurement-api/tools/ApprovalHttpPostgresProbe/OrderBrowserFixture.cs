@@ -39,7 +39,7 @@ sealed partial class Probe
             supplierDisplayName = "Browser synthetic order supplier", sourceReservationReference = await SourceReservation(requestId),
             quantity = "1", unitPrice = "100", confirmedGrossAmount = "100", currencyCode = "ZMW",
             buyerPrincipalId = OrderBuyer, financePrincipalId = OrderFinance, approverPrincipalId = OrderManager2,
-            dispatcherPrincipalId = OrderManager1, approvalMode = "One", approvalStage = "PO-COMMERCIAL",
+            dispatcherPrincipalId = OrderManager1, approvalMode = "One", approvalStage = "PO_COMMERCIAL",
             approvedManualFinancePolicyReference = "SYNTHETIC-APPROVED-PO-FINANCE",
             approvedManualDispatchPolicyReference = "SYNTHETIC-APPROVED-DELIVERY", deliveryChannel = "SecureEmail",
         };
