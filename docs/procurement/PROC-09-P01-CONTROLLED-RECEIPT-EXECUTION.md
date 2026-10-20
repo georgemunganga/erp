@@ -1,10 +1,27 @@
 # PROC-09-P01 — Controlled Receipt and Acceptance Evidence
 
-**Status:** Draft specification and read-only audit; no runtime implementation or migration.  
+**Status:** Draft specification with pure domain/application source authored; compile/tests pending. No runtime API, persistence mapping, migration, activation or deployment.
 **Hierarchy:** Procurement → Receiving and Inspection → Receipt and Acceptance → Record / Inspect / Certify / Correct.  
 **Base:** Initial PO source checkpoint `9a2c074`; depends on its reviewed issued-version and authorization concurrency contracts.  
 **Related:** [PROC-09](PROC-09-RECEIVING-INSPECTION-AND-RETURNS.md), [initial PO contract](PROC-08-P01-COMMERCIAL-EXECUTION-CONTRACT.md), [engineering standard](../engineering/GW-ENG-STD-001.md).  
 **Tracking:** [module-connect#31](https://github.com/georgemunganga/module-connect/issues/31); depends on #5 and #30. Receiving implementation remains a separate next milestone.
+
+### Pure source checkpoint (awaiting verification)
+
+The receiving branch adds `ReceivingEvidence.cs`, `ReceivingContracts.cs`, `ControlledReceiving.cs` and `ControlledReceivingTests.cs`. These reuse Procurement records, the shared evidence codec and retained PO worker identities. They are not registered in EF, API routing, permission metadata or the live UI. Source-authored tests have not been run; compilation, independent review and runtime gates remain outstanding.
+
+The first bounded implementation supports these explicit contracts:
+
+- A trusted resolver supplies the current delivered issued version, its identical submission snapshot, complete per-issued-line ledger, published receiving policy, approved classification evidence and current canonical actor/scope. Projection flags and document references are **not proof from a client**. The eventual adapter must authenticate and resolve their authority server-side within the shared transaction/fence.
+- Exact PO/issued/line/request IDs, source-lineage identities, schema, canonical hashes, category, purchase type, currency and UOM bind the source. Classification evidence is a versioned Procurement decision reference, not an invented Item master or inferred stock/asset flag. No inventory or asset registration success is represented.
+- The supported price basis is `SealedNetUnitPriceBeforeTax.NoAdditionalDiscount.v1`: the issued PO line's explicit net unit price, not tax-inclusive gross divided by quantity. Unknown line pricing fields (including extra discounts) or unsupported schema/precision fail closed. Existing source quantity and unit rate use four fractional digits; exact multiplication preserves eight fractional digits without per-fragment money rounding.
+- Each physical receipt line has one final observation and, if required, one final inspection of its entire initially held quantity. The result may qualify only part. Reinspection, revised disposition and conditional acceptance require a later explicit compensating contract. Gross positive certification cannot reuse the same physical quantity after a return/reversal; replacements require a new observation.
+- Service certification is quantity × sealed net rate with a stable unique deliverable and explicit period. Arbitrary milestone percentage/value allocation, period-overlap apportionment, gross prorations and inferred discounts are unsupported. A later service schedule contract may support them; this increment does not silently guess their meaning.
+- The complete line ledger starts at sequence zero. Each new fact proposes the next sequence. Sequence/key collisions and truncation fail validation; the future adapter must serialize/CAS and persist all effects, counters, audit and outbox atomically. This pure sequence check is not a claim of database concurrency protection or retry completion.
+- Negative effects link one exact positive fragment and retain the consumption watermark/digest/reference, owner correction evidence and canonical authority identity/decision. Only verified physical dispatch reduces a business return. Unknown, stale, consumed or posting-bound evidence blocks the unsafe correction; owner state must be explicit Unprocessed or CompensationConfirmed for this exact correction key. Configured owner acknowledgement is required, never inferred from an absent integration.
+- Matching identity remains the existing GoodsReceiptLine or ServiceAcceptance ID. Accepted quantity/value excludes administrative reversals; returned quantity/value includes dispatched returns only. Available is accepted minus returned. Full administrative void is separate from full physical return, avoiding double subtraction.
+
+Remaining gates: approved policy/classification resolver and storage, final-row append-only mapping and composite FKs/uniqueness, commands and current permission/scope checks, real consumption/owner adapters, transaction/replay tests, migration rehearsal, and live UI/Playwright. No production completion is claimed.
 
 ### Audited source evidence (read-only)
 
