@@ -55,6 +55,19 @@ public sealed class InvoiceMatchingPersistenceTests
         }
     }
     [Fact]
+    public void Invoice_issued_order_key_keeps_existing_receiving_principal_constraint_name()
+    {
+        using var db = Context();
+        var issued = db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(PurchaseOrderIssuedVersion))!;
+        var retained = issued.GetKeys().Single(x => x.Properties.Select(p => p.Name)
+            .SequenceEqual(new[] { "TenantId", "LegalEntityId", "Id", "PurchaseOrderId", "SubmissionId" }));
+        var added = issued.GetKeys().Single(x => x.Properties.Select(p => p.Name)
+            .SequenceEqual(new[] { "TenantId", "LegalEntityId", "Id", "PurchaseOrderId" }));
+        Assert.Equal("AK_purchase_order_issued_versions_tenant_id_legal_entity_id_id~", retained.GetName());
+        Assert.Equal("ak_invoice_issued_order_binding", added.GetName());
+    }
+
+    [Fact]
     public void Current_result_check_requires_nullable_evidence_explicitly_without_changing_legacy_columns()
     {
         using var db=Context(); var entity=db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(InvoiceMatchResult))!;

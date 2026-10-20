@@ -12,6 +12,11 @@ public sealed partial class ProcurementDbContext
 
     private void ConfigureInvoiceMatchingExecution(ModelBuilder model)
     {
+        // A short explicit name avoids renaming P24/P25's retained five-column key
+        // when PostgreSQL's identifier limit truncates the new four-column key.
+        model.Entity<PurchaseOrderIssuedVersion>()
+            .HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId })
+            .HasName("ak_invoice_issued_order_binding");
         ConfigureBase<InvoiceMatchMappingVersion>(model, "invoice_match_mapping_versions");
         ConfigureBase<InvoiceMatchAllocation>(model, "invoice_match_allocations");
         ConfigureBase<InvoiceMatchExposureState>(model, "invoice_match_exposure_states");
