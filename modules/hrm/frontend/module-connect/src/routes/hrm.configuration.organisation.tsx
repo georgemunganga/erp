@@ -3,7 +3,7 @@ import type { OrganisationEditorKind } from "@/modules/core/organisation-editing
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { CalendarClock, History, Info, Lock, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,7 @@ import { StatusTimeline } from "@/platform/components/StatusTimeline";
 import type { TimelineEvent } from "@/mock/types";
 import { realApi, useApi } from "@/platform/use-api";
 import { useAuth } from "@/platform/auth";
+import { useApp } from "@/platform/app-context";
 import { canManageOrganisation, canReadOrganisationHeadcounts, optionalOrganisationHeadcounts, hasCompleteOrganisationHeadcounts } from "@/platform/entry-route";
 import { feedback } from "@/platform/feedback";
 import { ConfirmDialog } from "@/platform/components/ConfirmDialog";
@@ -758,8 +759,16 @@ async function loadOrganisation(roles: string[]) {
 }
 
 export function OrganisationConfig() {
-  const roles = useAuth().user?.roles ?? [];
-  const state = useApi(() => loadOrganisation(roles), [roles.join("|")]);
+  const auth = useAuth();
+  const { entityId, branch } = useApp();
+  const roles = auth.user?.roles ?? [];
+  // Auth/session replacement includes any tenant-context change; no credentials enter keys or storage.
+  const editorContext = useMemo(() => ({}), [auth.user, auth.session, auth.authenticated, entityId, branch, roles.join("|")]);
+  const activeEditorContext = useRef(editorContext);
+  activeEditorContext.current = editorContext;
+  const loaded = useApi(async () => ({ ...(await loadOrganisation(roles)), editorContext }), [editorContext]);
+  // Hide prior-context records immediately, before the data-hook effect starts the next request.
+  const state = { ...loaded, loading: loaded.loading || (loaded.data !== null && loaded.data.editorContext !== editorContext) };
   const canAct = canManageOrganisation(roles);
   // The capped workforce endpoint is not an authoritative organization-wide total.
   const workforceCountsAvailable = !USE_REAL || (canReadOrganisationHeadcounts(roles) && state.data !== null && "workforceCountsAvailable" in state.data && state.data.workforceCountsAvailable === true);
@@ -767,7 +776,8 @@ export function OrganisationConfig() {
   const [drafts, setDrafts] = useState<DraftClosure[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [newLocation, setNewLocation] = useState(false);
-  const [editor, setEditor] = useState<{ kind: OrganisationEditorKind; initial: Record<string, unknown> | null } | null>(null);
+  const [editor, setEditor] = useState<{ kind: OrganisationEditorKind; initial: Record<string, unknown> | null; context: object } | null>(null);
+  useEffect(() => { setEditor(null); setNewLocation(false); setDrafts([]); }, [editorContext]);
   const refresh = state.reload;
 
   const columns: ColumnDef<OrgUnitWithEntity>[] = [
@@ -957,20 +967,20 @@ export function OrganisationConfig() {
 
             return (
               <div className="space-y-6">
-                {USE_REAL && editor ? <OrganisationMasterDialog
+                {USE_REAL && editor && editor.context === editorContext ? <OrganisationMasterDialog
                   key={`${editor.kind}:${String(editor.initial?.id ?? "new")}`}
                   kind={editor.kind} initial={editor.initial} companies={data.entities}
-                  canAct={canAct} onClose={() => setEditor(null)}
-                  onReconcile={() => { setEditor(null); refresh(); }}
-                  onSaved={() => { setEditor(null); refresh(); feedback.saved("Organization settings saved."); }}
+                  canAct={canAct} onClose={() => { if (editor.context === activeEditorContext.current) setEditor(null); }}
+                  onReconcile={() => { if (editor.context !== activeEditorContext.current) return; setEditor(null); refresh(); }}
+                  onSaved={() => { if (editor.context !== activeEditorContext.current) return; setEditor(null); refresh(); feedback.saved("Organization settings saved."); }}
                 /> : null}
                 <DetailSection
                   id="profile"
                   title="Legal entities"
                   description="Who employs people, under which registration and in which currency. An entity is never deleted once it has employed anyone."
                 >
-                  {USE_REAL ? <div className="mb-3"><Button variant="outline" disabled={!canAct} onClick={() => setEditor({ kind: "company", initial: null })}><Plus className="size-4" aria-hidden /> Add company</Button></div> : null}
-                  <EntityTable rows={data.entities} asAt={asAt} canAct={canAct} workforceCountsAvailable={workforceCountsAvailable} onEdit={(initial) => setEditor({ kind: "company", initial })} />
+                  {USE_REAL ? <div className="mb-3"><Button variant="outline" disabled={!canAct} onClick={() => setEditor({ kind: "company", initial: null, context: editorContext })}><Plus className="size-4" aria-hidden /> Add company</Button></div> : null}
+                  <EntityTable rows={data.entities} asAt={asAt} canAct={canAct} workforceCountsAvailable={workforceCountsAvailable} onEdit={(initial) => setEditor({ kind: "company", initial, context: editorContext })} />
                 </DetailSection>
 
                 <DetailSection
@@ -984,6 +994,7 @@ export function OrganisationConfig() {
                     onOpenChange={setNewLocation}
                     entities={data.entities}
                     onSaved={() => {
+                      if (data.editorContext !== activeEditorContext.current) return;
                       refresh();
                       feedback.saved("Location created. It is now available for placement.");
                     }}
@@ -995,7 +1006,7 @@ export function OrganisationConfig() {
                   title="Departments and cost centres"
                   description={USE_REAL ? "Departments and their company and cost centre references." : "The reporting and costing spine. The In use column shows what still points at each unit, which decides whether it can be removed at all."}
                 >
-                  {USE_REAL ? <div className="mb-3"><Button variant="outline" disabled={!canAct || data.entities.length === 0} onClick={() => setEditor({ kind: "department", initial: null })}><Plus className="size-4" aria-hidden /> Add department</Button></div> : null}
+                  {USE_REAL ? <div className="mb-3"><Button variant="outline" disabled={!canAct || data.entities.length === 0} onClick={() => setEditor({ kind: "department", initial: null, context: editorContext })}><Plus className="size-4" aria-hidden /> Add department</Button></div> : null}
                   <ListPage
                     rows={data.units}
                     columns={columns}
@@ -1035,7 +1046,7 @@ export function OrganisationConfig() {
                       { label: "Add to structure review", onSelect: () => undefined },
                     ]}
                     rowHref={(u) => <div className="flex items-center gap-2">
-                      {USE_REAL && canAct && (u as OrgUnitWithEntity)._source && !u.effectiveTo && (u as OrgUnitWithEntity)._source?.status !== "closed" ? <Button variant="ghost" size="sm" onClick={() => setEditor({ kind: "department", initial: (u as OrgUnitWithEntity)._source! })}>Edit<span className="sr-only"> {u.name}</span></Button> : null}
+                      {USE_REAL && canAct && (u as OrgUnitWithEntity)._source && !u.effectiveTo && (u as OrgUnitWithEntity)._source?.status !== "closed" ? <Button variant="ghost" size="sm" onClick={() => setEditor({ kind: "department", initial: (u as OrgUnitWithEntity)._source!, context: editorContext })}>Edit<span className="sr-only"> {u.name}</span></Button> : null}
                       {!USE_REAL && canDeleteUnit(u) ? (
                         <Button
                           variant="ghost"

@@ -36,7 +36,8 @@ export function OrganisationMasterDialog({ kind, initial, companies, canAct, onC
   const update = (field: keyof OrganisationEditorFields, value: string) => setFields((current) => ({ ...current, [field]: value }));
   const noun = kind === "company" ? "company" : "department";
   const locked = busy || uncertain || !canAct;
-  return <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
+  const close = () => { if (!busy) { if (uncertain) onReconcile(); else onClose(); } };
+  return <Dialog open onOpenChange={(open) => { if (!open) close(); }}>
     <DialogContent className="max-w-lg">
       <DialogHeader>
         <DialogTitle>{editing ? "Edit" : "New"} {noun}</DialogTitle>
@@ -83,7 +84,7 @@ export function OrganisationMasterDialog({ kind, initial, companies, canAct, onC
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         {!canAct ? <p role="alert" className="text-sm text-muted-foreground">You do not have permission to save organization settings.</p> : null}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" disabled={busy} onClick={uncertain ? onReconcile : onClose}>{uncertain ? "Close and refresh" : "Cancel"}</Button>
+          <Button type="button" variant="outline" disabled={busy} onClick={close}>{uncertain ? "Close and refresh" : "Cancel"}</Button>
           <Button type="submit" disabled={locked}>{busy ? "Saving…" : "Save"}</Button>
         </div>
       </form>
