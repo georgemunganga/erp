@@ -2006,11 +2006,15 @@ public sealed class ProcurementRequestHttpTests
         var input = new InvoiceIntakeInput(supplierId, null, "BRANCH-INV-001",
             DateOnly.FromDateTime(DateTime.UtcNow), null, null,
             [new InvoiceIntakeLineInput("Office supplies", 1, 100, 0, null, null)]);
-        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "ap_processor");
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         var assignedBranch = await fixture.ConfineBuyerAndMoveOrderToOtherBranch(orderId);
-        await fixture.MoveInvoiceToOrderBranch(id, orderId);
+        var invoiceBranch = await fixture.OrderBranch(orderId);
+        // Capture the original in its real branch; never rewrite a captured invoice to arrange scope.
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Reviewer, input,
+            "ap_processor", selectedLocation: invoiceBranch);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        Assert.Equal(invoiceBranch, original.GetProperty("branchRef").GetGuid());
 
         var list = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor");
         Assert.Equal(0, (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
@@ -2493,13 +2497,14 @@ public sealed class ProcurementRequestHttpTests
     }
 
     private static Task<HttpResponseMessage> SendJson<T>(HttpClient client, HttpMethod method, string path,
-        Guid user, T body, string? role = null, Guid? company = null, string? actions = null)
+        Guid user, T body, string? role = null, Guid? company = null, string? actions = null, Guid? selectedLocation = null)
     {
         var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         request.Headers.Add("X-Test-User", user.ToString());
         if (company.HasValue) request.Headers.Add("X-Shell-Entity", company.Value.ToString());
         if (role is not null) request.Headers.Add("X-Test-Role", role);
         if (actions is not null) request.Headers.Add("X-Test-Actions", actions);
+        if (selectedLocation.HasValue) request.Headers.Add("X-Shell-Location", selectedLocation.Value.ToString());
         return client.SendAsync(request);
     }
 
@@ -2533,7 +2538,7 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, download.StatusCode);
         Assert.Equal("%PDF-1.7 evidence", await download.Content.ReadAsStringAsync());
         Assert.Equal("no-store", download.Headers.CacheControl?.ToString());
-        await fixture.MoveInvoiceOutsideOtherBranch(id);
+        await fixture.ConfineInvoiceReaderElsewhere(fixture.Other);
         Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path + $"/{version}/download", fixture.Other, role: "ap_processor")).StatusCode);
         fixture.FailDocumentScan(true);
@@ -2640,31 +2645,13 @@ public sealed class ProcurementRequestHttpTests
 
         public void SetDocumentReadiness(bool ready) => ((DocumentTestReadiness)app.Services.GetRequiredService<IDocumentSchemaReadiness>()).Ready = ready;
         public void FailDocumentScan(bool fail) => app.Services.GetRequiredService<DocumentTestScanner>().Fail = fail;
-        public async Task MoveInvoiceOutsideOtherBranch(Guid id)
-        {
-            using var serviceScope = app.Services.CreateScope();
-            var core = serviceScope.ServiceProvider.GetRequiredService<HrmDbContext>();
-            var home = await core.WorkLocations.SingleAsync(x => x.LegalEntityId == company);
-            var remote = new WorkLocation { Code = "A2", Name = "Other branch", LegalEntityId = company };
-            core.WorkLocations.Add(remote);
-            core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = Other, LocationId = home.Id });
-            await core.SaveChangesAsync();
-            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
-                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
-            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            (await db.SupplierInvoices.SingleAsync(x => x.Id == id)).BranchRef = remote.Id;
-            await db.SaveChangesAsync();
-        }
-
-        public async Task MoveInvoiceToOrderBranch(Guid invoiceId, Guid orderId)
+        public async Task<Guid> OrderBranch(Guid orderId)
         {
             using var serviceScope = app.Services.CreateScope();
             serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
                 .Set("tenant-a", company, Other.ToString(), null, null, false, "test");
             var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            var invoice = await db.SupplierInvoices.SingleAsync(x => x.Id == invoiceId);
-            invoice.BranchRef = (await db.PurchaseOrders.SingleAsync(x => x.Id == orderId)).BranchRef;
-            await db.SaveChangesAsync();
+            return (await db.PurchaseOrders.AsNoTracking().SingleAsync(x => x.Id == orderId)).BranchRef!.Value;
         }
 
         public async Task<int> DecisionCount(Guid supplierId)
