@@ -153,8 +153,9 @@ It retains a single-site rejection with no saved policy and grants no extra site
 to receiving workers. A distinct source reviewer found no business-guard
 relaxation. Its initial rebuild caught a test-only incorrect branch-assignment namespace;
 `ec52410` corrects that reference to the existing shared application type. The
-first failed build log is retained; corrected rebuild and fresh full receiving
-retry are pending at this checkpoint.
+first failed build log is retained. The corrected tool rebuild passed with zero
+warnings/errors (`p25-cross-site-probe-build-corrected.log`); a fresh full
+receiving retry is running under protected `20261020_151428` evidence.
 
 Receiving UI now has a separate executed adapter checkpoint documented in
 `PROC-RECEIVING-UI-PARITY-AUDIT.md`: 12 focused unit tests passed; TypeScript and
