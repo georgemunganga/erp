@@ -32,6 +32,7 @@ sealed partial class Probe
             && original.CheckedAt.Ticks % 10 == 0,
             "Actual capture/reload did not retain canonical worker/hash and PostgreSQL microsecond timestamp.");
         var originalBytes = FinanceSnapshotCodec.Encode(original, 1);
+        await VerifyFinanceCheckerBudgetChecks(original.Id);
         object Body(string reference) => new { requestVersion = version, financeCheckRef = reference,
             status = original.Status, checkedAmount = original.CheckedAmount, currencyCode = original.CurrencyCode,
             evidenceRef = original.EvidenceRef, decisionReason = original.DecisionReason,
@@ -120,10 +121,70 @@ sealed partial class Probe
         Console.WriteLine("PASS Finance checker actual HTTP/Postgres capture/reload/microseconds/exact-ref replay; current worker rebind409, grant revocation403, unbound legacy409; no denied/replay effects. External Finance completeness is not claimed.");
     }
 
+    private async Task VerifyFinanceCheckerBudgetChecks(Guid actualSnapshotId)
+    {
+        var cases = new (string Label, string Set)[]
+        {
+            ("v1-null-worker", "checked_by_worker_id=NULL"),
+            ("v1-zero-worker", "checked_by_worker_id='00000000-0000-0000-0000-000000000000'::uuid"),
+            ("v1-null-hash", "checker_identity_sha256=NULL"),
+            ("v1-uppercase-hash", "checker_identity_sha256=repeat('A',64)"),
+            ("v1-short-hash", "checker_identity_sha256=repeat('a',63)"),
+            ("v1-invalid-hash", "checker_identity_sha256=repeat('z',64)"),
+            ("v0-partial-metadata", "checker_identity_schema_version=0"),
+            ("unsupported-version", "checker_identity_schema_version=2"),
+        };
+        foreach (var item in cases)
+            await DenyFinanceIdentitySql("budget_check_snapshots", actualSnapshotId, item.Set,
+                "ck_budget_checker_identity", item.Label);
+        Console.WriteLine("PASS P27 raw required-NULL/zero/hash/version CHECK denials on actual HTTP-captured bound1 row; each owner-only attempted mutation rolled back.");
+    }
+
+    public async Task VerifyFinanceCheckerSubmissionCheck()
+    {
+        Guid? actualSubmission;
+        await using (var owner = new NpgsqlConnection(databaseConnection))
+        {
+            await owner.OpenAsync();
+            await using var select = new NpgsqlCommand("SELECT id FROM procurement.purchase_request_approval_submissions WHERE snapshot_schema_version=2 ORDER BY id LIMIT 1", owner);
+            var result = await select.ExecuteScalarAsync();
+            actualSubmission = result is Guid id ? id : null;
+        }
+        if (actualSubmission is null)
+        {
+            Console.WriteLine("NOT EXERCISED P27 submission discriminator CHECK: this selected probe mode produced no genuine schema2 submission; no approval evidence fabricated.");
+            return;
+        }
+        await DenyFinanceIdentitySql("purchase_request_approval_submissions", actualSubmission.Value,
+            "finance_identity_schema_version=2", "ck_pr_finance_identity_version", "submission-unsupported-discriminator");
+        Console.WriteLine("PASS P27 raw submission unsupported-discriminator CHECK on genuine retained schema2 submission; rollback preserved exact history.");
+    }
+
+    private async Task DenyFinanceIdentitySql(string table, Guid target, string set, string constraint, string label)
+    {
+        // All identifiers/SET clauses are closed constants above. Only an actual retained row ID
+        // is parameterized. This bootstrap-only negative never changes runtime grants or authority.
+        var before = await FinanceIdentityFootprint();
+        await using var owner = new NpgsqlConnection(databaseConnection); await owner.OpenAsync();
+        await using var transaction = await owner.BeginTransactionAsync();
+        var rejected = false;
+        try
+        {
+            await using var update = new NpgsqlCommand($"UPDATE procurement.{table} SET {set} WHERE id=@id", owner, transaction);
+            update.Parameters.AddWithValue("id", target);
+            await update.ExecuteNonQueryAsync();
+        }
+        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.CheckViolation
+            && error.ConstraintName == constraint) { rejected = true; }
+        finally { await transaction.RollbackAsync(); }
+        Require(rejected, "Expected exact PostgreSQL23514/" + constraint + " for " + label);
+        Require(before == await FinanceIdentityFootprint(), "Raw CHECK negative changed retained data/evidence after rollback: " + label);
+    }
+
     private async Task<string> FinanceIdentityFootprint()
     {
         await using var owner = new NpgsqlConnection(databaseConnection); await owner.OpenAsync();
-        await using var query = new NpgsqlCommand("SELECT jsonb_build_object('requests',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.purchase_requests r),'finance',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.budget_check_snapshots r),'audit',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.audit_events r),'outbox',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.outbox_events r))::text", owner);
+        await using var query = new NpgsqlCommand("SELECT jsonb_build_object('requests',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.purchase_requests r),'finance',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.budget_check_snapshots r),'submissions',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.purchase_request_approval_submissions r),'audit',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.audit_events r),'outbox',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM procurement.outbox_events r))::text", owner);
         return (string)(await query.ExecuteScalarAsync())!;
     }
 }
