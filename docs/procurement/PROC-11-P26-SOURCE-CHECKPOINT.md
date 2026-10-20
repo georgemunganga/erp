@@ -222,3 +222,11 @@ No SDK/build/test, database, migration generation or production enable occurred 
 consolidation. Root's reported central P25 test results belong to its tested checkpoint; the
 combined P26 candidate still needs its own gates. The sourceVersion read follow-up and central
 P25 schema snapshot will be merged separately when available.
+
+The later sourceVersion read correction `b43e9b0` is now retained via merge `131802a`.
+Service normal/purpose detail exposes the verified existing shared receiving state's Version
+for a still-unbound pending certificate, or zero for an unsaved preview. It does not fabricate
+a pending row's state/effect binding. Its actual-route probe source covers two partial service
+certificates consuming one issued line with the second draft's server-provided concurrency
+token. This changes read readiness only; P26 continues to bind accepted effect/state versions
+and no pending draft can become acceptance authority. No execution gate was run for this merge.
