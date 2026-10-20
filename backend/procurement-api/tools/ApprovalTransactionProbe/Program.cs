@@ -176,7 +176,7 @@ void AddRecords(ProcurementDbContext proc, ApprovalDbContext core, Guid id)
     proc.PurchaseRequests.Add(new PurchaseRequest
     {
         Id = id, TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
-        Number = "REHEARSAL-" + id.ToString("N"), RequesterWorkerId = Guid.NewGuid(),
+        Number = "TEST-" + id.ToString("N"), RequesterWorkerId = Guid.NewGuid(),
         CurrencyCode = "ZMW", Purpose = "Synthetic atomic transaction evidence", CreatedBy = scope.SubjectId,
     });
     var approval = new ApprovalCase
