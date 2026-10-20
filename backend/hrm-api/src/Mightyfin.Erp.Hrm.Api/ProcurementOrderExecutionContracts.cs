@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using Mightyfin.Erp.Procurement.Application;
+
 namespace Mightyfin.Erp.Hrm.Api;
 
 public sealed record OrderSourceSelection(int DraftLineIndex, Guid PurchaseRequestId,
@@ -8,7 +11,8 @@ public sealed record OrderSourceDraftInput(long ExpectedOrderVersion, string Rea
 public sealed record OrderDecisionInput(string Action, string? Reason, long ExpectedOrderVersion,
     long ExpectedCaseVersion, long ExpectedAssignmentVersion);
 public sealed record OrderFinanceInput(long ExpectedOrderVersion, int CommercialRevision,
-    string CommitmentReference, string EvidenceReference, string CurrencyCode, decimal ConfirmedGrossAmount,
+    string CommitmentReference, string EvidenceReference, string CurrencyCode,
+    [property: JsonConverter(typeof(CommercialGrossDecimalJsonConverter))] decimal ConfirmedGrossAmount,
     IReadOnlyList<string> SourceReservationReferences, DateTimeOffset ConfirmedAt,
     string? ReplacesCommitmentReference = null);
 public sealed record OrderDeliveryInput(long ExpectedOrderVersion, Guid IssuedVersionId,
@@ -16,6 +20,6 @@ public sealed record OrderDeliveryInput(long ExpectedOrderVersion, Guid IssuedVe
 public sealed record OrderExecutionReply(Guid Id, string Number, string Status, long Version,
     int Revision, string? ApprovalInstanceRef, string NextStep);
 public sealed record OrderFinanceResolutionInput(long ExpectedOrderVersion, string EvidenceReference,
-    decimal ReleasedGrossAmount, string CurrencyCode, IReadOnlyList<string> RestoredReservationReferences,
+    [property: JsonConverter(typeof(CommercialGrossDecimalJsonConverter))] decimal ReleasedGrossAmount, string CurrencyCode, IReadOnlyList<string> RestoredReservationReferences,
     string Reason, DateTimeOffset ConfirmedAt);
 public sealed record OrderSourceCancelInput(long ExpectedOrderVersion, string Reason);

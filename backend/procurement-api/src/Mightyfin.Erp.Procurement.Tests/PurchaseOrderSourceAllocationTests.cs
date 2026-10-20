@@ -94,6 +94,21 @@ public sealed class PurchaseOrderSourceAllocationTests
     }
 
     [Fact]
+    public void Excess_tax_precision_is_rejected_before_reserving_or_resizing_source_counters()
+    {
+        var f = new Fixture(); f.PoLine.TaxAmount = 12.34567m;
+        Assert.Throws<InvalidOperationException>(() => f.Reserve(1));
+        Assert.Equal(0, f.Line.AllocatedQuantity); Assert.Empty(f.Ledger);
+        f.PoLine.TaxAmount = 12.3456m;
+        var allocation = f.Reserve(1);
+        var before = (f.Line.AllocatedQuantity, allocation.Quantity, allocation.EstimatedValue, f.PoLine.Quantity);
+        f.PoLine.TaxAmount = 12.34567m;
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.ResizeReservation(
+            f.Source, f.Order, f.PoLine, allocation, 2, "Exact tax required", f.Now.AddMinutes(2)));
+        Assert.Equal(before, (f.Line.AllocatedQuantity, allocation.Quantity, allocation.EstimatedValue, f.PoLine.Quantity));
+    }
+
+    [Fact]
     public void Source_unit_value_is_retained_separately_from_proposed_PO_value()
     {
         var f = new Fixture(); f.PoLine.UnitPrice = 20;
