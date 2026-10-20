@@ -46,5 +46,35 @@ The reviewer found no blocking source defect. Designer and snapshot model bodies
 agree; no P26 invoice matching records are included. Reviewed migration SHA-256:
 `0a361aa9db2ee0f8f1c9e1554411b1c9e05c11ee543b0036e5eb839424a75ad1`.
 
-Final rebuild/model-drift checks, generated SQL, real PostgreSQL constraint and
-upgrade/recovery tests, receiving HTTP probes and browser tests remain required.
+At that source-review checkpoint, final rebuild/model-drift checks, generated SQL,
+PostgreSQL upgrade/recovery tests, HTTP probes and browser tests remained required.
+
+## Executed migration/recovery gates
+
+- Final persistence regressions: **8 passed**, including required non-null sequence
+  metadata. EF reports no model changes after the last migration.
+- Full idempotent Up and unused-only Down SQL generated successfully. Final shared
+  host/probe build passed with 0 errors and 13 existing nullable warnings.
+- Fresh private PostgreSQL installation applied twice: **22 migration rows**, two
+  new receiving tables, no duplicate migration.
+- Entirely unused extension Down/Up passed (history21 then22).
+- Restored P24 copy populated with eleven synthetic legacy records: Up twice,
+  protected unused Down and re-Up twice passed. All original fields across the
+  **71 original tables / 11 rows** were preserved after each step. Separate SQL
+  assertions verified all eleven old row shapes and unverified legacy defaults;
+  no new authority, state, acceptance effects or notes backfill was fabricated.
+- Configured receiving policy and each generic receiving audit record type
+  correctly denied Down through the evidence-preservation guard. Each rejected
+  transaction retained all22 migration rows/two new tables and no fixture rows.
+- Legacy service amount `1.00000001` and old-range overflow correctly denied
+  narrowing. Exact old maximum and zero permitted an otherwise unused Down inside
+  rollback-only transactions. Original amount277.7775 and P25 schema survived all
+  four probes unchanged.
+
+Protected logs/checkpoints are under
+`/home/amizo/erp-backups/procurement-receiving-postgres-20261020/20261020_133953/`.
+The first actual receiving HTTP run refused an incorrectly named private runtime
+role during preflight, before application bootstrap. That failure is retained;
+the unused role was renamed to the required guarded prefix and the probe restarted.
+No product guard was relaxed. Actual receiving workflow/constraint HTTP results
+and receiving browser integration are still pending at this checkpoint.
