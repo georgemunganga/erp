@@ -28,15 +28,15 @@ public sealed partial class ProcurementDbContext
         Link<ReceivingSourceState, PolicyVersion>(model, nameof(ReceivingSourceState.ClassificationPolicyVersionId));
         state.ToTable(t => t.HasCheckConstraint("ck_receiving_source_state", "execution_version = 1 AND sequence >= 0 AND current_accepted_quantity >= 0 AND current_accepted_net_amount >= 0 AND source_sha256 ~ '^[a-f0-9]{64}$'"));
         var header = model.Entity<GoodsReceipt>();
-        header.Property(x => x.ExecutionVersion).HasDefaultValue(0); header.Property(x => x.IssuedBindingId).HasDefaultValue(Guid.Empty);
+        header.Property(x => x.ExecutionVersion).HasDefaultValue(0); header.Property(x => x.IssuedBindingId).HasDefaultValue(Guid.Empty).ValueGeneratedNever();
         header.Property(x => x.Notes).HasMaxLength(2000);
         header.HasOne<PurchaseOrderIssuedVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.IssuedVersionId, x.PurchaseOrderId, x.SubmissionId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.SubmissionId }).OnDelete(DeleteBehavior.Restrict);
         header.ToTable(t => t.HasCheckConstraint("ck_receiving_header_execution", "execution_version = 0 OR (execution_version = 1 AND issued_version_id IS NOT NULL AND submission_id IS NOT NULL AND issued_binding_id = issued_version_id AND issued_binding_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (recorded_at IS NULL OR (receiver_worker_id IS NOT NULL AND receiver_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)))"));
         var line = model.Entity<GoodsReceiptLine>();
         line.Property(x => x.ExecutionVersion).HasDefaultValue(0);
-        line.Property(x => x.IssuedBindingId).HasDefaultValue(Guid.Empty); line.Property(x => x.SourceStateBindingId).HasDefaultValue(Guid.Empty);
-        line.Property(x => x.PhysicalBindingId).HasDefaultValue(Guid.Empty); line.Property(x => x.InitiallyRejectedQuantity).HasPrecision(18, 4);
+        line.Property(x => x.IssuedBindingId).HasDefaultValue(Guid.Empty).ValueGeneratedNever(); line.Property(x => x.SourceStateBindingId).HasDefaultValue(Guid.Empty).ValueGeneratedNever();
+        line.Property(x => x.PhysicalBindingId).HasDefaultValue(Guid.Empty).ValueGeneratedNever(); line.Property(x => x.InitiallyRejectedQuantity).HasPrecision(18, 4);
         line.Property(x => x.PhysicalEvidenceRef).HasMaxLength(500);
         line.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PhysicalObservationId }).IsUnique().HasFilter("physical_observation_id IS NOT NULL");
         line.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ReceivingSourceStateId, x.PhysicalSequence }).IsUnique().HasFilter("physical_sequence IS NOT NULL");
@@ -47,18 +47,22 @@ public sealed partial class ProcurementDbContext
         Link<GoodsReceiptLine, PolicyVersion>(model, nameof(GoodsReceiptLine.PhysicalPolicyVersionId));
         line.ToTable(t => t.HasCheckConstraint("ck_receiving_line_execution", "execution_version = 0 OR (execution_version = 1 AND source_purchase_order_id IS NOT NULL AND issued_binding_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (receiving_source_state_id IS NULL OR source_state_binding_id = receiving_source_state_id) AND (physical_observation_id IS NULL OR (receiving_source_state_id IS NOT NULL AND physical_binding_id = physical_observation_id AND physical_sequence IS NOT NULL AND physical_sequence > 0 AND physical_policy_version_id IS NOT NULL AND physical_effect_key IS NOT NULL AND physical_recorded_at IS NOT NULL AND received_quantity > 0 AND initially_rejected_quantity >= 0 AND initially_rejected_quantity <= received_quantity)))"));
         var inspection = model.Entity<ReceiptInspection>();
-        inspection.Property(x => x.PhysicalBindingId).HasDefaultValue(Guid.Empty); inspection.Property(x => x.ExecutionVersion).HasDefaultValue(0); inspection.Property(x => x.SourceStateBindingId).HasDefaultValue(Guid.Empty);
+        inspection.Property(x => x.PhysicalBindingId).HasDefaultValue(Guid.Empty).ValueGeneratedNever(); inspection.Property(x => x.ExecutionVersion).HasDefaultValue(0); inspection.Property(x => x.SourceStateBindingId).HasDefaultValue(Guid.Empty).ValueGeneratedNever();
         inspection.Property(x => x.QualifiedQuantity).HasPrecision(18, 4); inspection.Property(x => x.EvidenceRef).HasMaxLength(500);
         inspection.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PhysicalObservationId }).IsUnique().HasFilter("physical_observation_id IS NOT NULL");
         inspection.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ReceivingSourceStateId, x.LedgerSequence }).IsUnique().HasFilter("ledger_sequence IS NOT NULL");
-        inspection.HasOne<GoodsReceiptLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GoodsReceiptLineId, x.ReceivingSourceStateId, x.PhysicalObservationId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourceStateBindingId, x.PhysicalBindingId }).OnDelete(DeleteBehavior.Restrict);
+        // EF keys are immutable; draft-to-fact binding fields must remain ordinary properties.
+        // The reviewed SQL overlay retains the full exact ownership FK at transaction commit.
+        line.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourceStateBindingId, x.PhysicalBindingId })
+            .IsUnique().HasDatabaseName("ux_receiving_goods_physical_binding");
+        inspection.HasOne<GoodsReceiptLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GoodsReceiptLineId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         Link<ReceiptInspection, PolicyVersion>(model, nameof(ReceiptInspection.PolicyVersionId));
         inspection.ToTable(t => t.HasCheckConstraint("ck_receiving_inspection_execution", "execution_version = 0 OR (execution_version = 1 AND receiving_source_state_id IS NOT NULL AND physical_observation_id IS NOT NULL AND physical_binding_id = physical_observation_id AND source_state_binding_id = receiving_source_state_id AND inspector_worker_id IS NOT NULL AND policy_version_id IS NOT NULL AND ledger_sequence IS NOT NULL AND ledger_sequence > 0 AND effect_key IS NOT NULL AND inspected_at IS NOT NULL AND qualified_quantity >= 0 AND qualified_quantity <= inspected_quantity)"));
         var service = model.Entity<ServiceAcceptance>();
         service.Property(x => x.Notes).HasMaxLength(2000);
-        service.Property(x => x.ExecutionVersion).HasDefaultValue(0); service.Property(x => x.SourceStateBindingId).HasDefaultValue(Guid.Empty);
-        service.Property(x => x.IssuedBindingId).HasDefaultValue(Guid.Empty); service.Property(x => x.EvidenceRef).HasMaxLength(500);
+        service.Property(x => x.ExecutionVersion).HasDefaultValue(0); service.Property(x => x.SourceStateBindingId).HasDefaultValue(Guid.Empty).ValueGeneratedNever();
+        service.Property(x => x.IssuedBindingId).HasDefaultValue(Guid.Empty).ValueGeneratedNever(); service.Property(x => x.EvidenceRef).HasMaxLength(500);
         service.Property(x => x.AcceptedAmount).HasPrecision(38, 8); service.Property(x => x.CurrentAcceptedQuantity).HasPrecision(18, 4);
         service.Property(x => x.CurrentAcceptedNetAmount).HasPrecision(38, 8);
         service.HasOne<ReceivingSourceState>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReceivingSourceStateId, x.SourcePurchaseOrderId, x.IssuedBindingId, x.PurchaseOrderLineId })
@@ -77,10 +81,12 @@ public sealed partial class ProcurementDbContext
         effect.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ReceivingSourceStateId, x.LedgerSequence }).IsUnique();
         Link<ReceivingAcceptanceEffect, ReceivingSourceState>(model, nameof(ReceivingAcceptanceEffect.ReceivingSourceStateId));
         Link<ReceivingAcceptanceEffect, PolicyVersion>(model, nameof(ReceivingAcceptanceEffect.ReceivingPolicyVersionId));
-        effect.HasOne<GoodsReceiptLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GoodsReceiptLineId, x.ReceivingSourceStateId, x.PhysicalObservationId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourceStateBindingId, x.PhysicalBindingId }).OnDelete(DeleteBehavior.Restrict);
-        effect.HasOne<ServiceAcceptance>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ServiceAcceptanceId, x.ReceivingSourceStateId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourceStateBindingId }).OnDelete(DeleteBehavior.Restrict);
+        effect.HasOne<GoodsReceiptLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GoodsReceiptLineId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        service.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourceStateBindingId })
+            .IsUnique().HasDatabaseName("ux_receiving_service_state_binding");
+        effect.HasOne<ServiceAcceptance>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ServiceAcceptanceId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         effect.HasOne<ReceiptInspection>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.InspectionEvidenceId, x.GoodsReceiptLineId, x.ReceivingSourceStateId, x.PhysicalObservationId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.GoodsReceiptLineId, x.SourceStateBindingId, x.PhysicalBindingId }).OnDelete(DeleteBehavior.Restrict);
         effect.ToTable(t => t.HasCheckConstraint("ck_receiving_positive_effect", "kind = 1 AND quantity_delta > 0 AND net_amount_delta >= 0 AND ledger_sequence > 0 AND original_acceptance_effect_id IS NULL AND correction_evidence IS NULL AND ((goods_receipt_line_id IS NOT NULL AND service_acceptance_id IS NULL AND acceptance_record_id = goods_receipt_line_id AND physical_observation_id IS NOT NULL) OR (service_acceptance_id IS NOT NULL AND goods_receipt_line_id IS NULL AND acceptance_record_id = service_acceptance_id AND physical_observation_id IS NULL AND inspection_evidence_id IS NULL))"));
