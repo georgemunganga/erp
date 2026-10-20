@@ -46,6 +46,11 @@ public static partial class ProcurementInvoiceMatchingRoutes
         catch(Exception error) when(error is MatchingProblem or InvalidOperationException or ArgumentException or UnauthorizedAccessException
             or KeyNotFoundException or JsonException or DbUpdateException or NpgsqlException or OverflowException or FormatException)
         {
+            // Keep diagnostic detail in the internal log; the client receives the safe
+            // business response below. Never log the submitted invoice/body or headers.
+            if (error is not MatchingProblem)
+                http.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("Procurement.InvoiceMatching")
+                    .LogWarning(error, "Invoice matching command rejected. TraceId: {TraceId}", http.TraceIdentifier);
             var pg=error.GetBaseException() as PostgresException;
             var status=error is MatchingProblem p ? p.Status : error is UnauthorizedAccessException ? 403 : error is KeyNotFoundException ? 404
                 : pg?.SqlState is "40001" or "40P01" || error is DbUpdateConcurrencyException ? 409 : error is NpgsqlException ? 503 : 409;
