@@ -116,3 +116,13 @@ Release integration is Finance-owned. The first execution implementation may acc
 - Run focused browser tests for assigned queue, empty/loading/denied/error states, plain-language evidence, reason validation, stale task refresh, lost-response recovery and requester outcome visibility. Use existing ERP components and screens.
 
 Keep `approvals: false` until the complete supported route, source/Finance guards, schema/runtime grants, real PostgreSQL concurrency tests, HTTP authorization checks and browser evidence pass. Then expose readiness per company/policy rather than treating a global capability flag as spending authorization. Production activation additionally requires the existing shared-host compatibility and coordinated release gates; this design does not claim those gates have passed.
+
+### Atomic execution infrastructure and spending authority rehearsal — 20 October
+
+The isolated integration candidate passed **180/180 Procurement tests** and **20/20 Core approval tests**. P22 (`20261020084544_P22SpendingAuthorityConfiguration`) adds only grant/category tables; its model matched the compiled snapshot and idempotent SQL applied twice to disposable PostgreSQL17 with19 Procurement migration records.
+
+The shared-connection coordinator passed actual PostgreSQL rollback before saves, after either context save and after both; one-commit source/Core/audit/outbox; stale intermediate vote rejection, fresh quorum completion and terminal replay; bounded confirmed-abort retries; real EF SaveChanges wrapper retry; cancellation; and mismatched-scope denial. A separate PostgreSQL authority probe passed independent publication, atomic supersession rollback including audit, revocation without old-limit revival, immutable fields and concurrent logical-version allocation.
+
+Testing exposed and corrected replacement category graph state, an oversized synthetic request number, an EF relational package conflict, and Npgsql wrapping serialization failures in InvalidOperationException. First-failure logs are retained alongside final results. Protected evidence and SHA-256 manifest: `/home/amizo/erp-backups/procurement-approval-transaction-20261020/`. Tested retry fix source is `1b28f54` on `codex/procurement-approval-transaction`.
+
+These checks prove the named infrastructure and persistence behaviour. They do not prove the newly written full HTTP command path, real user sessions, production database grants, operational notification delivery or production activation. The mapped HTTP/PostgreSQL workflow and browser integration remain separate gates. No production API/schema change was made.
