@@ -20,22 +20,51 @@ public sealed class ApprovedDemandLoadException(ApprovedDemandLoadFailure failur
 /// Loading is NOT eligibility/action authority: callers retain current canonical actor/record scope,
 /// Finance/catalog owner validation, route-specific rules, sorted source locks and shared transaction.
 /// Returned runtime owner facts remain outside all retained PR/PO evidence encoders.</summary>
+public sealed record RetainedDemandSourceIdentity(Guid SubmissionId, Guid OutcomeId, Guid MethodId);
+
 public static class ApprovedDemandSourceLoader
 {
-    public static async Task<ApprovedPurchaseSource> LoadAsync(ProcurementDbContext db, ApprovalDbContext core,
+    public static Task<ApprovedPurchaseSource> LoadAsync(ProcurementDbContext db, ApprovalDbContext core,
         IProcurementScope scope, Guid requestId, Guid lineId, CancellationToken ct = default)
-    {
+        => LoadCore(db, core, scope, requestId, lineId, null, ct);
 
+    /// <summary>Original owned RFQ binding identity only, never client authority. Historical
+    /// loading does not reauthorize a new commitment or require today's PR approval pointer.</summary>
+    public static Task<ApprovedPurchaseSource> LoadRetainedAsync(ProcurementDbContext db, ApprovalDbContext core,
+        IProcurementScope scope, Guid requestId, Guid lineId, RetainedDemandSourceIdentity retained, CancellationToken ct = default)
+    {
+        if (retained is null || retained.SubmissionId == Guid.Empty || retained.OutcomeId == Guid.Empty || retained.MethodId == Guid.Empty)
+            throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.ApprovalEvidenceMissing);
+        return LoadCore(db, core, scope, requestId, lineId, retained, ct);
+    }
+
+    private static async Task<ApprovedPurchaseSource> LoadCore(ProcurementDbContext db, ApprovalDbContext core,
+        IProcurementScope scope, Guid requestId, Guid lineId, RetainedDemandSourceIdentity? retained, CancellationToken ct)
+    {
         var request = await db.PurchaseRequests.Include(x => x.Lines).SingleOrDefaultAsync(x => x.Id == requestId, ct)
             ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.SourceNotFound);
         if (scope.WorkLocationId is { } selected && request.BranchRef != selected
             || scope.IsConfined && request.BranchRef != scope.WorkLocationId) throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.SourceOutsideScope);
         var line = request.Lines.SingleOrDefault(x => x.Id == lineId) ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.SourceNotFound);
-        if (!Guid.TryParse(request.ApprovalInstanceRef, out var caseId)) throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.SourceNotApproved);
-        var pin = await db.ApprovalSubmissions.SingleOrDefaultAsync(x => x.CoreApprovalCaseId == caseId, ct)
-            ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.ApprovalEvidenceMissing);
-        var outcome = await db.ApprovalOutcomes.SingleOrDefaultAsync(x => x.SubmissionId == pin.Id && x.Outcome == "Approved", ct)
-            ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.SourceNotApproved);
+        PurchaseRequestApprovalSubmission pin;
+        PurchaseRequestApprovalOutcome outcome;
+        Guid caseId;
+        if (retained is null)
+        {
+            if (!Guid.TryParse(request.ApprovalInstanceRef, out caseId)) throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.SourceNotApproved);
+            pin = await db.ApprovalSubmissions.SingleOrDefaultAsync(x => x.CoreApprovalCaseId == caseId, ct)
+                ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.ApprovalEvidenceMissing);
+            outcome = await db.ApprovalOutcomes.SingleOrDefaultAsync(x => x.SubmissionId == pin.Id && x.Outcome == "Approved", ct)
+                ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.SourceNotApproved);
+        }
+        else
+        {
+            pin = await db.ApprovalSubmissions.SingleOrDefaultAsync(x => x.Id == retained.SubmissionId && x.PurchaseRequestId == requestId, ct)
+                ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.ApprovalEvidenceMissing);
+            caseId = pin.CoreApprovalCaseId;
+            outcome = await db.ApprovalOutcomes.SingleOrDefaultAsync(x => x.Id == retained.OutcomeId && x.SubmissionId == pin.Id && x.Outcome == "Approved", ct)
+                ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.SourceNotApproved);
+        }
         var workflow = await core.Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)
             ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.CoreCaseMissing);
         var decision = await core.Decisions.SingleOrDefaultAsync(x => x.Id == outcome.CoreDecisionId, ct)
@@ -43,10 +72,16 @@ public static class ApprovedDemandSourceLoader
         var evaluation = await db.PolicyEvaluations.SingleAsync(x => x.Id == pin.PolicyEvaluationId, ct);
         var policy = await db.PolicyVersions.SingleAsync(x => x.Id == pin.PolicyVersionId, ct);
         var finance = await db.BudgetCheckSnapshots.SingleAsync(x => x.Id == pin.FinanceSnapshotId, ct);
-        using var json = JsonDocument.Parse(evaluation.DecisionJson);
-        var methodCode = json.RootElement.GetProperty("lines").EnumerateArray().Single(x => x.GetProperty("lineId").GetGuid() == lineId)
-            .GetProperty("decision").GetProperty("sourcingMethodCode").GetString();
-        var method = await db.ProcurementMethods.SingleOrDefaultAsync(x => x.Code == methodCode, ct)
+        ProcurementMethod method;
+        if (retained is null)
+        {
+            using var json = JsonDocument.Parse(evaluation.DecisionJson);
+            var methodCode = json.RootElement.GetProperty("lines").EnumerateArray().Single(x => x.GetProperty("lineId").GetGuid() == lineId)
+                .GetProperty("decision").GetProperty("sourcingMethodCode").GetString();
+            method = await db.ProcurementMethods.SingleOrDefaultAsync(x => x.Code == methodCode, ct)
+                ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.MethodUnavailable);
+        }
+        else method = await db.ProcurementMethods.SingleOrDefaultAsync(x => x.Id == retained.MethodId, ct)
             ?? throw new ApprovedDemandLoadException(ApprovedDemandLoadFailure.MethodUnavailable);
         var allocations = await db.PurchaseRequestAllocations.Where(x => x.PurchaseRequestLineId == lineId).ToListAsync(ct);
         var owners = await LoadTargetOwnersAsync(db, lineId, allocations, ct);

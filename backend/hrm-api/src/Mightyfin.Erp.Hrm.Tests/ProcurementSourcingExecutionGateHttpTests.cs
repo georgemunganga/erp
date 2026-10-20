@@ -1,0 +1,62 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Mightyfin.Erp.Hrm.Api;
+
+namespace Mightyfin.Erp.Hrm.Tests;
+
+/// <summary>Actual mapped gate only. Deliberately registers no database/coordinator/Core store,
+/// and never supplies ready schema or fake successful business responses.</summary>
+public sealed class ProcurementSourcingExecutionGateHttpTests
+{
+    [Theory]
+    [InlineData(false, true)][InlineData(true, false)][InlineData(true, true)]
+    public async Task Every_governed_path_remains_unavailable_without_real_schema_before_any_store_resolution(bool enabled, bool configured)
+    {
+        var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
+        var scope = new ProcurementRequestScope();
+        scope.Set("rfq-gate", Guid.NewGuid(), Guid.NewGuid().ToString("D"), null, null, false, "gate");
+        builder.Services.AddSingleton(scope);
+        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = enabled, ExecutionDatabaseConfigured = configured });
+        builder.Services.AddSingleton<IProcurementSourcingDraftSchemaReadiness, UnavailableProcurementSourcingDraftSchemaReadiness>();
+        builder.Services.AddAuthentication("rfq-gate").AddScheme<AuthenticationSchemeOptions, Authentication>("rfq-gate", _ => { });
+        builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
+        await using var app = builder.Build(); app.UseAuthentication(); app.UseAuthorization();
+        ProcurementSourcingExecutionRoutes.MapRoutes(app); await app.StartAsync();
+        using var client = app.GetTestClient(); var id = Guid.NewGuid();
+        var responses = new[] {
+            await client.PostAsJsonAsync("/api/procurement/v1/sourcing/from-approved-sources", new {
+                title = "Draft", sources = new[] { new { purchaseRequestId = Guid.NewGuid(), purchaseRequestLineId = Guid.NewGuid(), expectedRequestVersion = 1, quantity = "1.0001" } } }),
+            await client.PostAsJsonAsync($"/api/procurement/v1/sourcing/{id}/source-cancel", new { expectedEventVersion = 1, originalDraftFingerprint = new string('a',64), reason = "No longer needed" }),
+            await client.GetAsync($"/api/procurement/v1/sourcing/{id}/source-draft"),
+            await client.GetAsync($"/api/procurement/v1/sourcing/command-receipts/Create/{Guid.NewGuid()}"),
+        };
+        foreach (var response in responses)
+        {
+            using (response)
+            {
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+                Assert.Equal("SourcingDraftExecutionUnavailable", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+                Assert.True(response.Headers.CacheControl?.NoStore);
+            }
+        }
+    }
+    private sealed class Authentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
+        UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    {
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        {
+            var identity = new ClaimsIdentity(new[] { new Claim("sub", "fixture"), new Claim("tenant", "rfq-gate"), new Claim(ClaimTypes.Role, "erp_admin") }, Scheme.Name);
+            return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));
+        }
+    }
+}
