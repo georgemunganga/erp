@@ -12,8 +12,9 @@
 - The database rejects physical deletion and updates to decision history through the application context. Version fields are concurrency tokens. The first migration creates five tables with tenant/company indexes and separate history.
 - The ERP host composes the Core context with the same authenticated Procurement scope. It does **not** open an approval API or auto-apply the Core migration.
 - A buyer-only read endpoint, `GET /api/procurement/v1/requests/{id}/approval-readiness`, checks the current submitted version against its pinned published policy and latest recorded Finance evidence. It returns named blockers and `isAuthority: false`; it does not open a task or update the request.
-- The readiness response also previews the pinned approval stages per request line. It flags lines with different routes and reports `canOpenCase: false`. The route preview is informational; assignee resolution, authority limits, delegation, Core write access and atomic case opening remain required.
+- The readiness response also previews the pinned approval stages per request line. It flags lines with different routes and reports `canOpenCase: false`. The route preview is informational; authority limits, delegation, Core write access and atomic case opening remain required.
 - The preview requires the pinned decision to cover every current active request line exactly once. Duplicate, missing, added or stale line IDs become named readiness blockers; no approval case may use that evidence.
+- The read-only assignment preview looks up the requester's active HRMS line manager and active local procurement managers in the selected company. It excludes the maker and reports missing or ambiguous people. `BudgetOwner` stays unresolved until Finance supplies the cost-centre owner's authoritative identity; a department manager is not assumed to own the budget. Candidate names are guidance only and must be revalidated when an approval case opens.
 
 ## Migration and rollback
 

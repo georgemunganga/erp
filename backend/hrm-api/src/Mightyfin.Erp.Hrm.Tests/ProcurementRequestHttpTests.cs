@@ -747,8 +747,19 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, routeResponse.StatusCode);
         var routeBody = await routeResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(routeBody.GetProperty("approvalRoute").GetProperty("hasSingleRoute").GetBoolean());
+        Assert.False(routeBody.GetProperty("assignmentPlan").GetProperty("resolved").GetBoolean());
+        Assert.NotEmpty(routeBody.GetProperty("assignmentPlan").GetProperty("blockers").EnumerateArray());
         Assert.False(routeBody.GetProperty("prerequisitesMet").GetBoolean());
         Assert.False(routeBody.GetProperty("canOpenCase").GetBoolean());
+        await fixture.AssignOwnerManagerToOther();
+        var assignedResponse = await Send(fixture.Client, HttpMethod.Get, readinessPath,
+            fixture.Other, role: "procurement_manager");
+        var assignedBody = await assignedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(assignedBody.GetProperty("assignmentPlan").GetProperty("resolved").GetBoolean());
+        Assert.Equal(fixture.Other.ToString(), assignedBody.GetProperty("assignmentPlan")
+            .GetProperty("stages")[0].GetProperty("candidates")[0]
+            .GetProperty("subjectId").GetString());
+        Assert.False(assignedBody.GetProperty("canOpenCase").GetBoolean());
         await fixture.AddRequestLineAfterPolicyCheck(id);
         var staleResponse = await Send(fixture.Client, HttpMethod.Get, readinessPath,
             fixture.Other, role: "procurement_manager");
@@ -2186,6 +2197,16 @@ public sealed class ProcurementRequestHttpTests
                 .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
             var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             return await db.AuditEvents.CountAsync(x => x.RecordId == requestId && x.Action == action);
+        }
+
+        public async Task AssignOwnerManagerToOther()
+        {
+            using var serviceScope = app.Services.CreateScope();
+            var core = serviceScope.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var owner = await core.Workers.SingleAsync(x => x.SubjectId == Owner.ToString());
+            var manager = await core.Workers.SingleAsync(x => x.SubjectId == Other.ToString());
+            owner.ManagerId = manager.Id;
+            await core.SaveChangesAsync();
         }
 
         public async Task<int> VendorDetailAuditCount(Guid detailId, string action)
