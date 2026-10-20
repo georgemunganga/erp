@@ -171,6 +171,7 @@ public sealed class PurchaseOrderLine : ProcurementRecord
 {
     public Guid PurchaseOrderId { get; set; }
     public int LineNumber { get; set; }
+    public bool IsActive { get; set; } = true;
     public Guid? PurchaseRequestLineId { get; set; }
     public Guid? CatalogItemId { get; set; }
     public string Description { get; set; } = null!;

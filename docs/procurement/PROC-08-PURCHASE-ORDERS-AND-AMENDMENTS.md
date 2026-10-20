@@ -2,6 +2,8 @@
 
 **Status:** Draft for business review · **Version:** 0.1 · **Hierarchy:** Procurement → Purchasing → Purchase Order Lifecycle → Operations · **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx) · **Module:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 
+**Implementation boundary (20 October 2026):** The first technical slice lets a scoped buyer create, view, revise and cancel an internal PO draft against an active vendor. Lines can be retired with a reason while their stored history remains. Drafts do not imply an approved source, budget reservation, commercial commitment or supplier dispatch. Submission, approval, issue, amendment of an issued PO, receiving, and Finance commitment are governed later milestones; they must validate the source and authority described below before activation.
+
 ## 1. Feature Identification
 
 `PROC-08`, purchasing phase. Business owner: purchasing lead; product/data/technical owners to name. Operations: `O1` convert approved demand, `O2` approve/issue, `O3` acknowledge, `O4` amend, `O5` blanket release, `O6` cancel/close/reconcile.

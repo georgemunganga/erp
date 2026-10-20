@@ -83,7 +83,7 @@ public static class ProcurementInvoiceIntakeRoutes
         };
         invoice.GrossAmount = invoice.NetAmount + invoice.TaxAmount;
         db.AddScoped(invoice);
-        for (var i = 0; i < input.Lines.Count; i++)
+        for (var i = 0; i < input.Lines!.Count; i++)
         {
             var line = input.Lines[i];
             db.AddScoped(new SupplierInvoiceLine

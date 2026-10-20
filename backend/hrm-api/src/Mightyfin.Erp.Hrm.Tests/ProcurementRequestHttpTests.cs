@@ -1656,6 +1656,76 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Buyer_order_drafts_are_scoped_versioned_and_retire_removed_lines()
+    {
+        await using var fixture = await Fixture.Start();
+        var supplierId = await fixture.AddInvoiceSupplier();
+        var path = "/api/procurement/v1/orders";
+        var first = new OrderDraftLineInput(null, "Laptop", "EA", 2, 500, 100, "IT", null, null);
+        var input = new OrderDraftInput(supplierId, null, "Lusaka office", null, "Net 30", null, [first]);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await fixture.Client.PostAsJsonAsync(path, input)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, input)).StatusCode);
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            input, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var lineId = draft.GetProperty("lines")[0].GetProperty("id").GetGuid();
+        Assert.Equal("Draft", draft.GetProperty("status").GetString());
+        Assert.Equal("ZMW", draft.GetProperty("currencyCode").GetString());
+        Assert.Equal(1100m, draft.GetProperty("total").GetDecimal());
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other,
+                company: fixture.OtherCompany, role: "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Owner,
+                role: "procurement_buyer")).StatusCode);
+
+        var replacement = new OrderDraftLineInput(null, "Monitor", "EA", 1, 250, 0, null, null, null);
+        var revised = input with { Lines = [replacement] };
+        var updatePath = $"{path}/{id}";
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Put, updatePath, fixture.Other,
+                new ProcurementOrderDraftRoutes.VersionedOrderDraft(1, null, revised),
+                "procurement_buyer")).StatusCode);
+        var updated = await SendJson(fixture.Client, HttpMethod.Put, updatePath, fixture.Other,
+            new ProcurementOrderDraftRoutes.VersionedOrderDraft(1, "Specification changed", revised),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var saved = await updated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, saved.GetProperty("version").GetInt64());
+        Assert.Equal(250m, saved.GetProperty("total").GetDecimal());
+        Assert.Single(saved.GetProperty("lines").EnumerateArray());
+        Assert.NotEqual(lineId, saved.GetProperty("lines")[0].GetProperty("id").GetGuid());
+        Assert.Equal((1, 2), await fixture.OrderLineCounts(id));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, updatePath, fixture.Other,
+                new ProcurementOrderDraftRoutes.VersionedOrderDraft(1, "Old", revised),
+                "procurement_buyer")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/cancel", fixture.Other,
+                new ProcurementOrderDraftRoutes.OrderDraftCancel(2, ""),
+                "procurement_buyer")).StatusCode);
+        var cancelled = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/cancel", fixture.Other,
+            new ProcurementOrderDraftRoutes.OrderDraftCancel(2, "No longer needed"),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+        var closed = await cancelled.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Cancelled", closed.GetProperty("status").GetString());
+        Assert.Equal("No longer needed", closed.GetProperty("closureReason").GetString());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Put, updatePath, fixture.Other,
+                new ProcurementOrderDraftRoutes.VersionedOrderDraft(3, "", revised),
+                "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/issue", fixture.Other,
+                new { }, "procurement_buyer")).StatusCode);
+    }
+
+    [Fact]
     public async Task Active_vendor_can_be_suspended_only_by_independent_manager_with_reason()
     {
         await using var fixture = await Fixture.Start();
@@ -2056,6 +2126,16 @@ public sealed class ProcurementRequestHttpTests
             return await db.FinanceInvoiceHandoffs.CountAsync();
         }
 
+        public async Task<(int Active, int Total)> OrderLineCounts(Guid orderId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var rows = await db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == orderId).ToListAsync();
+            return (rows.Count(x => x.IsActive), rows.Count);
+        }
+
         public async Task AddOpenOrder(Guid supplierId)
         {
             using var serviceScope = app.Services.CreateScope();
@@ -2230,6 +2310,7 @@ public sealed class ProcurementRequestHttpTests
             ProcurementSourcingDraftRoutes.MapRoutes(app);
             ProcurementContractDraftRoutes.MapRoutes(app);
             ProcurementInvoiceIntakeRoutes.MapRoutes(app);
+            ProcurementOrderDraftRoutes.MapRoutes(app);
             ProcurementConfigurationRoutes.MapRoutes(app);
             ProcurementPolicyDraftRoutes.MapRoutes(app);
 

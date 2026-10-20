@@ -44,6 +44,7 @@ public static class ProcurementHostIntegration
         ProcurementContractDraftRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
+        ProcurementOrderDraftRoutes.MapRoutes(app);
         app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
             ProcurementDbContext db, CancellationToken ct) =>
         {
@@ -77,6 +78,7 @@ public static class ProcurementHostIntegration
                         sourcing = false,
                         contracts = false,
                         orders = false,
+                        orderDraft = !pending,
                         receiving = false,
                         invoiceIntake = !pending,
                         invoiceValidation = false,
