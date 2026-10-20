@@ -63,8 +63,11 @@ public static partial class ProcurementApprovalExecutionRoutes
                     "IndependentFinanceVerifierRequired", "Another Finance officer must verify this release.");
                 var requester = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,
                     scope.TenantId, scope.LegalEntityId, request.RequesterWorkerId, token);
-                if (requester?.PrincipalId == scope.SubjectId) throw new ApprovalHttpError(403,
-                    "IndependentFinanceVerifierRequired", "The requester cannot confirm their own reservation release.");
+                var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,
+                    scope.TenantId, scope.LegalEntityId, scope.SubjectId, token);
+                if (requester is null || verifier is null || requester.PrincipalId == scope.SubjectId
+                    || verifier.WorkerId == request.RequesterWorkerId) throw new ApprovalHttpError(403,
+                    "IndependentFinanceVerifierRequired", "An independent Finance officer and an unambiguous requester identity are required.");
                 var prior = await Receipt(db, "Release", key, scope.SubjectId, fingerprint, id, null, token);
                 if (prior is not null) return new Reply(200, prior.ResponseJson);
                 if (request.Version != input.ExpectedRequestVersion) throw Conflict("ApprovalSourceChanged");

@@ -326,6 +326,27 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             reservationReference = release.GetProperty("reservationReference").GetString(),
             releasedAmount = release.GetProperty("reservedAmount").GetDecimal(), currencyCode = "ZMW",
             evidenceReference = "SYNTHETIC-RELEASE-EVIDENCE", confirmedAt = DateTimeOffset.UtcNow, reason = "Finance verified full release under the fixture manual policy" };
+        Guid aliasId;
+        using (var services = app.Services.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var requesterWorker = await core.LocalUsers.Where(x => x.Id == requester).Select(x => x.WorkerId).SingleAsync();
+            var alias = new LocalUser { Email = "requester-alias@example.test", NormalizedEmail = "REQUESTER-ALIAS@EXAMPLE.TEST",
+                DisplayName = "Requester second account", PasswordHash = "synthetic-no-login-secret",
+                RolesCsv = "finance_approver", WorkerId = requesterWorker };
+            core.LocalUsers.Add(alias); await core.SaveChangesAsync(); aliasId = alias.Id;
+        }
+        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", aliasId, body, Guid.NewGuid());
+        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance, body, Guid.NewGuid());
+        using (var services = Scope(finance))
+        {
+            Require(!await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().FinanceReleaseConfirmations
+                .AnyAsync(x => x.ReleaseRequestId == release.GetProperty("releaseRequestId").GetGuid()),
+                "Ambiguous/requester-linked Finance account recorded a release confirmation.");
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.LocalUsers.SingleAsync(x => x.Id == aliasId)).IsArchived = true;
+            await core.SaveChangesAsync();
+        }
         await Expect(HttpStatusCode.UnprocessableEntity, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance,
             new { body.expectedRequestVersion, body.reservationReference, releasedAmount = body.releasedAmount + 1,
                 body.currencyCode, body.evidenceReference, body.confirmedAt, body.reason }, Guid.NewGuid());
