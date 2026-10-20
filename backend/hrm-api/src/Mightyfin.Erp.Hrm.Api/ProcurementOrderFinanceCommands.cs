@@ -23,7 +23,7 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 var load = await Load(db, cases, scope, id, false, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                await Actor(core, scope, http, auth, "procurement-po-finance-confirm", token);
+                await Actor(core, scope, http, auth, "procurement-po-finance-confirm", token, load.Order.BranchRef, true);
                 var prior = await Receipt(db, scope, "Finance", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
                 var order = load.Order; var now = DateTimeOffset.UtcNow;

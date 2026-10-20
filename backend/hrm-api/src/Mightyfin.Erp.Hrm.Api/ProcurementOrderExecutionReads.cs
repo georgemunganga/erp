@@ -18,10 +18,12 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-convert", token);
+                var allowedBranches = await CurrentRecordScope(core, scope, null, false, token);
                 var query = from line in db.PurchaseRequestLines.AsNoTracking()
                     join request in db.PurchaseRequests.AsNoTracking() on line.PurchaseRequestId equals request.Id
                     where request.ApprovalState == "Approved" && line.ApprovalStatus == "Approved"
-                        && (!scope.IsConfined || request.BranchRef == scope.WorkLocationId)
+                        && (scope.WorkLocationId == null || request.BranchRef == scope.WorkLocationId)
+                        && (allowedBranches.Length == 0 || request.BranchRef != null && allowedBranches.Contains(request.BranchRef.Value))
                         && (line.Route == "Unassigned" || line.Route == "DirectPurchase")
                     select new { RequestId = request.Id, LineId = line.Id, request.Number, request.CreatedAt, line.LineNumber };
                 var total = await query.CountAsync(token);
@@ -67,10 +69,18 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-approve", token);
+                var allowedBranches = await CurrentRecordScope(core, scope, null, false, token);
+                var visibleAssignments = await (from pin in db.OrderAssignmentAuthority.AsNoTracking()
+                    join submission in db.OrderSubmissions.AsNoTracking() on pin.SubmissionId equals submission.Id
+                    join order in db.PurchaseOrders.AsNoTracking() on submission.PurchaseOrderId equals order.Id
+                    where pin.PrincipalId == scope.SubjectId && order.Status == "PendingApproval"
+                        && (scope.WorkLocationId == null || order.BranchRef == scope.WorkLocationId)
+                        && (allowedBranches.Length == 0 || order.BranchRef != null && allowedBranches.Contains(order.BranchRef.Value))
+                    select pin.CoreAssignmentId).ToArrayAsync(token);
                 var query = from assignment in cases.Assignments.AsNoTracking()
                     join workflow in cases.Cases.AsNoTracking() on assignment.CaseId equals workflow.Id
                     join stage in cases.Stages.AsNoTracking() on assignment.StageId equals stage.Id
-                    where assignment.AssigneeSubjectId == scope.SubjectId && assignment.PermissionKey == "procurement-po-approve"
+                    where visibleAssignments.Contains(assignment.Id) && assignment.AssigneeSubjectId == scope.SubjectId && assignment.PermissionKey == "procurement-po-approve"
                         && assignment.State == "Pending" && stage.State == "Active" && workflow.State == "Pending"
                         && workflow.SourceModule == "procurement" && workflow.SourceType == "purchase_order"
                     orderby workflow.OpenedAt, assignment.Id
@@ -80,7 +90,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 var tasks = await query.Skip((number - 1) * size).Take(size).ToArrayAsync(token);
                 var ids = tasks.Select(x => x.orderId).ToArray();
                 var orders = await db.PurchaseOrders.AsNoTracking().Where(x => ids.Contains(x.Id)
-                    && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId)).ToDictionaryAsync(x => x.Id, token);
+                    && (scope.WorkLocationId == null || x.BranchRef == scope.WorkLocationId)).ToDictionaryAsync(x => x.Id, token);
                 var rows = tasks.Where(x => orders.ContainsKey(x.orderId)).Select(x => new { x.assignmentId, x.caseId, x.orderId,
                     x.assignmentVersion, x.caseVersion, x.Code, x.OpenedAt, orders[x.orderId].Number,
                     orderVersion = orders[x.orderId].Version, orders[x.orderId].Status, orders[x.orderId].CurrencyCode });
@@ -106,7 +116,7 @@ public static partial class ProcurementOrderExecutionRoutes
                     ?? throw new OrderProblem("OrderNotFound", 404);
                 Scope(order, scope, false);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                await Actor(core, scope, http, auth, "procurement-po-read", token);
+                await Actor(core, scope, http, auth, "procurement-po-read", token, order.BranchRef, true);
                 var workflows = await cases.Cases.AsNoTracking().Include(x => x.Stages).ThenInclude(x => x.Assignments)
                     .Where(x => x.SourceModule == "procurement" && x.SourceType == "purchase_order" && x.SourceId == id)
                     .OrderBy(x => x.SourceVersion).ToArrayAsync(token);

@@ -67,7 +67,7 @@ internal static class ProcurementOrderAuthorityResolver
             || assignment.AssigneeKind != "ProcurementManager" || !LocalIdentityRoutes.ParseRoles(account.RolesCsv)
                 .Contains("procurement_manager", StringComparer.OrdinalIgnoreCase))
             throw new InvalidOperationException("OrderApprovalIdentityChanged");
-        var current = await AuthorityAsync(account, order, lines, core, db, scope, now, ct);
+        var current = await AuthorityAsync(account, order, lines, core, db, scope, now, ct, submission.LineBaseAmount);
         if (current is null || current.GrantId != assignment.GrantId || current.GrantRevision != assignment.GrantRevision
             || current.AuthorityVersion != assignment.AuthorityVersion)
             throw new InvalidOperationException("OrderApprovalSpendingAuthorityChanged");
@@ -77,7 +77,7 @@ internal static class ProcurementOrderAuthorityResolver
     private static async Task<ProcurementSpendingAuthorityEvidence?> AuthorityAsync(
         ProcurementAuthorityIdentity.CanonicalAccount account, PurchaseOrder order,
         IReadOnlyList<PurchaseOrderSourceLine> lines, HrmDbContext core, ProcurementDbContext db,
-        ProcurementRequestScope scope, DateTimeOffset now, CancellationToken ct)
+        ProcurementRequestScope scope, DateTimeOffset now, CancellationToken ct, decimal? pinnedAmount = null)
     {
         var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, account.RolesCsv, ct);
         var admin = LocalIdentityRoutes.ParseRoles(account.RolesCsv).Contains("erp_admin", StringComparer.OrdinalIgnoreCase);
@@ -88,7 +88,9 @@ internal static class ProcurementOrderAuthorityResolver
         if (branches.Length != 0 && (order.BranchRef is null || !branches.Contains(order.BranchRef.Value))) return null;
         var grants = await db.SpendingAuthorityGrants.Include(x => x.Categories).Where(x => x.PrincipalId == account.PrincipalId
             && x.Permission == "procurement-po-approve" && x.Action == "PurchaseOrder.Approve").ToListAsync(ct);
-        var result = ProcurementSpendingAuthority.Evaluate(PurchaseOrderCommercialWorkflow.SpendingContext(order, lines),
+        var context = PurchaseOrderCommercialWorkflow.SpendingContext(order, lines);
+        if (pinnedAmount is { } originalAmount) context = context with { Amount = originalAmount };
+        var result = ProcurementSpendingAuthority.Evaluate(context,
             account.PrincipalId, "procurement-po-approve", "PurchaseOrder.Approve", now, grants);
         return result.Eligible ? result.Evidence : null;
     }

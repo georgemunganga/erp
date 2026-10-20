@@ -38,6 +38,7 @@ public static partial class ProcurementOrderExecutionRoutes
                     BuyerSubjectId = scope.SubjectId, BranchRef = scope.WorkLocationId, Status = "Draft",
                     ShipToRef = Clean(draft.ShipToRef), BillToRef = Clean(draft.BillToRef),
                     PaymentTermRef = Clean(draft.PaymentTermRef), ExpectedDeliveryOn = draft.ExpectedDeliveryOn };
+                db.AddScoped(order); // Scope is authoritative before domain allocation checks.
                 var supplier = await db.Suppliers.Include(x => x.Qualifications).SingleOrDefaultAsync(x => x.Id == order.SupplierId, token);
                 if (supplier is null || !SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow))
                     Conflict("OrderSupplierUnavailable");
@@ -46,7 +47,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 {
                     var source = await Source(db, cases, scope, selection.PurchaseRequestId, selection.PurchaseRequestLineId, token);
                     if (source.Request.Version != selection.ExpectedRequestVersion) Conflict("OrderSourceVersionChanged");
-                    if (scope.IsConfined && source.Request.BranchRef != scope.WorkLocationId) Missing();
+                    await CurrentRecordScope(core, scope, source.Request.BranchRef, true, token);
                     if (lines.Count == 0) order.BranchRef = source.Request.BranchRef;
                     else if (order.BranchRef != source.Request.BranchRef) Conflict("OrderMixedBranchesUnsupported");
                     var line = ProcurementOrderDraftRoutes.NewLine(order.Id, selection.DraftLineIndex + 1,
@@ -56,7 +57,6 @@ public static partial class ProcurementOrderExecutionRoutes
                     db.AddScoped(PurchaseOrderSourceAllocation.Reserve(source, order, line, line.Quantity, key, scope.SubjectId, now));
                     lines.Add(line);
                 }
-                db.AddScoped(order);
                 Audit(db, scope, order, "ApprovedSourcesConverted", new { sourceLines = input.Sources, commandKey = key });
                 Event(db, order, "purchase_order.draft_created.v1", $"procurement.po.convert.{key:N}.v1",
                     new { orderId = order.Id, sourceLines = input.Sources.Select(x => x.PurchaseRequestLineId) });
@@ -79,7 +79,7 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 var load = await Load(db, cases, scope, id, true, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                await Actor(core, scope, http, auth, "procurement-po-edit", token);
+                await Actor(core, scope, http, auth, "procurement-po-edit", token, load.Order.BranchRef, true);
                 var prior = await Receipt(db, scope, "SourceEdit", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
                 var order = load.Order;

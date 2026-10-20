@@ -23,7 +23,7 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 var load = await Load(db, cases, scope, id, true, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                await Actor(core, scope, http, auth, "procurement-po-submit", token);
+                await Actor(core, scope, http, auth, "procurement-po-submit", token, load.Order.BranchRef, true);
                 var prior = await Receipt(db, scope, "Submit", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
                 var order = load.Order; var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
@@ -93,11 +93,14 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 var load = await Load(db, cases, scope, id, false, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                await Actor(core, scope, http, auth, "procurement-po-approve", token);
+                await Actor(core, scope, http, auth, "procurement-po-approve", token, load.Order.BranchRef, true);
                 var assignmentPin = await db.OrderAssignmentAuthority.SingleOrDefaultAsync(x => x.CoreAssignmentId == assignmentId
                     && x.PrincipalId == scope.SubjectId, token) ?? throw new OrderProblem("OrderAssignmentNotFound", 404);
                 var pin = await db.OrderSubmissions.SingleOrDefaultAsync(x => x.Id == assignmentPin.SubmissionId
                     && x.PurchaseOrderId == id, token) ?? throw new OrderProblem("OrderSubmissionNotFound", 404);
+                var now = DateTimeOffset.UtcNow;
+                var actor = await ProcurementOrderAuthorityResolver.ValidateAsync(load.Order, load.Sources, pin,
+                    assignmentPin, core, db, scope, now, token);
                 var prior = await Receipt(db, scope, "Decide", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
                 await cases.Database.ExecuteSqlInterpolatedAsync($"""SELECT "Id" FROM core_approval.cases WHERE "TenantId"={scope.TenantId} AND "LegalEntityId"={scope.LegalEntityId} AND "Id"={pin.CoreApprovalCaseId} FOR UPDATE""", token);
@@ -109,7 +112,6 @@ public static partial class ProcurementOrderExecutionRoutes
                 if (assignment.StageId != assignmentPin.CoreStageId) Conflict("OrderAssignmentStageChanged");
                 if (workflow.Version != input.ExpectedCaseVersion || assignment.Version != input.ExpectedAssignmentVersion
                     || load.Order.Version != input.ExpectedOrderVersion) Conflict("OrderDecisionVersionChanged");
-                var now = DateTimeOffset.UtcNow;
                 var policy = await db.PolicyVersions.SingleAsync(x => x.Id == pin.PolicyVersionId, token);
                 var finance = input.Action == "Approve"
                     ? await CurrentFinance(db, core, scope, load, options, pin.CommercialRevision, now, token)
@@ -117,8 +119,6 @@ public static partial class ProcurementOrderExecutionRoutes
                 if (input.Action == "Approve")
                     PurchaseOrderCommercialWorkflow.Verify(load.Order, load.Sources, load.Supplier, pin, policy, finance, now);
                 else PurchaseOrderCommercialWorkflow.VerifyForReturn(load.Order, load.Sources, pin, policy, finance);
-                var actor = await ProcurementOrderAuthorityResolver.ValidateAsync(load.Order, load.Sources, pin,
-                    assignmentPin, core, db, scope, now, token);
                 if (input.Action == "Approve")
                 {
                     var assignmentPins = await db.OrderAssignmentAuthority.Where(x => x.SubmissionId == pin.Id).ToArrayAsync(token);

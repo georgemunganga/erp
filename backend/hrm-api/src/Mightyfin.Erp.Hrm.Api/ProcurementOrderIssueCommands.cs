@@ -20,10 +20,8 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 var load = await Load(db, cases, scope, id, true, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                await Actor(core, scope, http, auth, "procurement-po-issue", token);
-                var prior = await Receipt(db, scope, "Issue", key, fingerprint, id, token);
-                if (prior is not null) return prior.ResponseJson;
-                if (load.Order.Version != input.ExpectedOrderVersion) Conflict("OrderIssueVersionChanged");
+                await Actor(core, scope, http, auth, "procurement-po-issue", token, load.Order.BranchRef, true);
+
                 var pin = await db.OrderSubmissions.SingleOrDefaultAsync(x => x.PurchaseOrderId == id
                     && x.CommercialRevision == load.Order.CurrentRevision, token) ?? throw new OrderProblem("OrderSubmissionMissing", 409);
                 await cases.Database.ExecuteSqlInterpolatedAsync($"""SELECT "Id" FROM core_approval.cases WHERE "TenantId"={scope.TenantId} AND "LegalEntityId"={scope.LegalEntityId} AND "Id"={pin.CoreApprovalCaseId} FOR UPDATE""", token);
@@ -40,6 +38,9 @@ public static partial class ProcurementOrderExecutionRoutes
                 foreach (var assignment in assignments)
                     await ProcurementOrderAuthorityResolver.ValidateAsync(load.Order, load.Sources, pin, assignment,
                         core, db, scope, now, token);
+                var prior = await Receipt(db, scope, "Issue", key, fingerprint, id, token);
+                if (prior is not null) return prior.ResponseJson;
+                if (load.Order.Version != input.ExpectedOrderVersion) Conflict("OrderIssueVersionChanged");
                 var issued = PurchaseOrderCommercialWorkflow.AuthorizeIssue(load.Order, load.Sources, load.Supplier,
                     pin, policy, finance, workflow, scope.SubjectId, now);
                 db.AddScoped(issued);
@@ -70,7 +71,7 @@ public static partial class ProcurementOrderExecutionRoutes
                     ?? throw new OrderProblem("OrderNotFound", 404);
                 Scope(order, scope, false);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                await Actor(core, scope, http, auth, "procurement-po-dispatch-confirm", token);
+                await Actor(core, scope, http, auth, "procurement-po-dispatch-confirm", token, order.BranchRef, true);
                 var prior = await Receipt(db, scope, "Delivery", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
                 if (order.Version != input.ExpectedOrderVersion) Conflict("OrderDeliveryVersionChanged");
