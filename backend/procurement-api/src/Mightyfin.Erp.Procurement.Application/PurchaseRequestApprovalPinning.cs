@@ -140,6 +140,9 @@ public static class PurchaseRequestApprovalPinning
             || lines.Select(x => x.Id).Distinct().Count() != lines.Length
             || lines.Select(x => x.LineNumber).Distinct().Count() != lines.Length)
             issues.Add("InvalidLines");
+        // A successor publication keeps the prior row Published and closes its future
+        // selection interval. Eligibility is checked at submission, never at today's date;
+        // hash/version checks below still prevent silently changing the pinned rules.
         if (evaluation.Id == Guid.Empty || evaluation.PurchaseRequestId != request.Id
             || evaluation.RequestVersion != request.SubmittedVersion || evaluation.Outcome != "Matched"
             || evaluation.AmountBasis != EstimatedLineBase || string.IsNullOrWhiteSpace(evaluation.DecisionJson)

@@ -126,3 +126,16 @@ The shared-connection coordinator passed actual PostgreSQL rollback before saves
 Testing exposed and corrected replacement category graph state, an oversized synthetic request number, an EF relational package conflict, and Npgsql wrapping serialization failures in InvalidOperationException. First-failure logs are retained alongside final results. Protected evidence and SHA-256 manifest: `/home/amizo/erp-backups/procurement-approval-transaction-20261020/`. Tested retry fix source is `1b28f54` on `codex/procurement-approval-transaction`.
 
 These checks prove the named infrastructure and persistence behaviour. They do not prove the newly written full HTTP command path, real user sessions, production database grants, operational notification delivery or production activation. The mapped HTTP/PostgreSQL workflow and browser integration remain separate gates. No production API/schema change was made.
+
+### Policy supersession and pending cases
+
+Publishing a new policy currently retains the predecessor's `Published` state and closes
+its open-ended `EffectiveTo` at the successor's future start. The audit action is named
+`Superseded`; it is not a state change. New submissions select the policy effective at their
+submission time. A case already pinned to the predecessor continues to validate that exact
+policy ID/version and canonical rules hash against its original submitted timestamp, even
+when work finishes after the successor starts. A current wall-clock check must not strand it.
+Draft, pending-review, revoked or otherwise unrecognized policy states do not authorize an
+existing case. An explicit revocation workflow is not supplied by this increment; changing
+published rule content remains a pin mismatch, not an implicit reroute. Scope, published
+status, policy version, effective-at-submission bounds and pinned hashes remain mandatory.

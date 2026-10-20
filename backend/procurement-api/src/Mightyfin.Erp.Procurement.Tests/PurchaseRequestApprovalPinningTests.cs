@@ -8,6 +8,47 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class PurchaseRequestApprovalPinningTests
 {
     [Fact]
+    public void Published_successor_closing_prior_period_does_not_strand_pinned_pending_case()
+    {
+        var f = new Fixture();
+        var pin = f.Pin();
+        f.Link(pin);
+        // Policy publication leaves the old row Published and closes only its future
+        // selection interval. It does not rewrite the rule/version already submitted.
+        f.Policy.EffectiveTo = f.Now.AddDays(1);
+        f.Policy.Version++;
+        f.Request.UpdatedAt = f.Now.AddDays(2); // Case work can continue past the successor start.
+        f.Request.Version++;
+        Assert.True(f.Verify(pin).IsValid);
+        Assert.Equal(f.Policy.Id, pin.PolicyVersionId);
+        Assert.Equal(f.Policy.PolicyVersionNumber, pin.PolicyVersionNumber);
+    }
+
+    [Theory]
+    [InlineData("Draft")]
+    [InlineData("PendingReview")]
+    [InlineData("Revoked")]
+    [InlineData("Superseded")]
+    public void Unpublished_or_unrecognized_policy_state_cannot_replace_published_pin_authority(string state)
+    {
+        var f = new Fixture();
+        var pin = f.Pin(); f.Link(pin);
+        f.Policy.State = state;
+        Assert.Contains("PolicyEvidenceInvalid", f.Verify(pin).Blockers);
+    }
+
+    [Fact]
+    public void Closing_prior_policy_before_submission_or_changing_its_rules_still_invalidates_pin()
+    {
+        var f = new Fixture(); var pin = f.Pin(); f.Link(pin);
+        f.Policy.EffectiveTo = f.Request.SubmittedAt;
+        Assert.Contains("PolicyEvidenceInvalid", f.Verify(pin).Blockers);
+        f.Policy.EffectiveTo = f.Now.AddDays(1);
+        f.Policy.RulesJson = "{\"changed\":true}";
+        Assert.Contains("PinnedPolicyMismatch", f.Verify(pin).Blockers);
+    }
+
+    [Fact]
     public void Operational_revision_and_approval_link_do_not_change_submitted_business_evidence()
     {
         var f = new Fixture();
