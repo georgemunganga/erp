@@ -51,6 +51,7 @@ public sealed class AssignmentAuthorityPersistenceTests
         var caseId = Guid.NewGuid(); var makerWorker = Guid.NewGuid();
         var pin = new PurchaseRequestApprovalSubmission
         {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             PurchaseRequestId = request.Id, SubmittedBusinessVersion = 1, CoreApprovalCaseId = caseId, SnapshotSchemaVersion = 2,
             MakerWorkerId = makerWorker, RequesterWorkerId = request.RequesterWorkerId,
             WorkerIdentitySha256 = PurchaseRequestApprovalPinning.WorkerIdentityDigest(scope.TenantId, scope.LegalEntityId,
