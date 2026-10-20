@@ -15,15 +15,19 @@ public static class ProcurementInvoiceIntakeRoutes
         group.MapGet("", List).RequireAuthorization("procurement-invoice-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-invoice-read");
         group.MapPost("", Capture).RequireAuthorization("procurement-invoice-capture");
+        ProcurementInvoiceFinanceReadinessRoutes.MapRoutes(app);
     }
+
+    // Same existing invoice-read scope for list, detail and explanatory AP readiness.
+    internal static IQueryable<SupplierInvoice> ReadableInvoices(ProcurementDbContext db, ProcurementRequestScope scope) =>
+        db.SupplierInvoices.AsNoTracking().Where(x => !scope.IsConfined || x.BranchRef == scope.WorkLocationId);
 
     private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope, int? page, int? pageSize,
         CancellationToken ct)
     {
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
-        var query = db.SupplierInvoices.AsNoTracking();
-        if (scope.IsConfined) query = query.Where(x => x.BranchRef == scope.WorkLocationId);
+        var query = ReadableInvoices(db, scope);
         var total = await query.CountAsync(ct);
         var rows = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip((number - 1) * size).Take(size)
@@ -38,8 +42,7 @@ public static class ProcurementInvoiceIntakeRoutes
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        var invoice = await db.SupplierInvoices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id
-            && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
+        var invoice = await ReadableInvoices(db, scope).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (invoice is null) return Results.NotFound(new { code = "not-found", message = "Invoice not found." });
         var lines = await db.SupplierInvoiceLines.AsNoTracking()
             .Where(x => x.SupplierInvoiceId == id).OrderBy(x => x.LineNumber)
