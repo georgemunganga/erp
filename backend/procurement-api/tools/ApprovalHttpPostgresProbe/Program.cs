@@ -456,6 +456,33 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         await Check(created, HttpStatusCode.Created); var grant = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = grant.GetProperty("id").GetGuid();
         var submitted = await Send(HttpMethod.Post, path + "/" + id + "/submit", buyer, new { version = grant.GetProperty("version").GetInt64() }, selectedBranch: false);
         await Check(submitted, HttpStatusCode.OK); var pending = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        if (reference == "AUTH-M1")
+        {
+            foreach (var participant in new[] { principal, buyer })
+            {
+                Guid aliasId;
+                using (var services = app.Services.CreateScope())
+                {
+                    var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+                    var workerId = await core.LocalUsers.Where(x => x.Id == participant).Select(x => x.WorkerId).SingleAsync();
+                    var alias = new LocalUser { Email = "review-alias-" + participant + "@example.test",
+                        NormalizedEmail = ("REVIEW-ALIAS-" + participant + "@EXAMPLE.TEST").ToUpperInvariant(),
+                        DisplayName = "Authority participant second account", PasswordHash = "synthetic-no-login-secret",
+                        RolesCsv = "finance_approver", WorkerId = workerId };
+                    core.LocalUsers.Add(alias); await core.SaveChangesAsync(); aliasId = alias.Id;
+                }
+                foreach (var operation in new[] { "activate", "return", "supersede" })
+                    await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, path + "/" + id + "/" + operation, aliasId,
+                        new { version = pending.GetProperty("version").GetInt64(), reason = "Alias must not review its own worker",
+                            previousGrantId = id, previousVersion = pending.GetProperty("version").GetInt64() }, selectedBranch: false);
+                await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, path + "/" + id + "/activate", finance,
+                    new { version = pending.GetProperty("version").GetInt64(), reason = "Ambiguous participant identity must block review" }, selectedBranch: false);
+                using var cleanup = app.Services.CreateScope();
+                var cleanupCore = cleanup.ServiceProvider.GetRequiredService<HrmDbContext>();
+                (await cleanupCore.LocalUsers.SingleAsync(x => x.Id == aliasId)).IsArchived = true;
+                await cleanupCore.SaveChangesAsync();
+            }
+        }
         await Expect(HttpStatusCode.OK, HttpMethod.Post, path + "/" + id + "/activate", finance,
             new { version = pending.GetProperty("version").GetInt64(), reason = "Independent synthetic grant review" }, selectedBranch: false);
         grantIds[principal] = id;
