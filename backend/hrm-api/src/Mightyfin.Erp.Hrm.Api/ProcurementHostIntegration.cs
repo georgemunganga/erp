@@ -12,9 +12,10 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// <summary>Composes Procurement into the existing ERP process and authentication pipeline.</summary>
 public static class ProcurementHostIntegration
 {
-    public static void AddServices(IServiceCollection services, string connection)
+    public static void AddServices(IServiceCollection services, string connection, IConfiguration configuration)
     {
         services.AddScoped<ProcurementRequestScope>();
+        ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
         services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
         services.AddDbContext<ProcurementDbContext>(options =>
             options.UseNpgsql(connection, provider =>
@@ -44,9 +45,10 @@ public static class ProcurementHostIntegration
         ProcurementContractDraftRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
+        if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
         app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
-            ProcurementDbContext db, CancellationToken ct) =>
+            ProcurementDbContext db, IServiceProvider services, CancellationToken ct) =>
         {
             try
             {
@@ -81,6 +83,8 @@ public static class ProcurementHostIntegration
                         orderDraft = !pending,
                         receiving = false,
                         invoiceIntake = !pending,
+                        invoiceDocuments = !pending && app.Services.GetRequiredService<CoreDocumentFeature>().Enabled
+                            && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct),
                         invoiceValidation = false,
                         financeHandoff = false,
                         supplierPortal = false,
@@ -95,7 +99,7 @@ public static class ProcurementHostIntegration
     }
 }
 
-public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope
+public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope, Mightyfin.Erp.Core.Documents.Domain.IDocumentScope
 {
     private bool resolved;
     private string tenantId = "";
