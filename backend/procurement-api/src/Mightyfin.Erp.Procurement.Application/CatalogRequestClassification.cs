@@ -25,4 +25,15 @@ public static class CatalogRequestClassification
         else if (category != ownedCategory || type != ownedType) return null;
         return new(ownedCategory, ownedType);
     }
+
+    public static bool OfferMatches(CatalogEntry entry, Guid? itemId, Guid? supplierId, string? unit,
+        string? currency, decimal quantity, decimal unitPrice, int? publishedVersion, DateTimeOffset now) =>
+        entry.Status == "Published" && entry.PublishedVersion > 0
+        && (publishedVersion is null || publishedVersion == entry.PublishedVersion)
+        && entry.EffectiveFrom <= now && (entry.EffectiveTo is null || entry.EffectiveTo > now)
+        && entry.AudienceCode is null && entry.SiteRef is null && entry.ContractRef is null
+        && entry.CatalogItemId == itemId && entry.SupplierId == supplierId
+        && entry.UnitCode == unit && entry.CurrencyCode == currency && entry.UnitPrice == unitPrice
+        && (entry.MinimumQuantity is null || quantity >= entry.MinimumQuantity)
+        && (entry.MaximumQuantity is null || quantity <= entry.MaximumQuantity);
 }

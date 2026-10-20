@@ -57,4 +57,29 @@ public sealed class CatalogRequestClassificationTests
         item.Status = "Active"; item.IsPurchasable = false;
         Assert.Null(CatalogRequestClassification.Bind(item, "IT", "GOODS", allowMissing: false));
     }
+
+    [Fact]
+    public void Selected_offer_requires_current_publication_version_time_and_exact_terms()
+    {
+        var now = DateTimeOffset.UtcNow; var item = Guid.NewGuid(); var supplier = Guid.NewGuid();
+        var entry = new CatalogEntry { CatalogItemId = item, SupplierId = supplier,
+            Status = "Published", PublishedVersion = 2, EffectiveFrom = now.AddDays(-1),
+            EffectiveTo = now.AddDays(1), UnitCode = "each", CurrencyCode = "ZMW", UnitPrice = 100,
+            MinimumQuantity = 1, MaximumQuantity = 2 };
+        bool Matches(int? version = 2) => CatalogRequestClassification.OfferMatches(entry, item, supplier,
+            "each", "ZMW", 1, 100, version, now);
+        Assert.True(Matches());
+        Assert.True(Matches(null)); // new draft selects current publication, then pins it.
+        Assert.False(Matches(1));
+        entry.Status = "Withdrawn"; Assert.False(Matches()); entry.Status = "Published";
+        entry.EffectiveTo = now; Assert.False(Matches()); entry.EffectiveTo = now.AddDays(1);
+        entry.EffectiveFrom = now.AddSeconds(1); Assert.False(Matches()); entry.EffectiveFrom = now.AddDays(-1);
+        entry.UnitPrice = 101; Assert.False(Matches()); entry.UnitPrice = 100;
+        entry.SupplierId = Guid.NewGuid(); Assert.False(Matches()); entry.SupplierId = supplier;
+        entry.CatalogItemId = Guid.NewGuid(); Assert.False(Matches()); entry.CatalogItemId = item;
+        entry.MinimumQuantity = 2; Assert.False(Matches()); entry.MinimumQuantity = 1;
+        entry.AudienceCode = "RESTRICTED"; Assert.False(Matches()); entry.AudienceCode = null;
+        entry.SiteRef = Guid.NewGuid(); Assert.False(Matches()); entry.SiteRef = null;
+        entry.ContractRef = Guid.NewGuid(); Assert.False(Matches());
+    }
 }

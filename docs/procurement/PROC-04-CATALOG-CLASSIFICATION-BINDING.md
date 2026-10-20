@@ -60,3 +60,84 @@ Authored mapped TestServer catalog publication scenario now asserts spoofed crea
 Procurement Application owns binding invariant; API owns scoped owner resolution. Existing Core actors/scopes/fence/approval engine, Procurement pins/transactions and owned item records are reused. Root owns centralized builds, actual SQL/HTTP/browser gates and distinct review before merge/enablement.
 ## 28. Open Decisions / Assumptions
 No authorized catalog classification override exists in the reviewed contract. If the business requires one, define a separately governed exception with independent authority and pinned evidence before supporting it. Existing historical mismatches are not backfilled. No completion, production activation or independent-review claim is made by this source checkpoint.
+
+## Distinct review correction — current owner/offer linearization
+
+The first source checkpoint `8c03a52` was **not sufficient**: a SERIALIZABLE transaction can
+acquire an old snapshot before waiting on its PR/PO lock, then see an older catalog owner.
+There is no guaranteed SSI cycle to abort that schedule. Sequential drift tests did not
+prove queued writer/reader safety. Its stored checker also did not require a selected price
+publication to remain eligible for new commitments. The following source changes address
+those two findings; they remain unexecuted until the centralized gates run.
+
+### Explicit lock/snapshot contract (sections 7–9, 18–19, 22, 24)
+
+- Reuse the existing Core physical session advisory-lease mechanism via an extracted
+  `PostgresSessionAdvisoryLease`. CoreBranchAuthorizationFence retains its exact public API,
+  key prefix/hash bytes and shared/exclusive cleanup behavior. Capability owners still own
+  their keys and business policies; the primitive supplies locking only.
+- Procurement defines a separate tenant + legal-entity catalog key. Order/coordinated
+  commands acquire **Core branch shared → catalog shared → BEGIN SERIALIZABLE → domain locks**.
+  Both leases are released after transaction/context disposal; every retry reacquires them
+  before its new snapshot. This is intentionally a coarse company catalog fence.
+- All eight existing item/catalog mutation routes (Create, Update, Activate, Deactivate,
+  AddEntry, UpdateEntry, PublishEntry, WithdrawEntry) are covered by a mutating group endpoint
+  filter. It acquires **catalog exclusive before the handler's first owner read or BEGIN**,
+  uses the same open physical connection and holds it through Save/commit. PublishEntry
+  retains its own existing transaction; no nested transaction is added. Deactivation and
+  its published-entry withdrawals remain one Save under the same exclusive lease.
+- PR Create/Update/Submit acquire catalog shared before any catalog owner query; Submit's
+  existing SERIALIZABLE transaction starts after acquisition. These paths do not acquire a
+  later Core branch session lease. Writers never acquire a Core branch lease, and no code
+  upgrades shared catalog to exclusive. Read-only item/catalog browsing is not authority.
+- **Reader-first:** once the command holds shared catalog authority it is ordered before a
+  later catalog writer, even if waiting on a PR/PO domain lock. The writer must wait for the
+  command transaction to finish. **Writer-first:** the command waits before BEGIN/snapshot,
+  then observes the writer's committed retirement, offer change or classification.
+- Acquisition observes cancellation. Failed/uncertain acquisition or unlock evicts/closes
+  the physical session; unlock cleanup has the inherited five-second bound. Coordinator
+  retries remain the existing three attempts only for confirmed PostgreSQL transaction
+  aborts. No automatic retry of unknown commit/network outcomes is added.
+- Nonrelational test-provider paths cannot prove session locking and explicitly bypass it;
+  production relational paths require pinned Npgsql sessions (no multiplexing/no-reset).
+  Direct SQL, migrations or future import writers must join this protocol before being
+  supported owner mutation paths; arbitrary out-of-band DB writes are not certified here.
+
+### Selected published offer contract (sections 8, 11–12, 17–18, 23–26)
+
+The owned item binding now shares one pure `OfferMatches` predicate with existing draft
+price validation. New stored-source commitments additionally require the selected
+CatalogEntry to remain Published, current pinned PublishedVersion, effective now, broadly
+eligible (no unresolved audience/site/contract restriction), and bound to exact item,
+preferred supplier, unit, currency, unit price and permitted original PR requested quantity.
+A pin preserves historical intent/price; it is not perpetual permission to buy against a
+withdrawn offer. Missing legacy publication version fails closed. A mismatching current
+item returns `OrderSourceCatalogClassificationUnverified`; an unavailable/stale selected
+offer returns `OrderSourceCatalogOfferUnavailable`.
+
+Actual historical durable receipt acknowledgement still follows current identity/scope
+checks without a new eligibility decision. Cancel, release, historical read and delivery
+acknowledgement do not require current catalog/offer eligibility, so legitimate obligation
+cleanup is not stranded. They may use the coordinator's coarse shared lease but never
+reinterpret an old receipt as a new authority grant. Issued/approved evidence is unchanged.
+
+### Authored verification additions
+
+`CatalogPublicationFenceVerification` adds a separate mapped catalog-owner TestServer on the
+guarded synthetic bootstrap connection; the PO app retains its restricted runtime identity
+and SELECT-only catalog grants. Reader-first: hold the PR row, queue actual conversion,
+then actual mapped withdrawal must wait on catalog exclusive; release source lock, conversion
+commits first, then withdrawal succeeds. The exact old conversion receipt remains readable;
+a fresh-key conversion on the same approved source fails with the offer blocker and no
+commercial footprint change. Unfunded cancellation remains possible after withdrawal.
+Writer-first: hold catalog entry row, queue actual mapped withdrawal until its UPDATE waits
+while owning the exclusive lease, then queue conversion, which must wait on shared catalog
+before snapshot. Releasing the row lets withdrawal commit; conversion must fail with the
+specific offer blocker and no new effects. Both schedules use bounded observation/waits.
+Pure offer tests additionally cover publication version, effective-date boundary, owner/vendor,
+price, quantity and unresolved audience/site/contract restrictions. Existing branch cleanup
+and reader/writer probes exercise the extracted same lease mechanism too.
+
+No SDK, SQL, database, browser, migration or production action has run for these additions.
+Distinct review and actual mapped PostgreSQL concurrency evidence are required before this
+correction can be described as verified or enabled.

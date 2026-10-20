@@ -101,6 +101,7 @@ sealed partial class Probe
         await VerifyDecimalStringOrderTransport(supplier);
         await VerifyOrderExactInput(supplier);
         await VerifyCatalogClassificationCommitments(supplier);
+        await VerifyCatalogPublicationFence(supplier);
         await VerifyOrderRevokedGrantReplay(orderId, decisionPath, decisionBody, decisionKey, issueBody, issueKey);
     }
 
@@ -165,9 +166,9 @@ sealed partial class Probe
     }
 
     private async Task<JsonElement> NewApprovedOrderSource(string purpose, decimal quantity = 1m,
-        decimal unitPrice = 100m, decimal checkedAmount = 100m, string? purchaseType = null, Guid? catalogItemId = null)
+        decimal unitPrice = 100m, decimal checkedAmount = 100m, string? purchaseType = null, Guid? catalogItemId = null, Guid? catalogEntryId = null, Guid? preferredSupplierId = null)
     {
-        var source = await NewFundedRequest(purpose, quantity, unitPrice, checkedAmount, purchaseType, catalogItemId); var opened = await Open(source); var caseId = opened.GetProperty("caseId").GetGuid();
+        var source = await NewFundedRequest(purpose, quantity, unitPrice, checkedAmount, purchaseType, catalogItemId, catalogEntryId, preferredSupplierId); var opened = await Open(source); var caseId = opened.GetProperty("caseId").GetGuid();
         for (var votes = 0; votes < 3; votes++)
         {
             var detail = await Get($"{Root}/approvals/{caseId}", OrderManager1);
