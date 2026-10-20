@@ -24,6 +24,10 @@ public static class ProcurementHostIntegration
             ?? new ProcurementOrderExecutionOptions();
         orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(orderOptions);
+        var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
+        sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(sourcingOptions);
+        services.AddScoped<IProcurementSourcingDraftSchemaReadiness, UnavailableProcurementSourcingDraftSchemaReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddScoped(sp => new Mightyfin.Erp.Procurement.Infrastructure.Approvals.ProcurementApprovalTransaction(
@@ -132,6 +136,11 @@ public static class ProcurementHostIntegration
                         configurationDraft = !pending,
                         contractDraft = !pending,
                         sourcingDraft = !pending,
+                        // Separate future governed holds/releases from existing unlinked draft CRUD.
+                        sourcingSourceDrafts = !pending
+                            && services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().ExecutionDatabaseConfigured
+                            && await services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct),
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         approvals = !pending

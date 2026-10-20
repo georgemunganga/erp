@@ -53,6 +53,9 @@ public static class ProcurementActionCatalog
             ["procurement-sourcing-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-sourcing-create"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-sourcing-edit"] = ["procurement_buyer", "procurement_manager"],
+            // Source reservations/releases require explicit Core grants; legacy draft rights do not imply them.
+            ["procurement-sourcing-convert"] = [],
+            ["procurement-sourcing-cancel"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
             ["procurement-invoice-capture"] = ["ap_processor"],
             ["procurement-invoice-match"] = [],
