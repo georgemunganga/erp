@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
@@ -12,6 +13,9 @@ sealed partial class Probe
     public async Task VerifyPositiveReceiving()
     {
         Require(OrderDistinctRuntime, "Receiving proof requires separate bootstrap and finite runtime principals.");
+        // Reject malformed fixture intent before creating/consuming any approved demand.
+        _ = ReceivingPurchaseType("Goods");
+        _ = ReceivingPurchaseType("Service");
         await Authority(OrderManager1, "RECEIVING-PR-M1"); await Authority(OrderManager2, "RECEIVING-PR-M2");
         await Authority(OrderManager2, "RECEIVING-PO-M2", "PurchaseOrder.Approve");
         Guid supplier;
@@ -370,7 +374,7 @@ sealed partial class Probe
             inspector = (await core.LocalUsers.Where(x => x.Id == OrderManager1).Select(x => x.WorkerId).SingleAsync())!.Value;
             owner = (await core.LocalUsers.Where(x => x.Id == OrderManager2).Select(x => x.WorkerId).SingleAsync())!.Value;
         }
-        object Rule(string kind) => new { code = kind, categoryCode = "IT", purchaseType = kind, kind, siteIds = new[] { kind == "Service" ? serviceSite ?? OrderBranch : OrderBranch },
+        object Rule(string kind) => new { code = kind, categoryCode = "IT", purchaseType = ReceivingPurchaseType(kind), kind, siteIds = new[] { kind == "Service" ? serviceSite ?? OrderBranch : OrderBranch },
             inspectionRequired = kind == "Goods", checklistReference = kind == "Goods" ? "APPROVED-CHECKLIST" : null,
             inspectorWorkerIds = kind == "Goods" ? new[] { inspector } : [], serviceOwnerWorkerIds = kind == "Service" ? new[] { owner } : [],
             allowRequesterCertification = false, allowBuyerCertification = false, allowReceiverCertification = false, requireIndependentInspector = true,
@@ -389,9 +393,24 @@ sealed partial class Probe
         var delay = starts - DateTimeOffset.UtcNow;
         if (delay > TimeSpan.Zero) await Task.Delay(delay + TimeSpan.FromMilliseconds(50));
     }
+    private string ReceivingPurchaseType(string kind)
+    {
+        // Receiving classification names and procurement policy codes are distinct contracts.
+        var code = kind switch
+        {
+            "Goods" => "GOODS",
+            "Service" => "SERVICE",
+            _ => throw new InvalidOperationException($"Unsupported synthetic receiving kind '{kind}'.")
+        };
+        var preview = PolicyRulePreview.Evaluate(InitialOrderRules(), new PolicyScenario("ZMW", 100m, "IT", code, OrderBranch));
+        Require(preview.Status == "Match" && preview.ApprovalStages.Count == 1
+            && preview.ApprovalStages[0].Assignee == "ProcurementManager",
+            $"Receiving fixture PO policy preflight failed before source creation: kind={kind}, purchaseType={code}, status={preview.Status}, issues={JsonSerializer.Serialize(preview.Issues)}.");
+        return code;
+    }
     private async Task<(Guid OrderId, Guid LineId, Guid IssuedId)> DeliveredReceivingOrder(Guid supplier, string kind)
     {
-        var source = await NewApprovedOrderSource("Controlled receiving " + kind, purchaseType: kind);
+        var source = await NewApprovedOrderSource("Controlled receiving " + kind, purchaseType: ReceivingPurchaseType(kind));
         var converted = await Send(HttpMethod.Post, Root + "/orders/from-approved-sources", OrderBuyer, OrderConversion(source, supplier), Guid.NewGuid());
         await Check(converted, HttpStatusCode.Created); var order = await converted.Content.ReadFromJsonAsync<JsonElement>(); var id = order.GetProperty("id").GetGuid();
         var funding = await Send(HttpMethod.Post, $"{Root}/orders/{id}/finance-confirmations", OrderFinance,
