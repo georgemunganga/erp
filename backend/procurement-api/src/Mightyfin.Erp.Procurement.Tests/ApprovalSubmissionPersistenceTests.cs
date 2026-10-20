@@ -105,7 +105,11 @@ public sealed class ApprovalSubmissionPersistenceTests
     [Fact]
     public void Model_enforces_scoped_unique_source_case_command_and_source_consistent_foreign_keys()
     {
-        using var db = Context(Guid.NewGuid().ToString(), Guid.NewGuid());
+        // Relational annotations must be inspected with the actual provider model.
+        // Model construction never opens this deliberately invalid connection.
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=model_only;Username=invalid").Options,
+            new Scope("tenant-a", Guid.NewGuid()));
         var model = db.Model.FindEntityType(typeof(PurchaseRequestApprovalSubmission))!;
         var unique = model.GetIndexes().Where(x => x.IsUnique)
             .Select(x => string.Join(",", x.Properties.Select(p => p.Name))).ToArray();
