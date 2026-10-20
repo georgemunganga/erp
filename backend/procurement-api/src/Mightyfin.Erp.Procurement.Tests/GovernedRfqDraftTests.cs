@@ -59,6 +59,27 @@ public sealed class GovernedRfqDraftTests
     }
 
     [Fact]
+    public void Target_identity_is_type_and_id_not_an_untyped_UUID()
+    {
+        var f = Fixture(); var actor = Actor(f);
+        f.Ledger.Add(new PurchaseRequestAllocation { TenantId = f.Request.TenantId, LegalEntityId = f.Company,
+            PurchaseRequestId = f.Request.Id, PurchaseRequestLineId = f.Line.Id, CurrencyCode = "ZMW",
+            TargetType = "PurchaseOrder", TargetId = f.Order.Id, Quantity = 1, EstimatedValue = 10, Status = "Reserved" });
+        f.Line.AllocatedQuantity = 1;
+        var plan = Create(f, actor, f.Order.Id, Guid.NewGuid(), 2);
+        Assert.Equal(f.Order.Id, plan.Result.Id);
+        Assert.Equal(3m, Assert.Single(plan.Instructions).ResultingAllocatedQuantity);
+        Assert.Single(f.Ledger); Assert.Equal(1m, f.Line.AllocatedQuantity);
+
+        // Once a real owned RFQ reservation exists for this tuple, another create is denied.
+        ApplyReservationFixture(f, plan.Result);
+        f.Line.AllocatedQuantity = 3; // Both retained PO and RFQ holds, not just the RFQ fixture.
+        Assert.Equal("RfqSourceUnavailable", Assert.Throws<InvalidOperationException>(() =>
+            Create(f, actor, plan.Result.Id, Guid.NewGuid(), 1)).Message);
+        Assert.Equal(2, f.Ledger.Count); Assert.Equal(3m, f.Line.AllocatedQuantity);
+    }
+
+    [Fact]
     public void Later_invalid_selection_leaves_all_sources_and_original_ledger_unchanged()
     {
         var a = Fixture(); var b = Fixture();
@@ -93,7 +114,7 @@ public sealed class GovernedRfqDraftTests
     }
 
     [Theory]
-    [InlineData("unknown")][InlineData("quantity")][InlineData("value")][InlineData("owner")][InlineData("stale")]
+    [InlineData("unknown")][InlineData("quantity")][InlineData("value")][InlineData("owner")][InlineData("replaced-line")][InlineData("stale")]
     public void Cancellation_cannot_free_unproven_or_changed_reservations(string kind)
     {
         var f = Fixture(); var actor = Actor(f); var draft = Create(f, actor, Guid.NewGuid(), Guid.NewGuid(), 4).Result;
@@ -104,6 +125,13 @@ public sealed class GovernedRfqDraftTests
             case "quantity": f.Ledger[0].Quantity = 3; f.Line.AllocatedQuantity = 3; break;
             case "value": f.Ledger[0].EstimatedValue = 39; break;
             case "owner": f.Owners.RemoveAll(x => x.TargetType == "SourcingEvent"); break;
+            case "replaced-line":
+                f.Owners.RemoveAll(x => x.TargetType == "SourcingEvent");
+                var replacementEvent = new SourcingEvent { Id = draft.Id, TenantId = draft.TenantId, LegalEntityId = draft.CompanyId };
+                var replacementLine = new SourcingLine { TenantId = draft.TenantId, LegalEntityId = draft.CompanyId,
+                    SourcingEventId = draft.Id, PurchaseRequestLineId = f.Line.Id };
+                f.Owners.Add(PurchaseDemandAllocationOwner.FromSourcing(replacementEvent, replacementLine));
+                break;
         }
         var amount = f.Line.AllocatedQuantity;
         Assert.Throws<InvalidOperationException>(() => GovernedRfqDraft.Cancel(actor, draft, Guid.NewGuid(),
