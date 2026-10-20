@@ -24,7 +24,7 @@ internal static class RuntimePrivileges
             throw new InvalidOperationException("Distinct bootstrap/runtime identities on the same guarded disposable database are required; runtime role must use proc_approval_runtime_ prefix.");
     }
 
-    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations)
+    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false)
     {
         ValidateConnections(runtime, bootstrap);
         var options = new NpgsqlConnectionStringBuilder(runtime); var role = options.Username!;
@@ -96,6 +96,16 @@ internal static class RuntimePrivileges
         foreach (var type in new[] { typeof(ProcurementCategory), typeof(PolicyVersion), typeof(CatalogItem), typeof(CatalogEntry),
             typeof(Supplier), typeof(SupplierQualification), typeof(PurchaseRequestAllocation) })
             await Grant(procurement, type, "SELECT");
+        if (orders)
+        {
+            foreach (var type in new[] { typeof(PurchaseOrder), typeof(PurchaseOrderLine), typeof(PurchaseRequestAllocation) })
+                await Grant(procurement, type, "SELECT,INSERT,UPDATE");
+            await Grant(procurement, typeof(ProcurementMethod), "SELECT");
+            foreach (var type in new[] { typeof(PurchaseOrderFinanceEvidence), typeof(PurchaseOrderCommitmentOwnership),
+                typeof(PurchaseOrderSubmission), typeof(PurchaseOrderAssignmentAuthorityEvidence), typeof(PurchaseOrderIssuedVersion),
+                typeof(PurchaseOrderDeliveryEvidence), typeof(PurchaseOrderFinanceResolution), typeof(ProcurementCommercialCommandReceipt) })
+                await Grant(procurement, type, "SELECT,INSERT");
+        }
         if (migrations)
         {
             await Sql(owner, $"GRANT SELECT ON procurement.__procurement_migrations TO {quotedRole}");

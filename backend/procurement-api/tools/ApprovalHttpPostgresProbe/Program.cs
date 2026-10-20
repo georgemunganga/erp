@@ -30,21 +30,29 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x != "--serve") || args.Count(x => x == "--serve") > 1)
-    throw new ArgumentException("The only supported optional argument is --serve.");
+if (args.Any(x => x is not ("--serve" or "--orders")) || args.Distinct().Count() != args.Length
+    || args.Contains("--serve") && args.Contains("--orders"))
+    throw new ArgumentException("Use either --serve or --orders.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
+var orders = args.Contains("--orders", StringComparer.Ordinal);
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
     throw new ArgumentException("The sandbox loopback port must be between 1024 and 65535.");
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection);
+if (orders && bootstrapConnection is null) throw new InvalidOperationException("Order verification requires distinct bootstrap/runtime identities.");
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders);
 if (serve)
 {
     var manifest = await probe.PrepareBrowserFixture(port);
     Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
+}
+else if (orders)
+{
+    await probe.VerifyInitialOrders();
+    Console.WriteLine("PASS: actual initial PO HTTP commercial workflow and scoped/replay/allocation denial checks.");
 }
 else
 {
@@ -52,7 +60,7 @@ else
     Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
 }
 
-sealed class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
+sealed partial class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
     Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient, ServiceProvider fixtureServices,
     string runtimeConnection, bool distinctRuntime) : IAsyncDisposable
 {
@@ -62,7 +70,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly Dictionary<Guid, Guid> grantIds = [];
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false)
     {
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
@@ -89,6 +97,9 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         // Explicit isolated fixture override is not evidence of production least privilege.
         var feature = new ProcurementApprovalExecutionOptions { Enabled = true, ExecutionDatabaseConfigured = true };
         builder.Services.AddSingleton(feature);
+        var orderFeature = new ProcurementOrderExecutionOptions { Enabled = orders, ExecutionDatabaseConfigured = true,
+            ApprovedManualDispatchPolicyReference = "SYNTHETIC-APPROVED-DELIVERY", AllowedDeliveryChannels = ["SecureEmail"] };
+        builder.Services.AddSingleton(orderFeature);
         builder.Services.AddAuthentication("probe").AddScheme<AuthenticationSchemeOptions, ProbeAuthentication>("probe", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build();
@@ -96,6 +107,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         if (serve) ProcurementHostIntegration.MapRoutes(app);
         else
         {
+            ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
             ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
             ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
         }
@@ -124,14 +136,20 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
                     PermissionsCsv = "procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide" },
                 new TenantRoleAssignment { RoleKey = "finance_approver", RoleName = "Finance", Active = true,
                     PermissionsCsv = "procurement-access,procurement-budget-check,procurement-request-read,procurement-approval-read,procurement-authority-review,procurement-authority-revoke" });
+            if (orders)
+            {
+                foreach (var role in core.TenantRoleAssignments.Local)
+                    if (role.RoleKey == "procurement_manager") role.PermissionsCsv += ",procurement-po-approve,procurement-po-read,procurement-po-dispatch-confirm";
+                    else if (role.RoleKey == "finance_approver") role.PermissionsCsv += ",procurement-po-finance-confirm,procurement-po-read";
+            }
             await core.SaveChangesAsync();
             var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
             scope.Set("probe", company.Id, people["buyer"].User.Id.ToString("D"), null, null, false, "probe-seed");
             var procurement = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             var workflow = services.ServiceProvider.GetRequiredService<ApprovalDbContext>();
-            if (serve)
+            if (serve || orders)
             {
-                // Browser proof uses the actual migration history consumed by /meta.
+                // Browser/order proof uses the actual migration history consumed by /meta.
                 // A source model ahead of committed migrations must never advertise readiness.
                 if (procurement.Database.HasPendingModelChanges() || workflow.Database.HasPendingModelChanges())
                     throw new InvalidOperationException("Sandbox serve mode requires committed migrations matching both Procurement and Core approval models.");
@@ -145,13 +163,22 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             }
             procurement.AddScoped(new ProcurementCategory { Code = "IT", Name = "Synthetic IT", Status = "Active" });
             procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
-                State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = Rules() });
+                State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = Rules(orders) });
+            if (orders)
+            {
+                procurement.AddScoped(new ProcurementMethod { Code = "DIRECT", Name = "Synthetic approved direct buy",
+                    Status = "Active", ExecutionRoute = "DirectPurchase" });
+                procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_ORDER", PolicyVersionNumber = 1,
+                    State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = InitialOrderRules() });
+            }
             await procurement.SaveChangesAsync();
         }
+        orderFeature.ManualCommitmentPolicies = [new() { LegalEntityId = company.Id, Enabled = true,
+            ApprovedPolicyReference = "SYNTHETIC-APPROVED-PO-FINANCE", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         if (bootstrapConnection is not null)
-            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve);
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve || orders, orders);
         await app.StartAsync();
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
             people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature,
@@ -556,11 +583,11 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         Require(source.Status != "Approved" || latest.Status == "Available", "Final approval committed against changed Finance evidence.");
     }
 
-    private async Task Authority(Guid principal, string reference)
+    private async Task Authority(Guid principal, string reference, string action = "PurchaseRequest.Approve")
     {
         var path = Root + "/configuration/spending-authorities";
-        var created = await Send(HttpMethod.Post, path, buyer, new { authorityReference = reference, principalId = principal.ToString("D"),
-            draft = new { currencyCode = "ZMW", amountBasis = "EstimatedLineBase", maximumAmount = 1000,
+        var created = await Send(HttpMethod.Post, path, buyer, new { authorityReference = reference, principalId = principal.ToString("D"), action,
+            draft = new { currencyCode = "ZMW", amountBasis = action == "PurchaseOrder.Approve" ? "ApprovedLineBase" : "EstimatedLineBase", maximumAmount = 1000,
                 effectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), effectiveUntil = DateTimeOffset.UtcNow.AddDays(1), allBranches = true,
                 allDepartments = true, allCategories = true } }, selectedBranch: false);
         await Check(created, HttpStatusCode.Created); var grant = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = grant.GetProperty("id").GetGuid();
@@ -658,11 +685,11 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
     private static async Task Check(HttpResponseMessage response, HttpStatusCode expected)
     { if (response.StatusCode != expected) throw new InvalidOperationException($"Expected HTTP {(int)expected}, got {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}"); }
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
-    private static string Rules() => JsonSerializer.Serialize(new
+    private static string Rules(bool direct = false) => JsonSerializer.Serialize(new
     {
         schemaVersion = 1, transactionType = "PurchaseRequest", currencyCode = "ZMW", amountBasis = "EstimatedLineBase",
         rules = new[] { new { code = "FALLBACK", priority = 0, when = new { categoryCodes = Array.Empty<string>(), purchaseTypes = Array.Empty<string>(), branchIds = Array.Empty<Guid>() },
-            result = new { budgetReservation = "Required", sourcingMethodCode = (string?)null, minimumQuoteCount = (int?)null,
+            result = new { budgetReservation = "Required", sourcingMethodCode = direct ? "DIRECT" : (string?)null, minimumQuoteCount = direct ? 0 : (int?)null,
                 approvalStages = new[] { new { code = "NEED", assignee = "LineManager", mode = "One" }, new { code = "PROC", assignee = "ProcurementManager", mode = "All" } } } } },
     });
     public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); await fixtureServices.DisposeAsync(); }
