@@ -252,3 +252,38 @@ renumber duplicate migrations or rewrite P25 historical snapshots. P25 finalizer
 results and P26 compile/migration/runtime gates remain independent. No SDK/build/test, SQL,
 database, browser or production action occurred during this consolidation, and matching
 remains disabled without its own schema and real owner readiness.
+
+## Request-code and owner-unit consolidation — root fd1c7d0
+
+Ordinary merge `46fd9fb` incorporates root `fd1c7d0` (including reviewed request-code fix
+`168627b` and receiving owner-unit fix `fd1c7d0`), followed by ordinary merge `3623fc4`
+for fixture-only `40eb2d6`. Both merges completed without conflicts; the frozen root worktree
+was not modified. Source provenance remains separate from root's currently running SDK gate.
+
+The request Create/Update draft boundary and strict shared policy grammar match root exactly.
+Mixed-case item display kinds are normalized only as explicitly supplied editable PR policy
+codes; Item.Kind and approved/historical evidence are not rewritten. Receiving now validates
+sealed units using the producer's existing bounded nonempty unit contract, preserving unit
+casing such as `each`; it does not uppercase units or infer UOM identity/conversion authority.
+P26 still binds exact verified unit/mapping owner evidence and remains blocked when that
+owner is unavailable. These changes do not make supplier/mapping/Finance evidence complete.
+
+Fixture follow-up `40eb2d6` passes the ordinary display kind through actual draft intake and
+asserts the approved-source type is canonical before conversion. It is a source-authored
+regression, not a passing actual-PostgreSQL claim. Existing receiving policy codes and sealed
+history are not patched to bypass the new boundary.
+
+Static comparison against root confirms the single P25 migration/Designer/snapshot and all
+existing root request, receiving-domain, PO commercial and exact-input helper files are
+unchanged by consolidation. `VerifyOrderExactInput` remains invoked by OrderVerification.
+P26's governed matching-policy extension, unavailable-owner composition, Core document-store
+validation, safe read/recovery routes and historical receiving projection remain intact.
+The CLI retains `--matching`, `--receiving`, `--settings`, `--orders`, `--serve` and the sole
+supported pair `--serve --orders`; receiving/matching options are each registered once in
+Program and each capability fixture. Runtime privilege dispatch retains its matching flag.
+
+No P26 migration was generated; the authoritative snapshot still describes P25 and a P26
+model delta is expected. No SDK/build/tests, Node/browser, SQL/database operations, runtime
+activation or production changes were performed in this consolidation. `git diff --check`
+passed. The combined candidate needs its own centralized verification before any completion
+or deployment claim.
