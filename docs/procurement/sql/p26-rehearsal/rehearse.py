@@ -107,23 +107,34 @@ def main():
     if not old_values.get('receiving_acceptance_effects'):
         raise RuntimeError("Source lacks actual used P25 acceptance evidence")
     names = {name: args.prefix + '_' + name for name in ('fresh', 'populated', 'used', 'precision')}
+    clone_baselines = {}
     for name, db in names.items():
         # createdb fails on any existing database; never overwrite, drop or terminate sessions.
         run("createdb", "-U", "postgres", "--template=" + ("template0" if name == 'fresh' else args.source_db), db)
+        if name == 'populated':
+            # Only this new clone gets synthetic, explicitly unverified legacy originals.
+            sql(db, (Path(__file__).parent / 'legacy-original.sql').read_text())
+        if name != 'fresh':
+            clone_baselines[name] = (data_snapshot(db, old_shape), history(db))
         sql(db, up); sql(db, up); manifest(db)
+        if name == 'populated':
+            sql(db, (Path(__file__).parent / 'assert-legacy-unverified.sql').read_text())
         if history(db).count(args.migration_id) != 1:
             raise RuntimeError("Idempotent Up did not retain exactly one P26 history entry")
         if name != 'fresh':
-            if data_snapshot(db, old_shape) != old_values or not set(old_history).issubset(history(db)):
+            values_before, history_before = clone_baselines[name]
+            if data_snapshot(db, old_shape) != values_before or not set(history_before).issubset(history(db)):
                 raise RuntimeError("Populated Up changed retained P25 values/history")
 
     # Used P25 receiving must not itself block an otherwise UNUSED P26 rollback.
     populated = names['populated']
+    populated_values, populated_history = clone_baselines['populated']
     sql(populated, down)
-    if history(populated) != old_history or data_snapshot(populated, old_shape) != old_values:
+    if history(populated) != populated_history or data_snapshot(populated, old_shape) != populated_values:
         raise RuntimeError("Unused Down lost retained P25 values/history")
     sql(populated, up); sql(populated, up); manifest(populated)
-    if data_snapshot(populated, old_shape) != old_values:
+    sql(populated, (Path(__file__).parent / 'assert-legacy-unverified.sql').read_text())
+    if data_snapshot(populated, old_shape) != populated_values:
         raise RuntimeError("Unused Down/Up changed retained P25 values")
 
     for case, filename, expected in (
