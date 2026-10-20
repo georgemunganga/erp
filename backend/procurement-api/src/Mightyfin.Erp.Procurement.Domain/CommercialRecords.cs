@@ -192,6 +192,10 @@ public sealed class PurchaseOrderLine : ProcurementRecord
 
 public sealed class PurchaseOrderRevision : ProcurementRecord
 {
+    // Optional for legacy records; controlled amendment proposals require all three.
+    public Guid? BaseIssuedVersionId { get; set; }
+    public int? BaseIssuedRevision { get; set; }
+    public string? BaseIssuedSnapshotSha256 { get; set; }
     public Guid PurchaseOrderId { get; set; }
     public int RevisionNumber { get; set; }
     public string Status { get; set; } = "PendingApproval";
