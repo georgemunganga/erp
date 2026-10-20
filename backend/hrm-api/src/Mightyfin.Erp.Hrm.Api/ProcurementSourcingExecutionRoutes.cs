@@ -58,12 +58,15 @@ public static partial class ProcurementSourcingExecutionRoutes
             return Error(failure.Code, failure.Status);
         }
         catch (Exception error) when (error is Problem or InvalidOperationException or ArgumentException or UnauthorizedAccessException
-            or KeyNotFoundException or JsonException or DbUpdateException or NpgsqlException or OverflowException or FormatException)
+            or KeyNotFoundException or JsonException or DbUpdateException or NpgsqlException or OverflowException or FormatException
+            || ProcurementPostgresFailures.IsStoreFailure(error))
         {
-            var pg = error.GetBaseException() as PostgresException;
-            var status = error is Problem problem ? problem.Status : error is UnauthorizedAccessException ? 403
-                : error is KeyNotFoundException ? 404 : error is JsonException or ArgumentException or FormatException ? 422
-                : (error is NpgsqlException or DbUpdateException) && pg?.SqlState is not ("40001" or "40P01" or "23505") ? 503 : 409;
+            var pg = ProcurementPostgresFailures.Postgres(error);
+            var status = error is Problem problem ? problem.Status
+                : ProcurementPostgresFailures.IsConcurrency(error) || pg?.SqlState == "23505" ? 409
+                : ProcurementPostgresFailures.IsStoreFailure(error) ? 503
+                : error is UnauthorizedAccessException ? 403 : error is KeyNotFoundException ? 404
+                : error is JsonException or ArgumentException or FormatException ? 422 : 409;
             return Error(error is Problem ? error.Message : status == 503 ? "SourcingSaveUnconfirmed" : "SourcingEvidenceNeedsReview", status);
         }
     }

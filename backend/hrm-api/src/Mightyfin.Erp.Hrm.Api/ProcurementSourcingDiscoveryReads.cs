@@ -60,8 +60,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                         state = available.AvailableQuantity > 0 ? "Available" : "FullyAllocated",
                         canSelect = available.AvailableQuantity > 0, canPublish = false });
                 }
-                catch (Exception error) when (error is ApprovedDemandLoadException or InvalidOperationException
-                    or ArgumentException or UnauthorizedAccessException or KeyNotFoundException or JsonException or OverflowException or Problem)
+                catch (Exception error) when (IsDiscoveryEvidenceFailure(error))
                 {
                     // Never expose owner errors, policy payloads or monetary facts from a failed proof.
                     items.Add(new { purchaseRequestId = row.PurchaseRequestId, purchaseRequestLineId = row.Id,
@@ -99,13 +98,18 @@ public static partial class ProcurementSourcingExecutionRoutes
                     items.Add(new { ev.Id, ev.Number, ev.Title, ev.CurrencyCode, ev.Status, ev.Version,
                         originalDraftFingerprint = ev.OriginalDraftFingerprint, state = "VerifiedRetainedDraft", canPublish = false });
                 }
-                catch (Exception error) when (error is InvalidOperationException or ArgumentException or JsonException or Problem)
+                catch (Exception error) when (IsDiscoveryEvidenceFailure(error))
                 { items.Add(new { ev.Id, ev.Number, state = "Unavailable", blocker = "SourcingOriginalEvidenceUnavailable", canPublish = false }); }
             }
             ReadOnly(db, cases, core);
             return new Reply(JsonSerializer.Serialize(new { items, total = count, page = paging.Number,
                 pageSize = paging.Size, canPublish = false }, Json));
         }, ct);
+
+    internal static bool IsDiscoveryEvidenceFailure(Exception error)
+        => !ProcurementPostgresFailures.IsStoreFailure(error)
+            && error is ApprovedDemandLoadException or InvalidOperationException or ArgumentException
+                or UnauthorizedAccessException or KeyNotFoundException or JsonException or OverflowException or Problem;
 
     private static void ReadOnly(ProcurementDbContext db, ApprovalDbContext cases, HrmDbContext core)
     {

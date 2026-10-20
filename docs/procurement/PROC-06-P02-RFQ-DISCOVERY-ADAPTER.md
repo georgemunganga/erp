@@ -113,3 +113,9 @@ Existing RFQ adapter owns endpoints. Existing ApprovedDemandSourceLoader + Compe
 ## 28. Open Decisions / Assumptions
 
 Purpose read endpoints are gated with governed execution readiness until its exact migration manifest exists. Existing LiveSourcing integration, actual restricted-role tests/browser and schema readiness remain pending. No award-to-PO conversion or same-line direct+competitive transfer contract exists; unsupported paths stay denied. This source increment does not complete sourcing or Procurement.
+
+### Distinct source review correction — wrapped store failures
+
+The first source checkpoint e0818e1 caught InvalidOperationException per row without excluding database causes; EF execution-strategy wrappers could therefore have appeared as a successful Unavailable row. Follow-up reuses the existing ProcurementPostgresFailures helper with underlying DbException/DbUpdateException recognition. Both row catches now exclude storage failures. The route-level handler classifies wrapped storage failures as 503, confirmed 40001/40P01/23505 as 409 after the existing coordinator retry boundary. Known domain evidence failures remain row-level Unavailable. No silent zero/empty business result or owner error payload is produced.
+
+Authored, unrun regressions cover nested PostgreSQL fault wrappers on both actual mapped GETs (no stores/coordinator registered, proving no store effects), transport/DbUpdate/aggregate wrappers denied by the shared row predicate, and ordinary business evidence failures still accepted as row blockers. This does not claim the full database-backed row-positive/zero-write fixture has run.

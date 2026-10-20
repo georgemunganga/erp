@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -69,6 +70,17 @@ public sealed class ProcurementSourcingDiscoveryTests
         Assert.Contains("method.execution_route='CompetitiveSourcing'", sql);
         Assert.True(sql.IndexOf("pin.request_snapshot_json", StringComparison.Ordinal) < sql.LastIndexOf("LIMIT", StringComparison.Ordinal));
         Assert.False(db.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
+    public void Business_evidence_failure_remains_unavailable_but_store_wrappers_never_become_rows()
+    {
+        Assert.True(ProcurementSourcingExecutionRoutes.IsDiscoveryEvidenceFailure(new InvalidOperationException("SourcingSourcePolicyMismatch")));
+        Assert.True(ProcurementSourcingExecutionRoutes.IsDiscoveryEvidenceFailure(new KeyNotFoundException("Retained source missing")));
+        var store = new NpgsqlException("Transport unavailable", new System.IO.IOException("Disconnected"));
+        Assert.False(ProcurementSourcingExecutionRoutes.IsDiscoveryEvidenceFailure(new InvalidOperationException("Wrapped", store)));
+        Assert.False(ProcurementSourcingExecutionRoutes.IsDiscoveryEvidenceFailure(new ArgumentException("Wrapped", new DbUpdateException("Save failed", store))));
+        Assert.False(ProcurementSourcingExecutionRoutes.IsDiscoveryEvidenceFailure(new AggregateException(new InvalidOperationException("Business"), store)));
     }
 
     private static RfqCurrentActor Actor(Guid? selected, bool organisationWide, Guid[] branches)

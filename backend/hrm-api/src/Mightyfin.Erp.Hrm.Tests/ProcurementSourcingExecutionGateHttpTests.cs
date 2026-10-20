@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Hrm.Api;
+using Npgsql;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -51,6 +52,49 @@ public sealed class ProcurementSourcingExecutionGateHttpTests
                 Assert.True(response.Headers.CacheControl?.NoStore);
             }
         }
+    }
+    [Theory]
+    [InlineData("08006", HttpStatusCode.ServiceUnavailable)]
+    [InlineData("40001", HttpStatusCode.Conflict)]
+    [InlineData("40P01", HttpStatusCode.Conflict)]
+    [InlineData("23505", HttpStatusCode.Conflict)]
+    public async Task Wrapped_store_failures_escape_row_unavailable_and_fail_mapped_get_without_store_writes(
+        string sqlState, HttpStatusCode expected)
+    {
+        // Shape emitted by execution strategies: outer InvalidOperationException is NOT
+        // a domain eligibility exception merely because the wrapper has that type.
+        var error = new InvalidOperationException("Strategy wrapper",
+            new InvalidOperationException("Inner wrapper", new PostgresException("Synthetic store fault", "ERROR", "ERROR", sqlState)));
+        Assert.False(ProcurementSourcingExecutionRoutes.IsDiscoveryEvidenceFailure(error));
+        var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
+        var scope = new ProcurementRequestScope();
+        scope.Set("rfq-failure", Guid.NewGuid(), Guid.NewGuid().ToString("D"), null, null, false, "failure");
+        builder.Services.AddSingleton(scope);
+        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = true, ExecutionDatabaseConfigured = true });
+        var readiness = new FailingReadiness(error);
+        builder.Services.AddSingleton<IProcurementSourcingDraftSchemaReadiness>(readiness);
+        builder.Services.AddAuthentication("rfq-gate").AddScheme<AuthenticationSchemeOptions, Authentication>("rfq-gate", _ => { });
+        builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
+        await using var app = builder.Build(); app.UseAuthentication(); app.UseAuthorization();
+        ProcurementSourcingExecutionRoutes.MapRoutes(app); await app.StartAsync();
+        using var client = app.GetTestClient();
+        foreach (var path in new[] { "approved-sources", "source-drafts" })
+        {
+            using var response = await client.GetAsync("/api/procurement/v1/sourcing/" + path);
+            Assert.Equal(expected, response.StatusCode);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(expected == HttpStatusCode.ServiceUnavailable ? "SourcingSaveUnconfirmed" : "SourcingEvidenceNeedsReview",
+                body.GetProperty("code").GetString());
+            Assert.False(body.TryGetProperty("items", out _));
+            Assert.True(response.Headers.CacheControl?.NoStore);
+        }
+        Assert.Equal(2, readiness.Attempts);
+        // No DbContext/coordinator/store exists in this host: no writes can have occurred.
+    }
+    private sealed class FailingReadiness(Exception error) : IProcurementSourcingDraftSchemaReadiness
+    {
+        internal int Attempts { get; private set; }
+        public Task<bool> IsReadyAsync(CancellationToken ct) { ++Attempts; return Task.FromException<bool>(error); }
     }
     private sealed class Authentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
         UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
