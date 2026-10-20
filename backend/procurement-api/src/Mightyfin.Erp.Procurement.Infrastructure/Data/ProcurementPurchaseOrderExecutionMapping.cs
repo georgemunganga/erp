@@ -31,6 +31,7 @@ public sealed partial class ProcurementDbContext
         finance.Property(x => x.EvidenceMode).HasMaxLength(40);
         finance.Property(x => x.ApprovedManualPolicyReference).HasMaxLength(500);
         finance.Property(x => x.CurrencyCode).HasMaxLength(3);
+        finance.Property(x => x.CommercialSnapshotSha256).HasMaxLength(64);
         finance.Property(x => x.ConfirmedGrossAmount).HasPrecision(38, 8);
         finance.Property(x => x.VerifiedByPrincipalId).HasMaxLength(200);
         finance.Property(x => x.Status).HasMaxLength(40);
@@ -62,8 +63,8 @@ public sealed partial class ProcurementDbContext
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.PolicyVersionNumber })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PolicyVersionNumber }).OnDelete(DeleteBehavior.Restrict);
         submission.HasOne<PurchaseOrderFinanceEvidence>().WithMany()
-            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.FinanceEvidenceId, x.PurchaseOrderId, x.CommercialRevision, x.CurrencyCode })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.CommercialRevision, x.CurrencyCode })
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.FinanceEvidenceId, x.PurchaseOrderId, x.CommercialRevision, x.CurrencyCode, x.CommercialSnapshotSha256 })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.CommercialRevision, x.CurrencyCode, x.CommercialSnapshotSha256 })
             .OnDelete(DeleteBehavior.Restrict);
         submission.ToTable(t => t.HasCheckConstraint("ck_order_submission_evidence",
             "commercial_revision > 0 AND submitted_row_version > 0 AND amount_basis = 'ApprovedLineBase' " +

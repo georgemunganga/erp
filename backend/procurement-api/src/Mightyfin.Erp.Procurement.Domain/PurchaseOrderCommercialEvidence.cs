@@ -14,6 +14,7 @@ public sealed class PurchaseOrderFinanceEvidence : ProcurementRecord
     public string CurrencyCode { get; init; } = null!;
     public decimal ConfirmedGrossAmount { get; init; }
     public string SourceReservationsJson { get; init; } = null!;
+    public string CommercialSnapshotSha256 { get; init; } = null!;
     public string VerifiedByPrincipalId { get; init; } = null!;
     public DateTimeOffset ConfirmedAt { get; init; }
     public string? ReplacesCommitmentReference { get; init; }

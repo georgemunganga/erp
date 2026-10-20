@@ -66,6 +66,17 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         Assert.Equal("Draft", f.Source.Order.Status);
     }
 
+    [Fact]
+    public void Same_amount_cost_centre_change_requires_new_finance_confirmation()
+    {
+        var f = new Fixture();
+        f.Source.PoLine.CostCenterRef = "OTHER-COST-CENTRE";
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.Submit(f.Source.Order,
+            f.Lines, f.Supplier, f.Policy, f.Finance, Guid.NewGuid(), f.Now));
+        Assert.Equal("Draft", f.Source.Order.Status);
+        Assert.Equal(0, f.Source.Order.CurrentRevision);
+    }
+
     private sealed class Fixture
     {
         public PurchaseOrderSourceAllocationTests.Fixture Source { get; } = new();
@@ -101,6 +112,8 @@ public sealed class PurchaseOrderCommercialWorkflowTests
             EvidenceMode = "ApprovedManualEvidence", ApprovedManualPolicyReference = "SYNTHETIC-POLICY",
             Status = "Confirmed", CurrencyCode = "ZMW", ConfirmedGrossAmount = amount,
             SourceReservationsJson = JsonSerializer.Serialize(new[] { Source.Source.Finance.ReservationRef }),
+            CommercialSnapshotSha256 = ProcurementEvidenceEncoding.Digest(PurchaseOrderCommercialWorkflow.Snapshot(
+                Source.Order, Lines.Select(x => x.OrderLine).ToArray(), Supplier, 1)),
             VerifiedByPrincipalId = "independent-finance", ConfirmedAt = Now,
         };
         public PurchaseOrderSubmission Submit()

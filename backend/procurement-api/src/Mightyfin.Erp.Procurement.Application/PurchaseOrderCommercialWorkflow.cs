@@ -25,7 +25,7 @@ public static class PurchaseOrderCommercialWorkflow
         var revision = checked(order.CurrentRevision + 1);
         var route = PolicyRoute(order, lines, policy, now);
         var (lineBase, gross) = Totals(lines.Select(x => x.OrderLine));
-        ValidateFinance(order, lines, finance, revision, gross, now);
+        ValidateFinance(order, lines, supplier, finance, revision, gross, now);
         var snapshot = Snapshot(order, lines.Select(x => x.OrderLine).ToArray(), supplier, revision);
         var pin = new PurchaseOrderSubmission
         {
@@ -64,7 +64,7 @@ public static class PurchaseOrderCommercialWorkflow
             || pin.PolicyDecisionJson != PolicyRoute(order, lines, policy, pin.SubmittedAt).DecisionJson
             || pin.FinanceEvidenceId != finance.Id || order.FinanceCommitmentRef != finance.CommitmentReference)
             Fail("OrderSubmittedEvidenceChanged");
-        ValidateFinance(order, lines, finance, pin.CommercialRevision, gross, now);
+        ValidateFinance(order, lines, supplier, finance, pin.CommercialRevision, gross, now);
     }
 
     public static void ApplyDecision(PurchaseOrder order, PurchaseOrderSubmission pin,
@@ -209,12 +209,14 @@ public static class PurchaseOrderCommercialWorkflow
     }
 
     private static void ValidateFinance(PurchaseOrder order, IReadOnlyList<PurchaseOrderSourceLine> lines,
-        PurchaseOrderFinanceEvidence finance, int revision, decimal gross, DateTimeOffset now)
+        Supplier supplier, PurchaseOrderFinanceEvidence finance, int revision, decimal gross, DateTimeOffset now)
     {
         if (finance.TenantId != order.TenantId || finance.LegalEntityId != order.LegalEntityId
             || finance.PurchaseOrderId != order.Id || finance.SupplierId != order.SupplierId
             || finance.CommercialRevision != revision || finance.Status != "Confirmed"
             || finance.CurrencyCode != order.CurrencyCode || finance.ConfirmedGrossAmount != gross
+            || finance.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(
+                Snapshot(order, lines.Select(x => x.OrderLine).ToArray(), supplier, revision))
             || finance.EvidenceMode != "ApprovedManualEvidence" || string.IsNullOrWhiteSpace(finance.ApprovedManualPolicyReference)
             || finance.ConfirmedAt == default || finance.ConfirmedAt > now || finance.VerifiedByPrincipalId == order.BuyerSubjectId
             || new[] { finance.CommitmentReference, finance.EvidenceReference, finance.VerifiedByPrincipalId }.Any(string.IsNullOrWhiteSpace))
@@ -242,7 +244,7 @@ public static class PurchaseOrderCommercialWorkflow
             financeSnapshotId = x.Source.Finance.Id, x.Source.Finance.ReservationRef,
         }).ToArray());
 
-    private static string Snapshot(PurchaseOrder order, IReadOnlyList<PurchaseOrderLine> lines,
+    public static string Snapshot(PurchaseOrder order, IReadOnlyList<PurchaseOrderLine> lines,
         Supplier supplier, int revision) => JsonSerializer.Serialize(new
     {
         schemaVersion = 1, order.TenantId, order.LegalEntityId, order.Id, order.Number, revision,
