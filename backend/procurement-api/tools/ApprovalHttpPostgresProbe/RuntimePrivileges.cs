@@ -69,7 +69,7 @@ internal static class RuntimePrivileges
                 ?? throw new InvalidOperationException("Unmapped canonical read column.")));
             await Sql(owner, $"GRANT SELECT ({string.Join(',', columns)}) ON {Table(entity)} TO {quotedRole}");
         }
-        await Columns<LocalUser>("Id", "TenantId", "WorkerId", "RolesCsv", "IsActive", "IsArchived", "LockedUntil");
+        await Columns<LocalUser>("Id", "TenantId", "WorkerId", "RolesCsv", "IsActive", "IsArchived", "LockedUntil", "DisplayName");
         await Columns<Worker>("Id", "TenantId", "SubjectId", "LocationId", "OrgUnitId", "ManagerId", "Status", "IsArchived");
         await Columns<LegalEntity>("Id", "TenantId", "IsArchived", "IsDefault", "RegisteredName", "Code", "Currency");
         await Columns<WorkLocation>("Id", "TenantId", "IsArchived", "LegalEntityId", "Code", "Name");
