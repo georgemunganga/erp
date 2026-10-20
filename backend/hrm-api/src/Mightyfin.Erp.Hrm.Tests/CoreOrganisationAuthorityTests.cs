@@ -167,6 +167,7 @@ public sealed class CoreOrganisationAuthorityTests
     [InlineData("ZMWX")]
     [InlineData("12A")]
     [InlineData("€MW")]
+    [InlineData("uſd")]
     public async Task InvalidCurrency_DeniesBeforeAnyCompanyMutation(string currency)
     {
         await using var db = TestDbContextFactory.Create();

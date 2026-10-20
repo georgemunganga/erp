@@ -113,3 +113,9 @@ Core owns organization and role authority; existing HRM adapter paths remain com
 ## 28. Open Decisions / Assumptions
 
 Default-company uniqueness/reassignment and historical concurrent metadata editing need separate contract; not exposed here. Full currency catalog/tax/terms remain Finance/shared-reference work. No manager picker or departmental data-scope grant is inferred. Existing closed-unit metadata edits need explicit product adoption before enabling; initially disable editing closed units. Source acceptance is not runtime/UAT approval.
+
+## Source implementation checkpoint (not executed)
+
+The bounded adapter reuses the existing company/department sections and shared ERP Dialog/Input/Select/Button controls. Companies gain create/edit profile and currency; departments gain create/edit name/cost-centre reference. Raw owned response fields initialize editors; update payloads explicitly omit hidden/statutory/worker/default/hierarchy/history properties. Closed/effective-to departments are not offered editing. Existing company/department IDs and repositories remain authoritative. Existing compatibility HTTP paths are reused, adding only the previously absent client wrapper for company PATCH.
+
+The existing HTTP client does not automatically retry writes. This adapter locks an uncertain mutation after a transport/server failure and offers close-and-refresh before deliberate reconciliation. No durable receipt, CAS guarantee or browser-local saved record is claimed. Static demo date is replaced with the current UTC date in live mode; existing demo presentation keeps its original date. Three presentation/browser cases plus payload/authorization tests are authored, not executed; Node/SDK/browser jobs remain deferred. Company/department section arrangement and existing location/closure controls remain in place. Location edit remains the documented subsequent adapter gap.

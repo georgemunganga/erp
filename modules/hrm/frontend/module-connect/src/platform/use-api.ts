@@ -1292,6 +1292,8 @@ export const realApi = {
   /** Create a legal entity. */
   createLegalEntity: (body: Record<string, unknown>) =>
     hrmApi.post<Record<string, unknown>>("/hrm/admin/legal-entities", body),
+  updateLegalEntity: (id: string, body: Record<string, unknown>) =>
+    hrmApi.patch<Record<string, unknown>>(`/hrm/admin/legal-entities/${id}`, body),
   createWorkerAssignment: (workerId: string, body: Record<string, unknown>) =>
     hrmApi.post<Record<string, unknown>>(`/hrm/workers/${workerId}/assignments`, body),
 

@@ -564,10 +564,10 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     private static string NormalizeReferenceCode(string? value, int length, string field)
     {
-        var normalized = value?.Trim().ToUpperInvariant();
-        if (normalized is null || normalized.Length != length || normalized.Any(c => c is < 'A' or > 'Z'))
+        var normalized = value?.Trim();
+        if (normalized is null || normalized.Length != length || normalized.Any(c => !(c is >= 'A' and <= 'Z' or >= 'a' and <= 'z')))
             throw new DomainException($"{field}-invalid", $"Enter a {length}-letter {field} code using A to Z.");
-        return normalized;
+        return normalized.ToUpperInvariant();
     }
 
     private static void RequireNonEmpty(string? value, string field)

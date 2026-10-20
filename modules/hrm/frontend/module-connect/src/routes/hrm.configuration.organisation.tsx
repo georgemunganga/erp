@@ -1,3 +1,5 @@
+import { OrganisationMasterDialog } from "@/modules/core/OrganisationMasterDialog";
+import type { OrganisationEditorKind } from "@/modules/core/organisation-editing";
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { CalendarClock, History, Info, Lock, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
@@ -30,7 +32,7 @@ import {
   adminConfigApi,
   canDeleteUnit,
   shortEntityName,
-  todayIso,
+  todayIso as demoTodayIso,
   unitState,
   unitStateExplanation,
 } from "@/mock/adminconfig";
@@ -82,6 +84,7 @@ interface DraftClosure {
 }
 
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
+const todayIso = USE_REAL ? new Date().toISOString().slice(0, 10) : demoTodayIso;
 
 const kindMap: Record<string, LocationKind> = {
   branch: "Office",
@@ -93,8 +96,10 @@ const kindMap: Record<string, LocationKind> = {
   works: "Works",
 };
 
-function adaptEntities(rows: unknown[]): LegalEntityConfig[] {
+type EditableEntity = LegalEntityConfig & { _source?: Record<string, unknown> };
+function adaptEntities(rows: unknown[]): EditableEntity[] {
   return (rows as Record<string, unknown>[]).map((e) => ({
+    _source: e,
     id: String(e.id ?? ""),
     entityId: String(e.id ?? ""),
     registeredName: String(e.registeredName ?? ""),
@@ -107,12 +112,13 @@ function adaptEntities(rows: unknown[]): LegalEntityConfig[] {
     employees: 0,
     branches: 0,
     effectiveFrom: String(e.createdAt ?? "").slice(0, 10) || todayIso,
-  })) as LegalEntityConfig[];
+  })) as EditableEntity[];
 }
 
-type OrgUnitWithEntity = OrgUnitConfig & { _entityName?: string };
+type OrgUnitWithEntity = OrgUnitConfig & { _entityName?: string; _source?: Record<string, unknown> };
 function adaptUnits(rows: unknown[]): OrgUnitWithEntity[] {
   return (rows as Record<string, unknown>[]).map((u) => ({
+    _source: u,
     id: String(u.id ?? ""),
     name: String(u.name ?? ""),
     code: String(u.code ?? ""),
@@ -422,7 +428,7 @@ function NewLocationDialog({
 
 /* -------------------------------------------------------------------------- */
 
-function EntityTable({ rows, asAt, canAct, workforceCountsAvailable }: { rows: LegalEntityConfig[]; asAt: string; canAct: boolean; workforceCountsAvailable: boolean }) {
+function EntityTable({ rows, asAt, canAct, workforceCountsAvailable, onEdit }: { rows: EditableEntity[]; asAt: string; canAct: boolean; workforceCountsAvailable: boolean; onEdit: (source: Record<string, unknown>) => void }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
       <RecordTable className="w-full min-w-[52rem] text-left text-sm">
@@ -512,7 +518,7 @@ function EntityTable({ rows, asAt, canAct, workforceCountsAvailable }: { rows: L
                     variant="ghost"
                     size="sm"
                     className="h-8"
-                    onClick={() =>
+                    onClick={() => USE_REAL && e._source ? onEdit(e._source) :
                       feedback.note(
                         `Editing ${e.registeredName}.`,
                         "An entity change needs an effective date — it decides which payroll rules apply from when.",
@@ -761,6 +767,7 @@ export function OrganisationConfig() {
   const [drafts, setDrafts] = useState<DraftClosure[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [newLocation, setNewLocation] = useState(false);
+  const [editor, setEditor] = useState<{ kind: OrganisationEditorKind; initial: Record<string, unknown> | null } | null>(null);
   const refresh = state.reload;
 
   const columns: ColumnDef<OrgUnitWithEntity>[] = [
@@ -795,7 +802,7 @@ export function OrganisationConfig() {
       id: "inuse",
       header: "In use by",
       cell: (u) =>
-        u.references.length ? (
+        USE_REAL ? <span className="text-xs text-muted-foreground">Reference checks unavailable</span> : u.references.length ? (
           <ul className="min-w-0 max-w-56 space-y-0.5 text-xs">
             {u.references.map((r) => (
               <li key={r} className="truncate">
@@ -888,13 +895,10 @@ export function OrganisationConfig() {
         <div className="rounded-lg border border-info/30 bg-info-soft p-4 text-sm text-info">
           <p className="flex items-start gap-2 font-medium">
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-            Structure is effective-dated, so changing it never rewrites history
+            {USE_REAL ? "Organization changes use the existing company and department records" : "Structure is effective-dated, so changing it never rewrites history"}
           </p>
           <p className="mt-1.5 pl-6">
-            Renaming a department, moving a cost centre or closing a location applies from the date
-            you give and no earlier. A payslip, leave record or headcount report produced before
-            that date keeps the unit it was actually posted to. That is why units are closed or
-            superseded rather than deleted.
+            {USE_REAL ? "Company and department details update when you save. Closing a department uses the date you choose. Existing transactions keep their linked records and currency." : "Renaming a department, moving a cost centre or closing a location applies from the date you give and no earlier. A payslip, leave record or headcount report produced before that date keeps the unit it was actually posted to. That is why units are closed or superseded rather than deleted."}
           </p>
         </div>
 
@@ -953,12 +957,20 @@ export function OrganisationConfig() {
 
             return (
               <div className="space-y-6">
+                {USE_REAL && editor ? <OrganisationMasterDialog
+                  key={`${editor.kind}:${String(editor.initial?.id ?? "new")}`}
+                  kind={editor.kind} initial={editor.initial} companies={data.entities}
+                  canAct={canAct} onClose={() => setEditor(null)}
+                  onReconcile={() => { setEditor(null); refresh(); }}
+                  onSaved={() => { setEditor(null); refresh(); feedback.saved("Organization settings saved."); }}
+                /> : null}
                 <DetailSection
                   id="profile"
                   title="Legal entities"
                   description="Who employs people, under which registration and in which currency. An entity is never deleted once it has employed anyone."
                 >
-                  <EntityTable rows={data.entities} asAt={asAt} canAct={canAct && !USE_REAL} workforceCountsAvailable={workforceCountsAvailable} />
+                  {USE_REAL ? <div className="mb-3"><Button variant="outline" disabled={!canAct} onClick={() => setEditor({ kind: "company", initial: null })}><Plus className="size-4" aria-hidden /> Add company</Button></div> : null}
+                  <EntityTable rows={data.entities} asAt={asAt} canAct={canAct} workforceCountsAvailable={workforceCountsAvailable} onEdit={(initial) => setEditor({ kind: "company", initial })} />
                 </DetailSection>
 
                 <DetailSection
@@ -981,8 +993,9 @@ export function OrganisationConfig() {
                 <DetailSection
                   id="departments"
                   title="Departments and cost centres"
-                  description="The reporting and costing spine. The In use column shows what still points at each unit, which decides whether it can be removed at all."
+                  description={USE_REAL ? "Departments and their company and cost centre references." : "The reporting and costing spine. The In use column shows what still points at each unit, which decides whether it can be removed at all."}
                 >
+                  {USE_REAL ? <div className="mb-3"><Button variant="outline" disabled={!canAct || data.entities.length === 0} onClick={() => setEditor({ kind: "department", initial: null })}><Plus className="size-4" aria-hidden /> Add department</Button></div> : null}
                   <ListPage
                     rows={data.units}
                     columns={columns}
@@ -1021,8 +1034,9 @@ export function OrganisationConfig() {
                       { label: "Export selection", onSelect: () => undefined },
                       { label: "Add to structure review", onSelect: () => undefined },
                     ]}
-                    rowHref={(u) =>
-                      !USE_REAL && canDeleteUnit(u) ? (
+                    rowHref={(u) => <div className="flex items-center gap-2">
+                      {USE_REAL && canAct && (u as OrgUnitWithEntity)._source && !u.effectiveTo && (u as OrgUnitWithEntity)._source?.status !== "closed" ? <Button variant="ghost" size="sm" onClick={() => setEditor({ kind: "department", initial: (u as OrgUnitWithEntity)._source! })}>Edit<span className="sr-only"> {u.name}</span></Button> : null}
+                      {!USE_REAL && canDeleteUnit(u) ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1038,8 +1052,8 @@ export function OrganisationConfig() {
                           <Lock className="size-3.5 shrink-0" aria-hidden />
                           Close only
                         </span>
-                      ) : null
-                    }
+                      ) : null}
+                    </div>}
                     emptyBody="No units match this view. Clear a filter, or move the as-at date."
                   />
                 </DetailSection>
