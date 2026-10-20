@@ -420,6 +420,20 @@ public sealed class ControlledReceivingTests
         Assert.Throws<InvalidOperationException>(() => ControlledReceiving.ValidateLedger(f.Ledger));
     }
 
+    [Fact]
+    public void Rehydrated_negative_effect_cannot_replace_independent_actor_with_original_certifier_alias()
+    {
+        var f = new Fixture(); var physical = f.Record(2); f.Inspect(physical, 2);
+        var original = f.Accept(physical, 2); f.Append(original);
+        var returned = f.Correct(original, 1, AcceptanceEffectKind.ReturnDispatched); f.Append(returned);
+        typeof(ReceivingAcceptanceEffect).GetProperty(nameof(ReceivingAcceptanceEffect.ActorWorkerId))!
+            .SetValue(returned, original.ActorWorkerId);
+        // A different principal label cannot compensate for the same canonical worker.
+        returned.CreatedBy = "another-account-for-original-certifier";
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.ValidateLedger(f.Ledger));
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.Balance(f.Ledger, original.AcceptanceRecordId));
+    }
+
     private sealed class Fixture
     {
         public DateTimeOffset Now { get; } = new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero).AddTicks(7);

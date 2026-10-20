@@ -380,6 +380,7 @@ public static class ControlledReceiving
                 Require(parent is not null && parent.LedgerSequence < effect.LedgerSequence && parent.AcceptanceRecordId == effect.AcceptanceRecordId
                     && parent.PhysicalObservationId == effect.PhysicalObservationId
                     && parent.InspectionEvidenceId == effect.InspectionEvidenceId
+                    && effect.ActorWorkerId != parent.ActorWorkerId
                     && -ExactDecimalArithmetic.Sum(ledger.Effects.Where(x => x.OriginalAcceptanceEffectId == parent.Id).Select(x => x.QuantityDelta))
                         <= parent.QuantityDelta, "CorrectionParentCapacityMismatch");
                 var correction = effect.CorrectionEvidence;
