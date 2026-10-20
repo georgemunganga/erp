@@ -57,7 +57,11 @@ public sealed class InvoiceMatchingPersistenceTests
     [Fact]
     public void Invoice_issued_order_key_keeps_existing_receiving_principal_constraint_name()
     {
-        using var db = Context();
+        // Check the actual PostgreSQL naming convention; InMemory does not impose its 63-byte limit.
+        // Building the design model never opens this deliberately invalid connection.
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=procurement_design_only;Username=invalid").Options,
+            new Scope("invoice-test", Guid.NewGuid(), "matcher"));
         var issued = db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(PurchaseOrderIssuedVersion))!;
         var retained = issued.GetKeys().Single(x => x.Properties.Select(p => p.Name)
             .SequenceEqual(new[] { "TenantId", "LegalEntityId", "Id", "PurchaseOrderId", "SubmissionId" }));
