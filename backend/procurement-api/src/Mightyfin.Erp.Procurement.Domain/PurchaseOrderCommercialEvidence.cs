@@ -4,6 +4,7 @@ namespace Mightyfin.Erp.Procurement.Domain;
 public sealed class PurchaseOrderFinanceEvidence : ProcurementRecord
 {
     public Guid PurchaseOrderId { get; init; }
+    public Guid SupplierId { get; init; }
     public int CommercialRevision { get; init; }
     public string CommitmentReference { get; init; } = null!;
     public string EvidenceReference { get; init; } = null!;

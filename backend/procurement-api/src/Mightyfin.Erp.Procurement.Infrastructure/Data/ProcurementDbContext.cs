@@ -491,6 +491,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureSpendingAuthority(modelBuilder);
         ConfigureApprovalOutcomes(modelBuilder);
         ConfigureApprovalExecution(modelBuilder);
+        ConfigurePurchaseOrderExecution(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
@@ -668,6 +669,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardSpendingAuthorityChanges();
         GuardApprovalOutcomeChanges();
         GuardApprovalExecution();
+        GuardPurchaseOrderExecution();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();

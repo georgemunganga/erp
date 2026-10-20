@@ -44,7 +44,7 @@ Existing buyer-owned draft read scope is retained. New explicit convert/submit/a
 
 ## 11. Business Rules
 
-Available quantity = approved − cancelled − allocated − ordered; accepted/invoiced quantities are subsets, not additional deductions. Allocation rows and counters must reconcile. Reservation moves to ordered once at known commercial issue; duplicate commands never consume twice. PO quantity cannot exceed approved source authority. Price delta requires the PO's explicit full-value approval and sufficient confirmed Finance commitment. No free-form draft may issue without a separately approved exception route.
+Available quantity = approved − cancelled − allocated − ordered; accepted/invoiced quantities are subsets, not additional deductions. Allocation rows and counters must reconcile. Reservation moves to ordered once at known commercial issue; duplicate commands never consume twice. PO quantity cannot exceed approved source authority. Policy approval thresholds evaluate the full PO line-base total for every applicable category, preventing line splitting from lowering the route. Price delta requires the PO's explicit full-value approval and sufficient confirmed Finance commitment. No free-form draft may issue without a separately approved exception route.
 
 ## 12. Data Fields & Ownership
 

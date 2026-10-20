@@ -105,7 +105,7 @@ public sealed class PurchaseOrderSourceAllocationTests
         Assert.Equal("Draft", f.Order.Status); // a larger proposed value still needs independent PO approval/Finance.
     }
 
-    private sealed class Fixture
+    internal sealed class Fixture
     {
         public const string Tenant = "source-test";
         public Guid Company { get; } = Guid.NewGuid();
