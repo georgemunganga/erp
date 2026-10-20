@@ -28,6 +28,8 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         var group = app.MapGroup("/api/procurement/v1/sourcing");
         group.MapPost("/from-approved-sources", Create).RequireAuthorization("procurement-sourcing-convert");
+        group.MapGet("/approved-sources", ApprovedSources).RequireAuthorization("procurement-sourcing-convert");
+        group.MapGet("/source-drafts", OwnedDrafts).RequireAuthorization("procurement-access");
         group.MapPost("/{id:guid}/source-cancel", Cancel).RequireAuthorization("procurement-sourcing-cancel");
         group.MapGet("/{id:guid}/source-draft", Read).RequireAuthorization("procurement-access");
         group.MapGet("/command-receipts/{operation}/{key:guid}", Recover).RequireAuthorization("procurement-access");

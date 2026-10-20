@@ -28,14 +28,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             var loaded = new List<RfqDemandSelection>(); var now = DateTimeOffset.UtcNow;
             foreach (var selected in input.Sources.OrderBy(x => x.PurchaseRequestLineId))
             {
-                var source = await ApprovedDemandSourceLoader.LoadAsync(db, cases, scope, selected.PurchaseRequestId, selected.PurchaseRequestLineId, token);
-                _ = await Actor(core, scope, http, auth, "procurement-sourcing-convert", source.Request.BranchRef, true, token);
-                var issue = await ProcurementCatalogClassificationBinding.StoredIssue(db, new[] { source.Line }, token);
-                if (issue is not null) throw new Problem("SourcingCatalogSourceUnavailable", 409);
-                var finance = await ProcurementApprovalFinanceEligibility.CheckAsync(source.Request, source.Finance,
-                    http.RequestServices.GetRequiredService<ProcurementApprovalExecutionOptions>(), core, db, scope, now, token);
-                if (source.Submission.FinanceEvidenceMode != finance.Mode || source.Submission.ManualEvidenceAuthorityRef != finance.Reference)
-                    throw new Problem("SourcingFinanceAuthorityChanged", 409);
+                var (source, _) = await EligibleSource(db, cases, core, scope, http, auth,
+                    selected.PurchaseRequestId, selected.PurchaseRequestLineId, now, token);
                 loaded.Add(new(source, selected.ExpectedRequestVersion, selected.Quantity));
             }
             var plan = GovernedRfqDraft.Create(actor, eventId, key, title, loaded, now);

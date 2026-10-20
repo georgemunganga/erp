@@ -34,6 +34,8 @@ public sealed class ProcurementSourcingExecutionGateHttpTests
         ProcurementSourcingExecutionRoutes.MapRoutes(app); await app.StartAsync();
         using var client = app.GetTestClient(); var id = Guid.NewGuid();
         var responses = new[] {
+            await client.GetAsync("/api/procurement/v1/sourcing/approved-sources"),
+            await client.GetAsync("/api/procurement/v1/sourcing/source-drafts"),
             await client.PostAsJsonAsync("/api/procurement/v1/sourcing/from-approved-sources", new {
                 title = "Draft", sources = new[] { new { purchaseRequestId = Guid.NewGuid(), purchaseRequestLineId = Guid.NewGuid(), expectedRequestVersion = 1, quantity = "1.0001" } } }),
             await client.PostAsJsonAsync($"/api/procurement/v1/sourcing/{id}/source-cancel", new { expectedEventVersion = 1, originalDraftFingerprint = new string('a',64), reason = "No longer needed" }),
