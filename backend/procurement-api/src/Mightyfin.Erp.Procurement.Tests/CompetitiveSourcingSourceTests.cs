@@ -69,7 +69,7 @@ public sealed class CompetitiveSourcingSourceTests
         var f = Fixture(0);
         var sourcing = new SourcingEvent { TenantId = f.Request.TenantId, LegalEntityId = f.Company };
         var line = new SourcingLine { TenantId = f.Request.TenantId, LegalEntityId = f.Company,
-            SourcingEventId = sourcing.Id, PurchaseRequestLineId = f.Line.Id, IsActive = false };
+            SourcingEventId = sourcing.Id, PurchaseRequestLineId = f.Line.Id, Status = "Cancelled" };
         f.Owners.Add(PurchaseDemandAllocationOwner.FromSourcing(sourcing, line));
         f.Ledger.Add(new PurchaseRequestAllocation { TenantId = f.Request.TenantId, LegalEntityId = f.Company,
             PurchaseRequestId = f.Request.Id, PurchaseRequestLineId = f.Line.Id, CurrencyCode = "ZMW",
