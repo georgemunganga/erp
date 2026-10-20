@@ -293,6 +293,12 @@ public sealed class SupplierInvoice : ProcurementRecord
     public string? FinancePostingRef { get; set; }
     public Guid? EvidenceDocumentRefId { get; set; }
     public string? CreditForInvoiceRef { get; set; }
+    public int MappingRevision { get; set; }
+    public Guid? CurrentMappingVersionId { get; set; }
+    public Guid? LastMatchResultId { get; set; }
+    public Guid? ActiveMatchClaimResultId { get; set; }
+    public string MatchingState { get; set; } = "NotCompared";
+    public long MatchRevision { get; set; }
 }
 
 public sealed class SupplierInvoiceLine : ProcurementRecord
@@ -316,10 +322,24 @@ public sealed class InvoiceMatchResult : ProcurementRecord
     public string MatchType { get; set; } = null!;
     public string Outcome { get; set; } = null!;
     public Guid? PolicyVersionId { get; set; }
-    public decimal QuantityVariance { get; set; }
-    public decimal PriceVariance { get; set; }
-    public decimal TaxVariance { get; set; }
+    public decimal? QuantityVariance { get; set; }
+    public decimal? PriceVariance { get; set; }
+    public decimal? TaxVariance { get; set; }
     public DateTimeOffset MatchedAt { get; set; }
+    public int ExecutionVersion { get; init; }
+    public Guid? MappingVersionId { get; init; }
+    public Guid? PurchaseOrderId { get; init; }
+    public Guid? IssuedVersionId { get; init; }
+    public long InvoiceVersion { get; init; }
+    public string? InvoiceOriginalSha256 { get; init; }
+    public string? ActorPrincipalId { get; init; }
+    public Guid? ActorWorkerId { get; init; }
+    public Guid? CommandKey { get; init; }
+    public string? InputFingerprint { get; init; }
+    public string? EvidenceJson { get; init; }
+    public string? EvidenceSha256 { get; init; }
+    public string? PolicyRulesSha256 { get; init; }
+    public string? SourceWatermarksJson { get; init; }
 }
 
 public sealed class InvoiceException : ProcurementRecord
@@ -332,6 +352,11 @@ public sealed class InvoiceException : ProcurementRecord
     public string? Reason { get; set; }
     public DateTimeOffset? DueAt { get; set; }
     public DateTimeOffset? ResolvedAt { get; set; }
+    public Guid? MatchResultId { get; init; }
+    public Guid? SupplierInvoiceLineId { get; init; }
+    public string? DiscrepancyKey { get; init; }
+    public Guid? OwnerWorkerId { get; set; }
+    public Guid? ResolvingMatchResultId { get; set; }
 }
 
 public sealed class FinanceInvoiceHandoff : ProcurementRecord
