@@ -44,6 +44,8 @@ Received → Identification → Validation → Ready for Match; branches Missing
 
 AP processor sees assigned entity; supplier portal user sees own submissions only; buyer sees commercial references but not restricted accounting/bank fields. Correction/void/duplicate disposition need scoped authority. Supplier cannot edit after submission except by new version.
 
+Capture inherits the selected Core branch. A branch-confined AP processor can list and open only invoices in that authorized branch and cannot link another branch's purchase order. An invoice without a known branch remains visible only with company-wide access. Duplicate detection remains company-wide and returns no hidden invoice details. Every browser adapter sends the selected company and branch; a stale company page must not write after the shell company changes.
+
 ## 11. Business Rules
 
 `BR-PROC-INT-001` preserve original source document; `002` duplicate normalized supplier/invoice/entity key blocks second handoff pending disposition; `003` supplier/entity/currency/totals required; `004` OCR is untrusted input until confirmed; `005` correction links prior version; `006` credit reason references original invoice/receipt/PO; `007` Finance owns posted credit and refund status.
@@ -51,6 +53,8 @@ AP processor sees assigned entity; supplier portal user sees own submissions onl
 ## 12. Data Fields and Ownership
 
 Procurement owns intake ID/source/time, supplier/entity refs, invoice number/date/currency, line/tax/total snapshot, PO/receipt/contract refs, file checksum, version, duplicate result and credit commercial reason. Finance owns tax determination, AP bill/credit account, refund and payment. Contact and account details are restricted.
+
+The invoice stores its Core branch reference. Core owns branch identity and the organization currency; a missing capture currency defaults from the selected organization. The client does not supply an arbitrary invoice branch field.
 
 ## 13. Screens and Data Views
 
@@ -103,6 +107,8 @@ Failed file scan leaves Quarantined/Invalid, not Ready. Unknown inbox/API outcom
 ## 25. Acceptance Criteria
 
 Given invoice through email and portal with same identity, one duplicate review blocks second payable. Given OCR mismatch, human confirmation is required. Given corrected invoice, original remains. Given credit, original invoice/return link and commercial reason are mandatory.
+
+Given a branch-confined AP user, another branch's invoice is excluded from lists and direct access returns 404. Linking that branch's order is rejected. A new capture records the selected authorized branch and defaults an omitted currency from Core. A hidden duplicate still blocks a second capture without disclosing its record. No capture creates an AP handoff or payment.
 
 ## 26. Test Scenarios
 

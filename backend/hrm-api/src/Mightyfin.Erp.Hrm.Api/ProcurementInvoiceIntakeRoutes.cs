@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -16,16 +17,17 @@ public static class ProcurementInvoiceIntakeRoutes
         group.MapPost("", Capture).RequireAuthorization("procurement-invoice-capture");
     }
 
-    private static async Task<IResult> List(ProcurementDbContext db, int? page, int? pageSize,
+    private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope, int? page, int? pageSize,
         CancellationToken ct)
     {
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
         var query = db.SupplierInvoices.AsNoTracking();
+        if (scope.IsConfined) query = query.Where(x => x.BranchRef == scope.WorkLocationId);
         var total = await query.CountAsync(ct);
         var rows = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip((number - 1) * size).Take(size)
-            .Select(x => new { x.Id, x.SupplierId,
+            .Select(x => new { x.Id, x.SupplierId, x.BranchRef,
                 SupplierName = db.Suppliers.Where(s => s.Id == x.SupplierId).Select(s => s.DisplayName).FirstOrDefault(),
                 x.InvoiceNumber, x.InvoiceDate,
                 x.CurrencyCode, x.GrossAmount, x.Status, x.IntakeChannel, x.Version, x.CreatedAt })
@@ -33,9 +35,11 @@ public static class ProcurementInvoiceIntakeRoutes
         return Results.Ok(new { items = rows, total, page = number, pageSize = size });
     }
 
-    private static async Task<IResult> Get(Guid id, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> Get(Guid id, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
     {
-        var invoice = await db.SupplierInvoices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
+        var invoice = await db.SupplierInvoices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id
+            && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
         if (invoice is null) return Results.NotFound(new { code = "not-found", message = "Invoice not found." });
         var lines = await db.SupplierInvoiceLines.AsNoTracking()
             .Where(x => x.SupplierInvoiceId == id).OrderBy(x => x.LineNumber)
@@ -44,7 +48,7 @@ public static class ProcurementInvoiceIntakeRoutes
             .ToListAsync(ct);
         var supplierName = await db.Suppliers.AsNoTracking().Where(x => x.Id == invoice.SupplierId)
             .Select(x => x.DisplayName).FirstOrDefaultAsync(ct);
-        return Results.Ok(new { invoice.Id, invoice.SupplierId, supplierName, invoice.PurchaseOrderId,
+        return Results.Ok(new { invoice.Id, invoice.SupplierId, invoice.BranchRef, supplierName, invoice.PurchaseOrderId,
             invoice.InvoiceNumber, invoice.InvoiceDate, invoice.DueDate, invoice.CurrencyCode,
             invoice.NetAmount, invoice.TaxAmount, invoice.GrossAmount, invoice.IntakeChannel,
             invoice.Status, invoice.Version, invoice.CreatedAt, lines,
@@ -52,8 +56,11 @@ public static class ProcurementInvoiceIntakeRoutes
     }
 
     private static async Task<IResult> Capture(InvoiceIntakeInput input, ProcurementDbContext db,
+        ProcurementRequestScope scope, HrmDbContext core,
         CancellationToken ct)
     {
+        input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
+            ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
         var issue = Validate(input);
         if (issue is not null) return Invalid(issue);
         var supplier = await db.Suppliers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == input.SupplierId, ct);
@@ -62,8 +69,9 @@ public static class ProcurementInvoiceIntakeRoutes
         if (input.PurchaseOrderId is { } poId)
         {
             var order = await db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == poId, ct);
-            if (order is null || order.SupplierId != supplier.Id)
-                return Invalid("The selected purchase order must belong to this vendor and company.");
+            if (order is null || order.SupplierId != supplier.Id
+                || scope.IsConfined && order.BranchRef != scope.WorkLocationId)
+                return Invalid("Choose a purchase order available to you for this vendor and company.");
         }
         var normalized = input.InvoiceNumber!.Trim().ToUpperInvariant();
         var currency = input.CurrencyCode!.Trim().ToUpperInvariant();
@@ -74,7 +82,7 @@ public static class ProcurementInvoiceIntakeRoutes
 
         var invoice = new SupplierInvoice
         {
-            SupplierId = supplier.Id, PurchaseOrderId = input.PurchaseOrderId,
+            SupplierId = supplier.Id, PurchaseOrderId = input.PurchaseOrderId, BranchRef = scope.WorkLocationId,
             InvoiceNumber = input.InvoiceNumber.Trim(), NormalizedInvoiceNumber = normalized,
             InvoiceDate = input.InvoiceDate, DueDate = input.DueDate,
             CurrencyCode = currency, IntakeChannel = "Manual", Status = "Received",
@@ -103,7 +111,7 @@ public static class ProcurementInvoiceIntakeRoutes
         return Results.Created($"/api/procurement/v1/invoices/{invoice.Id}", new
         {
             invoice.Id, invoice.InvoiceNumber, invoice.Status, invoice.GrossAmount,
-            invoice.CurrencyCode, invoice.Version,
+            invoice.CurrencyCode, invoice.BranchRef, invoice.Version,
         });
     }
 

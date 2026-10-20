@@ -4778,6 +4778,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("BranchRef")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_ref");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");

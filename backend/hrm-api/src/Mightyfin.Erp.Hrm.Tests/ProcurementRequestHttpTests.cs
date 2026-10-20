@@ -1711,6 +1711,53 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Invoice_intake_hides_other_branches_and_rejects_out_of_scope_order_links()
+    {
+        await using var fixture = await Fixture.Start();
+        var supplierId = await fixture.AddInvoiceSupplier();
+        var orderInput = new OrderDraftInput(supplierId, "ZMW", null, null, null, null,
+            [new OrderDraftLineInput(null, "Office supplies", "EA", 1, 100, 0, null, null, null)]);
+        var orderResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/orders", fixture.Other, orderInput, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, orderResponse.StatusCode);
+        var orderId = (await orderResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        const string path = "/api/procurement/v1/invoices";
+        var input = new InvoiceIntakeInput(supplierId, null, "BRANCH-INV-001",
+            DateOnly.FromDateTime(DateTime.UtcNow), null, null,
+            [new InvoiceIntakeLineInput("Office supplies", 1, 100, 0, null, null)]);
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "ap_processor");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var assignedBranch = await fixture.ConfineBuyerAndMoveOrderToOtherBranch(orderId);
+        await fixture.MoveInvoiceToOrderBranch(id, orderId);
+
+        var list = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor");
+        Assert.Equal(0, (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other, role: "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Reviewer, role: "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                input with { InvoiceNumber = "BRANCH-INV-002", PurchaseOrderId = orderId }, "ap_processor")).StatusCode);
+
+        var scoped = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            input with { InvoiceNumber = "BRANCH-INV-003" }, "ap_processor");
+        Assert.Equal(HttpStatusCode.Created, scoped.StatusCode);
+        var own = await scoped.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(assignedBranch, own.GetProperty("branchRef").GetGuid());
+        Assert.Equal("ZMW", own.GetProperty("currencyCode").GetString());
+        Assert.Equal(HttpStatusCode.OK,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{own.GetProperty("id").GetGuid()}",
+                fixture.Other, role: "ap_processor")).StatusCode);
+        var ownList = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor");
+        Assert.Equal(1, (await ownList.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
+        Assert.Equal(0, await fixture.InvoiceHandoffCount());
+    }
+
+    [Fact]
     public async Task Buyer_order_drafts_are_scoped_versioned_and_retire_removed_lines()
     {
         await using var fixture = await Fixture.Start();
@@ -2233,6 +2280,17 @@ public sealed class ProcurementRequestHttpTests
             order.BranchRef = secondBranch.Id;
             await procurement.SaveChangesAsync();
             return assignedBranch.Id;
+        }
+
+        public async Task MoveInvoiceToOrderBranch(Guid invoiceId, Guid orderId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Other.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var invoice = await db.SupplierInvoices.SingleAsync(x => x.Id == invoiceId);
+            invoice.BranchRef = (await db.PurchaseOrders.SingleAsync(x => x.Id == orderId)).BranchRef;
+            await db.SaveChangesAsync();
         }
 
         public async Task<int> DecisionCount(Guid supplierId)
