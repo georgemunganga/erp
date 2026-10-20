@@ -1274,6 +1274,28 @@ public sealed class ProcurementRequestHttpTests
                 "procurement_manager")).StatusCode);
     }
 
+    [Fact]
+    public async Task Null_nested_item_update_returns_scoped_validation_without_changing_record_or_version()
+    {
+        await using var fixture=await Fixture.Start();
+        using var created=await SendJson(fixture.Client,HttpMethod.Post,"/api/procurement/v1/items",fixture.Owner,
+            new { code="NULL-UPDATE",name="Retained item",kind="Goods",categoryCode="IT",unitCode="each" },"procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created,created.StatusCode);var item=await created.Content.ReadFromJsonAsync<JsonElement>();
+        var path="/api/procurement/v1/items/"+item.GetProperty("id").GetGuid();
+        var payload=new { version=item.GetProperty("version").GetInt64(),item=(object?)null };
+        var before=await fixture.OriginalValueFootprint();
+        using var denied=await SendJson(fixture.Client,HttpMethod.Put,path,fixture.Owner,payload,"procurement_buyer",company:fixture.OtherCompany);
+        Assert.Equal(HttpStatusCode.Forbidden,denied.StatusCode);
+        using var response=await SendJson(fixture.Client,HttpMethod.Put,path,fixture.Owner,payload,"procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Contains("item details",error.GetProperty("message").GetString());
+        Assert.Equal(before,await fixture.OriginalValueFootprint());
+        using var restored=await Send(fixture.Client,HttpMethod.Get,path,fixture.Owner,role:"procurement_buyer");
+        var saved=await restored.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("Retained item",saved.GetProperty("name").GetString());
+        Assert.Equal(item.GetProperty("version").GetInt64(),saved.GetProperty("version").GetInt64());
+    }
+
     [Theory]
     [InlineData("item-moq","0.00001")]
     [InlineData("item-conversion","1.0000001")]

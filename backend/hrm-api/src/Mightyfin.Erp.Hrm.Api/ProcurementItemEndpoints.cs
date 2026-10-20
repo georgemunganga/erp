@@ -323,8 +323,9 @@ public static class ProcurementItemEndpoints
         return Results.Ok(ToView(entry));
     }
 
-    private static string? ValidateItem(ItemInput x)
+    private static string? ValidateItem(ItemInput? x)
     {
+        if(x is null) return "Enter the item details before saving.";
         if (string.IsNullOrWhiteSpace(x.Code) || x.Code.Trim().Length > 50) return "Enter an item code of up to 50 characters.";
         if (string.IsNullOrWhiteSpace(x.Name) || x.Name.Trim().Length > 300) return "Enter an item name of up to 300 characters.";
         if (string.IsNullOrWhiteSpace(x.Kind) || x.Kind.Trim().Length > 40) return "Choose an item type.";
