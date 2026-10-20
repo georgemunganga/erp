@@ -46,7 +46,11 @@ var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROV
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
 if (orders && bootstrapConnection is null) throw new InvalidOperationException("Order verification requires distinct bootstrap/runtime identities.");
 await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching);
-if (!serve) await probe.VerifyFinanceCheckerReadiness();
+if (!serve)
+{
+    await probe.VerifyFinanceCheckerReadiness();
+    await probe.VerifyFinanceCheckerIdentity();
+}
 if (serve)
 {
     var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching);
