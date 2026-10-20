@@ -85,6 +85,74 @@ public sealed class InvoiceMatchingFoundationTests
     }
 
     [Fact]
+    public void Exact_eight_decimal_certified_net_is_not_forced_to_invoice_money_scale()
+    {
+        var f = SmallCertifiedService();
+        var result = f.Evaluate();
+        Assert.True(result.ComparisonPassed, string.Join(", ", result.Discrepancies.Select(x => x.Code)));
+        Assert.Equal("0.0001", Assert.Single(result.Lines).NetAmount);
+        Assert.False(result.CanPostToFinance);
+        Assert.Contains("0.00010001", result.EvidenceJson);
+    }
+
+    [Fact]
+    public void Eight_decimal_return_reduces_hard_service_ceiling_even_with_commercial_tolerance()
+    {
+        var f = SmallCertifiedService();
+        var permissive = new InvoiceFieldTolerance(1, 100, InvoiceToleranceCombination.AnyLimit);
+        f.Rule(f.RuleValue with { Quantity = permissive, Total = permissive, UnitPrice = permissive });
+        f.Input = f.Input with { Acceptances = [f.Acceptance with
+            { ReturnedQuantity = .0002m, ReturnedNetAmount = .00000002m }] };
+        var result = f.Evaluate();
+        // .00010001 - .00000002 = .00009999, below the rounded invoice .0001.
+        Assert.False(result.ComparisonPassed);
+        Assert.Contains(result.Discrepancies, x => x.Code == "CertifiedServiceValueExceeded");
+        Assert.DoesNotContain(result.Discrepancies, x => x.Code == "AuthoritativeAcceptedEvidenceInvalid"
+            || x.Code == "CumulativeAcceptedQuantityOutsideTolerance");
+    }
+
+    [Fact]
+    public void Accepted_net_scale_beyond_eight_is_rejected_without_truncation()
+    {
+        var f = SmallCertifiedService();
+        f.Input = f.Input with { Acceptances = [f.Acceptance with { AcceptedNetAmount = .000100001m }] };
+        Assert.Contains(f.Evaluate().Discrepancies, x => x.Code == "AuthoritativeAcceptedEvidenceInvalid");
+    }
+
+    [Fact]
+    public void Large_exact_certified_net_does_not_overflow_decimal_during_integer_conversion()
+    {
+        var f = new Fixture(true, service: true);
+        const decimal quantity = 99_999_999_999_999.9999m;
+        const decimal price = 100_000_000m;
+        const decimal certified = 9_999_999_999_999_999_990_000m;
+        f.Input = f.Input with
+        {
+            Order = f.Input.Order with { Lines = [f.OrderLine with { Quantity = quantity, UnitPrice = price }] },
+            Acceptances = [f.Acceptance with { AcceptedQuantity = quantity, AcceptedNetAmount = certified }],
+            Invoice = f.Input.Invoice with { NetAmount = price, GrossAmount = price,
+                Lines = [f.Line with { Quantity = 1, UnitPrice = price }] },
+        };
+        var result = f.Evaluate();
+        Assert.True(result.ComparisonPassed, string.Join(", ", result.Discrepancies.Select(x => x.Code)));
+        Assert.Equal("100000000", Assert.Single(result.Lines).NetAmount);
+    }
+
+    private static Fixture SmallCertifiedService()
+    {
+        var f = new Fixture(true, service: true);
+        f.Input = f.Input with
+        {
+            Policy = f.Input.Policy with { MoneyScale = 4 },
+            Order = f.Input.Order with { Lines = [f.OrderLine with { UnitPrice = .0001m }] },
+            Acceptances = [f.Acceptance with { AcceptedQuantity = 1.0001m, AcceptedNetAmount = .00010001m }],
+            Invoice = f.Input.Invoice with { NetAmount = .0001m, GrossAmount = .0001m,
+                Lines = [f.Line with { Quantity = 1, UnitPrice = .0001m }] },
+        };
+        return f;
+    }
+
+    [Fact]
     public void Validated_proportional_credit_restores_only_original_line_capacity()
     {
         var f = new Fixture(true); var debit = f.Debit(8); var credit = f.Credit(debit, 2, 20);
