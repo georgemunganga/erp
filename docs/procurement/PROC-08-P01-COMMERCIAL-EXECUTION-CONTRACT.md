@@ -147,3 +147,13 @@ The source PostgreSQL HTTP probe's explicit `--orders` mode requires distinct re
 A conversion receipt is bound to an actor/payload/key, but is not current authorization to its saved PO. Before returning an exact prior reply, the conversion endpoint now loads the receipt's actual target order, checks current buyer ownership and selected/current Core branch scope, and retains the current canonical actor/action check. It does not trust source IDs or a newly selected branch to describe the old target.
 
 An authored actual HTTP regression covers organisation-wide buyer context A → B denial, Core-owned real branch API revocation A+B → B denial, restored authorized A exact-byte reply, and unchanged PO/allocation/receipt counts. The Core writer retains its separate bootstrap identity; the Procurement runtime gains no branch-write rights. SDK/HTTP execution remains pending the centralized gate. This is not a deployment or completion claim.
+
+### UI/API acceptance backlog captured during receiving audit
+
+- The existing buying-method form/transport must expose and preserve `ProcurementMethod.ExecutionRoute`. Current UI form fields omit it; backend update treats an omitted/null route as `Unconfigured`. Add explicit route selection/preservation and denial/readiness states before claiming a direct-buy method can be configured end to end. Labels remain business-friendly; no implicit code-to-route inference.
+- Verify company-wide users' explicitly selected branch consistently across existing draft list/detail/edit/cancel routes and new commercial routes. Existing draft routes filter only when `IsConfined`; commercial routes also honor selected context. Keep permission scope separate from context filtering and cover both in real API/UI acceptance.
+- Shared Core branch-fence design must define a linearization point before the SERIALIZABLE snapshot. If adopted, test actual paired writer/reader orderings: command-first may complete while the writer waits; writer-first revocation must be visible to a later command. The current source-only queued test is not proof of that contract and must not bypass real Core writers to force a result.
+
+These are unimplemented acceptance dependencies, recorded outside the frozen initial source checkpoint. They do not change runtime code or activate the workflow.
+
+Consolidation note: the branch-fence source design and paired Core endpoint probes are now present in ADR-003 and the composed transaction coordinator inherited from `92abe51`. The earlier audit backlog remains historical context; runtime verification/enablement is still a separate gate, and this domain consolidation does not change its status.
