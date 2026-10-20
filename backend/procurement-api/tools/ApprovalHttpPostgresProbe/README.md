@@ -125,3 +125,11 @@ Unexpected API permission failures are defects to investigate, not permission to
 ownership or blanket write access. This is source for a disposable privilege rehearsal;
 only a completed runtime test establishes its result, and real production rollout still
 requires protected role provisioning and independent release review.
+
+## Initial PO workflow probe — source candidate
+
+`--orders` is separate from `--serve` and the original PR probe. It requires the existing disposable `proc_approval_http_...` database guard, a distinct `proc_approval_runtime_...` login and bootstrap connection, and committed Procurement/Core migrations matching the source model. It applies those migrations in the disposable database and provisions only the synthetic runtime grants required by the first PO route. It does not provision or contact production.
+
+After the centralized build/migration gates clear, use the same approved environment variables and run the tool with `--orders`. This source adds actual HTTP evidence for scoped positive PR conversion, exact retries and denied allocations, independent Finance/Core approval, unique commitment ownership, supplier eligibility, seal versus delivery, unfunded cancellation, revoked-authority replay and a deterministically queued branch-revocation scenario. It has not been run in this increment.
+
+The queued-scope test is intentionally strict and may expose a shared authorization concurrency gap: a SERIALIZABLE transaction retains its first-statement snapshot. A post-lock query alone cannot prove observation of revocation committed during the wait. Retain any actual failure and resolve the shared Core authorization/fencing semantics; do not substitute an InMemory or pure helper test or weaken isolation to make the probe green. The first PO deployment remains disabled pending those gates and P24 review/rehearsal.

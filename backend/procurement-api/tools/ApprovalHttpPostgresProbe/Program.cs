@@ -69,6 +69,15 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private const string Root = "/api/procurement/v1";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly Dictionary<Guid, Guid> grantIds = [];
+    // Explicit fixture members keep the PO partial independent of primary-parameter scope.
+    private Guid OrderCompany => company;
+    private Guid OrderBranch => branch;
+    private Guid OrderRequester => requester;
+    private Guid OrderBuyer => buyer;
+    private Guid OrderFinance => finance;
+    private Guid OrderManager1 => manager1;
+    private Guid OrderManager2 => manager2;
+    private bool OrderDistinctRuntime => distinctRuntime;
 
     public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false)
     {
