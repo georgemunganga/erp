@@ -200,6 +200,7 @@ sealed partial class Probe
         await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/service-acceptances/{wrongSiteRow.GetProperty("id").GetGuid()}/certify", OrderManager2,
             new { version = wrongSiteRow.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:WRONG-POLICY-SITE" }, Guid.NewGuid());
         await VerifyReceivingRetainedScope(crossSite.OrderId, wrongSiteRow.GetProperty("id").GetGuid(), otherSite);
+        await PublishReceivingPolicy(); // Restore the normal branch policy before subsequent goods tests.
         await VerifyConcurrentReceivingAcceptance(supplier);
         // Explicitly corrupt a separate linked source's historic counter as an owner-only fixture.
         // The HTTP runtime must never interpret absent new effects as a complete zero history.
@@ -391,25 +392,32 @@ sealed partial class Probe
             allowRequesterCertification = false, allowBuyerCertification = false, allowReceiverCertification = false, requireIndependentInspector = true,
             evidenceMode = "ControlledManualReference", evidenceReferencePrefix = "RCP:" };
         var starts = DateTimeOffset.UtcNow.AddSeconds(10);
+        var crossSite = serviceSite.HasValue && serviceSite != OrderBranch;
         var input = new { policyKey = "RECEIVING", effectiveFrom = starts,
-            rulesJson = JsonSerializer.Serialize(new { schemaVersion = 1, transactionType = "Receiving", currencyCode = "ZMW", rules = new[] { Rule("Goods"), Rule("Service") } }) };
-        if (serviceSite.HasValue && serviceSite != OrderBranch)
+            rulesJson = JsonSerializer.Serialize(new { schemaVersion = 1, transactionType = "Receiving", currencyCode = "ZMW",
+                rules = crossSite ? new[] { Rule("Service") } : new[] { Rule("Goods"), Rule("Service") } }) };
+        var created = await Send(HttpMethod.Post, Root + "/configuration/policies", OrderBuyer, input);
+        await Check(created, HttpStatusCode.Created); var policy = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = policy.GetProperty("id").GetGuid();
+        var review = new { version = policy.GetProperty("version").GetInt64(), reason = "Synthetic receiving policy review" };
+        if (crossSite)
         {
+            // Draft capture is allowed; site authority is checked on submit/publish.
+            await Expect(HttpStatusCode.UnprocessableEntity, HttpMethod.Post, $"{Root}/configuration/policies/{id}/submit-review", OrderBuyer, review);
             using var services = Scope(OrderBuyer);
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            var before = await db.PolicyVersions.CountAsync();
-            await Expect(HttpStatusCode.UnprocessableEntity, HttpMethod.Post, Root + "/configuration/policies", OrderBuyer, input);
-            Require(await db.PolicyVersions.CountAsync() == before, "A single-site context saved multi-site receiving rules.");
+            var unchanged = await db.PolicyVersions.AsNoTracking().SingleAsync(x => x.Id == id);
+            Require(unchanged.State == "Draft" && unchanged.Version == review.version,
+                "A different-site policy review advanced state or version.");
         }
-        var created = await Send(HttpMethod.Post, Root + "/configuration/policies", OrderBuyer, input, selectedBranch: false);
-        await Check(created, HttpStatusCode.Created); var policy = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = policy.GetProperty("id").GetGuid();
+        var configuredSite = serviceSite ?? OrderBranch;
         var submitted = await Send(HttpMethod.Post, $"{Root}/configuration/policies/{id}/submit-review", OrderBuyer,
-            new { version = policy.GetProperty("version").GetInt64(), reason = "Synthetic receiving policy review" }, selectedBranch: false);
+            review, selectedLocation: configuredSite);
         await Check(submitted, HttpStatusCode.OK); policy = await submitted.Content.ReadFromJsonAsync<JsonElement>();
-        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/configuration/policies/{id}/publish", OrderBuyer,
-            new { version = policy.GetProperty("version").GetInt64(), reason = "Maker must not publish own policy" }, selectedBranch: false);
-        await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/configuration/policies/{id}/publish", OrderFinance,
-            new { version = policy.GetProperty("version").GetInt64(), reason = "Independent synthetic receiving site, worker and checklist review" }, selectedBranch: false);
+        var decision = new { version = policy.GetProperty("version").GetInt64(), reason = "Independent synthetic receiving site, worker and checklist review" };
+        await Check(await Send(HttpMethod.Post, $"{Root}/configuration/policies/{id}/publish", OrderBuyer,
+            decision, selectedLocation: configuredSite), HttpStatusCode.Forbidden);
+        await Check(await Send(HttpMethod.Post, $"{Root}/configuration/policies/{id}/publish", OrderFinance,
+            decision, selectedLocation: configuredSite), HttpStatusCode.OK);
         var delay = starts - DateTimeOffset.UtcNow;
         if (delay > TimeSpan.Zero) await Task.Delay(delay + TimeSpan.FromMilliseconds(50));
     }
