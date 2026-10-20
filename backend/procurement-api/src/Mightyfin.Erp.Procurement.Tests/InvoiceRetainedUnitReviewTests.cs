@@ -176,6 +176,105 @@ public sealed class InvoiceRetainedUnitReviewTests
         f.Denied();
     }
 
+    [Theory]
+    [InlineData("rootSame")][InlineData("rootConflicting")][InlineData("rootCaseAlias")]
+    [InlineData("lineSame")][InlineData("lineConflicting")][InlineData("lineCaseAlias")]
+    [InlineData("workerSame")][InlineData("workerConflicting")][InlineData("workerCaseAlias")]
+    [InlineData("depth")][InlineData("size")][InlineData("utf8Size")][InlineData("nodes")]
+    [InlineData("quotedSchema")][InlineData("quotedSourceVersion")][InlineData("quotedMappingRevision")]
+    public void Rehashed_duplicate_properties_and_unsupported_JSON_work_are_rejected_before_deserialization(string changed)
+    {
+        var f = new Fixture(); var json = f.Authority.EvidenceJson;
+        json = changed switch
+        {
+            "rootSame" => json.Insert(1, "\"schemaVersion\":2,"),
+            "rootConflicting" => json.Insert(1, "\"schemaVersion\":1,"), // Last property would otherwise win.
+            "rootCaseAlias" => json.Insert(1, "\"SchemaVersion\":2,"),
+            "quotedSchema" => json.Replace("\"schemaVersion\":2", "\"schemaVersion\":\"2\""),
+            "quotedSourceVersion" => json.Replace("\"reviewSourceVersion\":1", "\"reviewSourceVersion\":\"1\""),
+            "quotedMappingRevision" => json.Replace("\"mappingRevision\":1", "\"mappingRevision\":\"1\""),
+            "lineSame" => json.Replace("\"unitCode\":\"EACH\"", "\"unitCode\":\"EACH\",\"unitCode\":\"EACH\""),
+            "lineConflicting" => json.Replace("\"unitCode\":\"EACH\"", "\"unitCode\":\"BOX\",\"unitCode\":\"EACH\""),
+            "lineCaseAlias" => json.Replace("\"unitCode\":\"EACH\"", "\"UnitCode\":\"EACH\",\"unitCode\":\"EACH\""),
+            "workerCaseAlias" => json.Replace("\"assignmentWorkers\":[{", "\"assignmentWorkers\":[{\"PrincipalId\":\"reviewer\","),
+            "workerSame" => json.Replace("\"assignmentWorkers\":[{", "\"assignmentWorkers\":[{\"principalId\":\"reviewer\","),
+            "workerConflicting" => json.Replace("\"assignmentWorkers\":[{", "\"assignmentWorkers\":[{\"principalId\":\"maker\","),
+            "depth" => "{\"nested\":" + new string('[', 17) + "0" + new string(']', 17) + "}",
+            "size" => json.Insert(1, "\"oversized\":\"" + new string('a', 256 * 1024) + "\","),
+            "utf8Size" => json.Insert(1, "\"oversized\":\"" + new string('界', 100_000) + "\","),
+            _ => "{\"nodes\":[" + string.Join(',', Enumerable.Repeat("0", 10_001)) + "]}",
+        };
+        Assert.NotEqual(f.Authority.EvidenceJson, json);
+        f.Authority = f.Authority with { EvidenceJson = json, EvidenceSha256 = ProcurementEvidenceEncoding.Digest(json) };
+        f.Denied();
+    }
+
+    [Fact]
+    public void Genuine_multi_stage_Core_quorum_with_equal_timestamps_has_valid_final_proof()
+    {
+        var f = MultiStageFixture(); Assert.Single(f.Verify());
+        // Equal persisted PostgreSQL timestamps do not invent a strict temporal ordering.
+        foreach (var vote in f.Authority.Decisions) vote.DecidedAt = f.Envelope.ReviewedAt;
+        Assert.Single(f.Verify());
+    }
+
+    [Theory]
+    [InlineData("earlierStageFinal")][InlineData("stageOrder")][InlineData("extraVote")]
+    public void Impossible_Core_final_stage_chronology_or_extra_quorum_vote_is_rejected(string changed)
+    {
+        var f = MultiStageFixture(); var first = f.Authority.Decisions.OrderBy(x => x.DecidedAt).First();
+        if (changed == "earlierStageFinal")
+        {
+            foreach (var vote in f.Authority.Decisions) vote.DecidedAt = f.Envelope.ReviewedAt;
+            f.Case.CompletionKey = first.IdempotencyKey;
+            var worker = f.Authority.Workers.Single(x => x.AssignmentId == first.AssignmentId);
+            f.Replace(f.Envelope with { FinalDecisionId = first.Id, ReviewerPrincipalId = first.ActorSubjectId, ReviewerWorkerId = worker.WorkerId });
+        }
+        else if (changed == "stageOrder") first.DecidedAt = f.Envelope.ReviewedAt.AddSeconds(-1);
+        else
+        {
+            var stage = f.Case.Stages.MaxBy(x => x.Sequence)!;
+            var extra = new ApprovalAssignment { TenantId = f.Invoice.TenantId, LegalEntityId = f.Invoice.LegalEntityId,
+                CaseId = f.Case.Id, StageId = stage.Id, AssigneeSubjectId = "extra-reviewer",
+                PermissionKey = InvoiceRetainedUnitReview.ReviewPermission, State = "Approved" };
+            stage.Assignments.Add(extra);
+            var vote = new ApprovalDecision { TenantId = f.Invoice.TenantId, LegalEntityId = f.Invoice.LegalEntityId,
+                CaseId = f.Case.Id, StageId = stage.Id, AssignmentId = extra.Id, ActorSubjectId = extra.AssigneeSubjectId,
+                Action = "Approve", IdempotencyKey = "extra-vote", DecidedAt = f.Envelope.ReviewedAt };
+            var workers = f.Authority.Workers.Concat(new[] { new InvoiceUnitReviewAssignmentWorker(extra.Id, extra.AssigneeSubjectId, Guid.NewGuid()) }).ToArray();
+            f.Authority = f.Authority with { Workers = workers, Decisions = f.Authority.Decisions.Concat(new[] { vote }).ToArray() };
+            f.Replace(f.Envelope with { AssignmentWorkers = workers });
+        }
+        f.Denied();
+    }
+
+    private static Fixture MultiStageFixture()
+    {
+        var f = new Fixture(); var firstStage = Assert.Single(f.Case.Stages);
+        firstStage.State = "Active"; f.Assignment.State = "Pending";
+        f.Case.State = "Pending"; f.Case.CompletedAt = null; f.Case.CompletionKey = null;
+        var secondStage = new ApprovalStage { TenantId = f.Invoice.TenantId, LegalEntityId = f.Invoice.LegalEntityId,
+            CaseId = f.Case.Id, Sequence = 2, Code = "SECOND_REVIEW", State = "Waiting", Mode = "Quorum", RequiredApprovals = 2 };
+        var second = new ApprovalAssignment { TenantId = f.Invoice.TenantId, LegalEntityId = f.Invoice.LegalEntityId,
+            CaseId = f.Case.Id, StageId = secondStage.Id, AssigneeSubjectId = "second-reviewer", PermissionKey = InvoiceRetainedUnitReview.ReviewPermission };
+        var final = new ApprovalAssignment { TenantId = f.Invoice.TenantId, LegalEntityId = f.Invoice.LegalEntityId,
+            CaseId = f.Case.Id, StageId = secondStage.Id, AssigneeSubjectId = "final-reviewer", PermissionKey = InvoiceRetainedUnitReview.ReviewPermission };
+        secondStage.Assignments.Add(second); secondStage.Assignments.Add(final); f.Case.Stages.Add(secondStage);
+        ApprovalEngine.ValidateNewCase(f.Case);
+        var decisions = new List<ApprovalDecision>();
+        var permissions = new HashSet<string> { InvoiceRetainedUnitReview.ReviewPermission };
+        foreach (var (assignment, seconds, key) in new[] { (f.Assignment, -3, "first"), (second, -2, "second"), (final, 0, "final") })
+            ApprovalEngine.Decide(f.Case, assignment, new(assignment.AssigneeSubjectId, f.Invoice.TenantId, f.Invoice.LegalEntityId, permissions),
+                "Approve", key, null, decisions, f.Envelope.ReviewedAt.AddSeconds(seconds));
+        var workers = f.Authority.Workers.Concat(new[] { new InvoiceUnitReviewAssignmentWorker(second.Id, second.AssigneeSubjectId, Guid.NewGuid()),
+            new InvoiceUnitReviewAssignmentWorker(final.Id, final.AssigneeSubjectId, Guid.NewGuid()) }).ToArray();
+        f.Authority = f.Authority with { Workers = workers, Decisions = decisions };
+        f.Decision = decisions.Last(); f.Assignment = final;
+        f.Replace(f.Envelope with { AssignmentWorkers = workers, FinalDecisionId = f.Decision.Id,
+            ReviewerPrincipalId = final.AssigneeSubjectId, ReviewerWorkerId = workers.Single(x => x.AssignmentId == final.Id).WorkerId });
+        return f;
+    }
+
     private sealed class Fixture
     {
         public SupplierInvoice Invoice; public SupplierInvoiceLine Line; public InvoiceMatchMappingVersion Mapping;

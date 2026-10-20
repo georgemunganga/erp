@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Mightyfin.Erp.Core.Approvals.Domain;
@@ -40,7 +41,8 @@ public static class InvoiceRetainedUnitReview
     public const string ReviewSourceType = "invoice_unit_review";
     public const string ReviewPermission = "procurement-invoice-unit-review";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
-    { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
+    { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, PropertyNameCaseInsensitive = false,
+        NumberHandling = JsonNumberHandling.Strict };
 
     /// <summary>Version2 only; v1 caller-bound evidence is never silently promoted to an
     /// independent review. Returns unit evidence only, never AP/history/claim authority.</summary>
@@ -72,8 +74,9 @@ public static class InvoiceRetainedUnitReview
         Need(originalLines is not null && originalLines.Count is > 0 and <= 200);
         var snapshot = InvoiceMappingEvidence.Verify(mapping, invoice, originalLines);
         Need(authority.ReviewId != Guid.Empty && authority.ReviewSourceVersion > 0
-            && Sha(authority.EvidenceSha256) && !string.IsNullOrWhiteSpace(authority.EvidenceJson)
-            && ProcurementEvidenceEncoding.PolicyJsonDigest(authority.EvidenceJson).Length == 64
+            && Sha(authority.EvidenceSha256) && !string.IsNullOrWhiteSpace(authority.EvidenceJson));
+        ValidateJson(authority.EvidenceJson); // Bound work before shared canonical duplicate validation.
+        Need(ProcurementEvidenceEncoding.PolicyJsonDigest(authority.EvidenceJson).Length == 64
             && ProcurementEvidenceEncoding.Digest(authority.EvidenceJson) == authority.EvidenceSha256);
         var evidence = JsonSerializer.Deserialize<InvoiceRetainedUnitReviewEnvelope>(authority.EvidenceJson, Json);
         Need(evidence is not null && evidence.SchemaVersion == 2
@@ -136,6 +139,7 @@ public static class InvoiceRetainedUnitReview
             && workflow.Stages.Select(x => x.Sequence).Distinct().Count() == workflow.Stages.Count
             && authority.Decisions is not null && authority.Workers is not null
             && authority.Decisions.Select(x => x.Id).Distinct().Count() == authority.Decisions.Count
+            && authority.Decisions.Select(x => x.IdempotencyKey).Distinct().Count() == authority.Decisions.Count
             && authority.Workers.Select(x => x.AssignmentId).Distinct().Count() == authority.Workers.Count
             && evidence.AssignmentWorkers is not null && evidence.AssignmentWorkers.Count == authority.Workers.Count
             && evidence.AssignmentWorkers.Select(x => x.AssignmentId).Distinct().Count() == authority.Workers.Count
@@ -145,7 +149,8 @@ public static class InvoiceRetainedUnitReview
             && authority.Workers.Count == assignments.Length
             && authority.Workers.All(pin => assignments.Any(x => x.Id == pin.AssignmentId && x.AssigneeSubjectId == pin.PrincipalId)
                 && pin.WorkerId != Guid.Empty && pin.WorkerId != evidence.MakerWorkerId && pin.PrincipalId != evidence.MakerPrincipalId));
-        foreach (var stage in workflow.Stages)
+        var priorStageCompletedAt = workflow.OpenedAt;
+        foreach (var stage in workflow.Stages.OrderBy(x => x.Sequence))
         {
             Need(Scoped(stage, invoice) && stage.CaseId == workflow.Id && stage.State == "Approved"
                 && stage.Mode is "Any" or "All" or "Quorum"
@@ -154,7 +159,7 @@ public static class InvoiceRetainedUnitReview
                 && (stage.Mode != "All" || stage.RequiredApprovals == stage.Assignments.Count)
                 && stage.Assignments.Select(x => x.AssigneeSubjectId).Distinct().Count() == stage.Assignments.Count
                 && stage.Assignments.Select(x => authority.Workers.Single(pin => pin.AssignmentId == x.Id).WorkerId).Distinct().Count() == stage.Assignments.Count
-                && stage.Assignments.Count(x => x.State == "Approved") >= stage.RequiredApprovals);
+                && stage.Assignments.Count(x => x.State == "Approved") == stage.RequiredApprovals);
             foreach (var assignment in stage.Assignments)
             {
                 Need(Scoped(assignment, invoice) && assignment.CaseId == workflow.Id && assignment.StageId == stage.Id
@@ -168,12 +173,37 @@ public static class InvoiceRetainedUnitReview
                     && !string.IsNullOrWhiteSpace(vote.IdempotencyKey) && vote.DecidedAt >= workflow.OpenedAt
                     && vote.DecidedAt <= evidence.ReviewedAt);
             }
+            var stageVotes = authority.Decisions.Where(x => x.StageId == stage.Id).ToArray();
+            Need(stageVotes.Length == stage.RequiredApprovals && stageVotes.Min(x => x.DecidedAt) >= priorStageCompletedAt);
+            priorStageCompletedAt = stageVotes.Max(x => x.DecidedAt);
         }
         Need(authority.Decisions.All(x => assignments.Any(a => a.Id == x.AssignmentId)));
         var final = authority.Decisions.SingleOrDefault(x => x.Id == evidence.FinalDecisionId);
-        Need(final is not null && final.IdempotencyKey == workflow.CompletionKey && final.DecidedAt == evidence.ReviewedAt
+        Need(final is not null && final.StageId == workflow.Stages.MaxBy(x => x.Sequence)!.Id
+            && final.DecidedAt == priorStageCompletedAt
+            && final.IdempotencyKey == workflow.CompletionKey && final.DecidedAt == evidence.ReviewedAt
             && final.ActorSubjectId == evidence.ReviewerPrincipalId
             && authority.Workers.Single(x => x.AssignmentId == final.AssignmentId).WorkerId == evidence.ReviewerWorkerId);
+    }
+
+    // Bound work before parsing/UTF8 allocation; depth is also enforced by the parser.
+    private static void ValidateJson(string json)
+    {
+        const int maxBytes = 256 * 1024;
+        Need(json.Length <= maxBytes && Encoding.UTF8.GetByteCount(json) <= maxBytes);
+        using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 16 });
+        Need(document.RootElement.ValueKind == JsonValueKind.Object);
+        var remaining = 10_000;
+        Visit(document.RootElement, ref remaining);
+    }
+
+    private static void Visit(JsonElement node, ref int remaining)
+    {
+        Need(--remaining >= 0);
+        if (node.ValueKind == JsonValueKind.Object)
+            foreach (var property in node.EnumerateObject()) Visit(property.Value, ref remaining);
+        else if (node.ValueKind == JsonValueKind.Array)
+            foreach (var child in node.EnumerateArray()) Visit(child, ref remaining);
     }
 
     private static bool Scoped(ApprovalRecord record, SupplierInvoice invoice)
