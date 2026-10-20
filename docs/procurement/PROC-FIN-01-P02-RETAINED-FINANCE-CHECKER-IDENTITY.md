@@ -214,23 +214,16 @@ BEGIN
     OR EXISTS (SELECT 1 FROM procurement.purchase_request_approval_submissions
       WHERE finance_identity_schema_version <> 0)
     OR EXISTS (SELECT 1 FROM procurement.audit_events
-      WHERE record_type IN ('BudgetCheckSnapshot','PurchaseRequestApprovalSubmission')
-        AND (COALESCE(changed_fields_json::text,'') LIKE '%"CheckerIdentitySchemaVersion"%'
-          OR COALESCE(changed_fields_json::text,'') LIKE '%"CheckedByWorkerId"%'
-          OR COALESCE(changed_fields_json::text,'') LIKE '%"CheckerIdentitySha256"%'
-          OR COALESCE(changed_fields_json::text,'') LIKE '%"FinanceIdentitySchemaVersion"%'))
+      WHERE COALESCE(changed_fields_json::text,'') ~
+        '"(CheckerIdentitySchemaVersion|CheckedByWorkerId|CheckerIdentitySha256|FinanceIdentitySchemaVersion|checkerIdentitySchemaVersion|checkedByWorkerId|checkerIdentitySha256|financeIdentitySchemaVersion)"')
     OR EXISTS (SELECT 1 FROM procurement.outbox_events
-      WHERE event_type = 'procurement.finance_checker_identity.recorded.v1'
-        OR (aggregate_type IN ('BudgetCheckSnapshot','PurchaseRequestApprovalSubmission')
-          AND (payload_json::text LIKE '%CheckerIdentitySchemaVersion%'
-            OR payload_json::text LIKE '%CheckedByWorkerId%'
-            OR payload_json::text LIKE '%CheckerIdentitySha256%'
-            OR payload_json::text LIKE '%FinanceIdentitySchemaVersion%')))
+      WHERE COALESCE(payload_json::text,'') ~
+        '"(CheckerIdentitySchemaVersion|CheckedByWorkerId|CheckerIdentitySha256|FinanceIdentitySchemaVersion|checkerIdentitySchemaVersion|checkedByWorkerId|checkerIdentitySha256|financeIdentitySchemaVersion)"')
   THEN RAISE EXCEPTION 'FinanceCheckerIdentityRollbackWouldLoseEvidence'; END IF;
 END $guard$;
 ```
 
-No new event is implemented here. Step C must either use its reviewed exact event name/payload names or amend this conservative veto before migration sealing; this example does not claim a notification publisher exists. Literal Up/Down must be reviewed against actual snake-case generated columns and the complete Step C audit/outbox inventory.
+Reviewed producer inventory: generic creation audits store CLR field-name arrays on BudgetCheckSnapshot/PurchaseRequestApprovalSubmission, while the explicit PurchaseRequest/BudgetChecked audit stores checker identity fields as object keys. The veto covers both without relying on record type. No new binding-bearing event is implemented, so no fictitious event name is used. The outbox field-token predicate conservatively protects future carriers; the existing approval-opened payload does not prove P27 identity use. If all parent and corresponding audit evidence is selectively purged, this guard cannot reconstruct the lost provenance. Literal Up/Down still requires review against actual generated columns and the producer inventory; this source plan is not an executed rollback result.
 
 ### Readiness and required gates before integration
 
