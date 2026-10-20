@@ -9,6 +9,39 @@ public sealed class InvoiceMatchingFoundationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void Split_midpoint_credits_cannot_restore_full_quantity_without_cumulative_net_or_tax_credit(bool taxOnly)
+    {
+        var f = new Fixture();
+        f.Input = f.Input with
+        {
+            Order = f.Input.Order with { Lines = [f.OrderLine with
+                { Quantity = 2, UnitPrice = taxOnly ? 0m : .005m, TaxAmount = taxOnly ? .01m : 0m }] },
+            Invoice = f.Input.Invoice with { Lines = [f.Line with
+                { UnitPrice = taxOnly ? 0m : .005m, TaxAmount = taxOnly ? .01m : 0m }] },
+        };
+        f.Quantity(2);
+        // Explicit commercial tolerance must not weaken the separate original-credit
+        // quantity restoration invariant. All other quantity/unit-price limits stay exact.
+        var oneCent = new InvoiceFieldTolerance(.01m, 0, InvoiceToleranceCombination.AnyLimit);
+        f.Rule(f.RuleValue with { Total = oneCent, Tax = taxOnly ? oneCent : f.RuleValue.Tax });
+        var debit = f.Debit(2) with { TaxAmount = taxOnly ? .01m : 0m };
+        var first = f.Credit(debit, 1, 0) with { TaxAmount = 0 };
+        var second = f.Credit(debit, 1, 0) with { TaxAmount = 0 };
+        f.History(debit, first, second);
+        var blocked = f.Evaluate();
+        Assert.False(blocked.ComparisonPassed);
+        Assert.Contains(blocked.Discrepancies, x => x.Code == "CumulativeCreditQuantityAmountMismatch");
+        Assert.DoesNotContain(blocked.Discrepancies, x => x.Code == "CreditQuantityAmountMismatch");
+        // A separately validated linked value/tax-only remainder can complete the
+        // commercial credit, without itself restoring any additional quantity.
+        var remainder = f.Credit(debit, 0, taxOnly ? 0m : .01m) with { TaxAmount = taxOnly ? .01m : 0m };
+        f.History(debit, first, second, remainder);
+        Assert.True(f.Evaluate().ComparisonPassed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void Partial_two_or_three_way_comparison_is_not_AP_or_payment_authority(bool threeWay)
     {
         var f = new Fixture(threeWay); f.Quantity(2);
