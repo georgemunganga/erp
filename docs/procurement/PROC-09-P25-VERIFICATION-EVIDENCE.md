@@ -164,3 +164,20 @@ scenarios passed across recorded checkpoints, including a test-only accessible
 name locator correction. This is not one uninterrupted 16-case run and is not
 actual backend browser evidence. The actual API receiving browser gate remains
 pending. No deployment or full-module completion is claimed.
+
+
+### Correction to the cross-site fixture checkpoint
+
+The `20261020_151428` run again passed physical/inspection/service evidence
+checks but correctly returned 201 for policy **draft capture**. The fixture's
+422 assertion was at the wrong boundary: actual receiving site validation runs
+on submit-for-review and publication. For confined users, omitting a shell
+location also defaults to an assigned branch; it does not establish company-wide
+scope. The earlier fixture interpretation above is superseded by this finding.
+
+`9554b4e` changes only the verification tool: it captures a service-only policy
+for site B, proves submission from site A fails without changing draft/version,
+then submits and independently publishes in explicitly assigned site B. Workers
+performing receiving remain confined to A. After the retained-scope negative,
+the normal site-A policy is restored before subsequent goods checks. A separate
+fresh full probe is required. Product configuration guards are unchanged.
