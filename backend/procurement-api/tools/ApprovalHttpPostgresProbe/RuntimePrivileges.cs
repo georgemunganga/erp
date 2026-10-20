@@ -12,7 +12,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
 /// <summary>Disposable-database rehearsal only. Never provision production roles with this tool.</summary>
-internal static class RuntimePrivileges
+internal static partial class RuntimePrivileges
 {
     public static void ValidateConnections(string runtime, string bootstrap)
     {
@@ -24,7 +24,7 @@ internal static class RuntimePrivileges
             throw new InvalidOperationException("Distinct bootstrap/runtime identities on the same guarded disposable database are required; runtime role must use proc_approval_runtime_ prefix.");
     }
 
-    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false, bool receiving = false, bool matching = false)
+    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false, bool receiving = false, bool matching = false, bool matchingDocuments = false)
     {
         ValidateConnections(runtime, bootstrap);
         var options = new NpgsqlConnectionStringBuilder(runtime); var role = options.Username!;
@@ -126,7 +126,9 @@ internal static class RuntimePrivileges
             await Sql(owner, $"GRANT SELECT ON procurement.__procurement_migrations TO {quotedRole}");
             await Sql(owner, $"GRANT SELECT ON core_approval.\"__EFMigrationsHistory\" TO {quotedRole}");
         }
+        if(matchingDocuments) await GrantMatchingDocumentsAsync(owner,quotedRole,fixture);
         await AssertDeniedAsync(runtime, fixture, matching);
+        if(matchingDocuments) await AssertMatchingDocumentWritesDeniedAsync(runtime,fixture);
     }
 
     public static async Task AssertDeniedAsync(string runtime, IServiceProvider fixture, bool matching = false)
