@@ -93,6 +93,7 @@ sealed partial class Probe
         Console.WriteLine("PASS order: independent funding + Core assignment/decision + supplier denial + seal/replay + actual delivery");
         await VerifyCommitmentOwnershipAndDraftCancel(supplier, commitment);
         await VerifyFundedUnsubmittedCancellation(supplier);
+        await VerifyOrderAmountNotRepresentable(supplier);
         await VerifyOrderRevokedGrantReplay(orderId, decisionPath, decisionBody, decisionKey, issueBody, issueKey);
     }
 
@@ -156,9 +157,10 @@ sealed partial class Probe
         Console.WriteLine("PASS order: revoked finite authority denies exact decision and issue replay");
     }
 
-    private async Task<JsonElement> NewApprovedOrderSource(string purpose)
+    private async Task<JsonElement> NewApprovedOrderSource(string purpose, decimal quantity = 1m,
+        decimal unitPrice = 100m, decimal checkedAmount = 100m)
     {
-        var source = await NewFundedRequest(purpose); var opened = await Open(source); var caseId = opened.GetProperty("caseId").GetGuid();
+        var source = await NewFundedRequest(purpose, quantity, unitPrice, checkedAmount); var opened = await Open(source); var caseId = opened.GetProperty("caseId").GetGuid();
         for (var votes = 0; votes < 3; votes++)
         {
             var detail = await Get($"{Root}/approvals/{caseId}", OrderManager1);

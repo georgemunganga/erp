@@ -19,6 +19,15 @@ the same primitive. Reserve/resize compute all fallible results before mutating 
 line or allocation fields. Order confirmation/release counters are similarly computed first;
 Finance resolution plans all source counter results before changing any source aggregate.
 
+Unrepresentable application results map to HTTP 422 `OrderAmountNotRepresentable` with
+plain instructions to check quantities/prices/tax and contact an administrator if correct.
+They do not return a generic stale-version refresh message. A source-authored actual mapped
+PostgreSQL Finance command probe creates/approves a real finite-authority PR, then uses the
+separate bootstrap fixture to rehearse a legacy/imported draft with a historically rounded
+PO amount. Current PO draft input range limits prevent ordinary new requests reaching that
+boundary; the probe does not bypass those limits through a production endpoint. It asserts
+422 and unchanged source/order/commitment/evidence/receipt state. No probe execution is claimed.
+
 Six source-authored PO regressions cover maximum four-decimal products, independently exact
 lines with an unrepresentable aggregate, submit/revision preservation, source-estimate
 rejection and reserve/resize no-mutation behavior. Existing restricted runtime, authority,

@@ -640,15 +640,16 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         await Expect(HttpStatusCode.OK, HttpMethod.Post, Root + "/configuration/spending-authorities/" + grant.Id + "/revoke", finance,
             new { version = grant.Version, reason = "Synthetic authority withdrawn" }, selectedBranch: false);
     }
-    private async Task<JsonElement> NewFundedRequest(string purpose)
+    private async Task<JsonElement> NewFundedRequest(string purpose, decimal quantity = 1m,
+        decimal unitPrice = 100m, decimal checkedAmount = 100m)
     {
         var created = await Send(HttpMethod.Post, Root + "/requests", requester, new { purpose, currencyCode = "ZMW",
             neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] { new { description = "Synthetic item", unitCode = "each",
-                requestedQuantity = 1, estimatedUnitPrice = 100, categoryCode = "IT" } } });
+                requestedQuantity = quantity, estimatedUnitPrice = unitPrice, categoryCode = "IT" } } });
         await Check(created, HttpStatusCode.Created); var draft = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = draft.GetProperty("id").GetGuid();
         var submitted = await Send(HttpMethod.Post, $"{Root}/requests/{id}/submit", requester, new { version = draft.GetProperty("version").GetInt64() });
         await Check(submitted, HttpStatusCode.OK); var request = await submitted.Content.ReadFromJsonAsync<JsonElement>();
-        await Budget(id, request.GetProperty("version").GetInt64(), "Available"); return request;
+        await Check(await BudgetResponse(id, request.GetProperty("version").GetInt64(), "Available", checkedAmount), HttpStatusCode.Created); return request;
     }
     private async Task<JsonElement> Open(JsonElement request)
     {
@@ -656,10 +657,10 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             new { expectedRequestVersion = request.GetProperty("version").GetInt64() }, Guid.NewGuid());
         await Check(response, HttpStatusCode.Created); return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
-    private Task<HttpResponseMessage> BudgetResponse(Guid id, long version, string status)
+    private Task<HttpResponseMessage> BudgetResponse(Guid id, long version, string status, decimal checkedAmount = 100m)
         => Send(HttpMethod.Post, $"{Root}/requests/{id}/budget-checks", finance, new
         {
-            requestVersion = version, financeCheckRef = "CHECK-" + Guid.NewGuid(), status, checkedAmount = 100,
+            requestVersion = version, financeCheckRef = "CHECK-" + Guid.NewGuid(), status, checkedAmount,
             currencyCode = "ZMW", evidenceRef = "SYNTHETIC-FINANCE-EVIDENCE", decisionReason = "Synthetic controlled manual Finance attestation",
             reservationRef = status == "Available" ? "RESERVE-" + Guid.NewGuid() : null,
             reservationStatus = status == "Available" ? "Confirmed" : null,

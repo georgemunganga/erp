@@ -150,6 +150,11 @@ public static partial class ProcurementOrderExecutionRoutes
         or DbUpdateException or NpgsqlException or JsonException or KeyNotFoundException or OverflowException;
     private static IResult Failure(Exception error)
     {
+        if (error is InvalidOperationException { Message: "ExactDecimalNotRepresentable" })
+            return Results.Problem(statusCode: StatusCodes.Status422UnprocessableEntity,
+                title: "This order amount cannot be calculated safely.",
+                detail: "Check the quantities, prices and tax amounts. If they are correct, contact your administrator because the system cannot keep this amount's full precision. No changes were saved.",
+                extensions: new Dictionary<string, object?> { ["code"] = "OrderAmountNotRepresentable" });
         var code = error is OrderProblem ? error.Message : error is InvalidOperationException && error.Message.StartsWith("Order", StringComparison.Ordinal)
             ? error.Message : error is DbUpdateConcurrencyException ? "OrderVersionChanged" : "OrderOperationUnavailable";
         var status = error is OrderProblem problem ? problem.Status : error is NpgsqlException ? 503 : 409;
