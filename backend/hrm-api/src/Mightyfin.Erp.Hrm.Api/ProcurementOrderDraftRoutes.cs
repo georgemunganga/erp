@@ -102,6 +102,8 @@ public static class ProcurementOrderDraftRoutes
         var allLines = await db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == id)
             .OrderBy(x => x.LineNumber).ToListAsync(ct);
         var active = allLines.Where(x => x.IsActive).ToList();
+        if (active.Any(x => x.PurchaseRequestLineId != null) || order.FinanceCommitmentRef is not null)
+            return Problem("source-controlled-order", "Use the approved-source editor so request quantities and funding stay correct.", 409);
         var suppliedIds = draft.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToList();
         if (suppliedIds.Count != suppliedIds.Distinct().Count()
             || suppliedIds.Any(lineId => active.All(x => x.Id != lineId)))
@@ -151,6 +153,8 @@ public static class ProcurementOrderDraftRoutes
             return Problem("validation-failed", "Give a cancellation reason of up to 1,000 characters.", 422);
         var lines = await db.PurchaseOrderLines.AsNoTracking()
             .Where(x => x.PurchaseOrderId == id && x.IsActive).OrderBy(x => x.LineNumber).ToListAsync(ct);
+        if (lines.Any(x => x.PurchaseRequestLineId != null) || order.FinanceCommitmentRef is not null)
+            return Problem("source-controlled-order", "Cancel this order through its source and funding review.", 409);
         var before = ProcurementDraftAudit.Snapshot(Detail(order, lines, null));
         order.Status = "Cancelled";
         order.ClosureReason = input.Reason.Trim();
@@ -170,7 +174,7 @@ public static class ProcurementOrderDraftRoutes
         return supplier is not null && SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow);
     }
 
-    private static string? Validate(OrderDraftInput input)
+    internal static string? Validate(OrderDraftInput input)
     {
         if (input.SupplierId == Guid.Empty) return "Choose a vendor.";
         if (input.CurrencyCode is null || input.CurrencyCode.Trim().Length != 3
@@ -194,14 +198,14 @@ public static class ProcurementOrderDraftRoutes
         return null;
     }
 
-    private static PurchaseOrderLine NewLine(Guid orderId, int number, OrderDraftLineInput input)
+    internal static PurchaseOrderLine NewLine(Guid orderId, int number, OrderDraftLineInput input)
     {
         var line = new PurchaseOrderLine { PurchaseOrderId = orderId, LineNumber = number };
         ApplyLine(line, input);
         return line;
     }
 
-    private static void ApplyLine(PurchaseOrderLine line, OrderDraftLineInput input)
+    internal static void ApplyLine(PurchaseOrderLine line, OrderDraftLineInput input)
     {
         line.Description = input.Description!.Trim();
         line.UnitCode = input.UnitCode!.Trim().ToUpperInvariant();
@@ -213,7 +217,7 @@ public static class ProcurementOrderDraftRoutes
         line.ExpectedDeliveryOn = input.ExpectedDeliveryOn;
     }
 
-    private static object Detail(PurchaseOrder order, IReadOnlyCollection<PurchaseOrderLine> lines,
+    internal static object Detail(PurchaseOrder order, IReadOnlyCollection<PurchaseOrderLine> lines,
         string? supplierName) => new
     {
         order.Id, order.Number, order.SupplierId, supplierName, order.CurrencyCode,
