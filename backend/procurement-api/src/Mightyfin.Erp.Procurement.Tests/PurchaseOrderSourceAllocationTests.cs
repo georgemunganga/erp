@@ -174,7 +174,8 @@ public sealed class PurchaseOrderSourceAllocationTests
         public PurchaseOrderLine PoLine { get; }
 
         public Fixture(decimal requestedQuantity = 10m, decimal estimatedUnitPrice = 10m,
-            string sourceUnitCode = "EA", string? purchaseType = null)
+            string sourceUnitCode = "EA", string? purchaseType = null,
+            string executionRoute = "DirectPurchase", int? minimumQuoteCount = 0, bool omitMinimumQuoteCount = false)
         {
             Request = Scoped(new PurchaseRequest { Number = "PR-TEST", RequesterWorkerId = Guid.NewGuid(),
                 CurrencyCode = "ZMW", Purpose = "Source authority test", Status = "Submitted", Version = 1,
@@ -183,15 +184,18 @@ public sealed class PurchaseOrderSourceAllocationTests
                 Description = "Item", UnitCode = sourceUnitCode, PurchaseType = purchaseType, RequestedQuantity = requestedQuantity, EstimatedUnitPrice = estimatedUnitPrice,
                 EstimatedCurrencyCode = "ZMW", CategoryCode = "OFFICE" }));
             Method = Scoped(new ProcurementMethod { Code = "BUSINESS_METHOD", Name = "Configured direct route",
-                Status = "Active", ExecutionRoute = "DirectPurchase" });
+                Status = "Active", ExecutionRoute = executionRoute });
             var policy = Scoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
                 State = "Published", EffectiveFrom = Now.AddDays(-1), RulesJson = "{}" });
             var evaluation = Scoped(new PolicyEvaluation { PurchaseRequestId = Request.Id, RequestVersion = 1,
                 PolicyVersionId = policy.Id, PolicyVersionNumber = 1, Outcome = "Matched", AmountBasis = "EstimatedLineBase",
                 DecisionJson = JsonSerializer.Serialize(new { requestId = Request.Id, requestVersion = 1, policyId = policy.Id,
                     lines = new[] { new { lineId = Line.Id, decision = new { status = "Match",
-                        sourcingMethodCode = Method.Code, minimumQuoteCount = 0,
+                        sourcingMethodCode = Method.Code, minimumQuoteCount,
                         approvalStages = new[] { new { code = "NEED", assignee = "LineManager", mode = "One" } } } } } }) });
+            if (omitMinimumQuoteCount)
+                evaluation.DecisionJson = evaluation.DecisionJson.Replace("\"minimumQuoteCount\":" +
+                    (minimumQuoteCount?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null") + ",", "");
             var finance = Scoped(new BudgetCheckSnapshot { PurchaseRequestId = Request.Id, RequestVersion = 1,
                 Status = "Available", CheckedAmount = requestedQuantity * estimatedUnitPrice, CurrencyCode = "ZMW", FinanceCheckRef = "CHECK",
                 EvidenceRef = "SYNTHETIC", ReservationRef = "RESERVE", ReservationStatus = "Confirmed", CheckedAt = Now });
