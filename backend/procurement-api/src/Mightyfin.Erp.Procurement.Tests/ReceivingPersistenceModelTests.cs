@@ -121,7 +121,7 @@ public sealed class ReceivingPersistenceModelTests
     {
         await using var db = Context();
         var row = new ServiceAcceptance { ExecutionVersion = 1, SourcePurchaseOrderId = Guid.NewGuid(),
-            IssuedBindingId = Guid.NewGuid(), PurchaseOrderLineId = Guid.NewGuid(), Status = "Draft", Notes = "Preserved" };
+            IssuedBindingId = Guid.NewGuid(), PurchaseOrderLineId = Guid.NewGuid(), OwnerSubjectId = "receiver", Status = "Draft", Notes = "Preserved" };
         db.AddScoped(row); await db.SaveChangesAsync(); db.ChangeTracker.Clear();
         row = await db.ServiceAcceptances.SingleAsync(); Assert.Equal(Guid.Empty, row.SourceStateBindingId);
         var state = StateFor(row.TenantId, row.LegalEntityId, row.SourcePurchaseOrderId!.Value,
