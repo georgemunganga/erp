@@ -2,6 +2,8 @@
 
 **Status:** Draft for business review · **Version:** 0.1 · **Hierarchy:** Procurement → Supplier Invoices and Procure-to-Pay → Invoice Validation and Finance Handoff → Operations · **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx) · **Module:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 
+**Implementation boundary:** [PROC-11A gap map](PROC-11A-MATCHING-FOUNDATION-GAP-MAP.md) and [PROC-11B 28-section comparison foundation](PROC-11B-INVOICE-MATCHING-COMPARISON.md) define the bounded source-only increment. Operational matching and AP posting remain disabled until authoritative source, persistence and Finance gates pass.
+
 ## 1. Feature Identification
 
 `PROC-11`, procure-to-pay phase. Business owners: AP and Procurement validation leads; product/data/technical owners to name. Operations: `O1` two/three-way match, `O2` route exception, `O3` approve variance, `O4` hand off, `O5` reconcile AP result, `O6` sync payment status.
