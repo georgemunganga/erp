@@ -83,7 +83,7 @@ public static partial class ProcurementReceivingRoutes
             var (header, lines) = await LoadReceipt(db, id, token);
             var branch = await db.PurchaseOrders.Where(x => x.Id == header.PurchaseOrderId).Select(x => x.BranchRef).SingleAsync(token);
             await Actor(core, scope, http, auth, "procurement-receipt-view", branch, null, token);
-            if (header.ExecutionVersion == 1 && header.BranchRef != branch) throw new ReceivingProblem("ReceivingCurrentIssuedAuthorityChanged", 409);
+            if (header.ExecutionVersion == 1 && (header.BranchRef != branch || !await BoundIssuedOrders(db, scope).AnyAsync(x => x.Id == header.PurchaseOrderId, token))) throw new ReceivingProblem("ReceivingCurrentIssuedAuthorityChanged", 409);
             return await ReceiptRead(db, cases, core, auth, scope, http, header, lines, token);
         }, ct);
     private static Task<IResult> CancelReceipt(Guid id, CancelDraft input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
@@ -163,6 +163,8 @@ public static partial class ProcurementReceivingRoutes
             var orderId = row.SourcePurchaseOrderId ?? await db.PurchaseOrderLines.Where(x => x.Id == row.PurchaseOrderLineId).Select(x => x.PurchaseOrderId).SingleAsync(token);
             var branch = await db.PurchaseOrders.Where(x => x.Id == orderId).Select(x => x.BranchRef).SingleAsync(token);
             await Actor(core, scope, http, auth, "procurement-receipt-view", branch, null, token);
+            if (row.ExecutionVersion == 1 && !await BoundIssuedOrders(db, scope).AnyAsync(x => x.Id == orderId, token))
+                throw new ReceivingProblem("ReceivingCurrentIssuedAuthorityChanged", 409);
             return await ServiceRead(db, cases, core, auth, scope, http, row, token);
         }, ct);
 }

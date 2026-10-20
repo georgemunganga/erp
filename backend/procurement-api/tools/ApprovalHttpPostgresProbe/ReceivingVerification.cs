@@ -126,6 +126,7 @@ sealed partial class Probe
         await Check(wrongSiteDraft, HttpStatusCode.OK); var wrongSiteRow = await wrongSiteDraft.Content.ReadFromJsonAsync<JsonElement>();
         await Expect(HttpStatusCode.Conflict, HttpMethod.Post, $"{Root}/service-acceptances/{wrongSiteRow.GetProperty("id").GetGuid()}/certify", OrderManager2,
             new { version = wrongSiteRow.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:WRONG-POLICY-SITE" }, Guid.NewGuid());
+        await VerifyReceivingRetainedScope(crossSite.OrderId, wrongSiteRow.GetProperty("id").GetGuid(), otherSite);
         await VerifyConcurrentReceivingAcceptance(supplier);
         // Explicitly corrupt a separate linked source's historic counter as an owner-only fixture.
         // The HTTP runtime must never interpret absent new effects as a complete zero history.
@@ -163,6 +164,47 @@ sealed partial class Probe
         }
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/accept", OrderManager2, accept, acceptKey);
         Console.WriteLine("PASS receiving: real goods/service lifecycle, overdelivery truth, exact evidence/replay/denied edits, missing policy and unknown historic capacity, current permission revocation");
+    }
+    private async Task VerifyReceivingRetainedScope(Guid orderId, Guid serviceId, Guid otherSite)
+    {
+        Guid assignmentId;
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            Require(!await core.UserBranchAssignments.AnyAsync(x => x.UserId == OrderManager2 && !x.IsArchived), "Scope corruption fixture requires initially organisation-wide owner.");
+            var assignment = new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = OrderManager2, LocationId = otherSite };
+            core.UserBranchAssignments.Add(assignment); await core.SaveChangesAsync(); assignmentId = assignment.Id;
+            // Owner-only corruption fixture: do not grant this ability to the runtime role.
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_orders SET branch_ref={otherSite} WHERE tenant_id={"probe"} AND legal_entity_id={OrderCompany} AND id={orderId}");
+        }
+        async Task<HttpResponseMessage> AtB(string path)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            request.Headers.Add("X-Probe-User", OrderManager2.ToString("D"));
+            request.Headers.Add("X-Shell-Entity", OrderCompany.ToString("D"));
+            request.Headers.Add("X-Shell-Location", otherSite.ToString("D"));
+            return await client.SendAsync(request);
+        }
+        try
+        {
+            foreach (var path in new[] { "/receiving/service-tasks?page=1&pageSize=1", "/receiving/worklist?view=services&page=1&pageSize=1", "/receiving/sources?page=1&pageSize=1" })
+            {
+                using var response = await AtB(Root + path); await Check(response, HttpStatusCode.OK);
+                var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+                Require(page.GetProperty("total").GetInt32() == 0 && page.GetProperty("items").GetArrayLength() == 0,
+                    "Current header B leaked an issued-A task/source/worklist row or count.");
+            }
+            using var purpose = await AtB($"{Root}/service-acceptances/{serviceId}/certification-task"); await Check(purpose, HttpStatusCode.NotFound);
+            using var general = await AtB($"{Root}/service-acceptances/{serviceId}"); await Check(general, HttpStatusCode.Conflict);
+        }
+        finally
+        {
+            using var services = Scope(OrderBuyer); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var assignment = await core.UserBranchAssignments.SingleAsync(x => x.Id == assignmentId); assignment.IsArchived = true; await core.SaveChangesAsync();
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_orders SET branch_ref={OrderBranch} WHERE tenant_id={"probe"} AND legal_entity_id={OrderCompany} AND id={orderId}");
+        }
     }
     private async Task WithoutReceivingBroadRead(Func<Task> checks)
     {

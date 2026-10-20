@@ -192,3 +192,9 @@ and a separately governed service policy restricted to another site that must de
 otherwise named organisation-wide owner. Existing receiving policy creation/publication
 is used; no synthetic published receiving policy or successful owner posting is fabricated.
 The probe remains unrun for P25 until its migration and centralized runtime gate are ready.
+
+Receiving read-scope regression (source only): the controlled `--receiving` fixture records
+a legitimate issued-A positive path, then bootstrap-corrupts only its current PO header to
+B while a named policy-site-B owner is restricted to Core B. Actual API assigned/source/v1
+worklist rows and counts must remain zero and details denied. Cleanup restores original A
+and membership; runtime privileges are unchanged. This scenario has not been executed here.

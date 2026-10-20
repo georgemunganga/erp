@@ -418,3 +418,28 @@ Current action hints still run the policy's effective-time guards and become fal
 expiry. No retained-policy exception is applied to commands, replay or task assignment;
 those retain their existing effective-now defaults. A draft without a retained policy
 still needs a single configured current policy for positive-action hints.
+
+### Retained scope before paging (review correction to aee034a)
+
+Current mutable PO branch alone is insufficient to authorize a receiving list row. A shared
+SQL read fence now compares current PO scope/identity/revision/number/supplier/buyer with
+retained issued commercial evidence, the matching submission and its approved Core case
+source/version/policy/maker pointers. The branch key must exist in the sealed document;
+null branches use exact null equality. This fence composes into assigned inspection/service
+queries, issued source picker, and version-one receipt/service worklists **before count and
+page**. General v1 detail rejects a source outside this retained lineage as well. The detailed
+Source verifier still checks full canonical intent and hashes; SQL predicates do not replace
+that final proof or authorize a write.
+
+The authored restricted-runtime probe preserves a legitimate A positive task, then uses the
+bootstrap owner only to corrupt its current PO branch to B. A named current policy/site-B
+owner restricted to Core branch B must see zero assigned tasks, sources and v1 worklist rows,
+including zero counts; purpose detail is404 and broad detail409. The fixture restores both
+branch and membership without granting the runtime PO-tamper/Core-write permission.
+
+Legacy executionVersion0 has no fabricated issued authority and retains its existing
+current-linked-PO read ownership/explicit unverified presentation. Its historical branch
+cannot be proved from a missing issued pin. This correction does not silently backfill it
+or treat it as matching/acceptance evidence. Stronger legacy historical-scope reconciliation
+remains an explicit policy/recovery decision. Unknown execution versions are excluded from
+the bounded worklists and cannot execute.

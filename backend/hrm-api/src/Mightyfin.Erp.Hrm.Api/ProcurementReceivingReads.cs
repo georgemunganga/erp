@@ -13,7 +13,7 @@ public static partial class ProcurementReceivingRoutes
             // Resolve current actor and permitted Core branches once; SQL scope precedes count/page.
             var actor = await Actor(core, scope, http, auth, "procurement-receipt-view", scope.WorkLocationId, null, token, target: false);
             var branches = actor.BranchIds.ToArray(); var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
-            var query = from order in db.PurchaseOrders.AsNoTracking()
+            var query = from order in BoundIssuedOrders(db, scope).AsNoTracking()
                 join issued in db.OrderIssuedVersions.AsNoTracking() on new { order.Id, Revision = order.CurrentRevision } equals new { Id = issued.PurchaseOrderId, Revision = issued.RevisionNumber }
                 join line in db.PurchaseOrderLines.AsNoTracking() on order.Id equals line.PurchaseOrderId
                 where order.Status == "Issued" && line.IsActive
@@ -52,12 +52,16 @@ public static partial class ProcurementReceivingRoutes
             if (view is not (null or "receipts" or "services")) throw new ReceivingProblem("ReceivingWorklistViewUnsupported", 422);
             var actor = await Actor(core, scope, http, auth, "procurement-receipt-view", scope.WorkLocationId, null, token, target: false);
             var branches = actor.BranchIds.ToArray(); var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
+            var boundedOrders = BoundIssuedOrders(db, scope);
             if (view == "services")
             {
                 var query = from service in db.ServiceAcceptances.AsNoTracking()
                     join line in db.PurchaseOrderLines.AsNoTracking() on service.PurchaseOrderLineId equals line.Id
                     join order in db.PurchaseOrders.AsNoTracking() on line.PurchaseOrderId equals order.Id
-                    where (scope.WorkLocationId == null || order.BranchRef == scope.WorkLocationId)
+                    where (service.ExecutionVersion == 0 || service.ExecutionVersion == 1
+                            && service.SourcePurchaseOrderId == order.Id && boundedOrders.Any(x => x.Id == order.Id)
+                            && db.OrderIssuedVersions.Any(x => x.Id == service.IssuedBindingId && x.PurchaseOrderId == order.Id && x.RevisionNumber == order.CurrentRevision))
+                        && (scope.WorkLocationId == null || order.BranchRef == scope.WorkLocationId)
                         && (branches.Length == 0 || order.BranchRef != null && branches.Contains(order.BranchRef.Value))
                         && (state == null || service.Status == state)
                     orderby service.CreatedAt descending, service.Id
@@ -70,7 +74,10 @@ public static partial class ProcurementReceivingRoutes
             {
                 var query = from receipt in db.GoodsReceipts.AsNoTracking()
                     join order in db.PurchaseOrders.AsNoTracking() on receipt.PurchaseOrderId equals order.Id
-                    where (scope.WorkLocationId == null || order.BranchRef == scope.WorkLocationId)
+                    where (receipt.ExecutionVersion == 0 || receipt.ExecutionVersion == 1 && receipt.BranchRef == order.BranchRef
+                            && boundedOrders.Any(x => x.Id == order.Id)
+                            && db.OrderIssuedVersions.Any(x => x.Id == receipt.IssuedBindingId && x.PurchaseOrderId == order.Id && x.RevisionNumber == order.CurrentRevision))
+                        && (scope.WorkLocationId == null || order.BranchRef == scope.WorkLocationId)
                         && (branches.Length == 0 || order.BranchRef != null && branches.Contains(order.BranchRef.Value))
                         && (state == null || receipt.Status == state)
                     orderby receipt.CreatedAt descending, receipt.Id

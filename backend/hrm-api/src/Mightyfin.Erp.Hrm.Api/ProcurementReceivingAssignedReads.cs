@@ -33,7 +33,7 @@ public static partial class ProcurementReceivingRoutes
     // A state pin is not present on an un-certified service draft, so use the existing
     // submission evidence rather than mutable PR classifications or another assignment table.
     private static IQueryable<PurchaseOrderLine> AssignedLines(ProcurementDbContext db, ProcurementRequestScope scope, AssignedRules assigned)
-        => db.PurchaseOrderLines.FromSqlInterpolated($"""
+        => from candidate in db.PurchaseOrderLines.FromSqlInterpolated($"""
             SELECT line.* FROM procurement.purchase_order_lines line
             JOIN procurement.purchase_orders po ON po.id=line.purchase_order_id AND po.tenant_id=line.tenant_id AND po.legal_entity_id=line.legal_entity_id
             JOIN procurement.purchase_order_issued_versions issued ON issued.purchase_order_id=po.id AND issued.tenant_id=po.tenant_id
@@ -45,7 +45,9 @@ public static partial class ProcurementReceivingRoutes
                     jsonb_to_recordset({assigned.RuleScopeJson}::jsonb) AS rule(category text,purchase_type text,site uuid)
                     WHERE src->>'orderLineId'=line.id::text AND src->>'CategoryCode'=rule.category
                         AND src->>'PurchaseType'=rule.purchase_type AND po.branch_ref=rule.site)
-            """);
+            """)
+            join boundedOrder in BoundIssuedOrders(db, scope) on candidate.PurchaseOrderId equals boundedOrder.Id
+            select candidate;
     private static Task<IResult> InspectionTasks(HttpContext http, ProcurementRequestScope scope, int? page, int? pageSize, CancellationToken ct)
         => AssignedTasks(false, http, scope, page, pageSize, ct);
     private static Task<IResult> ServiceTasks(HttpContext http, ProcurementRequestScope scope, int? page, int? pageSize, CancellationToken ct)
