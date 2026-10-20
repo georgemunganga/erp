@@ -116,3 +116,14 @@ The active image tag is `hrm-api_hrm-api:procure-20261020-v36`. The current UI b
 3. Replace empty workflow placeholders with backed integrations as each capability is implemented; preserve the menu and avoid sample transaction data in live mode.
 4. Connect the Finance budget decision to the authoritative Finance budget/reservation interface; the present API records a Finance review with external evidence but does not calculate or reserve funds itself.
 5. Implement and verify delegated approvals, governed budget release/exception handling, PO issue, receiving, invoice matching, and AP hand-off before calling the module complete. The P13 rule evaluation records evidence only; it cannot approve spending or reserve a budget.
+
+
+Historical provenance imported from4f910ee; the following original verification does not verify this reconstructed hotfix candidate.
+
+### Shared-host source compatibility restoration — 20 October
+
+Restored the existing live SalaryAdvance model (nullable issue date, record type and opening recovered amount), the retained opening-recovery/calculation behavior and the already-applied `20261014090000_LoanOpeningBalances` migration into the isolated integration source. These are preservation changes needed by a complete Procurement host build, not new HRM functionality. The newer leave-summary service/interfaces/DTOs and missing-PDF regeneration remain. Independent source review found the domain, repository and migration identical to retained v36 staging; application differences preserve the newer leave/PDF behavior.
+
+The rebuilt API passed the strict retained-data contract/JIT probe for all three loan fields and the actual recovery state machine. The combined mapped Procurement HTTP and targeted loan/payroll regression suite passed **58/58** (5 minutes 17 seconds executing tests). Structured results and probe evidence are retained at `/home/amizo/erp-backups/procurement-host-compatibility-20261020/`. Compilation emitted existing HRM/host warnings; this is not a zero-warning build claim.
+
+A read-only production check confirmed both loan columns and exactly the existing migration history entry. No production schema or financial data was changed. Inherited HRM model-snapshot drift (including omission of SalaryAdvance) also exists in retained staging and is not repaired by this narrow restoration; do not generate a broad inferred corrective migration as part of it. Production remains v36; coordinated API release, Procurement P20 and Core document activation gates remain outstanding.
