@@ -1274,6 +1274,85 @@ public sealed class ProcurementRequestHttpTests
                 "procurement_manager")).StatusCode);
     }
 
+    [Theory]
+    [InlineData("item-moq","0.00001")]
+    [InlineData("item-conversion","1.0000001")]
+    [InlineData("item-conversion","1000000000000")]
+    [InlineData("entry-price","0.00001")]
+    [InlineData("entry-price","1.00000000000000000000000000001")]
+    [InlineData("entry-min","0.00001")]
+    [InlineData("entry-max","100000000000000")]
+    public async Task Catalog_original_values_reject_precision_or_range_without_any_persisted_effect(string field,string token)
+    {
+        await using var fixture=await Fixture.Start();
+        var created=await SendJson(fixture.Client,HttpMethod.Post,"/api/procurement/v1/items",fixture.Owner,
+            new { code="EXACT-PARENT",name="Existing draft",kind="Goods",categoryCode="IT",unitCode="each" },"procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created,created.StatusCode);var item=await created.Content.ReadFromJsonAsync<JsonElement>();
+        var path="/api/procurement/v1/items";string body;
+        if(field.StartsWith("item-")) body="{\"code\":\"RAW-REJECT\",\"name\":\"Original value\",\"kind\":\"Goods\",\"categoryCode\":\"IT\",\"unitCode\":\"each\",\""
+            +(field=="item-moq"?"minimumOrderQuantity":"purchaseUnitConversion")+"\":"+token+"}";
+        else
+        {
+            path+="/"+item.GetProperty("id").GetGuid()+"/catalog-entries";
+            var values=new Dictionary<string,string> { ["unitPrice"]="1",["minimumQuantity"]="null",["maximumQuantity"]="null" };
+            values[field=="entry-price"?"unitPrice":field=="entry-min"?"minimumQuantity":"maximumQuantity"]=token;
+            body="{\"currencyCode\":\"ZMW\",\"unitCode\":\"each\",\"effectiveFrom\":\"2026-10-20T00:00:00Z\",\"unitPrice\":"+values["unitPrice"]+",\"minimumQuantity\":"+values["minimumQuantity"]+",\"maximumQuantity\":"+values["maximumQuantity"]+"}";
+        }
+        var before=await fixture.OriginalValueFootprint();using var response=await RawOriginalValue(fixture,path,body,"procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Equal(before,await fixture.OriginalValueFootprint());
+    }
+    [Theory]
+    [InlineData("request")][InlineData("request-update")][InlineData("plan")][InlineData("plan-update")]
+    [InlineData("contract")][InlineData("contract-update")][InlineData("budget")]
+    public async Task Shared_original_amount_boundaries_do_not_round_raw_tokens_before_validation(string feature)
+    {
+        await using var fixture=await Fixture.Start();const string invalid="1.00000000000000000000000000001";
+        var suffix=Guid.NewGuid().ToString("D");
+        var (path,body,method)=feature switch
+        {
+            "request"=>("/requests","{\"lines\":[{\"requestedQuantity\":"+invalid+"}]}",HttpMethod.Post),
+            "request-update"=>("/requests/"+suffix,"{\"version\":1,\"lines\":[{\"estimatedUnitPrice\":"+invalid+"}]}",HttpMethod.Put),
+            "plan"=>("/plans","{\"lines\":[{\"estimatedAmount\":"+invalid+"}]}",HttpMethod.Post),
+            "plan-update"=>("/plans/"+suffix,"{\"version\":1,\"draft\":{\"lines\":[{\"estimatedQuantity\":"+invalid+"}]}}",HttpMethod.Put),
+            "contract"=>("/contracts","{\"ceilingAmount\":"+invalid+"}",HttpMethod.Post),
+            "contract-update"=>("/contracts/"+suffix,"{\"version\":1,\"draft\":{\"ceilingAmount\":"+invalid+"}}",HttpMethod.Put),
+            _=>("/requests/"+suffix+"/budget-checks","{\"checkedAmount\":"+invalid+"}",HttpMethod.Post)
+        };
+        var role=feature=="budget"?"finance_approver":feature.StartsWith("request")?"employee":feature.StartsWith("plan")?"manager":"procurement_buyer";
+        var before=await fixture.OriginalValueFootprint();using var response=await RawOriginalValue(fixture,"/api/procurement/v1"+path,body,role,method);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
+        var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
+        Assert.Contains("exact amounts",error.GetProperty("message").GetString());
+        Assert.Equal(before,await fixture.OriginalValueFootprint());
+    }
+    [Fact]
+    public async Task Catalog_original_exact_bounds_round_trip_and_invalid_update_retains_version_and_price()
+    {
+        await using var fixture=await Fixture.Start();
+        var body="{\"code\":\"EXACT-VALID\",\"name\":\"Exact units\",\"kind\":\"Goods\",\"categoryCode\":\"IT\",\"unitCode\":\"each\",\"purchaseUnitConversion\":\"1.000001\",\"minimumOrderQuantity\":0.0001}";
+        using var created=await RawOriginalValue(fixture,"/api/procurement/v1/items",body,"procurement_buyer");Assert.Equal(HttpStatusCode.Created,created.StatusCode);
+        var item=await created.Content.ReadFromJsonAsync<JsonElement>();var path="/api/procurement/v1/items/"+item.GetProperty("id").GetGuid();
+        using var restored=await Send(fixture.Client,HttpMethod.Get,path,fixture.Owner,role:"procurement_buyer");var detail=await restored.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1.000001m,detail.GetProperty("purchaseUnitConversion").GetDecimal());Assert.Equal(.0001m,detail.GetProperty("minimumOrderQuantity").GetDecimal());
+        const string price="{\"currencyCode\":\"ZMW\",\"unitCode\":\"each\",\"effectiveFrom\":\"2026-10-20T00:00:00Z\",\"unitPrice\":\"99999999999999.9999\",\"minimumQuantity\":\"0.0001\",\"maximumQuantity\":null}";
+        using var added=await RawOriginalValue(fixture,path+"/catalog-entries",price,"procurement_buyer");Assert.Equal(HttpStatusCode.Created,added.StatusCode);
+        var entry=await added.Content.ReadFromJsonAsync<JsonElement>();var before=await fixture.OriginalValueFootprint();
+        var invalid="{\"version\":"+entry.GetProperty("version").GetInt64()+",\"entry\":"+price.Replace("99999999999999.9999","0.00001")+"}";
+        using var rejected=await RawOriginalValue(fixture,path+"/catalog-entries/"+entry.GetProperty("id").GetGuid(),invalid,"procurement_buyer",HttpMethod.Put);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,rejected.StatusCode);Assert.Equal(before,await fixture.OriginalValueFootprint());
+        using var entries=await Send(fixture.Client,HttpMethod.Get,path+"/catalog-entries",fixture.Owner,role:"procurement_buyer");
+        var stored=(await entries.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items")[0];
+        Assert.Equal(99999999999999.9999m,stored.GetProperty("unitPrice").GetDecimal());Assert.Equal(.0001m,stored.GetProperty("minimumQuantity").GetDecimal());
+    }
+    private static Task<HttpResponseMessage> RawOriginalValue(Fixture fixture,string path,string body,string role,HttpMethod? method=null)
+    {
+        var request=new HttpRequestMessage(method??HttpMethod.Post,path) { Content=new StringContent(body,System.Text.Encoding.UTF8,"application/json") };
+        request.Headers.Add("X-Test-User",fixture.Owner.ToString());request.Headers.Add("X-Test-Role",role);
+        return fixture.Client.SendAsync(request);
+    }
+
     [Fact]
     public async Task Independent_review_activates_category_then_item_without_publishing_a_price()
     {
@@ -2680,6 +2759,18 @@ public sealed class ProcurementRequestHttpTests
             return supplier.Id;
         }
 
+        public async Task<string> OriginalValueFootprint()
+        {
+            using var services=app.Services.CreateScope();services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a",company,Owner.ToString(),null,null,false,"original-value-test");
+            var db=services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return JsonSerializer.Serialize(new { items=await db.CatalogItems.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                prices=await db.CatalogEntries.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                requests=await db.PurchaseRequests.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),requestLines=await db.PurchaseRequestLines.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                plans=await db.ProcurementPlans.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),planLines=await db.ProcurementPlanLines.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                contracts=await db.SupplierContracts.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),contractVersions=await db.SupplierContractVersions.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+                budget=await db.BudgetCheckSnapshots.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),audit=await db.AuditEvents.CountAsync(),outbox=await db.OutboxEvents.CountAsync() });
+        }
         public async Task<string> InvoiceReadinessFootprint()
         {
             using var services = app.Services.CreateScope();

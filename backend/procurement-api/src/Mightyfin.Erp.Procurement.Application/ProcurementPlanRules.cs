@@ -1,8 +1,10 @@
+using System.Text.Json.Serialization;
+
 namespace Mightyfin.Erp.Procurement.Application;
 
 /// <summary>Draft-only planning inputs. Approval and Finance budget decisions are separate contracts.</summary>
 public sealed record ProcurementPlanLineInput(Guid? Id, Guid? CatalogItemId, string? Description,
-    string? CategoryCode, string? UnitCode, decimal EstimatedQuantity, decimal EstimatedAmount,
+    string? CategoryCode, string? UnitCode, [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal EstimatedQuantity, [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal EstimatedAmount,
     DateOnly? ExpectedOn, string? FundingSourceRef);
 
 public sealed record ProcurementPlanInput(string? FinancialPeriodRef, string? CurrencyCode,
