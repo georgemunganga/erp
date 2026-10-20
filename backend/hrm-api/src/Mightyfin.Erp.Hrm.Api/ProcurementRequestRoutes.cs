@@ -19,9 +19,9 @@ public static class ProcurementRequestRoutes
         group.MapGet("", List).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/review", GetForReview).RequireAuthorization("procurement-request-return");
-        group.MapPost("", Create).RequireAuthorization("procurement-request-create");
-        group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-request-edit");
-        group.MapPost("/{id:guid}/submit", Submit).RequireAuthorization("procurement-request-submit");
+        group.MapPost("", Create).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-create");
+        group.MapPut("/{id:guid}", Update).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-edit");
+        group.MapPost("/{id:guid}/submit", Submit).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-submit");
         group.MapPost("/{id:guid}/return-for-changes", ReturnForChanges)
             .RequireAuthorization("procurement-request-return");
         group.MapPost("/{id:guid}/withdraw", Withdraw).RequireAuthorization("procurement-request-edit");
@@ -74,7 +74,8 @@ public static class ProcurementRequestRoutes
         var workerId = scope.WorkerId;
         if (workerId is null)
             return Error("employee-unavailable", "An active employee record is needed to create a request.", 403);
-        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, ct);
+        var catalogItems = new Dictionary<Guid, CatalogItem>();
+        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, catalogItems, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
         var catalogVersions = await CatalogVersions(input.Lines!, db, ct);
 
@@ -97,7 +98,7 @@ public static class ProcurementRequestRoutes
             Status = "Draft",
         };
         for (var i = 0; i < input.Lines!.Count; i++)
-            request.Lines.Add(NewLine(request.Id, i + 1, input.Lines[i], request.CurrencyCode, catalogVersions));
+            request.Lines.Add(NewLine(request.Id, i + 1, input.Lines[i], request.CurrencyCode, catalogVersions, catalogItems));
         db.AddScoped(request);
         await db.SaveChangesAsync(ct);
         return Results.Created($"/api/procurement/v1/requests/{request.Id}", ToDetail(request));
@@ -122,7 +123,8 @@ public static class ProcurementRequestRoutes
         if (input.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id).Distinct().Count()
             != input.Lines!.Count(x => x.Id.HasValue))
             return Error("validation-failed", "A request line was repeated.", 422);
-        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, ct);
+        var catalogItems = new Dictionary<Guid, CatalogItem>();
+        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, catalogItems, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
         var catalogVersions = await CatalogVersions(input.Lines!, db, ct);
         var existing = request.Lines.ToDictionary(x => x.Id);
@@ -151,10 +153,10 @@ public static class ProcurementRequestRoutes
         foreach (var incoming in input.Lines)
         {
             if (incoming.Id is Guid lineId)
-                ApplyLine(existing[lineId], incoming, request.CurrencyCode, catalogVersions);
+                ApplyLine(existing[lineId], incoming, request.CurrencyCode, catalogVersions, catalogItems);
             else
             {
-                var line = NewLine(request.Id, nextLine++, incoming, request.CurrencyCode, catalogVersions);
+                var line = NewLine(request.Id, nextLine++, incoming, request.CurrencyCode, catalogVersions, catalogItems);
                 db.AddScoped(line);
             }
         }
@@ -354,11 +356,9 @@ public static class ProcurementRequestRoutes
     private static async Task<string?> ValidateStoredReferences(PurchaseRequestLine[] lines,
         string currency, ProcurementDbContext db, CancellationToken ct)
     {
-        var items = lines.Where(x => x.CatalogItemId.HasValue).Select(x => x.CatalogItemId!.Value).Distinct().ToArray();
         var suppliers = lines.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
-        if (items.Length > 0 && await db.CatalogItems.AsNoTracking()
-                .CountAsync(x => items.Contains(x.Id) && x.Status == "Active" && x.IsPurchasable, ct) != items.Length)
-            return "An item is no longer available for purchase.";
+        if (await ProcurementCatalogClassificationBinding.StoredIssue(db, lines, ct, currency) is not null)
+            return "A selected catalog item or price is unavailable or changed. Edit the draft to select the current catalog classification and price.";
         if (suppliers.Length > 0)
         {
             var selected = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
@@ -366,39 +366,21 @@ public static class ProcurementRequestRoutes
             if (selected.Count != suppliers.Length || selected.Any(x => !SupplierEligibility.CanReceiveNewOrders(x, DateTimeOffset.UtcNow)))
                 return "A preferred vendor is no longer available or its qualification has expired.";
         }
-        var catalogIds = lines.Where(x => x.CatalogEntryId.HasValue)
-            .Select(x => x.CatalogEntryId!.Value).Distinct().ToArray();
-        if (catalogIds.Length > 0)
-        {
-            var entries = await db.CatalogEntries.AsNoTracking().Where(x => catalogIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, ct);
-            foreach (var line in lines.Where(x => x.CatalogEntryId.HasValue))
-            {
-                if (!entries.TryGetValue(line.CatalogEntryId!.Value, out var entry)
-                    || !CatalogEntryIsAvailable(entry)
-                    || entry.CatalogItemId != line.CatalogItemId
-                    || entry.SupplierId != line.PreferredSupplierId
-                    || entry.UnitCode != line.UnitCode
-                    || entry.CurrencyCode != currency
-                    || entry.UnitPrice != line.EstimatedUnitPrice
-                    || entry.MinimumQuantity is decimal minimum && line.RequestedQuantity < minimum
-                    || entry.MaximumQuantity is decimal maximum && line.RequestedQuantity > maximum
-                    || entry.PublishedVersion != line.CatalogPublishedVersion)
-                    return "A selected catalog price changed or is no longer available. Update the request line before submitting.";
-            }
-        }
         return null;
     }
 
     private static async Task<string?> ValidateReferences(IEnumerable<RequestLineInput> lines,
-        string currency, ProcurementDbContext db, CancellationToken ct)
+        string currency, ProcurementDbContext db, IDictionary<Guid, CatalogItem> catalogItems, CancellationToken ct)
     {
         var submitted = lines.ToArray();
         var itemIds = submitted.Where(x => x.CatalogItemId.HasValue).Select(x => x.CatalogItemId!.Value).Distinct().ToArray();
         var supplierIds = submitted.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
-        if (itemIds.Length > 0 && await db.CatalogItems.AsNoTracking()
-                .CountAsync(x => itemIds.Contains(x.Id) && x.Status == "Active" && x.IsPurchasable, ct) != itemIds.Length)
-            return "One or more items are unavailable for purchase.";
+        var ownedItems = await db.CatalogItems.AsNoTracking().Where(x => itemIds.Contains(x.Id)).ToListAsync(ct);
+        foreach (var item in ownedItems) catalogItems.Add(item.Id, item);
+        foreach (var line in submitted.Where(x => x.CatalogItemId.HasValue))
+            if (!catalogItems.TryGetValue(line.CatalogItemId!.Value, out var item)
+                || CatalogRequestClassification.Bind(item, line.CategoryCode, line.PurchaseType, allowMissing: true) is null)
+                return "Choose an available item with its catalog category and purchase type; catalog classification cannot be overridden.";
         if (supplierIds.Length > 0)
         {
             var selected = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
@@ -415,26 +397,13 @@ public static class ProcurementRequestRoutes
             foreach (var line in submitted.Where(x => x.CatalogEntryId.HasValue))
             {
                 if (!entries.TryGetValue(line.CatalogEntryId!.Value, out var entry)
-                    || !CatalogEntryIsAvailable(entry)
-                    || entry.CatalogItemId != line.CatalogItemId
-                    || entry.SupplierId != line.PreferredSupplierId
-                    || entry.UnitCode != line.UnitCode
-                    || entry.CurrencyCode != currency.Trim().ToUpperInvariant()
-                    || entry.UnitPrice != line.EstimatedUnitPrice
-                    || entry.MinimumQuantity is decimal minimum && line.RequestedQuantity < minimum
-                    || entry.MaximumQuantity is decimal maximum && line.RequestedQuantity > maximum)
+                    || !CatalogRequestClassification.OfferMatches(entry, line.CatalogItemId, line.PreferredSupplierId,
+                        line.UnitCode, currency.Trim().ToUpperInvariant(), line.RequestedQuantity,
+                        line.EstimatedUnitPrice, publishedVersion: null, DateTimeOffset.UtcNow))
                     return "Choose an available catalog price with the same item, vendor, unit, currency and price.";
             }
         }
         return null;
-    }
-
-    private static bool CatalogEntryIsAvailable(CatalogEntry entry)
-    {
-        var now = DateTimeOffset.UtcNow;
-        return entry.Status == "Published" && entry.PublishedVersion > 0
-            && entry.EffectiveFrom <= now && (entry.EffectiveTo is null || entry.EffectiveTo > now)
-            && entry.AudienceCode is null && entry.SiteRef is null && entry.ContractRef is null;
     }
 
     private static async Task<Dictionary<Guid, int>> CatalogVersions(IEnumerable<RequestLineInput> lines,
@@ -483,15 +452,15 @@ public static class ProcurementRequestRoutes
         && decimal.Round(value, 4) == value;
 
     private static PurchaseRequestLine NewLine(Guid requestId, int number, RequestLineInput input, string currency,
-        IReadOnlyDictionary<Guid, int> catalogVersions)
+        IReadOnlyDictionary<Guid, int> catalogVersions, IReadOnlyDictionary<Guid, CatalogItem> catalogItems)
     {
         var line = new PurchaseRequestLine { PurchaseRequestId = requestId, LineNumber = number };
-        ApplyLine(line, input, currency, catalogVersions);
+        ApplyLine(line, input, currency, catalogVersions, catalogItems);
         return line;
     }
 
     private static void ApplyLine(PurchaseRequestLine line, RequestLineInput input, string currency,
-        IReadOnlyDictionary<Guid, int> catalogVersions)
+        IReadOnlyDictionary<Guid, int> catalogVersions, IReadOnlyDictionary<Guid, CatalogItem> catalogItems)
     {
         line.Description = input.Description!.Trim();
         line.UnitCode = input.UnitCode!.Trim();
@@ -502,8 +471,12 @@ public static class ProcurementRequestRoutes
         line.CatalogPublishedVersion = input.CatalogEntryId is Guid catalogEntryId
             ? catalogVersions[catalogEntryId] : null;
         line.PreferredSupplierId = input.PreferredSupplierId;
-        line.CategoryCode = ProcurementPolicyCode.NormalizeOptional(input.CategoryCode);
-        line.PurchaseType = ProcurementPolicyCode.NormalizeOptional(input.PurchaseType);
+        var classification = input.CatalogItemId is Guid itemId
+            ? CatalogRequestClassification.Bind(catalogItems[itemId], input.CategoryCode, input.PurchaseType, allowMissing: true)
+                ?? throw new InvalidOperationException("CatalogClassificationChanged")
+            : null;
+        line.CategoryCode = classification?.CategoryCode ?? ProcurementPolicyCode.NormalizeOptional(input.CategoryCode);
+        line.PurchaseType = classification?.PurchaseType ?? ProcurementPolicyCode.NormalizeOptional(input.PurchaseType);
         line.NeededBy = input.NeededBy;
         line.EstimatedCurrencyCode = currency;
         line.DiscountPercent = input.DiscountPercent;

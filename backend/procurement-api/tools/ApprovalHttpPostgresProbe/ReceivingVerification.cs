@@ -16,6 +16,7 @@ sealed partial class Probe
         // Reject malformed fixture intent before creating/consuming any approved demand.
         _ = ReceivingPurchaseType("Goods");
         _ = ReceivingPurchaseType("Service");
+        await VerifyReceivingOwnershipManifest();
         await Authority(OrderManager1, "RECEIVING-PR-M1"); await Authority(OrderManager2, "RECEIVING-PR-M2");
         await Authority(OrderManager2, "RECEIVING-PO-M2", "PurchaseOrder.Approve");
         Guid supplier;
@@ -65,6 +66,7 @@ sealed partial class Probe
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/inspect", OrderRequester, inspect, Guid.NewGuid());
         await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/inspect", OrderManager1, inspect, Guid.NewGuid());
         await VerifyReceivingRequiredSequences(lineId);
+        await VerifyReceivingInspectionOwnership(lineId);
         var inspected = await Get($"{Root}/receipts/{id}", OrderManager2); line = inspected.GetProperty("lines")[0];
         var accept = new { version = line.GetProperty("version").GetInt64(), sourceVersion = line.GetProperty("sourceVersion").GetInt64(), quantity = "1", evidenceReference = "RCP:ACCEPTANCE" };
         var acceptKey = Guid.NewGuid(); var acceptedResponse = await Send(HttpMethod.Post, $"{Root}/receipts/{id}/lines/{lineId}/accept", OrderManager2, accept, acceptKey);
@@ -92,6 +94,7 @@ sealed partial class Probe
                 && poLine.AcceptedQuantity == 1 && prLine.AcceptedQuantity == 1
                 && await db.ReceiptInspections.CountAsync(x => x.GoodsReceiptLineId == lineId) == 1, "Receiving persisted capacity/sequence/effect counts drifted.");
         }
+        await VerifyReceivingGoodsEffectOwnership(lineId);
         var service = await DeliveredReceivingOrder(supplier, "Service");
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var longServiceNotes = new string('n', 1500);
@@ -120,6 +123,7 @@ sealed partial class Probe
         var finalCertificate = await Get($"{Root}/service-acceptances/{serviceId}", OrderManager2);
         Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "0.5" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "50"
             && finalCertificate.GetProperty("notes").GetString() == longServiceNotes, "Service exact certification mismatch.");
+        await VerifyReceivingServiceEffectOwnership(serviceId, lineId);
         var secondDraftResponse = await Send(HttpMethod.Post, Root + "/service-acceptances/drafts", OrderRequester,
             new { purchaseOrderId = service.OrderId, issuedVersionId = service.IssuedId, purchaseOrderLineId = service.LineId,
                 deliverableReference = "DELIVERABLE-2", periodFrom = today, periodTo = today, quantity = "0.5", notes = "Second pending milestone" }, Guid.NewGuid());

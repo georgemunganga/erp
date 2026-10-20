@@ -39,6 +39,11 @@ public sealed class ProcurementInvoiceMatchingSchemaReadiness(IConfiguration con
                 ('procurement.commercial_command_receipts','SELECT,INSERT')) AS required(relation,privileges)
                 CROSS JOIN LATERAL string_to_table(privileges,',') AS grants(privilege)
                 """;
+            if (await command.ExecuteScalarAsync(ct) is not true) return false;
+            // Recheck the exact migration-owned receiving FKs on THIS matching store.
+            // A delegated readiness result (or EF/column compatibility alone) cannot
+            // prove the ownership tuples backing accepted evidence are still enforced.
+            command.CommandText=ReceivingOwnershipConstraintSql.ManifestQuery;
             return await command.ExecuteScalarAsync(ct) is true;
         }
         catch(Exception error) when(error is not OperationCanceledException) { return false; }

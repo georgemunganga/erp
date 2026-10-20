@@ -32,8 +32,8 @@ if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_a
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
 if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
-    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && args.Contains("--orders", StringComparer.Ordinal))))
-    throw new ArgumentException("Use --serve, --orders, --settings, --receiving, --matching, or the supported --serve --orders browser fixture combination.");
+    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal)))))
+    throw new ArgumentException("Use --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders or --receiving.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
 var matching = args.Contains("--matching", StringComparer.Ordinal);
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
@@ -48,10 +48,12 @@ if (orders && bootstrapConnection is null) throw new InvalidOperationException("
 await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching);
 if (serve)
 {
-    var manifest = await probe.PrepareBrowserFixture(port, orders);
+    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving);
     Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
-    if (orders && Environment.GetEnvironmentVariable("PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP") == "1")
+    if (receiving && Environment.GetEnvironmentVariable("PROCUREMENT_RECEIVING_BROWSER_VERIFY_ON_STOP") == "1")
+        await probe.VerifyReceivingBrowserCompletion();
+    if (orders && !receiving && Environment.GetEnvironmentVariable("PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyOrderBrowserCompletion();
 }
 else if (matching)
@@ -229,7 +231,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null);
     }
 
-    public async Task<string> PrepareBrowserFixture(int port, bool orders = false)
+    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false)
     {
         await Authority(manager1, "BROWSER-AUTH-M1");
         await Authority(manager2, "BROWSER-AUTH-M2");
@@ -241,7 +243,8 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         // The order fixture approves its PR through real HTTP commands; it never fabricates
         // an Approved source, Core case, vote or Finance evidence row for the browser.
         if (orders) await RuntimePrivileges.AssertDeniedAsync(runtimeConnection, fixtureServices);
-        var orderFixture = orders ? await PrepareOrderBrowserFixture() : null;
+        var orderFixture = orders && !receiving ? await PrepareOrderBrowserFixture() : null;
+        var receivingFixture = receiving ? await PrepareReceivingBrowserFixture() : null;
         // Synthetic browser-only reader and reviewer confinement. These Core rows are
         // seeded by the separate fixture owner, never through runtime write grants.
         Guid reader;
@@ -259,7 +262,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = principal, LocationId = branch });
             await core.SaveChangesAsync(); reader = user.Id;
         }
-        if (orders)
+        if (orders && !receiving)
         {
             // Purpose-scoped PO browser actors are narrowed only after real PR approval
             // and grant review. Existing --serve and --orders role fixtures stay unchanged.
@@ -285,15 +288,29 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             var context = await Get(Root + "/context", principal);
             actors[name] = new { principalId = principal, context };
         }
+        if (receiving)
+        {
+            foreach (var (name, principal) in receivingBrowserActors)
+            {
+                var context = await Get(Root + "/context", principal);
+                actors[name] = new { principalId = principal, context };
+            }
+            VerifyReceivingBrowserContexts(JsonSerializer.SerializeToElement(actors, Json));
+            await VerifyReceivingBrowserReadBoundaries();
+        }
         var meta = await Get(Root + "/meta", buyer);
         Require(meta.GetProperty("schemaReady").GetBoolean() && meta.GetProperty("capabilities").GetProperty("approvals").GetBoolean(),
             "Migrated sandbox does not expose the actual configured approval capability.");
         if (orders) Require(meta.GetProperty("capabilities").GetProperty("orders").GetBoolean(),
             "Migrated order sandbox does not expose the actual configured orders capability.");
+        if (receiving) Require(new[] { "receivingDrafts", "receivingGoods", "receivingInspection", "receivingServices" }
+            .All(key => meta.GetProperty("capabilities").GetProperty(key).GetBoolean())
+            && !meta.GetProperty("capabilities").GetProperty("receiving").GetBoolean(),
+            "Receiving browser metadata must expose only its actual configured granular capabilities.");
         var manifest = new
         {
             baseUrl = $"http://127.0.0.1:{port}", tenantId = "probe", companyId = company, branchId = branch,
-            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests, orders = orderFixture,
+            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests, orders = orderFixture, receiving = receivingFixture,
             workflow = new[]
             {
                 new { code = "NEED", assignee = "LineManager", mode = "One", principals = new[] { manager1 } },
@@ -720,11 +737,11 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             new { version = grant.Version, reason = "Synthetic authority withdrawn" }, selectedBranch: false);
     }
     private async Task<JsonElement> NewFundedRequest(string purpose, decimal quantity = 1m,
-        decimal unitPrice = 100m, decimal checkedAmount = 100m, string? purchaseType = null)
+        decimal unitPrice = 100m, decimal checkedAmount = 100m, string? purchaseType = null, Guid? catalogItemId = null, Guid? catalogEntryId = null, Guid? preferredSupplierId = null)
     {
         var created = await Send(HttpMethod.Post, Root + "/requests", requester, new { purpose, currencyCode = "ZMW",
             neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] { new { description = "Synthetic item", unitCode = "each",
-                requestedQuantity = quantity, estimatedUnitPrice = unitPrice, categoryCode = "IT", purchaseType } } });
+                requestedQuantity = quantity, estimatedUnitPrice = unitPrice, categoryCode = "IT", purchaseType, catalogItemId, catalogEntryId, preferredSupplierId } } });
         await Check(created, HttpStatusCode.Created); var draft = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = draft.GetProperty("id").GetGuid();
         var submitted = await Send(HttpMethod.Post, $"{Root}/requests/{id}/submit", requester, new { version = draft.GetProperty("version").GetInt64() });
         await Check(submitted, HttpStatusCode.OK); var request = await submitted.Content.ReadFromJsonAsync<JsonElement>();

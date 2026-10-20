@@ -109,6 +109,13 @@ public static partial class ProcurementOrderExecutionRoutes
         return new(request, line, pin, outcome, workflow, decision, evaluation, policy, finance, method, allocations);
     }
 
+    private static async Task CatalogClassification(ProcurementDbContext db,
+        IEnumerable<PurchaseRequestLine> lines, CancellationToken ct)
+    {
+        var issue = await ProcurementCatalogClassificationBinding.StoredIssue(db, lines, ct);
+        if (issue is not null) Conflict(issue);
+    }
+
     private static async Task<ProcurementCommercialCommandReceipt?> Receipt(ProcurementDbContext db,
         ProcurementRequestScope scope, string operation, Guid key, string fingerprint, Guid? id, CancellationToken ct)
     {

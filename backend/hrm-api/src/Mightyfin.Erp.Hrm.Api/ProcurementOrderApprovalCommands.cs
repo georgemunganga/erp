@@ -26,6 +26,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 await Actor(core, scope, http, auth, "procurement-po-submit", token, load.Order.BranchRef, true);
                 var prior = await Receipt(db, scope, "Submit", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
+                await CatalogClassification(db, load.Sources.Select(x => x.Source.Line), token);
                 var order = load.Order; var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
                 if (order.Status != "Draft" || order.Version != input.ExpectedOrderVersion) Conflict("OrderSubmitSourceChanged");
                 var policies = await db.PolicyVersions.Where(x => x.PolicyKey == "PURCHASE_ORDER" && x.State == "Published"

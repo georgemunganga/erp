@@ -71,6 +71,8 @@ public sealed class ProcurementApprovalTransaction
         // Declaration order releases the transaction before unlocking the pooled session.
         await using var branchFence = await CoreBranchAuthorizationFence.AcquireAsync(connection,
             scope.TenantId, exclusive: false, ct);
+        await using var catalogFence = await ProcurementCatalogAuthorityFence.AcquireAsync(connection,
+            scope.TenantId, scope.LegalEntityId, exclusive: false, ct);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var procurementOptions = new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseNpgsql(connection, provider => provider.MigrationsHistoryTable("__procurement_migrations", "procurement"))

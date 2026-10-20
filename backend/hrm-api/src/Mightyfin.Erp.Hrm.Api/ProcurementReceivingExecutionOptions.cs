@@ -40,6 +40,9 @@ public sealed class ProcurementReceivingSchemaReadiness(IConfiguration config, I
                 ('procurement.receipt_inspections','SELECT,INSERT'), ('procurement.service_acceptances','SELECT,INSERT,UPDATE')) AS required(relation, privileges)
                 CROSS JOIN LATERAL string_to_table(privileges, ',') AS grants(privilege)
                 """;
+            if (await command.ExecuteScalarAsync(ct) is not true) return false;
+            // Explicit physical-schema contract: EF drift/columns alone cannot prove DB-only ownership FKs.
+            command.CommandText = ReceivingOwnershipConstraintSql.ManifestQuery;
             return await command.ExecuteScalarAsync(ct) is true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException) { return false; }

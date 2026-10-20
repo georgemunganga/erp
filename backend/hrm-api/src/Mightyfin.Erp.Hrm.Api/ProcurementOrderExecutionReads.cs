@@ -35,6 +35,7 @@ public static partial class ProcurementOrderExecutionRoutes
                     try
                     {
                         var source = await Source(db, cases, scope, candidate.RequestId, candidate.LineId, token);
+                        await CatalogClassification(db, [source.Line], token);
                         var availability = PurchaseOrderSourceAllocation.Check(source, scope.TenantId, scope.LegalEntityId, DateTimeOffset.UtcNow);
                         rows.Add(new { requestId = source.Request.Id, requestNumber = source.Request.Number,
                             lineId = source.Line.Id, requestVersion = source.Request.Version, source.Line.Description,

@@ -53,9 +53,108 @@ public sealed class ReceivingPersistenceModelTests
             && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId", "LegalEntityId", "ReceivingSourceStateId", "SourcePurchaseOrderId", "IssuedBindingId", "PurchaseOrderLineId" }));
         var effect = db.Model.FindEntityType(typeof(ReceivingAcceptanceEffect))!;
         Assert.Contains(effect.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(GoodsReceiptLine)
-            && fk.Properties.Any(x => x.Name == nameof(ReceivingAcceptanceEffect.PhysicalObservationId))
-            && fk.Properties.Any(x => x.Name == nameof(ReceivingAcceptanceEffect.ReceivingSourceStateId)));
+            && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId", "LegalEntityId", "GoodsReceiptLineId" }));
+        Assert.Contains(line.GetIndexes(), index => index.IsUnique
+            && index.GetDatabaseName() == "ux_receiving_goods_physical_binding"
+            && index.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId", "LegalEntityId", "Id", "SourceStateBindingId", "PhysicalBindingId" }));
     }
+    [Fact]
+    public void Mutable_fact_bindings_are_not_EF_identity_keys_or_generated_authority()
+    {
+        using var db = Context();
+        foreach (var (type, names) in new[] {
+            (typeof(GoodsReceiptLine), new[] { "SourceStateBindingId", "PhysicalBindingId" }),
+            (typeof(ServiceAcceptance), new[] { "SourceStateBindingId" }) })
+        {
+            var entity = db.Model.FindEntityType(type)!;
+            foreach (var name in names)
+            {
+                Assert.DoesNotContain(entity.GetKeys(), key => key.Properties.Any(x => x.Name == name));
+                Assert.Equal(ValueGenerated.Never, entity.FindProperty(name)!.ValueGenerated);
+            }
+        }
+        foreach (var (type, names) in new[] {
+            (typeof(GoodsReceipt), new[] { "IssuedBindingId" }),
+            (typeof(GoodsReceiptLine), new[] { "SourceStateBindingId", "PhysicalBindingId", "IssuedBindingId" }),
+            (typeof(ReceiptInspection), new[] { "SourceStateBindingId", "PhysicalBindingId" }),
+            (typeof(ServiceAcceptance), new[] { "SourceStateBindingId", "IssuedBindingId" }) })
+            foreach (var name in names)
+                Assert.Equal(ValueGenerated.Never, db.Model.FindEntityType(type)!.FindProperty(name)!.ValueGenerated);
+        var sql = ReceivingOwnershipConstraintSql.Install;
+        Assert.Equal(3, sql.Split("DEFERRABLE INITIALLY DEFERRED").Length - 1);
+        Assert.Contains("REFERENCES procurement.goods_receipt_lines (tenant_id, legal_entity_id, id, source_state_binding_id, physical_binding_id)", sql);
+        Assert.Contains("REFERENCES procurement.service_acceptances (tenant_id, legal_entity_id, id, source_state_binding_id)", sql);
+        Assert.DoesNotContain("NOT VALID", sql);
+        Assert.Contains("c.convalidated AND c.condeferrable AND c.condeferred", ReceivingOwnershipConstraintSql.ManifestQuery);
+        Assert.Contains("c.conrelid=to_regclass(e.child) AND c.confrelid=to_regclass(e.parent)", ReceivingOwnershipConstraintSql.ManifestQuery);
+        Assert.Contains("i.indisunique AND i.indisvalid AND i.indimmediate", ReceivingOwnershipConstraintSql.ManifestQuery);
+    }
+
+    [Fact]
+    public async Task Persisted_goods_draft_can_record_fact_without_mutating_an_EF_key_or_fabricating_draft_pins()
+    {
+        await using var db = Context();
+        var row = new GoodsReceiptLine { GoodsReceiptId = Guid.NewGuid(), PurchaseOrderLineId = Guid.NewGuid(),
+            ExecutionVersion = 1, SourcePurchaseOrderId = Guid.NewGuid(), IssuedBindingId = Guid.NewGuid(), ReceivedQuantity = 1, Status = "Draft" };
+        db.AddScoped(row); await db.SaveChangesAsync(); db.ChangeTracker.Clear();
+        row = await db.GoodsReceiptLines.SingleAsync();
+        Assert.Equal(Guid.Empty, row.SourceStateBindingId); Assert.Equal(Guid.Empty, row.PhysicalBindingId);
+        var state = StateFor(row.TenantId, row.LegalEntityId, row.SourcePurchaseOrderId!.Value,
+            row.IssuedBindingId, row.PurchaseOrderLineId, ReceivingKind.Goods);
+        state.Sequence = 1; db.AddScoped(state);
+        row.ReceivingSourceStateId = state.Id; row.SourceStateBindingId = state.Id;
+        row.PhysicalObservationId = Guid.NewGuid(); row.PhysicalBindingId = row.PhysicalObservationId.Value;
+        row.PhysicalPolicyVersionId = state.ClassificationPolicyVersionId; row.PhysicalSequence = 1;
+        row.PhysicalRecordedAt = DateTimeOffset.UtcNow; row.PhysicalEvidenceRef = "RECORD"; row.PhysicalEffectKey = Guid.NewGuid(); row.Status = "Held";
+        db.ChangeTracker.DetectChanges();
+        Assert.True(db.Entry(row).Property(x => x.PhysicalBindingId).IsModified);
+        await db.SaveChangesAsync(); db.ChangeTracker.Clear();
+        var saved = await db.GoodsReceiptLines.SingleAsync();
+        Assert.Equal(saved.PhysicalObservationId, saved.PhysicalBindingId);
+        Assert.Equal(1, (await db.ReceivingSourceStates.SingleAsync()).Sequence);
+        saved.PhysicalEvidenceRef = "OVERWRITE";
+        Assert.Equal("PhysicalReceiptEvidenceImmutable", (await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync())).Message);
+    }
+
+    [Fact]
+    public async Task Persisted_service_draft_can_certify_with_exact_same_save_positive_effect()
+    {
+        await using var db = Context();
+        var row = new ServiceAcceptance { ExecutionVersion = 1, SourcePurchaseOrderId = Guid.NewGuid(),
+            IssuedBindingId = Guid.NewGuid(), PurchaseOrderLineId = Guid.NewGuid(), OwnerSubjectId = "receiver", Status = "Draft", Notes = "Preserved" };
+        db.AddScoped(row); await db.SaveChangesAsync(); db.ChangeTracker.Clear();
+        row = await db.ServiceAcceptances.SingleAsync(); Assert.Equal(Guid.Empty, row.SourceStateBindingId);
+        var state = StateFor(row.TenantId, row.LegalEntityId, row.SourcePurchaseOrderId!.Value,
+            row.IssuedBindingId, row.PurchaseOrderLineId, ReceivingKind.Service);
+        state.Sequence = 1; state.CurrentAcceptedQuantity = 1; state.CurrentAcceptedNetAmount = 10; db.AddScoped(state);
+        var actor = Guid.NewGuid();
+        var effect = new ReceivingAcceptanceEffect { Source = state.Source, ReceivingSourceStateId = state.Id,
+            ServiceAcceptanceId = row.Id, AcceptanceRecordId = row.Id, Kind = AcceptanceEffectKind.Acceptance,
+            QuantityDelta = 1, NetAmountDelta = 10, ActorWorkerId = actor, ReceivingPolicyVersionId = state.ClassificationPolicyVersionId,
+            LedgerSequence = 1, EffectKey = Guid.NewGuid(), EvidenceReference = "CERTIFY", OccurredAt = DateTimeOffset.UtcNow };
+        db.AddScoped(effect);
+        row.ReceivingSourceStateId = state.Id; row.SourceStateBindingId = state.Id; row.CertificationEffectId = effect.Id;
+        row.CertifiedAt = effect.OccurredAt; row.OwnerWorkerId = actor; row.AcceptedQuantity = 1; row.AcceptedAmount = 10;
+        row.CurrentAcceptedQuantity = 1; row.CurrentAcceptedNetAmount = 10; row.Status = "Accepted";
+        db.ChangeTracker.DetectChanges(); await db.SaveChangesAsync(); db.ChangeTracker.Clear();
+        var saved = await db.ServiceAcceptances.SingleAsync();
+        Assert.Equal(state.Id, saved.SourceStateBindingId); Assert.Equal("Preserved", saved.Notes);
+        Assert.Single(await db.ReceivingAcceptanceEffects.ToArrayAsync());
+        saved.Notes = "OVERWRITE";
+        Assert.Equal("ServiceCertificationImmutable", (await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync())).Message);
+    }
+
+    private static ReceivingSourceState StateFor(string tenant, Guid company, Guid order, Guid issued, Guid line, ReceivingKind kind)
+    {
+        const string classification = "{}";
+        var pin = new ReceivingSourcePin(tenant, company, Guid.NewGuid(), order, issued, line, Guid.NewGuid(), 1,
+            new string('a', 64), new string('b', 64), "FIXTURE", ProcurementEvidenceEncoding.PolicyJsonDigest(classification),
+            kind, "IT", kind == ReceivingKind.Goods ? "GOODS" : "SERVICE", "ZMW", "EA", 1, 10, ControlledReceiving.NetPriceBasis);
+        return new() { TenantId = tenant, LegalEntityId = company, PurchaseOrderId = order, IssuedVersionId = issued,
+            PurchaseOrderLineId = line, SubmissionId = Guid.NewGuid(), DeliveryEvidenceId = Guid.NewGuid(), Source = pin,
+            SourceSha256 = ReceivingPersistenceProjection.PinDigest(pin), ClassificationJson = classification, ClassificationPolicyVersionId = Guid.NewGuid() };
+    }
+
     [Fact]
     public async Task Untouched_legacy_draft_stays_missing_evidence_and_cannot_project_as_final()
     {
