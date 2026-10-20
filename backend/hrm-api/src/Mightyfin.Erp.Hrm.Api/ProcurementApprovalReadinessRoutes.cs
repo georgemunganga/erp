@@ -102,9 +102,8 @@ public static class ProcurementApprovalReadinessRoutes
                 scope.TenantId, scope.LegalEntityId, managerId, ct);
             if (manager is not null)
             {
-                var id = Guid.Parse(manager.PrincipalId);
-                var name = await core.LocalUsers.AsNoTracking().Where(x => x.Id == id).Select(x => x.DisplayName).SingleAsync(ct);
-                lineManagers.Add(new(manager.PrincipalId, name));
+                var named = await ProcurementAuthorityIdentity.NamedAccountAsync(core, scope, manager.PrincipalId, ct);
+                if (named is not null) lineManagers.Add(new(manager.PrincipalId, named.DisplayName));
             }
         }
         var procurementManagers = new List<ApprovalAssignee>();
@@ -113,11 +112,10 @@ public static class ProcurementApprovalReadinessRoutes
             .Select(x => new { x.Id, x.DisplayName }).ToArrayAsync(ct);
         foreach (var candidate in candidates)
         {
-            var account = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,
-                scope.TenantId, scope.LegalEntityId, candidate.Id.ToString("D"), ct);
-            if (account is not null && LocalIdentityRoutes.ParseRoles(account.RolesCsv)
+            var named = await ProcurementAuthorityIdentity.NamedAccountAsync(core, scope, candidate.Id.ToString("D"), ct);
+            if (named is not null && LocalIdentityRoutes.ParseRoles(named.Account.RolesCsv)
                 .Contains("procurement_manager", StringComparer.OrdinalIgnoreCase))
-                procurementManagers.Add(new(account.PrincipalId, candidate.DisplayName));
+                procurementManagers.Add(new(named.Account.PrincipalId, named.DisplayName));
         }
         return new Dictionary<string, IReadOnlyList<ApprovalAssignee>>(StringComparer.Ordinal)
         {

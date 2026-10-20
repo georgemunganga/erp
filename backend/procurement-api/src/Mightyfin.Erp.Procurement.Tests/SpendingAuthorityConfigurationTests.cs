@@ -6,6 +6,25 @@ namespace Mightyfin.Erp.Procurement.Tests;
 
 public sealed class SpendingAuthorityConfigurationTests
 {
+    [Fact]
+    public void Readiness_guards_are_nonmutating_and_use_the_same_complete_latest_family_as_commands()
+    {
+        var incomplete = Create(new());
+        Assert.Throws<InvalidOperationException>(() => SpendingAuthorityConfiguration.AssertCanSubmit(incomplete,
+            incomplete.Version, Owner, Subject, Now));
+        Assert.Equal("Draft", incomplete.State);
+        var grant = Create(Complete); var version = grant.Version;
+        SpendingAuthorityConfiguration.AssertCanSubmit(grant, version, Owner, Subject, Now);
+        Assert.Equal(version, grant.Version); Assert.Equal("Draft", grant.State);
+        Submit(grant); version = grant.Version;
+        SpendingAuthorityConfiguration.AssertCanActivate(grant, version, Reviewer, Subject, Now, [grant]);
+        Assert.Equal("PendingReview", grant.State); Assert.Equal(version, grant.Version);
+        var next = SpendingAuthorityConfiguration.CreateDraft(grant.AuthorityReference, grant.PrincipalId,
+            Complete, Owner, Now, [grant]);
+        Assert.Equal("AuthorityLatestVersionRequired", Assert.Throws<InvalidOperationException>(() =>
+            SpendingAuthorityConfiguration.AssertCanActivate(grant, version, Reviewer, Subject, Now, [grant, next])).Message);
+        Assert.Equal("PendingReview", grant.State); Assert.Equal(version, grant.Version);
+    }
     private static readonly DateTimeOffset Now = new(2026, 10, 20, 16, 0, 0, TimeSpan.Zero);
     private static readonly Guid Company = Guid.NewGuid();
     private static readonly Guid Branch = Guid.NewGuid();

@@ -200,3 +200,25 @@ currency, reservation, controlled manual policy and independent verification req
 continue to apply. Tests deliberately mutate only disposable fixture evidence to prove
 legacy/digest mismatch rejection and use real mapped HTTP to confirm independent recovery
 after historical worker/account offboarding. These source assertions are not a test result.
+
+### P23 migration verification checkpoint — 20 October 2026
+
+`20261020095652_P23PurchaseRequestApprovalExecution` adds five Procurement-owned
+execution/effect tables and the nullable retained worker identity fields. Composite local
+foreign keys bind assignment evidence to its submission/case and immutable grant identity;
+outcomes and release evidence bind the exact submitted source and reservation. No foreign
+key or migration changes a Core, HRM or Finance-owned table.
+
+The combined source passed **213/213 Procurement Release tests**. Infrastructure then
+built with zero warnings/errors and EF reported no pending model changes. The generated
+idempotent SQL was applied twice to disposable PostgreSQL 17: both runs succeeded, the
+history contained 20 migrations, and all five new tables were present. Private logs/SQL/TRX
+are retained under `procurement-approval-transaction-20261020` in the operator evidence pack.
+This is schema and unit verification; mapped shared-host, restricted-runtime HTTP and actual
+API browser gates are still pending. Production remains on P19 with execution disabled.
+
+P23 preserves legacy rows without guessing historical worker identities. Once v2 submissions
+or execution evidence exist, **do not run the Down migration as an operational rollback**:
+it removes retained evidence and the prior constraint cannot represent v2 submissions.
+Disable execution and use a compatible code rollback or reviewed forward repair. A destructive
+schema rollback requires a separately verified database restore and reconciliation plan.

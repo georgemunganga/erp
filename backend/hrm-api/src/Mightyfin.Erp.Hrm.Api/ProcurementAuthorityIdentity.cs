@@ -11,6 +11,18 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// <summary>Consumes existing Core identity/organization records. No Procurement account master.</summary>
 internal static class ProcurementAuthorityIdentity
 {
+    internal sealed record NamedAccount(CanonicalAccount Account, string DisplayName);
+
+    internal static async Task<NamedAccount?> NamedAccountAsync(HrmDbContext core,
+        ProcurementRequestScope scope, string principalId, CancellationToken ct)
+    {
+        var account = await ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, principalId, ct);
+        if (account is null) return null;
+        var id = Guid.Parse(account.PrincipalId);
+        var name = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == scope.TenantId && x.Id == id)
+            .Select(x => x.DisplayName).SingleAsync(ct);
+        return new(account, name);
+    }
     public static async Task<SpendingAuthorityConfigurationActor?> ActorAsync(HrmDbContext core,
         ProcurementRequestScope scope, ClaimsPrincipal principal, IAuthorizationService authorization,
         string permission, CancellationToken ct)

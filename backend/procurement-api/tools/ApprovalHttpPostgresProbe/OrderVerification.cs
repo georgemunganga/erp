@@ -17,6 +17,7 @@ sealed partial class Probe
         await VerifyCoreBranchEndpointCoupling();
         await Authority(OrderManager1, "ORDER-SOURCE-M1"); await Authority(OrderManager2, "ORDER-SOURCE-M2");
         await Authority(OrderManager2, "ORDER-COMMERCIAL-M2", "PurchaseOrder.Approve");
+        await VerifyTypedAuthoritySettings();
         Guid supplier;
         using (var services = Scope(OrderBuyer))
         {

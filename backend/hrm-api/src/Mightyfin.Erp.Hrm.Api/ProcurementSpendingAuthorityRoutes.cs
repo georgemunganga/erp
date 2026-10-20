@@ -11,7 +11,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Financial authority configuration, not purchasing approval execution.</summary>
-public static class ProcurementSpendingAuthorityRoutes
+public static partial class ProcurementSpendingAuthorityRoutes
 {
     public const string ReadPermission = "procurement-authority-read";
     public static void MapRoutes(WebApplication app)
@@ -19,6 +19,7 @@ public static class ProcurementSpendingAuthorityRoutes
         var group = app.MapGroup("/api/procurement/v1/configuration/spending-authorities");
         group.MapGet("", List).RequireAuthorization(ReadPermission);
         group.MapGet("/{id:guid}", Detail).RequireAuthorization(ReadPermission);
+        group.MapGet("/lookups/{kind}", Lookups).RequireAuthorization(ReadPermission);
         group.MapPost("", Create).RequireAuthorization(SpendingAuthorityConfiguration.ConfigurePermission);
         group.MapPut("/{id:guid}", Edit).RequireAuthorization(SpendingAuthorityConfiguration.ConfigurePermission);
         group.MapPost("/{id:guid}/submit", (Guid id, VersionInput input, HttpContext http,
@@ -48,26 +49,29 @@ public static class ProcurementSpendingAuthorityRoutes
             .RequireAuthorization(SpendingAuthorityConfiguration.ReviewPermission);
     }
 
-    private static async Task<IResult> List(string? state, int? page, int? pageSize,
+    private static async Task<IResult> List(string? state, string? action, int? page, int? pageSize,
         HttpContext http, ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope,
         IAuthorizationService auth, CancellationToken ct)
     {
         try
         {
             if (await Actor(core, scope, http, auth, ReadPermission, ct) is null) return AccessDenied();
-            var query = ProcurementAuthorityIdentity.InScope(db.SpendingAuthorityGrants.AsNoTracking(), scope);
+            if (!TryReadContract(action, out var contract)) return Invalid("AuthorityActionUnsupported");
+            var query = ProcurementAuthorityIdentity.InScope(db.SpendingAuthorityGrants.AsNoTracking(), scope)
+                .Where(x => x.Action == contract.Action && x.Permission == contract.Permission);
             if (!string.IsNullOrWhiteSpace(state)) query = query.Where(x => x.State == state);
             var number = Math.Clamp(page ?? 1, 1, 100000);
             var size = Math.Clamp(pageSize ?? 25, 1, 100);
             var total = await query.CountAsync(ct);
-            var items = await query.OrderBy(x => x.AuthorityReference).ThenByDescending(x => x.AuthorityVersion)
-                .Skip((number - 1) * size).Take(size).Select(x => new
-                {
-                    x.Id, x.AuthorityReference, x.AuthorityVersion, x.PrincipalId, x.Permission, x.Action, x.State,
-                    x.CurrencyCode, x.AmountBasis, x.MaximumAmount, x.EffectiveFrom, x.EffectiveUntil,
-                    x.BranchRef, x.DepartmentRef, x.ConfigurationOwnerPrincipalId, x.Version,
-                }).ToListAsync(ct);
-            return Results.Ok(new { items, total, page = number, pageSize = size });
+            var records = await query.Include(x => x.Categories).OrderBy(x => x.AuthorityReference).ThenByDescending(x => x.AuthorityVersion)
+                .Skip((number - 1) * size).Take(size).ToListAsync(ct);
+            var permissions = await ReadActions(core, scope, http, auth, ct);
+            var items = new List<object>();
+            foreach (var grant in records) items.Add(await ReadView(grant, db, core, scope, permissions, ct));
+            return Results.Ok(new { items, total, page = number, pageSize = size,
+                currentActorPrincipalId = scope.SubjectId, canCreate = permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission),
+                createAction = contract.Action, createAmountBasis = contract.AmountBasis,
+                scope = new { branchId = scope.WorkLocationId, departmentId = scope.OrgUnitId, confined = scope.IsConfined } });
         }
         catch (Exception ex) when (Handled(ex)) { return Failure(ex); }
     }
@@ -80,7 +84,8 @@ public static class ProcurementSpendingAuthorityRoutes
             if (await Actor(core, scope, http, auth, ReadPermission, ct) is null) return AccessDenied();
             var grant = await Scoped(db, scope).AsNoTracking().Include(x => x.Categories)
                 .SingleOrDefaultAsync(x => x.Id == id, ct);
-            return grant is null ? Missing() : Results.Ok(View(grant));
+            return grant is null ? Missing() : Results.Ok(await ReadView(grant, db, core, scope,
+                await ReadActions(core, scope, http, auth, ct), ct));
         }
         catch (Exception ex) when (Handled(ex)) { return Failure(ex); }
     }
@@ -270,17 +275,21 @@ public static class ProcurementSpendingAuthorityRoutes
             BranchRef = input.AllBranches ? input.BranchRef : input.BranchRef ?? scope.WorkLocationId,
             DepartmentRef = input.AllDepartments ? input.DepartmentRef : input.DepartmentRef ?? scope.OrgUnitId,
         };
-    private static object View(ProcurementSpendingAuthorityGrant grant) => new
+    private static object View(ProcurementSpendingAuthorityGrant grant, string? principalDisplayName = null,
+        string[]? allowedActions = null, Guid? previousGrantId = null, long? previousVersion = null,
+        object[]? blockingReasons = null) => new
     {
         grant.Id, grant.AuthorityReference, grant.AuthorityVersion, grant.PrincipalId,
         grant.Permission, grant.Action, grant.State, grant.ConfigurationOwnerPrincipalId,
-        grant.CurrencyCode, grant.AmountBasis, grant.MaximumAmount, grant.EffectiveFrom, grant.EffectiveUntil,
+        grant.CurrencyCode, grant.AmountBasis, maximumAmount = AuthorityAmountJsonConverter.Format(grant.MaximumAmount), grant.EffectiveFrom, grant.EffectiveUntil,
         grant.AllBranches, grant.BranchRef, grant.AllDepartments, grant.DepartmentRef, grant.AllCategories,
         categoryCodes = grant.Categories.Select(x => x.CategoryCode).Order(StringComparer.Ordinal).ToArray(),
         grant.SubmittedByPrincipalId, grant.SubmittedAt, grant.ReviewReturnReason,
         grant.ActivatedByPrincipalId, grant.ActivatedAt, grant.ActivationReason,
         grant.RevokedByPrincipalId, grant.RevokedAt, grant.RevocationReason,
         grant.SupersededByGrantId, grant.SupersededAt, grant.Version, grant.CreatedAt, grant.UpdatedAt,
+        principalDisplayName, allowedActions = allowedActions ?? [], previousGrantId, previousVersion,
+        blockingReasons = blockingReasons ?? [],
     };
     private static IResult Missing() => Results.Problem(statusCode: 404, title: "Spending authority not found.", extensions: new Dictionary<string, object?> { ["code"] = "AuthorityNotFound" });
     private static IResult AccessDenied() => Results.Problem(statusCode: 403, title: "An active company account with this configuration permission is required.");

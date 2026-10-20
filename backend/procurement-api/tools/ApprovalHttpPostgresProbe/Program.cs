@@ -30,9 +30,8 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x is not ("--serve" or "--orders")) || args.Distinct().Count() != args.Length
-    || args.Contains("--serve") && args.Contains("--orders"))
-    throw new ArgumentException("Use either --serve or --orders.");
+if (args.Length > 1 || args.Any(x => x is not ("--serve" or "--orders" or "--settings")))
+    throw new ArgumentException("Use at most one of --serve, --orders or --settings.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
 var orders = args.Contains("--orders", StringComparer.Ordinal);
 var port = 5197;
@@ -53,6 +52,11 @@ else if (orders)
 {
     await probe.VerifyInitialOrders();
     Console.WriteLine("PASS: actual initial PO HTTP commercial workflow and scoped/replay/allocation denial checks.");
+}
+else if (args.Contains("--settings", StringComparer.Ordinal))
+{
+    await probe.VerifySettings();
+    Console.WriteLine("PASS: actual settings HTTP/PostgreSQL lookups, exact amounts, actions and restricted runtime privileges.");
 }
 else
 {
