@@ -31,8 +31,18 @@ public sealed class ApprovalOutcomePersistenceTests
         ProcurementRecord row = kind switch { "outcome" => chain.Outcome, "release" => chain.Release, _ => chain.Confirmation };
         db.Entry(row).Property("EffectKey").CurrentValue = "rewritten";
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync(true));
-        db.Entry(row).State = EntityState.Deleted;
-        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        var rowType = row.GetType();
+        var rowId = row.Id;
+        db.ChangeTracker.Clear();
+        var persisted = Assert.IsAssignableFrom<ProcurementRecord>(await db.FindAsync(rowType, rowId));
+        Assert.NotEqual("rewritten", db.Entry(persisted).Property("EffectKey").CurrentValue);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            db.Entry(persisted).State = EntityState.Deleted;
+            await db.SaveChangesAsync();
+        });
+        db.ChangeTracker.Clear();
+        Assert.NotNull(await db.FindAsync(rowType, rowId));
     }
 
     [Fact]
