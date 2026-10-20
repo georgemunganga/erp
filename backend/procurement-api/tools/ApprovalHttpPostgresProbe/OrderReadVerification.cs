@@ -104,10 +104,30 @@ sealed partial class Probe
                 core.TenantRoleAssignments.Add(role);
             }
             var previous = role.PermissionsCsv;
-            role.PermissionsCsv = string.Join(',', previous.Split(',').Where(x => x.Trim() != "procurement-po-issue"));
+            var buyer = await core.LocalUsers.SingleAsync(x => x.Id == OrderBuyer);
+            var previousRoles = buyer.RolesCsv;
+            // The setup identity is an explicit ERP administrator. Removing a grant
+            // from an unrelated buyer role cannot revoke that privileged identity.
+            // Exercise the actual non-administrator account/role boundary instead.
+            buyer.RolesCsv = "procurement_buyer";
             await core.SaveChangesAsync();
-            try { await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, $"{Root}/orders/command-receipts/Issue/{issueKey:D}", OrderBuyer); }
-            finally { if (temporary) core.TenantRoleAssignments.Remove(role); else role.PermissionsCsv = previous; await core.SaveChangesAsync(); }
+            try
+            {
+                var path = $"{Root}/orders/command-receipts/Issue/{issueKey:D}";
+                await Expect(HttpStatusCode.OK, HttpMethod.Get, path, OrderBuyer);
+                role.PermissionsCsv = string.Join(',', previous.Split(',').Where(x => x.Trim() != "procurement-po-issue"));
+                await core.SaveChangesAsync();
+                await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, path, OrderBuyer);
+                role.PermissionsCsv = previous;
+                await core.SaveChangesAsync();
+                await Expect(HttpStatusCode.OK, HttpMethod.Get, path, OrderBuyer);
+            }
+            finally
+            {
+                buyer.RolesCsv = previousRoles;
+                if (temporary) core.TenantRoleAssignments.Remove(role); else role.PermissionsCsv = previous;
+                await core.SaveChangesAsync();
+            }
         }
         Console.WriteLine("PASS order reads: nonassigned dispatch discovery + sealed version/channels + Finance history + current-operation grant recovery denial");
     }
