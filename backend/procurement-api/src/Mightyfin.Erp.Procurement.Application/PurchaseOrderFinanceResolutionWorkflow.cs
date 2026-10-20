@@ -49,7 +49,7 @@ public static class PurchaseOrderFinanceResolutionWorkflow
             if (item.Allocation.Status != "Reserved" || item.Allocation.TargetId != order.Id
                 || item.Allocation.PurchaseRequestLineId != item.Source.Line.Id
                 || item.Allocation.TenantId != order.TenantId || item.Allocation.LegalEntityId != order.LegalEntityId
-                || item.Source.Line.AllocatedQuantity != item.Source.Allocations.Where(x => x.Status == "Reserved").Sum(x => x.Quantity)
+                || item.Source.Line.AllocatedQuantity != ExactDecimalArithmetic.Sum(item.Source.Allocations.Where(x => x.Status == "Reserved").Select(x => x.Quantity))
                 || item.Allocation.Quantity != item.OrderLine.Quantity) Fail("OrderFinanceReleaseAllocationChanged");
         var outcome = order.Status == "Returned" ? "ReopenedDraft" : "CancelledRejectedOrder";
         var resolution = new PurchaseOrderFinanceResolution { TenantId = order.TenantId, LegalEntityId = order.LegalEntityId,
@@ -59,13 +59,7 @@ public static class PurchaseOrderFinanceResolutionWorkflow
             ReleasedGrossAmount = releasedGross, CurrencyCode = currency, Outcome = outcome, Reason = reason,
             VerifiedByPrincipalId = verifier, VerifiedByWorkerId = verifierWorker,
             ConfirmedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(confirmedAt)!.Value };
-        if (order.Status == "Rejected")
-            foreach (var item in lines)
-            {
-                item.Source.Line.AllocatedQuantity -= item.Allocation.Quantity;
-                item.Source.Request.UpdatedAt = now;
-                item.Allocation.Status = "Released"; item.Allocation.Reason = reason;
-            }
+        if (order.Status == "Rejected") ReleaseReservedSources(lines, reason, now);
         order.Status = outcome == "ReopenedDraft" ? "Draft" : "Cancelled";
         order.FinanceCommitmentRef = null; order.ApprovalInstanceRef = null;
         order.SubmittedBusinessVersion = null; order.SubmittedAt = null; order.UpdatedAt = now;
@@ -141,18 +135,21 @@ public static class PurchaseOrderFinanceResolutionWorkflow
                 || item.Allocation.Quantity != item.OrderLine.Quantity || item.Allocation.TenantId != order.TenantId
                 || item.Allocation.LegalEntityId != order.LegalEntityId
                 || item.Source.Allocations.Count(x => x.Id == item.Allocation.Id && ReferenceEquals(x, item.Allocation)) != 1
-                || item.Source.Line.AllocatedQuantity != item.Source.Allocations.Where(x => x.Status == "Reserved").Sum(x => x.Quantity)
+                || item.Source.Line.AllocatedQuantity != ExactDecimalArithmetic.Sum(item.Source.Allocations.Where(x => x.Status == "Reserved").Select(x => x.Quantity))
                 || !PurchaseRequestApprovalPinning.VerifyBusinessEvidence(item.Source.Submission, item.Source.Request,
                     item.Source.Evaluation, item.Source.Policy, item.Source.Finance, order.TenantId, order.LegalEntityId).IsValid)
                 Fail("OrderReleaseSourceAllocationChanged");
     }
     private static void ReleaseReservedSources(IReadOnlyList<PurchaseOrderSourceLine> lines, string reason, DateTimeOffset now)
     {
-        foreach (var item in lines)
+        // Plan all counter results before mutating any source aggregate.
+        var changes = lines.Select(item => (Item: item,
+            NextAllocated: ExactDecimalArithmetic.Subtract(item.Source.Line.AllocatedQuantity, item.Allocation.Quantity))).ToArray();
+        foreach (var change in changes)
         {
-            item.Source.Line.AllocatedQuantity -= item.Allocation.Quantity;
-            item.Source.Request.UpdatedAt = now;
-            item.Allocation.Status = "Released"; item.Allocation.Reason = reason;
+            change.Item.Source.Line.AllocatedQuantity = change.NextAllocated;
+            change.Item.Source.Request.UpdatedAt = now;
+            change.Item.Allocation.Status = "Released"; change.Item.Allocation.Reason = reason;
         }
     }
     private static void Fail(string code) => throw new InvalidOperationException(code);

@@ -73,13 +73,13 @@ public static class PurchaseOrderSourceAllocation
                 || x.Status is not ("Reserved" or "Ordered" or "Released")
                 || x.TargetType != "PurchaseOrder" || x.TargetId is null)
             || ledger.Select(x => x.Id).Distinct().Count() != ledger.Count
-            || ledger.Where(x => x.Status == "Reserved").Sum(x => x.Quantity) != line.AllocatedQuantity
-            || ledger.Where(x => x.Status == "Ordered").Sum(x => x.Quantity) != line.OrderedQuantity
+            || ExactDecimalArithmetic.Sum(ledger.Where(x => x.Status == "Reserved").Select(x => x.Quantity)) != line.AllocatedQuantity
+            || ExactDecimalArithmetic.Sum(ledger.Where(x => x.Status == "Ordered").Select(x => x.Quantity)) != line.OrderedQuantity
             || line.CancelledQuantity < 0 || line.AcceptedQuantity < 0 || line.AcceptedQuantity > line.OrderedQuantity)
             Fail("OrderSourceAllocationUnreconciled");
-        var available = line.ApprovedQuantity - line.CancelledQuantity - line.AllocatedQuantity - line.OrderedQuantity;
+        var available = ExactDecimalArithmetic.Sum(new[] { line.ApprovedQuantity, -line.CancelledQuantity, -line.AllocatedQuantity, -line.OrderedQuantity });
         if (available < 0) Fail("OrderSourceOverallocated");
-        return new(available, line.EstimatedUnitPrice, checked(line.ApprovedQuantity * line.EstimatedUnitPrice),
+        return new(available, line.EstimatedUnitPrice, ExactDecimalArithmetic.Multiply(line.ApprovedQuantity, line.EstimatedUnitPrice),
             request.CurrencyCode, pin.Id, core.Id);
     }
 
@@ -97,15 +97,18 @@ public static class PurchaseOrderSourceAllocation
         var key = $"order.reserve.{commandKey:N}.{source.Line.Id:N}";
         if (source.Allocations.Any(x => x.IdempotencyKey == key || x.TargetId == order.Id && x.Status != "Released"))
             Fail("OrderSourceAllocationAlreadyRecorded");
+        // Compute every fallible value before touching the tracked aggregate.
+        var nextAllocated = ExactDecimalArithmetic.Add(source.Line.AllocatedQuantity, quantity);
+        var estimatedValue = ExactDecimalArithmetic.Multiply(quantity, line.UnitPrice);
         source.Request.UpdatedAt = now;
         source.Line.Route = "DirectPurchase";
-        source.Line.AllocatedQuantity = checked(source.Line.AllocatedQuantity + quantity);
+        source.Line.AllocatedQuantity = nextAllocated;
         return new PurchaseRequestAllocation
         {
             TenantId = order.TenantId, LegalEntityId = order.LegalEntityId,
             PurchaseRequestId = source.Request.Id, PurchaseRequestLineId = source.Line.Id,
             Method = source.Method.Code, Status = "Reserved", TargetType = "PurchaseOrder", TargetId = order.Id,
-            Quantity = quantity, EstimatedValue = checked(quantity * line.UnitPrice), CurrencyCode = order.CurrencyCode,
+            Quantity = quantity, EstimatedValue = estimatedValue, CurrencyCode = order.CurrencyCode,
             DecidedBy = actor, DecidedAt = now, IdempotencyKey = key,
         };
     }
@@ -116,16 +119,18 @@ public static class PurchaseOrderSourceAllocation
         var available = Check(source, order.TenantId, order.LegalEntityId, now);
         RequireAllocation(source, order, allocation, "Reserved");
         if (order.Status is not ("Draft" or "Returned") || quantity <= 0 || decimal.Round(quantity, 4) != quantity
-            || quantity > available.AvailableQuantity + allocation.Quantity || string.IsNullOrWhiteSpace(reason)
+            || quantity > ExactDecimalArithmetic.Add(available.AvailableQuantity, allocation.Quantity) || string.IsNullOrWhiteSpace(reason)
             || line.PurchaseRequestLineId != source.Line.Id || line.PurchaseOrderId != order.Id
             || line.UnitPrice < 0 || decimal.Round(line.UnitPrice, 4) != line.UnitPrice
             || order.CurrencyCode != source.Request.CurrencyCode
             || !string.Equals(line.UnitCode, source.Line.UnitCode, StringComparison.OrdinalIgnoreCase))
             Fail("OrderSourceResizeInvalid");
+        var nextAllocated = ExactDecimalArithmetic.Sum(new[] { source.Line.AllocatedQuantity, quantity, -allocation.Quantity });
+        var estimatedValue = ExactDecimalArithmetic.Multiply(quantity, line.UnitPrice);
         source.Request.UpdatedAt = now;
-        source.Line.AllocatedQuantity = checked(source.Line.AllocatedQuantity + quantity - allocation.Quantity);
+        source.Line.AllocatedQuantity = nextAllocated;
         allocation.Quantity = quantity;
-        allocation.EstimatedValue = checked(quantity * line.UnitPrice);
+        allocation.EstimatedValue = estimatedValue;
         allocation.Reason = reason;
         line.Quantity = quantity;
     }
@@ -138,9 +143,11 @@ public static class PurchaseOrderSourceAllocation
         if (order.Status != "Approved" || line.PurchaseOrderId != order.Id
             || line.PurchaseRequestLineId != source.Line.Id || allocation.Quantity != line.Quantity)
             Fail("OrderSourceIssueMismatch");
+        var nextAllocated = ExactDecimalArithmetic.Subtract(source.Line.AllocatedQuantity, allocation.Quantity);
+        var nextOrdered = ExactDecimalArithmetic.Add(source.Line.OrderedQuantity, allocation.Quantity);
         source.Request.UpdatedAt = now;
-        source.Line.AllocatedQuantity -= allocation.Quantity;
-        source.Line.OrderedQuantity = checked(source.Line.OrderedQuantity + allocation.Quantity);
+        source.Line.AllocatedQuantity = nextAllocated;
+        source.Line.OrderedQuantity = nextOrdered;
         allocation.Status = "Ordered";
     }
 
@@ -151,8 +158,9 @@ public static class PurchaseOrderSourceAllocation
         RequireAllocation(source, order, allocation, "Reserved");
         if (order.Status is not ("Draft" or "Returned" or "Rejected") || string.IsNullOrWhiteSpace(reason)
             || order.FinanceCommitmentRef is not null) Fail("OrderFinanceReleaseRequired");
+        var nextAllocated = ExactDecimalArithmetic.Subtract(source.Line.AllocatedQuantity, allocation.Quantity);
         source.Request.UpdatedAt = now;
-        source.Line.AllocatedQuantity -= allocation.Quantity;
+        source.Line.AllocatedQuantity = nextAllocated;
         allocation.Status = "Released"; allocation.Reason = reason;
     }
 
