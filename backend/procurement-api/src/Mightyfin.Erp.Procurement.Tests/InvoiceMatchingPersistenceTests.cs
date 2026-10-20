@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -52,6 +53,39 @@ public sealed class InvoiceMatchingPersistenceTests
             Assert.Contains(entity.GetIndexes(),index=>index.IsUnique && index.Properties.Select(x=>x.Name)
                 .SequenceEqual(new[] { "TenantId","LegalEntityId","Id","PurchaseOrderLineId","SourceStateBindingId" }));
         }
+    }
+    [Fact]
+    public void Current_result_check_requires_nullable_evidence_explicitly_without_changing_legacy_columns()
+    {
+        using var db=Context(); var entity=db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(InvoiceMatchResult))!;
+        var sql=entity.GetCheckConstraints().Single(x=>x.Name=="ck_invoice_match_execution").Sql;
+        Assert.StartsWith("execution_version = 0 OR (execution_version = 1 AND",sql);
+        foreach(var (property,column) in new[] {
+            (nameof(InvoiceMatchResult.InvoiceOriginalSha256),"invoice_original_sha256"),
+            (nameof(InvoiceMatchResult.InputFingerprint),"input_fingerprint"),
+            (nameof(InvoiceMatchResult.EvidenceSha256),"evidence_sha256"),
+            (nameof(InvoiceMatchResult.PolicyRulesSha256),"policy_rules_sha256") })
+        {
+            // Legacy execution0 may still have no evidence; v1 must not pass CHECK via SQL unknown.
+            Assert.True(entity.FindProperty(property)!.IsNullable);
+            Assert.Contains(column+" IS NOT NULL AND "+column+" ~ '^[0-9a-f]{64}$'",sql);
+        }
+        foreach(var (property,column) in new[] {
+            (nameof(InvoiceMatchResult.EvidenceJson),"evidence_json"),
+            (nameof(InvoiceMatchResult.SourceWatermarksJson),"source_watermarks_json") })
+        {
+            Assert.True(entity.FindProperty(property)!.IsNullable);
+            Assert.Contains(column+" IS NOT NULL",sql);
+        }
+    }
+    [Fact]
+    public void Verified_exposure_check_cannot_accept_null_sha_as_SQL_unknown()
+    {
+        using var db=Context(); var entity=db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(InvoiceMatchExposureState))!;
+        Assert.True(entity.FindProperty(nameof(InvoiceMatchExposureState.OwnerEvidenceSha256))!.IsNullable);
+        var sql=entity.GetCheckConstraints().Single(x=>x.Name=="ck_invoice_exposure_state").Sql;
+        Assert.Contains("coverage_state <> 'Verified' OR",sql);
+        Assert.Contains("owner_evidence_sha256 IS NOT NULL AND owner_evidence_sha256 ~ '^[0-9a-f]{64}$'",sql);
     }
     [Theory]
     [InlineData(true)][InlineData(false)]
