@@ -1,8 +1,8 @@
 # PROC-03A — Spending authority configuration
 
-**Parent:** PROC-03 Approval and Budget Control  
-**Status:** Implementation candidate; verification and business policy approval pending  
-**Updated:** 20 October 2026  
+**Parent:** PROC-03 Approval and Budget Control
+**Status:** Implementation candidate; verification and business policy approval pending
+**Updated:** 20 October 2026
 **Standard:** GW-ENG-STD-001, Tier3; Module → Parent Feature → Child Feature → Operation
 
 ## 1. Feature Identification

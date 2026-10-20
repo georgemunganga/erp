@@ -90,6 +90,49 @@ commercial evidence and supplier eligibility. Sourcing awards, order issue/deliv
 receiving, invoice matching, AP handoff and portal workflows remain incomplete; draft
 CRUD or a durable outbox row does not establish those operational capabilities.
 
+### Verified approval checkpoint — 20 October 2026
+
+This checkpoint supersedes the pending verification statements immediately above;
+those statements are retained as the earlier source-stage record.
+
+- Backend candidate `e0a00cc` passed **213/213 Procurement Release tests**.
+- Shared-host regression covered **114 distinct scenarios**: 101 passed in the first
+  run; the remaining 13 passed after correcting test fixture prerequisites. This is
+  evidence across two runs, not a single green 114-test report.
+- P23 was generated with no pending Procurement model changes. Its idempotent SQL
+  applied twice to a fresh disposable PostgreSQL 17 database: 20 migration history
+  entries and all five new tables verified.
+- Real mapped HTTP workflows passed against PostgreSQL using a separate restricted,
+  non-owner runtime role. Negative privilege checks, financial-release independence,
+  offboarding-safe worker evidence, current authority checks, rollback and concurrent
+  decisions were exercised. No HRM write permission was added to this role.
+- Both actual-API Playwright workflows passed: One/All approval with retry of a lost
+  committed response, and return → independent manual Finance release → correction
+  → resubmission. The initial cold-path five-second browser expectation failed;
+  a bounded real-API timeout and fresh fixture assertion corrected the test. No
+  production latency target or production SSO acceptance is inferred from this run.
+- Frontend `d7de3cc` was pushed and its verified approval assets published. Public
+  JavaScript/CSS hashes matched the staged artifacts; backend readiness stayed healthy.
+- A complete published backend assembly set passed the payroll-loan compatibility
+  probe. This is a release candidate, not authorization to replace the live API.
+
+**Live boundary:** the API remains v36, Procurement schema through P19, and approval
+execution disabled. P20–P23 have not been applied to production. The shared-host
+release hold and coordinated backup/migration/cutover requirements remain in force.
+A persisted Procurement outbox event does not establish operational delivery by the
+existing HRM publisher.
+
+**Next increments:** spending-authority settings have passed 11 exact-money/policy
+unit tests, TypeScript and a staged UI build, but still need backend integration and
+browser acceptance. Purchase-order execution has source review fixes and an authored
+restricted-role HTTP probe; it has not passed its migration/runtime gates. Invoice
+matching has a pure comparison foundation under review; it is not AP posting approval.
+
+Protected raw logs, TRXs, migration SQL, browser traces and hashes are retained under
+`/home/amizo/erp-backups/procurement-approval-transaction-20261020/` and
+`/home/amizo/erp-backups/procurement-approvals-ui-20261020/` on the verification host.
+Synthetic fixture manifests remain private and are not committed.
+
 | Area | State on 18 October 2026 | Next acceptance evidence |
 |---|---|---|
 | Source schema P0–P9 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
