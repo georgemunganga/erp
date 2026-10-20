@@ -138,7 +138,7 @@ public static partial class ProcurementReceivingRoutes
             else { row = new() { ExecutionVersion = 1, PurchaseOrderLineId = input.PurchaseOrderLineId, SourcePurchaseOrderId = input.PurchaseOrderId,
                 IssuedBindingId = input.IssuedVersionId, OwnerSubjectId = scope.SubjectId }; db.AddScoped(row); }
             row.DeliverableRef = input.DeliverableReference.Trim(); row.PeriodFrom = input.PeriodFrom; row.PeriodTo = input.PeriodTo;
-            row.AcceptedQuantity = quantity; row.AcceptedAmount = amount; row.Reason = input.Notes?.Trim();
+            row.AcceptedQuantity = quantity; row.AcceptedAmount = amount; row.Notes = input.Notes?.Trim();
             return await Save(db, scope, source.Order.Id, row.Id, "ServiceDraft", key, fingerprint, () => View(row), token, id.HasValue ? "procurement-receipt-edit" : "procurement-receipt-create");
         }, ct);
     private static Task<IResult> CancelService(Guid id, CancelDraft input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)

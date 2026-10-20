@@ -35,7 +35,7 @@ BEGIN
             OR source_state_binding_id <> '00000000-0000-0000-0000-000000000000'::uuid
             OR issued_binding_id <> '00000000-0000-0000-0000-000000000000'::uuid
             OR owner_worker_id IS NOT NULL OR policy_version_id IS NOT NULL OR evidence_ref IS NOT NULL
-            OR certification_effect_id IS NOT NULL OR current_accepted_quantity <> 0 OR current_accepted_net_amount <> 0)
+            OR certification_effect_id IS NOT NULL OR current_accepted_quantity <> 0 OR current_accepted_net_amount <> 0 OR notes IS NOT NULL)
         OR EXISTS (SELECT 1 FROM procurement.policy_versions WHERE upper(btrim(policy_key)) = 'RECEIVING')
         OR EXISTS (SELECT 1 FROM procurement.commercial_command_receipts WHERE operation IN
             ('ReceivingDraft','ReceivingRecord','ReceivingInspect','ReceivingAccept','ReceivingCancel','ServiceDraft','ServiceCertify','ServiceCancel'))

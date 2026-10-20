@@ -56,6 +56,7 @@ public sealed partial class ProcurementDbContext
         Link<ReceiptInspection, PolicyVersion>(model, nameof(ReceiptInspection.PolicyVersionId));
         inspection.ToTable(t => t.HasCheckConstraint("ck_receiving_inspection_execution", "execution_version = 0 OR (execution_version = 1 AND receiving_source_state_id IS NOT NULL AND physical_observation_id IS NOT NULL AND physical_binding_id = physical_observation_id AND source_state_binding_id = receiving_source_state_id AND inspector_worker_id IS NOT NULL AND policy_version_id IS NOT NULL AND ledger_sequence > 0 AND effect_key IS NOT NULL AND inspected_at IS NOT NULL AND qualified_quantity >= 0 AND qualified_quantity <= inspected_quantity)"));
         var service = model.Entity<ServiceAcceptance>();
+        service.Property(x => x.Notes).HasMaxLength(2000);
         service.Property(x => x.ExecutionVersion).HasDefaultValue(0); service.Property(x => x.SourceStateBindingId).HasDefaultValue(Guid.Empty);
         service.Property(x => x.IssuedBindingId).HasDefaultValue(Guid.Empty); service.Property(x => x.EvidenceRef).HasMaxLength(500);
         service.Property(x => x.AcceptedAmount).HasPrecision(38, 8); service.Property(x => x.CurrentAcceptedQuantity).HasPrecision(18, 4);
