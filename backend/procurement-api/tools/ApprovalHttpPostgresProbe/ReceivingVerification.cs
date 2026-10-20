@@ -102,6 +102,7 @@ sealed partial class Probe
             Require(tasks.GetProperty("total").GetInt32() == 1 && tasks.GetProperty("items")[0].GetProperty("id").GetGuid() == serviceId, "Service-only owner queue missing pending certificate.");
             var task = await Get($"{Root}/service-acceptances/{serviceId}/certification-task", OrderManager2);
             Require(task.GetProperty("capacity").GetProperty("verified").GetBoolean()
+                && !task.TryGetProperty("notes", out _)
                 && task.GetProperty("actionCandidates")[0].GetProperty("candidate").GetBoolean(), "Service preview lost exact current authority.");
             await Expect(HttpStatusCode.NotFound, HttpMethod.Get, $"{Root}/service-acceptances/{serviceId}/certification-task", OrderManager1, null);
             await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, $"{Root}/service-acceptances/{serviceId}", OrderManager2, null);
@@ -111,7 +112,8 @@ sealed partial class Probe
         await Expect(HttpStatusCode.OK, HttpMethod.Post, $"{Root}/service-acceptances/{serviceId}/certify", OrderManager2,
             new { version = certificate.GetProperty("version").GetInt64(), sourceVersion = 0, quantity = "1", evidenceReference = "RCP:SERVICE-COMPLETE" }, Guid.NewGuid());
         var finalCertificate = await Get($"{Root}/service-acceptances/{serviceId}", OrderManager2);
-        Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "1" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "100", "Service exact certification mismatch.");
+        Require(finalCertificate.GetProperty("acceptedQuantity").GetString() == "1" && finalCertificate.GetProperty("acceptedNetAmount").GetString() == "100"
+            && finalCertificate.GetProperty("notes").GetString() == "Completed service", "Service exact certification mismatch.");
         var crossSite = await DeliveredReceivingOrder(supplier, "Service"); Guid otherSite;
         using (var services = Scope(OrderBuyer))
         {

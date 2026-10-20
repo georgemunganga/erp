@@ -454,3 +454,8 @@ hides rows and detail. After bootstrap-corrupting the current PO to B and restri
 reader to B, selected and unselected B requests see no legacy rows/counts/details. Cleanup
 asserts both legacy records and missing evidence remain unchanged. No verification result
 is claimed until the central actual-runtime gate runs this scenario.
+
+Service draft round-trip: normal authorised `GET /service-acceptances/{id}` additionally
+returns `notes`, mapped from the existing service record's Reason field used by draft Notes.
+Purpose-only certification detail omits this field. The source probe asserts normal notes
+survive certification and are absent from purpose detail; no new field/table is persisted.
