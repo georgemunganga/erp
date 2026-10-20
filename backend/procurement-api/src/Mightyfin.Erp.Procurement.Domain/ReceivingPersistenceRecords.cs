@@ -63,6 +63,8 @@ public sealed partial class ReceiptInspection
 }
 public sealed partial class ServiceAcceptance
 {
+    // Draft narrative is separate from legacy/cancellation Reason; no legacy backfill.
+    public string? Notes { get; set; }
     public int ExecutionVersion { get; set; }
     public Guid? ReceivingSourceStateId { get; set; }
     public Guid SourceStateBindingId { get; set; }

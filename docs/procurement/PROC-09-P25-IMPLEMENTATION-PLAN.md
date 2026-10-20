@@ -149,3 +149,12 @@ branch-confined readers receive no legacy list rows/counts or detail; a current 
 does not transfer unproved historical visibility. Verify goods and service list/detail paths,
 organisation-wide inspection and unchanged missing pins/records in the actual runtime probe.
 No migration, backfill, certification, data deletion or new read permission is introduced.
+
+### Service narrative preservation
+
+Add nullable Notes(max2000) to existing ServiceAcceptance independently of legacy/cancellation
+Reason. Draft save/edit writes Notes; cancellation writes Reason and retains Notes. Normal detail
+returns notes and cancellationReason separately; purpose-only detail omits both. Preserve legacy
+Reason text storage with no backfill/length narrowing. Include nonnull service Notes in protected
+Down detection. Rehearse1500-character notes through actual SQL certification and separate draft
+cancellation, plus purpose privacy; source-authored tests are not runtime evidence.

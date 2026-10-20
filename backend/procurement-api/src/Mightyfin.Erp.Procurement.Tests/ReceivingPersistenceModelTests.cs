@@ -72,4 +72,26 @@ public sealed class ReceivingPersistenceModelTests
         Assert.Equal("ReceivingServicePositiveEffectRequired", failure.Message);
     }
 
+    [Fact]
+    public async Task Service_notes_have_their_own_nullable_2000_character_column_without_legacy_reason_backfill()
+    {
+        await using var db = Context();
+        var service = db.Model.FindEntityType(typeof(ServiceAcceptance))!;
+        Assert.True(service.FindProperty(nameof(ServiceAcceptance.Notes))!.IsNullable);
+        Assert.Equal(2000, service.FindProperty(nameof(ServiceAcceptance.Notes))!.GetMaxLength());
+        Assert.Null(service.FindProperty(nameof(ServiceAcceptance.Reason))!.GetMaxLength()); // Preserve existing text storage; cancellation API remains bounded.
+        var row = new ServiceAcceptance { PurchaseOrderLineId = Guid.NewGuid(), OwnerSubjectId = "receiver", Reason = "Retained legacy reason" };
+        db.AddScoped(row); await db.SaveChangesAsync(); db.ChangeTracker.Clear();
+        var restored = await db.ServiceAcceptances.SingleAsync();
+        Assert.Null(restored.Notes); Assert.Equal("Retained legacy reason", restored.Reason); Assert.Equal(0, restored.ExecutionVersion);
+    }
+    [Fact]
+    public async Task Final_service_narrative_cannot_be_rewritten_after_certification()
+    {
+        await using var db = Context();
+        var row = new ServiceAcceptance { CertifiedAt = DateTimeOffset.UtcNow, Notes = "Retained final narrative" };
+        db.Entry(row).State = EntityState.Unchanged; row.Notes = "Overwritten";
+        Assert.Equal("ServiceCertificationImmutable", (await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync())).Message);
+    }
+
 }

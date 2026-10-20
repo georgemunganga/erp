@@ -456,6 +456,18 @@ asserts both legacy records and missing evidence remain unchanged. No verificati
 is claimed until the central actual-runtime gate runs this scenario.
 
 Service draft round-trip: normal authorised `GET /service-acceptances/{id}` additionally
-returns `notes`, mapped from the existing service record's Reason field used by draft Notes.
-Purpose-only certification detail omits this field. The source probe asserts normal notes
-survive certification and are absent from purpose detail; no new field/table is persisted.
+returns nullable `notes` from the separate max2000 ServiceAcceptance.Notes field. Existing
+Reason retains legacy/cancellation meaning; no legacy Reason is copied. Normal detail also
+returns `cancellationReason` for Cancelled records. Purpose-only certification detail omits
+both narrative fields. The source probe asserts normal notes
+survive certification/cancellation and are absent from purpose detail. This adds one nullable
+Notes extension column on the existing service table, no new table or legacy backfill.
+
+Service notes correction: cancellation previously overwrote the same Reason field used by
+draft Notes, so a later detail could lose the narrative or mislabel cancellation reason as
+notes. P25 now adds separate nullable max2000 Notes on the existing service table. Legacy
+Reason is left unchanged with its existing text storage; the cancellation API's1000-character
+limit is not represented as a historical database constraint. No legacy field is narrowed
+or copied. Authored actual-probe cases use1500-character notes through certification and a
+separate cancelled draft, assert independent cancellationReason and purpose-view privacy.
+Model tests cover nullable/max2000 metadata, unchanged legacy Reason and final-note immutability.
