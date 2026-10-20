@@ -105,7 +105,16 @@ results and persisted proof remain available, and the first failure trace was re
 Future fixture tests now explicitly write owner-private traffic files. UI evidence is pushed
 in `5ccf22c`; later test-only capture changes do not change these application asset hashes.
 
-Actual settings browser acceptance, the source-aligned release image and production release
-remain separate gates. No complete Procurement module or production workflow activation is
+Actual settings browser acceptance also passed: one case, 56.4 seconds, backend `f9fca21`,
+unchanged application assets and test-only selector/capture source `2729876`. Create (201),
+submit (200) and independent Finance activation (200) preserved the exact 18,4 amount;
+the scoped reader remained unable to revoke and its denied request did not change the grant.
+The first status-selector failure and its consumed fixture are retained. Passing traffic was
+materialized privately (SHA-256 `4ba97a06fe844716792508edb52d93169897500e4b093ea7b2b76535c701cd34`);
+`actual-settings-browser-checkpoint.json` records the fresh fixture and manifest evidence.
+UI evidence is pushed in `3622b78`.
+
+The source-aligned release image and production release remain separate gates.
+No complete Procurement module or production workflow activation is
 claimed by this checkpoint. All supplier/Finance/delivery evidence here is synthetic; no
 external supplier email or payment was executed.
