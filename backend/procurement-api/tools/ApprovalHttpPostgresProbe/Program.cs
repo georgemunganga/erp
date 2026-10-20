@@ -241,12 +241,14 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             // and grant review. Existing --serve and --orders role fixtures stay unchanged.
             using var purpose = fixtureServices.CreateScope();
             var core = purpose.ServiceProvider.GetRequiredService<HrmDbContext>();
-            core.TenantRoleAssignments.AddRange(
-                new TenantRoleAssignment { RoleKey = "browser_po_reviewer", RoleName = "Synthetic PO reviewer", Active = true,
-                    PermissionsCsv = "procurement-access,procurement-po-approve" },
+            core.TenantRoleAssignments.Add(
                 new TenantRoleAssignment { RoleKey = "browser_po_dispatcher", RoleName = "Synthetic PO dispatcher", Active = true,
                     PermissionsCsv = "procurement-access,procurement-po-dispatch-confirm" });
-            (await core.LocalUsers.SingleAsync(x => x.Id == manager2)).RolesCsv = "browser_po_reviewer";
+            // Keep the named policy assignment while restricting its action grants.
+            // Replacing it with an unrelated custom role invalidates the real
+            // ProcurementManager assignment despite retaining approve permission.
+            var reviewerRole = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_manager");
+            reviewerRole.PermissionsCsv = "procurement-access,procurement-po-approve";
             (await core.LocalUsers.SingleAsync(x => x.Id == manager1)).RolesCsv = "browser_po_dispatcher";
             var financeRole = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "finance_approver");
             financeRole.PermissionsCsv = string.Join(',', financeRole.PermissionsCsv.Split(',').Where(x => x != "procurement-po-read"));
