@@ -4,6 +4,8 @@
 
 **Implementation note (18 October 2026):** The shared ERP host has an own-record sourcing draft API under `/api/procurement/v1/sourcing`. It can create, revise and cancel an internal event and its lines. Removed lines retain a cancellation state and reason. Approved PR-line conversion, method policy, publication, supplier invitations, sealed bids, evaluation and award are not enabled by this draft API.
 
+**Next bounded technical contract:** [PROC-06-P01 Internal RFQ publication and source allocation](PROC-06-P01-INTERNAL-RFQ-PUBLICATION-AND-SOURCE-ALLOCATION.md) defines the proposed first governed increment and shared PO/RFQ quantity changes. It awaits technical review and approved configuration; it is not implemented publication, bid or award authority.
+
 ## 1. Feature Identification
 
 `PROC-06`, purchasing phase. Business owner: sourcing lead; technical/product/data owners to name. Operations: `O1` choose method and create event, `O2` approve/publish, `O3` collect and seal bids, `O4` open/evaluate, `O5` recommend/approve award, `O6` cancel/reopen/release PR allocation.
