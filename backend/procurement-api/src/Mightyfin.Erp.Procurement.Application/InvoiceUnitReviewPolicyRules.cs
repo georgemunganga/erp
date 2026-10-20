@@ -59,14 +59,7 @@ public static class InvoiceUnitReviewPolicyRules
     public static Projection Resolve(PolicyVersion policy, string tenant, Guid company, Guid? branch,
         string maker, Guid makerWorker, IReadOnlyList<Person> people, DateTimeOffset now)
     {
-        Need(policy is not null && policy.TenantId == tenant && policy.LegalEntityId == company && company != Guid.Empty
-            && !string.IsNullOrWhiteSpace(tenant) && branch != Guid.Empty && Canonical(maker) && makerWorker != Guid.Empty
-            && policy.Id != Guid.Empty && policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey
-            && policy.PolicyVersionNumber > 0 && policy.State == "Published" && policy.PublishedAt is { } published
-            && published <= now && policy.EffectiveFrom != default && policy.EffectiveFrom <= now
-            && (policy.EffectiveTo is null || now < policy.EffectiveTo)
-            && Canonical(policy.CreatedBy) && Canonical(policy.PublishedBy) && policy.CreatedBy != policy.PublishedBy
-            && !string.IsNullOrWhiteSpace(policy.PublicationReason) && now != default);
+        ValidatePolicy(policy, tenant, company, branch, maker, makerWorker, now);
         var rules = Parse(policy.RulesJson);
         var ids = rules.Stages.SelectMany(x => x.Principals).Distinct(StringComparer.Ordinal).ToArray();
         Need(people is not null && people.Count == ids.Length && people.All(x => x is not null)
@@ -93,6 +86,42 @@ public static class InvoiceUnitReviewPolicyRules
         }
         return new(policy.Id, policy.PolicyVersionNumber, ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
             tenant, company, branch, maker, makerWorker, stages.AsReadOnly());
+    }
+
+    /// <summary>Retained graph is historical. Reparse the actual owned policy without
+    /// manufacturing current account eligibility for reviewers who already completed work.</summary>
+    public static void VerifyRetainedProjection(Projection pinned, PolicyVersion policy, DateTimeOffset now)
+    {
+        ValidatePolicy(policy, pinned.TenantId, pinned.LegalEntityId, pinned.BranchId,
+            pinned.MakerPrincipalId, pinned.MakerWorkerId, now);
+        var rules = Parse(policy.RulesJson);
+        Need(policy.Id == pinned.PolicyId && policy.PolicyVersionNumber == pinned.PolicyVersion
+            && ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) == pinned.RulesSha256
+            && pinned.Stages.Count == rules.Stages.Count);
+        for (var i = 0; i < rules.Stages.Count; i++)
+        {
+            var expected = rules.Stages[i]; var retained = pinned.Stages[i];
+            Need(retained.Sequence == i + 1 && retained.Code == expected.Code
+                && retained.CoreMode == (expected.Mode == "One" ? "Any" : "All")
+                && retained.RequiredApprovals == (expected.Mode == "One" ? 1 : expected.Principals.Count)
+                && retained.Assignees.Select(x => x.PrincipalId).SequenceEqual(expected.Principals)
+                && retained.Assignees.All(x => x.WorkerId != Guid.Empty && x.WorkerId != pinned.MakerWorkerId
+                    && x.PrincipalId != pinned.MakerPrincipalId)
+                && retained.Assignees.Select(x => x.WorkerId).Distinct().Count() == retained.Assignees.Count);
+        }
+    }
+
+    private static void ValidatePolicy(PolicyVersion policy, string tenant, Guid company, Guid? branch,
+        string maker, Guid makerWorker, DateTimeOffset now)
+    {
+        Need(policy is not null && policy.TenantId == tenant && policy.LegalEntityId == company && company != Guid.Empty
+            && !string.IsNullOrWhiteSpace(tenant) && branch != Guid.Empty && Canonical(maker) && makerWorker != Guid.Empty
+            && policy.Id != Guid.Empty && policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey
+            && policy.PolicyVersionNumber > 0 && policy.State == "Published" && policy.PublishedAt is { } published
+            && published <= now && policy.EffectiveFrom != default && policy.EffectiveFrom <= now
+            && (policy.EffectiveTo is null || now < policy.EffectiveTo)
+            && Canonical(policy.CreatedBy) && Canonical(policy.PublishedBy) && policy.CreatedBy != policy.PublishedBy
+            && !string.IsNullOrWhiteSpace(policy.PublicationReason) && now != default);
     }
 
     /// <summary>Compare the freshly resolved owned policy projection with actual Core execution.

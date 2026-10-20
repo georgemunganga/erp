@@ -74,7 +74,7 @@ public static class InvoiceUnitReviewTransitions
     public static ApprovalActionResult ApplyNewDecision(OpeningPlan owned, SupplierInvoice invoice,
         IReadOnlyList<SupplierInvoiceLine> originalLines, InvoiceMatchMappingVersion mapping, InvoiceIssuedOrder issued,
         PolicyVersion matchingPolicy, PolicyVersion reviewPolicy, Rules.Person actor,
-        IReadOnlyList<Rules.Person> currentReviewers, IReadOnlyDictionary<Guid, string> ownedDocumentHashes,
+        IReadOnlyDictionary<Guid, string> ownedDocumentHashes,
         Guid assignmentId, DecisionCommand command, ICollection<ApprovalDecision> decisions)
     {
         var source = owned.Source; var workflow = owned.Case;
@@ -93,14 +93,12 @@ public static class InvoiceUnitReviewTransitions
             && owned.SourceJson == JsonSerializer.Serialize(source) && owned.SourceSha256 == ProcurementEvidenceEncoding.Digest(owned.SourceJson));
         CurrentMapping(invoice, originalLines, mapping); PersonScope(actor, invoice, InvoiceRetainedUnitReview.ReviewPermission);
         Need(actor.WorkerId != source.ReviewPolicy.MakerWorkerId && actor.PrincipalId != source.ReviewPolicy.MakerPrincipalId);
-        var current = Rules.Resolve(reviewPolicy, source.TenantId, source.LegalEntityId, source.BranchId,
-            source.ReviewPolicy.MakerPrincipalId, source.ReviewPolicy.MakerWorkerId, currentReviewers, command.At);
-        Need(JsonSerializer.Serialize(current) == JsonSerializer.Serialize(source.ReviewPolicy)
-            && matchingPolicy.Id == source.MatchingPolicyId && matchingPolicy.PolicyVersionNumber == source.MatchingPolicyVersion
+        Rules.VerifyRetainedProjection(source.ReviewPolicy, reviewPolicy, command.At);
+        Need(matchingPolicy.Id == source.MatchingPolicyId && matchingPolicy.PolicyVersionNumber == source.MatchingPolicyVersion
             && MatchingPolicy(matchingPolicy, invoice, command.At) == source.MatchingPolicySha256
             && IssuedFingerprint(issued, mapping, invoice, originalLines, command.At) == source.IssuedEvidenceSha256
             && DocumentLines(mapping, invoice, originalLines, ownedDocumentHashes).SequenceEqual(source.Lines));
-        Rules.VerifyCaseGraph(current, workflow, owned.AssignmentWorkers);
+        Rules.VerifyCaseGraph(source.ReviewPolicy, workflow, owned.AssignmentWorkers);
         var assignment = workflow.Stages.SelectMany(x => x.Assignments).SingleOrDefault(x => x.Id == assignmentId);
         Need(assignment is not null && assignment.Version == command.ExpectedAssignmentVersion
             && owned.AssignmentWorkers.Any(x => x.AssignmentId == assignmentId && x.PrincipalId == actor.PrincipalId && x.WorkerId == actor.WorkerId)
@@ -143,7 +141,7 @@ public static class InvoiceUnitReviewTransitions
     private static string MatchingPolicy(PolicyVersion policy, SupplierInvoice invoice, DateTimeOffset now)
     {
         Need(policy.TenantId == invoice.TenantId && policy.LegalEntityId == invoice.LegalEntityId
-            && policy.EffectiveFrom <= now && policy.PublishedAt <= now && (policy.EffectiveTo is null || now < policy.EffectiveTo));
+            && policy.EffectiveFrom != default && policy.EffectiveFrom <= now && policy.PublishedAt <= now && (policy.EffectiveTo is null || now < policy.EffectiveTo));
         Need(InvoiceMatchingPolicyRules.Project(policy).Rules.All(x => x.CurrencyCode == invoice.CurrencyCode));
         return ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson);
     }

@@ -23,7 +23,7 @@ public sealed class InvoiceUnitReviewTransitionTests
             {
                 var person = f.Policy.People.Single(x => x.PrincipalId == assignment.AssigneeSubjectId);
                 Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued, f.Matching,
-                    f.Policy.Policy, person, f.Policy.People, f.Hashes, assignment.Id,
+                    f.Policy.Policy, person, f.Hashes, assignment.Id,
                     new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version, assignment.Version, "Approve", null, f.Policy.Now.AddMinutes(1)), decisions);
             }
         }
@@ -57,7 +57,7 @@ public sealed class InvoiceUnitReviewTransitionTests
         }
         var before = JsonSerializer.Serialize(plan.Case); var decisions = new List<ApprovalDecision>();
         Assert.ThrowsAny<InvalidOperationException>(() => Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping,
-            f.Issued, f.Matching, f.Policy.Policy, actor, f.Policy.People, f.Hashes, task.Id, command, decisions));
+            f.Issued, f.Matching, f.Policy.Policy, actor, f.Hashes, task.Id, command, decisions));
         Assert.Equal(before, JsonSerializer.Serialize(plan.Case)); Assert.Empty(decisions);
         Assert.Null(f.Invoice.ActiveMatchClaimResultId); Assert.Null(f.Invoice.FinancePostingRef);
     }
@@ -68,7 +68,7 @@ public sealed class InvoiceUnitReviewTransitionTests
         var f = new Fixture(); var plan = f.Open(); var task = plan.Case.Stages.First().Assignments.First();
         var actor = f.Policy.People.Single(x => x.PrincipalId == task.AssigneeSubjectId); var decisions = new List<ApprovalDecision>();
         var result = Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued, f.Matching, f.Policy.Policy,
-            actor, f.Policy.People, f.Hashes, task.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version,
+            actor, f.Hashes, task.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version,
                 task.Version, "Return", "  Please inspect\n the line  ", f.Policy.Now.AddMinutes(1)), decisions);
         Assert.Equal("Returned", result.State); Assert.Equal("Please inspect the line", Assert.Single(decisions).Reason);
         Assert.Equal("Unverified", f.Mapping.VerificationState); Assert.Equal(f.Mapping.Id, f.Invoice.CurrentMappingVersionId);
@@ -80,8 +80,58 @@ public sealed class InvoiceUnitReviewTransitionTests
         var f = new Fixture(); var plan = f.Open(); f.Invoice.Version++; f.Issued = f.Issued with { Version = f.Issued.Version + 1 };
         var task = plan.Case.Stages.First().Assignments.First(); var actor = f.Policy.People.Single(x => x.PrincipalId == task.AssigneeSubjectId);
         Assert.True(Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued, f.Matching, f.Policy.Policy, actor,
-            f.Policy.People, f.Hashes, task.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version, task.Version,
+            f.Hashes, task.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version, task.Version,
                 "Approve", null, f.Policy.Now.AddMinutes(1)), new List<ApprovalDecision>()).Recorded);
+    }
+
+    [Fact]
+    public void Completed_stage_signer_may_offboard_while_current_next_stage_worker_remains_authorized()
+    {
+        var f = new Fixture();
+        f.Policy.Policy.RulesJson = JsonSerializer.Serialize(new { schemaVersion = 1, transactionType = "InvoiceUnitReview", stages = new[] {
+            new { code = "FIRST", mode = "One", principals = new[] { f.Policy.First } },
+            new { code = "SECOND", mode = "All", principals = new[] { f.Policy.Second } } } });
+        var plan = f.Open(); var decisions = new List<ApprovalDecision>();
+        var first = plan.Case.Stages.First().Assignments.Single();
+        var firstActor = f.Policy.People.Single(x => x.PrincipalId == first.AssigneeSubjectId);
+        Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued, f.Matching, f.Policy.Policy,
+            firstActor, f.Hashes, first.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version,
+                first.Version, "Approve", null, f.Policy.Now.AddSeconds(1)), decisions);
+        // Current directory projection now says historical signer inactive/no grants. It is
+        // deliberately not supplied as current authority to the next worker's new decision.
+        var index = Array.FindIndex(f.Policy.People, x => x.PrincipalId == firstActor.PrincipalId);
+        f.Policy.People[index] = firstActor with { Active = false, Permissions = new HashSet<string>() };
+        var next = plan.Case.Stages.Last().Assignments.Single();
+        var nextActor = f.Policy.People.Single(x => x.PrincipalId == next.AssigneeSubjectId);
+        Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued, f.Matching, f.Policy.Policy,
+            nextActor, f.Hashes, next.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version,
+                next.Version, "Approve", null, f.Policy.Now.AddSeconds(2)), decisions);
+        Assert.Equal("Approved", plan.Case.State); Assert.Equal(2, decisions.Count);
+        Assert.Contains(plan.AssignmentWorkers, x => x.PrincipalId == firstActor.PrincipalId && x.WorkerId == firstActor.WorkerId);
+        Assert.Equal("Unverified", f.Mapping.VerificationState); Assert.Null(f.Invoice.ActiveMatchClaimResultId);
+    }
+
+    [Fact]
+    public void Expired_pinned_policy_blocks_new_effects_without_mutation_and_successor_requires_fresh_review_source()
+    {
+        var f = new Fixture(); var old = f.Open(); var task = old.Case.Stages.First().Assignments.First();
+        var actor = f.Policy.People.Single(x => x.PrincipalId == task.AssigneeSubjectId);
+        f.Policy.Policy.EffectiveTo = f.Policy.Now.AddSeconds(30);
+        var before = JsonSerializer.Serialize(old.Case); var decisions = new List<ApprovalDecision>();
+        Assert.Throws<InvalidOperationException>(() => Flow.ApplyNewDecision(old, f.Invoice, [f.Line], f.Mapping,
+            f.Issued, f.Matching, f.Policy.Policy, actor, f.Hashes, task.Id,
+            new(Guid.NewGuid(), f.Invoice.Version, old.Case.Version, task.Version, "Approve", null, f.Policy.Now.AddMinutes(1)), decisions));
+        Assert.Equal(before, JsonSerializer.Serialize(old.Case)); Assert.Empty(decisions);
+        var successor = new PolicyVersion { TenantId = f.Policy.Policy.TenantId, LegalEntityId = f.Policy.Company,
+            PolicyKey = f.Policy.Policy.PolicyKey, PolicyVersionNumber = 2, State = "Published",
+            EffectiveFrom = f.Policy.Now.AddSeconds(30), PublishedAt = f.Policy.Now.AddSeconds(30),
+            CreatedBy = f.Policy.Policy.CreatedBy, PublishedBy = f.Policy.Policy.PublishedBy,
+            PublicationReason = "Synthetic explicitly adopted successor", RulesJson = f.Policy.Policy.RulesJson };
+        var fresh = Flow.PrepareOpen(f.Invoice, [f.Line], f.Mapping, f.Issued, f.Matching, successor, f.Maker,
+            f.Policy.People, f.Hashes, new(Guid.NewGuid(), f.Invoice.Version, f.Mapping.MappingRevision,
+                f.Policy.Now.AddMinutes(1), "New policy requires fresh review"));
+        Assert.NotEqual(old.Source.ReviewId, fresh.Source.ReviewId); Assert.Equal(2, fresh.Source.ReviewPolicy.PolicyVersion);
+        Assert.Equal(before, JsonSerializer.Serialize(old.Case)); // No fake cancellation/rewriting of original Core case.
     }
 
     private sealed class Fixture
