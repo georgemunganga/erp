@@ -36,7 +36,7 @@ public sealed class ApprovedDemandSourceLoaderTests
         core.Dispose();
         var error = await Assert.ThrowsAsync<ApprovedDemandLoadException>(() => ApprovedDemandSourceLoader.LoadAsync(db,
             core, Current, Guid.NewGuid(), Guid.NewGuid()));
-        Assert.Equal(ApprovedDemandLoadFailure.SourceNotFound, error.Failure); Assert.Equal(404, error.Status);
+        Assert.Equal(ApprovedDemandLoadFailure.SourceNotFound, error.Failure);
     }
 
     [Fact]

@@ -14,7 +14,6 @@ public enum ApprovedDemandLoadFailure
 public sealed class ApprovedDemandLoadException(ApprovedDemandLoadFailure failure) : Exception(failure.ToString())
 {
     public ApprovedDemandLoadFailure Failure { get; } = failure;
-    public int Status => Failure is ApprovedDemandLoadFailure.SourceNotFound or ApprovedDemandLoadFailure.SourceOutsideScope ? 404 : 409;
 }
 
 /// <summary>One owning EF loader for approved demand and the complete retained allocation ledger.

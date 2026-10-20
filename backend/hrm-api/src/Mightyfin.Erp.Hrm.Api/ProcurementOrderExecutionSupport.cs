@@ -86,18 +86,8 @@ public static partial class ProcurementOrderExecutionRoutes
         try { return await ApprovedDemandSourceLoader.LoadAsync(db, core, scope, requestId, lineId, ct); }
         catch (ApprovedDemandLoadException error)
         {
-            var code = error.Failure switch
-            {
-                ApprovedDemandLoadFailure.SourceNotFound => "OrderSourceNotFound",
-                ApprovedDemandLoadFailure.SourceOutsideScope => "OrderNotFound",
-                ApprovedDemandLoadFailure.SourceNotApproved => "OrderSourceNotApproved",
-                ApprovedDemandLoadFailure.ApprovalEvidenceMissing => "OrderSourceApprovalEvidenceMissing",
-                ApprovedDemandLoadFailure.CoreCaseMissing => "OrderSourceCaseMissing",
-                ApprovedDemandLoadFailure.CoreDecisionMissing => "OrderSourceDecisionMissing",
-                ApprovedDemandLoadFailure.MethodUnavailable => "OrderSourceMethodUnavailable",
-                _ => throw new InvalidOperationException("Unknown approved-demand load failure."),
-            };
-            throw new OrderProblem(code, error.Status);
+            var failure = ProcurementDemandSourceFailures.ForOrder(error.Failure);
+            throw new OrderProblem(failure.Code, failure.Status);
         }
     }
 
