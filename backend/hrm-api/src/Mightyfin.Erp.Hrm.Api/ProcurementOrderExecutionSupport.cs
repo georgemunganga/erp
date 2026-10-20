@@ -37,17 +37,9 @@ public static partial class ProcurementOrderExecutionRoutes
     private static async Task<Guid[]> CurrentRecordScope(HrmDbContext core, ProcurementRequestScope scope,
         Guid? recordBranch, bool target, CancellationToken ct)
     {
-        if (!Guid.TryParse(scope.SubjectId, out var principal)) Deny();
-        var branches = await core.UserBranchAssignments.AsNoTracking().Where(x => x.UserId == principal && !x.IsArchived)
-            .Select(x => x.LocationId).Distinct().ToArrayAsync(ct);
-        // Losing the last formerly confined grant while queued must not broaden this request.
-        if (scope.IsConfined && branches.Length == 0) Deny();
-        if (scope.WorkLocationId is { } selected && (branches.Length != 0 && !branches.Contains(selected)
-            || !await core.WorkLocations.AsNoTracking().AnyAsync(x => x.Id == selected
-                && x.LegalEntityId == scope.LegalEntityId && !x.IsArchived, ct))) Deny();
-        if (target && (scope.WorkLocationId is { } context && recordBranch != context
-            || branches.Length != 0 && (recordBranch is null || !branches.Contains(recordBranch.Value)))) Missing();
-        return branches;
+        try { return await ProcurementExecutionRecordScope.Branches(core, scope, recordBranch, target, ct); }
+        catch (UnauthorizedAccessException) { Deny(); throw; }
+        catch (KeyNotFoundException) { Missing(); throw; }
     }
     private static void Scope(PurchaseOrder order, ProcurementRequestScope scope, bool own)
     {

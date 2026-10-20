@@ -28,7 +28,7 @@ public sealed record ReceivingPolicyProjection(
 /// <summary>Complete authoritative ledger for this exact issued PO line, not a page of results.
 /// Sequence is checked by the future transactional adapter; pure methods return facts only.</summary>
 public sealed record ReceivingLedger(
-    ReceivingSourcePin Source, long Sequence, bool Complete,
+    ReceivingSourcePin Source, long Sequence, bool Complete, bool AcceptanceHistoryVerified,
     IReadOnlyList<GoodsPhysicalObservation> Observations,
     IReadOnlyList<GoodsInspectionEvidence> Inspections,
     IReadOnlyList<ReceivingAcceptanceEffect> Effects);

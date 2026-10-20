@@ -30,6 +30,13 @@ public static class ProcurementActionCatalog
             ["procurement-plan-edit"] = ["manager", "procurement_buyer", "procurement_manager"],
             // These actions require explicit configured grants (or existing ERP administrator
             // governance access). Neither role bootstrap nor this catalog grants spending limits.
+            ["procurement-receipt-view"] = [],
+            ["procurement-receipt-create"] = [],
+            ["procurement-receipt-edit"] = [],
+            ["procurement-receipt-record"] = [],
+            ["procurement-receipt-inspect"] = [],
+            ["procurement-receipt-accept"] = [],
+            ["procurement-service-certify"] = [],
             ["procurement-authority-read"] = [],
             ["procurement-authority-configure"] = [],
             ["procurement-authority-review"] = [],

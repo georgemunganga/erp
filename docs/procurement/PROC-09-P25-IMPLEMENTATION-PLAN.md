@@ -1,6 +1,6 @@
 # P25 — Implement existing Receiving records as live controlled transactions
 
-**Status:** Source-audited plan; no adapter implementation or migration generated here.
+**Status:** First positive adapter source candidate authored; no build, tests, migration generation/application, browser or production activation verified. See P02 source addendum for implemented scope and explicit gaps.
 **Contract:** [PROC-09-P02, 28 sections](PROC-09-P02-RECEIVING-PERSISTENCE-API-ADAPTER.md).
 **Candidate inputs:** PO/settings `80ff610` + fulfilment `db1f033`. P24 must first be integrated from the root's verified snapshot. Tracking: [#31](https://github.com/georgemunganga/module-connect/issues/31).
 

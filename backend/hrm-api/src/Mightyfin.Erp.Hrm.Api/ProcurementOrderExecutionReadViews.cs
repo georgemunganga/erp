@@ -178,6 +178,8 @@ public static partial class ProcurementOrderExecutionRoutes
         HttpContext http, ProcurementRequestScope scope, ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness,
         ProcurementApprovalTransaction transaction, IAuthorizationService auth, CancellationToken ct)
     {
+        if (ProcurementReceivingRoutes.SupportsRecovery(operation))
+            return await ProcurementReceivingRoutes.Recover(operation, key, orderId, http, scope, ct);
         try
         {
             await EnabledAsync(options, readiness, ct);

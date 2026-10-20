@@ -434,6 +434,19 @@ public sealed class ControlledReceivingTests
         Assert.Throws<InvalidOperationException>(() => ControlledReceiving.Balance(f.Ledger, original.AcceptanceRecordId));
     }
 
+    [Fact]
+    public void Unknown_legacy_acceptance_retains_physical_truth_but_never_authorizes_new_acceptance()
+    {
+        var f = new Fixture(); var physical = f.Record(12); f.Inspect(physical, 12);
+        var unknown = f.Ledger with { AcceptanceHistoryVerified = false };
+        var recorded = ControlledReceiving.RecordGoods(f.Source, f.Policy, f.Receiver, unknown,
+            Guid.NewGuid(), Guid.NewGuid(), f.Site, 2, 0, "TRUTHFUL-HELD-DELIVERY", Guid.NewGuid(), f.Now);
+        Assert.Equal(2, recorded.ReceivedQuantity);
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.AcceptGoods(f.Source, f.Policy,
+            f.Certifier, unknown, physical.Id, 1, "ACCEPT", Guid.NewGuid(), f.Now));
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.Balance(unknown, physical.GoodsReceiptLineId));
+    }
+
     private sealed class Fixture
     {
         public DateTimeOffset Now { get; } = new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero).AddTicks(7);
@@ -487,7 +500,7 @@ public sealed class ControlledReceivingTests
                 kind == ReceivingKind.Goods, kind == ReceivingKind.Goods ? "CHECKLIST-V1" : null,
                 false, false, false, true, new HashSet<Guid> { Inspector.WorkerId },
                 new HashSet<Guid> { Certifier.WorkerId }, new HashSet<Guid> { Corrector.WorkerId }, new HashSet<Guid> { Site });
-            Ledger = new(pin, 0, true, Array.Empty<GoodsPhysicalObservation>(), Array.Empty<GoodsInspectionEvidence>(), Array.Empty<ReceivingAcceptanceEffect>());
+            Ledger = new(pin, 0, true, true, Array.Empty<GoodsPhysicalObservation>(), Array.Empty<GoodsInspectionEvidence>(), Array.Empty<ReceivingAcceptanceEffect>());
         }
         public ReceivingSourceProjection Reseal(string snapshot)
         {

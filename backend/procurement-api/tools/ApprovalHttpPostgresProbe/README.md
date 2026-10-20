@@ -161,3 +161,26 @@ branch scope, creator self-review denial, independent activation, read-only curr
 server denial of reader mutations and absence of private identity/payment fields. Use a
 fresh disposable fixture for a rerun after a committed create; do not erase evidence/reset a
 consumed record to make a test pass. Source is authored only until a recorded execution gate.
+
+## Receiving positive adapter proof — unverified source
+
+Single `--receiving` is an isolated, restricted-runtime actual HTTP/PostgreSQL probe. It
+requires the existing private disposable DB/bootstrap/runtime guards and committed P25
+migrations matching the model; it must not be launched while the source model is ahead.
+It reuses actual PR approvals and issued/delivered PO commands, then publishes a RECEIVING
+policy through real Draft/Review/independent Publish routes (future effective date and
+bounded wait). No approved receiving rules, acceptance effects or Core votes are fabricated.
+
+It authors successful draft-without-policy, blocked record-without-policy, truthful goods
+overdelivery2 against accepted authority1, named independent inspection, positive acceptance,
+service certification, exact immutable responses/retries, denied edits/over-capacity,
+concurrent partial acceptors (one win/one409), and current permission revocation. Direct
+fixture-owner SQL deliberately rehearses one inherited nonzero historic counter; physical
+truth remains recordable but certification must block unknown history. Those fixture writes
+never widen the HTTP runtime's grants. All proof output is synthetic and no credentials
+are printed. Only receiving mode grants finite relevant receipt tables and policy lifecycle
+DML to the private runtime. This source has not been built/run and is not completion evidence.
+
+This branch's program additions are based on e752ed1; when combining with the separate
+order-browser `--serve --orders` increment, preserve that explicitly allowed pair while
+keeping `--receiving` single and rejecting other unsupported/duplicated combinations.

@@ -226,3 +226,106 @@ Implementation order and file ownership are explicit in the linked plan. Parent 
 - Physical over-delivery must be retained as held/exception evidence in the existing receipt detail. Business must choose its later disposition/return authorization. P25 does not authorize over-acceptance; an unaccepted physical return has no accepted-entitlement delta and needs its own documented physical-disposition route before execution.
 - Inventory/Asset routing classifier, complete matcher consumption store and downstream correction authority remain subsequent explicit integrations. Their absence does not block supported positive acceptance, but blocks unsafe negative changes.
 - Root must verify P24 migration numbering/current base and source tests before P25 generation. No author, product owner or operational approval is fabricated by this document.
+
+## Source implementation addendum — P25 positive candidate (not verified)
+
+The isolated implementation retains the 28-section contract above. Its source covers
+existing-table draft create/edit/cancel, physical goods recording, one final inspection,
+positive goods acceptance, quantity-priced service certification, scoped sources/receipt
+and service worklists, exact response/recovery and conservative current-source guards.
+No compiler, migration generation/application, PostgreSQL, browser or production job has
+run for this candidate. Generated SQL/relational behavior and all proposed fields still
+require independent review and centralized gates before P25 can be accepted.
+
+### Exact compatibility design (sections9,12,18,24)
+
+Legacy rows retain executionVersion0, nullable IssuedVersionId/SubmissionId and missing
+binding GUIDs (`Guid.Empty`). A missing GUID is never an issued/approved identity.
+Version1 requires verified nonempty issued binding; unknown execution versions reject.
+Nonnullable `IssuedBindingId`, `SourceStateBindingId` and `PhysicalBindingId` companions
+permit composite principal keys without EF converting historic nullable pins to NOT NULL.
+New header-line/source/inspection/effect FKs join the same tenant/company/PO/issued/line
+or exact physical observation. No authority/effect/worker backfill is proposed. Untouched
+legacy data remains visible as unverified; finalization does not adopt it automatically.
+
+Only `receiving_source_states` and `receiving_acceptance_effects` are new tables.
+`GoodsPhysicalObservation` and `GoodsInspectionEvidence` remain hydrated pure projections,
+not mapped duplicate records. Service original certified values freeze; companion current
+values are controlled effect projections. Added/modified state sequence and accepted
+receipt/service/PO/PR counters require matching newly tracked facts/effects; legacy values
+cannot be overwritten to zero to make a new ledger appear complete.
+
+`ReceivingLedger.Complete` now describes the complete controlled physical/inspection/effect
+stream. A separate **required** `AcceptanceHistoryVerified` distinguishes whether all linked
+PO/PR counters and legacy fulfilment have been reconciled. There is no default true/zero.
+Unknown acceptance history may retain truthful physical/inspection evidence but blocks
+certification and `Balance`/matching projection. The adapter inspects linked PO lines,
+all controlled state facts and legacy receipt/service rows before accepting this flag.
+No current consumption store exists: negative commands and matching consumption writes
+remain unavailable, and metadata continues `receivingCorrections=false`.
+
+### Approved structured evidence and policy publication (sections7,16,21)
+
+The v1 `RECEIVING` JSON dispatcher uses the existing owned PolicyVersion draft → review →
+independent publication lifecycle. Every exact category/purchase-type mapping, kind, site,
+inspection checklist/named inspector, service owner and maker/checker flag is explicit.
+There is no wildcard Goods default, published-policy seed or client `authorized=true`.
+Review/publication rechecks current canonical Core workers and active company/site/category
+references; independent review compares actual worker identities, including aliases.
+Existing PR/PO schema behavior is retained.
+
+The supported evidence mode is `ControlledManualReference` with an explicit approved
+`evidenceReferencePrefix` in the independently published receiving rule. A consequential
+command requires a bounded, nonempty reference beneath that prefix from its current
+permitted/assigned attesting worker. This is retained **manual business evidence**, not a
+claim that the ERP fetched/scanned/verified an external document. The existing document
+service remains owner of uploaded files. Automatic document-only evidence mode is not
+implemented and cannot be selected by this schema. Business must explicitly approve this
+structured-reference evidence route or finalization remains unconfigured.
+
+A physical observation pins its policy version. Consequential continuation requires that
+same version still valid at the action time; supersession/expiry may block it as specified
+in section28. No silent policy rewrite occurs. Historic detail/recovery does not authorize
+continuation. Classification pins retain the original approved rule and hash separately
+from current operational policy selection.
+
+### Current transport details and bounded limitations (sections13,18,25–28)
+
+- Commands accept string quantities through the shared `ExactDecimalJsonCodec` (identical
+  source from7bd6555), four fractional digits/18 total precision and exact CLR representation.
+  Net values are calculated by `ExactDecimalArithmetic`, never accepted as client authority.
+- Current draft/command responses use HTTP200 and exact string fields; record errors map
+  validation422, permission403, hidden target404, stale/evidence409 and disabled503.
+- Record uses `{version,evidenceReference}`; inspection/acceptance/service certification
+  uses `{version,sourceVersion,quantity,evidenceReference}`. Receipt line detail includes
+  its current sourceVersion; service detail includes the current sourceVersion or0 when
+  state does not yet exist. Every mutation requires an Idempotency-Key UUID.
+- Existing commercial command receipts gain bounded receiving operation names, including
+  ServiceCancel. Responses retain command schema and exact create/edit action permission.
+  Existing order recovery dispatches receiving operations to current actor/target-scoped
+  historical recovery. It explicitly returns replayAuthorized=false. A stored response
+  never grants a new decision, state change, permission or scope.
+- Existing `receiving` capability remains false until a compatible UI adapter is verified.
+  Granular receivingDrafts/Goods/Inspection/Services depend on default-off deployment flags,
+  committed schema/runtime privileges and supported current published rules; corrections
+  are always false. No UI is redesigned/activated by this source increment.
+- Worklists currently support receipt/service views with scope/state filtering before SQL
+  count/page. A dedicated purpose-only inspector/service assignment queue and compatible
+  existing-screen frontend adapter are not yet implemented; the first fixture explicitly
+  grants scoped receipt-view to its inspector/certifier. These are declared followups,
+  not implied read privileges or completed frontend acceptance.
+- Shared Core branch lookup logic is factored into one execution adapter helper consumed
+  by PO and Receiving; tenant session fencing remains in the existing coordinator before
+  the SERIALIZABLE snapshot. Commands lock upstream PRs, PO and relevant source states;
+  all persistence/audit/outbox/receipt effects commit together, with no network effects.
+- Authored tests cover strict policy/default denial, legacy nullable/binding compatibility,
+  physical identity/overdelivery projection, corrupt counters/pins, sequence/append-only
+  model semantics and actual mapped HTTP/PostgreSQL goods/service, exact replay,
+  missing-policy, current permission and concurrent acceptance scenarios. They are source,
+  not results. Full API boundary/alias/site/multi-line rollback/raw FK and actual browser
+  gates remain required; root owns resource scheduling and the single P25 migration.
+
+Provenance: shared ExactDecimalJsonCodec is byte-identical7bd6555; source reuses that
+parser rather than another decimal implementation. Synthetic PO stagecode/preseed
+validation follows root3b57299. Inherited invoice tax-only fixture correction3b5bda9
+was narrowly picked; no production matcher change is included by that correction.

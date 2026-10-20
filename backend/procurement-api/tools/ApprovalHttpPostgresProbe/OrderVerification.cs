@@ -163,9 +163,9 @@ sealed partial class Probe
     }
 
     private async Task<JsonElement> NewApprovedOrderSource(string purpose, decimal quantity = 1m,
-        decimal unitPrice = 100m, decimal checkedAmount = 100m)
+        decimal unitPrice = 100m, decimal checkedAmount = 100m, string? purchaseType = null)
     {
-        var source = await NewFundedRequest(purpose, quantity, unitPrice, checkedAmount); var opened = await Open(source); var caseId = opened.GetProperty("caseId").GetGuid();
+        var source = await NewFundedRequest(purpose, quantity, unitPrice, checkedAmount, purchaseType); var opened = await Open(source); var caseId = opened.GetProperty("caseId").GetGuid();
         for (var votes = 0; votes < 3; votes++)
         {
             var detail = await Get($"{Root}/approvals/{caseId}", OrderManager1);
@@ -200,5 +200,5 @@ sealed partial class Probe
         rules = new[] { new { code = "COMMERCIAL", priority = 0,
             when = new { categoryCodes = Array.Empty<string>(), purchaseTypes = Array.Empty<string>(), branchIds = Array.Empty<Guid>() },
             result = new { budgetReservation = "Required", sourcingMethodCode = (string?)null, minimumQuoteCount = (int?)null,
-                approvalStages = new[] { new { code = "PO-COMMERCIAL", assignee = "ProcurementManager", mode = "One" } } } } } });
+                approvalStages = new[] { new { code = "PO_COMMERCIAL", assignee = "ProcurementManager", mode = "One" } } } } } });
 }
