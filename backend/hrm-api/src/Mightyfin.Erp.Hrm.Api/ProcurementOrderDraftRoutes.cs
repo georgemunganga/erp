@@ -223,10 +223,12 @@ public static class ProcurementOrderDraftRoutes
         order.Id, order.Number, order.SupplierId, supplierName, order.CurrencyCode,
         order.Status, order.BuyerSubjectId, order.BranchRef, order.ShipToRef, order.BillToRef,
         order.PaymentTermRef, order.ExpectedDeliveryOn, order.ClosureReason,
-        order.Version, order.CreatedAt,
+        order.Version, order.CreatedAt, order.CurrentRevision, order.SubmittedBusinessVersion,
+        order.SubmittedAt, order.ApprovalInstanceRef,
         total = lines.Sum(x => x.Quantity * x.UnitPrice + x.TaxAmount),
         lines = lines.Select(x => new { x.Id, x.LineNumber, x.Description, x.UnitCode,
             x.Quantity, x.UnitPrice, x.TaxAmount, x.CostCenterRef, x.ProjectRef,
+            sourcePurchaseRequestLineId = x.PurchaseRequestLineId,
             x.ExpectedDeliveryOn }),
         nextStep = "Approval and issue require an approved source, Finance commitment and delegated authority.",
     };

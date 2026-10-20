@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -142,7 +144,7 @@ public sealed partial class ProcurementDbContext
     {
         foreach (var entry in ChangeTracker.Entries().Where(x => x.Entity is PurchaseOrderFinanceEvidence
             or PurchaseOrderSubmission or PurchaseOrderAssignmentAuthorityEvidence or PurchaseOrderIssuedVersion
-            or PurchaseOrderDeliveryEvidence or PurchaseOrderFinanceResolution or ProcurementCommercialCommandReceipt))
+            or PurchaseOrderDeliveryEvidence or PurchaseOrderFinanceResolution or ProcurementCommercialCommandReceipt).ToArray())
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new InvalidOperationException("Purchase-order commercial authority and dispatch evidence are append-only.");
@@ -150,18 +152,83 @@ public sealed partial class ProcurementDbContext
             if (entry.Entity is ProcurementCommercialCommandReceipt receipt && (receipt.ActorPrincipalId != scope.SubjectId
                 || receipt.CommandKey == Guid.Empty || receipt.Fingerprint.Length != 64 || receipt.CompletedAt == default))
                 throw new InvalidOperationException("OrderCommandReceiptActorInvalid");
-            if (entry.Entity is PurchaseOrderAssignmentAuthorityEvidence assignment
-                && Mightyfin.Erp.Procurement.Application.PurchaseOrderAssignmentIdentity.ReadVerified(assignment) is null)
-                throw new InvalidOperationException("OrderAssignmentWorkerEvidenceInvalid");
+            if (entry.Entity is PurchaseOrderSubmission submitted)
+            {
+                var order = ApprovalEvidence<PurchaseOrder>(submitted.PurchaseOrderId);
+                var fundingPin = ApprovalEvidence<PurchaseOrderFinanceEvidence>(submitted.FinanceEvidenceId);
+                if (order is null || fundingPin is null || submitted.BuyerPrincipalId != scope.SubjectId
+                    || submitted.BuyerPrincipalId != order.BuyerSubjectId || submitted.BuyerWorkerId == Guid.Empty
+                    || submitted.CoreApprovalCaseId == Guid.Empty || submitted.CommercialRevision != order.CurrentRevision
+                    || submitted.CurrencyCode != order.CurrencyCode || submitted.AmountBasis != "ApprovedLineBase"
+                    || submitted.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(submitted.CommercialSnapshotJson)
+                    || submitted.WorkerIdentitySha256 != PurchaseOrderWorkerIdentity.Digest(order, submitted.CommercialRevision,
+                        submitted.CoreApprovalCaseId, submitted.BuyerWorkerId, submitted.ParticipantWorkersJson)
+                    || fundingPin.PurchaseOrderId != order.Id || fundingPin.CommercialRevision != submitted.CommercialRevision
+                    || fundingPin.CurrencyCode != submitted.CurrencyCode || fundingPin.ConfirmedGrossAmount != submitted.GrossAmount
+                    || fundingPin.CommercialSnapshotSha256 != submitted.CommercialSnapshotSha256
+                    || !PurchaseOrderWorkerIdentity.IsIndependent(submitted.ParticipantWorkersJson, fundingPin.VerifiedByWorkerId))
+                    throw new InvalidOperationException("OrderSubmissionEvidenceInvalid");
+            }
+            if (entry.Entity is PurchaseOrderAssignmentAuthorityEvidence assignment) GuardOrderAssignment(assignment);
             if (entry.Entity is PurchaseOrderFinanceResolution release && (release.VerifiedByPrincipalId != scope.SubjectId
                 || release.VerifiedByWorkerId == Guid.Empty || release.ConfirmedAt == default))
                 throw new InvalidOperationException("OrderFinanceReleaseActorInvalid");
             if (entry.Entity is PurchaseOrderFinanceEvidence finance && (finance.VerifiedByPrincipalId != scope.SubjectId || finance.VerifiedByWorkerId == Guid.Empty))
                 throw new InvalidOperationException("OrderFinanceVerifierActorInvalid");
-            if (entry.Entity is PurchaseOrderIssuedVersion issued && issued.IssuedByPrincipalId != scope.SubjectId)
-                throw new InvalidOperationException("OrderIssueActorInvalid");
+            if (entry.Entity is PurchaseOrderIssuedVersion issued)
+            {
+                var issuedPin = ApprovalEvidence<PurchaseOrderSubmission>(issued.SubmissionId);
+                if (issued.IssuedByPrincipalId != scope.SubjectId || issuedPin is null
+                    || issued.PurchaseOrderId != issuedPin.PurchaseOrderId || issued.RevisionNumber != issuedPin.CommercialRevision
+                    || issued.CommercialSnapshotJson != issuedPin.CommercialSnapshotJson
+                    || issued.CommercialSnapshotSha256 != issuedPin.CommercialSnapshotSha256
+                    || issued.ParticipantWorkersJson != issuedPin.ParticipantWorkersJson)
+                    throw new InvalidOperationException("OrderIssueEvidenceInvalid");
+            }
             if (entry.Entity is PurchaseOrderDeliveryEvidence delivery && (delivery.VerifiedByPrincipalId != scope.SubjectId || delivery.VerifiedByWorkerId == Guid.Empty))
                 throw new InvalidOperationException("OrderDeliveryActorInvalid");
         }
     }
+    private void GuardOrderAssignment(PurchaseOrderAssignmentAuthorityEvidence value)
+    {
+        var pin = ApprovalEvidence<PurchaseOrderSubmission>(value.SubmissionId);
+        var order = pin is null ? null : ApprovalEvidence<PurchaseOrder>(pin.PurchaseOrderId);
+        var grant = SpendingAuthorityGrants.Local.SingleOrDefault(x => x.Id == value.GrantId)
+            ?? SpendingAuthorityGrants.Include(x => x.Categories).SingleOrDefault(x => x.Id == value.GrantId);
+        var retained = PurchaseOrderAssignmentIdentity.ReadVerified(value);
+        if (pin is null || order is null || grant is null || retained is null
+            || pin.TenantId != scope.TenantId || pin.LegalEntityId != scope.LegalEntityId
+            || pin.CoreApprovalCaseId != value.CoreApprovalCaseId || value.CoreStageId == Guid.Empty
+            || value.CoreAssignmentId == Guid.Empty || value.AssigneeKind != "ProcurementManager"
+            || !PurchaseOrderWorkerIdentity.IsIndependent(pin.ParticipantWorkersJson, value.AssigneeWorkerId)
+            || pin.WorkerIdentitySha256 != PurchaseOrderWorkerIdentity.Digest(order, pin.CommercialRevision,
+                pin.CoreApprovalCaseId, pin.BuyerWorkerId, pin.ParticipantWorkersJson)
+            || value.GrantRevision != grant.Version || value.AuthorityVersion != grant.AuthorityVersion
+            || value.PrincipalId != grant.PrincipalId || retained.Authority.EvaluatedAt != pin.SubmittedAt)
+            throw new InvalidOperationException("OrderAssignmentAuthorityEvidenceInvalid");
+        var lines = PurchaseOrderLines.Where(x => x.PurchaseOrderId == order.Id && x.IsActive).ToList()
+            .Concat(PurchaseOrderLines.Local.Where(x => x.PurchaseOrderId == order.Id && x.IsActive))
+            .DistinctBy(x => x.Id).ToArray();
+        if (lines.Length == 0 || lines.Any(x => x.PurchaseRequestLineId is null)
+            || PurchaseOrderCommercialWorkflow.Totals(lines).LineBase != pin.LineBaseAmount)
+            throw new InvalidOperationException("OrderAssignmentSourceAmountChanged");
+        var categories = new List<string>(); var departments = new List<Guid?>();
+        foreach (var line in lines)
+        {
+            var source = ApprovalEvidence<PurchaseRequestLine>(line.PurchaseRequestLineId!.Value);
+            var request = source is null ? null : ApprovalEvidence<PurchaseRequest>(source.PurchaseRequestId);
+            if (source is null || request is null || source.TenantId != scope.TenantId || source.LegalEntityId != scope.LegalEntityId
+                || string.IsNullOrWhiteSpace(source.CategoryCode)) throw new InvalidOperationException("OrderAssignmentSourceMissing");
+            categories.Add(source.CategoryCode); departments.Add(request.DepartmentRef);
+        }
+        var context = new ProcurementSpendContext(order.Id, order.TenantId, order.LegalEntityId, order.CurrencyCode,
+            pin.AmountBasis, pin.LineBaseAmount, order.BranchRef, departments.Distinct().ToArray(),
+            categories.Distinct(StringComparer.Ordinal).ToArray());
+        var evaluated = ProcurementSpendingAuthority.Evaluate(context, value.PrincipalId, "procurement-po-approve",
+            "PurchaseOrder.Approve", pin.SubmittedAt, [grant]);
+        if (!evaluated.Eligible || evaluated.Evidence is null
+            || JsonSerializer.Serialize(evaluated.Evidence) != JsonSerializer.Serialize(retained.Authority))
+            throw new InvalidOperationException("OrderAssignmentAuthorityEvidenceInvalid");
+    }
+
 }

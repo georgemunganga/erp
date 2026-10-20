@@ -72,6 +72,7 @@ public sealed class ProcurementApprovalCapabilityHttpTests
         builder.Services.AddSingleton<IProcurementScope>(scope);
         builder.Services.AddDbContext<ProcurementDbContext>(o => o.UseSqlite(connection));
         builder.Services.AddSingleton(options);
+        builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
         builder.Services.AddSingleton<IProcurementApprovalSchemaReadiness>(readiness);
         builder.Services.AddSingleton(new CoreDocumentFeature(false));
         builder.Services.AddAuthentication("capability-test")

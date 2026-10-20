@@ -22,6 +22,9 @@ public static partial class ProcurementOrderExecutionRoutes
     private static void Conflict(string code) => throw new OrderProblem(code, 409);
     private static void Enabled(ProcurementOrderExecutionOptions options)
     { if (!options.Enabled || !options.ExecutionDatabaseConfigured) throw new OrderProblem("OrderExecutionUnavailable", 503); }
+    private static async Task EnabledAsync(ProcurementOrderExecutionOptions options,
+        IProcurementOrderSchemaReadiness readiness, CancellationToken ct)
+    { Enabled(options); if (!await readiness.IsReadyAsync(ct)) throw new OrderProblem("OrderExecutionSchemaUnavailable", 503); }
     private static Guid Key(HttpContext http) => Guid.TryParse(http.Request.Headers["Idempotency-Key"], out var id) && id != Guid.Empty
         ? id : throw new OrderProblem("OrderCommandKeyRequired", 400);
     private static string Fingerprint(object command) => ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(command));

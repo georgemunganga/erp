@@ -9,12 +9,12 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementOrderExecutionRoutes
 {
     private static async Task<IResult> ConvertSources(ConvertApprovedOrderInput input, HttpContext http,
-        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options,
+        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness,
         ProcurementApprovalTransaction transaction, IAuthorizationService auth, CancellationToken ct)
     {
         try
         {
-            Enabled(options); var key = Key(http);
+            await EnabledAsync(options, readiness, ct); var key = Key(http);
             var fingerprint = Fingerprint(new { operation = "Convert", actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
@@ -68,12 +68,12 @@ public static partial class ProcurementOrderExecutionRoutes
     }
 
     private static async Task<IResult> UpdateSourceDraft(Guid id, OrderSourceDraftInput input, HttpContext http,
-        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options,
+        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness,
         ProcurementApprovalTransaction transaction, IAuthorizationService auth, CancellationToken ct)
     {
         try
         {
-            Enabled(options); var key = Key(http);
+            await EnabledAsync(options, readiness, ct); var key = Key(http);
             var fingerprint = Fingerprint(new { operation = "SourceEdit", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {

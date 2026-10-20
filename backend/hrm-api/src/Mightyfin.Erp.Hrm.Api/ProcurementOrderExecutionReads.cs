@@ -8,12 +8,12 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementOrderExecutionRoutes
 {
     private static async Task<IResult> ApprovedSources(HttpContext http, ProcurementRequestScope scope,
-        ProcurementOrderExecutionOptions options, ProcurementApprovalTransaction transaction,
+        ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness, ProcurementApprovalTransaction transaction,
         IAuthorizationService auth, int? page, int? pageSize, CancellationToken ct)
     {
         try
         {
-            Enabled(options); var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
+            await EnabledAsync(options, readiness, ct); var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
@@ -57,12 +57,12 @@ public static partial class ProcurementOrderExecutionRoutes
     }
 
     private static async Task<IResult> AssignedOrders(HttpContext http, ProcurementRequestScope scope,
-        ProcurementOrderExecutionOptions options, ProcurementApprovalTransaction transaction,
+        ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness, ProcurementApprovalTransaction transaction,
         IAuthorizationService auth, int? page, int? pageSize, CancellationToken ct)
     {
         try
         {
-            Enabled(options); var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
+            await EnabledAsync(options, readiness, ct); var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
@@ -94,12 +94,12 @@ public static partial class ProcurementOrderExecutionRoutes
     }
 
     private static async Task<IResult> OrderCommercialHistory(Guid id, HttpContext http, ProcurementRequestScope scope,
-        ProcurementOrderExecutionOptions options, ProcurementApprovalTransaction transaction,
+        ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness, ProcurementApprovalTransaction transaction,
         IAuthorizationService auth, CancellationToken ct)
     {
         try
         {
-            Enabled(options);
+            await EnabledAsync(options, readiness, ct);
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
                 var order = await db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, token)

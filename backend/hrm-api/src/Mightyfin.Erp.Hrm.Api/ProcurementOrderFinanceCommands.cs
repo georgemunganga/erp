@@ -12,12 +12,12 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementOrderExecutionRoutes
 {
     private static async Task<IResult> ConfirmFunding(Guid id, OrderFinanceInput input, HttpContext http,
-        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options,
+        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness,
         ProcurementApprovalTransaction transaction, IAuthorizationService auth, CancellationToken ct)
     {
         try
         {
-            Enabled(options); var key = Key(http);
+            await EnabledAsync(options, readiness, ct); var key = Key(http);
             var fingerprint = Fingerprint(new { operation = "Finance", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
@@ -82,7 +82,7 @@ public static partial class ProcurementOrderExecutionRoutes
         ProcurementRequestScope scope, DateTimeOffset now)
     {
         var policies = options.ManualCommitmentPolicies.Where(x => x.LegalEntityId == scope.LegalEntityId && x.Enabled
-            && x.EffectiveFrom <= now && (x.EffectiveUntil == null || now < x.EffectiveUntil)
+            && x.EffectiveFrom != default && x.EffectiveFrom <= now && (x.EffectiveUntil == null || now < x.EffectiveUntil)
             && !string.IsNullOrWhiteSpace(x.ApprovedPolicyReference)
             && (x.EvidenceMaximumAgeMinutes is null or > 0)).ToArray();
         return policies.Length == 1 ? policies[0] : throw new OrderProblem("OrderApprovedFinancePolicyRequired", 409);

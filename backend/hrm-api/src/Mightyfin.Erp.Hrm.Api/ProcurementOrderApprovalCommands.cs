@@ -12,12 +12,12 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementOrderExecutionRoutes
 {
     private static async Task<IResult> SubmitOrder(Guid id, OrderVersionInput input, HttpContext http,
-        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options,
+        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness,
         ProcurementApprovalTransaction transaction, IAuthorizationService auth, CancellationToken ct)
     {
         try
         {
-            Enabled(options); var key = Key(http);
+            await EnabledAsync(options, readiness, ct); var key = Key(http);
             var fingerprint = Fingerprint(new { operation = "Submit", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
@@ -26,7 +26,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 await Actor(core, scope, http, auth, "procurement-po-submit", token);
                 var prior = await Receipt(db, scope, "Submit", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
-                var order = load.Order; var now = DateTimeOffset.UtcNow;
+                var order = load.Order; var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
                 if (order.Status != "Draft" || order.Version != input.ExpectedOrderVersion) Conflict("OrderSubmitSourceChanged");
                 var policies = await db.PolicyVersions.Where(x => x.PolicyKey == "PURCHASE_ORDER" && x.State == "Published"
                     && x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo)).ToArrayAsync(token);
@@ -79,12 +79,12 @@ public static partial class ProcurementOrderExecutionRoutes
     }
 
     private static async Task<IResult> DecideOrder(Guid id, Guid assignmentId, OrderDecisionInput input, HttpContext http,
-        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options,
+        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness,
         ProcurementApprovalTransaction transaction, IAuthorizationService auth, CancellationToken ct)
     {
         try
         {
-            Enabled(options); var key = Key(http); var reason = Clean(input.Reason);
+            await EnabledAsync(options, readiness, ct); var key = Key(http); var reason = Clean(input.Reason);
             if (input.Action is not ("Approve" or "Reject" or "Return") || reason?.Length > 2000
                 || input.Action != "Approve" && reason is null) Conflict("OrderDecisionInvalid");
             var fingerprint = Fingerprint(new { operation = "Decide", id, assignmentId, actor = scope.SubjectId,

@@ -20,6 +20,11 @@ public static class ProcurementHostIntegration
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(approvalOptions);
+        var orderOptions = configuration.GetSection("Procurement:Orders").Get<ProcurementOrderExecutionOptions>()
+            ?? new ProcurementOrderExecutionOptions();
+        orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(orderOptions);
+        services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddScoped(sp => new Mightyfin.Erp.Procurement.Infrastructure.Approvals.ProcurementApprovalTransaction(
             // The normal host connection may be composed while disabled, but every execution
@@ -59,6 +64,7 @@ public static class ProcurementHostIntegration
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
+        ProcurementOrderExecutionRoutes.MapRoutes(app);
         MapMetadataRoute(app);
     }
 
@@ -104,7 +110,13 @@ public static class ProcurementHostIntegration
                             && await services.GetRequiredService<IProcurementApprovalSchemaReadiness>().IsReadyAsync(ct),
                         sourcing = false,
                         contracts = false,
-                        orders = false,
+                        orders = !pending
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>().ExecutionDatabaseConfigured
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>()
+                                .HasCurrentManualCommitmentPolicy(scope.LegalEntityId, DateTimeOffset.UtcNow)
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>().HasApprovedDeliveryPolicy
+                            && await services.GetRequiredService<IProcurementOrderSchemaReadiness>().IsReadyAsync(ct),
                         orderDraft = !pending,
                         receiving = false,
                         invoiceIntake = !pending,

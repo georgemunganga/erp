@@ -8,12 +8,12 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementOrderExecutionRoutes
 {
     private static async Task<IResult> ResolveOrderFunding(Guid id, OrderFinanceResolutionInput input, HttpContext http,
-        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options,
+        ProcurementRequestScope scope, ProcurementOrderExecutionOptions options, IProcurementOrderSchemaReadiness readiness,
         ProcurementApprovalTransaction transaction, IAuthorizationService auth, CancellationToken ct)
     {
         try
         {
-            Enabled(options); var key = Key(http);
+            await EnabledAsync(options, readiness, ct); var key = Key(http);
             var fingerprint = Fingerprint(new { operation = "FinanceRelease", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
