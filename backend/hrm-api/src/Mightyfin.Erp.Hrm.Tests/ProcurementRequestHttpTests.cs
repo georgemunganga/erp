@@ -1395,6 +1395,69 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, published.StatusCode);
         var publishedBody = await published.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Published", publishedBody.GetProperty("status").GetString());
+        // Catalog classification is owner data, not an editable policy-routing hint.
+        var catalogDraft = Draft("Owned catalog classification") with
+        {
+            NeededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+            Lines = [new ProcurementRequestRoutes.RequestLineInput(null, "Chair", "each", 1, 250,
+                itemId, vendorId, null, null, null, null, null, null, null, null,
+                entry.GetProperty("id").GetGuid())],
+        };
+        var beforeSpoof = await fixture.RequestPersistenceCounts();
+        foreach (var spoof in new[]
+        {
+            catalogDraft.Lines![0] with { PurchaseType = "SERVICE" },
+            catalogDraft.Lines![0] with { CategoryCode = "OTHER" },
+        })
+        {
+            var denied = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+                fixture.Owner, catalogDraft with { Lines = [spoof] });
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, denied.StatusCode);
+            Assert.Equal(beforeSpoof, await fixture.RequestPersistenceCounts());
+        }
+        var owned = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+            fixture.Owner, catalogDraft);
+        Assert.Equal(HttpStatusCode.Created, owned.StatusCode);
+        var ownedBody = await owned.Content.ReadFromJsonAsync<JsonElement>();
+        var ownedId = ownedBody.GetProperty("id").GetGuid();
+        Assert.Equal("GOODS", ownedBody.GetProperty("lines")[0].GetProperty("purchaseType").GetString());
+        Assert.Equal("OFFICE", ownedBody.GetProperty("lines")[0].GetProperty("categoryCode").GetString());
+        var priorOwnedRead = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{ownedId}", fixture.Owner);
+        var priorOwnedJson = await priorOwnedRead.Content.ReadAsStringAsync();
+        var beforeEdit = await fixture.RequestPersistenceCounts();
+        var spoofEdit = await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/requests/{ownedId}", fixture.Owner,
+            new ProcurementRequestRoutes.UpdateRequest(ownedBody.GetProperty("version").GetInt64(),
+                "Must not mutate header", "ZMW", catalogDraft.NeededBy, null, null, null, null, null, null,
+                [catalogDraft.Lines![0] with { PurchaseType = "SERVICE" }]));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, spoofEdit.StatusCode);
+        Assert.Equal(beforeEdit, await fixture.RequestPersistenceCounts());
+        var afterOwnedRead = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{ownedId}", fixture.Owner);
+        Assert.Equal(priorOwnedJson, await afterOwnedRead.Content.ReadAsStringAsync());
+        await fixture.AddPublishedBuyingPolicy("GOODS");
+        var ownedSubmit = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{ownedId}/submit",
+            fixture.Owner, new ProcurementRequestRoutes.VersionCommand(ownedBody.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.OK, ownedSubmit.StatusCode);
+        var ownedPolicy = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{ownedId}/policy-status", fixture.Owner);
+        Assert.Equal("Matched", (await ownedPolicy.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+        // Simulate an inherited tampered draft; submission must neither repair nor authorize it.
+        var inheritedResponse = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+            fixture.Owner, catalogDraft);
+        Assert.Equal(HttpStatusCode.Created, inheritedResponse.StatusCode);
+        var inherited = await inheritedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var inheritedId = inherited.GetProperty("id").GetGuid();
+        await fixture.SetDraftClassification(inheritedId, "OFFICE", "SERVICE");
+        var inheritedRead = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{inheritedId}", fixture.Owner);
+        var inheritedJson = await inheritedRead.Content.ReadFromJsonAsync<JsonElement>();
+        var inheritedBefore = await fixture.RequestPersistenceCounts();
+        var inheritedSubmit = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{inheritedId}/submit",
+            fixture.Owner, new ProcurementRequestRoutes.VersionCommand(inheritedJson.GetProperty("version").GetInt64()));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, inheritedSubmit.StatusCode);
+        Assert.Equal(inheritedBefore, await fixture.RequestPersistenceCounts());
+        var deniedInheritedRead = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{inheritedId}", fixture.Owner);
+        var retainedInherited = await deniedInheritedRead.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Draft", retainedInherited.GetProperty("status").GetString());
+        Assert.Equal("SERVICE", retainedInherited.GetProperty("lines")[0].GetProperty("purchaseType").GetString());
+        Assert.Equal(0, await fixture.RequestAuditCount(inheritedId, "PolicyEvaluated"));
         Assert.Equal(1, await fixture.RequestAuditCount(entry.GetProperty("id").GetGuid(), "Published"));
         var catalog = await Send(fixture.Client, HttpMethod.Get,
             "/api/procurement/v1/catalog", fixture.Owner);
@@ -2578,6 +2641,18 @@ public sealed class ProcurementRequestHttpTests
             await db.SaveChangesAsync();
         }
 
+        public async Task SetDraftClassification(Guid requestId, string category, string type)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var line = await db.PurchaseRequestLines.SingleAsync(x => x.PurchaseRequestId == requestId);
+            line.CategoryCode = category;
+            line.PurchaseType = type;
+            await db.SaveChangesAsync();
+        }
+
         public async Task<(int Requests, int Lines, int Audit, int Outbox)> RequestPersistenceCounts()
         {
             using var serviceScope = app.Services.CreateScope();
@@ -2650,7 +2725,7 @@ public sealed class ProcurementRequestHttpTests
             return policy.Id;
         }
 
-        public async Task<Guid> AddPublishedBuyingPolicy()
+        public async Task<Guid> AddPublishedBuyingPolicy(string? purchaseType = null)
         {
             using var serviceScope = app.Services.CreateScope();
             serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
@@ -2672,6 +2747,9 @@ public sealed class ProcurementRequestHttpTests
                     {"code":"NEED","assignee":"LineManager","mode":"One"}]}}]}
                     """,
             };
+            if (purchaseType is not null)
+                policy.RulesJson = policy.RulesJson.Replace("\"purchaseTypes\":[]",
+                    "\"purchaseTypes\":" + JsonSerializer.Serialize(new[] { purchaseType }), StringComparison.Ordinal);
             db.AddScoped(policy);
             await db.SaveChangesAsync();
             return policy.Id;

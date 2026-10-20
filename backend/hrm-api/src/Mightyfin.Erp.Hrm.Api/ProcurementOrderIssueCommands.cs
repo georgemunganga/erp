@@ -40,6 +40,7 @@ public static partial class ProcurementOrderExecutionRoutes
                         core, db, scope, now, token);
                 var prior = await Receipt(db, scope, "Issue", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
+                await CatalogClassification(db, load.Sources.Select(x => x.Source.Line), token);
                 if (load.Order.Version != input.ExpectedOrderVersion) Conflict("OrderIssueVersionChanged");
                 var issued = PurchaseOrderCommercialWorkflow.AuthorizeIssue(load.Order, load.Sources, load.Supplier,
                     pin, policy, finance, workflow, scope.SubjectId, now);
