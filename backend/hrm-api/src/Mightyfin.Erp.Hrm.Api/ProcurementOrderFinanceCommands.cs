@@ -25,14 +25,22 @@ public static partial class ProcurementOrderExecutionRoutes
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-finance-confirm", token, load.Order.BranchRef, true);
                 var prior = await Receipt(db, scope, "Finance", key, fingerprint, id, token);
-                if (prior is not null) return prior.ResponseJson;
+                var verifier = await Canonical(core, scope, scope.SubjectId, token);
+                if (prior is not null)
+                {
+                    var recorded = await db.OrderFinanceEvidence.SingleOrDefaultAsync(x => x.PurchaseOrderId == id
+                        && x.EvidenceReference == input.EvidenceReference.Trim(), token) ?? throw new OrderProblem("OrderFinanceReceiptEvidenceMissing", 409);
+                    if (recorded.WorkerIdentitySha256 != PurchaseOrderWorkerIdentity.Digest(load.Order, recorded.CommercialRevision,
+                            Guid.Empty, recorded.BuyerWorkerId, recorded.ParticipantWorkersJson)
+                        || !PurchaseOrderWorkerIdentity.IsIndependent(recorded.ParticipantWorkersJson, verifier.WorkerId)) Deny();
+                    return prior.ResponseJson;
+                }
                 var order = load.Order; var now = DateTimeOffset.UtcNow;
                 if (order.Status != "Draft" || order.Version != input.ExpectedOrderVersion
                     || input.CommercialRevision != order.CurrentRevision + 1 || input.ConfirmedAt == default
                     || input.ConfirmedAt > now || input.SourceReservationReferences is null)
                     Conflict("OrderFinanceSourceChanged");
                 var buyer = await Canonical(core, scope, order.BuyerSubjectId, token);
-                var verifier = await Canonical(core, scope, scope.SubjectId, token);
                 if (!PurchaseOrderWorkerIdentity.IsIndependent(PurchaseOrderWorkerIdentity.Participants(load.Sources, buyer.WorkerId), verifier.WorkerId))
                     Deny();
                 var policy = ManualPolicy(options, scope, now);
@@ -53,14 +61,25 @@ public static partial class ProcurementOrderExecutionRoutes
                     .OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).FirstOrDefaultAsync(token);
                 if (previous is not null && input.ReplacesCommitmentReference != previous.CommitmentReference)
                     Conflict("OrderFinanceReplacementNotConfirmed");
+                var commitment = input.CommitmentReference.Trim();
+                var lockIdentity = $"procurement.po.commitment.{scope.TenantId}.{scope.LegalEntityId:D}.{commitment}";
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({lockIdentity},0))", token);
+                var ownership = await db.OrderCommitmentOwnership.SingleOrDefaultAsync(x => x.CommitmentReference == commitment, token);
+                if (ownership is not null && ownership.PurchaseOrderId != id) Conflict("OrderFinanceCommitmentAlreadyOwned");
+                if (ownership is null) db.AddScoped(new PurchaseOrderCommitmentOwnership {
+                    PurchaseOrderId = id, CommitmentReference = commitment });
+                var commercial = PurchaseOrderCommercialWorkflow.Snapshot(order, load.Lines, load.Supplier, input.CommercialRevision);
+                var participants = PurchaseOrderWorkerIdentity.Participants(load.Sources, buyer.WorkerId);
                 db.AddScoped(new PurchaseOrderFinanceEvidence { PurchaseOrderId = id, SupplierId = order.SupplierId,
                     CommercialRevision = input.CommercialRevision, CommitmentReference = input.CommitmentReference.Trim(),
                     EvidenceReference = input.EvidenceReference.Trim(), EvidenceMode = "ApprovedManualEvidence",
                     ApprovedManualPolicyReference = policy.ApprovedPolicyReference, Status = "Confirmed",
                     CurrencyCode = order.CurrencyCode, ConfirmedGrossAmount = input.ConfirmedGrossAmount,
                     SourceReservationsJson = JsonSerializer.Serialize(expected),
-                    CommercialSnapshotSha256 = ProcurementEvidenceEncoding.Digest(PurchaseOrderCommercialWorkflow.Snapshot(
-                        order, load.Lines, load.Supplier, input.CommercialRevision)),
+                    CommercialSnapshotJson = commercial, CommercialSnapshotSha256 = ProcurementEvidenceEncoding.Digest(commercial),
+                    BuyerWorkerId = buyer.WorkerId, ParticipantWorkersJson = participants,
+                    WorkerIdentitySha256 = PurchaseOrderWorkerIdentity.Digest(order, input.CommercialRevision, Guid.Empty,
+                        buyer.WorkerId, participants),
                     VerifiedByPrincipalId = scope.SubjectId, VerifiedByWorkerId = verifier.WorkerId,
                     ConfirmedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(input.ConfirmedAt)!.Value,
                     ReplacesCommitmentReference = input.ReplacesCommitmentReference });

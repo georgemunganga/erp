@@ -72,6 +72,10 @@ public static partial class ProcurementOrderExecutionRoutes
                 Scope(order, scope, false);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-dispatch-confirm", token, order.BranchRef, true);
+                var issued = await db.OrderIssuedVersions.SingleOrDefaultAsync(x => x.Id == input.IssuedVersionId
+                    && x.PurchaseOrderId == id, token) ?? throw new OrderProblem("OrderIssuedVersionMissing", 409);
+                var verifier = await Canonical(core, scope, scope.SubjectId, token);
+                if (!PurchaseOrderWorkerIdentity.IsIndependent(issued.ParticipantWorkersJson, verifier.WorkerId)) Deny();
                 var prior = await Receipt(db, scope, "Delivery", key, fingerprint, id, token);
                 if (prior is not null) return prior.ResponseJson;
                 if (order.Version != input.ExpectedOrderVersion) Conflict("OrderDeliveryVersionChanged");
@@ -79,9 +83,6 @@ public static partial class ProcurementOrderExecutionRoutes
                     || !options.AllowedDeliveryChannels.Contains(input.Channel, StringComparer.Ordinal)
                     || input.DeliveryReference?.Length > 200 || input.EvidenceReference?.Length > 500)
                     Conflict("OrderDispatchPolicyRequired");
-                var issued = await db.OrderIssuedVersions.SingleOrDefaultAsync(x => x.Id == input.IssuedVersionId
-                    && x.PurchaseOrderId == id, token) ?? throw new OrderProblem("OrderIssuedVersionMissing", 409);
-                var verifier = await Canonical(core, scope, scope.SubjectId, token);
                 var delivery = PurchaseOrderCommercialWorkflow.ConfirmDelivery(order, issued, input.DeliveryReference,
                     input.Outcome, input.Channel, input.EvidenceReference, scope.SubjectId, input.ObservedAt,
                     DateTimeOffset.UtcNow, verifier.WorkerId);

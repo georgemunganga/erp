@@ -12,6 +12,8 @@ public static partial class ProcurementOrderExecutionRoutes
         group.MapGet("/assigned-approvals", AssignedOrders).RequireAuthorization("procurement-po-approve");
         group.MapPost("/from-approved-sources", ConvertSources).RequireAuthorization("procurement-po-convert");
         group.MapPut("/{id:guid}/source-draft", UpdateSourceDraft).RequireAuthorization("procurement-po-edit");
+        group.MapPost("/{id:guid}/source-cancel", CancelSourceDraft).RequireAuthorization("procurement-po-edit");
+        group.MapPost("/{id:guid}/draft-finance-release-confirmations", ResolveUnsubmittedFunding).RequireAuthorization("procurement-po-finance-confirm");
         group.MapPost("/{id:guid}/finance-confirmations", ConfirmFunding).RequireAuthorization("procurement-po-finance-confirm");
         group.MapPost("/{id:guid}/finance-release-confirmations", ResolveOrderFunding).RequireAuthorization("procurement-po-finance-confirm");
         group.MapPost("/{id:guid}/submit", SubmitOrder).RequireAuthorization("procurement-po-submit");
