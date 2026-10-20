@@ -31,7 +31,7 @@ public sealed class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start();
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
-            new { purpose = "Worker independent funding", currencyCode = "ZMW", lines = new[] {
+            new { purpose = "Worker independent funding", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] {
                 new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var original = await created.Content.ReadFromJsonAsync<JsonElement>();
@@ -73,7 +73,7 @@ public sealed class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start();
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
-            new { purpose = "Unknown maker provenance", currencyCode = "ZMW", lines = new[] {
+            new { purpose = "Unknown maker provenance", currencyCode = "ZMW", neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] {
                 new { description = "Need", requestedQuantity = 1m, estimatedUnitPrice = 20m, unitCode = "each" } } });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var original = await created.Content.ReadFromJsonAsync<JsonElement>();
