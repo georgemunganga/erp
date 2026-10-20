@@ -140,3 +140,12 @@ page/count, unassigned404 and general read403, then actual guarded commands. Con
 service draft preview does not insert a source-state row, and legacy unknown capacity is
 nullable/unavailable. Core receiving document uploads/downloads remain explicitly unsupported;
 only persisted references are displayed. No P25 table is added by this read increment.
+
+### Unknown legacy historical-scope gate
+
+ExecutionVersion0 visibility is organisation-wide/no-selected-branch only until a separately
+reviewed authoritative legacy reconciliation can prove historical scope. Selected or Core
+branch-confined readers receive no legacy list rows/counts or detail; a current PO A→B change
+does not transfer unproved historical visibility. Verify goods and service list/detail paths,
+organisation-wide inspection and unchanged missing pins/records in the actual runtime probe.
+No migration, backfill, certification, data deletion or new read permission is introduced.

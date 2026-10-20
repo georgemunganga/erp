@@ -53,12 +53,13 @@ public static partial class ProcurementReceivingRoutes
             var actor = await Actor(core, scope, http, auth, "procurement-receipt-view", scope.WorkLocationId, null, token, target: false);
             var branches = actor.BranchIds.ToArray(); var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
             var boundedOrders = BoundIssuedOrders(db, scope);
+            var legacyVisible = actor.OrganisationWide && scope.WorkLocationId == null;
             if (view == "services")
             {
                 var query = from service in db.ServiceAcceptances.AsNoTracking()
                     join line in db.PurchaseOrderLines.AsNoTracking() on service.PurchaseOrderLineId equals line.Id
                     join order in db.PurchaseOrders.AsNoTracking() on line.PurchaseOrderId equals order.Id
-                    where (service.ExecutionVersion == 0 || service.ExecutionVersion == 1
+                    where (legacyVisible && service.ExecutionVersion == 0 || service.ExecutionVersion == 1
                             && service.SourcePurchaseOrderId == order.Id && boundedOrders.Any(x => x.Id == order.Id)
                             && db.OrderIssuedVersions.Any(x => x.Id == service.IssuedBindingId && x.PurchaseOrderId == order.Id && x.RevisionNumber == order.CurrentRevision))
                         && (scope.WorkLocationId == null || order.BranchRef == scope.WorkLocationId)
@@ -74,7 +75,7 @@ public static partial class ProcurementReceivingRoutes
             {
                 var query = from receipt in db.GoodsReceipts.AsNoTracking()
                     join order in db.PurchaseOrders.AsNoTracking() on receipt.PurchaseOrderId equals order.Id
-                    where (receipt.ExecutionVersion == 0 || receipt.ExecutionVersion == 1 && receipt.BranchRef == order.BranchRef
+                    where (legacyVisible && receipt.ExecutionVersion == 0 || receipt.ExecutionVersion == 1 && receipt.BranchRef == order.BranchRef
                             && boundedOrders.Any(x => x.Id == order.Id)
                             && db.OrderIssuedVersions.Any(x => x.Id == receipt.IssuedBindingId && x.PurchaseOrderId == order.Id && x.RevisionNumber == order.CurrentRevision))
                         && (scope.WorkLocationId == null || order.BranchRef == scope.WorkLocationId)

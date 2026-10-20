@@ -437,9 +437,20 @@ owner restricted to Core branch B must see zero assigned tasks, sources and v1 w
 including zero counts; purpose detail is404 and broad detail409. The fixture restores both
 branch and membership without granting the runtime PO-tamper/Core-write permission.
 
-Legacy executionVersion0 has no fabricated issued authority and retains its existing
-current-linked-PO read ownership/explicit unverified presentation. Its historical branch
-cannot be proved from a missing issued pin. This correction does not silently backfill it
-or treat it as matching/acceptance evidence. Stronger legacy historical-scope reconciliation
-remains an explicit policy/recovery decision. Unknown execution versions are excluded from
-the bounded worklists and cannot execute.
+Legacy executionVersion0 has no fabricated issued authority. Because its historical branch
+cannot be proved from a missing issued pin, read visibility is restricted to a current
+organisation-wide receipt-view actor with **no selected branch and no Core branch restriction**.
+Selected-branch and branch-confined requests omit these rows before count/page and receive404
+for their detail, even when the mutable linked PO now points to that branch. No legacy site
+or branch is guessed, backfilled or treated as matching/acceptance evidence. Existing records
+remain intact and explicitly unverified for authorised organisation-wide inspection/recovery.
+Unknown execution versions are excluded from bounded worklists/detail and cannot execute.
+
+
+Legacy visibility verification (source only): the actual receiving PostgreSQL probe creates
+untouched executionVersion0 goods/service rows against a real A source. Organisation-wide,
+no-selection inspection succeeds and retains missing pins/uncertified flags; selecting A
+hides rows and detail. After bootstrap-corrupting the current PO to B and restricting the
+reader to B, selected and unselected B requests see no legacy rows/counts/details. Cleanup
+asserts both legacy records and missing evidence remain unchanged. No verification result
+is claimed until the central actual-runtime gate runs this scenario.

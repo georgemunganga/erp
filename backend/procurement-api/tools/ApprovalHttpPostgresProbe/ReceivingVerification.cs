@@ -167,6 +167,36 @@ sealed partial class Probe
     }
     private async Task VerifyReceivingRetainedScope(Guid orderId, Guid serviceId, Guid otherSite)
     {
+        Guid legacyReceiptId, legacyServiceId;
+        using (var services = Scope(OrderBuyer))
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var lineId = await db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == orderId && x.IsActive).Select(x => x.Id).SingleAsync();
+            var receipt = new GoodsReceipt { PurchaseOrderId = orderId, Number = "LEGACY-UNKNOWN-" + Guid.NewGuid().ToString("N"),
+                ReceiverSubjectId = OrderRequester.ToString("D"), ReceivedAt = DateTimeOffset.UtcNow, Status = "Draft" };
+            var service = new ServiceAcceptance { PurchaseOrderLineId = lineId, OwnerSubjectId = OrderRequester.ToString("D"),
+                Status = "PendingCertification", PeriodFrom = DateOnly.FromDateTime(DateTime.UtcNow), PeriodTo = DateOnly.FromDateTime(DateTime.UtcNow) };
+            db.AddScoped(receipt); db.AddScoped(service); await db.SaveChangesAsync(); legacyReceiptId = receipt.Id; legacyServiceId = service.Id;
+        }
+        // Unrestricted, no-selected-branch readers can inspect unknown legacy records,
+        // without acquiring issued/certified evidence. Merely selecting A must hide them.
+        foreach (var target in new[] { (Path: $"/receipts/{legacyReceiptId}", Field: "physicalEvidenceRecorded"),
+                     (Path: $"/service-acceptances/{legacyServiceId}", Field: "isCertifiedRecord") })
+        {
+            using var wide = await Send(HttpMethod.Get, Root + target.Path, OrderManager2, selectedBranch: false); await Check(wide, HttpStatusCode.OK);
+            var value = await wide.Content.ReadFromJsonAsync<JsonElement>();
+            Require(value.GetProperty("executionVersion").GetInt32() == 0 && !value.GetProperty(target.Field).GetBoolean()
+                && !value.GetProperty("matchingAuthorityAvailable").GetBoolean(), "Legacy inspection manufactured final authority.");
+            await Expect(HttpStatusCode.NotFound, HttpMethod.Get, Root + target.Path, OrderManager2);
+        }
+        foreach (var target in new[] { (View: "receipts", Id: legacyReceiptId), (View: "services", Id: legacyServiceId) })
+        {
+            using var wide = await Send(HttpMethod.Get, Root + "/receiving/worklist?view=" + target.View + "&pageSize=100", OrderManager2, selectedBranch: false);
+            await Check(wide, HttpStatusCode.OK); var widePage = await wide.Content.ReadFromJsonAsync<JsonElement>();
+            Require(widePage.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("id").GetGuid() == target.Id), "Organisation-wide unverified history disappeared.");
+            var selected = await Get(Root + "/receiving/worklist?view=" + target.View + "&pageSize=100", OrderManager2);
+            Require(!selected.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("id").GetGuid() == target.Id), "Selected A exposed unproved legacy scope.");
+        }
         Guid assignmentId;
         using (var services = Scope(OrderBuyer))
         {
@@ -195,6 +225,18 @@ sealed partial class Probe
                 Require(page.GetProperty("total").GetInt32() == 0 && page.GetProperty("items").GetArrayLength() == 0,
                     "Current header B leaked an issued-A task/source/worklist row or count.");
             }
+            foreach (var target in new[] { $"/receipts/{legacyReceiptId}", $"/service-acceptances/{legacyServiceId}" })
+            {
+                using var selected = await AtB(Root + target); await Check(selected, HttpStatusCode.NotFound);
+                using var unselected = await Send(HttpMethod.Get, Root + target, OrderManager2, selectedBranch: false); await Check(unselected, HttpStatusCode.NotFound);
+            }
+            foreach (var view in new[] { "receipts", "services" })
+            {
+                using var response = await Send(HttpMethod.Get, Root + "/receiving/worklist?view=" + view + "&pageSize=1", OrderManager2, selectedBranch: false);
+                await Check(response, HttpStatusCode.OK); var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+                Require(page.GetProperty("total").GetInt32() == 0 && page.GetProperty("items").GetArrayLength() == 0,
+                    "B-only actor without a selected branch saw unproved A legacy rows or counts.");
+            }
             using var purpose = await AtB($"{Root}/service-acceptances/{serviceId}/certification-task"); await Check(purpose, HttpStatusCode.NotFound);
             using var general = await AtB($"{Root}/service-acceptances/{serviceId}"); await Check(general, HttpStatusCode.Conflict);
         }
@@ -204,6 +246,9 @@ sealed partial class Probe
             var assignment = await core.UserBranchAssignments.SingleAsync(x => x.Id == assignmentId); assignment.IsArchived = true; await core.SaveChangesAsync();
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE procurement.purchase_orders SET branch_ref={OrderBranch} WHERE tenant_id={"probe"} AND legal_entity_id={OrderCompany} AND id={orderId}");
+            Require(await db.GoodsReceipts.AnyAsync(x => x.Id == legacyReceiptId && x.ExecutionVersion == 0 && x.IssuedVersionId == null && x.IssuedBindingId == Guid.Empty)
+                && await db.ServiceAcceptances.AnyAsync(x => x.Id == legacyServiceId && x.ExecutionVersion == 0 && x.CertifiedAt == null && x.CertificationEffectId == null),
+                "Legacy scope recovery altered/backfilled or removed original records.");
         }
     }
     private async Task WithoutReceivingBroadRead(Func<Task> checks)

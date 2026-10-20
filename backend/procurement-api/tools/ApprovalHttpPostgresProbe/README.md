@@ -198,3 +198,9 @@ a legitimate issued-A positive path, then bootstrap-corrupts only its current PO
 B while a named policy-site-B owner is restricted to Core B. Actual API assigned/source/v1
 worklist rows and counts must remain zero and details denied. Cleanup restores original A
 and membership; runtime privileges are unchanged. This scenario has not been executed here.
+
+Unknown legacy visibility follow-up (unrun source): the same receiving scope scenario now
+creates untouched v0 goods/service records and checks organisation-wide/no-selection access,
+selected-A denial, and selected/unselected B-only denial after A→B header corruption. Both
+records must survive with missing bindings and no certification evidence. This is explicit
+read scope control; it does not backfill a historical branch or confer matching authority.
