@@ -13,7 +13,7 @@ No table or column is added. Existing source, receipt/service/inspection, worker
 - EF inspection→goods, effect→goods and effect→service relationships target the existing stable `(TenantId, LegalEntityId, Id)` identity keys.
 - The exact previous goods physical tuple `(tenant_id,legal_entity_id,id,source_state_binding_id,physical_binding_id)` becomes ordinary unique index `ux_receiving_goods_physical_binding`.
 - The exact previous service tuple `(tenant_id,legal_entity_id,id,source_state_binding_id)` becomes ordinary unique index `ux_receiving_service_state_binding`.
-- All seven nonnullable binding GUID properties across header/line/inspection/service explicitly use `ValueGeneratedNever`. Zero remains missing legacy/draft evidence, never a fabricated identity. Immutable inspection composite evidence remains an EF principal key because it is set completely on insertion and never updated.
+- All eight nonnullable binding GUID properties across header/line/inspection/service explicitly use `ValueGeneratedNever`. Zero remains missing legacy/draft evidence, never a fabricated identity. Immutable inspection composite evidence remains an EF principal key because it is set completely on insertion and never updated.
 - Three explicit database FKs preserve exactly the prior ownership tuples. `Infrastructure/Data/ReceivingOwnershipConstraintSql.cs` provides their reviewed names/columns/install SQL. They are `DEFERRABLE INITIALLY DEFERRED`, with `NO ACTION` deletion. The stable scoped EF FKs remain immediate/Restrict; application physical deletion remains denied. Deferral accommodates service-update/effect-insert ordering inside the same transaction; it does not allow an invalid committed graph.
 
 ## Migration and maintenance contract
