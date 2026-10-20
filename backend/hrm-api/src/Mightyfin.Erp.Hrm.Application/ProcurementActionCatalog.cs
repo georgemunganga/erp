@@ -35,6 +35,8 @@ public static class ProcurementActionCatalog
             ["procurement-authority-review"] = [],
             ["procurement-authority-revoke"] = [],
             ["procurement-approval-decide"] = [],
+            ["procurement-approval-open"] = [],
+            ["procurement-approval-read"] = [],
             ["procurement-configuration-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-configuration-edit"] = ["procurement_manager"],
             ["procurement-configuration-approve"] = ["procurement_manager"],

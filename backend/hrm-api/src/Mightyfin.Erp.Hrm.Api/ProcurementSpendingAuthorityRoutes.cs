@@ -285,7 +285,7 @@ public static class ProcurementSpendingAuthorityRoutes
     private static bool Handled(Exception ex) => ex is InvalidOperationException or DbUpdateException or NpgsqlException;
     private static IResult Failure(Exception ex)
     {
-        var pg = ex as PostgresException ?? ex.InnerException as PostgresException;
+        var pg = ProcurementPostgresFailures.Postgres(ex);
         if (pg?.SqlState is PostgresErrorCodes.UndefinedTable or PostgresErrorCodes.UndefinedColumn)
             return Results.Problem(statusCode: 503, title: "Spending authority setup is not available yet.");
         if (ex is NpgsqlException && pg is null)

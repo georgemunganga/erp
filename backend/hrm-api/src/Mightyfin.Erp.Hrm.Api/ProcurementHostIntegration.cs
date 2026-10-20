@@ -15,6 +15,10 @@ public static class ProcurementHostIntegration
     public static void AddServices(IServiceCollection services, string connection, IConfiguration configuration)
     {
         services.AddScoped<ProcurementRequestScope>();
+        services.AddSingleton(configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
+            ?? new ProcurementApprovalExecutionOptions());
+        services.AddScoped(sp => new Mightyfin.Erp.Procurement.Infrastructure.Approvals.ProcurementApprovalTransaction(
+            connection, sp.GetRequiredService<IProcurementScope>(), sp.GetRequiredService<IApprovalScope>()));
         ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
         services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
         services.AddDbContext<ProcurementDbContext>(options =>
@@ -39,6 +43,7 @@ public static class ProcurementHostIntegration
         ProcurementBudgetRoutes.Map(app);
         ProcurementPolicyEvaluationRoutes.Map(app);
         ProcurementApprovalReadinessRoutes.Map(app);
+        ProcurementApprovalExecutionRoutes.MapRoutes(app);
         ProcurementPlanRoutes.MapRoutes(app);
         ProcurementConfigurationRoutes.MapRoutes(app);
         ProcurementSpendingAuthorityRoutes.MapRoutes(app);

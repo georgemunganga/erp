@@ -490,6 +490,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureCommercialRelationships(modelBuilder);
         ConfigureSpendingAuthority(modelBuilder);
         ConfigureApprovalOutcomes(modelBuilder);
+        ConfigureApprovalExecution(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
@@ -666,6 +667,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
         GuardSpendingAuthorityChanges();
         GuardApprovalOutcomeChanges();
+        GuardApprovalExecution();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();
