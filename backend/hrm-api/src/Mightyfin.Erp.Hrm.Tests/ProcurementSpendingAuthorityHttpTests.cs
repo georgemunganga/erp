@@ -197,9 +197,13 @@ public sealed class ProcurementSpendingAuthorityHttpTests
                 core.Workers.Add(worker); core.LocalUsers.Add(account); return account;
             }
             var owner = Person("FamilyOwner"); var subject = Person("FamilySubject"); await core.SaveChangesAsync();
-            var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
-            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            void Acting(Guid principal) => scope.Set("tenant-a", company, principal.ToString("D"), null, null, false, "read-family-fixture");
+            async Task<T> AsActor<T>(Guid principal, Func<ProcurementDbContext, Task<T>> work)
+            {
+                using var actingServices = app.Services.CreateScope();
+                actingServices.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
+                    "tenant-a", company, principal.ToString("D"), null, null, false, "read-family-fixture");
+                return await work(actingServices.ServiceProvider.GetRequiredService<ProcurementDbContext>());
+            }
             var maker = new SpendingAuthorityConfigurationActor("tenant-a", company, owner.Id.ToString("D"), true,
                 new HashSet<string>([SpendingAuthorityConfiguration.ConfigurePermission]));
             var reviewer = new SpendingAuthorityConfigurationActor("tenant-a", company, user.ToString("D"), true,
@@ -208,25 +212,38 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             var now = DateTimeOffset.UtcNow.AddMinutes(-1);
             SpendingAuthorityDraft Draft(bool all) => new("ZMW", "EstimatedLineBase", 100, now.AddDays(-1),
                 AllBranches: all, BranchRef: all ? null : branch, AllDepartments: true, AllCategories: true);
-            Acting(owner.Id);
-            var first = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(globalActive), maker, now, []);
-            db.AddScoped(first); await db.SaveChangesAsync();
+            var firstId = await AsActor(owner.Id, async db =>
+            {
+                var first = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(globalActive), maker, now, []);
+                db.AddScoped(first); await db.SaveChangesAsync();
+                if (globalActive)
+                {
+                    SpendingAuthorityConfiguration.Submit(first, first.Version, maker, target, now);
+                    await db.SaveChangesAsync();
+                }
+                return first.Id;
+            });
             if (globalActive)
+                await AsActor(user, async db =>
+                {
+                    var first = await db.SpendingAuthorityGrants.SingleAsync(x => x.Id == firstId);
+                    SpendingAuthorityConfiguration.Activate(first, first.Version, reviewer, target, "Reviewed", now, [first]);
+                    await db.SaveChangesAsync(); return true;
+                });
+            var pendingId = await AsActor(owner.Id, async db =>
             {
-                SpendingAuthorityConfiguration.Submit(first, first.Version, maker, target, now); await db.SaveChangesAsync();
-                Acting(user);
-                SpendingAuthorityConfiguration.Activate(first, first.Version, reviewer, target, "Reviewed", now, [first]); await db.SaveChangesAsync();
-            }
-            Acting(owner.Id);
-            var pending = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(false), maker, now, [first]);
-            db.AddScoped(pending); await db.SaveChangesAsync();
-            SpendingAuthorityConfiguration.Submit(pending, pending.Version, maker, target, now); await db.SaveChangesAsync();
-            if (newerDraft)
-            {
-                var next = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(false), maker, now, [first, pending]);
-                db.AddScoped(next); await db.SaveChangesAsync();
-            }
-            return (pending.Id, first.Id);
+                var first = await db.SpendingAuthorityGrants.SingleAsync(x => x.Id == firstId);
+                var pending = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(false), maker, now, [first]);
+                db.AddScoped(pending); await db.SaveChangesAsync();
+                SpendingAuthorityConfiguration.Submit(pending, pending.Version, maker, target, now); await db.SaveChangesAsync();
+                if (newerDraft)
+                {
+                    var next = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(false), maker, now, [first, pending]);
+                    db.AddScoped(next); await db.SaveChangesAsync();
+                }
+                return pending.Id;
+            });
+            return (pendingId, firstId);
         }
         public static async Task<Fixture> Start()
         {
