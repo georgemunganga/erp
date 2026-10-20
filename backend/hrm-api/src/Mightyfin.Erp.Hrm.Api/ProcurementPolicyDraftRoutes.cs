@@ -32,7 +32,7 @@ public static partial class ProcurementPolicyDraftRoutes
 
     private static IResult ValidateRules(PolicyValidationRequest input)
     {
-        var issues = ReceivingPolicyRules.IsReceivingDocument(input.RulesJson) ? ReceivingPolicyRules.Validate(input.RulesJson) : PolicyRuleValidator.Validate(input.RulesJson);
+        var issues = InvoiceMatchingPolicyRules.IsMatchingDocument(input.RulesJson) ? InvoiceMatchingPolicyRules.Validate(input.RulesJson) : ReceivingPolicyRules.IsReceivingDocument(input.RulesJson) ? ReceivingPolicyRules.Validate(input.RulesJson) : PolicyRuleValidator.Validate(input.RulesJson);
         return Results.Ok(new { isValid = issues.Count == 0, issues });
     }
 
@@ -43,6 +43,8 @@ public static partial class ProcurementPolicyDraftRoutes
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
         if (policy.PolicyKey == "RECEIVING") return Results.Ok(new { policyId = policy.Id, isAuthority = false,
             status = "ReceivingPreviewRequiresSealedSource", issues = ReceivingPolicyRules.Validate(policy.RulesJson) });
+        if (policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
+            status = "InvoiceMatchingPreviewRequiresSourceAndOwnerEvidence", issues = InvoiceMatchingPolicyRules.Validate(policy.RulesJson) });
         var coverageIssues = PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
         var decision = PolicyRulePreview.Evaluate(policy.RulesJson, scenario);
         return Results.Ok(new { policyId = policy.Id, policy.PolicyVersionNumber,
@@ -53,7 +55,7 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, CancellationToken ct)
     {
         var normalized = key?.Trim().ToUpperInvariant();
-        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING"))
+        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING"))
             return Problem("validation-failed", "Choose purchase requests or purchase orders.", 422);
         var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
         var matches = await db.PolicyVersions.AsNoTracking()
@@ -121,7 +123,7 @@ public static partial class ProcurementPolicyDraftRoutes
         var issue = Validate(input);
         if (issue is not null) return Problem("validation-failed", issue, 422);
         var key = input.PolicyKey!.Trim().ToUpperInvariant();
-        if (key == "RECEIVING" && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
+        if ((key is "RECEIVING" or "INVOICE_MATCHING") && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
             return Problem("receiving-authority-unavailable", "Your current account cannot configure receiving rules.", 403);
         var next = (await db.PolicyVersions.AsNoTracking()
             .Where(x => x.PolicyKey == key).MaxAsync(x => (int?)x.PolicyVersionNumber, ct) ?? 0) + 1;
@@ -145,7 +147,7 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
-        if (policy.PolicyKey == "RECEIVING" && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
+        if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING") && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
             return Problem("receiving-authority-unavailable", "Your current account cannot configure receiving rules.", 403);
         if (policy.Version != input.Version)
             return Problem("version-conflict", "Refresh this policy draft before saving.", 409);
@@ -217,9 +219,9 @@ public static partial class ProcurementPolicyDraftRoutes
                 return Problem("effective-date", "Choose a future start date in a new draft before publication.", 422);
             var referenceIssue = await CheckCompanyRules(policy, db, organizationDb, scope, ct, "procurement-configuration-approve");
             if (referenceIssue is not null) return referenceIssue;
-            if (policy.PolicyKey == "RECEIVING" && !await ReceivingIndependentReviewer(organizationDb, scope, policy, ct))
+            if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING") && !await ReceivingIndependentReviewer(organizationDb, scope, policy, ct))
                 return Problem("self-approval", "Another current authorized worker must independently review this receiving policy.", 403);
-            var coverage = policy.PolicyKey == "RECEIVING" ? ReceivingPolicyRules.Validate(policy.RulesJson) : PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
+            var coverage = policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey ? InvoiceMatchingPolicyRules.Validate(policy.RulesJson) : policy.PolicyKey == "RECEIVING" ? ReceivingPolicyRules.Validate(policy.RulesJson) : PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
             if (coverage.Count != 0)
                 return Results.Json(new { code = "coverage-failed",
                     message = "Resolve rule coverage and overlaps before publication.", issues = coverage },
@@ -263,7 +265,7 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
-        if (policy.PolicyKey == "RECEIVING" && !await ReceivingIndependentReviewer(organizationDb, scope, policy, ct))
+        if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING") && !await ReceivingIndependentReviewer(organizationDb, scope, policy, ct))
             return Problem("self-approval", "Another current authorized worker must independently review this receiving policy.", 403);
         if (policy.Version != input.Version)
             return Problem("version-conflict", "Refresh this policy before returning it.", 409);
@@ -285,6 +287,7 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
         CancellationToken ct, string receivingPermission = "procurement-configuration-edit")
     {
+        if (policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey) return await CheckInvoiceMatchingCompanyRules(policy, db, organizationDb, scope, receivingPermission, ct);
         if (policy.PolicyKey == "RECEIVING") return await CheckReceivingCompanyRules(policy, db, organizationDb, scope, receivingPermission, ct);
         var issues = PolicyRuleValidator.Validate(policy.RulesJson);
         if (issues.Count != 0)

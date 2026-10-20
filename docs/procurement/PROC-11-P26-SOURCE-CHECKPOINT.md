@@ -68,3 +68,11 @@ unknown/incomparable legacy variance rather than manufacture zero.
 Model/denial test source is authored in `InvoiceMatchingPersistenceTests`. It is not evidence of
 PostgreSQL constraint enforcement; migration generation, real FK/rollback/numeric rehearsal,
 restricted runtime-role tests and actual mapped HTTP concurrency/replay gates remain required.
+
+The matching policy schema now plugs into the existing configuration policy routes for
+validation, draft/review/publication/return and effective-policy lookup. The same current
+canonical worker independence helper used for receiving configuration applies; real company
+currency and active category references are checked. Preview remains explicitly non-authoritative
+and requires issued, document-review and owner-consumption evidence. No matching policy is seeded,
+published or enabled by these source changes. Policy API integration tests and independent review
+of the extension remain pending alongside the existing release gates.

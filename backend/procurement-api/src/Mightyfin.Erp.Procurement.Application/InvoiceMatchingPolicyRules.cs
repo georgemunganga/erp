@@ -10,6 +10,17 @@ public static class InvoiceMatchingPolicyRules
     public const string PolicyKey = "INVOICE_MATCHING";
     public sealed record Document(string CurrencyCode, int MoneyScale, InvoiceMoneyRounding Rounding,
         IReadOnlyList<InvoiceCategoryMatchRule> Rules);
+    public static bool IsMatchingDocument(string? json)
+    {
+        try { using var document = JsonDocument.Parse(json ?? ""); return document.RootElement.TryGetProperty("transactionType", out var value) && value.GetString() == "InvoiceMatching"; }
+        catch (Exception error) when (error is JsonException or InvalidOperationException) { return false; }
+    }
+    public static IReadOnlyList<PolicyRuleIssue> Validate(string? json)
+    {
+        try { Parse(json ?? ""); return []; }
+        catch (Exception error) when (error is JsonException or InvalidOperationException or KeyNotFoundException or FormatException or OverflowException)
+        { return [new("$", "Use explicit invoice matching categories, method, acceptance kind, rounding and exact tolerance strings. " + error.Message)]; }
+    }
     public static Document Parse(string json)
     {
         Need(!string.IsNullOrWhiteSpace(json) && System.Text.Encoding.UTF8.GetByteCount(json) <= 65536
