@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -190,6 +191,10 @@ public static class ProcurementOrderDraftRoutes
                 return "Each line needs a description of up to 500 characters.";
             if (string.IsNullOrWhiteSpace(line.UnitCode) || line.UnitCode.Trim().Length > 20)
                 return "Each line needs a unit of up to 20 characters.";
+            if (!ExactDecimalJsonCodec.IsRepresentable(line.Quantity, 18, 4)
+                || !ExactDecimalJsonCodec.IsRepresentable(line.UnitPrice, 18, 4)
+                || !ExactDecimalJsonCodec.IsRepresentable(line.TaxAmount, 18, 4))
+                return "Use up to four decimal places for quantity, unit price and tax. No changes were saved.";
             if (line.Quantity <= 0 || line.UnitPrice < 0 || line.TaxAmount < 0
                 || line.Quantity > 1_000_000m || line.UnitPrice > 1_000_000_000m
                 || line.TaxAmount > 1_000_000_000_000m)
@@ -245,5 +250,7 @@ public sealed record OrderDraftInput(Guid SupplierId, string? CurrencyCode, stri
     string? BillToRef, string? PaymentTermRef, DateOnly? ExpectedDeliveryOn,
     List<OrderDraftLineInput>? Lines);
 public sealed record OrderDraftLineInput(Guid? Id, string? Description, string? UnitCode,
-    decimal Quantity, decimal UnitPrice, decimal TaxAmount, string? CostCenterRef,
+    [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal Quantity,
+    [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal UnitPrice,
+    [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal TaxAmount, string? CostCenterRef,
     string? ProjectRef, DateOnly? ExpectedDeliveryOn);

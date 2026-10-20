@@ -99,6 +99,7 @@ sealed partial class Probe
         await VerifyFundedUnsubmittedCancellation(supplier);
         await VerifyOrderAmountNotRepresentable(supplier);
         await VerifyDecimalStringOrderTransport(supplier);
+        await VerifyOrderExactInput(supplier);
         await VerifyOrderRevokedGrantReplay(orderId, decisionPath, decisionBody, decisionKey, issueBody, issueKey);
     }
 
