@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -22,6 +24,23 @@ public sealed class ReceivingPersistenceModelTests
         Assert.Equal("receiving_acceptance_effects", db.Model.FindEntityType(typeof(ReceivingAcceptanceEffect))!.GetTableName());
         Assert.Null(db.Model.FindEntityType(typeof(GoodsPhysicalObservation)));
         Assert.Null(db.Model.FindEntityType(typeof(GoodsInspectionEvidence)));
+    }
+    [Fact]
+    public void Final_physical_and_inspection_checks_reject_missing_nullable_sequences_without_requiring_them_on_legacy_or_drafts()
+    {
+        using var db = Context(); var model = db.GetService<IDesignTimeModel>().Model;
+        var line = model.FindEntityType(typeof(GoodsReceiptLine))!;
+        var inspection = model.FindEntityType(typeof(ReceiptInspection))!;
+        // These columns intentionally stay nullable for v0 and unrecorded drafts.
+        Assert.True(line.FindProperty(nameof(GoodsReceiptLine.PhysicalSequence))!.IsNullable);
+        Assert.True(inspection.FindProperty(nameof(ReceiptInspection.LedgerSequence))!.IsNullable);
+        var physicalSql = line.GetCheckConstraints().Single(x => x.Name == "ck_receiving_line_execution").Sql;
+        var inspectionSql = inspection.GetCheckConstraints().Single(x => x.Name == "ck_receiving_inspection_execution").Sql;
+        Assert.StartsWith("execution_version = 0 OR", physicalSql);
+        Assert.Contains("physical_observation_id IS NULL OR", physicalSql);
+        Assert.Contains("physical_sequence IS NOT NULL AND physical_sequence > 0", physicalSql);
+        Assert.StartsWith("execution_version = 0 OR", inspectionSql);
+        Assert.Contains("ledger_sequence IS NOT NULL AND ledger_sequence > 0", inspectionSql);
     }
     [Fact]
     public void Header_line_state_foreign_keys_bind_company_PO_issued_and_exact_line()
