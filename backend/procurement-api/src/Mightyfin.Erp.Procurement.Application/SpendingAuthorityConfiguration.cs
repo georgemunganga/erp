@@ -14,6 +14,7 @@ public sealed record SpendingAuthoritySubject(string TenantId, Guid LegalEntityI
 
 /// <summary>Incomplete values are permitted in a draft; nothing here confers authority.</summary>
 public sealed record SpendingAuthorityDraft(string? CurrencyCode = null, string? AmountBasis = null,
+    [property: System.Text.Json.Serialization.JsonConverter(typeof(AuthorityAmountJsonConverter))]
     decimal MaximumAmount = 0, DateTimeOffset EffectiveFrom = default,
     DateTimeOffset? EffectiveUntil = null, bool AllBranches = false, Guid? BranchRef = null,
     bool AllDepartments = false, Guid? DepartmentRef = null, bool AllCategories = false,
@@ -71,8 +72,7 @@ public static class SpendingAuthorityConfiguration
     public static void Submit(ProcurementSpendingAuthorityGrant grant, long expectedVersion,
         SpendingAuthorityConfigurationActor actor, SpendingAuthoritySubject subject, DateTimeOffset at)
     {
-        RequireOwnedDraft(grant, expectedVersion, actor);
-        AssertComplete(grant, subject, at);
+        AssertCanSubmit(grant, expectedVersion, actor, subject, at);
         grant.State = "PendingReview";
         grant.SubmittedByPrincipalId = actor.PrincipalId;
         grant.SubmittedAt = at;
@@ -84,7 +84,7 @@ public static class SpendingAuthorityConfiguration
     public static void ReturnForChanges(ProcurementSpendingAuthorityGrant grant, long expectedVersion,
         SpendingAuthorityConfigurationActor actor, string reason, DateTimeOffset at)
     {
-        RequireReviewer(grant, expectedVersion, actor);
+        AssertCanReturn(grant, expectedVersion, actor);
         RequireReason(reason);
         grant.State = "Draft";
         grant.SubmittedByPrincipalId = null;
@@ -98,12 +98,8 @@ public static class SpendingAuthorityConfiguration
         SpendingAuthorityConfigurationActor actor, SpendingAuthoritySubject subject, string reason,
         DateTimeOffset at, IReadOnlyCollection<ProcurementSpendingAuthorityGrant> family)
     {
-        RequireReviewer(grant, expectedVersion, actor);
         RequireReason(reason);
-        AssertComplete(grant, subject, at);
-        var relatives = RequireCurrentFamily(grant, family);
-        if (relatives.Any(x => x.Id != grant.Id && x.State == "Active"))
-            throw new InvalidOperationException("AuthoritySupersessionRequired");
+        AssertCanActivate(grant, expectedVersion, actor, subject, at, family);
         Publish(grant, actor, reason, at);
     }
 
@@ -113,20 +109,8 @@ public static class SpendingAuthorityConfiguration
         SpendingAuthorityConfigurationActor actor, SpendingAuthoritySubject subject, string reason,
         DateTimeOffset at, IReadOnlyCollection<ProcurementSpendingAuthorityGrant> family)
     {
-        RequireReviewer(replacement, expectedVersion, actor);
         RequireReason(reason);
-        AssertComplete(replacement, subject, at);
-        var relatives = RequireCurrentFamily(replacement, family);
-        if (!SameAuthority(previous, replacement) || previous.Id == replacement.Id
-            || previous.Version <= 0 || previous.Version == long.MaxValue
-            || previous.Version != expectedPreviousVersion || previous.State != "Active"
-            || previous.AuthorityVersion >= replacement.AuthorityVersion
-            || relatives.Count(x => x.Id == previous.Id && ReferenceEquals(x, previous)) != 1
-            || relatives.Any(x => x.Id != previous.Id && x.Id != replacement.Id && x.State == "Active"))
-            throw new InvalidOperationException("AuthorityPredecessorInvalid");
-        if (replacement.EffectiveFrom > at)
-            throw new InvalidOperationException("FutureAuthoritySupersessionUnsupported");
-        AssertFingerprint(previous);
+        AssertCanSupersede(replacement, expectedVersion, previous, expectedPreviousVersion, actor, subject, at, family);
         previous.State = "Superseded";
         previous.SupersededByGrantId = replacement.Id;
         previous.SupersededAt = at;
@@ -137,16 +121,56 @@ public static class SpendingAuthorityConfiguration
     public static void Revoke(ProcurementSpendingAuthorityGrant grant, long expectedVersion,
         SpendingAuthorityConfigurationActor actor, string reason, DateTimeOffset at)
     {
-        RequireActor(actor, grant.TenantId, grant.LegalEntityId, RevokePermission);
-        if (grant.Version <= 0 || grant.Version == long.MaxValue || grant.Version != expectedVersion || grant.State != "Active")
-            throw new InvalidOperationException("AuthorityStateOrVersionChanged");
+        AssertCanRevoke(grant, expectedVersion, actor);
         RequireReason(reason);
-        AssertFingerprint(grant);
         grant.State = "Revoked";
         grant.RevokedByPrincipalId = actor.PrincipalId;
         grant.RevokedAt = at;
         grant.RevocationReason = reason.Trim();
         Touch(grant, actor, at);
+    }
+
+    // Nonmutating eligibility guards shared by read projections and the actual commands.
+    // A positive read is advisory; commands recheck inside the family transaction.
+    public static void AssertCanSubmit(ProcurementSpendingAuthorityGrant grant, long version,
+        SpendingAuthorityConfigurationActor actor, SpendingAuthoritySubject subject, DateTimeOffset at)
+    { RequireOwnedDraft(grant, version, actor); AssertComplete(grant, subject, at); }
+
+    public static void AssertCanReturn(ProcurementSpendingAuthorityGrant grant, long version,
+        SpendingAuthorityConfigurationActor actor) => RequireReviewer(grant, version, actor);
+
+    public static void AssertCanActivate(ProcurementSpendingAuthorityGrant grant, long version,
+        SpendingAuthorityConfigurationActor actor, SpendingAuthoritySubject subject, DateTimeOffset at,
+        IReadOnlyCollection<ProcurementSpendingAuthorityGrant> family)
+    {
+        RequireReviewer(grant, version, actor); AssertComplete(grant, subject, at);
+        if (RequireCurrentFamily(grant, family).Any(x => x.Id != grant.Id && x.State == "Active"))
+            throw new InvalidOperationException("AuthoritySupersessionRequired");
+    }
+
+    public static void AssertCanSupersede(ProcurementSpendingAuthorityGrant replacement, long version,
+        ProcurementSpendingAuthorityGrant previous, long previousVersion, SpendingAuthorityConfigurationActor actor,
+        SpendingAuthoritySubject subject, DateTimeOffset at, IReadOnlyCollection<ProcurementSpendingAuthorityGrant> family)
+    {
+        RequireReviewer(replacement, version, actor); AssertComplete(replacement, subject, at);
+        var relatives = RequireCurrentFamily(replacement, family);
+        if (!SameAuthority(previous, replacement) || previous.Id == replacement.Id
+            || previous.Version <= 0 || previous.Version == long.MaxValue || previous.Version != previousVersion
+            || previous.State != "Active" || previous.AuthorityVersion >= replacement.AuthorityVersion
+            || relatives.Count(x => x.Id == previous.Id && ReferenceEquals(x, previous)) != 1
+            || relatives.Any(x => x.Id != previous.Id && x.Id != replacement.Id && x.State == "Active"))
+            throw new InvalidOperationException("AuthorityPredecessorInvalid");
+        if (replacement.EffectiveFrom > at) throw new InvalidOperationException("FutureAuthoritySupersessionUnsupported");
+        AssertFingerprint(previous);
+    }
+
+    public static void AssertCanRevoke(ProcurementSpendingAuthorityGrant grant, long version,
+        SpendingAuthorityConfigurationActor actor)
+    {
+        RequireActor(actor, grant.TenantId, grant.LegalEntityId, RevokePermission);
+        if (grant.Version <= 0 || grant.Version == long.MaxValue || grant.Version != version || grant.State != "Active")
+            throw new InvalidOperationException("AuthorityStateOrVersionChanged");
+        AssertFingerprint(grant);
     }
 
     /// <summary>Repository guard: publication locks business values, not later lifecycle evidence.</summary>

@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -20,6 +21,69 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementSpendingAuthorityHttpTests
 {
     private const string Path = "/api/procurement/v1/configuration/spending-authorities";
+
+    [Fact]
+    public async Task Hidden_global_predecessor_does_not_advertise_activation_or_leak_its_identity()
+    {
+        await using var fixture = await Fixture.Start();
+        var (pending, predecessor) = await fixture.SeedReviewFamily(globalActive: true, newerDraft: false);
+        var response = await fixture.Send(HttpMethod.Get, Path + "/" + pending, "erp_admin", branch: fixture.Branch);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var text = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(text);
+        Assert.Equal(new[] { "Return" }, json.RootElement.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("previousGrantId").ValueKind);
+        Assert.DoesNotContain(predecessor.ToString("D"), text);
+    }
+
+    [Fact]
+    public async Task Newer_family_draft_suppresses_activation_of_older_pending_version()
+    {
+        await using var fixture = await Fixture.Start();
+        var (pending, _) = await fixture.SeedReviewFamily(globalActive: false, newerDraft: true);
+        var response = await fixture.Send(HttpMethod.Get, Path + "/" + pending, "erp_admin", branch: fixture.Branch);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(new[] { "Return" }, json.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
+        Assert.Contains(json.GetProperty("blockingReasons").EnumerateArray(), x => x.GetProperty("code").GetString() == "AuthorityLatestVersionRequired");
+    }
+
+    [Fact]
+    public async Task Read_projection_has_exact_amount_name_and_current_server_actions()
+    {
+        await using var fixture = await Fixture.Start();
+        var response = await fixture.Send(HttpMethod.Get, Path + "/" + fixture.Grant, "erp_admin", branch: fixture.OtherBranch);
+        var detail = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("0", detail.GetProperty("maximumAmount").GetString());
+        Assert.Equal("Authority owner", detail.GetProperty("principalDisplayName").GetString());
+        Assert.Equal(new[] { "Edit" }, detail.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
+        Assert.NotEmpty(detail.GetProperty("blockingReasons").EnumerateArray());
+        await fixture.SetReadOnly();
+        response = await fixture.Send(HttpMethod.Get, Path + "/" + fixture.Grant, "erp_admin", branch: fixture.OtherBranch);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        detail = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(detail.GetProperty("allowedActions").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task People_lookup_is_scoped_bounded_and_omits_contact_credentials_and_ambiguous_logins()
+    {
+        await using var fixture = await Fixture.Start();
+        var response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people?limit=1", "erp_admin", branch: fixture.Branch);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var person = Assert.Single(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(fixture.User.ToString("D"), person.GetProperty("principalId").GetString());
+        Assert.Equal(new[] { "displayName", "principalId", "workerId" }, person.EnumerateObject().Select(x => x.Name).Order().ToArray());
+        response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people?limit=500", "erp_admin", branch: fixture.OtherBranch);
+        body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(50, body.GetProperty("limit").GetInt32());
+        await fixture.AddAlias();
+        response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people", "erp_admin", branch: fixture.Branch);
+        body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.Send(HttpMethod.Get, Path + "/lookups/people", "employee")).StatusCode);
+    }
 
     [Fact]
     public async Task Anonymous_and_unconfigured_roles_cannot_read_or_mutate_authority_configuration()
@@ -102,6 +166,84 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             (await core.LocalUsers.SingleAsync(x => x.Id == user)).RolesCsv = roles;
             await core.SaveChangesAsync();
+        }
+        public async Task SetReadOnly()
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.LocalUsers.SingleAsync(x => x.Id == user)).RolesCsv = "employee";
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "employee", RoleName = "Reader", Active = true,
+                PermissionsCsv = "procurement-access,procurement-authority-read" });
+            await core.SaveChangesAsync();
+        }
+        public async Task AddAlias()
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var original = await core.LocalUsers.SingleAsync(x => x.Id == user);
+            core.LocalUsers.Add(new LocalUser { Email = "alias@example.test", NormalizedEmail = "ALIAS@EXAMPLE.TEST",
+                DisplayName = "Alias", PasswordHash = "test-placeholder-only", RolesCsv = "erp_admin", WorkerId = original.WorkerId });
+            await core.SaveChangesAsync();
+        }
+        public async Task<(Guid Pending, Guid Predecessor)> SeedReviewFamily(bool globalActive, bool newerDraft)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            LocalUser Person(string name)
+            {
+                var worker = new Worker { EmployeeNo = name, FirstName = name, LastName = "Fixture", Status = "active", LocationId = otherBranch };
+                var account = new LocalUser { Email = name + "@example.test", NormalizedEmail = name.ToUpperInvariant() + "@EXAMPLE.TEST",
+                    DisplayName = name, PasswordHash = "fixture-only", RolesCsv = "erp_admin", WorkerId = worker.Id };
+                core.Workers.Add(worker); core.LocalUsers.Add(account); return account;
+            }
+            var owner = Person("FamilyOwner"); var subject = Person("FamilySubject"); await core.SaveChangesAsync();
+            async Task<T> AsActor<T>(Guid principal, Func<ProcurementDbContext, Task<T>> work)
+            {
+                using var actingServices = app.Services.CreateScope();
+                actingServices.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
+                    "tenant-a", company, principal.ToString("D"), null, null, false, "read-family-fixture");
+                return await work(actingServices.ServiceProvider.GetRequiredService<ProcurementDbContext>());
+            }
+            var maker = new SpendingAuthorityConfigurationActor("tenant-a", company, owner.Id.ToString("D"), true,
+                new HashSet<string>([SpendingAuthorityConfiguration.ConfigurePermission]));
+            var reviewer = new SpendingAuthorityConfigurationActor("tenant-a", company, user.ToString("D"), true,
+                new HashSet<string>([SpendingAuthorityConfiguration.ReviewPermission]));
+            var target = new SpendingAuthoritySubject("tenant-a", company, subject.Id.ToString("D"), true, true);
+            var now = DateTimeOffset.UtcNow.AddMinutes(-1);
+            SpendingAuthorityDraft Draft(bool all) => new("ZMW", "EstimatedLineBase", 100, now.AddDays(-1),
+                AllBranches: all, BranchRef: all ? null : branch, AllDepartments: true, AllCategories: true);
+            var firstId = await AsActor(owner.Id, async db =>
+            {
+                var first = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(globalActive), maker, now, []);
+                db.AddScoped(first); await db.SaveChangesAsync();
+                if (globalActive)
+                {
+                    SpendingAuthorityConfiguration.Submit(first, first.Version, maker, target, now);
+                    await db.SaveChangesAsync();
+                }
+                return first.Id;
+            });
+            if (globalActive)
+                await AsActor(user, async db =>
+                {
+                    var first = await db.SpendingAuthorityGrants.SingleAsync(x => x.Id == firstId);
+                    SpendingAuthorityConfiguration.Activate(first, first.Version, reviewer, target, "Reviewed", now, [first]);
+                    await db.SaveChangesAsync(); return true;
+                });
+            var pendingId = await AsActor(owner.Id, async db =>
+            {
+                var first = await db.SpendingAuthorityGrants.SingleAsync(x => x.Id == firstId);
+                var pending = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(false), maker, now, [first]);
+                db.AddScoped(pending); await db.SaveChangesAsync();
+                SpendingAuthorityConfiguration.Submit(pending, pending.Version, maker, target, now); await db.SaveChangesAsync();
+                if (newerDraft)
+                {
+                    var next = SpendingAuthorityConfiguration.CreateDraft("FAMILY", target.PrincipalId, Draft(false), maker, now, [first, pending]);
+                    db.AddScoped(next); await db.SaveChangesAsync();
+                }
+                return pending.Id;
+            });
+            return (pendingId, firstId);
         }
         public static async Task<Fixture> Start()
         {
