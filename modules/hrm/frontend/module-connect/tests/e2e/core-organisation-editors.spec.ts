@@ -21,6 +21,7 @@ async function configure(page: Page, options: { uncertain?: boolean; deny?: bool
       if (path === `/api/hrm/admin/legal-entities/${company.id}`) { company = { ...company, ...body }; await route.fulfill({ json: company }); return; }
       if (path === `/api/hrm/admin/org-units/${department.id}`) { department = { ...department, ...body }; await route.fulfill({ json: department }); return; }
       if (path === "/api/hrm/admin/org-units") { department = { ...department, ...body, id: "department-created" }; await route.fulfill({ status: 201, json: department }); return; }
+      if (path === "/api/hrm/admin/locations") { await route.fulfill({ status: 201, json: { ...body, id: "location-created" } }); return; }
       unexpected.push(`${request.method()} ${path}`);
       await route.fulfill({ status: 404, json: { message: "Unexpected operation" } }); return;
     }
@@ -126,5 +127,30 @@ test("existing shell company switch unmounts a pending editor and ignores its la
   await expect(page.getByText("Organization settings saved.", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(observed.companyReads).toHaveLength(reads);
+  expect(observed.writes).toHaveLength(1);
+});
+
+
+test("late location creation cannot close a new shell context location form", async ({ page }) => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const observed = await configure(page, { pending, secondCompany: true });
+  await page.getByRole("button", { name: "Add work location", exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Location name", { exact: true }).fill("Old context location");
+  await page.getByRole("dialog").getByLabel("Code", { exact: true }).fill("OLD");
+  await page.getByRole("dialog").getByRole("button", { name: "Create location", exact: true }).click();
+  await expect.poll(() => observed.writes.length).toBe(1);
+  await page.locator('button[aria-label="Organization and branch"]').evaluate((button) => button.click());
+  await page.getByRole("button", { name: "Remote Company", exact: true, includeHidden: true }).evaluate((button) => button.click());
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add work location", exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Location name", { exact: true }).fill("Keep new context input");
+  const completed = page.waitForResponse((response) => response.request().method() === "POST" && response.url().endsWith("/admin/locations"));
+  release();
+  await completed;
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("dialog").getByLabel("Location name", { exact: true })).toHaveValue("Keep new context input");
+  await expect(page.getByText("Location created. It is now available for placement.", { exact: true })).toHaveCount(0);
   expect(observed.writes).toHaveLength(1);
 });

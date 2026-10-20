@@ -991,7 +991,7 @@ export function OrganisationConfig() {
                   <LocationTable rows={data.locations} asAt={asAt} canAct={canAct && !USE_REAL} workforceCountsAvailable={workforceCountsAvailable} />
                   <NewLocationDialog
                     open={newLocation}
-                    onOpenChange={setNewLocation}
+                    onOpenChange={(open) => { if (data.editorContext === activeEditorContext.current) setNewLocation(open); }}
                     entities={data.entities}
                     onSaved={() => {
                       if (data.editorContext !== activeEditorContext.current) return;
