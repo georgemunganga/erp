@@ -30,10 +30,11 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Length > 1 || args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving")))
-    throw new ArgumentException("Use at most one of --serve, --orders, --settings or --receiving.");
+if (args.Length > 1 || args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching")))
+    throw new ArgumentException("Use at most one of --serve, --orders, --settings, --receiving or --matching.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
-var receiving = args.Contains("--receiving", StringComparer.Ordinal);
+var matching = args.Contains("--matching", StringComparer.Ordinal);
+var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
 var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving;
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
@@ -42,12 +43,18 @@ if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
 if (orders && bootstrapConnection is null) throw new InvalidOperationException("Order verification requires distinct bootstrap/runtime identities.");
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving);
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching);
 if (serve)
 {
     var manifest = await probe.PrepareBrowserFixture(port);
     Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
+}
+else if (matching)
+{
+    await probe.VerifyPositiveReceiving();
+    await probe.VerifyUnavailableInvoiceMatching();
+    Console.WriteLine("PASS: actual invoice mapping/comparison blocked by unavailable original-unit and Finance history owners; no AP/claim authority fabricated.");
 }
 else if (receiving)
 {
@@ -89,7 +96,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private Guid OrderManager2 => manager2;
     private bool OrderDistinctRuntime => distinctRuntime;
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false)
     {
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
@@ -120,6 +127,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             ApprovedManualDispatchPolicyReference = "SYNTHETIC-APPROVED-DELIVERY", AllowedDeliveryChannels = ["SecureEmail"] };
         builder.Services.AddSingleton(orderFeature);
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions { DraftsEnabled = receiving, PositiveExecutionEnabled = receiving, ExecutionDatabaseConfigured = true });
+        builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions { Enabled = matching, ExecutionDatabaseConfigured = true });
         builder.Services.AddAuthentication("probe").AddScheme<AuthenticationSchemeOptions, ProbeAuthentication>("probe", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build();
@@ -130,6 +138,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
             ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
             if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
+            if (matching) { ProcurementInvoiceIntakeRoutes.MapRoutes(app); ProcurementInvoiceMatchingRoutes.MapRoutes(app); }
             ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
         }
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
@@ -209,7 +218,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         if (bootstrapConnection is not null)
-            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve || orders, orders, receiving);
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve || orders, orders, receiving, matching);
         await app.StartAsync();
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
             people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature,

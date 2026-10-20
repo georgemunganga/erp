@@ -34,6 +34,12 @@ public static class ProcurementHostIntegration
         receivingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(receivingOptions);
         services.AddScoped<IProcurementReceivingSchemaReadiness, ProcurementReceivingSchemaReadiness>();
+        var matchingOptions = configuration.GetSection("Procurement:InvoiceMatching").Get<ProcurementInvoiceMatchingExecutionOptions>() ?? new();
+        matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(matchingOptions);
+        services.AddScoped<IProcurementInvoiceMatchingSchemaReadiness, ProcurementInvoiceMatchingSchemaReadiness>();
+        services.AddScoped<IInvoiceHistoricalExposureOwner, UnavailableInvoiceHistoricalExposureOwner>();
+        services.AddScoped<IInvoiceMappingEvidenceReviewer, UnavailableInvoiceMappingEvidenceReviewer>();
         ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
         services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
         services.AddDbContext<ProcurementDbContext>(options =>
@@ -66,6 +72,7 @@ public static class ProcurementHostIntegration
         ProcurementContractDraftRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
+        ProcurementInvoiceMatchingRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
         ProcurementOrderExecutionRoutes.MapRoutes(app);
@@ -152,6 +159,11 @@ public static class ProcurementHostIntegration
                         invoiceIntake = !pending,
                         invoiceDocuments = !pending && app.Services.GetRequiredService<CoreDocumentFeature>().Enabled
                             && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct),
+                        invoiceComparison = !pending
+                            && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().ExecutionDatabaseConfigured
+                            && await services.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(ct),
+                        invoiceQualifiedClaims = false, // No production original-unit reviewer or authenticated Finance history owner is installed.
                         invoiceValidation = false,
                         financeHandoff = false,
                         supplierPortal = false,

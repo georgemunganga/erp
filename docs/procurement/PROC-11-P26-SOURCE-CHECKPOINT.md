@@ -85,3 +85,49 @@ and context guard; and original invoice lines may be inserted only with a same-s
 parent. The original captured line set cannot grow alongside a mapping. Authored model/context
 denials cover these cases. SQL constraints/concurrency and positive mapped execution remain
 unverified; no migration has been generated or production settings changed.
+
+## Actual route adapter checkpoint — authored source, not verified/activated
+
+The new route partials compose into the existing host and shared serializable transaction:
+
+| Route | Permission | Meaning |
+|---|---|---|
+| `POST /invoices/{id}/matching/mappings` | `procurement-invoice-capture` | Persist a complete immutable, unverified line/source/document proposal; preserve original intake. |
+| `POST /invoices/{id}/matching/compare` | `procurement-invoice-match` (explicit grant) | Persist actual comparison evidence/exceptions; a qualified capacity claim additionally needs trusted current review, owner coverage and reconciled P25 acceptance. |
+| `GET /invoices/{id}/matching` | `procurement-invoice-read` | Exact-string original amounts, mapping/history, held-claim pointer and assigned discrepancies; recorded state is not current approval. |
+| `GET /invoices/{id}/matching/commands/{key}?operation=...` | Current recorded operation permission | Actor-owned durable historical recovery after current canonical identity and actual invoice/target-PO record scope checks. |
+
+All are closed by default (`Procurement:InvoiceMatching:Enabled=false`) and require the explicit
+least-privilege execution connection, no pending models/migrations, P25 schema and exact required
+tables/privileges. New matching permission has no role-bootstrap grant. Existing invoice intake
+and unrelated drafts keep their established routes. The legacy final validation/AP capability
+remains false; `invoiceComparison` is a separate configured adapter capability.
+
+`ProcurementReceivingInvoiceProjection` reuses the existing sealed issued-source resolver and
+complete historical ledger reconciliation in a new partial. It does not call the effective-now
+receiving resolver or create state. It verifies retained classification-policy identity/hash and
+uses `ControlledReceiving.Balance` for accepted-minus-reversed and separately dispatched-return
+quantities/net values. Unknown historical acceptance cannot become a qualified source. A truthful
+mapping draft can still be saved without pretending that a declared acceptance is certified.
+
+The only installed original-unit-review and historical Finance owner adapters remain unavailable.
+Comparison therefore persists Blocked with owned exceptions and no capacity claims when those
+owners are missing; no client completeness, reviewed-unit or Finance balance flag is accepted.
+Immutable available Core document versions for the same authorized invoice supply expected hashes
+when Core Documents is configured; absent/unavailable versions cannot verify declared units.
+Comparison/outbox/exception/current pointer and durable command receipt commit together. Existing
+active claims cannot be overwritten or released by remapping/recomparison.
+
+Mapped gate/permission tests are authored. Disposable PostgreSQL probe `--matching` builds on the
+actual receiving fixture, then exercises manual intake, immutable mapping, absent policy rollback,
+independently published actual matching policy, unavailable-owner blocked comparison, exact retry,
+changed-body/unauthorized denial, historical recovery, owned exceptions/outbox and zero fake AP or
+claims. It deliberately installs no fake successful Finance owner/reviewer. Other CLI modes remain
+mutually exclusive and unchanged. New finite runtime grants include no UPDATE/DELETE on immutable
+mapping/result/allocation evidence; their denial probes are included only for `--matching`.
+
+**Remaining gates:** independent route/bridge review; source compile and full relevant tests;
+P26 migration/SQL/model review; raw FK/unique/precision/rollback and CAS PostgreSQL rehearsal;
+restricted-role actual `--matching` HTTP execution; current scope/revocation and race scenarios;
+compatible existing frontend wiring/browser checks; real owner/document-review contracts before
+qualified claims can be enabled. This source is not deployed, migrated or production complete.

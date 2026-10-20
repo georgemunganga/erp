@@ -192,3 +192,14 @@ and a separately governed service policy restricted to another site that must de
 otherwise named organisation-wide owner. Existing receiving policy creation/publication
 is used; no synthetic published receiving policy or successful owner posting is fabricated.
 The probe remains unrun for P25 until its migration and centralized runtime gate are ready.
+
+### Invoice comparison unavailable-owner boundary (source authored; unexecuted)
+
+`--matching` is mutually exclusive with all other modes and includes the reviewed receiving
+fixture before the new invoice adapter scenarios. It requires the eventual P25/P26 migrations,
+separate guarded disposable bootstrap/runtime users and an explicitly unpublished-production
+fixture. It exercises actual invoice mapping, independently governed matching policy, durable
+Blocked comparison under the real unavailable owner/reviewer adapters, exact retry/recovery,
+permission/body-conflict denials, exceptions/outbox and no fabricated capacity/AP effects.
+It does not prove a real Finance owner/reviewer integration or final payable approval.
+No new mode or grant in this tool authorizes production mutation.
