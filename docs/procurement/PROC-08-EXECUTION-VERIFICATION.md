@@ -88,5 +88,24 @@ assets (`index-D-b3C2fm.js`, SHA-256
 `714a19b5a7c25ef03d9170af68121e6544250731826593a601ad93525f146e83`).
 The UI repository's `docs/PROCUREMENT-FINAL-UI-BROWSER-EVIDENCE.md` contains case provenance.
 
-Actual API browser execution remains a separate gate. No complete Procurement release
-or production workflow activation is claimed by this checkpoint.
+The actual API PO browser gate subsequently passed: one case, 2.1 minutes, against a fresh
+restricted PostgreSQL sandbox using backend fixture `f9fca21` and unchanged application
+assets/test source `1a023ac`. It exercised six UI commands, current-purpose reads, exhausted
+source checks and exact delivery retry through actual business responses. The first attempt
+correctly rejected submission after the fixture replaced the named policy role; the fix
+preserved that role and restricted its actions to PO approval only, without PO/PR read or
+PR approval permissions. No production or UI authorization rule changed.
+
+Graceful sandbox shutdown then passed the owner-side persisted check: exactly one allocation,
+Finance confirmation, submission, independent Core decision, issued version and delivery
+confirmation; exact 100 ZMW, ordered quantity 1 and allocated quantity 0. Protected
+`actual-po-browser-checkpoint.json` records source, manifest/log hashes and proof. Passing
+inline traffic attachment was not materialized by the list reporter; terminal/assertion
+results and persisted proof remain available, and the first failure trace was retained.
+Future fixture tests now explicitly write owner-private traffic files. UI evidence is pushed
+in `5ccf22c`; later test-only capture changes do not change these application asset hashes.
+
+Actual settings browser acceptance, the source-aligned release image and production release
+remain separate gates. No complete Procurement module or production workflow activation is
+claimed by this checkpoint. All supplier/Finance/delivery evidence here is synthetic; no
+external supplier email or payment was executed.
