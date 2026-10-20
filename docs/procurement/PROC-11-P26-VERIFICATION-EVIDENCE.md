@@ -27,3 +27,16 @@ The corrected full Procurement API regression **passed: 140 passed, zero failed/
 Subsequently source-reviewed changes were integrated: real browser fixture2765d11/9030e17; database required-evidence checksffa6887; lossless original catalog/request/plan/contract/budget input guardse570b82; malformed nested item correction792f512. These later changes do not inherit the prior140-API pass. The updated domain/model gate and central P26 migration generation are now running; updated API/probe builds follow.
 
 Migration SQL review, private PostgreSQL rehearsal, actual HTTP comparison and actual browser verification remain pending until terminal evidence is recorded. Existing P25 actual receiving/catalog/order passes and mocked invoice UI passes are separate evidence, not substitutes. No production migration/deployment or GitHub CI success is claimed.
+
+## Required-evidence model pass and unaccepted first migration
+
+The next domain/model regression passed **548/548** in41s; terminal0 in `procurement-p26-reviewed-generation`. Log `artifacts/p26/reviewed-model-generation.log`; TRX under `artifacts/p26/domain-required-evidence`. This covers explicit required-evidence CHECK definitions; raw PostgreSQL denial proof remains pending.
+
+EF generated draft `20261020163750_P26InvoiceMatchingExecution`. Independent review identified two blockers before any SQL execution:
+
+1. A new four-column issued-order alternate key consumed a truncated existing constraint name and would cause EF to drop the retained five-column key with dependent P25 foreign keys. The new key now has explicit short name `ak_invoice_issued_order_binding`; a model regression freezes the retained and new names.
+2. The actual preceding schema requires all three variance fields. P26 permits unknown NULL variances. The generated Down would replace NULL with0. The protected reverse now additionally refuses NULL variance via `P26RollbackWouldLoseUnknownVariance`; its generated default-zero reverse operations must be removed.
+
+The unapplied first draft/designer/snapshot are preserved in ignored `artifacts/p26/unaccepted-first-generation`. Only those untracked new files were removed and the tracked snapshot restored to its preceding version before regeneration. Neither existing P25 migration was edited. Correction `b593730` is undergoing a new domain/model gate and regeneration. No accepted P26 migration or database execution is claimed yet.
+
+The private rehearsal helper is versioned under `docs/procurement/sql/p26-rehearsal`; Python compilation and help checks passed. It adds original unverified legacy invoice/line/result/exception preservation and separate used-evidence, unknown-variance and precision-loss stops. No database rehearsal result is inferred from these source checks.
