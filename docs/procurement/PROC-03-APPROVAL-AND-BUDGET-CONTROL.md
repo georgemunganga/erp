@@ -48,7 +48,7 @@ Budget: Pending → Available / Partially Available / Insufficient / Not Configu
 
 ## 12. Data Fields and Ownership
 
-Procurement owns approval instance/step, policy evaluation, task and decision snapshot, actor/delegation, timestamps and reasons. Finance owns budget balance, reservation, transfer and release; Procurement stores response ID/version/time/status. HRMS owns reporting relationships; Workflow owns task execution history. Amount has currency and approved tax-inclusive basis.
+Core Workflow/Approval owns reusable approval cases, stages, assignments, decisions, delegation execution records and task history, including execution actors, timestamps and reasons. Procurement owns the immutable submitted PR/version, policy evaluation, purchasing authority/evidence snapshot, Core case reference and source business outcome; it must not maintain a competing execution ledger. Finance owns budget balances, reservations, transfers and releases; Procurement retains the exact Finance response/evidence ID, version, amount, currency, time and status used for its decision. HRMS owns workforce/reporting relationships and Core Identity owns login principals and access grants. Amounts carry an explicit calculation basis and currency: the existing policy implementation supports estimated line base before discounts, taxes and delivery; tax-inclusive or FX-based authority requires a separately configured and verified calculation. See [the next execution increment contract](PROC-APPROVAL-P01-IMPLEMENTATION.md#next-increment-design--purchase-request-approval-execution) for planned persistence, authorization and transaction requirements; these are not a claim that approval execution is enabled.
 
 ## 13. Screens and Data Views
 
