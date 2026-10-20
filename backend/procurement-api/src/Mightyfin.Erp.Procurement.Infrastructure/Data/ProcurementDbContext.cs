@@ -22,6 +22,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
     public DbSet<PurchaseRequestLine> PurchaseRequestLines => Set<PurchaseRequestLine>();
     public DbSet<PurchaseRequestAllocation> PurchaseRequestAllocations => Set<PurchaseRequestAllocation>();
     public DbSet<PolicyEvaluation> PolicyEvaluations => Set<PolicyEvaluation>();
+    public DbSet<PurchaseRequestApprovalSubmission> ApprovalSubmissions => Set<PurchaseRequestApprovalSubmission>();
     public DbSet<BudgetCheckSnapshot> BudgetCheckSnapshots => Set<BudgetCheckSnapshot>();
     public DbSet<ProcurementAttachmentRef> AttachmentRefs => Set<ProcurementAttachmentRef>();
     public DbSet<PolicyVersion> PolicyVersions => Set<PolicyVersion>();
@@ -74,6 +75,11 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
 
     private void Stamp(ProcurementRecord record)
     {
+        // Evidence was constructed for a specific source scope. Never relabel it
+        // as belonging to another company when attaching it to this context.
+        if (record is PurchaseRequestApprovalSubmission &&
+            (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
+            throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
         record.TenantId = scope.TenantId;
         record.LegalEntityId = scope.LegalEntityId;
         if (record is Supplier supplier)
@@ -112,6 +118,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         ConfigureBase<PurchaseRequestLine>(modelBuilder, "purchase_request_lines");
         ConfigureBase<PurchaseRequestAllocation>(modelBuilder, "purchase_request_allocations");
         ConfigureBase<PolicyEvaluation>(modelBuilder, "policy_evaluations");
+        ConfigureBase<PurchaseRequestApprovalSubmission>(modelBuilder, "purchase_request_approval_submissions");
         ConfigureBase<BudgetCheckSnapshot>(modelBuilder, "budget_check_snapshots");
         ConfigureBase<ProcurementAttachmentRef>(modelBuilder, "attachment_refs");
         ConfigureBase<PolicyVersion>(modelBuilder, "policy_versions");
@@ -381,6 +388,64 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
                 .OnDelete(DeleteBehavior.Restrict);
         });
+        modelBuilder.Entity<PurchaseRequestApprovalSubmission>(b =>
+        {
+            b.Property(x => x.MakerSubjectId).HasMaxLength(200);
+            // Keep exact canonical bytes: jsonb would reformat JSON and invalidate the stored digest.
+            b.Property(x => x.RequestSnapshotJson).HasColumnType("text");
+            b.Property(x => x.FinanceSnapshotJson).HasColumnType("text");
+            b.Property(x => x.RequestSnapshotSha256).HasMaxLength(64);
+            b.Property(x => x.FinanceSnapshotSha256).HasMaxLength(64);
+            b.Property(x => x.PolicyDecisionSha256).HasMaxLength(64);
+            b.Property(x => x.PolicyRulesSha256).HasMaxLength(64);
+            b.Property(x => x.FinanceEvidenceMode).HasMaxLength(40);
+            b.Property(x => x.ManualEvidenceAuthorityRef).HasMaxLength(500);
+            b.Property(x => x.AmountBasis).HasMaxLength(40);
+            b.Property(x => x.CurrencyCode).HasMaxLength(3);
+            // Four-decimal quantities multiplied by four-decimal prices need eight decimals.
+            b.Property(x => x.EstimatedAmount).HasPrecision(38, 8);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.SubmittedBusinessVersion }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreApprovalCaseId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.OpeningCommandKey }).IsUnique();
+            b.HasOne<PurchaseRequest>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            // Bind evidence to the same source, submitted version and policy, not just an arbitrary scoped ID.
+            b.HasOne<PolicyEvaluation>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyEvaluationId,
+                    x.PurchaseRequestId, x.SubmittedBusinessVersion, x.PolicyVersionId, x.PolicyVersionNumber })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
+                    x.PurchaseRequestId, x.RequestVersion, x.PolicyVersionId, x.PolicyVersionNumber })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<PolicyVersion>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.PolicyVersionNumber })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PolicyVersionNumber })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<BudgetCheckSnapshot>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.FinanceSnapshotId,
+                    x.PurchaseRequestId, x.SubmittedBusinessVersion })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
+                    x.PurchaseRequestId, x.RequestVersion })
+                .OnDelete(DeleteBehavior.Restrict);
+            // Core owns execution in its separate schema. CoreApprovalCaseId is an explicit reference, not a Core FK.
+            b.ToTable(t =>
+            {
+                t.HasCheckConstraint("ck_pr_approval_submission_identity",
+                    "snapshot_schema_version = 1 AND submitted_business_version > 0 AND policy_version_number > 0 " +
+                    "AND core_approval_case_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+                    "AND opening_command_key <> '00000000-0000-0000-0000-000000000000'::uuid");
+                t.HasCheckConstraint("ck_pr_approval_submission_amount",
+                    "estimated_amount >= 0 AND amount_basis = 'EstimatedLineBase' AND currency_code ~ '^[A-Z]{3}$'");
+                t.HasCheckConstraint("ck_pr_approval_submission_digest",
+                    "request_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND finance_snapshot_sha256 ~ '^[0-9a-f]{64}$' " +
+                    "AND policy_decision_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 ~ '^[0-9a-f]{64}$'");
+                t.HasCheckConstraint("ck_pr_approval_submission_finance_mode",
+                    "(finance_evidence_mode = 'AutomatedFinance' AND manual_evidence_authority_ref IS NULL) OR " +
+                    "(finance_evidence_mode = 'ApprovedManualEvidence' AND manual_evidence_authority_ref IS NOT NULL " +
+                    "AND length(btrim(manual_evidence_authority_ref)) > 0)");
+            });
+        });
         modelBuilder.Entity<ProcurementAttachmentRef>(b =>
         {
             b.Property(x => x.OwnerType).HasMaxLength(80);
@@ -598,7 +663,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         {
             if (entry.State == EntityState.Deleted)
                 throw new InvalidOperationException("Procurement records must be closed, cancelled or reversed; physical deletion is not allowed.");
-            if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot
+            if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot or PurchaseRequestApprovalSubmission
                 or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
                 or ProcurementComment or ProcurementSetupAssessment)
                 throw new InvalidOperationException("Decision, evaluation, budget and audit records are append-only.");

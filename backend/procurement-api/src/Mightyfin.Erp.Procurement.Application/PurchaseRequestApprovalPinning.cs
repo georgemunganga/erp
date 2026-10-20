@@ -20,6 +20,8 @@ public static class PurchaseRequestApprovalPinning
 {
     public const string EstimatedLineBase = "EstimatedLineBase";
     public const string AutomatedFinance = "AutomatedFinance";
+    // These strings describe evidence provenance only. A later authoritative resolver
+    // must verify the integration source or approved manual policy; caller input is not authority.
     public const string ApprovedManualEvidence = "ApprovedManualEvidence";
 
     public static PurchaseRequestApprovalSubmission Pin(PurchaseRequest request,
@@ -119,7 +121,10 @@ public static class PurchaseRequestApprovalPinning
         var lines = request.Lines.Where(x => x.ApprovalStatus != "Cancelled").ToArray();
         if (lines.Length == 0 || lines.Any(x => !InScope(x, tenantId, legalEntityId)
                 || x.PurchaseRequestId != request.Id || x.Id == Guid.Empty || x.LineNumber < 1
-                || x.RequestedQuantity <= 0 || x.EstimatedUnitPrice < 0)
+                || x.RequestedQuantity <= 0 || x.EstimatedUnitPrice < 0
+                || x.ApprovalStatus != "Pending" || x.ApprovedQuantity != 0
+                || x.AllocatedQuantity != 0 || x.OrderedQuantity != 0 || x.AcceptedQuantity != 0
+                || x.CancelledQuantity != 0 || x.Route != "Unassigned")
             || lines.Select(x => x.Id).Distinct().Count() != lines.Length
             || lines.Select(x => x.LineNumber).Distinct().Count() != lines.Length)
             issues.Add("InvalidLines");
