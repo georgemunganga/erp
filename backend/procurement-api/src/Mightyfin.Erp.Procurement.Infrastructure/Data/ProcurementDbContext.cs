@@ -7,7 +7,7 @@ using Mightyfin.Erp.Procurement.Domain;
 namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 /// <summary>Procurement owns the `procurement` schema and migration history.</summary>
-public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> options, IProcurementScope scope) : DbContext(options)
+public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbContext> options, IProcurementScope scope) : DbContext(options)
 {
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierContact> SupplierContacts => Set<SupplierContact>();
@@ -487,6 +487,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         });
 
         ConfigureCommercialRelationships(modelBuilder);
+        ConfigureSpendingAuthority(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
@@ -640,28 +641,34 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
     private static string ToSnake(string name) => string.Concat(name.Select((letter, index) =>
         index > 0 && char.IsUpper(letter) ? "_" + char.ToLowerInvariant(letter) : char.ToLowerInvariant(letter).ToString()));
 
-    public override int SaveChanges()
+    public override int SaveChanges() => SaveChanges(true);
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         PrepareChanges();
-        return base.SaveChanges();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        => SaveChangesAsync(true, cancellationToken);
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         PrepareChanges();
-        return base.SaveChangesAsync(cancellationToken);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     private void PrepareChanges()
     {
         if (string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(scope.SubjectId))
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
+        GuardSpendingAuthorityChanges();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();
         foreach (var entry in changes)
         {
-            if (entry.State == EntityState.Deleted)
+            if (entry.State == EntityState.Deleted && entry.Entity is not ProcurementSpendingAuthorityCategory)
                 throw new InvalidOperationException("Procurement records must be closed, cancelled or reversed; physical deletion is not allowed.");
             if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot or PurchaseRequestApprovalSubmission
                 or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
@@ -681,7 +688,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
                     throw new InvalidOperationException("A record outside the authenticated scope cannot be changed.");
                 entry.Entity.UpdatedAt = now;
                 entry.Entity.UpdatedBy = scope.SubjectId;
-                entry.Entity.Version++;
+                entry.Entity.Version = checked(entry.OriginalValues.GetValue<long>(nameof(ProcurementRecord.Version)) + 1);
             }
             if (entry.Entity is AuditEvent or OutboxEvent) continue;
             AuditEvents.Add(new AuditEvent
