@@ -114,6 +114,7 @@ def main():
         if name == 'populated':
             # Only this new clone gets synthetic, explicitly unverified legacy originals.
             sql(db, (Path(__file__).parent / 'legacy-original.sql').read_text())
+            populated_schema = schema(db)
         if name != 'fresh':
             clone_baselines[name] = (data_snapshot(db, old_shape), history(db))
         sql(db, up); sql(db, up); manifest(db)
@@ -130,8 +131,9 @@ def main():
     populated = names['populated']
     populated_values, populated_history = clone_baselines['populated']
     sql(populated, down)
-    if history(populated) != populated_history or data_snapshot(populated, old_shape) != populated_values:
-        raise RuntimeError("Unused Down lost retained P25 values/history")
+    if (history(populated) != populated_history or data_snapshot(populated, old_shape) != populated_values
+            or schema(populated) != populated_schema):
+        raise RuntimeError("Unused Down changed retained P25 values/history/schema, including defaults and constraint names")
     sql(populated, up); sql(populated, up); manifest(populated)
     sql(populated, (Path(__file__).parent / 'assert-legacy-unverified.sql').read_text())
     if data_snapshot(populated, old_shape) != populated_values:
