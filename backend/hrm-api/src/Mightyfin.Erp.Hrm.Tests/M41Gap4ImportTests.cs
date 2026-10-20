@@ -228,6 +228,57 @@ public class M41Gap4ImportTests
     }
 
     [Fact]
+    public async Task Apply_UpdatePreservesComponentsOmittedFromFile()
+    {
+        var (db, svc, seed) = BuildSeeded();
+        var basic = db.SalaryComponents.First(c => c.Code == "basic");
+        var housing = db.SalaryComponents.First(c => c.Code == "housing-allowance");
+        db.WorkerPayrollProfiles.Add(new WorkerPayrollProfile
+        {
+            WorkerId = seed.Id, StructureId = db.SalaryStructures.First().Id, PayGroupId = db.PayGroups.First().Id,
+            EffectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            ComponentValues =
+            {
+                new WorkerComponentValue { ComponentId = basic.Id, Amount = 20000 },
+                new WorkerComponentValue { ComponentId = housing.Id, Amount = 5000 },
+            },
+        });
+        db.SaveChanges();
+
+        var preview = await svc.PreviewAsync("payroll-profiles", "pay.csv", "update",
+            [new Dictionary<string, string> { ["employeeNo"] = "EMP-99", ["basic"] = "30000", ["effectiveFrom"] = "01-09-2026" }],
+            CancellationToken.None);
+        Assert.Equal("update", preview.Rows[0].Status);
+        await svc.ApplyAsync(preview.Id, [0], CancellationToken.None);
+
+        var updated = db.WorkerPayrollProfiles.Include(p => p.ComponentValues)
+            .Single(p => p.WorkerId == seed.Id);
+        var values = updated.ComponentValues.ToDictionary(v => v.ComponentId, v => v.Amount);
+        Assert.Equal(30000m, values[basic.Id]);
+        Assert.Equal(5000m, values[housing.Id]);
+        Assert.Equal(new DateOnly(2026, 9, 1), updated.EffectiveFrom);
+    }
+
+    [Fact]
+    public async Task Apply_UpdateWithoutDatePreservesEffectiveDate()
+    {
+        var (db, svc, seed) = BuildSeeded();
+        var basic = db.SalaryComponents.First(c => c.Code == "basic");
+        db.WorkerPayrollProfiles.Add(new WorkerPayrollProfile
+        {
+            WorkerId = seed.Id, StructureId = db.SalaryStructures.First().Id, PayGroupId = db.PayGroups.First().Id,
+            EffectiveFrom = new DateOnly(2026, 8, 1),
+            ComponentValues = { new WorkerComponentValue { ComponentId = basic.Id, Amount = 20000 } },
+        });
+        db.SaveChanges();
+        var preview = await svc.PreviewAsync("payroll-profiles", "pay.csv", "update",
+            [new Dictionary<string, string> { ["employeeNo"] = "EMP-99", ["basic"] = "30000" }],
+            CancellationToken.None);
+        await svc.ApplyAsync(preview.Id, [0], CancellationToken.None);
+        Assert.Equal(new DateOnly(2026, 8, 1), db.WorkerPayrollProfiles.Single().EffectiveFrom);
+    }
+
+    [Fact]
     public async Task Preview_DuplicateWorkerInFileRejected()
     {
         var (_, svc, _) = BuildSeeded();
