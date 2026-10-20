@@ -255,10 +255,23 @@ public static class InvoiceMatchingFoundation
                         InvoiceMatchExact.Units(debit.TaxAmount), InvoiceMatchExact.Units(credit.Quantity), InvoiceMatchExact.Units(debit.Quantity), policy)))
                     Bad("CreditQuantityAmountMismatch");
             }
-            if (credits.Aggregate(BigInteger.Zero, (sum, x) => sum + InvoiceMatchExact.Units(x.Quantity)) > InvoiceMatchExact.Units(debit.Quantity)
-                || credits.Aggregate(BigInteger.Zero, (sum, x) => sum + InvoiceMatchExact.Units(x.NetAmount)) > InvoiceMatchExact.Units(debit.NetAmount)
-                || credits.Aggregate(BigInteger.Zero, (sum, x) => sum + InvoiceMatchExact.Units(x.TaxAmount)) > InvoiceMatchExact.Units(debit.TaxAmount))
+            var creditedQuantity = credits.Aggregate(BigInteger.Zero, (sum, x) => sum + InvoiceMatchExact.Units(x.Quantity));
+            var creditedNet = credits.Aggregate(BigInteger.Zero, (sum, x) => sum + InvoiceMatchExact.Units(x.NetAmount));
+            var creditedTax = credits.Aggregate(BigInteger.Zero, (sum, x) => sum + InvoiceMatchExact.Units(x.TaxAmount));
+            if (creditedQuantity > InvoiceMatchExact.Units(debit.Quantity)
+                || creditedNet > InvoiceMatchExact.Units(debit.NetAmount)
+                || creditedTax > InvoiceMatchExact.Units(debit.TaxAmount))
                 Bad("CumulativeCreditExceedsOriginalDebit");
+            // Midpoint rounding must not restart on each fragment. For example two
+            // qty1/net0 credits against qty2/net0.01 each round to zero under ToEven,
+            // but together cannot restore all quantity while the original money remains.
+            // Value-only adjustments may supply a verified rounding remainder; they
+            // never increase creditedQuantity and all components remain capped above.
+            if (creditedQuantity > 0 && (creditedNet < InvoiceMatchExact.RatioMoney(
+                    InvoiceMatchExact.Units(debit.NetAmount), creditedQuantity, InvoiceMatchExact.Units(debit.Quantity), policy)
+                || creditedTax < InvoiceMatchExact.RatioMoney(
+                    InvoiceMatchExact.Units(debit.TaxAmount), creditedQuantity, InvoiceMatchExact.Units(debit.Quantity), policy)))
+                Bad("CumulativeCreditQuantityAmountMismatch");
         }
     }
 
