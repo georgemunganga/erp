@@ -51,6 +51,13 @@ public static class ProcurementActionCatalog
             ["procurement-po-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-po-create"] = ["procurement_buyer"],
             ["procurement-po-edit"] = ["procurement_buyer"],
+            ["procurement-po-convert"] = ["procurement_buyer"],
+            ["procurement-po-submit"] = ["procurement_buyer"],
+            ["procurement-po-approve"] = ["procurement_manager"],
+            ["procurement-po-issue"] = ["procurement_buyer"],
+            ["procurement-po-amend"] = ["procurement_buyer"],
+            ["procurement-po-finance-confirm"] = ["finance_approver"],
+            ["procurement-po-dispatch-confirm"] = ["procurement_manager"],
         };
 
     public static string[] ForRole(string role) => BootstrapGrants

@@ -37,14 +37,15 @@ public static class SpendingAuthorityConfiguration
     public static ProcurementSpendingAuthorityGrant CreateDraft(string authorityReference,
         string subjectPrincipalId, SpendingAuthorityDraft input,
         SpendingAuthorityConfigurationActor actor, DateTimeOffset at,
-        IReadOnlyCollection<ProcurementSpendingAuthorityGrant> family)
+        IReadOnlyCollection<ProcurementSpendingAuthorityGrant> family, string? action = null)
     {
+        var contract = ProcurementSpendingActions.Resolve(action ?? ApprovalAction);
         RequireActor(actor, actor.TenantId, actor.LegalEntityId, ConfigurePermission);
         if (!ValidIdentifier(authorityReference, 100) || !ValidIdentifier(subjectPrincipalId, 200))
             throw new InvalidOperationException("AuthorityReferenceOrPrincipalInvalid");
         var relevant = family.Where(x => x.TenantId == actor.TenantId
             && x.LegalEntityId == actor.LegalEntityId && x.PrincipalId == subjectPrincipalId
-            && x.Permission == ApprovalPermission && x.Action == ApprovalAction
+            && x.Permission == contract.Permission && x.Action == contract.Action
             && x.AuthorityReference == authorityReference).ToArray();
         AssertFamilyUnique(relevant);
         var next = checked(relevant.Select(x => x.AuthorityVersion).DefaultIfEmpty(0).Max() + 1);
@@ -52,7 +53,7 @@ public static class SpendingAuthorityConfiguration
         {
             TenantId = actor.TenantId, LegalEntityId = actor.LegalEntityId,
             AuthorityReference = authorityReference, AuthorityVersion = next,
-            PrincipalId = subjectPrincipalId, Permission = ApprovalPermission, Action = ApprovalAction,
+            PrincipalId = subjectPrincipalId, Permission = contract.Permission, Action = contract.Action,
             ConfigurationOwnerPrincipalId = actor.PrincipalId, CreatedBy = actor.PrincipalId,
             CreatedAt = at, State = "Draft",
         };
@@ -220,8 +221,7 @@ public static class SpendingAuthorityConfiguration
             || grant.AuthorityVersion <= 0 || grant.MaximumAmount <= 0 || grant.MaximumAmount > 99_999_999_999_999.9999m
             || decimal.Round(grant.MaximumAmount, 4) != grant.MaximumAmount
             || grant.CurrencyCode.Length != 3 || !grant.CurrencyCode.All(x => x is >= 'A' and <= 'Z')
-            || grant.AmountBasis != PurchaseRequestSpendingAuthority.SupportedAmountBasis
-            || grant.Permission != ApprovalPermission || grant.Action != ApprovalAction
+            || !ProcurementSpendingActions.Matches(grant.Action, grant.Permission, grant.AmountBasis)
             || grant.EffectiveFrom == default || grant.EffectiveUntil is { } until
                 && (until <= grant.EffectiveFrom || until <= at))
             throw new InvalidOperationException("AuthorityFinancialTermsInvalid");

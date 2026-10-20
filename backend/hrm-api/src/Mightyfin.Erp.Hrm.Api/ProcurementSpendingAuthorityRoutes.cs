@@ -63,7 +63,7 @@ public static class ProcurementSpendingAuthorityRoutes
             var items = await query.OrderBy(x => x.AuthorityReference).ThenByDescending(x => x.AuthorityVersion)
                 .Skip((number - 1) * size).Take(size).Select(x => new
                 {
-                    x.Id, x.AuthorityReference, x.AuthorityVersion, x.PrincipalId, x.State,
+                    x.Id, x.AuthorityReference, x.AuthorityVersion, x.PrincipalId, x.Permission, x.Action, x.State,
                     x.CurrencyCode, x.AmountBasis, x.MaximumAmount, x.EffectiveFrom, x.EffectiveUntil,
                     x.BranchRef, x.DepartmentRef, x.ConfigurationOwnerPrincipalId, x.Version,
                 }).ToListAsync(ct);
@@ -96,27 +96,28 @@ public static class ProcurementSpendingAuthorityRoutes
                 || input.Draft is null) return Invalid("AuthorityDraftRequired");
             if (await ProcurementAuthorityIdentity.SubjectAsync(core, scope, input.PrincipalId, ct) is null)
                 return Invalid("AuthoritySubjectUnavailable");
-            var draft = await Defaults(input.Draft, core, scope, ct);
+            var contract = ProcurementSpendingActions.Resolve(input.Action ?? SpendingAuthorityConfiguration.ApprovalAction);
+            var draft = await Defaults(input.Draft, core, scope, ct, contract.Action);
             if (!ProcurementAuthorityIdentity.InputInScope(draft, scope)) return Missing();
             var issue = await ProcurementAuthorityIdentity.ReferenceIssueAsync(core, db, scope, draft, false, ct);
             if (issue is not null) return Invalid(issue);
             await using var tx = await SpendingAuthorityFamilyTransaction.BeginAsync(db, scope.TenantId,
-                scope.LegalEntityId, input.PrincipalId, SpendingAuthorityConfiguration.ApprovalPermission,
-                SpendingAuthorityConfiguration.ApprovalAction, input.AuthorityReference, ct);
+                scope.LegalEntityId, input.PrincipalId, contract.Permission,
+                contract.Action, input.AuthorityReference, ct);
             await using var transactionCore = await TransactionalCore(db, scope, tx, ct);
             core = transactionCore;
             actor = await Actor(core, scope, http, auth, SpendingAuthorityConfiguration.ConfigurePermission, ct);
             if (actor is null) return AccessDenied();
             if (await ProcurementAuthorityIdentity.SubjectAsync(core, scope, input.PrincipalId, ct) is null)
                 return Invalid("AuthoritySubjectUnavailable");
-            draft = await Defaults(input.Draft, core, scope, ct);
+            draft = await Defaults(input.Draft, core, scope, ct, contract.Action);
             issue = await ProcurementAuthorityIdentity.ReferenceIssueAsync(core, db, scope, draft, false, ct);
             if (issue is not null) return Invalid(issue);
             var family = await SpendingAuthorityFamilyTransaction.LoadAsync(db, input.PrincipalId,
-                SpendingAuthorityConfiguration.ApprovalPermission, SpendingAuthorityConfiguration.ApprovalAction,
+                contract.Permission, contract.Action,
                 input.AuthorityReference, ct);
             var grant = SpendingAuthorityConfiguration.CreateDraft(input.AuthorityReference, input.PrincipalId,
-                draft, actor, DateTimeOffset.UtcNow, family);
+                draft, actor, DateTimeOffset.UtcNow, family, contract.Action);
             db.AddScoped(grant);
             ProcurementDraftAudit.Add(db, scope, nameof(ProcurementSpendingAuthorityGrant), grant.Id,
                 "authority.draft_created", null, View(grant));
@@ -145,7 +146,7 @@ public static class ProcurementSpendingAuthorityRoutes
             if (grant is null || !InScope(grant, scope)) return Missing();
             actor = await Actor(core, scope, http, auth, SpendingAuthorityConfiguration.ConfigurePermission, ct);
             if (actor is null) return AccessDenied();
-            var draft = await Defaults(input.Draft, core, scope, ct);
+            var draft = await Defaults(input.Draft, core, scope, ct, grant.Action);
             if (!ProcurementAuthorityIdentity.InputInScope(draft, scope)) return Missing();
             var issue = await ProcurementAuthorityIdentity.ReferenceIssueAsync(core, db, scope, draft, false, ct);
             if (issue is not null) return Invalid(issue);
@@ -257,13 +258,13 @@ public static class ProcurementSpendingAuthorityRoutes
         ProcurementSpendingAuthorityGrant key, CancellationToken ct)
         => SpendingAuthorityFamilyTransaction.LoadAsync(db, key.PrincipalId, key.Permission, key.Action, key.AuthorityReference, ct);
     private static async Task<SpendingAuthorityDraft> Defaults(SpendingAuthorityDraft input,
-        HrmDbContext core, ProcurementRequestScope scope, CancellationToken ct)
+        HrmDbContext core, ProcurementRequestScope scope, CancellationToken ct, string action)
         => input with
         {
             CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
                 ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode.Trim().ToUpperInvariant(),
             AmountBasis = string.IsNullOrWhiteSpace(input.AmountBasis)
-                ? PurchaseRequestSpendingAuthority.SupportedAmountBasis : input.AmountBasis,
+                ? ProcurementSpendingActions.Resolve(action).AmountBasis : input.AmountBasis,
             BranchRef = input.AllBranches ? input.BranchRef : input.BranchRef ?? scope.WorkLocationId,
             DepartmentRef = input.AllDepartments ? input.DepartmentRef : input.DepartmentRef ?? scope.OrgUnitId,
         };
@@ -307,7 +308,8 @@ public static class ProcurementSpendingAuthorityRoutes
         public string GetTenantId() => tenant;
     }
 
-    public sealed record CreateInput(string? AuthorityReference, string? PrincipalId, SpendingAuthorityDraft? Draft);
+    public sealed record CreateInput(string? AuthorityReference, string? PrincipalId, SpendingAuthorityDraft? Draft,
+        string? Action = null);
     public sealed record EditInput(long Version, SpendingAuthorityDraft? Draft);
     public sealed record VersionInput(long Version);
     public sealed record ReviewInput(long Version, string? Reason);

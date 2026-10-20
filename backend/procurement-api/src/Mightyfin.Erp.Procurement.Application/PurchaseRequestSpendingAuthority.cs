@@ -54,68 +54,16 @@ public static class PurchaseRequestSpendingAuthority
         if (amount <= 0) blockers.Add("AuthorityAmountNotPositive");
         if (blockers.Count != 0) return new(false, null, blockers);
 
-        var candidates = grants.ToArray();
-        // Load all versions of each relevant logical authority, not only rows already
-        // filtered by currency, limit or record scope. A narrowed replacement must never
-        // make an overlapping older, broader version appear to be the only valid grant.
-        var relevant = candidates.Where(x => x.TenantId == request.TenantId
-            && x.LegalEntityId == request.LegalEntityId && x.PrincipalId == principalId
-            && x.Permission == permission && x.Action == action).ToArray();
-        foreach (var authority in relevant.GroupBy(x => x.AuthorityReference, StringComparer.Ordinal))
-        {
-            var current = authority.Where(x => x.State == "Active"
-                && x.EffectiveFrom <= at && (x.EffectiveUntil is null || at < x.EffectiveUntil)).ToArray();
-            if (current.Length > 1 || (current.Length != 0
-                && authority.GroupBy(x => x.AuthorityVersion).Any(version => version.Count() > 1)))
-                return new(false, null, ["SpendingAuthorityEvidenceAmbiguous"]);
-        }
-        var eligible = candidates.Where(x => Covers(x, request, lines, principalId, permission,
-                action, amountBasis, amount, at))
-            .OrderBy(x => x.MaximumAmount).ThenBy(x => x.AuthorityReference, StringComparer.Ordinal)
-            .ThenByDescending(x => x.AuthorityVersion).ThenBy(x => x.Id).ToArray();
-        if (eligible.Length == 0) return new(false, null, ["SpendingAuthorityUnavailable"]);
-        // Do not choose between contradictory loaded versions of the same grant.
-        var chosen = eligible[0];
-        if (candidates.Count(x => x.Id == chosen.Id) != 1)
-            return new(false, null, ["SpendingAuthorityEvidenceAmbiguous"]);
-        var categories = chosen.Categories.Select(x => x.CategoryCode)
-            .OrderBy(x => x, StringComparer.Ordinal).ToArray();
-        return new(true, new(chosen.Id, chosen.Version, chosen.AuthorityReference,
-            chosen.AuthorityVersion, chosen.TenantId, chosen.LegalEntityId, chosen.PrincipalId,
-            chosen.Permission, chosen.Action, chosen.CurrencyCode.ToUpperInvariant(), amountBasis,
-            amount, chosen.MaximumAmount, chosen.EffectiveFrom, chosen.EffectiveUntil, at,
-            chosen.AllBranches, chosen.BranchRef, chosen.AllDepartments, chosen.DepartmentRef,
-            chosen.AllCategories, Array.AsReadOnly(categories)), []);
-    }
-
-    private static bool Covers(ProcurementSpendingAuthorityGrant grant, PurchaseRequest request,
-        PurchaseRequestLine[] lines, string principalId, string permission, string action,
-        string basis, decimal amount, DateTimeOffset at)
-    {
-        if (grant.Id == Guid.Empty || grant.Version <= 0 || grant.AuthorityVersion <= 0
-            || string.IsNullOrWhiteSpace(grant.AuthorityReference) || grant.State != "Active"
-            || grant.TenantId != request.TenantId || grant.LegalEntityId != request.LegalEntityId
-            || grant.PrincipalId != principalId || grant.Permission != permission || grant.Action != action
-            || !ValidCurrency(grant.CurrencyCode) || !CurrencyEquals(grant.CurrencyCode, request.CurrencyCode)
-            || grant.AmountBasis != basis || grant.MaximumAmount <= 0 || grant.MaximumAmount < amount
-            || grant.EffectiveFrom == default || at < grant.EffectiveFrom
-            || (grant.EffectiveUntil is { } until && (until <= grant.EffectiveFrom || at >= until)))
-            return false;
-        if (grant.AllBranches ? grant.BranchRef is not null
-            : grant.BranchRef is null || grant.BranchRef == Guid.Empty || grant.BranchRef != request.BranchRef)
-            return false;
-        if (grant.AllDepartments ? grant.DepartmentRef is not null
-            : grant.DepartmentRef is null || grant.DepartmentRef == Guid.Empty
-                || grant.DepartmentRef != request.DepartmentRef)
-            return false;
-        if (grant.AllCategories) return grant.Categories.Count == 0;
-        if (grant.Categories.Count == 0 || grant.Categories.Any(x => x.Id == Guid.Empty
-            || x.GrantId != grant.Id || x.TenantId != grant.TenantId || x.LegalEntityId != grant.LegalEntityId
-            || string.IsNullOrWhiteSpace(x.CategoryCode))
-            || grant.Categories.Select(x => x.CategoryCode).Distinct(StringComparer.Ordinal).Count()
-                != grant.Categories.Count) return false;
-        return lines.All(line => !string.IsNullOrWhiteSpace(line.CategoryCode)
-            && grant.Categories.Any(category => category.CategoryCode == line.CategoryCode));
+        var context = new ProcurementSpendContext(request.Id, request.TenantId, request.LegalEntityId,
+            request.CurrencyCode, amountBasis, amount, request.BranchRef,
+            [request.DepartmentRef], lines.Select(x => x.CategoryCode!).Distinct(StringComparer.Ordinal).ToArray());
+        var result = ProcurementSpendingAuthority.Evaluate(context, principalId, permission, action, at, grants);
+        if (!result.Eligible || result.Evidence is not { } chosen) return new(false, null, result.Blockers);
+        return new(true, new(chosen.GrantId, chosen.GrantRevision, chosen.AuthorityReference, chosen.AuthorityVersion,
+            chosen.TenantId, chosen.LegalEntityId, chosen.PrincipalId, chosen.Permission, chosen.Action,
+            chosen.CurrencyCode, chosen.AmountBasis, chosen.TargetAmount, chosen.MaximumAmount,
+            chosen.EffectiveFrom, chosen.EffectiveUntil, chosen.EvaluatedAt, chosen.AllBranches,
+            chosen.BranchRef, chosen.AllDepartments, chosen.DepartmentRef, chosen.AllCategories, chosen.CategoryCodes), []);
     }
 
     private static bool ValidCurrency(string? code) => code is { Length: 3 }
