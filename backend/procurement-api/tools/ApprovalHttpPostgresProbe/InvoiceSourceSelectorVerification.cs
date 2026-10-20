@@ -70,6 +70,8 @@ sealed partial class Probe
         await Expect(HttpStatusCode.NotFound,HttpMethod.Get,prefix+$"/{Guid.NewGuid()}/lines/{lineId}/acceptances",principal,null);
         await Expect(HttpStatusCode.NotFound,HttpMethod.Get,prefix+$"/{orderId}/lines/{Guid.NewGuid()}/acceptances",principal,null);
         Require(before==await InvoiceSelectorFootprint(invoiceId),"Selector GET created receiving/mapping/claim/audit/outbox evidence.");
+        await VerifySelectorRetainedScope(principal,invoiceId,orderId,lineId);
+        await VerifySelectorMissingStateHistory(principal,orderId);
         Console.WriteLine("PASS invoice-purpose selectors: finite explicit matching/read without PO/receipt/capture grants, exact scoped issued/physical facts, escaped search, page bounds, unknown source denials and zero GET writes.");
     }
     private async Task<string> InvoiceSelectorFootprint(Guid id)

@@ -138,11 +138,17 @@ public static partial class ProcurementReceivingRoutes
     }
     private static async Task<ReceivingLedger> Ledger(ProcurementDbContext db, FinalSource source, CancellationToken ct)
     {
-        var requestLineId = source.Load.Line.PurchaseRequestLineId!.Value;
+        var verified=await CompleteAcceptanceHistory(db,source.Load.Line.PurchaseRequestLineId!.Value,source.State,ct);
+        return await Facts(db,source.State,verified,ct);
+    }
+    // Also used by read-only invoice selection when the selected source has no state.
+    // Null means absent; never create a zero state to make historical exposure look complete.
+    private static async Task<bool> CompleteAcceptanceHistory(ProcurementDbContext db,Guid requestLineId,ReceivingSourceState? provisional,CancellationToken ct)
+    {
         var orderLines = await db.PurchaseOrderLines.Where(x => x.PurchaseRequestLineId == requestLineId).ToArrayAsync(ct);
         var ids = orderLines.Select(x => x.Id).ToArray();
         var states = await db.ReceivingSourceStates.Where(x => ids.Contains(x.PurchaseOrderLineId)).OrderBy(x => x.Id).ToArrayAsync(ct);
-        if (!states.Any(x => x.Id == source.State.Id)) states = states.Append(source.State).ToArray();
+        if (provisional is not null && !states.Any(x => x.Id == provisional.Id)) states = states.Append(provisional).ToArray();
         var receipts = await db.GoodsReceiptLines.Where(x => ids.Contains(x.PurchaseOrderLineId)).ToArrayAsync(ct);
         var services = await db.ServiceAcceptances.Where(x => ids.Contains(x.PurchaseOrderLineId)).ToArrayAsync(ct);
         var verified = true; var verifiedStateIds = new HashSet<Guid>();
@@ -157,7 +163,6 @@ public static partial class ProcurementReceivingRoutes
             quantities[state.PurchaseOrderLineId] = ExactDecimalArithmetic.Add(quantities.GetValueOrDefault(state.PurchaseOrderLineId), ExactDecimalArithmetic.Sum(facts.Effects.Select(x => x.QuantityDelta)));
         }
         var requestLine = await db.PurchaseRequestLines.SingleAsync(x => x.Id == requestLineId, ct);
-        verified &= ReceivingAcceptanceHistory.IsVerified(orderLines, receipts, services, quantities, verifiedStateIds, requestLine.AcceptedQuantity);
-        return await Facts(db, source.State, verified, ct);
+        return verified && ReceivingAcceptanceHistory.IsVerified(orderLines, receipts, services, quantities, verifiedStateIds, requestLine.AcceptedQuantity);
     }
 }

@@ -60,3 +60,29 @@ Authored mapped default-off/schema and broad/capture-role403 tests. Actual `--ma
 Procurement-owned adapters; reuse Core current identities/branch fence, P24 source verifier, P25 existing bridge, P26 published policy and readiness. Parent owns SDK/migration/rehearsal scheduling. Frontend consumes these exact contracts only after verification.
 ## 28. Open Decisions / Assumptions
 Larger-volume continuation protocol is deferred and safely unavailable above limits. Qualified matching claims still require real original-unit review and Finance history owner; installed owners remain unavailable. New API/schema/source is not live or release-approved.
+
+## Distinct review corrections — source only
+
+Review found that mutable current-header filters alone did not protect retained issued scope
+before list count/page. `609c901` now delegates both selectors to the existing receiving owner
+`BoundIssuedOrders` SQL fence before invoice vendor/currency/site/PO-pin filters. Corrupted A→B
+headers therefore cannot leak original-A issued references/counts through unavailable rows.
+The independent reviewer accepted that correction. Two-way `acceptanceKind` now uses an explicit
+nullable enum call and returns JSON null, never an empty string.
+
+Review also found that missing state plus mapping[] could skip legacy historical unknowns.
+The existing P25 all-related-history scan has been factored into `CompleteAcceptanceHistory`:
+normal receiving passes its existing provisional state, while the missing-state invoice bridge
+passes null. It loads all linked PO lines including inactive history, legacy receipt/service
+rows, verifies existing state facts and applies the same `ReceivingAcceptanceHistory.IsVerified`
+PO/PR counter reconciliation. It never calls Resolve or invents a zero state. Unknown history
+adds a bridge blocker and the selector reports Unavailable/items[]/total:null. Only genuinely
+clean, reconciled absent acceptance can receive NoRecordedAcceptance.
+
+The source-only actual PostgreSQL regression adds owner-only A→B header/invoice corruption
+with finite B membership, asserting count0/no original-A metadata and detail404, then restoring
+the original headers. Separate fresh actual issued sources prove clean empty GET leaves state
+absent, legacy accepted goods without state remains unknown, and inactive historical accepted
+counters without state remain unknown. All reads compare persisted footprints. These fixtures
+are never production privileges and have not run; combined compile/model/HTTP/PG gates remain
+pending. Central migration/snapshot are unchanged.

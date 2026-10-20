@@ -43,6 +43,8 @@ public static partial class ProcurementReceivingRoutes
             var state=await db.ReceivingSourceStates.SingleOrDefaultAsync(x=>x.IssuedVersionId==issuedId && x.PurchaseOrderLineId==load.Line.Id,ct);
             if(state is null)
             {
+                if(!await CompleteAcceptanceHistory(db,load.Line.PurchaseRequestLineId!.Value,null,ct))
+                    blockers.Add("ReceivingLegacyAcceptanceReconciliationRequired");
                 if(mappings.Any(x=>x.PurchaseOrderLineId==load.Line.Id && (x.GoodsReceiptLineId!=null || x.ServiceAcceptanceId!=null))) blockers.Add("AuthoritativeAcceptedEvidenceUnavailable");
                 continue;
             }
