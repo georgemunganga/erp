@@ -32,8 +32,8 @@ if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_a
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
 if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
-    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal)))))
-    throw new ArgumentException("Use --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders or --receiving.");
+    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal)))))
+    throw new ArgumentException("Use --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving or --matching.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
 var matching = args.Contains("--matching", StringComparer.Ordinal);
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
@@ -48,10 +48,12 @@ if (orders && bootstrapConnection is null) throw new InvalidOperationException("
 await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching);
 if (serve)
 {
-    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving);
+    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching);
     Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
-    if (receiving && Environment.GetEnvironmentVariable("PROCUREMENT_RECEIVING_BROWSER_VERIFY_ON_STOP") == "1")
+    if(matching && Environment.GetEnvironmentVariable("PROCUREMENT_MATCHING_BROWSER_VERIFY_ON_STOP")=="1")
+        await probe.VerifyMatchingBrowserCompletion();
+    if (receiving && !matching && Environment.GetEnvironmentVariable("PROCUREMENT_RECEIVING_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyReceivingBrowserCompletion();
     if (orders && !receiving && Environment.GetEnvironmentVariable("PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyOrderBrowserCompletion();
@@ -246,8 +248,9 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null) { matchingDocumentDirectory=matchingDocumentsDirectory };
     }
 
-    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false)
+    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false, bool matching = false)
     {
+        if(matching) return await PrepareMatchingBrowserManifest(port);
         await Authority(manager1, "BROWSER-AUTH-M1");
         await Authority(manager2, "BROWSER-AUTH-M2");
         var requests = new[]
@@ -335,6 +338,10 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 principalDisplayName = "manager1", maximumAmount = "99999999999999.9999", branchId = branch },
             warning = "Synthetic disposable sandbox only. Header authentication and fixture database owner are not production security evidence.",
         };
+        return await WriteBrowserManifest(manifest);
+    }
+    private static async Task<string> WriteBrowserManifest(object manifest)
+    {
         var requestedPath = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_MANIFEST");
         var directory = Path.Combine(Path.GetTempPath(), "erp-approval-browser-" + Guid.NewGuid().ToString("N"));
         if (requestedPath is not null)
