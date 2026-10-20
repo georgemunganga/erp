@@ -156,7 +156,13 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
             ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
             if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
-            if (matching) { ProcurementInvoiceIntakeRoutes.MapRoutes(app); ProcurementInvoiceMatchingRoutes.MapRoutes(app); }
+            if (matching)
+            {
+                // Exercise the actual shared context endpoint used by the purpose-scoped
+                // selector assertions; do not manufacture a fixture permission response.
+                ProcurementContextRoutes.MapRoutes(app);
+                ProcurementInvoiceIntakeRoutes.MapRoutes(app); ProcurementInvoiceMatchingRoutes.MapRoutes(app);
+            }
             ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
         }
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
