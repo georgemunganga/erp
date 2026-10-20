@@ -17,6 +17,9 @@ public sealed class InvoiceMatchingPersistenceTests
         using var db = Context(); var allocation = db.Model.FindEntityType(typeof(InvoiceMatchAllocation))!;
         Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(SupplierInvoiceLine)
             && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","SupplierInvoiceLineId","SupplierInvoiceId" }));
+        var result=db.Model.FindEntityType(typeof(InvoiceMatchResult))!;
+        Assert.Contains(result.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(InvoiceMatchMappingVersion)
+            && fk.Properties.Select(x=>x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","MappingVersionId","SupplierInvoiceId","PurchaseOrderId","IssuedVersionId" }));
         Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(ReceivingSourceState)
             && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","ReceivingSourceStateId","PurchaseOrderId","IssuedVersionId","PurchaseOrderLineId" }));
         foreach (var target in new[] { typeof(GoodsReceiptLine),typeof(ServiceAcceptance) })
@@ -52,6 +55,40 @@ public sealed class InvoiceMatchingPersistenceTests
         Assert.Equal("OriginalInvoiceLineImmutable",(await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync())).Message);
         db.ChangeTracker.Clear(); invoice=await db.SupplierInvoices.SingleAsync(); invoice.NetAmount=2;
         Assert.Equal("OriginalInvoiceImmutable",(await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync())).Message);
+    }
+    [Fact]
+    public async Task Persisted_intake_line_set_cannot_grow_after_its_original_document_was_captured()
+    {
+        await using var db=Context(); var invoice=new SupplierInvoice { SupplierId=Guid.NewGuid(),InvoiceNumber="INV-1",NormalizedInvoiceNumber="INV-1",CurrencyCode="ZMW",IntakeChannel="Manual",InvoiceDate=new(2026,10,20) };
+        db.AddScoped(invoice); await db.SaveChangesAsync();
+        db.AddScoped(new SupplierInvoiceLine { SupplierInvoiceId=invoice.Id,LineNumber=1,Description="Late inserted line",Quantity=1,UnitPrice=1 });
+        Assert.Equal("OriginalInvoiceLineSetClosed",(await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync())).Message);
+    }
+    [Fact]
+    public async Task Blocked_result_still_cannot_bind_a_valid_mapping_to_a_different_issued_source()
+    {
+        await using var db=Context(); var invoice=new SupplierInvoice { SupplierId=Guid.NewGuid(),InvoiceNumber="INV-1",NormalizedInvoiceNumber="INV-1",CurrencyCode="ZMW",IntakeChannel="Manual",InvoiceDate=new(2026,10,20),NetAmount=1,GrossAmount=1 };
+        db.AddScoped(invoice); var line=new SupplierInvoiceLine { SupplierInvoiceId=invoice.Id,LineNumber=1,Description="Original",Quantity=1,UnitPrice=1 };
+        db.AddScoped(line); await db.SaveChangesAsync();
+        var mapping=InvoiceMappingEvidence.Create(invoice,[line],Guid.NewGuid(),Guid.NewGuid(),
+            [new(line.Id,Guid.NewGuid(),null,null,"each",Guid.Empty,"")],"matcher",Guid.NewGuid(),DateTimeOffset.UtcNow);
+        db.AddScoped(mapping); invoice.CurrentMappingVersionId=mapping.Id; invoice.MappingRevision=mapping.MappingRevision; await db.SaveChangesAsync();
+        db.AddScoped(new InvoiceMatchResult { SupplierInvoiceId=invoice.Id,ExecutionVersion=1,MappingVersionId=mapping.Id,
+            PurchaseOrderId=Guid.NewGuid(),IssuedVersionId=Guid.NewGuid(),InvoiceVersion=invoice.Version,
+            InvoiceOriginalSha256=mapping.InvoiceOriginalSha256,Outcome="Blocked",ActorPrincipalId="matcher",ActorWorkerId=Guid.NewGuid(),
+            CommandKey=Guid.NewGuid(),EvidenceJson="{}",EvidenceSha256=ProcurementEvidenceEncoding.Digest("{}") });
+        Assert.Equal("InvoiceMatchCurrentSourceRequired",(await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync())).Message);
+    }
+    [Fact]
+    public async Task A_new_claim_cannot_reuse_an_unchanged_previously_consumed_exposure_sequence()
+    {
+        await using var db=Context();
+        var exposure=new InvoiceMatchExposureState { PurchaseOrderId=Guid.NewGuid(),IssuedVersionId=Guid.NewGuid(),SupplierId=Guid.NewGuid(),CurrencyCode="ZMW",Sequence=1,CoverageState="Verified" };
+        db.AddScoped(exposure); db.Entry(exposure).State=EntityState.Unchanged;
+        db.AddScoped(new InvoiceMatchAllocation { ExposureStateId=exposure.Id,ExposureSequence=1,SupplierInvoiceId=Guid.NewGuid(),
+            SupplierInvoiceLineId=Guid.NewGuid(),MatchResultId=Guid.NewGuid(),PurchaseOrderId=exposure.PurchaseOrderId,
+            IssuedVersionId=exposure.IssuedVersionId,SupplierId=exposure.SupplierId,CurrencyCode="ZMW",UnitCode="each",Quantity=1,NetAmount=1 });
+        Assert.Equal("InvoiceAllocationAuthorityRequired",(await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync())).Message);
     }
     [Fact]
     public async Task Unknown_checkpoint_cannot_invent_a_claim_sequence_without_immutable_claim_batch()

@@ -76,3 +76,12 @@ currency and active category references are checked. Preview remains explicitly 
 and requires issued, document-review and owner-consumption evidence. No matching policy is seeded,
 published or enabled by these source changes. Policy API integration tests and independent review
 of the extension remain pending alongside the existing release gates.
+
+Distinct persistence review identified and corrected three additional source gaps before runtime
+wiring: every added claim batch must conversely advance its tracked exposure state (new state
+sequence one or existing state CAS exactly plus one); even a Blocked result must bind the current
+mapping/original invoice version/digest and exact PO/issued source through a composite foreign key
+and context guard; and original invoice lines may be inserted only with a same-save new intake
+parent. The original captured line set cannot grow alongside a mapping. Authored model/context
+denials cover these cases. SQL constraints/concurrency and positive mapped execution remain
+unverified; no migration has been generated or production settings changed.

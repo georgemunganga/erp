@@ -40,8 +40,8 @@ public sealed partial class ProcurementDbContext
             result.Property(name).HasMaxLength(64);
         result.Property(x => x.ActorPrincipalId).HasMaxLength(200);
         result.Property(x => x.QuantityVariance).HasPrecision(18,4); result.Property(x => x.PriceVariance).HasPrecision(18,4); result.Property(x => x.TaxVariance).HasPrecision(38,8);
-        result.HasOne<InvoiceMatchMappingVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.MappingVersionId, x.SupplierInvoiceId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SupplierInvoiceId }).OnDelete(DeleteBehavior.Restrict);
+        result.HasOne<InvoiceMatchMappingVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.MappingVersionId, x.SupplierInvoiceId, x.PurchaseOrderId, x.IssuedVersionId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SupplierInvoiceId, x.PurchaseOrderId, x.IssuedVersionId }).OnDelete(DeleteBehavior.Restrict);
         result.HasOne<PurchaseOrderIssuedVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.IssuedVersionId, x.PurchaseOrderId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
         result.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique().HasFilter("command_key IS NOT NULL");
@@ -106,7 +106,13 @@ public sealed partial class ProcurementDbContext
                 var exposure = ApprovalEvidence<InvoiceMatchExposureState>(row.ExposureStateId);
                 var invoice = ApprovalEvidence<SupplierInvoice>(row.SupplierInvoiceId);
                 var mapping = result?.MappingVersionId is { } mappingId ? ApprovalEvidence<InvoiceMatchMappingVersion>(mappingId) : null;
-                if (row.Kind != "Debit" || row.OriginalDebitId != null || result is null || result.Outcome != "Compared" || result.ExecutionVersion != 1
+                var exposureEntry = exposure is null ? null : Entry(exposure);
+                var stateAdvanced = exposureEntry is not null && (exposureEntry.State == EntityState.Added ? exposure!.Sequence == 1
+                    : exposureEntry.State == EntityState.Modified && exposureEntry.Property(x => x.Sequence).IsModified
+                        && exposure!.Sequence == checked(exposureEntry.OriginalValues.GetValue<long>(nameof(InvoiceMatchExposureState.Sequence)) + 1));
+                var batch = ChangeTracker.Entries<InvoiceMatchAllocation>().Where(x => x.State == EntityState.Added && x.Entity.ExposureStateId == row.ExposureStateId).Select(x => x.Entity).ToArray();
+                if (!stateAdvanced || batch.Select(x => (x.MatchResultId,x.SupplierInvoiceId)).Distinct().Count() != 1
+                    || row.Kind != "Debit" || row.OriginalDebitId != null || result is null || result.Outcome != "Compared" || result.ExecutionVersion != 1
                     || result.SupplierInvoiceId != row.SupplierInvoiceId || exposure is null || exposure.CoverageState != "Verified"
                     || exposure.OwnerReference != row.OwnerCoverageReference || exposure.Sequence != row.ExposureSequence
                     || exposure.OwnerValidUntil is null || exposure.OwnerValidUntil <= result.MatchedAt
@@ -128,6 +134,13 @@ public sealed partial class ProcurementDbContext
             if (entry.State == EntityState.Added && entry.Entity.ExecutionVersion == 1)
             {
                 var row = entry.Entity;
+                var invoice = ApprovalEvidence<SupplierInvoice>(row.SupplierInvoiceId);
+                var mapping = row.MappingVersionId is { } mappingId ? ApprovalEvidence<InvoiceMatchMappingVersion>(mappingId) : null;
+                if (invoice is null || mapping is null || invoice.CurrentMappingVersionId != mapping.Id || invoice.MappingRevision != mapping.MappingRevision
+                    || mapping.SupplierInvoiceId != invoice.Id || mapping.PurchaseOrderId != row.PurchaseOrderId || mapping.IssuedVersionId != row.IssuedVersionId
+                    || row.InvoiceVersion != invoice.Version || row.InvoiceOriginalSha256 != mapping.InvoiceOriginalSha256
+                    || row.InvoiceOriginalSha256 != InvoiceMappingEvidence.OriginalDigest(invoice, SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id).ToArray()))
+                    throw new InvalidOperationException("InvoiceMatchCurrentSourceRequired");
                 if (row.ActorPrincipalId != scope.SubjectId || row.ActorWorkerId is null || row.ActorWorkerId == Guid.Empty || row.CommandKey is null || row.CommandKey == Guid.Empty
                     || row.EvidenceJson is null || row.EvidenceSha256 != ProcurementEvidenceEncoding.Digest(row.EvidenceJson)
                     || row.Outcome is not ("Compared" or "Blocked")) throw new InvalidOperationException("InvoiceMatchEvidenceInvalid");
@@ -145,7 +158,12 @@ public sealed partial class ProcurementDbContext
             }
         }
         foreach (var entry in ChangeTracker.Entries<SupplierInvoiceLine>())
+        {
             if (entry.State == EntityState.Modified) throw new InvalidOperationException("OriginalInvoiceLineImmutable");
+            if (entry.State == EntityState.Added && !ChangeTracker.Entries<SupplierInvoice>().Any(x => x.State == EntityState.Added
+                && x.Entity.Id == entry.Entity.SupplierInvoiceId && x.Entity.TenantId == entry.Entity.TenantId && x.Entity.LegalEntityId == entry.Entity.LegalEntityId))
+                throw new InvalidOperationException("OriginalInvoiceLineSetClosed");
+        }
         foreach (var entry in ChangeTracker.Entries<SupplierInvoice>())
         {
             if (entry.State != EntityState.Modified) continue;
