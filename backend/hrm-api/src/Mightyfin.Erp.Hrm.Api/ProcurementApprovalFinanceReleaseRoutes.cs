@@ -65,21 +65,27 @@ public static partial class ProcurementApprovalExecutionRoutes
                     scope.TenantId, scope.LegalEntityId, request.RequesterWorkerId, token);
                 var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,
                     scope.TenantId, scope.LegalEntityId, scope.SubjectId, token);
-                if (requester is null || verifier is null || requester.PrincipalId == scope.SubjectId
-                    || verifier.WorkerId == request.RequesterWorkerId) throw new ApprovalHttpError(403,
+                var maker = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,
+                    scope.TenantId, scope.LegalEntityId, request.CreatedBy, token);
+                if (requester is null || verifier is null || maker is null || requester.PrincipalId == scope.SubjectId
+                    || verifier.WorkerId == request.RequesterWorkerId || verifier.WorkerId == maker.WorkerId) throw new ApprovalHttpError(403,
                     "IndependentFinanceVerifierRequired", "An independent Finance officer and an unambiguous requester identity are required.");
                 var prior = await Receipt(db, "Release", key, scope.SubjectId, fingerprint, id, null, token);
-                if (prior is not null) return new Reply(200, prior.ResponseJson);
-                if (request.Version != input.ExpectedRequestVersion) throw Conflict("ApprovalSourceChanged");
-                if (!Guid.TryParse(request.ApprovalInstanceRef, out var caseId)) throw Conflict("ApprovalSubmissionMissing");
+                if (prior is null && request.Version != input.ExpectedRequestVersion) throw Conflict("ApprovalSourceChanged");
+                var caseId = prior?.CoreApprovalCaseId ?? (Guid.TryParse(request.ApprovalInstanceRef, out var currentCase)
+                    ? currentCase : throw Conflict("ApprovalSubmissionMissing"));
                 var pin = await db.ApprovalSubmissions.SingleAsync(x => x.PurchaseRequestId == id
-                    && x.CoreApprovalCaseId == caseId && x.SubmittedBusinessVersion == request.SubmittedVersion, token);
+                    && x.CoreApprovalCaseId == caseId && (prior != null || x.SubmittedBusinessVersion == request.SubmittedVersion), token);
                 var approvalCase = await Case(workflow, caseId, token);
                 var outcome = await db.ApprovalOutcomes.SingleOrDefaultAsync(x => x.SubmissionId == pin.Id, token)
                     ?? throw Conflict("ApprovalOutcomeMissing");
                 var decision = await workflow.Decisions.SingleAsync(x => x.Id == outcome.CoreDecisionId, token);
-                if (decision.ActorSubjectId == scope.SubjectId) throw new ApprovalHttpError(403,
+                var decisionMaker = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,
+                    scope.TenantId, scope.LegalEntityId, decision.ActorSubjectId, token);
+                if (decision.ActorSubjectId == scope.SubjectId || decisionMaker is null
+                    || decisionMaker.WorkerId == verifier.WorkerId) throw new ApprovalHttpError(403,
                     "IndependentFinanceVerifierRequired", "Another Finance officer must verify this release.");
+                if (prior is not null) return new Reply(200, prior.ResponseJson);
                 var release = await db.FinanceReleaseRequests.SingleOrDefaultAsync(x => x.ApprovalOutcomeId == outcome.Id, token)
                     ?? throw Conflict("FinanceReleaseRequestMissing");
                 var evaluation = await db.PolicyEvaluations.SingleAsync(x => x.Id == pin.PolicyEvaluationId, token);

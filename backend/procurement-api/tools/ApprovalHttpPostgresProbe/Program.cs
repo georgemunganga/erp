@@ -366,6 +366,26 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             (await core.LocalUsers.SingleAsync(x => x.Id == aliasId)).IsArchived = true;
             await core.SaveChangesAsync();
         }
+        Guid decisionAliasId;
+        using (var services = app.Services.CreateScope())
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var decisionWorker = await core.LocalUsers.Where(x => x.Id == manager1).Select(x => x.WorkerId).SingleAsync();
+            var alias = new LocalUser { Email = "decision-maker-alias@example.test", NormalizedEmail = "DECISION-MAKER-ALIAS@EXAMPLE.TEST",
+                DisplayName = "Decision maker second account", PasswordHash = "synthetic-no-login-secret",
+                RolesCsv = "finance_approver", WorkerId = decisionWorker };
+            core.LocalUsers.Add(alias); await core.SaveChangesAsync(); decisionAliasId = alias.Id;
+        }
+        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", decisionAliasId, body, Guid.NewGuid());
+        using (var services = Scope(finance))
+        {
+            Require(!await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().FinanceReleaseConfirmations
+                .AnyAsync(x => x.ReleaseRequestId == release.GetProperty("releaseRequestId").GetGuid()),
+                "Decision-maker worker alias recorded its own release confirmation.");
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.LocalUsers.SingleAsync(x => x.Id == decisionAliasId)).IsArchived = true;
+            await core.SaveChangesAsync();
+        }
         await Expect(HttpStatusCode.UnprocessableEntity, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", finance,
             new { body.expectedRequestVersion, body.reservationReference, releasedAmount = body.releasedAmount + 1,
                 body.currencyCode, body.evidenceReference, body.confirmedAt, body.reason }, Guid.NewGuid());
