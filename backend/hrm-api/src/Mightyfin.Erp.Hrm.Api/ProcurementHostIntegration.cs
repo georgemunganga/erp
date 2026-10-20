@@ -30,6 +30,10 @@ public static class ProcurementHostIntegration
             // The normal host connection may be composed while disabled, but every execution
             // route refuses to run until the explicit least-privilege connection is configured.
             string.IsNullOrWhiteSpace(executionConnection) ? connection : executionConnection, sp.GetRequiredService<IProcurementScope>(), sp.GetRequiredService<IApprovalScope>()));
+        var receivingOptions = configuration.GetSection("Procurement:Receiving").Get<ProcurementReceivingExecutionOptions>() ?? new();
+        receivingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(receivingOptions);
+        services.AddScoped<IProcurementReceivingSchemaReadiness, ProcurementReceivingSchemaReadiness>();
         ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
         services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
         services.AddDbContext<ProcurementDbContext>(options =>
@@ -65,6 +69,7 @@ public static class ProcurementHostIntegration
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
         ProcurementOrderExecutionRoutes.MapRoutes(app);
+        ProcurementReceivingRoutes.MapRoutes(app);
         MapMetadataRoute(app);
     }
 
@@ -79,10 +84,30 @@ public static class ProcurementHostIntegration
                 if (!await db.Database.CanConnectAsync(ct))
                     return Results.Problem(statusCode: 503, title: "Procurement database unavailable.");
                 var pending = (await db.Database.GetPendingMigrationsAsync(ct)).Any();
+                var receivingOptions = services.GetRequiredService<ProcurementReceivingExecutionOptions>();
+                var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
+                    && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
+                var now = DateTimeOffset.UtcNow;
+                var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
+                    ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
+                        && x.PublishedAt != null && x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo)).Take(2).ToArrayAsync(ct)
+                    : [];
+                var receivingPositive = false;
+                ReceivingRuleDocument? receivingRules = null;
+                if (receivingPolicies.Length == 1 && ReceivingPolicyRules.Validate(receivingPolicies[0].RulesJson).Count == 0)
+                {
+                    try
+                    {
+                        receivingRules = ReceivingPolicyRules.Parse(receivingPolicies[0].RulesJson);
+                        receivingPositive = receivingRules.Rules.All(rule => ReceivingPolicyRules.Project(receivingPolicies[0], rule).Published);
+                    }
+                    catch (InvalidOperationException) { receivingPositive = false; }
+                }
                 return Results.Ok(new
                 {
                     module = "procurement",
                     version = 1,
+                    receivingSchemas = new { source = 1, policy = 1 },
                     tenantId = scope.TenantId,
                     legalEntityId = scope.LegalEntityId,
                     workLocationId = scope.WorkLocationId,
@@ -118,7 +143,12 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().HasApprovedDeliveryPolicy
                             && await services.GetRequiredService<IProcurementOrderSchemaReadiness>().IsReadyAsync(ct),
                         orderDraft = !pending,
-                        receiving = false,
+                        receiving = false, // Existing UI is not yet a compatible live receiving adapter.
+                        receivingDrafts,
+                        receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
+                        receivingInspection = receivingPositive && receivingRules!.Rules.Any(x => x.InspectionRequired),
+                        receivingServices = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Service"),
+                        receivingCorrections = false,
                         invoiceIntake = !pending,
                         invoiceDocuments = !pending && app.Services.GetRequiredService<CoreDocumentFeature>().Enabled
                             && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct),

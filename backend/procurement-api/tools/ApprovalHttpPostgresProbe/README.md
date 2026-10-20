@@ -216,3 +216,46 @@ exact delivery replay through real API reads. Shell authentication/branding alon
 synthetic presentation fixtures. This increment is **source-only and unverified**; it has
 not run a compiler, browser, database, migration or server and does not enable live orders.
 Use a fresh fixture for each destructive business-flow test and clean it up afterwards.
+
+## Receiving positive adapter proof — unverified source
+
+Single `--receiving` is an isolated, restricted-runtime actual HTTP/PostgreSQL probe. It
+requires the existing private disposable DB/bootstrap/runtime guards and committed P25
+migrations matching the model; it must not be launched while the source model is ahead.
+It reuses actual PR approvals and issued/delivered PO commands, then publishes a RECEIVING
+policy through real Draft/Review/independent Publish routes (future effective date and
+bounded wait). No approved receiving rules, acceptance effects or Core votes are fabricated.
+
+It authors successful draft-without-policy, blocked record-without-policy, truthful goods
+overdelivery2 against accepted authority1, named independent inspection, positive acceptance,
+service certification, exact immutable responses/retries, denied edits/over-capacity,
+concurrent partial acceptors (one win/one409), and current permission revocation. Direct
+fixture-owner SQL deliberately rehearses one inherited nonzero historic counter; physical
+truth remains recordable but certification must block unknown history. Those fixture writes
+never widen the HTTP runtime's grants. All proof output is synthetic and no credentials
+are printed. Only receiving mode grants finite relevant receipt tables and policy lifecycle
+DML to the private runtime. This source has not been built/run and is not completion evidence.
+
+This branch's program additions are based on e752ed1; when combining with the separate
+order-browser `--serve --orders` increment, preserve that explicitly allowed pair while
+keeping `--receiving` single and rejecting other unsupported/duplicated combinations.
+
+
+Receiving review follow-up (source only): `--receiving` now includes an inactive historical
+PO-line acceptance cache that must block certification without erasing physical truth,
+and a separately governed service policy restricted to another site that must deny an
+otherwise named organisation-wide owner. Existing receiving policy creation/publication
+is used; no synthetic published receiving policy or successful owner posting is fabricated.
+The probe remains unrun for P25 until its migration and centralized runtime gate are ready.
+
+Receiving read-scope regression (source only): the controlled `--receiving` fixture records
+a legitimate issued-A positive path, then bootstrap-corrupts only its current PO header to
+B while a named policy-site-B owner is restricted to Core B. Actual API assigned/source/v1
+worklist rows and counts must remain zero and details denied. Cleanup restores original A
+and membership; runtime privileges are unchanged. This scenario has not been executed here.
+
+Unknown legacy visibility follow-up (unrun source): the same receiving scope scenario now
+creates untouched v0 goods/service records and checks organisation-wide/no-selection access,
+selected-A denial, and selected/unselected B-only denial after A→B header corruption. Both
+records must survive with missing bindings and no certification evidence. This is explicit
+read scope control; it does not backfill a historical branch or confer matching authority.

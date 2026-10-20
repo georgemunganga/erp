@@ -74,6 +74,7 @@ public sealed class ProcurementApprovalCapabilityHttpTests
         builder.Services.AddSingleton(options);
         builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
         builder.Services.AddSingleton<IProcurementApprovalSchemaReadiness>(readiness);
+        builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
         builder.Services.AddSingleton(new CoreDocumentFeature(false));
         builder.Services.AddAuthentication("capability-test")
             .AddScheme<AuthenticationSchemeOptions, Authentication>("capability-test", _ => { });

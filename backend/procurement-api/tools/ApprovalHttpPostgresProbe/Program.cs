@@ -30,12 +30,13 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x is not ("--serve" or "--orders" or "--settings"))
+if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
     || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && args.Contains("--orders", StringComparer.Ordinal))))
-    throw new ArgumentException("Use --serve, --orders, --settings, or the supported --serve --orders browser fixture combination.");
+    throw new ArgumentException("Use --serve, --orders, --settings, --receiving, or the supported --serve --orders browser fixture combination.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
-var orders = args.Contains("--orders", StringComparer.Ordinal);
+var receiving = args.Contains("--receiving", StringComparer.Ordinal);
+var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving;
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
@@ -43,7 +44,7 @@ if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
 if (orders && bootstrapConnection is null) throw new InvalidOperationException("Order verification requires distinct bootstrap/runtime identities.");
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders);
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving);
 if (serve)
 {
     var manifest = await probe.PrepareBrowserFixture(port, orders);
@@ -51,6 +52,11 @@ if (serve)
     await probe.WaitForShutdown();
     if (orders && Environment.GetEnvironmentVariable("PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyOrderBrowserCompletion();
+}
+else if (receiving)
+{
+    await probe.VerifyPositiveReceiving();
+    Console.WriteLine("PASS: actual receiving goods/service HTTP + PostgreSQL evidence and conservative denial checks.");
 }
 else if (orders)
 {
@@ -87,7 +93,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private Guid OrderManager2 => manager2;
     private bool OrderDistinctRuntime => distinctRuntime;
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false)
     {
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
@@ -117,6 +123,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         var orderFeature = new ProcurementOrderExecutionOptions { Enabled = orders, ExecutionDatabaseConfigured = true,
             ApprovedManualDispatchPolicyReference = "SYNTHETIC-APPROVED-DELIVERY", AllowedDeliveryChannels = ["SecureEmail"] };
         builder.Services.AddSingleton(orderFeature);
+        builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions { DraftsEnabled = receiving, PositiveExecutionEnabled = receiving, ExecutionDatabaseConfigured = true });
         builder.Services.AddAuthentication("probe").AddScheme<AuthenticationSchemeOptions, ProbeAuthentication>("probe", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build();
@@ -126,6 +133,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         {
             ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
             ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
+            if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
             ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
         }
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
@@ -158,6 +166,13 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 foreach (var role in core.TenantRoleAssignments.Local)
                     if (role.RoleKey == "procurement_manager") role.PermissionsCsv += ",procurement-po-approve,procurement-po-read,procurement-po-dispatch-confirm";
                     else if (role.RoleKey == "finance_approver") role.PermissionsCsv += ",procurement-po-finance-confirm,procurement-po-read";
+            }
+            if (receiving)
+            {
+                foreach (var role in core.TenantRoleAssignments.Local)
+                    if (role.RoleKey == "employee") role.PermissionsCsv += ",procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record";
+                    else if (role.RoleKey == "procurement_manager") role.PermissionsCsv += ",procurement-receipt-view,procurement-receipt-inspect,procurement-receipt-accept,procurement-service-certify";
+                    else if (role.RoleKey == "finance_approver") role.PermissionsCsv += ",procurement-configuration-approve";
             }
             await core.SaveChangesAsync();
             var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
@@ -198,7 +213,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         if (bootstrapConnection is not null)
-            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve || orders, orders);
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve || orders, orders, receiving);
         await app.StartAsync();
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
             people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature,
@@ -696,11 +711,11 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             new { version = grant.Version, reason = "Synthetic authority withdrawn" }, selectedBranch: false);
     }
     private async Task<JsonElement> NewFundedRequest(string purpose, decimal quantity = 1m,
-        decimal unitPrice = 100m, decimal checkedAmount = 100m)
+        decimal unitPrice = 100m, decimal checkedAmount = 100m, string? purchaseType = null)
     {
         var created = await Send(HttpMethod.Post, Root + "/requests", requester, new { purpose, currencyCode = "ZMW",
             neededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), lines = new[] { new { description = "Synthetic item", unitCode = "each",
-                requestedQuantity = quantity, estimatedUnitPrice = unitPrice, categoryCode = "IT" } } });
+                requestedQuantity = quantity, estimatedUnitPrice = unitPrice, categoryCode = "IT", purchaseType } } });
         await Check(created, HttpStatusCode.Created); var draft = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = draft.GetProperty("id").GetGuid();
         var submitted = await Send(HttpMethod.Post, $"{Root}/requests/{id}/submit", requester, new { version = draft.GetProperty("version").GetInt64() });
         await Check(submitted, HttpStatusCode.OK); var request = await submitted.Content.ReadFromJsonAsync<JsonElement>();

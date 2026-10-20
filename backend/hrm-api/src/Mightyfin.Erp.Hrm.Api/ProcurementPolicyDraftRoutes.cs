@@ -13,7 +13,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Company-scoped policy authoring. Drafts are never effective purchase authority.</summary>
-public static class ProcurementPolicyDraftRoutes
+public static partial class ProcurementPolicyDraftRoutes
 {
     public static void MapRoutes(WebApplication app)
     {
@@ -32,7 +32,7 @@ public static class ProcurementPolicyDraftRoutes
 
     private static IResult ValidateRules(PolicyValidationRequest input)
     {
-        var issues = PolicyRuleValidator.Validate(input.RulesJson);
+        var issues = ReceivingPolicyRules.IsReceivingDocument(input.RulesJson) ? ReceivingPolicyRules.Validate(input.RulesJson) : PolicyRuleValidator.Validate(input.RulesJson);
         return Results.Ok(new { isValid = issues.Count == 0, issues });
     }
 
@@ -41,6 +41,8 @@ public static class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.PolicyKey == "RECEIVING") return Results.Ok(new { policyId = policy.Id, isAuthority = false,
+            status = "ReceivingPreviewRequiresSealedSource", issues = ReceivingPolicyRules.Validate(policy.RulesJson) });
         var coverageIssues = PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
         var decision = PolicyRulePreview.Evaluate(policy.RulesJson, scenario);
         return Results.Ok(new { policyId = policy.Id, policy.PolicyVersionNumber,
@@ -51,7 +53,7 @@ public static class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, CancellationToken ct)
     {
         var normalized = key?.Trim().ToUpperInvariant();
-        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER"))
+        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING"))
             return Problem("validation-failed", "Choose purchase requests or purchase orders.", 422);
         var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
         var matches = await db.PolicyVersions.AsNoTracking()
@@ -114,11 +116,13 @@ public static class ProcurementPolicyDraftRoutes
     }
 
     private static async Task<IResult> Create(PolicyDraft input, ProcurementDbContext db,
-        ProcurementRequestScope scope, CancellationToken ct)
+        HrmDbContext organizationDb, ProcurementRequestScope scope, CancellationToken ct)
     {
         var issue = Validate(input);
         if (issue is not null) return Problem("validation-failed", issue, 422);
         var key = input.PolicyKey!.Trim().ToUpperInvariant();
+        if (key == "RECEIVING" && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
+            return Problem("receiving-authority-unavailable", "Your current account cannot configure receiving rules.", 403);
         var next = (await db.PolicyVersions.AsNoTracking()
             .Where(x => x.PolicyKey == key).MaxAsync(x => (int?)x.PolicyVersionNumber, ct) ?? 0) + 1;
         var policy = new PolicyVersion
@@ -137,10 +141,12 @@ public static class ProcurementPolicyDraftRoutes
     }
 
     private static async Task<IResult> Update(Guid id, VersionedPolicyDraft input,
-        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+        ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, CancellationToken ct)
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.PolicyKey == "RECEIVING" && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
+            return Problem("receiving-authority-unavailable", "Your current account cannot configure receiving rules.", 403);
         if (policy.Version != input.Version)
             return Problem("version-conflict", "Refresh this policy draft before saving.", 409);
         if (policy.State != "Draft")
@@ -209,9 +215,11 @@ public static class ProcurementPolicyDraftRoutes
                 return Problem("review-missing", "Send this policy for review before publication.", 409);
             if (policy.EffectiveFrom <= DateTimeOffset.UtcNow)
                 return Problem("effective-date", "Choose a future start date in a new draft before publication.", 422);
-            var referenceIssue = await CheckCompanyRules(policy, db, organizationDb, scope, ct);
+            var referenceIssue = await CheckCompanyRules(policy, db, organizationDb, scope, ct, "procurement-configuration-approve");
             if (referenceIssue is not null) return referenceIssue;
-            var coverage = PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
+            if (policy.PolicyKey == "RECEIVING" && !await ReceivingIndependentReviewer(organizationDb, scope, policy, ct))
+                return Problem("self-approval", "Another current authorized worker must independently review this receiving policy.", 403);
+            var coverage = policy.PolicyKey == "RECEIVING" ? ReceivingPolicyRules.Validate(policy.RulesJson) : PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
             if (coverage.Count != 0)
                 return Results.Json(new { code = "coverage-failed",
                     message = "Resolve rule coverage and overlaps before publication.", issues = coverage },
@@ -251,10 +259,12 @@ public static class ProcurementPolicyDraftRoutes
     }
 
     private static async Task<IResult> ReturnForChanges(Guid id, PublicationInput input,
-        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+        ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, CancellationToken ct)
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.PolicyKey == "RECEIVING" && !await ReceivingIndependentReviewer(organizationDb, scope, policy, ct))
+            return Problem("self-approval", "Another current authorized worker must independently review this receiving policy.", 403);
         if (policy.Version != input.Version)
             return Problem("version-conflict", "Refresh this policy before returning it.", 409);
         if (policy.State != "PendingReview")
@@ -273,8 +283,9 @@ public static class ProcurementPolicyDraftRoutes
 
     private static async Task<IResult?> CheckCompanyRules(PolicyVersion policy,
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
-        CancellationToken ct)
+        CancellationToken ct, string receivingPermission = "procurement-configuration-edit")
     {
+        if (policy.PolicyKey == "RECEIVING") return await CheckReceivingCompanyRules(policy, db, organizationDb, scope, receivingPermission, ct);
         var issues = PolicyRuleValidator.Validate(policy.RulesJson);
         if (issues.Count != 0)
             return Results.Json(new { code = "invalid-rules", message = "Correct the buying rules before review.", issues },

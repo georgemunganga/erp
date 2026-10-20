@@ -18,6 +18,29 @@ public static class ControlledReceiving
     public const string ServiceReversePermission = "procurement-service-reverse";
     public const string ReturnPermission = "procurement-return-dispatch";
 
+    /// <summary>Current authorization for exact replay; no new capacity is allocated. The
+    /// saved command receipt never substitutes for current source, worker or policy controls.</summary>
+    public static void VerifyCurrentActor(ReceivingSourceProjection source, ReceivingPolicyProjection policy,
+        ReceivingActorProjection actor, ReceivingLedger ledger, string permission, DateTimeOffset at,
+        Guid? siteId = null, Guid? observationId = null)
+    {
+        Require(permission is RecordPermission or InspectPermission or AcceptPermission or CertifyPermission, "ReceivingOperationUnsupported");
+        Guard(source, policy, actor, ledger, permission, at, siteId);
+        var observation = observationId is { } id ? Observation(ledger, id) : null;
+        if (permission == InspectPermission)
+            Require(observation is not null && policy.InspectionRequired && policy.InspectorWorkerIds.Contains(actor.WorkerId)
+                && (!policy.RequireIndependentInspector || observation.ReceiverWorkerId != actor.WorkerId)
+                && observation.ReceivingPolicyVersionId == policy.VersionId, "InspectionAuthorityRequired");
+        if (permission is AcceptPermission or CertifyPermission)
+        {
+            Require(ledger.AcceptanceHistoryVerified, "ReceivingLegacyAcceptanceReconciliationRequired");
+            CertificationActor(source, policy, actor);
+            if (permission == AcceptPermission) Require(observation is not null && observation.ReceivingPolicyVersionId == policy.VersionId
+                && (policy.AllowReceiverCertification || observation.ReceiverWorkerId != actor.WorkerId), "ReceiverCannotCertify");
+            else Require(source.Pin.Kind == ReceivingKind.Service && policy.ServiceOwnerWorkerIds.Contains(actor.WorkerId), "ServiceCertificationAuthorityRequired");
+        }
+    }
+
     public static GoodsPhysicalObservation RecordGoods(ReceivingSourceProjection source,
         ReceivingPolicyProjection policy, ReceivingActorProjection actor, ReceivingLedger ledger,
         Guid receiptId, Guid receiptLineId, Guid siteId, decimal received, decimal rejected,
@@ -176,6 +199,7 @@ public static class ControlledReceiving
     public static ReceivingAcceptanceBalance Balance(ReceivingLedger ledger, Guid acceptanceRecordId)
     {
         ValidateLedger(ledger);
+        Require(ledger.AcceptanceHistoryVerified, "ReceivingLegacyAcceptanceReconciliationRequired");
         return BalanceCore(ledger.Source, ledger.Sequence, ledger.Effects, acceptanceRecordId);
     }
 
@@ -448,14 +472,17 @@ public static class ControlledReceiving
             && policy.CategoryCode == p.CategoryCode && policy.Kind == p.Kind
             && policy.EffectiveFrom <= at && (!policy.EffectiveTo.HasValue || at < policy.EffectiveTo)
             && (!policy.InspectionRequired || p.Kind == ReceivingKind.Goods)
-            && (!site.HasValue || policy.ReceivingSiteIds.Contains(site.Value)), "ReceivingPublishedPolicyRequired");
+            && (!site.HasValue || policy.ReceivingSiteIds.Contains(site.Value))
+            && (p.Kind != ReceivingKind.Service || p.BranchId is { } serviceSite && actor.SiteIds.Contains(serviceSite)
+                && policy.ReceivingSiteIds.Contains(serviceSite)), "ReceivingPublishedPolicyRequired");
     }
     private static void CertificationActor(ReceivingSourceProjection source, ReceivingPolicyProjection policy,
         ReceivingActorProjection actor) => Require((policy.AllowBuyerCertification || actor.WorkerId != source.BuyerWorkerId)
             && (policy.AllowRequesterCertification || actor.WorkerId == source.BuyerWorkerId
                 || PurchaseOrderWorkerIdentity.IsIndependent(source.Submission.ParticipantWorkersJson, actor.WorkerId)), "CertificationMakerCheckerDenied");
     private static void Capacity(ReceivingSourcePin source, ReceivingLedger ledger, decimal quantity) =>
-        Require(ExactDecimalArithmetic.Sum(ledger.Effects.Select(x => x.QuantityDelta).Append(quantity)) <= source.AuthorizedQuantity, "IssuedAcceptanceCapacityExceeded");
+        Require(ledger.AcceptanceHistoryVerified && ExactDecimalArithmetic.Sum(ledger.Effects.Select(x => x.QuantityDelta).Append(quantity)) <= source.AuthorizedQuantity,
+            ledger.AcceptanceHistoryVerified ? "IssuedAcceptanceCapacityExceeded" : "ReceivingLegacyAcceptanceReconciliationRequired");
     private static void NewKey(ReceivingLedger ledger, Guid key, string evidence) => Require(key != Guid.Empty
         && !string.IsNullOrWhiteSpace(evidence) && !ledger.Observations.Any(x => x.EffectKey == key)
         && !ledger.Inspections.Any(x => x.EffectKey == key) && !ledger.Effects.Any(x => x.EffectKey == key), "ReceivingEffectKeyCollision");

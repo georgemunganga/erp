@@ -176,7 +176,8 @@ public sealed partial class ProcurementDbContext
             if (entry.Entity is ProcurementCommercialCommandReceipt receipt && (receipt.ActorPrincipalId != scope.SubjectId
                 || receipt.CommandKey == Guid.Empty || receipt.Fingerprint.Length != 64 || receipt.CompletedAt == default
                 || receipt.Operation is not ("Convert" or "SourceEdit" or "Finance" or "Submit" or "Decide" or "Issue"
-                    or "Delivery" or "FinanceRelease" or "DraftFinanceRelease" or "CancelDraft")))
+                    or "Delivery" or "FinanceRelease" or "DraftFinanceRelease" or "CancelDraft"
+                    or "ReceivingDraft" or "ReceivingRecord" or "ReceivingInspect" or "ReceivingAccept" or "ServiceDraft" or "ServiceCertify" or "ReceivingCancel" or "ServiceCancel")))
                 throw new InvalidOperationException("OrderCommandReceiptActorInvalid");
             if (entry.Entity is PurchaseOrderSubmission submitted)
             {

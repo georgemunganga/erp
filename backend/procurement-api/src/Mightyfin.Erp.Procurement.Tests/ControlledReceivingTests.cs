@@ -434,6 +434,86 @@ public sealed class ControlledReceivingTests
         Assert.Throws<InvalidOperationException>(() => ControlledReceiving.Balance(f.Ledger, original.AcceptanceRecordId));
     }
 
+    [Fact]
+    public void Unknown_legacy_acceptance_retains_physical_truth_but_never_authorizes_new_acceptance()
+    {
+        var f = new Fixture(); var physical = f.Record(12); f.Inspect(physical, 12);
+        var unknown = f.Ledger with { AcceptanceHistoryVerified = false };
+        var recorded = ControlledReceiving.RecordGoods(f.Source, f.Policy, f.Receiver, unknown,
+            Guid.NewGuid(), Guid.NewGuid(), f.Site, 2, 0, "TRUTHFUL-HELD-DELIVERY", Guid.NewGuid(), f.Now);
+        Assert.Equal(2, recorded.ReceivedQuantity);
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.AcceptGoods(f.Source, f.Policy,
+            f.Certifier, unknown, physical.Id, 1, "ACCEPT", Guid.NewGuid(), f.Now));
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.Balance(unknown, physical.GoodsReceiptLineId));
+    }
+
+    [Fact]
+    public void Service_owner_and_exact_replay_must_use_an_explicit_policy_site_even_when_organisation_wide()
+    {
+        var f = new Fixture(ReceivingKind.Service);
+        var actor = f.Certifier with { OrganisationWide = true, SelectedBranchId = null, BranchIds = new HashSet<Guid>() };
+        var wrongSite = f.Policy with { BranchId = null, ReceivingSiteIds = new HashSet<Guid> { Guid.NewGuid() } };
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.VerifyCurrentActor(f.Source, wrongSite, actor,
+            f.Ledger, ControlledReceiving.CertifyPermission, f.Now));
+        Assert.Throws<InvalidOperationException>(() => ControlledReceiving.CertifyService(f.Source, wrongSite, actor, f.Ledger,
+            Guid.NewGuid(), 1, f.Source.Pin.NetUnitPrice, "SERVICE-AT-WRONG-SITE", DateOnly.FromDateTime(f.Now.UtcDateTime),
+            DateOnly.FromDateTime(f.Now.UtcDateTime), "EVIDENCE", Guid.NewGuid(), f.Now));
+        var allowed = f.Policy with { BranchId = null, ReceivingSiteIds = new HashSet<Guid> { f.Site } };
+        ControlledReceiving.VerifyCurrentActor(f.Source, allowed, actor, f.Ledger, ControlledReceiving.CertifyPermission, f.Now);
+        var result = ControlledReceiving.CertifyService(f.Source, allowed, actor, f.Ledger, Guid.NewGuid(), 1,
+            f.Source.Pin.NetUnitPrice, "SERVICE-AT-EXPLICIT-SITE", DateOnly.FromDateTime(f.Now.UtcDateTime),
+            DateOnly.FromDateTime(f.Now.UtcDateTime), "EVIDENCE", Guid.NewGuid(), f.Now);
+        Assert.Equal(1, result.QuantityDelta);
+    }
+
+    [Fact]
+    public void Read_capacity_is_unknown_until_complete_history_and_never_invents_zero()
+    {
+        var f = new Fixture(); var physical = f.Record(2);
+        var unknown = f.Ledger with { AcceptanceHistoryVerified = false };
+        var value = ReceivingPositiveReadModel.Capacity(unknown, f.Policy, physical.Id);
+        Assert.False(value.Verified); Assert.Null(value.OrderRemainingQuantity); Assert.Null(value.AcceptableQuantity);
+        Assert.False(ReceivingPositiveReadModel.Accept(f.Source, f.Policy, f.Certifier, unknown, physical.Id, f.Now).Candidate);
+        Assert.Empty(f.Ledger.Effects); Assert.Equal(1, f.Ledger.Sequence);
+    }
+    [Fact]
+    public void Read_candidates_use_real_guards_and_exact_remaining_qualified_capacity_without_mutating()
+    {
+        var f = new Fixture(); var physical = f.Record(12);
+        var uninspected = ReceivingPositiveReadModel.Capacity(f.Ledger, f.Policy, physical.Id);
+        Assert.True(uninspected.Verified); Assert.Null(uninspected.AcceptableQuantity);
+        Assert.True(ReceivingPositiveReadModel.Inspect(f.Source, f.Policy, f.Inspector, f.Ledger, physical.Id, f.Now).Candidate);
+        Assert.False(ReceivingPositiveReadModel.Inspect(f.Source, f.Policy, f.Inspector with { WorkerId = physical.ReceiverWorkerId },
+            f.Ledger, physical.Id, f.Now).Candidate);
+        f.Inspect(physical, 8); f.Append(f.Accept(physical, 3));
+        var capacity = ReceivingPositiveReadModel.Capacity(f.Ledger, f.Policy, physical.Id);
+        Assert.Equal(7, capacity.OrderRemainingQuantity); Assert.Equal(5, capacity.PhysicalRemainingQuantity); Assert.Equal(5, capacity.AcceptableQuantity);
+        var before = f.Ledger;
+        Assert.True(ReceivingPositiveReadModel.Accept(f.Source, f.Policy, f.Certifier, f.Ledger, physical.Id, f.Now).Candidate);
+        Assert.False(ReceivingPositiveReadModel.Inspect(f.Source, f.Policy, f.Inspector, f.Ledger, physical.Id, f.Now).Candidate);
+        Assert.Same(before, f.Ledger); Assert.Single(f.Ledger.Effects);
+    }
+    [Fact]
+    public void Read_capacity_does_not_reuse_returned_physical_goods()
+    {
+        var f = new Fixture(); var physical = f.Record(2); f.Inspect(physical, 2);
+        var accepted = f.Accept(physical, 2); f.Append(accepted); f.Append(f.Correct(accepted, 1, AcceptanceEffectKind.ReturnDispatched));
+        var capacity = ReceivingPositiveReadModel.Capacity(f.Ledger, f.Policy, physical.Id);
+        Assert.Equal(9, capacity.OrderRemainingQuantity); Assert.Equal(0, capacity.PhysicalRemainingQuantity);
+        Assert.False(ReceivingPositiveReadModel.Accept(f.Source, f.Policy, f.Certifier, f.Ledger, physical.Id, f.Now).Candidate);
+    }
+
+    [Fact]
+    public void Historic_capacity_survives_policy_expiry_but_current_action_candidate_does_not()
+    {
+        var f = new Fixture(); var physical = f.Record(2); f.Inspect(physical, 2);
+        var expired = f.Policy with { EffectiveTo = f.Now.AddMinutes(-1) };
+        var value = ReceivingPositiveReadModel.Capacity(f.Ledger, expired, physical.Id);
+        Assert.True(value.Verified); Assert.Equal(2, value.AcceptableQuantity);
+        Assert.False(ReceivingPositiveReadModel.Accept(f.Source, expired, f.Certifier, f.Ledger, physical.Id, f.Now).Candidate);
+        Assert.Empty(f.Ledger.Effects);
+    }
+
     private sealed class Fixture
     {
         public DateTimeOffset Now { get; } = new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero).AddTicks(7);
@@ -447,7 +527,7 @@ public sealed class ControlledReceivingTests
         public ReceivingLedger Ledger { get; private set; }
         public Fixture(ReceivingKind kind = ReceivingKind.Goods, decimal authorizedQuantity = 10m, decimal unitPrice = 0.005m)
         {
-            var entity = Guid.NewGuid(); var branch = Guid.NewGuid(); var order = Guid.NewGuid();
+            var entity = Guid.NewGuid(); var branch = Site; var order = Guid.NewGuid();
             var issuedId = Guid.NewGuid(); var line = Guid.NewGuid(); var requestLine = Guid.NewGuid();
             var buyer = Guid.NewGuid(); var requester = Guid.NewGuid(); var submissionId = Guid.NewGuid();
             var category = kind == ReceivingKind.Goods ? "GOODS" : "CONSULTING";
@@ -487,7 +567,7 @@ public sealed class ControlledReceivingTests
                 kind == ReceivingKind.Goods, kind == ReceivingKind.Goods ? "CHECKLIST-V1" : null,
                 false, false, false, true, new HashSet<Guid> { Inspector.WorkerId },
                 new HashSet<Guid> { Certifier.WorkerId }, new HashSet<Guid> { Corrector.WorkerId }, new HashSet<Guid> { Site });
-            Ledger = new(pin, 0, true, Array.Empty<GoodsPhysicalObservation>(), Array.Empty<GoodsInspectionEvidence>(), Array.Empty<ReceivingAcceptanceEffect>());
+            Ledger = new(pin, 0, true, true, Array.Empty<GoodsPhysicalObservation>(), Array.Empty<GoodsInspectionEvidence>(), Array.Empty<ReceivingAcceptanceEffect>());
         }
         public ReceivingSourceProjection Reseal(string snapshot)
         {

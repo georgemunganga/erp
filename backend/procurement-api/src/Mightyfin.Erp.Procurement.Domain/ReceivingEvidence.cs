@@ -61,7 +61,7 @@ public sealed class GoodsInspectionEvidence : ProcurementRecord
 
 /// <summary>Signed entitlement effect; negatives link one exact positive fragment. No effect for
 /// a pending return. Existing receipt-line/service-certificate IDs remain matcher identities.</summary>
-public sealed class ReceivingAcceptanceEffect : ProcurementRecord
+public sealed partial class ReceivingAcceptanceEffect : ProcurementRecord
 {
     public ReceivingSourcePin Source { get; init; } = null!;
     public Guid AcceptanceRecordId { get; init; }
