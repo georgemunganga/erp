@@ -64,9 +64,21 @@ public static class PurchaseRequestApprovalPinning
 
     public static ApprovalPinValidation Verify(PurchaseRequestApprovalSubmission pin,
         PurchaseRequest request, PolicyEvaluation evaluation, PolicyVersion policy,
-        BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId)
+        BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId) =>
+        VerifyEvidence(pin, request, evaluation, policy, currentFinance, tenantId, legalEntityId, true);
+
+    /// <summary>For exact terminal-effect replay/release resolution only. Business evidence remains immutable;
+    /// the caller separately verifies the matching terminal Core case and resulting Procurement state.</summary>
+    public static ApprovalPinValidation VerifyBusinessEvidence(PurchaseRequestApprovalSubmission pin,
+        PurchaseRequest request, PolicyEvaluation evaluation, PolicyVersion policy,
+        BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId) =>
+        VerifyEvidence(pin, request, evaluation, policy, currentFinance, tenantId, legalEntityId, false);
+
+    private static ApprovalPinValidation VerifyEvidence(PurchaseRequestApprovalSubmission pin,
+        PurchaseRequest request, PolicyEvaluation evaluation, PolicyVersion policy,
+        BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId, bool requirePendingState)
     {
-        var issues = ValidateInputs(request, evaluation, policy, currentFinance, tenantId, legalEntityId);
+        var issues = ValidateInputs(request, evaluation, policy, currentFinance, tenantId, legalEntityId, requirePendingState);
         if (!InScope(pin, tenantId, legalEntityId)) issues.Add("PinnedScopeMismatch");
         if (pin.OpeningCommandKey == Guid.Empty || pin.CoreApprovalCaseId == Guid.Empty || pin.PinnedAt == default
             || pin.PinnedAt < request.SubmittedAt || currentFinance.CheckedAt > pin.PinnedAt)
@@ -107,14 +119,14 @@ public static class PurchaseRequestApprovalPinning
     }
 
     private static List<string> ValidateInputs(PurchaseRequest request, PolicyEvaluation evaluation,
-        PolicyVersion policy, BudgetCheckSnapshot finance, string tenantId, Guid legalEntityId)
+        PolicyVersion policy, BudgetCheckSnapshot finance, string tenantId, Guid legalEntityId, bool requirePendingState = true)
     {
         var issues = new List<string>();
         if (string.IsNullOrWhiteSpace(tenantId) || legalEntityId == Guid.Empty
             || new ProcurementRecord[] { request, evaluation, policy, finance }.Any(x => !InScope(x, tenantId, legalEntityId)))
             issues.Add("SourceScopeMismatch");
         if (request.Id == Guid.Empty || request.SubmittedVersion is not > 0
-            || request.Version < request.SubmittedVersion || request.Status != "Submitted"
+            || request.Version < request.SubmittedVersion || requirePendingState && request.Status != "Submitted"
             || request.SubmittedAt is null || string.IsNullOrWhiteSpace(request.CreatedBy)
             || request.RequesterWorkerId == Guid.Empty || string.IsNullOrWhiteSpace(request.CurrencyCode))
             issues.Add("InvalidSource");
@@ -122,9 +134,9 @@ public static class PurchaseRequestApprovalPinning
         if (lines.Length == 0 || lines.Any(x => !InScope(x, tenantId, legalEntityId)
                 || x.PurchaseRequestId != request.Id || x.Id == Guid.Empty || x.LineNumber < 1
                 || x.RequestedQuantity <= 0 || x.EstimatedUnitPrice < 0
-                || x.ApprovalStatus != "Pending" || x.ApprovedQuantity != 0
-                || x.AllocatedQuantity != 0 || x.OrderedQuantity != 0 || x.AcceptedQuantity != 0
-                || x.CancelledQuantity != 0 || x.Route != "Unassigned")
+                || requirePendingState && (x.ApprovalStatus != "Pending" || x.ApprovedQuantity != 0
+                    || x.AllocatedQuantity != 0 || x.OrderedQuantity != 0 || x.AcceptedQuantity != 0
+                    || x.CancelledQuantity != 0 || x.Route != "Unassigned"))
             || lines.Select(x => x.Id).Distinct().Count() != lines.Length
             || lines.Select(x => x.LineNumber).Distinct().Count() != lines.Length)
             issues.Add("InvalidLines");
