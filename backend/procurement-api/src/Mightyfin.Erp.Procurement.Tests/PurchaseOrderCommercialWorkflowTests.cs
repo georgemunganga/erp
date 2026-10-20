@@ -30,6 +30,49 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         Assert.Equal(pin.CommercialSnapshotSha256, issued.CommercialSnapshotSha256);
     }
 
+    [Fact]
+    public void Real_order_submission_and_issue_feed_receiving_with_source_unit_case_preserved()
+    {
+        // Produce PR approval, allocation, PO snapshots, worker identity and delivery using owner workflows.
+        var f = new Fixture(new PurchaseOrderSourceAllocationTests.Fixture(sourceUnitCode: "ea", purchaseType: "GOODS"));
+        var submission = f.Submit(); f.Approve(submission);
+        var issued = PurchaseOrderCommercialWorkflow.AuthorizeIssue(f.Source.Order, f.Lines, f.Supplier,
+            submission, f.Policy, f.Finance, f.Case!, "buyer", f.Now.AddMinutes(1));
+        var delivery = PurchaseOrderCommercialWorkflow.ConfirmDelivery(f.Source.Order, issued, "RECEIVING-DELIVERY",
+            "Delivered", "SecureEmail", "SYNTHETIC-DELIVERY", "dispatch", f.Now.AddMinutes(2), f.Now.AddMinutes(2), Guid.NewGuid());
+        var originalLineage = submission.SourceEvidenceJson;
+        Assert.Contains("\"UnitCode\":\"ea\"", originalLineage);
+        Assert.Contains("\"UnitCode\":\"EA\"", issued.CommercialSnapshotJson);
+        ReceivingSourceProjection Projection()
+        {
+            var lineageHash = ProcurementEvidenceEncoding.PolicyJsonDigest("{\"sources\":" + submission.SourceEvidenceJson + "}");
+            var classification = JsonSerializer.Serialize(new { tenantId = f.Source.Order.TenantId,
+                legalEntityId = f.Source.Company, issuedVersionId = issued.Id, orderLineId = f.Source.PoLine.Id,
+                sourceEvidenceSha256 = lineageHash, reference = "RECEIVING-TEST", kind = "Goods", netPriceBasis = ControlledReceiving.NetPriceBasis });
+            var pin = new ReceivingSourcePin(f.Source.Order.TenantId, f.Source.Company, f.Source.Order.BranchRef,
+                f.Source.Order.Id, issued.Id, f.Source.PoLine.Id, f.Source.Line.Id, issued.RevisionNumber,
+                issued.CommercialSnapshotSha256, lineageHash, "RECEIVING-TEST", ProcurementEvidenceEncoding.PolicyJsonDigest(classification),
+                ReceivingKind.Goods, f.Source.Line.CategoryCode!, "GOODS", "ZMW", "EA", 1m, 10m, ControlledReceiving.NetPriceBasis);
+            return new(issued, submission, delivery, pin, f.BuyerWorker, classification, true);
+        }
+        var source = Projection();
+        ControlledReceiving.VerifySource(source);
+        Assert.Equal(originalLineage, submission.SourceEvidenceJson); // no rewriting retained request intent.
+        var sealedMismatch = Assert.Throws<InvalidOperationException>(() =>
+            ControlledReceiving.VerifySource(source with { Pin = source.Pin with { UnitCode = "ea" } }));
+        Assert.Equal("IssuedLineMismatch", sealedMismatch.InnerException!.Message);
+        foreach (var nonEquivalent in new[] { "EACH", "BOX", " ea " })
+        {
+            // Simulate corrupt retained evidence with a freshly consistent digest; no synonym is authorized.
+            typeof(PurchaseOrderSubmission).GetProperty(nameof(PurchaseOrderSubmission.SourceEvidenceJson))!.SetValue(submission,
+                originalLineage.Replace("\"UnitCode\":\"ea\"", "\"UnitCode\":\"" + nonEquivalent + "\""));
+            var error = Assert.Throws<InvalidOperationException>(() => ControlledReceiving.VerifySource(Projection()));
+            Assert.Equal("SourceClassificationMismatch", error.InnerException!.Message);
+        }
+        typeof(PurchaseOrderSubmission).GetProperty(nameof(PurchaseOrderSubmission.SourceEvidenceJson))!.SetValue(submission, originalLineage);
+        ControlledReceiving.VerifySource(Projection());
+    }
+
     [Theory]
     [InlineData("Approved")]
     [InlineData("Suspended")]

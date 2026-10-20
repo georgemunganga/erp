@@ -172,13 +172,14 @@ public sealed class PurchaseOrderSourceAllocationTests
         public PurchaseOrder Order { get; }
         public PurchaseOrderLine PoLine { get; }
 
-        public Fixture(decimal requestedQuantity = 10m, decimal estimatedUnitPrice = 10m)
+        public Fixture(decimal requestedQuantity = 10m, decimal estimatedUnitPrice = 10m,
+            string sourceUnitCode = "EA", string? purchaseType = null)
         {
             Request = Scoped(new PurchaseRequest { Number = "PR-TEST", RequesterWorkerId = Guid.NewGuid(),
                 CurrencyCode = "ZMW", Purpose = "Source authority test", Status = "Submitted", Version = 1,
                 SubmittedVersion = 1, SubmittedAt = Now, CreatedBy = "requester" });
             Request.Lines.Add(Scoped(new PurchaseRequestLine { PurchaseRequestId = Request.Id, LineNumber = 1,
-                Description = "Item", UnitCode = "EA", RequestedQuantity = requestedQuantity, EstimatedUnitPrice = estimatedUnitPrice,
+                Description = "Item", UnitCode = sourceUnitCode, PurchaseType = purchaseType, RequestedQuantity = requestedQuantity, EstimatedUnitPrice = estimatedUnitPrice,
                 EstimatedCurrencyCode = "ZMW", CategoryCode = "OFFICE" }));
             Method = Scoped(new ProcurementMethod { Code = "BUSINESS_METHOD", Name = "Configured direct route",
                 Status = "Active", ExecutionRoute = "DirectPurchase" });

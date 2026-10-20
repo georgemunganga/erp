@@ -463,6 +463,11 @@ public static class ProcurementRequestRoutes
                 return "Every line needs a valid unit.";
             if (!ValidMoney(line.RequestedQuantity, positive: true) || !ValidMoney(line.EstimatedUnitPrice))
                 return "Line quantity must be positive and unit price cannot be negative; use at most four decimal places.";
+            if (!ProcurementPolicyCode.TryNormalizeOptional(line.CategoryCode, out _))
+                return "Category code must contain up to 100 letters, digits or underscores.";
+            if (!ProcurementPolicyCode.TryNormalizeOptional(line.PurchaseType, out var purchaseType)
+                || purchaseType is { Length: > 40 })
+                return "Purchase type must contain up to 40 letters, digits or underscores.";
             if (line.DiscountPercent is decimal discount && (discount < 0 || discount > 100 || decimal.Round(discount, 4) != discount))
                 return "Discount must be between 0 and 100 with at most four decimal places.";
             try { total += line.RequestedQuantity * line.EstimatedUnitPrice; }
@@ -497,8 +502,8 @@ public static class ProcurementRequestRoutes
         line.CatalogPublishedVersion = input.CatalogEntryId is Guid catalogEntryId
             ? catalogVersions[catalogEntryId] : null;
         line.PreferredSupplierId = input.PreferredSupplierId;
-        line.CategoryCode = Clean(input.CategoryCode);
-        line.PurchaseType = Clean(input.PurchaseType);
+        line.CategoryCode = ProcurementPolicyCode.NormalizeOptional(input.CategoryCode);
+        line.PurchaseType = ProcurementPolicyCode.NormalizeOptional(input.PurchaseType);
         line.NeededBy = input.NeededBy;
         line.EstimatedCurrencyCode = currency;
         line.DiscountPercent = input.DiscountPercent;

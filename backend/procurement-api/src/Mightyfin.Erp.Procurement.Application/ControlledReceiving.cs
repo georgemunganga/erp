@@ -300,7 +300,8 @@ public static class ControlledReceiving
             Require(lineage.GetProperty("requestLineId").GetGuid() == p.PurchaseRequestLineId
                 && lineage.GetProperty("CategoryCode").GetString() == p.CategoryCode
                 && lineage.GetProperty("PurchaseType").GetString() == p.PurchaseType
-                && lineage.GetProperty("UnitCode").GetString() == p.UnitCode
+                // The PO owner accepts source unit code casing only; sealed PO-to-pin equality above remains exact.
+                && string.Equals(lineage.GetProperty("UnitCode").GetString(), p.UnitCode, StringComparison.OrdinalIgnoreCase)
                 && ExactDecimal(lineage.GetProperty("quantity")) == p.AuthorizedQuantity, "SourceClassificationMismatch");
             Require(!string.IsNullOrWhiteSpace(p.ClassificationReference)
                 && ProcurementEvidenceEncoding.PolicyJsonDigest(source.ClassificationEvidenceJson) == p.ClassificationSha256
