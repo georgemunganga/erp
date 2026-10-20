@@ -23,6 +23,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
         var group=app.MapGroup("/api/procurement/v1/invoices");
         group.MapPost("/{id:guid}/matching/mappings",Map).RequireAuthorization("procurement-invoice-capture");
         group.MapPost("/{id:guid}/matching/compare",Compare).RequireAuthorization("procurement-invoice-match");
+        group.MapGet("/{id:guid}/matching/sources",Sources).RequireAuthorization("procurement-invoice-match","procurement-invoice-read");
+        group.MapGet("/{id:guid}/matching/sources/{orderId:guid}/lines/{lineId:guid}/acceptances",Acceptances).RequireAuthorization("procurement-invoice-match","procurement-invoice-read");
         group.MapGet("/{id:guid}/matching",Read).RequireAuthorization("procurement-invoice-read");
         group.MapGet("/{id:guid}/matching/commands/{key:guid}",Recover).RequireAuthorization("procurement-access");
     }

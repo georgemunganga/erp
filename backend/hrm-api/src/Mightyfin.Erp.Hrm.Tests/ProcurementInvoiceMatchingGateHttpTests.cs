@@ -22,13 +22,15 @@ public sealed class ProcurementInvoiceMatchingGateHttpTests
     [Theory]
     [InlineData(false,true,false,0)]
     [InlineData(true,false,false,0)]
-    [InlineData(true,true,false,4)]
+    [InlineData(true,true,false,6)]
     public async Task Closed_gates_block_mapping_comparison_read_and_recovery_before_any_database_use(bool enabled,bool configured,bool ready,int readinessCalls)
     {
         var readiness=new Readiness(ready);
         await using var app=await App(new() { Enabled=enabled,ExecutionDatabaseConfigured=configured },readiness);
         using var client=app.GetTestClient(); var id=Guid.NewGuid();
-        var responses=new[] { await client.GetAsync($"/api/procurement/v1/invoices/{id}/matching"),
+        var responses=new[] { await client.GetAsync($"/api/procurement/v1/invoices/{id}/matching/sources"),
+            await client.GetAsync($"/api/procurement/v1/invoices/{id}/matching/sources/{Guid.NewGuid()}/lines/{Guid.NewGuid()}/acceptances"),
+            await client.GetAsync($"/api/procurement/v1/invoices/{id}/matching"),
             await client.GetAsync($"/api/procurement/v1/invoices/{id}/matching/commands/{Guid.NewGuid()}?operation=InvoiceCompare"),
             await client.PostAsJsonAsync($"/api/procurement/v1/invoices/{id}/matching/mappings",new ProcurementInvoiceMatchingRoutes.MappingInput(1,Guid.NewGuid(),Guid.NewGuid(),[])),
             await client.PostAsJsonAsync($"/api/procurement/v1/invoices/{id}/matching/compare",new ProcurementInvoiceMatchingRoutes.CompareInput(1,Guid.NewGuid(),null)) };
@@ -50,6 +52,18 @@ public sealed class ProcurementInvoiceMatchingGateHttpTests
         using var client=app.GetTestClient(); client.DefaultRequestHeaders.Add("X-Test-Role","ap_processor");
         using var response=await client.PostAsJsonAsync($"/api/procurement/v1/invoices/{Guid.NewGuid()}/matching/compare",new ProcurementInvoiceMatchingRoutes.CompareInput(1,Guid.NewGuid(),null));
         Assert.Equal(HttpStatusCode.Forbidden,response.StatusCode); Assert.Equal(0,readiness.Calls);
+    }
+    [Theory]
+    [InlineData("ap_processor")]
+    [InlineData("procurement_buyer")]
+    public async Task Source_selectors_require_explicit_matching_and_read_not_broad_PO_or_capture_role(string role)
+    {
+        var readiness=new Readiness(false); await using var app=await App(new(),readiness);
+        using var client=app.GetTestClient(); client.DefaultRequestHeaders.Add("X-Test-Role",role);
+        var prefix=$"/api/procurement/v1/invoices/{Guid.NewGuid()}/matching/sources";
+        foreach(var path in new[] { prefix,prefix+$"/{Guid.NewGuid()}/lines/{Guid.NewGuid()}/acceptances" })
+        { using var response=await client.GetAsync(path); Assert.Equal(HttpStatusCode.Forbidden,response.StatusCode); }
+        Assert.Equal(0,readiness.Calls);
     }
     private static async Task<WebApplication> App(ProcurementInvoiceMatchingExecutionOptions options,Readiness readiness)
     {

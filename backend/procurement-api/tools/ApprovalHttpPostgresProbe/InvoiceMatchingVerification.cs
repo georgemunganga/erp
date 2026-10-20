@@ -41,6 +41,7 @@ sealed partial class Probe
             Require(!await db.InvoiceMatchResults.AnyAsync(x=>x.SupplierInvoiceId==id),"Missing matching policy persisted a fabricated comparison.");
         }
         await PublishMatchingPolicy();
+        await VerifyInvoiceSourceSelectors(id,orderId,lineId,issuedId,receiptLineId);
         var compared=await Send(HttpMethod.Post,$"{Root}/invoices/{id}/matching/compare",OrderBuyer,compareInput,compareKey);
         await Check(compared,HttpStatusCode.OK); var comparedText=await compared.Content.ReadAsStringAsync(); var result=JsonDocument.Parse(comparedText).RootElement.GetProperty("result");
         Require(result.GetProperty("outcome").GetString()=="Blocked" && !result.GetProperty("hasCapacityClaim").GetBoolean()
