@@ -105,6 +105,44 @@ public sealed class PurchaseOrderSourceAllocationTests
         Assert.Equal("Draft", f.Order.Status); // a larger proposed value still needs independent PO approval/Finance.
     }
 
+    [Fact]
+    public void Unrepresentable_proposed_reservation_product_leaves_source_route_and_counters_unchanged()
+    {
+        const decimal maximum = 99999999999999.9999m;
+        var f = new Fixture(maximum, 0.0001m);
+        f.PoLine.Quantity = maximum; f.PoLine.UnitPrice = maximum;
+        var before = (f.Request.UpdatedAt, f.Line.Route, f.Line.AllocatedQuantity, f.Line.OrderedQuantity, f.PoLine.Quantity);
+        var error = Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.Reserve(f.Source,
+            f.Order, f.PoLine, maximum, Guid.NewGuid(), "buyer", f.Now.AddMinutes(1)));
+        Assert.Equal("ExactDecimalNotRepresentable", error.Message);
+        Assert.Equal(before, (f.Request.UpdatedAt, f.Line.Route, f.Line.AllocatedQuantity, f.Line.OrderedQuantity, f.PoLine.Quantity));
+        Assert.Empty(f.Ledger);
+    }
+
+    [Fact]
+    public void Unrepresentable_resize_product_leaves_existing_allocation_and_source_aggregate_unchanged()
+    {
+        const decimal maximum = 99999999999999.9999m;
+        var f = new Fixture(maximum, 0.0001m);
+        var allocation = f.Reserve(1); f.PoLine.UnitPrice = maximum;
+        var before = (f.Request.UpdatedAt, f.Line.AllocatedQuantity, allocation.Quantity, allocation.EstimatedValue,
+            allocation.Reason, allocation.Status, f.PoLine.Quantity);
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.ResizeReservation(f.Source,
+            f.Order, f.PoLine, allocation, maximum, "Synthetic resize", f.Now.AddMinutes(2)));
+        Assert.Equal(before, (f.Request.UpdatedAt, f.Line.AllocatedQuantity, allocation.Quantity, allocation.EstimatedValue,
+            allocation.Reason, allocation.Status, f.PoLine.Quantity));
+        Assert.Same(allocation, Assert.Single(f.Ledger));
+    }
+
+    [Fact]
+    public void Approved_source_base_cannot_reuse_a_silently_rounded_estimate()
+    {
+        var f = new Fixture(99999999999999.9999m, 99999999999999.9999m);
+        var before = (f.Request.UpdatedAt, f.Line.Route, f.Line.AllocatedQuantity, f.Line.OrderedQuantity);
+        Assert.Throws<InvalidOperationException>(() => f.Available());
+        Assert.Equal(before, (f.Request.UpdatedAt, f.Line.Route, f.Line.AllocatedQuantity, f.Line.OrderedQuantity));
+    }
+
     internal sealed class Fixture
     {
         public const string Tenant = "source-test";
@@ -119,13 +157,13 @@ public sealed class PurchaseOrderSourceAllocationTests
         public PurchaseOrder Order { get; }
         public PurchaseOrderLine PoLine { get; }
 
-        public Fixture()
+        public Fixture(decimal requestedQuantity = 10m, decimal estimatedUnitPrice = 10m)
         {
             Request = Scoped(new PurchaseRequest { Number = "PR-TEST", RequesterWorkerId = Guid.NewGuid(),
                 CurrencyCode = "ZMW", Purpose = "Source authority test", Status = "Submitted", Version = 1,
                 SubmittedVersion = 1, SubmittedAt = Now, CreatedBy = "requester" });
             Request.Lines.Add(Scoped(new PurchaseRequestLine { PurchaseRequestId = Request.Id, LineNumber = 1,
-                Description = "Item", UnitCode = "EA", RequestedQuantity = 10, EstimatedUnitPrice = 10,
+                Description = "Item", UnitCode = "EA", RequestedQuantity = requestedQuantity, EstimatedUnitPrice = estimatedUnitPrice,
                 EstimatedCurrencyCode = "ZMW", CategoryCode = "OFFICE" }));
             Method = Scoped(new ProcurementMethod { Code = "BUSINESS_METHOD", Name = "Configured direct route",
                 Status = "Active", ExecutionRoute = "DirectPurchase" });
@@ -138,7 +176,7 @@ public sealed class PurchaseOrderSourceAllocationTests
                         sourcingMethodCode = Method.Code, minimumQuoteCount = 0,
                         approvalStages = new[] { new { code = "NEED", assignee = "LineManager", mode = "One" } } } } } }) });
             var finance = Scoped(new BudgetCheckSnapshot { PurchaseRequestId = Request.Id, RequestVersion = 1,
-                Status = "Available", CheckedAmount = 100, CurrencyCode = "ZMW", FinanceCheckRef = "CHECK",
+                Status = "Available", CheckedAmount = requestedQuantity * estimatedUnitPrice, CurrencyCode = "ZMW", FinanceCheckRef = "CHECK",
                 EvidenceRef = "SYNTHETIC", ReservationRef = "RESERVE", ReservationStatus = "Confirmed", CheckedAt = Now });
             Case = new ApprovalCase { TenantId = Tenant, LegalEntityId = Company, SourceModule = "procurement",
                 SourceType = "purchase_request", SourceId = Request.Id, SourceVersion = 1,

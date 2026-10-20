@@ -197,9 +197,47 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         Assert.Equal("IssuePending", f.Source.Order.Status);
     }
 
+    [Fact]
+    public void Commercial_totals_reject_a_high_precision_product_instead_of_rounding_it()
+    {
+        var line = new PurchaseOrderLine { Quantity = 99999999999999.9999m, UnitPrice = 99999999999999.9999m };
+        var before = (line.Quantity, line.UnitPrice, line.TaxAmount);
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.Totals([line]));
+        Assert.Equal(before, (line.Quantity, line.UnitPrice, line.TaxAmount));
+    }
+
+    [Fact]
+    public void Individually_exact_commercial_lines_must_also_have_an_exact_cumulative_total()
+    {
+        var lines = new[]
+        {
+            new PurchaseOrderLine { Quantity = 10000000000000m, UnitPrice = 99999999999999.9999m },
+            new PurchaseOrderLine { Quantity = 0.0001m, UnitPrice = 99999999999999.9999m },
+        };
+        foreach (var line in lines) _ = PurchaseOrderCommercialWorkflow.Totals([line]);
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.Totals(lines));
+    }
+
+    [Fact]
+    public void Inexact_gross_total_blocks_submission_before_order_revision_or_source_mutation()
+    {
+        var f = new Fixture(new(99999999999999.9999m, 0.0001m), 10000000000000m);
+        f.Source.PoLine.UnitPrice = 99999999999999.9999m;
+        f.Source.PoLine.TaxAmount = 0.0001m;
+        var before = (f.Source.Order.Status, f.Source.Order.CurrentRevision, f.Source.Order.SubmittedBusinessVersion,
+            f.Source.Order.SubmittedAt, f.Source.Order.ApprovalInstanceRef, f.Source.Order.FinanceCommitmentRef,
+            f.Source.Request.UpdatedAt, f.Source.Line.AllocatedQuantity, f.Source.Line.OrderedQuantity);
+        var error = Assert.Throws<InvalidOperationException>(() => PurchaseOrderCommercialWorkflow.Submit(
+            f.Source.Order, f.Lines, f.Supplier, f.Policy, f.Finance, Guid.NewGuid(), f.Now, f.BuyerWorker));
+        Assert.Equal("ExactDecimalNotRepresentable", error.Message);
+        Assert.Equal(before, (f.Source.Order.Status, f.Source.Order.CurrentRevision, f.Source.Order.SubmittedBusinessVersion,
+            f.Source.Order.SubmittedAt, f.Source.Order.ApprovalInstanceRef, f.Source.Order.FinanceCommitmentRef,
+            f.Source.Request.UpdatedAt, f.Source.Line.AllocatedQuantity, f.Source.Line.OrderedQuantity));
+    }
+
     private sealed class Fixture
     {
-        public PurchaseOrderSourceAllocationTests.Fixture Source { get; } = new();
+        public PurchaseOrderSourceAllocationTests.Fixture Source { get; }
         public DateTimeOffset Now => Source.Now.AddMinutes(2);
         public Guid BuyerWorker { get; } = Guid.NewGuid();
         public IReadOnlyList<PurchaseOrderSourceLine> Lines { get; }
@@ -209,9 +247,10 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         public ApprovalCase? Case { get; private set; }
         public Guid ApproverWorker { get; } = Guid.NewGuid();
         public List<PurchaseOrderAssignmentAuthorityEvidence> Assignments { get; } = [];
-        public Fixture()
+        public Fixture(PurchaseOrderSourceAllocationTests.Fixture? source = null, decimal reserveQuantity = 1m)
         {
-            var allocation = Source.Reserve(1);
+            Source = source ?? new();
+            var allocation = Source.Reserve(reserveQuantity);
             Lines = [new(Source.PoLine, Source.Source, allocation)];
             Supplier = new() { Id = Source.Order.SupplierId, TenantId = PurchaseOrderSourceAllocationTests.Fixture.Tenant,
                 LegalEntityId = Source.Company, LegalName = "Synthetic supplier", DisplayName = "Supplier",

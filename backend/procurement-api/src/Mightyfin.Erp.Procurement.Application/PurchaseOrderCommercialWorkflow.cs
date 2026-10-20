@@ -240,10 +240,12 @@ public static class PurchaseOrderCommercialWorkflow
 
     public static (decimal LineBase, decimal Gross) Totals(IEnumerable<PurchaseOrderLine> lines)
     {
-        decimal lineBase = 0, gross = 0;
-        foreach (var line in lines)
-        { lineBase = checked(lineBase + line.Quantity * line.UnitPrice); gross = checked(gross + line.Quantity * line.UnitPrice + line.TaxAmount); }
-        return (lineBase, gross);
+        // Calculate each existing decimal-valued base exactly, then aggregate without
+        // intermediate decimal rounding. Reject values the application cannot represent.
+        var values = lines.Select(line => (Base: ExactDecimalArithmetic.Multiply(line.Quantity, line.UnitPrice),
+            Tax: line.TaxAmount)).ToArray();
+        return (ExactDecimalArithmetic.Sum(values.Select(x => x.Base)),
+            ExactDecimalArithmetic.Sum(values.SelectMany(x => new[] { x.Base, x.Tax })));
     }
 
     private static void ValidateLines(PurchaseOrder order, IReadOnlyList<PurchaseOrderSourceLine> lines,
