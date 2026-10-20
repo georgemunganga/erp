@@ -7,6 +7,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 public sealed partial class ProcurementDbContext
 {
+    public DbSet<PurchaseOrderCommitmentOwnership> OrderCommitmentOwnership => Set<PurchaseOrderCommitmentOwnership>();
     public DbSet<PurchaseOrderFinanceEvidence> OrderFinanceEvidence => Set<PurchaseOrderFinanceEvidence>();
     public DbSet<PurchaseOrderSubmission> OrderSubmissions => Set<PurchaseOrderSubmission>();
     public DbSet<PurchaseOrderAssignmentAuthorityEvidence> OrderAssignmentAuthority => Set<PurchaseOrderAssignmentAuthorityEvidence>();
@@ -17,6 +18,7 @@ public sealed partial class ProcurementDbContext
 
     private void ConfigurePurchaseOrderExecution(ModelBuilder model)
     {
+        ConfigureBase<PurchaseOrderCommitmentOwnership>(model, "purchase_order_commitment_ownership");
         ConfigureBase<PurchaseOrderFinanceEvidence>(model, "purchase_order_finance_evidence");
         ConfigureBase<PurchaseOrderFinanceResolution>(model, "purchase_order_finance_resolutions");
         ConfigureBase<PurchaseOrderSubmission>(model, "purchase_order_submissions");
@@ -29,7 +31,18 @@ public sealed partial class ProcurementDbContext
         model.Entity<ProcurementMethod>().ToTable(t => t.HasCheckConstraint("ck_procurement_method_execution_route",
             "execution_route IN ('Unconfigured','DirectPurchase','CompetitiveSourcing','ContractRelease')"));
         model.Entity<PurchaseRequestAllocation>().Property(x => x.EstimatedValue).HasPrecision(38, 8);
+        var ownership = model.Entity<PurchaseOrderCommitmentOwnership>();
+        ownership.Property(x => x.CommitmentReference).HasMaxLength(200);
+        ownership.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommitmentReference }).IsUnique();
+        ownership.ToTable(t => t.HasCheckConstraint("ck_po_commitment_reference", "length(btrim(commitment_reference)) > 0"));
+        Link<PurchaseOrderCommitmentOwnership, PurchaseOrder>(model, nameof(PurchaseOrderCommitmentOwnership.PurchaseOrderId));
         var finance = model.Entity<PurchaseOrderFinanceEvidence>();
+        finance.Property(x => x.CommercialSnapshotJson).HasColumnType("text");
+        finance.Property(x => x.ParticipantWorkersJson).HasColumnType("text");
+        finance.Property(x => x.WorkerIdentitySha256).HasMaxLength(64);
+        finance.HasOne<PurchaseOrderCommitmentOwnership>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.CommitmentReference, x.PurchaseOrderId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.CommitmentReference, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
         finance.Property(x => x.CommitmentReference).HasMaxLength(200);
         finance.Property(x => x.EvidenceReference).HasMaxLength(500);
         finance.Property(x => x.EvidenceMode).HasMaxLength(40);
@@ -46,7 +59,8 @@ public sealed partial class ProcurementDbContext
         Link<PurchaseOrderFinanceEvidence, Supplier>(model, nameof(PurchaseOrderFinanceEvidence.SupplierId));
         finance.ToTable(t => t.HasCheckConstraint("ck_order_finance_evidence",
             "commercial_revision > 0 AND status IN ('Confirmed','Revoked') AND confirmed_gross_amount >= 0 " +
-            "AND currency_code ~ '^[A-Z]{3}$' AND length(btrim(commitment_reference)) > 0 " +
+            "AND currency_code ~ '^[A-Z]{3}$' AND buyer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+            "AND worker_identity_sha256 ~ '^[0-9a-f]{64}$' AND length(btrim(commitment_reference)) > 0 " +
             "AND length(btrim(evidence_reference)) > 0 AND evidence_mode = 'ApprovedManualEvidence' " +
             "AND length(btrim(approved_manual_policy_reference)) > 0 AND length(btrim(verified_by_principal_id)) > 0 AND verified_by_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid"));
         var submission = model.Entity<PurchaseOrderSubmission>();
@@ -126,8 +140,18 @@ public sealed partial class ProcurementDbContext
         resolution.Property(x => x.Outcome).HasMaxLength(50);
         resolution.Property(x => x.Reason).HasMaxLength(2000);
         resolution.Property(x => x.VerifiedByPrincipalId).HasMaxLength(200);
+        resolution.ToTable(t => t.HasCheckConstraint("ck_po_finance_resolution",
+            "released_gross_amount >= 0 AND currency_code ~ '^[A-Z]{3}$' " +
+            "AND verified_by_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+            "AND length(btrim(evidence_reference)) > 0 AND length(btrim(approved_manual_policy_reference)) > 0 " +
+            "AND ((outcome = 'CancelledUnsubmittedOrder' AND submission_id IS NULL) " +
+            "OR (outcome IN ('ReopenedDraft','CancelledRejectedOrder') AND submission_id IS NOT NULL))"));
         resolution.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SubmissionId }).IsUnique();
         resolution.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.EvidenceReference }).IsUnique();
+        resolution.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.FinanceEvidenceId }).IsUnique();
+        resolution.HasOne<PurchaseOrderFinanceEvidence>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.FinanceEvidenceId, x.PurchaseOrderId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
         resolution.HasOne<PurchaseOrderSubmission>().WithMany()
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SubmissionId, x.PurchaseOrderId, x.FinanceEvidenceId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.FinanceEvidenceId }).OnDelete(DeleteBehavior.Restrict);
@@ -144,13 +168,15 @@ public sealed partial class ProcurementDbContext
     {
         foreach (var entry in ChangeTracker.Entries().Where(x => x.Entity is PurchaseOrderFinanceEvidence
             or PurchaseOrderSubmission or PurchaseOrderAssignmentAuthorityEvidence or PurchaseOrderIssuedVersion
-            or PurchaseOrderDeliveryEvidence or PurchaseOrderFinanceResolution or ProcurementCommercialCommandReceipt).ToArray())
+            or PurchaseOrderDeliveryEvidence or PurchaseOrderFinanceResolution or PurchaseOrderCommitmentOwnership or ProcurementCommercialCommandReceipt).ToArray())
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new InvalidOperationException("Purchase-order commercial authority and dispatch evidence are append-only.");
             if (entry.State != EntityState.Added) continue;
             if (entry.Entity is ProcurementCommercialCommandReceipt receipt && (receipt.ActorPrincipalId != scope.SubjectId
-                || receipt.CommandKey == Guid.Empty || receipt.Fingerprint.Length != 64 || receipt.CompletedAt == default))
+                || receipt.CommandKey == Guid.Empty || receipt.Fingerprint.Length != 64 || receipt.CompletedAt == default
+                || receipt.Operation is not ("Convert" or "SourceEdit" or "Finance" or "Submit" or "Decide" or "Issue"
+                    or "Delivery" or "FinanceRelease" or "DraftFinanceRelease" or "CancelDraft")))
                 throw new InvalidOperationException("OrderCommandReceiptActorInvalid");
             if (entry.Entity is PurchaseOrderSubmission submitted)
             {
@@ -173,8 +199,17 @@ public sealed partial class ProcurementDbContext
             if (entry.Entity is PurchaseOrderFinanceResolution release && (release.VerifiedByPrincipalId != scope.SubjectId
                 || release.VerifiedByWorkerId == Guid.Empty || release.ConfirmedAt == default))
                 throw new InvalidOperationException("OrderFinanceReleaseActorInvalid");
-            if (entry.Entity is PurchaseOrderFinanceEvidence finance && (finance.VerifiedByPrincipalId != scope.SubjectId || finance.VerifiedByWorkerId == Guid.Empty))
-                throw new InvalidOperationException("OrderFinanceVerifierActorInvalid");
+            if (entry.Entity is PurchaseOrderFinanceEvidence finance)
+            {
+                var fundedOrder = ApprovalEvidence<PurchaseOrder>(finance.PurchaseOrderId);
+                if (finance.VerifiedByPrincipalId != scope.SubjectId || finance.VerifiedByWorkerId == Guid.Empty
+                    || fundedOrder is null || finance.BuyerWorkerId == Guid.Empty
+                    || finance.WorkerIdentitySha256 != PurchaseOrderWorkerIdentity.Digest(fundedOrder, finance.CommercialRevision,
+                        Guid.Empty, finance.BuyerWorkerId, finance.ParticipantWorkersJson)
+                    || !PurchaseOrderWorkerIdentity.IsIndependent(finance.ParticipantWorkersJson, finance.VerifiedByWorkerId)
+                    || finance.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(finance.CommercialSnapshotJson))
+                    throw new InvalidOperationException("OrderFinanceVerifierActorInvalid");
+            }
             if (entry.Entity is PurchaseOrderIssuedVersion issued)
             {
                 var issuedPin = ApprovalEvidence<PurchaseOrderSubmission>(issued.SubmissionId);

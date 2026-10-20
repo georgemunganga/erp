@@ -15,6 +15,10 @@ public sealed class PurchaseOrderFinanceEvidence : ProcurementRecord
     public decimal ConfirmedGrossAmount { get; init; }
     public string SourceReservationsJson { get; init; } = null!;
     public string CommercialSnapshotSha256 { get; init; } = null!;
+    public string CommercialSnapshotJson { get; init; } = null!;
+    public Guid BuyerWorkerId { get; init; }
+    public string ParticipantWorkersJson { get; init; } = null!;
+    public string WorkerIdentitySha256 { get; init; } = null!;
     public string VerifiedByPrincipalId { get; init; } = null!;
     public Guid VerifiedByWorkerId { get; init; }
     public DateTimeOffset ConfirmedAt { get; init; }
@@ -107,7 +111,7 @@ public sealed class ProcurementCommercialCommandReceipt : ProcurementRecord
 public sealed class PurchaseOrderFinanceResolution : ProcurementRecord
 {
     public Guid PurchaseOrderId { get; init; }
-    public Guid SubmissionId { get; init; }
+    public Guid? SubmissionId { get; init; }
     public Guid FinanceEvidenceId { get; init; }
     public string CommitmentReference { get; init; } = null!;
     public string EvidenceReference { get; init; } = null!;
@@ -120,4 +124,12 @@ public sealed class PurchaseOrderFinanceResolution : ProcurementRecord
     public string VerifiedByPrincipalId { get; init; } = null!;
     public Guid VerifiedByWorkerId { get; init; }
     public DateTimeOffset ConfirmedAt { get; init; }
+}
+
+/// <summary>One upstream Finance commitment reference belongs to one PO for its entire history.
+/// This claim is not a balance, reservation, posting or payment.</summary>
+public sealed class PurchaseOrderCommitmentOwnership : ProcurementRecord
+{
+    public Guid PurchaseOrderId { get; init; }
+    public string CommitmentReference { get; init; } = null!;
 }

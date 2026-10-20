@@ -29,10 +29,32 @@ public static partial class ProcurementOrderExecutionRoutes
         ? id : throw new OrderProblem("OrderCommandKeyRequired", 400);
     private static string Fingerprint(object command) => ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(command));
     private static async Task Actor(HrmDbContext core, ProcurementRequestScope scope, HttpContext http,
-        IAuthorizationService auth, string permission, CancellationToken ct)
-    { if (await ProcurementAuthorityIdentity.ActorAsync(core, scope, http.User, auth, permission, ct) is null) Deny(); }
+        IAuthorizationService auth, string permission, CancellationToken ct, Guid? recordBranch = null, bool target = false)
+    {
+        if (await ProcurementAuthorityIdentity.ActorAsync(core, scope, http.User, auth, permission, ct) is null) Deny();
+        await CurrentRecordScope(core, scope, recordBranch, target, ct);
+    }
+    private static async Task<Guid[]> CurrentRecordScope(HrmDbContext core, ProcurementRequestScope scope,
+        Guid? recordBranch, bool target, CancellationToken ct)
+    {
+        if (!Guid.TryParse(scope.SubjectId, out var principal)) Deny();
+        var branches = await core.UserBranchAssignments.AsNoTracking().Where(x => x.UserId == principal && !x.IsArchived)
+            .Select(x => x.LocationId).Distinct().ToArrayAsync(ct);
+        // Losing the last formerly confined grant while queued must not broaden this request.
+        if (scope.IsConfined && branches.Length == 0) Deny();
+        if (scope.WorkLocationId is { } selected && (branches.Length != 0 && !branches.Contains(selected)
+            || !await core.WorkLocations.AsNoTracking().AnyAsync(x => x.Id == selected
+                && x.LegalEntityId == scope.LegalEntityId && !x.IsArchived, ct))) Deny();
+        if (target && (scope.WorkLocationId is { } context && recordBranch != context
+            || branches.Length != 0 && (recordBranch is null || !branches.Contains(recordBranch.Value)))) Missing();
+        return branches;
+    }
     private static void Scope(PurchaseOrder order, ProcurementRequestScope scope, bool own)
-    { if (scope.IsConfined && order.BranchRef != scope.WorkLocationId || own && order.BuyerSubjectId != scope.SubjectId) Missing(); }
+    {
+        if (scope.WorkLocationId is { } selected && order.BranchRef != selected
+            || scope.IsConfined && order.BranchRef != scope.WorkLocationId
+            || own && order.BuyerSubjectId != scope.SubjectId) Missing();
+    }
     private static Task LockOrder(ProcurementDbContext db, ProcurementRequestScope scope, Guid id, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.purchase_orders WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE", ct);
 
@@ -71,7 +93,8 @@ public static partial class ProcurementOrderExecutionRoutes
     {
         var request = await db.PurchaseRequests.Include(x => x.Lines).SingleOrDefaultAsync(x => x.Id == requestId, ct)
             ?? throw new OrderProblem("OrderSourceNotFound", 404);
-        if (scope.IsConfined && request.BranchRef != scope.WorkLocationId) Missing();
+        if (scope.WorkLocationId is { } selected && request.BranchRef != selected
+            || scope.IsConfined && request.BranchRef != scope.WorkLocationId) Missing();
         var line = request.Lines.SingleOrDefault(x => x.Id == lineId) ?? throw new OrderProblem("OrderSourceNotFound", 404);
         if (!Guid.TryParse(request.ApprovalInstanceRef, out var caseId)) Conflict("OrderSourceNotApproved");
         var pin = await db.ApprovalSubmissions.SingleOrDefaultAsync(x => x.CoreApprovalCaseId == caseId, ct)

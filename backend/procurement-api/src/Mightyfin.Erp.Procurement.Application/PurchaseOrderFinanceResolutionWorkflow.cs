@@ -72,5 +72,88 @@ public static class PurchaseOrderFinanceResolutionWorkflow
         if (order.Status == "Cancelled") { order.ClosedAt = now; order.ClosureReason = reason; }
         return resolution;
     }
+    public static void CancelUnfundedDraft(PurchaseOrder order, IReadOnlyList<PurchaseOrderSourceLine> lines,
+        PurchaseOrderFinanceEvidence? latestFinance, PurchaseOrderFinanceResolution? previousResolution,
+        string reason, DateTimeOffset now)
+    {
+        if (order.Status != "Draft" || order.FinanceCommitmentRef is not null || string.IsNullOrWhiteSpace(reason)
+            || order.ApprovalInstanceRef is not null || latestFinance is not null && (previousResolution is null
+                || previousResolution.FinanceEvidenceId != latestFinance.Id || previousResolution.PurchaseOrderId != order.Id
+                || previousResolution.TenantId != order.TenantId || previousResolution.LegalEntityId != order.LegalEntityId))
+            Fail("OrderDraftStillHasFinanceCommitment");
+        ValidateReservedSources(order, lines);
+        ReleaseReservedSources(lines, reason, now);
+        order.Status = "Cancelled"; order.ClosedAt = now; order.ClosureReason = reason; order.UpdatedAt = now;
+    }
+
+    public static PurchaseOrderFinanceResolution ResolveUnsubmittedDraft(PurchaseOrder order,
+        IReadOnlyList<PurchaseOrderSourceLine> lines, PurchaseOrderFinanceEvidence finance,
+        string evidenceReference, string policyReference, decimal releasedGross, string currency,
+        IReadOnlyList<string> restoredReservations, string verifier, Guid verifierWorker, string reason,
+        DateTimeOffset confirmedAt, DateTimeOffset now)
+    {
+        if (order.Status != "Draft" || order.ApprovalInstanceRef is not null
+            || finance.PurchaseOrderId != order.Id || finance.TenantId != order.TenantId
+            || finance.LegalEntityId != order.LegalEntityId || finance.CommercialRevision != order.CurrentRevision + 1
+            || finance.CommitmentReference != order.FinanceCommitmentRef || releasedGross != finance.ConfirmedGrossAmount
+            || currency != finance.CurrencyCode || currency != order.CurrencyCode
+            || finance.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(finance.CommercialSnapshotJson)
+            || finance.WorkerIdentitySha256 != PurchaseOrderWorkerIdentity.Digest(order, finance.CommercialRevision,
+                Guid.Empty, finance.BuyerWorkerId, finance.ParticipantWorkersJson)
+            || finance.ParticipantWorkersJson != PurchaseOrderWorkerIdentity.Participants(lines, finance.BuyerWorkerId)
+            || !PurchaseOrderWorkerIdentity.IsIndependent(finance.ParticipantWorkersJson, verifierWorker)
+            || confirmedAt < finance.ConfirmedAt || confirmedAt > now
+            || new[] { evidenceReference, policyReference, verifier, reason }.Any(string.IsNullOrWhiteSpace))
+            Fail("OrderUnsubmittedFinanceReleaseInvalid");
+        using var snapshot = JsonDocument.Parse(finance.CommercialSnapshotJson);
+        var supplier = new Supplier { Id = order.SupplierId, TenantId = order.TenantId, LegalEntityId = order.LegalEntityId,
+            LegalName = snapshot.RootElement.GetProperty("LegalName").GetString()!,
+            DisplayName = snapshot.RootElement.GetProperty("DisplayName").GetString()!,
+            CountryCode = snapshot.RootElement.GetProperty("CountryCode").GetString()! };
+        if (finance.CommercialSnapshotJson != PurchaseOrderCommercialWorkflow.Snapshot(order,
+            lines.Select(x => x.OrderLine).ToArray(), supplier, finance.CommercialRevision)) Fail("OrderUnsubmittedFinanceInputsChanged");
+        var expected = JsonSerializer.Deserialize<string[]>(finance.SourceReservationsJson) ?? [];
+        if (expected.Length == 0 || restoredReservations.Count != expected.Length
+            || restoredReservations.Distinct(StringComparer.Ordinal).Count() != restoredReservations.Count
+            || !expected.Order(StringComparer.Ordinal).SequenceEqual(restoredReservations.Order(StringComparer.Ordinal)))
+            Fail("OrderFinanceReservationRestorationRequired");
+        ValidateReservedSources(order, lines);
+        var resolution = new PurchaseOrderFinanceResolution { TenantId = order.TenantId, LegalEntityId = order.LegalEntityId,
+            PurchaseOrderId = order.Id, SubmissionId = null, FinanceEvidenceId = finance.Id,
+            CommitmentReference = finance.CommitmentReference, EvidenceReference = evidenceReference,
+            ApprovedManualPolicyReference = policyReference, SourceReservationsJson = finance.SourceReservationsJson,
+            ReleasedGrossAmount = releasedGross, CurrencyCode = currency, Outcome = "CancelledUnsubmittedOrder",
+            Reason = reason, VerifiedByPrincipalId = verifier, VerifiedByWorkerId = verifierWorker,
+            ConfirmedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(confirmedAt)!.Value };
+        ReleaseReservedSources(lines, reason, now);
+        order.FinanceCommitmentRef = null; order.Status = "Cancelled"; order.UpdatedAt = now;
+        order.ClosedAt = now; order.ClosureReason = reason;
+        return resolution;
+    }
+
+    private static void ValidateReservedSources(PurchaseOrder order, IReadOnlyList<PurchaseOrderSourceLine> lines)
+    {
+        if (lines.Count == 0 || lines.Select(x => x.Source.Line.Id).Distinct().Count() != lines.Count) Fail("OrderReleaseSourceSetInvalid");
+        foreach (var item in lines)
+            if (item.Allocation.Status != "Reserved" || item.Allocation.TargetType != "PurchaseOrder"
+                || item.Allocation.TargetId != order.Id || item.Allocation.PurchaseRequestId != item.Source.Request.Id
+                || item.Allocation.PurchaseRequestLineId != item.Source.Line.Id || item.Allocation.Quantity <= 0
+                || item.Allocation.Quantity != item.OrderLine.Quantity || item.Allocation.TenantId != order.TenantId
+                || item.Allocation.LegalEntityId != order.LegalEntityId
+                || item.Source.Allocations.Count(x => x.Id == item.Allocation.Id && ReferenceEquals(x, item.Allocation)) != 1
+                || item.Source.Line.AllocatedQuantity != item.Source.Allocations.Where(x => x.Status == "Reserved").Sum(x => x.Quantity)
+                || !PurchaseRequestApprovalPinning.VerifyBusinessEvidence(item.Source.Submission, item.Source.Request,
+                    item.Source.Evaluation, item.Source.Policy, item.Source.Finance, order.TenantId, order.LegalEntityId).IsValid)
+                Fail("OrderReleaseSourceAllocationChanged");
+    }
+    private static void ReleaseReservedSources(IReadOnlyList<PurchaseOrderSourceLine> lines, string reason, DateTimeOffset now)
+    {
+        foreach (var item in lines)
+        {
+            item.Source.Line.AllocatedQuantity -= item.Allocation.Quantity;
+            item.Source.Request.UpdatedAt = now;
+            item.Allocation.Status = "Released"; item.Allocation.Reason = reason;
+        }
+    }
     private static void Fail(string code) => throw new InvalidOperationException(code);
 }

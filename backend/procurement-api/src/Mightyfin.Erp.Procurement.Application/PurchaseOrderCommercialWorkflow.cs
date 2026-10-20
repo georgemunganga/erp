@@ -277,6 +277,11 @@ public static class PurchaseOrderCommercialWorkflow
     {
         if (finance.TenantId != order.TenantId || finance.LegalEntityId != order.LegalEntityId
             || finance.PurchaseOrderId != order.Id || finance.SupplierId != order.SupplierId
+            || finance.BuyerWorkerId != buyerWorkerId
+            || finance.ParticipantWorkersJson != PurchaseOrderWorkerIdentity.Participants(lines, buyerWorkerId)
+            || finance.WorkerIdentitySha256 != PurchaseOrderWorkerIdentity.Digest(order, revision, Guid.Empty,
+                buyerWorkerId, finance.ParticipantWorkersJson)
+            || finance.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(finance.CommercialSnapshotJson)
             || finance.CommercialRevision != revision || finance.Status != "Confirmed"
             || finance.CurrencyCode != order.CurrencyCode || finance.ConfirmedGrossAmount != gross
             || finance.CommercialSnapshotSha256 != ProcurementEvidenceEncoding.Digest(
@@ -306,7 +311,7 @@ public static class PurchaseOrderCommercialWorkflow
             quantity = ProcurementEvidenceEncoding.Decimal(x.Allocation.Quantity),
             approvedUnitPrice = ProcurementEvidenceEncoding.Decimal(x.Source.Line.EstimatedUnitPrice),
             x.Source.Line.UnitCode, x.Source.Line.CategoryCode, x.Source.Line.PurchaseType,
-            methodId = x.Source.Method.Id, methodVersion = x.Source.Method.Version,
+            methodId = x.Source.Method.Id, methodCode = x.Source.Method.Code, executionRoute = x.Source.Method.ExecutionRoute,
             financeSnapshotId = x.Source.Finance.Id, x.Source.Finance.ReservationRef,
         }).ToArray());
 

@@ -18,3 +18,4 @@ public sealed record OrderExecutionReply(Guid Id, string Number, string Status, 
 public sealed record OrderFinanceResolutionInput(long ExpectedOrderVersion, string EvidenceReference,
     decimal ReleasedGrossAmount, string CurrencyCode, IReadOnlyList<string> RestoredReservationReferences,
     string Reason, DateTimeOffset ConfirmedAt);
+public sealed record OrderSourceCancelInput(long ExpectedOrderVersion, string Reason);

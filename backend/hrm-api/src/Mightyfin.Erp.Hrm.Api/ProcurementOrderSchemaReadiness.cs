@@ -26,7 +26,8 @@ public sealed class ProcurementOrderSchemaReadiness(IConfiguration configuration
             _ = await db.ProcurementMethods.AsNoTracking().Select(x => x.ExecutionRoute).Take(1).ToArrayAsync(ct);
             _ = await db.OrderSubmissions.AsNoTracking().Select(x => new { x.Id, x.BuyerWorkerId, x.ParticipantWorkersJson }).Take(1).ToArrayAsync(ct);
             _ = await db.OrderAssignmentAuthority.AsNoTracking().Select(x => new { x.Id, x.CoreStageId, x.AssigneeWorkerId }).Take(1).ToArrayAsync(ct);
-            _ = await db.OrderFinanceEvidence.AsNoTracking().Select(x => new { x.Id, x.CommercialSnapshotSha256, x.VerifiedByWorkerId }).Take(1).ToArrayAsync(ct);
+            _ = await db.OrderCommitmentOwnership.AsNoTracking().Select(x => x.Id).Take(1).ToArrayAsync(ct);
+            _ = await db.OrderFinanceEvidence.AsNoTracking().Select(x => new { x.Id, x.CommercialSnapshotSha256, x.CommercialSnapshotJson, x.BuyerWorkerId, x.WorkerIdentitySha256, x.VerifiedByWorkerId }).Take(1).ToArrayAsync(ct);
             _ = await db.OrderFinanceResolutions.AsNoTracking().Select(x => x.Id).Take(1).ToArrayAsync(ct);
             _ = await db.OrderIssuedVersions.AsNoTracking().Select(x => new { x.Id, x.ParticipantWorkersJson }).Take(1).ToArrayAsync(ct);
             _ = await db.OrderDeliveryEvidence.AsNoTracking().Select(x => new { x.Id, x.VerifiedByWorkerId }).Take(1).ToArrayAsync(ct);
@@ -45,6 +46,7 @@ public sealed class ProcurementOrderSchemaReadiness(IConfiguration configuration
                   ('procurement.purchase_order_submissions','SELECT,INSERT'),
                   ('procurement.purchase_order_assignment_authority','SELECT,INSERT'),
                   ('procurement.purchase_order_finance_evidence','SELECT,INSERT'),
+                  ('procurement.purchase_order_commitment_ownership','SELECT,INSERT'),
                   ('procurement.purchase_order_finance_resolutions','SELECT,INSERT'),
                   ('procurement.purchase_order_issued_versions','SELECT,INSERT'),
                   ('procurement.purchase_order_delivery_evidence','SELECT,INSERT'),

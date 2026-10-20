@@ -154,6 +154,49 @@ public sealed class PurchaseOrderCommercialWorkflowTests
             amount, "ZMW", [f.Source.Source.Finance.ReservationRef!], "finance-release-account", verifier,
             "Release externally confirmed", f.Now.AddMinutes(1), f.Now.AddMinutes(1));
 
+    [Fact]
+    public void Cancelling_unfunded_source_draft_releases_quantity_but_preserves_PR_budget_reservation()
+    {
+        var f = new Fixture();
+        PurchaseOrderFinanceResolutionWorkflow.CancelUnfundedDraft(f.Source.Order, f.Lines, null, null,
+            "Need cancelled", f.Now);
+        Assert.Equal("Cancelled", f.Source.Order.Status); Assert.Equal(0, f.Source.Line.AllocatedQuantity);
+        Assert.Equal("Released", f.Lines.Single().Allocation.Status);
+        Assert.Equal("Confirmed", f.Source.Source.Finance.ReservationStatus);
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderFinanceResolutionWorkflow.CancelUnfundedDraft(
+            f.Source.Order, f.Lines, null, null, "Repeated without receipt", f.Now));
+    }
+
+    [Fact]
+    public void Funded_draft_requires_independent_finance_release_without_inventing_a_Core_case()
+    {
+        var f = new Fixture(); f.Source.Order.FinanceCommitmentRef = f.Finance.CommitmentReference;
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderFinanceResolutionWorkflow.CancelUnfundedDraft(
+            f.Source.Order, f.Lines, f.Finance, null, "Need cancelled", f.Now.AddYears(1)));
+        Assert.Equal(1, f.Source.Line.AllocatedQuantity); // Expiry alone releases nothing.
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderFinanceResolutionWorkflow.ResolveUnsubmittedDraft(
+            f.Source.Order, f.Lines, f.Finance, "RELEASE", "APPROVED-POLICY", 10, "ZMW",
+            [f.Source.Source.Finance.ReservationRef!], "buyer-alias", f.BuyerWorker, "Cancel", f.Now, f.Now));
+        var resolved = PurchaseOrderFinanceResolutionWorkflow.ResolveUnsubmittedDraft(f.Source.Order, f.Lines,
+            f.Finance, "RELEASE", "APPROVED-POLICY", 10, "ZMW", [f.Source.Source.Finance.ReservationRef!],
+            "independent-finance", Guid.NewGuid(), "Cancel", f.Now, f.Now);
+        Assert.Null(resolved.SubmissionId); Assert.Equal("CancelledUnsubmittedOrder", resolved.Outcome);
+        Assert.Equal("Cancelled", f.Source.Order.Status); Assert.Equal(0, f.Source.Line.AllocatedQuantity);
+        Assert.Null(f.Source.Order.FinanceCommitmentRef);
+    }
+
+    [Fact]
+    public void Operational_source_and_method_row_revisions_do_not_rewrite_submitted_business_evidence()
+    {
+        var f = new Fixture(); var pin = f.Submit(); f.Approve(pin);
+        f.Source.Request.Version++; f.Source.Source.Method.Version++;
+        f.Source.Source.Method.Name = "Updated administrative display label";
+        var issued = PurchaseOrderCommercialWorkflow.AuthorizeIssue(f.Source.Order, f.Lines, f.Supplier,
+            pin, f.Policy, f.Finance, f.Case!, "buyer", f.Now.AddMinutes(1));
+        Assert.Equal(pin.CommercialSnapshotSha256, issued.CommercialSnapshotSha256);
+        Assert.Equal("IssuePending", f.Source.Order.Status);
+    }
+
     private sealed class Fixture
     {
         public PurchaseOrderSourceAllocationTests.Fixture Source { get; } = new();
@@ -192,6 +235,10 @@ public sealed class PurchaseOrderCommercialWorkflowTests
             EvidenceMode = "ApprovedManualEvidence", ApprovedManualPolicyReference = "SYNTHETIC-POLICY",
             Status = "Confirmed", CurrencyCode = "ZMW", ConfirmedGrossAmount = amount,
             SourceReservationsJson = JsonSerializer.Serialize(new[] { Source.Source.Finance.ReservationRef }),
+            BuyerWorkerId = BuyerWorker, ParticipantWorkersJson = PurchaseOrderWorkerIdentity.Participants(Lines, BuyerWorker),
+            WorkerIdentitySha256 = PurchaseOrderWorkerIdentity.Digest(Source.Order, 1, Guid.Empty, BuyerWorker,
+                PurchaseOrderWorkerIdentity.Participants(Lines, BuyerWorker)),
+            CommercialSnapshotJson = PurchaseOrderCommercialWorkflow.Snapshot(Source.Order, Lines.Select(x => x.OrderLine).ToArray(), Supplier, 1),
             CommercialSnapshotSha256 = ProcurementEvidenceEncoding.Digest(PurchaseOrderCommercialWorkflow.Snapshot(
                 Source.Order, Lines.Select(x => x.OrderLine).ToArray(), Supplier, 1)),
             VerifiedByPrincipalId = "independent-finance", VerifiedByWorkerId = Guid.NewGuid(), ConfirmedAt = Now,

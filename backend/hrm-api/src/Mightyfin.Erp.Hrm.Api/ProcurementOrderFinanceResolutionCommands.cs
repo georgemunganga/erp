@@ -19,10 +19,8 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 var load = await Load(db, cases, scope, id, false, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                await Actor(core, scope, http, auth, "procurement-po-finance-confirm", token);
-                var prior = await Receipt(db, scope, "FinanceRelease", key, fingerprint, id, token);
-                if (prior is not null) return prior.ResponseJson;
-                if (load.Order.Version != input.ExpectedOrderVersion || input.RestoredReservationReferences is null
+                await Actor(core, scope, http, auth, "procurement-po-finance-confirm", token, load.Order.BranchRef, true);
+                if (input.RestoredReservationReferences is null
                     || string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Length > 2000
                     || string.IsNullOrWhiteSpace(input.EvidenceReference) || input.EvidenceReference.Length > 500)
                     Conflict("OrderFinanceReleaseInputInvalid");
@@ -35,10 +33,21 @@ public static partial class ProcurementOrderExecutionRoutes
                 var finance = await db.OrderFinanceEvidence.SingleAsync(x => x.Id == pin.FinanceEvidenceId, token);
                 var policy = await db.PolicyVersions.SingleAsync(x => x.Id == pin.PolicyVersionId, token);
                 var assignments = await db.OrderAssignmentAuthority.Where(x => x.SubmissionId == pin.Id).ToArrayAsync(token);
+                var tasks = workflow.Stages.SelectMany(x => x.Assignments).ToArray();
+                if (assignments.Length != tasks.Length || tasks.Any(x => !assignments.Any(a => a.CoreAssignmentId == x.Id
+                    && a.CoreStageId == x.StageId && a.PrincipalId == x.AssigneeSubjectId)))
+                    Conflict("OrderFinanceReleaseAssignmentSetChanged");
+                var verifier = await Canonical(core, scope, scope.SubjectId, token);
+                if (!PurchaseOrderWorkerIdentity.Verify(pin, load.Order, load.Sources)
+                    || !PurchaseOrderWorkerIdentity.IsIndependent(pin.ParticipantWorkersJson, verifier.WorkerId)
+                    || assignments.Any(x => PurchaseOrderAssignmentIdentity.ReadVerified(x) is not { } retained
+                        || retained.AssigneeWorkerId == verifier.WorkerId)) Deny();
+                var prior = await Receipt(db, scope, "FinanceRelease", key, fingerprint, id, token);
+                if (prior is not null) return prior.ResponseJson;
+                if (load.Order.Version != input.ExpectedOrderVersion) Conflict("OrderFinanceReleaseSourceChanged");
                 var now = DateTimeOffset.UtcNow; var authority = ManualPolicy(options, scope, now);
                 if (authority.EvidenceMaximumAgeMinutes is { } maximum && input.ConfirmedAt < now.AddMinutes(-maximum))
                     Conflict("OrderFinanceReleaseEvidenceExpired");
-                var verifier = await Canonical(core, scope, scope.SubjectId, token);
                 var resolution = PurchaseOrderFinanceResolutionWorkflow.Resolve(load.Order, load.Sources, pin, policy, finance,
                     workflow, assignments, input.EvidenceReference.Trim(), authority.ApprovedPolicyReference,
                     input.ReleasedGrossAmount, input.CurrencyCode, input.RestoredReservationReferences,
