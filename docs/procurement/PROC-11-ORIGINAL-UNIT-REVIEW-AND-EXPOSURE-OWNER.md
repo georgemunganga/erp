@@ -144,3 +144,61 @@ Transport-delivered/HTTP200/funding-approved/payment-reference is not completene
 4. Use `Api/ProcurementInvoiceDocumentRoutes.cs`/`ProcurementInvoiceMatchingCommands.DocumentHashes`, Core document ownership/version/hash readiness and private download; correct production adapter transaction enlistment explicitly.
 5. Extend existing Bills `InvoiceMatching.tsx`/document/task UI after typed contract review. Run actual API/PG/browser gates with distinct reviewer. This only activates unit review; Finance dependency and P27 remain unavailable.
 6. Separately negotiate/implement the actual authenticated Finance coverage reader/checkpoint/reconciliation protocol above. `Hrm.Infrastructure/IntegrationOperations.cs`, `Hrm.Domain/Entities/Integrations.cs` are payroll outbound handoffs/operator notes and cannot serve as complete AP-consumption authority. `PurchaseOrderFinanceEvidence`, `BudgetCheckSnapshot`, `Supplier.FinanceSupplierRef`, `FinanceInvoiceHandoff` and `FinancePaymentStatusRef` are funding/references/projections, not that owner.
+
+## Step 2 implementation contract — source design, not activated
+
+Related ADR: `docs/adr/ADR-PROC-INVOICE-REVIEW-OWNER-BOUNDARY.md`, Step 2 representation/adapter decision. Baseline `3613559`; pure retained verifier prerequisite `f859337` + `cadaffb` is reviewed source on its separate branch, not yet an installed provider/model. No schema generation, code activation or test execution accompanies this plan.
+
+| Existing 28-section field | Concrete Step 2 increment |
+|---|---|
+| 1 Feature Identification | Original-unit review, owned immutable review source + existing Core execution. |
+| 2 Purpose & Business Outcome | Independent human interpretation of proposed invoice document-line/unit references; no AP or capacity approval. |
+| 3 Scope & Exclusions | One complete current mapping; named One/All review; read/decide/receipt. No unit conversions, spending thresholds, broad directory, Finance history or automatic OCR authority. |
+| 4 Parent & Related Features | P26 immutable mapping/originals; reviewed v2 verifier; Core approval engine/documents and current identity/branch fences. |
+| 5 Actors & Participants | Mapping maker requests; explicitly named distinct-worker reviewers decide; authorized matcher separately consumes retained evidence. Policy maker and publisher remain independent. |
+| 6 Entry Points & Triggers | Existing Bills detail and assigned approval presentation; routes below. No GET creates data. |
+| 7 Preconditions | Explicit actions/default-off feature/readiness; installed reviewed model; same physical metadata DB; exact current mapping/original/issued/document/policies; canonical current actors and supported named policy. |
+| 8 Workflow | Open under invoice lock → immutable source+Core assignments → independent decisions → one terminal evidence → separate later comparison. Returned/Rejected proposals remain unverified. |
+| 9 Status / State Transitions | Core Pending→Approved/Rejected/Returned controls execution. Procurement immutable terminal Verified/Rejected/Returned binds it. Stale is computed from changed current pins, never rewriting historical evidence. One attempt per mapping+matching-policy+review-policy tuple initially. |
+| 10 Permissions & Data Scope | Three explicit empty-bootstrap actions; current assignment worker+branch before count/detail/download/decision. Only maker requests initially. Unsupported department grants fail closed; no broad invoice/PO read requirement for reviewers. |
+| 11 Business Rules | Every original line once; exact claimed unit/document-version/hash/reference; distinct worker identities; no approved review from merely `VerificationState` or scanned PDF. Actual Core final stage/quorum/decisions verified by v2. |
+| 12 Data Fields & Ownership | Four small owned records in ADR; stable IDs/short keys/scoped binding. Core cases/documents retained in their owning schemas. No second mapping/invoice/identity master. |
+| 13 Screens & Data Views | Existing Bills mapping/review summary and shared assigned-task detail/modal; minimal purpose projection and pinned file links. No new sidebar. |
+| 14 User Experience / Human Behaviour | “Review item units”/“Check the original invoice”; explain pending, stale and unavailable states. Human must inspect source lines; no auto-ticked commercial attestation. |
+| 15 Notifications & Communications | Stable `supplier_invoice.unit_review_requested.v1` and `supplier_invoice.unit_review_completed.v1` outbox declarations only after durable writes; no email inside transaction. |
+| 16 Documents & Attachments | Same-invoice pinned Available/nonretired Core version/hash. Purpose-only read/download reuses Core service through strict allowlist access adapter; no extra uploads or broad document enumeration. |
+| 17 Exceptions & Edge Cases | Unknown policies/aliases/self-review/offboarding/missing file/current mapping change/ambiguous outcomes/old schema fail closed. Historical valid signer need not remain an active login; current actor must. |
+| 18 Integrations / APIs / Events / Sandbox | Existing SERIALIZABLE shared adapter enlists Core identity/approval/document metadata; explicit policy resolver required. Private actual PostgreSQL fixture uses real Core engine/files/roles and synthetic document scanner only if clearly declared. |
+| 19 Audit / Security / Privacy | Append-only source/assignment/outcome/receipt and consequential audit; no raw policy JSON, blob keys or unrelated invoice/Finance data on purpose routes. Payload digest validates binding, not authority. |
+| 20 Reports / Dashboards / Metrics | Pending assigned review count and outcome/time from actual execution only; no savings/AP/payment KPI implied. |
+| 21 Configuration & Localization | Real independently published review policy; initial named principals/One/All only. Engineering bounds are input-safety limits, not business approval thresholds. |
+| 22 Non-Functional Requirements | Bounded lists/complete source≤200 lines; strict bounded JSON from v2; no network document analysis under locks; accessible existing ERP controls; cancellation and no-store download. |
+| 23 Postconditions | Exact review source and terminal proof, or durable nonverified outcome; original invoice/mapping and all claim/AP ledgers unchanged. |
+| 24 Failure & Recovery | Stable same UUID/body, original exact response; changed actor/body rejected. Unknown commit is reconciled via receipt, not blind new key. Only confirmed serialization abort reexecutes callback. |
+| 25 Acceptance Criteria | Actual different-worker reviewer can finish a real Core case and another matcher verify exact units; review does not make comparison claimable while exposure history unavailable. |
+| 26 Test Scenarios | Pure policy/source/result guards; full Save/append-only/CAS; mapped scope/permission/alias/no-effect; actual restricted PG atomicity/concurrency/recovery/key-name/Down tests; actual purpose document/browser path. None yet run for Step2. |
+| 27 Ownership / Dependencies | Procurement review/policy/outcome; Core execution/identity/documents; parent central migration/release. Existing financial-owner absence remains a separate blocker. |
+| 28 Open Decisions / Assumptions | Business must adopt actual named reviewers/stages/actions; confirm first-release maker-only opening and one-attempt rule. Strict policy schema/validator, source/outcome persistence and typed v2 reader/projection remain required implementation. No business amount limits are guessed. |
+
+### Proposed exact HTTP surface
+
+All routes are under `/api/procurement/v1`; command inputs carry no caller-supplied reviewer identity, verified flag, document hash or policy authority.
+
+- `POST /invoices/{invoiceId}/mappings/{mappingId}/unit-review-cases`, request action plus current mapping-maker worker. Input `{expectedInvoiceVersion, expectedMappingRevision, reason}` and UUID `Idempotency-Key`. Server chooses exactly one current independently published review policy and matching policy, loads immutable units/documents and canonical named assignments. `201 {reviewId, invoiceId, mappingId, caseId, sourceVersion, caseVersion, state, invoiceVersion}`. No review mutates invoice version solely to store status; invoice row lock still serializes creation against remapping.
+- `GET /invoice-unit-reviews?state=Pending&limit&offset`, request permission lists only own opened sources; review permission lists actual assigned sources. Read permission alone does not grant all-company discovery. Exact tenant/company/retained selected/allowed branch filtering happens before count/page. Detail uses same purpose authorization, not a broader direct-URL fallback.
+- `GET /invoice-unit-reviews/{reviewId}`, bounded source facts, immutable invoice quantities/prices as exact decimal strings, declared units and pinned file labels, case/version/current action hints and decision history. No supplier bank, Finance snapshot, unrelated original documents or PO headers. Hints are not command approval guarantees.
+- `GET /invoice-unit-reviews/{reviewId}/documents/{versionId}/download`, current assigned review worker or original requesting maker, exact pinned version and Core ownership/scan/hash access only; `Cache-Control:no-store`. File listing comes from pinned detail, not all invoice attachments.
+- `POST /invoice-unit-reviews/{reviewId}/assignments/{assignmentId}/decisions`, review action; `{action:Approve|Reject|Return, reason, expectedCaseVersion, expectedAssignmentVersion, expectedInvoiceVersion}` plus same-command UUID. Current canonical actor/worker/configured permission, assignment, immutable source/current original/mapping/issued/docs/policies checked before Core mutation. Reject/Return requires a reason. Source staleness denies completion and displays stale; automatic cancellation of existing Core cases is outside this slice.
+- `GET /invoice-unit-reviews/command-receipts/{operation:Open|Decide}/{key}`, current original command actor/worker/action and retained source scope; returns original status/body when committed, otherwise NotFound. No GET writes, policy adoption or automatic new-key retry.
+- Existing invoice match history/readiness gains a minimal exact-current-mapping review summary. Matching remains an explicit separate command, and a valid v2 review cannot replace complete exposure history or change AP handoff availability.
+
+Known failures: 401 unauthenticated; 403 missing action/canonical worker/independence; 404 inaccessible owned resource (including document version); 409 stale/CAS/policy/assignment/current-source or receipt conflict; 422 malformed input/unsupported rule document; 503 default-off/missing exact schema/separate owner store. Errors use safe stable codes and actionable text, not raw policy/exception content. Retained original-key recovery is authorized historical evidence; it does not revalidate or recreate a completed business effect under today's policy.
+
+### Implementation sequence / Definition of Ready
+
+1. Distinct review of this ADR and 28-section/API contract. Integrate and test the reviewed `cadaffb` pure contract without activating a provider.
+2. Bounded pure review-policy parser/resolution plan and source-open/terminal transition contracts, preserving Core source/case ownership. Business-owned named principals/stages are required for actual published policy; empty configuration must block.
+3. Add the three explicit action catalogue entries, policy configuration type/validator/maker-checker current scope, default-off feature and unavailable schema readiness. Register no bootstrap reviewer role or fabricated thresholds.
+4. Central additive model/migration after stable scoped keys and exact mutation guards pass Npgsql model review. Preserve all P24–P26 literal overlays and used-evidence Down locks/stops. No migration is generated in this design branch.
+5. Actual enlisted open/decide/read/receipt/document adapters, then typed retained v2 reader/projector at Compare. Do not inject caller-bound schema-1 “Verified” evidence to bridge the gap.
+6. Pure/mapped/actual restricted PostgreSQL/actual browser gates with independent persisted ownership and no-Finance-effect verification. Production remains disabled until review/policy/DoR, operational and release controls pass.
