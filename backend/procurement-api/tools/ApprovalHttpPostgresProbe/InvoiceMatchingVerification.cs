@@ -76,6 +76,22 @@ sealed partial class Probe
         var concurrent=await Task.WhenAll(Enumerable.Range(0,2).Select(_=>Send(HttpMethod.Post,$"{Root}/invoices/{id}/matching/compare",OrderBuyer,concurrentInput,Guid.NewGuid())));
         Require(concurrent.Count(x=>x.StatusCode==HttpStatusCode.OK)==1 && concurrent.Count(x=>x.StatusCode==HttpStatusCode.Conflict)==1,
             "Concurrent comparison did not preserve one immutable result and one safe version conflict.");
+        var beforeReadiness = await InvoiceApReadFootprint(id);
+        for (var read = 0; read < 2; read++)
+        {
+            var ap = await Get($"{Root}/invoices/{id}/finance-readiness", OrderBuyer);
+            Require(ap.GetProperty("state").GetString() == "Blocked" && !ap.GetProperty("canPrepareHandoff").GetBoolean(),
+                "Recorded comparison became AP handoff authority.");
+            Require(ap.GetProperty("evidence").GetProperty("matchingSchemaAvailable").GetBoolean()
+                && ap.GetProperty("evidence").GetProperty("recordedComparison").GetProperty("outcome").GetString() == "Blocked",
+                "Actual owned blocked comparison was not shown as recorded evidence.");
+            var blockers = ap.GetProperty("blockers").EnumerateArray().Select(x => x.GetProperty("code").GetString()).ToArray();
+            Require(blockers.Contains("InvoiceValidationAuthorityUnavailable") && blockers.Contains("FinanceReceiverUnavailable"),
+                "Unavailable invoice approval or Finance owner was silently inferred.");
+            Require(!ap.GetRawText().Contains("allocations", StringComparison.OrdinalIgnoreCase)
+                && !ap.GetRawText().Contains("ownerReference", StringComparison.OrdinalIgnoreCase), "AP readiness exported private source/owner history.");
+        }
+        Require(beforeReadiness == await InvoiceApReadFootprint(id), "AP readiness GET created or changed invoice/claim/Finance evidence.");
         using(var services=Scope(OrderBuyer))
         {
             var db=services.ServiceProvider.GetRequiredService<ProcurementDbContext>(); var saved=await db.SupplierInvoices.SingleAsync(x=>x.Id==id);
@@ -84,6 +100,20 @@ sealed partial class Probe
             Require(await db.InvoiceExceptions.AnyAsync(x=>x.SupplierInvoiceId==id && x.OwnerWorkerId!=null),"Blocked invoice lacks a responsible exception owner.");
             Require(await db.OutboxEvents.AnyAsync(x=>x.AggregateId==id && x.EventType=="supplier_invoice.compared.v1"),"Comparison missing transactional outbox evidence.");
         }
+    }
+    private async Task<string> InvoiceApReadFootprint(Guid id)
+    {
+        using var services = Scope(OrderBuyer); var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+        return JsonSerializer.Serialize(new
+        {
+            invoice = await db.SupplierInvoices.AsNoTracking().SingleAsync(x => x.Id == id),
+            lines = await db.SupplierInvoiceLines.AsNoTracking().Where(x => x.SupplierInvoiceId == id).OrderBy(x => x.Id).ToArrayAsync(),
+            mappings = await db.InvoiceMatchMappingVersions.CountAsync(), results = await db.InvoiceMatchResults.CountAsync(),
+            exceptions = await db.InvoiceExceptions.CountAsync(), claims = await db.InvoiceMatchAllocations.CountAsync(),
+            exposure = await db.InvoiceMatchExposureStates.CountAsync(), receipts = await db.CommercialCommandReceipts.CountAsync(),
+            handoffs = await db.FinanceInvoiceHandoffs.CountAsync(), payments = await db.FinancePaymentStatusRefs.CountAsync(),
+            audit = await db.AuditEvents.CountAsync(), outbox = await db.OutboxEvents.CountAsync(),
+        }, Json);
     }
     private async Task PublishMatchingPolicy()
     {

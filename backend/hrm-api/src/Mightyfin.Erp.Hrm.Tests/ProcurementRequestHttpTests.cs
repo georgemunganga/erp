@@ -1832,6 +1832,57 @@ public sealed class ProcurementRequestHttpTests
                 company: fixture.OtherCompany, actions: reviewerActions)).StatusCode);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Invoice_finance_readiness_explains_missing_steps_without_new_authority_or_writes(bool matchingSchema)
+    {
+        await using var fixture = await Fixture.Start(matchingSchema: matchingSchema);
+        var supplier = await fixture.AddInvoiceSupplier();
+        var captured = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/invoices", fixture.Other,
+            new InvoiceIntakeInput(supplier, null, "READINESS-1", DateOnly.FromDateTime(DateTime.UtcNow), null, "ZMW",
+                [new InvoiceIntakeLineInput("Recorded invoice", 1, 100, 0, null, null)]), "ap_processor");
+        Assert.Equal(HttpStatusCode.Created, captured.StatusCode);
+        var invoice = await captured.Content.ReadFromJsonAsync<JsonElement>(); var id = invoice.GetProperty("id").GetGuid();
+        var before = await fixture.InvoiceReadinessFootprint();
+        var path = $"/api/procurement/v1/invoices/{id}/finance-readiness";
+        Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.Client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner)).StatusCode);
+        foreach (var role in new[] { "ap_processor", "erp_admin" })
+        {
+            var response = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: role);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(id, body.GetProperty("invoiceId").GetGuid());
+            Assert.Equal(invoice.GetProperty("version").GetInt64(), body.GetProperty("invoiceVersion").GetInt64());
+            Assert.Equal("Blocked", body.GetProperty("state").GetString()); Assert.False(body.GetProperty("canPrepareHandoff").GetBoolean());
+            var codes = body.GetProperty("blockers").EnumerateArray().Select(x => x.GetProperty("code").GetString()).ToArray();
+            Assert.Contains("InvoiceValidationAuthorityUnavailable", codes); Assert.Contains("FinanceReceiverUnavailable", codes);
+            Assert.Contains(matchingSchema ? "InvoiceNotCompared" : "MatchingEvidenceUnavailable", codes);
+            Assert.Equal(matchingSchema, body.GetProperty("evidence").GetProperty("matchingSchemaAvailable").GetBoolean());
+            Assert.Equal("NotRevalidated", body.GetProperty("evidence").GetProperty("comparisonCurrentness").GetString());
+            if (!matchingSchema)
+            {
+                Assert.DoesNotContain("InvoiceNotCompared", codes);
+                Assert.Equal(JsonValueKind.Null, body.GetProperty("evidence").GetProperty("unresolvedExceptionCount").ValueKind);
+            }
+            Assert.NotEmpty(body.GetProperty("nextSteps").EnumerateArray());
+        }
+        Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/invoices/" + Guid.NewGuid() + "/finance-readiness", fixture.Other, role: "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
+            company: fixture.OtherCompany, role: "erp_admin")).StatusCode);
+        var foreignInvoiceId = await fixture.AddForeignTenantReadinessInvoice();
+        var foreignRead = await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/invoices/{foreignInvoiceId}/finance-readiness", fixture.Other, role: "erp_admin");
+        Assert.Equal(HttpStatusCode.NotFound, foreignRead.StatusCode);
+        Assert.DoesNotContain("FOREIGN-TENANT-PRIVATE", await foreignRead.Content.ReadAsStringAsync());
+        Assert.Equal(before, await fixture.InvoiceReadinessFootprint());
+        await fixture.ConfineInvoiceReaderElsewhere(fixture.Other);
+        Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor")).StatusCode);
+        Assert.Equal(before, await fixture.InvoiceReadinessFootprint());
+    }
+
     [Fact]
     public async Task Manual_invoice_intake_is_scoped_deduplicated_and_never_posts_to_finance()
     {
@@ -2579,6 +2630,47 @@ public sealed class ProcurementRequestHttpTests
             return supplier.Id;
         }
 
+        public async Task<string> InvoiceReadinessFootprint()
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return JsonSerializer.Serialize(new
+            {
+                invoices = await db.SupplierInvoices.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+                lines = await db.SupplierInvoiceLines.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+                mappings = await db.InvoiceMatchMappingVersions.CountAsync(), comparisons = await db.InvoiceMatchResults.CountAsync(),
+                exceptions = await db.InvoiceExceptions.CountAsync(), handoffs = await db.FinanceInvoiceHandoffs.CountAsync(),
+                payments = await db.FinancePaymentStatusRefs.CountAsync(), claims = await db.InvoiceMatchAllocations.CountAsync(),
+                exposure = await db.InvoiceMatchExposureStates.CountAsync(), receipts = await db.CommercialCommandReceipts.CountAsync(),
+                audit = await db.AuditEvents.CountAsync(), outbox = await db.OutboxEvents.CountAsync(),
+            });
+        }
+
+        public async Task<Guid> AddForeignTenantReadinessInvoice()
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-foreign", company, Owner.ToString(), null, null, false, "foreign-fixture");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var supplier = new Supplier { Number = "FOREIGN", LegalName = "Foreign", DisplayName = "Foreign", CountryCode = "ZM" };
+            db.AddScoped(supplier);
+            var invoice = new SupplierInvoice { SupplierId = supplier.Id, InvoiceNumber = "FOREIGN-TENANT-PRIVATE",
+                NormalizedInvoiceNumber = "FOREIGN-TENANT-PRIVATE", CurrencyCode = "ZMW", IntakeChannel = "Manual" };
+            db.AddScoped(invoice); await db.SaveChangesAsync(); return invoice.Id;
+        }
+
+        public async Task ConfineInvoiceReaderElsewhere(Guid user)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var location = new WorkLocation { Code = "OTHER-INVOICE-BRANCH", Name = "Other invoice branch", LegalEntityId = company };
+            core.WorkLocations.Add(location);
+            core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = user, LocationId = location.Id });
+            await core.SaveChangesAsync();
+        }
+
         public async Task<int> InvoiceHandoffCount()
         {
             using var serviceScope = app.Services.CreateScope();
@@ -2804,7 +2896,7 @@ public sealed class ProcurementRequestHttpTests
             await db.SaveChangesAsync();
         }
 
-        public static async Task<Fixture> Start(bool documents = false)
+        public static async Task<Fixture> Start(bool documents = false, bool matchingSchema = false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
@@ -2831,6 +2923,8 @@ public sealed class ProcurementRequestHttpTests
                 builder.Services.AddScoped<Mightyfin.Erp.Core.Documents.Application.RecordDocumentService>();
                 builder.Services.AddSingleton<IDocumentSchemaReadiness>(new DocumentTestReadiness());
             }
+            if (matchingSchema)
+                builder.Services.AddSingleton<IProcurementInvoiceMatchingSchemaReadiness>(new InvoiceReadinessSchema());
             builder.Services.AddAuthentication("test")
                 .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
@@ -2887,6 +2981,11 @@ public sealed class ProcurementRequestHttpTests
             await app.DisposeAsync();
             if (documentRoot is not null && Directory.Exists(documentRoot)) Directory.Delete(documentRoot, true);
         }
+    }
+
+    private sealed class InvoiceReadinessSchema : IProcurementInvoiceMatchingSchemaReadiness
+    {
+        public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(true);
     }
 
     public sealed class TestAuthenticationHandler(

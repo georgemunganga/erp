@@ -354,3 +354,72 @@ A received-for-review inbox alone cannot satisfy that provider's completeness co
 All eight groups require pure/current-authorization tests, mapped API tests and genuine
 isolated PostgreSQL duplicate/race/rollback/lease tests; real owner contract sandbox and Bills
 browser acceptance follow. No implementation or verification was executed by this audit.
+
+## Appendix D — Bounded read-only invoice readiness source contract
+
+Source base `42f9395`; this increment authors a useful read for the existing Bills detail.
+It does not implement the sender, new approval workflow, machine receiver, Finance owner,
+posting/payment capability or any new setting/table/provider. It is not deployed or tested
+by the source author. The broader P27 dependency sequence above remains required.
+
+**API:** GET `/api/procurement/v1/invoices/{id}/finance-readiness`, mapped with existing invoice
+intake routes and existing `procurement-invoice-read` policy. It shares the exact existing
+invoice list/detail tenant/entity/confined-branch query. It does not add a canonical-worker,
+approver, machine-principal or handoff permission requirement to ordinary invoice readers.
+Existing middleware still owns current session/company/workforce/context validation; this
+increment neither bypasses nor broadens it. Inaccessible invoice returns the same 404,
+unauthenticated/denied/scope requests retain existing 401/403 behavior. The existing broader
+invoice reader's selected-branch semantics are not silently redesigned in this narrow slice.
+
+**Typed view:** `InvoiceApReadiness` returns invoiceId/version/status, State=Blocked,
+CanPrepareHandoff=false, owned evidence summary, blocker code/message pairs and next-step
+code/message pairs. Evidence includes matching schema availability, recorded current-mapping
+ID/revision and original-digest currentness, last comparison ID/version and original-digest
+currentness, the existing safe `InvoiceMatchSummary`, and unresolved own-invoice exception
+count. ComparisonCurrentness is explicitly NotRevalidated: this GET does not re-run matching,
+resolve current supplier/receipt/Finance authority or claim that recorded facts are approval.
+An operational invoice-version bump alone does not rewrite its original business digest.
+
+Matching schema unavailable is `MatchingEvidenceUnavailable`, with unknown counts represented
+as null, not zero or an empty complete history. This differs from the real `InvoiceNotCompared`
+condition when the matching schema is available but no last result exists. Existing matching
+schema readiness is used as a read-store capability; matching execution need not be enabled
+for a reader to inspect already recorded history. No new availability setting is invented.
+The first read selects only original intake columns, so unavailable P26 tables are not queried.
+
+Mapping hash/line/original binding failures, changed mapping pointer, changed original invoice,
+malformed comparison evidence and outstanding invoice issues receive explicit blockers. Any
+mapping/result lookup is additionally bound to this invoice and current tenant/entity; the
+projection sanitizes foreign/mismatching inputs and filters comparison lines/discrepancies to
+this invoice's original line IDs using `InvoiceMatchReadProjection.Summary`. Full source JSON,
+other invoices' allocations, private owner references, callback secrets and banking details
+are never returned. Invoice version is re-read before response; an in-flight change yields
+409 InvoiceReadinessChanged and asks the reader to refresh rather than combining two versions.
+
+Two concrete missing capabilities always block sending: InvoiceValidationAuthorityUnavailable
+and FinanceReceiverUnavailable. A local Status=Validated or recorded Outcome=Compared cannot
+satisfy them. No handoff/payment totals or owner state are guessed. Next steps guide the
+existing detail to original documents, line mapping or recorded comparison review and explain
+that governed invoice approval plus a real Finance connection are still required. Frontend
+hookup can render these messages inside existing LiveInvoices detail; no new page or send/
+retry/pay button is introduced. This commit supplies the backend contract, not that UI hookup.
+
+All queries are AsNoTracking and GET performs no SaveChanges, comparison, policy evaluation,
+state creation, outbox/audit/receipt write or owner network call. No schema migration is needed.
+The existing P26 schema/provider readiness gates continue to govern real matching execution.
+
+Authored acceptance source:
+
+- Mapped HTTP intake/read tests for schema unavailable vs available/not compared, exact current
+  invoice version, AP reader/Core admin access, anonymous/permission/missing/company/confined-
+  branch/cross-tenant denials, concrete next steps and repeated-read zero persisted effects.
+- Pure projection tests for Compared/status-label nonauthority, original/mapping changes,
+  corrupt evidence, unknown schema/counts and foreign evidence/privacy boundaries.
+- Existing actual PostgreSQL --matching probe now requests readiness over a genuinely recorded
+  blocked comparison and checks mandatory owner/approval blockers, filtered summary/privacy
+  and unchanged invoice/line/mapping/result/exception/claim/exposure/receipt/handoff/payment/
+  audit/outbox footprint. This remains authored, unexecuted verification source.
+
+Definition of Done for this slice still requires central compilation, relevant API/pure and
+restricted-runtime PostgreSQL checks plus independent review. The later Bills detail hookup
+needs its own UI acceptance. No AP or full Procurement completion claim follows from this read.
