@@ -55,7 +55,7 @@ On source `ea7982b`, serial container `procurement-p26-generated-source-reverifi
 - Idempotent Up SQL and P26-to-P25 guarded reverse SQL generated.
 - Full Procurement domain/model regression: **550 passed, zero failed/skipped**,44s.
 
-The full Procurement API regression in this same serial run is still pending terminal evidence. Earlier140-pass evidence does not cover later guards.
+The full Procurement API regression in this same serial run **passed:167 passed, zero failed/skipped**,5m26s. Container terminated0; TRX in `artifacts/p26/http-final-generated`. This gate covers the later input guards, required evidence and first-comparison persistence correction; the compiled source is `ea7982b` (later commits changed documentation/helper only).
 
 Independent review of the actual generated scripts found no blocker: one atomic transaction; no retained issued-key drop; exact ownership constraints after their parent indexes; reverse locks and all three loss stops before destructive operations; no silent NULL-to-zero update. SQL SHA256: Up `1e70840e8b5c03ee07681d740ea13cc5ecb702c1311c7370d7970f3a6ff26849`; Down `15a8a6d2e47dcf72b7a44467b380074a613a1b2ff878191147414c04c80b3d77`.
 
