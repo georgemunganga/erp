@@ -8,6 +8,9 @@ public static partial class ProcurementOrderExecutionRoutes
     public static void MapRoutes(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/orders");
+        group.MapGet("/execution-worklist", ExecutionWorklist).RequireAuthorization("procurement-access");
+        group.MapGet("/{id:guid}/execution-detail", ExecutionDetail).RequireAuthorization("procurement-access");
+        group.MapGet("/command-receipts/{operation}/{key:guid}", RecoverCommercialCommand).RequireAuthorization("procurement-access");
         group.MapGet("/approved-sources", ApprovedSources).RequireAuthorization("procurement-po-convert");
         group.MapGet("/assigned-approvals", AssignedOrders).RequireAuthorization("procurement-po-approve");
         group.MapPost("/from-approved-sources", ConvertSources).RequireAuthorization("procurement-po-convert");
