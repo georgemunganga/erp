@@ -54,6 +54,42 @@ Supplier proposal, review and activation; reasoned category/item and buying-meth
 
 ## Progress register
 
+### 20 October 2026 approval execution candidate
+
+The production baseline above is unchanged: API v36, Procurement schema through P19,
+with approval execution disabled. The backend integration branch
+`codex/procurement-approval-transaction` now contains P21 immutable submission evidence,
+P22 independently activated finite spending authority, and the shared Core approval
+transaction coordinator. Its purchase-request execution candidate includes case opening,
+assigned queues, decisions, retained history, source outcomes, and controlled manual
+Finance reservation-release confirmation. These are source capabilities, not a live release.
+
+Verification of the combined execution source at `416b320` passed all 196 Release
+Procurement tests. The shared-host regression suite and real HTTP/PostgreSQL probe are
+still running. Earlier P22 SQL was applied twice successfully to a disposable PostgreSQL
+database; authority concurrency and whole-transaction rollback probes passed. Execution
+and outcome model changes still need P23, migration rehearsal, least-privilege database
+verification, and real API browser acceptance before activation.
+
+Independent review is correcting employee-alias independence checks and preserving
+immutable worker identity evidence so staff offboarding does not require reactivating an
+old account to finish a reservation release. Assignment evidence validation and available
+approval actions are also being tightened before P23 is generated. These corrections
+have not yet passed the combined runtime gate.
+
+The staged frontend at `ac67352` passed 76 mocked Playwright cases. Its successor
+`fcdd53e` preserves Finance confirmation milliseconds and has passed TypeScript and
+the staged production build; focused browser verification and the newly authored real
+API browser flows are pending. Production assets have not been replaced with this
+candidate. Track the bounded approval milestone in
+[issue 9](https://github.com/georgemunganga/module-connect/issues/9).
+
+Purchase-order execution is the next isolated source increment: approved direct-buy
+request-line allocations, explicit method execution routes, finite PO authority, retained
+commercial evidence and supplier eligibility. Sourcing awards, order issue/delivery,
+receiving, invoice matching, AP handoff and portal workflows remain incomplete; draft
+CRUD or a durable outbox row does not establish those operational capabilities.
+
 | Area | State on 18 October 2026 | Next acceptance evidence |
 |---|---|---|
 | Source schema P0–P9 | Implemented and isolated DB tested | Review additive migration against existing data; staging upgrade and restore |
