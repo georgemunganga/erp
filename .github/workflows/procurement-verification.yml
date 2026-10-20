@@ -23,6 +23,9 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend/hrm-api
     env:
       DOTNET_NOLOGO: 'true'
       DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
@@ -35,26 +38,26 @@ jobs:
           global-json-file: backend/hrm-api/global.json
       - name: Procurement domain and persistence tests
         run: >-
-          dotnet test backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests
-          --configuration Release --logger trx --results-directory artifacts/procurement-tests
+          dotnet test ../procurement-api/src/Mightyfin.Erp.Procurement.Tests
+          --configuration Release --logger trx --results-directory ../../artifacts/procurement-tests
       - name: Core approval tests
         run: >-
-          dotnet test backend/core-api/src/Mightyfin.Erp.Core.Approvals.Tests
-          --configuration Release --logger trx --results-directory artifacts/core-approval-tests
+          dotnet test ../core-api/src/Mightyfin.Erp.Core.Approvals.Tests
+          --configuration Release --logger trx --results-directory ../../artifacts/core-approval-tests
       - name: Procurement HTTP, identity and authorization tests
         run: >-
-          dotnet test backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests
+          dotnet test src/Mightyfin.Erp.Hrm.Tests
           --configuration Release --filter FullyQualifiedName~Procurement
-          --logger trx --results-directory artifacts/host-tests
+          --logger trx --results-directory ../../artifacts/host-tests
       - name: Check migration snapshots
         run: |
-          dotnet tool install dotnet-ef --tool-path .tools --version 10.0.11
-          .tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure --context ProcurementDbContext
-          .tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure --context ApprovalDbContext
+          dotnet tool install dotnet-ef --tool-path ../../.tools --version 10.0.11
+          ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure --context ProcurementDbContext
+          ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure --context ApprovalDbContext
       - name: Publish verified ERP host
         run: >-
-          dotnet publish backend/hrm-api/src/Mightyfin.Erp.Hrm.Api --configuration Release
-          --no-restore --no-self-contained --output artifacts/api
+          dotnet publish src/Mightyfin.Erp.Hrm.Api --configuration Release
+          --no-restore --no-self-contained --output ../../artifacts/api
       - name: Retain test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

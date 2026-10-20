@@ -8,6 +8,8 @@
 
 [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) checks identity, organisation, workflow, documents, notifications, audit and event services before Procurement depends on them.
 
+[CORE-DOC-01 Shared document evidence](CORE-DOC-01-SHARED-DOCUMENT-EVIDENCE.md) defines the 28-section contract for Core-owned private storage, scan states, record-scoped access and invoice evidence recovery. Implementation and real scanner release verification remain pending.
+
 [PROC-UX-01 Procurement Navigation and Lovable Prompts](PROC-UX-01-NAVIGATION-AND-LOVABLE-PROMPTS.md) translates the capability map into role-aware side menus, sublinks, and copyable prompts for the UI designer.
 
 [PROC-UX-02 Complete Procurement UI Prompt Pack](PROC-UX-02-COMPLETE-LOVABLE-UI-PROMPT-PACK.md) provides a sequenced Lovable handoff for the entire internal and supplier-facing UI, including role views, exception states, and an end-to-end journey.
