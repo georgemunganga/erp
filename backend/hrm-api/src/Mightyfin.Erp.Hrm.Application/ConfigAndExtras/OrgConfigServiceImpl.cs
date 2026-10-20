@@ -126,21 +126,21 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
         var entities = await repo.ListLegalEntitiesAsync(ct);
-        var workers = await repo.ListAllWorkersAsync(null, ct);
-        return units.Select(u => ToOrgUnitDto(u, entities, workers)).ToList();
+        var workers = await OrganisationWorkersAsync(ct);
+        return units.Select(u => ToOrgUnitDto(u, entities, workers, CanReadOrganisationWorkers)).ToList();
     }
 
     public async Task<List<OrgUnitTreeDto>> GetOrgUnitTreeAsync(CancellationToken ct)
     {
         authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
-        var workers = await repo.ListAllWorkersAsync(null, ct);
+        var workers = await OrganisationWorkersAsync(ct);
         var now = DateOnly.FromDateTime(DateTime.UtcNow);
         var effective = units.Where(u =>
             u.EffectiveFrom <= now && (u.EffectiveTo is null || u.EffectiveTo > now) && u.Status != "closed").ToList();
 
         OrgUnitTreeDto ToTree(OrgUnit u) => new(
-            u.Id, u.Code, u.Name, u.UnitType, u.Status, u.ManagerId,
+            u.Id, u.Code, u.Name, u.UnitType, u.Status, CanReadOrganisationWorkers ? u.ManagerId : null,
             u.ManagerId.HasValue ? workers.FirstOrDefault(w => w.Id == u.ManagerId)?.FullName : null,
             u.EffectiveFrom.ToString("yyyy-MM-dd"), u.EffectiveTo?.ToString("yyyy-MM-dd"), []);
 
@@ -163,13 +163,13 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
     {
         authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
-        var workers = await repo.ListAllWorkersAsync(null, ct);
+        var workers = await OrganisationWorkersAsync(ct);
         var now = DateOnly.FromDateTime(DateTime.UtcNow);
         var effective = units.Where(u =>
             u.EffectiveFrom <= now && (u.EffectiveTo is null || u.EffectiveTo > now) && u.Status != "closed").ToList();
 
         OrgUnitTreeDto ToTree(OrgUnit u) => new(
-            u.Id, u.Code, u.Name, u.UnitType, u.Status, u.ManagerId,
+            u.Id, u.Code, u.Name, u.UnitType, u.Status, CanReadOrganisationWorkers ? u.ManagerId : null,
             u.ManagerId.HasValue ? workers.FirstOrDefault(w => w.Id == u.ManagerId)?.FullName : null,
             u.EffectiveFrom.ToString("yyyy-MM-dd"), u.EffectiveTo?.ToString("yyyy-MM-dd"), []);
 
@@ -216,6 +216,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
             throw new DomainException("legal-entity-not-found", $"Legal entity {request.LegalEntityId} does not exist.");
         if (request.ParentId.HasValue && (await repo.ListOrgUnitsAsync(ct)).All(u => u.Id != request.ParentId))
             throw new DomainException("parent-unit-not-found", $"Parent unit {request.ParentId} does not exist.");
+        if (request.ManagerId.HasValue) authz.RequireAnyRole("hr_ops", "hr_admin");
         if (request.ManagerId.HasValue && (await repo.ListAllWorkersAsync(null, ct)).All(w => w.Id != request.ManagerId))
             throw new DomainException("manager-not-found", $"Worker {request.ManagerId} does not exist.");
         var unit = new OrgUnit
@@ -225,12 +226,13 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
             ManagerId = request.ManagerId, EffectiveFrom = effectiveFrom,
             EffectiveTo = string.IsNullOrWhiteSpace(request.EffectiveTo) ? null : DateOnly.Parse(request.EffectiveTo),
         };
-        return ToOrgUnitDto(await repo.CreateOrgUnitAsync(unit, ct), entities, await repo.ListAllWorkersAsync(null, ct));
+        return ToOrgUnitDto(await repo.CreateOrgUnitAsync(unit, ct), entities, await OrganisationWorkersAsync(ct), CanReadOrganisationWorkers);
     }
 
     public async Task<OrgUnitDtoFull> UpdateOrgUnitAsync(Guid id, OrgUnitUpdateRequest request, CancellationToken ct)
     {
         authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
+        if (request.ManagerId.HasValue) authz.RequireAnyRole("hr_ops", "hr_admin");
         var unit = await repo.GetOrgUnitAsync(id, ct)
             ?? throw new DomainException("org-unit-not-found", $"Org unit {id} does not exist.");
         if (request.Name is not null) unit.Name = request.Name.Trim();
@@ -247,7 +249,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         if (request.ManagerId.HasValue) unit.ManagerId = request.ManagerId;
         if (request.EffectiveTo is not null) unit.EffectiveTo = string.IsNullOrWhiteSpace(request.EffectiveTo) ? null : DateOnly.Parse(request.EffectiveTo);
         if (request.Status is not null) unit.Status = request.Status;
-        return ToOrgUnitDto(await repo.UpdateOrgUnitAsync(unit, ct), await repo.ListLegalEntitiesAsync(ct), await repo.ListAllWorkersAsync(null, ct));
+        return ToOrgUnitDto(await repo.UpdateOrgUnitAsync(unit, ct), await repo.ListLegalEntitiesAsync(ct), await OrganisationWorkersAsync(ct), CanReadOrganisationWorkers);
     }
 
     /// <summary>Structural changes are future-effective: units are closed with an
@@ -265,6 +267,12 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         unit.Status = "closed";
         await repo.UpdateOrgUnitAsync(unit, ct);
     }
+
+    // ERP Core authority does not confer HRM workforce visibility or manager-assignment authority.
+    private bool CanReadOrganisationWorkers => authz.IsRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+
+    private Task<List<Worker>> OrganisationWorkersAsync(CancellationToken ct) =>
+        CanReadOrganisationWorkers ? repo.ListAllWorkersAsync(null, ct) : Task.FromResult(new List<Worker>());
 
     // ================= Work calendars & holidays =================
 
@@ -525,9 +533,9 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         l.AddressLine, l.Province, l.District, l.City, l.Type ?? "branch", l.DefaultCalendarId,
         l.DefaultCalendarId.HasValue ? calendars.FirstOrDefault(c => c.Id == l.DefaultCalendarId)?.Name : null, l.CreatedAt);
 
-    private static OrgUnitDtoFull ToOrgUnitDto(OrgUnit u, List<LegalEntity> entities, List<Worker> workers) => new(
+    private static OrgUnitDtoFull ToOrgUnitDto(OrgUnit u, List<LegalEntity> entities, List<Worker> workers, bool includeManager = true) => new(
         u.Id, u.Code, u.Name, u.LegalEntityId, entities.FirstOrDefault(e => e.Id == u.LegalEntityId)?.RegisteredName,
-        u.ParentId, u.UnitType ?? "department", u.CostCentreRef, u.ManagerId,
+        u.ParentId, u.UnitType ?? "department", u.CostCentreRef, includeManager ? u.ManagerId : null,
         u.ManagerId.HasValue ? workers.FirstOrDefault(w => w.Id == u.ManagerId)?.FullName : null,
         u.EffectiveFrom.ToString("yyyy-MM-dd"), u.EffectiveTo?.ToString("yyyy-MM-dd"), u.Status ?? "active", u.CreatedAt);
 

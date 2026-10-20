@@ -1,4 +1,7 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Infrastructure;
@@ -102,4 +105,60 @@ public sealed class CoreOrganisationAuthorityTests
         Assert.Equal("Foreign Department", (await foreign.OrgUnits.SingleAsync()).Name);
         Assert.Null((await foreign.OrgUnits.SingleAsync()).EffectiveTo);
     }
+    private sealed class WorkforceQueries : DbCommandInterceptor
+    {
+        public int Reads { get; private set; }
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("\"workers\"", StringComparison.OrdinalIgnoreCase)) Reads++;
+            return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task CoreOnlyDepartmentProjections_NeverQueryWorkers_OrDiscloseManagerIdentity()
+    {
+        await using var seed = TestDbContextFactory.Create("core-projection");
+        var hr = Service(seed, "hr_admin");
+        var entity = await hr.CreateLegalEntityAsync(new("ORG", "Organization"), default);
+        var manager = new Worker { EmployeeNo = "PRIVATE", FirstName = "Private", LastName = "Manager", Nrc = "restricted-id" };
+        seed.Workers.Add(manager);
+        await seed.SaveChangesAsync();
+        var unit = await hr.CreateOrgUnitAsync(new("OPS", "Operations", entity.Id, ManagerId: manager.Id), default);
+        var counter = new WorkforceQueries();
+        var options = new DbContextOptionsBuilder<HrmDbContext>().UseSqlite(seed.Database.GetDbConnection())
+            .AddInterceptors(counter).Options;
+        await using var current = new HrmDbContext(options, new FixedTenantAccessor("core-projection"));
+        var core = Service(current, "erp_admin");
+        var listed = Assert.Single(await core.ListOrgUnitsAsync(default));
+        Assert.Null(listed.ManagerId);
+        Assert.Null(listed.ManagerName);
+        var tree = Assert.Single(await core.GetOrgUnitTreeAsync(default));
+        Assert.Null(tree.ManagerId);
+        Assert.Null(tree.ManagerName);
+        var entityTree = Assert.Single(await core.GetEntityTreeAsync(default));
+        Assert.Null(Assert.Single(entityTree.Children).ManagerId);
+        Assert.Null(Assert.Single(entityTree.Children).ManagerName);
+        var updated = await core.UpdateOrgUnitAsync(unit.Id, new(Name: "Shared Operations"), default);
+        Assert.Null(updated.ManagerId);
+        Assert.Null(updated.ManagerName);
+        var created = await core.CreateOrgUnitAsync(new("NEW", "New Department", entity.Id), default);
+        Assert.Null(created.ManagerName);
+        Assert.Equal(0, counter.Reads);
+        Assert.Empty(current.ChangeTracker.Entries<Worker>());
+        await Assert.ThrowsAsync<DomainException>(() => core.CreateOrgUnitAsync(new("DENIED", "Denied", entity.Id, ManagerId: manager.Id), default));
+        await Assert.ThrowsAsync<DomainException>(() => core.UpdateOrgUnitAsync(unit.Id, new(Name: "Must not mutate", ManagerId: manager.Id), default));
+        Assert.False(current.ChangeTracker.HasChanges());
+        Assert.Equal(0, counter.Reads);
+        seed.ChangeTracker.Clear();
+        Assert.Equal(manager.Id, (await seed.OrgUnits.SingleAsync(x => x.Id == unit.Id)).ManagerId);
+        Assert.Equal("Shared Operations", (await seed.OrgUnits.SingleAsync(x => x.Id == unit.Id)).Name);
+        var hrProjection = (await Service(current, "hr_ops").ListOrgUnitsAsync(default)).Single(x => x.Id == unit.Id);
+        Assert.Equal(manager.Id, hrProjection.ManagerId);
+        Assert.Equal("Private Manager", hrProjection.ManagerName);
+        Assert.True(counter.Reads > 0);
+    }
+
 }

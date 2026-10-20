@@ -47,7 +47,7 @@ import { StatusTimeline } from "@/platform/components/StatusTimeline";
 import type { TimelineEvent } from "@/mock/types";
 import { realApi, useApi } from "@/platform/use-api";
 import { useAuth } from "@/platform/auth";
-import { canManageOrganisation, canReadOrganisationHeadcounts, optionalOrganisationHeadcounts } from "@/platform/entry-route";
+import { canManageOrganisation, canReadOrganisationHeadcounts, optionalOrganisationHeadcounts, hasCompleteOrganisationHeadcounts } from "@/platform/entry-route";
 import { feedback } from "@/platform/feedback";
 import { ConfirmDialog } from "@/platform/components/ConfirmDialog";
 
@@ -742,7 +742,7 @@ async function loadOrganisation(roles: string[]) {
     entity.employees = workers.filter((worker) => locationEntity.get(String(worker.locationId ?? "")) === entity.id).length;
   }
   return {
-    workforceCountsAvailable: workerPage !== null,
+    workforceCountsAvailable: hasCompleteOrganisationHeadcounts(workerPage),
     entities: adaptedEntities,
     units: adaptedUnits as OrgUnitConfig[],
     locations: adaptedLocations as WorkLocation[],

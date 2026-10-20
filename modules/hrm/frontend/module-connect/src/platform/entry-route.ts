@@ -23,3 +23,8 @@ export function canReadOrganisationHeadcounts(roles: string[]): boolean {
 export async function optionalOrganisationHeadcounts<T>(roles: string[], load: () => Promise<T>): Promise<T | null> {
   return canReadOrganisationHeadcounts(roles) ? load() : null;
 }
+
+/** A capped or malformed page cannot prove a total, including a displayed zero. */
+export function hasCompleteOrganisationHeadcounts(page: { items: unknown[]; totalCount: number } | null): boolean {
+  return page !== null && Array.isArray(page.items) && Number.isSafeInteger(page.totalCount) && page.totalCount >= 0 && page.totalCount === page.items.length;
+}
