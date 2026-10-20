@@ -73,6 +73,30 @@ public sealed class PurchaseOrderCommercialWorkflowTests
         ControlledReceiving.VerifySource(Projection());
     }
 
+    [Fact]
+    public void Current_target_ownership_proof_does_not_change_existing_sealed_source_or_issue_evidence()
+    {
+        var f = new Fixture(); var pin = f.Submit();
+        var retained = (pin.CommercialSnapshotJson, pin.CommercialSnapshotSha256,
+            pin.SourceEvidenceJson, pin.ParticipantWorkersJson, pin.WorkerIdentitySha256);
+        // A fresh complete owner query may contain other valid targets for the same PR line.
+        // It is current verification input, not a newly added field in the version-one seal.
+        var other = f.Source.NewOrder(); _ = f.Source.NewPoLine(other, 1);
+        PurchaseOrderCommercialWorkflow.Verify(f.Source.Order, f.Lines, f.Supplier, pin,
+            f.Policy, f.Finance, f.Now);
+        f.Approve(pin);
+        var issued = PurchaseOrderCommercialWorkflow.AuthorizeIssue(f.Source.Order, f.Lines, f.Supplier,
+            pin, f.Policy, f.Finance, f.Case!, "buyer", f.Now.AddMinutes(1));
+        Assert.Equal(retained, (pin.CommercialSnapshotJson, pin.CommercialSnapshotSha256,
+            pin.SourceEvidenceJson, pin.ParticipantWorkersJson, pin.WorkerIdentitySha256));
+        Assert.Equal(retained.CommercialSnapshotJson, issued.CommercialSnapshotJson);
+        Assert.Equal(retained.CommercialSnapshotSha256, issued.CommercialSnapshotSha256);
+        Assert.DoesNotContain("AllocationOwners", pin.SourceEvidenceJson);
+        // Explicit opt-out prevents a future generic JSON serializer freezing runtime proof.
+        var property = typeof(ApprovedPurchaseSource).GetProperty(nameof(ApprovedPurchaseSource.AllocationOwners))!;
+        Assert.NotNull(Attribute.GetCustomAttribute(property, typeof(System.Text.Json.Serialization.JsonIgnoreAttribute)));
+    }
+
     [Theory]
     [InlineData("Approved")]
     [InlineData("Suspended")]
