@@ -48,6 +48,8 @@ jobs:
         run: >-
           dotnet test ../core-api/src/Mightyfin.Erp.Core.Documents.Tests
           --configuration Release --logger trx --results-directory ../../artifacts/core-document-tests
+      - name: Build Core scanner verification tool
+        run: dotnet build ../core-api/tools/CoreDocumentScannerProbe --configuration Release
       - name: Procurement HTTP, identity and authorization tests
         run: >-
           dotnet test src/Mightyfin.Erp.Hrm.Tests
