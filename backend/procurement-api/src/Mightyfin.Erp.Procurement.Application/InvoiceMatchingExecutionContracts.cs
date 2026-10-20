@@ -13,7 +13,8 @@ public sealed record InvoiceMappingReview(bool Verified, string State, string Ev
     public static InvoiceMappingReview Unavailable(string reason) => new(false, reason, "{}", new Dictionary<Guid, string>());
 }
 public sealed record InvoiceMappingReviewContext(string TenantId, Guid LegalEntityId, Guid? BranchId,
-    string PrincipalId, Guid WorkerId, Guid PolicyId, string PolicyRulesSha256, DateTimeOffset At);
+    string PrincipalId, Guid WorkerId, Guid PolicyId, string PolicyRulesSha256, DateTimeOffset At,
+    IReadOnlyDictionary<Guid, string> DocumentVersionHashes);
 public sealed record InvoiceReviewedDocumentLine(Guid InvoiceLineId, Guid DocumentVersionId,
     string DocumentSha256, string DocumentLineReference, string UnitCode);
 public sealed record InvoiceMappingReviewEnvelope(int SchemaVersion, string TenantId, Guid LegalEntityId,

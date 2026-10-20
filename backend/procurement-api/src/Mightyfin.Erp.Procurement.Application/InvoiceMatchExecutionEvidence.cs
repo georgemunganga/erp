@@ -89,8 +89,14 @@ public static class InvoiceMatchExecutionEvidence
         InvoiceHistoricalExposure owner, IReadOnlyDictionary<Guid, Guid> acceptanceStateIds, DateTimeOffset at,
         SupplierInvoice original, IReadOnlyList<SupplierInvoiceLine> originalLines, InvoiceMatchMappingVersion mapping,
         InvoiceMappingReview review, InvoiceMappingReviewContext reviewContext, InvoiceMatchCommand command,
-        IProcurementScope scope, IReadOnlyList<InvoiceActiveLocalClaim> activeLocalClaims)
+        IProcurementScope scope, IReadOnlyList<InvoiceActiveLocalClaim> activeLocalClaims, PolicyVersion currentPolicy)
     {
+        var policyProjection = InvoiceMatchingPolicyRules.Project(currentPolicy);
+        Need(currentPolicy.TenantId == original.TenantId && currentPolicy.LegalEntityId == original.LegalEntityId
+            && currentPolicy.Id == reviewContext.PolicyId && currentPolicy.PublishedAt <= at
+            && reviewContext.PolicyRulesSha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(currentPolicy.RulesJson)
+            && InvoiceMatchingPolicyRules.ProjectionDigest(policyProjection) == InvoiceMatchingPolicyRules.ProjectionDigest(input.Policy),
+            "InvoiceCurrentPublishedPolicyRequired");
         var projected = InvoiceMappingEvidence.Project(mapping, original, originalLines, review, reviewContext);
         Need(review.Verified && original.ActiveMatchClaimResultId is null && original.CurrentMappingVersionId == mapping.Id
             && original.MappingRevision == mapping.MappingRevision && result.MappingVersionId == mapping.Id

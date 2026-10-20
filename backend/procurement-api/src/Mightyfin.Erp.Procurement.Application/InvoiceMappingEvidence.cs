@@ -78,7 +78,7 @@ public static class InvoiceMappingEvidence
             || context.TenantId != invoice.TenantId || context.LegalEntityId != invoice.LegalEntityId
             || context.BranchId != invoice.BranchRef || string.IsNullOrWhiteSpace(context.PrincipalId)
             || context.WorkerId == Guid.Empty || context.PolicyId == Guid.Empty || !Sha(context.PolicyRulesSha256)
-            || context.At == default || review.VerifiedUnits.Count != snapshot.Lines.Count) return false;
+            || context.At == default || context.DocumentVersionHashes is null || review.VerifiedUnits.Count != snapshot.Lines.Count) return false;
         try
         {
             // Canonical parsing rejects duplicate keys and unsupported JSON before typed deserialization.
@@ -97,6 +97,7 @@ public static class InvoiceMappingEvidence
                 && review.VerifiedUnits.TryGetValue(link.InvoiceLineId, out var unit) && unit == link.InvoiceUnitCode
                 && evidence.Lines.SingleOrDefault(x => x.InvoiceLineId == link.InvoiceLineId) is { } document
                 && document.DocumentVersionId == link.DocumentVersionId && Sha(document.DocumentSha256)
+                && context.DocumentVersionHashes.TryGetValue(document.DocumentVersionId, out var expectedSha) && expectedSha == document.DocumentSha256
                 && document.DocumentLineReference == link.DocumentLineReference && document.UnitCode == unit);
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException or FormatException)

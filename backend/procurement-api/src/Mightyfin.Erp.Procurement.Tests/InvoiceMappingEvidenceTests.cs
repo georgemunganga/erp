@@ -53,7 +53,7 @@ public sealed class InvoiceMappingEvidenceTests
         Assert.False(InvoiceMatchExecutionEvidence.OwnerCovers(owner, context));
         var (invoice, line) = Records(); var mapping = Mapping(invoice, line);
         var review = await new UnavailableInvoiceMappingEvidenceReviewer().ReviewAsync(mapping,
-            InvoiceMatchDocument.From(invoice, [line]), new(invoice.TenantId, invoice.LegalEntityId, invoice.BranchRef, "mapper", Guid.NewGuid(), Guid.NewGuid(), new string('a', 64), DateTimeOffset.UtcNow), CancellationToken.None);
+            InvoiceMatchDocument.From(invoice, [line]), new(invoice.TenantId, invoice.LegalEntityId, invoice.BranchRef, "mapper", Guid.NewGuid(), Guid.NewGuid(), new string('a', 64), DateTimeOffset.UtcNow, new Dictionary<Guid,string>()), CancellationToken.None);
         Assert.False(review.Verified); Assert.Empty(review.VerifiedUnits);
     }
 

@@ -19,7 +19,7 @@ public sealed class InvoiceMatchExecutionEvidenceTests
 
     [Theory]
     [InlineData("branch")][InlineData("principal")][InlineData("worker")][InlineData("policy")]
-    [InlineData("mapping")][InlineData("original")][InlineData("document")][InlineData("unit")]
+    [InlineData("mapping")][InlineData("original")][InlineData("document")][InlineData("documentHash")][InlineData("unit")]
     public void Verified_review_cannot_be_reused_for_other_actor_scope_mapping_or_document(string changed)
     {
         var f = new Fixture(); var envelope = f.ReviewEnvelope;
@@ -32,6 +32,7 @@ public sealed class InvoiceMatchExecutionEvidenceTests
             "mapping" => envelope with { MappingVersionId = Guid.NewGuid() },
             "original" => envelope with { InvoiceOriginalSha256 = new string('b',64) },
             "document" => envelope with { Lines = [envelope.Lines[0] with { DocumentVersionId = Guid.NewGuid() }] },
+            "documentHash" => envelope with { Lines = [envelope.Lines[0] with { DocumentSha256 = new string('d',64) }] },
             _ => envelope with { Lines = [envelope.Lines[0] with { UnitCode = "BOX" }] },
         };
         f.Review = f.Review with { EvidenceJson = Serialize(envelope) };
@@ -78,6 +79,17 @@ public sealed class InvoiceMatchExecutionEvidenceTests
         }
         Assert.Throws<InvalidOperationException>(() => f.Claims());
         Assert.Equal(0, f.Exposure.Sequence); Assert.Null(f.Invoice.ActiveMatchClaimResultId);
+    }
+
+    [Theory]
+    [InlineData("rules")][InlineData("projection")][InlineData("publication")]
+    public void Same_policy_id_cannot_hide_different_current_rules_or_unpublished_authority(string changed)
+    {
+        var f = new Fixture();
+        if (changed == "rules") f.CurrentPolicy.RulesJson = f.CurrentPolicy.RulesJson.Replace("\"moneyScale\":2", "\"moneyScale\":3");
+        else if (changed == "publication") f.CurrentPolicy.PublishedBy = f.CurrentPolicy.CreatedBy;
+        else f.Input = f.Input with { Policy = f.Input.Policy with { MoneyScale = 3 } };
+        Assert.Throws<InvalidOperationException>(() => f.Claims());
     }
 
     [Fact]
@@ -138,6 +150,7 @@ public sealed class InvoiceMatchExecutionEvidenceTests
         public InvoiceMatchCommand Command { get; }
         public InvoiceMatchingEvaluation Comparison { get; set; }
         public InvoiceMatchResult Result { get; }
+        public PolicyVersion CurrentPolicy { get; }
         public Fixture()
         {
             var order = Guid.NewGuid(); var issued = Guid.NewGuid(); var orderLine = Guid.NewGuid(); var document = Guid.NewGuid();
@@ -149,8 +162,16 @@ public sealed class InvoiceMatchExecutionEvidenceTests
             Mapping = InvoiceMappingEvidence.Create(Invoice, [Line], order, issued,
                 [new(Line.Id, orderLine, null, null, "each", document, "1")], SubjectId, Guid.NewGuid(), Now);
             Invoice.CurrentMappingVersionId = Mapping.Id; Invoice.MappingRevision = Mapping.MappingRevision;
-            var policyId = Guid.NewGuid(); var policySha = new string('a',64);
-            ReviewContext = new(TenantId, LegalEntityId, WorkLocationId, SubjectId, Mapping.ActorWorkerId, policyId, policySha, Now);
+            var policyId = Guid.NewGuid();
+            var tolerance = new { absolute = "0", percent = "0", combination = "AllLimits" };
+            var rulesJson = Serialize(new { schemaVersion = 1, transactionType = "InvoiceMatching", currencyCode = "ZMW", moneyScale = 2,
+                rounding = "ToEven", rules = new[] { new { categoryCode = "IT", method = "TwoWay", acceptanceKind = (string?)null,
+                    quantity = tolerance, unitPrice = tolerance, tax = tolerance, total = tolerance } } });
+            CurrentPolicy = new() { Id = policyId, TenantId = TenantId, LegalEntityId = LegalEntityId, PolicyKey = "INVOICE_MATCHING",
+                PolicyVersionNumber = 1, State = "Published", RulesJson = rulesJson, EffectiveFrom = Now.AddDays(-1),
+                PublishedAt = Now.AddHours(-1), PublishedBy = "independent-reviewer", CreatedBy = "policy-maker", PublicationReason = "Synthetic governed policy" };
+            var policySha = Digest(rulesJson);
+            ReviewContext = new(TenantId, LegalEntityId, WorkLocationId, SubjectId, Mapping.ActorWorkerId, policyId, policySha, Now, new Dictionary<Guid,string> { [document] = new string('c',64) });
             ReviewEnvelope = new(1,TenantId,LegalEntityId,WorkLocationId,Invoice.Id,Mapping.Id,Mapping.MappingSha256,
                 Mapping.InvoiceOriginalSha256,order,issued,SubjectId,Mapping.ActorWorkerId,policyId,policySha,Now,
                 [new(Line.Id,document,new string('c',64),"1","each")]);
@@ -161,12 +182,10 @@ public sealed class InvoiceMatchExecutionEvidenceTests
             Owner = new(true,"Verified","owner","watermark",Serialize(OwnerEnvelope),Digest(Serialize(OwnerEnvelope)),policySha,Now.AddMinutes(5),[]);
             Exposure = new() { TenantId = TenantId, LegalEntityId = LegalEntityId, PurchaseOrderId = order,
                 IssuedVersionId = issued, SupplierId = Invoice.SupplierId, CurrencyCode = "ZMW" };
-            var exact = new InvoiceFieldTolerance(0,0,InvoiceToleranceCombination.AllLimits);
             Input = new(InvoiceMappingEvidence.Project(Mapping,Invoice,[Line],Review,ReviewContext),
                 new(order,issued,1,1,TenantId,LegalEntityId,WorkLocationId,Invoice.SupplierId,"ZMW","Issued","synthetic",Now.AddDays(-1),
                     [new(orderLine,1,"IT","each",10,10,0)]),[],
-                new(policyId,1,TenantId,LegalEntityId,null,"Published","synthetic-policy",Now.AddDays(-1),null,2,InvoiceMoneyRounding.ToEven,
-                    [new("IT","ZMW",InvoiceMatchingMethod.TwoWay,null,exact,exact,exact,exact)]),
+                InvoiceMatchingPolicyRules.Project(CurrentPolicy),
                 InvoiceMatchExecutionEvidence.CompleteHistory(Owner,OwnerContext,Exposure,[]),
                 new("duplicates",true,[new(Invoice.Id,TenantId,LegalEntityId,Invoice.SupplierId,"INV-1","ZMW")]));
             Command = new(Guid.NewGuid(),1,Now,null); Comparison = InvoiceMatchingFoundation.Evaluate(Command,this,Input);
@@ -182,6 +201,6 @@ public sealed class InvoiceMatchExecutionEvidenceTests
             WorkLocationId,Invoice.SupplierId,Input.Order.Id,Input.Order.RevisionId,Input.Order.Lines[0].Id,null,"ZMW",
             InvoiceConsumptionKind.Debit,null,1,10,0,"synthetic-prior");
         public IReadOnlyList<InvoiceMatchAllocation> Claims() => InvoiceMatchExecutionEvidence.Claims(Comparison,Input,Result,Exposure,
-            Owner,new Dictionary<Guid,Guid>(),Now,Invoice,[Line],Mapping,Review,ReviewContext,Command,this,[]);
+            Owner,new Dictionary<Guid,Guid>(),Now,Invoice,[Line],Mapping,Review,ReviewContext,Command,this,[],CurrentPolicy);
     }
 }

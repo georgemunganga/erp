@@ -37,3 +37,15 @@ Synthetic positive and cross-binding denial tests are authored in
 provided owner/reviewer adapters remain explicitly unavailable. No SDK, database, migration,
 HTTP, browser, deployment or activation verification has run for this follow-up. The uncommitted
 persistence slice and remaining runtime wiring are separate work and remain incomplete.
+
+A second distinct review identified a residual same-ID policy substitution gap. The next source
+correction derives `InvoiceMatchingPolicy` from the actual independently published owned
+`PolicyVersion` using a strict `INVOICE_MATCHING` schema, checks that full projection against the
+comparison input, and derives every review/owner/result policy hash from its actual rules JSON.
+No arbitrary matching engine or parallel policy table is introduced. Each rule explicitly sets
+method, acceptance kind and all four tolerance pairs; no tolerance/threshold is inferred.
+The review context also supplies the expected immutable Core document-version hashes, which
+must equal the reviewed version/hash pairs. Adapters still own authentication of these sources;
+client mapping input cannot supply either authority. Same-ID changed rules, changed projection,
+invalid publication independence and changed document hash have authored denial regressions.
+These source changes remain unexecuted and the governed matching-policy HTTP extension is pending.
