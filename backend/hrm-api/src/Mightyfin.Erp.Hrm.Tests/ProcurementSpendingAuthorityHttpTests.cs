@@ -22,6 +22,43 @@ public sealed class ProcurementSpendingAuthorityHttpTests
     private const string Path = "/api/procurement/v1/configuration/spending-authorities";
 
     [Fact]
+    public async Task Read_projection_has_exact_amount_name_and_current_server_actions()
+    {
+        await using var fixture = await Fixture.Start();
+        var response = await fixture.Send(HttpMethod.Get, Path + "/" + fixture.Grant, "erp_admin", branch: fixture.OtherBranch);
+        var detail = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("0", detail.GetProperty("maximumAmount").GetString());
+        Assert.Equal("Authority owner", detail.GetProperty("principalDisplayName").GetString());
+        Assert.Equal(new[] { "Edit", "Submit" }, detail.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
+        await fixture.SetReadOnly();
+        response = await fixture.Send(HttpMethod.Get, Path + "/" + fixture.Grant, "erp_admin", branch: fixture.OtherBranch);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        detail = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(detail.GetProperty("allowedActions").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task People_lookup_is_scoped_bounded_and_omits_contact_credentials_and_ambiguous_logins()
+    {
+        await using var fixture = await Fixture.Start();
+        var response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people?limit=1", "erp_admin", branch: fixture.Branch);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var person = Assert.Single(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(fixture.User.ToString("D"), person.GetProperty("principalId").GetString());
+        Assert.Equal(new[] { "displayName", "principalId", "workerId" }, person.EnumerateObject().Select(x => x.Name).Order().ToArray());
+        response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people?limit=500", "erp_admin", branch: fixture.OtherBranch);
+        body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(50, body.GetProperty("limit").GetInt32());
+        await fixture.AddAlias();
+        response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people", "erp_admin", branch: fixture.Branch);
+        body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.Send(HttpMethod.Get, Path + "/lookups/people", "employee")).StatusCode);
+    }
+
+    [Fact]
     public async Task Anonymous_and_unconfigured_roles_cannot_read_or_mutate_authority_configuration()
     {
         await using var fixture = await Fixture.Start();
@@ -101,6 +138,24 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             using var services = app.Services.CreateScope();
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             (await core.LocalUsers.SingleAsync(x => x.Id == user)).RolesCsv = roles;
+            await core.SaveChangesAsync();
+        }
+        public async Task SetReadOnly()
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.LocalUsers.SingleAsync(x => x.Id == user)).RolesCsv = "employee";
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "employee", RoleName = "Reader", Active = true,
+                PermissionsCsv = "procurement-access,procurement-authority-read" });
+            await core.SaveChangesAsync();
+        }
+        public async Task AddAlias()
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var original = await core.LocalUsers.SingleAsync(x => x.Id == user);
+            core.LocalUsers.Add(new LocalUser { Email = "alias@example.test", NormalizedEmail = "ALIAS@EXAMPLE.TEST",
+                DisplayName = "Alias", PasswordHash = "test-placeholder-only", RolesCsv = "erp_admin", WorkerId = original.WorkerId });
             await core.SaveChangesAsync();
         }
         public static async Task<Fixture> Start()
