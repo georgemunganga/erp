@@ -72,11 +72,26 @@ public sealed class FinanceCheckerSchemaReadinessTests
         var sql = ProcurementFinanceCheckerSchemaReadiness.ManifestSql;
         Assert.Contains("count(a.attname)=4", sql); Assert.Contains("format_type", sql);
         Assert.Contains("has_column_privilege", sql); Assert.Contains("has_table_privilege", sql);
+        Assert.Contains("has_table_privilege(current_user,to_regclass('procurement.budget_check_snapshots'),'INSERT')", sql);
         Assert.Contains("c.contype='c' AND c.convalidated AND c.conislocal", sql);
         Assert.Contains("f.convalidated AND NOT f.condeferrable", sql);
         Assert.Contains("'tenant_id','legal_entity_id','finance_snapshot_id','purchase_request_id','submitted_business_version'", sql);
         Assert.Contains("'tenant_id','legal_entity_id','id','purchase_request_id','request_version'", sql);
         Assert.DoesNotContain("CREATE ", sql); Assert.DoesNotContain("INSERT INTO", sql);
+    }
+
+    [Fact]
+    public void Returned_request_CRUD_submission_query_reads_only_old_scoped_ID_without_Finance_columns()
+    {
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=returned_crud_design_only;Username=invalid").Options, new Scope());
+        var sql = ProcurementRequestRoutes.ReleasedPriorSubmissionIds(db, Guid.NewGuid(), Guid.NewGuid(), 4).ToQueryString();
+        Assert.Contains("purchase_request_approval_submissions", sql);
+        Assert.Contains("purchase_request_id", sql); Assert.Contains("core_approval_case_id", sql);
+        Assert.Contains("submitted_business_version", sql); Assert.Contains("tenant_id", sql); Assert.Contains("legal_entity_id", sql);
+        Assert.DoesNotContain("finance_identity_schema_version", sql);
+        Assert.DoesNotContain("finance_snapshot_json", sql); Assert.DoesNotContain("maker_worker_id", sql);
+        Assert.False(db.ChangeTracker.HasChanges()); // Npgsql query generation only; no connection is opened.
     }
 
     private sealed class Scope : IProcurementScope
