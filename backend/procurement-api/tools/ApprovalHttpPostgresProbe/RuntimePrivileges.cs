@@ -84,7 +84,7 @@ internal static class RuntimePrivileges
         foreach (var type in new[] { typeof(ApprovalCase), typeof(ApprovalStage), typeof(ApprovalAssignment) })
             await Grant(approvals, type, "SELECT,INSERT,UPDATE");
         await Grant(approvals, typeof(ApprovalDecision), "SELECT,INSERT");
-        await Grant(approvals, typeof(ApprovalDelegation), "SELECT");
+        await Grant(approvals, typeof(Mightyfin.Erp.Core.Approvals.Domain.ApprovalDelegation), "SELECT");
         foreach (var type in new[] { typeof(PurchaseRequest), typeof(PurchaseRequestLine), typeof(ProcurementSpendingAuthorityGrant) })
             await Grant(procurement, type, "SELECT,INSERT,UPDATE");
         // Draft-only replacement children require DELETE; parent-state guards remain enforced by the application.
