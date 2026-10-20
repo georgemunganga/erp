@@ -23,6 +23,18 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      document-postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: doc_test
+          POSTGRES_PASSWORD: synthetic-document-fixture
+          POSTGRES_DB: core_docs_rehearsal
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U doc_test -d core_docs_rehearsal"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
         working-directory: backend/hrm-api
@@ -48,6 +60,10 @@ jobs:
         run: >-
           dotnet test ../core-api/src/Mightyfin.Erp.Core.Documents.Tests
           --configuration Release --logger trx --results-directory ../../artifacts/core-document-tests
+      - name: Core document PostgreSQL transaction probe
+        env:
+          CORE_DOCUMENT_TEST_CONNECTION: Host=127.0.0.1;Database=core_docs_rehearsal;Username=doc_test;Password=synthetic-document-fixture
+        run: dotnet run --project ../core-api/tools/CoreDocumentWorkflowProbe --configuration Release
       - name: Build Core scanner verification tool
         run: dotnet build ../core-api/tools/CoreDocumentScannerProbe --configuration Release
       - name: Procurement HTTP, identity and authorization tests
@@ -61,10 +77,12 @@ jobs:
           ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure --context ProcurementDbContext
           ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure --context ApprovalDbContext
           ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure --context DocumentDbContext
-      - name: Publish verified ERP host
+      - name: Publish ERP candidate
         run: >-
           dotnet publish src/Mightyfin.Erp.Hrm.Api --configuration Release
           --no-restore --no-self-contained --output ../../artifacts/api
+      - name: Check candidate against retained loan data contract
+        run: dotnet run --project tools/PayrollLoanCompatibilityProbe --configuration Release -- ../../artifacts/api
       - name: Retain test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

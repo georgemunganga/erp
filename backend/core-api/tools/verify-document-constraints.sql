@@ -37,6 +37,9 @@ BEGIN
     END;
     BEGIN
         INSERT INTO core_document.versions
+          ("Id", "TenantId", "LegalEntityId", "DocumentId", "Number", "FileName", "MediaType", "SizeBytes",
+           "Sha256", "StorageKey", "CreatedBy", "CreatedAt", "ScanState", "ScanAttempts",
+           "ScanLeaseId", "ScanStartedAt", "ScanLeaseExpiresAt", "Version")
         SELECT gen_random_uuid(), "TenantId", "LegalEntityId", "DocumentId", "Number", "FileName", "MediaType",
           "SizeBytes", "Sha256", 'different-key', "CreatedBy", "CreatedAt", "ScanState", "ScanAttempts",
           "ScanLeaseId", "ScanStartedAt", "ScanLeaseExpiresAt", "Version"

@@ -11,6 +11,21 @@ public sealed class DocumentLifecycleTests
     private static CoreDocumentVersion Upload(CoreDocument document) => CoreDocumentVersion.Create(
         document, Actor, 1, "invoice.pdf", "application/pdf", 100, Hash, Now);
 
+    [Theory]
+    [InlineData("invoice.exe", "application/pdf")]
+    [InlineData("invoice.png", "application/pdf")]
+    [InlineData("unsafe:photo.jpg", "image/jpeg")]
+    public void File_extension_and_name_must_match_an_allowed_document_type(string name, string mediaType)
+    {
+        Assert.Throws<ArgumentException>(() => CoreDocumentVersion.Create(Document(), Actor, 1, name, mediaType, 100, Hash, Now));
+    }
+
+    [Fact]
+    public void Matching_image_extension_is_case_insensitive()
+    {
+        Assert.Equal("photo.JPEG", CoreDocumentVersion.Create(Document(), Actor, 1, "photo.JPEG", "image/jpeg", 100, Hash, Now).FileName);
+    }
+
     [Fact]
     public void Upload_stays_unavailable_until_a_clean_evidenced_scan()
     {

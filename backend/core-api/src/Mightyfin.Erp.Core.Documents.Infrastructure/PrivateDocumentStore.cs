@@ -19,16 +19,23 @@ public sealed class PrivateDocumentStore : IDocumentBlobStore
     public async Task<StoredDocumentContent> StoreQuarantinedAsync(string generatedKey, Stream source,
         long maxFileBytes, CancellationToken cancellationToken = default)
     {
-        if (maxFileBytes is < 1 or > 100 * 1024 * 1024)
-            throw new ArgumentOutOfRangeException(nameof(maxFileBytes));
-        var target = Resolve(generatedKey);
-        var directory = Path.GetDirectoryName(target)!;
-        EnsurePrivateDirectory(directory);
-        var temporary = Path.Combine(directory, ".upload-" + Guid.NewGuid().ToString("N"));
+        _ = Resolve(generatedKey);
+        await using var staged = await StageAsync(source, maxFileBytes, cancellationToken);
+        await staged.CommitAsync(generatedKey, cancellationToken);
+        return staged.Content;
+    }
+
+    public async Task<StagedDocumentContent> StageAsync(Stream source, long maxFileBytes,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxFileBytes is < 1 or > 100 * 1024 * 1024) throw new ArgumentOutOfRangeException(nameof(maxFileBytes));
+        RejectLink(root);
+        var temporary = Path.Combine(root, ".upload-" + Guid.NewGuid().ToString("N"));
         var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
         var header = new byte[8];
         var headerLength = 0;
         long size = 0;
+        var retained = false;
         try
         {
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -42,7 +49,7 @@ public sealed class PrivateDocumentStore : IDocumentBlobStore
             {
                 while (true)
                 {
-                    var read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+                    var read = await source.ReadAsync(buffer.AsMemory(), cancellationToken);
                     if (read == 0) break;
                     if (read > maxFileBytes - size) throw new InvalidDataException("The document exceeds the file size limit.");
                     var headerBytes = Math.Min(read, header.Length - headerLength);
@@ -56,16 +63,44 @@ public sealed class PrivateDocumentStore : IDocumentBlobStore
                 await output.FlushAsync(cancellationToken);
                 output.Flush(flushToDisk: true);
             }
-            var mediaType = DetectMediaType(header.AsSpan(0, headerLength));
+            var content = new StoredDocumentContent(size, Convert.ToHexStringLower(hash.GetHashAndReset()),
+                DetectMediaType(header.AsSpan(0, headerLength)));
             cancellationToken.ThrowIfCancellationRequested();
-            // An immutable version key is never overwritten, including on a retried request.
-            File.Move(temporary, target, overwrite: false);
-            return new StoredDocumentContent(size, Convert.ToHexStringLower(hash.GetHashAndReset()), mediaType);
+            retained = true;
+            return new Staged(this, temporary, content);
         }
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
+            if (!retained && File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
+    private sealed class Staged(PrivateDocumentStore store, string temporary, StoredDocumentContent content)
+        : StagedDocumentContent(content)
+    {
+        private bool disposed;
+        public override async Task CommitAsync(string generatedKey, CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            cancellationToken.ThrowIfCancellationRequested();
+            var target = store.Resolve(generatedKey);
+            EnsurePrivateDirectory(Path.GetDirectoryName(target)!);
+            try { File.Move(temporary, target, overwrite: false); }
+            catch (IOException) when (File.Exists(target))
+            {
+                // Resume only identical immutable content; never replace an existing version.
+                await using var existing = await store.OpenPrivateReadAsync(generatedKey, cancellationToken);
+                if (existing.Length != Content.SizeBytes || !Convert.ToHexStringLower(await SHA256.HashDataAsync(existing, cancellationToken))
+                    .Equals(Content.Sha256, StringComparison.Ordinal))
+                    throw new IOException("This document version already has different content.");
+            }
+        }
+        public override ValueTask DisposeAsync()
+        {
+            disposed = true;
             if (File.Exists(temporary)) File.Delete(temporary);
+            return ValueTask.CompletedTask;
         }
     }
 

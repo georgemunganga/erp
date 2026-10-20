@@ -19,6 +19,7 @@ public sealed class CoreDocument
     public string OwnerModule { get; private set; } = null!;
     public string OwnerType { get; private set; } = null!;
     public Guid OwnerId { get; private set; }
+    public string? UploadKey { get; private set; }
     public string Classification { get; private set; } = "confidential";
     public string CreatedBy { get; private set; } = null!;
     public DateTimeOffset CreatedAt { get; private set; }
@@ -30,16 +31,18 @@ public sealed class CoreDocument
     public long Version { get; private set; } = 1;
 
     public static CoreDocument Create(IDocumentScope scope, string module, string ownerType,
-        Guid ownerId, DateTimeOffset now, string classification = "confidential")
+        Guid ownerId, DateTimeOffset now, string classification = "confidential", Guid? uploadKey = null)
     {
         DocumentGuards.Scope(scope);
         if (ownerId == Guid.Empty) throw new ArgumentException("An owning record is required.");
         if (classification is not ("public" or "internal" or "confidential" or "restricted"))
             throw new ArgumentException("Choose a supported document classification.");
+        if (uploadKey == Guid.Empty) throw new ArgumentException("A nonempty upload key is required.");
         return new CoreDocument
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             OwnerModule = DocumentGuards.Token(module, 60), OwnerType = DocumentGuards.Token(ownerType, 80),
+            UploadKey = uploadKey?.ToString("N"),
             OwnerId = ownerId, CreatedBy = scope.SubjectId, CreatedAt = now, Classification = classification,
         };
     }
@@ -80,6 +83,7 @@ public sealed class CoreDocumentVersion
     public string CreatedBy { get; private set; } = null!;
     public DateTimeOffset CreatedAt { get; private set; }
     public DocumentScanState ScanState { get; private set; } = DocumentScanState.Quarantined;
+    public string? ScanFailureCode { get; private set; }
     public int ScanAttempts { get; private set; }
     public Guid? ScanLeaseId { get; private set; }
     public DateTimeOffset? ScanStartedAt { get; private set; }
@@ -97,10 +101,15 @@ public sealed class CoreDocumentVersion
             throw new ArgumentOutOfRangeException(nameof(maxFileBytes));
         if (sizeBytes < 1 || sizeBytes > maxFileBytes) throw new ArgumentOutOfRangeException(nameof(sizeBytes));
         fileName = DocumentGuards.Text(fileName, 255);
-        if (fileName.IndexOfAny(['/', '\\']) >= 0 || fileName.Any(char.IsControl))
+        if (fileName.IndexOfAny(['/', '\\', ':']) >= 0 || fileName.Any(char.IsControl))
             throw new ArgumentException("Use a file name without a path or control characters.");
         if (mediaType is not ("application/pdf" or "image/png" or "image/jpeg"))
             throw new ArgumentException("Unsupported file type.");
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        if (!(mediaType == "application/pdf" && extension == ".pdf"
+            || mediaType == "image/png" && extension == ".png"
+            || mediaType == "image/jpeg" && extension is ".jpg" or ".jpeg"))
+            throw new ArgumentException("Use a PDF, PNG or JPEG file with the matching file name extension.");
         if (sha256 is null || sha256.Length != 64 || !sha256.All(Uri.IsHexDigit))
             throw new ArgumentException("A SHA-256 content hash is required.");
         var version = new CoreDocumentVersion
@@ -124,6 +133,7 @@ public sealed class CoreDocumentVersion
         var expired = ScanState == DocumentScanState.Scanning && ScanLeaseExpiresAt <= now;
         if (ScanState is not (DocumentScanState.Quarantined or DocumentScanState.ScanFailed) && !expired)
             throw new InvalidOperationException("This version cannot start another scan.");
+        ScanFailureCode = null;
         ScanState = DocumentScanState.Scanning;
         ScanLeaseId = leaseId;
         ScanStartedAt = now;
@@ -133,22 +143,29 @@ public sealed class CoreDocumentVersion
     }
 
     public DocumentScanEvidence FinishScan(Guid leaseId, string scannedSha256, ScannerVerdict verdict,
-        string engine, string? definitions, DateTimeOffset now)
+        string engine, string? definitions, DateTimeOffset now, string? failureCode = null)
     {
         if (leaseId == Guid.Empty || ScanState != DocumentScanState.Scanning || ScanLeaseId != leaseId)
             throw new InvalidOperationException("The scan lease is unavailable or expired.");
         if (ScanLeaseExpiresAt is not { } expires || ScanStartedAt is not { } started
             || expires <= now || started > now)
             throw new InvalidOperationException("The scan lease is unavailable or expired.");
-        if (!string.Equals(Sha256, scannedSha256, StringComparison.OrdinalIgnoreCase))
+        if (scannedSha256 is null || scannedSha256.Length != 64 || !scannedSha256.All(Uri.IsHexDigit))
+            throw new ArgumentException("A SHA-256 content hash is required.");
+        if (!string.Equals(Sha256, scannedSha256, StringComparison.OrdinalIgnoreCase)
+            && (verdict != ScannerVerdict.Failed || string.IsNullOrWhiteSpace(failureCode)))
             throw new InvalidOperationException("The scan result does not describe this content.");
+        if (failureCode is not null) failureCode = DocumentGuards.Token(failureCode, 80);
+        if (verdict != ScannerVerdict.Failed && failureCode is not null)
+            throw new ArgumentException("Only failed scans carry a failure code.");
         if (!Enum.IsDefined(verdict)) throw new ArgumentException("Unknown scan verdict.");
         engine = DocumentGuards.Text(engine, 120);
         definitions = string.IsNullOrWhiteSpace(definitions) ? null : DocumentGuards.Text(definitions, 120);
         if (verdict == ScannerVerdict.Clean && definitions is null)
             throw new InvalidOperationException("A clean result requires scanner definition evidence.");
         var evidence = new DocumentScanEvidence(Guid.CreateVersion7(), TenantId, LegalEntityId,
-            Id, ScanAttempts, verdict, Sha256, engine, definitions, started, now);
+            Id, ScanAttempts, verdict, scannedSha256.ToLowerInvariant(), engine, definitions, started, now, failureCode);
+        ScanFailureCode = failureCode;
         ScanState = verdict switch
         {
             ScannerVerdict.Clean => DocumentScanState.Available,
@@ -169,7 +186,7 @@ public sealed class CoreDocumentVersion
 
 public sealed record DocumentScanEvidence(Guid Id, string TenantId, Guid LegalEntityId,
     Guid VersionId, int Attempt, ScannerVerdict Verdict, string Sha256, string Engine,
-    string? Definitions, DateTimeOffset StartedAt, DateTimeOffset FinishedAt);
+    string? Definitions, DateTimeOffset StartedAt, DateTimeOffset FinishedAt, string? FailureCode = null);
 
 internal static class DocumentGuards
 {
@@ -190,3 +207,7 @@ internal static class DocumentGuards
         return value;
     }
 }
+
+/// <summary>Append-only document operation evidence, exported with Core record history.</summary>
+public sealed record DocumentRecordEvent(Guid Id, string TenantId, Guid LegalEntityId,
+    Guid DocumentId, Guid VersionId, string Action, string ActorSubjectId, DateTimeOffset At, string? FailureCode);

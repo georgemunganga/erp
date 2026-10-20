@@ -80,6 +80,10 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<string>("UploadKey")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<long>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint");
@@ -87,6 +91,10 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "UploadKey")
+                        .IsUnique()
+                        .HasDatabaseName("IX_documents_TenantId_LegalEntityId_OwnerModule_OwnerType_Own~1");
 
                     b.ToTable("documents", "core_document");
                 });
@@ -126,6 +134,10 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
 
                     b.Property<int>("ScanAttempts")
                         .HasColumnType("integer");
+
+                    b.Property<string>("ScanFailureCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
 
                     b.Property<DateTimeOffset?>("ScanLeaseExpiresAt")
                         .HasColumnType("timestamp with time zone");
@@ -172,6 +184,52 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
                     b.ToTable("versions", "core_document");
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Core.Documents.Domain.DocumentRecordEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("ActorSubjectId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "DocumentId", "At");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "DocumentId", "VersionId");
+
+                    b.ToTable("record_events", "core_document");
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Core.Documents.Domain.DocumentScanEvidence", b =>
                 {
                     b.Property<Guid>("Id")
@@ -189,6 +247,10 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
 
                     b.Property<DateTimeOffset>("FinishedAt")
                         .HasColumnType("timestamp with time zone");
@@ -229,6 +291,16 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId", "LegalEntityId", "DocumentId")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Core.Documents.Domain.DocumentRecordEvent", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Core.Documents.Domain.CoreDocumentVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "DocumentId", "VersionId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "DocumentId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
