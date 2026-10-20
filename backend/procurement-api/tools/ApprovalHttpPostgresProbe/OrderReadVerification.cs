@@ -7,6 +7,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Application;
 
 sealed partial class Probe
 {
@@ -133,7 +134,7 @@ sealed partial class Probe
         await Check(confirmed, HttpStatusCode.OK); order = await confirmed.Content.ReadFromJsonAsync<JsonElement>();
         var detail = await Get($"{Root}/orders/{id}/execution-detail", OrderFinance);
         Require(detail.GetProperty("order").GetProperty("lines")[0].GetProperty("quantity").GetString() == "0.0001"
-            && detail.GetProperty("totals").GetProperty("lineBaseAmount").GetString() == "0.00000001"
+            && detail.GetProperty("totals").GetProperty("lineBaseAmount").GetString() == ProcurementEvidenceEncoding.Decimal(0.00000001m)
             && detail.GetProperty("totals").GetProperty("grossAmount").GetString() == "0.00010001"
             && detail.GetProperty("financeEvidence")[0].GetProperty("confirmedGrossAmount").GetString() == "0.00010001",
             "Actual API transport changed exact quantity/product/eight-decimal gross.");
