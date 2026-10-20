@@ -27,13 +27,14 @@ public static class CatalogRequestClassification
     }
 
     public static bool OfferMatches(CatalogEntry entry, Guid? itemId, Guid? supplierId, string? unit,
-        string? currency, decimal quantity, decimal unitPrice, int? publishedVersion, DateTimeOffset now) =>
+        string? currency, decimal quantity, decimal unitPrice, int? publishedVersion, DateTimeOffset now, bool commercialUnitComparison = false) =>
         entry.Status == "Published" && entry.PublishedVersion > 0
         && (publishedVersion is null || publishedVersion == entry.PublishedVersion)
         && entry.EffectiveFrom <= now && (entry.EffectiveTo is null || entry.EffectiveTo > now)
         && entry.AudienceCode is null && entry.SiteRef is null && entry.ContractRef is null
         && entry.CatalogItemId == itemId && entry.SupplierId == supplierId
-        && entry.UnitCode == unit && entry.CurrencyCode == currency && entry.UnitPrice == unitPrice
+        && (commercialUnitComparison ? string.Equals(entry.UnitCode, unit, StringComparison.OrdinalIgnoreCase) : entry.UnitCode == unit)
+        && entry.CurrencyCode == currency && entry.UnitPrice == unitPrice
         && (entry.MinimumQuantity is null || quantity >= entry.MinimumQuantity)
         && (entry.MaximumQuantity is null || quantity <= entry.MaximumQuantity);
 }
