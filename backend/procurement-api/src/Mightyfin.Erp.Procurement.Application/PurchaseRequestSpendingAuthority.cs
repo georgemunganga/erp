@@ -19,6 +19,8 @@ public sealed record PurchaseRequestAuthorityResult(bool Eligible,
 /// The caller must resolve an active canonical principal, enforce current server-side
 /// permission and record scope, maker/checker and source/policy/Finance guards. Re-evaluate
 /// current grants on every decision; historic evidence alone cannot authorize a decision.
+/// Supply all versions of relevant logical authorities, including narrowed/revoked rows;
+/// do not prefilter by amount, currency or record scope. Conflicting versions fail closed.
 /// No FX conversion, tax-inclusive basis, delegation or combining grants is supported.
 /// </summary>
 public static class PurchaseRequestSpendingAuthority
@@ -53,6 +55,20 @@ public static class PurchaseRequestSpendingAuthority
         if (blockers.Count != 0) return new(false, null, blockers);
 
         var candidates = grants.ToArray();
+        // Load all versions of each relevant logical authority, not only rows already
+        // filtered by currency, limit or record scope. A narrowed replacement must never
+        // make an overlapping older, broader version appear to be the only valid grant.
+        var relevant = candidates.Where(x => x.TenantId == request.TenantId
+            && x.LegalEntityId == request.LegalEntityId && x.PrincipalId == principalId
+            && x.Permission == permission && x.Action == action).ToArray();
+        foreach (var authority in relevant.GroupBy(x => x.AuthorityReference, StringComparer.Ordinal))
+        {
+            var current = authority.Where(x => x.State == "Active"
+                && x.EffectiveFrom <= at && (x.EffectiveUntil is null || at < x.EffectiveUntil)).ToArray();
+            if (current.Length > 1 || (current.Length != 0
+                && authority.GroupBy(x => x.AuthorityVersion).Any(version => version.Count() > 1)))
+                return new(false, null, ["SpendingAuthorityEvidenceAmbiguous"]);
+        }
         var eligible = candidates.Where(x => Covers(x, request, lines, principalId, permission,
                 action, amountBasis, amount, at))
             .OrderBy(x => x.MaximumAmount).ThenBy(x => x.AuthorityReference, StringComparer.Ordinal)

@@ -309,6 +309,95 @@ public sealed class PurchaseRequestSpendingAuthorityTests
         Assert.Contains("SpendingAuthorityEvidenceAmbiguous", result.Blockers);
     }
 
+    [Theory]
+    [InlineData("LowerLimit")]
+    [InlineData("Branch")]
+    [InlineData("Department")]
+    [InlineData("Category")]
+    [InlineData("Currency")]
+    [InlineData("Basis")]
+    public void Overlapping_replacement_cannot_fall_back_to_older_broader_authority(string narrowed)
+    {
+        var request = Request();
+        request.Lines.Single().EstimatedUnitPrice = 500;
+        var previous = Grant(request);
+        previous.AuthorityVersion = 1;
+        previous.MaximumAmount = 1000;
+        var replacement = Grant(request);
+        replacement.AuthorityReference = previous.AuthorityReference;
+        replacement.AuthorityVersion = 2;
+        replacement.MaximumAmount = 1000;
+        switch (narrowed)
+        {
+            case "LowerLimit": replacement.MaximumAmount = 100; break;
+            case "Branch": replacement.BranchRef = Guid.NewGuid(); break;
+            case "Department": replacement.DepartmentRef = Guid.NewGuid(); break;
+            case "Category": replacement.Categories.Single().CategoryCode = "OFFICE"; break;
+            case "Currency": replacement.CurrencyCode = "USD"; break;
+            case "Basis": replacement.AmountBasis = "TaxInclusive"; break;
+        }
+        foreach (var grants in new[] { new[] { previous, replacement }, new[] { replacement, previous } })
+        {
+            var result = Check(request, grants);
+            Denied(result);
+            Assert.Contains("SpendingAuthorityEvidenceAmbiguous", result.Blockers);
+        }
+    }
+
+    [Theory]
+    [InlineData("Active")]
+    [InlineData("Revoked")]
+    public void Duplicate_logical_version_with_distinct_row_ids_is_ambiguous(string conflictingState)
+    {
+        var request = Request();
+        var first = Grant(request);
+        var conflicting = Grant(request);
+        conflicting.AuthorityReference = first.AuthorityReference;
+        conflicting.AuthorityVersion = first.AuthorityVersion;
+        conflicting.MaximumAmount = 1;
+        conflicting.State = conflictingState;
+        var result = Check(request, first, conflicting);
+        Denied(result);
+        Assert.Contains("SpendingAuthorityEvidenceAmbiguous", result.Blockers);
+    }
+
+    [Fact]
+    public void Nonoverlapping_replacement_is_usable_and_never_uses_expired_limit()
+    {
+        var request = Request();
+        request.Lines.Single().EstimatedUnitPrice = 500;
+        var previous = Grant(request);
+        previous.AuthorityVersion = 1;
+        previous.MaximumAmount = 1000;
+        previous.EffectiveUntil = Now;
+        var replacement = Grant(request);
+        replacement.AuthorityReference = previous.AuthorityReference;
+        replacement.AuthorityVersion = 2;
+        replacement.EffectiveFrom = Now;
+        replacement.MaximumAmount = 100;
+        var denied = Check(request, previous, replacement);
+        Denied(denied);
+        Assert.Contains("SpendingAuthorityUnavailable", denied.Blockers);
+        request.Lines.Single().EstimatedUnitPrice = 100;
+        Assert.Equal(replacement.Id, Check(request, previous, replacement).Evidence!.GrantId);
+    }
+
+    [Fact]
+    public void Future_replacement_does_not_override_current_authority_before_effective_date()
+    {
+        var request = Request();
+        var current = Grant(request);
+        current.AuthorityVersion = 1;
+        current.EffectiveUntil = Now.AddDays(1);
+        var future = Grant(request);
+        future.AuthorityReference = current.AuthorityReference;
+        future.AuthorityVersion = 2;
+        future.EffectiveFrom = Now.AddDays(1);
+        future.EffectiveUntil = Now.AddDays(2);
+        future.MaximumAmount = 1;
+        Assert.Equal(current.Id, Check(request, future, current).Evidence!.GrantId);
+    }
+
     private static void Denied(PurchaseRequestAuthorityResult result)
     {
         Assert.False(result.Eligible);
@@ -345,7 +434,7 @@ public sealed class PurchaseRequestSpendingAuthorityTests
         var grant = new ProcurementSpendingAuthorityGrant
         {
             TenantId = request.TenantId, LegalEntityId = request.LegalEntityId,
-            AuthorityReference = "AUTH-001", AuthorityVersion = 3, Version = 4,
+            AuthorityReference = "AUTH-" + Guid.NewGuid(), AuthorityVersion = 3, Version = 4,
             PrincipalId = Principal, Permission = Permission, Action = Action, State = "Active",
             CurrencyCode = "ZMW", AmountBasis = "EstimatedLineBase", MaximumAmount = 100,
             EffectiveFrom = Now.AddDays(-1), EffectiveUntil = Now.AddDays(1),
