@@ -133,3 +133,31 @@ requires protected role provisioning and independent release review.
 After the centralized build/migration gates clear, use the same approved environment variables and run the tool with `--orders`. This source adds actual HTTP evidence for scoped positive PR conversion, exact retries and denied allocations, independent Finance/Core approval, unique commitment ownership, supplier eligibility, seal versus delivery, unfunded cancellation, revoked-authority replay and a deterministically queued branch-revocation scenario. It has not been run in this increment.
 
 The queued-scope test is intentionally strict and may expose a shared authorization concurrency gap: a SERIALIZABLE transaction retains its first-statement snapshot. A post-lock query alone cannot prove observation of revocation committed during the wait. Retain any actual failure and resolve the shared Core authorization/fencing semantics; do not substitute an InMemory or pure helper test or weaken isolation to make the probe green. The first PO deployment remains disabled pending those gates and P24 review/rehearsal.
+
+## Actual authority-settings browser fixture
+
+`--serve` additionally seeds a synthetic read-only settings account, gives the existing
+independent Finance reviewer `procurement-authority-read`, and confines both to the fixture
+branch using Core-owned branch assignments. These are disposable bootstrap rows, not a
+production role change. The protected manifest includes `actors.reader` and a `settings`
+seed descriptor; it contains no password, connection string, bank detail or token. Existing
+finite approval grants remain unchanged. The browser creates a separate named branch-only
+limit with exact `99999999999999.9999`, an explicit expiry, and independent Finance activation.
+
+After source compilation and migration compatibility have been verified and an operator has
+started a fresh restricted-runtime `--serve` sandbox, run the frontend test against its
+separately verified staged settings assets:
+
+```sh
+PROCUREMENT_APPROVAL_BROWSER_MANIFEST=/absolute/private/manifest.json \
+  ./node_modules/.bin/playwright test tests/backend-browser/authority-settings.spec.ts \
+  --config playwright.backend.config.ts --workers=1
+```
+
+The test refuses non-loopback/non-synthetic manifests and group/world-readable files. All
+Procurement traffic, capabilities, lookups, actions and state come from the real mapped API;
+only HRM shell login/branding presentation is synthetic. It checks persisted exact amount,
+branch scope, creator self-review denial, independent activation, read-only current actions,
+server denial of reader mutations and absence of private identity/payment fields. Use a
+fresh disposable fixture for a rerun after a committed create; do not erase evidence/reset a
+consumed record to make a test pass. Source is authored only until a recorded execution gate.
