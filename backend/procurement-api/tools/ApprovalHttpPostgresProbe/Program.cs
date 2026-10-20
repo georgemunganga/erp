@@ -37,7 +37,9 @@ var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
     throw new ArgumentException("The sandbox loopback port must be between 1024 and 65535.");
-await using var probe = await Probe.Start(connection, serve, port);
+var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
+if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection);
 if (serve)
 {
     var manifest = await probe.PrepareBrowserFixture(port);
@@ -51,7 +53,8 @@ else
 }
 
 sealed class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
-    Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient) : IAsyncDisposable
+    Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient, ServiceProvider fixtureServices,
+    string runtimeConnection, bool distinctRuntime) : IAsyncDisposable
 {
     private readonly HttpClient client = httpClient;
     private readonly string databaseConnection = connection;
@@ -59,8 +62,21 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly Dictionary<Guid, Guid> grantIds = [];
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null)
     {
+        var ownerConnection = bootstrapConnection ?? connection;
+        // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
+        var fixtureCollection = new ServiceCollection();
+        fixtureCollection.AddScoped<ITenantAccessor>(_ => new Tenant());
+        fixtureCollection.AddScoped<ProcurementRequestScope>();
+        fixtureCollection.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
+        fixtureCollection.AddScoped<Mightyfin.Erp.Core.Approvals.Domain.IApprovalScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
+        fixtureCollection.AddDbContext<HrmDbContext>(o => o.UseNpgsql(ownerConnection));
+        fixtureCollection.AddDbContext<ProcurementDbContext>(o => o.UseNpgsql(ownerConnection,
+            n => n.MigrationsHistoryTable("__procurement_migrations", "procurement")));
+        fixtureCollection.AddDbContext<ApprovalDbContext>(o => o.UseNpgsql(ownerConnection,
+            n => n.MigrationsHistoryTable("__EFMigrationsHistory", "core_approval")));
+        var fixtureServices = fixtureCollection.BuildServiceProvider();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
         if (serve) builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
@@ -95,7 +111,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             people[name] = (worker, user);
         }
         people["requester"].Worker.ManagerId = people["manager1"].Worker.Id;
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             await core.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
@@ -134,10 +150,12 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         }
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
+        if (bootstrapConnection is not null)
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve);
         await app.StartAsync();
-        return new(app, connection, company.Id, branch.Id, people["requester"].User.Id,
+        return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
             people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature,
-            serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient());
+            serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null);
     }
 
     public async Task<string> PrepareBrowserFixture(int port)
@@ -198,6 +216,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
 
     public async Task Verify()
     {
+        if (distinctRuntime) await RuntimePrivileges.AssertDeniedAsync(runtimeConnection, fixtureServices);
         Require((await client.GetAsync(Root + "/approvals")).StatusCode == HttpStatusCode.Unauthorized, "Anonymous queue access.");
         feature.Enabled = false;
         await Expect(HttpStatusCode.ServiceUnavailable, HttpMethod.Get, Root + "/approvals", manager1);
@@ -283,14 +302,14 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             var lines = await db.PurchaseRequestLines.Where(x => x.PurchaseRequestId == id).ToArrayAsync();
             Require(lines.All(x => x.ApprovedQuantity == x.RequestedQuantity && x.ApprovalStatus == "Approved"), "Approved line quantities not persisted.");
         }
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_manager")).IsArchived = true;
             await core.SaveChangesAsync();
         }
         await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, DecisionPath(caseId, firstAssignment), manager1, firstBody, voteKey);
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             (await core.TenantRoleAssignments.IgnoreQueryFilters().SingleAsync(x => x.TenantId == "probe"
@@ -347,7 +366,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             releasedAmount = release.GetProperty("reservedAmount").GetDecimal(), currencyCode = "ZMW",
             evidenceReference = "SYNTHETIC-RELEASE-EVIDENCE", confirmedAt = DateTimeOffset.UtcNow, reason = "Finance verified full release under the fixture manual policy" };
         Guid aliasId;
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             var requesterWorker = await core.LocalUsers.Where(x => x.Id == requester).Select(x => x.WorkerId).SingleAsync();
@@ -367,7 +386,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             await core.SaveChangesAsync();
         }
         Guid decisionAliasId;
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             var decisionWorker = await core.LocalUsers.Where(x => x.Id == manager1).Select(x => x.WorkerId).SingleAsync();
@@ -438,7 +457,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         }
         var aliases = new List<Guid>();
         var workerIds = new List<Guid>();
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             foreach (var principal in new[] { requester, manager1 })
@@ -455,7 +474,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         }
         foreach (var alias in aliases)
             await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, $"{Root}/requests/{id}/finance-release-confirmations", alias, body, Guid.NewGuid());
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             foreach (var worker in await core.Workers.Where(x => workerIds.Contains(x.Id)).ToArrayAsync()) worker.Status = "terminated";
@@ -466,7 +485,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
         Require((await confirmation.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestState").GetString() == "ReturnedForChanges",
             "Historical offboarding stranded independent Finance release.");
         // Restore only this disposable fixture so later operator/browser scenarios can reuse its actors.
-        using (var services = app.Services.CreateScope())
+        using (var services = fixtureServices.CreateScope())
         {
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             foreach (var user in await core.LocalUsers.Where(x => x.Id == requester || x.Id == manager1).ToArrayAsync()) user.IsActive = true;
@@ -552,7 +571,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             foreach (var participant in new[] { principal, buyer })
             {
                 Guid aliasId;
-                using (var services = app.Services.CreateScope())
+                using (var services = fixtureServices.CreateScope())
                 {
                     var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
                     var workerId = await core.LocalUsers.Where(x => x.Id == participant).Select(x => x.WorkerId).SingleAsync();
@@ -568,7 +587,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
                             previousGrantId = id, previousVersion = pending.GetProperty("version").GetInt64() }, selectedBranch: false);
                 await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, path + "/" + id + "/activate", finance,
                     new { version = pending.GetProperty("version").GetInt64(), reason = "Ambiguous participant identity must block review" }, selectedBranch: false);
-                using var cleanup = app.Services.CreateScope();
+                using var cleanup = fixtureServices.CreateScope();
                 var cleanupCore = cleanup.ServiceProvider.GetRequiredService<HrmDbContext>();
                 (await cleanupCore.LocalUsers.SingleAsync(x => x.Id == aliasId)).IsArchived = true;
                 await cleanupCore.SaveChangesAsync();
@@ -624,7 +643,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
     }
     private IServiceScope Scope(Guid actor)
     {
-        var services = app.Services.CreateScope(); services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+        var services = fixtureServices.CreateScope(); services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
             .Set("probe", company, actor.ToString("D"), null, null, false, "probe-inspect"); return services;
     }
     private static JsonElement ActiveAssignment(JsonElement detail, Guid actor) => detail.GetProperty("stages").EnumerateArray()
@@ -646,7 +665,7 @@ sealed class Probe(WebApplication app, string connection, Guid company, Guid bra
             result = new { budgetReservation = "Required", sourcingMethodCode = (string?)null, minimumQuoteCount = (int?)null,
                 approvalStages = new[] { new { code = "NEED", assignee = "LineManager", mode = "One" }, new { code = "PROC", assignee = "ProcurementManager", mode = "All" } } } } },
     });
-    public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); }
+    public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); await fixtureServices.DisposeAsync(); }
 }
 sealed class Tenant : ITenantAccessor { public string GetTenantId() => "probe"; }
 sealed class ProbeAuthentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
@@ -655,7 +674,8 @@ sealed class ProbeAuthentication(IOptionsMonitor<AuthenticationSchemeOptions> op
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         if (!Guid.TryParse(Request.Headers["X-Probe-User"], out var id)) return AuthenticateResult.NoResult();
-        var user = await core.LocalUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && x.IsActive && !x.IsArchived);
+        var user = await core.LocalUsers.AsNoTracking().Where(x => x.Id == id && x.IsActive && !x.IsArchived)
+            .Select(x => new { x.RolesCsv }).SingleOrDefaultAsync();
         if (user is null) return AuthenticateResult.Fail("Inactive fixture account.");
         var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, user.RolesCsv, Context.RequestAborted);
         var claims = new List<Claim> { new("tenant", "probe"), new("sub", id.ToString("D")), new(ProcurementPermissions.ConfiguredClaim, "true") };

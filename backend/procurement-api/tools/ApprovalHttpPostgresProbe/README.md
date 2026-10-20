@@ -70,3 +70,58 @@ Keep the process running during browser verification; stop it afterwards and rem
 disposable database and manifest using the sandbox operator's normal cleanup procedure.
 This mode is verification tooling and does not enable production approvals or prove
 production least-privilege database grants.
+
+
+## Dedicated least-privilege runtime rehearsal
+
+The optional `PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION` separates fixture setup
+from the app. Both private connection strings must point at the same fresh guarded database
+and endpoint. `PROCUREMENT_APPROVAL_HTTP_PROBE_CONNECTION` then identifies the **runtime**
+login; it must have a distinct username beginning `proc_approval_runtime_`, no memberships,
+no object/database/schema ownership, and no superuser, create-role, create-database,
+replication or bypass-RLS privileges. The bootstrap login provisions the disposable schemas
+and grants; none of its credentials enter the app's service provider or execution options.
+
+An operator may create an empty rehearsal login using their private administrative session:
+
+```sql
+CREATE ROLE proc_approval_runtime_example LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+  NOINHERIT NOREPLICATION NOBYPASSRLS;
+```
+
+Set authentication credentials through the operator's protected PostgreSQL credential
+procedure (for example interactive `\password`); never put passwords in this repository,
+command examples, source, manifest or test output. Provide both connections through private
+environment configuration, then run the normal verification command or `--serve`. No role
+is automatically created, and an existing elevated role is rejected rather than modified.
+
+Bootstrap setup revokes PUBLIC table grants and schema/database CREATE/TEMP rights only in
+this disposable database, then grants explicit rights to the existing runtime login:
+
+- Core cases, stages and assignments: SELECT/INSERT/UPDATE; decisions: SELECT/INSERT;
+  delegations and migration history: SELECT only.
+- Procurement request headers/lines and authority grants: SELECT/INSERT/UPDATE; draft
+  authority category replacement: SELECT/INSERT/DELETE, guarded by the domain's draft rule.
+- Submission, assignment evidence, command receipts, outcomes, Finance evidence/releases,
+  policy decisions, audit and outbox: SELECT/INSERT, with no UPDATE/DELETE.
+- Referenced Procurement categories, policies, catalog and supplier qualification records:
+  SELECT only. Schema history receives SELECT when migrated serve mode needs it.
+- HRM canonical account, worker, organization, role and branch references: only enumerated
+  SELECT columns needed by current adapters. Password hashes and unrelated HR fields receive
+  no SELECT. No identity/organization table receives write grants.
+
+The app's ordinary Procurement/Core contexts, scope middleware, fixture authentication
+projection and shared transaction coordinator all use the runtime connection. DDL, fixture
+seed/role/offboarding changes, deliberate evidence corruption and failure-trigger setup use
+an entirely separate bootstrap-only service provider/connection. Do not broaden runtime
+grants to make fixture manipulation succeed.
+
+The tool explicitly asserts permission denial for schema/table/temp DDL, HRM account and
+workforce/organization/role writes, password-hash reads, Core decision mutation/deletion,
+and all immutable Procurement evidence/audit/outbox mutation/deletion. Even unexpected DDL
+success is rolled back before failing the gate. These checks precede the actual mapped
+HTTP approval/return/release/concurrency/rollback scenarios under runtime credentials.
+Unexpected API permission failures are defects to investigate, not permission to grant
+ownership or blanket write access. This is source for a disposable privilege rehearsal;
+only a completed runtime test establishes its result, and real production rollout still
+requires protected role provisioning and independent release review.
