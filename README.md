@@ -1,5 +1,11 @@
 # Greenwebb Enterprise ERP
 
+## Manus collaboration
+
+Read [MANUS_HANDOFF.md](MANUS_HANDOFF.md) for the current ERP milestone,
+verified source locations, ownership and PR instructions. Record work in
+[the Manus milestone log](docs/collaboration/manus/STATUS.md).
+
 Status: **HRM frontend/API present; Procurement frontend demo and backend foundation present**
 
 MightyFin's internal employee and corporate administration platform — HR and payroll,
