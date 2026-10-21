@@ -19,9 +19,10 @@ public static class ProcurementWorkforce
             || !WorkerPrincipal.FromClaims(claims).IsRole("erp_admin")) return false;
         var now = DateTimeOffset.UtcNow;
         var account = await db.LocalUsers.AsNoTracking()
-            .Where(x => x.TenantId == tenantId && x.Id == id && !x.IsArchived && x.IsActive && x.WorkerId == null && (x.LockedUntil == null || x.LockedUntil <= now))
-            .Select(x => x.RolesCsv).SingleOrDefaultAsync(ct);
-        return account is not null && LocalIdentityRoutes.ParseRoles(account)
+            .Where(x => x.TenantId == tenantId && x.Id == id && !x.IsArchived && x.IsActive && x.WorkerId == null)
+            .Select(x => new { x.RolesCsv, x.LockedUntil }).SingleOrDefaultAsync(ct);
+        return account is not null && (account.LockedUntil is null || account.LockedUntil <= now)
+            && LocalIdentityRoutes.ParseRoles(account.RolesCsv)
             .Contains("erp_admin", StringComparer.OrdinalIgnoreCase);
     }
 
