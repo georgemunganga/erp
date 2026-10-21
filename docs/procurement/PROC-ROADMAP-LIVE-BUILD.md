@@ -19,6 +19,8 @@ This checkpoint supersedes the dated verification statuses below; historical fai
 
 Implementation continues through the existing wave/operation matrix. A source merge, mock browser pass or empty screen is not a production capability.
 
+> **Next bounded M5 source milestone:** finish [PROC-06-P01 O4/O5 internal publication and frozen invitation pack](PROC-06-P01-INTERNAL-RFQ-PUBLICATION-AND-SOURCE-ALLOCATION.md#o4o5-implementation-delta--next-bounded-m5-milestone) after governed draft verification. This is a reviewed-policy/document/authority implementation proposal; it does not activate supplier dispatch, bids or awards.
+
 ## Current source audit — 20 October 2026, P26 migration/source gates and actual-run corrections
 
 **Audited references:** backend P26 generated migration `3481d7b`, compiled API/source `ea7982b`, receipt correction `f402462` and safe diagnostic API/tool `bda8e5e`; tool-context correction `fc0e608`; current Finance worker-independence source `3613559`. Separate governed RFQ source/model/HTTP candidate `bb1e987` is uncompiled and has no migration. Frontend invoice precision app `dccbc14`, docs-only `5938e38`, draft PR35 stacked onto PR34; earlier receiving app/evidence checkpoints remain below. Exact P26 results and retained failures are in [P26 verification evidence](PROC-11-P26-VERIFICATION-EVIDENCE.md). This section supersedes outdated candidate statements below, while preserving every historic checkpoint and the production v36/P19 release boundary. Read [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md) for agreed A–L scope and existing 28-section child contracts. The hierarchy remains **Procurement → parent → child → operation/scenario**.
