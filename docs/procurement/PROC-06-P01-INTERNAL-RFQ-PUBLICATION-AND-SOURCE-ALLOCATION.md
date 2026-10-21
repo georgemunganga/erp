@@ -241,6 +241,8 @@ The publication authority tuple is already proposed in section10: **`SourcingEve
 
 Source paths are rooted at `backend/procurement-api/src/Mightyfin.Erp.Procurement.{Domain,Application,Infrastructure}`, `backend/hrm-api/src/Mightyfin.Erp.Hrm.{Api,Application}` and `backend/core-api/src/Mightyfin.Erp.Core.Documents.*`. Frontend files are in the existing ERP UI repository under `reference-ui/src/features`; this audit creates no new application repository.
 
+The controlled [Core durable document-use prerequisite](CORE-DOC-01-SHARED-DOCUMENT-EVIDENCE.md#durable-document-use-pins--controlled-feature-addendum) defines the proposed O4 review/O5 publication references, exact-purpose access and owning-store/lifecycle coupling. It is preparatory documentation, not an implemented or enabled retention capability.
+
 ### Lifecycle and material changes
 
 The intended business path remains preparation → PendingPublicationApproval → Published (future start) → Open (trusted server time), with explicit ReturnedForChanges/Rejected/Cancelled outcomes. Core owns tasks/votes; Procurement owns publication effects. Specify compatible persisted states separately from legacy execution0 and held-draft execution1. Deadline expiry cannot auto-approve, backdate publication or silently extend a competition.

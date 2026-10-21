@@ -34,3 +34,7 @@ Organization, branding, users, roles, and their detail pages have one UI home un
 ## Next backend milestone
 
 Create versioned `/api/core` endpoints and a shared organization service around the existing legal entity, location, department, and branding tables. Migrate consumers to those endpoints. Then add persisted platform configuration for currency references, reporting tags, document numbering, templates, and notification preferences with entity scope and audit history. Finance and Procurement continue to own their respective tax/payment and supplier-portal policies.
+
+## Shared document retention prerequisite
+
+Core owns [durable document-use pins](procurement/CORE-DOC-01-SHARED-DOCUMENT-EVIDENCE.md#durable-document-use-pins--controlled-feature-addendum) for exact reviewed/published versions. This controlled 28-section addendum proposes reuse of the existing document engine and same-store transaction composition; it does not claim implemented retention, new routes or production activation. Procurement owns its consuming review/publication rules.
