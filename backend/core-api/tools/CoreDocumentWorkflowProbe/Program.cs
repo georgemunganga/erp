@@ -5,6 +5,10 @@ using Mightyfin.Erp.Core.Documents.Domain;
 using Mightyfin.Erp.Core.Documents.Infrastructure;
 using Npgsql;
 
+if (args.Any(x => x != "--use-pins") || args.Length > 1)
+    throw new ArgumentException("Only the optional --use-pins mode is supported.");
+var verifyUsePins = args.Contains("--use-pins");
+
 var connection = Environment.GetEnvironmentVariable("CORE_DOCUMENT_TEST_CONNECTION")
     ?? throw new InvalidOperationException("Set an isolated rehearsal database connection.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.Contains("rehearsal", StringComparison.OrdinalIgnoreCase) ?? false))
@@ -55,6 +59,8 @@ try
     }
     Check(Directory.GetFiles(root, ".upload-*", SearchOption.AllDirectories).Length == 0, "Abandoned staging files remain after completed requests.");
     Console.WriteLine("PASS: migrations twice, exact/conflicting replay, twelve concurrent uploads with ten-file cap, retained scan/operation evidence, audited download and company isolation.");
+    if (verifyUsePins)
+        await DocumentUseVerification.RunAsync(connection, options, scope, owner, target => Upload(target, Guid.NewGuid()));
     return 0;
 }
 finally { Directory.Delete(root, true); }
