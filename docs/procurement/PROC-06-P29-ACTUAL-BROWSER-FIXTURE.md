@@ -14,7 +14,7 @@ An initial private preflight commits only a synthetic excess column UPDATE grant
 
 Coordinated frontend source: `18b1608`, existing Buying rules page, no new app/page. Existing `baseUrl`, `tenantId`, `companyId`, `branchId`, currency ZMW and authentication header fields remain. `actors.maker`/`reviewer` include actual principal/worker IDs and real context responses. `sourcingPolicy` includes their IDs, named manager2 principal/display name from the actual scoped lookup, future UTC-midnight dates explicitly serialized with `.000Z`, expectedConfigurationVersion1 and noPolicyEffectsSeeded.
 
-Expected rule: BROWSER_POLICY, priority0, complete coverage minimum exact0/maximum null, no category/type/branch filters; zero minimum quotes/invitees; requirements pack, evaluation criteria and deadline all false; one BROWSER_REVIEW/ProcurementManager/All stage naming manager2. No financial limit is invented. Review note is `Browser independent review requested`; publication note is `Browser independent sourcing settings approved`.
+Expected rule: BROWSER_POLICY, priority0, unrestricted fallback coverage minimum null/maximum null, no category/type/branch filters; zero minimum quotes/invitees; requirements pack, evaluation criteria and deadline all false; one BROWSER_REVIEW/ProcurementManager/All stage naming manager2. No financial limit is invented. Review note is `Browser independent review requested`; publication note is `Browser independent sourcing settings approved`.
 
 ## Independent persisted stop proof
 

@@ -63,7 +63,7 @@ sealed partial class Probe
                 namedApproverDisplayName = selected.GetProperty("displayName").GetString(),
                 effectiveFrom = sourcingPolicyBrowserStart.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
                 effectiveTo = sourcingPolicyBrowserEnd.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
-                ruleCode = "BROWSER_POLICY", priority = 0, minimumAmountInclusive = "0", maximumAmountExclusive = (string?)null,
+                ruleCode = "BROWSER_POLICY", priority = 0, minimumAmountInclusive = (string?)null, maximumAmountExclusive = (string?)null,
                 minimumQuoteCount = 0, minimumInvitedSuppliers = 0, requirementsPackRequired = false,
                 evaluationCriteriaRequired = false, closingDateRequired = false,
                 stageCode = "BROWSER_REVIEW", assignee = "ProcurementManager", mode = "All",
@@ -148,7 +148,7 @@ sealed partial class Probe
         var rule = document.RootElement.GetProperty("rules").EnumerateArray().Single(); var when = rule.GetProperty("when");
         var publication = rule.GetProperty("result").GetProperty("publication"); var stage = rule.GetProperty("result").GetProperty("approvalStages").EnumerateArray().Single();
         Require(document.RootElement.GetProperty("currencyCode").GetString() == "ZMW" && rule.GetProperty("code").GetString() == "BROWSER_POLICY" && rule.GetProperty("priority").GetInt32() == 0
-            && when.GetProperty("minimumAmountInclusive").GetDecimal() == 0 && when.GetProperty("maximumAmountExclusive").ValueKind == JsonValueKind.Null
+            && when.GetProperty("minimumAmountInclusive").ValueKind == JsonValueKind.Null && when.GetProperty("maximumAmountExclusive").ValueKind == JsonValueKind.Null
             && new[] { "categoryCodes", "purchaseTypes", "branchIds" }.All(key => when.GetProperty(key).GetArrayLength() == 0)
             && publication.GetProperty("minimumQuoteCount").GetInt32() == 0 && publication.GetProperty("minimumInvitedSuppliers").GetInt32() == 0
             && !publication.GetProperty("requirementsPackRequired").GetBoolean() && !publication.GetProperty("evaluationCriteriaRequired").GetBoolean() && !publication.GetProperty("closingDateRequired").GetBoolean()
