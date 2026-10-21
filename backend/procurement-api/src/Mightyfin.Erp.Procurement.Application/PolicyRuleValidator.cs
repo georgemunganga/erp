@@ -63,7 +63,7 @@ public static class PolicyRuleValidator
         return issues;
     }
 
-    private static void ValidateWhen(JsonElement rule, string path, List<PolicyRuleIssue> issues)
+    internal static void ValidateWhen(JsonElement rule, string path, List<PolicyRuleIssue> issues)
     {
         if (!rule.TryGetProperty("when", out var when) || when.ValueKind != JsonValueKind.Object)
         { Add(issues, path + ".when", "Add matching conditions, even when all are unrestricted."); return; }
