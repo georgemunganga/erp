@@ -9,6 +9,11 @@ public static class ProcurementSpendingActions
         new("PurchaseRequest.Approve", "procurement-approval-decide", "EstimatedLineBase");
     public static readonly ProcurementSpendingAction PurchaseOrder =
         new("PurchaseOrder.Approve", "procurement-po-approve", "ApprovedLineBase");
+    // Declared pure publication prerequisite ONLY. Deliberately excluded from Resolve/Matches
+    // until the governed configuration, policy, state/evidence/API gates are implemented.
+    public static readonly ProcurementSpendingAction SourcingPublication =
+        new("SourcingEvent.Publish", "procurement-sourcing-publish", "ApprovedLineBase");
+
     public static ProcurementSpendingAction Resolve(string action) => action switch
     {
         "PurchaseRequest.Approve" => PurchaseRequest,

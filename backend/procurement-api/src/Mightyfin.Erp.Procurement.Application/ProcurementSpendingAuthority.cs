@@ -21,12 +21,27 @@ public static class ProcurementSpendingAuthority
 {
     public static ProcurementSpendingAuthorityResult Evaluate(ProcurementSpendContext context,
         string principalId, string permission, string action, DateTimeOffset at,
-        IEnumerable<ProcurementSpendingAuthorityGrant> grants)
+        IEnumerable<ProcurementSpendingAuthorityGrant> grants) =>
+        EvaluateCore(context, principalId, permission, action, at, grants,
+            ProcurementSpendingActions.Matches(action, permission, context.AmountBasis));
+
+    // Narrow proposed pure use, not registered public authority/configuration support.
+    internal static ProcurementSpendingAuthorityResult EvaluateSourcingPublication(ProcurementSpendContext context,
+        string principalId, DateTimeOffset at, IEnumerable<ProcurementSpendingAuthorityGrant> grants)
+    {
+        var contract = ProcurementSpendingActions.SourcingPublication;
+        return EvaluateCore(context, principalId, contract.Permission, contract.Action, at, grants,
+            context.AmountBasis == contract.AmountBasis);
+    }
+
+    private static ProcurementSpendingAuthorityResult EvaluateCore(ProcurementSpendContext context,
+        string principalId, string permission, string action, DateTimeOffset at,
+        IEnumerable<ProcurementSpendingAuthorityGrant> grants, bool supportedContract)
     {
         if (context.TargetId == Guid.Empty || string.IsNullOrWhiteSpace(context.TenantId)
             || context.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(principalId)
             || !ValidCurrency(context.CurrencyCode) || context.Amount <= 0
-            || !ProcurementSpendingActions.Matches(action, permission, context.AmountBasis)
+            || !supportedContract
             || context.DepartmentRefs.Count == 0 || context.CategoryCodes.Count == 0
             || context.CategoryCodes.Any(string.IsNullOrWhiteSpace))
             return new(false, null, ["AuthorityContextInvalid"]);
