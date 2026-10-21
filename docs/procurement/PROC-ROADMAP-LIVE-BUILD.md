@@ -7,6 +7,15 @@
 The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared services can already be reused and which HRMS implementations are still module-specific.
 The [workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) ties Zoho's help journeys to the child features and ERP ownership boundaries. Use ERPNext as a secondary public implementation example for complex data/control decisions.
 
+## Current verified checkpoint — 21 October 2026,09:38UTC
+
+This supersedes pending statuses in older checkpoints for the named increments only. Production remains v36/P19 under the existing release hold.
+
+- P27/P28 private Finance identity, governed RFQ draft, migration and actual UI/owner gates passed as recorded below; they are not unfinished verification tasks. Operational sourcing publication/bids/award remain separate.
+- P29 normal-host readiness and configuration availability: `445a5cb` passed306/306 mapped regression tests. Actual policy settings browser `3b8526f` against backend `fddda32` passed1/1 with independent PostgreSQL owner verification. See [actual browser evidence](PROC-06-P29-ACTUAL-BROWSER-FIXTURE.md#executed-closure--21-october-2026).
+- Next: existing finite approval-limit configuration for sourcing, then owned supplier/document/revision preparation and Core internal-publication decisions. Source candidates require their own gates. Shared document owner adapter/writer has independent review and an identified stale-context correction; runtime acceptance remains pending.
+- Manus claimed vendor integration in ERP PR9. Existing frontend source is reused; no second Procurement UI is created.
+
 ## Continuation checkpoint — 21 October 2026
 
 This checkpoint supersedes the dated verification statuses below; historical failures remain retained. Production remains v36/P19 with the documented release hold.
