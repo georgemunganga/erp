@@ -219,6 +219,18 @@ def main():
     checks=json_sql(names['used'],"SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.table_name,c.constraint_name),'[]'::jsonb) FROM ("+checks_query+') c;')
     if len(checks)!=1 or not checks[0]['validated']: raise RuntimeError('Actual P29 CHECK manifest missing/unvalidated')
     save('p29-checks.json',checks)
+    # Retain the engine-returned partial predicates; readiness must compare exact
+    # PostgreSQL expressions rather than infer casts/grouping from model strings.
+    indexes = json_sql(names['used'], """SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY x.index_name),'[]'::jsonb) FROM (
+        SELECT r.relname index_name, pg_get_indexdef(i.indexrelid) definition,
+          pg_get_expr(i.indpred,i.indrelid,false) predicate,
+          i.indisvalid valid, i.indisunique unique_index, i.indimmediate immediate
+        FROM pg_index i JOIN pg_class r ON r.oid=i.indexrelid
+        WHERE i.indrelid='procurement.sourcing_policy_identity_evidence'::regclass
+          AND r.relname IN ('ux_source_policy_identity_created','ux_source_policy_identity_published')) x;""")
+    if len(indexes)!=2 or any(not row['valid'] or not row['unique_index'] or not row['immediate'] or not row['predicate'] for row in indexes):
+        raise RuntimeError('Actual P29 partial unique index manifest missing/invalid')
+    save('p29-partial-indexes.json', indexes)
     (args.output/'p29-checks.tsv').write_text(run('psql','-X','-U','postgres','-d',names['used'],'-qAt','-F','\t','-v','ON_ERROR_STOP=1',data=checks_query+';').stdout)
     sql(names['unused'],scripts['down'])
     if snapshot(names['unused'])!=source: raise RuntimeError('Unused Down did not exactly restore original used P28')
