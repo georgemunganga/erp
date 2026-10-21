@@ -48,6 +48,7 @@ sealed partial class Probe
         var e2 = await Send(HttpMethod.Post, Root + "/sourcing/from-approved-sources", buyer, RfqCreate("Remaining A", (e2source, "2")), e2key);
         await Check(e2, HttpStatusCode.Created); var e2id = (await e2.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("eventId").GetGuid();
         await AssertRfqBalance(a, 5); await AssertRfqBalance(b, 2);
+        await VerifyRfqRawInvariants(e1, e2id);
         before = await RfqFootprint();
         var replay = await Send(HttpMethod.Post, Root + "/sourcing/from-approved-sources", buyer, e1body, e1key);
         await Check(replay, HttpStatusCode.Created); Require(originalResponse == await replay.Content.ReadAsStringAsync(), "Original Create replay bytes changed.");
