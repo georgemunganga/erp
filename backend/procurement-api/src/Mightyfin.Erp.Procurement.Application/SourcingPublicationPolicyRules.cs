@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
 namespace Mightyfin.Erp.Procurement.Application;
@@ -17,6 +18,18 @@ public sealed record SourcingPublicationPolicyPreview(string Status, string? Rul
 /// neither independently published policy, canonical identities, supplier/documents nor Core votes.</summary>
 public static class SourcingPublicationPolicyRules
 {
+    public const string PolicyKey = "SOURCING";
+    public static bool IsSourcingDocument(string? json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json ?? "");
+            return document.RootElement.TryGetProperty("transactionType", out var value)
+                && value.ValueKind == JsonValueKind.String && value.GetString() == "SourcingPublication";
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException) { return false; }
+    }
+
     public static IReadOnlyList<PolicyRuleIssue> Validate(string? json)
     {
         try { using var document = Parse(json); return []; }
@@ -133,6 +146,6 @@ public static class SourcingPublicationPolicyRules
         => Require(row.GetProperty(key).ValueKind == JsonValueKind.Number && row.GetProperty(key).TryGetInt32(out var value) && value >= min && value <= max, "SourcingIntegerInvalid:" + key);
     private static void Only(JsonElement row, params string[] fields)
         => Require(row.ValueKind == JsonValueKind.Object && row.EnumerateObject().Select(x => x.Name).Order().SequenceEqual(fields.Order()), "SourcingUnknownOrMissingField");
-    private static void Require(bool value, string error) { if (!value) throw new InvalidOperationException(error); }
+    private static void Require([DoesNotReturnIf(false)] bool value, string error) { if (!value) throw new InvalidOperationException(error); }
     private static SourcingPublicationPolicyPreview Empty(string status, IReadOnlyList<PolicyRuleIssue> issues) => new(status, null, null, null, [], issues);
 }
