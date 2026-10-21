@@ -24,3 +24,10 @@ Production remains unchanged; default-off execution and full-host release hold r
 ## Second source gate — retained test compilation failure
 
 Session57784 compiled the corrected infrastructure, then found two test-only assignments to init-only FinanceIdentitySchemaVersion. The negative restoration test now constructs a deliberately corrupted retained-history clone through the existing JSON serialization pattern; production immutability is unchanged and the same downgrade/unknown-schema rejection assertions remain. No tests or migration generation ran. Original prepare-schema-corrected.log remains retained.
+
+
+## First completed domain run — retained700PASS/1FAIL
+
+Session38463 completed701 tests:700passed,1failed,zero skipped (17seconds). The failure expected a presentation-specific plain decimal substring in retained JSON, but the existing canonical G29 encoder correctly stores exact product0.00000001 as string`1E-08`. The assertion now independently checks JSON string kind, exact G29 golden bytes and bounded38,8 parse/value; production encoding/digests remain unchanged. No migration ran. Original TRX/log remain.
+
+This exposed a real separate UI gap: governed RFQ detail accepted only plain decimal strings. A new isolated frontend follow-up will normalize bounded exponent strings through the already shared exact decimal helper before presentation, with no financial Number conversion. Earlier mocked RFQ browser passes used plain-wire fixtures and do not certify that follow-up.

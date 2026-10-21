@@ -14,7 +14,11 @@ public sealed class GovernedRfqRestorationTests
         var restored = f.Restore();
         Assert.Equal(f.Draft.Fingerprint, restored.Fingerprint);
         Assert.Equal(0.00000001m, Assert.Single(restored.Lines).EstimatedValue);
-        Assert.Contains("\"EstimatedValue\":\"0.00000001\"", f.Evidence.PayloadJson);
+        using var payload = JsonDocument.Parse(f.Evidence.PayloadJson);
+        var exact = payload.RootElement.GetProperty("Lines")[0].GetProperty("EstimatedValue");
+        Assert.Equal(JsonValueKind.String, exact.ValueKind);
+        Assert.Equal("1E-08", exact.GetString()); // Existing canonical G29 encoding; never change retained financial bytes for presentation.
+        Assert.Equal(0.00000001m, ExactDecimalJsonCodec.Parse(exact.GetString(), 38, 8));
         f.Source.Method.Status = "Inactive";
         f.Source.Request.Status = "Cancelled"; // Original retained immutable authority remains attributable.
         f.Source.Line.EstimatedUnitPrice = 999;
