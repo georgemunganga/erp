@@ -21,7 +21,8 @@ sealed partial class Probe
     private const string PolicyReviewerRole = "probe_policy_reviewer";
 
     /// <summary>Actual mapped HTTP and restricted PostgreSQL proof. All Core setup/fault/legacy
-    /// fixtures use the separate bootstrap provider; the production schema provider is never replaced.</summary>
+    /// fixtures use the separate bootstrap provider; the private host composes the actual SQL
+    /// readiness candidate. Production host registration remains unavailable.</summary>
     public async Task VerifySourcingPolicies()
     {
         Require(distinctRuntime, "Sourcing policy proof requires separate restricted runtime and bootstrap identities.");

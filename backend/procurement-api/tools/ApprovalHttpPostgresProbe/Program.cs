@@ -160,6 +160,14 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             { ["ConnectionStrings:ProcurementApprovalExecution"] = connection });
         var matchingDocumentsDirectory=serve && matching ? ConfigureMatchingBrowserDocuments(builder,connection) : null;
         ProcurementHostIntegration.AddServices(builder.Services, connection, builder.Configuration);
+        if (sourcingPolicies)
+        {
+            // Candidate composition only in this opt-in private finite-role proof.
+            // This is the actual SQL inspector, never a synthetic true result.
+            // The deployed host keeps its unavailable registration until verified.
+            Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.RemoveAll<IProcurementSourcingPolicyIdentitySchemaReadiness>(builder.Services);
+            builder.Services.AddScoped<IProcurementSourcingPolicyIdentitySchemaReadiness, ProcurementSourcingPolicyIdentitySchemaReadiness>();
+        }
         if(serve && matching) RegisterMatchingBrowserScanner(builder.Services);
         // Explicit isolated fixture override is not evidence of production least privilege.
         var feature = new ProcurementApprovalExecutionOptions { Enabled = true, ExecutionDatabaseConfigured = true };
