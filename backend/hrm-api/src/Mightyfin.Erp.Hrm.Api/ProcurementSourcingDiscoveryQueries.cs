@@ -82,8 +82,8 @@ internal static class ProcurementSourcingDiscoveryQueries
                             WHERE original->>'Id'=line.id::text AND original->>'PurchaseRequestId'=request.id::text
                                 AND original->>'Description'=line.description AND original->>'UnitCode'=line.unit_code)
                         AND EXISTS (SELECT 1 FROM jsonb_array_elements(
-                            CASE WHEN jsonb_typeof(evaluation.decision_json->'lines')='array'
-                                THEN evaluation.decision_json->'lines' ELSE '[]'::jsonb END) result
+                            CASE WHEN jsonb_typeof(evaluation.decision_json::jsonb->'lines')='array'
+                                THEN evaluation.decision_json::jsonb->'lines' ELSE '[]'::jsonb END) result
                             JOIN procurement.procurement_methods method ON method.code=result->'decision'->>'sourcingMethodCode'
                                 AND method.tenant_id=request.tenant_id AND method.legal_entity_id=request.legal_entity_id
                                 AND method.status='Active' AND method.execution_route='CompetitiveSourcing'

@@ -81,3 +81,8 @@ Distinct source review accepted security/raw-invariant companion52114e9 but foun
 
 
 Corrected private build26255 retained a second namespace-only compilation failure: HrUserBranchAssignment lives in existing Hrm.Application. The browser fixture now imports that namespace; no API/domain/schema changes. artifacts/p28/probe-build-corrected.log retained. Actual runtime remains pending.
+
+
+## First actual finite RFQ run — retained failure at source discovery
+
+Private /home/amizo/erp-backups/procurement-p28-http-rfq-20261021_071330/ on7517e7d passed genuine schema/CHECK/readiness/Finance identity checks and the original-request UPDATE privilege negative. It then returned503 before the source picker could load. Protected PostgreSQL diagnostics found42883: decision_json is retained varchar, but candidate discovery applied JSON operators without an explicit jsonb cast. Both reads now cast that owned decision text to jsonb, matching the existing request snapshot handling; no stored policy or evidence is rewritten. Failed source/database/logs/result are retained. No RFQ lifecycle pass is claimed. A new source-scoped build/API and fresh actual database run must verify the correction.
