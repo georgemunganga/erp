@@ -83,7 +83,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             var ev = await OwnedEvent(db, core, scope, http, auth, actor, "procurement-sourcing-cancel", id, token);
             if (ev.Status != "Draft" || ev.Version != input.ExpectedEventVersion || ev.OriginalDraftFingerprint != input.OriginalDraftFingerprint)
                 throw new Problem("SourcingDraftChanged", 409);
-            var evidence = await db.SourcingDraftEvidence.SingleAsync(x => x.Id == ev.SourceEvidenceId, token);
+            var evidence = await db.SourcingDraftEvidenceRecords.SingleAsync(x => x.Id == ev.SourceEvidenceId, token);
             var bindings = await db.SourcingDemandBindings.Where(x => x.SourcingEventId == id).OrderBy(x => x.PurchaseRequestLineId).ToArrayAsync(token);
             if (bindings.Length is < 1 or > 200 || !selected.SequenceEqual(bindings.Select(x => x.PurchaseRequestId).Distinct().Order()))
                 throw new Problem("SourcingSourceSetChanged", 409);

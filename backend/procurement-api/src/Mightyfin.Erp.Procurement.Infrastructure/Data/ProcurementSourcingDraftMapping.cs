@@ -6,7 +6,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 public sealed partial class ProcurementDbContext
 {
-    public DbSet<SourcingDraftEvidence> SourcingDraftEvidence => Set<SourcingDraftEvidence>();
+    public DbSet<SourcingDraftEvidence> SourcingDraftEvidenceRecords => Set<SourcingDraftEvidence>();
     public DbSet<SourcingDemandBinding> SourcingDemandBindings => Set<SourcingDemandBinding>();
     public DbSet<SourcingCommandReceipt> SourcingCommandReceipts => Set<SourcingCommandReceipt>();
 

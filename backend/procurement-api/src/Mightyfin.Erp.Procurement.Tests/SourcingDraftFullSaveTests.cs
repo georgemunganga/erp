@@ -18,7 +18,7 @@ public sealed class SourcingDraftFullSaveTests
         Assert.NotEqual(other.EventId, target.EventId);
         await using var db = f.Db(); var source = await f.SourceAsync(db);
         var ev = await db.SourcingEvents.SingleAsync(x => x.Id == target.EventId);
-        var evidence = await db.SourcingDraftEvidence.SingleAsync(x => x.Id == ev.SourceEvidenceId);
+        var evidence = await db.SourcingDraftEvidenceRecords.SingleAsync(x => x.Id == ev.SourceEvidenceId);
         var bindings = await db.SourcingDemandBindings.Where(x => x.SourcingEventId == ev.Id).ToArrayAsync();
         var line = await db.SourcingLines.SingleAsync(x => x.SourcingEventId == ev.Id);
         var allocation = await db.PurchaseRequestAllocations.SingleAsync(x => x.Id == bindings[0].AllocationId);
@@ -49,7 +49,7 @@ public sealed class SourcingDraftFullSaveTests
         Assert.Equal(2, held.Length); Assert.Contains(held, x => x.TargetType == "PurchaseOrder");
         Assert.Contains(held, x => x.TargetType == "SourcingEvent" && x.TargetId == other.EventId);
         Assert.Equal("Released", (await read.PurchaseRequestAllocations.SingleAsync(x => x.Id == allocation.Id)).Status);
-        Assert.Equal(originalFingerprint, (await read.SourcingDraftEvidence.SingleAsync(x => x.Id == evidence.Id)).OriginalDraftFingerprint);
+        Assert.Equal(originalFingerprint, (await read.SourcingDraftEvidenceRecords.SingleAsync(x => x.Id == evidence.Id)).OriginalDraftFingerprint);
         Assert.Equal(3, await read.SourcingCommandReceipts.CountAsync());
         Assert.Equal(beforeFinance, (f.Original.Source.Finance.ReservationRef, f.Original.Source.Finance.Status, f.Original.Source.Finance.CheckedAmount));
     }
@@ -67,7 +67,7 @@ public sealed class SourcingDraftFullSaveTests
         Assert.Equal(EntityState.Unchanged, db.Entry(graph.Allocation).State);
         Assert.Equal("RfqBindingInvalid", (await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync())).Message);
         await using var read = f.Db();
-        Assert.Empty(await read.SourcingEvents.ToArrayAsync()); Assert.Empty(await read.SourcingDraftEvidence.ToArrayAsync());
+        Assert.Empty(await read.SourcingEvents.ToArrayAsync()); Assert.Empty(await read.SourcingDraftEvidenceRecords.ToArrayAsync());
         Assert.Empty(await read.SourcingDemandBindings.ToArrayAsync()); Assert.Empty(await read.SourcingCommandReceipts.ToArrayAsync());
         Assert.Equal(2m, (await read.PurchaseRequestLines.SingleAsync()).AllocatedQuantity);
         Assert.Single(await read.PurchaseRequestAllocations.ToArrayAsync());

@@ -28,7 +28,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     private static async Task<Reply> ReadOwned(ProcurementDbContext db, Mightyfin.Erp.Procurement.Domain.SourcingEvent ev, CancellationToken token)
     {
         var id = ev.Id;
-        var evidence = await db.SourcingDraftEvidence.AsNoTracking().SingleAsync(x => x.Id == ev.SourceEvidenceId, token);
+        var evidence = await db.SourcingDraftEvidenceRecords.AsNoTracking().SingleAsync(x => x.Id == ev.SourceEvidenceId, token);
         var bindings = await db.SourcingDemandBindings.AsNoTracking().Where(x => x.SourcingEventId == id)
             .OrderBy(x => x.PurchaseRequestLineId).Take(201).ToArrayAsync(token);
         var lines = await db.SourcingLines.AsNoTracking().Where(x => x.SourcingEventId == id).Take(201).ToArrayAsync(token);

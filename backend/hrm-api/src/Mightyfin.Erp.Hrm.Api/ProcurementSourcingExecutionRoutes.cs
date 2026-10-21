@@ -109,7 +109,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     }
     private static IQueryable<SourcingEvent> Owned(ProcurementDbContext db, RfqCurrentActor actor) =>
         from ev in db.SourcingEvents
-        join original in db.SourcingDraftEvidence on ev.SourceEvidenceId equals (Guid?)original.Id
+        join original in db.SourcingDraftEvidenceRecords on ev.SourceEvidenceId equals (Guid?)original.Id
         where ev.ExecutionVersion == 1 && ev.OwnerSubjectId == actor.SubjectId && ev.MakerWorkerId == actor.WorkerId
             && original.SourcingEventId == ev.Id && original.MakerSubjectId == ev.OwnerSubjectId && original.MakerWorkerId == ev.MakerWorkerId
             && original.BranchRef == ev.BranchRef && original.OriginalDraftFingerprint == ev.OriginalDraftFingerprint
