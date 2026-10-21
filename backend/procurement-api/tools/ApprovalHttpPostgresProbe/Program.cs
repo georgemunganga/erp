@@ -30,11 +30,12 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--rfq"))
+if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--rfq" or "--sourcing-policies"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
     || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal) || args.Contains("--rfq", StringComparer.Ordinal)))))
-    throw new ArgumentException("Use --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving, --matching or --rfq.");
+    throw new ArgumentException("Use --sourcing-policies, --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving, --matching or --rfq.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
+var sourcingPolicies = args.Contains("--sourcing-policies", StringComparer.Ordinal);
 var matching = args.Contains("--matching", StringComparer.Ordinal);
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
 var rfq = args.Contains("--rfq", StringComparer.Ordinal);
@@ -45,9 +46,9 @@ if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE
     throw new ArgumentException("The sandbox loopback port must be between 1024 and 65535.");
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
-if (orders && bootstrapConnection is null) throw new InvalidOperationException("Order verification requires distinct bootstrap/runtime identities.");
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, rfq);
-if (!serve)
+if ((orders || sourcingPolicies) && bootstrapConnection is null) throw new InvalidOperationException("This verification requires distinct bootstrap/runtime identities.");
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, rfq, sourcingPolicies);
+if (!serve && !sourcingPolicies)
 {
     await probe.VerifyFinanceCheckerReadiness();
     await probe.VerifyFinanceCheckerIdentity();
@@ -67,6 +68,11 @@ if (serve)
         await probe.VerifyOrderBrowserCompletion();
     if (orders && !receiving && !rfq && Environment.GetEnvironmentVariable("PROCUREMENT_BUDGET_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyBudgetBrowserCompletion();
+}
+else if (sourcingPolicies)
+{
+    await probe.VerifySourcingPolicies();
+    Console.WriteLine("PASS: actual restricted sourcing policy configuration/retained identity checks; operational RFQ publication remains disabled.");
 }
 else if (rfq)
 {
@@ -100,7 +106,7 @@ else
     Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
 }
 
-if (!serve) await probe.VerifyFinanceCheckerSubmissionCheck();
+if (!serve && !sourcingPolicies) await probe.VerifyFinanceCheckerSubmissionCheck();
 
 sealed partial class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
     Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient, ServiceProvider fixtureServices,
@@ -121,7 +127,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private Guid OrderManager2 => manager2;
     private bool OrderDistinctRuntime => distinctRuntime;
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false)
     {
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
@@ -175,6 +181,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
             if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
             if (rfq) { ProcurementSourcingExecutionRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
+            if (sourcingPolicies) { ProcurementPolicyDraftRoutes.MapRoutes(app); ProcurementContextRoutes.MapRoutes(app); }
             if (matching)
             {
                 // Exercise the actual shared context endpoint used by the purpose-scoped
@@ -265,7 +272,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         if (bootstrapConnection is not null)
-            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching, rfq:rfq);
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching, rfq:rfq, sourcingPolicies:sourcingPolicies);
         if(serve && matching) await VerifyMatchingScannerBoundary();
         await app.StartAsync();
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
