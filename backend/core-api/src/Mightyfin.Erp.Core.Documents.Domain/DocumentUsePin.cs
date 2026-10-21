@@ -97,7 +97,7 @@ public sealed class DocumentUsePin
         ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(scan);
         static bool Text(string? value, int max) => !string.IsNullOrWhiteSpace(value)
-            && value == value.Trim() && value.Length <= max && !value.Any(char.IsControl);
+            && value.Length <= max;
         static bool Token(string? value, int max) => Text(value, max)
             && value!.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.');
         static bool Instant(DateTimeOffset value) => value.Offset == TimeSpan.Zero
@@ -108,7 +108,8 @@ public sealed class DocumentUsePin
             || !Token(selection.OwnerModule,60) || !Token(selection.OwnerType,80) || selection.OwnerId == Guid.Empty
             || selection.DocumentId == Guid.Empty || selection.VersionId == Guid.Empty
             || selection.DocumentRevision < 1 || selection.VersionRevision < 1 || versionNumber < 1
-            || !Text(fileName,255) || fileName.IndexOfAny(['/', '\\', ':']) >= 0
+            || !Text(fileName,255) || fileName != fileName.Trim() || fileName.Any(char.IsControl)
+            || fileName.IndexOfAny(['/', '\\', ':']) >= 0
             || sizeBytes is < 1 or > 100 * 1024 * 1024
             || selection.Sha256 is null || selection.Sha256.Length != 64
             || selection.Sha256.Any(c => !(c is >= '0' and <= '9' or >= 'a' and <= 'f')))
