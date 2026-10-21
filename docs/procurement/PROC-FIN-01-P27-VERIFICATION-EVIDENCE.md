@@ -48,3 +48,10 @@ Independent review confirmed that SELECT on only the new checker columns could s
 ## Full domain/model regression — PASS; API gate active
 
 Session62163 passed **601/601 Procurement domain/model tests**,zero failed/skipped,55seconds, using the compiled source213a6af domain/application/model code. Migration-source1d0498a and API/tool-only f08ae1f do not change those test inputs; their compilation, drift/SQL and runtime checks remain separate. Domain TRX: artifacts/p27/domain-all; shared job log: artifacts/p27/source-verification.log. The offline shared-test restore also passed. The API/test/tool compilation and mapped Procurement/Finance readiness cases are still active at this checkpoint; no API, generated-SQL or private PostgreSQL pass is inferred.
+
+
+## Full API, tool and schema generation gate — PASS
+
+Session62163 completed all scripted stages on executable source f08ae1f: **197/197 mapped Procurement/Finance-readiness API tests**, zero failed/skipped (4m35s), probe build successful, and no pending EF model changes. The earlier601 domain/model pass remains separately scoped. Actual idempotent zero-to-P27 and P27-to-P26 SQL were generated. Independent review accepted the additive Up and locked evidence-preserving Down for private rehearsal. Up SHA256 `8a69372315278c5e8cf5880ee8c6ffd2720ebd58d2526231c191d38f23a35e3f`; Down `6f8091cd0339db7d19389efd30698e93d9aa2c11189fc8b0bae77a643aa72d35`.
+
+Evidence: artifacts/p27/source-verification.log, procurement-api TRX and p27-up.sql/p27-down.sql. This is source/mapped verification, not an actual restricted PostgreSQL/HTTP or production pass. The later additive Budget businessVersion follow-up is outside this run and requires its own gate.
