@@ -77,6 +77,7 @@ sealed partial class Probe
         await VerifySourcingPolicyAtomicCreate(start.AddDays(6));
         await VerifySourcingPolicyRawConstraints(id, pending.GetProperty("id").GetGuid(), draft.GetProperty("id").GetGuid());
         await VerifySourcingPolicyLegacyReadAndSupersession(id, start.AddDays(100));
+        await VerifySourcingPolicySchemaReadiness();
         using (var scope = Scope(buyer))
         {
             var db = scope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
