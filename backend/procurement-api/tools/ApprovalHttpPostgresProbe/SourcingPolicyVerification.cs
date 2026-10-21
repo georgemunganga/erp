@@ -327,7 +327,8 @@ sealed partial class Probe
         try
         {
             Require(responses.Count(x => x.StatusCode == HttpStatusCode.OK) == 1 && responses.Count(x => x.StatusCode == HttpStatusCode.Conflict) == 1,
-                "Concurrent publication did not return exactly one success and one controlled CAS/transaction conflict.");
+                "Concurrent publication did not return exactly one success and one controlled CAS/transaction conflict. Observed statuses: "
+                    + string.Join(',', responses.Select(x => (int)x.StatusCode)));
             Require((await SourcingPolicyRows(id)).Length == 3, "Concurrent publication appended duplicate proof.");
             using var scope = Scope(buyer); var db = scope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             Require(await db.AuditEvents.CountAsync(x => x.RecordType == "PolicyVersion" && x.RecordId == id && x.Action == "Published") == 1,

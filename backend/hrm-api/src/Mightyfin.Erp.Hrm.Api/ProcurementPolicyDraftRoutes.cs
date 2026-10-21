@@ -322,7 +322,7 @@ public static partial class ProcurementPolicyDraftRoutes
         }
         catch (DbUpdateConcurrencyException)
         { return Problem("version-conflict", "Refresh this policy before publication.", 409); }
-        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        catch (Exception error) when (ProcurementPostgresFailures.IsConcurrency(error))
         { return Problem("publication-conflict", "Another policy changed. Refresh and review the effective period.", 409); }
         finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }
