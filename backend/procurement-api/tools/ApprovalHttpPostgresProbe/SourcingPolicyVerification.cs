@@ -35,6 +35,9 @@ sealed partial class Probe
         }
         await RuntimePrivileges.AssertDeniedAsync(runtimeConnection, fixtureServices, sourcingPolicies: true);
         await ConfigureFiniteSourcingPolicyActors();
+        var lookupReadiness = await Get(SourcingPoliciesPath + "/lookups/sourcing-reviewers?principalIds=" + manager2.ToString("D"), buyer);
+        Require(lookupReadiness.GetProperty("configurationVersion").GetInt32() == 1
+            && lookupReadiness.GetProperty("total").GetInt32() == 1, "Normal-host CLI lookup lacks actual computed sourcing configuration readiness.");
         var start = DateTimeOffset.UtcNow.AddDays(1);
         var current = await CreateSourcingPolicy(start);
         var id = current.GetProperty("id").GetGuid();
