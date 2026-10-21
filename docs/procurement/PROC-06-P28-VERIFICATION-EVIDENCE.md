@@ -1,6 +1,6 @@
 # P28 — governed sourcing drafts verification
 
-Status:701domain/model tests and compiled migration SQL passed; actual PostgreSQL and RFQ execution pending.21October2026.
+Status:701domain/model tests, compiled SQL and actual PostgreSQL preservation/rollback passed; mapped API and RFQ runtime pending.21October2026.
 
 ## Candidate and boundary
 
@@ -57,3 +57,12 @@ Distinct read-only SQL review accepted seven additive event columns, three owned
 ## First actual rehearsal attempt — retained runner failure
 
 Private20261021_070938 stopped at operation012 before schema application: EF SQL contains a UTF-8 BOM; prepending bounded session controls made that BOM an invalid interior SQL token. The runner now decodes utf-8-sig before execution and hashes the original SQL file bytes. Migration SQL/guards/schema are unchanged. Failed logs/database are retained; the corrected run must use a new output/prefix. This is not a database preservation or runtime pass.
+
+
+## Corrected actual PostgreSQL17 rehearsal — PASS
+
+Private /home/amizo/erp-backups/procurement-p28-postgres-20261021_071011/ completed with process0/resultPASS. Actual SQL from7d4e733 retains the reviewed hashes above. Helperf775567 (unchanged through end-of-run HEAD6104122) operated only new isolated databases and the read-only retained real P27 legacy-source fixture. Ten fresh/used/unused/negative databases passed repeated Up and exact original-column/JSON/hash/full-history preservation. Unused Down restored full original P27 data/schema/history including actual legacy cancelled RFQ evidence; repeated Up restored the exact upgraded snapshot.
+
+Seven separate owner-only malformed/recovery negatives (partial metadata, each of the three owned tables, unique reservation audit-only, governed cancellation audit-only, actual cancellation outbox-type-only) each raised GovernedSourcingRollbackWouldLoseEvidence and preserved the entire deliberately seeded clone snapshot. These are DDL-protection fixtures, not valid business authorization. Original source remained unchanged. No DROP DATABASE/forced disconnect or original history deletion. Numbered operation logs, actual engine version, exact CHECK TSV/JSON and result retained privately.
+
+Actual database-returned four validated pg_get_constraintdef(false) definitions are frozen verbatim in production readiness and a non-sensitive committed literal contract. No cast/grouping normalization. This is not positive finite-role/readiness/API/RFQ/browser execution or a production deployment.
