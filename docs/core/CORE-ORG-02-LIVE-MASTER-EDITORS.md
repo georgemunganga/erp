@@ -174,3 +174,11 @@ package/lock/tsconfig or other agents' payroll/benefits/attendance files are cha
 These fixes and three guard cases are source-only and unrun; root owns the next
 combined locked-dependency TypeScript/build/browser verification. No runtime success
 or deployment is claimed.
+
+### Locked frontend verification — PASS, 21 October 2026
+
+Frozen frontend source `eea60ba`: TypeScript, all **10/10** focused helper/guard cases and the real-API-mode production SSR build passed. All **6/6** Chromium organisation-editor scenarios passed with one worker and zero retries (33.2 seconds): company currency and department edits without workforce reads or hidden-field payloads; unconfirmed-create recovery without a second POST; server-denied input preservation; Escape recovery; pending-edit isolation after shell company change; and late location-response isolation.
+
+Dependencies were installed from the unchanged lockfile; both dependency manifests were verified against their original hashes after the gate. Complete output bundle hashes, source identity, build/test logs and results are retained in `/home/amizo/erp-backups/core-organisation-ui-20261021_074524/`. Earlier offline-cache failure, the first low-memory TypeScript failure, the original type errors and the first row-key typing failure remain recorded separately. The corrected row-key type keeps explicit callbacks outside the conditional legacy-ID fallback and does not suppress type checking.
+
+Browser scenarios intercept HTTP contracts and prove presentation behavior only. They do not prove actual SSO/PostgreSQL or deployment. The earlier 28/28 mapped SQLite Core service/HTTP cases remain a separate backend checkpoint. Actual-session integration and release gates remain open. Existing build warnings about route naming, dependency plugins and bundle size were not hidden.
