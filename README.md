@@ -1,4 +1,4 @@
-# MightyFin Enterprise ERP
+# Greenwebb Enterprise ERP
 
 Status: **HRM frontend/API present; Procurement frontend demo and backend foundation present**
 
