@@ -126,6 +126,20 @@ Before the next shared-host release, retain the live HRM loan model and migratio
 | Inventory/Asset item mapping and receipt tolerances | Stock/asset handoff and over-receipt | Receipt draft/inspection evidence and integration outbox contracts |
 | Production backup, migration review, threat model, independent security review and UAT | Production activation | Source implementation and disposable/staging verification |
 
+## Latest verification checkpoint —21October2026,07:11UTC
+
+Production remains APIv36/schemaP19 with execution disabled. This checkpoint supersedes earlier pending statements only for the explicitly verified source/private gates.
+
+| Increment | Evidence | Next gate |
+| --- | --- | --- |
+| P27 Finance identity |601domain/model +197mapped API on original source; corrected follow-up89requestAPI (overlapping, separate source). Actual PG17 upgrade/preservation/rollback and exact CHECK freeze passed. Restricted full PO/identity runtime passed. Actual Budget Chromium1/1 plus fresh independent persisted-owner verification passed with exact source amount and one capture. | Full-host release/recovery/security/UAT; external Finance authority remains separate. |
+| Legacy RFQ compatibility | Actual privateP27 toolcdb1c0c build/runtime passed. Real legacy create/cancel retains two lines and exact old before/after audit; all unrelated Procurement data unchanged. Source database retained closed for P28 clone rehearsal. | Actual P28 used/fresh/unused rollback preservation. |
+| Governed RFQ draft/P28 |701/701domain/model passed. Reviewed additive migration20261021065049 generated/compiled with no drift; independent SQL review accepted exact scoped deferred FKs and rollback guard. Actual rehearsal underway; first runner-only BOM failure retained/corrected without changing SQL. | PG17 CHECK freeze/preservation/rollback; mappedAPI and finite-runtime source/hold/cancel/replay/concurrency/security; actual browser. |
+| RFQ UI | Prior separate source28focused +9mockbrowser passed. Newda00853 fixes genuine G29 exponent projection through existing shared bounded decimal parser; regression/browser gates pending on new assets. |23RFQ focused plus shared regression/types/build and14mockbrowser; actual API browser remains separate. |
+| Core organization | Reviewed ERP-only authority/editor source +mapped HTTP negatives authored, not yet executed. | Backend authorization tests, frontend contracts/types/browser, actual ERP-only session/API proof. |
+
+Remaining programme scope includes RFx publication/invitations/bids/evaluation/award, contracts beyond drafts, external owner integrations/AP/payment visibility, portal and governed reporting. These are still unfinished. Source and private gates do not deploy or activate a feature.
+
 ## Latest verification checkpoint — 20 October 2026, 19:04 UTC
 
 This checkpoint supersedes pending statements in the historical registers below; it does not change production. API v36/schema P19 and disabled execution flags remain the deployed baseline.
