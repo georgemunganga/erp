@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -326,6 +327,17 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
                 // Endpoint action projections re-use IAuthorizationService. Narrow those
                 // checks as well as context permissions; never alter global ERP roles.
                 http.User.AddIdentity(new ClaimsIdentity([new Claim(ProcurementPermissions.AdminViewOnlyClaim, "true")]));
+                // Route authorization has already run. A GET guarded by a command
+                // permission (for example vendor-suspend) must not inherit the
+                // earlier administrator shortcut after this request is narrowed.
+                var required = http.GetEndpoint()?.Metadata.GetOrderedMetadata<IAuthorizeData>();
+                if (required is not null && required.Any(x => !string.IsNullOrWhiteSpace(x.Policy)
+                    && !ProcurementPermissions.IsReadOnlyPolicy(x.Policy)))
+                {
+                    await Deny(http, StatusCodes.Status403Forbidden,
+                        "This Procurement view requires an employee business permission.");
+                    return;
+                }
             }
             else scope.AssignWorker(workerId.Value);
         }
