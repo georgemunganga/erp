@@ -1,6 +1,6 @@
 # P28 — governed sourcing drafts verification
 
-Status:701domain/model tests, compiled SQL and actual PostgreSQL preservation/rollback passed; mapped API and RFQ runtime pending.21October2026.
+Status:701domain/model tests, compiled SQL and actual PostgreSQL preservation/rollback passed; mapped API and actual finite-role RFQ runtime passed; real browser completion pending.21October2026.
 
 ## Candidate and boundary
 
@@ -96,3 +96,14 @@ Source6447e7e:31/31 focused mapped sourcing API cases passed,0failed/skipped (11
 ## Second actual finite RFQ run — relational checks PASS; fixture correction
 
 Fresh private20261021_072425 on6447e7e passed source discovery, actual partial/consolidated draft creation, and all eight exact named raw CHECK/FK denial/rollback/fresh-restricted evidence checks. It then failed an explicit foreign-tenant fixture assertion: the existing HrmDbContext correctly stamps new records with its owning tenant, so manually setting another TenantId under the probe owner cannot create another tenant. The fixture now uses a separate bootstrap-owned context with the real other-tenant accessor; production tenancy enforcement stays unchanged and no stored tenant is rewritten. Original failed run retained. Full security/concurrency/cancellation runtime still pending a fresh corrected run.
+
+
+## Corrected actual finite-role RFQ HTTP/PostgreSQL gate — PASS
+
+Executable585591b: private /home/amizo/erp-backups/procurement-p28-http-rfq-20261021_072828/ completed standalone --rfq with process0/resultPASS. Source and binary hashes, separate bootstrap/runtime provision manifest and full logs retained. No fake schema readiness or Procurement table creation shortcut.
+
+Actual P28 reader accepted the exact mapped schema/ownership/CHECK/privilege contract; removing original-request UPDATE correctly blocked commands while preserving readonly history and rollback restored the grant. Actual independent funding/checker tests and raw P27 identity checks passed. Real HTTP competitive policy approval, source PR submit/fund/Core decisions, partial/consolidated RFQ holds and exhausted/overallocation/denied operations ran against PostgreSQL. All eight exact named raw CHECK/FK denial cases passed with rollback plus fresh restricted hash/column reload.
+
+Canonical alias, rebound account, inactive account, same-tenant foreign-company, fixed-tenant foreign-account rejection and current/retained branch privacy tests passed. Actual catalog withdrawal blocked new holds but preserved original-key replay/cancel. Complete event-owned quantity release, history/replay/recovery, same/new-key concurrent conservation, receipt failure rollback and original-key retry, exact eight-place product, and competitive-versus-direct route exclusion passed. Final P27 unsupported submission discriminator check passed. These selective footprints are not an entire-database audit or a real tenant-B authenticated session.
+
+This completes the bounded internal draft lifecycle gate only. Real browser+fresh owner completion is next. Supplier publication/invitations/bids/award, external Finance completeness/AP, inventory/asset delivery and production deployment remain unclaimed; flags remain off in production.
