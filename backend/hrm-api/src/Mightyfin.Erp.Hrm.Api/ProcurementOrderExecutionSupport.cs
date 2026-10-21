@@ -83,30 +83,12 @@ public static partial class ProcurementOrderExecutionRoutes
     private static async Task<ApprovedPurchaseSource> Source(ProcurementDbContext db, ApprovalDbContext core,
         ProcurementRequestScope scope, Guid requestId, Guid lineId, CancellationToken ct)
     {
-        var request = await db.PurchaseRequests.Include(x => x.Lines).SingleOrDefaultAsync(x => x.Id == requestId, ct)
-            ?? throw new OrderProblem("OrderSourceNotFound", 404);
-        if (scope.WorkLocationId is { } selected && request.BranchRef != selected
-            || scope.IsConfined && request.BranchRef != scope.WorkLocationId) Missing();
-        var line = request.Lines.SingleOrDefault(x => x.Id == lineId) ?? throw new OrderProblem("OrderSourceNotFound", 404);
-        if (!Guid.TryParse(request.ApprovalInstanceRef, out var caseId)) Conflict("OrderSourceNotApproved");
-        var pin = await db.ApprovalSubmissions.SingleOrDefaultAsync(x => x.CoreApprovalCaseId == caseId, ct)
-            ?? throw new OrderProblem("OrderSourceApprovalEvidenceMissing", 409);
-        var outcome = await db.ApprovalOutcomes.SingleOrDefaultAsync(x => x.SubmissionId == pin.Id && x.Outcome == "Approved", ct)
-            ?? throw new OrderProblem("OrderSourceNotApproved", 409);
-        var workflow = await core.Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)
-            ?? throw new OrderProblem("OrderSourceCaseMissing", 409);
-        var decision = await core.Decisions.SingleOrDefaultAsync(x => x.Id == outcome.CoreDecisionId, ct)
-            ?? throw new OrderProblem("OrderSourceDecisionMissing", 409);
-        var evaluation = await db.PolicyEvaluations.SingleAsync(x => x.Id == pin.PolicyEvaluationId, ct);
-        var policy = await db.PolicyVersions.SingleAsync(x => x.Id == pin.PolicyVersionId, ct);
-        var finance = await db.BudgetCheckSnapshots.SingleAsync(x => x.Id == pin.FinanceSnapshotId, ct);
-        using var json = JsonDocument.Parse(evaluation.DecisionJson);
-        var methodCode = json.RootElement.GetProperty("lines").EnumerateArray().Single(x => x.GetProperty("lineId").GetGuid() == lineId)
-            .GetProperty("decision").GetProperty("sourcingMethodCode").GetString();
-        var method = await db.ProcurementMethods.SingleOrDefaultAsync(x => x.Code == methodCode, ct)
-            ?? throw new OrderProblem("OrderSourceMethodUnavailable", 409);
-        var allocations = await db.PurchaseRequestAllocations.Where(x => x.PurchaseRequestLineId == lineId).ToListAsync(ct);
-        return new(request, line, pin, outcome, workflow, decision, evaluation, policy, finance, method, allocations);
+        try { return await ApprovedDemandSourceLoader.LoadAsync(db, core, scope, requestId, lineId, ct); }
+        catch (ApprovedDemandLoadException error)
+        {
+            var failure = ProcurementDemandSourceFailures.ForOrder(error.Failure);
+            throw new OrderProblem(failure.Code, failure.Status);
+        }
     }
 
     // New commitments only: do not call from historic receipt/cancel/release/delivery paths.

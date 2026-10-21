@@ -8,7 +8,10 @@ public sealed record ApprovedPurchaseSource(PurchaseRequest Request, PurchaseReq
     PurchaseRequestApprovalSubmission Submission, PurchaseRequestApprovalOutcome Outcome,
     ApprovalCase CoreCase, ApprovalDecision FinalDecision, PolicyEvaluation Evaluation,
     PolicyVersion Policy, BudgetCheckSnapshot Finance, ProcurementMethod Method,
-    IReadOnlyList<PurchaseRequestAllocation> Allocations);
+    IReadOnlyList<PurchaseRequestAllocation> Allocations,
+    // Current database ownership proof; never part of any frozen business/evidence payload.
+    [property: System.Text.Json.Serialization.JsonIgnore]
+    IReadOnlyList<PurchaseDemandAllocationOwner>? AllocationOwners = null);
 public sealed record PurchaseSourceAvailability(decimal AvailableQuantity, decimal ApprovedUnitPrice,
     decimal ApprovedLineBase, string CurrencyCode, Guid SourceSubmissionId, Guid SourceCaseId);
 
@@ -23,33 +26,14 @@ public static class PurchaseOrderSourceAllocation
         string tenant, Guid company, DateTimeOffset at)
     {
         var request = source.Request; var line = source.Line;
-        if (request.TenantId != tenant || request.LegalEntityId != company || line.TenantId != tenant
-            || line.LegalEntityId != company || line.PurchaseRequestId != request.Id
-            || request.Lines.Count(x => x.Id == line.Id) != 1
-            || !ReferenceEquals(request.Lines.Single(x => x.Id == line.Id), line)) Fail("OrderSourceScopeMismatch");
-        if (request.Status is not ("Approved" or "PartiallyOrdered" or "Ordered")
-            || request.ApprovalState != "Approved" || line.ApprovalStatus != "Approved"
-            || line.ApprovedQuantity <= 0 || line.ApprovedQuantity > line.RequestedQuantity
-            || line.Route is not ("Unassigned" or "DirectPurchase"))
-            Fail("OrderSourceNotApproved");
-        var pin = source.Submission; var outcome = source.Outcome; var core = source.CoreCase;
-        var decision = source.FinalDecision;
-        if (!PurchaseRequestApprovalPinning.VerifyBusinessEvidence(pin, request, source.Evaluation,
-                source.Policy, source.Finance, tenant, company).IsValid
-            || outcome.TenantId != tenant || outcome.LegalEntityId != company
-            || outcome.PurchaseRequestId != request.Id || outcome.SubmissionId != pin.Id
-            || outcome.SubmittedBusinessVersion != pin.SubmittedBusinessVersion
-            || outcome.CoreApprovalCaseId != pin.CoreApprovalCaseId || outcome.Outcome != "Approved"
-            || core.Id != pin.CoreApprovalCaseId || core.TenantId != tenant || core.LegalEntityId != company
-            || core.SourceModule != "procurement" || core.SourceType != "purchase_request"
-            || core.SourceId != request.Id || core.SourceVersion != pin.SubmittedBusinessVersion || core.State != "Approved"
-            || core.PolicyVersionId != pin.PolicyVersionId || core.PolicyVersionNumber != pin.PolicyVersionNumber
-            || core.MakerSubjectId != request.CreatedBy || core.CompletedAt is null || at < core.CompletedAt
-            || decision.Id != outcome.CoreDecisionId || decision.CaseId != core.Id || decision.Action != "Approve"
-            || decision.TenantId != tenant || decision.LegalEntityId != company
-            || decision.ActorSubjectId == core.MakerSubjectId || outcome.DecisionCommandKey != decision.IdempotencyKey
-            || core.CompletionKey != decision.IdempotencyKey)
-            Fail("OrderSourceAuthorityMismatch");
+        try { ApprovedPurchaseDemand.Verify(source, tenant, company, at); }
+        catch (InvalidOperationException error) when (error.Message is "ApprovedDemandScopeMismatch" or "ApprovedDemandNotApproved" or "ApprovedDemandAuthorityMismatch")
+        {
+            Fail(error.Message switch { "ApprovedDemandScopeMismatch" => "OrderSourceScopeMismatch",
+                "ApprovedDemandNotApproved" => "OrderSourceNotApproved", _ => "OrderSourceAuthorityMismatch" });
+        }
+        if (line.Route is not ("Unassigned" or "DirectPurchase")) Fail("OrderSourceNotApproved");
+        var pin = source.Submission; var core = source.CoreCase;
         if (source.Method.TenantId != tenant || source.Method.LegalEntityId != company
             || source.Method.Status != "Active" || source.Method.ExecutionRoute != "DirectPurchase")
             Fail("OrderSourceMethodNotDirect");
@@ -66,19 +50,11 @@ public static class PurchaseOrderSourceAllocation
                 || quoteCount.ValueKind != JsonValueKind.Number || !quoteCount.TryGetInt32(out var quotes) || quotes != 0)
                 Fail("OrderSourceCompetitionRequired");
         }
-        var ledger = source.Allocations;
-        if (ledger.Any(x => x.TenantId != tenant || x.LegalEntityId != company
-                || x.PurchaseRequestId != request.Id || x.PurchaseRequestLineId != line.Id
-                || x.CurrencyCode != request.CurrencyCode || x.Quantity <= 0
-                || x.Status is not ("Reserved" or "Ordered" or "Released")
-                || x.TargetType != "PurchaseOrder" || x.TargetId is null)
-            || ledger.Select(x => x.Id).Distinct().Count() != ledger.Count
-            || ExactDecimalArithmetic.Sum(ledger.Where(x => x.Status == "Reserved").Select(x => x.Quantity)) != line.AllocatedQuantity
-            || ExactDecimalArithmetic.Sum(ledger.Where(x => x.Status == "Ordered").Select(x => x.Quantity)) != line.OrderedQuantity
-            || line.CancelledQuantity < 0 || line.AcceptedQuantity < 0 || line.AcceptedQuantity > line.OrderedQuantity)
-            Fail("OrderSourceAllocationUnreconciled");
-        var available = ExactDecimalArithmetic.Sum(new[] { line.ApprovedQuantity, -line.CancelledQuantity, -line.AllocatedQuantity, -line.OrderedQuantity });
-        if (available < 0) Fail("OrderSourceOverallocated");
+        decimal available;
+        try { available = PurchaseDemandAllocationBalance.Evaluate(request, line, source.Allocations,
+            source.AllocationOwners ?? [], tenant, company).AvailableQuantity; }
+        catch (InvalidOperationException error) when (error.Message is "DemandAllocationUnreconciled" or "DemandOverallocated")
+        { Fail(error.Message == "DemandOverallocated" ? "OrderSourceOverallocated" : "OrderSourceAllocationUnreconciled"); throw; }
         return new(available, line.EstimatedUnitPrice, ExactDecimalArithmetic.Multiply(line.ApprovedQuantity, line.EstimatedUnitPrice),
             request.CurrencyCode, pin.Id, core.Id);
     }
@@ -98,7 +74,7 @@ public static class PurchaseOrderSourceAllocation
             || line.TaxAmount < 0 || !ExactDecimalJsonCodec.IsRepresentable(line.TaxAmount, 18, 4))
             Fail("OrderSourceAllocationInvalid");
         var key = $"order.reserve.{commandKey:N}.{source.Line.Id:N}";
-        if (source.Allocations.Any(x => x.IdempotencyKey == key || x.TargetId == order.Id && x.Status != "Released"))
+        if (source.Allocations.Any(x => x.IdempotencyKey == key || x.TargetType == "PurchaseOrder" && x.TargetId == order.Id && x.Status != "Released"))
             Fail("OrderSourceAllocationAlreadyRecorded");
         // Compute every fallible value before touching the tracked aggregate.
         var nextAllocated = ExactDecimalArithmetic.Add(source.Line.AllocatedQuantity, quantity);

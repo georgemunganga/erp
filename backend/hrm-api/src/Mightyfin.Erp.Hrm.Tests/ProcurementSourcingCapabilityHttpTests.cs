@@ -1,0 +1,99 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
+
+namespace Mightyfin.Erp.Hrm.Tests;
+
+/// <summary>Mapped availability contract only; fake ready schema is test-only, not a runtime provider.</summary>
+public sealed class ProcurementSourcingCapabilityHttpTests
+{
+    [Fact]
+    public async Task Production_readiness_and_options_cannot_advertise_an_absent_RFQ_adapter()
+    {
+        Assert.False(new ProcurementSourcingDraftExecutionOptions().Enabled);
+        Assert.False(new ProcurementSourcingDraftExecutionOptions().ExecutionDatabaseConfigured);
+        Assert.False(await new UnavailableProcurementSourcingDraftSchemaReadiness().IsReadyAsync(default));
+    }
+
+    [Theory]
+    [InlineData(false, true, true, false, false, 0)]
+    [InlineData(true, false, true, false, false, 0)]
+    [InlineData(true, true, false, false, false, 1)]
+    [InlineData(true, true, true, true, false, 0)]
+    [InlineData(true, true, true, false, true, 1)]
+    public async Task Governed_capability_requires_all_technical_gates_without_removing_legacy_drafts(
+        bool enabled, bool configured, bool ready, bool pending, bool expected, int calls)
+    {
+        var scope = new ProcurementRequestScope();
+        scope.Set("capability-test", Guid.NewGuid(), Guid.NewGuid().ToString("D"), null, null, false, "test");
+        await using var connection = new SqliteConnection("Data Source=:memory:"); await connection.OpenAsync();
+        var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
+        builder.Services.AddSingleton(scope); builder.Services.AddSingleton<IProcurementScope>(scope);
+        builder.Services.AddDbContext<ProcurementDbContext>(o => o.UseSqlite(connection));
+        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = enabled, ExecutionDatabaseConfigured = configured });
+        var readiness = new Readiness(ready);
+        builder.Services.AddSingleton<IProcurementSourcingDraftSchemaReadiness>(readiness);
+        builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions());
+        builder.Services.AddSingleton(new CoreDocumentFeature(false));
+        builder.Services.AddAuthentication("capability-test").AddScheme<AuthenticationSchemeOptions, Authentication>("capability-test", _ => { });
+        builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
+        await using var app = builder.Build(); app.UseAuthentication(); app.UseAuthorization();
+        ProcurementHostIntegration.MapMetadataRoute(app);
+        using (var services = app.Services.CreateScope())
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            // Metadata-only fixture: no claim of PostgreSQL schema or real workflow execution.
+            var history = db.GetService<IHistoryRepository>();
+            await db.Database.ExecuteSqlRawAsync(history.GetCreateIfNotExistsScript());
+            var migrations = db.Database.GetMigrations().ToArray(); Assert.NotEmpty(migrations);
+            foreach (var migration in pending ? migrations.Skip(1) : migrations)
+                await db.Database.ExecuteSqlRawAsync(history.GetInsertScript(new HistoryRow(migration, "10.0.11")));
+        }
+        await app.StartAsync(); using var client = app.GetTestClient();
+        using var response = await client.GetAsync("/api/procurement/v1/meta"); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(); var capabilities = body.GetProperty("capabilities");
+        Assert.Equal(expected, capabilities.GetProperty("sourcingSourceDrafts").GetBoolean());
+        Assert.Equal(!pending, capabilities.GetProperty("sourcingDraft").GetBoolean());
+        Assert.False(capabilities.GetProperty("sourcing").GetBoolean());
+        Assert.False(capabilities.GetProperty("orders").GetBoolean());
+        Assert.Equal(calls, readiness.Calls);
+    }
+
+    private sealed class Readiness(bool ready) : IProcurementSourcingDraftSchemaReadiness
+    {
+        public int Calls { get; private set; }
+        public Task<bool> IsReadyAsync(CancellationToken ct) { Calls++; return Task.FromResult(ready); }
+    }
+
+    private sealed class Authentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
+        UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    {
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        {
+            var identity = new ClaimsIdentity(new[]
+            {
+                new Claim("sub", "fixture"), new Claim("tenant", "capability-test"), new Claim(ClaimTypes.Role, "erp_admin"),
+            }, Scheme.Name);
+            return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));
+        }
+    }
+}

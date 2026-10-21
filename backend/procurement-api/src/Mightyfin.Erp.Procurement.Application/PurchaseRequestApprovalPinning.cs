@@ -218,6 +218,6 @@ public static class PurchaseRequestApprovalPinning
             }).ToArray(),
     });
 
-    // Kept for compatibility with existing internal source encoders in later integration branches.
-    private static string FinanceSnapshot(BudgetCheckSnapshot f) => FinanceSnapshotCodec.Legacy(f);
+    // Internal source owners retain the exact legacy encoder for schema0 history.
+    internal static string FinanceSnapshot(BudgetCheckSnapshot f) => FinanceSnapshotCodec.Legacy(f);
 }

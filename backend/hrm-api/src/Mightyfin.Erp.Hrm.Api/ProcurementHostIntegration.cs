@@ -24,6 +24,10 @@ public static class ProcurementHostIntegration
             ?? new ProcurementOrderExecutionOptions();
         orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(orderOptions);
+        var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
+        sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(sourcingOptions);
+        services.AddScoped<IProcurementSourcingDraftSchemaReadiness, ProcurementSourcingDraftSchemaReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
@@ -72,6 +76,7 @@ public static class ProcurementHostIntegration
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
+        ProcurementSourcingExecutionRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
         ProcurementInvoiceMatchingRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
@@ -135,6 +140,11 @@ public static class ProcurementHostIntegration
                         configurationDraft = !pending,
                         contractDraft = !pending,
                         sourcingDraft = !pending,
+                        // Separate future governed holds/releases from existing unlinked draft CRUD.
+                        sourcingSourceDrafts = !pending
+                            && services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().ExecutionDatabaseConfigured
+                            && await services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct),
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,

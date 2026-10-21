@@ -76,6 +76,7 @@ public sealed class ProcurementApprovalCapabilityHttpTests
         builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
         builder.Services.AddSingleton<IProcurementApprovalSchemaReadiness>(readiness);
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions());
         builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness { Ready = scenario != "finance-checker-schema-not-ready" });
         builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions());
         builder.Services.AddSingleton(new CoreDocumentFeature(false));
