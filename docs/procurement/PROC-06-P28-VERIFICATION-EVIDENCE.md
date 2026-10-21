@@ -66,3 +66,8 @@ Private /home/amizo/erp-backups/procurement-p28-postgres-20261021_071011/ comple
 Seven separate owner-only malformed/recovery negatives (partial metadata, each of the three owned tables, unique reservation audit-only, governed cancellation audit-only, actual cancellation outbox-type-only) each raised GovernedSourcingRollbackWouldLoseEvidence and preserved the entire deliberately seeded clone snapshot. These are DDL-protection fixtures, not valid business authorization. Original source remained unchanged. No DROP DATABASE/forced disconnect or original history deletion. Numbered operation logs, actual engine version, exact CHECK TSV/JSON and result retained privately.
 
 Actual database-returned four validated pg_get_constraintdef(false) definitions are frozen verbatim in production readiness and a non-sensitive committed literal contract. No cast/grouping normalization. This is not positive finite-role/readiness/API/RFQ/browser execution or a production deployment.
+
+
+## Distinct actual CHECK literal review — PASS
+
+Read-only review of6104122 independently decoded all four C# literals and compared them to protected PostgreSQL-returned definitions: exact equality, all unique/validated. Protected and committed JSON are byte-identical SHA256bfa430ccf7e7a8ce3234e3fe14330199aeff5f471e7e1b85cf1a9db701ab0999. Reader still requires exact table/name/check type, validation/local status and unchanged raw definition; no SQL normalization or authority weakening. Finite-role positive runtime remains unrun.
