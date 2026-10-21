@@ -1,6 +1,6 @@
 # P28 — governed sourcing drafts verification
 
-Status: source compilation correction; migration and execution pending.21October2026.
+Status:701domain/model tests and compiled migration SQL passed; actual PostgreSQL and RFQ execution pending.21October2026.
 
 ## Candidate and boundary
 
@@ -45,3 +45,10 @@ Actual generated change: seven additive SourcingEvent fields, three immutable ow
 Independent source review accepted the additive schema, exact overlays/ordering, Designer/Snapshot and transactional protection, but found legacy unlinked RFQ cancellation already emits SourcingEvent/DraftCancelled. A broad action-name veto would incorrectly block unused-P28 rollback on valid P27 history.
 
 The guard now treats only new DraftReserved as action-unique; governed create/cancel audits explicitly retain executionVersion, sourceEvidenceId, originalDraftFingerprint and commandKey with their changes. Existing exact unique-field token veto protects these governed cancellations without classifying old legacy cancellation as new evidence. Existing P27 producers have neither unique field; no stored audit is rewritten. This governed adapter has never been activated, so there is no historical unmarked governed audit to infer/backfill. Actual rehearsal must include pre-P28 legacy cancellation plus isolated governed cancellation audit-only preservation.
+
+
+## Compiled migration SQL and independent review — PASS
+
+Executable7d4e733: infrastructure Release build succeeded (0warnings/errors), EF reported no pending model changes, and actual idempotent zero-to-P28 Up plus P28-to-P27 Down scripts generated; session74431 terminated0. Log artifacts/p28/compile-sql.log. Up SHA2569ad85440e271baa283ac5a471184fd1d93fdfbabe4606d3af4bdc3b4e3f9064c; Down815ce2aa488b1c98733b9754ac6c4e84346e7cccf6bc75422a88835b8613a16a.
+
+Distinct read-only SQL review accepted seven additive event columns, three owned tables, four CHECKs and four scoped deferred ownership FKs after their referenced indexes. Transactional Down locks/guard retain the legacy cancellation correction and reject governed evidence before any drop; no backfill, precision rewrite or CASCADE. Acceptance is for private PostgreSQL rehearsal only. Exact database-returned CHECK spelling, actual legacy cancellation Down/Up preservation, finite runtime and browser integration are still separate pending gates.
