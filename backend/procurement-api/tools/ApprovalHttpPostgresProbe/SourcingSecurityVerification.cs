@@ -69,9 +69,18 @@ sealed partial class Probe
         using (var fixture = Scope(buyer))
         {
             var core = fixture.ServiceProvider.GetRequiredService<HrmDbContext>();
-            core.LegalEntities.AddRange(foreignCompany, tenantCompany); core.WorkLocations.AddRange(foreignSite, tenantSite);
-            core.Workers.AddRange(foreignWorker, tenantWorker); core.LocalUsers.AddRange(foreignPerson, tenantPerson); await core.SaveChangesAsync();
-            Require(await core.LocalUsers.IgnoreQueryFilters().AnyAsync(x => x.Id == tenantPerson.Id && x.TenantId == "rfq-other-tenant"), "Foreign tenant fixture not retained as explicit separate tenant.");
+            core.LegalEntities.Add(foreignCompany); core.WorkLocations.Add(foreignSite);
+            core.Workers.Add(foreignWorker); core.LocalUsers.Add(foreignPerson); await core.SaveChangesAsync();
+        }
+        // The existing HrmDbContext correctly stamps its own tenant on every new row.
+        // Seed declared other-tenant identities through a distinct owner context, never
+        // bypass that invariant or rewrite a stored tenant after insertion.
+        await using (var tenantOwner = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseNpgsql(databaseConnection).Options, new Tenant("rfq-other-tenant")))
+        {
+            tenantOwner.LegalEntities.Add(tenantCompany); tenantOwner.WorkLocations.Add(tenantSite);
+            tenantOwner.Workers.Add(tenantWorker); tenantOwner.LocalUsers.Add(tenantPerson); await tenantOwner.SaveChangesAsync();
+            Require(await tenantOwner.LocalUsers.AnyAsync(x => x.Id == tenantPerson.Id && x.TenantId == "rfq-other-tenant"), "Foreign tenant fixture not retained as explicit separate tenant.");
         }
         var footprint = await RfqFootprint();
         async Task<HttpResponseMessage> Foreign(string path, HttpMethod? method = null, object? body = null)

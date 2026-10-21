@@ -91,3 +91,8 @@ Private /home/amizo/erp-backups/procurement-p28-http-rfq-20261021_071330/ on7517
 ## Source-discovery correction gate —31PASS/tool build PASS
 
 Source6447e7e:31/31 focused mapped sourcing API cases passed,0failed/skipped (11seconds), and the private probe rebuilt successfully (0errors). These overlap the earlier238case gate and are a separate source checkpoint; do not sum them. Actual PG diagnostics motivated the two casts, and distinct source review confirmed varchar mapping and unchanged scope/count semantics. Evidence artifacts/p28/discovery-correction.log and sourcing-discovery-correction/; fresh actual database runtime is separate and still pending.
+
+
+## Second actual finite RFQ run — relational checks PASS; fixture correction
+
+Fresh private20261021_072425 on6447e7e passed source discovery, actual partial/consolidated draft creation, and all eight exact named raw CHECK/FK denial/rollback/fresh-restricted evidence checks. It then failed an explicit foreign-tenant fixture assertion: the existing HrmDbContext correctly stamps new records with its owning tenant, so manually setting another TenantId under the probe owner cannot create another tenant. The fixture now uses a separate bootstrap-owned context with the real other-tenant accessor; production tenancy enforcement stays unchanged and no stored tenant is rewritten. Original failed run retained. Full security/concurrency/cancellation runtime still pending a fresh corrected run.

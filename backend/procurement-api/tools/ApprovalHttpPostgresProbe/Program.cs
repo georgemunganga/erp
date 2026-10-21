@@ -849,7 +849,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     });
     public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); await fixtureServices.DisposeAsync(); }
 }
-sealed class Tenant : ITenantAccessor { public string GetTenantId() => "probe"; }
+sealed class Tenant(string tenantId = "probe") : ITenantAccessor { public string GetTenantId() => tenantId; }
 sealed class ProbeAuthentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
     UrlEncoder encoder, HrmDbContext core) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
