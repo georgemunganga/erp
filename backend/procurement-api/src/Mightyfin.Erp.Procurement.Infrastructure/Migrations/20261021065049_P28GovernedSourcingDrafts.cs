@@ -423,7 +423,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                       OR EXISTS (SELECT 1 FROM procurement.sourcing_command_receipts)
                       OR EXISTS (SELECT 1 FROM procurement.audit_events
                         WHERE record_type IN ('SourcingDraftEvidence','SourcingDemandBinding','SourcingCommandReceipt')
-                           OR (record_type='SourcingEvent' AND action IN ('DraftReserved','DraftCancelled'))
+                           OR (record_type='SourcingEvent' AND action='DraftReserved')
                            OR COALESCE(changed_fields_json::text,'') ~
                             '"(SourceEvidenceId|OriginalDraftFingerprint|sourceEvidenceId|originalDraftFingerprint)"')
                       OR EXISTS (SELECT 1 FROM procurement.outbox_events

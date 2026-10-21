@@ -150,7 +150,11 @@ public static partial class ProcurementSourcingExecutionRoutes
     private static void Record(ProcurementDbContext db, ProcurementRequestScope scope, SourcingEvent ev, string action, Guid key, object fields)
     {
         db.AddScoped(new AuditEvent { RecordType = "SourcingEvent", RecordId = ev.Id, Action = action,
-            ActorSubjectId = scope.SubjectId, ChangedFieldsJson = JsonSerializer.Serialize(fields, Json), CorrelationId = scope.CorrelationId });
+            ActorSubjectId = scope.SubjectId, ChangedFieldsJson = JsonSerializer.Serialize(new
+            {
+                executionVersion = ev.ExecutionVersion, sourceEvidenceId = ev.SourceEvidenceId,
+                originalDraftFingerprint = ev.OriginalDraftFingerprint, commandKey = key, changes = fields,
+            }, Json), CorrelationId = scope.CorrelationId });
         db.AddScoped(new OutboxEvent { AggregateType = "SourcingEvent", AggregateId = ev.Id,
             EventType = action == "DraftReserved" ? "sourcing.draft_reserved.v1" : "sourcing.draft_cancelled.v1",
             IdempotencyKey = $"rfq.{action}.{key:N}.v1", PayloadJson = JsonSerializer.Serialize(new { eventId = ev.Id, commandKey = key,

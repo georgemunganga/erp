@@ -38,3 +38,10 @@ This exposed a real separate UI gap: governed RFQ detail accepted only plain dec
 Session85098 on executableebca1f1 completed701/701 Procurement domain/model tests, zero failed/skipped (16seconds), and generated20261021065049_P28GovernedSourcingDrafts; session terminated0. Original700/1 failed TRX remains separate. No schema was applied.
 
 Actual generated change: seven additive SourcingEvent fields, three immutable owner-evidence/binding/receipt tables and their keys/indexes/checks; no old financial precision rewrite/backfill. Parent seals four frozen exact deferred ownership overlays after their referenced unique indexes. Down locks original demand then owned sourcing/evidence/audit/outbox tables, rejects any used/partial metadata, evidence tables and actual audit/outbox producer evidence before dropping those overlays and generated additions. Distinct migration/Designer/Snapshot review, compiled SQL/drift, PostgreSQL17 freeze/rehearsal and API/runtime acceptance remain pending.
+
+
+## Distinct review correction — legacy cancellation audit compatibility
+
+Independent source review accepted the additive schema, exact overlays/ordering, Designer/Snapshot and transactional protection, but found legacy unlinked RFQ cancellation already emits SourcingEvent/DraftCancelled. A broad action-name veto would incorrectly block unused-P28 rollback on valid P27 history.
+
+The guard now treats only new DraftReserved as action-unique; governed create/cancel audits explicitly retain executionVersion, sourceEvidenceId, originalDraftFingerprint and commandKey with their changes. Existing exact unique-field token veto protects these governed cancellations without classifying old legacy cancellation as new evidence. Existing P27 producers have neither unique field; no stored audit is rewritten. This governed adapter has never been activated, so there is no historical unmarked governed audit to infer/backfill. Actual rehearsal must include pre-P28 legacy cancellation plus isolated governed cancellation audit-only preservation.
