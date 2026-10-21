@@ -90,6 +90,9 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "Id")
+                        .HasName("ak_doc_owner_id");
+
                     b.HasIndex("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "UploadKey")
@@ -279,10 +282,213 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "VersionId", "Id")
+                        .HasName("ak_doc_scan_version_id");
+
                     b.HasIndex("TenantId", "LegalEntityId", "VersionId", "Attempt")
                         .IsUnique();
 
                     b.ToTable("scan_evidence", "core_document");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Core.Documents.Infrastructure.DocumentUsePinRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("DocumentRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OwnerModule")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("ScanAttempt")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ScanDefinitions")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ScanEngine")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("ScanEvidenceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ScanFinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ScanStartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ScanVerdict")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("UseSetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("VersionRevision")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id")
+                        .HasName("pk_doc_use_pins");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "DocumentId")
+                        .HasDatabaseName("ix_doc_use_document");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "DocumentId", "VersionId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "UseSetId", "VersionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_doc_use_set_version");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "VersionId", "ScanEvidenceId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "DocumentId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "UseSetId")
+                        .HasDatabaseName("IX_use_pins_TenantId_LegalEntityId_OwnerModule_OwnerType_Owne~1");
+
+                    b.ToTable("use_pins", "core_document", t =>
+                        {
+                            t.HasCheckConstraint("ck_doc_use_pin_shape", "\"DocumentRevision\" > 0 AND \"VersionRevision\" > 0 AND \"VersionNumber\" > 0 AND \"SizeBytes\" BETWEEN 1 AND 104857600 AND \"ScanAttempt\" > 0 AND \"ScanVerdict\" = 1 AND \"Sha256\" ~ '^[0-9a-f]{64}$' AND \"ScanFinishedAt\" >= \"ScanStartedAt\" AND \"CreatedAt\" >= \"ScanFinishedAt\"");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Core.Documents.Infrastructure.DocumentUseSetRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OwnerModule")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("SelectionCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SelectionDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("SourceModule")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<Guid>("SourceRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceRecordType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<long>("SourceRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("UseKey")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id")
+                        .HasName("pk_doc_use_sets");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "Id")
+                        .HasName("ak_doc_use_set_owner_id");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "UseKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_doc_use_key");
+
+                    b.ToTable("use_sets", "core_document", t =>
+                        {
+                            t.HasCheckConstraint("ck_doc_use_set_shape", "\"SourceRevision\" > 0 AND \"Kind\" IN (1,2) AND \"SelectionCount\" BETWEEN 1 AND 100 AND \"SelectionDigest\" ~ '^[0-9a-f]{64}$'");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Core.Documents.Domain.CoreDocumentVersion", b =>
@@ -313,6 +519,41 @@ namespace Mightyfin.Erp.Core.Documents.Infrastructure.Migrations
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Core.Documents.Infrastructure.DocumentUsePinRow", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Core.Documents.Domain.CoreDocumentVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "DocumentId", "VersionId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "DocumentId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_doc_pin_document_version");
+
+                    b.HasOne("Mightyfin.Erp.Core.Documents.Domain.DocumentScanEvidence", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "VersionId", "ScanEvidenceId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "VersionId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_doc_pin_version_scan");
+
+                    b.HasOne("Mightyfin.Erp.Core.Documents.Domain.CoreDocument", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "DocumentId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_doc_pin_document_owner");
+
+                    b.HasOne("Mightyfin.Erp.Core.Documents.Infrastructure.DocumentUseSetRow", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "UseSetId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "OwnerModule", "OwnerType", "OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_doc_pin_set_owner");
                 });
 #pragma warning restore 612, 618
         }
