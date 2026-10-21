@@ -579,7 +579,7 @@ function PaymentWorkflow({
   }, [run.id, run.paymentStatus, run.backendStatus]);
   const status = run.paymentStatus;
   const readiness = readinessState.data;
-  const currentSubjectId = user?.id ? String(user.id) : "";
+  const currentSubjectId = user?.subject ?? "";
   const generatedByMe = Boolean(
     currentSubjectId && run.paymentFileGeneratedBySubjectId === currentSubjectId,
   );
@@ -632,7 +632,7 @@ function PaymentWorkflow({
       key: "released",
       label: "Payslips released",
       done: ["released", "closed"].includes(run.backendStatus),
-      actor: run.releasedBy,
+      actor: run.releasedBySubjectId,
       blocked: !["released", "closed"].includes(run.backendStatus),
     },
     {
@@ -1506,6 +1506,7 @@ const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
 type OperationalPayRun = PayRun & {
   backendStatus: string;
   paymentStatus: string;
+  releasedBySubjectId?: string;
   paymentFileReference?: string;
   paymentFileGeneratedBySubjectId?: string;
   paymentApprovedBySubjectId?: string;
@@ -1576,6 +1577,7 @@ function adaptRun(raw: unknown, auditRows: unknown[] = []): OperationalPayRun {
     }),
     paymentStatus: String(r.paymentStatus ?? "not-created"),
     backendStatus: String(r.status ?? "draft"),
+    releasedBySubjectId: r.releasedBySubjectId ? String(r.releasedBySubjectId) : undefined,
     paymentFileReference: r.paymentFileReference ? String(r.paymentFileReference) : undefined,
     paymentFileGeneratedBySubjectId: r.paymentFileGeneratedBySubjectId
       ? String(r.paymentFileGeneratedBySubjectId)
@@ -1899,7 +1901,7 @@ function RunDetail() {
           {(run) => {
             if (!run) return <RestrictedState />;
 
-            const currentSubjectId = user?.id ? String(user.id) : "";
+            const currentSubjectId = user?.subject ?? "";
             const selfApproval = USE_REAL
               ? Boolean(currentSubjectId && run.preparedBy === currentSubjectId)
               : false;
