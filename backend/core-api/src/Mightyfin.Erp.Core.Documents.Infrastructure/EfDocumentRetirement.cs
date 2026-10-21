@@ -1,4 +1,5 @@
 using System.Data;
+using System.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Core.Documents.Application;
@@ -32,7 +33,7 @@ public sealed class EfDocumentRetirement(DocumentDbContext db, IDocumentScope sc
         try
         {
             await using var fence=await DocumentOwnerLifecycleFence.AcquireAsync(db,scope,[owner],true,ct);
-            await using var transaction=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
+            await using var transaction=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable,ct);
             var access=await authorizeOnOwner(db,ct) ?? throw new InvalidOperationException("Retirement authority is unavailable.");
             await access.RequireAsync(owner,documentId,expectedDocumentRevision,ct);
             await fence.RequireHeldAsync(db,scope,[owner],transaction.GetDbTransaction(),true,ct);
