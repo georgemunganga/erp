@@ -13,7 +13,7 @@ public sealed record SourcingPublicationPolicyPreview(string Status, string? Rul
     public bool CanPublish => false;
 }
 
-/// <summary>Pure proposed SOURCING schema, not registered in the live owned policy lifecycle.
+/// <summary>SOURCING schema used by the owned configuration lifecycle.
 /// Reuses the existing matching/coverage engine. A match is configuration preview only: it proves
 /// neither independently published policy, canonical identities, supplier/documents nor Core votes.</summary>
 public static class SourcingPublicationPolicyRules
