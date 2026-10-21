@@ -149,3 +149,6 @@ Business policy owner: designated Procurement/Finance authority, to be assigned.
 ## 28. Open Decisions / Assumptions
 
 Confirm named policy/review owners, monetary limits, effective intervals, all-scope access, required policy evidence, retention, notifications and delegation rules. Confirm supported treatment of other currencies/bases and future-dated replacements. These decisions do not block draft CRUD; they block publication or purchasing authorization where required evidence is missing. Source verification and deployment status are recorded separately from business approval.
+# Historical worker identity release hold
+
+See [PROC-03A-I1 retained worker identity audit and regression proposal](PROC-03A-WORKER-IDENTITY-REMEDIATION.md). Existing current-worker and principal checks do not retain original grant maker/submitter/recipient workers; a privileged Core account-worker swap can therefore defeat historical independence, and recipient relinking can transfer a principal grant to a new worker for new assignments. Already-opened assignment worker pins remain effective. Unchanged-binding configuration tests do not prove this missing historical control. The proposal is source-only and changes no application/schema/permissions or existing gate expectations.
