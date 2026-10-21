@@ -9,7 +9,7 @@ using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Unregistered P29 candidate: read-only discovery on the policy command's actual
+/// <summary>Normal-host P29 readiness: read-only discovery on the policy command's actual
 /// owning connection/transaction. It supplies no identity, publication or configuration-version authority.</summary>
 public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurementSourcingPolicyIdentitySchemaReadiness
 {

@@ -31,12 +31,17 @@ sealed partial class Probe
             sourcingPolicyBrowserMakerWorker = (await core.LocalUsers.SingleAsync(x => x.Id == buyer)).WorkerId!.Value;
             sourcingPolicyBrowserReviewerWorker = (await core.LocalUsers.SingleAsync(x => x.Id == manager1)).WorkerId!.Value;
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            Require(services.ServiceProvider.GetRequiredService<IProcurementSourcingPolicyIdentitySchemaReadiness>()
-                    is ProcurementSourcingPolicyIdentitySchemaReadiness
-                && await services.ServiceProvider.GetRequiredService<IProcurementSourcingPolicyIdentitySchemaReadiness>().IsReadyAsync(db, default),
-                "Browser must use the genuinely ready normal-host P29 provider, never a fixture substitute.");
             Require(!await db.PolicyVersions.AnyAsync(x => x.PolicyKey == "SOURCING")
                 && !await db.SourcingPolicyIdentityEvidenceRecords.AnyAsync(), "No sourcing policy/history may be preseeded for the browser.");
+        }
+        // Readiness belongs to the normal API container and its finite runtime connection;
+        // the separate bootstrap provider above intentionally owns fixture data only.
+        using (var runtime = app.Services.CreateScope())
+        {
+            var readiness = runtime.ServiceProvider.GetRequiredService<IProcurementSourcingPolicyIdentitySchemaReadiness>();
+            Require(readiness is ProcurementSourcingPolicyIdentitySchemaReadiness
+                && await readiness.IsReadyAsync(runtime.ServiceProvider.GetRequiredService<ProcurementDbContext>(), default),
+                "Browser must use the genuinely ready normal-host P29 provider, never a fixture substitute.");
         }
         var makerLookup = await Get(SourcingPoliciesPath + "/lookups/sourcing-reviewers?principalIds=" + manager2.ToString("D"), buyer);
         Require(makerLookup.GetProperty("configurationVersion").GetInt32() == 1
