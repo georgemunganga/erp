@@ -163,3 +163,31 @@ File-level sequence after policy adoption: (1) extend `SourcingPublicationPolicy
 ## 28. Open decisions and assumptions
 
 Adopt exact schema2 fields/enum/date semantics and required qualification categories/contact data; approve whether recorded Active decision is sufficient versus a new canonical independent supplier approval proof; define qualification document ownership and selection; explicit preparation permission; actual complete-facts/writer-fence and durable revision contracts. These are genuine DoR dependencies, not an authorization request to the user. Until resolved, keep current drafts, configuration and historical CRUD usable and preserve production default-off/release hold.
+
+### Executable next schema/configuration increment — draft use remains available
+
+No additional user permission is needed to author this bounded configuration work. Business activation requires explicit policy choices, not stopping draft CRUD. The next implementation should separate **draft syntax validity** from **review/publication completeness**:
+
+1. Introduce a bounded typed schema2 parser/projection in `SourcingPublicationPolicyRules`, reusing the existing strict JSON duplicate/size/code/exact-number parser and shared match/coverage engine. Preserve schema1 behavior and retained hashes byte-for-byte. Schema2 requires an explicit `audience` property; `null` or a known-field object with null values means an incomplete draft. Unknown properties/enum values, duplicate fields/types, malformed non-null values and oversized lists remain errors. Do not deserialize with defaults that turn null/missing into false/empty/Ignore.
+2. Provide explicit validation operations for draft versus submission/publication. Create/update and the draft validation endpoint accept syntactically valid incomplete schema2 audience selections and return distinct readiness/blocking issues. Submit/publish and actual audience preparation require complete explicit choices in every applicable rule plus existing supported coverage/person/company checks. Current schema1 configuration stays usable but cannot become audience-preparation authority. A generic `isValid`/P29 configurationVersion1 must never be interpreted as schema2 review-ready; include explicit draft/review status in the typed response and keep CanPublish false.
+3. Update existing `ProcurementPolicyDraftRoutes` and `ProcurementSourcingPolicyConfiguration` call sites deliberately: create/update use draft validation; submit/publish use completeness validation. P29 captures the actual original incomplete draft digest and later complete submitted digest normally; never backfill the Created row or compare it to a later edited draft as if unchanged. Retain maker/worker independence and exact original policy identity.
+4. Extend the existing Buying rules editor (no new page), with an initial “Not configured” state for each audience setting. Company currency still uses the existing organisation default. Users can save and reopen an incomplete audience draft; they must choose the relevant explicit values before submitting. No required qualification type, contact field, bank status, category behavior or validity horizon is auto-selected. Existing unrelated policy/PR/PO controls remain intact.
+5. After parser/configuration tests pass, implement the pure proposal evaluator using the typed complete projection and server-owned facts, followed by the owning persistence/API/UI gate sequence in section27. Do not combine this first parser/configuration step with publication execution or enable an unavailable supplier/document owner.
+
+Draft and complete interpretation of each proposed field:
+
+| Setting | Draft representation | Explicit complete choices |
+|---|---|---|
+| supplier lifecycle | null | RecordedActiveDecision (initial supported observation), no implicit canonical-independent-approval claim |
+| category mode | null | Ignore or CoverAllSelectedCategories |
+| qualification types | null | Explicit [] for none, or bounded distinct required type labels; never missing means none |
+| qualification documents | null | NotRequired or CoreAvailableVersionRequired |
+| validity horizon | null | PreparationInstant or ClosingInstant |
+| no qualification expiry | null | Explicit true or false |
+| open-ended supplier validity | null | Explicit true or false |
+| contact selection | null | OneActiveSelected or OneActivePrimarySelected |
+| contact required fields | null | Explicit [] for no optional field requirement, or bounded Email/Phone selection |
+
+Technical first-slice choices requiring no invented business value: category coverage uses the existing dated SupplierCategory rows only (no silent primary-field fallback); qualification type comparison uses the existing case-insensitive owner convention and latest active created revision; required Core document truth comes from the actual owning reader or blocks; all selections pin exact source IDs/CAS rather than names. The policy author still chooses Ignore versus category coverage, required types, contact fields, dates and null-expiry acceptance explicitly. Inclusive DateOnly expiry boundaries must be encoded once in the pure evaluator and tested against the selected trusted UTC date; supplier instant-window end behavior must follow the approved explicit contract, not a display locale.
+
+Required first increment acceptance: incomplete schema2 draft saves/reloads with nulls unchanged; []/false survive round trip distinctly from null; incomplete submit/publish returns actionable issues with no state/identity/audit partial effects; completed explicit configuration follows normal independent P29 lifecycle; schema1 historical CRUD and PR/PO rule parsing are unchanged; unsupported stronger approval/document claims stay blocked. Tests must explicitly prove an otherwise qualifying RFQ audience is not blocked solely by supplier IsOrderable=false or pending bank/payment verification, because those PO/Finance fields are outside this RFQ contract. No test should claim a current production audience evaluator already exists.
