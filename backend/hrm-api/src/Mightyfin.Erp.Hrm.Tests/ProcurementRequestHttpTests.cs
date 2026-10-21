@@ -1298,6 +1298,33 @@ public sealed partial class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task New_sourcing_policy_cannot_implicitly_supersede_unproven_legacy_configuration()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        var legacyId = await fixture.SeedLegacySourcingPolicyWithoutIdentity();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var draft = SourcingPolicy(fixture.Owner);
+        var create = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var current = await create.Content.ReadFromJsonAsync<JsonElement>(); var id = current.GetProperty("id").GetGuid();
+        Assert.Equal(2, current.GetProperty("policyVersionNumber").GetInt32());
+        var submit = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(current.GetProperty("version").GetInt64(), "Genuine current retained identity"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode); current = await submit.Content.ReadFromJsonAsync<JsonElement>();
+        var before = await fixture.SourcingConfigurationFootprint();
+        var response = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/publish", fixture.Reviewer,
+            new ProcurementPolicyDraftRoutes.PublicationInput(current.GetProperty("version").GetInt64(), "Must not adopt or mutate unverified legacy history"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("sourcing-policy-identity-unknown", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        var legacy = await Send(fixture.Client, HttpMethod.Get, $"{path}/{legacyId}", fixture.Other, role: "procurement_manager");
+        var retained = await legacy.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Published", retained.GetProperty("state").GetString()); Assert.Equal(JsonValueKind.Null, retained.GetProperty("effectiveTo").ValueKind);
+        Assert.Empty(await fixture.SourcingIdentityRows(legacyId));
+        Assert.Equal(2, (await fixture.SourcingIdentityRows(id)).Length); // Created + Submitted only, no published proof/audit.
+    }
+
+    [Fact]
     public async Task Effective_sourcing_legacy_without_original_identity_is_not_valid_and_historical_views_remain_readable()
     {
         await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
