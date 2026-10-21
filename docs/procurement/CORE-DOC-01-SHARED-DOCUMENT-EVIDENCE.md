@@ -145,3 +145,132 @@ Runtime activation is explicit and defaults off: `CoreDocuments:Enabled`. It req
 The final isolated-source suite passed 58/58 local tests, including final-move failure recovery, extension/type checks, conflicting retry, blocked downloads, scanner recovery, denied owner access, foreign company/owner lookup and detection of post-scan file corruption. Compiled Core source hashes match this worktree. Actual PostgreSQL migration/retry/concurrency/scope verification passed: twelve concurrent attempts with one existing document saved nine more and rejected three at the ten-file cap. The P01/P02 idempotent SQL applied twice without duplicating history; relational constraints passed and the synthetic result was two migrations, ten documents/versions/scan results and thirty-one operation events. The disposable database was removed. Mapped invoice HTTP and browser coverage are still being completed before activation. The UI and production rollout remain pending. Abandoned pre-registration staging files require a bounded cleanup procedure before production activation; committed versions must never be treated as temporary files.
 
 The PostgreSQL probe is also configured in the verification workflow. Publishing a host candidate is followed by the retained live-loan compatibility check; the known source mismatch in issue 29 must fail that release gate until reconciled. GitHub account billing still prevents a passing hosted-run claim.
+
+
+## Durable document-use pins — controlled feature addendum
+
+**Feature ID:** CORE-DOC-01-U1. **Prepared:** 21 October 2026. **Status:** proposed prerequisite; source audit at `6ec30de`, no implementation, migration, activation or release evidence for this addendum. Core remains the owner although this existing shared specification resides in the Procurement documentation directory. Earlier foundation verification above does not establish durable-use readiness. The first proposed consumer is [RFQ internal publication O4/O5](PROC-06-P01-INTERNAL-RFQ-PUBLICATION-AND-SOURCE-ALLOCATION.md#o4o5-implementation-delta--next-bounded-m5-milestone).
+
+### 1. Feature Identification
+
+Core → Documents → Durable Document Uses → Pin a reviewed version, retain a publication use, authorize an exact pinned download and prevent managed retirement/purge. This extends the existing service; it is not another uploader or document engine.
+
+### 2. Purpose & Business Outcome
+
+A review and its resulting publication retain the exact available requirements pack they used. A later replacement, record change or managed retirement cannot silently remove that evidence. Procurement owns why a use exists; Core owns content, versions, scan evidence and retention enforcement.
+
+### 3. Scope & Exclusions
+
+Initial support requires the document metadata and consuming workflow to share one proven physical PostgreSQL database and transaction. O4 creates review-use references; O5 adds separate immutable publication-use references to the same versions. There is no blob copy. External document stores, supplier delivery, arbitrary public links, a generic records-retention engine and automatic expiry/disposal are excluded. No period is prescribed.
+
+### 4. Parent & Related Features
+
+Extends this shared document feature. Consumes Core identity, authorization, document storage/scanner and the existing Procurement/Core approval coordinator. Relates to RFQ publication revisions, assigned Core reviews, immutable publication evidence and original-key command recovery. Invoice document behavior must remain compatible.
+
+### 5. Actors & Participants
+
+The current canonical worker with explicit owning-record preparation permission; the currently assigned independent reviewer; the consuming workflow service; authorized auditors; and future explicitly authorized retention operators. Canonical worker independence and record/site scope are verified through existing Core/module contracts, never inferred from a role label or client worker ID. Historical signers need not be fabricated as currently active.
+
+### 6. Entry Points & Triggers
+
+Existing owner-authorized upload and scan precede O4. O4 submission freezes an exact pack and pins it when opening the Core review. O5 final approval creates the publication and its own uses atomically. Purpose-limited downloads start from the authorized review/publication. Managed retirement/purge must consult uses before changing availability or removing bytes. Exact route names remain subject to contract review; no new endpoint is asserted as implemented.
+
+### 7. Preconditions
+
+Current actor/action/tenant/entity/site and record access; exact consuming revision and pack fingerprint; a ready same-store enlisted document adapter; immutable version ownership; Available state with matching successful scan evidence; supported document limits. Missing owner coupling, schema/grants, scan evidence or physical-store proof blocks the command. Scanner/network work must already be complete outside the business transaction.
+
+### 8. Workflow
+
+Upload/scan through existing Core → select exact stored versions → acquire the agreed owner lifecycle fence before the SERIALIZABLE snapshot → enter the existing transaction and source/event/case lock order → authorize current record/worker and load exact owned document/version/scan rows → validate expected revisions/hash and Available state → record review uses with O4/Core case and original receipt → commit together. O5 revalidates the required current conditions on that same pack and adds publication uses with final Core outcome/publication/audit/outbox/receipt in one transaction. Finalization never substitutes whichever file is newest. Returning/replacing a pack requires explicit new revision/review; historical references remain.
+
+### 9. Status / State Transitions
+
+Existing version states are Quarantined → Scanning → Available / Rejected / ScanFailed; bounded failed/expired-lease retries are already defined by Core. Document retirement is distinct from version scan state. A use is not a scan or approval status. Proposed use creation is immutable; any later release requires separately attributable evidence and a defined authorized retention policy. Default behavior is retain while uses exist, with no automatic release on return/cancel/expiry. Final use lifecycle/physical schema is still to be designed.
+
+### 10. Permissions & Data Scope
+
+Reuse exact canonical tenant/entity and owning record/site checks. A reviewer may download only versions pinned to a review currently accessible to that assignment; this does not grant owner-wide listing/history, upload, invoice access or another publication's files. Core `IDocumentOwnerAccess.RequireAsync(owner, action)` has only Read/Upload and no version argument: an exact-version purpose route or restricted records closure must therefore validate the permitted version/hash before shared download. This is a required extension, not an existing capability. Replay reauthorizes current original actor/action and retained target scope.
+
+### 11. Business Rules
+
+Only stored owned versions with matching clean scan evidence can become new uses. Client scan/review flags, AttachmentRef projections and URLs are not authority. O4 review and O5 publication have distinct immutable use identities, even when they reference identical bytes. Active uses prevent managed retirement/purge; replacement uploads never release old uses. A transaction-only lock cannot provide retention after commit. No new scan freshness period or business approval limit is invented.
+
+### 12. Data Fields & Ownership
+
+Proposed Core use evidence includes stable use identity; tenant/entity; owner module/type/record; consumer purpose/review or publication revision; document/version ID and version number; SHA-256/size/media type; scan-evidence ID, matching hash, clean verdict, engine/definitions and timestamps; actor/time; command/recovery reference; and consuming pack fingerprint. Document/version concurrency revisions are validation inputs, not mutable EF principal keys. Procurement retains immutable use references and its pack digest, not a second content master. Storage keys remain private. Model/key/constraint design is not authorized by this documentation change.
+
+### 13. Screens & Data Views
+
+Reuse existing RFQ preparation/detail, assigned review and document controls. Show the exact frozen filename/version and honest availability/blockers. Existing upload/retry UX remains Core-backed. No new navigation or parallel page design is required. Unsupported retirement/replacement actions must remain unavailable with a reason.
+
+### 14. User Experience / Human Behaviour
+
+Explain that submitted files are retained for the review and publication. Replacing the pack starts an explicit revision/review rather than silently changing a pending decision. Keep pending, denied, unavailable, stale, failure and uncertain-write states distinct. A lost response uses original-key recovery before any new command.
+
+### 15. Notifications & Communications
+
+Existing scan notifications remain separate from business approvals. Publication outbox evidence is an internal fact, not proof that a supplier received a file. Any future notification links require the same purpose/version authorization and must not attach quarantined or otherwise inaccessible content.
+
+### 16. Documents & Attachments
+
+Reuse immutable private blobs, existing type/size/count limits and scanner. Current RegisterUpload accepts only a new document/version number 1; there is no exposed append-version operation to promise here. New uploaded immutable versions can be selected explicitly. Retain bytes and metadata together while uses exist. Business retention durations and release authority remain unset/configurable; legal hold behavior must be explicitly integrated rather than inferred from the currently present field.
+
+### 17. Exceptions & Edge Cases
+
+Wrong owner/version/hash; retired/quarantined/rejected/missing blob; clean-state row without required scan evidence; separate/ambiguous document store; changed pack or assignment; incomplete O4/O5 transaction; concurrent retirement/finalization; duplicate key/body conflict; policy withdrawal; current actor offboarding; returned/rejected review; and historical publication download. Fail closed rather than invent a ready/retained result. Do not infer physical blob protection against operators bypassing managed storage APIs.
+
+### 18. Integrations / APIs / Events / Sandbox
+
+**Minimal proposed port:** a Core-owned `AcquireUsePinsAsync(owner, purposeReference, exactSelections, commandReference, cancellationToken)` returning typed authoritative pins; names/DTOs are provisional. Infrastructure is constructed with the actual owning connection/transaction, while the application port need not expose EF types. Extend the owner-access dispatcher for RFQ without replacing invoice behavior. Reuse the existing same-store check/enlisted DocumentDbContext pattern. Emit append-only use evidence atomically; do not invoke external scanning/delivery within the transaction. No production fake-ready provider.
+
+### 19. Audit / Security / Privacy
+
+Audit pin creation, denied retirement/purge, any separately authorized release, and exact-version downloads. Persist immutable purpose/version/actor evidence without content, storage paths or secrets in logs. Core must enforce retained uses at managed lifecycle write boundaries, including direct context mutation guards where supported. A new lifecycle writer must not bypass the fence/reference check. Raw administrative DB/filesystem operations require operational controls; application locks alone cannot cover them.
+
+### 20. Reports / Dashboards / Metrics
+
+Scoped retained-use counts, blocked lifecycle operations, missing-byte incidents, failed pin commands and reconciliation of consumer references to Core uses. No file content or unrelated owner history in metrics. Definitions and operational thresholds remain configuration decisions.
+
+### 21. Configuration & Localization
+
+Same-physical-store-only gate, supported owner/purpose allowlist, bounded selections, file limits, current scanner configuration, retention policy reference and explicit release/lifecycle authority. Durations remain unset pending business approval. No assumed automatic disposal. Reuse shared localization and plain language; do not recreate organization or worker settings.
+
+### 22. Non-Functional Requirements
+
+Bound inputs and queries; deterministic owner/version lock order; cancellation and cleanup; no network scan under locks. Couple lifecycle writers before the SERIALIZABLE snapshot and retain durable uses after commit. Factor the existing owner advisory key algorithm rather than duplicate incompatible keys. Current upload xact locking is not a retirement fence. Read-only checks, optimistic tokens alone and row KEY SHARE do not establish retirement exclusion. Choose and verify the actual lock protocol with all managed writers before implementation.
+
+### 23. Postconditions
+
+On successful O4/O5, exact use evidence and consuming workflow outcomes/receipt commit together, with no copied blob or partial approval/publication. The selected bytes remain subject to managed retention protection. Failed commands introduce no use, vote, publication or invitation side effects. Existing legacy document consumers remain unchanged.
+
+### 24. Failure & Recovery
+
+Reuse transaction retries only for confirmed aborts and durable original-key recovery for uncertain commits; do not blindly repeat an unknown commit. Reconcile exact stored response and use identities without regenerating pins from current files. Restore metadata, retained references and blobs consistently. Default retain while uses exist; a missing blob blocks download and raises support evidence, never manufactures a replacement. Down/release safety must protect used evidence and be rehearsed after a real model exists.
+
+### 25. Acceptance Criteria
+
+O4 pins the exact reviewed pack; O5 adds its own immutable references to those same versions. A shared transaction rollback leaves neither Core case/use nor Procurement outcome/receipt. Managed retirement/purge cannot remove pinned evidence before or after commit. Assigned users can download only exact authorized pins. Quarantine, rejection, owner/hash mismatch and separate-store ambiguity block new uses. Original-key replay does not duplicate uses. No capability is enabled by the specification alone.
+
+### 26. Test Scenarios
+
+Real PostgreSQL tests must cover both lifecycle-race orderings; snapshot/fence acquisition ordering; transaction failure after each save; wrong tenant/entity/site/owner/version/hash; missing/failed scan evidence; exact-purpose download denial; two purposes retaining one version; historical reviewer offboarding vs current consumer authorization; unknown commit and GET recovery; cancellation cleanup/pool reuse; and separate connection rejection. Test lifecycle entry points and context guards, not only the publication caller. Existing upload/scan/download tests must remain green. Browser tests reuse existing pages; mocks do not replace actual retained-state proof.
+
+### 27. Ownership / Dependencies
+
+Core owns the pin/reference contract, metadata writer coupling and private content retention. Procurement owns publication/review purpose, business revision/pack fingerprint and current source/approval rules. Operations owns durable blob storage, backup/restore and privileged maintenance. Depends on source-reviewed O4/O5 state/authority design and actual Core documents readiness, not merely foundation schema connectivity.
+
+### 28. Open Decisions / Assumptions
+
+Approve owner type and explicit actions; exact purpose/version access closure; Core use model and append-only release evidence; before-BEGIN fence/row-lock protocol covering all managed writers; policy for pending/rejected/returned/cancelled reviews; scanner freshness at new use; pin bounds; retention release authority/durations; required pack categories; and operational byte-retention/restore procedure. Choose whether pinned documents remain non-retirable or gain an explicit retained-history download contract; do not silently bypass today's retirement denial. Cross-store support remains unavailable. This document authorizes no schema or application activation.
+
+### Source audit anchors (6ec30de)
+
+- `backend/core-api/src/Mightyfin.Erp.Core.Documents.Application/RecordDocuments.cs:6–27`: owner/action/records APIs; no use-pin or exact-version access action. Upload/scan/download lifecycle remains in the same service.
+- `backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/EfDocumentRecords.cs:13–25`: registration begins its own transaction and takes an owner upload xact lock; it must not be naively nested in publication. Find/List are unlocked reads; SaveState supports scan/download only.
+- `backend/core-api/src/Mightyfin.Erp.Core.Documents.Domain/DocumentRecords.cs:57–65`: Retire currently checks scope and marks retirement; no use callback/hold check. Version scan evidence and immutable metadata are existing reusable facts.
+- `backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/DocumentDbContext.cs:93–112`: deletes/evidence mutation denied; retirement fields remain mutable without use-reference coupling. LegalHold has no implemented management workflow here.
+- `backend/core-api/src/Mightyfin.Erp.Core.Documents.Application/IDocumentBlobStore.cs:14–20`: stage/store/private-read only; no committed purge/retention callback. PrivateDocumentStore does not overwrite committed content.
+- `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceDocumentRoutes.cs:24–38,44–70`: invoice-only access and separately configured document context; preserve existing behavior when introducing an owner dispatcher.
+- `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceMatchingCommands.cs:104–121`: proven composition pattern checks same store and enlists DocumentDbContext on the actual executing connection, but currently reads hashes without retention locks/pins.
+- `backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Documents/InvoiceDocumentStoreBinding.cs:8`: conservative explicit host/port/database comparison; ambiguous aliases/multihost are not accepted.
+- `backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Approvals/ProcurementApprovalTransaction.cs:64–99`: existing branch/catalog fences precede BEGIN, Procurement/CoreApproval share one connection/transaction, confirmed abort retry only; no document context/fence is currently included.
