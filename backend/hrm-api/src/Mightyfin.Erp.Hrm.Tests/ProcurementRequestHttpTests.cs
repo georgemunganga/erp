@@ -1298,6 +1298,51 @@ public sealed partial class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Effective_sourcing_legacy_without_original_identity_is_not_valid_and_historical_views_remain_readable()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        var id = await fixture.SeedLegacySourcingPolicyWithoutIdentity(); var before = await fixture.SourcingConfigurationFootprint();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var effective = await Send(fixture.Client, HttpMethod.Get, path + "/effective?key=SOURCING", fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.Conflict, effective.StatusCode);
+        Assert.Equal("sourcing-policy-identity-unknown", (await effective.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other, role: "procurement_manager")).StatusCode);
+        var list = await Send(fixture.Client, HttpMethod.Get, path + "?key=SOURCING", fixture.Other, role: "procurement_manager");
+        Assert.Equal(id, Assert.Single((await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
+
+    [Fact]
+    public async Task Effective_sourcing_requires_schema_and_full_retained_lineage_without_affecting_other_keys()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var draft = SourcingPolicy(fixture.Owner);
+        var create = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var saved = await create.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
+        var submit = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(saved.GetProperty("version").GetInt64(), "Actual pinned configuration"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode); saved = await submit.Content.ReadFromJsonAsync<JsonElement>();
+        var publish = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/publish", fixture.Reviewer,
+            new ProcurementPolicyDraftRoutes.PublicationInput(saved.GetProperty("version").GetInt64(), "Independent configuration review"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, publish.StatusCode);
+        var effectivePath = path + "/effective?key=SOURCING&at=" + Uri.EscapeDataString(draft.EffectiveFrom.AddMinutes(1).ToString("O"));
+        Assert.Equal("Valid", (await (await Send(fixture.Client, HttpMethod.Get, effectivePath, fixture.Other, role: "procurement_manager"))
+            .Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+        fixture.SetSourcingIdentityReadiness(false); var before = await fixture.SourcingConfigurationFootprint();
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await Send(fixture.Client, HttpMethod.Get, effectivePath, fixture.Other, role: "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Send(fixture.Client, HttpMethod.Get, path + "/effective?key=PURCHASE_REQUEST", fixture.Other, role: "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        fixture.SetSourcingIdentityReadiness(true); await fixture.CorruptPublishedSourcingRulesForReadDenial(id);
+        before = await fixture.SourcingConfigurationFootprint();
+        var invalid = await Send(fixture.Client, HttpMethod.Get, effectivePath, fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.Conflict, invalid.StatusCode);
+        Assert.Equal("sourcing-policy-identity-conflict", (await invalid.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
+
+    [Fact]
     public async Task Sourcing_policy_retains_original_worker_after_two_active_canonical_accounts_swap_workers()
     {
         await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
@@ -3211,7 +3256,8 @@ public sealed partial class ProcurementRequestHttpTests
         }
     }
 
-    private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid reviewer, Guid inactive, Guid otherCompany, string? documentRoot = null)
+    private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid reviewer, Guid inactive, Guid otherCompany,
+        string procurementStoreName, Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot procurementStoreRoot, string? documentRoot = null)
         : IAsyncDisposable
     {
         public string[] Routes() => ((IEndpointRouteBuilder)app).DataSources
@@ -3261,6 +3307,27 @@ public sealed partial class ProcurementRequestHttpTests
             await db.SaveChangesAsync();
         }
 
+        public async Task<Guid> SeedLegacySourcingPolicyWithoutIdentity()
+        {
+            // Explicit synthetic PRE-P29 owner fixture, not a live config route or guessed approval proof.
+            await using var legacy = new LegacySourcingPolicySeed(new DbContextOptionsBuilder<LegacySourcingPolicySeed>()
+                .UseInMemoryDatabase(procurementStoreName, procurementStoreRoot).Options);
+            var row = new PolicyVersion { TenantId = "tenant-a", LegalEntityId = company, PolicyKey = "SOURCING", PolicyVersionNumber = 1,
+                State = "Published", Version = 3, CreatedBy = Other.ToString(), CreatedAt = DateTimeOffset.UtcNow.AddDays(-3),
+                EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = SourcingPolicy(Owner).RulesJson!,
+                ReviewRequestedBy = Other.ToString(), ReviewRequestedAt = DateTimeOffset.UtcNow.AddDays(-2), ReviewReason = "Synthetic unverified legacy",
+                PublishedBy = Reviewer.ToString(), PublishedAt = DateTimeOffset.UtcNow.AddDays(-2), PublicationReason = "Synthetic unverified legacy" };
+            legacy.Add(row); await legacy.SaveChangesAsync(); return row.Id;
+        }
+        public async Task CorruptPublishedSourcingRulesForReadDenial(Guid id)
+        {
+            // Owner-only corruption fixture bypasses new owning guards solely to prove GET rejects,
+            // never to manufacture successful authority or rewrite any actual PostgreSQL evidence.
+            await using var legacy = new LegacySourcingPolicySeed(new DbContextOptionsBuilder<LegacySourcingPolicySeed>()
+                .UseInMemoryDatabase(procurementStoreName, procurementStoreRoot).Options);
+            var row = await legacy.Set<PolicyVersion>().SingleAsync(x => x.Id == id);
+            row.RulesJson = "{\"tampered\":true}"; await legacy.SaveChangesAsync();
+        }
         public void SetSourcingIdentityReadiness(bool ready) => app.Services.GetRequiredService<SourcingPolicyIdentityTestReadiness>().Ready = ready;
         public async Task SwapSourcingWorkers(Guid left, Guid right)
         {
@@ -3798,13 +3865,14 @@ public sealed partial class ProcurementRequestHttpTests
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
             var databaseId = Guid.NewGuid().ToString("N");
+            var procurementStoreRoot = new Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot();
             builder.Services.AddScoped<ITenantAccessor>(_ => new FixedTenantAccessor("tenant-a"));
             builder.Services.AddDbContext<HrmDbContext>(options =>
                 options.UseInMemoryDatabase("proc-core-" + databaseId));
             builder.Services.AddScoped<ProcurementRequestScope>();
             builder.Services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
             builder.Services.AddDbContext<ProcurementDbContext>(options =>
-                options.UseInMemoryDatabase("proc-drafts-" + databaseId));
+                options.UseInMemoryDatabase("proc-drafts-" + databaseId, procurementStoreRoot));
             builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness());
             builder.Services.AddSingleton<SourcingPolicyIdentityTestReadiness>();
             builder.Services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness>(sp => sp.GetRequiredService<SourcingPolicyIdentityTestReadiness>());
@@ -3881,7 +3949,7 @@ public sealed partial class ProcurementRequestHttpTests
                 await core.SaveChangesAsync();
             }
             await app.StartAsync();
-            return new Fixture(app, company.Id, owner, other, reviewer, inactive, otherCompany.Id, documentRoot);
+            return new Fixture(app, company.Id, owner, other, reviewer, inactive, otherCompany.Id, "proc-drafts-" + databaseId, procurementStoreRoot, documentRoot);
         }
 
         public async ValueTask DisposeAsync()
@@ -3889,6 +3957,17 @@ public sealed partial class ProcurementRequestHttpTests
             Client.Dispose();
             await app.DisposeAsync();
             if (documentRoot is not null && Directory.Exists(documentRoot)) Directory.Delete(documentRoot, true);
+        }
+    }
+
+    // Minimal old-model bootstrap for synthetic legacy/corruption read-denial fixtures only.
+    // Same named store/root shares PolicyVersion rows without using the new owning write path.
+    private sealed class LegacySourcingPolicySeed(DbContextOptions<LegacySourcingPolicySeed> options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder model)
+        {
+            model.Entity<PolicyVersion>().HasKey(x => x.Id);
+            model.Entity<PolicyVersion>().ToTable("policy_versions", "procurement");
         }
     }
 

@@ -66,6 +66,22 @@ public static partial class ProcurementPolicyDraftRoutes
         catch (InvalidOperationException) { throw new SourcingIdentityProblem("self-approval", "Another current person, independent of the original maker and submitter, must review this policy.", 403); }
         return (origin, submitted, actor);
     }
+    private static async Task VerifySourcingPublishedPolicyIdentity(ProcurementDbContext db, PolicyVersion policy, CancellationToken ct)
+    {
+        var origin = await SourcingOrigin(db, policy, ct);
+        var published = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PolicyVersionId == policy.Id && x.Stage == "Published", ct);
+        if (published?.SubmittedEvidenceId is not { } submittedId) throw IdentityConflict();
+        var submitted = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PolicyVersionId == policy.Id && x.Id == submittedId, ct);
+        if (submitted is null) throw IdentityConflict();
+        try
+        {
+            SourcingPolicyIdentity.VerifyPublication(policy, origin, submitted, published);
+            if (Mightyfin.Erp.Procurement.Application.SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson).Count != 0) throw IdentityConflict();
+        }
+        catch (InvalidOperationException) { throw IdentityConflict(); }
+    }
     private static SourcingIdentityProblem IdentityConflict() => new("sourcing-policy-identity-conflict",
         "The retained policy review evidence does not match this revision. Refresh or start a new controlled policy version.", 409);
 }
