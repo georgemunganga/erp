@@ -298,6 +298,10 @@ public static partial class ProcurementPolicyDraftRoutes
                 return Problem("effective-overlap", "A published policy already covers part of this period.", 409);
             if (overlaps.Count == 1)
             {
+                // Do not adopt missing or corrupt historical maker evidence through
+                // automatic supersession, or turn a known conflict into a save-time 500.
+                if (key == SourcingPublicationPolicyRules.PolicyKey)
+                    await VerifySourcingPublishedPolicyIdentity(db, overlaps[0], ct);
                 // Close the prior open-ended period in the same transaction. Its original
                 // decision and the controlled supersession both remain in the audit trail.
                 overlaps[0].EffectiveTo = start;
