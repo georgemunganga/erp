@@ -1468,6 +1468,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(expected, json.GetProperty("configurationVersion").GetInt32());
+        Assert.Equal(new[] { 1, 2 }, json.GetProperty("supportedSourcingRuleSchemas").EnumerateArray().Select(x => x.GetInt32()).ToArray());
         Assert.Equal(1, json.GetProperty("total").GetInt32());
         Assert.Equal(person, Assert.Single(json.GetProperty("items").EnumerateArray()).GetProperty("principalId").GetGuid());
         Assert.False(json.GetProperty("isAuthority").GetBoolean());
@@ -1569,6 +1570,98 @@ public sealed partial class ProcurementRequestHttpTests
         var overflow = await Send(fixture.Client, HttpMethod.Get, path + "?offset=999999&limit=0", fixture.Other, role: "procurement_manager");
         var bounded = await overflow.Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal(100000, bounded.GetProperty("offset").GetInt32());
         Assert.Equal(1, bounded.GetProperty("limit").GetInt32()); Assert.Empty(bounded.GetProperty("items").EnumerateArray());
+    }
+
+    private static ProcurementPolicyDraftRoutes.PolicyDraft SourcingAudiencePolicy(Guid reviewer, bool complete)
+    {
+        var draft = SourcingPolicy(reviewer);
+        var root = System.Text.Json.Nodes.JsonNode.Parse(draft.RulesJson!)!; root["schemaVersion"] = 2;
+        root["rules"]![0]!["result"]!["audience"] = complete ? System.Text.Json.Nodes.JsonNode.Parse("""
+            {"supplierLifecycle":"RecordedActiveDecision","categoryMode":"Ignore","qualificationTypes":[],
+            "qualificationDocuments":"NotRequired","validThrough":"PreparationInstant","allowNoQualificationExpiry":false,
+            "allowOpenEndedSupplierValidity":false,"contactSelection":"OneActiveSelected","contactRequiredFields":[]}
+            """) : null;
+        return draft with { RulesJson = root.ToJsonString() };
+    }
+
+    [Fact]
+    public async Task Sourcing_schema2_draft_preserves_unconfigured_choices_and_blocks_submit_without_effects()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var draft = SourcingAudiencePolicy(fixture.Owner, complete: false);
+        var check = await SendJson(fixture.Client, HttpMethod.Post, path + "/validate", fixture.Other,
+            new ProcurementPolicyDraftRoutes.PolicyValidationRequest(draft.RulesJson), "procurement_manager");
+        var validation = await check.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(validation.GetProperty("isValid").GetBoolean()); Assert.False(validation.GetProperty("reviewConfigurationComplete").GetBoolean());
+        Assert.False(validation.GetProperty("canPublish").GetBoolean());
+        Assert.Equal(new[] { 1, 2 }, validation.GetProperty("supportedSourcingRuleSchemas").EnumerateArray().Select(x => x.GetInt32()).ToArray());
+        var response = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var saved = await response.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
+        var reloaded = await Send(fixture.Client, HttpMethod.Get, path + "/" + id, fixture.Other, role: "procurement_manager");
+        var current = await reloaded.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(draft.RulesJson, current.GetProperty("rulesJson").GetString());
+        using var rules = JsonDocument.Parse(current.GetProperty("rulesJson").GetString()!);
+        Assert.Equal(JsonValueKind.Null, rules.RootElement.GetProperty("rules")[0].GetProperty("result").GetProperty("audience").ValueKind);
+        var before = await fixture.SourcingConfigurationFootprint();
+        var denied = await SendJson(fixture.Client, HttpMethod.Post, path + "/" + id + "/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(current.GetProperty("version").GetInt64(), "Incomplete audience must remain draft"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, denied.StatusCode);
+        Assert.Equal("invalid-sourcing-rules", (await denied.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint()); Assert.Single(await fixture.SourcingIdentityRows(id));
+    }
+
+    [Theory]
+    [InlineData("missing")][InlineData("unknown")][InlineData("invalid-boolean")]
+    public async Task Malformed_schema2_audience_cannot_create_policy_or_identity_side_effects(string malformed)
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        var draft = SourcingAudiencePolicy(fixture.Owner, complete: true);
+        var root = System.Text.Json.Nodes.JsonNode.Parse(draft.RulesJson!)!;
+        var result = root["rules"]![0]!["result"]!;
+        if (malformed == "missing") result.AsObject().Remove("audience");
+        if (malformed == "unknown") result["audience"]!["bankVerified"] = true;
+        if (malformed == "invalid-boolean") result["audience"]!["allowNoQualificationExpiry"] = "false";
+        var before = await fixture.SourcingConfigurationFootprint();
+        var response = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/configuration/policies", fixture.Other,
+            draft with { RulesJson = root.ToJsonString() }, "procurement_manager");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
+
+    [Fact]
+    public async Task Completing_schema2_draft_preserves_original_identity_and_requires_independent_publication()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var draft = SourcingAudiencePolicy(fixture.Owner, complete: false);
+        var response = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var saved = await response.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
+        var original = Assert.Single(await fixture.SourcingIdentityRows(id)); var originalHash = original.EvidenceSha256;
+        var complete = SourcingAudiencePolicy(fixture.Owner, complete: true) with { EffectiveFrom = draft.EffectiveFrom, EffectiveTo = draft.EffectiveTo };
+        response = await SendJson(fixture.Client, HttpMethod.Put, path + "/" + id, fixture.Other,
+            new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(saved.GetProperty("version").GetInt64(), complete), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode); saved = await response.Content.ReadFromJsonAsync<JsonElement>();
+        response = await SendJson(fixture.Client, HttpMethod.Post, path + "/" + id + "/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(saved.GetProperty("version").GetInt64(), "Explicit audience choices selected"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode); saved = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var before = await fixture.SourcingConfigurationFootprint();
+        var publication = new ProcurementPolicyDraftRoutes.PublicationInput(saved.GetProperty("version").GetInt64(), "Independent audience policy review");
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, path + "/" + id + "/publish", fixture.Other, publication, "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        response = await SendJson(fixture.Client, HttpMethod.Post, path + "/" + id + "/publish", fixture.Reviewer, publication, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var rows = await fixture.SourcingIdentityRows(id);
+        Assert.Equal(3, rows.Length); Assert.Equal(originalHash, rows.Single(x => x.Stage == "Created").EvidenceSha256);
+        Assert.NotEqual(original.RulesSha256, rows.Single(x => x.Stage == "Submitted").RulesSha256);
+        Assert.Equal(rows.Single(x => x.Stage == "Submitted").RulesSha256, rows.Single(x => x.Stage == "Published").RulesSha256);
+        var instant = Uri.EscapeDataString(draft.EffectiveFrom.AddMinutes(1).ToString("O"));
+        response = await Send(fixture.Client, HttpMethod.Get, path + "/effective?key=SOURCING&at=" + instant, fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var effective = await response.Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal("Valid", effective.GetProperty("status").GetString());
+        Assert.False(effective.GetProperty("isAuthority").GetBoolean());
     }
 
     private static ProcurementPolicyDraftRoutes.PolicyDraft SourcingPolicy(Guid reviewer) => new("SOURCING", DateTimeOffset.UtcNow.AddDays(1), null,

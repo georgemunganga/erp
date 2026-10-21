@@ -12,7 +12,7 @@ public static partial class ProcurementPolicyDraftRoutes
     private static async Task<bool> SourcingActorCoversRules(HrmDbContext core, ProcurementRequestScope scope,
         string json, CancellationToken ct)
     {
-        if (SourcingPublicationPolicyRules.Validate(json).Count != 0 || !Guid.TryParse(scope.SubjectId, out var actorId)) return false;
+        if (SourcingPublicationPolicyRules.ValidateDraft(json).Count != 0 || !Guid.TryParse(scope.SubjectId, out var actorId)) return false;
         var assigned = await core.UserBranchAssignments.AsNoTracking().Where(x => x.UserId == actorId && !x.IsArchived)
             .Select(x => x.LocationId).ToArrayAsync(ct);
         if (assigned.Length == 0) return true; // Core organisation-wide semantics, irrespective of shell selection.
@@ -25,12 +25,12 @@ public static partial class ProcurementPolicyDraftRoutes
     }
 
     private static async Task<IResult?> CheckSourcingCompanyRules(PolicyVersion policy, ProcurementDbContext db,
-        HrmDbContext core, ProcurementRequestScope scope, string permission, CancellationToken ct)
+        HrmDbContext core, ProcurementRequestScope scope, string permission, CancellationToken ct, bool draftSyntaxOnly = false)
     {
         // The existing configuration permission is NOT a publication permission or a finite financial grant.
         if (!await ReceivingConfigurationActor(core, scope, permission, ct))
             return Problem("sourcing-configuration-unavailable", "Your current account cannot configure sourcing rules.", 403);
-        var issues = SourcingPublicationPolicyRules.Validate(policy.RulesJson);
+        var issues = draftSyntaxOnly ? SourcingPublicationPolicyRules.ValidateDraft(policy.RulesJson) : SourcingPublicationPolicyRules.Validate(policy.RulesJson);
         if (issues.Count != 0)
             return Results.Json(new { code = "invalid-sourcing-rules", message = "Correct the sourcing publication rules.", issues }, statusCode: 422);
         using var document = JsonDocument.Parse(policy.RulesJson);
