@@ -11,9 +11,12 @@ public sealed class ProcurementSourcingDraftExecutionOptions
 public interface IProcurementSourcingDraftSchemaReadiness
 {
     Task<bool> IsReadyAsync(CancellationToken ct);
+    // Existing metadata-only test doubles cannot authorize an owning-store command.
+    Task<bool> IsReadyAsync(Mightyfin.Erp.Procurement.Infrastructure.Data.ProcurementDbContext owner, bool write, CancellationToken ct)
+        => Task.FromResult(false);
 }
 
-/// <summary>No governed RFQ mappings, constraints or runtime adapter exist yet.
+/// <summary>Explicit unavailable provider retained for negative/test contracts.
 /// A configured flag/connection cannot substitute for that missing owner contract.</summary>
 public sealed class UnavailableProcurementSourcingDraftSchemaReadiness : IProcurementSourcingDraftSchemaReadiness
 {

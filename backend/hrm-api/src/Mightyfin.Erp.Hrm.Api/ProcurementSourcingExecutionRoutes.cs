@@ -47,6 +47,9 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (scope.OrgUnitId is not null) throw new Problem("RfqDepartmentScopeUnsupported", 503);
             var result = await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async (db, cases, token) =>
             {
+                if (!await http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>()
+                        .IsReadyAsync(db, !HttpMethods.IsGet(http.Request.Method), token))
+                    throw new Problem("SourcingDraftExecutionUnavailable", 503);
                 await RequireFinanceSchema(db, http.RequestServices.GetRequiredService<IProcurementFinanceCheckerSchemaReadiness>(), token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 return await command(db, cases, core, http.RequestServices.GetRequiredService<IAuthorizationService>(), token);
