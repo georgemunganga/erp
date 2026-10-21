@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../core-api/src/Mightyfin.Erp.Core.Persistence.Infrastructure/Mightyfin.Erp.Core.Persistence.Infrastructure.csproj" />
     <ProjectReference Include="../Mightyfin.Erp.Procurement.Domain/Mightyfin.Erp.Procurement.Domain.csproj" />
     <ProjectReference Include="../Mightyfin.Erp.Procurement.Application/Mightyfin.Erp.Procurement.Application.csproj" />
     <ProjectReference Include="../../../core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/Mightyfin.Erp.Core.Approvals.Infrastructure.csproj" />

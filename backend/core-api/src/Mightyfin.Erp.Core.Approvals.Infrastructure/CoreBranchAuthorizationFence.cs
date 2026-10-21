@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using Npgsql;
+using Mightyfin.Erp.Core.Persistence.Infrastructure;
 
 namespace Mightyfin.Erp.Core.Approvals.Infrastructure;
 

@@ -5,8 +5,8 @@ using Mightyfin.Erp.Core.Documents.Domain;
 using Mightyfin.Erp.Core.Documents.Infrastructure;
 using Npgsql;
 
-if (args.Any(x => x != "--use-pins") || args.Length > 1)
-    throw new ArgumentException("Only the optional --use-pins mode is supported.");
+if (args.Any(x => x is not ("--use-pins" or "--lifecycle-fence")) || args.Distinct(StringComparer.Ordinal).Count() != args.Length)
+    throw new ArgumentException("Only the optional --use-pins and --lifecycle-fence modes are supported.");
 var verifyUsePins = args.Contains("--use-pins");
 
 var connection = Environment.GetEnvironmentVariable("CORE_DOCUMENT_TEST_CONNECTION")
@@ -61,6 +61,8 @@ try
     Console.WriteLine("PASS: migrations twice, exact/conflicting replay, twelve concurrent uploads with ten-file cap, retained scan/operation evidence, audited download and company isolation.");
     if (verifyUsePins)
         await DocumentUseVerification.RunAsync(connection, options, scope, owner, target => Upload(target, Guid.NewGuid()));
+    if (args.Contains("--lifecycle-fence"))
+        await DocumentLifecycleFenceVerification.RunAsync(connection, scope, owner);
     return 0;
 }
 finally { Directory.Delete(root, true); }

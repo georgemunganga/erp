@@ -311,3 +311,15 @@ Authored tests cover exact-set reload/replay, separate review/publication refere
 - Rehearsal helper `f5e6653`: fresh and genuine-used P02 clones upgraded twice; every original column/type/default, document/version/scan/event row, prior history, constraint and index was preserved. Unused Down/Up restored exact snapshots. A separate genuine-used P03 clone retained two complete use sets and four scanned pins; Down raised the exact `55000` evidence veto and preserved all schema/data/history. Both original databases stayed unchanged. Actual PostgreSQL CHECK definitions are retained. Protected evidence: `/home/amizo/erp-backups/core-document-p03-migration-20261021_0812/`.
 
 Frozen idempotent SQL SHA-256: Up `c1a43e3deafe1a45dd701c81d071c2bb2fc555952d9f8a8fd3999fd1bf0c764a`; Down `16eef1825defd3d08890c1ffa50c4799f0bfe3329bea6d37870d03bdbd477af9`. Private fixtures use the PostgreSQL owner and synthetic document authorization/scanner. They establish internal persistence and DDL behavior, **not** a finite production runtime role, current Procurement purpose access, lifecycle race fencing, physical blob recovery, operational RFQ publication, actual SSO or deployment. The enlisted owner adapter, coupled writer lease, exact-purpose download access and release gates remain open.
+
+### Owner lifecycle lease prerequisite — source only
+
+[The shared lease extraction ADR](../adr/ADR-CORE-DOCUMENT-OWNER-LIFECYCLE-FENCE.md)
+records the new Documents-owned pre-transaction fence, exact stable owner key,
+bounded deterministic multi-owner acquisition/reverse cleanup and managed EF
+transaction prerequisites. The proven branch/catalog lease implementation is moved
+unchanged into shared Core persistence infrastructure; their key bytes and existing
+semantics remain unchanged. No use-store/retirement/provider route is wired, no schema
+or policy is added and no production protection is claimed until both owning reader
+and lifecycle writer participate. Authored unit/opt-in private PostgreSQL probe
+source is unrun; root owns serialized gates and activation remains unavailable.
