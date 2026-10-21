@@ -366,3 +366,43 @@ Supersession regression source: a synthetic old-model, open-ended published SOUR
 ### P29 DDL preservation preparation
 
 The [clone-only P29 rehearsal helper](sql/p29-rehearsal/README.md) consumes the actual reviewed `20261021084158_P29SourcingPolicyIdentity` SQL and a closed genuine P28 RFQ/browser owner source. It preserves original columns, data, manual constraints and history; unused Down/Up must restore exact snapshots. A genuine API-produced P29 identity source is separately required for retained-evidence Down acceptance. Without that source, its result is explicitly PARTIAL. Helper source/syntax inspection does not establish migration, identity, policy/RFQ publication or production readiness.
+
+### P29 executed domain/model and initial PostgreSQL checkpoint — 21 October 2026
+
+Frozen integration `315380e` passed the complete Procurement domain/model suite
+**773/773**, zero failed/skipped (21 seconds), including the original-worker and
+chronology cases. Infrastructure rebuild passed with zero warnings/errors and EF
+reported no pending model changes. Earlier initial compilation retained two
+pre-existing nullable warnings in `GovernedRfqDraft`; these were not suppressed.
+Evidence: `artifacts/p29/verify-domain-and-sql-315380e.log` and `artifacts/p29/domain/`.
+
+The actual additive migration is `20261021084158_P29SourcingPolicyIdentity`.
+Generation first exposed colliding truncated self-FK names; `74a6995` gives the
+three scoped constraints distinct stable names. The successful retry, original
+failure log, generated SQL and independent source review are retained. Up adds
+only the identity table and its keys/indexes; existing policy and other business
+columns are unchanged. Down locks policy and identity tables before refusing any
+retained identity row with SQLSTATE55000
+`SourcingPolicyIdentityRollbackWouldLoseEvidence`.
+
+Actual PostgreSQL17 clone rehearsal under
+`/home/amizo/erp-backups/procurement-p29-postgres-20261021_0847/` completed with
+**PARTIAL**, explicitly `retainedDownVerified=false`. Fresh P28 baseline/Up twice,
+used P28 RFQ/Up twice and unused Down/Up twice preserved the complete original
+Procurement columns/types/defaults, data, history, constraints and indexes. The
+normally closed original `proc_approval_http_p28_rfqbrowser_20261021_073507`
+retained its genuine reserved/cancelled RFQ, released allocation, original binding,
+create/cancel receipts and audits unchanged. No positive identity rows were
+manufactured. This is DDL preservation evidence, not actual policy approval or
+finite-runtime authorization proof; genuine P29 API-produced identity evidence is
+still required for used Down denial acceptance.
+
+SQL SHA256: P28 baseline
+`9ad85440e271baa283ac5a471184fd1d93fdfbabe4606d3af4bdc3b4e3f9064c`
+(byte-identical to accepted P28 Up); P29 Up
+`8ca30b53033501069edc7b6c26ab7c028c9701b2d639bd61ded2c908a83680b7`;
+P29 Down `96bb9c451b369991c397d3a4518fdfe69635743d1be44c374154c21fb7633f8e`.
+Exact PostgreSQL CHECK and partial unique-index expressions are captured in
+`p29-checks.json` and `p29-partial-indexes.json` for reviewed readiness constants.
+No production migration/deployment, positive configuration marker, policy workflow
+activation or operational RFQ publication is established by this checkpoint.
