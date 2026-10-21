@@ -63,6 +63,7 @@ public sealed partial class ProcurementDbContext
                 if (row.Stage == "Submitted")
                 {
                     if (oldState != "Draft" || policy.State != "PendingReview" || row.ActorPrincipalId != origin.ActorPrincipalId
+                        || row.PolicyRecordVersionAtAction <= origin.PolicyRecordVersionAtAction || row.ActionAt < origin.ActionAt
                         || row.ActorWorkerId != origin.ActorWorkerId || policy.ReviewRequestedBy != row.ActorPrincipalId
                         || ProcurementEvidenceEncoding.DatabaseTimestamp(policy.ReviewRequestedAt) != row.ActionAt)
                         throw new InvalidOperationException("SourcingPolicySubmittedIdentityMismatch");
@@ -71,7 +72,8 @@ public sealed partial class ProcurementDbContext
                 {
                     var submission = IdentityRow(row.SubmittedEvidenceId!.Value) ?? throw new InvalidOperationException("SourcingPolicySubmittedIdentityRequired");
                     SourcingPolicyIdentity.VerifySubmission(policy, origin, submission, false);
-                    if (oldState != "PendingReview" || policy.State != "Published" || row.ActorPrincipalId == origin.ActorPrincipalId
+                    if (oldState != "PendingReview" || policy.State != "Published" || row.ActionAt < submission.ActionAt
+                        || row.ActorPrincipalId == origin.ActorPrincipalId
                         || row.ActorPrincipalId == submission.ActorPrincipalId || row.ActorWorkerId == origin.ActorWorkerId
                         || row.ActorWorkerId == submission.ActorWorkerId || policy.PublishedBy != row.ActorPrincipalId
                         || ProcurementEvidenceEncoding.DatabaseTimestamp(policy.PublishedAt) != row.ActionAt)
