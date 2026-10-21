@@ -19,3 +19,8 @@ Session92469 restored offline dependencies and compiled domain/application, then
 5. Existing nine mocked sourcing browser results remain separately scoped; actual backend browser proof follows.
 
 Production remains unchanged; default-off execution and full-host release hold remain.
+
+
+## Second source gate — retained test compilation failure
+
+Session57784 compiled the corrected infrastructure, then found two test-only assignments to init-only FinanceIdentitySchemaVersion. The negative restoration test now constructs a deliberately corrupted retained-history clone through the existing JSON serialization pattern; production immutability is unchanged and the same downgrade/unknown-schema rejection assertions remain. No tests or migration generation ran. Original prepare-schema-corrected.log remains retained.

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -112,9 +113,15 @@ public sealed class GovernedRfqRestorationTests
     {
         var f = new Fixture(boundFinance: true); var source = f.Source.Source;
         var allocation = (f.Allocation.Status, f.Source.Line.AllocatedQuantity, f.Event.Version);
-        if (change == "downgrade") source.Submission.FinanceIdentitySchemaVersion = 0;
+        if (change is "downgrade" or "unknown")
+        {
+            // Deliberately corrupted retained input, without weakening the immutable domain property.
+            var json = JsonNode.Parse(JsonSerializer.Serialize(source.Submission))!;
+            json["FinanceIdentitySchemaVersion"] = change == "downgrade" ? 0 : 99;
+            var tampered = JsonSerializer.Deserialize<PurchaseRequestApprovalSubmission>(json.ToJsonString())!;
+            f.History[0] = f.History[0] with { Submission = tampered };
+        }
         if (change == "worker") source.Finance.CheckedByWorkerId = Guid.NewGuid();
-        if (change == "unknown") source.Submission.FinanceIdentitySchemaVersion = 99;
         Assert.Equal("RfqRetainedDraftInvalid", Assert.Throws<InvalidOperationException>(() => f.Restore()).Message);
         Assert.Equal(allocation, (f.Allocation.Status, f.Source.Line.AllocatedQuantity, f.Event.Version));
     }
