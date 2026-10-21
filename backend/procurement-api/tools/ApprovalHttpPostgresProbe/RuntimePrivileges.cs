@@ -172,6 +172,16 @@ internal static partial class RuntimePrivileges
             forbidden.Add($"UPDATE {Table(entity)} SET {key}={key} WHERE FALSE");
             forbidden.Add($"DELETE FROM {Table(entity)} WHERE FALSE");
         }
+        if (sourcingPolicies)
+        {
+            var evidence = procurement.Model.FindEntityType(typeof(SourcingPolicyIdentityEvidence))!;
+            var store = StoreObjectIdentifier.Table(evidence.GetTableName()!, evidence.GetSchema());
+            var digest = Quote(evidence.FindProperty(nameof(SourcingPolicyIdentityEvidence.EvidenceSha256))!.GetColumnName(store)!);
+            // Id-only UPDATE denial cannot detect a mistakenly granted evidence-column UPDATE.
+            forbidden.Add($"UPDATE {Table(evidence)} SET {digest}={digest} WHERE FALSE");
+            forbidden.Add($"TRUNCATE {Table(evidence)}");
+            forbidden.Add($"TRUNCATE {Table(procurement.Model.FindEntityType(typeof(PolicyVersion))!)}");
+        }
         foreach (var type in new[] { typeof(Worker), typeof(LegalEntity), typeof(TenantRoleAssignment) })
         {
             var entity = hrm.Model.FindEntityType(type)!;
