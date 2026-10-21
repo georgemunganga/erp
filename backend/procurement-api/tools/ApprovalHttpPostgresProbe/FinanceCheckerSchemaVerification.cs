@@ -35,6 +35,7 @@ sealed partial class Probe
         if (OrderDistinctRuntime)
         {
             cases.Add(("missing-select", $"REVOKE SELECT ON procurement.budget_check_snapshots FROM {quotedRole}", false, false));
+            cases.Add(("new-columns-only-select", $"REVOKE SELECT ON procurement.budget_check_snapshots FROM {quotedRole}; GRANT SELECT (checker_identity_schema_version,checked_by_worker_id,checker_identity_sha256) ON procurement.budget_check_snapshots TO {quotedRole}", false, false));
             cases.Add(("missing-capture-insert", $"REVOKE INSERT ON procurement.budget_check_snapshots FROM {quotedRole}", true, false));
             cases.Add(("new-columns-only-insert", $"REVOKE INSERT ON procurement.budget_check_snapshots FROM {quotedRole}; GRANT INSERT (checker_identity_schema_version,checked_by_worker_id,checker_identity_sha256) ON procurement.budget_check_snapshots TO {quotedRole}", true, false));
             cases.Add(("missing-audit-insert", $"REVOKE INSERT ON procurement.audit_events FROM {quotedRole}", true, false));
