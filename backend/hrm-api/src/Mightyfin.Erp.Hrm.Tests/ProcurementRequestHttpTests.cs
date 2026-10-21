@@ -1297,6 +1297,77 @@ public sealed class ProcurementRequestHttpTests
             .GetProperty("lines")[0].GetProperty("CategoryCode").GetString());
     }
 
+    [Fact]
+    public async Task Sourcing_reviewer_lookup_filters_canonical_company_identity_before_count_and_page_without_financial_eligibility()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies/lookups/sourcing-reviewers";
+        var ids = new List<Guid>();
+        foreach (var suffix in new[] { "A", "B", "C" }) ids.Add(await fixture.SeedSourcingLookupPerson("Lookup Visible " + suffix, "visible"));
+        foreach (var kind in new[] { "foreign-company", "foreign-tenant", "inactive", "locked", "archived", "no-worker", "inactive-worker", "alias" })
+            await fixture.SeedSourcingLookupPerson("Lookup Hidden " + kind, kind);
+        var before = await fixture.SourcingConfigurationFootprint();
+        var found = new List<Guid>();
+        for (var offset = 0; offset < 3; offset++)
+        {
+            var response = await Send(fixture.Client, HttpMethod.Get, $"{path}?search=%20LoOkUp%20&offset={offset}&limit=1", fixture.Other, role: "procurement_manager");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(3, page.GetProperty("total").GetInt32()); Assert.Equal(offset, page.GetProperty("offset").GetInt32());
+            Assert.False(page.GetProperty("isAuthority").GetBoolean());
+            var person = Assert.Single(page.GetProperty("items").EnumerateArray());
+            Assert.Equal(new[] { "displayName", "principalId", "workerId" }, person.EnumerateObject().Select(x => x.Name).Order().ToArray());
+            Assert.NotEqual(Guid.Empty, person.GetProperty("workerId").GetGuid());
+            found.Add(person.GetProperty("principalId").GetGuid());
+            if (offset < 2) Assert.Equal(offset + 1, page.GetProperty("nextOffset").GetInt32());
+            else Assert.Equal(JsonValueKind.Null, page.GetProperty("nextOffset").ValueKind);
+        }
+        Assert.Equal(ids, found); Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        var empty = await Send(fixture.Client, HttpMethod.Get, path + "?search=no-such-person", fixture.Other, role: "procurement_manager");
+        var none = await empty.Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal(0, none.GetProperty("total").GetInt32());
+        Assert.Empty(none.GetProperty("items").EnumerateArray());
+        // All visible people have only the existing employee role; no publication or approval grant was seeded.
+    }
+
+    [Fact]
+    public async Task Sourcing_reviewer_lookup_honors_branch_scope_and_current_configuration_actor_without_granting_access()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies/lookups/sourcing-reviewers";
+        var home = await fixture.SeedSourcingLookupPerson("Scoped Person Home", "visible");
+        await fixture.SourcingIdentity("confined-reviewer", fixture.Other);
+        await fixture.SeedSourcingLookupPerson("Scoped Person Remote", "remote-branch");
+        var before = await fixture.SourcingConfigurationFootprint();
+        var response = await Send(fixture.Client, HttpMethod.Get, path + "?search=Scoped%20Person&limit=1", fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var scoped = await response.Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal(1, scoped.GetProperty("total").GetInt32());
+        Assert.Equal(home, Assert.Single(scoped.GetProperty("items").EnumerateArray()).GetProperty("principalId").GetGuid());
+        Assert.Equal(JsonValueKind.Null, scoped.GetProperty("nextOffset").ValueKind);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner)).StatusCode);
+        // Forging an allowed test claim does not confer current Core configuration permission.
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner, role: "procurement_manager")).StatusCode);
+        await fixture.SourcingIdentity("inactive", fixture.Other);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
+
+    [Fact]
+    public async Task Sourcing_reviewer_lookup_bounds_search_and_paging_without_disclosing_private_account_fields()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies/lookups/sourcing-reviewers";
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Send(fixture.Client, HttpMethod.Get,
+            path + "?search=" + new string('x', 101), fixture.Other, role: "procurement_manager")).StatusCode);
+        var response = await Send(fixture.Client, HttpMethod.Get, path + "?offset=-2&limit=999", fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal(0, json.GetProperty("offset").GetInt32());
+        Assert.Equal(50, json.GetProperty("limit").GetInt32());
+        var overflow = await Send(fixture.Client, HttpMethod.Get, path + "?offset=999999&limit=0", fixture.Other, role: "procurement_manager");
+        var bounded = await overflow.Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal(100000, bounded.GetProperty("offset").GetInt32());
+        Assert.Equal(1, bounded.GetProperty("limit").GetInt32()); Assert.Empty(bounded.GetProperty("items").EnumerateArray());
+    }
+
     private static ProcurementPolicyDraftRoutes.PolicyDraft SourcingPolicy(Guid reviewer) => new("SOURCING", DateTimeOffset.UtcNow.AddDays(1), null,
         JsonSerializer.Serialize(new { schemaVersion = 1, policyKey = "SOURCING", transactionType = "SourcingPublication",
             action = "SourcingEvent.Publish", permission = "procurement-sourcing-publish", currencyCode = "ZMW", amountBasis = "ApprovedLineBase",
@@ -3106,6 +3177,39 @@ public sealed class ProcurementRequestHttpTests
             var request = await db.PurchaseRequests.SingleAsync(x => x.Id == requestId);
             request.SourceChannel = channel; request.OnBehalfOfSubjectId = onBehalf;
             await db.SaveChangesAsync();
+        }
+
+        public async Task<Guid> SeedSourcingLookupPerson(string displayName, string kind)
+        {
+            using var services = app.Services.CreateScope();
+            var owner = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            await using var foreign = kind == "foreign-tenant" ? new HrmDbContext(
+                services.ServiceProvider.GetRequiredService<DbContextOptions<HrmDbContext>>(), new FixedTenantAccessor("tenant-b")) : null;
+            var core = foreign ?? owner;
+            Guid locationId;
+            if (kind == "foreign-tenant")
+            {
+                var entity = new LegalEntity { Code = "LOOKUP-B", RegisteredName = "Synthetic foreign tenant", Currency = "ZMW" };
+                var location = new WorkLocation { Code = "LOOKUP-B", Name = "Foreign tenant", LegalEntityId = entity.Id };
+                core.LegalEntities.Add(entity); core.WorkLocations.Add(location); locationId = location.Id;
+            }
+            else if (kind is "foreign-company" or "remote-branch")
+            {
+                var location = new WorkLocation { Code = "LOOKUP-" + Guid.NewGuid().ToString("N")[..8], Name = "Synthetic lookup branch",
+                    LegalEntityId = kind == "foreign-company" ? OtherCompany : company };
+                core.WorkLocations.Add(location); locationId = location.Id;
+            }
+            else locationId = await core.WorkLocations.Where(x => x.LegalEntityId == company).Select(x => x.Id).SingleAsync();
+            var worker = new Worker { EmployeeNo = "LOOKUP-" + Guid.NewGuid().ToString("N"), FirstName = "Synthetic", LastName = "Lookup",
+                Status = kind == "inactive-worker" ? "terminated" : "active", LocationId = locationId };
+            var account = new LocalUser { WorkerId = kind == "no-worker" ? null : worker.Id, DisplayName = displayName,
+                Email = Guid.NewGuid() + "@example.test", NormalizedEmail = Guid.NewGuid() + "@EXAMPLE.TEST", PasswordHash = "synthetic-unused",
+                RolesCsv = "employee", IsActive = kind != "inactive", IsArchived = kind == "archived",
+                LockedUntil = kind == "locked" ? DateTimeOffset.UtcNow.AddDays(1) : null };
+            worker.SubjectId = account.Id.ToString(); core.Workers.Add(worker); core.LocalUsers.Add(account);
+            if (kind == "alias") core.LocalUsers.Add(new LocalUser { WorkerId = worker.Id, DisplayName = displayName + " Alias",
+                Email = Guid.NewGuid() + "@example.test", NormalizedEmail = Guid.NewGuid() + "@EXAMPLE.TEST", PasswordHash = "synthetic-unused", RolesCsv = "employee" });
+            await core.SaveChangesAsync(); return account.Id;
         }
 
         public async Task ConfigureSourcingPolicyActors()

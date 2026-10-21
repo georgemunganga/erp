@@ -11,6 +11,29 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// <summary>Consumes existing Core identity/organization records. No Procurement account master.</summary>
 internal static class ProcurementAuthorityIdentity
 {
+    /// <summary>Shared Core-owned active canonical people boundary. No role/action eligibility is implied.
+    /// Worker home and selected data scope match existing authority lookup semantics, before paging.</summary>
+    internal static IQueryable<Mightyfin.Erp.Hrm.Domain.Entities.LocalUser> CanonicalPeopleQuery(HrmDbContext core,
+        ProcurementRequestScope scope, DateTimeOffset now)
+    {
+        var query = core.LocalUsers.AsNoTracking().Where(u => u.TenantId == scope.TenantId
+                    && u.IsActive && !u.IsArchived && u.WorkerId != null && (u.LockedUntil == null || u.LockedUntil <= now)
+                    && !core.LocalUsers.Any(other => other.TenantId == scope.TenantId && other.IsActive
+                        && !other.IsArchived && other.WorkerId == u.WorkerId && other.Id != u.Id)
+                    && core.Workers.Any(w => w.TenantId == scope.TenantId && w.Id == u.WorkerId && !w.IsArchived && w.Status == "active"
+                        && (scope.WorkLocationId == null || w.LocationId == scope.WorkLocationId)
+                        && (scope.OrgUnitId == null || w.OrgUnitId == scope.OrgUnitId)
+                        && (w.LocationId != null && core.WorkLocations.Any(b => b.TenantId == scope.TenantId
+                                && b.Id == w.LocationId && b.LegalEntityId == scope.LegalEntityId && !b.IsArchived)
+                            || w.LocationId == null && w.OrgUnitId != null && core.OrgUnits.Any(d => d.TenantId == scope.TenantId
+                                && d.Id == w.OrgUnitId && d.LegalEntityId == scope.LegalEntityId && !d.IsArchived && d.Status == "active"))
+                        && (w.OrgUnitId == null || core.OrgUnits.Any(d => d.TenantId == scope.TenantId
+                            && d.Id == w.OrgUnitId && d.LegalEntityId == scope.LegalEntityId && !d.IsArchived && d.Status == "active")))
+                    );
+        if (scope.IsConfined && scope.WorkLocationId is null) query = query.Where(_ => false);
+        return query;
+    }
+
     internal sealed record NamedAccount(CanonicalAccount Account, string DisplayName);
 
     internal static async Task<NamedAccount?> NamedAccountAsync(HrmDbContext core,
