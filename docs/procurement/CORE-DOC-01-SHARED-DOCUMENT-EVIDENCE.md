@@ -403,3 +403,47 @@ loaded-ID check. It never grants Download. Restore validates frozen identity and
 scan consistency without introducing new text sanitization over old permitted bounded
 scanner/subject text; original values are preserved. Future current-input tightening
 must not silently rewrite or strand retained history. Source-only follow-up, unrun.
+
+### U2 paired managed retirement writer — source only, no module authorizer
+
+`IDocumentRetirementAccess` is a distinct exact owner/document/CAS authorization port.
+It does **not** extend `DocumentAction`: the invoice access adapter maps non-Upload
+actions to Read, which must never become retirement permission. No implementation,
+DI registration, endpoint or business retirement grant is introduced. The supplied
+Infrastructure authorizer factory must compose the current canonical worker,
+permission/business state and scope against the writer's actual enlisted owner
+context; it must not query a detached store or make external calls. Unsupported
+owner types deny; a permissive test authorizer establishes no production authority.
+
+Unregistered `EfDocumentRetirement` requires a clean, closed, matching PostgreSQL
+context before authority reads. It opens that existing owning store, takes the exact
+owner EXCLUSIVE session lease before BEGIN, starts SERIALIZABLE, obtains the bound
+current module authorizer, verifies exact owner/document/current revision, denies
+local or persisted retained uses, and performs the domain Retire transition plus a
+`DocumentRetired` existing Core operation event referencing the latest real version.
+It then saves/commits once. It neither starts a nested transaction nor uses new
+connection configuration, module approval machinery, blobs or scanner. Any failure
+rolls back by disposal; callers discard the single-command context. There is no
+automatic retry, unknown-commit recovery contract, release, reversal or purge API.
+
+Every relational managed CoreDocument modification now requires this exact writer's
+scoped document/revision permit, current genuine exclusive lease/transaction and
+same-save retirement operation event. Reopening or rewriting prior retirement is
+denied. Same-context retained-use guards remain additional checks. InMemory keeps
+its previous evidence-only behavior and makes no physical fence claim. Direct
+administrative SQL/foreign writers/filesystem deletion remain outside this cooperative
+managed boundary. Existing upload, scan and download operations do not modify
+CoreDocument metadata and retain their existing paths.
+
+The intended linearization remains branch/catalog (where applicable) → ordered
+owner lease → transaction → authority/business rows. This standalone document writer
+does not acquire or depend on Procurement upstream locks. A future module adapter
+must not acquire those locks in reverse; if required authority cannot be evaluated
+under the established ordering, compose the whole writer from the upstream
+coordinator instead of nesting it. No production composition is supplied here.
+
+Authored design-only Npgsql tests deny direct synchronous/asynchronous retirement,
+retirement reversal, invalid/overflow revision, dirty/nonrelational writer context,
+and verify authorizer/network entry has not occurred. They are unrun and do not
+replace actual managed writer/pin race, finite-role, rollback, purpose revocation,
+pooled cancellation and original document workflow gates. No schema changes.
