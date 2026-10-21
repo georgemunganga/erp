@@ -208,6 +208,8 @@ public sealed class SourcingPolicyIdentityTests
         Assert.DoesNotContain(evidence.GetKeys().SelectMany(x => x.Properties), x => x.Name == nameof(SourcingPolicyIdentityEvidence.PolicyRecordVersionAtAction));
         Assert.DoesNotContain(model.FindEntityType(typeof(PolicyVersion))!.GetKeys().SelectMany(x => x.Properties), x => x.Name == nameof(PolicyVersion.Version));
         Assert.All(evidence.GetForeignKeys(), x => Assert.Contains(x.Properties, p => p.Name == nameof(SourcingPolicyIdentityEvidence.TenantId)));
+        Assert.Equal(new[] { "fk_source_policy_identity_created", "fk_source_policy_identity_owner", "fk_source_policy_identity_submitted" },
+            evidence.GetForeignKeys().Select(x => x.GetConstraintName()).OrderBy(x => x, StringComparer.Ordinal));
         var check = Assert.Single(evidence.GetCheckConstraints()); Assert.Contains("created_evidence_stage IS NOT NULL", check.Sql);
         Assert.Contains("rules_sha256 IS NOT NULL", check.Sql); Assert.Contains("evidence_sha256 IS NOT NULL", check.Sql);
     }
