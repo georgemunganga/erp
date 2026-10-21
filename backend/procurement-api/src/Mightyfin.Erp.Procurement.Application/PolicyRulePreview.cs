@@ -17,7 +17,13 @@ public static class PolicyRulePreview
         var structural = PolicyRuleValidator.Validate(json);
         if (structural.Count != 0) return structural;
         using var document = JsonDocument.Parse(json);
-        var rules = document.RootElement.GetProperty("rules").EnumerateArray().ToArray();
+        return AnalyzeValidatedCoverage(document.RootElement.GetProperty("rules"));
+    }
+
+    // Shared conditions/priority engine. Callers must strictly validate their own typed document first.
+    internal static IReadOnlyList<PolicyRuleIssue> AnalyzeValidatedCoverage(JsonElement ruleArray)
+    {
+        var rules = ruleArray.EnumerateArray().ToArray();
         var issues = new List<PolicyRuleIssue>();
         var fallbacks = rules.Where(rule => IsFallback(rule.GetProperty("when"))).ToArray();
         if (fallbacks.Length != 1)
@@ -70,7 +76,7 @@ public static class PolicyRulePreview
             quotes.ValueKind == JsonValueKind.Null ? null : quotes.GetInt32(), stages, []);
     }
 
-    private static bool Matches(JsonElement when, PolicyScenario scenario)
+    internal static bool Matches(JsonElement when, PolicyScenario scenario)
     {
         var minimum = Amount(when, "minimumAmountInclusive");
         var maximum = Amount(when, "maximumAmountExclusive");
