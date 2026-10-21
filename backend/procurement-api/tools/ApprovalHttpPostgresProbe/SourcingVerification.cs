@@ -137,7 +137,10 @@ sealed partial class Probe
             RfqCreate("Exact small original", (source, "0.0001")), Guid.NewGuid()); await Check(response, HttpStatusCode.Created);
         var id = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("eventId").GetGuid();
         var detail = await Get($"{Root}/sourcing/{id}/source-draft", buyer);
-        Require(detail.GetProperty("lines")[0].GetProperty("estimatedValue").GetString() == "0.00000001", "RFQ hold silently rounded exact product.");
+        var exact = detail.GetProperty("lines")[0].GetProperty("estimatedValue");
+        Require(exact.ValueKind == JsonValueKind.String && exact.GetString() == "1E-08"
+            && ExactDecimalJsonCodec.Parse(exact.GetString(), 38, 8) == 0.00000001m,
+            "RFQ hold lost its existing exact G29 product/string contract.");
         await AssertRfqBalance(source, 0.0001m); await CancelRfq(id); await AssertRfqBalance(source, 0);
     }
 
