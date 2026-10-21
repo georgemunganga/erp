@@ -78,3 +78,6 @@ Read-only review of6104122 independently decoded all four C# literals and compar
 Frozen executable0f34199 completed238/238 mapped Procurement/Finance-readiness API tests,0failed/skipped (1m36s). Original log/TRX artifacts/p28/api-source-verification.log and procurement-api/ retained. The subsequent private probe build failed CS0246: missing ConfigAndExtras import for existing TenantRoleAssignment. The tool-only namespace import is corrected, including the newly integrated browser fixture. No production authority/schema/UI is changed.
 
 Distinct source review accepted security/raw-invariant companion52114e9 but found a browser-fixture SQL column error: Core approval tables use quoted Id, so their invariant aggregation must ORDER BY r.\"Id\"; Procurement tables retain snake_case id. Parent corrects it before runtime. Browser fixture and raw checks remain uncompiled/unrun; source reviews do not imply their acceptance. Both appended runtime plan sections are preserved through the docs-only cherry-pick conflict.
+
+
+Corrected private build26255 retained a second namespace-only compilation failure: HrUserBranchAssignment lives in existing Hrm.Application. The browser fixture now imports that namespace; no API/domain/schema changes. artifacts/p28/probe-build-corrected.log retained. Actual runtime remains pending.
