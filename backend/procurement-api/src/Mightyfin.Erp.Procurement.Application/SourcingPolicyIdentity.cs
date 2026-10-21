@@ -59,6 +59,7 @@ public static class SourcingPolicyIdentity
         Require((!pendingState || policy.State == "PendingReview") && submitted.Stage == "Submitted"
             && submitted.CreatedEvidenceId == created.Id && submitted.ActorPrincipalId == created.ActorPrincipalId
             && submitted.ActorWorkerId == created.ActorWorkerId && submitted.PolicyRecordVersionAtAction == policy.Version
+            && submitted.PolicyRecordVersionAtAction > created.PolicyRecordVersionAtAction && submitted.ActionAt >= created.ActionAt
             && submitted.RulesSha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)
             && submitted.ActorPrincipalId == policy.ReviewRequestedBy && submitted.ActionAt == ProcurementEvidenceEncoding.DatabaseTimestamp(policy.ReviewRequestedAt),
             "SourcingPolicySubmittedIdentityMismatch");
@@ -77,6 +78,8 @@ public static class SourcingPolicyIdentity
         Require(policy.State == "Published" && submitted.Stage == "Submitted" && published.Stage == "Published"
             && submitted.CreatedEvidenceId == created.Id && published.CreatedEvidenceId == created.Id && published.SubmittedEvidenceId == submitted.Id
             && submitted.ActorPrincipalId == created.ActorPrincipalId && submitted.ActorWorkerId == created.ActorWorkerId
+            && submitted.PolicyRecordVersionAtAction > created.PolicyRecordVersionAtAction
+            && submitted.ActionAt >= created.ActionAt && published.ActionAt >= submitted.ActionAt
             && published.ActorPrincipalId != created.ActorPrincipalId && published.ActorPrincipalId != submitted.ActorPrincipalId
             && published.ActorWorkerId != created.ActorWorkerId && published.ActorWorkerId != submitted.ActorWorkerId
             && published.PolicyRecordVersionAtAction == checked(submitted.PolicyRecordVersionAtAction + 1)
