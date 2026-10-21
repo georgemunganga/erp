@@ -40,8 +40,20 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
         Assert.Contains($"has_table_privilege(current_user,'procurement.{table}','INSERT')", sql);
         Assert.Contains($"NOT has_table_privilege(current_user,'procurement.{table}','UPDATE')", sql);
         Assert.Contains($"NOT has_table_privilege(current_user,'procurement.{table}','DELETE')", sql);
+        Assert.Contains($"NOT has_any_column_privilege(current_user,'procurement.{table}','UPDATE')", sql);
+        Assert.Contains($"NOT has_table_privilege(current_user,'procurement.{table}','TRUNCATE')", sql);
         Assert.Contains("rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls", sql);
         Assert.Contains("NOT has_schema_privilege(current_user,'procurement','CREATE')", sql);
+    }
+
+    [Fact]
+    public void Policy_authoring_keeps_intended_update_but_rejects_destructive_privileges()
+    {
+        var sql = ProcurementSourcingPolicyIdentitySchemaReadiness.PrivilegeSql;
+        Assert.Contains("has_table_privilege(current_user,'procurement.policy_versions','UPDATE')", sql);
+        Assert.Contains("NOT has_table_privilege(current_user,'procurement.policy_versions','DELETE')", sql);
+        Assert.Contains("NOT has_table_privilege(current_user,'procurement.policy_versions','TRUNCATE')", sql);
+        Assert.DoesNotContain("NOT has_any_column_privilege(current_user,'procurement.policy_versions','UPDATE')", sql);
     }
 
     [Fact]
