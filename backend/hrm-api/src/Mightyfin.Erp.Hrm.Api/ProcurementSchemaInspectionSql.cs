@@ -17,7 +17,7 @@ internal static class ProcurementSchemaInspectionSql
         + " AND ARRAY(SELECT a.attname::text FROM unnest(c.confkey) WITH ORDINALITY k(n,p) JOIN pg_attribute a ON a.attrelid=c.confrelid AND a.attnum=k.n ORDER BY k.p)=" + Columns(to) + (name is null ? "" : " AND c.conname=" + Literal(name)) + ")";
     internal static string UniqueIndexSql(StoreObjectIdentifier table, string[] columns, string? name = null, string? predicate = null) =>
         "SELECT EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=" + Literal(table.Schema + "." + table.Name)
-        + "::regclass AND i.indisunique AND i.indisvalid AND i.indimmediate AND i.indexprs IS NULL " + (predicate is null ? "AND i.indpred IS NULL" : "AND pg_get_expr(i.indpred,i.indrelid)=" + Literal(predicate)) + " AND i.indnkeyatts=i.indnatts AND ARRAY(SELECT a.attname::text FROM unnest(i.indkey::smallint[]) WITH ORDINALITY k(n,p) JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.n ORDER BY k.p)=" + Columns(columns) + (name is null ? "" : " AND i.indexrelid=" + Literal(table.Schema + "." + name) + "::regclass") + ")";
+        + "::regclass AND i.indisunique AND i.indisvalid AND i.indimmediate AND i.indexprs IS NULL " + (predicate is null ? "AND i.indpred IS NULL" : "AND pg_get_expr(i.indpred,i.indrelid)=" + Literal(predicate)) + " AND i.indnkeyatts=i.indnatts AND ARRAY(SELECT a.attname::text FROM unnest(i.indkey::smallint[]) WITH ORDINALITY k(n,p) JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.n ORDER BY k.p)=" + Columns(columns) + (name is null ? "" : " AND i.indisready AND i.indislive AND i.indexrelid=" + Literal(Quote(table.Schema!) + "." + Quote(name)) + "::regclass") + ")";
 
     internal static string SelectAllColumnsSql(IEntityType entity, StoreObjectIdentifier table) =>
         "SELECT " + string.Join(',', entity.GetProperties().Select(x => Quote(x.GetColumnName(table)!)))
@@ -33,5 +33,12 @@ internal static class ProcurementSchemaInspectionSql
         "SELECT pg_get_constraintdef(oid,false) FROM pg_constraint WHERE conrelid="
         + Literal(table.Schema + "." + table.Name) + "::regclass AND conname=" + Literal(name)
         + " AND contype='c' AND convalidated AND conislocal";
+
+    internal static string KeySql(StoreObjectIdentifier table, string[] columns, string name, bool primary) =>
+        "SELECT EXISTS(SELECT 1 FROM pg_constraint c JOIN pg_index i ON i.indexrelid=c.conindid WHERE c.conrelid="
+        + Literal(table.Schema + "." + table.Name) + "::regclass AND c.conname=" + Literal(name)
+        + " AND c.contype=" + Literal(primary ? "p" : "u")
+        + " AND c.convalidated AND c.conislocal AND NOT c.condeferrable AND NOT c.condeferred AND i.indisunique AND i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate AND i.indexprs IS NULL AND i.indpred IS NULL AND i.indnkeyatts=i.indnatts AND ARRAY(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY k(n,p) JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.n ORDER BY k.p)="
+        + Columns(columns) + ")";
 
 }
