@@ -19,6 +19,8 @@ public static class ProcurementApprovalReadinessRoutes
         ProcurementRequestScope scope, HttpContext http, IAuthorizationService authorization,
         IServiceProvider services, CancellationToken ct)
     {
+        if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, false, ct))
+            return ProcurementFinanceCheckerSchemaGuard.Unavailable();
         var request = await db.PurchaseRequests.AsNoTracking().Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)

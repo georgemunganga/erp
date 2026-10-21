@@ -501,6 +501,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigurePurchaseOrderExecution(modelBuilder);
         ConfigureReceivingExecution(modelBuilder);
         ConfigureInvoiceMatchingExecution(modelBuilder);
+        ConfigureFinanceCheckerIdentity(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
@@ -675,6 +676,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         if (string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(scope.SubjectId))
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
+        GuardFinanceCheckerIdentity();
         GuardSpendingAuthorityChanges();
         GuardApprovalOutcomeChanges();
         GuardApprovalExecution();

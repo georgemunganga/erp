@@ -30,14 +30,15 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching"))
+if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--legacy-sourcing"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
     || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal)))))
-    throw new ArgumentException("Use --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving or --matching.");
+    throw new ArgumentException("Use standalone --legacy-sourcing, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving or --matching.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
+var legacySourcing = args.Contains("--legacy-sourcing", StringComparer.Ordinal);
 var matching = args.Contains("--matching", StringComparer.Ordinal);
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
-var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving;
+var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving || legacySourcing;
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
@@ -45,7 +46,12 @@ if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
 if (orders && bootstrapConnection is null) throw new InvalidOperationException("Order verification requires distinct bootstrap/runtime identities.");
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching);
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, legacySourcing);
+if (!serve)
+{
+    await probe.VerifyFinanceCheckerReadiness();
+    await probe.VerifyFinanceCheckerIdentity();
+}
 if (serve)
 {
     var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching);
@@ -57,6 +63,14 @@ if (serve)
         await probe.VerifyReceivingBrowserCompletion();
     if (orders && !receiving && Environment.GetEnvironmentVariable("PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyOrderBrowserCompletion();
+    if (orders && !receiving && Environment.GetEnvironmentVariable("PROCUREMENT_BUDGET_BROWSER_VERIFY_ON_STOP") == "1")
+        await probe.VerifyBudgetBrowserCompletion();
+}
+else if (legacySourcing)
+{
+    await probe.VerifyInitialOrders();
+    await probe.VerifyLegacySourcing();
+    Console.WriteLine("PASS: used P27 database with real legacy RFQ create/cancel and retained DraftCancelled audit; ready only for later P28 migration rehearsal.");
 }
 else if (matching)
 {
@@ -85,6 +99,8 @@ else
     Console.WriteLine("PASS: actual mapped Procurement HTTP + PostgreSQL approval workflow, permissions, authority, Finance changes/release, replay, rollback and concurrent decisions.");
 }
 
+if (!serve) await probe.VerifyFinanceCheckerSubmissionCheck();
+
 sealed partial class Probe(WebApplication app, string connection, Guid company, Guid branch, Guid requester, Guid buyer,
     Guid finance, Guid manager1, Guid manager2, ProcurementApprovalExecutionOptions feature, HttpClient httpClient, ServiceProvider fixtureServices,
     string runtimeConnection, bool distinctRuntime) : IAsyncDisposable
@@ -104,7 +120,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private Guid OrderManager2 => manager2;
     private bool OrderDistinctRuntime => distinctRuntime;
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool legacySourcing = false)
     {
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
@@ -154,6 +170,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         else
         {
             ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
+            if (legacySourcing) ProcurementSourcingDraftRoutes.MapRoutes(app);
             ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
             if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
             if (matching)
@@ -208,12 +225,12 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             scope.Set("probe", company.Id, people["buyer"].User.Id.ToString("D"), null, null, false, "probe-seed");
             var procurement = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             var workflow = services.ServiceProvider.GetRequiredService<ApprovalDbContext>();
-            if (serve || orders)
             {
-                // Browser/order proof uses the actual migration history consumed by /meta.
+                // All modes now use actual committed owner migrations: Finance readiness must
+                // not be bypassed with CreateTables or invented migration-history rows.
                 // A source model ahead of committed migrations must never advertise readiness.
                 if (procurement.Database.HasPendingModelChanges() || workflow.Database.HasPendingModelChanges())
-                    throw new InvalidOperationException("Sandbox serve mode requires committed migrations matching both Procurement and Core approval models.");
+                    throw new InvalidOperationException("HTTP sandbox requires committed migrations matching both Procurement and Core approval models.");
                 await procurement.Database.MigrateAsync();
                 await workflow.Database.MigrateAsync();
                 if(serve && matching)
@@ -222,11 +239,6 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                     if(documents.Database.HasPendingModelChanges()) throw new InvalidOperationException("Core document migrations must match their owned model.");
                     await documents.Database.MigrateAsync();
                 }
-            }
-            else
-            {
-                await procurement.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
-                await workflow.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
             }
             procurement.AddScoped(new ProcurementCategory { Code = "IT", Name = "Synthetic IT", Status = "Active" });
             procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
@@ -248,7 +260,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         if (bootstrapConnection is not null)
-            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, serve || orders, orders, receiving, matching, matchingDocuments:serve && matching);
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching, legacySourcing:legacySourcing);
         if(serve && matching) await VerifyMatchingScannerBoundary();
         await app.StartAsync();
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
@@ -324,6 +336,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             VerifyReceivingBrowserContexts(JsonSerializer.SerializeToElement(actors, Json));
             await VerifyReceivingBrowserReadBoundaries();
         }
+        var budgetFixture = orders && !receiving ? await PrepareBudgetBrowserFixture() : null;
         var meta = await Get(Root + "/meta", buyer);
         Require(meta.GetProperty("schemaReady").GetBoolean() && meta.GetProperty("capabilities").GetProperty("approvals").GetBoolean(),
             "Migrated sandbox does not expose the actual configured approval capability.");
@@ -336,7 +349,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         var manifest = new
         {
             baseUrl = $"http://127.0.0.1:{port}", tenantId = "probe", companyId = company, branchId = branch,
-            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests, orders = orderFixture, receiving = receivingFixture,
+            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests, orders = orderFixture, receiving = receivingFixture, budget = budgetFixture,
             workflow = new[]
             {
                 new { code = "NEED", assignee = "LineManager", mode = "One", principals = new[] { manager1 } },

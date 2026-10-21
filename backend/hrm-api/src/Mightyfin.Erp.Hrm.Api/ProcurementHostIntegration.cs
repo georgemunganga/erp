@@ -26,6 +26,7 @@ public static class ProcurementHostIntegration
         services.AddSingleton(orderOptions);
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
+        services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
         services.AddScoped(sp => new Mightyfin.Erp.Procurement.Infrastructure.Approvals.ProcurementApprovalTransaction(
             // The normal host connection may be composed while disabled, but every execution
             // route refuses to run until the explicit least-privilege connection is configured.
@@ -91,6 +92,8 @@ public static class ProcurementHostIntegration
                 if (!await db.Database.CanConnectAsync(ct))
                     return Results.Problem(statusCode: 503, title: "Procurement database unavailable.");
                 var pending = (await db.Database.GetPendingMigrationsAsync(ct)).Any();
+                var financeCheckerReads = !pending && await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, false, ct);
+                var financeCheckerCapture = financeCheckerReads && await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, true, ct);
                 var receivingOptions = services.GetRequiredService<ProcurementReceivingExecutionOptions>();
                 var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
                     && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
@@ -134,7 +137,9 @@ public static class ProcurementHostIntegration
                         sourcingDraft = !pending,
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
-                        approvals = !pending
+                        budgetEvidence = financeCheckerReads,
+                        budgetRecording = financeCheckerCapture,
+                        approvals = !pending && financeCheckerReads
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>().ExecutionDatabaseConfigured
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>()
@@ -142,7 +147,7 @@ public static class ProcurementHostIntegration
                             && await services.GetRequiredService<IProcurementApprovalSchemaReadiness>().IsReadyAsync(ct),
                         sourcing = false,
                         contracts = false,
-                        orders = !pending
+                        orders = !pending && financeCheckerReads
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().ExecutionDatabaseConfigured
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>()

@@ -7,6 +7,18 @@
 The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared services can already be reused and which HRMS implementations are still module-specific.
 The [workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) ties Zoho's help journeys to the child features and ERP ownership boundaries. Use ERPNext as a secondary public implementation example for complex data/control decisions.
 
+## Continuation checkpoint — 21 October 2026
+
+This checkpoint supersedes the dated verification statuses below; historical failures remain retained. Production remains v36/P19 with the documented release hold.
+
+- **P26 completed private verification:** actual restricted HTTP/PostgreSQL CLI, two actual invoice browser cases and independent persisted owner verification passed; source c404564. The explicit Blocked comparison is not invoice approval or AP authority. See [P26 evidence](PROC-11-P26-VERIFICATION-EVIDENCE.md).
+- **P27 source verification:**601 domain/model and197 mapped API tests passed, probe build and model-drift gate passed; generated migration20261020190554 accepted for private rehearsal. Actual PostgreSQL migration/readiness/HTTP work follows; see [P27 evidence](PROC-FIN-01-P27-VERIFICATION-EVIDENCE.md).
+- **Funding UI follow-up:** backend c86d653 separates current CAS from retained businessVersion; exact Budget frontend e73b308 reuses the bounded financial parser and shared controls. These new changes require separate tests; they do not inherit the197-case run.
+- **Governed RFQ UI:** unchanged application7196a41 passed28 focused tests, TypeScript/build, and after test-locator correction5409546 all9 mocked browser cases passed. RFQ source/migration/runtime integration remains next; this is not publication/bid/award completion.
+- **Core:** existing company/department master and authority integration candidates are prepared separately; their mapped/browser/runtime gates remain pending. No new organisation master or UI shell is introduced.
+
+Implementation continues through the existing wave/operation matrix. A source merge, mock browser pass or empty screen is not a production capability.
+
 ## Current source audit — 20 October 2026, P26 migration/source gates and actual-run corrections
 
 **Audited references:** backend P26 generated migration `3481d7b`, compiled API/source `ea7982b`, receipt correction `f402462` and safe diagnostic API/tool `bda8e5e`; tool-context correction `fc0e608`; current Finance worker-independence source `3613559`. Separate governed RFQ source/model/HTTP candidate `bb1e987` is uncompiled and has no migration. Frontend invoice precision app `dccbc14`, docs-only `5938e38`, draft PR35 stacked onto PR34; earlier receiving app/evidence checkpoints remain below. Exact P26 results and retained failures are in [P26 verification evidence](PROC-11-P26-VERIFICATION-EVIDENCE.md). This section supersedes outdated candidate statements below, while preserving every historic checkpoint and the production v36/P19 release boundary. Read [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md) for agreed A–L scope and existing 28-section child contracts. The hierarchy remains **Procurement → parent → child → operation/scenario**.
@@ -113,6 +125,19 @@ Before the next shared-host release, retain the live HRM loan model and migratio
 | Shared document scanning/access and external supplier identity | Evidence-based approval and portal publication | Internal records and attachment-reference contracts |
 | Inventory/Asset item mapping and receipt tolerances | Stock/asset handoff and over-receipt | Receipt draft/inspection evidence and integration outbox contracts |
 | Production backup, migration review, threat model, independent security review and UAT | Production activation | Source implementation and disposable/staging verification |
+
+## Latest verification checkpoint — 20 October 2026, 19:04 UTC
+
+This checkpoint supersedes pending statements in the historical registers below; it does not change production. API v36/schema P19 and disabled execution flags remain the deployed baseline.
+
+| Increment | Verified or current state | Next gate |
+| --- | --- | --- |
+| P26 invoice mapping/comparison | Reviewed migration rehearsal passed;555 domain/model tests and source-scoped177 distinct API cases covered. Exact UI33 focused tests, TypeScript/build and16 mock browser cases passed. Fresh actual browser2/2 plus NEW persisted-owner verification passed; complete restricted HTTP/PostgreSQL CLI27214 also exited0. Missing independent units/complete Finance history stays explicit Blocked with no AP/claim authority. | Full-host release/backup/recovery gates; actual external owners before qualified outcomes. See PROC-11-P26-VERIFICATION-EVIDENCE.md and backend PR5/frontend PR35. |
+| P27 retained Finance checker | Source213a6af independently reviewed. First focused44-case run:43 passed/1 failed due to wrapper re-escaping legacy timestamp; correction retains exact owned legacy JSON. Corrected rerun passed44/44 with zero failed/skipped; migration generation is active and has not yet been reviewed/rehearsed. | Corrected tests; generate/review/seal migration; PostgreSQL literal freeze, preservation/rollback, finite-role schema and identity/rebinding/revocation verification. Backend PR6. |
+| Governed RFQ draft/source adapter | Backend discovery/source/holds/cancellation and existing-UI adapter are source candidates, default off. Separate source-only RFQ/P27 integration917f649 preserves versioned historical evidence and reuses owning-context readiness. | Accepted P27 then separate P28 migration/provider/actual API proof; frontend7196a41 units/types/build plus6 new/3 existing mock browser cases prepared. Frontend PR36. |
+| Core organization administration | Separate reviewed source candidate supports ERP-only admin company/location/department authority without employee data; company/default-currency and department editors reuse existing APIs/components. Recovery/context correction770281a authored. | Focused backend authorization/isolation tests, frontend contracts/types/browser, actual ERP-only session/API verification. Source capabilities are not deployment or acceptance evidence. |
+
+Full Procurement remains in progress. RFx publication/bids/award, contract execution, independent unit review, Finance/AP integration, portal and the remaining roadmap capabilities require their own complete contracts and acceptance gates. No draft PR closes the programme or authorizes production flags.
 
 ## 19 October 2026 checkpoint
 

@@ -43,6 +43,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 { operation = "Open", id, actor = scope.SubjectId, input.ExpectedRequestVersion });
             var reply = await transaction.ExecuteAsync(async (db, workflow, token) =>
             {
+                await RequireCheckerSchema(db, http, token);
                 await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, token);
                 var request = await Request(db, scope, id, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
@@ -138,6 +139,7 @@ public static partial class ProcurementApprovalExecutionRoutes
             if (source is null) throw Missing();
             var reply = await transaction.ExecuteAsync(async (db, workflow, token) =>
             {
+                await RequireCheckerSchema(db, http, token);
                 await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, source.Value, token);
                 var request = await Request(db, scope, source.Value, token);
                 await workflow.Database.ExecuteSqlInterpolatedAsync($"""SELECT "Id" FROM core_approval.cases WHERE "TenantId"={scope.TenantId} AND "LegalEntityId"={scope.LegalEntityId} AND "Id"={caseId} FOR UPDATE""", token);

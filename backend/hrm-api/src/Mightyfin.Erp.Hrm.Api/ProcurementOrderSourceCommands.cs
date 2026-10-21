@@ -18,6 +18,8 @@ public static partial class ProcurementOrderExecutionRoutes
             var fingerprint = Fingerprint(new { operation = "Convert", actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
+                if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, token))
+                    throw new OrderProblem("FinanceCheckerSchemaUnavailable", 503);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-convert", token);
                 var prior = await Receipt(db, scope, "Convert", key, fingerprint, null, token);
@@ -59,6 +61,7 @@ public static partial class ProcurementOrderExecutionRoutes
                     await CatalogClassification(db, [source.Line], token);
                     if (source.Request.Version != selection.ExpectedRequestVersion) Conflict("OrderSourceVersionChanged");
                     await CurrentRecordScope(core, scope, source.Request.BranchRef, true, token);
+                    await CurrentSourceCheckers(db, core, scope, [source], token);
                     if (lines.Count == 0) order.BranchRef = source.Request.BranchRef;
                     else if (order.BranchRef != source.Request.BranchRef) Conflict("OrderMixedBranchesUnsupported");
                     var line = ProcurementOrderDraftRoutes.NewLine(order.Id, selection.DraftLineIndex + 1,
@@ -89,6 +92,8 @@ public static partial class ProcurementOrderExecutionRoutes
             var fingerprint = Fingerprint(new { operation = "SourceEdit", id, actor = scope.SubjectId, input });
             var response = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
+                if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, token))
+                    throw new OrderProblem("FinanceCheckerSchemaUnavailable", 503);
                 var load = await Load(db, cases, scope, id, true, token);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-edit", token, load.Order.BranchRef, true);
@@ -114,6 +119,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 var supplier = await db.Suppliers.Include(x => x.Qualifications).SingleOrDefaultAsync(x => x.Id == draft.SupplierId, token);
                 if (supplier is null || !SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow))
                     Conflict("OrderSupplierUnavailable");
+                await CurrentSourceCheckers(db, core, scope, load.Sources.Select(x => x.Source), token);
                 var proposedLines = draft.Lines!.Select(inputLine =>
                 {
                     var source = load.Sources.Single(x => x.OrderLine.Id == inputLine.Id);
