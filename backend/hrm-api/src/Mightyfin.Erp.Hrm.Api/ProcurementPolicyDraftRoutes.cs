@@ -62,12 +62,26 @@ public static partial class ProcurementPolicyDraftRoutes
     }
 
     private static async Task<IResult> Effective(string? key, DateTimeOffset? at,
-        ProcurementDbContext db, CancellationToken ct)
+        ProcurementDbContext db, HttpContext http, CancellationToken ct)
     {
         var normalized = key?.Trim().ToUpperInvariant();
         if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "SOURCING"))
             return Problem("validation-failed", "Choose purchase requests, purchase orders, receiving, invoice matching or sourcing.", 422);
         var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        if (normalized == SourcingPublicationPolicyRules.PolicyKey)
+        {
+            await RequireSourcingIdentitySchema(http, db, ct);
+            var policies = await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == normalized && x.State == "Published"
+                    && x.EffectiveFrom <= instant && (x.EffectiveTo == null || x.EffectiveTo > instant))
+                .OrderByDescending(x => x.PolicyVersionNumber).Take(2).ToArrayAsync(ct);
+            if (policies.Length == 0) return Results.Ok(new { status = "MissingPolicy", isAuthority = false, policy = (object?)null, evaluatedAt = instant });
+            if (policies.Length > 1) return Results.Ok(new { status = "AmbiguousPolicy", isAuthority = false, policy = (object?)null, evaluatedAt = instant });
+            var current = policies[0];
+            await VerifySourcingPublishedPolicyIdentity(db, current, ct);
+            return Results.Ok(new { status = "Valid", isAuthority = false,
+                policy = (object)new { current.Id, current.PolicyKey, current.PolicyVersionNumber, current.EffectiveFrom, current.EffectiveTo, current.PublishedAt }, evaluatedAt = instant });
+        }
+
         var matches = await db.PolicyVersions.AsNoTracking()
             .Where(x => x.PolicyKey == normalized && x.State == "Published"
                 && x.EffectiveFrom <= instant && (x.EffectiveTo == null || x.EffectiveTo > instant))
