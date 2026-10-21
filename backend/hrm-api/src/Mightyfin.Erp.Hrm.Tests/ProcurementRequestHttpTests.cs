@@ -1297,6 +1297,150 @@ public sealed class ProcurementRequestHttpTests
             .GetProperty("lines")[0].GetProperty("CategoryCode").GetString());
     }
 
+    private static ProcurementPolicyDraftRoutes.PolicyDraft SourcingPolicy(Guid reviewer) => new("SOURCING", DateTimeOffset.UtcNow.AddDays(1), null,
+        JsonSerializer.Serialize(new { schemaVersion = 1, policyKey = "SOURCING", transactionType = "SourcingPublication",
+            action = "SourcingEvent.Publish", permission = "procurement-sourcing-publish", currencyCode = "ZMW", amountBasis = "ApprovedLineBase",
+            rules = new[] { new { code = "EXPLICIT", priority = 0,
+                when = new { minimumAmountInclusive = (decimal?)null, maximumAmountExclusive = (decimal?)null,
+                    categoryCodes = Array.Empty<string>(), purchaseTypes = Array.Empty<string>(), branchIds = Array.Empty<Guid>() },
+                result = new { publication = new { minimumQuoteCount = 0, minimumInvitedSuppliers = 0,
+                        requirementsPackRequired = true, evaluationCriteriaRequired = true, closingDateRequired = true },
+                    approvalStages = new[] { new { code = "NAMED", assignee = "ProcurementManager", mode = "All",
+                        principalIds = new[] { reviewer.ToString() } } } } } } }));
+
+    [Fact]
+    public async Task Sourcing_policy_uses_real_owned_lifecycle_and_preview_without_operational_publication_authority()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var draft = SourcingPolicy(fixture.Owner);
+        var location = await fixture.SourcingBranch();
+        // A shell branch selection does not revoke actual Core organisation-wide configuration scope.
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft,
+            "procurement_manager", selectedLocation: location);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var saved = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
+        var version = saved.GetProperty("version").GetInt64();
+        var original = await fixture.SourcingConfigurationFootprint();
+        var invalidDraft = draft with { RulesJson = draft.RulesJson!.Replace("ApprovedLineBase", "EstimatedLineBase", StringComparison.Ordinal) };
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(fixture.Client, HttpMethod.Put, $"{path}/{id}", fixture.Other,
+            new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(version, invalidDraft), "procurement_manager")).StatusCode);
+        Assert.Equal(original, await fixture.SourcingConfigurationFootprint());
+        var preview = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/preview", fixture.Other,
+            new PolicyScenario("ZMW", 100m, "IT", "GOODS", location), "procurement_manager");
+        var sample = await preview.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(sample.GetProperty("isAuthority").GetBoolean());
+        Assert.Equal("Match", sample.GetProperty("decision").GetProperty("status").GetString());
+        Assert.False(sample.GetProperty("decision").GetProperty("canPublish").GetBoolean());
+        Assert.Equal(0, sample.GetProperty("decision").GetProperty("controls").GetProperty("minimumQuoteCount").GetInt32());
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Reviewer,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(version, "Not the author"), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(version + 1, "Stale"), "procurement_manager")).StatusCode);
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(version, "Checked named reviewers and explicit controls"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var pending = await submitted.Content.ReadFromJsonAsync<JsonElement>(); version = pending.GetProperty("version").GetInt64();
+        var publication = new ProcurementPolicyDraftRoutes.PublicationInput(version, "Independent configuration review");
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/publish", fixture.Other,
+            publication, "procurement_manager")).StatusCode);
+        var published = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/publish", fixture.Reviewer, publication, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+        var current = await published.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Published", current.GetProperty("state").GetString());
+        Assert.Equal(draft.RulesJson, current.GetProperty("rulesJson").GetString());
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "Published"));
+        var instant = Uri.EscapeDataString(draft.EffectiveFrom.AddMinutes(1).ToString("O"));
+        var effective = await Send(fixture.Client, HttpMethod.Get, $"{path}/effective?key=SOURCING&at={instant}", fixture.Other, role: "procurement_manager");
+        var selected = await effective.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Valid", selected.GetProperty("status").GetString()); Assert.False(selected.GetProperty("isAuthority").GetBoolean());
+        Assert.Equal(id, selected.GetProperty("policy").GetProperty("id").GetGuid());
+        Assert.Throws<InvalidOperationException>(() => ProcurementSpendingActions.Resolve("SourcingEvent.Publish"));
+        Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, $"{path}/{id}", fixture.Other,
+            new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(current.GetProperty("version").GetInt64(), draft), "procurement_manager")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Sourcing_policy_worker_alias_cannot_independently_publish_or_return()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var create = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, SourcingPolicy(fixture.Owner), "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var saved = await create.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
+        var submit = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(saved.GetProperty("version").GetInt64(), "Review explicit configuration"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+        saved = await submit.Content.ReadFromJsonAsync<JsonElement>();
+        await fixture.SourcingIdentity("maker-alias", fixture.Reviewer);
+        var before = await fixture.SourcingConfigurationFootprint();
+        foreach (var operation in new[] { "publish", "return-for-changes" })
+            Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/{operation}", fixture.Reviewer,
+                new ProcurementPolicyDraftRoutes.PublicationInput(saved.GetProperty("version").GetInt64(), "Same worker is not independent"), "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
+
+    [Theory] [InlineData("inactive")] [InlineData("foreign")] [InlineData("alias")] [InlineData("confined-reviewer")]
+    [InlineData("currency")] [InlineData("missing-control")] [InlineData("confined-maker")] [InlineData("category")] [InlineData("branch")]
+    public async Task Sourcing_policy_rejects_invalid_current_references_and_scope_without_saved_draft_or_audit(string kind)
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureSourcingPolicyActors();
+        var draft = SourcingPolicy(fixture.Owner);
+        if (kind is "inactive" or "foreign" or "alias" or "confined-reviewer") await fixture.SourcingIdentity(kind, fixture.Owner);
+        if (kind == "confined-maker") await fixture.SourcingIdentity("confined-reviewer", fixture.Other);
+        if (kind == "currency") draft = draft with { RulesJson = draft.RulesJson!.Replace("ZMW", "USD", StringComparison.Ordinal) };
+        if (kind == "missing-control") draft = draft with { RulesJson = draft.RulesJson!.Replace("\"minimumQuoteCount\":0,", "", StringComparison.Ordinal) };
+        if (kind is "category" or "branch")
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse(draft.RulesJson!)!;
+            node["rules"]![0]!["when"]![kind == "category" ? "categoryCodes" : "branchIds"] =
+                new System.Text.Json.Nodes.JsonArray(kind == "category" ? "NOT_CONFIGURED" : Guid.NewGuid().ToString());
+            draft = draft with { RulesJson = node.ToJsonString() };
+        }
+        var before = await fixture.SourcingConfigurationFootprint();
+        var response = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/configuration/policies", fixture.Other, draft, "procurement_manager");
+        Assert.Equal(kind == "confined-maker" ? HttpStatusCode.Forbidden : HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
+
+    [Fact]
+    public async Task Sourcing_policy_rechecks_named_people_before_submit_and_publish_but_return_can_repair_inactive_names()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var draft = SourcingPolicy(fixture.Owner);
+        var create = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var current = await create.Content.ReadFromJsonAsync<JsonElement>(); var id = current.GetProperty("id").GetGuid();
+        var version = current.GetProperty("version").GetInt64();
+        await fixture.SourcingIdentity("inactive", fixture.Owner);
+        var before = await fixture.SourcingConfigurationFootprint();
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(version, "Review"), "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        await fixture.SourcingIdentity("active", fixture.Owner);
+        var submit = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(version, "Review"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+        current = await submit.Content.ReadFromJsonAsync<JsonElement>(); version = current.GetProperty("version").GetInt64();
+        await fixture.SourcingIdentity("inactive", fixture.Owner); before = await fixture.SourcingConfigurationFootprint();
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/publish", fixture.Reviewer,
+            new ProcurementPolicyDraftRoutes.PublicationInput(version, "Cannot publish invalid named person"), "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        var returned = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/return-for-changes", fixture.Reviewer,
+            new ProcurementPolicyDraftRoutes.PublicationInput(version, "Replace inactive named reviewer"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, returned.StatusCode);
+        current = await returned.Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal("Draft", current.GetProperty("state").GetString());
+        var repaired = draft with { RulesJson = draft.RulesJson!.Replace(fixture.Owner.ToString(), fixture.Reviewer.ToString(), StringComparison.Ordinal) };
+        var update = await SendJson(fixture.Client, HttpMethod.Put, $"{path}/{id}", fixture.Other,
+            new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(current.GetProperty("version").GetInt64(), repaired), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+    }
+
     [Fact]
     public async Task Policy_review_submission_requires_author_current_version_and_company_rules()
     {
@@ -2962,6 +3106,45 @@ public sealed class ProcurementRequestHttpTests
             var request = await db.PurchaseRequests.SingleAsync(x => x.Id == requestId);
             request.SourceChannel = channel; request.OnBehalfOfSubjectId = onBehalf;
             await db.SaveChangesAsync();
+        }
+
+        public async Task ConfigureSourcingPolicyActors()
+        {
+            using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            // Explicit finite test configuration role. No publication permission or spending grant is supplied.
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "procurement_manager", RoleName = "Synthetic policy configuration",
+                Active = true, PermissionsCsv = "procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-configuration-approve" });
+            await core.SaveChangesAsync();
+        }
+        public async Task<Guid> SourcingBranch()
+        {
+            using var services = app.Services.CreateScope();
+            return await services.ServiceProvider.GetRequiredService<HrmDbContext>().WorkLocations.Where(x => x.LegalEntityId == company).Select(x => x.Id).SingleAsync();
+        }
+        public async Task<string> SourcingConfigurationFootprint()
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set("tenant-a", company, Other.ToString(), null, null, false, "sourcing-policy-test");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return JsonSerializer.Serialize(new { policies = await db.PolicyVersions.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+                audits = await db.AuditEvents.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+                grants = await db.SpendingAuthorityGrants.CountAsync(), events = await db.SourcingEvents.CountAsync(), outbox = await db.OutboxEvents.CountAsync() });
+        }
+        public async Task SourcingIdentity(string change, Guid subject)
+        {
+            using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var account = await core.LocalUsers.SingleAsync(x => x.Id == subject);
+            if (change is "inactive" or "active") account.IsActive = change == "active";
+            if (change is "alias" or "maker-alias") account.WorkerId = (await core.LocalUsers.SingleAsync(x => x.Id == (change == "maker-alias" ? Other : Reviewer))).WorkerId;
+            if (change == "foreign")
+            {
+                var location = new WorkLocation { Code = "SOURCING-FOREIGN", Name = "Foreign source", LegalEntityId = OtherCompany };
+                core.WorkLocations.Add(location);
+                (await core.Workers.SingleAsync(x => x.Id == account.WorkerId)).LocationId = location.Id;
+            }
+            if (change == "confined-reviewer") core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = subject,
+                LocationId = await core.WorkLocations.Where(x => x.LegalEntityId == company).Select(x => x.Id).SingleAsync() });
+            await core.SaveChangesAsync();
         }
 
         public async Task SetFinanceWorker(Guid subject, Guid workerSubject, bool active = true)
