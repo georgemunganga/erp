@@ -323,3 +323,14 @@ semantics remain unchanged. No use-store/retirement/provider route is wired, no 
 or policy is added and no production protection is claimed until both owning reader
 and lifecycle writer participate. Authored unit/opt-in private PostgreSQL probe
 source is unrun; root owns serialized gates and activation remains unavailable.
+
+### Executed lifecycle-fence integration checkpoint
+
+Frozen integration `4c26abd` subsequently passed the complete Core Documents
+**86/86**, Core Approvals **20/20**, and Procurement domain/model **754/754** suites,
+zero failures/skips. The private document workflow probe built cleanly and passed
+its actual pooled PostgreSQL lifecycle-fence checks, alongside ordinary document
+and retained-use workflows. This supersedes the preceding source-only statement
+for these bounded checks. The [ADR](../adr/ADR-CORE-DOCUMENT-OWNER-LIFECYCLE-FENCE.md#executed-integration-checkpoint--21-october-2026)
+records exact provenance, evidence paths and limitations. No operational consumer,
+paired retirement writer, publication or production activation is established.

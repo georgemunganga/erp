@@ -121,3 +121,27 @@ No SDK/Node/PostgreSQL/Docker/test job has run on this branch. Parent must seria
 Core tests, compilation of all three consumers, unchanged branch/catalog probe
 regressions, model drift and the opt-in private fence proof. Retain true failure
 logs and source provenance. Source review is not runtime or release acceptance.
+
+## Executed integration checkpoint — 21 October 2026
+
+Frozen integration source `4c26abd` passed Core Documents **86/86**, Core
+Approvals **20/20**, and Procurement domain/model **754/754**, with zero failures
+or skips. The private document workflow probe built with zero warnings/errors.
+Serial SDK evidence is retained in `artifacts/p28/verify-lifecycle-extraction.log`
+and `artifacts/p28/lifecycle/`.
+
+The actual PostgreSQL probe also passed against private database
+`core_doc_rehearsal_fence_20261021_082941`, with pooling enabled. It observed shared
+readers, a waiting exclusive writer, rejection after EF transaction entry,
+two-owner acquisition cancellation, and a replacement pooled connection with a
+different physical backend PID that could acquire both keys. All six Core-owned
+document/use tables were unchanged by the fence-only proof. The ordinary document
+workflow and retained-use probe passed in that run too.
+
+Protected provenance, executable hashes, result and logs are retained under
+`/home/amizo/erp-backups/core-document-lifecycle-postgres-20261021_082941/`.
+The launch checkout was `43aa3f7`; its difference from executable `4c26abd` was an
+API/test-only reviewer lookup change, with no Core source difference. This used
+the isolated PostgreSQL owner role and synthetic access/scanner fixtures. It does
+not prove finite production grants, module authorization, paired pin/retirement
+business races, publication, or deployment. The integration limits above apply.
