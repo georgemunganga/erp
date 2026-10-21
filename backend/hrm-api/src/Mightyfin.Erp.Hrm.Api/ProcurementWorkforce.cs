@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -9,6 +10,21 @@ public sealed record ProcurementWorkerHome(Guid WorkerId, Guid? LegalEntityId,
 /// <summary>Checks the HRMS-owned employee mapping for Procurement requests.</summary>
 public static class ProcurementWorkforce
 {
+    /// <summary>Existing ERP governance account, deliberately without an employee mapping.
+    /// This is read-only shell access, never a replacement canonical business actor.</summary>
+    public static async Task<bool> IsUnmappedErpAdministrator(HrmDbContext db, string tenantId,
+        string subjectId, IEnumerable<System.Security.Claims.Claim> claims, CancellationToken ct)
+    {
+        if (!Guid.TryParse(subjectId, out var id)
+            || !WorkerPrincipal.FromClaims(claims).IsRole("erp_admin")) return false;
+        var now = DateTimeOffset.UtcNow;
+        var account = await db.LocalUsers.AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.Id == id && !x.IsArchived && x.IsActive && x.WorkerId == null && (x.LockedUntil == null || x.LockedUntil <= now))
+            .Select(x => x.RolesCsv).SingleOrDefaultAsync(ct);
+        return account is not null && LocalIdentityRoutes.ParseRoles(account)
+            .Contains("erp_admin", StringComparer.OrdinalIgnoreCase);
+    }
+
     public static async Task<ProcurementWorkerHome?> ResolveActiveWorkerHome(HrmDbContext hrm,
         string tenantId, string subjectId, CancellationToken ct)
     {
