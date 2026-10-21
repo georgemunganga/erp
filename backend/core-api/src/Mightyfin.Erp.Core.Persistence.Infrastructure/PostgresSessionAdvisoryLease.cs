@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Mightyfin.Erp.Core.Approvals.Infrastructure;
+namespace Mightyfin.Erp.Core.Persistence.Infrastructure;
 
 /// <summary>Shared infrastructure only: owning capabilities define keys, scope and lock order.</summary>
 public sealed class PostgresSessionAdvisoryLease : IAsyncDisposable

@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../Mightyfin.Erp.Core.Persistence.Infrastructure/Mightyfin.Erp.Core.Persistence.Infrastructure.csproj" />
     <ProjectReference Include="../Mightyfin.Erp.Core.Approvals.Domain/Mightyfin.Erp.Core.Approvals.Domain.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" PrivateAssets="all" />
