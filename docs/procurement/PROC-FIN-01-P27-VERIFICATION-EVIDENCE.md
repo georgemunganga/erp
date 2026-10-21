@@ -69,3 +69,10 @@ Runtime-role readiness/privilege negatives and genuine capture/replay/rebinding/
 ## Additive Budget business-version gate — retained compile failure
 
 First follow-up session19058 compiled the application API but stopped before test execution: new test Send() supplied the Finance role positionally where that helper expects optional company Guid. Corrected only the call to named `role:`; production query/assertions/authorization remain unchanged. Original business-version-verification.log is retained. This follow-up has no test pass yet and does not invalidate or replace the earlier197-case source scope.
+
+
+## Corrected Budget business-version gate — PASS
+
+Corrected session85845 on740a629 completed **89/89 PurchaseRequest mapped API tests**, zero failed/skipped,1m29s; the API and actual HTTP probe Release build passed. This includes stale-CAS rejection without effects, current-versus-submitted queue values, canonical retained capture and unchanged exact reference replay/workflow evidence. Original compile failure is retained separately. Evidence: artifacts/p27/business-version-corrected.log, budget-business-version TRX and business-version-binaries.sha256.
+
+Fresh restricted-role actual P27 orders/Finance HTTP verification follows in `/home/amizo/erp-backups/procurement-p27-http-20261021_063741/`; no terminal pass is inferred at this checkpoint. Exact Budget UI sourcee73b308 separately passed48focused tests/TypeScript/build/six mocked browser cases, recorded in frontend draftPR38. These sources remain undeployed.
