@@ -63,6 +63,8 @@ if (serve)
         await probe.VerifyReceivingBrowserCompletion();
     if (orders && !receiving && Environment.GetEnvironmentVariable("PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyOrderBrowserCompletion();
+    if (orders && !receiving && Environment.GetEnvironmentVariable("PROCUREMENT_BUDGET_BROWSER_VERIFY_ON_STOP") == "1")
+        await probe.VerifyBudgetBrowserCompletion();
 }
 else if (rfq)
 {
@@ -337,6 +339,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             VerifyReceivingBrowserContexts(JsonSerializer.SerializeToElement(actors, Json));
             await VerifyReceivingBrowserReadBoundaries();
         }
+        var budgetFixture = orders && !receiving ? await PrepareBudgetBrowserFixture() : null;
         var meta = await Get(Root + "/meta", buyer);
         Require(meta.GetProperty("schemaReady").GetBoolean() && meta.GetProperty("capabilities").GetProperty("approvals").GetBoolean(),
             "Migrated sandbox does not expose the actual configured approval capability.");
@@ -349,7 +352,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         var manifest = new
         {
             baseUrl = $"http://127.0.0.1:{port}", tenantId = "probe", companyId = company, branchId = branch,
-            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests, orders = orderFixture, receiving = receivingFixture,
+            currencyCode = "ZMW", authenticationHeader = "X-Probe-User", actors, requests, orders = orderFixture, receiving = receivingFixture, budget = budgetFixture,
             workflow = new[]
             {
                 new { code = "NEED", assignee = "LineManager", mode = "One", principals = new[] { manager1 } },
