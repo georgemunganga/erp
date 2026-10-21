@@ -447,3 +447,13 @@ retirement reversal, invalid/overflow revision, dirty/nonrelational writer conte
 and verify authorizer/network entry has not occurred. They are unrun and do not
 replace actual managed writer/pin race, finite-role, rollback, purpose revocation,
 pooled cancellation and original document workflow gates. No schema changes.
+
+U2 independent-review correction: the pre-BEGIN owner fence now also requires a
+**clean owning ChangeTracker** before acquisition. Otherwise EF tracking queries
+could reuse a document loaded before the fence and incorrectly treat it as current
+after another writer retired it. Preloaded authoritative contexts are denied,
+including unchanged entries; the coordinator must create a fresh context, acquire
+the fence, then perform all authoritative loads in its transaction. A design-only
+preflight regression is authored. The actual adapter companion additionally must
+prove A-preloads → B-retires → A-fence denied and a fresh reader rejects the retired
+version. No executed concurrency claim from this correction alone.
