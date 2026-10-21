@@ -45,6 +45,91 @@ public sealed class SourcingPolicyIdentityTests
         if (field == "company") policy.LegalEntityId = Guid.NewGuid();
         Assert.Throws<InvalidOperationException>(() => SourcingPolicyIdentity.RequireIndependent(policy, origin, submitted, Reviewer, ReviewerWorker));
     }
+    [Theory] [InlineData("submission-time")] [InlineData("submission-revision")] [InlineData("publication-time")]
+    public void Otherwise_valid_hash_bound_lineage_rejects_backdating_or_nonadvancing_submission(string fault)
+    {
+        var policy = Policy(); var at = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+        var origin = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Created", Maker, MakerWorker, 1, at);
+        policy.RulesJson = "{\"editedByOriginalAuthor\":true}";
+        policy.State = "PendingReview"; policy.Version = fault == "submission-revision" ? 1 : 4;
+        policy.ReviewRequestedBy = Maker; policy.ReviewRequestedAt = fault == "submission-time" ? at.AddTicks(-10) : at;
+        var submitted = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Submitted", Maker, MakerWorker,
+            policy.Version, policy.ReviewRequestedAt.Value, origin);
+        SourcingPolicyIdentity.Verify(origin); SourcingPolicyIdentity.Verify(submitted);
+        if (fault != "publication-time")
+            Assert.Equal("SourcingPolicySubmittedIdentityMismatch", Assert.Throws<InvalidOperationException>(() =>
+                SourcingPolicyIdentity.VerifySubmission(policy, origin, submitted)).Message);
+        else SourcingPolicyIdentity.VerifySubmission(policy, origin, submitted);
+        policy.State = "Published"; policy.PublishedBy = Reviewer;
+        policy.PublishedAt = fault == "publication-time" ? at.AddTicks(-10) : at;
+        policy.Version = submitted.PolicyRecordVersionAtAction + 1;
+        var published = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Published", Reviewer, ReviewerWorker,
+            policy.Version, policy.PublishedAt.Value, origin, submitted);
+        SourcingPolicyIdentity.Verify(published);
+        Assert.Equal("SourcingPolicyPublicationIdentityMismatch", Assert.Throws<InvalidOperationException>(() =>
+            SourcingPolicyIdentity.VerifyPublication(policy, origin, submitted, published)).Message);
+    }
+    [Theory] [InlineData(2)] [InlineData(5)]
+    public void Equal_canonical_times_and_edited_draft_revisions_are_supported(long submittedRevision)
+    {
+        var policy = Policy(); var at = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+        var origin = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Created", Maker, MakerWorker, 1, at);
+        policy.RulesJson = "{\"editedByOriginalAuthor\":true}";
+        policy.State = "PendingReview"; policy.Version = submittedRevision; policy.ReviewRequestedBy = Maker; policy.ReviewRequestedAt = at.AddTicks(9);
+        var submitted = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Submitted", Maker, MakerWorker,
+            policy.Version, policy.ReviewRequestedAt.Value, origin);
+        SourcingPolicyIdentity.VerifySubmission(policy, origin, submitted);
+        Assert.Equal(origin.ActionAt, submitted.ActionAt); Assert.NotEqual(origin.RulesSha256, submitted.RulesSha256);
+        policy.State = "Published"; policy.PublishedBy = Reviewer; policy.PublishedAt = at.AddTicks(1); policy.Version++;
+        var published = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Published", Reviewer, ReviewerWorker,
+            policy.Version, policy.PublishedAt.Value, origin, submitted);
+        SourcingPolicyIdentity.VerifyPublication(policy, origin, submitted, published);
+    }
+    [Theory] [InlineData("submission-time")] [InlineData("submission-revision")] [InlineData("publication-time")]
+    public async Task Save_parent_guards_reject_otherwise_valid_bad_order_before_any_persistence(string fault)
+    {
+        var options = new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        var at = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero); Guid id; int audits;
+        await using (var db = new ProcurementDbContext(options, Owner))
+        {
+            var policy = Policy(); id = policy.Id; db.AddScoped(policy);
+            var origin = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Created", Maker, MakerWorker, 1, at);
+            db.AddScoped(origin); await db.SaveChangesAsync(); audits = await db.AuditEvents.CountAsync();
+            if (fault == "submission-revision")
+            {
+                // Denial-only metadata regression: the proposed revision agrees with this corrupted
+                // tracked CAS base, but cannot precede/equal the actual retained Created revision.
+                db.Entry(policy).OriginalValues[nameof(PolicyVersion.Version)] = 0L; policy.Version = 0;
+            }
+            policy.State = "PendingReview"; policy.ReviewRequestedBy = Maker;
+            policy.ReviewRequestedAt = fault == "submission-time" ? at.AddTicks(-10) : at; policy.ReviewReason = "Explicit review";
+            var submitted = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Submitted", Maker, MakerWorker,
+                policy.Version + 1, policy.ReviewRequestedAt.Value, origin);
+            SourcingPolicyIdentity.Verify(submitted); db.AddScoped(submitted);
+            if (fault != "publication-time") Assert.Equal("SourcingPolicySubmittedIdentityMismatch",
+                (await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync())).Message);
+            else { await db.SaveChangesAsync(); audits = await db.AuditEvents.CountAsync(); }
+        }
+        if (fault == "publication-time")
+        {
+            await using var db = new ProcurementDbContext(options, Owner with { SubjectId = Reviewer });
+            var policy = await db.PolicyVersions.SingleAsync(x => x.Id == id);
+            var origin = await db.SourcingPolicyIdentityEvidenceRecords.SingleAsync(x => x.Stage == "Created");
+            var submitted = await db.SourcingPolicyIdentityEvidenceRecords.SingleAsync(x => x.Stage == "Submitted");
+            policy.State = "Published"; policy.PublishedBy = Reviewer; policy.PublishedAt = at.AddTicks(-10); policy.PublicationReason = "Independent review";
+            var published = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId, "Published", Reviewer, ReviewerWorker,
+                policy.Version + 1, policy.PublishedAt.Value, origin, submitted);
+            SourcingPolicyIdentity.Verify(published); db.AddScoped(published);
+            Assert.Equal("SourcingPolicyIndependentReviewerRequired", (await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync())).Message);
+        }
+        await using var read = new ProcurementDbContext(options, Owner);
+        var retained = await read.PolicyVersions.SingleAsync(x => x.Id == id);
+        Assert.Equal(fault == "publication-time" ? "PendingReview" : "Draft", retained.State);
+        Assert.Equal(fault == "publication-time" ? 2 : 1, retained.Version);
+        Assert.Equal(fault == "publication-time" ? 2 : 1, await read.SourcingPolicyIdentityEvidenceRecords.CountAsync());
+        Assert.Equal(audits, await read.AuditEvents.CountAsync());
+    }
+
     [Fact]
     public void Retained_hash_detects_tamper_and_publication_retains_independent_worker_after_supersession()
     {
