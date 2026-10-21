@@ -137,3 +137,18 @@ source is the exact already-live LoanOpeningBalances; no generated DDL, P20–P2
 migration, runtime command, test, build, image or deployment occurred in this work.
 Parent must execute the gates above against this complete source candidate. The user's
 existing Worker-less identity is not relinked or mutated by this patch.
+
+### Corrected candidate after initial offline compile
+
+The initial 0333559 gate compiled the complete shared API, then failed test compilation
+because two new admin fixtures lacked the Infrastructure.Data namespace for the existing
+HrUserBranchAssignment type. The protected log is retained; no tests ran, no publish
+completed and no application startup/deployment occurred. A test-only using fixes this.
+
+The corrected candidate additionally applies reviewed `249b14f` (`ce16a6c`) and
+`9675aa0` (`f147508`): after narrowing worker-less admin GETs, middleware rejects endpoint
+metadata requiring a non-read policy (authorization had already run before narrowing).
+Actual retained vendor handlers test list/detail read-only metadata and deny writes/
+command-protected GETs. No future policy or route is enabled. The source manifest was
+regenerated for this corrected candidate; the original 033 source is not the final
+release artifact. Corrected focused regressions/full publish/strict probe remain pending.

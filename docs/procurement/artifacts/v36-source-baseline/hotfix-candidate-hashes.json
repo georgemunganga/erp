@@ -8,7 +8,9 @@
     "e68416f",
     "2f57b78",
     "45ba126",
-    "cb8c561"
+    "cb8c561",
+    "249b14f",
+    "9675aa0"
   ],
   "changedSource": [
     {
@@ -19,7 +21,7 @@
     {
       "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
       "p19Sha256": "8b200e00cfa23099c00765517cf83df270416c1a702019d8cb65d1d172892a62",
-      "candidateSha256": "babedff2a5e65981c070616b2adddefa8dc4a7480ab32037e88da80356c8d1e1"
+      "candidateSha256": "cd5a9243bd2db910a0ec244805a972c4d1d69d0a760f9f49ff7f4b32f6c65863"
     },
     {
       "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPermissions.cs",
@@ -77,9 +79,14 @@
       "candidateSha256": "387a00182b277e491b06b1d4410114d0f3d3aa6209c780967b048419fc028a6f"
     },
     {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementAdminVendorHttpTests.cs",
+      "p19Sha256": null,
+      "candidateSha256": "ee417d7f26c405e1d210d3735f481eaaab9525852291035ca28d030de60b3677"
+    },
+    {
       "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementAdminViewTests.cs",
       "p19Sha256": null,
-      "candidateSha256": "e351327a109c0fd4971365292ea57819c9132388401e87e0adeaca99461745a6"
+      "candidateSha256": "ab9251d0e54d1cde2bc2e74ef7864a8a57e6e1486d2af28ccb145ba61e8a90b3"
     },
     {
       "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/SetupWizardTests.cs",
@@ -837,5 +844,6 @@
     "20260928220000_SelectiveMonthlyLeaveAccrual",
     "20261014090000_LoanOpeningBalances",
     "20261016090000_M55BrandingFont"
-  ]
+  ],
+  "candidateStage": "Corrected after initial0333559 compile failure; includes249b14f/9675aa0 GET policy guard and test-only namespace fix; tests/build pending."
 }
