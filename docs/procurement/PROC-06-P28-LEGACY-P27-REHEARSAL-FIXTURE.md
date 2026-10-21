@@ -78,3 +78,10 @@ Source-only fixture does not prove compilation, grants, API behavior, PostgreSQL
 rollback preservation or production migration safety. Those require later actual
 restricted-runtime logs and independent owner read-back. It creates no P28 states,
 new models, financial balances, stock transactions or production capability flags.
+
+
+## Parent execution evidence — PASS21October2026
+
+Sourcecdb1c0c Release probe build succeeded (0errors;2existing nullable warnings), then the actual standalone --legacy-sourcing process terminated0 against a new private P27 database with distinct bootstrap/runtime identities. The real funding/readiness and full existing PO regression suite passed first. Actual legacy create201/cancel200/GET passed, with fresh independent owner verification retaining two line IDs, exact1.0001 quantity and null source links, exact old DraftCancelled before/after payload, unchanged previous audit records and unchanged unrelated Procurement tables. The final actual P27 unsupported-submission-discriminator CHECK negative also passed.
+
+Evidence: /home/amizo/erp-backups/procurement-p27-http-legacy-20261021_070635/, including source, binary hashes, logs, result and process-exit-code0. Retained cancellation payload SHA256b5445ef27feeebb89b12418a26ba31232b8b101e44e94e7e63bb3ae6dbdada3d. The source database is now closed normally and retained for separate P28 clone rehearsal; this pass is not an actual P28 upgrade, governed RFQ authority or production release.
