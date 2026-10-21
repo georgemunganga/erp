@@ -160,3 +160,13 @@ All fixture/browser source is uncompiled/unrun at this checkpoint. Parent owns t
 serialized compile, private role/schema/runtime, actual browser and independent
 persisted-state gates. Preserve genuine failures and do not relax permissions or
 accept browser labels as durable success.
+
+Known source-review release hold: this positive fixture keeps all three canonical
+account→worker bindings unchanged. It does **not** prove original-worker maker/checker
+independence across later Core account rebinding, nor immutable recipient-worker
+ownership of an active principal grant. Current authority records lack those original
+worker pins. The independently identified account-swap/recipient-rebinding gaps require
+a separate reviewed additive evidence/compatibility slice and regressions before
+claiming governed financial configuration fully ready. This fixture must not backfill
+worker identities, weaken Core mutation controls or treat its bounded positive as
+closure of that material historical-authority gap.
