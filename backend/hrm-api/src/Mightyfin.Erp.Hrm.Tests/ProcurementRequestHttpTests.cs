@@ -24,7 +24,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Tests;
 
 /// <summary>Exercises the mapped HTTP routes with the real Core scope middleware and Procurement query filters.</summary>
-public sealed class ProcurementRequestHttpTests
+public sealed partial class ProcurementRequestHttpTests
 {
     [Fact]
     public async Task Funding_alias_is_denied_without_effects_and_independent_worker_survives_creator_offboarding()
