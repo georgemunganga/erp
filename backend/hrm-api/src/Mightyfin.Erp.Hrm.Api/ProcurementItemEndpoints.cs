@@ -14,6 +14,7 @@ public static class ProcurementItemEndpoints
     public static void MapRoutes(WebApplication app)
     {
         var items = app.MapGroup("/api/procurement/v1/items");
+        items.AddEndpointFilter(ProcurementCatalogFencing.Write);
         items.MapGet("", List).RequireAuthorization("procurement-item-manage");
         items.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-item-manage");
         items.MapPost("", Create).RequireAuthorization("procurement-item-manage");

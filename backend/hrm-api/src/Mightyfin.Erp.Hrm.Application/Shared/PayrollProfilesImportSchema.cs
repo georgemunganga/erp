@@ -147,7 +147,7 @@ public sealed class PayrollProfilesImportSchema : IImportSchema
             .Select(a => new WorkerComponentValueCreate(a.Component.Id, a.Component.Code, a.Amount))
             .ToList();
         var effective = string.IsNullOrWhiteSpace(effectiveFrom)
-            ? DateOnly.FromDateTime(DateTime.UtcNow)
+            ? existing?.EffectiveFrom ?? DateOnly.FromDateTime(DateTime.UtcNow)
             : ParseImportDate(effectiveFrom);
 
         var resolved = new Dictionary<string, string>(row, StringComparer.OrdinalIgnoreCase)
@@ -180,6 +180,24 @@ public sealed class PayrollProfilesImportSchema : IImportSchema
         }
         if (values.Count == 0)
             throw new DomainException("import-empty-profile", "The row has no component amounts to apply.");
+
+        // UpsertProfileAsync replaces the profile's component collection. Carry
+        // forward columns omitted by an update file so a partial import does
+        // not silently remove existing salary and allowance assignments.
+        if (mode.Equals("update", StringComparison.OrdinalIgnoreCase))
+        {
+            var existing = await repo.FindOpenProfileAsync(workerId, ct);
+            if (existing is not null)
+            {
+                var supplied = values.Select(v => v.ComponentId).ToHashSet();
+                foreach (var current in existing.ComponentValues.Where(v => !supplied.Contains(v.ComponentId)))
+                {
+                    var component = Components.FirstOrDefault(c => c.Id == current.ComponentId);
+                    if (component is not null)
+                        values.Add(new WorkerComponentValueCreate(component.Id, component.Code, current.Amount));
+                }
+            }
+        }
 
         var request = new WorkerPayrollProfileCreate(workerId, payGroupId, effectiveFrom.ToString("yyyy-MM-dd"), values);
         await payroll.UpsertProfileAsync(workerId, request, ct);

@@ -2,6 +2,8 @@
 
 **Status:** Draft for business review · **Version:** 0.1 · **Hierarchy:** Procurement → Supplier Invoices and Procure-to-Pay → Invoice Validation and Finance Handoff → Operations · **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx) · **Module:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 
+**Implementation boundary:** [PROC-11A gap map](PROC-11A-MATCHING-FOUNDATION-GAP-MAP.md) and [PROC-11B 28-section comparison foundation](PROC-11B-INVOICE-MATCHING-COMPARISON.md) define the bounded source-only increment. Operational matching and AP posting remain disabled until authoritative source, persistence and Finance gates pass.
+
 ## 1. Feature Identification
 
 `PROC-11`, procure-to-pay phase. Business owners: AP and Procurement validation leads; product/data/technical owners to name. Operations: `O1` two/three-way match, `O2` route exception, `O3` approve variance, `O4` hand off, `O5` reconcile AP result, `O6` sync payment status.
@@ -42,13 +44,15 @@ Procurement: Match Pending → Matched / Exception → Validated → Handoff Pen
 
 AP matcher acts within entity; buyer/receiver resolves only assigned discrepancy type; variance approver has separate authority and no prohibited self-conflict; Finance callback is service-authenticated and tenant/entity checked. Supplier portal sees only permitted own status, never internal coding or bank details.
 
+Invoice capture stores the selected Core branch. Branch-confined AP users can list and open only invoices for their selected authorized branch, and cannot attach an order from another branch. Legacy invoices without a branch remain available only to users with company-wide access until an authorized backfill establishes their origin. Duplicate invoice detection remains company-wide and returns no hidden invoice details.
+
 ## 11. Business Rules
 
 `BR-PROC-MAT-001` two/three-way method by category and evidence need; `002` tolerances per field/entity, never silent global; `003` reversed/rejected receipts excluded; `004` duplicate or unresolved hard variance blocks AP; `005` one approved snapshot maps to one handoff key; `006` Finance owns Posted/Paid/credit-applied status; `007` material source correction reruns match.
 
 ## 12. Data Fields and Ownership
 
-Procurement owns match ID, invoice/PO/receipt versions, comparable qty/price/tax/total, tolerance/policy version, exception and decision, approved handoff snapshot, delivery attempts and Finance refs. Finance owns AP bill, journal, tax treatment, due date as posted, credit application, payment date/ref. Procurement stores minimal status projection.
+Procurement owns match ID, invoice/PO/receipt versions, invoice branch reference, comparable qty/price/tax/total, tolerance/policy version, exception and decision, approved handoff snapshot, delivery attempts and Finance refs. Core owns the referenced branch and organization currency; capture defaults to that currency when none is supplied. Finance owns AP bill, journal, tax treatment, due date as posted, credit application, payment date/ref. Procurement stores minimal status projection.
 
 ## 13. Screens and Data Views
 

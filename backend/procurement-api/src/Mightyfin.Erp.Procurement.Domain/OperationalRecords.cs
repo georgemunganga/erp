@@ -12,6 +12,8 @@ public sealed class ProcurementCategory : ProcurementRecord
 
 public sealed class ProcurementMethod : ProcurementRecord
 {
+    // Explicit business configuration, never inferred from a customer-defined method code.
+    public string ExecutionRoute { get; set; } = "Unconfigured";
     public string Code { get; set; } = null!;
     public string Name { get; set; } = null!;
     public string Status { get; set; } = "Draft";

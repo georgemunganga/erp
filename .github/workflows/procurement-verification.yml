@@ -23,6 +23,29 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      approval-postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: approval_test
+          POSTGRES_PASSWORD: synthetic-approval-fixture
+          POSTGRES_DB: approval_transaction_rehearsal
+        ports:
+          - 127.0.0.1:5433:5432
+        options: >-
+          --health-cmd "pg_isready -U approval_test -d approval_transaction_rehearsal"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      document-postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: doc_test
+          POSTGRES_PASSWORD: synthetic-document-fixture
+          POSTGRES_DB: core_docs_rehearsal
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U doc_test -d core_docs_rehearsal"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
         working-directory: backend/hrm-api
@@ -44,26 +67,53 @@ jobs:
         run: >-
           dotnet test ../core-api/src/Mightyfin.Erp.Core.Approvals.Tests
           --configuration Release --logger trx --results-directory ../../artifacts/core-approval-tests
+      - name: Core document lifecycle tests
+        run: >-
+          dotnet test ../core-api/src/Mightyfin.Erp.Core.Documents.Tests
+          --configuration Release --logger trx --results-directory ../../artifacts/core-document-tests
+      - name: Procurement and Core atomic approval PostgreSQL probe
+        env:
+          APPROVAL_REHEARSAL_CONNECTION: Host=127.0.0.1;Port=5433;Database=approval_transaction_rehearsal;Username=approval_test;Password=synthetic-approval-fixture
+        run: |
+          set -o pipefail
+          mkdir -p ../../artifacts/approval-transaction
+          dotnet run --project ../procurement-api/tools/ApprovalTransactionProbe --configuration Release 2>&1 | tee ../../artifacts/approval-transaction/probe.log
+      - name: Core document PostgreSQL transaction probe
+        env:
+          CORE_DOCUMENT_TEST_CONNECTION: Host=127.0.0.1;Database=core_docs_rehearsal;Username=doc_test;Password=synthetic-document-fixture
+        run: dotnet run --project ../core-api/tools/CoreDocumentWorkflowProbe --configuration Release
+      - name: Build Core scanner verification tool
+        run: dotnet build ../core-api/tools/CoreDocumentScannerProbe --configuration Release
       - name: Procurement HTTP, identity and authorization tests
         run: >-
           dotnet test src/Mightyfin.Erp.Hrm.Tests
           --configuration Release --filter FullyQualifiedName~Procurement
           --logger trx --results-directory ../../artifacts/host-tests
+      - name: Preserve existing shared-host setup and payroll contracts
+        run: >-
+          dotnet test src/Mightyfin.Erp.Hrm.Tests --configuration Release --no-build --no-restore
+          --filter 'FullyQualifiedName~M41Gap4ImportTests|FullyQualifiedName~SetupWizardTests|FullyQualifiedName~LoanOpeningBalanceTests|FullyQualifiedName~PayrollHistoricalPeriodTests|FullyQualifiedName~PayrollEngineTests|FullyQualifiedName~PayslipLeaveSummaryTests'
+          --logger trx --results-directory ../../artifacts/shared-host-preservation-tests
       - name: Check migration snapshots
         run: |
           dotnet tool install dotnet-ef --tool-path ../../.tools --version 10.0.11
           ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure --context ProcurementDbContext
           ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure --context ApprovalDbContext
-      - name: Publish verified ERP host
+          ../../.tools/dotnet-ef migrations has-pending-model-changes --no-build --configuration Release --project ../core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure --context DocumentDbContext
+      - name: Publish ERP candidate
         run: >-
           dotnet publish src/Mightyfin.Erp.Hrm.Api --configuration Release
           --no-restore --no-self-contained --output ../../artifacts/api
+      - name: Check candidate against retained loan data contract
+        run: dotnet run --project tools/PayrollLoanCompatibilityProbe --configuration Release -- ../../artifacts/api
       - name: Retain test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: procurement-test-results
-          path: artifacts/**/*/*.trx
+          path: |
+            artifacts/**/*/*.trx
+            artifacts/approval-transaction/probe.log
           if-no-files-found: ignore
           retention-days: 7
       - name: Retain verified build

@@ -95,26 +95,55 @@ public sealed class ApprovalDbContext(DbContextOptions<ApprovalDbContext> option
         });
     }
 
-    public override int SaveChanges() { PrepareChanges(); return base.SaveChanges(); }
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    { PrepareChanges(); return base.SaveChangesAsync(cancellationToken); }
+    public override int SaveChanges() => SaveChanges(true);
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    { PrepareChanges(); return base.SaveChanges(acceptAllChangesOnSuccess); }
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        SaveChangesAsync(true, cancellationToken);
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    { PrepareChanges(); return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken); }
 
     private void PrepareChanges()
     {
         if (string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(scope.SubjectId))
             throw new UnauthorizedAccessException("An authenticated approval scope is required.");
-        foreach (var entry in ChangeTracker.Entries<ApprovalRecord>().Where(x => x.State != EntityState.Unchanged))
+        var changes = ChangeTracker.Entries<ApprovalRecord>()
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();
+        foreach (var entry in changes)
         {
             if (entry.State == EntityState.Deleted ||
                 entry.State == EntityState.Modified && entry.Entity is ApprovalDecision)
                 throw new InvalidOperationException("Approval history cannot be changed or deleted.");
             if (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId)
                 throw new UnauthorizedAccessException("Approval record is outside the actor scope.");
-            if (entry.State == EntityState.Modified)
-            {
-                entry.Entity.Version++;
-                entry.Entity.UpdatedAt = DateTimeOffset.UtcNow;
-            }
+        }
+
+        // An intermediate vote may leave Case.State unchanged. Still update the aggregate
+        // concurrency token so simultaneous votes cannot both commit against stale quorum.
+        foreach (var decision in changes.Where(x => x.State == EntityState.Added)
+                     .Select(x => x.Entity).OfType<ApprovalDecision>())
+        {
+            if (decision.ActorSubjectId != scope.SubjectId)
+                throw new UnauthorizedAccessException("A decision must identify the authenticated actor.");
+            var parent = ChangeTracker.Entries<ApprovalCase>().SingleOrDefault(x =>
+                x.Entity.Id == decision.CaseId && x.Entity.TenantId == scope.TenantId
+                && x.Entity.LegalEntityId == scope.LegalEntityId);
+            if (parent is null || parent.State is not (EntityState.Unchanged or EntityState.Modified)
+                || !parent.Collection(x => x.Stages).IsLoaded
+                || parent.Entity.Stages.Any(stage => !Entry(stage).Collection(x => x.Assignments).IsLoaded))
+                throw new InvalidOperationException("Load the persisted approval case with all stages and assignments before recording a decision.");
+            var stage = parent.Entity.Stages.SingleOrDefault(x => x.Id == decision.StageId);
+            if (stage is null || stage.CaseId != parent.Entity.Id
+                || !stage.Assignments.Any(x => x.Id == decision.AssignmentId && x.CaseId == parent.Entity.Id
+                    && x.StageId == stage.Id && x.AssigneeSubjectId == decision.ActorSubjectId))
+                throw new InvalidOperationException("The decision must belong to the tracked approval case and assigned actor.");
+            parent.Property(x => x.UpdatedAt).IsModified = true;
+        }
+        // Snapshot after marking cases; each tracked record receives exactly one revision per save.
+        foreach (var entry in ChangeTracker.Entries<ApprovalRecord>().Where(x => x.State == EntityState.Modified).ToList())
+        {
+            entry.Entity.Version = checked(entry.Property(x => x.Version).OriginalValue + 1);
+            entry.Entity.UpdatedAt = DateTimeOffset.UtcNow;
         }
     }
 }

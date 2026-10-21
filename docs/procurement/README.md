@@ -2,7 +2,7 @@
 
 [PROC-00 Procurement Module Architecture and Capability Map](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md) is the current draft master document. It defines the module boundary, 12 parent capability groups, line-level request routing, shared ERP dependencies, data ownership, and documentation/build sequence.
 
-[Procurement live implementation roadmap](PROC-ROADMAP-LIVE-BUILD.md) is the active build sequence and progress register. It distinguishes source schema, safe draft operations, policy-controlled transitions, UI adapters and production release evidence.
+[Procurement live implementation roadmap](PROC-ROADMAP-LIVE-BUILD.md) is the active build sequence and progress register. It distinguishes source schema, safe draft operations, policy-controlled transitions, UI adapters and production release evidence. The [20 October source audit and remaining milestones](PROC-ROADMAP-LIVE-BUILD.md#current-source-audit--20-october-2026-after-p25-migration-rehearsals) maps every agreed A–L capability to actual backend operations, existing UI adapters, required owning-module contracts and unverified or missing workflows; earlier baseline entries remain historical.
 
 [Workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) maps Zoho's documented user journeys to our child features, ERP data owners and live release gates; ERPNext is a secondary implementation check.
 

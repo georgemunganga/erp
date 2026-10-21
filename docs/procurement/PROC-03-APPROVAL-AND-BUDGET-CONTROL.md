@@ -34,6 +34,8 @@ Current immutable PR version; resolvable published policy; active assigned appro
 
 `O1`: resolve policy and request Finance check; distinguish advisory availability from confirmed reservation. `O2`: construct ordered/parallel tasks with quorum and conflict check. `O3`: assigned actor approves, returns or rejects, recording reason where required; final approval only after all gates pass. `O4`: hard failure routes to named authority and Finance resolution, never silent override. `O5`: material PR revision invalidates affected pending authority and starts a new instance. `O6`: cancellation/change asks Finance to adjust or release commitment and reconciles its response.
 
+At case opening, resolve canonical active accounts and retain the maker/requester worker IDs and each assigned worker ID. These references are immutable evidence, not copied HR records. Later historical offboarding does not itself prevent an independent active Finance officer from resolving the original return/rejection reservation.
+
 ## 9. Status and State Transitions
 
 Budget: Pending → Available / Partially Available / Insufficient / Not Configured / Exception Pending → Resolved or Denied. Approval: Not Started → Pending → In Progress → Approved / Returned / Rejected / Withdrawn; revised request creates a new approval instance. Actor, conditions, evidence, SLA start/pause, escalation and next state are recorded for every transition. Escalation reassigns or warns; it never auto-approves.
@@ -42,13 +44,17 @@ Budget: Pending → Available / Partially Available / Insufficient / Not Configu
 
 `procurement.approval.decide` requires assigned task, active workforce identity, tenant/entity/department scope and sufficient delegated amount/category authority. Requester/final approver conflict is denied unless approved compensating policy exists. Finance alone issues budget override/reservation. Approvers see relevant lines and evidence, not unrelated employee or supplier data.
 
+Independence compares stable worker identity as well as principal ID, so another login for the same person does not satisfy maker/checker rules. Decisions still require current active canonical assignees, current permissions and finite spending authority. A release verifier must be currently active and authorized, and differ from the retained maker, requester and terminal decision worker.
+
 ## 11. Business Rules
 
 `BR-PROC-APP-001` pin policy/version and decision inputs at submission; `002` hard budget failure blocks; `003` delegate never exceeds delegator; `004` return/reject/exception needs reason; `005` material changes trigger reapproval; `006` quorum is explicit; `007` no self-final-approval under normal policy; `008` Finance alone confirms reservation and release.
 
 ## 12. Data Fields and Ownership
 
-Procurement owns approval instance/step, policy evaluation, task and decision snapshot, actor/delegation, timestamps and reasons. Finance owns budget balance, reservation, transfer and release; Procurement stores response ID/version/time/status. HRMS owns reporting relationships; Workflow owns task execution history. Amount has currency and approved tax-inclusive basis.
+Core Workflow/Approval owns reusable approval cases, stages, assignments, decisions, delegation execution records and task history, including execution actors, timestamps and reasons. Procurement owns the immutable submitted PR/version, policy evaluation, purchasing authority/evidence snapshot, Core case reference and source business outcome; it must not maintain a competing execution ledger. Finance owns budget balances, reservations, transfers and releases; Procurement retains the exact Finance response/evidence ID, version, amount, currency, time and status used for its decision. HRMS owns workforce/reporting relationships and Core Identity owns login principals and access grants. Amounts carry an explicit calculation basis and currency: the existing policy implementation supports estimated line base before discounts, taxes and delivery; tax-inclusive or FX-based authority requires a separately configured and verified calculation. See [the next execution increment contract](PROC-APPROVAL-P01-IMPLEMENTATION.md#next-increment-design--purchase-request-approval-execution) for planned persistence, authorization and transaction requirements; these are not a claim that approval execution is enabled.
+
+New submission evidence uses schema version 2: nullable-for-upgrade `MakerWorkerId`, `RequesterWorkerId`, `WorkerIdentitySha256` bind tenant, company, source, submitted version, case and maker principal. New assignment evidence retains `AssigneeWorkerId` in the hashed identity/authority envelope. Old version 1 rows stay unchanged with null worker evidence; no identity is guessed or backfilled. Core remains owner of the identities; these are minimal immutable references with no cross-Core foreign key.
 
 ## 13. Screens and Data Views
 
@@ -70,6 +76,8 @@ Budget exception, delegation authority and supporting approval evidence link to 
 
 Vacant or circular hierarchy, requester also manager, inactive delegate, concurrent parallel decisions, changed FX rate at threshold, stale Finance check, partially funded request, worker transfer and reservation release failure all get explicit owner and state.
 
+Missing, legacy or hash-inconsistent worker evidence blocks execution/release with an explicit evidence error. Historical account deactivation or employee termination after a recorded return is distinct from missing evidence: valid version 2 records allow independent Finance recovery without reactivating departed staff.
+
 ## 18. Integrations, APIs, Events and Sandbox
 
 Versioned Finance check/reserve/release and shared Workflow task contracts carry tenant/entity, PR version, policy version, amount/currency, correlation and idempotency. Publish approval decisions after commit. Sandbox tests hard failure, delayed/duplicate Finance reply, delegate expiry and concurrent quorum without real funds.
@@ -77,6 +85,8 @@ Versioned Finance check/reserve/release and shared Workflow task contracts carry
 ## 19. Audit, Security and Privacy
 
 Append route, budget response, delegation chain, decision, reason, override and prior/new state. Enforce server-side scope and segregation on task APIs and exports; protect budget evidence and log privileged access.
+
+Retained worker references follow approval-evidence retention/access rules. They contain no payroll, password, private profile or bank details. Worker identity and authority digests are verified on reads used for execution; append-only guards protect application writes.
 
 ## 20. Reports, Dashboards and Metrics
 
@@ -98,13 +108,19 @@ Approved PR version has all required decisions and valid Finance evidence; retur
 
 Finance outage leaves Pending, not Passed. Unknown reserve/release outcome is queried by stable key before retry. Duplicate decision returns prior outcome; conflicting concurrent decision is rejected and user sees current task state. Operators reconcile without editing history.
 
+Finance release after historical offboarding uses the pinned maker/requester identities and the terminal decision assignment identity. It never falls back to a mutable inactive account mapping. Legacy version 1 cases remain blocked pending a separately approved, audited identity-evidence migration/recovery procedure; this release supplies no automatic override.
+
 ## 25. Acceptance Criteria
 
 Given hard budget failure, final approval and conversion fail. Given requester self-approval conflict, decision is denied. Given valid delegation, decision records delegate and delegator. Given material PR revision, prior approval cannot authorize it. Given task SLA breach, status remains pending until a real decision.
 
+A newly opened case retains exact current canonical worker mappings. After a return, offboarding historical actors does not strand an independent active Finance release. An active alias linked to any retained participant worker is denied. Missing or tampered worker IDs/hash, including legacy version 1 evidence, never allow release or approval.
+
 ## 26. Test Scenarios
 
 Test sequential/parallel/no-approval policy, threshold edge, delegation expiry, missing manager, self-approval, return/resubmit, multi-entity access, partial funding, Finance outage/replay, concurrent quorum, release mismatch and inaccessible evidence.
+
+Include historical maker/requester/decision-worker offboarding, aliases of each participant, malformed identity envelopes, digest mismatch, unchanged legacy rows after upgrade, blocked legacy execution, and same-person review through different accounts. Exercise the actual mapped API with real disposable PostgreSQL; model tests alone do not establish release readiness.
 
 ## 27. Ownership and Dependencies
 

@@ -148,6 +148,9 @@ public sealed class ContractRate : ProcurementRecord
 
 public sealed class PurchaseOrder : ProcurementRecord
 {
+    public long? SubmittedBusinessVersion { get; set; }
+    public DateTimeOffset? SubmittedAt { get; set; }
+    public string? ReturnReason { get; set; }
     public string Number { get; set; } = null!;
     public Guid SupplierId { get; set; }
     public Guid? SourcingAwardId { get; set; }
@@ -209,7 +212,7 @@ public sealed class SupplierOrderAcknowledgement : ProcurementRecord
     public DateTimeOffset RespondedAt { get; set; }
 }
 
-public sealed class GoodsReceipt : ProcurementRecord
+public sealed partial class GoodsReceipt : ProcurementRecord
 {
     public string Number { get; set; } = null!;
     public Guid PurchaseOrderId { get; set; }
@@ -222,7 +225,7 @@ public sealed class GoodsReceipt : ProcurementRecord
     public string? AssetHandoffRef { get; set; }
 }
 
-public sealed class GoodsReceiptLine : ProcurementRecord
+public sealed partial class GoodsReceiptLine : ProcurementRecord
 {
     public Guid GoodsReceiptId { get; set; }
     public Guid PurchaseOrderLineId { get; set; }
@@ -235,7 +238,7 @@ public sealed class GoodsReceiptLine : ProcurementRecord
     public string? RejectionReason { get; set; }
 }
 
-public sealed class ReceiptInspection : ProcurementRecord
+public sealed partial class ReceiptInspection : ProcurementRecord
 {
     public Guid GoodsReceiptLineId { get; set; }
     public string Status { get; set; } = "Pending";
@@ -247,7 +250,7 @@ public sealed class ReceiptInspection : ProcurementRecord
     public DateTimeOffset? InspectedAt { get; set; }
 }
 
-public sealed class ServiceAcceptance : ProcurementRecord
+public sealed partial class ServiceAcceptance : ProcurementRecord
 {
     public Guid PurchaseOrderLineId { get; set; }
     public string Status { get; set; } = "PendingCertification";
@@ -275,6 +278,7 @@ public sealed class SupplierReturn : ProcurementRecord
 public sealed class SupplierInvoice : ProcurementRecord
 {
     public Guid SupplierId { get; set; }
+    public Guid? BranchRef { get; set; }
     public Guid? PurchaseOrderId { get; set; }
     public string InvoiceNumber { get; set; } = null!;
     public string NormalizedInvoiceNumber { get; set; } = null!;
