@@ -41,9 +41,9 @@ export interface SavedView {
 }
 
 /** Existing id records keep their default; other owner DTOs must name their stable key. */
-type ListPageIdentity<T> = T extends { id: string }
-  ? { rowKey?: (row: T) => string }
-  : { rowKey: (row: T) => string };
+type ListPageIdentity<T> =
+  | { rowKey: (row: T) => string }
+  | ([T] extends [{ id: string }] ? { rowKey?: undefined } : never);
 
 function defaultRowKey(row: object): string {
   if ("id" in row && typeof row.id === "string") return row.id;
