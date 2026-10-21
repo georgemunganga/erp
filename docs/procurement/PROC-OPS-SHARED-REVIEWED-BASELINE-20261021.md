@@ -53,3 +53,7 @@ After coordinator review, merge this branch normally into main without rewriting
 published history, then publish a precise Manus start SHA and UI dependency SHA.
 No source merge implies deploying unfinished capabilities or changing production
 flags. The user has not been impersonated and no employee/role link is fabricated.
+
+## Hosted verification availability
+
+GitHub Actions run `39590092382` did not start any steps. Its check annotation states: "The job was not started because your account is locked due to a billing issue." This is not a passing hosted check or a failing business test. The exact released-backend source equivalence and existing release evidence above remain the verification basis for this source consolidation; no new backend behavior is introduced. Billing/account remediation is outside this source change.

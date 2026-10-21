@@ -49,3 +49,14 @@ Shared/backend changes requested:
 Coordinator acceptance / merge commit: pending independent review
 Deployment: not deployed unless an authorized release is recorded
 ```
+
+## 21 October 2026 — coordinator replaces stale assignment baselines
+
+- Coordinator owns reviewed source consolidation. ERP merge `c09ac52` preserves all main-only commits and the released `d26390a` / backend `a7645e2`. The entire backend tree is unchanged from that tested release. P20–P29 remain held outside this baseline.
+- Manus claim-only PR #9 commits are retained with their original author as `c700647` and `53e3d1b`. This accepts coordination history, not vendor implementation. The earlier `445a5cb` availability observation is historical: the coordinator has now confirmed it is published.
+- The user correctly identified the vendor layout regression. Existing live routing bypassed the imported design. UI commit `80d13c75bb23be0600028d9a9d96345f8036eb67` restores directory, compact header, split overview and five URL tabs with actual APIs, scoped reads, version checks and administrator view-only behavior. Full editor/toolbar integration remains the Manus milestone.
+- Shared UI `main` is being updated through an ordinary merge of the already-existing application; no second UI/import is assigned. Coordinator posts the resulting published ERP/UI main SHAs after merges. Do not start from earlier task tips.
+- Hosted ERP verification run `39590092382` never started because GitHub reported account billing lock. Exact-source inherited release tests are recorded in the shared baseline audit; this is not a passing hosted CI check.
+- Next owned task: `MANUS-PROC-VENDOR-01` from the updated [handoff](../../../MANUS_HANDOFF.md), including original seven-tab editor, real DTO mapping, permissions, safe save/conflict/context behavior and Playwright evidence. Preserve the coordinator's detail restoration. Open focused new PRs against both main branches; do not merge the old advanced ancestry.
+- Queued after acceptance: `MANUS-PROC-SETTINGS-02`, original settings shell with per-child contract gating and global settings delegated to Core. No concurrent broad settings/backend changes.
+- No production identities, permission grants, business data or schema are changed by this consolidation. UI deployment is recorded separately by the coordinator.

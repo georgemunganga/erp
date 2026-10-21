@@ -1,83 +1,71 @@
 # Manus ERP collaboration handoff
 
-**Updated:** 21 October 2026 (UTC)  
-**Primary project and coordination repository:** https://github.com/georgemunganga/erp  
-**Coordinator:** primary Codex agent  
-**Worker:** Manus on a separate computer/GitHub account  
-**Assigned milestone:** `MANUS-PROC-VENDOR-01` — connect and verify the existing vendor UI and ERP contracts  
-**Log:** [docs/collaboration/manus/STATUS.md](docs/collaboration/manus/STATUS.md)
+**Updated:** 21 October 2026 (UTC)
+**Primary project:** https://github.com/georgemunganga/erp
+**Milestone:** `MANUS-PROC-VENDOR-01` — complete the existing vendor editor and supported vendor workflows
+**Owner:** Manus / `Greenwebb`; primary agent reviews and releases
+**Status:** Ready from published `main` after the coordinator confirms both prerequisite merges. Use the exact main SHAs posted on the coordination PR; minimum included commits are below.
 
-## Start here
+## Start from merged code
 
-The user wants collaboration managed in this ERP repository. Read the latest version of this file on `origin/main` before working. This is the authoritative task file; the earlier handoff in the UI repository is superseded.
+New assignments start from published `origin/main` in both existing repositories. The coordinator merges reviewed prerequisites before assigning a milestone. Do not start from an old task branch, a default branch missing the application, or an unpublished commit. Keep your existing work and port focused changes onto the new baseline; never reset or rewrite published history.
 
-**The ERP already has the Procurement UI. Do not rebuild, re-import, or make a duplicate copy.** Its currently deployed source is in a separate existing repository, as described below. Work with that implementation. Repository consolidation is not part of this milestone.
-
-## Verified repository and deployment map
-
-| Responsibility | Existing source / location | How to use it |
+| Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP/backend, Core and Procurement contracts, schemas and engineering docs | This `georgemunganga/erp` repository | Primary work, coordination and contract source |
-| Tracked HRM frontend | `modules/hrm/frontend/module-connect/` in this repository | Reuse its established shared-component/Core contracts; do not assume it contains the separate Procurement pages |
-| Existing Procurement frontend | `georgemunganga/module-connect`, particularly `reference-ui/` and its required `src/platform/` clients | Secondary source dependency for the actual existing vendor screens; edit there only where necessary and link its PR to the ERP task PR |
-| Current live `/procurement/workspace/` | Verified server mapping serves the existing `procurement-ui/reference-ui/dist` build | Explains why the UI is visible in ERP even though its Procurement source is tracked separately; not permission to write production |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Reviewed shared merge `c09ac52` or a published main descendant; released backend source `a7645e2` |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | `80d13c75bb23be0600028d9a9d96345f8036eb67` or a published main descendant |
+| Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
-The coordinator verified this map against current repository trees and the live server configuration on 21 October 2026. Current default-branch code and active implementation branches differ; use the implementation baselines below. Do not overwrite the working branch with an older/default application snapshot or recent unrelated branding changes.
+The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
 
-## Baselines and claims
+Before work, fetch `origin/main` in both repositories, record the exact starting commits and verify they contain the minimum baselines above. Branch from those main tips. Read ERP `AGENTS.md`, `docs/engineering/GW-ENG-STD-001.md`, UI `AGENTS.md` and `reference-ui/UI_COMPONENT_STANDARD.md`.
 
-1. Read this repository's `AGENTS.md` and `docs/engineering/GW-ENG-STD-001.md`. Procurement is Tier3. Preserve the existing 28-section feature contracts.
-2. ERP work starts from `codex/procurement-rfq-finance-identity-integration`, checkpoint `445a5cb` or a coordinator-agreed descendant. Create `manus/procurement-vendor-integration` or another clearly named branch.
-3. Read [the milestone log](docs/collaboration/manus/STATUS.md) and check existing draft PRs for an active claim. This ERP repo currently has GitHub issues disabled: use this file, your draft PR and PR comments. Do not enable repository features or change account settings.
-4. Your first commit should add your claim to `docs/collaboration/manus/STATUS.md` on your branch: GitHub handle, branch, start commit and owned files. Open a **draft ERP PR against `codex/procurement-rfq-finance-identity-integration`** with milestone ID `MANUS-PROC-VENDOR-01` in the title. That PR is the coordination thread, even if initial work is only the contract audit/status.
-5. The implementation branch may predate this default-branch handoff. Copy only these coordination documents when needed; do not merge unrelated main code to obtain them.
-6. If UI edits are needed, use the existing frontend baseline specified below, open its separate draft PR, and link both PRs. Do not create a second Procurement frontend inside ERP as a shortcut. If no frontend change is needed, verify the actual existing integration and report evidence.
+P20–P29 development branches are not the released baseline. They contain pending schema/authority work and remain subject to their release holds. Do not deploy them, apply their migrations or enable workflow/Finance flags to complete this UI task.
 
-## Ownership and workflow
+## Accepted coordination and remaining work
 
-| Milestone | Owner | State | Boundaries |
-| --- | --- | --- | --- |
-| `MANUS-PROC-VENDOR-01` | Manus, claim through draft ERP PR | Ready for claim | Vendor UI/API contract integration, save/context safety, focused tests and evidence |
-| Sourcing policy/P29/approval configuration, shared Core documents and transaction work | Primary agent and existing backend agents | In progress | Reserved: no edits to these files by Manus |
-| Further Manus tasks | Unassigned | Await assignment | Do not start another module based on assumptions |
+The claim/status contributions from ERP PR #9 are retained with their original author. That PR has no vendor implementation. Its historical missing-SHA observation and old branch references do not govern new work. The coordinator has confirmed that `445a5cb` is published; the new baseline table supersedes the old instructions.
 
-ERP deliverables include `docs/collaboration/manus/vendor-contract-verification.md`: map each existing UI action to actual endpoint, permission/scope, required/version fields, transition, persistence owner, audit and failure/recovery behavior. Link existing feature specifications instead of duplicating them. Record backend gaps precisely. Keep backend supplier changes separate and ask in your PR before editing a shared file; the coordinator can assign a bounded follow-up. Do not change migrations/schema, Finance, identity, Core settings, shared components, approvals, RFQ or global branding during this milestone.
+The user correctly identified a layout regression: live routing used a separate simplified vendor page while the imported directory, sticky toolbar and detail tabs remained in `CatalogDetail.tsx`. The coordinator has restored the directory, compact header, split overview and URL tabs in the reviewed UI baseline. Preserve that work, the real API adapter and the explicit administrator read-only controls.
 
-Use focused commits referencing the milestone. Log exact tests, tested commit, failures/traces and mock-versus-actual boundaries. Preserve failed evidence. An HTTP200 or screenshot alone is not proof of persistence. No production credentials, real personal/banking data, secrets or environment files in commits, issues, screenshots or logs.
+## Owned files
 
-The primary agent reviews code before executing untrusted changes, runs relevant integration/Playwright gates, resolves overlaps and records acceptance/merge. **Do not merge, deploy, alter production data, change permissions, run production migrations, activate missing capabilities, force push or rewrite published history.** After this milestone is PR-ready, wait for review or an explicitly assigned next milestone.
+- `reference-ui/src/features/LiveVendors.tsx`: focus on editor/form integration and concrete save/context safety; preserve the merged detail layout.
+- Existing vendor form/presentation components in `Catalogs.tsx` or an extracted shared component, only where required to reuse the original editor.
+- `src/platform/procurement-vendors-api.ts` and vendor-specific helpers/tests.
+- ERP `docs/collaboration/manus/vendor-contract-verification.md` and progress log.
 
-## Detailed vendor assignment
+Backend supplier routes/contracts are read-only during this milestone. Report precise gaps for a separate owned backend task. Do not change migrations, identity, Core settings, global styles/navigation, shared controls, Finance, approvals, sourcing or other modules. Do not overwrite coordinator work or manufacture endpoints.
 
-## Assignment: complete and verify the live Procurement vendor UI
+## Full milestone: vendor editor and supported workflows
 
-Work independently while the primary agent completes sourcing backend integration. Coordinate in this ERP repository and open an ERP draft PR immediately for your claim/status/contract evidence. Existing Procurement UI source changes, if needed, belong in its current UI repository and must be linked from the ERP PR. Do not merge or deploy.
+Reuse [PROC-01](docs/procurement/PROC-01-SUPPLIER-ONBOARDING-AND-MANAGEMENT.md), [the vendor form specification](docs/procurement/PROC-UX-05-NEW-VENDOR-FORM.md), and their existing 28-section feature contracts.
 
-### Existing UI source and branch
+1. **Preserve the supplied form.** Use the original primary-contact/company/display-name/contact header and the seven tabs: Other Details, Address, Contact Persons, Bank Details, Custom Fields, Reporting Tags and Remarks. Reuse the existing imported form with ERP controls, typography and branding. Do not replace it with a shorter new form.
+2. **Map every field.** Record the source UI field, real DTO/API field, owner, validation, read/write support and persistence evidence. Use actual supplier contacts, sites, qualifications and allowed attributes. Keep Finance-owned bank/payment information separate; never store raw bank details in browser storage or invent Finance balances. Unsupported uploads, portal activation, email or other functions remain explicitly unavailable until their owning contract exists.
+3. **Complete supported CRUD.** Empty/list/search/filter, create, read, edit and versioned withdrawal; supported contact/site/qualification add/edit/remove; submit/return/reject/approve/hold/reactivate only when permitted by the server. Preserve the existing directory and detail tabs. Restore the original New Transaction/More toolbar containers with permission-aware supported actions and clear unavailable states for missing contracts; never fake email, payments, cloning or deletion. No hard deletion of approved records or browser-local success fallback.
+4. **Respect ownership and scope.** Currency defaults from Core company settings. Use stable company/vendor identifiers and actual permissions/action flags. Preserve administrator view-only behavior; no fabricated employee, auto-approval, supplier activation or policy default.
+5. **Save safely.** An edit cannot fall back to create when its record/version has not loaded. Preserve unowned fields; do not send blank placeholders that erase data. Handle validation and optimistic-version conflicts without losing entered values.
+6. **Prevent stale context.** Abort or ignore old requests after company, account or vendor changes. A delayed response or mutation must never populate or write another context. Do not reuse another record's ID/version.
+7. **Handle uncertain outcomes.** Disable duplicate saves. If the server has no idempotency/recovery contract, a lost response is unconfirmed: do not automatically repeat the mutation or treat a same-name vendor as proof of persistence. Offer an explicit read-only reconciliation path and record the backend gap.
+8. **Keep simple interactions.** Existing shared controls, floating selects, toggle switches, accessible tabs, centered empty states and the shared table. Import appears only when a real supported path exists. Loading, empty, validation, denied, conflict, unavailable and recovery states must work.
 
-- Existing Procurement frontend source (secondary code dependency): https://github.com/georgemunganga/module-connect
-- Start from `codex/procurement-sourcing-policy-ui`, checkpoint `eaca0d1` or its descendant. Create your own branch, for example `manus/procurement-vendor-integration`.
-- Backend contracts, read only: https://github.com/georgemunganga/erp, branch `codex/procurement-rfq-finance-identity-integration`, checkpoint `315380e` or its descendant. Inspect actual Procurement vendor routes and DTOs before wiring fields. Report missing backend contracts in the PR; do not manufacture success or invent endpoints.
-- Read applicable AGENTS.md and the existing UI component standard. Preserve existing user work.
+## Verification and deliverables
 
-### Owned files and boundaries
+- TypeScript, focused units, unchanged-lockfile live-mode build and Playwright: one worker, no retries, preserved failed traces.
+- Browser cases: original editor tabs/fields and detail layout at desktop/mobile; create/refresh/edit; edit-load failure cannot create; denied/read-only paths; validation preserves values; stale version; delayed company/account switch; duplicate-click/lost response; supported contacts/sites/qualification flows.
+- Test only synthetic fixtures or an explicitly assigned disposable backend. No production credentials, production test writes, migrations or real personal/banking data in evidence.
+- Distinguish mocked HTTP UI tests from actual API/PostgreSQL persistence. An HTTP200, screenshot or local-storage entry alone does not prove persistence.
+- ERP contract matrix, workflow checklist, exact commands/commits/results, synthetic screenshots, API gaps and recovery behavior. Update [STATUS.md](docs/collaboration/manus/STATUS.md).
+- Open a new draft ERP verification PR against `main` and link the actual UI PR/fork PR against the UI `main`. Include `MANUS-PROC-VENDOR-01` in both titles. Do not carry the old development branch's unrelated ancestry into a stable PR.
+- Mark ready only after the supported milestone passes its acceptance cases. List unsupported owning-module contracts honestly; do not claim the entire Procurement module is complete.
 
-Own `reference-ui/src/features/LiveVendors.tsx`, vendor-specific helpers/tests, and `src/platform/procurement-vendors-api.ts` where needed. You may reuse existing vendor form components. Do not edit sourcing policies, reviewer selection, RFQ, budgets, shared navigation/branding, Core settings, authentication, global components, database migrations or backend business rules. List any necessary shared change separately for review.
+## Merge and release ownership
 
-### Required work
+Manus submits focused commits and PR evidence. The primary agent independently reviews and verifies the changes, merges reviewed prerequisites, then publishes the next task's exact main baselines. No new task is assigned against stale or unpublished code.
 
-1. Audit the existing live vendor list, create, edit, detail, contacts, addresses/sites, qualification and approval/suspension flows against actual backend contracts. Finish available integrations and preserve existing functions. Reuse the imported vendor form layout/tabs and ERP components; do not replace this with a new design or remove fields.
-2. Keep simple language, established font/spacing/buttons, floating selects and boolean toggles. Use the existing shared table and centered no-data state. An empty vendor list must offer Add vendor when authorized; only offer Import if a genuine supported import path exists.
-3. Fix concrete save safety: edit mode must never fall back to `createVendorDraft` when its version/detail is unavailable. Block save until the exact current vendor/version has loaded. Load or permission failure must not turn an edit into a create.
-4. Prevent old detail/list/contact responses or pending mutations from populating another company or account context. Cancel requests and guard stale completions. Preserve form values on an ordinary validation/authorization failure. Never send another company's ID/version/fields in a write.
-5. Default currency from organization settings. Preserve fields the editor does not own; do not send empty placeholders that erase existing data. Match real DTOs, lengths, required fields and optimistic versions. Do not put banking secrets in logs, screenshots or browser storage.
-6. Handle a lost response honestly. If no backend idempotency/recovery contract exists, do not invent one or automatically repeat a create/update. Explain the unconfirmed result, block duplicate saves, and provide an explicit read-only reconciliation path. A same-name vendor is not proof of the original write.
-7. Respect actual server-provided allowed actions and permissions. A portal request does not activate supplier login. Procurement must not approve bank details or execute payments. Do not label mocked/unsupported functions as connected.
+Do not merge, deploy, change production identities/data/permissions, apply production migrations, enable capabilities, force-push or rewrite history. Preserve existing work. ERP issues are disabled; use the handoff, milestone log and linked PRs rather than changing repository settings.
 
-### Verification and PR evidence
+## Queued milestone after vendor acceptance
 
-- Run TypeScript, relevant unit tests and the live-mode production build with the existing package manager and unchanged lockfile unless a justified dependency change is required.
-- Add meaningful Playwright coverage on the existing live vendor routes: empty/create/refresh/edit round trip; a load failure cannot create; validation preserves values; stale-version conflict; denied action; company switch during a delayed response; double-click/lost response produces no second mutation; contact/site flows where supported.
-- Separate mocked HTTP tests from actual backend tests explicitly. If actual backend access is unavailable, provide precise mocked contract evidence and mark actual persistence/integration unverified. No production credentials or production test writes.
-- Use one browser worker and no retries for acceptance evidence; keep failed traces. Report exact commands, source commit, passed/failed counts and limitations. Do not claim the entire Procurement module is complete.
-- Keep commits focused and reference `MANUS-PROC-VENDOR-01` and your ERP draft PR. Link any separate existing-UI PR. Include a short workflow checklist, screenshots using synthetic data, and an inventory of remaining API gaps. The primary agent will independently review and test before merge.
+`MANUS-PROC-SETTINGS-02`: restore the imported Procurement settings index and navigation shell; maintain the original simple layout and module-specific groups. Audit each child against a real owning API. Global organisation, branding, locations, users and roles stay in Core. Do not mount browser-preview save handlers as live configuration. This is queued, not assigned concurrently with the vendor editor. The coordinator publishes fresh merged ERP/UI baseline SHAs after vendor acceptance.
