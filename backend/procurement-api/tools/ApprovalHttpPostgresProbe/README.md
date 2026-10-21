@@ -311,3 +311,9 @@ responses. With `PROCUREMENT_RECEIVING_BROWSER_VERIFY_ON_STOP=1`, the coordinato
 stop checks exact PR/PO conservation, independent actors, effect sequences, long notes,
 exactly8 receiving command/audit records and5 outbox effects, and no invoice/AP creation.
 This source increment starts no API/database and has not been compiled or browser-tested.
+
+### Governed RFQ browser pair (source-only)
+
+`--serve --rfq` uses the existing loopback server and actual P28 migrations/readiness/runtime grants. Supply the existing private bootstrap/runtime connection environment and protected manifest path as for other serve modes; root owns setup/start/stop. Set `PROCUREMENT_RFQ_BROWSER_VERIFY_ON_STOP=1` for required independent persisted completion proof. No Procurement API responses may be mocked by the browser. Standalone `--rfq` still runs its unchanged full security/concurrency probe.
+
+Manifest `actors.buyer.context` is the real finite buyer projection. `rfq` includes requestId/lineId/requestVersion/requestNumber/purpose/title/cancellationReason/currencyCode/approvedQuantity/unitEstimate/selectedQuantity/expectedEstimatedValue/minimumQuoteCount/methodCode/buyerPrincipalId/noSourcingEffectsSeeded. Fixed synthetic purpose/title/reason: `Browser governed competitive RFQ source`, `Browser exact governed RFQ draft`, `Browser source no longer needed`. Source0.0002 at0.0001; browser holds0.0001 for exact0.00000001, then cancels once. The manifest has no extra privileged browser actors. The owner verifier requires one original create/cancel pair, released hold, retained evidence and unchanged original/Finance/Core/downstream state. This is source preparation until separately compiled and run; no publish, supplier dispatch, payment or AP-ready claim.
