@@ -1,0 +1,2097 @@
+{
+  "gitBase": "663aef22ac1a2b94e60d1b7514f15f112f2e08cf",
+  "recoveryDocumentation": "1013866eecbc0517051826e9d710d2cbeb1428e4",
+  "retainedRoot": "/home/amizo/procurement-deploy-staging-20261019/backend",
+  "scope": "Source-only .cs/.csproj/.props/.targets/.sln/global.json/Dockerfile; secrets/configuration/environment/bin/obj excluded. No image-source identity or runtime claim.",
+  "counts": {
+    "identical": 320,
+    "different": 13,
+    "absent-retained": 12
+  },
+  "trackedSource": [
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Domain/ApprovalEngine.cs",
+      "gitP19Sha256": "da3ccdcde18c62032d48405663938e46f6d3d18f0821ab8d27d0e4c43faabc4b",
+      "retainedSha256": "da3ccdcde18c62032d48405663938e46f6d3d18f0821ab8d27d0e4c43faabc4b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Domain/ApprovalRecords.cs",
+      "gitP19Sha256": "078a57f03207eae77c12b26310ae6a810f61057c935d5906797b782f08a4f47e",
+      "retainedSha256": "078a57f03207eae77c12b26310ae6a810f61057c935d5906797b782f08a4f47e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Domain/IApprovalScope.cs",
+      "gitP19Sha256": "d33df9db5db4cf1fc18644b6e2c508bb10b335f6dbd99ea3f24073fc2b29f5f3",
+      "retainedSha256": "d33df9db5db4cf1fc18644b6e2c508bb10b335f6dbd99ea3f24073fc2b29f5f3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Domain/Mightyfin.Erp.Core.Approvals.Domain.csproj",
+      "gitP19Sha256": "3472fccce5613343d3b55f6c2bbc48cbfd3de01f9cf32fd8607b8ac3a7e26395",
+      "retainedSha256": "3472fccce5613343d3b55f6c2bbc48cbfd3de01f9cf32fd8607b8ac3a7e26395",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/ApprovalDbContext.cs",
+      "gitP19Sha256": "58c75d255ce3d3e38f3e1e1254bd958b654f4261dbd3276c17cf6da051adaf45",
+      "retainedSha256": "58c75d255ce3d3e38f3e1e1254bd958b654f4261dbd3276c17cf6da051adaf45",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/ApprovalDbContextFactory.cs",
+      "gitP19Sha256": "6b6bdb81bfbb8c27275d8799d407fe4589408f2d6b3f6cde6e3f84a700be1174",
+      "retainedSha256": "6b6bdb81bfbb8c27275d8799d407fe4589408f2d6b3f6cde6e3f84a700be1174",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/Mightyfin.Erp.Core.Approvals.Infrastructure.csproj",
+      "gitP19Sha256": "479cb205f1e2db57e1b8964b10fa5b2e9f14798ce16894513cfefb15e0ee4e2e",
+      "retainedSha256": "479cb205f1e2db57e1b8964b10fa5b2e9f14798ce16894513cfefb15e0ee4e2e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/Migrations/20261019183218_P01CoreApprovalFoundation.Designer.cs",
+      "gitP19Sha256": "09bc447d2257c14311d1c7e920eefa098b75af369c85a4c13acd512dffdfcb2a",
+      "retainedSha256": "09bc447d2257c14311d1c7e920eefa098b75af369c85a4c13acd512dffdfcb2a",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/Migrations/20261019183218_P01CoreApprovalFoundation.cs",
+      "gitP19Sha256": "1162c205be2760f0270e346488612e3729f2f79c9e169b0dd8fbef7289f3c3f9",
+      "retainedSha256": "1162c205be2760f0270e346488612e3729f2f79c9e169b0dd8fbef7289f3c3f9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/Migrations/ApprovalDbContextModelSnapshot.cs",
+      "gitP19Sha256": "4fc2cbe26ed4003bb57626666712b8ac4c7d3f3602947c47edc9a9976937741e",
+      "retainedSha256": "4fc2cbe26ed4003bb57626666712b8ac4c7d3f3602947c47edc9a9976937741e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Tests/ApprovalDbContextTests.cs",
+      "gitP19Sha256": "161e225b430248e9c76de48ed9de353ea420a816bd6a81c875b2d2427c1f2177",
+      "retainedSha256": "161e225b430248e9c76de48ed9de353ea420a816bd6a81c875b2d2427c1f2177",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Tests/ApprovalEngineTests.cs",
+      "gitP19Sha256": "501720c55787db454bc7c76345e144a66aaf5565fa42bbf4f2e63af48f5fef02",
+      "retainedSha256": "501720c55787db454bc7c76345e144a66aaf5565fa42bbf4f2e63af48f5fef02",
+      "state": "identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Tests/Mightyfin.Erp.Core.Approvals.Tests.csproj",
+      "gitP19Sha256": "1185f7b40c8812479f3b8990fe37dac9574c9404b4db5752592e070d43298954",
+      "retainedSha256": "1185f7b40c8812479f3b8990fe37dac9574c9404b4db5752592e070d43298954",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/Dockerfile",
+      "gitP19Sha256": "b032699d35207d5f4a11639a3a17c4db7b269b6dddf1487232c90978b4c4a0da",
+      "retainedSha256": "b032699d35207d5f4a11639a3a17c4db7b269b6dddf1487232c90978b4c4a0da",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/global.json",
+      "gitP19Sha256": "fcab220a5079a4ff77d58d0a60900e9d24092c93298d32f8c95f85261ea4188c",
+      "retainedSha256": "fcab220a5079a4ff77d58d0a60900e9d24092c93298d32f8c95f85261ea4188c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ApiRoutesClean.cs",
+      "gitP19Sha256": "0ed8397c6fa8accb7788a336ec17671beb8b37d4aacdaab75e9b0a0e242bbaac",
+      "retainedSha256": "4b80273467eedc816c60756745d0eff539885cad89db9cb21851855f4e820b7f",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/LocalIdentity.cs",
+      "gitP19Sha256": "780bad03ec5785852dcb22a1e72cfd54abd79c063f2fcfcc8884cbe9847b0cc0",
+      "retainedSha256": "780bad03ec5785852dcb22a1e72cfd54abd79c063f2fcfcc8884cbe9847b0cc0",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/Mightyfin.Erp.Hrm.Api.csproj",
+      "gitP19Sha256": "952202ff866597cd010108cbcaa9aadb61533b9bdcf3d3b29c0e7fea3e86ab18",
+      "retainedSha256": "952202ff866597cd010108cbcaa9aadb61533b9bdcf3d3b29c0e7fea3e86ab18",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/MonthlyLeaveAccrualWorker.cs",
+      "gitP19Sha256": "2d033ff76e73498b74d664e438c9131543d8d304823a6c244ec1d37eacceee62",
+      "retainedSha256": "2d033ff76e73498b74d664e438c9131543d8d304823a6c244ec1d37eacceee62",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/NpgsqlConnectionStringNormalizer.cs",
+      "gitP19Sha256": "e79bf5ccad11cf70e39e681ca02478438fff32762cacb475ae309bccd51b4228",
+      "retainedSha256": "e79bf5ccad11cf70e39e681ca02478438fff32762cacb475ae309bccd51b4228",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalReadinessRoutes.cs",
+      "gitP19Sha256": "742e48ea8430c63ebd43d38a4e14d342434aafe831a2c5a339466c9b8faf227b",
+      "retainedSha256": "742e48ea8430c63ebd43d38a4e14d342434aafe831a2c5a339466c9b8faf227b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementBudgetRoutes.cs",
+      "gitP19Sha256": "0d4f8b35bed4cb81a29d7d650d71a9eb4079eef5bbae59b89bd621fbc304deaf",
+      "retainedSha256": "0d4f8b35bed4cb81a29d7d650d71a9eb4079eef5bbae59b89bd621fbc304deaf",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementConfigurationRoutes.cs",
+      "gitP19Sha256": "8be68228d4d5353094450c39d3529b29e440ef640c86386022bb68f257ce6126",
+      "retainedSha256": "8be68228d4d5353094450c39d3529b29e440ef640c86386022bb68f257ce6126",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContextRoutes.cs",
+      "gitP19Sha256": "62df4db68d987615545598c61a44edcbdf3db958ccb46db2f0620825dc3c5736",
+      "retainedSha256": "62df4db68d987615545598c61a44edcbdf3db958ccb46db2f0620825dc3c5736",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs",
+      "gitP19Sha256": "36327d6b23a2a855f23beb28d82ddd713a7093f4761d097278b87d37b9a62506",
+      "retainedSha256": "36327d6b23a2a855f23beb28d82ddd713a7093f4761d097278b87d37b9a62506",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementCurrencyDefaults.cs",
+      "gitP19Sha256": "f4b58943dd67bc604ab0e6bfb3475e21b322013b7d6b7a16de0c366e95a75095",
+      "retainedSha256": "f4b58943dd67bc604ab0e6bfb3475e21b322013b7d6b7a16de0c366e95a75095",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementDraftAudit.cs",
+      "gitP19Sha256": "f132f4c255efe9b146fc5d13cbd14302dcde974666082f2149efa4dd91d1e276",
+      "retainedSha256": "f132f4c255efe9b146fc5d13cbd14302dcde974666082f2149efa4dd91d1e276",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
+      "gitP19Sha256": "8b200e00cfa23099c00765517cf83df270416c1a702019d8cb65d1d172892a62",
+      "retainedSha256": "8b200e00cfa23099c00765517cf83df270416c1a702019d8cb65d1d172892a62",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceIntakeRoutes.cs",
+      "gitP19Sha256": "6f0e99727ce2afa8cc0a71f81a12c3f99a67de29231048555726154078b265a4",
+      "retainedSha256": "6f0e99727ce2afa8cc0a71f81a12c3f99a67de29231048555726154078b265a4",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+      "gitP19Sha256": "da248ac00a6517f25e2515b9500042a86fdc6b424d7f1023b36ae5de5642ab1b",
+      "retainedSha256": "da248ac00a6517f25e2515b9500042a86fdc6b424d7f1023b36ae5de5642ab1b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementOrderDraftRoutes.cs",
+      "gitP19Sha256": "cee7e25ff26a460e80b9bb61dc35677bff4fbda846ca41d9fff58f7feefed8dc",
+      "retainedSha256": "cee7e25ff26a460e80b9bb61dc35677bff4fbda846ca41d9fff58f7feefed8dc",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPermissions.cs",
+      "gitP19Sha256": "b9594c562707788a0dd58098ac80375fd2806fd611303c9f69f89bdb8bf2ce0d",
+      "retainedSha256": "b9594c562707788a0dd58098ac80375fd2806fd611303c9f69f89bdb8bf2ce0d",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPlanRoutes.cs",
+      "gitP19Sha256": "7d07f3bb7cbc4aa9a0ae563ebd8e2412d687d111f5f7d28370dd8d091009011c",
+      "retainedSha256": "7d07f3bb7cbc4aa9a0ae563ebd8e2412d687d111f5f7d28370dd8d091009011c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPolicyDraftRoutes.cs",
+      "gitP19Sha256": "ec42be78ec79394bc43ef38874d958764d87b90990a0cd6980363ca50dab0827",
+      "retainedSha256": "ec42be78ec79394bc43ef38874d958764d87b90990a0cd6980363ca50dab0827",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPolicyEvaluation.cs",
+      "gitP19Sha256": "f9353eb77667eb965443df44c2709de0029ee7921711950372d1a254743e53ee",
+      "retainedSha256": "f9353eb77667eb965443df44c2709de0029ee7921711950372d1a254743e53ee",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPolicyEvaluationRoutes.cs",
+      "gitP19Sha256": "e08118e304899291bd53b8740ec21b3b4e39bd72189140a2dd62dce8187ee317",
+      "retainedSha256": "e08118e304899291bd53b8740ec21b3b4e39bd72189140a2dd62dce8187ee317",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+      "gitP19Sha256": "e21bfdbcd40a2525c4fcd1c85da51f1e72aa7c79e96ee3d9eeafafd3f3067f26",
+      "retainedSha256": "e21bfdbcd40a2525c4fcd1c85da51f1e72aa7c79e96ee3d9eeafafd3f3067f26",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementSourcingDraftRoutes.cs",
+      "gitP19Sha256": "1b5a7077b3fa4ccc5fa7f3d15a45b679956332c6978a6d4d32045491d87a767c",
+      "retainedSha256": "1b5a7077b3fa4ccc5fa7f3d15a45b679956332c6978a6d4d32045491d87a767c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+      "gitP19Sha256": "3b16ec51e8410b0b425b3dfab4ae57de5b7314e4f09edb0afc542950cbe10d14",
+      "retainedSha256": "3b16ec51e8410b0b425b3dfab4ae57de5b7314e4f09edb0afc542950cbe10d14",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementWorkforce.cs",
+      "gitP19Sha256": "9fdd1110070d05a690f56c3d89bdc7bbbd7948b217af6204ea5558d0071802c1",
+      "retainedSha256": "9fdd1110070d05a690f56c3d89bdc7bbbd7948b217af6204ea5558d0071802c1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/Program.cs",
+      "gitP19Sha256": "6fdbc2e56f50767dcfe91c3837bee8d49b476a61fcbb0e6d5d98f70cfa55faed",
+      "retainedSha256": "00c6730d7c4e3012059082b2f0853e4dff5d2e02e4ca7cb6734d8762f9e0472b",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ShellContextMiddleware.cs",
+      "gitP19Sha256": "e88601b283deefa68ce8fab0c1eab6126a4cb640dd09059ee668e936abde0350",
+      "retainedSha256": "e88601b283deefa68ce8fab0c1eab6126a4cb640dd09059ee668e936abde0350",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/TimesheetAccessMiddleware.cs",
+      "gitP19Sha256": "2c2a1a044759df3cba9c5a8e2371c4294b54d31cf8d393f482e61581865c2eeb",
+      "retainedSha256": "2c2a1a044759df3cba9c5a8e2371c4294b54d31cf8d393f482e61581865c2eeb",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Analytics/AnalyticsServices.cs",
+      "gitP19Sha256": "91d7c11a6c0b7b0f2a915801160d0a968fdf4f8da484a28a596d6dd4a93ab5ea",
+      "retainedSha256": "91d7c11a6c0b7b0f2a915801160d0a968fdf4f8da484a28a596d6dd4a93ab5ea",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Benefits/BenefitService.cs",
+      "gitP19Sha256": "a1e938c0975783d4d873304433a2daf5cf4aa2485c3f20b0a0b3c82659d97d3d",
+      "retainedSha256": "a1e938c0975783d4d873304433a2daf5cf4aa2485c3f20b0a0b3c82659d97d3d",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Benefits/Interfaces.cs",
+      "gitP19Sha256": "8e896bb9856a235afbb9b57c3bdf76074eb0621b4ea27e672864387c885707bc",
+      "retainedSha256": "8e896bb9856a235afbb9b57c3bdf76074eb0621b4ea27e672864387c885707bc",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Benefits/PeriodBenefits.cs",
+      "gitP19Sha256": "4f0d0c00ce5b7caa268e49833b019bdaedc42db1349ec144f88f4292fe3c4149",
+      "retainedSha256": "4f0d0c00ce5b7caa268e49833b019bdaedc42db1349ec144f88f4292fe3c4149",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Branding/BrandingService.cs",
+      "gitP19Sha256": "30faa5c8ccaac31d0d86142304d36274c72e3819c3a3016030f5f81182d434b7",
+      "retainedSha256": "30faa5c8ccaac31d0d86142304d36274c72e3819c3a3016030f5f81182d434b7",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Common.cs",
+      "gitP19Sha256": "b478e9c36fa81454dbce4fe2a853b81ac4f59a50dcd400e44b125bd45edd2518",
+      "retainedSha256": "b478e9c36fa81454dbce4fe2a853b81ac4f59a50dcd400e44b125bd45edd2518",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/ConfigServices.cs",
+      "gitP19Sha256": "d912fd21e16b32d6ef1c6a29738fd93aedede9a173369de094047032e413d259",
+      "retainedSha256": "d912fd21e16b32d6ef1c6a29738fd93aedede9a173369de094047032e413d259",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/JobsAdminServices.cs",
+      "gitP19Sha256": "02208a03c5e874557b41890eaed9145c39554d82f2978f7c0186a794ea3bd4ac",
+      "retainedSha256": "10006422515c9ed8f55395bb548ec61e5a17f94cc56d77d10912d62ef8f3185e",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/JobsDomain.cs",
+      "gitP19Sha256": "1a280c54f8499e69385d1f0a8f6620cc3f08a3d790de0b67539ffbf889716b48",
+      "retainedSha256": "1a280c54f8499e69385d1f0a8f6620cc3f08a3d790de0b67539ffbf889716b48",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/OrgConfigServiceImpl.cs",
+      "gitP19Sha256": "818ecb86ac0f51dba77c47d6f30ad8451a25a2268662c171c3499de8703c41ca",
+      "retainedSha256": "818ecb86ac0f51dba77c47d6f30ad8451a25a2268662c171c3499de8703c41ca",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/OrgConfigServices.cs",
+      "gitP19Sha256": "f8476fae950f101144f435d793935a5d3776024fd298ce2faedb19bd6daa902e",
+      "retainedSha256": "f8476fae950f101144f435d793935a5d3776024fd298ce2faedb19bd6daa902e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/ServiceImplementations.cs",
+      "gitP19Sha256": "5cc4df6a2cd1785f6020e7fa1802d487faeebe3b34f23718cfab331773fd6cec",
+      "retainedSha256": "5cc4df6a2cd1785f6020e7fa1802d487faeebe3b34f23718cfab331773fd6cec",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Dtos.cs",
+      "gitP19Sha256": "db0c4ed21dab3399ead4302ffb318412e16be7ebcf0b668558d575c79eb90e9b",
+      "retainedSha256": "db0c4ed21dab3399ead4302ffb318412e16be7ebcf0b668558d575c79eb90e9b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Experience/ExperienceServices.cs",
+      "gitP19Sha256": "07f2b589a3c3e7dbc507750875e4886e67c04f627cc7b4607aea28a691a9fb3a",
+      "retainedSha256": "07f2b589a3c3e7dbc507750875e4886e67c04f627cc7b4607aea28a691a9fb3a",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Experience/Interfaces.cs",
+      "gitP19Sha256": "0fc0fbd729f3f766a0ae0abe2dffa9c21ced07577a8d5f135d0bbae166b2e3e9",
+      "retainedSha256": "0fc0fbd729f3f766a0ae0abe2dffa9c21ced07577a8d5f135d0bbae166b2e3e9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/GoLiveReadiness.cs",
+      "gitP19Sha256": "6a79221ec7fc0407eebcdd1bc9520c58fa800dcbef65136040dd19fa0e44e8d3",
+      "retainedSha256": "6a79221ec7fc0407eebcdd1bc9520c58fa800dcbef65136040dd19fa0e44e8d3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Integration/IdentityProvisioningService.cs",
+      "gitP19Sha256": "d0bbd04e3fa9c6d390cde4392178f186ffc6e79223ed3959d2fa1540c6a0806c",
+      "retainedSha256": "d0bbd04e3fa9c6d390cde4392178f186ffc6e79223ed3959d2fa1540c6a0806c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Integrations.cs",
+      "gitP19Sha256": "1980eec53d239d0b28087497102b3f4a112f0da42680970849ddcdfd332eb6b5",
+      "retainedSha256": "1980eec53d239d0b28087497102b3f4a112f0da42680970849ddcdfd332eb6b5",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Interfaces.cs",
+      "gitP19Sha256": "e10ae6bc095cb387c316282fba96653e698f4a4304a32c9a8864ef5eada77b58",
+      "retainedSha256": "e10ae6bc095cb387c316282fba96653e698f4a4304a32c9a8864ef5eada77b58",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ManagementReporting.cs",
+      "gitP19Sha256": "d58360af4a14e752c2d574c7cd728859b47edae20d38e3e3a82188b053b6c671",
+      "retainedSha256": "d58360af4a14e752c2d574c7cd728859b47edae20d38e3e3a82188b053b6c671",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Messaging.cs",
+      "gitP19Sha256": "eab83341ebe9991854faa0f515ddacc3b79aedd9dec102f1984e1124ec79b581",
+      "retainedSha256": "eab83341ebe9991854faa0f515ddacc3b79aedd9dec102f1984e1124ec79b581",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Mightyfin.Erp.Hrm.Application.csproj",
+      "gitP19Sha256": "58345c49bdf2fb74bcfdbb4d6c6c82e7a49bf66a1373b62efb8a73bc48600d19",
+      "retainedSha256": "58345c49bdf2fb74bcfdbb4d6c6c82e7a49bf66a1373b62efb8a73bc48600d19",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Offboarding/Interfaces.cs",
+      "gitP19Sha256": "a6a60583f9d4218836c2e3e7b3863eb3c1f76fe48c5358cd3e9c2985f4691903",
+      "retainedSha256": "a6a60583f9d4218836c2e3e7b3863eb3c1f76fe48c5358cd3e9c2985f4691903",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Offboarding/OffboardingServices.cs",
+      "gitP19Sha256": "9dd0a1b9aacbf605bdbc0053ba708e6b118357d6f90f4be72187cfd2c6522ea7",
+      "retainedSha256": "9dd0a1b9aacbf605bdbc0053ba708e6b118357d6f90f4be72187cfd2c6522ea7",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Organization/OrganizationServices.cs",
+      "gitP19Sha256": "1e82da62c698701f2e3ac0ea8b9e0f910847c5a72c6aa4cd7e8ab632a718c47a",
+      "retainedSha256": "1e82da62c698701f2e3ac0ea8b9e0f910847c5a72c6aa4cd7e8ab632a718c47a",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PaymentDaysCalculator.cs",
+      "gitP19Sha256": "fb03de9beca06f49e9c0f37bbbac7cc7b03b421356ae6867aa249e5a5a1c5b1d",
+      "retainedSha256": "fb03de9beca06f49e9c0f37bbbac7cc7b03b421356ae6867aa249e5a5a1c5b1d",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayrollReportFormatter.cs",
+      "gitP19Sha256": "c6190d09615810df937cbca1de3f25bd7e96f9f8bc376e1de09d0e5483dd1396",
+      "retainedSha256": "c6190d09615810df937cbca1de3f25bd7e96f9f8bc376e1de09d0e5483dd1396",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayrollReportService.cs",
+      "gitP19Sha256": "489a3b74edd70a3d64660cd7d8dd6d0aef0e37787aae1e0f554e4cc64ff73b20",
+      "retainedSha256": "489a3b74edd70a3d64660cd7d8dd6d0aef0e37787aae1e0f554e4cc64ff73b20",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayrollReportServiceImpl.cs",
+      "gitP19Sha256": "752ee15086ca6906fa6025b374763900101eb0ea908670db843e3b5e4ff80828",
+      "retainedSha256": "752ee15086ca6906fa6025b374763900101eb0ea908670db843e3b5e4ff80828",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayrollServices.cs",
+      "gitP19Sha256": "cf693c9f1d27d38fbf5210085e2341a5bf33710188579ae3320a5106d0c1846e",
+      "retainedSha256": "9004a0a9a0f6a917a12ef31e816a219548cfff7942d8ff9e3d0000c7abd78274",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayslipDocumentService.cs",
+      "gitP19Sha256": "cbb39f6b2210a035c82b030fc7a6a87d0558da9d927fbc33ef2002469cc8908f",
+      "retainedSha256": "cbb39f6b2210a035c82b030fc7a6a87d0558da9d927fbc33ef2002469cc8908f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayslipLeave.cs",
+      "gitP19Sha256": "680c384e74255627e042811bdd6865ef109d23464773b1db2ec44cd1f82140fb",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PeriodOvertime.cs",
+      "gitP19Sha256": "600a252b93ba7c6b75cc7b9b75c584bca63345095bc2ba7677652a3b69c5d67f",
+      "retainedSha256": "600a252b93ba7c6b75cc7b9b75c584bca63345095bc2ba7677652a3b69c5d67f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Performance/Interfaces.cs",
+      "gitP19Sha256": "24f3b01e5974feb139eb0706f96e68f5aed589c80149696aa0fdfb6af2bfe05f",
+      "retainedSha256": "24f3b01e5974feb139eb0706f96e68f5aed589c80149696aa0fdfb6af2bfe05f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Performance/PerformanceServices.cs",
+      "gitP19Sha256": "809ed23295036bacf12dc821627997b4838eea498d377c3b8371d73d201667a4",
+      "retainedSha256": "809ed23295036bacf12dc821627997b4838eea498d377c3b8371d73d201667a4",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ProcurementActionCatalog.cs",
+      "gitP19Sha256": "85c768a87596d9d081882e75b0984643528e238fed7e850bbfd481c53b5e6c62",
+      "retainedSha256": "85c768a87596d9d081882e75b0984643528e238fed7e850bbfd481c53b5e6c62",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/SecurityCompliance.cs",
+      "gitP19Sha256": "5fe78cba2b1aedc06a292532d6ea2955b9eb8ad5547531ba6c3d12909c6fbecc",
+      "retainedSha256": "5fe78cba2b1aedc06a292532d6ea2955b9eb8ad5547531ba6c3d12909c6fbecc",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Setup/SetupDefinitions.cs",
+      "gitP19Sha256": "110605cdf5ee51ed9334af80fd4e1f808dbb8498d312ccbb5d8df1c0d4ac080b",
+      "retainedSha256": "110605cdf5ee51ed9334af80fd4e1f808dbb8498d312ccbb5d8df1c0d4ac080b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Setup/SetupServices.cs",
+      "gitP19Sha256": "3c197cbe3e17a9950dc1b90cb96abefb2619ba8b353d0991f813166b2a4cee8c",
+      "retainedSha256": "8d7b7bc8021e4458be95ed75ab786c13658efc945cfab6552f792424566f2844",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Shared/AttendanceImportSchema.cs",
+      "gitP19Sha256": "4f44772275fc98bcf29ceb7f8d5b00a4950d4af1ec871af06a496e58a24e76c4",
+      "retainedSha256": "4f44772275fc98bcf29ceb7f8d5b00a4950d4af1ec871af06a496e58a24e76c4",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Shared/ImportEngine.cs",
+      "gitP19Sha256": "20a4434611abb12627bca0071ee31f6e4406bb1b1627dce95116a30b5e9d3590",
+      "retainedSha256": "20a4434611abb12627bca0071ee31f6e4406bb1b1627dce95116a30b5e9d3590",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Shared/ImportExportService.cs",
+      "gitP19Sha256": "ad8d183b83467a971b4abc2eb91eaf6b161ade207543035eff89ee2dd90e0965",
+      "retainedSha256": "ad8d183b83467a971b4abc2eb91eaf6b161ade207543035eff89ee2dd90e0965",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Shared/MinimalXlsx.cs",
+      "gitP19Sha256": "742509132c51dbfaa8f63cb6712e593c0d5f34294c4c2b814c4091a83ee528e7",
+      "retainedSha256": "742509132c51dbfaa8f63cb6712e593c0d5f34294c4c2b814c4091a83ee528e7",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Shared/PayrollProfilesImportSchema.cs",
+      "gitP19Sha256": "362e9559ef653c88ec8d3bb8b23d374bc9a34a677f8c19f96c69bcdc366897e0",
+      "retainedSha256": "1f324b54345334c1cd85dc91c870699b1bdf3c96e33610f7f24a6c87af564934",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Shared/WorkersImportSchema.cs",
+      "gitP19Sha256": "1ed3d8d59646d48eb93e96b35b4d9323d614a2a3fe2795013bef1fd719ae1783",
+      "retainedSha256": "1ed3d8d59646d48eb93e96b35b4d9323d614a2a3fe2795013bef1fd719ae1783",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ShellContext.cs",
+      "gitP19Sha256": "b3aad93a19f367c85483f8e449f6a4a53ae67d07925c0fd79fa367d9b9914137",
+      "retainedSha256": "b3aad93a19f367c85483f8e449f6a4a53ae67d07925c0fd79fa367d9b9914137",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Time/AttendanceScope.cs",
+      "gitP19Sha256": "363eec0e1944ab271088c1ffbd9b646e6f93aafa32776604796358c232e7efae",
+      "retainedSha256": "363eec0e1944ab271088c1ffbd9b646e6f93aafa32776604796358c232e7efae",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Time/Interfaces.cs",
+      "gitP19Sha256": "01025ba605794a68fa8494765958fa0beb1fea9b4982881d30c2107b6d9402aa",
+      "retainedSha256": "01025ba605794a68fa8494765958fa0beb1fea9b4982881d30c2107b6d9402aa",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Time/RecordedLeave.cs",
+      "gitP19Sha256": "0a2fec7fe880353cab4b33f0aee871a2423cb701db924ed511b2b0092f790672",
+      "retainedSha256": "0a2fec7fe880353cab4b33f0aee871a2423cb701db924ed511b2b0092f790672",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Time/TimeService.cs",
+      "gitP19Sha256": "2c9bc7a52aeb3ddf0d8fa9f1e6fe91f3d22e01f42df7810d6df53824d4c9d123",
+      "retainedSha256": "2c9bc7a52aeb3ddf0d8fa9f1e6fe91f3d22e01f42df7810d6df53824d4c9d123",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Workers/MasterData.cs",
+      "gitP19Sha256": "aa38ba0ed445b1a363b689e551f5d23a70081c85e90f942ff4f3c34d8af0d111",
+      "retainedSha256": "aa38ba0ed445b1a363b689e551f5d23a70081c85e90f942ff4f3c34d8af0d111",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Workers/WorkerImportService.cs",
+      "gitP19Sha256": "2573ca4c8f55cd08467e46214a7b5f763bc46aba89c07457035d803fb41fe18d",
+      "retainedSha256": "2573ca4c8f55cd08467e46214a7b5f763bc46aba89c07457035d803fb41fe18d",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Workers/WorkerLifecycleService.cs",
+      "gitP19Sha256": "640cf5b30e27a0ad49a9cbb35ebc056006523d52efeff36967dc80a0c2806b50",
+      "retainedSha256": "640cf5b30e27a0ad49a9cbb35ebc056006523d52efeff36967dc80a0c2806b50",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Workers/WorkerLifecycleServiceImpl.cs",
+      "gitP19Sha256": "51d66dd287ccc68361a7bf8a1c2785398195c8a038f026457ae82a0100133d1c",
+      "retainedSha256": "51d66dd287ccc68361a7bf8a1c2785398195c8a038f026457ae82a0100133d1c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Workers/WorkerService.cs",
+      "gitP19Sha256": "43ba73541ca131fe2bb0a862f012cf8afd3761936e7816cdcb6dacdba39e843d",
+      "retainedSha256": "43ba73541ca131fe2bb0a862f012cf8afd3761936e7816cdcb6dacdba39e843d",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Workflow/LeaveEffectApplier.cs",
+      "gitP19Sha256": "a491d518e8ed035d3f3d5c560e4351b7eceaa69ec90b98841abe076fe30a6cfd",
+      "retainedSha256": "a491d518e8ed035d3f3d5c560e4351b7eceaa69ec90b98841abe076fe30a6cfd",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Workflow/LetterTemplates.cs",
+      "gitP19Sha256": "d7ccbf6d3fd5d9ace1d0948c924dd2462c3be1d69e02a5a5637e7e2e22373301",
+      "retainedSha256": "d7ccbf6d3fd5d9ace1d0948c924dd2462c3be1d69e02a5a5637e7e2e22373301",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Workflow/WorkflowServiceImpl.cs",
+      "gitP19Sha256": "36e3e8370e631ff8ec6d12c01fbeb5cebd2d5cff9fb75b5c1f40f104202259b4",
+      "retainedSha256": "36e3e8370e631ff8ec6d12c01fbeb5cebd2d5cff9fb75b5c1f40f104202259b4",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Base.cs",
+      "gitP19Sha256": "b804c5ef897209fe40855a64b36fd0abe6b2bb3e0448438345091a5c54ac5dde",
+      "retainedSha256": "b804c5ef897209fe40855a64b36fd0abe6b2bb3e0448438345091a5c54ac5dde",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Branding.cs",
+      "gitP19Sha256": "13d02a0543e398887f32d50182ecfff34a45e107e8c562da227a5d0d67c3cc91",
+      "retainedSha256": "13d02a0543e398887f32d50182ecfff34a45e107e8c562da227a5d0d67c3cc91",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Integrations.cs",
+      "gitP19Sha256": "4bb5d650a9bc0367ecd10e39a57050d2ec784e31bfcd7c7c9bc42a88ad1079da",
+      "retainedSha256": "4bb5d650a9bc0367ecd10e39a57050d2ec784e31bfcd7c7c9bc42a88ad1079da",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/LocalIdentity.cs",
+      "gitP19Sha256": "9df982d7feaa49d7a4c00b230c37ed736ebafdb791ff02735de8a53fed50f2d8",
+      "retainedSha256": "9df982d7feaa49d7a4c00b230c37ed736ebafdb791ff02735de8a53fed50f2d8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/MasterData.cs",
+      "gitP19Sha256": "093c1580de8a01814514590a60f82c2ab1886b9cb66b2d3fdaece0eefd48bf21",
+      "retainedSha256": "093c1580de8a01814514590a60f82c2ab1886b9cb66b2d3fdaece0eefd48bf21",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Offboarding.cs",
+      "gitP19Sha256": "cfc2ddbe33de94188deb8474bd967ca0f627325d70258fbd7e7de13074126da5",
+      "retainedSha256": "cfc2ddbe33de94188deb8474bd967ca0f627325d70258fbd7e7de13074126da5",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Organization.cs",
+      "gitP19Sha256": "439425b3c0dfa552ee6e3e2eb74b5f7aedd0a1945690acd740617187421cd00c",
+      "retainedSha256": "439425b3c0dfa552ee6e3e2eb74b5f7aedd0a1945690acd740617187421cd00c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Outbox.cs",
+      "gitP19Sha256": "9d2a6c5fd49ad90919530a6e054326fdd3c38f834993f5f1d8446ce0eaacd1fa",
+      "retainedSha256": "9d2a6c5fd49ad90919530a6e054326fdd3c38f834993f5f1d8446ce0eaacd1fa",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Payroll.cs",
+      "gitP19Sha256": "c7b678659a5c7f675466daedee3d272eccc02f6b1be4af901b16749269beddc1",
+      "retainedSha256": "dbb94485ee0968baaca03243e6fd3897d3baafa972498d190b20caa0ca94af94",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/PayrollRuns.cs",
+      "gitP19Sha256": "d9739a30dc464b67ef46aacbffabf8c502cbf6717bd8f577d422ae9cc01dd7f6",
+      "retainedSha256": "d9739a30dc464b67ef46aacbffabf8c502cbf6717bd8f577d422ae9cc01dd7f6",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Performance.cs",
+      "gitP19Sha256": "00fe1fced98eb1c148fd162c9c04e2e3c47b3bb43c41e07bb31a2f52bf5d017d",
+      "retainedSha256": "00fe1fced98eb1c148fd162c9c04e2e3c47b3bb43c41e07bb31a2f52bf5d017d",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/PeriodBenefit.cs",
+      "gitP19Sha256": "400dee80acc78fe8f69e6e62d375d7b754861b883f51b503538fa93ab3f06c49",
+      "retainedSha256": "400dee80acc78fe8f69e6e62d375d7b754861b883f51b503538fa93ab3f06c49",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/PeriodOvertime.cs",
+      "gitP19Sha256": "a5d34bfe671d0f03b6fe0925de13f1ace547f90d7c26cfd396b4b12d413178ea",
+      "retainedSha256": "a5d34bfe671d0f03b6fe0925de13f1ace547f90d7c26cfd396b4b12d413178ea",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Policies.cs",
+      "gitP19Sha256": "b8f85cfc9536a2626c42bd77a99b5ea9413630f9d938de85616e7d2ab28cd3e8",
+      "retainedSha256": "b8f85cfc9536a2626c42bd77a99b5ea9413630f9d938de85616e7d2ab28cd3e8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Recruitment.cs",
+      "gitP19Sha256": "d6c2efb02f9a2303eadd7f7a9776c5d9fc23c6142d3508c346704ec5fda1a711",
+      "retainedSha256": "d6c2efb02f9a2303eadd7f7a9776c5d9fc23c6142d3508c346704ec5fda1a711",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/SecurityCompliance.cs",
+      "gitP19Sha256": "26c78207ed4f5222acc1ce60805e3008ba054bdef2ffb130ba49817c8924aa1f",
+      "retainedSha256": "26c78207ed4f5222acc1ce60805e3008ba054bdef2ffb130ba49817c8924aa1f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Setup.cs",
+      "gitP19Sha256": "32004a908973dd5a053bee49fe776d68369a7ac6aaf5cd04cfef298a6b396bbe",
+      "retainedSha256": "32004a908973dd5a053bee49fe776d68369a7ac6aaf5cd04cfef298a6b396bbe",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/TimeOperations.cs",
+      "gitP19Sha256": "46cf92adbeadc937c6b2da0128605754335a6b7ea90b7d381dcc97c5805abcee",
+      "retainedSha256": "46cf92adbeadc937c6b2da0128605754335a6b7ea90b7d381dcc97c5805abcee",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Workers.cs",
+      "gitP19Sha256": "b15354bc8408466e5794003913c80bbac4cae6b20a86b8985dc89320e79335ad",
+      "retainedSha256": "b15354bc8408466e5794003913c80bbac4cae6b20a86b8985dc89320e79335ad",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Workflows.cs",
+      "gitP19Sha256": "cbad49b8a044d63becb1e18f9a5990d21e4c6b1082cef09e13411aedd03f8bce",
+      "retainedSha256": "cbad49b8a044d63becb1e18f9a5990d21e4c6b1082cef09e13411aedd03f8bce",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Mightyfin.Erp.Hrm.Domain.csproj",
+      "gitP19Sha256": "11c0c110e19c9eaeaef66a0382f7a3e4ff6ab395d99ca6664e1ba378371cc47c",
+      "retainedSha256": "11c0c110e19c9eaeaef66a0382f7a3e4ff6ab395d99ca6664e1ba378371cc47c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Benefits/BenefitRepository.cs",
+      "gitP19Sha256": "64f4b931331d53d9bd896839abe62e6adba294e7b984888e7e86a40e1fd46bcd",
+      "retainedSha256": "64f4b931331d53d9bd896839abe62e6adba294e7b984888e7e86a40e1fd46bcd",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/CompanyBrandingService.cs",
+      "gitP19Sha256": "e0f2f23f9d084ba726caca274d8e55934efca2abd5c1bf98a1ad27214f5b3819",
+      "retainedSha256": "e0f2f23f9d084ba726caca274d8e55934efca2abd5c1bf98a1ad27214f5b3819",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Data/HrmDbContext.cs",
+      "gitP19Sha256": "d1ce7ef6f3926d2240948949cd9d6f5e1eeaf1766a970937c026e3ab90d4299a",
+      "retainedSha256": "d1ce7ef6f3926d2240948949cd9d6f5e1eeaf1766a970937c026e3ab90d4299a",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Data/HrmDbContextFactory.cs",
+      "gitP19Sha256": "91fd9f1f43caa684c9db8651d81f1d02d7f9f93e8b3febb49aa18f0f5ed4f83e",
+      "retainedSha256": "91fd9f1f43caa684c9db8651d81f1d02d7f9f93e8b3febb49aa18f0f5ed4f83e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/GoLiveReadinessService.cs",
+      "gitP19Sha256": "ed25f151463a1d3c4d7d876199957dfd081d7f0ff51521ed0bbbe931f9122239",
+      "retainedSha256": "ed25f151463a1d3c4d7d876199957dfd081d7f0ff51521ed0bbbe931f9122239",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/IntegrationOperations.cs",
+      "gitP19Sha256": "893f7334861d8b36551df423175adaae9fce58d9226064fc24a16a143f4c7b38",
+      "retainedSha256": "893f7334861d8b36551df423175adaae9fce58d9226064fc24a16a143f4c7b38",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/ManagementReportingService.cs",
+      "gitP19Sha256": "bfaf2304864f1ce836e507ea8d1dd1064d08248a0059c58b55256313aaea2815",
+      "retainedSha256": "bfaf2304864f1ce836e507ea8d1dd1064d08248a0059c58b55256313aaea2815",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/MasterData.cs",
+      "gitP19Sha256": "5b2fa8d1ecf6c813fae37fe2ea5c6aadaa2785b3ea6856caa85e8f81dc9f1b54",
+      "retainedSha256": "5b2fa8d1ecf6c813fae37fe2ea5c6aadaa2785b3ea6856caa85e8f81dc9f1b54",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/MergeDataProvider.cs",
+      "gitP19Sha256": "df022bb4a585d95a864243fcc801740d0f2f1c7766214a5557ca92ca7586b056",
+      "retainedSha256": "df022bb4a585d95a864243fcc801740d0f2f1c7766214a5557ca92ca7586b056",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Mightyfin.Erp.Hrm.Infrastructure.csproj",
+      "gitP19Sha256": "bb148aeaf9bc84cbab0b02572066e8361788f6c59109afa06de80e81386f21af",
+      "retainedSha256": "bb148aeaf9bc84cbab0b02572066e8361788f6c59109afa06de80e81386f21af",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813084041_Initial.Designer.cs",
+      "gitP19Sha256": "aa21d171cc7cdb80fe51c9237a257b6f7739e69645c9692b76638dfae1690072",
+      "retainedSha256": "aa21d171cc7cdb80fe51c9237a257b6f7739e69645c9692b76638dfae1690072",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813084041_Initial.cs",
+      "gitP19Sha256": "b3bfdd600fd172ea5eaf937cc41cc4221db0d15656d69abb0fd05fb87c27eef8",
+      "retainedSha256": "b3bfdd600fd172ea5eaf937cc41cc4221db0d15656d69abb0fd05fb87c27eef8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813120427_M7RecruitmentRelations.Designer.cs",
+      "gitP19Sha256": "60db55ef9811a46eb438f7325d39f7e2a88256dfa2da27b4768c527beb6c71d6",
+      "retainedSha256": "60db55ef9811a46eb438f7325d39f7e2a88256dfa2da27b4768c527beb6c71d6",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813120427_M7RecruitmentRelations.cs",
+      "gitP19Sha256": "f7a3bef9962d757b62e37b8b7530f979e0c7df254075865b56abb50144d3eef3",
+      "retainedSha256": "f7a3bef9962d757b62e37b8b7530f979e0c7df254075865b56abb50144d3eef3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813194337_M10ManagerNavigation.Designer.cs",
+      "gitP19Sha256": "3e93d404ed2a07904e331d4813cc1e96c490342bcbeda8734cb374858db424db",
+      "retainedSha256": "3e93d404ed2a07904e331d4813cc1e96c490342bcbeda8734cb374858db424db",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813194337_M10ManagerNavigation.cs",
+      "gitP19Sha256": "09c836254ff38175713e97b5edac17005897837d2ef55fc1eb495c53de55a7a3",
+      "retainedSha256": "09c836254ff38175713e97b5edac17005897837d2ef55fc1eb495c53de55a7a3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260814124855_M22RequestWorkerNullable.Designer.cs",
+      "gitP19Sha256": "ec06df68d12c7cf15c723b866b46dea7c29c351dec355b3a79df00e21d867c1f",
+      "retainedSha256": "ec06df68d12c7cf15c723b866b46dea7c29c351dec355b3a79df00e21d867c1f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260814124855_M22RequestWorkerNullable.cs",
+      "gitP19Sha256": "4adfdeda3a236a030bce26f8e6d0c4f235b5c7cd68af09ca1628034f5984be7f",
+      "retainedSha256": "4adfdeda3a236a030bce26f8e6d0c4f235b5c7cd68af09ca1628034f5984be7f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260815174920_M24PayslipStatutoryRefs.Designer.cs",
+      "gitP19Sha256": "1db2d005368c34e0b519982facffede3d571d233cea2c153d4407fb9a3cc72a0",
+      "retainedSha256": "1db2d005368c34e0b519982facffede3d571d233cea2c153d4407fb9a3cc72a0",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260815174920_M24PayslipStatutoryRefs.cs",
+      "gitP19Sha256": "f67f8e94db07b050dfd41d51e3238b6047b5a5b4ae43831ed8f3b766b2ca7aa0",
+      "retainedSha256": "f67f8e94db07b050dfd41d51e3238b6047b5a5b4ae43831ed8f3b766b2ca7aa0",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816072520_M26NotificationOutbox.Designer.cs",
+      "gitP19Sha256": "0cf5a189daddcf2a674a6f71fb88690d9419fe9a4a46fe921db8dc2a4f7cafb6",
+      "retainedSha256": "0cf5a189daddcf2a674a6f71fb88690d9419fe9a4a46fe921db8dc2a4f7cafb6",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816072520_M26NotificationOutbox.cs",
+      "gitP19Sha256": "0d50882c3c46f6f0dff5744a43b70dc8e89531a9a8a4a2a0a309da76caa7fe7b",
+      "retainedSha256": "0d50882c3c46f6f0dff5744a43b70dc8e89531a9a8a4a2a0a309da76caa7fe7b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816090218_M27PayrollOperations.Designer.cs",
+      "gitP19Sha256": "b1c06e91261bf88d42b0c06c72f2d54ac44935b4c5f14ac14b2731523d8947a2",
+      "retainedSha256": "b1c06e91261bf88d42b0c06c72f2d54ac44935b4c5f14ac14b2731523d8947a2",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816090218_M27PayrollOperations.cs",
+      "gitP19Sha256": "691ac924c0c249cb6e1a7ac2c6939cbf3137a21822a709ad905c81a7372e368f",
+      "retainedSha256": "691ac924c0c249cb6e1a7ac2c6939cbf3137a21822a709ad905c81a7372e368f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816092359_M28TimeLeaveOperations.Designer.cs",
+      "gitP19Sha256": "9b4eb2ad3312918c384e797bd1486e840da778e56553ecc22938b62736c720ee",
+      "retainedSha256": "9b4eb2ad3312918c384e797bd1486e840da778e56553ecc22938b62736c720ee",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816092359_M28TimeLeaveOperations.cs",
+      "gitP19Sha256": "680dbfa9874d5bb8e504193629ad5063e9a9fe78c67b065b470fd616b09721b6",
+      "retainedSha256": "680dbfa9874d5bb8e504193629ad5063e9a9fe78c67b065b470fd616b09721b6",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816094610_M29RecruitmentOnboarding.Designer.cs",
+      "gitP19Sha256": "3c6e0f8f0c2f76c138459b497e548cff8d75cf6af080d11de63025b73fb88844",
+      "retainedSha256": "3c6e0f8f0c2f76c138459b497e548cff8d75cf6af080d11de63025b73fb88844",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816094610_M29RecruitmentOnboarding.cs",
+      "gitP19Sha256": "4e10a6183eabb4ca51796afd5e39e388864c0e5fc0b197420c2ade36731b56d6",
+      "retainedSha256": "4e10a6183eabb4ca51796afd5e39e388864c0e5fc0b197420c2ade36731b56d6",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816103203_M30RelationsCaseManagement.Designer.cs",
+      "gitP19Sha256": "8a2b65bff69a4420b355befe5b56558aa720267f29db949c8d7cc3ade070ef03",
+      "retainedSha256": "8a2b65bff69a4420b355befe5b56558aa720267f29db949c8d7cc3ade070ef03",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816103203_M30RelationsCaseManagement.cs",
+      "gitP19Sha256": "28495680b5055d04f271f62c7a41b3eab396b4cc94c1e3e4438bc119afbc19d2",
+      "retainedSha256": "28495680b5055d04f271f62c7a41b3eab396b4cc94c1e3e4438bc119afbc19d2",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816105224_M31EmployeeSelfService.Designer.cs",
+      "gitP19Sha256": "d6d89bfedadbfcb7cb104ccaf35c759dbdcdbc1cd9f4db1ee21a8b859131f906",
+      "retainedSha256": "d6d89bfedadbfcb7cb104ccaf35c759dbdcdbc1cd9f4db1ee21a8b859131f906",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816105224_M31EmployeeSelfService.cs",
+      "gitP19Sha256": "ccda4948d701717f5dfd2587315fadbb62581f1a99df4249f2e4a247a2b1ecb8",
+      "retainedSha256": "ccda4948d701717f5dfd2587315fadbb62581f1a99df4249f2e4a247a2b1ecb8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816110959_M32MasterDataHardening.Designer.cs",
+      "gitP19Sha256": "609c7bd6119461044afcb62c57b851c28f3461e8a5cb7855986ab1819f276083",
+      "retainedSha256": "609c7bd6119461044afcb62c57b851c28f3461e8a5cb7855986ab1819f276083",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816110959_M32MasterDataHardening.cs",
+      "gitP19Sha256": "125da486ece4c840ef03e3f5ed058566c30f8bce72632260c0d57c212ca30be6",
+      "retainedSha256": "125da486ece4c840ef03e3f5ed058566c30f8bce72632260c0d57c212ca30be6",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816122207_EnforceHrmIdentityBoundary.Designer.cs",
+      "gitP19Sha256": "d76cd6f7663933cc74bbaa5a9cee6b9b792885579b698f6522c6822ce9ea3e18",
+      "retainedSha256": "d76cd6f7663933cc74bbaa5a9cee6b9b792885579b698f6522c6822ce9ea3e18",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816122207_EnforceHrmIdentityBoundary.cs",
+      "gitP19Sha256": "9908c6a9f6bcb822de55b1477d5430cbe1911c83d8e30a60d4a5b7bbedfb79fb",
+      "retainedSha256": "9908c6a9f6bcb822de55b1477d5430cbe1911c83d8e30a60d4a5b7bbedfb79fb",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816131604_M33ExternalIntegrations.Designer.cs",
+      "gitP19Sha256": "8bca83f41e2e5e186771a3d3bbef0c180a0a0675327e80977c9fa7766c83604e",
+      "retainedSha256": "8bca83f41e2e5e186771a3d3bbef0c180a0a0675327e80977c9fa7766c83604e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816131604_M33ExternalIntegrations.cs",
+      "gitP19Sha256": "68b294694bf8d381d437069686410b3fa75530b63d32a3b272d4d2b6c3bf2997",
+      "retainedSha256": "68b294694bf8d381d437069686410b3fa75530b63d32a3b272d4d2b6c3bf2997",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816133925_M34SecurityTenancyCompliance.Designer.cs",
+      "gitP19Sha256": "cc5c28be3bbabe9fa66942b2c970c6ebd78df73f98dce1a55248beeab9492faa",
+      "retainedSha256": "cc5c28be3bbabe9fa66942b2c970c6ebd78df73f98dce1a55248beeab9492faa",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816133925_M34SecurityTenancyCompliance.cs",
+      "gitP19Sha256": "9801db7a8599b66c99ae950c8f38aa59d0e510daaeb2603823c91d9dbf9b2f1a",
+      "retainedSha256": "9801db7a8599b66c99ae950c8f38aa59d0e510daaeb2603823c91d9dbf9b2f1a",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816151037_M36ProductionReadiness.Designer.cs",
+      "gitP19Sha256": "5ee8919a4599a54aa139c753807dead45440ee2031e47a9946177d5e986b7156",
+      "retainedSha256": "5ee8919a4599a54aa139c753807dead45440ee2031e47a9946177d5e986b7156",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816151037_M36ProductionReadiness.cs",
+      "gitP19Sha256": "561f3282f4f6528859a7ad21659d6d440901fb106f502c5c64c52949735378f0",
+      "retainedSha256": "561f3282f4f6528859a7ad21659d6d440901fb106f502c5c64c52949735378f0",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260817204557_M28CrudCompletion.Designer.cs",
+      "gitP19Sha256": "78ad52e47827370b205061accc18d11e88e059adeea7f72e33d9e9344a1f3a07",
+      "retainedSha256": "78ad52e47827370b205061accc18d11e88e059adeea7f72e33d9e9344a1f3a07",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260817204557_M28CrudCompletion.cs",
+      "gitP19Sha256": "ffdc7714777bf036427aab98ce362bf0b5d63b3aa5bbceaf3d306396bf3d86e8",
+      "retainedSha256": "ffdc7714777bf036427aab98ce362bf0b5d63b3aa5bbceaf3d306396bf3d86e8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818095735_WorkerHistory.Designer.cs",
+      "gitP19Sha256": "2c23b73710e5b1de0e42486ee00f9388f3f10f08557ff2c39855af6ad2cf2d23",
+      "retainedSha256": "2c23b73710e5b1de0e42486ee00f9388f3f10f08557ff2c39855af6ad2cf2d23",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818095735_WorkerHistory.cs",
+      "gitP19Sha256": "338c4a6a74e1f972fbb438572f1f1773e34314fbd0223f994b8ed42a77aeeb70",
+      "retainedSha256": "338c4a6a74e1f972fbb438572f1f1773e34314fbd0223f994b8ed42a77aeeb70",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818172829_M35_WorkerNotificationPreferences.Designer.cs",
+      "gitP19Sha256": "415936b0532a12bcfa83cb629ce2255eb929cebe9d96ef5f9fd8554834c5fad2",
+      "retainedSha256": "415936b0532a12bcfa83cb629ce2255eb929cebe9d96ef5f9fd8554834c5fad2",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818172829_M35_WorkerNotificationPreferences.cs",
+      "gitP19Sha256": "b1d5826701dd87459bb442bc6d81613600e253d5685190792ee487a5a9b4a7bb",
+      "retainedSha256": "b1d5826701dd87459bb442bc6d81613600e253d5685190792ee487a5a9b4a7bb",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818190922_M36_PerformanceManagement.Designer.cs",
+      "gitP19Sha256": "d15c0bec7752e1c815703c0b77e84f835062cb7dce2aeddf688a89114261514f",
+      "retainedSha256": "d15c0bec7752e1c815703c0b77e84f835062cb7dce2aeddf688a89114261514f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818190922_M36_PerformanceManagement.cs",
+      "gitP19Sha256": "956fa4df69336e8b54bc527908ef79965922ebca077a17a5c507f02ec858a5c8",
+      "retainedSha256": "956fa4df69336e8b54bc527908ef79965922ebca077a17a5c507f02ec858a5c8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818192518_M36_PerformanceNullableWorkerId.Designer.cs",
+      "gitP19Sha256": "518832773327a96145696d34dc448ba1153453d8e1e3b56802f52b81f7262eba",
+      "retainedSha256": "518832773327a96145696d34dc448ba1153453d8e1e3b56802f52b81f7262eba",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818192518_M36_PerformanceNullableWorkerId.cs",
+      "gitP19Sha256": "e424a4bbee5f05117de415b95cdb217641cbee1f4621b2f2c79edb85a95a2c05",
+      "retainedSha256": "e424a4bbee5f05117de415b95cdb217641cbee1f4621b2f2c79edb85a95a2c05",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818194459_M37_OffboardingExitManagement.Designer.cs",
+      "gitP19Sha256": "ad7c116aeea56a59a14ac2adb3a1affe9d7b4652527e3690d040ed46dca52604",
+      "retainedSha256": "ad7c116aeea56a59a14ac2adb3a1affe9d7b4652527e3690d040ed46dca52604",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818194459_M37_OffboardingExitManagement.cs",
+      "gitP19Sha256": "771a623b9d50bfeca6da54ae0288127987e8e104502c08090b762e78f5ec6d43",
+      "retainedSha256": "771a623b9d50bfeca6da54ae0288127987e8e104502c08090b762e78f5ec6d43",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818201739_M38_RequisitionPipeline.Designer.cs",
+      "gitP19Sha256": "1dd26b58bcc6a3b69242237a3d38df2f42d42289432db142c2ba9cbbf27395f9",
+      "retainedSha256": "1dd26b58bcc6a3b69242237a3d38df2f42d42289432db142c2ba9cbbf27395f9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818201739_M38_RequisitionPipeline.cs",
+      "gitP19Sha256": "89f51f56cc08f1a8bde25b512893627dd2afe715639fbefb38b90a55c0861e76",
+      "retainedSha256": "89f51f56cc08f1a8bde25b512893627dd2afe715639fbefb38b90a55c0861e76",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819023521_M41PaymentDays.Designer.cs",
+      "gitP19Sha256": "bcc40f35a1083615b114999aa527f2f0a989447119b604e1889da2fcc08b572e",
+      "retainedSha256": "bcc40f35a1083615b114999aa527f2f0a989447119b604e1889da2fcc08b572e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819023521_M41PaymentDays.cs",
+      "gitP19Sha256": "f36f29acb30e0ed30d7c72ae09e7678f9f91ababf424b2451e97253d495ac6fe",
+      "retainedSha256": "f36f29acb30e0ed30d7c72ae09e7678f9f91ababf424b2451e97253d495ac6fe",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819024616_M41Gap3PayBasis.Designer.cs",
+      "gitP19Sha256": "50cd9197532f1409da42fbf06446500bb6cacbf88fa9729ae2fa7bd93ed3db67",
+      "retainedSha256": "50cd9197532f1409da42fbf06446500bb6cacbf88fa9729ae2fa7bd93ed3db67",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819024616_M41Gap3PayBasis.cs",
+      "gitP19Sha256": "9f0a269f8904b2b6b9d3d3a674996fac005e57b00ee94ea446165aa3cf13fae9",
+      "retainedSha256": "9f0a269f8904b2b6b9d3d3a674996fac005e57b00ee94ea446165aa3cf13fae9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819033740_M41Gap6aLeaveEncashment.Designer.cs",
+      "gitP19Sha256": "4e4830985b6f1300321ecbbc2c4584b48170d093ef040e53851b691a4d33efc1",
+      "retainedSha256": "4e4830985b6f1300321ecbbc2c4584b48170d093ef040e53851b691a4d33efc1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819033740_M41Gap6aLeaveEncashment.cs",
+      "gitP19Sha256": "8f77ad394b40d48a3eb45c70d02ef85bcf185e6020b1a7237c090bc5186535d2",
+      "retainedSha256": "8f77ad394b40d48a3eb45c70d02ef85bcf185e6020b1a7237c090bc5186535d2",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819034018_M41Gap6aEncashmentLedgerNote.Designer.cs",
+      "gitP19Sha256": "d1635002ecec4dfbeddd5a4581e5880c6216089c0b13a016b09fc2a87c9f5fe5",
+      "retainedSha256": "d1635002ecec4dfbeddd5a4581e5880c6216089c0b13a016b09fc2a87c9f5fe5",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819034018_M41Gap6aEncashmentLedgerNote.cs",
+      "gitP19Sha256": "0b647d30a47a094808b45469f66b0e33d5a4f1a59366ac7fdd6e3e9cdde03364",
+      "retainedSha256": "0b647d30a47a094808b45469f66b0e33d5a4f1a59366ac7fdd6e3e9cdde03364",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819035509_M41Gap6bBenefitClaims.Designer.cs",
+      "gitP19Sha256": "48aab0c96f66f86705b854b316da8eeda509ca323d365bb6fb4a62ef823b40ec",
+      "retainedSha256": "48aab0c96f66f86705b854b316da8eeda509ca323d365bb6fb4a62ef823b40ec",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819035509_M41Gap6bBenefitClaims.cs",
+      "gitP19Sha256": "e945cb050075ed9e21441825c9d80e4b9a7de6c9653e9947fd0ccb05e86bf7f1",
+      "retainedSha256": "e945cb050075ed9e21441825c9d80e4b9a7de6c9653e9947fd0ccb05e86bf7f1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819045029_M44BranchScoping.Designer.cs",
+      "gitP19Sha256": "c3b2f820a18c07901892c7f00608b2a601a4c33f68932a4591bc13715b80cb72",
+      "retainedSha256": "c3b2f820a18c07901892c7f00608b2a601a4c33f68932a4591bc13715b80cb72",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819045029_M44BranchScoping.cs",
+      "gitP19Sha256": "889547272c097119f629cbef99c4ae32c92e0df6a3840ac1860b23218be5e116",
+      "retainedSha256": "889547272c097119f629cbef99c4ae32c92e0df6a3840ac1860b23218be5e116",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819052727_M45UserBranchAssignments.Designer.cs",
+      "gitP19Sha256": "caf444853aa259abf12cbb4d8210ad2dffe5dda9c7e2ff1e8abecb76934b6b1f",
+      "retainedSha256": "caf444853aa259abf12cbb4d8210ad2dffe5dda9c7e2ff1e8abecb76934b6b1f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819052727_M45UserBranchAssignments.cs",
+      "gitP19Sha256": "7b4e322773f35b776265d0f018a0ae11cd1e58393371b18c9e7391ce27471f6b",
+      "retainedSha256": "7b4e322773f35b776265d0f018a0ae11cd1e58393371b18c9e7391ce27471f6b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819074752_M49FirstTimeSetup.Designer.cs",
+      "gitP19Sha256": "2bbee71b90ef37d347c4c21adde1d1d87244af5d840a22422da8cd7f3183a96b",
+      "retainedSha256": "2bbee71b90ef37d347c4c21adde1d1d87244af5d840a22422da8cd7f3183a96b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819074752_M49FirstTimeSetup.cs",
+      "gitP19Sha256": "37d99eb6b55753b098296f2cb7094ac15ae6e1f681a087e9cfd477ba633a7189",
+      "retainedSha256": "37d99eb6b55753b098296f2cb7094ac15ae6e1f681a087e9cfd477ba633a7189",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260821000000_LocalIdentity.cs",
+      "gitP19Sha256": "52f202686f357260c1d54e9d323987ca040b1842996876b15f0148ae76740015",
+      "retainedSha256": "52f202686f357260c1d54e9d323987ca040b1842996876b15f0148ae76740015",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260822205857_M1OvertimeLifecycle.Designer.cs",
+      "gitP19Sha256": "ebe6f1932dbae02fdca3dda348268747c9aa76981d9354ade3faadf9c86d7834",
+      "retainedSha256": "ebe6f1932dbae02fdca3dda348268747c9aa76981d9354ade3faadf9c86d7834",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260822205857_M1OvertimeLifecycle.cs",
+      "gitP19Sha256": "857c4a652e9d3f9edc157b19233920074b85e92bee802a13b488e485a65722a1",
+      "retainedSha256": "857c4a652e9d3f9edc157b19233920074b85e92bee802a13b488e485a65722a1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260825000000_RolePermissions.cs",
+      "gitP19Sha256": "c530038c04fc6c75f13b270c38dbf1f545e4c7759855f669e20352c8dfac14f1",
+      "retainedSha256": "c530038c04fc6c75f13b270c38dbf1f545e4c7759855f669e20352c8dfac14f1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260826000100_BenefitPayrollToggle.cs",
+      "gitP19Sha256": "019c09bfe31f6dab784d38c8949e4ef3d70b60f924907333331c552ff3a36a72",
+      "retainedSha256": "019c09bfe31f6dab784d38c8949e4ef3d70b60f924907333331c552ff3a36a72",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260826183000_M51OvertimeCompliancePolicy.cs",
+      "gitP19Sha256": "285dc336481098143e527c9327be06c4afa397c6c7ed6c2a293e78d4cbf0f8a8",
+      "retainedSha256": "285dc336481098143e527c9327be06c4afa397c6c7ed6c2a293e78d4cbf0f8a8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260827053000_SalaryAdvances.cs",
+      "gitP19Sha256": "8a12a31a3b1ca7228a6d5362e1860c14136851d3742ec92712195d13fa4af9d5",
+      "retainedSha256": "8a12a31a3b1ca7228a6d5362e1860c14136851d3742ec92712195d13fa4af9d5",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260827095700_AccountCredentialLinks.cs",
+      "gitP19Sha256": "ad46e55a66799e305d14ce4283081ec134c52f23d101f74c83c3085112c7a123",
+      "retainedSha256": "ad46e55a66799e305d14ce4283081ec134c52f23d101f74c83c3085112c7a123",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260903084500_TaxablePayrollBenefits.cs",
+      "gitP19Sha256": "777eac71ee6db0ed4158fed10c11e24995a3221b401937844ebaf360ead0389d",
+      "retainedSha256": "777eac71ee6db0ed4158fed10c11e24995a3221b401937844ebaf360ead0389d",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260903095000_HistoricalPayrollRuns.cs",
+      "gitP19Sha256": "6b01b441a84bc47b9cd36a2165e0df81aa15fbf351cf9674282f64200dc9d797",
+      "retainedSha256": "6b01b441a84bc47b9cd36a2165e0df81aa15fbf351cf9674282f64200dc9d797",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260904082000_M52CompanyBranding.cs",
+      "gitP19Sha256": "8fb404c0278e38c7036ef09bb2c5390d1bbbaf85651f3c94cefabcaeb31a617a",
+      "retainedSha256": "8fb404c0278e38c7036ef09bb2c5390d1bbbaf85651f3c94cefabcaeb31a617a",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260910090000_ContractTypes.cs",
+      "gitP19Sha256": "7d723f8796fd49a0b58bbb214a53df91d49746a923209ace28384e8398e024a1",
+      "retainedSha256": "7d723f8796fd49a0b58bbb214a53df91d49746a923209ace28384e8398e024a1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260910100000_WorkerPersonalEmail.cs",
+      "gitP19Sha256": "c370b0699db6b826db9770497342ce27c753a61c0a500b0f884ec5bf63054085",
+      "retainedSha256": "c370b0699db6b826db9770497342ce27c753a61c0a500b0f884ec5bf63054085",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260910110000_WorkerContractType.cs",
+      "gitP19Sha256": "388fe9778f4ea453717fff09b0befd630d5d4c920d52c22ff10b652f33216e78",
+      "retainedSha256": "388fe9778f4ea453717fff09b0befd630d5d4c920d52c22ff10b652f33216e78",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260923070000_M53BrandingPalette.cs",
+      "gitP19Sha256": "4003bd592d4f23e94183ff179b92220f204541c01f06ec5b9a99c3d7e7b5f579",
+      "retainedSha256": "4003bd592d4f23e94183ff179b92220f204541c01f06ec5b9a99c3d7e7b5f579",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260923090000_M54BrandingCompanyLogin.cs",
+      "gitP19Sha256": "b91763d5e6d752089a07fc77318c70f20e716597c6e2c3084aa2dfe16db79c2f",
+      "retainedSha256": "b91763d5e6d752089a07fc77318c70f20e716597c6e2c3084aa2dfe16db79c2f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260925090000_WorkerProfileDetails.cs",
+      "gitP19Sha256": "42c0975eb34e2b672f937e6e2b27704077139440621ce1f552b66791681962f2",
+      "retainedSha256": "42c0975eb34e2b672f937e6e2b27704077139440621ce1f552b66791681962f2",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260925150000_PeriodOvertimeAmounts.cs",
+      "gitP19Sha256": "955c797f431e64811f04a0cac5cd5c8e41b1721afca200ef14b1bf80a24f5bf7",
+      "retainedSha256": "955c797f431e64811f04a0cac5cd5c8e41b1721afca200ef14b1bf80a24f5bf7",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260926080000_UniqueAttendanceDay.cs",
+      "gitP19Sha256": "413b6f61054850e8eaeabfba2f1b205a21d7d703eb65b53c6c854f05fe85b1dc",
+      "retainedSha256": "413b6f61054850e8eaeabfba2f1b205a21d7d703eb65b53c6c854f05fe85b1dc",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260926193000_PeriodBenefitAssignments.cs",
+      "gitP19Sha256": "7a5a3f38e4a0e078a4a0beabfe25b1cb55c5382a4a222a1aea0acd2f588b0742",
+      "retainedSha256": "7a5a3f38e4a0e078a4a0beabfe25b1cb55c5382a4a222a1aea0acd2f588b0742",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260926203000_PayrollBenefitClaims.cs",
+      "gitP19Sha256": "f329cbe0203cc4bc728c7e941e78964344f0a9a6e00ba60de943b4ca4b1df8b3",
+      "retainedSha256": "f329cbe0203cc4bc728c7e941e78964344f0a9a6e00ba60de943b4ca4b1df8b3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260928200000_HalfPayPaymentDays.cs",
+      "gitP19Sha256": "e086dbecaeafc4e9817817729b2b13d139a35bd5cf1c086fd5df0dffd3d7444c",
+      "retainedSha256": "e086dbecaeafc4e9817817729b2b13d139a35bd5cf1c086fd5df0dffd3d7444c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260928220000_SelectiveMonthlyLeaveAccrual.cs",
+      "gitP19Sha256": "398faa60c7544a3ba45f2094769ea7a0c48222e8fed4aae8d77c92b226f43a44",
+      "retainedSha256": "398faa60c7544a3ba45f2094769ea7a0c48222e8fed4aae8d77c92b226f43a44",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20261016090000_M55BrandingFont.cs",
+      "gitP19Sha256": "b313d8c34526a8291947073fc0f2bf5296bea87e19db9c26852d1edfbd70bf13",
+      "retainedSha256": "b313d8c34526a8291947073fc0f2bf5296bea87e19db9c26852d1edfbd70bf13",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/HrmDbContextModelSnapshot.cs",
+      "gitP19Sha256": "ff187c54c86ba85f6abda98fa3d227b4ef361e5d47bc70cd8c0fbf8409f997cc",
+      "retainedSha256": "ff187c54c86ba85f6abda98fa3d227b4ef361e5d47bc70cd8c0fbf8409f997cc",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Outbox.cs",
+      "gitP19Sha256": "25fa5132a810268b39728f195292e38e9b23d224c0c21ce8ab7297b293de1817",
+      "retainedSha256": "25fa5132a810268b39728f195292e38e9b23d224c0c21ce8ab7297b293de1817",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/PayrollReportPdfRendererImpl.cs",
+      "gitP19Sha256": "558432228dd4ff945ac95b9849e5667316e48fadec4e57be30b6b2e8ef750fee",
+      "retainedSha256": "558432228dd4ff945ac95b9849e5667316e48fadec4e57be30b6b2e8ef750fee",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/PayslipDocumentServiceImpl.cs",
+      "gitP19Sha256": "0b6e5de364781dada6dc0413772bd89c4b8f0315de55713a030cb2b655822364",
+      "retainedSha256": "2fc97566d9a8368163bbe71507d82765656340b03830b5ab67be36f2b661976f",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/PayslipLeaveSummaryService.cs",
+      "gitP19Sha256": "f6ca25077c42cc682b86010679ff1b9bd072d9eb46ed2a3424ad59db92bbbeb4",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/PeriodBenefitService.cs",
+      "gitP19Sha256": "408a9bd0d69b9951e021e29963740705da31f46917f7ee154ab4007b07b8eeb0",
+      "retainedSha256": "408a9bd0d69b9951e021e29963740705da31f46917f7ee154ab4007b07b8eeb0",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/PeriodOvertimeService.cs",
+      "gitP19Sha256": "b8893a998ad062e2f57e20e86a1fce860cf38e8dbd8ff1b9d4dcd3d16b87405f",
+      "retainedSha256": "b8893a998ad062e2f57e20e86a1fce860cf38e8dbd8ff1b9d4dcd3d16b87405f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/RecordedLeaveService.cs",
+      "gitP19Sha256": "aba0e9485149bd669e5b4c4330c4568b6c1c9e4d68624e84f2303244354ef28b",
+      "retainedSha256": "aba0e9485149bd669e5b4c4330c4568b6c1c9e4d68624e84f2303244354ef28b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Repositories.cs",
+      "gitP19Sha256": "5a2b8810ad52a9f9f228d336008a43b33b82d574ab0db467b929420bee7104c8",
+      "retainedSha256": "e6464b6a13d40ba97e7826bd98b29b0f7a6ca536e9ad6b2c9d11f534472d49ba",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/SecurityComplianceService.cs",
+      "gitP19Sha256": "c32f88fa34c82fde3a8cf9a53ae6207a640c53b2aa1b6cfacb4ab20bdbece335",
+      "retainedSha256": "c32f88fa34c82fde3a8cf9a53ae6207a640c53b2aa1b6cfacb4ab20bdbece335",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/WorkerResolver.cs",
+      "gitP19Sha256": "a57497991b15e74fc24801ab9fdb0d06568361ff2123a8cd766966973039ffad",
+      "retainedSha256": "a57497991b15e74fc24801ab9fdb0d06568361ff2123a8cd766966973039ffad",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ConfigAdminServiceTests.cs",
+      "gitP19Sha256": "04c0627ef99be636160bad6a2f920deb706efa29d643402a0dd2d6c500c398bf",
+      "retainedSha256": "04c0627ef99be636160bad6a2f920deb706efa29d643402a0dd2d6c500c398bf",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/DocumentsTests.cs",
+      "gitP19Sha256": "ebb0db3c244f96a53b4c97d5ccc6b79dbc7f46e6c3a7feb10a777448f1b3f95e",
+      "retainedSha256": "ebb0db3c244f96a53b4c97d5ccc6b79dbc7f46e6c3a7feb10a777448f1b3f95e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ExperienceServiceTests.cs",
+      "gitP19Sha256": "537b5e92fe3be6d526a03f37ec3ac601d2691414b264adbdbdb8fa0554b50a7f",
+      "retainedSha256": "537b5e92fe3be6d526a03f37ec3ac601d2691414b264adbdbdb8fa0554b50a7f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/HardeningTests.cs",
+      "gitP19Sha256": "89e2b60eb1bf3203051ff51f60e1dca2e6ea0f1906b476afa2767795d7270794",
+      "retainedSha256": "89e2b60eb1bf3203051ff51f60e1dca2e6ea0f1906b476afa2767795d7270794",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ImportExportServiceTests.cs",
+      "gitP19Sha256": "18efa43521f1ee90dc6a2918d7b26cb336e0a3958c5b1cab08c72794a695a65e",
+      "retainedSha256": "18efa43521f1ee90dc6a2918d7b26cb336e0a3958c5b1cab08c72794a695a65e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/JobsAdminTests.cs",
+      "gitP19Sha256": "94d24b2216b8c48915a587f8b2046e2bfa44ba99c0cc82d355249b92563e38f9",
+      "retainedSha256": "d5e989cdec74a5ff75290a561ba76ada1a7e19487638a72a4984539cf57e99ee",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M26NotificationOutboxTests.cs",
+      "gitP19Sha256": "3da8bc4325a2efb2d776511583395fbd092a37693137804092e55fb706f8fca2",
+      "retainedSha256": "3da8bc4325a2efb2d776511583395fbd092a37693137804092e55fb706f8fca2",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M27PayrollOperationsTests.cs",
+      "gitP19Sha256": "4a8b4e96a968a300ade28173a59c9525e422fdb5cabbb2cc6e5a658182a1e8c0",
+      "retainedSha256": "4a8b4e96a968a300ade28173a59c9525e422fdb5cabbb2cc6e5a658182a1e8c0",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M31EmployeeSelfServiceTests.cs",
+      "gitP19Sha256": "b6772bc0635e446e62141573fb8dc6ea0cf06ebf0658fb34dc5cb296e1331c26",
+      "retainedSha256": "b6772bc0635e446e62141573fb8dc6ea0cf06ebf0658fb34dc5cb296e1331c26",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M32MasterDataTests.cs",
+      "gitP19Sha256": "acedb9cb8550eff1fd0a3544d1f3b6bcc552d87d396b1fdf3bb48bc2fa398b8f",
+      "retainedSha256": "acedb9cb8550eff1fd0a3544d1f3b6bcc552d87d396b1fdf3bb48bc2fa398b8f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M33IntegrationOperationsTests.cs",
+      "gitP19Sha256": "10495c9bc00cf00794fec29c370a4356d321c45e68df5dd554bbad120d5c26d0",
+      "retainedSha256": "10495c9bc00cf00794fec29c370a4356d321c45e68df5dd554bbad120d5c26d0",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M34SecurityComplianceTests.cs",
+      "gitP19Sha256": "22e2b10c1e2274a000bf05cad904be0f2b43eec9873742ac3e372c71e9f74fa1",
+      "retainedSha256": "22e2b10c1e2274a000bf05cad904be0f2b43eec9873742ac3e372c71e9f74fa1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M35ManagementReportingTests.cs",
+      "gitP19Sha256": "2b29aee58d5b5f106d028b03aa961a4ff77372b055dacab04ac992bdecbd7028",
+      "retainedSha256": "2b29aee58d5b5f106d028b03aa961a4ff77372b055dacab04ac992bdecbd7028",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M36GoLiveReadinessTests.cs",
+      "gitP19Sha256": "a0cfabbb77570310e42187959275357b4c84ba54611a720052d6688804e1962e",
+      "retainedSha256": "a0cfabbb77570310e42187959275357b4c84ba54611a720052d6688804e1962e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M40AnalyticsTests.cs",
+      "gitP19Sha256": "9ae8ecb48903427b1fec062a3fa1efa64854bba83dece0cd85e340ad2ce36dcc",
+      "retainedSha256": "9ae8ecb48903427b1fec062a3fa1efa64854bba83dece0cd85e340ad2ce36dcc",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M41AccountingReportTests.cs",
+      "gitP19Sha256": "f6a626eb3ad0c19ec744de77b435db11c49ef55bf194992f1de579b9dbfc8462",
+      "retainedSha256": "f6a626eb3ad0c19ec744de77b435db11c49ef55bf194992f1de579b9dbfc8462",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M41Gap2ProrationTests.cs",
+      "gitP19Sha256": "6293bb10113970ef0d6588f4e98b00ee1a8be801d851dff377f6f0eee68d3182",
+      "retainedSha256": "6293bb10113970ef0d6588f4e98b00ee1a8be801d851dff377f6f0eee68d3182",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M41Gap4ImportTests.cs",
+      "gitP19Sha256": "e0ec12a977d26f73b9d882a7577a72f403e8f5cf2cecc07b3820252c6b301245",
+      "retainedSha256": "c8525ece404296a07974bc010f28e45f0c7b21771660db14141289df46496cee",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M41Gap6EncashmentTests.cs",
+      "gitP19Sha256": "654f2399022fce93afa12f76578da6d8beb35c1ec36d625632733bbaa37bbbe9",
+      "retainedSha256": "654f2399022fce93afa12f76578da6d8beb35c1ec36d625632733bbaa37bbbe9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M41Gap6bBenefitClaimsTests.cs",
+      "gitP19Sha256": "e883719a79f327d2258da7a4f19d05bcdeb92f13af746619f14434d9ab51060e",
+      "retainedSha256": "e883719a79f327d2258da7a4f19d05bcdeb92f13af746619f14434d9ab51060e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M54ImportScopeTests.cs",
+      "gitP19Sha256": "64effafdda518febb3eec3e6edd372eb9591a81f1df611c943957e71ecb0d2b7",
+      "retainedSha256": "64effafdda518febb3eec3e6edd372eb9591a81f1df611c943957e71ecb0d2b7",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/MeSelfServiceTests.cs",
+      "gitP19Sha256": "238a194654ad005f3c8610f2c2e8e5fc31fc51f1571098db602882cb499c836e",
+      "retainedSha256": "238a194654ad005f3c8610f2c2e8e5fc31fc51f1571098db602882cb499c836e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/Mightyfin.Erp.Hrm.Tests.csproj",
+      "gitP19Sha256": "a80bf2e3dc4176897a6142e325d529e9a358d37bebcc2630c22853c26a2f9a49",
+      "retainedSha256": "a80bf2e3dc4176897a6142e325d529e9a358d37bebcc2630c22853c26a2f9a49",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/Payroll/PayrollBranchDraftTests.cs",
+      "gitP19Sha256": "d2855a5f7231e67e1b338afd1269b801803d12e04bcb766db7358e9a9f722a0c",
+      "retainedSha256": "d2855a5f7231e67e1b338afd1269b801803d12e04bcb766db7358e9a9f722a0c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/Payroll/PayrollQueueTests.cs",
+      "gitP19Sha256": "c515935aaaf578f7fc6e7f0f0c01eee605676ec0295b2f6386ad3755c645d00e",
+      "retainedSha256": "c515935aaaf578f7fc6e7f0f0c01eee605676ec0295b2f6386ad3755c645d00e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PayrollEngineTests.cs",
+      "gitP19Sha256": "1bc409d34c18f575a35f8825c7dbf207ddc764aea9fd2cadd4ebf2f26506d501",
+      "retainedSha256": "1bc409d34c18f575a35f8825c7dbf207ddc764aea9fd2cadd4ebf2f26506d501",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PayrollServiceTests.cs",
+      "gitP19Sha256": "0acd2b4a74682557b4e4b8a5d2d6da07c1f016a93a3e9bb8ee00dbcf709f56f1",
+      "retainedSha256": "0acd2b4a74682557b4e4b8a5d2d6da07c1f016a93a3e9bb8ee00dbcf709f56f1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PayrollSetupTests.cs",
+      "gitP19Sha256": "4d0489bb717cbaf6d17c6b0a56400e76b17848a4950048e4d761e353272d9d62",
+      "retainedSha256": "4d0489bb717cbaf6d17c6b0a56400e76b17848a4950048e4d761e353272d9d62",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PayslipLeaveSummaryTests.cs",
+      "gitP19Sha256": "56b09c50809a9f804a52abb4ad02e9f1cea233d0872a1d12a8d7b29c6c832079",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PayslipPreviewPeriodTests.cs",
+      "gitP19Sha256": "c942df9d5d060afa5e909fe35f8ba6f6cd68ccc39509da1908193bbdde3c1deb",
+      "retainedSha256": "c942df9d5d060afa5e909fe35f8ba6f6cd68ccc39509da1908193bbdde3c1deb",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PayslipStatutoryTests.cs",
+      "gitP19Sha256": "faecc2959951026e763d9f3625e2f3d0b2ed206ad70f92927080a195a5078ca8",
+      "retainedSha256": "faecc2959951026e763d9f3625e2f3d0b2ed206ad70f92927080a195a5078ca8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PeriodBenefitTests.cs",
+      "gitP19Sha256": "09cdf8c80e8f0d983f058b3a5dd1d69da1f18016f8088b0cbc4e27234a2210d9",
+      "retainedSha256": "09cdf8c80e8f0d983f058b3a5dd1d69da1f18016f8088b0cbc4e27234a2210d9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PeriodOvertimeTests.cs",
+      "gitP19Sha256": "ad12a70b862eb83fa1a869d9df7a9f746388361f4dabd47620f289d2239abb5e",
+      "retainedSha256": "ad12a70b862eb83fa1a869d9df7a9f746388361f4dabd47620f289d2239abb5e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementConfiguredPermissionsTests.cs",
+      "gitP19Sha256": "cc562933f8c9515505f48e1316aa874ce180ee03959a4bcaaea3b9cdc9431cde",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementContextRoutesTests.cs",
+      "gitP19Sha256": "b0e387bb0648cc84afe2f6011bddee7e6c97b196a7d7125ecca6fa2f8fa79ed8",
+      "retainedSha256": "7fdb58da756390432ee7c8e01186f935e1d43da43838da161a17e45524c940db",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementContractDraftRulesTests.cs",
+      "gitP19Sha256": "872898331c00ec914dd8e2acb69241a5c00e19fc15f265b544022b262fc1aced",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementRequestHttpTests.cs",
+      "gitP19Sha256": "672d390068fb912ee28496106a84685860bfad6ed00e88b6e142bc55e9b3e01b",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementScopeMiddlewareTests.cs",
+      "gitP19Sha256": "ad9a48cfecad209795b5cab5b5d656156b2c275d45e6dfd9db0d2616cc6b17b8",
+      "retainedSha256": "ad9a48cfecad209795b5cab5b5d656156b2c275d45e6dfd9db0d2616cc6b17b8",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementSourcingDraftRulesTests.cs",
+      "gitP19Sha256": "76fc707fc187ad1759e3ae248e27909626628ed3eed55b62db00976243d4c1f1",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/RecordedLeaveTests.cs",
+      "gitP19Sha256": "504f4b87c3f26ab1fc5be02ace89c90060fb7960d9e0b4ba1d8c0ad3981d59a0",
+      "retainedSha256": "504f4b87c3f26ab1fc5be02ace89c90060fb7960d9e0b4ba1d8c0ad3981d59a0",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/RecruitmentRelationsTests.cs",
+      "gitP19Sha256": "38851571d58fa2d653df46efddf56d693eac9bbbb04e86489a2dbd00a1b459d3",
+      "retainedSha256": "38851571d58fa2d653df46efddf56d693eac9bbbb04e86489a2dbd00a1b459d3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/SetupWizardTests.cs",
+      "gitP19Sha256": "9895d521444851954d1246539a0ab202dbf7c629ea9ae0b1642a8fbc9995da30",
+      "retainedSha256": "24734a47cdce30c6a60e8a2760430bc21507d282355bce91bba6ffcc2721397d",
+      "state": "different"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/StructureTests.cs",
+      "gitP19Sha256": "49f1d303af9eac7a4408790191a8eb6cba018a1c16c2b5b8138f9f3607f98186",
+      "retainedSha256": "49f1d303af9eac7a4408790191a8eb6cba018a1c16c2b5b8138f9f3607f98186",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/TimeServiceTests.cs",
+      "gitP19Sha256": "f0faea9257e659830818295c1090332f044586d23342e33e1e5d3417db194777",
+      "retainedSha256": "f0faea9257e659830818295c1090332f044586d23342e33e1e5d3417db194777",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/TimesheetAccessTests.cs",
+      "gitP19Sha256": "c1fa00b330f0367b3453666cfce34aaa27f98dd0ff4efb22c0135bc7113a333c",
+      "retainedSha256": "c1fa00b330f0367b3453666cfce34aaa27f98dd0ff4efb22c0135bc7113a333c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/WorkerHistoryServiceTests.cs",
+      "gitP19Sha256": "2e19dc67946bdbca9e764d47444060cc4144dd0eb49196caed58f502f6ab57c3",
+      "retainedSha256": "2e19dc67946bdbca9e764d47444060cc4144dd0eb49196caed58f502f6ab57c3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/WorkerImportTests.cs",
+      "gitP19Sha256": "b9554f225dc84e7104dcfa04b8d4eefe509e898faffd6f12f71b9f282f4621b3",
+      "retainedSha256": "b9554f225dc84e7104dcfa04b8d4eefe509e898faffd6f12f71b9f282f4621b3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/WorkerLifecycleServiceTests.cs",
+      "gitP19Sha256": "0b66698f6fd9567ee9819d0b0dca9232c901ff8af4483355344b2b3ff360621c",
+      "retainedSha256": "0b66698f6fd9567ee9819d0b0dca9232c901ff8af4483355344b2b3ff360621c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/WorkerServiceTests.cs",
+      "gitP19Sha256": "f4f0cc2220f7e948eba983ab5433ff0c23ce11ed95fef17141a056ab563a6363",
+      "retainedSha256": "f4f0cc2220f7e948eba983ab5433ff0c23ce11ed95fef17141a056ab563a6363",
+      "state": "identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/WorkflowServiceTests.cs",
+      "gitP19Sha256": "adeb042c62f25b7d3cfee2d9a38f1920abc4fb70494b947ec757fdd173540d79",
+      "retainedSha256": "adeb042c62f25b7d3cfee2d9a38f1920abc4fb70494b947ec757fdd173540d79",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/Dockerfile",
+      "gitP19Sha256": "fa892bf191ab403d3535f3b7648a57eb4c507a145876a35ffb5344847703405b",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/procurement-api/global.json",
+      "gitP19Sha256": "fcab220a5079a4ff77d58d0a60900e9d24092c93298d32f8c95f85261ea4188c",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Api/Mightyfin.Erp.Procurement.Api.csproj",
+      "gitP19Sha256": "4ab6aea2b744bbfdb338dd48e25837ffffd7374de5517929c43ec551342cc2e4",
+      "retainedSha256": "4ab6aea2b744bbfdb338dd48e25837ffffd7374de5517929c43ec551342cc2e4",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Api/Program.cs",
+      "gitP19Sha256": "295d83a54ce53354e88286f883fb9a7ef4fcac8c3bf47b0b8a244b5341a9b811",
+      "retainedSha256": "295d83a54ce53354e88286f883fb9a7ef4fcac8c3bf47b0b8a244b5341a9b811",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ApprovalAssigneePreview.cs",
+      "gitP19Sha256": "3fd7dd4e7b10ae640b28c27049d8adb92e4eb4bcb942dec9219e7e37b893dea9",
+      "retainedSha256": "3fd7dd4e7b10ae640b28c27049d8adb92e4eb4bcb942dec9219e7e37b893dea9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ApprovalRoutePreview.cs",
+      "gitP19Sha256": "748f2dbc6daa75e9af7c687195b75e673c89f6ecd37c8e2a41160c969fccd784",
+      "retainedSha256": "748f2dbc6daa75e9af7c687195b75e673c89f6ecd37c8e2a41160c969fccd784",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/IProcurementScope.cs",
+      "gitP19Sha256": "120abe9f9bf608c2aefde5213fe8d0569f124390fc2121753e4f468b59a4a410",
+      "retainedSha256": "120abe9f9bf608c2aefde5213fe8d0569f124390fc2121753e4f468b59a4a410",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/Mightyfin.Erp.Procurement.Application.csproj",
+      "gitP19Sha256": "e1cffc3e7d51a856b8214e421ae53d7a90120a015df26b95800d3d603471fef1",
+      "retainedSha256": "e1cffc3e7d51a856b8214e421ae53d7a90120a015df26b95800d3d603471fef1",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/PolicyRulePreview.cs",
+      "gitP19Sha256": "6e6526cf3fd8fa2baab5f42ec57fbdfe891dcc2871de23f06b9146b40631f190",
+      "retainedSha256": "6e6526cf3fd8fa2baab5f42ec57fbdfe891dcc2871de23f06b9146b40631f190",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/PolicyRuleValidator.cs",
+      "gitP19Sha256": "abbf79487f3120b92c9f2e202339891a46f366c74383307d539ea07b6e0e00a3",
+      "retainedSha256": "abbf79487f3120b92c9f2e202339891a46f366c74383307d539ea07b6e0e00a3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs",
+      "gitP19Sha256": "b38b6a43ac65d1923bcf267cdedde253b29816caec62a11f59c27f31e3681e6c",
+      "retainedSha256": "b38b6a43ac65d1923bcf267cdedde253b29816caec62a11f59c27f31e3681e6c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementPlanRules.cs",
+      "gitP19Sha256": "01a43eb475a2c94823974465096fd8d9d75c8fd579644cc6709e60fb335c7fe6",
+      "retainedSha256": "01a43eb475a2c94823974465096fd8d9d75c8fd579644cc6709e60fb335c7fe6",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementReferenceRules.cs",
+      "gitP19Sha256": "5c153da4eadf1b8cb08458632ea802c8803a12348144716afff09df11c70690e",
+      "retainedSha256": "5c153da4eadf1b8cb08458632ea802c8803a12348144716afff09df11c70690e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementSourcingDraftRules.cs",
+      "gitP19Sha256": "a38f4d4e7f6ab6be16617458f4478b0a726259dd273770817bf9d71da033fd78",
+      "retainedSha256": "a38f4d4e7f6ab6be16617458f4478b0a726259dd273770817bf9d71da033fd78",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/RequestApprovalReadiness.cs",
+      "gitP19Sha256": "1601faaf66b15ca7aa8b4d7f4c4e45affd870629755475c9b0187e066f516cdc",
+      "retainedSha256": "1601faaf66b15ca7aa8b4d7f4c4e45affd870629755475c9b0187e066f516cdc",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/SupplierEligibility.cs",
+      "gitP19Sha256": "64944c790023f7f614a485fb981e26c4c5375c829c6fc12b0a451c3538d5fc60",
+      "retainedSha256": "64944c790023f7f614a485fb981e26c4c5375c829c6fc12b0a451c3538d5fc60",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Domain/CommercialRecords.cs",
+      "gitP19Sha256": "7400d5c8c0ce2bdf94839338e5d199a6da352c0003b5f10527d9efd3b816ae4f",
+      "retainedSha256": "7400d5c8c0ce2bdf94839338e5d199a6da352c0003b5f10527d9efd3b816ae4f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Domain/Mightyfin.Erp.Procurement.Domain.csproj",
+      "gitP19Sha256": "3472fccce5613343d3b55f6c2bbc48cbfd3de01f9cf32fd8607b8ac3a7e26395",
+      "retainedSha256": "3472fccce5613343d3b55f6c2bbc48cbfd3de01f9cf32fd8607b8ac3a7e26395",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Domain/OperationalRecords.cs",
+      "gitP19Sha256": "a0ff3d6f61990dbec58748fa688a3d41b67e0702f035f186c21b29f91ce526e9",
+      "retainedSha256": "a0ff3d6f61990dbec58748fa688a3d41b67e0702f035f186c21b29f91ce526e9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Domain/Records.cs",
+      "gitP19Sha256": "5baa1815215d287cac27ac9960bd276ed83b4b5ffbefd35ba986e426c18a3269",
+      "retainedSha256": "5baa1815215d287cac27ac9960bd276ed83b4b5ffbefd35ba986e426c18a3269",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementDbContext.cs",
+      "gitP19Sha256": "b63c0417618cf4ae3fd333517618a66bbf8a1617193bf7e4f9132eed5d4c01d2",
+      "retainedSha256": "b63c0417618cf4ae3fd333517618a66bbf8a1617193bf7e4f9132eed5d4c01d2",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementDbContextFactory.cs",
+      "gitP19Sha256": "29135a8de6790222c332b859700ce952205316441c2e535c7e39413def2f2c56",
+      "retainedSha256": "29135a8de6790222c332b859700ce952205316441c2e535c7e39413def2f2c56",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Mightyfin.Erp.Procurement.Infrastructure.csproj",
+      "gitP19Sha256": "80e8d83802f758e51be0e3f336262547e4b341a352b5ac7eef298b0e9fe29c8b",
+      "retainedSha256": "80e8d83802f758e51be0e3f336262547e4b341a352b5ac7eef298b0e9fe29c8b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004005431_P0Foundation.Designer.cs",
+      "gitP19Sha256": "9c693b73d082b808e1f063b2fb94cbe979b8e9b958585cd06cf2287adff3bd5e",
+      "retainedSha256": "9c693b73d082b808e1f063b2fb94cbe979b8e9b958585cd06cf2287adff3bd5e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004005431_P0Foundation.cs",
+      "gitP19Sha256": "c03b19c9c44089d93963443af8da70a78458529016aaf258a71f2ca0fd22d5bd",
+      "retainedSha256": "c03b19c9c44089d93963443af8da70a78458529016aaf258a71f2ca0fd22d5bd",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004022058_P1P3FieldCoverage.Designer.cs",
+      "gitP19Sha256": "13fb3db63619ef6fa6249a219236b5a4c227f0a0021e907b553d058f1d340307",
+      "retainedSha256": "13fb3db63619ef6fa6249a219236b5a4c227f0a0021e907b553d058f1d340307",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004022058_P1P3FieldCoverage.cs",
+      "gitP19Sha256": "da281d75d0efa4b59bb9779685190888363579cbf9a68a8343ebc69bb065b9d4",
+      "retainedSha256": "da281d75d0efa4b59bb9779685190888363579cbf9a68a8343ebc69bb065b9d4",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082232_P4P6CommercialLifecycle.Designer.cs",
+      "gitP19Sha256": "567ac2475775a4fad5c4bdb23c30c70da353adc4bd8b9f79f86cdd582d09d4ba",
+      "retainedSha256": "567ac2475775a4fad5c4bdb23c30c70da353adc4bd8b9f79f86cdd582d09d4ba",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082232_P4P6CommercialLifecycle.cs",
+      "gitP19Sha256": "7775229a9c3b23b22c2d2ffb611c54b6d170f361a231ca4e78a3f93b2c6f4745",
+      "retainedSha256": "7775229a9c3b23b22c2d2ffb611c54b6d170f361a231ca4e78a3f93b2c6f4745",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082548_P7PlanningPortalAndControls.Designer.cs",
+      "gitP19Sha256": "79d35197127f0e7865ee70083fe4737a98731a038da2d1c15aa4531f63e4f0c7",
+      "retainedSha256": "79d35197127f0e7865ee70083fe4737a98731a038da2d1c15aa4531f63e4f0c7",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082548_P7PlanningPortalAndControls.cs",
+      "gitP19Sha256": "94046891985126c8568cd86864aec1938ef231539fdc3bd19fdda1809f775218",
+      "retainedSha256": "94046891985126c8568cd86864aec1938ef231539fdc3bd19fdda1809f775218",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018083709_P8PlanningDraftLifecycle.Designer.cs",
+      "gitP19Sha256": "30fd42f460473a7353cbfd19537c61d3d926a3e3144f6845168dc9b81e17cdbb",
+      "retainedSha256": "30fd42f460473a7353cbfd19537c61d3d926a3e3144f6845168dc9b81e17cdbb",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018083709_P8PlanningDraftLifecycle.cs",
+      "gitP19Sha256": "a5f0b9ce90751489f3dc5d085b89e27709f9d0f992e95deae45df51ed10c6c46",
+      "retainedSha256": "a5f0b9ce90751489f3dc5d085b89e27709f9d0f992e95deae45df51ed10c6c46",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018090240_P9DraftCommercialLineLifecycle.Designer.cs",
+      "gitP19Sha256": "cef8f2de39e1e09d9d1e421dcc160bc02d52831b3e3e5b04bd449be038b7abe3",
+      "retainedSha256": "cef8f2de39e1e09d9d1e421dcc160bc02d52831b3e3e5b04bd449be038b7abe3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018090240_P9DraftCommercialLineLifecycle.cs",
+      "gitP19Sha256": "84ad84c655c74499992dcee19f07b52acf55d0fec45e28ee90aad9155646e70e",
+      "retainedSha256": "84ad84c655c74499992dcee19f07b52acf55d0fec45e28ee90aad9155646e70e",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019144739_P10BudgetDecisionEvidence.Designer.cs",
+      "gitP19Sha256": "a2ccd3ceac1044499257bbfecde7f0ad86a8bf4d674e5bc64be8a4e74b04bc00",
+      "retainedSha256": "a2ccd3ceac1044499257bbfecde7f0ad86a8bf4d674e5bc64be8a4e74b04bc00",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019144739_P10BudgetDecisionEvidence.cs",
+      "gitP19Sha256": "80c5f90fe15841a8027af7dfe7c0229158d791d1fcff6da1b87c081cee041ca5",
+      "retainedSha256": "80c5f90fe15841a8027af7dfe7c0229158d791d1fcff6da1b87c081cee041ca5",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019160005_P11CatalogPriceProvenance.Designer.cs",
+      "gitP19Sha256": "defaadbfe4ef5f4f8616455c7c5c4794711797f4ffba3415f98ffa8ee66177c3",
+      "retainedSha256": "defaadbfe4ef5f4f8616455c7c5c4794711797f4ffba3415f98ffa8ee66177c3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019160005_P11CatalogPriceProvenance.cs",
+      "gitP19Sha256": "089029e0fc42ec0160d59f0a285d65d8d60df512faf7fd9e05809186f7cfdfc3",
+      "retainedSha256": "089029e0fc42ec0160d59f0a285d65d8d60df512faf7fd9e05809186f7cfdfc3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019165639_P12PolicyReviewEvidence.Designer.cs",
+      "gitP19Sha256": "8ecf9f4654399acbcbc8018869bdf82a22ac832a8b80b14fd18f95a880d3cf59",
+      "retainedSha256": "8ecf9f4654399acbcbc8018869bdf82a22ac832a8b80b14fd18f95a880d3cf59",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019165639_P12PolicyReviewEvidence.cs",
+      "gitP19Sha256": "402e123bda316aff7a89e6ba1fc94c0c84cb9a017367780b347f0158bff5a73f",
+      "retainedSha256": "402e123bda316aff7a89e6ba1fc94c0c84cb9a017367780b347f0158bff5a73f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019174729_P13PolicyEvaluationSnapshot.Designer.cs",
+      "gitP19Sha256": "99405524394c5fc41d85596b2347c11d0968339e60cb77081f0d97c263b7f413",
+      "retainedSha256": "99405524394c5fc41d85596b2347c11d0968339e60cb77081f0d97c263b7f413",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019174729_P13PolicyEvaluationSnapshot.cs",
+      "gitP19Sha256": "185d1194b45e2ba843d2c8b84fb640e3f99fb425a13115656c9df4f99aab0b50",
+      "retainedSha256": "185d1194b45e2ba843d2c8b84fb640e3f99fb425a13115656c9df4f99aab0b50",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019180916_P14RequestCorrection.Designer.cs",
+      "gitP19Sha256": "52df4bba7cbd644a60d481b45b6d181db9d2a4102c4af2816854b496f3564b5f",
+      "retainedSha256": "52df4bba7cbd644a60d481b45b6d181db9d2a4102c4af2816854b496f3564b5f",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019180916_P14RequestCorrection.cs",
+      "gitP19Sha256": "7edc55ec7e6b61f71ee9ba49f37493595eec5934f66b8f3a53182527ebdf305b",
+      "retainedSha256": "7edc55ec7e6b61f71ee9ba49f37493595eec5934f66b8f3a53182527ebdf305b",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019212425_P15VendorDraftDetailLifecycle.Designer.cs",
+      "gitP19Sha256": "4a4134d4d9dda89ec22feb40cb9576d60ea44ad780c6a5bd04fcf9984bb84d87",
+      "retainedSha256": "4a4134d4d9dda89ec22feb40cb9576d60ea44ad780c6a5bd04fcf9984bb84d87",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019212425_P15VendorDraftDetailLifecycle.cs",
+      "gitP19Sha256": "cb33d065aae388fcf95b19ee23d4235768f63ed12060972f4934002984f276c6",
+      "retainedSha256": "cb33d065aae388fcf95b19ee23d4235768f63ed12060972f4934002984f276c6",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019231750_P16VendorQualificationLifecycle.Designer.cs",
+      "gitP19Sha256": "938e32002b15794292bd74213dcdc5519527ea9c3ea8e53f0afe4e8fbdb9f548",
+      "retainedSha256": "938e32002b15794292bd74213dcdc5519527ea9c3ea8e53f0afe4e8fbdb9f548",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019231750_P16VendorQualificationLifecycle.cs",
+      "gitP19Sha256": "ec41dcbc342a4354bef3a1862fe9b37705c4b79113147e0780a78474365e79da",
+      "retainedSha256": "ec41dcbc342a4354bef3a1862fe9b37705c4b79113147e0780a78474365e79da",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020003506_P17InvoiceIntakeDuplicateKey.Designer.cs",
+      "gitP19Sha256": "b21d1cbee17c334c763290d987f35c13da07b55f72c706549c50ca54bef50965",
+      "retainedSha256": "b21d1cbee17c334c763290d987f35c13da07b55f72c706549c50ca54bef50965",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020003506_P17InvoiceIntakeDuplicateKey.cs",
+      "gitP19Sha256": "601150afe9ba558c6c4402e75285fc96c993a62d58b54d2cf80ae883256dd5fc",
+      "retainedSha256": "601150afe9ba558c6c4402e75285fc96c993a62d58b54d2cf80ae883256dd5fc",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020013258_P18PurchaseOrderDraftLineLifecycle.Designer.cs",
+      "gitP19Sha256": "8920d6cf5bdd6e1bb2de4921457d3aa3cd19d1ef161742e15bd98df46710f1ba",
+      "retainedSha256": "8920d6cf5bdd6e1bb2de4921457d3aa3cd19d1ef161742e15bd98df46710f1ba",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020013258_P18PurchaseOrderDraftLineLifecycle.cs",
+      "gitP19Sha256": "10328e8f834a85525bfe10002e7bc7d121667303fdeb86f33e21a7d7844b5b73",
+      "retainedSha256": "10328e8f834a85525bfe10002e7bc7d121667303fdeb86f33e21a7d7844b5b73",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020033932_P19PurchaseOrderBranchScope.Designer.cs",
+      "gitP19Sha256": "6f286e51de1219551b244788b58ef5ead688639bc7b158ecdd1a53f60ff865b7",
+      "retainedSha256": "6f286e51de1219551b244788b58ef5ead688639bc7b158ecdd1a53f60ff865b7",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020033932_P19PurchaseOrderBranchScope.cs",
+      "gitP19Sha256": "d158a1ff88d22b3087b7ad6f4a84926a38fda09766c21e9b2dde53b288a695d5",
+      "retainedSha256": "d158a1ff88d22b3087b7ad6f4a84926a38fda09766c21e9b2dde53b288a695d5",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/ProcurementDbContextModelSnapshot.cs",
+      "gitP19Sha256": "26aef9616aee50108f9c46690d7bbc07f65e2d1aa19dcbcf214db10e8aa9a179",
+      "retainedSha256": "26aef9616aee50108f9c46690d7bbc07f65e2d1aa19dcbcf214db10e8aa9a179",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/ApprovalAssigneePreviewTests.cs",
+      "gitP19Sha256": "de83a7d69c6a81a3f27e0ba2e32db8f8f7cb9e9b8ffa5895862e250152c75e04",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/ApprovalRoutePreviewTests.cs",
+      "gitP19Sha256": "4d6c9fb68d52d07a5badb9e7340ec629ac44cb680208b7355637e80a45e909be",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/CommercialScopeTests.cs",
+      "gitP19Sha256": "6f5d1e1414b5fd6c37dea6cb8146ab1c4ad71b2ad1cb49f0993981f1a2a3093c",
+      "retainedSha256": "6f5d1e1414b5fd6c37dea6cb8146ab1c4ad71b2ad1cb49f0993981f1a2a3093c",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/FoundationScopeTests.cs",
+      "gitP19Sha256": "e6e5b145c8a87cc42e6671a0f1b1ccd25f94920f05a6dc3feff2211168990cd9",
+      "retainedSha256": "e6e5b145c8a87cc42e6671a0f1b1ccd25f94920f05a6dc3feff2211168990cd9",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/Mightyfin.Erp.Procurement.Tests.csproj",
+      "gitP19Sha256": "3c2d1b4186d438957e4e993f4c576f6d4472efe12763f50ba22032c97317a213",
+      "retainedSha256": "3c2d1b4186d438957e4e993f4c576f6d4472efe12763f50ba22032c97317a213",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/PlanningDraftTests.cs",
+      "gitP19Sha256": "86938683ad25a095e4eef84be2cd5360bdb453977fae04e6dc51d2ae3f2557d7",
+      "retainedSha256": "86938683ad25a095e4eef84be2cd5360bdb453977fae04e6dc51d2ae3f2557d7",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/PolicyRulePreviewTests.cs",
+      "gitP19Sha256": "2e6a0bfbecf924e5c2159f6f1d057e8ab2d7967a488c22b2515b3dfa17813867",
+      "retainedSha256": "2e6a0bfbecf924e5c2159f6f1d057e8ab2d7967a488c22b2515b3dfa17813867",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/ProcurementReferenceRulesTests.cs",
+      "gitP19Sha256": "cc590f67234fcf8744fab407a1060e25ccb5c89fca6520d207e76670a98f0395",
+      "retainedSha256": "cc590f67234fcf8744fab407a1060e25ccb5c89fca6520d207e76670a98f0395",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/RequestApprovalReadinessTests.cs",
+      "gitP19Sha256": "2a30e95ba5d36174f65e16c67cc75a706507a86518c2b31e2f9d6e36d24097d3",
+      "retainedSha256": "2a30e95ba5d36174f65e16c67cc75a706507a86518c2b31e2f9d6e36d24097d3",
+      "state": "identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/SupplierEligibilityTests.cs",
+      "gitP19Sha256": "cf61a2ea3e070a95a6f281427744a5b6031c4db3a7baa852ceeccf2d659d6a06",
+      "retainedSha256": null,
+      "state": "absent-retained"
+    }
+  ],
+  "extraRetainedSource": [
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20261014090000_LoanOpeningBalances.cs",
+      "retainedSha256": "a1aef1acad0d40e5c3c65853100825e3931d47e252513d44bccc2200bf00a6d4"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/LoanOpeningBalanceTests.cs",
+      "retainedSha256": "7fbecaa7344bba5a8d9e76560b8885ed1b06a5d10a778acf61221bf808e1e7ca"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PayrollHistoricalPeriodTests.cs",
+      "retainedSha256": "387a00182b277e491b06b1d4410114d0f3d3aa6209c780967b048419fc028a6f"
+    }
+  ]
+}

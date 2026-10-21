@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -108,6 +109,7 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope
     public Guid? WorkLocationId { get; private set; }
     public Guid? OrgUnitId { get; private set; }
     public Guid? WorkerId { get; private set; }
+    public bool AdminViewOnly { get; private set; }
     public bool IsConfined { get; private set; }
     public string? CorrelationId { get; private set; }
 
@@ -125,9 +127,16 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope
         resolved = true;
     }
 
+    public void AssignAdminViewOnly()
+    {
+        if (!resolved || WorkerId.HasValue || AdminViewOnly)
+            throw new InvalidOperationException("Only an unmapped resolved account can have read-only administrator scope.");
+        AdminViewOnly = true;
+    }
+
     public void AssignWorker(Guid workerId)
     {
-        if (!resolved || WorkerId.HasValue || workerId == Guid.Empty)
+        if (!resolved || AdminViewOnly || WorkerId.HasValue || workerId == Guid.Empty)
             throw new InvalidOperationException("A resolved Procurement scope may receive one worker mapping.");
         WorkerId = workerId;
     }
@@ -299,16 +308,38 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         }
         scope.Set(tenant, selectedEntity, subject, effectiveLocation, effectiveOrgUnit, confined,
             http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier);
-        if (!http.Request.Path.Equals("/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase))
+        var isMeta = http.Request.Path.Equals("/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase);
+        if (!isMeta || WorkerPrincipal.FromClaims(http.User.Claims).IsRole("erp_admin"))
         {
             var workerId = await ProcurementWorkforce.ResolveActiveWorker(db, scope, http.RequestAborted);
             if (workerId is null)
             {
-                await Deny(http, StatusCodes.Status403Forbidden,
-                    "An active employee in this company is required to use Procurement.");
-                return;
+                var adminView = HttpMethods.IsGet(http.Request.Method)
+                    && await ProcurementWorkforce.IsUnmappedErpAdministrator(db, tenant, subject,
+                        http.User.Claims, http.RequestAborted);
+                if (!adminView)
+                {
+                    await Deny(http, StatusCodes.Status403Forbidden,
+                        "An active employee in this company is required for Procurement business actions.");
+                    return;
+                }
+                scope.AssignAdminViewOnly();
+                // Endpoint action projections re-use IAuthorizationService. Narrow those
+                // checks as well as context permissions; never alter global ERP roles.
+                http.User.AddIdentity(new ClaimsIdentity([new Claim(ProcurementPermissions.AdminViewOnlyClaim, "true")]));
+                // Route authorization has already run. A GET guarded by a command
+                // permission (for example vendor-suspend) must not inherit the
+                // earlier administrator shortcut after this request is narrowed.
+                var required = http.GetEndpoint()?.Metadata.GetOrderedMetadata<IAuthorizeData>();
+                if (required is not null && required.Any(x => !string.IsNullOrWhiteSpace(x.Policy)
+                    && !ProcurementPermissions.IsReadOnlyPolicy(x.Policy)))
+                {
+                    await Deny(http, StatusCodes.Status403Forbidden,
+                        "This Procurement view requires an employee business permission.");
+                    return;
+                }
             }
-            scope.AssignWorker(workerId.Value);
+            else scope.AssignWorker(workerId.Value);
         }
         await next(http);
     }

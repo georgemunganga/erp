@@ -69,6 +69,18 @@ public class SetupWizardTests
     }
 
     [Fact]
+    public async Task CompletedStepCanBeSavedAgainAfterSetupFinishes()
+    {
+        var (svc, _) = Build();
+        foreach (var step in new[] { "organisation", "structure", "employment", "leave", "payroll", "roles", "employees" })
+            await svc.CompleteStepAsync(step, null, CancellationToken.None);
+        await svc.FinishAsync(CancellationToken.None);
+
+        await svc.CompleteStepAsync("payroll", "{\"paydayDay\":28}", CancellationToken.None);
+        Assert.Equal("{\"paydayDay\":28}", await svc.GetStepDataAsync("payroll", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task FinishRefusesSecondCallAndResetRestarts()
     {
         var (svc, _) = Build();

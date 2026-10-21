@@ -1,0 +1,849 @@
+{
+  "baseline": "663aef22ac1a2b94e60d1b7514f15f112f2e08cf",
+  "scope": "Curated source hotfix, unbuilt/unrun; no assembly overlay; no configuration/secrets read.",
+  "reviewedDonors": [
+    "4f910ee",
+    "66e1cf2",
+    "1013866(tool base only)",
+    "e68416f",
+    "2f57b78",
+    "45ba126",
+    "cb8c561",
+    "249b14f",
+    "9675aa0"
+  ],
+  "changedSource": [
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContextRoutes.cs",
+      "p19Sha256": "62df4db68d987615545598c61a44edcbdf3db958ccb46db2f0620825dc3c5736",
+      "candidateSha256": "8df982d15d893787c3a449e2912fb0248600541d7b29a98b2cdb9ab0f5913139"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
+      "p19Sha256": "8b200e00cfa23099c00765517cf83df270416c1a702019d8cb65d1d172892a62",
+      "candidateSha256": "cd5a9243bd2db910a0ec244805a972c4d1d69d0a760f9f49ff7f4b32f6c65863"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPermissions.cs",
+      "p19Sha256": "b9594c562707788a0dd58098ac80375fd2806fd611303c9f69f89bdb8bf2ce0d",
+      "candidateSha256": "70c65b1a3b4423ca940ffd3441a93c1c0ac19d302193a22aacc08c2b2eaeecf9"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementWorkforce.cs",
+      "p19Sha256": "9fdd1110070d05a690f56c3d89bdc7bbbd7948b217af6204ea5558d0071802c1",
+      "candidateSha256": "71648811dba46524cec261a6c0ccd2a43c346fe5bb958f01ad9f516f3d07edd2"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayrollServices.cs",
+      "p19Sha256": "cf693c9f1d27d38fbf5210085e2341a5bf33710188579ae3320a5106d0c1846e",
+      "candidateSha256": "dc8e91f1b431eade67742bb9d5f0e97b5ab052fd13c6e03a576a1ee32aa41ede"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Setup/SetupServices.cs",
+      "p19Sha256": "3c197cbe3e17a9950dc1b90cb96abefb2619ba8b353d0991f813166b2a4cee8c",
+      "candidateSha256": "8d7b7bc8021e4458be95ed75ab786c13658efc945cfab6552f792424566f2844"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Shared/PayrollProfilesImportSchema.cs",
+      "p19Sha256": "362e9559ef653c88ec8d3bb8b23d374bc9a34a677f8c19f96c69bcdc366897e0",
+      "candidateSha256": "1f324b54345334c1cd85dc91c870699b1bdf3c96e33610f7f24a6c87af564934"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Payroll.cs",
+      "p19Sha256": "c7b678659a5c7f675466daedee3d272eccc02f6b1be4af901b16749269beddc1",
+      "candidateSha256": "dbb94485ee0968baaca03243e6fd3897d3baafa972498d190b20caa0ca94af94"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20261014090000_LoanOpeningBalances.cs",
+      "p19Sha256": null,
+      "candidateSha256": "a1aef1acad0d40e5c3c65853100825e3931d47e252513d44bccc2200bf00a6d4"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Repositories.cs",
+      "p19Sha256": "5a2b8810ad52a9f9f228d336008a43b33b82d574ab0db467b929420bee7104c8",
+      "candidateSha256": "e6464b6a13d40ba97e7826bd98b29b0f7a6ca536e9ad6b2c9d11f534472d49ba"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/LoanOpeningBalanceTests.cs",
+      "p19Sha256": null,
+      "candidateSha256": "7fbecaa7344bba5a8d9e76560b8885ed1b06a5d10a778acf61221bf808e1e7ca"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/M41Gap4ImportTests.cs",
+      "p19Sha256": "e0ec12a977d26f73b9d882a7577a72f403e8f5cf2cecc07b3820252c6b301245",
+      "candidateSha256": "c8525ece404296a07974bc010f28e45f0c7b21771660db14141289df46496cee"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/PayrollHistoricalPeriodTests.cs",
+      "p19Sha256": null,
+      "candidateSha256": "387a00182b277e491b06b1d4410114d0f3d3aa6209c780967b048419fc028a6f"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementAdminVendorHttpTests.cs",
+      "p19Sha256": null,
+      "candidateSha256": "ee417d7f26c405e1d210d3735f481eaaab9525852291035ca28d030de60b3677"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementAdminViewTests.cs",
+      "p19Sha256": null,
+      "candidateSha256": "99947c9123915ff46bbec693e0ae0037fdf1c39d805caaaa72496bf1935abc89"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/SetupWizardTests.cs",
+      "p19Sha256": "9895d521444851954d1246539a0ab202dbf7c629ea9ae0b1642a8fbc9995da30",
+      "candidateSha256": "24734a47cdce30c6a60e8a2760430bc21507d282355bce91bba6ffcc2721397d"
+    },
+    {
+      "path": "backend/hrm-api/tools/PayrollLoanCompatibilityProbe/PayrollLoanCompatibilityProbe.csproj",
+      "p19Sha256": null,
+      "candidateSha256": "cfd3bef3cdb06f4c60489e4bdc8138b24278dc5fdd4ac992ad847975016432d4"
+    },
+    {
+      "path": "backend/hrm-api/tools/PayrollLoanCompatibilityProbe/Program.cs",
+      "p19Sha256": null,
+      "candidateSha256": "042249324a442f7b2e3f0f0e62867f5a815d1eb7ca5f5a6d150348429663bcd6"
+    }
+  ],
+  "protectedP19SourcesUnchanged": [
+    "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/Program.cs",
+    "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ApiRoutesClean.cs",
+    "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/JobsAdminServices.cs",
+    "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayslipLeave.cs",
+    "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/PayslipDocumentServiceImpl.cs",
+    "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/PayslipLeaveSummaryService.cs"
+  ],
+  "completeMigrationSourceLineage": [
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/Migrations/20261019183218_P01CoreApprovalFoundation.Designer.cs",
+      "candidateSha256": "09bc447d2257c14311d1c7e920eefa098b75af369c85a4c13acd512dffdfcb2a",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/Migrations/20261019183218_P01CoreApprovalFoundation.cs",
+      "candidateSha256": "1162c205be2760f0270e346488612e3729f2f79c9e169b0dd8fbef7289f3c3f9",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Approvals.Infrastructure/Migrations/ApprovalDbContextModelSnapshot.cs",
+      "candidateSha256": "4fc2cbe26ed4003bb57626666712b8ac4c7d3f3602947c47edc9a9976937741e",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813084041_Initial.Designer.cs",
+      "candidateSha256": "aa21d171cc7cdb80fe51c9237a257b6f7739e69645c9692b76638dfae1690072",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813084041_Initial.cs",
+      "candidateSha256": "b3bfdd600fd172ea5eaf937cc41cc4221db0d15656d69abb0fd05fb87c27eef8",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813120427_M7RecruitmentRelations.Designer.cs",
+      "candidateSha256": "60db55ef9811a46eb438f7325d39f7e2a88256dfa2da27b4768c527beb6c71d6",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813120427_M7RecruitmentRelations.cs",
+      "candidateSha256": "f7a3bef9962d757b62e37b8b7530f979e0c7df254075865b56abb50144d3eef3",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813194337_M10ManagerNavigation.Designer.cs",
+      "candidateSha256": "3e93d404ed2a07904e331d4813cc1e96c490342bcbeda8734cb374858db424db",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260813194337_M10ManagerNavigation.cs",
+      "candidateSha256": "09c836254ff38175713e97b5edac17005897837d2ef55fc1eb495c53de55a7a3",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260814124855_M22RequestWorkerNullable.Designer.cs",
+      "candidateSha256": "ec06df68d12c7cf15c723b866b46dea7c29c351dec355b3a79df00e21d867c1f",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260814124855_M22RequestWorkerNullable.cs",
+      "candidateSha256": "4adfdeda3a236a030bce26f8e6d0c4f235b5c7cd68af09ca1628034f5984be7f",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260815174920_M24PayslipStatutoryRefs.Designer.cs",
+      "candidateSha256": "1db2d005368c34e0b519982facffede3d571d233cea2c153d4407fb9a3cc72a0",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260815174920_M24PayslipStatutoryRefs.cs",
+      "candidateSha256": "f67f8e94db07b050dfd41d51e3238b6047b5a5b4ae43831ed8f3b766b2ca7aa0",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816072520_M26NotificationOutbox.Designer.cs",
+      "candidateSha256": "0cf5a189daddcf2a674a6f71fb88690d9419fe9a4a46fe921db8dc2a4f7cafb6",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816072520_M26NotificationOutbox.cs",
+      "candidateSha256": "0d50882c3c46f6f0dff5744a43b70dc8e89531a9a8a4a2a0a309da76caa7fe7b",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816090218_M27PayrollOperations.Designer.cs",
+      "candidateSha256": "b1c06e91261bf88d42b0c06c72f2d54ac44935b4c5f14ac14b2731523d8947a2",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816090218_M27PayrollOperations.cs",
+      "candidateSha256": "691ac924c0c249cb6e1a7ac2c6939cbf3137a21822a709ad905c81a7372e368f",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816092359_M28TimeLeaveOperations.Designer.cs",
+      "candidateSha256": "9b4eb2ad3312918c384e797bd1486e840da778e56553ecc22938b62736c720ee",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816092359_M28TimeLeaveOperations.cs",
+      "candidateSha256": "680dbfa9874d5bb8e504193629ad5063e9a9fe78c67b065b470fd616b09721b6",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816094610_M29RecruitmentOnboarding.Designer.cs",
+      "candidateSha256": "3c6e0f8f0c2f76c138459b497e548cff8d75cf6af080d11de63025b73fb88844",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816094610_M29RecruitmentOnboarding.cs",
+      "candidateSha256": "4e10a6183eabb4ca51796afd5e39e388864c0e5fc0b197420c2ade36731b56d6",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816103203_M30RelationsCaseManagement.Designer.cs",
+      "candidateSha256": "8a2b65bff69a4420b355befe5b56558aa720267f29db949c8d7cc3ade070ef03",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816103203_M30RelationsCaseManagement.cs",
+      "candidateSha256": "28495680b5055d04f271f62c7a41b3eab396b4cc94c1e3e4438bc119afbc19d2",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816105224_M31EmployeeSelfService.Designer.cs",
+      "candidateSha256": "d6d89bfedadbfcb7cb104ccaf35c759dbdcdbc1cd9f4db1ee21a8b859131f906",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816105224_M31EmployeeSelfService.cs",
+      "candidateSha256": "ccda4948d701717f5dfd2587315fadbb62581f1a99df4249f2e4a247a2b1ecb8",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816110959_M32MasterDataHardening.Designer.cs",
+      "candidateSha256": "609c7bd6119461044afcb62c57b851c28f3461e8a5cb7855986ab1819f276083",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816110959_M32MasterDataHardening.cs",
+      "candidateSha256": "125da486ece4c840ef03e3f5ed058566c30f8bce72632260c0d57c212ca30be6",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816122207_EnforceHrmIdentityBoundary.Designer.cs",
+      "candidateSha256": "d76cd6f7663933cc74bbaa5a9cee6b9b792885579b698f6522c6822ce9ea3e18",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816122207_EnforceHrmIdentityBoundary.cs",
+      "candidateSha256": "9908c6a9f6bcb822de55b1477d5430cbe1911c83d8e30a60d4a5b7bbedfb79fb",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816131604_M33ExternalIntegrations.Designer.cs",
+      "candidateSha256": "8bca83f41e2e5e186771a3d3bbef0c180a0a0675327e80977c9fa7766c83604e",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816131604_M33ExternalIntegrations.cs",
+      "candidateSha256": "68b294694bf8d381d437069686410b3fa75530b63d32a3b272d4d2b6c3bf2997",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816133925_M34SecurityTenancyCompliance.Designer.cs",
+      "candidateSha256": "cc5c28be3bbabe9fa66942b2c970c6ebd78df73f98dce1a55248beeab9492faa",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816133925_M34SecurityTenancyCompliance.cs",
+      "candidateSha256": "9801db7a8599b66c99ae950c8f38aa59d0e510daaeb2603823c91d9dbf9b2f1a",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816151037_M36ProductionReadiness.Designer.cs",
+      "candidateSha256": "5ee8919a4599a54aa139c753807dead45440ee2031e47a9946177d5e986b7156",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260816151037_M36ProductionReadiness.cs",
+      "candidateSha256": "561f3282f4f6528859a7ad21659d6d440901fb106f502c5c64c52949735378f0",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260817204557_M28CrudCompletion.Designer.cs",
+      "candidateSha256": "78ad52e47827370b205061accc18d11e88e059adeea7f72e33d9e9344a1f3a07",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260817204557_M28CrudCompletion.cs",
+      "candidateSha256": "ffdc7714777bf036427aab98ce362bf0b5d63b3aa5bbceaf3d306396bf3d86e8",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818095735_WorkerHistory.Designer.cs",
+      "candidateSha256": "2c23b73710e5b1de0e42486ee00f9388f3f10f08557ff2c39855af6ad2cf2d23",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818095735_WorkerHistory.cs",
+      "candidateSha256": "338c4a6a74e1f972fbb438572f1f1773e34314fbd0223f994b8ed42a77aeeb70",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818172829_M35_WorkerNotificationPreferences.Designer.cs",
+      "candidateSha256": "415936b0532a12bcfa83cb629ce2255eb929cebe9d96ef5f9fd8554834c5fad2",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818172829_M35_WorkerNotificationPreferences.cs",
+      "candidateSha256": "b1d5826701dd87459bb442bc6d81613600e253d5685190792ee487a5a9b4a7bb",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818190922_M36_PerformanceManagement.Designer.cs",
+      "candidateSha256": "d15c0bec7752e1c815703c0b77e84f835062cb7dce2aeddf688a89114261514f",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818190922_M36_PerformanceManagement.cs",
+      "candidateSha256": "956fa4df69336e8b54bc527908ef79965922ebca077a17a5c507f02ec858a5c8",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818192518_M36_PerformanceNullableWorkerId.Designer.cs",
+      "candidateSha256": "518832773327a96145696d34dc448ba1153453d8e1e3b56802f52b81f7262eba",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818192518_M36_PerformanceNullableWorkerId.cs",
+      "candidateSha256": "e424a4bbee5f05117de415b95cdb217641cbee1f4621b2f2c79edb85a95a2c05",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818194459_M37_OffboardingExitManagement.Designer.cs",
+      "candidateSha256": "ad7c116aeea56a59a14ac2adb3a1affe9d7b4652527e3690d040ed46dca52604",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818194459_M37_OffboardingExitManagement.cs",
+      "candidateSha256": "771a623b9d50bfeca6da54ae0288127987e8e104502c08090b762e78f5ec6d43",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818201739_M38_RequisitionPipeline.Designer.cs",
+      "candidateSha256": "1dd26b58bcc6a3b69242237a3d38df2f42d42289432db142c2ba9cbbf27395f9",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260818201739_M38_RequisitionPipeline.cs",
+      "candidateSha256": "89f51f56cc08f1a8bde25b512893627dd2afe715639fbefb38b90a55c0861e76",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819023521_M41PaymentDays.Designer.cs",
+      "candidateSha256": "bcc40f35a1083615b114999aa527f2f0a989447119b604e1889da2fcc08b572e",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819023521_M41PaymentDays.cs",
+      "candidateSha256": "f36f29acb30e0ed30d7c72ae09e7678f9f91ababf424b2451e97253d495ac6fe",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819024616_M41Gap3PayBasis.Designer.cs",
+      "candidateSha256": "50cd9197532f1409da42fbf06446500bb6cacbf88fa9729ae2fa7bd93ed3db67",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819024616_M41Gap3PayBasis.cs",
+      "candidateSha256": "9f0a269f8904b2b6b9d3d3a674996fac005e57b00ee94ea446165aa3cf13fae9",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819033740_M41Gap6aLeaveEncashment.Designer.cs",
+      "candidateSha256": "4e4830985b6f1300321ecbbc2c4584b48170d093ef040e53851b691a4d33efc1",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819033740_M41Gap6aLeaveEncashment.cs",
+      "candidateSha256": "8f77ad394b40d48a3eb45c70d02ef85bcf185e6020b1a7237c090bc5186535d2",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819034018_M41Gap6aEncashmentLedgerNote.Designer.cs",
+      "candidateSha256": "d1635002ecec4dfbeddd5a4581e5880c6216089c0b13a016b09fc2a87c9f5fe5",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819034018_M41Gap6aEncashmentLedgerNote.cs",
+      "candidateSha256": "0b647d30a47a094808b45469f66b0e33d5a4f1a59366ac7fdd6e3e9cdde03364",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819035509_M41Gap6bBenefitClaims.Designer.cs",
+      "candidateSha256": "48aab0c96f66f86705b854b316da8eeda509ca323d365bb6fb4a62ef823b40ec",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819035509_M41Gap6bBenefitClaims.cs",
+      "candidateSha256": "e945cb050075ed9e21441825c9d80e4b9a7de6c9653e9947fd0ccb05e86bf7f1",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819045029_M44BranchScoping.Designer.cs",
+      "candidateSha256": "c3b2f820a18c07901892c7f00608b2a601a4c33f68932a4591bc13715b80cb72",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819045029_M44BranchScoping.cs",
+      "candidateSha256": "889547272c097119f629cbef99c4ae32c92e0df6a3840ac1860b23218be5e116",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819052727_M45UserBranchAssignments.Designer.cs",
+      "candidateSha256": "caf444853aa259abf12cbb4d8210ad2dffe5dda9c7e2ff1e8abecb76934b6b1f",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819052727_M45UserBranchAssignments.cs",
+      "candidateSha256": "7b4e322773f35b776265d0f018a0ae11cd1e58393371b18c9e7391ce27471f6b",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819074752_M49FirstTimeSetup.Designer.cs",
+      "candidateSha256": "2bbee71b90ef37d347c4c21adde1d1d87244af5d840a22422da8cd7f3183a96b",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260819074752_M49FirstTimeSetup.cs",
+      "candidateSha256": "37d99eb6b55753b098296f2cb7094ac15ae6e1f681a087e9cfd477ba633a7189",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260821000000_LocalIdentity.cs",
+      "candidateSha256": "52f202686f357260c1d54e9d323987ca040b1842996876b15f0148ae76740015",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260822205857_M1OvertimeLifecycle.Designer.cs",
+      "candidateSha256": "ebe6f1932dbae02fdca3dda348268747c9aa76981d9354ade3faadf9c86d7834",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260822205857_M1OvertimeLifecycle.cs",
+      "candidateSha256": "857c4a652e9d3f9edc157b19233920074b85e92bee802a13b488e485a65722a1",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260825000000_RolePermissions.cs",
+      "candidateSha256": "c530038c04fc6c75f13b270c38dbf1f545e4c7759855f669e20352c8dfac14f1",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260826000100_BenefitPayrollToggle.cs",
+      "candidateSha256": "019c09bfe31f6dab784d38c8949e4ef3d70b60f924907333331c552ff3a36a72",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260826183000_M51OvertimeCompliancePolicy.cs",
+      "candidateSha256": "285dc336481098143e527c9327be06c4afa397c6c7ed6c2a293e78d4cbf0f8a8",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260827053000_SalaryAdvances.cs",
+      "candidateSha256": "8a12a31a3b1ca7228a6d5362e1860c14136851d3742ec92712195d13fa4af9d5",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260827095700_AccountCredentialLinks.cs",
+      "candidateSha256": "ad46e55a66799e305d14ce4283081ec134c52f23d101f74c83c3085112c7a123",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260903084500_TaxablePayrollBenefits.cs",
+      "candidateSha256": "777eac71ee6db0ed4158fed10c11e24995a3221b401937844ebaf360ead0389d",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260903095000_HistoricalPayrollRuns.cs",
+      "candidateSha256": "6b01b441a84bc47b9cd36a2165e0df81aa15fbf351cf9674282f64200dc9d797",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260904082000_M52CompanyBranding.cs",
+      "candidateSha256": "8fb404c0278e38c7036ef09bb2c5390d1bbbaf85651f3c94cefabcaeb31a617a",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260910090000_ContractTypes.cs",
+      "candidateSha256": "7d723f8796fd49a0b58bbb214a53df91d49746a923209ace28384e8398e024a1",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260910100000_WorkerPersonalEmail.cs",
+      "candidateSha256": "c370b0699db6b826db9770497342ce27c753a61c0a500b0f884ec5bf63054085",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260910110000_WorkerContractType.cs",
+      "candidateSha256": "388fe9778f4ea453717fff09b0befd630d5d4c920d52c22ff10b652f33216e78",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260923070000_M53BrandingPalette.cs",
+      "candidateSha256": "4003bd592d4f23e94183ff179b92220f204541c01f06ec5b9a99c3d7e7b5f579",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260923090000_M54BrandingCompanyLogin.cs",
+      "candidateSha256": "b91763d5e6d752089a07fc77318c70f20e716597c6e2c3084aa2dfe16db79c2f",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260925090000_WorkerProfileDetails.cs",
+      "candidateSha256": "42c0975eb34e2b672f937e6e2b27704077139440621ce1f552b66791681962f2",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260925150000_PeriodOvertimeAmounts.cs",
+      "candidateSha256": "955c797f431e64811f04a0cac5cd5c8e41b1721afca200ef14b1bf80a24f5bf7",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260926080000_UniqueAttendanceDay.cs",
+      "candidateSha256": "413b6f61054850e8eaeabfba2f1b205a21d7d703eb65b53c6c854f05fe85b1dc",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260926193000_PeriodBenefitAssignments.cs",
+      "candidateSha256": "7a5a3f38e4a0e078a4a0beabfe25b1cb55c5382a4a222a1aea0acd2f588b0742",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260926203000_PayrollBenefitClaims.cs",
+      "candidateSha256": "f329cbe0203cc4bc728c7e941e78964344f0a9a6e00ba60de943b4ca4b1df8b3",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260928200000_HalfPayPaymentDays.cs",
+      "candidateSha256": "e086dbecaeafc4e9817817729b2b13d139a35bd5cf1c086fd5df0dffd3d7444c",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20260928220000_SelectiveMonthlyLeaveAccrual.cs",
+      "candidateSha256": "398faa60c7544a3ba45f2094769ea7a0c48222e8fed4aae8d77c92b226f43a44",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20261014090000_LoanOpeningBalances.cs",
+      "candidateSha256": "a1aef1acad0d40e5c3c65853100825e3931d47e252513d44bccc2200bf00a6d4",
+      "status": "already-live-loan-source-restoration-not-new-DDL"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/20261016090000_M55BrandingFont.cs",
+      "candidateSha256": "b313d8c34526a8291947073fc0f2bf5296bea87e19db9c26852d1edfbd70bf13",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Migrations/HrmDbContextModelSnapshot.cs",
+      "candidateSha256": "ff187c54c86ba85f6abda98fa3d227b4ef361e5d47bc70cd8c0fbf8409f997cc",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004005431_P0Foundation.Designer.cs",
+      "candidateSha256": "9c693b73d082b808e1f063b2fb94cbe979b8e9b958585cd06cf2287adff3bd5e",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004005431_P0Foundation.cs",
+      "candidateSha256": "c03b19c9c44089d93963443af8da70a78458529016aaf258a71f2ca0fd22d5bd",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004022058_P1P3FieldCoverage.Designer.cs",
+      "candidateSha256": "13fb3db63619ef6fa6249a219236b5a4c227f0a0021e907b553d058f1d340307",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004022058_P1P3FieldCoverage.cs",
+      "candidateSha256": "da281d75d0efa4b59bb9779685190888363579cbf9a68a8343ebc69bb065b9d4",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082232_P4P6CommercialLifecycle.Designer.cs",
+      "candidateSha256": "567ac2475775a4fad5c4bdb23c30c70da353adc4bd8b9f79f86cdd582d09d4ba",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082232_P4P6CommercialLifecycle.cs",
+      "candidateSha256": "7775229a9c3b23b22c2d2ffb611c54b6d170f361a231ca4e78a3f93b2c6f4745",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082548_P7PlanningPortalAndControls.Designer.cs",
+      "candidateSha256": "79d35197127f0e7865ee70083fe4737a98731a038da2d1c15aa4531f63e4f0c7",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082548_P7PlanningPortalAndControls.cs",
+      "candidateSha256": "94046891985126c8568cd86864aec1938ef231539fdc3bd19fdda1809f775218",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018083709_P8PlanningDraftLifecycle.Designer.cs",
+      "candidateSha256": "30fd42f460473a7353cbfd19537c61d3d926a3e3144f6845168dc9b81e17cdbb",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018083709_P8PlanningDraftLifecycle.cs",
+      "candidateSha256": "a5f0b9ce90751489f3dc5d085b89e27709f9d0f992e95deae45df51ed10c6c46",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018090240_P9DraftCommercialLineLifecycle.Designer.cs",
+      "candidateSha256": "cef8f2de39e1e09d9d1e421dcc160bc02d52831b3e3e5b04bd449be038b7abe3",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018090240_P9DraftCommercialLineLifecycle.cs",
+      "candidateSha256": "84ad84c655c74499992dcee19f07b52acf55d0fec45e28ee90aad9155646e70e",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019144739_P10BudgetDecisionEvidence.Designer.cs",
+      "candidateSha256": "a2ccd3ceac1044499257bbfecde7f0ad86a8bf4d674e5bc64be8a4e74b04bc00",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019144739_P10BudgetDecisionEvidence.cs",
+      "candidateSha256": "80c5f90fe15841a8027af7dfe7c0229158d791d1fcff6da1b87c081cee041ca5",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019160005_P11CatalogPriceProvenance.Designer.cs",
+      "candidateSha256": "defaadbfe4ef5f4f8616455c7c5c4794711797f4ffba3415f98ffa8ee66177c3",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019160005_P11CatalogPriceProvenance.cs",
+      "candidateSha256": "089029e0fc42ec0160d59f0a285d65d8d60df512faf7fd9e05809186f7cfdfc3",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019165639_P12PolicyReviewEvidence.Designer.cs",
+      "candidateSha256": "8ecf9f4654399acbcbc8018869bdf82a22ac832a8b80b14fd18f95a880d3cf59",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019165639_P12PolicyReviewEvidence.cs",
+      "candidateSha256": "402e123bda316aff7a89e6ba1fc94c0c84cb9a017367780b347f0158bff5a73f",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019174729_P13PolicyEvaluationSnapshot.Designer.cs",
+      "candidateSha256": "99405524394c5fc41d85596b2347c11d0968339e60cb77081f0d97c263b7f413",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019174729_P13PolicyEvaluationSnapshot.cs",
+      "candidateSha256": "185d1194b45e2ba843d2c8b84fb640e3f99fb425a13115656c9df4f99aab0b50",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019180916_P14RequestCorrection.Designer.cs",
+      "candidateSha256": "52df4bba7cbd644a60d481b45b6d181db9d2a4102c4af2816854b496f3564b5f",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019180916_P14RequestCorrection.cs",
+      "candidateSha256": "7edc55ec7e6b61f71ee9ba49f37493595eec5934f66b8f3a53182527ebdf305b",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019212425_P15VendorDraftDetailLifecycle.Designer.cs",
+      "candidateSha256": "4a4134d4d9dda89ec22feb40cb9576d60ea44ad780c6a5bd04fcf9984bb84d87",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019212425_P15VendorDraftDetailLifecycle.cs",
+      "candidateSha256": "cb33d065aae388fcf95b19ee23d4235768f63ed12060972f4934002984f276c6",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019231750_P16VendorQualificationLifecycle.Designer.cs",
+      "candidateSha256": "938e32002b15794292bd74213dcdc5519527ea9c3ea8e53f0afe4e8fbdb9f548",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019231750_P16VendorQualificationLifecycle.cs",
+      "candidateSha256": "ec41dcbc342a4354bef3a1862fe9b37705c4b79113147e0780a78474365e79da",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020003506_P17InvoiceIntakeDuplicateKey.Designer.cs",
+      "candidateSha256": "b21d1cbee17c334c763290d987f35c13da07b55f72c706549c50ca54bef50965",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020003506_P17InvoiceIntakeDuplicateKey.cs",
+      "candidateSha256": "601150afe9ba558c6c4402e75285fc96c993a62d58b54d2cf80ae883256dd5fc",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020013258_P18PurchaseOrderDraftLineLifecycle.Designer.cs",
+      "candidateSha256": "8920d6cf5bdd6e1bb2de4921457d3aa3cd19d1ef161742e15bd98df46710f1ba",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020013258_P18PurchaseOrderDraftLineLifecycle.cs",
+      "candidateSha256": "10328e8f834a85525bfe10002e7bc7d121667303fdeb86f33e21a7d7844b5b73",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020033932_P19PurchaseOrderBranchScope.Designer.cs",
+      "candidateSha256": "6f286e51de1219551b244788b58ef5ead688639bc7b158ecdd1a53f60ff865b7",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020033932_P19PurchaseOrderBranchScope.cs",
+      "candidateSha256": "d158a1ff88d22b3087b7ad6f4a84926a38fda09766c21e9b2dde53b288a695d5",
+      "status": "P19-identical"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/ProcurementDbContextModelSnapshot.cs",
+      "candidateSha256": "26aef9616aee50108f9c46690d7bbc07f65e2d1aa19dcbcf214db10e8aa9a179",
+      "status": "P19-identical"
+    }
+  ],
+  "noNewProcurementOrCoreMigration": true,
+  "onlyAddedHrmMigration": "20261014090000_LoanOpeningBalances (existing live; parent must verify actual applied history before startup)",
+  "reviewedDonorBlobChecks": [
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Payroll/PayrollServices.cs",
+      "reviewedDonor": "4f910ee",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Domain/Entities/Payroll.cs",
+      "reviewedDonor": "4f910ee",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Infrastructure/Repositories.cs",
+      "reviewedDonor": "4f910ee",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Setup/SetupServices.cs",
+      "reviewedDonor": "66e1cf2",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/Shared/PayrollProfilesImportSchema.cs",
+      "reviewedDonor": "66e1cf2",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/tools/PayrollLoanCompatibilityProbe/Program.cs",
+      "reviewedDonor": "e68416f",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/tools/PayrollLoanCompatibilityProbe/README.md",
+      "reviewedDonor": "e68416f",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementWorkforce.cs",
+      "reviewedDonor": "45ba126",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContextRoutes.cs",
+      "reviewedDonor": "cb8c561",
+      "exactBlobMatch": true
+    },
+    {
+      "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPermissions.cs",
+      "reviewedDonor": "cb8c561",
+      "exactBlobMatch": false
+    }
+  ],
+  "hrmMigrationIds": [
+    "20260813084041_Initial",
+    "20260813120427_M7RecruitmentRelations",
+    "20260813194337_M10ManagerNavigation",
+    "20260814124855_M22RequestWorkerNullable",
+    "20260815174920_M24PayslipStatutoryRefs",
+    "20260816072520_M26NotificationOutbox",
+    "20260816090218_M27PayrollOperations",
+    "20260816092359_M28TimeLeaveOperations",
+    "20260816094610_M29RecruitmentOnboarding",
+    "20260816103203_M30RelationsCaseManagement",
+    "20260816105224_M31EmployeeSelfService",
+    "20260816110959_M32MasterDataHardening",
+    "20260816122207_EnforceHrmIdentityBoundary",
+    "20260816131604_M33ExternalIntegrations",
+    "20260816133925_M34SecurityTenancyCompliance",
+    "20260816151037_M36ProductionReadiness",
+    "20260817204557_M28CrudCompletion",
+    "20260818095735_WorkerHistory",
+    "20260818172829_M35_WorkerNotificationPreferences",
+    "20260818190922_M36_PerformanceManagement",
+    "20260818192518_M36_PerformanceNullableWorkerId",
+    "20260818194459_M37_OffboardingExitManagement",
+    "20260818201739_M38_RequisitionPipeline",
+    "20260819023521_M41PaymentDays",
+    "20260819024616_M41Gap3PayBasis",
+    "20260819033740_M41Gap6aLeaveEncashment",
+    "20260819034018_M41Gap6aEncashmentLedgerNote",
+    "20260819035509_M41Gap6bBenefitClaims",
+    "20260819045029_M44BranchScoping",
+    "20260819052727_M45UserBranchAssignments",
+    "20260819074752_M49FirstTimeSetup",
+    "20260821000000_LocalIdentity",
+    "20260822205857_M1OvertimeLifecycle",
+    "20260825000000_RolePermissions",
+    "20260826000100_BenefitPayrollToggle",
+    "20260826183000_M51OvertimeCompliancePolicy",
+    "20260827053000_SalaryAdvances",
+    "20260827095700_AccountCredentialLinks",
+    "20260903084500_TaxablePayrollBenefits",
+    "20260903095000_HistoricalPayrollRuns",
+    "20260904082000_M52CompanyBranding",
+    "20260910090000_ContractTypes",
+    "20260910100000_WorkerPersonalEmail",
+    "20260910110000_WorkerContractType",
+    "20260923070000_M53BrandingPalette",
+    "20260923090000_M54BrandingCompanyLogin",
+    "20260925090000_WorkerProfileDetails",
+    "20260925150000_PeriodOvertimeAmounts",
+    "20260926080000_UniqueAttendanceDay",
+    "20260926193000_PeriodBenefitAssignments",
+    "20260926203000_PayrollBenefitClaims",
+    "20260928200000_HalfPayPaymentDays",
+    "20260928220000_SelectiveMonthlyLeaveAccrual",
+    "20261014090000_LoanOpeningBalances",
+    "20261016090000_M55BrandingFont"
+  ],
+  "candidateStage": "Final candidate after corrected exact Application namespace for HrUserBranchAssignment test fixture; API guard unchanged."
+}
