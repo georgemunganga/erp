@@ -60,3 +60,15 @@ Deployment: not deployed unless an authorized release is recorded
 - Next owned task: `MANUS-PROC-VENDOR-01` from the updated [handoff](../../../MANUS_HANDOFF.md), including original seven-tab editor, real DTO mapping, permissions, safe save/conflict/context behavior and Playwright evidence. Preserve the coordinator's detail restoration. Open focused new PRs against both main branches; do not merge the old advanced ancestry.
 - Queued after acceptance: `MANUS-PROC-SETTINGS-02`, original settings shell with per-child contract gating and global settings delegated to Core. No concurrent broad settings/backend changes.
 - No production identities, permission grants, business data or schema are changed by this consolidation. UI deployment is recorded separately by the coordinator.
+
+## 21 October 2026 — prerequisite merges published; Manus may resume
+
+- ERP PR [#10](https://github.com/georgemunganga/erp/pull/10) merged normally: `30e87a0d07df9b6a45c3d975467b22068742b5b6`. Backend tree remains byte-identical to the reviewed release.
+- UI PR [#44](https://github.com/georgemunganga/module-connect/pull/44) merged normally: `4f7054a52e54d8fc68da0f0868dc8eeefc3f0007`. Includes existing application, administrator review, vendor directory/detail restoration and navigation overlap fix.
+- UI verification: 44 units, 3 client tests, live-mode TypeScript/Vite build; 24 unique browser scenarios covered. All 24 passed before the final sticky-header adjustment; afterward 23 passed plus 5 focused layout/isolation cases passed following a direct-header test-selector correction. Synthetic mocked HTTP, one worker, no automatic retries; no production persistence claim. Desktop/mobile screenshots inspected. See UI baseline audit for initial failures and retained evidence.
+- `MANUS-PROC-VENDOR-01` is ready from these main baselines or their published descendants. Preserve existing work; port focused edits without advanced ancestry. Follow the handoff's full editor/workflow acceptance scope and open new PRs against main.
+- Pending governed backend releases and other open feature PRs remain held; consolidation is not acceptance of their migrations or business authority behavior.
+
+### Vendor detail UI publication
+
+The tested `24e7bc9` application assets (reviewed UI main `4f7054a`) are now published to the existing Procurement workspace. Every public candidate asset matches its SHA-256 manifest; old hashed assets and previous index remain available for rollback. Protected release record: `/home/amizo/erp-backups/procurement-vendor-layout-24e7bc9/`. The canonical UI source checkout is also fast-forwarded to `4f7054a` main. Backend image is unchanged. Live/ready health checks return 200; public vendors page returns 200; anonymous Procurement context remains 401. Actual user session was not impersonated. Refresh and open a saved vendor from the directory; `VEND-003` is a reference demo identifier, not a generated live UUID.

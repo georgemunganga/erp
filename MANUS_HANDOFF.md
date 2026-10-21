@@ -4,7 +4,7 @@
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-PROC-VENDOR-01` — complete the existing vendor editor and supported vendor workflows
 **Owner:** Manus / `Greenwebb`; primary agent reviews and releases
-**Status:** Ready from published `main` after the coordinator confirms both prerequisite merges. Use the exact main SHAs posted on the coordination PR; minimum included commits are below.
+**Status:** Ready. Both prerequisite merges are published on `main`: ERP PR #10 and UI PR #44. Start a fresh branch from current `origin/main` in each repository.
 
 ## Start from merged code
 
@@ -12,8 +12,8 @@ New assignments start from published `origin/main` in both existing repositories
 
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Reviewed shared merge `c09ac52` or a published main descendant; released backend source `a7645e2` |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | `80d13c75bb23be0600028d9a9d96345f8036eb67` or a published main descendant |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `30e87a0d07df9b6a45c3d975467b22068742b5b6` or a published main descendant; released backend source `a7645e2` |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `4f7054a52e54d8fc68da0f0868dc8eeefc3f0007` or a published main descendant; includes vendor layout source `24e7bc9` and verification `7caebb7` |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.

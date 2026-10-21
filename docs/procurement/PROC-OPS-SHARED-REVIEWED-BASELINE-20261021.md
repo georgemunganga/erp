@@ -1,7 +1,7 @@
 # Shared reviewed source baseline — 21 October 2026
 
-Status: proposed source consolidation for review. This branch has not updated main,
-changed production configuration/schema or performed a deployment.
+Status: merged through ERP PR #10 as `30e87a0d07df9b6a45c3d975467b22068742b5b6`.
+This source consolidation changes no production backend configuration/schema.
 
 ## Exact boundary
 
