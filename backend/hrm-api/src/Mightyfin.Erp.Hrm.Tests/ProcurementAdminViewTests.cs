@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
@@ -163,6 +164,12 @@ public sealed class ProcurementAdminViewTests
             await next(http);
         });
         app.UseAuthorization();app.UseMiddleware<ProcurementScopeMiddleware>();ProcurementContextRoutes.MapRoutes(app);
+        app.MapGet("/api/procurement/v1/admin-test-actions", async (HttpContext http, IAuthorizationService auth) => Results.Ok(new {
+            canRead=(await auth.AuthorizeAsync(http.User,null,"procurement-vendor-read")).Succeeded,
+            canApprove=(await auth.AuthorizeAsync(http.User,null,"procurement-vendor-approve")).Succeeded,
+            canConfigure=(await auth.AuthorizeAsync(http.User,null,"procurement-authority-configure")).Succeeded,
+            canActivate=(await auth.AuthorizeAsync(http.User,null,"procurement-authority-review")).Succeeded
+        })).RequireAuthorization("procurement-access");
         var writes=0;app.MapPost("/api/procurement/v1/admin-test-command",()=>{writes++;return Results.Ok();})
             .RequireAuthorization("procurement-vendor-manage");
         await app.StartAsync();var client=app.GetTestClient();
@@ -171,8 +178,28 @@ public sealed class ProcurementAdminViewTests
         Assert.Equal(JsonValueKind.Null,body.GetProperty("workerId").ValueKind);
         Assert.True(body.GetProperty("adminViewOnly").GetBoolean());
         Assert.DoesNotContain(body.GetProperty("permissions").EnumerateArray(),x=>x.GetString()=="procurement-vendor-manage");
+        var actions=await client.GetFromJsonAsync<JsonElement>("/api/procurement/v1/admin-test-actions");
+        Assert.True(actions.GetProperty("canRead").GetBoolean());
+        Assert.False(actions.GetProperty("canApprove").GetBoolean());
+        Assert.False(actions.GetProperty("canConfigure").GetBoolean());
+        Assert.False(actions.GetProperty("canActivate").GetBoolean());
         Assert.Equal(HttpStatusCode.Forbidden,(await client.PostAsJsonAsync("/api/procurement/v1/admin-test-command",new {})).StatusCode);
         Assert.Equal(0,writes);Assert.Empty(db.Workers);Assert.False(db.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
+    public void Readonly_claim_narrows_admin_action_metadata_without_granting_other_roles_access()
+    {
+        var claim=new Claim(ProcurementPermissions.AdminViewOnlyClaim,"true");
+        var admin=new[]{new Claim(ClaimTypes.Role,"erp_admin"),claim};
+        Assert.True(ProcurementPermissions.Allows("procurement-authority-read",admin));
+        Assert.True(ProcurementPermissions.Allows("procurement-receipt-view",admin));
+        foreach(var policy in new[]{"procurement-vendor-approve","procurement-vendor-suspend","procurement-authority-review",
+            "procurement-authority-configure","procurement-budget-check","procurement-po-issue","procurement-invoice-match"})
+            Assert.False(ProcurementPermissions.Allows(policy,admin));
+        Assert.False(ProcurementPermissions.Allows("procurement-authority-read",new[]{new Claim(ClaimTypes.Role,"employee"),claim}));
+        Assert.False(ProcurementPermissions.Allows("unknown-read",admin));
+        Assert.True(ProcurementPermissions.Allows("procurement-vendor-approve",new[]{new Claim(ClaimTypes.Role,"erp_admin")}));
     }
 
     private static LocalUser Account()=>new() {Email="admin@example.test",NormalizedEmail="ADMIN@EXAMPLE.TEST",

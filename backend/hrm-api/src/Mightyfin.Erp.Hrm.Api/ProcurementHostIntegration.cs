@@ -422,6 +422,9 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
                     return;
                 }
                 scope.AssignAdminViewOnly();
+                // Endpoint action projections re-use IAuthorizationService. Narrow those
+                // checks as well as context permissions; never alter global ERP roles.
+                http.User.AddIdentity(new ClaimsIdentity([new Claim(ProcurementPermissions.AdminViewOnlyClaim, "true")]));
             }
             else scope.AssignWorker(workerId.Value);
         }

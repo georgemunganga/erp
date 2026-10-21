@@ -26,6 +26,10 @@ without the existing active, correctly scoped employee mapping.
 - The context permission projection contains access, named `*-read` actions and
   receipt-view only. No create/edit/review/approve/convert/match/finance permissions.
   This is UX guidance; the middleware method denial is the server write boundary.
+  A server-added narrowing claim also runs before the ERP-admin shortcut in existing
+  authorization policies, so GET action projections cannot advertise approve,
+  suspend, activate, edit or other commands. It cannot grant any new read privilege,
+  and global auth/me roles remain unchanged.
 - Existing endpoint permissions and record-specific scope checks still apply.
   Actor-owned queues or use cases that require an employee may remain unavailable;
   this change does not manufacture ownership or bypass their guards.
