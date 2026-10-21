@@ -283,3 +283,9 @@ The next isolated source slice adds `DocumentUsePin` and its consuming reference
 Review and Publication uses have distinct stable keys and retain the same underlying version without copying bytes. No model mapping, migration, provider, routes, registration, retention enforcement, lock or publication activation is introduced. In particular, `CoreDocument.Retire` remains unchanged and **does not yet consult pins**. The future coupled lifecycle guard is an interface obligation, not a detached boolean check or an implemented protection. Defaults remain retain while uses exist; release/expiry policy is not fabricated.
 
 `DocumentUsePinTests` authors pure positive/negative cases for exact content, separate purposes, duplicate identity/reason-free evidence, actor/reference changes, scope/owner/hash/CAS, quarantine/scanning/rejected/failed/retired content, scan binding and invalid source identity. These tests have not been built or executed in this slice; actual persistence, retirement races and same-store rollback remain later gates.
+
+### U1 pure-contract executed follow-up
+
+Frozen integration commit `83ade44`: the complete Core Documents suite built and passed **69/69 tests**, zero failed/skipped, on 21 October 2026. This supersedes the unrun status of the preceding pure-source checkpoint only. The network-disabled SDK pipeline exited zero; `artifacts/p28/publication-prerequisites.log` and `artifacts/p28/document-use/` retain the results. A separate full Procurement domain/model gate passed 727/727 in the same sequential pipeline.
+
+No persisted use-set schema, enlisted adapter, retention fence, publication route, production migration or new runtime readiness is established by these unit/service results. Those remain the next implementation and verification work.
