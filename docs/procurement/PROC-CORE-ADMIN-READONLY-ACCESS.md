@@ -72,9 +72,10 @@ without later Procurement migrations or action catalog entries. Source tests use
 existing P19 configuration edit/approve/read and PO-read policies where current tests
 used future authority policies; future unknown actions remain denied. The full source
 recipe/hash inventory and no-DDL startup gate are recorded in
-`PROC-OPS-V36-ACCESS-HOTFIX-SOURCE-AUDIT.md`. This is unbuilt source, not deployment.
+`PROC-OPS-V36-ACCESS-HOTFIX-SOURCE-AUDIT.md`. This was the initial unbuilt-source
+checkpoint; the subsequent release evidence is recorded below.
 
-## Retained P19 actual-handler test supplement (authored, not executed)
+## Retained P19 actual-handler test supplement (initial authored checkpoint)
 
 `ProcurementAdminVendorHttpTests` maps the actual retained context, vendor and
 item handlers behind authentication, real authorization and scope middleware.
@@ -97,3 +98,39 @@ middleware correction and test must be rebuilt into the chosen retained source
 before release; an earlier frozen candidate or successful synthetic metadata
 endpoint test cannot prove this actual-handler behavior. Root owns serial gates,
 full host publish/image provenance and any production decision under release hold.
+
+## Access-only release verification — 21 October 2026
+
+The isolated P19-compatible backend source `a7645e2` was built and released with
+frontend `f3fdb10` on the deployed UI baseline. Verification passed: 107 focused
+host tests (including the actual-handler test above), 28 retained Procurement
+domain tests, nine frontend readiness tests, and 19 Chromium scenarios. Browser
+API fixtures are mocked; actual server-handler tests use isolated InMemory stores.
+
+The complete published host and image `/app` match across all 142 files. Runtime
+configuration matches the previous live host. The strict loan-field/recovery-JIT
+probe passed against both the publish and the actual image. Production migration
+catalogs match the source: HRM 55, Procurement 16, Core Approval one; no new
+Procurement/Core migration or execution flag was enabled.
+
+The initial read-only database-copy startup failed because the inherited EF
+history bootstrap issues `CREATE TABLE IF NOT EXISTS`, which PostgreSQL rejects
+in read-only transactions even when the table exists. The exact previous v36
+image reproduced that failure. The original protected copy remained unchanged.
+A separate disposable writable copy subsequently passed actual startup and
+health checks with identical before/after schema and complete data hashes. Failed
+attempts and their diagnoses remain retained; they are not counted as passes.
+
+The full source image was deployed with the original environment, network,
+document mounts and data-protection keys. The previous container/image remain
+available for rollback. Public UI assets match the tested release; health/live,
+health/ready and the Procurement page return 200. Anonymous context access still
+returns 401. Evidence is retained privately under
+`/home/amizo/erp-backups/erp-v36-access-shadow-20261021_101309/` and
+`/home/amizo/erp-backups/procurement-admin-ui-f3fdb10/`.
+
+No employee, account role, password, spending policy or financial record was
+created to grant access. The user's existing authenticated browser session still
+requires their retry; it has not been impersonated or claimed as verified. This
+release provides administrator review of supported views, not purchasing
+authority, full feature activation, or completion of the Procurement module.
