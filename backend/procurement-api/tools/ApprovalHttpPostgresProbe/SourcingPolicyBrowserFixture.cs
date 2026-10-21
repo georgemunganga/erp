@@ -167,10 +167,19 @@ sealed partial class Probe
         {
             using var detail = JsonDocument.Parse(audits.Single(x => x.RecordId == policy.Id && x.Action == action).ChangedFieldsJson
                 ?? throw new InvalidOperationException("Named policy audit payload missing"));
+            var rawHash = detail.RootElement.GetProperty("rulesSha256").GetString();
             Require(detail.RootElement.GetProperty("PolicyKey").GetString() == "SOURCING"
                 && detail.RootElement.GetProperty("State").GetString() == state
-                && detail.RootElement.GetProperty("rulesSha256").GetString() == ProcurementEvidenceEncoding.Digest(policy.RulesJson).ToUpperInvariant(),
-                "Named policy audit did not retain its exact lifecycle state and original raw rules hash.");
+                && rawHash is { Length: 64 } && rawHash.All(c => c is >= '0' and <= '9' or >= 'A' and <= 'F'),
+                "Named policy audit did not retain its exact lifecycle state and a valid original raw rules SHA.");
+            // Create hashes the incoming JSON string before jsonb storage normalizes its
+            // formatting. The original bytes cannot be reconstructed from a later read.
+            // All three identity rows above independently bind the canonical rule digest.
+            // Later actions hash the actual reloaded database representation, so those raw
+            // hashes CAN and must be reproduced from the unchanged current rules string.
+            if (action != "DraftCreated")
+                Require(rawHash == ProcurementEvidenceEncoding.Digest(policy.RulesJson).ToUpperInvariant(),
+                    "Post-create audit raw rules SHA differs from the unchanged database representation.");
         }
         Require(await SourcingPolicyBrowserInvariant(policy.Id, ids) == sourcingPolicyBrowserBefore,
             "Browser changed original Procurement/Finance/RFQ/outbox/Core approval rows outside its owned policy and audits.");
