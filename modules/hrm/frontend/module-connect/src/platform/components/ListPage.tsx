@@ -40,7 +40,17 @@ export interface SavedView {
   label: string;
 }
 
-export function ListPage<T extends { id: string }>({
+/** Existing id records keep their default; other owner DTOs must name their stable key. */
+type ListPageIdentity<T> =
+  | { rowKey: (row: T) => string }
+  | ([T] extends [{ id: string }] ? { rowKey?: undefined } : never);
+
+function defaultRowKey(row: object): string {
+  if ("id" in row && typeof row.id === "string") return row.id;
+  throw new Error("This record list requires its existing record key.");
+}
+
+export function ListPage<T extends object>({
   rows,
   columns,
   filters = [],
@@ -53,6 +63,7 @@ export function ListPage<T extends { id: string }>({
   onSearchChange,
   bulkActions = [],
   rowHref,
+  rowKey,
   onRowOpen,
   rowLabel,
   toolbarActions,
@@ -77,7 +88,8 @@ export function ListPage<T extends { id: string }>({
   toolbarActions?: ReactNode;
   footer?: ReactNode;
   emptyBody?: string;
-}) {
+} & ListPageIdentity<T>) {
+  const keyFor = rowKey ?? defaultRowKey;
   const [query, setQuery] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [filterOpen, setFilterOpen] = useState(false);
@@ -113,7 +125,7 @@ export function ListPage<T extends { id: string }>({
   }, [rows, query, filterValues, filters, searchFields, onSearchChange, columns, sort]);
 
   const shown = columns.filter((c) => visible.includes(c.id));
-  const allSelected = filtered.length > 0 && filtered.every((row) => selected.includes(row.id));
+  const allSelected = filtered.length > 0 && filtered.every((row) => selected.includes(keyFor(row)));
   const activeFilters = Object.entries(filterValues).filter(([, v]) => v && v !== "all");
   const chosenFilter = filters.find((filter) => filter.id === filterFieldId);
   const toggleSort = (id: string) => setSort((current) => current?.id === id
@@ -251,8 +263,8 @@ export function ListPage<T extends { id: string }>({
                     aria-label="Select all visible rows"
                     checked={allSelected}
                     onCheckedChange={(on) => setSelected((current) => on
-                      ? [...new Set([...current, ...filtered.map((row) => row.id)])]
-                      : current.filter((id) => !filtered.some((row) => row.id === id)))}
+                      ? [...new Set([...current, ...filtered.map((row) => keyFor(row))])]
+                      : current.filter((id) => !filtered.some((row) => keyFor(row) === id)))}
                   />
                 </th>
                 {shown.map((c) => (
@@ -272,9 +284,9 @@ export function ListPage<T extends { id: string }>({
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.map((r) => (
-                <tr key={r.id}
+                <tr key={keyFor(r)}
                   tabIndex={onRowOpen ? 0 : undefined}
-                  aria-label={onRowOpen ? rowLabel?.(r) ?? `Open record ${r.id}` : undefined}
+                  aria-label={onRowOpen ? rowLabel?.(r) ?? `Open record ${keyFor(r)}` : undefined}
                   onClick={onRowOpen ? (event) => { if (!isInteractive(event.target)) onRowOpen(r); } : undefined}
                   onKeyDown={onRowOpen ? (event) => {
                     if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
@@ -282,13 +294,13 @@ export function ListPage<T extends { id: string }>({
                       onRowOpen(r);
                     }
                   } : undefined}
-                  className={`transition-colors hover:bg-primary-soft/45 ${onRowOpen ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary" : ""} ${selected.includes(r.id) ? "bg-primary-soft/35" : ""}`}>
+                  className={`transition-colors hover:bg-primary-soft/45 ${onRowOpen ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary" : ""} ${selected.includes(keyFor(r)) ? "bg-primary-soft/35" : ""}`}>
                   <td className="px-4 py-3 align-middle">
                     <Checkbox
-                      aria-label={`Select ${rowLabel?.(r) ?? r.id}`}
-                      checked={selected.includes(r.id)}
+                      aria-label={`Select ${rowLabel?.(r) ?? keyFor(r)}`}
+                      checked={selected.includes(keyFor(r))}
                       onCheckedChange={(on) =>
-                        setSelected((s) => (on ? [...new Set([...s, r.id])] : s.filter((x) => x !== r.id)))
+                        setSelected((s) => (on ? [...new Set([...s, keyFor(r)])] : s.filter((x) => x !== keyFor(r))))
                       }
                     />
                   </td>

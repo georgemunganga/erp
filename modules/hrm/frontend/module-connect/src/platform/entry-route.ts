@@ -8,3 +8,23 @@ export function safeEntryPath(value: string | null | undefined): string {
 export function canManageCore(roles: string[]): boolean {
   return roles.some((role) => ["erp_admin", "hr_admin"].includes(role.toLowerCase()));
 }
+
+/** Shared organization configuration retains the existing HR operations editor. */
+export function canManageOrganisation(roles: string[]): boolean {
+  return canManageCore(roles) || roles.some((role) => role.toLowerCase() === "hr_ops");
+}
+
+/** Counts reuse the workforce read contract only for its existing HRM roles. */
+export function canReadOrganisationHeadcounts(roles: string[]): boolean {
+  return roles.some((role) => ["hr_ops", "hr_admin", "payroll", "manager"].includes(role.toLowerCase()));
+}
+
+/** A Core-only administrator never probes the employee-details endpoint for optional counts. */
+export async function optionalOrganisationHeadcounts<T>(roles: string[], load: () => Promise<T>): Promise<T | null> {
+  return canReadOrganisationHeadcounts(roles) ? load() : null;
+}
+
+/** A capped or malformed page cannot prove a total, including a displayed zero. */
+export function hasCompleteOrganisationHeadcounts(page: { items: unknown[]; totalCount: number } | null): boolean {
+  return page !== null && Array.isArray(page.items) && Number.isSafeInteger(page.totalCount) && page.totalCount >= 0 && page.totalCount === page.items.length;
+}
