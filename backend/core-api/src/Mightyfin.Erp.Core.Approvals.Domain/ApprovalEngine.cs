@@ -39,12 +39,23 @@ public static class ApprovalEngine
         }
     }
 
+    // Empty reasons have one representation; human whitespace differences do not change a decision.
+    private static string? NormalizeReason(string? value)
+    {
+        var normalized = string.Join(" ", (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length == 0 ? null : normalized;
+    }
+
     public static ApprovalActionResult Decide(ApprovalCase approvalCase, ApprovalAssignment assignment,
         ApprovalActor actor, string action, string idempotencyKey, string? reason,
         ICollection<ApprovalDecision> decisions, DateTimeOffset now)
     {
-        if (string.IsNullOrWhiteSpace(idempotencyKey))
-            throw new ArgumentException("A decision idempotency key is required.", nameof(idempotencyKey));
+        idempotencyKey = idempotencyKey?.Trim() ?? string.Empty;
+        reason = NormalizeReason(reason);
+        if (idempotencyKey.Length is < 1 or > 150)
+            throw new ArgumentException("A decision idempotency key of at most 150 characters is required.", nameof(idempotencyKey));
+        if (reason?.Length > 2000)
+            throw new ArgumentException("A decision reason cannot exceed 2000 characters.", nameof(reason));
         if (approvalCase.TenantId != actor.TenantId || approvalCase.LegalEntityId != actor.LegalEntityId ||
             assignment.TenantId != actor.TenantId || assignment.LegalEntityId != actor.LegalEntityId ||
             assignment.CaseId != approvalCase.Id)
@@ -56,7 +67,8 @@ public static class ApprovalEngine
         var previous = decisions.SingleOrDefault(x => x.CaseId == approvalCase.Id && x.IdempotencyKey == idempotencyKey);
         if (previous is not null)
         {
-            if (previous.ActorSubjectId != actor.SubjectId || previous.AssignmentId != assignment.Id || previous.Action != action)
+            if (previous.ActorSubjectId != actor.SubjectId || previous.AssignmentId != assignment.Id || previous.Action != action
+                || NormalizeReason(previous.Reason) != reason)
                 throw new InvalidOperationException("The decision key was already used for another action.");
             return new ApprovalActionResult(false, approvalCase.State == "Approved", approvalCase.State);
         }

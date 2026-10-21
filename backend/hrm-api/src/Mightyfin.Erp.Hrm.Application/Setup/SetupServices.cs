@@ -147,18 +147,25 @@ public sealed class SetupServiceImpl(
     }
     public async Task CompleteStepAsync(string stepKey, string? dataJson, CancellationToken ct)
     {
-        var state = await repo.GetStateAsync(ct)
-            ?? await repo.SeedPendingStateAsync(ct);
+        var state = await repo.GetStateAsync(ct);
+        // A tenant with live HR data and no setup row predates the wizard.
+        // Its completion view must remain complete when an admin saves a step.
+        var legacyTenant = state is null && HasWriteServices;
+        if (!legacyTenant)
+            state ??= await repo.SeedPendingStateAsync(ct);
 
         // M50.17 — "Make changes" mode: once the setup is complete the
         // operator can revisit any step from the completion view. Re-saves
         // update the persisted data and keep the step recorded as complete
         // (idempotent upsert). Only a non-final intermediate status would be
         // unexpected, and that is what remains gated.
-        if (state.Status != SetupDefinitions.StatusPending && state.Status != SetupDefinitions.StatusComplete)
+        if (!SetupDefinitions.Steps.Any(s => s.Key == stepKey))
+            throw new DomainException("setup-step-unknown", $"Setup step '{stepKey}' does not exist.");
+        if (state is not null && state.Status != SetupDefinitions.StatusPending && state.Status != SetupDefinitions.StatusComplete)
             throw new DomainException("setup-already-finished", "Setup is already complete. Reset the organisation to run the wizard again.");
         var records = await repo.CompletedStepKeysAsync(ct);
-        if (!SetupDefinitions.MayComplete(stepKey, records))
+        if (!legacyTenant && state?.Status != SetupDefinitions.StatusComplete
+            && !records.Contains(stepKey) && !SetupDefinitions.MayComplete(stepKey, records))
             throw new DomainException("setup-step-gated",
                 $"Step '{stepKey}' cannot be completed yet — complete the required steps before it first.");
 
@@ -236,7 +243,8 @@ public sealed class SetupServiceImpl(
         if (string.IsNullOrWhiteSpace(dataJson))
             throw new DomainException("setup-step-missing-data",
                 $"Step '{stepKey}' is missing its input data. Fill in the form and try again.");
-        var parsed = System.Text.Json.JsonSerializer.Deserialize<T>(dataJson);
+        var parsed = System.Text.Json.JsonSerializer.Deserialize<T>(dataJson,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
         if (parsed is null)
             throw new DomainException("setup-step-bad-json",
                 $"Step '{stepKey}' input could not be parsed.");
@@ -541,7 +549,7 @@ public sealed class SetupServiceImpl(
         SalaryComponent Paye() => new SalaryComponent
         {
             Code = "paye", Name = "PAYE (ZRA)", ComponentType = "tax",
-              CalculationBasis = "slab",   BasisComponentCode = "gross",   IsTaxable = false,   IsStatutory = true,   Priority = 80,
+              CalculationBasis = "slab",   BasisComponentCode = "taxable",   IsTaxable = false,   IsStatutory = true,   Priority = 80,
               EffectiveFrom = today,
         };
         var codes = new[] { "basic", "napsa-ee", "napsa-er", "nhima-ee", "nhima-er", "paye" };

@@ -26,6 +26,30 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementRequestHttpTests
 {
     [Fact]
+    public async Task Delayed_buying_rule_check_uses_submission_policy_not_current_successor()
+    {
+        await using var fixture = await Fixture.Start();
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests", fixture.Owner,
+            Draft("Delayed rule check") with { NeededBy = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)) });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = draft.GetProperty("id").GetGuid();
+        var submitted = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/submit",
+            fixture.Owner, new { version = draft.GetProperty("version").GetInt64() });
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+        var source = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        var priorPolicy = await fixture.AddHistoricalBuyingPoliciesForDelayedCheck(id);
+        var currentResponse = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
+        var current = await currentResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var evaluated = await SendJson(fixture.Client, HttpMethod.Post, $"/api/procurement/v1/requests/{id}/policy-evaluations",
+            fixture.Other, new { requestVersion = current.GetProperty("version").GetInt64() }, "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, evaluated.StatusCode);
+        var body = await evaluated.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Matched", body.GetProperty("status").GetString());
+        Assert.Equal(priorPolicy, body.GetProperty("evaluation").GetProperty("policyVersionId").GetGuid());
+    }
+
+    [Fact]
     public async Task Draft_request_persists_and_is_hidden_from_another_employee()
     {
         await using var fixture = await Fixture.Start();
@@ -42,6 +66,8 @@ public sealed class ProcurementRequestHttpTests
         Assert.Equal("ZMW", record.GetProperty("currencyCode").GetString());
         Assert.Equal("Draft", record.GetProperty("status").GetString());
         Assert.Single(record.GetProperty("lines").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null, record.GetProperty("approvalInstanceRef").ValueKind);
+        Assert.Equal(0m, record.GetProperty("lines")[0].GetProperty("approvedQuantity").GetDecimal());
 
         var own = await Send(client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
         Assert.Equal(HttpStatusCode.OK, own.StatusCode);
@@ -1711,6 +1737,53 @@ public sealed class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Invoice_intake_hides_other_branches_and_rejects_out_of_scope_order_links()
+    {
+        await using var fixture = await Fixture.Start();
+        var supplierId = await fixture.AddInvoiceSupplier();
+        var orderInput = new OrderDraftInput(supplierId, "ZMW", null, null, null, null,
+            [new OrderDraftLineInput(null, "Office supplies", "EA", 1, 100, 0, null, null, null)]);
+        var orderResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/orders", fixture.Other, orderInput, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, orderResponse.StatusCode);
+        var orderId = (await orderResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        const string path = "/api/procurement/v1/invoices";
+        var input = new InvoiceIntakeInput(supplierId, null, "BRANCH-INV-001",
+            DateOnly.FromDateTime(DateTime.UtcNow), null, null,
+            [new InvoiceIntakeLineInput("Office supplies", 1, 100, 0, null, null)]);
+        var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "ap_processor");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var assignedBranch = await fixture.ConfineBuyerAndMoveOrderToOtherBranch(orderId);
+        await fixture.MoveInvoiceToOrderBranch(id, orderId);
+
+        var list = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor");
+        Assert.Equal(0, (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other, role: "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Reviewer, role: "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+                input with { InvoiceNumber = "BRANCH-INV-002", PurchaseOrderId = orderId }, "ap_processor")).StatusCode);
+
+        var scoped = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
+            input with { InvoiceNumber = "BRANCH-INV-003" }, "ap_processor");
+        Assert.Equal(HttpStatusCode.Created, scoped.StatusCode);
+        var own = await scoped.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(assignedBranch, own.GetProperty("branchRef").GetGuid());
+        Assert.Equal("ZMW", own.GetProperty("currencyCode").GetString());
+        Assert.Equal(HttpStatusCode.OK,
+            (await Send(fixture.Client, HttpMethod.Get, $"{path}/{own.GetProperty("id").GetGuid()}",
+                fixture.Other, role: "ap_processor")).StatusCode);
+        var ownList = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor");
+        Assert.Equal(1, (await ownList.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
+        Assert.Equal(0, await fixture.InvoiceHandoffCount());
+    }
+
+    [Fact]
     public async Task Buyer_order_drafts_are_scoped_versioned_and_retire_removed_lines()
     {
         await using var fixture = await Fixture.Start();
@@ -2175,7 +2248,82 @@ public sealed class ProcurementRequestHttpTests
         return client.SendAsync(request);
     }
 
-    private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid reviewer, Guid inactive, Guid otherCompany)
+    [Fact]
+    public async Task Invoice_documents_use_Core_evidence_and_enforce_permissions_and_branch_scope()
+    {
+        await using var fixture = await Fixture.Start(documents: true);
+        var supplierId = await fixture.AddInvoiceSupplier();
+        var invoice = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/invoices", fixture.Owner,
+            new InvoiceIntakeInput(supplierId, null, "DOC-INV-1", new DateOnly(2026, 10, 20), null, "ZMW",
+                [new InvoiceIntakeLineInput("Supplies", 1, 100, 0, null, null)]), "ap_processor");
+        Assert.Equal(HttpStatusCode.Created, invoice.StatusCode);
+        var id = (await invoice.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var path = $"/api/procurement/v1/invoices/{id}/documents";
+        Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.Client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other)).StatusCode);
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, (await SendJson(fixture.Client, HttpMethod.Post,
+            path, fixture.Owner, new { file = "not a raw upload" }, "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Upload("%PDF-1.7 evidence", Guid.Empty)).StatusCode);
+        var key = Guid.NewGuid();
+        var upload = await Upload("%PDF-1.7 evidence", key);
+        Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
+        var document = await upload.Content.ReadFromJsonAsync<JsonElement>();
+        var version = document.GetProperty("versionId").GetGuid();
+        Assert.True(document.GetProperty("canDownload").GetBoolean());
+        var retry = await Upload("%PDF-1.7 evidence", key);
+        Assert.Equal(version, (await retry.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("versionId").GetGuid());
+        Assert.Equal(HttpStatusCode.Conflict, (await Upload("%PDF-other evidence", key)).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await Upload("MZ-not-a-PDF", Guid.NewGuid())).StatusCode);
+        var download = await Send(fixture.Client, HttpMethod.Get, path + $"/{version}/download", fixture.Owner, role: "ap_processor");
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+        Assert.Equal("%PDF-1.7 evidence", await download.Content.ReadAsStringAsync());
+        Assert.Equal("no-store", download.Headers.CacheControl?.ToString());
+        await fixture.MoveInvoiceOutsideOtherBranch(id);
+        Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path + $"/{version}/download", fixture.Other, role: "ap_processor")).StatusCode);
+        fixture.FailDocumentScan(true);
+        var failed = await Upload("%PDF-waiting for scanner", Guid.NewGuid());
+        var waiting = await failed.Content.ReadFromJsonAsync<JsonElement>();
+        var waitingId = waiting.GetProperty("versionId").GetGuid();
+        Assert.False(waiting.GetProperty("canDownload").GetBoolean());
+        Assert.Equal(HttpStatusCode.Conflict, (await Send(fixture.Client, HttpMethod.Get, path + $"/{waitingId}/download", fixture.Owner, role: "ap_processor")).StatusCode);
+        fixture.FailDocumentScan(false);
+        var rescanned = await Send(fixture.Client, HttpMethod.Post, path + $"/{waitingId}/retry-scan", fixture.Owner, role: "ap_processor");
+        Assert.True((await rescanned.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("canDownload").GetBoolean());
+        Assert.Equal(0, await fixture.InvoiceHandoffCount());
+        fixture.SetDocumentReadiness(false);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner, role: "ap_processor")).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await Upload("%PDF-blocked-by-schema", Guid.NewGuid())).StatusCode);
+
+        async Task<HttpResponseMessage> Upload(string body, Guid uploadKey)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new StringContent(body) };
+            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            request.Headers.Add("X-Test-User", fixture.Owner.ToString());
+            request.Headers.Add("X-Test-Role", "ap_processor");
+            request.Headers.Add("Idempotency-Key", uploadKey.ToString());
+            request.Headers.Add("X-Document-Name", "invoice.pdf");
+            return await fixture.Client.SendAsync(request);
+        }
+    }
+
+    private sealed class DocumentTestReadiness : IDocumentSchemaReadiness
+    {
+        public bool Ready { get; set; } = true;
+        public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(Ready);
+    }
+    private sealed class DocumentTestScanner : Mightyfin.Erp.Core.Documents.Application.IDocumentScanner
+    {
+        public bool Fail { get; set; }
+        public async Task<Mightyfin.Erp.Core.Documents.Application.DocumentScanResult> ScanAsync(Stream content, long expectedBytes, string expectedSha256, CancellationToken cancellationToken = default)
+        {
+            var hash = Convert.ToHexStringLower(await System.Security.Cryptography.SHA256.HashDataAsync(content, cancellationToken));
+            return new(Fail ? Mightyfin.Erp.Core.Documents.Domain.ScannerVerdict.Failed : Mightyfin.Erp.Core.Documents.Domain.ScannerVerdict.Clean,
+                hash, "test-scanner", Fail ? null : "test-definitions", Fail ? "scanner-unavailable" : null);
+        }
+    }
+
+    private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid reviewer, Guid inactive, Guid otherCompany, string? documentRoot = null)
         : IAsyncDisposable
     {
         public string[] Routes() => ((IEndpointRouteBuilder)app).DataSources
@@ -2233,6 +2381,35 @@ public sealed class ProcurementRequestHttpTests
             order.BranchRef = secondBranch.Id;
             await procurement.SaveChangesAsync();
             return assignedBranch.Id;
+        }
+
+        public void SetDocumentReadiness(bool ready) => ((DocumentTestReadiness)app.Services.GetRequiredService<IDocumentSchemaReadiness>()).Ready = ready;
+        public void FailDocumentScan(bool fail) => app.Services.GetRequiredService<DocumentTestScanner>().Fail = fail;
+        public async Task MoveInvoiceOutsideOtherBranch(Guid id)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            var core = serviceScope.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var home = await core.WorkLocations.SingleAsync(x => x.LegalEntityId == company);
+            var remote = new WorkLocation { Code = "A2", Name = "Other branch", LegalEntityId = company };
+            core.WorkLocations.Add(remote);
+            core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = Other, LocationId = home.Id });
+            await core.SaveChangesAsync();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            (await db.SupplierInvoices.SingleAsync(x => x.Id == id)).BranchRef = remote.Id;
+            await db.SaveChangesAsync();
+        }
+
+        public async Task MoveInvoiceToOrderBranch(Guid invoiceId, Guid orderId)
+        {
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Other.ToString(), null, null, false, "test");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var invoice = await db.SupplierInvoices.SingleAsync(x => x.Id == invoiceId);
+            invoice.BranchRef = (await db.PurchaseOrders.SingleAsync(x => x.Id == orderId)).BranchRef;
+            await db.SaveChangesAsync();
         }
 
         public async Task<int> DecisionCount(Guid supplierId)
@@ -2339,6 +2516,12 @@ public sealed class ProcurementRequestHttpTests
             var owner = await core.Workers.SingleAsync(x => x.SubjectId == Owner.ToString());
             var manager = await core.Workers.SingleAsync(x => x.SubjectId == Other.ToString());
             owner.ManagerId = manager.Id;
+            // Readiness now references the same canonical account as execution, rather
+            // than treating Worker.SubjectId as an interchangeable login principal.
+            if (!await core.LocalUsers.AnyAsync(x => x.Id == Other))
+                core.LocalUsers.Add(new LocalUser { Id = Other, WorkerId = manager.Id, IsActive = true,
+                    Email = "preview-manager@example.test", NormalizedEmail = "PREVIEW-MANAGER@EXAMPLE.TEST",
+                    DisplayName = "Preview Manager", PasswordHash = "synthetic-unused", RolesCsv = "procurement_manager" });
             await core.SaveChangesAsync();
         }
 
@@ -2406,6 +2589,27 @@ public sealed class ProcurementRequestHttpTests
             return policy.Id;
         }
 
+        public async Task<Guid> AddHistoricalBuyingPoliciesForDelayedCheck(Guid requestId)
+        {
+            var priorId = await AddPublishedBuyingPolicy();
+            using var serviceScope = app.Services.CreateScope();
+            serviceScope.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
+                .Set("tenant-a", company, Other.ToString(), null, null, false, "delayed-policy-fixture");
+            var db = serviceScope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var request = await db.PurchaseRequests.SingleAsync(x => x.Id == requestId);
+            request.SubmittedAt = DateTimeOffset.UtcNow.AddDays(-2);
+            var prior = await db.PolicyVersions.SingleAsync(x => x.Id == priorId);
+            prior.EffectiveFrom = request.SubmittedAt.Value.AddDays(-1);
+            prior.PublishedAt = request.SubmittedAt.Value.AddDays(-1);
+            prior.PublicationReason = "Synthetic prior approved policy";
+            prior.EffectiveTo = request.SubmittedAt.Value.AddDays(1);
+            db.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 2,
+                EffectiveFrom = prior.EffectiveTo.Value, State = "Published", RulesJson = prior.RulesJson,
+                PublishedBy = Other.ToString(), PublishedAt = request.SubmittedAt.Value });
+            await db.SaveChangesAsync();
+            return priorId;
+        }
+
         public async Task AddRequestLineAfterPolicyCheck(Guid requestId)
         {
             using var serviceScope = app.Services.CreateScope();
@@ -2434,7 +2638,7 @@ public sealed class ProcurementRequestHttpTests
             await db.SaveChangesAsync();
         }
 
-        public static async Task<Fixture> Start()
+        public static async Task<Fixture> Start(bool documents = false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
@@ -2446,6 +2650,21 @@ public sealed class ProcurementRequestHttpTests
             builder.Services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
             builder.Services.AddDbContext<ProcurementDbContext>(options =>
                 options.UseInMemoryDatabase("proc-drafts-" + databaseId));
+            var documentRoot = documents ? Path.Combine(Path.GetTempPath(), "erp-http-documents-" + databaseId) : null;
+            if (documents)
+            {
+                builder.Services.AddHttpContextAccessor();
+                builder.Services.AddScoped<Mightyfin.Erp.Core.Documents.Domain.IDocumentScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
+                builder.Services.AddDbContext<Mightyfin.Erp.Core.Documents.Infrastructure.DocumentDbContext>(o => o.UseInMemoryDatabase("core-docs-" + databaseId));
+                builder.Services.AddScoped<Mightyfin.Erp.Core.Documents.Application.IDocumentRecords, Mightyfin.Erp.Core.Documents.Infrastructure.EfDocumentRecords>();
+                builder.Services.AddScoped<Mightyfin.Erp.Core.Documents.Application.IDocumentOwnerAccess, ProcurementInvoiceDocumentAccess>();
+                builder.Services.AddSingleton<Mightyfin.Erp.Core.Documents.Application.IDocumentBlobStore>(new Mightyfin.Erp.Core.Documents.Infrastructure.PrivateDocumentStore(documentRoot!));
+                builder.Services.AddSingleton(new DocumentTestScanner());
+                builder.Services.AddSingleton<Mightyfin.Erp.Core.Documents.Application.IDocumentScanner>(sp => sp.GetRequiredService<DocumentTestScanner>());
+                builder.Services.AddSingleton(new Mightyfin.Erp.Core.Documents.Application.DocumentLimits());
+                builder.Services.AddScoped<Mightyfin.Erp.Core.Documents.Application.RecordDocumentService>();
+                builder.Services.AddSingleton<IDocumentSchemaReadiness>(new DocumentTestReadiness());
+            }
             builder.Services.AddAuthentication("test")
                 .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
@@ -2464,6 +2683,7 @@ public sealed class ProcurementRequestHttpTests
             ProcurementSourcingDraftRoutes.MapRoutes(app);
             ProcurementContractDraftRoutes.MapRoutes(app);
             ProcurementInvoiceIntakeRoutes.MapRoutes(app);
+            if (documents) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
             ProcurementOrderDraftRoutes.MapRoutes(app);
             ProcurementConfigurationRoutes.MapRoutes(app);
             ProcurementPolicyDraftRoutes.MapRoutes(app);
@@ -2492,13 +2712,14 @@ public sealed class ProcurementRequestHttpTests
                 await core.SaveChangesAsync();
             }
             await app.StartAsync();
-            return new Fixture(app, company.Id, owner, other, reviewer, inactive, otherCompany.Id);
+            return new Fixture(app, company.Id, owner, other, reviewer, inactive, otherCompany.Id, documentRoot);
         }
 
         public async ValueTask DisposeAsync()
         {
             Client.Dispose();
             await app.DisposeAsync();
+            if (documentRoot is not null && Directory.Exists(documentRoot)) Directory.Delete(documentRoot, true);
         }
     }
 

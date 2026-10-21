@@ -5,6 +5,7 @@
     <ProjectReference Include="..\Mightyfin.Erp.Hrm.Application\Mightyfin.Erp.Hrm.Application.csproj" />
     <ProjectReference Include="..\..\..\procurement-api\src\Mightyfin.Erp.Procurement.Infrastructure\Mightyfin.Erp.Procurement.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\core-api\src\Mightyfin.Erp.Core.Approvals.Infrastructure\Mightyfin.Erp.Core.Approvals.Infrastructure.csproj" />
+    <ProjectReference Include="../../../core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/Mightyfin.Erp.Core.Documents.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

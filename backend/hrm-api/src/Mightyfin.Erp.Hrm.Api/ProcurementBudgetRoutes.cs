@@ -65,12 +65,12 @@ public static class ProcurementBudgetRoutes
         if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
             return Error("not-found", "Request not found.", 404);
         var latest = await db.BudgetCheckSnapshots.AsNoTracking()
-            .Where(x => x.PurchaseRequestId == id && x.RequestVersion == request.Version)
+            .Where(x => x.PurchaseRequestId == id && x.RequestVersion == (request.SubmittedVersion ?? request.Version))
             .OrderByDescending(x => x.CheckedAt).ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
         return Results.Ok(new
         {
-            requestId = id, requestVersion = request.Version,
+            requestId = id, requestVersion = request.Version, submittedVersion = request.SubmittedVersion,
             status = latest?.Status ?? "Pending",
             checkedAt = latest?.CheckedAt,
             reservationConfirmed = latest?.Status == "Available"
@@ -81,8 +81,11 @@ public static class ProcurementBudgetRoutes
     private static async Task<IResult> Record(Guid id, BudgetDecision input,
         ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
+        try
+        {
         await using var transaction = db.Database.IsRelational()
             ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+        await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
@@ -118,11 +121,12 @@ public static class ProcurementBudgetRoutes
             || !string.Equals(input.CurrencyCode?.Trim(), request.CurrencyCode, StringComparison.OrdinalIgnoreCase))
             return Error("validation-failed", "Check the full request amount in its selected currency.", 422);
 
+        var businessVersion = request.SubmittedVersion ?? request.Version;
         var prior = await db.BudgetCheckSnapshots.AsNoTracking()
             .SingleOrDefaultAsync(x => x.FinanceCheckRef == financeRef, ct);
         if (prior is not null)
         {
-            if (prior.PurchaseRequestId == id && prior.RequestVersion == input.RequestVersion
+            if (prior.PurchaseRequestId == id && prior.RequestVersion == businessVersion
                 && prior.Status == input.Status && prior.CheckedAmount == input.CheckedAmount
                 && prior.CurrencyCode == request.CurrencyCode && prior.EvidenceRef == evidenceRef
                 && prior.DecisionReason == reason && prior.ReservationRef == reservationRef
@@ -132,7 +136,7 @@ public static class ProcurementBudgetRoutes
         }
         var decision = new BudgetCheckSnapshot
         {
-            PurchaseRequestId = id, RequestVersion = request.Version, FinanceCheckRef = financeRef,
+            PurchaseRequestId = id, RequestVersion = businessVersion, FinanceCheckRef = financeRef,
             Status = input.Status, CheckedAmount = input.CheckedAmount,
             CurrencyCode = request.CurrencyCode, CheckedAt = DateTimeOffset.UtcNow,
             CheckedBySubjectId = scope.SubjectId, EvidenceRef = evidenceRef,
@@ -146,7 +150,7 @@ public static class ProcurementBudgetRoutes
             ActorSubjectId = scope.SubjectId,
             ChangedFieldsJson = JsonSerializer.Serialize(new
             {
-                requestVersion = request.Version, financeRef, input.Status,
+                requestVersion = businessVersion, sourceRevision = request.Version, financeRef, input.Status,
                 input.CheckedAmount, request.CurrencyCode, evidenceRef,
                 reservationRef, reservationStatus, reason,
             }),
@@ -160,6 +164,9 @@ public static class ProcurementBudgetRoutes
         catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
         { return Error("budget-check-conflict", "The request or funding changed. Refresh before recording the Finance check.", 409); }
         return Results.Created($"/api/procurement/v1/requests/{id}/budget-checks", ToResult(decision));
+        }
+        catch (Exception error) when (ProcurementPostgresFailures.IsConcurrency(error))
+        { return Error("budget-check-conflict", "The request or funding changed. Refresh before recording the Finance check.", 409); }
     }
 
     private static object ToResult(BudgetCheckSnapshot x) => new

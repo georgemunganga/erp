@@ -130,11 +130,12 @@ public sealed record WorkerPayslipPreviewDto(string Status, string PeriodLabel, 
     List<PayslipLeaveBalanceDto>? LeaveBalances = null);
 public sealed record SalaryAdvanceDto(Guid Id, Guid WorkerId, string WorkerName, string? EmployeeNo,
     decimal Amount, decimal InstallmentAmount, decimal RecoveredAmount, decimal RemainingAmount,
-    string Currency, string IssueDate, string DeductionStartDate, bool DeductFromPayslip,
-    string Status, string? Reason, string? Reference, DateTimeOffset CreatedAt);
+    string Currency, string? IssueDate, string DeductionStartDate, bool DeductFromPayslip,
+    string Status, string? Reason, string? Reference, DateTimeOffset CreatedAt,
+    string RecordType, decimal OpeningRecoveredAmount);
 public sealed record SalaryAdvanceCreateRequest(Guid WorkerId, decimal Amount, decimal InstallmentAmount,
-    string? Currency, string IssueDate, string DeductionStartDate, bool DeductFromPayslip,
-    string? Reason, string? Reference);
+    string? Currency, string? IssueDate, string DeductionStartDate, bool DeductFromPayslip,
+    string? Reason, string? Reference, string? RecordType = null, decimal OpeningRecoveredAmount = 0);
 public sealed record SalaryAdvanceUpdateRequest(decimal? InstallmentAmount = null, bool? DeductFromPayslip = null,
     string? DeductionStartDate = null, string? Reason = null, string? Reference = null);
 public sealed record SalaryAdvanceCancelRequest(string Reason);
@@ -839,6 +840,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         else
         {
             existing.PayGroupId = request.PayGroupId;
+            existing.EffectiveFrom = effective;
             existing.PayBasis = request.PayBasis ?? existing.PayBasis;
             if (hasOvertimePayload)
             {
@@ -891,7 +893,8 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
     {
         authz.RequireAnyRole("hr_ops", "hr_admin", "payroll");
         var requestedStatus = status?.Trim().ToLowerInvariant();
-        var advances = await repo.ListSalaryAdvancesAsync(workerId, requestedStatus == "settled" ? null : requestedStatus, ct);
+        var advances = await repo.ListSalaryAdvancesAsync(workerId,
+            requestedStatus is "settled" or "all" ? null : requestedStatus, ct);
         var recovered = await repo.GetSalaryAdvanceRecoveredAmountsAsync(advances.Select(a => a.Id).ToList(), ct);
         var mapped = advances.Select(a => MapAdvance(a, recovered.TryGetValue(a.Id, out var paid) ? paid : 0m)).ToList();
         return string.IsNullOrWhiteSpace(requestedStatus) || requestedStatus == "all"
@@ -910,8 +913,24 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
             throw new DomainException("salary-advance-invalid", "Deduction amount must be greater than zero.");
         if (request.InstallmentAmount > request.Amount)
             throw new DomainException("salary-advance-invalid", "Deduction amount cannot be more than the advance amount.");
-        if (!DateOnly.TryParse(request.IssueDate, out var issueDate))
-            throw new DomainException("bad-date", "Issue date must be a valid date.");
+        var recordType = string.IsNullOrWhiteSpace(request.RecordType) ? "salary-advance" : request.RecordType.Trim().ToLowerInvariant();
+        if (recordType is not ("loan" or "salary-advance"))
+            throw new DomainException("salary-advance-invalid", "Record type must be loan or salary-advance.");
+        if (request.OpeningRecoveredAmount < 0 || request.OpeningRecoveredAmount >= request.Amount)
+            throw new DomainException("salary-advance-invalid", "Opening recovered amount must be nonnegative and below the original amount.");
+        if (request.OpeningRecoveredAmount != Math.Round(request.OpeningRecoveredAmount, 2))
+            throw new DomainException("salary-advance-invalid", "Opening recovered amount must have at most two decimal places.");
+        if (request.InstallmentAmount > request.Amount - request.OpeningRecoveredAmount)
+            throw new DomainException("salary-advance-invalid", "Deduction amount cannot be more than the remaining balance.");
+        DateOnly? issueDate = null;
+        if (!string.IsNullOrWhiteSpace(request.IssueDate))
+        {
+            if (!DateOnly.TryParse(request.IssueDate, out var parsedIssueDate))
+                throw new DomainException("bad-date", "Issue date must be a valid date.");
+            issueDate = parsedIssueDate;
+        }
+        else if (recordType == "salary-advance")
+            throw new DomainException("bad-date", "Issue date is required for a salary advance.");
         if (!DateOnly.TryParse(request.DeductionStartDate, out var startDate))
             throw new DomainException("bad-date", "Deduction start date must be a valid date.");
         var advance = new SalaryAdvance
@@ -921,6 +940,8 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
             InstallmentAmount = Math.Round(request.InstallmentAmount, 2),
             Currency = string.IsNullOrWhiteSpace(request.Currency) ? "ZMW" : request.Currency.Trim().ToUpperInvariant(),
             IssueDate = issueDate,
+            RecordType = recordType,
+            OpeningRecoveredAmount = request.OpeningRecoveredAmount,
             DeductionStartDate = startDate,
             DeductFromPayslip = request.DeductFromPayslip,
             Status = "active",
@@ -930,7 +951,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         };
         await repo.CreateSalaryAdvanceAsync(advance, ct);
         advance.Worker = worker;
-        return MapAdvance(advance, 0m);
+        return MapAdvance(advance, advance.OpeningRecoveredAmount);
     }
 
     public async Task<SalaryAdvanceDto> UpdateSalaryAdvanceAsync(Guid id, SalaryAdvanceUpdateRequest request, CancellationToken ct)
@@ -2186,9 +2207,9 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         var remaining = Math.Round(Math.Max(0, a.Amount - recovered), 2);
         return new SalaryAdvanceDto(a.Id, a.WorkerId, a.Worker?.FullName ?? $"Employee {a.WorkerId}",
             a.Worker?.EmployeeNo, a.Amount, a.InstallmentAmount, recovered, remaining,
-            a.Currency, a.IssueDate.ToString("yyyy-MM-dd"), a.DeductionStartDate.ToString("yyyy-MM-dd"),
+            a.Currency, a.IssueDate?.ToString("yyyy-MM-dd"), a.DeductionStartDate.ToString("yyyy-MM-dd"),
             a.DeductFromPayslip, remaining <= 0 && a.Status == "active" ? "settled" : a.Status,
-            a.Reason, a.Reference, a.CreatedAt);
+            a.Reason, a.Reference, a.CreatedAt, a.RecordType, a.OpeningRecoveredAmount);
     }
 
     private async Task<string> GetComponentCode(Guid componentId, CancellationToken ct)
@@ -2412,11 +2433,18 @@ internal sealed class CalcContext
             var recovered = recoveredByAdvance.TryGetValue(advance.Id, out var paid) ? paid : 0m;
             var remaining = Math.Round(Math.Max(0, advance.Amount - recovered), 2);
             if (remaining <= 0) continue;
-            var deduction = Math.Round(Math.Min(advance.InstallmentAmount, remaining), 2);
+            // A source schedule can divide the principal into equal cent-rounded
+            // instalments and leave one or two ngwee in the final month. Collect
+            // that rounding residue with the last scheduled instalment.
+            var roundingResidue = remaining - advance.InstallmentAmount;
+            var deduction = Math.Round(roundingResidue > 0m && roundingResidue <= 0.02m
+                ? remaining
+                : Math.Min(advance.InstallmentAmount, remaining), 2);
             if (deduction <= 0) continue;
             var code = $"salary-advance-{advance.Id:N}";
-            Components.Add((code, "Salary advance recovery", "deduction", deduction,
-                $"Salary advance deduction: K{deduction:N2} of K{advance.Amount:N2}; K{Math.Max(0, remaining - deduction):N2} remains after this payroll. Reference {advance.Reference ?? advance.Id.ToString("D")}.", false));
+            var label = advance.RecordType == "loan" ? "Loan" : "Salary advance";
+            Components.Add((code, $"{label} recovery", "deduction", deduction,
+                $"{label} deduction: K{deduction:N2} of K{advance.Amount:N2}; K{Math.Max(0, remaining - deduction):N2} remains after this payroll. Reference {advance.Reference ?? advance.Id.ToString("D")}.", false));
             Deductions += deduction;
         }
     }

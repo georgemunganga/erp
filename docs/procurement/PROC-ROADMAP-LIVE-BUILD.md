@@ -1,6 +1,6 @@
 # Procurement live implementation roadmap
 
-**Status:** Active engineering roadmap, updated 19 October 2026. Business policies and release approvals remain open.
+**Status:** Active engineering roadmap, updated 20 October 2026. Business policies and release approvals remain open.
 **Standard:** [GW-ENG-STD-001](../engineering/GW-ENG-STD-001.md), Tier 3; every child uses the 28-section feature specification.
 **UI contract:** Existing Procurement workspace and `docs/procurement-ui-contract-register.md` in the Procurement UI repository; do not create a second UI.
 
@@ -9,11 +9,15 @@ The [workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) ties Zoho's hel
 
 ## Current baseline
 
-The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppliers, items, purchase requests, plans, categories, methods, contracts, sourcing events and buyer-owned purchase orders. Production runs the isolated Procurement schema through P18 and a Procurement-enabled API/UI; see [the live enablement record](PROC-OPS-02-LIVE-ENABLEMENT-20261019.md). The live workspace uses API-backed draft screens and empty workflow states for unsupported routes. Core supplies sign-in and organisation context; local sessions resolve configurable Procurement action grants from Core tenant roles. Supplier, item, catalog price and buying-method activation and buying-rule publication have independent review controls. A vendor approver with read and approve grants can inspect submitted or suspended suppliers in the selected legal entity without a manage grant; individual task assignments are not yet implemented. Submitted requests pin non-authoritative policy evidence to their current version; Finance can record an external reservation reference, but no ERP Finance reservation, delegated approval, purchase commitment, AP posting or payment is enabled. Vendor draft contacts, addresses and pending qualifications support reasoned, retained removal. Plan and sourcing revisions reject duplicate saved line IDs in their shared validators; plan, sourcing and contract draft changes record before/after business audit evidence. P18 adds retained line deactivation for buyer-owned purchase-order drafts; approval and issue remain gated. P17 adds a normalized supplier-invoice duplicate key; the first invoice slice only records structured manual intake as `Received`, with no source-document upload, matching, AP posting or payment. Read-only HRMS approver candidates are visible, but Core approval cases remain disabled. OIDC role mapping, binding workflow assignments, document upload, Finance and Inventory/Asset contracts require completion or verification.
+The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppliers, items, purchase requests, plans, categories, methods, contracts, sourcing events and buyer-owned purchase orders. Production runs the isolated Procurement schema through P19 and a Procurement-enabled API/UI; see [the live enablement record](PROC-OPS-02-LIVE-ENABLEMENT-20261019.md). The live workspace uses API-backed draft screens and empty workflow states for unsupported routes. Core supplies sign-in and organisation context; local sessions resolve configurable Procurement action grants from Core tenant roles. Supplier, item, catalog price and buying-method activation and buying-rule publication have independent review controls. A vendor approver with read and approve grants can inspect submitted or suspended suppliers in the selected legal entity without a manage grant; individual task assignments are not yet implemented. Submitted requests pin non-authoritative policy evidence to their current version; Finance can record an external reservation reference, but no ERP Finance reservation, delegated approval, purchase commitment, AP posting or payment is enabled. Vendor draft contacts, addresses and pending qualifications support reasoned, retained removal. Plan and sourcing revisions reject duplicate saved line IDs in their shared validators; plan, sourcing and contract draft changes record before/after business audit evidence. P18 adds retained line deactivation for buyer-owned purchase-order drafts; approval and issue remain gated. P19 persists PO branch scope and confines buyer access to the selected authorized branch. P17 adds a normalized supplier-invoice duplicate key; the first invoice slice only records structured manual intake as `Received`, with no production source-document upload, matching, AP posting or payment. Source now includes a Core-owned invoice document adapter behind an off-by-default capability; 58 Core tests, PostgreSQL replay/concurrency checks and 36 mapped Procurement HTTP tests passed. Frontend release verification and production activation remain pending. Read-only HRMS approver candidates are visible, but Core approval cases remain disabled. OIDC role mapping, binding workflow assignments, document upload, Finance and Inventory/Asset contracts require completion or verification.
 
 **Company and currency decision:** New Procurement records use the company selected in Core. Its configured currency is shown in the Procurement context and fills a new supplier, request or plan draft when no currency is supplied. An existing draft keeps its stored currency during an edit that omits currency, even if the company default changes. The first company in the user's setup is Amizo Power; no company ID or currency is hard-coded into Procurement. This follows the distinction in [ERPNext Global Defaults](https://docs.frappe.io/erpnext/global-defaults) between a suggested company/default currency and a document's transaction currency. Spending thresholds, budget actions and supplier activation rules remain company-owned configuration decisions; draft CRUD does not imply approval.
 
 ## Order of implementation
+
+The current safety increment is [invoice branch isolation, issue 27](https://github.com/georgemunganga/module-connect/issues/27), plus [shared shell headers, issue 28](https://github.com/georgemunganga/module-connect/issues/28). The frontend header change is deployed after TypeScript, 17 scope/readiness unit checks and the exact staged production build passing all 57 mocked Playwright scenarios. Issue 28 is closed. The API scope/default-currency change and P20 migration are committed on `codex/procurement-live-integration`; 35/35 mapped HTTP tests and the twice-applied restored-database migration rehearsal passed. The production API/database release remains pending shared-host compatibility coordination under issue 29. The next shared dependency is [Core document evidence](CORE-DOC-01-SHARED-DOCUMENT-EVIDENCE.md), with supplier invoice source files as the first adapter.
+
+Before the next shared-host release, retain the live HRM loan model and migration. A two-library payroll overlay produced a verified missing-method failure; production was recovered to the consistent v36 image. Track source reconciliation in [issue 29](https://github.com/georgemunganga/module-connect/issues/29). The new GitHub verification workflow cannot run while the account billing lock remains; its presence is not passing test evidence.
 
 | Wave | Features and operations | Backend deliverable | UI release gate |
 |---|---|---|---|
@@ -49,6 +53,118 @@ The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppl
 Supplier proposal, review and activation; reasoned category/item and buying-method activation; independently reviewed catalog price publication/withdrawal; request submission to `PendingPolicyAndBudget`; and an append-only Finance budget decision API have reached production through v18. P11 links a request line to the selected published catalog price/version and revalidates availability at submission. P12 records buying-rule review/publication evidence; P13 pins a line-by-line rule result to each submitted request version. The Finance budget result is evidence from a designated reviewer, not an implemented Finance reservation integration. A rule match is not approval. Shared workflow approvals, sourcing awards, purchase orders, receiving, invoice matching, AP hand-off and the supplier portal remain future waves. The following register preserves the earlier 18 October baseline for traceability.
 
 ## Progress register
+
+### 20 October 2026 approval execution candidate
+
+The production baseline above is unchanged: API v36, Procurement schema through P19,
+with approval execution disabled. The backend integration branch
+`codex/procurement-approval-transaction` now contains P21 immutable submission evidence,
+P22 independently activated finite spending authority, and the shared Core approval
+transaction coordinator. Its purchase-request execution candidate includes case opening,
+assigned queues, decisions, retained history, source outcomes, and controlled manual
+Finance reservation-release confirmation. These are source capabilities, not a live release.
+
+Verification of the combined execution source at `416b320` passed all 196 Release
+Procurement tests. The shared-host regression suite and real HTTP/PostgreSQL probe are
+still running. Earlier P22 SQL was applied twice successfully to a disposable PostgreSQL
+database; authority concurrency and whole-transaction rollback probes passed. Execution
+and outcome model changes still need P23, migration rehearsal, least-privilege database
+verification, and real API browser acceptance before activation.
+
+Independent review is correcting employee-alias independence checks and preserving
+immutable worker identity evidence so staff offboarding does not require reactivating an
+old account to finish a reservation release. Assignment evidence validation and available
+approval actions are also being tightened before P23 is generated. These corrections
+have not yet passed the combined runtime gate.
+
+The staged frontend at `ac67352` passed 76 mocked Playwright cases. Its successor
+`fcdd53e` preserves Finance confirmation milliseconds and has passed TypeScript and
+the staged production build; focused browser verification and the newly authored real
+API browser flows are pending. Production assets have not been replaced with this
+candidate. Track the bounded approval milestone in
+[issue 9](https://github.com/georgemunganga/module-connect/issues/9).
+
+Purchase-order execution is the next isolated source increment: approved direct-buy
+request-line allocations, explicit method execution routes, finite PO authority, retained
+commercial evidence and supplier eligibility. Sourcing awards, order issue/delivery,
+receiving, invoice matching, AP handoff and portal workflows remain incomplete; draft
+CRUD or a durable outbox row does not establish those operational capabilities.
+
+### Verified approval checkpoint — 20 October 2026
+
+This checkpoint supersedes the pending verification statements immediately above;
+those statements are retained as the earlier source-stage record.
+
+- Backend candidate `e0a00cc` passed **213/213 Procurement Release tests**.
+- Shared-host regression covered **114 distinct scenarios**: 101 passed in the first
+  run; the remaining 13 passed after correcting test fixture prerequisites. This is
+  evidence across two runs, not a single green 114-test report.
+- P23 was generated with no pending Procurement model changes. Its idempotent SQL
+  applied twice to a fresh disposable PostgreSQL 17 database: 20 migration history
+  entries and all five new tables verified.
+- Real mapped HTTP workflows passed against PostgreSQL using a separate restricted,
+  non-owner runtime role. Negative privilege checks, financial-release independence,
+  offboarding-safe worker evidence, current authority checks, rollback and concurrent
+  decisions were exercised. No HRM write permission was added to this role.
+- Both actual-API Playwright workflows passed: One/All approval with retry of a lost
+  committed response, and return → independent manual Finance release → correction
+  → resubmission. The initial cold-path five-second browser expectation failed;
+  a bounded real-API timeout and fresh fixture assertion corrected the test. No
+  production latency target or production SSO acceptance is inferred from this run.
+- Frontend `d7de3cc` was pushed and its verified approval assets published. Public
+  JavaScript/CSS hashes matched the staged artifacts; backend readiness stayed healthy.
+- A complete published backend assembly set passed the payroll-loan compatibility
+  probe. This is a release candidate, not authorization to replace the live API.
+
+**Live boundary:** the API remains v36, Procurement schema through P19, and approval
+execution disabled. P20–P23 have not been applied to production. The shared-host
+release hold and coordinated backup/migration/cutover requirements remain in force.
+A persisted Procurement outbox event does not establish operational delivery by the
+existing HRM publisher.
+
+**Next increments:** spending-authority settings have passed 11 exact-money/policy
+unit tests, TypeScript and a staged UI build, but still need backend integration and
+browser acceptance. Purchase-order execution has source review fixes and an authored
+restricted-role HTTP probe; it has not passed its migration/runtime gates. Invoice
+matching has a pure comparison foundation under review; it is not AP posting approval.
+
+Protected raw logs, TRXs, migration SQL, browser traces and hashes are retained under
+`/home/amizo/erp-backups/procurement-approval-transaction-20261020/` and
+`/home/amizo/erp-backups/procurement-approvals-ui-20261020/` on the verification host.
+Synthetic fixture manifests remain private and are not committed.
+
+### Approval settings verification checkpoint — 20 October 2026
+
+The authority settings backend is now integrated through `af15adf`. All **225**
+Procurement Release tests passed, followed by **8/8** mapped settings HTTP tests.
+The first HTTP compilation exposed a missing fixture namespace; the first runnable
+suite exposed two fixture attempts to change an immutable request scope. Both were
+corrected using fresh actor scopes, with original failure logs retained. No production
+business control was weakened to accommodate the fixtures.
+
+A new `--settings` mode of the guarded disposable HTTP/PostgreSQL probe passed using
+a distinct restricted non-owner runtime role. It exercised all four lookup queries,
+bounded/minimal people responses, employee denial, the exact persisted/output amount
+`99999999999999.9999`, current named actions and negative database privilege checks.
+This is actual API/database evidence; production settings deployment remains pending.
+
+Frontend `0339522` passed 11 exact-money/policy unit tests, TypeScript, and two real
+React StrictMode development-server Playwright scenarios with mocked API responses.
+Those browser scenarios verify exact save and interrupted-create reconciliation; they
+do not constitute a combined browser/actual-backend settings workflow. Its earlier
+staged assets were not replaced or published by these checks.
+
+Purchase-order source `6225867` (including independently reviewed Core branch-fence
+source) has entered the first isolated compile/domain/HTTP gate. Its P24 migration,
+restricted PostgreSQL workflow and UI acceptance remain pending. The branch-fence
+contract orders commands and cooperative Core branch mutations; role/account/worker
+changes are outside its stated guarantee. Receiving contract `be08e8a` is documented
+in 28 sections; its domain increment is being authored separately. Invoice comparison
+review found and corrected a cumulative credit-rounding gap in source `0feb1da`;
+that correction has not yet run its SDK tests.
+
+Production remains v36/P19 with approval execution disabled. Source candidates and
+passing isolated gates are not a claim that the full Procurement module is live.
 
 | Area | State on 18 October 2026 | Next acceptance evidence |
 |---|---|---|

@@ -148,7 +148,9 @@ public class SalaryAdvance : Entity
     public decimal Amount { get; set; }
     public decimal InstallmentAmount { get; set; }
     public string Currency { get; set; } = "ZMW";
-    public DateOnly IssueDate { get; set; }
+    public DateOnly? IssueDate { get; set; }
+    public string RecordType { get; set; } = "salary-advance"; // salary-advance | loan
+    public decimal OpeningRecoveredAmount { get; set; }
     public DateOnly DeductionStartDate { get; set; }
     public bool DeductFromPayslip { get; set; }
     public string Status { get; set; } = "active"; // active | settled | cancelled

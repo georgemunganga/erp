@@ -12,9 +12,20 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// <summary>Composes Procurement into the existing ERP process and authentication pipeline.</summary>
 public static class ProcurementHostIntegration
 {
-    public static void AddServices(IServiceCollection services, string connection)
+    public static void AddServices(IServiceCollection services, string connection, IConfiguration configuration)
     {
         services.AddScoped<ProcurementRequestScope>();
+        var executionConnection = configuration.GetConnectionString("ProcurementApprovalExecution");
+        var approvalOptions = configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
+            ?? new ProcurementApprovalExecutionOptions();
+        approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(approvalOptions);
+        services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
+        services.AddScoped(sp => new Mightyfin.Erp.Procurement.Infrastructure.Approvals.ProcurementApprovalTransaction(
+            // The normal host connection may be composed while disabled, but every execution
+            // route refuses to run until the explicit least-privilege connection is configured.
+            string.IsNullOrWhiteSpace(executionConnection) ? connection : executionConnection, sp.GetRequiredService<IProcurementScope>(), sp.GetRequiredService<IApprovalScope>()));
+        ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
         services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
         services.AddDbContext<ProcurementDbContext>(options =>
             options.UseNpgsql(connection, provider =>
@@ -38,15 +49,24 @@ public static class ProcurementHostIntegration
         ProcurementBudgetRoutes.Map(app);
         ProcurementPolicyEvaluationRoutes.Map(app);
         ProcurementApprovalReadinessRoutes.Map(app);
+        ProcurementApprovalExecutionRoutes.MapRoutes(app);
         ProcurementPlanRoutes.MapRoutes(app);
         ProcurementConfigurationRoutes.MapRoutes(app);
+        ProcurementSpendingAuthorityRoutes.MapRoutes(app);
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
+        if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
+        MapMetadataRoute(app);
+    }
+
+    /// <summary>Maps module availability using the same checks as the complete host.</summary>
+    public static void MapMetadataRoute(WebApplication app)
+    {
         app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
-            ProcurementDbContext db, CancellationToken ct) =>
+            ProcurementDbContext db, IServiceProvider services, CancellationToken ct) =>
         {
             try
             {
@@ -74,13 +94,22 @@ public static class ProcurementHostIntegration
                         configurationDraft = !pending,
                         contractDraft = !pending,
                         sourcingDraft = !pending,
-                        approvals = false,
+                        // Capability describes configured availability; each command still
+                        // checks current identity, record scope, policy, authority and Finance.
+                        approvals = !pending
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>().ExecutionDatabaseConfigured
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>()
+                                .HasCurrentManualEvidencePolicy(scope.LegalEntityId, DateTimeOffset.UtcNow)
+                            && await services.GetRequiredService<IProcurementApprovalSchemaReadiness>().IsReadyAsync(ct),
                         sourcing = false,
                         contracts = false,
                         orders = false,
                         orderDraft = !pending,
                         receiving = false,
                         invoiceIntake = !pending,
+                        invoiceDocuments = !pending && app.Services.GetRequiredService<CoreDocumentFeature>().Enabled
+                            && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct),
                         invoiceValidation = false,
                         financeHandoff = false,
                         supplierPortal = false,
@@ -95,7 +124,7 @@ public static class ProcurementHostIntegration
     }
 }
 
-public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope
+public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope, Mightyfin.Erp.Core.Documents.Domain.IDocumentScope
 {
     private bool resolved;
     private string tenantId = "";

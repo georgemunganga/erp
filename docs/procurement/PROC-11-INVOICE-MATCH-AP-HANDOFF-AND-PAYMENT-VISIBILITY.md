@@ -42,13 +42,15 @@ Procurement: Match Pending → Matched / Exception → Validated → Handoff Pen
 
 AP matcher acts within entity; buyer/receiver resolves only assigned discrepancy type; variance approver has separate authority and no prohibited self-conflict; Finance callback is service-authenticated and tenant/entity checked. Supplier portal sees only permitted own status, never internal coding or bank details.
 
+Invoice capture stores the selected Core branch. Branch-confined AP users can list and open only invoices for their selected authorized branch, and cannot attach an order from another branch. Legacy invoices without a branch remain available only to users with company-wide access until an authorized backfill establishes their origin. Duplicate invoice detection remains company-wide and returns no hidden invoice details.
+
 ## 11. Business Rules
 
 `BR-PROC-MAT-001` two/three-way method by category and evidence need; `002` tolerances per field/entity, never silent global; `003` reversed/rejected receipts excluded; `004` duplicate or unresolved hard variance blocks AP; `005` one approved snapshot maps to one handoff key; `006` Finance owns Posted/Paid/credit-applied status; `007` material source correction reruns match.
 
 ## 12. Data Fields and Ownership
 
-Procurement owns match ID, invoice/PO/receipt versions, comparable qty/price/tax/total, tolerance/policy version, exception and decision, approved handoff snapshot, delivery attempts and Finance refs. Finance owns AP bill, journal, tax treatment, due date as posted, credit application, payment date/ref. Procurement stores minimal status projection.
+Procurement owns match ID, invoice/PO/receipt versions, invoice branch reference, comparable qty/price/tax/total, tolerance/policy version, exception and decision, approved handoff snapshot, delivery attempts and Finance refs. Core owns the referenced branch and organization currency; capture defaults to that currency when none is supplied. Finance owns AP bill, journal, tax treatment, due date as posted, credit application, payment date/ref. Procurement stores minimal status projection.
 
 ## 13. Screens and Data Views
 
