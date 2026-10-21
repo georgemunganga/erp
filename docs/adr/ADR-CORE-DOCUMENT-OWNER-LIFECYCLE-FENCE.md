@@ -105,10 +105,13 @@ no physical locking claim.
 
 Existing `CoreDocumentWorkflowProbe` gains optional `--lifecycle-fence` (alone or
 with existing `--use-pins`; defaults unchanged). It is restricted to a private
-`core_doc_rehearsal_*` database and refuses unsafe connection settings. It authors
+`core_doc_rehearsal_*` database, explicitly requires `Pooling=true` and refuses
+unsafe connection settings. It authors
 actual shared coexistence, observed exclusive waiting, normal release, known active
 EF transaction denial, two-owner ordering with cancellation while the first key is
-held, uncertain-session discard and replacement acquiring both keys. It snapshots
+held, uncertain-session discard and a pooled replacement whose actual backend PID must
+differ from the cancelled contender before it acquires both keys. A nonpooled
+fresh connection is not represented as pool recovery. It snapshots
 all six owned Core document/use tables before/after and requires no mutation.
 It uses existing migrated document workflow setup; no fake pin/provider/readiness
 or document retirement operation is introduced. This does not prove reader-versus-

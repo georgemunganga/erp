@@ -12,8 +12,8 @@ internal static class DocumentLifecycleFenceVerification
         var settings = new NpgsqlConnectionStringBuilder(connectionString);
         if (!(settings.Database?.StartsWith("core_doc_rehearsal_", StringComparison.Ordinal) ?? false))
             throw new InvalidOperationException("Lifecycle lease probe requires a private core_doc_rehearsal_* database.");
-        if (settings.Multiplexing || settings.NoResetOnClose)
-            throw new InvalidOperationException("The private lifecycle probe requires pinned sessions with connection reset.");
+        if (!settings.Pooling || settings.Multiplexing || settings.NoResetOnClose)
+            throw new InvalidOperationException("The private lifecycle probe requires Pooling=true, pinned sessions and connection reset.");
         await using var a = new NpgsqlConnection(settings.ConnectionString);
         await using var b = new NpgsqlConnection(settings.ConnectionString);
         await using var observer = new NpgsqlConnection(settings.ConnectionString);
@@ -50,16 +50,16 @@ internal static class DocumentLifecycleFenceVerification
 
         var other = owner with { Id = Guid.NewGuid() };
         var ordered = new[] { owner, other }.OrderBy(x => DocumentOwnerLifecycleFence.Key(actor, x)).ToArray();
+        var canceledContenderPid = b.ProcessID;
         // Hold only the later key, so the contender obtains the first before it blocks/cancels.
         await using (var blocker = await DocumentOwnerLifecycleFence.AcquireAsync(first, actor, [ordered[1]], true, deadline.Token))
         {
             using var cancel = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
-            var contenderPid = b.ProcessID;
             var pending = DocumentOwnerLifecycleFence.AcquireAsync(second, actor, ordered.Reverse().ToArray(), false, cancel.Token);
-            await WaitForAdvisoryWait(observer, contenderPid, deadline.Token);
+            await WaitForAdvisoryWait(observer, canceledContenderPid, deadline.Token);
             await using (var held = new NpgsqlCommand("SELECT count(*) FROM pg_locks WHERE pid=@pid AND locktype='advisory' AND granted", observer))
             {
-                held.Parameters.AddWithValue("pid", contenderPid);
+                held.Parameters.AddWithValue("pid", canceledContenderPid);
                 Check((long)(await held.ExecuteScalarAsync(deadline.Token))! == 1, "Contender did not hold the first ordered owner before cancellation.");
             }
             cancel.Cancel();
@@ -71,6 +71,7 @@ internal static class DocumentLifecycleFenceVerification
         await using (var replacement = new NpgsqlConnection(settings.ConnectionString))
         {
             await replacement.OpenAsync(deadline.Token);
+            Check(replacement.ProcessID != canceledContenderPid, "Canceled physical session was returned as the pooled replacement.");
             await using var replacementContext = Context(replacement);
             await using var recovered = await DocumentOwnerLifecycleFence.AcquireAsync(replacementContext, actor, ordered, true, deadline.Token);
             await using var transaction = await replacementContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, deadline.Token);
@@ -78,7 +79,7 @@ internal static class DocumentLifecycleFenceVerification
             await transaction.RollbackAsync(deadline.Token);
         }
         Check(before == await Footprint(observer), "Lifecycle fence-only probe changed document/use/scan/event rows.");
-        Console.WriteLine("PASS private document owner lifecycle fence: actual shared/exclusive contention, pre-EF-BEGIN guard, sorted multi-owner canceled acquisition/unwind, replacement session recovery, no document or pin writes. No paired production lifecycle provider claimed.");
+        Console.WriteLine("PASS private document owner lifecycle fence: actual shared/exclusive contention, pre-EF-BEGIN guard, sorted multi-owner canceled acquisition/unwind, pooled replacement with a different canceled-session PID, no document or pin writes. No paired production lifecycle provider claimed.");
     }
 
     private static async Task WaitForAdvisoryWait(NpgsqlConnection observer, int pid, CancellationToken ct)
