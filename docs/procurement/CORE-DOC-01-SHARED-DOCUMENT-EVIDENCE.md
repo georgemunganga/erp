@@ -334,3 +334,64 @@ and retained-use workflows. This supersedes the preceding source-only statement
 for these bounded checks. The [ADR](../adr/ADR-CORE-DOCUMENT-OWNER-LIFECYCLE-FENCE.md#executed-integration-checkpoint--21-october-2026)
 records exact provenance, evidence paths and limitations. No operational consumer,
 paired retirement writer, publication or production activation is established.
+
+### U2 first enlisted owner adapter — source only, not registered
+
+This bounded slice adds Core `IDocumentUseAccess` with **distinct Acquire, Read and
+Download operations**. The owning module must authorize the current canonical actor,
+exact owner, consuming reference/revision/purpose and version IDs; generic owner Read,
+original signer status and possession of a pin do not grant content access. Read first
+checks reference access with an empty version list, then independently checks the
+loaded exact retained version IDs before returning metadata. There is no default
+implementation, module adapter, route, DI registration or capability activation.
+The Download operation is reserved for an explicit future exact-version consumer;
+this slice exposes no download method and does not change existing invoice downloads.
+
+`EfDocumentUsePinStore.CreateAsync` accepts the actual owning `DocumentDbContext`,
+matching scope, explicit purpose authorizer, complete owner set and a genuine
+`DocumentOwnerLifecycleFence` acquired on **that same context/session before BEGIN**.
+It requires the current enlisted SERIALIZABLE transaction. Every operation rechecks
+context identity, original tenant/entity/subject, exact transaction/connection,
+physical backend PID, owner coverage and the granted PostgreSQL advisory locks on
+that backend. Session close/reopen permanently invalidates the capability even if
+pooling returns the same PID. Disposed leases fail; the connection StateChange handler
+is unsubscribed on disposal. The existing shared lease still owns lock cleanup and
+uncertain-session pool invalidation. PostgreSQL inspection failures fail closed.
+
+Supported entry remains the ADR's managed, single-threaded session lifetime: no
+concurrent session commands, raw BEGIN/unlock, manual lease disposal, replacement
+transaction or close/reopen during an operation. The adapter does not claim to protect
+against malicious owner SQL, untracked transaction control or external poolers that
+break session pinning. The lock query distinguishes the 64-bit advisory namespace,
+current database and exact shared/exclusive mode; a caller Boolean is never accepted
+as held-lock evidence. Actual pooled PostgreSQL verification of this **adapter** is
+pending; the earlier executed fence-only checks do not establish these new checks.
+
+The adapter wraps the existing internal repository, stages no independent save or
+commit, runs no scanner/blob/network operation, and does not open a configured second
+store. Exact original-key Acquire replay retains original actor and complete selection
+invariants. Find can be authorized for a different current actor; it returns the
+original immutable set and does not invoke today's availability or scan lifecycle.
+`DocumentUsePin.Restore` validates owner-loaded retained identity, normalized UTC
+microsecond timestamps, scalar content/scan facts and chronology, without calling
+`Create`. The adapter also checks full stored set ownership/count/unique IDs/digest.
+Rehydration is internal consistency, not standalone proof of persistence or authority.
+
+`RequireNoRetainedUsesAsync` is only the port's coupled guard: it additionally requires
+an **exclusive** original owner lease, verifies the exact document owner, and denies
+local or persisted pins. It is not retirement authorization and performs no lifecycle
+mutation. The future authorized managed writer must retain this lease/transaction
+through commit. **NoRelease** is the supported boundary: no release/expiry/purge API,
+no retained-byte deletion and no inferred retention period. Existing domain Retire and
+context retained-use defenses are unchanged; paired managed-writer integration remains
+necessary before any new operational consumer is activated.
+
+Source-authored tests cover original retained restoration after current retirement,
+scalar/set/hash-valid corruption, cross-scope/owner/original-actor/time mixing,
+duplicate/incomplete sets, microsecond precision, absent genuine fence rejection,
+and distinct Read/Download operations. They are unbuilt/unrun. They make no physical
+adapter, scanner, finite-role or transaction-race claim. Next centralized gates must
+exercise actual adapter Acquire/Find/current-access denial/replay, rollback before and
+after every save, disposed/closed/replaced-session and lost-lock denials, both paired
+reader/writer orderings, finite grants and unchanged invoice/document workflows.
+The existing P03 schema is reused with no model or migration changes in this slice.
