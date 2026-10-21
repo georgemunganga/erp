@@ -73,3 +73,27 @@ existing P19 configuration edit/approve/read and PO-read policies where current 
 used future authority policies; future unknown actions remain denied. The full source
 recipe/hash inventory and no-DDL startup gate are recorded in
 `PROC-OPS-V36-ACCESS-HOTFIX-SOURCE-AUDIT.md`. This is unbuilt source, not deployment.
+
+## Retained P19 actual-handler test supplement (authored, not executed)
+
+`ProcurementAdminVendorHttpTests` maps the actual retained context, vendor and
+item handlers behind authentication, real authorization and scope middleware.
+Only outer authentication and existing persisted fixture records are synthetic;
+Core/Procurement use isolated InMemory stores. This is not PostgreSQL, production,
+new supplier activation, or employee-identity evidence.
+
+The test verifies the current company/branch and null-worker read-only context;
+actual vendor list/detail; all five detail action flags false; other-company and
+private other-creator draft invisibility; and all 19 mapped vendor write commands
+returning 403 with an unchanged independently re-read owner-store footprint
+(parent/children/decisions/audit/outbox/accounts and no employee). It also checks
+that retained GET open-orders (vendor-suspend) and item maintenance (item-manage)
+remain denied: authorization ran before scope narrowing, so middleware must
+recheck required endpoint policy metadata after narrowing. This is not a new
+item-read grant or an expansion of existing record visibility.
+
+This supplement is based on retained hotfix candidate `0333559`. The single
+middleware correction and test must be rebuilt into the chosen retained source
+before release; an earlier frozen candidate or successful synthetic metadata
+endpoint test cannot prove this actual-handler behavior. Root owns serial gates,
+full host publish/image provenance and any production decision under release hold.
