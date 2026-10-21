@@ -88,6 +88,10 @@ public sealed class DocumentUsePinRow
         ScanDefinitions = pin.Scan.Definitions!, ScanStartedAt = StoredInstant(pin.Scan.StartedAt), ScanFinishedAt = StoredInstant(pin.Scan.FinishedAt),
         CreatedBy = pin.CreatedBy, CreatedAt = StoredInstant(pin.CreatedAt),
     };
+    internal DocumentUsePin Restore(DocumentUseReference reference) => DocumentUsePin.Restore(
+        Id,TenantId,LegalEntityId,reference,Selection(),VersionNumber,FileName,MediaType,SizeBytes,
+        new DocumentScanEvidence(ScanEvidenceId,TenantId,LegalEntityId,VersionId,ScanAttempt,ScanVerdict,
+            Sha256,ScanEngine,ScanDefinitions,ScanStartedAt,ScanFinishedAt),CreatedBy,CreatedAt);
     // PostgreSQL timestamp precision: canonical UTC microseconds, avoiding digest changes on storage round-trip.
     internal static DateTimeOffset StoredInstant(DateTimeOffset at) => new(at.UtcTicks - at.UtcTicks % 10, TimeSpan.Zero);
     internal DocumentUseSelection Selection() => new(OwnerModule, OwnerType, OwnerId, DocumentId, VersionId,

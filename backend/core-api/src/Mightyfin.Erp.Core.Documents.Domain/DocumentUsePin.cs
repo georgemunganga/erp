@@ -84,6 +84,58 @@ public sealed class DocumentUsePin
     }
 
     /// <summary>
+    /// Validate an owner-loaded historical snapshot. This establishes internal evidence consistency,
+    /// never persistence, current permission, current availability or a new document use.
+    /// The owning adapter must additionally verify the complete stored set/digest and scope.
+    /// </summary>
+    public static DocumentUsePin Restore(Guid id, string tenantId, Guid legalEntityId,
+        DocumentUseReference source, DocumentUseSelection selection, int versionNumber,
+        string fileName, string mediaType, long sizeBytes, DocumentScanEvidence scan,
+        string createdBy, DateTimeOffset createdAt)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(selection);
+        ArgumentNullException.ThrowIfNull(scan);
+        static bool Text(string? value, int max) => !string.IsNullOrWhiteSpace(value)
+            && value == value.Trim() && value.Length <= max && !value.Any(char.IsControl);
+        static bool Token(string? value, int max) => Text(value, max)
+            && value!.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.');
+        static bool Instant(DateTimeOffset value) => value.Offset == TimeSpan.Zero
+            && value != DateTimeOffset.MinValue && value != DateTimeOffset.MaxValue && value.UtcTicks % 10 == 0;
+        if (id == Guid.Empty || !Text(tenantId,150) || legalEntityId == Guid.Empty || !Text(createdBy,150)
+            || !Instant(createdAt) || source.Key == Guid.Empty || source.RecordId == Guid.Empty
+            || source.Revision < 1 || !Enum.IsDefined(source.Kind) || !Token(source.Module,60) || !Token(source.RecordType,80)
+            || !Token(selection.OwnerModule,60) || !Token(selection.OwnerType,80) || selection.OwnerId == Guid.Empty
+            || selection.DocumentId == Guid.Empty || selection.VersionId == Guid.Empty
+            || selection.DocumentRevision < 1 || selection.VersionRevision < 1 || versionNumber < 1
+            || !Text(fileName,255) || fileName.IndexOfAny(['/', '\\', ':']) >= 0
+            || sizeBytes is < 1 or > 100 * 1024 * 1024
+            || selection.Sha256 is null || selection.Sha256.Length != 64
+            || selection.Sha256.Any(c => !(c is >= '0' and <= '9' or >= 'a' and <= 'f')))
+            throw new InvalidOperationException("Retained document identity is malformed.");
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        if (!(mediaType == "application/pdf" && extension == ".pdf"
+            || mediaType == "image/png" && extension == ".png"
+            || mediaType == "image/jpeg" && extension is ".jpg" or ".jpeg")
+            || scan.Id == Guid.Empty || scan.TenantId != tenantId || scan.LegalEntityId != legalEntityId
+            || scan.VersionId != selection.VersionId || scan.Attempt < 1 || scan.Verdict != ScannerVerdict.Clean
+            || scan.Sha256 != selection.Sha256 || scan.FailureCode is not null
+            || !Text(scan.Engine,120) || !Text(scan.Definitions,120)
+            || !Instant(scan.StartedAt) || !Instant(scan.FinishedAt)
+            || scan.StartedAt > scan.FinishedAt || scan.FinishedAt > createdAt)
+            throw new InvalidOperationException("Retained completed scan evidence is malformed.");
+        return new DocumentUsePin
+        {
+            Id=id, TenantId=tenantId, LegalEntityId=legalEntityId, Source=source,
+            OwnerModule=selection.OwnerModule, OwnerType=selection.OwnerType, OwnerId=selection.OwnerId,
+            DocumentId=selection.DocumentId, VersionId=selection.VersionId, VersionNumber=versionNumber,
+            DocumentRevision=selection.DocumentRevision, VersionRevision=selection.VersionRevision,
+            FileName=fileName, MediaType=mediaType, SizeBytes=sizeBytes, Sha256=selection.Sha256,
+            Scan=scan, CreatedBy=createdBy, CreatedAt=createdAt,
+        };
+    }
+
+    /// <summary>
     /// Resolve an independently reauthorized duplicate of this single reference. Returns the original evidence, including time/ID.
     /// Full-set equality (no extra/missing selected versions) and original-key recovery belong to the future atomic store port.
     /// Historical recovery must read the stored pin; it must not rebuild it through current availability checks.
