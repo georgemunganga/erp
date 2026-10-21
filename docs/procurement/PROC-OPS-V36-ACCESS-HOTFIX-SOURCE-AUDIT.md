@@ -152,3 +152,9 @@ Actual retained vendor handlers test list/detail read-only metadata and deny wri
 command-protected GETs. No future policy or route is enabled. The source manifest was
 regenerated for this corrected candidate; the original 033 source is not the final
 release artifact. Corrected focused regressions/full publish/strict probe remain pending.
+
+The second corrected gate still failed test compilation: the first import correction
+selected Infrastructure.Data, while the actual existing branch-assignment type is in
+`Mightyfin.Erp.Hrm.Application` (`SecurityCompliance.cs`). The fixture now imports that
+exact defining namespace. Both logs remain retained. This changes no production code;
+no test success or publish was claimed for either failed gate.

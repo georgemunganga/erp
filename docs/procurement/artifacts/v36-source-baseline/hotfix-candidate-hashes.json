@@ -86,7 +86,7 @@
     {
       "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/ProcurementAdminViewTests.cs",
       "p19Sha256": null,
-      "candidateSha256": "ab9251d0e54d1cde2bc2e74ef7864a8a57e6e1486d2af28ccb145ba61e8a90b3"
+      "candidateSha256": "99947c9123915ff46bbec693e0ae0037fdf1c39d805caaaa72496bf1935abc89"
     },
     {
       "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests/SetupWizardTests.cs",
@@ -845,5 +845,5 @@
     "20261014090000_LoanOpeningBalances",
     "20261016090000_M55BrandingFont"
   ],
-  "candidateStage": "Corrected after initial0333559 compile failure; includes249b14f/9675aa0 GET policy guard and test-only namespace fix; tests/build pending."
+  "candidateStage": "Final candidate after corrected exact Application namespace for HrUserBranchAssignment test fixture; API guard unchanged."
 }
