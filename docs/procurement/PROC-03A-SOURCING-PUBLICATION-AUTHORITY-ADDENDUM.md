@@ -111,3 +111,9 @@ Procurement owns finite grant decisions; Core owns identity/roles/scope. Backend
 ## 28. Open decisions
 
 No publication execution policy is inferred. Next O4/O5 adapters must prove current source/catalog/Finance, supplier audience and contact eligibility, scanned immutable pack/version retention with cooperative lifecycle writers, actual Core case/votes and sealed internal publication. Supplier dispatch/bids/award remain later contracts; production options and release hold stay unchanged.
+
+## Executed backend checkpoint —21October2026
+
+Source `17a0a5e` passed781Procurement domain/model,311mapped API/Core regression and112shared document tests (separate suites). Actual isolated PostgreSQL settings mode passed source draft creation, submission and independent activation; exact `SourcingEvent.Publish`/`procurement-sourcing-publish`/`ApprovedLineBase` tuple, PR/PO family isolation, wrong-currency no-effects and absence of operational publication were checked. Restricted runtime privileges were exercised. Protected executable/provenance/log/result: `/home/amizo/erp-backups/procurement-p29-http-policies-20261021_094635/`. This mode did not produce a schema2 request submission; its explicit NOT EXERCISED result remains retained.
+
+Existing UI application `e366f78` passed30focused unit tests, TypeScript/staged live build and22/22 mocked HTTP browser contracts, including the direct existing RFQ approvals tab. An actual UI authority workflow with independent persisted owner proof remains the next gate; it is not inferred from those mocks or the standalone API result. No publication endpoint/operational flag, production migration or deployment was enabled.

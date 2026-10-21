@@ -7,6 +7,14 @@
 The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared services can already be reused and which HRMS implementations are still module-specific.
 The [workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) ties Zoho's help journeys to the child features and ERP ownership boundaries. Use ERPNext as a secondary public implementation example for complex data/control decisions.
 
+## Continued verified checkpoint —21October2026,09:52UTC
+
+- Shared document owner use/retirement increment `17a0a5e` passed112Core tests and actual finite-role PostgreSQL race/rollback/access/session verification. Independent review caught the pre-fence stale tracking race and its correction is covered by the actual interleaving. See [U2 evidence](CORE-DOC-U2-ACTUAL-VERIFICATION.md). Runtime module adapters are still unregistered.
+- Same source passed781Procurement domain/model and311mapped API/Core regression tests. Exact finite sourcing approval-limit setup passed actual HTTP/PostgreSQL draft/submit/independent activation, with no operational publication. See [authority checkpoint](PROC-03A-SOURCING-PUBLICATION-AUTHORITY-ADDENDUM.md#executed-backend-checkpoint-21october2026).
+- Existing RFQ settings route now reuses live SOURCING steps and approval limits. UI `e366f78` passed30focused units, TypeScript/build and22mocked browser cases; actual UI authority/owner proof remains next.
+- [RFQ audience preparation](PROC-06-P02-RFQ-AUDIENCE-PREPARATION.md) specifies all28sections and explicit draft configuration choices. Parser `448c1fe` is under source verification; schema2 owned lifecycle integration remains separate. No RFQ audience eligibility, invitation dispatch, bid or award authority is inferred.
+- Production and remaining programme scope retain the existing release hold; this checkpoint does not complete Procurement or deploy changes.
+
 ## Current verified checkpoint — 21 October 2026,09:38UTC
 
 This supersedes pending statuses in older checkpoints for the named increments only. Production remains v36/P19 under the existing release hold.
