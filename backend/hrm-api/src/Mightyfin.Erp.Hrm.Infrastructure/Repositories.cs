@@ -1193,7 +1193,11 @@ public sealed class PayrollRepository(HrmDbContext db) : IPayrollRepository
                 && p.Worker != null
                 && !p.Worker.IsArchived)
             .ToListAsync(ct))
-            .Where(p => !p.EffectiveTo.HasValue || p.EffectiveTo >= DateOnly.FromDateTime(DateTime.UtcNow))
+            // Select assignments that actually cover this pay period. Checking
+            // against today incorrectly includes future profiles in backdated
+            // runs and excludes profiles that were valid only historically.
+            .Where(p => p.EffectiveFrom <= period.EndDate
+                && (!p.EffectiveTo.HasValue || p.EffectiveTo >= period.StartDate))
             // M46: a run scoped to a branch only pays the workers attached to
             // that branch (denormalized read view on Worker.LocationId; the
             // assignment history remains the source of truth for org chart).
@@ -1294,9 +1298,16 @@ public sealed class PayrollRepository(HrmDbContext db) : IPayrollRepository
             .GroupBy(c => c.ComponentCode)
             .Select(g => new { Code = g.Key, Amount = g.Sum(x => x.Amount) })
             .ToListAsync(ct);
-        return rows
+        var recovered = rows
             .Where(row => codeById.ContainsKey(row.Code))
             .ToDictionary(row => codeById[row.Code], row => row.Amount);
+        var opening = await db.SalaryAdvances
+            .Where(a => advanceIds.Contains(a.Id) && a.OpeningRecoveredAmount > 0)
+            .Select(a => new { a.Id, a.OpeningRecoveredAmount })
+            .ToListAsync(ct);
+        foreach (var item in opening)
+            recovered[item.Id] = recovered.GetValueOrDefault(item.Id) + item.OpeningRecoveredAmount;
+        return recovered;
     }
 
     public async Task<bool> IsAttendanceDateLockedAsync(Guid workerId, DateOnly date, CancellationToken ct)

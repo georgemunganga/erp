@@ -16,6 +16,11 @@ public static class ProcurementPermissions
     private static readonly IReadOnlyDictionary<string, string[]> RoleGrants = ProcurementActionCatalog.BootstrapGrants;
     public const string ConfiguredClaim = "procurement_permissions_configured";
     public const string ActionClaim = "procurement_permission";
+    // Added only after the middleware verifies a worker-less Core admin GET.
+    // A narrowing claim: it cannot grant an action or replace existing authorization.
+    public const string AdminViewOnlyClaim = "procurement_admin_view_only";
+    public static bool IsReadOnlyPolicy(string policy) => policy == "procurement-access"
+        || policy.EndsWith("-read", StringComparison.Ordinal) || policy == "procurement-receipt-view";
 
     public static async Task<string[]> ResolveConfiguredActionsAsync(HrmDbContext db, string csv, CancellationToken ct)
     {
@@ -51,6 +56,8 @@ public static class ProcurementPermissions
     public static bool Allows(string policy, IEnumerable<Claim> claims)
     {
         if (!RoleGrants.TryGetValue(policy, out var roles)) return false;
+        if (claims.Any(x => x.Type == AdminViewOnlyClaim && x.Value == "true")
+            && !IsReadOnlyPolicy(policy)) return false;
         var principal = WorkerPrincipal.FromClaims(claims);
         if (claims.Any(x => x.Type == ConfiguredClaim))
         {

@@ -19,8 +19,16 @@ try
 {
     var domain = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(path, "Mightyfin.Erp.Hrm.Domain.dll"));
     var advance = domain.GetType("Mightyfin.Erp.Hrm.Domain.Entities.SalaryAdvance", true)!;
-    Console.WriteLine($"SalaryAdvance.OpeningRecoveredAmount exists: {advance.GetProperty("OpeningRecoveredAmount") is not null}");
-    Console.WriteLine($"SalaryAdvance.RecordType exists: {advance.GetProperty("RecordType") is not null}");
+    RequireProperty("OpeningRecoveredAmount", typeof(decimal));
+    RequireProperty("RecordType", typeof(string));
+    RequireProperty("IssueDate", typeof(DateOnly?));
+    void RequireProperty(string name, Type expected)
+    {
+        var actual = advance.GetProperty(name)?.PropertyType;
+        if (actual != expected)
+            throw new InvalidOperationException($"Live loan data requires SalaryAdvance.{name} as {expected}; candidate has {actual?.ToString() ?? "no property"}.");
+        Console.WriteLine($"SalaryAdvance.{name}: compatible");
+    }
     var infrastructure = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(path, "Mightyfin.Erp.Hrm.Infrastructure.dll"));
     var target = infrastructure.GetTypes().Single(x => x.Name.Contains("<GetSalaryAdvanceRecoveredAmountsAsync>"));
     var moveNext = target.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Instance)
