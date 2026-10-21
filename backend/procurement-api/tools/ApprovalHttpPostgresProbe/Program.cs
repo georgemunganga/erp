@@ -30,14 +30,15 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching"))
+if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--legacy-sourcing"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
     || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal)))))
-    throw new ArgumentException("Use --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving or --matching.");
+    throw new ArgumentException("Use standalone --legacy-sourcing, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving or --matching.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
+var legacySourcing = args.Contains("--legacy-sourcing", StringComparer.Ordinal);
 var matching = args.Contains("--matching", StringComparer.Ordinal);
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
-var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving;
+var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving || legacySourcing;
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
@@ -45,7 +46,7 @@ if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
 if (orders && bootstrapConnection is null) throw new InvalidOperationException("Order verification requires distinct bootstrap/runtime identities.");
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching);
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, legacySourcing);
 if (!serve)
 {
     await probe.VerifyFinanceCheckerReadiness();
@@ -64,6 +65,12 @@ if (serve)
         await probe.VerifyOrderBrowserCompletion();
     if (orders && !receiving && Environment.GetEnvironmentVariable("PROCUREMENT_BUDGET_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyBudgetBrowserCompletion();
+}
+else if (legacySourcing)
+{
+    await probe.VerifyInitialOrders();
+    await probe.VerifyLegacySourcing();
+    Console.WriteLine("PASS: used P27 database with real legacy RFQ create/cancel and retained DraftCancelled audit; ready only for later P28 migration rehearsal.");
 }
 else if (matching)
 {
@@ -113,7 +120,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private Guid OrderManager2 => manager2;
     private bool OrderDistinctRuntime => distinctRuntime;
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool legacySourcing = false)
     {
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
@@ -163,6 +170,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         else
         {
             ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
+            if (legacySourcing) ProcurementSourcingDraftRoutes.MapRoutes(app);
             ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
             if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
             if (matching)
@@ -252,7 +260,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         if (bootstrapConnection is not null)
-            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching);
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching, legacySourcing:legacySourcing);
         if(serve && matching) await VerifyMatchingScannerBoundary();
         await app.StartAsync();
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
