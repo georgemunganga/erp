@@ -3,6 +3,7 @@ import { Loader2, LogOut, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/platform/app-context";
 import { useAuth } from "@/platform/auth";
+import { admitsPageRoles } from "@/platform/auth-gate-access";
 import { canManageCore } from "@/platform/entry-route";
 
 const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "true";
@@ -20,7 +21,7 @@ const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "
  * role so every existing page gate keeps working. Authenticated identities
  * without an HRM workforce role receive an explicit access-denied screen.
  */
-export function AuthGate({ children, module = "hrm" }: { children: React.ReactNode; module?: "hrm" | "erp" }) {
+export function AuthGate({ children, module = "hrm", roles }: { children: React.ReactNode; module?: "hrm" | "erp"; roles?: readonly string[] }) {
   const { loading, authenticated, authorized, erpAuthorized, user, signOut, resolveRole } = useAuth();
   const admitted = module === "erp" ? erpAuthorized : authorized;
   const { role, setRole } = useApp();
@@ -78,6 +79,16 @@ export function AuthGate({ children, module = "hrm" }: { children: React.ReactNo
     );
   }
 
+  if (!admitsPageRoles(admitted, user?.roles ?? [], roles)) {
+    return <div className="flex min-h-screen items-center justify-center bg-background px-4" data-testid="erp-page-access-denied">
+      <div className="max-w-md text-center">
+        <ShieldAlert className="mx-auto size-9 text-danger" aria-hidden />
+        <h1 className="mt-4 text-xl font-semibold">You do not have permission</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Your account can access this module, but this page needs another assigned role.</p>
+        <Button className="mt-5" variant="outline" onClick={() => window.location.assign("/")}>Choose a module</Button>
+      </div>
+    </div>;
+  }
   return <>{children}</>;
 }
 

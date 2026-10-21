@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, hrmApi, type CompanyBranding, type CompanyBrandingUpdate } from "@/platform/api-client";
+import type { OrgChart, ReportingLineList } from "@/platform/organisation-contracts";
 import type { EducationRecord } from "@/mock/employeeprofile";
 
 export interface ApiState<T> {
@@ -963,9 +964,9 @@ export const realApi = {
     hrmApi.post<unknown>(`/hrm/recruitment/preboarding/${id}/activate`, null),
   /** M39: organization chart + reporting lines. */
   orgChart: () =>
-    hrmApi.get<{ asAt: string; roots: unknown[] }>("/hrm/org-chart"),
+    hrmApi.get<OrgChart>("/hrm/org-chart"),
   reportingLines: (params?: Record<string, unknown>) =>
-    hrmApi.get<{ items: unknown[]; total: number }>("/hrm/reporting-lines", params ?? {}),
+    hrmApi.get<ReportingLineList>("/hrm/reporting-lines", params ?? {}),
   updateReportingLines: (body: Record<string, unknown>) =>
     hrmApi.post<unknown>("/hrm/reporting-lines", body),
   /** M40: HR analytics dashboard — workforce, leave, payroll cost, performance,

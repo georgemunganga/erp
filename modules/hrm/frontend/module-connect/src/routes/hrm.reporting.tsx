@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { realApi, useApi } from "@/platform/use-api";
+import type { ReportingLine, ReportingLineList } from "@/platform/organisation-contracts";
+import { StatusBadge } from "@/platform/components/StatusBadge";
 import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Async } from "@/platform/components/Async";
@@ -29,25 +31,6 @@ export const Route = createFileRoute("/hrm/reporting")({
   }),
   component: ReportingPage,
 });
-
-interface ReportingLine {
-  workerId: string;
-  employeeNo: string;
-  fullName: string;
-  status: string;
-  orgUnitId: string;
-  orgUnitName: string;
-  managerId: string | null;
-  managerName: string | null;
-  grade: string;
-  jobTitle: string;
-  managerNamePath: string | null;
-}
-
-interface ReportingLineList {
-  items: ReportingLine[];
-  total: number;
-}
 
 interface ManagerOption {
   id: string;
@@ -199,6 +182,10 @@ function ChangeManagerDialog({
 }
 
 function ReportingPage() {
+  return <AppShell><AuthGate roles={["hr_ops", "hr_admin"]}><ReportingContent /></AuthGate></AppShell>;
+}
+
+function ReportingContent() {
   const [orgUnitId, setOrgUnitId] = useState<string | undefined>(undefined);
   const state = useApi<ReportingLineList>(
     () => realApi.reportingLines(orgUnitId ? { orgUnitId } : {}),
@@ -212,11 +199,11 @@ function ReportingPage() {
     ? Array.from(
         new Map(
           state.data.items
-            .filter((r) => r.orgUnitId && r.orgUnitName)
+            .filter((r): r is ReportingLine & { orgUnitId: string; orgUnitName: string } => Boolean(r.orgUnitId && r.orgUnitName))
             .map((r) => [r.orgUnitId, r.orgUnitName] as [string, string]),
         ),
       ).map(([id, name]) => ({ id, name }))
-    : unitOptions;
+    : [];
 
   const columns: ColumnDef<ReportingLine>[] = [
     {
@@ -285,8 +272,7 @@ function ReportingPage() {
   ];
 
   return (
-    <AppShell>
-      <AuthGate roles={["hr_ops", "hr_admin"]}>
+    <>
         <PageHeader
           eyebrow="Organisation"
           title="Reporting lines"
@@ -314,9 +300,10 @@ function ReportingPage() {
           {(list) => (
             <ListPage<ReportingLine>
               rows={list.items}
+              rowKey={(row) => row.workerId}
               columns={columns}
               filters={filters}
-              searchFields={(r) => `${r.fullName} ${r.employeeNo} ${r.orgUnitName} ${r.managerName ?? ""} ${r.jobTitle ?? ""}`}
+              searchFields={(r) => `${r.fullName} ${r.employeeNo} ${r.orgUnitName ?? ""} ${r.managerName ?? ""} ${r.jobTitle ?? ""}`}
               searchPlaceholder="Search employees, units, managers…"
               bulkActions={[
                 {
@@ -350,7 +337,6 @@ function ReportingPage() {
             }}
           />
         ) : null}
-      </AuthGate>
-    </AppShell>
+    </>
   );
 }

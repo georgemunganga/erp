@@ -142,3 +142,35 @@ Authored gate (not executed): `dotnet test backend/hrm-api/src/Mightyfin.Erp.Hrm
 Frozenf4aa50d:28/28 focused Core organisation authority, mapped HTTP authority, ConfigAdminService and EntityTree tests passed,0failed/skipped (25seconds). Offline restore/build/test pipeline terminated0; artifacts/core-organisation/verification.log and results/core-organisation.trx retained in the isolated authority worktree. Existing unrelated compiler/analyzer warnings are not claimed resolved.
 
 Mapped tests exercise actual route registration, services, repositories, principal tenant/access policy, audit interceptor and ShellContext middleware against scoped SQLite fixtures. They cover ERP-only administrator metadata CRUD without employee queries, HRM/payroll denial, anonymous/employee denial, foreign-tenant IDs and forged company context, denied manager assignment and malformed currency without mutations, and mixed limited workforce roles. This is not the full production Program host, PostgreSQL/SSO, a new schema migration, frontend browser or deployment proof. Remaining existing editor UI and actual-session/integration/release gates stay separate.
+
+### Shared UI type corrections — source-only follow-up
+
+The locked frontend gate identified unrelated pre-existing HRM type failures alongside
+Core editor verification. This bounded follow-up fixes the branch-access PageHeader
+`primaryAction`, Async render callback and EmptyState `body` contracts using the existing
+components. Organization chart/reporting client DTOs now match the existing
+`OrganizationServices.cs` response, including nullable department/grade/title fields;
+there is no new organization or employee master. Reporting's missing unit fallback is
+an empty known option list, not invented departments, and its existing StatusBadge is
+imported.
+
+The actual shared admission component is `AuthGate`; no `RequireRole` definition exists
+in this source. Its optional `roles` prop now **narrows** existing authenticated module
+admission, without changing default admission or adding any ERP-admin bypass into HRM.
+The chart and reporting pages retain their original `hr_ops`/`hr_admin` requirement,
+matching their backend service, and their data hooks mount only inside the admitted
+page. An ERP-only admin, employee, manager or payroll identity cannot gain these page
+roles merely by signing in. Demo-mode pass-through stays the existing behavior;
+backend authorization/data scope remains authoritative in real mode. Three authored
+pure guard cases cover default admission, independent module denial, explicit role
+restrictions, mixed roles, case normalization and empty-list denial.
+
+`ListPage` retains its existing `id` default for all existing records and selection,
+select-all, row-opening and bulk action behavior. A typed `rowKey` callback is required
+for owner DTOs without an `id`. Reporting uses its actual `workerId` as that feature
+key, with no generated or fabricated reporting-line entity ID. Nullable response fields
+remain nullable rather than being cast into invented values. No backend, role grant,
+package/lock/tsconfig or other agents' payroll/benefits/attendance files are changed.
+These fixes and three guard cases are source-only and unrun; root owns the next
+combined locked-dependency TypeScript/build/browser verification. No runtime success
+or deployment is claimed.
