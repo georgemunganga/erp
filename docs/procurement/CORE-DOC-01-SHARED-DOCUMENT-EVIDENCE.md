@@ -301,3 +301,15 @@ All SaveChanges overloads deny use-row mutation/deletion, added pins without the
 Compatibility: once this source is adopted, an attempted managed retirement queries the new use table even though the repository is unregistered; it therefore requires the future additive Core migration. Missing schema must fail rather than silently permit retirement. Ordinary upload/scan/download saves do not query use tables when they contain no new use or retirement mutation. Runtime release must gate the owner adapter on the real Core schema, exact constraints and finite grants, not just connectivity or this specification. No migration/readiness provider is included in this slice.
 
 Authored tests cover exact-set reload/replay, separate review/publication references sharing bytes, changed set/actor rejection, same-save and persisted-retirement denial, partial/tampered/adopted pins, append-only scope isolation, historical recovery under a synthetic administrative bypass, malformed inputs, exact-finished scan timing, canonical timestamps and scoped Npgsql model definitions. InMemory tests prove save guards only; model inspection does not execute constraints. No build/test/database job was run for this source checkpoint. Later gates require actual Core migration SQL/rehearsal, real PostgreSQL constraints/round-trip/concurrent writer proof and rollback with the consuming transaction.
+
+### Owner lifecycle lease prerequisite — source only
+
+[The shared lease extraction ADR](../adr/ADR-CORE-DOCUMENT-OWNER-LIFECYCLE-FENCE.md)
+records the new Documents-owned pre-transaction fence, exact stable owner key,
+bounded deterministic multi-owner acquisition/reverse cleanup and managed EF
+transaction prerequisites. The proven branch/catalog lease implementation is moved
+unchanged into shared Core persistence infrastructure; their key bytes and existing
+semantics remain unchanged. No use-store/retirement/provider route is wired, no schema
+or policy is added and no production protection is claimed until both owning reader
+and lifecycle writer participate. Authored unit/opt-in private PostgreSQL probe
+source is unrun; root owns serialized gates and activation remains unavailable.
