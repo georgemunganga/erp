@@ -26,6 +26,7 @@ sealed partial class Probe
         var raceSource = await NewApprovedOrderSource("RFQ concurrent source", 1, 10, 10);
         var untouched = await NewApprovedOrderSource("Untouched competitive source for direct exclusion", 1, 10, 10);
         var tiny = await NewApprovedOrderSource("Exact eight-place hold value", 0.0001m, 0.0001m, 0.0001m);
+        var catalogSecurity = await PrepareRfqCatalogSecuritySource();
         await SetFiniteRfqActor();
         var picker = await Get(Root + "/sourcing/approved-sources?page=1&pageSize=25", buyer);
         Require(picker.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("purchaseRequestLineId").GetGuid() == SourceLine(a)
@@ -58,6 +59,8 @@ sealed partial class Probe
         Require(before == await RfqFootprint(), "RFQ replay/read/recovery changed evidence or source revisions.");
         await VerifyRfqBranchAndOwnerDenials(e1, e1key);
         await VerifyRfqCurrentActionDenial(e1, e1key);
+        await VerifyRfqSecurityIdentitiesAndScope(e1, e1key, a);
+        await VerifyRfqCatalogWithdrawal(catalogSecurity);
         var detail = await Get($"{Root}/sourcing/{e1}/source-draft", buyer);
         Require(detail.GetProperty("canPublish").ValueKind == JsonValueKind.False
             && detail.GetProperty("financeReservationChanged").ValueKind == JsonValueKind.False, "Internal hold falsely claimed publication/Finance effect.");
