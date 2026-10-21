@@ -5,6 +5,7 @@ import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Async } from "@/platform/components/Async";
 import { PageHeader } from "@/platform/components/PageHeader";
+import type { OrgChart, OrgChartNode } from "@/platform/organisation-contracts";
 import { StatusBadge } from "@/platform/components/StatusBadge";
 
 export const Route = createFileRoute("/hrm/org-chart")({
@@ -16,26 +17,6 @@ export const Route = createFileRoute("/hrm/org-chart")({
   }),
   component: OrgChartPage,
 });
-
-interface OrgChartNode {
-  id: string;
-  code: string;
-  name: string;
-  unitType: string;
-  status: string;
-  parentId: string | null;
-  managerId: string | null;
-  managerName: string | null;
-  managerJobTitle: string | null;
-  headcount: number;
-  legalEntityName: string | null;
-  children: OrgChartNode[];
-}
-
-interface OrgChart {
-  asAt: string;
-  roots: OrgChartNode[];
-}
 
 /** Small icon per unit type so the chart reads at a glance. */
 function unitTypeIcon(unitType: string) {
@@ -98,11 +79,14 @@ function UnitRow({ nodes }: { nodes: OrgChartNode[] }) {
 }
 
 function OrgChartPage() {
+  return <AppShell><AuthGate roles={["hr_ops", "hr_admin"]}><OrgChartContent /></AuthGate></AppShell>;
+}
+
+function OrgChartContent() {
   const state = useApi<OrgChart>(() => realApi.orgChart(), []);
 
   return (
-    <AppShell>
-      <AuthGate roles={["hr_ops", "hr_admin"]}>
+    <>
         <PageHeader
           eyebrow="Organisation"
           title="Organization chart"
@@ -136,7 +120,6 @@ function OrgChartPage() {
             </div>
           )}
         </Async>
-      </AuthGate>
-    </AppShell>
+    </>
   );
 }

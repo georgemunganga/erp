@@ -729,7 +729,10 @@ function EditRun() {
                   try {
                     if (run.status === "draft") {
                       if (!_values.payGroupId || !_values.payPeriodId) {
-                        feedback.blocked("Choose a pay group and pay period before saving.");
+                        feedback.blocked(
+                          "Payroll run cannot be saved",
+                          "Choose a pay group and pay period before saving.",
+                        );
                         return;
                       }
                       await realApi.updatePayrollRun(id, {

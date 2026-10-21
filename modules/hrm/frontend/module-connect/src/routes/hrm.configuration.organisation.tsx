@@ -1,7 +1,9 @@
+import { OrganisationMasterDialog } from "@/modules/core/OrganisationMasterDialog";
+import type { OrganisationEditorKind } from "@/modules/core/organisation-editing";
 import { RecordTable } from "@/platform/components/RecordTable";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { CalendarClock, History, Info, Lock, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +32,7 @@ import {
   adminConfigApi,
   canDeleteUnit,
   shortEntityName,
-  todayIso,
+  todayIso as demoTodayIso,
   unitState,
   unitStateExplanation,
 } from "@/mock/adminconfig";
@@ -47,6 +49,8 @@ import { StatusTimeline } from "@/platform/components/StatusTimeline";
 import type { TimelineEvent } from "@/mock/types";
 import { realApi, useApi } from "@/platform/use-api";
 import { useAuth } from "@/platform/auth";
+import { useApp } from "@/platform/app-context";
+import { canManageOrganisation, canReadOrganisationHeadcounts, optionalOrganisationHeadcounts, hasCompleteOrganisationHeadcounts } from "@/platform/entry-route";
 import { feedback } from "@/platform/feedback";
 import { ConfirmDialog } from "@/platform/components/ConfirmDialog";
 
@@ -81,6 +85,7 @@ interface DraftClosure {
 }
 
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
+const todayIso = USE_REAL ? new Date().toISOString().slice(0, 10) : demoTodayIso;
 
 const kindMap: Record<string, LocationKind> = {
   branch: "Office",
@@ -92,8 +97,10 @@ const kindMap: Record<string, LocationKind> = {
   works: "Works",
 };
 
-function adaptEntities(rows: unknown[]): LegalEntityConfig[] {
+type EditableEntity = LegalEntityConfig & { _source?: Record<string, unknown> };
+function adaptEntities(rows: unknown[]): EditableEntity[] {
   return (rows as Record<string, unknown>[]).map((e) => ({
+    _source: e,
     id: String(e.id ?? ""),
     entityId: String(e.id ?? ""),
     registeredName: String(e.registeredName ?? ""),
@@ -106,12 +113,13 @@ function adaptEntities(rows: unknown[]): LegalEntityConfig[] {
     employees: 0,
     branches: 0,
     effectiveFrom: String(e.createdAt ?? "").slice(0, 10) || todayIso,
-  })) as LegalEntityConfig[];
+  })) as EditableEntity[];
 }
 
-type OrgUnitWithEntity = OrgUnitConfig & { _entityName?: string };
+type OrgUnitWithEntity = OrgUnitConfig & { _entityName?: string; _source?: Record<string, unknown> };
 function adaptUnits(rows: unknown[]): OrgUnitWithEntity[] {
   return (rows as Record<string, unknown>[]).map((u) => ({
+    _source: u,
     id: String(u.id ?? ""),
     name: String(u.name ?? ""),
     code: String(u.code ?? ""),
@@ -264,11 +272,10 @@ function CloseUnitForm({
       {unit ? (
         <div className="rounded-md border bg-surface-muted px-3 py-2 text-sm">
           <p className="font-medium">
-            {unit.employees} employee{unit.employees === 1 ? "" : "s"} and {unit.positions} position
-            {unit.positions === 1 ? "" : "s"} sit under {unit.name}.
+            {USE_REAL ? `Closing ${unit.name}. Employee and position impacts must be reviewed separately.` : `${unit.employees} employee${unit.employees === 1 ? "" : "s"} and ${unit.positions} position${unit.positions === 1 ? "" : "s"} sit under ${unit.name}.`}
           </p>
           <p className="mt-1 text-muted-foreground">
-            {canDeleteUnit(unit)
+            {!USE_REAL && canDeleteUnit(unit)
               ? "Nothing references this unit, so it can also be removed outright."
               : `Closing does not move them. Reassign them before ${
                   unit.name
@@ -422,7 +429,7 @@ function NewLocationDialog({
 
 /* -------------------------------------------------------------------------- */
 
-function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: string; canAct: boolean }) {
+function EntityTable({ rows, asAt, canAct, workforceCountsAvailable, onEdit }: { rows: EditableEntity[]; asAt: string; canAct: boolean; workforceCountsAvailable: boolean; onEdit: (source: Record<string, unknown>) => void }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
       <RecordTable className="w-full min-w-[52rem] text-left text-sm">
@@ -502,7 +509,7 @@ function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: 
               <td className="px-3 py-3">
                 <StatusBadge status={unitState(e, asAt)} />
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  {e.employees} employee{e.employees === 1 ? "" : "s"} · {e.branches} location
+                  {workforceCountsAvailable ? `${e.employees} employee${e.employees === 1 ? "" : "s"}` : "Employee counts unavailable"} · {e.branches} location
                   {e.branches === 1 ? "" : "s"}
                 </span>
               </td>
@@ -512,7 +519,7 @@ function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: 
                     variant="ghost"
                     size="sm"
                     className="h-8"
-                    onClick={() =>
+                    onClick={() => USE_REAL && e._source ? onEdit(e._source) :
                       feedback.note(
                         `Editing ${e.registeredName}.`,
                         "An entity change needs an effective date — it decides which payroll rules apply from when.",
@@ -535,7 +542,7 @@ function EntityTable({ rows, asAt, canAct }: { rows: LegalEntityConfig[]; asAt: 
   );
 }
 
-function LocationTable({ rows, asAt, canAct }: { rows: WorkLocationWithEntity[]; asAt: string; canAct: boolean }) {
+function LocationTable({ rows, asAt, canAct, workforceCountsAvailable }: { rows: WorkLocationWithEntity[]; asAt: string; canAct: boolean; workforceCountsAvailable: boolean }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
       <RecordTable className="w-full min-w-[48rem] text-left text-sm">
@@ -613,9 +620,9 @@ function LocationTable({ rows, asAt, canAct }: { rows: WorkLocationWithEntity[];
                 </span>
               </td>
               <td className="px-3 py-3">
-                {l.employees} employee{l.employees === 1 ? "" : "s"}
+                {workforceCountsAvailable ? `${l.employees} employee${l.employees === 1 ? "" : "s"}` : "Employee counts unavailable"}
                 <span className="block text-xs text-muted-foreground">
-                  {l.positions} position{l.positions === 1 ? "" : "s"}
+                  {USE_REAL ? "Position counts unavailable" : `${l.positions} position${l.positions === 1 ? "" : "s"}`}
                 </span>
               </td>
               <td className="px-3 py-3">
@@ -714,13 +721,13 @@ function ScheduledChangeItem({
 
 /* -------------------------------------------------------------------------- */
 
-async function loadOrganisation() {
+async function loadOrganisation(roles: string[]) {
   if (!USE_REAL) return adminConfigApi.organisation();
   const [rawEntities, units, locations, workerPage] = await Promise.all([
     realApi.legalEntities(),
     realApi.orgUnits(),
     realApi.locations(),
-    realApi.employees({ page: 1, pageSize: 500, includeArchived: false }),
+    optionalOrganisationHeadcounts(roles, () => realApi.employees({ page: 1, pageSize: 500, includeArchived: false })),
   ]);
   const entities = Array.isArray(rawEntities) ? rawEntities : (rawEntities as { items?: unknown[] }).items ?? [];
   const adaptedEntities = adaptEntities(entities);
@@ -728,7 +735,7 @@ async function loadOrganisation() {
   const locationsArr = Array.isArray(locations) ? locations : (locations as { items?: unknown[] }).items ?? [];
   const adaptedUnits = adaptUnits(unitsArr);
   const adaptedLocations = adaptLocations(locationsArr);
-  const workers = (workerPage.items ?? []) as Record<string, unknown>[];
+  const workers = (workerPage?.items ?? []) as Record<string, unknown>[];
   const locationEntity = new Map(locationsArr.map((row) => {
     const location = row as Record<string, unknown>;
     return [String(location.id ?? ""), String(location.legalEntityId ?? "")];
@@ -742,6 +749,7 @@ async function loadOrganisation() {
     entity.employees = workers.filter((worker) => locationEntity.get(String(worker.locationId ?? "")) === entity.id).length;
   }
   return {
+    workforceCountsAvailable: hasCompleteOrganisationHeadcounts(workerPage),
     entities: adaptedEntities,
     units: adaptedUnits as OrgUnitConfig[],
     locations: adaptedLocations as WorkLocation[],
@@ -751,13 +759,25 @@ async function loadOrganisation() {
 }
 
 export function OrganisationConfig() {
-  const state = useApi(loadOrganisation);
-  const userRoles = new Set(useAuth().user?.roles ?? []);
-  const canAct = userRoles.has("hr_admin") || userRoles.has("hr_ops");
+  const auth = useAuth();
+  const { entityId, branch } = useApp();
+  const roles = auth.user?.roles ?? [];
+  // Auth/session replacement includes any tenant-context change; no credentials enter keys or storage.
+  const editorContext = useMemo(() => ({}), [auth.user, auth.session, auth.authenticated, entityId, branch, roles.join("|")]);
+  const activeEditorContext = useRef(editorContext);
+  activeEditorContext.current = editorContext;
+  const loaded = useApi(async () => ({ ...(await loadOrganisation(roles)), editorContext }), [editorContext]);
+  // Hide prior-context records immediately, before the data-hook effect starts the next request.
+  const state = { ...loaded, loading: loaded.loading || (loaded.data !== null && loaded.data.editorContext !== editorContext) };
+  const canAct = canManageOrganisation(roles);
+  // The capped workforce endpoint is not an authoritative organization-wide total.
+  const workforceCountsAvailable = !USE_REAL || (canReadOrganisationHeadcounts(roles) && state.data !== null && "workforceCountsAvailable" in state.data && state.data.workforceCountsAvailable === true);
   const [asAt, setAsAt] = useState(todayIso);
   const [drafts, setDrafts] = useState<DraftClosure[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [newLocation, setNewLocation] = useState(false);
+  const [editor, setEditor] = useState<{ kind: OrganisationEditorKind; initial: Record<string, unknown> | null; context: object } | null>(null);
+  useEffect(() => { setEditor(null); setNewLocation(false); setDrafts([]); }, [editorContext]);
   const refresh = state.reload;
 
   const columns: ColumnDef<OrgUnitWithEntity>[] = [
@@ -792,7 +812,7 @@ export function OrganisationConfig() {
       id: "inuse",
       header: "In use by",
       cell: (u) =>
-        u.references.length ? (
+        USE_REAL ? <span className="text-xs text-muted-foreground">Reference checks unavailable</span> : u.references.length ? (
           <ul className="min-w-0 max-w-56 space-y-0.5 text-xs">
             {u.references.map((r) => (
               <li key={r} className="truncate">
@@ -837,9 +857,9 @@ export function OrganisationConfig() {
       id: "employees",
       header: "Employees",
       defaultVisible: false,
-      cell: (u) => u.employees,
+      cell: (u) => workforceCountsAvailable ? u.employees : "Unavailable",
     },
-    { id: "positions", header: "Positions", defaultVisible: false, cell: (u) => u.positions },
+    { id: "positions", header: "Positions", defaultVisible: false, cell: (u) => USE_REAL ? "Unavailable" : u.positions },
     {
       id: "note",
       header: "Administrator note",
@@ -885,13 +905,10 @@ export function OrganisationConfig() {
         <div className="rounded-lg border border-info/30 bg-info-soft p-4 text-sm text-info">
           <p className="flex items-start gap-2 font-medium">
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-            Structure is effective-dated, so changing it never rewrites history
+            {USE_REAL ? "Organization changes use the existing company and department records" : "Structure is effective-dated, so changing it never rewrites history"}
           </p>
           <p className="mt-1.5 pl-6">
-            Renaming a department, moving a cost centre or closing a location applies from the date
-            you give and no earlier. A payslip, leave record or headcount report produced before
-            that date keeps the unit it was actually posted to. That is why units are closed or
-            superseded rather than deleted.
+            {USE_REAL ? "Company and department details update when you save. Closing a department uses the date you choose. Existing transactions keep their linked records and currency." : "Renaming a department, moving a cost centre or closing a location applies from the date you give and no earlier. A payslip, leave record or headcount report produced before that date keeps the unit it was actually posted to. That is why units are closed or superseded rather than deleted."}
           </p>
         </div>
 
@@ -950,12 +967,20 @@ export function OrganisationConfig() {
 
             return (
               <div className="space-y-6">
+                {USE_REAL && editor && editor.context === editorContext ? <OrganisationMasterDialog
+                  key={`${editor.kind}:${String(editor.initial?.id ?? "new")}`}
+                  kind={editor.kind} initial={editor.initial} companies={data.entities}
+                  canAct={canAct} onClose={() => { if (editor.context === activeEditorContext.current) setEditor(null); }}
+                  onReconcile={() => { if (editor.context !== activeEditorContext.current) return; setEditor(null); refresh(); }}
+                  onSaved={() => { if (editor.context !== activeEditorContext.current) return; setEditor(null); refresh(); feedback.saved("Organization settings saved."); }}
+                /> : null}
                 <DetailSection
                   id="profile"
                   title="Legal entities"
                   description="Who employs people, under which registration and in which currency. An entity is never deleted once it has employed anyone."
                 >
-                  <EntityTable rows={data.entities} asAt={asAt} canAct={canAct && !USE_REAL} />
+                  {USE_REAL ? <div className="mb-3"><Button variant="outline" disabled={!canAct} onClick={() => setEditor({ kind: "company", initial: null, context: editorContext })}><Plus className="size-4" aria-hidden /> Add company</Button></div> : null}
+                  <EntityTable rows={data.entities} asAt={asAt} canAct={canAct} workforceCountsAvailable={workforceCountsAvailable} onEdit={(initial) => setEditor({ kind: "company", initial, context: editorContext })} />
                 </DetailSection>
 
                 <DetailSection
@@ -963,12 +988,13 @@ export function OrganisationConfig() {
                   title="Branches and work locations"
                   description="Where employees are based. A location can exist in configuration before it opens and stays readable after it closes."
                 >
-                  <LocationTable rows={data.locations} asAt={asAt} canAct={canAct && !USE_REAL} />
+                  <LocationTable rows={data.locations} asAt={asAt} canAct={canAct && !USE_REAL} workforceCountsAvailable={workforceCountsAvailable} />
                   <NewLocationDialog
                     open={newLocation}
-                    onOpenChange={setNewLocation}
+                    onOpenChange={(open) => { if (data.editorContext === activeEditorContext.current) setNewLocation(open); }}
                     entities={data.entities}
                     onSaved={() => {
+                      if (data.editorContext !== activeEditorContext.current) return;
                       refresh();
                       feedback.saved("Location created. It is now available for placement.");
                     }}
@@ -978,8 +1004,9 @@ export function OrganisationConfig() {
                 <DetailSection
                   id="departments"
                   title="Departments and cost centres"
-                  description="The reporting and costing spine. The In use column shows what still points at each unit, which decides whether it can be removed at all."
+                  description={USE_REAL ? "Departments and their company and cost centre references." : "The reporting and costing spine. The In use column shows what still points at each unit, which decides whether it can be removed at all."}
                 >
+                  {USE_REAL ? <div className="mb-3"><Button variant="outline" disabled={!canAct || data.entities.length === 0} onClick={() => setEditor({ kind: "department", initial: null, context: editorContext })}><Plus className="size-4" aria-hidden /> Add department</Button></div> : null}
                   <ListPage
                     rows={data.units}
                     columns={columns}
@@ -1002,24 +1029,25 @@ export function OrganisationConfig() {
                         options: ["Active", "Closing", "Closed", "Not yet in force"],
                         match: (u, v) => unitState(u, asAt) === v,
                       },
-                      {
+                      ...(!USE_REAL ? [{
                         id: "use",
                         label: "In use",
                         options: ["Referenced elsewhere", "Nothing references it", "Has employees"],
-                        match: (u, v) =>
+                        match: (u: OrgUnitConfig, v: string) =>
                           v === "Referenced elsewhere"
                             ? !canDeleteUnit(u)
                             : v === "Has employees"
                               ? u.employees > 0
                               : canDeleteUnit(u),
-                      },
+                      }] : []),
                     ]}
                     bulkActions={USE_REAL ? [] : [
                       { label: "Export selection", onSelect: () => undefined },
                       { label: "Add to structure review", onSelect: () => undefined },
                     ]}
-                    rowHref={(u) =>
-                      !USE_REAL && canDeleteUnit(u) ? (
+                    rowHref={(u) => <div className="flex items-center gap-2">
+                      {USE_REAL && canAct && (u as OrgUnitWithEntity)._source && !u.effectiveTo && (u as OrgUnitWithEntity)._source?.status !== "closed" ? <Button variant="ghost" size="sm" onClick={() => setEditor({ kind: "department", initial: (u as OrgUnitWithEntity)._source!, context: editorContext })}>Edit<span className="sr-only"> {u.name}</span></Button> : null}
+                      {!USE_REAL && canDeleteUnit(u) ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1035,17 +1063,18 @@ export function OrganisationConfig() {
                           <Lock className="size-3.5 shrink-0" aria-hidden />
                           Close only
                         </span>
-                      ) : null
-                    }
+                      ) : null}
+                    </div>}
                     emptyBody="No units match this view. Clear a filter, or move the as-at date."
                   />
                 </DetailSection>
 
                 <DetailSection
-                  title="Removing a unit safely"
-                  description="Deletion is only offered where nothing at all points at the unit."
+                  title={USE_REAL ? "Closing a department" : "Removing a unit safely"}
+                  description={USE_REAL ? "Close a department with a date; existing records remain stored." : "Deletion is only offered where nothing at all points at the unit."}
                 >
                   <div className="space-y-4">
+                    {!USE_REAL ? <>
                     <p className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning">
                       <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                       <span>
@@ -1085,6 +1114,7 @@ export function OrganisationConfig() {
                         </ul>
                       </div>
                     </div>
+                    </> : <p className="text-sm text-muted-foreground">Employee, position and historical reference checks are not supplied by this page. Review those impacts before closing. Departments cannot be deleted here.</p>}
                     <CloseUnitForm
                       units={closable}
                       onAdd={(d) =>

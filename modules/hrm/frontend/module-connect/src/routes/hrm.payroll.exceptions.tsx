@@ -342,7 +342,7 @@ function ExceptionsPage() {
   function dialogFor(e: OperationalException, kind: OutcomeKind) {
     const run = payRuns.find((r) => r.id === e.runId);
     const preparedByMe = USE_REAL
-      ? Boolean(user?.id && e.preparedBySubjectId === String(user.id))
+      ? Boolean(user?.subject && e.preparedBySubjectId === user.subject)
       : run?.preparedBy === CURRENT_USER;
 
     if (kind === "Resolved") {

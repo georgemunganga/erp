@@ -39,7 +39,7 @@ export function PeriodBenefitAssignments({types}:{types:Benefit[]}) {
   const departments=Array.from(new Map(rows.filter(r=>!branch||(r.locationId||"unassigned")===branch).map(r=>[r.orgUnitId||"unassigned",r.department])).entries());
   const visible=rows.filter(r=>(!branch||(r.locationId||"unassigned")===branch)&&(!department||(r.orgUnitId||"unassigned")===department)&&`${r.workerName} ${r.employeeNo}`.toLowerCase().includes(query.toLowerCase()));
   const changed=visible.filter(r=>drafts[r.workerId]);const hidden=Object.keys(drafts).filter(id=>!visible.some(r=>r.workerId===id)).length;
-  function edit(row:Row,field:keyof Draft,value:string){setDrafts(prev=>({...prev,[row.workerId]:{amount:row.amount==null?"":String(row.amount),note:row.note,...prev[row.workerId],[field]:value}}));setError("");}
+  function edit(row:Row,field:keyof Draft,value:string){setDrafts(prev=>({...prev,[row.workerId]:Object.assign({amount:row.amount==null?"":String(row.amount),note:row.note},prev[row.workerId],{[field]:value})}));setError("");}
   async function save(){
     if(!batch||!changed.length)return;
     const invalid=changed.find(r=>{const amount=drafts[r.workerId].amount;return amount!==""&&(!/^\d+(\.\d{1,2})?$/.test(amount)||Number(amount)>999999999);});
