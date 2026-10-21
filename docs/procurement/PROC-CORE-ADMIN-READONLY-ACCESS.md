@@ -64,3 +64,12 @@ chosen retained source with its matching frontend nullable-worker contract,
 reviewed host image/source provenance and scoped smoke tests. Do not deploy the
 whole current development branch merely to ship this access fix, bypass the
 release hold, or advertise undeployed Procurement workflows as available.
+
+### P19 hotfix reconstruction compatibility
+
+On the isolated v36-compatible branch the same production access delta is applied
+without later Procurement migrations or action catalog entries. Source tests use
+existing P19 configuration edit/approve/read and PO-read policies where current tests
+used future authority policies; future unknown actions remain denied. The full source
+recipe/hash inventory and no-DDL startup gate are recorded in
+`PROC-OPS-V36-ACCESS-HOTFIX-SOURCE-AUDIT.md`. This is unbuilt source, not deployment.

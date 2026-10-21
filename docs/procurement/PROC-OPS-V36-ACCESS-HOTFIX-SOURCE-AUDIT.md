@@ -100,3 +100,40 @@ used as the hotfix build context.
    performs health/authenticated admin+denied employee/foreign-scope smoke checks,
    and records code-only rollback. The whole current P29 deploy hold remains; this
    audit does not authorize or perform production changes.
+
+## Reconstructed candidate source — 21 October, unbuilt
+
+The isolated audit branch now contains the authorized curated reconstruction:
+
+- `4f910ee` → `3e1f7ac`: exact reviewed loan Domain/Application/Repository source and
+  already-live migration/tests. `66e1cf2` → `093127d`: exact retained import/setup fixes.
+- Only the three compatibility tool files from `1013866` were restored as `8c43b3b`,
+  then strict `e68416f` applied as `9cae58c`. No unrelated ancestors were merged.
+- Admin `2f57b78` → `cadd8e2`, `45ba126` → `2cb2d11`, `cb8c561` → `9e502de`:
+  schema-free worker-less administrator GET scope/context and narrowed action metadata.
+- Production source hunks applied without source conflicts. Operational-history docs
+  were resolved by retaining P19 text plus explicitly labeled historical provenance;
+  old 58/84 test results do not verify this new candidate.
+
+One necessary **test-only** adaptation: the reviewed admin tests came from the current
+branch and referenced authority configure/review/read and receipt-view policies absent
+from P19. Mapped tests now check P19's configuration-edit/approve/read and PO-read
+instead; unsupported future authority-read is explicitly denied. No catalog/action,
+route, permission, model or migration was added to satisfy those tests.
+
+[Candidate hash manifest](artifacts/v36-source-baseline/hotfix-candidate-hashes.json)
+records every changed backend source, protected source equality, complete migration
+source lineage and parsed HRM migration IDs. Loan/Payroll/Repository, import/setup,
+strict probe, admin Context and Workforce blobs match their reviewed donors exactly.
+ProcurementPermissions intentionally retains its older P19 configured-role query;
+only the seven-line reviewed narrowing-claim delta was applied. Its whole blob differs
+from current cb8c561 because current source also has an unrelated archived-role filter
+and projected query; that later change was not silently bundled into the hotfix.
+
+P19 Program, ApiRoutesClean, JobsAdminServices, leave contracts/summary implementation
+and branded leave-aware PDF implementation remain byte-identical to P19. Existing
+Procurement and Core migrations/snapshots are unchanged. The only added migration
+source is the exact already-live LoanOpeningBalances; no generated DDL, P20–P29
+migration, runtime command, test, build, image or deployment occurred in this work.
+Parent must execute the gates above against this complete source candidate. The user's
+existing Worker-less identity is not relinked or mutated by this patch.

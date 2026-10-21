@@ -118,7 +118,7 @@ The active image tag is `hrm-api_hrm-api:procure-20261020-v36`. The current UI b
 5. Implement and verify delegated approvals, governed budget release/exception handling, PO issue, receiving, invoice matching, and AP hand-off before calling the module complete. The P13 rule evaluation records evidence only; it cannot approve spending or reserve a budget.
 
 
-Historical provenance imported from4f910ee; the following original verification does not verify this reconstructed hotfix candidate.
+Historical provenance imported from 4f910ee; the following original verification does not verify this reconstructed hotfix candidate.
 
 ### Shared-host source compatibility restoration — 20 October
 
@@ -138,4 +138,4 @@ Restored the retained v36 partial payroll-import behavior (omitted components an
 This closes the identified retained-source differences; it does not establish full procurement completion or lift the coordinated production API release hold. Production stays v36, Procurement P20/P21 and Core documents are not newly applied, and approval execution remains disabled pending actual integration and release verification.
 
 
-The reconstructed access hotfix also carries the strict source probe from e68416f (base tool1013866): it rejects missing/mistyped OpeningRecoveredAmount, RecordType or nullable IssueDate before preparing the actual recovery method. This new candidate has not been executed or deployed.
+The reconstructed access hotfix also carries the strict source probe from e68416f (base tool 1013866): it rejects missing/mistyped OpeningRecoveredAmount, RecordType or nullable IssueDate before preparing the actual recovery method. This new candidate has not been executed or deployed.

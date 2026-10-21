@@ -167,8 +167,8 @@ public sealed class ProcurementAdminViewTests
         app.MapGet("/api/procurement/v1/admin-test-actions", async (HttpContext http, IAuthorizationService auth) => Results.Ok(new {
             canRead=(await auth.AuthorizeAsync(http.User,null,"procurement-vendor-read")).Succeeded,
             canApprove=(await auth.AuthorizeAsync(http.User,null,"procurement-vendor-approve")).Succeeded,
-            canConfigure=(await auth.AuthorizeAsync(http.User,null,"procurement-authority-configure")).Succeeded,
-            canActivate=(await auth.AuthorizeAsync(http.User,null,"procurement-authority-review")).Succeeded
+            canConfigure=(await auth.AuthorizeAsync(http.User,null,"procurement-configuration-edit")).Succeeded,
+            canActivate=(await auth.AuthorizeAsync(http.User,null,"procurement-configuration-approve")).Succeeded
         })).RequireAuthorization("procurement-access");
         var writes=0;app.MapPost("/api/procurement/v1/admin-test-command",()=>{writes++;return Results.Ok();})
             .RequireAuthorization("procurement-vendor-manage");
@@ -192,13 +192,14 @@ public sealed class ProcurementAdminViewTests
     {
         var claim=new Claim(ProcurementPermissions.AdminViewOnlyClaim,"true");
         var admin=new[]{new Claim(ClaimTypes.Role,"erp_admin"),claim};
-        Assert.True(ProcurementPermissions.Allows("procurement-authority-read",admin));
-        Assert.True(ProcurementPermissions.Allows("procurement-receipt-view",admin));
+        Assert.True(ProcurementPermissions.Allows("procurement-configuration-read",admin));
+        Assert.True(ProcurementPermissions.Allows("procurement-po-read",admin));
         foreach(var policy in new[]{"procurement-vendor-approve","procurement-vendor-suspend","procurement-authority-review",
             "procurement-authority-configure","procurement-budget-check","procurement-po-issue","procurement-invoice-match"})
             Assert.False(ProcurementPermissions.Allows(policy,admin));
         Assert.False(ProcurementPermissions.Allows("procurement-authority-read",new[]{new Claim(ClaimTypes.Role,"employee"),claim}));
         Assert.False(ProcurementPermissions.Allows("unknown-read",admin));
+        Assert.False(ProcurementPermissions.Allows("procurement-authority-read",admin)); // Future policy stays absent on P19.
         Assert.True(ProcurementPermissions.Allows("procurement-vendor-approve",new[]{new Claim(ClaimTypes.Role,"erp_admin")}));
     }
 
