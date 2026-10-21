@@ -1,6 +1,6 @@
 # P27 retained Finance identity migration rehearsal
 
-**Status:** source-only helper; not executed against PostgreSQL. Parent must first review and seal the actual P27 migration, generated transactional Up/Down scripts, exact CHECK/readiness manifest, and this helper. No runtime enablement follows from migration rehearsal.
+**Status:** actual private PostgreSQL17 migration rehearsal PASS on21October2026; see `PROC-FIN-01-P27-VERIFICATION-EVIDENCE.md`. Generated SQL was independently reviewed; actual CHECK literals matched the readiness constants exactly. The protected run retained all197 operation logs. This is DDL/evidence preservation, not runtime-role HTTP acceptance or production enablement.
 
 Run `rehearse.py --help` for required arguments. `--up-sql` is reviewed idempotent zero-to-P27 SQL; `--down-sql` is reviewed P27-to-P26 SQL with the first locked `FinanceCheckerIdentityRollbackWouldLoseEvidence` veto. Supply the actual migration ID and a new private output directory/new `proc_approval_http_*` prefix. Container is fixed to `procurement-approval-rehearsal-postgres`; retained actual P26 source defaults to `proc_approval_http_p26_matching_20261020_184252`. No network DSN is accepted. No database is dropped, overwritten or disconnected; failures and all fixture clones are retained.
 

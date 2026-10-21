@@ -55,3 +55,12 @@ Session62163 passed **601/601 Procurement domain/model tests**,zero failed/skipp
 Session62163 completed all scripted stages on executable source f08ae1f: **197/197 mapped Procurement/Finance-readiness API tests**, zero failed/skipped (4m35s), probe build successful, and no pending EF model changes. The earlier601 domain/model pass remains separately scoped. Actual idempotent zero-to-P27 and P27-to-P26 SQL were generated. Independent review accepted the additive Up and locked evidence-preserving Down for private rehearsal. Up SHA256 `8a69372315278c5e8cf5880ee8c6ffd2720ebd58d2526231c191d38f23a35e3f`; Down `6f8091cd0339db7d19389efd30698e93d9aa2c11189fc8b0bae77a643aa72d35`.
 
 Evidence: artifacts/p27/source-verification.log, procurement-api TRX and p27-up.sql/p27-down.sql. This is source/mapped verification, not an actual restricted PostgreSQL/HTTP or production pass. The later additive Budget businessVersion follow-up is outside this run and requires its own gate.
+
+
+## Actual PostgreSQL17 migration rehearsal and literal freeze — PASS
+
+On21October, reviewed migration20261020190554 was applied with the generated scripts to a fresh private database and seven clones of retained actual usedP26 database `proc_approval_http_p26_matching_20261020_184252`. Repeated Up, original column values/sealed JSON/hash bytes, full history, unused Down/Up and six isolated evidence-loss Down denials passed. Source database remained unchanged; all fixtures and failures are retained, with no database deletion.
+
+Protected evidence `/home/amizo/erp-backups/procurement-p27-postgres-20261021_062926/` contains197 operation logs and PASS result.json, exact SQL hashes and database inventory. Owner-only rollback-negative fixtures are explicitly synthetic and do not establish valid Finance identity. The actual PostgreSQL17 pg_get_expr output for both CHECKs matched readiness constants by exact string equality (no whitespace/SQL rewriting); actual-check-expressions.tsv and literal-manifest-result.json retain that proof.
+
+Runtime-role readiness/privilege negatives and genuine capture/replay/rebinding/revocation/legacy denials remain the next independent HTTP gate. This migration proof does not enable production workflows.
