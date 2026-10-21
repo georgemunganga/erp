@@ -38,7 +38,16 @@ public static partial class ProcurementPolicyDraftRoutes
 
     private static IResult ValidateRules(PolicyValidationRequest input)
     {
-        var issues = SourcingPublicationPolicyRules.IsSourcingDocument(input.RulesJson) ? SourcingPublicationPolicyRules.Validate(input.RulesJson) : InvoiceMatchingPolicyRules.IsMatchingDocument(input.RulesJson) ? InvoiceMatchingPolicyRules.Validate(input.RulesJson) : ReceivingPolicyRules.IsReceivingDocument(input.RulesJson) ? ReceivingPolicyRules.Validate(input.RulesJson) : PolicyRuleValidator.Validate(input.RulesJson);
+        if (SourcingPublicationPolicyRules.IsSourcingDocument(input.RulesJson))
+        {
+            var syntax = SourcingPublicationPolicyRules.ValidateDraft(input.RulesJson);
+            var review = SourcingPublicationPolicyRules.Validate(input.RulesJson);
+            return Results.Ok(new { isValid = syntax.Count == 0, issues = syntax,
+                reviewConfigurationComplete = syntax.Count == 0 && review.Count == 0, reviewIssues = review,
+                supportedSourcingRuleSchemas = SourcingPublicationPolicyRules.SupportedSchemaVersions,
+                canPublish = false, isAuthority = false });
+        }
+        var issues = InvoiceMatchingPolicyRules.IsMatchingDocument(input.RulesJson) ? InvoiceMatchingPolicyRules.Validate(input.RulesJson) : ReceivingPolicyRules.IsReceivingDocument(input.RulesJson) ? ReceivingPolicyRules.Validate(input.RulesJson) : PolicyRuleValidator.Validate(input.RulesJson);
         return Results.Ok(new { isValid = issues.Count == 0, issues });
     }
 
@@ -161,7 +170,7 @@ public static partial class ProcurementPolicyDraftRoutes
         };
         if (key == SourcingPublicationPolicyRules.PolicyKey)
         {
-            var sourcingIssue = await CheckSourcingCompanyRules(policy, db, organizationDb, scope, "procurement-configuration-edit", ct);
+            var sourcingIssue = await CheckSourcingCompanyRules(policy, db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
             if (sourcingIssue is not null) return sourcingIssue;
         }
         db.AddScoped(policy);
@@ -199,7 +208,7 @@ public static partial class ProcurementPolicyDraftRoutes
             _ = await SourcingOriginalAuthor(db, organizationDb, scope, policy, ct);
             // Validate the proposed JSON before mutating the tracked draft.
             var sourcingIssue = await CheckSourcingCompanyRules(new PolicyVersion { PolicyKey = policy.PolicyKey, RulesJson = input.Draft.RulesJson! },
-                db, organizationDb, scope, "procurement-configuration-edit", ct);
+                db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
             if (sourcingIssue is not null) return sourcingIssue;
         }
         policy.EffectiveFrom = input.Draft.EffectiveFrom.ToUniversalTime();

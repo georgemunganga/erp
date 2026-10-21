@@ -19,6 +19,7 @@ public sealed record SourcingPublicationPolicyPreview(string Status, string? Rul
 public static class SourcingPublicationPolicyRules
 {
     public const string PolicyKey = "SOURCING";
+    public static IReadOnlyList<int> SupportedSchemaVersions { get; } = Array.AsReadOnly(new[] { 1, 2 });
     public static bool IsSourcingDocument(string? json)
     {
         try
@@ -32,9 +33,31 @@ public static class SourcingPublicationPolicyRules
 
     public static IReadOnlyList<PolicyRuleIssue> Validate(string? json)
     {
-        try { using var document = Parse(json); return []; }
+        try { using var document = Parse(json, requireAudienceComplete: false); return AudienceReviewIssues(document.RootElement); }
         catch (Exception error) when (error is InvalidOperationException or JsonException or FormatException or KeyNotFoundException)
         { return [new("$", error.Message)]; }
+    }
+
+    /// <summary>Draft syntax only. Null audience choices in schema2 remain unconfigured, not defaults.</summary>
+    public static IReadOnlyList<PolicyRuleIssue> ValidateDraft(string? json)
+    {
+        try { using var document = Parse(json, requireAudienceComplete: false); return []; }
+        catch (Exception error) when (error is InvalidOperationException or JsonException or FormatException or KeyNotFoundException)
+        { return [new("$", error.Message)]; }
+    }
+
+    private static IReadOnlyList<PolicyRuleIssue> AudienceReviewIssues(JsonElement root)
+    {
+        if (root.GetProperty("schemaVersion").GetInt32() == 1) return [];
+        var issues = new List<PolicyRuleIssue>(); var index = 0;
+        foreach (var rule in root.GetProperty("rules").EnumerateArray())
+        {
+            var draft = SourcingAudienceConfiguration.ParseDraft(2, rule.GetProperty("result").GetProperty("audience").GetRawText());
+            foreach (var issue in SourcingAudienceConfiguration.ReviewIssues(draft))
+                issues.Add(new("$.rules[" + index + "].result" + issue.Path[1..], issue.Message));
+            index++;
+        }
+        return issues.AsReadOnly();
     }
 
     public static IReadOnlyList<PolicyRuleIssue> AnalyzeCoverage(string json)
@@ -89,7 +112,7 @@ public static class SourcingPublicationPolicyRules
             Array.AsReadOnly(stage.PrincipalIds.Select(id => serverResolvedActors.Single(x => x.SubjectId == id)).ToArray()))).ToArray());
     }
 
-    private static JsonDocument Parse(string? json)
+    private static JsonDocument Parse(string? json, bool requireAudienceComplete = true)
     {
         Require(!string.IsNullOrWhiteSpace(json) && System.Text.Encoding.UTF8.GetByteCount(json!) <= 65536, "SourcingRulesRequiredOrTooLarge");
         Require(ProcurementEvidenceEncoding.PolicyJsonDigest(json!).Length == 64, "SourcingJsonInvalid"); // Existing canonical parser rejects duplicate property names.
@@ -99,7 +122,10 @@ public static class SourcingPublicationPolicyRules
             var root = document.RootElement;
             Only(root, "schemaVersion", "policyKey", "transactionType", "action", "permission", "currencyCode", "amountBasis", "rules");
             var contract = ProcurementSpendingActions.SourcingPublication;
-            Require(root.GetProperty("schemaVersion").GetInt32() == 1 && Text(root, "policyKey") == "SOURCING"
+            var schemaVersion = root.GetProperty("schemaVersion"); var version = 0;
+            Require(schemaVersion.ValueKind == JsonValueKind.Number && schemaVersion.TryGetInt32(out version)
+                && SupportedSchemaVersions.Contains(version), "SourcingPolicySchemaUnsupported");
+            Require(Text(root, "policyKey") == "SOURCING"
                 && Text(root, "transactionType") == "SourcingPublication" && Text(root, "action") == contract.Action
                 && Text(root, "permission") == contract.Permission && Text(root, "amountBasis") == contract.AmountBasis,
                 "SourcingPublicationTupleUnsupported");
@@ -119,7 +145,14 @@ public static class SourcingPublicationPolicyRules
                     if (when.GetProperty(field).ValueKind != JsonValueKind.Null)
                         _ = ExactDecimalJsonCodec.Parse(when.GetProperty(field).GetRawText(), 18, 4, "SourcingThreshold");
                 Require(when.GetProperty("branchIds").EnumerateArray().All(x => x.GetGuid() != Guid.Empty), "SourcingSiteInvalid");
-                var result = rule.GetProperty("result"); Only(result, "publication", "approvalStages");
+                var result = rule.GetProperty("result");
+                if (version == 1) Only(result, "publication", "approvalStages");
+                else
+                {
+                    Only(result, "publication", "approvalStages", "audience");
+                    var audience = SourcingAudienceConfiguration.ParseDraft(2, result.GetProperty("audience").GetRawText());
+                    if (requireAudienceComplete) Require(SourcingAudienceConfiguration.ReviewIssues(audience).Count == 0, "SourcingAudienceConfigurationIncomplete");
+                }
                 var controls = result.GetProperty("publication");
                 Only(controls, "minimumQuoteCount", "minimumInvitedSuppliers", "requirementsPackRequired", "evaluationCriteriaRequired", "closingDateRequired");
                 Integer(controls, "minimumQuoteCount", 0, 20); Integer(controls, "minimumInvitedSuppliers", 0, 100);

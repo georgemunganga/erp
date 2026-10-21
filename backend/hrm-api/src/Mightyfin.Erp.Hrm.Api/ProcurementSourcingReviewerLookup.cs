@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Application;
 using Npgsql;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -56,6 +57,7 @@ public static partial class ProcurementPolicyDraftRoutes
             }
             return Results.Ok(new { items = page, total, offset = skip, limit = take,
                 configurationVersion,
+                supportedSourcingRuleSchemas = SourcingPublicationPolicyRules.SupportedSchemaVersions,
                 nextOffset = page.Length > 0 && skip + page.Length < total && skip + page.Length <= 100000 ? (int?)(skip + page.Length) : null,
                 isAuthority = false });
         }
