@@ -395,3 +395,11 @@ exercise actual adapter Acquire/Find/current-access denial/replay, rollback befo
 after every save, disposed/closed/replaced-session and lost-lock denials, both paired
 reader/writer orderings, finite grants and unchanged invoice/document workflows.
 The existing P03 schema is reused with no model or migration changes in this slice.
+
+U2 reference-read clarification: an empty `Read` version-ID list explicitly requests
+current authorization for the exact reference **before lookup**, not all owner history.
+Authorizers must support that phase and independently validate the following exact
+loaded-ID check. It never grants Download. Restore validates frozen identity and
+scan consistency without introducing new text sanitization over old permitted bounded
+scanner/subject text; original values are preserved. Future current-input tightening
+must not silently rewrite or strand retained history. Source-only follow-up, unrun.

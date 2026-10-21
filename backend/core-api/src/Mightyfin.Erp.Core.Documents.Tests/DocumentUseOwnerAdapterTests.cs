@@ -97,6 +97,19 @@ public sealed class DocumentUseOwnerAdapterTests
     }
 
     [Fact]
+    public void Historical_restore_preserves_original_permitted_scanner_text_without_new_sanitization()
+    {
+        var f=Fixture(); var row=f.Stored.Pins.Single();
+        // Original FinishScan/Create allow bounded scanner text with internal whitespace.
+        Set(row,nameof(DocumentUsePinRow.ScanEngine),"engine\nlegacy");
+        Set(row,nameof(DocumentUsePinRow.ScanDefinitions),"definitions\tlegacy");
+        Set(f.Stored.Set,nameof(DocumentUseSetRow.SelectionDigest),DocumentUsePinRow.Digest(f.Stored.Pins));
+        var restored=EfDocumentUsePinStore.Restore(f.Stored).Single();
+        Assert.Equal("engine\nlegacy",restored.Scan.Engine);
+        Assert.Equal("definitions\tlegacy",restored.Scan.Definitions);
+    }
+
+    [Fact]
     public async Task Factory_never_accepts_a_missing_lease_even_with_an_allowing_purpose_authorizer()
     {
         await using var db=new DocumentDbContext(new DbContextOptionsBuilder<DocumentDbContext>()
