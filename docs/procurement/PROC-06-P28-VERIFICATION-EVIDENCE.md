@@ -71,3 +71,10 @@ Actual database-returned four validated pg_get_constraintdef(false) definitions 
 ## Distinct actual CHECK literal review — PASS
 
 Read-only review of6104122 independently decoded all four C# literals and compared them to protected PostgreSQL-returned definitions: exact equality, all unique/validated. Protected and committed JSON are byte-identical SHA256bfa430ccf7e7a8ce3234e3fe14330199aeff5f471e7e1b85cf1a9db701ab0999. Reader still requires exact table/name/check type, validation/local status and unchanged raw definition; no SQL normalization or authority weakening. Finite-role positive runtime remains unrun.
+
+
+## Mapped API gate —238PASS; private tool compile correction
+
+Frozen executable0f34199 completed238/238 mapped Procurement/Finance-readiness API tests,0failed/skipped (1m36s). Original log/TRX artifacts/p28/api-source-verification.log and procurement-api/ retained. The subsequent private probe build failed CS0246: missing ConfigAndExtras import for existing TenantRoleAssignment. The tool-only namespace import is corrected, including the newly integrated browser fixture. No production authority/schema/UI is changed.
+
+Distinct source review accepted security/raw-invariant companion52114e9 but found a browser-fixture SQL column error: Core approval tables use quoted Id, so their invariant aggregation must ORDER BY r.\"Id\"; Procurement tables retain snake_case id. Parent corrects it before runtime. Browser fixture and raw checks remain uncompiled/unrun; source reviews do not imply their acceptance. Both appended runtime plan sections are preserved through the docs-only cherry-pick conflict.

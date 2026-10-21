@@ -1,3 +1,4 @@
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -91,7 +92,7 @@ sealed partial class Probe
         parts.Add("SELECT 'purchase_requests',coalesce(jsonb_agg(to_jsonb(r)-'version'-'updated_at'-'updated_by' ORDER BY r.id),'[]'::jsonb) FROM procurement.purchase_requests r");
         parts.Add("SELECT 'purchase_request_lines',coalesce(jsonb_agg(to_jsonb(r)-'version'-'updated_at'-'updated_by'-'allocated_quantity'-'route' ORDER BY r.id),'[]'::jsonb) FROM procurement.purchase_request_lines r");
         foreach (var table in new[] { "cases", "stages", "assignments", "decisions" })
-            parts.Add($"SELECT 'core_{table}',coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb) FROM core_approval.{table} r");
+            parts.Add($"SELECT 'core_{table}',coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.\"Id\"),'[]'::jsonb) FROM core_approval.{table} r");
         await using var query = new NpgsqlCommand("SELECT jsonb_object_agg(name,rows)::text FROM (" + string.Join(" UNION ALL ", parts) + ") retained", owner);
         return (string)(await query.ExecuteScalarAsync())!;
     }
