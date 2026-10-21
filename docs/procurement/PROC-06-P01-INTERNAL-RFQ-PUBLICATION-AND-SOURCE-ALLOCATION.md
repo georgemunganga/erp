@@ -466,3 +466,52 @@ The existing private `--sourcing-policies` mode now calls `VerifySourcingPolicyS
 Fourteen isolated negatives cover identity SELECT/INSERT revocation; identity column-only `UPDATE(evidence_sha256)`; TRUNCATE granted independently on identity/audit/outbox/policy; each of the three named FK removals; a same-name CHECK(true); a same-name/columns unique Created index with a false predicate; the missing exact P29 history row; and audit INSERT revocation. Each fault runs inside a bootstrap transaction, switches with `SET LOCAL ROLE` to the actual finite runtime role, and adopts the same physical connection/transaction in the owning Procurement context. A different connection would miss transaction-local ACL/history changes or block on DDL and would not establish the required semantics. The real provider must return false and create no tracked effects. `finally` rolls back; a new independent finite runtime connection must then return true, and independent full Procurement-row fingerprints must match the pre-case state. No UPDATE, DELETE or TRUNCATE is attempted against business evidence to manufacture the positive path; the only DELETE is the rollback-only missing migration-history negative.
 
 These checks are source-only and have not run. They require parent's centrally generated P29 migration/model, finite role grants and reviewed real private-host provider composition. They extend rather than replace the existing42501 forbidden-operation denials, raw actual-row integrity tests, actor/scope tests and migration preservation rehearsal. No operational RFQ publication, external-owner completeness, release or deployment is claimed.
+
+### P29 actual finite-role API/PostgreSQL and retained rollback acceptance
+
+Frozen executable `5387d1b` passed the complete private `--sourcing-policies` run,
+exit zero, against `proc_approval_http_p29_policies_20261021_090640`.
+Protected results, producer log, source and DLL hashes are retained under
+`/home/amizo/erp-backups/procurement-p29-http-policies-20261021_090640/`.
+This used actual mapped HTTP, real PostgreSQL17, separate bootstrap/runtime roles,
+finite maker/reviewer application permissions, and the actual owning-context SQL
+readiness inspector composed only in the private host. Outer authentication/Core
+master fixtures are synthetic. No production SSO or deployment is claimed.
+
+Executed paths include create/edit/return/resubmit/publish/effective, canonical
+microsecond/hash round trips, two-active-account worker swaps, aliases, original
+author reassignment denial, historical maker offboarding, current permission and
+branch/company/tenant denials, and concurrent same-revision publication requiring
+exactly one200/one409 and one publication identity/audit. A forced identity-insert
+failure rolled back parent policy, identity and audit before a known-abort retry.
+Fourteen exact raw CHECK/NOT NULL/scoped FK negatives and fourteen real readiness
+faults passed, each with rollback and independent unchanged-row checks. Readiness
+denied column-only UPDATE, destructive grants, missing permissions/keys/history,
+weakened CHECK and a lookalike partial index; independent finite readiness returned
+true after every restoration. Configuration created no RFQ/publication authority.
+
+Two earlier actual attempts remain failed evidence. The first correctly denied
+company admission403 where its fixture expected404; `c0d8b44` now tests that403 and
+a separate genuine other-company reader's404. The second exposed PostgreSQL
+serialization failure during concurrent publication that the old direct-exception
+catch did not normalize through EF. `5387d1b` reuses the existing
+`ProcurementPostgresFailures.IsConcurrency` helper; it does not accept500 as a
+conflict or retry an unknown outcome. The successful run closes that actual gap.
+Logs/databases under the earlier `085924` and `090305` protected run directories
+were preserved.
+
+The complete clone-only migration rehearsal then passed under
+`/home/amizo/erp-backups/procurement-p29-postgres-20261021_0911/`, with
+`retainedDownVerified=true`. It repeats fresh/used P28 Up twice and unused
+Down/Up, and additionally clones the genuine successful P29 API source containing
+18 retained identity rows (8 Created, 7 Submitted, 3 Published). Used Down emitted
+the exact SQLSTATE55000 veto and left every Procurement table value, schema,
+constraint/index and migration-history field unchanged. Both original sources
+remained unchanged. SQL hashes match the earlier partial checkpoint exactly.
+This supersedes only that checkpoint's missing retained-Down acceptance; neither
+rehearsal performs production migration or constitutes backup/restore acceptance.
+
+Normal-host readiness registration, computed frontend configuration capability
+and actual UI-to-backend acceptance remain subsequent integration work. Operational
+RFQ publication, bid/award, portal, Finance/AP and whole-module completion remain
+unclaimed.
