@@ -145,7 +145,7 @@ def main():
         WHERE n.nspname='procurement' AND c.contype='c'
           AND c.conname IN ('ck_sourcing_owned_draft','ck_rfq_original_envelope','ck_rfq_binding_value','ck_rfq_receipt_identity')
         ORDER BY r.relname,c.conname"""
-    actual_checks = json.loads(sql(names['used'], 'SELECT coalesce(jsonb_agg(to_jsonb(c)),\'[]\'::jsonb) FROM (' + checks_select + ') c;').stdout)
+    actual_checks = json.loads(sql(names['used'], 'SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.table_name,c.constraint_name),\'[]\'::jsonb) FROM (' + checks_select + ') c;').stdout)
     if ({row['constraint_name'] for row in actual_checks} != {'ck_sourcing_owned_draft','ck_rfq_original_envelope','ck_rfq_binding_value','ck_rfq_receipt_identity'}
             or len(actual_checks) != 4 or not all(row['validated'] for row in actual_checks)):
         raise RuntimeError('Actual upgraded P28 CHECK manifest incomplete or unvalidated')
