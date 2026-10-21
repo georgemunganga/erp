@@ -4,7 +4,7 @@ using Mightyfin.Erp.Core.Documents.Domain;
 namespace Mightyfin.Erp.Core.Documents.Infrastructure;
 
 /// <summary>Core owns file metadata; business modules authorize the owning record.</summary>
-public sealed class DocumentDbContext(DbContextOptions<DocumentDbContext> options, IDocumentScope scope) : DbContext(options)
+public sealed partial class DocumentDbContext(DbContextOptions<DocumentDbContext> options, IDocumentScope scope) : DbContext(options)
 {
     public DbSet<CoreDocument> Documents => Set<CoreDocument>();
     public DbSet<CoreDocumentVersion> Versions => Set<CoreDocumentVersion>();
@@ -14,6 +14,7 @@ public sealed class DocumentDbContext(DbContextOptions<DocumentDbContext> option
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.HasDefaultSchema("core_document");
+        ConfigureDocumentUses(model);
         model.Entity<CoreDocument>(b =>
         {
             b.ToTable("documents");
@@ -82,13 +83,20 @@ public sealed class DocumentDbContext(DbContextOptions<DocumentDbContext> option
         });
     }
 
-    public override int SaveChanges() { ValidateChanges(); return base.SaveChanges(); }
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    { ValidateChanges(); return base.SaveChangesAsync(cancellationToken); }
+    public override int SaveChanges() => SaveChanges(true);
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => SaveChangesAsync(true, cancellationToken);
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
-    { ValidateChanges(); return base.SaveChanges(acceptAllChangesOnSuccess); }
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
-    { ValidateChanges(); return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken); }
+    {
+        ValidateChanges();
+        ValidateDocumentUsesAsync(true, CancellationToken.None).GetAwaiter().GetResult();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ValidateChanges();
+        await ValidateDocumentUsesAsync(false, cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
 
     private void ValidateChanges()
     {
@@ -96,7 +104,7 @@ public sealed class DocumentDbContext(DbContextOptions<DocumentDbContext> option
             throw new UnauthorizedAccessException("An authenticated document scope is required.");
         foreach (var entry in ChangeTracker.Entries().Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
-            if (entry.State == EntityState.Deleted || entry.State == EntityState.Modified && entry.Entity is DocumentScanEvidence or DocumentRecordEvent)
+            if (entry.State == EntityState.Deleted || entry.State == EntityState.Modified && entry.Entity is DocumentScanEvidence or DocumentRecordEvent or DocumentUseSetRow or DocumentUsePinRow)
                 throw new InvalidOperationException("Document evidence must be retained.");
             if ((string)entry.Property("TenantId").CurrentValue! != scope.TenantId
                 || (Guid)entry.Property("LegalEntityId").CurrentValue! != scope.LegalEntityId)
