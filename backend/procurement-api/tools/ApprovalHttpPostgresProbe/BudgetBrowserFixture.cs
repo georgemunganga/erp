@@ -119,11 +119,18 @@ sealed partial class Probe
             && !await db.PurchaseRequestAllocations.AnyAsync(x => x.PurchaseRequestId == request.Id)
             && !await cases.Cases.AnyAsync(x => x.SourceModule == "procurement" && x.SourceType == "purchase_request" && x.SourceId == request.Id),
             "A funding check must not open/complete approval or reserve procurement demand.");
-        Require(await db.AuditEvents.CountAsync(x => x.RecordType == "PurchaseRequest" && x.RecordId == request.Id && x.Action == "BudgetChecked") == 1,
-            "Expected one actual Finance capture audit only.");
+        var captureAudit = await db.AuditEvents.AsNoTracking().SingleAsync(x => x.RecordType == "PurchaseRequest" && x.RecordId == request.Id && x.Action == "BudgetChecked");
+        using var auditEvidence = JsonDocument.Parse(captureAudit.ChangedFieldsJson);
+        Require(captureAudit.ActorSubjectId == OrderFinance.ToString("D")
+            && auditEvidence.RootElement.GetProperty("CheckerIdentitySchemaVersion").GetInt32() == 1
+            && auditEvidence.RootElement.GetProperty("CheckedByWorkerId").GetGuid() == worker.Id
+            && auditEvidence.RootElement.GetProperty("CheckerIdentitySha256").GetString() == snapshot.CheckerIdentitySha256
+            && await db.AuditEvents.CountAsync(x => x.RecordType == "BudgetCheckSnapshot" && x.RecordId == snapshot.Id
+                && x.Action == "create" && x.ActorSubjectId == OrderFinance.ToString("D")) == 1,
+            "Expected one bound business capture audit plus its existing automatic snapshot-create audit.");
         var before = browserBudgetBefore ?? throw new InvalidOperationException("Budget browser baseline is unavailable.");
-        var expected = before with { Checks = before.Checks + 1, Audits = before.Audits + 1 };
+        var expected = before with { Checks = before.Checks + 1, Audits = before.Audits + 2 };
         Require(await BudgetBrowserFootprint() == expected, "Budget browser introduced unexpected Finance, audit, outbox, Core, allocation, order or policy effects.");
-        Console.WriteLine("PASS actual Budget browser owner proof: exact source0.00010001, explicit reviewed0.0002, one bound canonical checker snapshot/audit, original Submitted/unapproved source unchanged; no extra workflow/ledger effects.");
+        Console.WriteLine("PASS actual Budget browser owner proof: exact source0.00010001, explicit reviewed0.0002, one bound canonical checker snapshot, one business audit plus existing snapshot-create audit, original Submitted/unapproved source unchanged; no extra workflow/ledger effects.");
     }
 }

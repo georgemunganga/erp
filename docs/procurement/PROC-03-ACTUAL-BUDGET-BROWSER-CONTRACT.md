@@ -36,7 +36,7 @@ Select the named actual request. Assert queue raw numeric0.00010001 and both ver
 1. Original full PR+line digest unchanged; exact quantity/unit/source value, branch/company/requester, current/submitted versions, Submitted/unapproved states and all quantity counters unchanged.
 2. Exactly one source BudgetCheckSnapshot with actual Finance subject/current canonical worker, independent requester worker, schema1 binding hash valid against full Finance tuple, SQL microsecond timestamp, exact0.0002, ZMW and all retained references/status.
 3. No Core case, Procurement approval submission/outcome or allocation for this PR.
-4. Exactly one BudgetChecked audit. Company-wide baseline changes are exactly one snapshot and one audit; outbox, Core cases/decisions, approval pins/outcomes, allocations, orders and policy-evaluation counts unchanged. This complements browser traffic's exactly-one-POST assertion; it does not claim an extra post-stop read-footprint interval.
+4. Exactly one bound BudgetChecked audit plus the existing automatic BudgetCheckSnapshot/create audit. Company-wide baseline changes are exactly one snapshot and two audits; outbox, Core cases/decisions, approval pins/outcomes, allocations, orders and policy-evaluation counts unchanged. This complements browser traffic's exactly-one-POST assertion; it does not claim an extra post-stop read-footprint interval.
 
 ## Planned operator gate (not run by author)
 
@@ -47,3 +47,7 @@ Run the test-only frontend branch against the retained verified Budget JS index-
 ## Remaining limits
 
 No author build/SDK/Node/DB/browser jobs ran. Actual restricted P27 CLI is a separate acceptance record, not replaced here. A successful synthetic browser run cannot certify production authentication, Finance provider completeness, approved spending policy, malware protection, AP authority or deployment. No production mutation/feature enablement.
+
+### Source audit correction
+
+The generic ProcurementDbContext audit already writes snapshot/create for new BudgetCheckSnapshot, in addition to the explicit request/BudgetChecked record. Initial source dceafc3 incorrectly expected only one total audit; corrected owner proof requires both exact audit kinds and global+2, with matching retained canonical worker/hash in the business audit. This is a source-only correction, not a runtime failure/pass claim.
