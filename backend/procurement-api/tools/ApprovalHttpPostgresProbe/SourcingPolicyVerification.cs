@@ -271,18 +271,33 @@ sealed partial class Probe
             using var scope = Scope(buyer); var core = scope.ServiceProvider.GetRequiredService<HrmDbContext>();
             (await core.UserBranchAssignments.SingleAsync(x => x.Id == assignmentId)).IsArchived = true; await core.SaveChangesAsync();
         }
-        Guid otherCompany, foreignBranch;
+        Guid otherCompany, foreignBranch, foreignCompanyReader;
         using (var scope = Scope(buyer))
         {
             var core = scope.ServiceProvider.GetRequiredService<HrmDbContext>();
             var entity = new LegalEntity { Code = "POLICY-FOREIGN", RegisteredName = "Synthetic foreign policy company", Currency = "ZMW" };
             var location = new WorkLocation { LegalEntityId = entity.Id, Code = "POLICY-FOREIGN", Name = "Synthetic foreign company branch" };
-            core.LegalEntities.Add(entity); core.WorkLocations.Add(location); otherCompany = entity.Id; foreignBranch = location.Id; await core.SaveChangesAsync();
+            var worker = new Worker { EmployeeNo = "POLICY-FOREIGN-READER", FirstName = "Synthetic", LastName = "Company reader", Status = "active", LocationId = location.Id };
+            var account = new LocalUser { WorkerId = worker.Id, DisplayName = "Synthetic company reader", Email = "policy-company-reader@example.test",
+                NormalizedEmail = "POLICY-COMPANY-READER@EXAMPLE.TEST", RolesCsv = PolicyMakerRole, IsActive = true, PasswordHash = "synthetic-unused" };
+            worker.SubjectId = account.Id.ToString("D");
+            core.LegalEntities.Add(entity); core.WorkLocations.Add(location); core.Workers.Add(worker); core.LocalUsers.Add(account);
+            otherCompany = entity.Id; foreignBranch = location.Id; foreignCompanyReader = account.Id; await core.SaveChangesAsync();
         }
         before = await PolicyFootprint();
         using (var request = new HttpRequestMessage(HttpMethod.Get, $"{SourcingPoliciesPath}/{id}"))
         {
             request.Headers.Add("X-Probe-User", buyer.ToString("D")); request.Headers.Add("X-Shell-Entity", otherCompany.ToString("D"));
+            request.Headers.Add("X-Shell-Location", foreignBranch.ToString("D"));
+            // This employee does not belong to the selected company: admission
+            // correctly rejects before any record lookup.
+            await Check(await client.SendAsync(request), HttpStatusCode.Forbidden);
+        }
+        using (var request = new HttpRequestMessage(HttpMethod.Get, $"{SourcingPoliciesPath}/{id}"))
+        {
+            // A genuine employee of that company reaches scoped record lookup,
+            // but cannot discover the original company's policy by its ID.
+            request.Headers.Add("X-Probe-User", foreignCompanyReader.ToString("D")); request.Headers.Add("X-Shell-Entity", otherCompany.ToString("D"));
             request.Headers.Add("X-Shell-Location", foreignBranch.ToString("D"));
             await Check(await client.SendAsync(request), HttpStatusCode.NotFound);
         }
