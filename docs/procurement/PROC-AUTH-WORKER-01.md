@@ -132,3 +132,23 @@ A1 is the first bounded implementation. A2–A5 are pending; current production 
 Pure evidence foundation implemented. Fourteen new identity cases and 69 existing configuration/PR/general-spend cases passed: **83 passed, zero failed/skipped**. Executed in the existing .NET10 SDK image with one CPU/768MiB, no database connection or production mutation. Initial compile introduced two nullable warnings; explicit timestamp guards removed them and the same 83 cases passed again. Existing GovernedRfqDraft nullable warnings remain outside this slice. Logs/TRX: `artifacts/authority-identity/domain.log` and `domain-corrected.log` with result files beside them.
 
 Independent read-only source review found no concrete blocker in A1. This proves pure envelope/worker/version/fingerprint behavior, not actual Core swaps or persistence authenticity. In particular A2 must bind Created proof to the initial same-save draft and trusted observed workers, and historical revoke/supersede handling must not incorrectly call the Active-only verification path. A2–A5 and the release hold remain open.
+
+### A2 persistence and migration checkpoint — 21 October 2026
+
+Typed `SpendingAuthorityIdentityRecord` storage, lossless converter, strict same-save guards and generated migration **`20261021114959_P30SpendingAuthorityWorkerIdentity`** are implemented. The snapshot adds only the new entity/relationships (+198 lines); old business fingerprints, keys and financial columns are unchanged. `IProcurementScope.WorkerId` defaults to null for old/read-only scopes; new evidence requires the actual nonempty worker. Creation metadata is preserved only for a validated same-save initial grant/evidence pair, avoiding fingerprint drift from the generic creation stamper.
+
+The combined targeted suite passed **107/107**, zero failed/skipped, including 14 pure identity cases, 16 new owning-store/model cases and existing authority regressions. InMemory proves application guards, not physical PostgreSQL constraints.
+
+The separate disposable PostgreSQL probe passed against the private Unix socket with networking disabled. Evidence: `artifacts/authority-identity/private/20261021_120345/`. Verified:
+
+- P29→P30 upgrade, empty Down/re-up and a legacy grant unchanged without identity backfill.
+- Actual create/submit/activate, three retained action rows, database reload and fingerprint verification.
+- Named owner/Created/Submitted foreign-key denials, uniqueness and empty-worker CHECK denial.
+- Append-only application guard; a used Down rejected; actual generated Down also rejected when action rows were removed inside a rollback-only owner transaction but their audit history remained.
+- Whole retained grant/evidence/audit/outbox/migration-history fingerprint unchanged after all denials; final snapshot has no pending model change.
+
+Down locks grant/evidence/audit tables in ACCESS EXCLUSIVE mode before testing retained evidence or `SpendingAuthorityIdentityRecord` audit rows. It never silently drops used history. No identity outbox event names were invented.
+
+Initial runner/build failures remain retained: initial EF relational version conflict (explicit 10.0.11 pin fixes it), password/TCP assumptions incompatible with the existing isolated trust/socket rehearsal server, an incorrect lowercase EF history-column name, and an expected retention SQL55000 wrapped by EF before the probe handled that exact state/message. The final probe builds with zero warnings/errors. Private authentication/network settings were not changed; each actual run used a fresh synthetic database and failed databases remain available for inspection.
+
+This proves owner-role persistence and migration behavior only. The schema/readiness provider, canonical Core capture, guarded API action hints and PR/PO eligibility integration remain A3; actual Core swaps, finite runtime-role/HTTP/browser evidence remain A4. Historical grant/policy holds and production P19-compatible image/flags are unchanged. No production data, identities or schema were touched.

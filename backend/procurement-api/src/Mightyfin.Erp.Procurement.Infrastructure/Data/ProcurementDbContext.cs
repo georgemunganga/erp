@@ -496,6 +496,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
 
         ConfigureCommercialRelationships(modelBuilder);
         ConfigureSpendingAuthority(modelBuilder);
+        ConfigureSpendingAuthorityIdentity(modelBuilder);
         ConfigureApprovalOutcomes(modelBuilder);
         ConfigureApprovalExecution(modelBuilder);
         ConfigurePurchaseOrderExecution(modelBuilder);
@@ -680,6 +681,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
         GuardFinanceCheckerIdentity();
         GuardSpendingAuthorityChanges();
+        GuardSpendingAuthorityIdentity();
         GuardApprovalOutcomeChanges();
         GuardApprovalExecution();
         GuardPurchaseOrderExecution();
@@ -703,8 +705,11 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             {
                 if (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId)
                     throw new InvalidOperationException("A new record must be stamped with the authenticated scope before tracking.");
-                entry.Entity.CreatedAt = now;
-                entry.Entity.CreatedBy = scope.SubjectId;
+                if (!PreserveAuthorityCreationMetadata(entry.Entity))
+                {
+                    entry.Entity.CreatedAt = now;
+                    entry.Entity.CreatedBy = scope.SubjectId;
+                }
                 entry.Entity.Version = 1;
             }
             else
