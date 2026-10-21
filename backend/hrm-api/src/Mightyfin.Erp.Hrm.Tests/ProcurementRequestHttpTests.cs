@@ -3438,7 +3438,10 @@ public sealed partial class ProcurementRequestHttpTests
                 (await core.Workers.SingleAsync(x => x.Id == account.WorkerId)).LocationId = location.Id;
             }
             if (change == "confined-reviewer") core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = subject,
-                LocationId = await core.WorkLocations.Where(x => x.LegalEntityId == company).Select(x => x.Id).SingleAsync() });
+                // The fixture can now contain several genuine company branches.
+                // Confine this account to its own worker's branch, not an arbitrary one.
+                LocationId = await core.Workers.Where(x => x.Id == account.WorkerId).Select(x => x.LocationId).SingleAsync()
+                    ?? throw new InvalidOperationException("The sourcing reviewer fixture needs a home branch.") });
             await core.SaveChangesAsync();
         }
 
