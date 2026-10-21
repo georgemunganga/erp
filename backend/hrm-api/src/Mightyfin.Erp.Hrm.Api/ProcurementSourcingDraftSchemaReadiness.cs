@@ -70,7 +70,7 @@ public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration confi
                 {
                     columnPredicates.Add("EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid="
                         + Literal(table.Schema + "." + table.Name) + "::regclass AND a.attname="
-                        + Literal(property.GetColumnName(table)!) + " AND NOT a.attisdropped AND a.attnotnull="
+                        + Literal(property.GetColumnName(table)!) + " AND NOT a.attisdropped AND a.attidentity='' AND a.attgenerated='' AND a.attnotnull="
                         + (property.IsNullable ? "false" : "true") + " AND format_type(a.atttypid,a.atttypmod)="
                         + Literal(property.GetColumnType()!) + ")");
                 }
@@ -132,6 +132,7 @@ public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration confi
             clauses.AddRange(new[] { "sourcing_events", "sourcing_lines", "purchase_request_allocations" }.Select(x =>
                 "has_table_privilege(current_user," + Literal("procurement." + x) + ",'INSERT') AND has_table_privilege(current_user," + Literal("procurement." + x) + ",'UPDATE')"));
             clauses.Add("has_table_privilege(current_user,'procurement.purchase_request_lines','UPDATE')");
+            clauses.Add("has_table_privilege(current_user,'procurement.purchase_requests','UPDATE')");
         }
         return "SELECT " + string.Join(" AND ", clauses);
     }

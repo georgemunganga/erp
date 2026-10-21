@@ -43,6 +43,15 @@ public sealed class ProcurementSourcingSchemaReadinessTests
         Assert.False(await fake.IsReadyAsync(owner, true, default));
     }
 
+    [Fact]
+    public void Write_privilege_contract_requires_original_request_UPDATE_but_historical_read_does_not()
+    {
+        Assert.Contains("has_table_privilege(current_user,'procurement.purchase_requests','UPDATE')",
+            ProcurementSourcingDraftSchemaReadiness.PrivilegeSql(true));
+        Assert.DoesNotContain("has_table_privilege(current_user,'procurement.purchase_requests','UPDATE')",
+            ProcurementSourcingDraftSchemaReadiness.PrivilegeSql(false));
+    }
+
     private sealed class MetadataOnlyFake : IProcurementSourcingDraftSchemaReadiness
     { public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(true); }
     private sealed class UnreachableFinance : IProcurementFinanceCheckerSchemaReadiness
