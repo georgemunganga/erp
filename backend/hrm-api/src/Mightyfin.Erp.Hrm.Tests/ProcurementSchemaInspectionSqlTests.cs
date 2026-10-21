@@ -33,7 +33,7 @@ public sealed class ProcurementSchemaInspectionSqlTests
         var partial = ProcurementSchemaInspectionSql.UniqueIndexSql(Child, ["tenant_id", "id"], "ux_created", "((stage)::text = 'Created'::text)");
         Assert.DoesNotContain("i.indpred IS NULL", partial);
         Assert.Contains("pg_get_expr(i.indpred,i.indrelid)='((stage)::text = ''Created''::text)'", partial);
-        Assert.Contains("i.indexrelid='procurement.ux_created'::regclass", partial);
+        Assert.Contains("i.indexrelid='\"procurement\".\"ux_created\"'::regclass", partial);
         Assert.Contains("i.indisunique AND i.indisvalid AND i.indimmediate AND i.indexprs IS NULL", partial);
     }
 }

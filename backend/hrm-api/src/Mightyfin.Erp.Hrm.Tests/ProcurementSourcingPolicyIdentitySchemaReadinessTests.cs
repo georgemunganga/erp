@@ -1,0 +1,60 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
+
+namespace Mightyfin.Erp.Hrm.Tests;
+
+/// <summary>Negative/manifest source contracts. Positive finite-role PostgreSQL proof remains a separate gate.</summary>
+public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
+{
+    [Fact]
+    public async Task NonPostgres_owner_stays_unavailable_with_no_writes_or_alternate_connection()
+    {
+        var scope = new ProcurementRequestScope(); scope.Set("p29-schema", Guid.NewGuid(), "maker", null, null, false, "test");
+        await using var owner = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+        Assert.False(await new ProcurementSourcingPolicyIdentitySchemaReadiness().IsReadyAsync(owner, default));
+        Assert.False(owner.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
+    public void Existing_production_registration_remains_unavailable_not_candidate()
+    {
+        var services = new ServiceCollection();
+        ProcurementHostIntegration.AddServices(services, "Host=never-used.invalid;Database=not-opened",
+            new ConfigurationBuilder().Build());
+        var registration = Assert.Single(services.Where(x => x.ServiceType == typeof(IProcurementSourcingPolicyIdentitySchemaReadiness)));
+        Assert.Equal(typeof(UnavailableSourcingPolicyIdentitySchema), registration.ImplementationType);
+    }
+
+    [Theory]
+    [InlineData("sourcing_policy_identity_evidence")]
+    [InlineData("audit_events")]
+    [InlineData("outbox_events")]
+    public void Append_only_runtime_requires_both_finite_grants_and_denies_mutation(string table)
+    {
+        var sql = ProcurementSourcingPolicyIdentitySchemaReadiness.PrivilegeSql;
+        Assert.Contains($"has_table_privilege(current_user,'procurement.{table}','SELECT')", sql);
+        Assert.Contains($"has_table_privilege(current_user,'procurement.{table}','INSERT')", sql);
+        Assert.Contains($"NOT has_table_privilege(current_user,'procurement.{table}','UPDATE')", sql);
+        Assert.Contains($"NOT has_table_privilege(current_user,'procurement.{table}','DELETE')", sql);
+        Assert.Contains("rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls", sql);
+        Assert.Contains("NOT has_schema_privilege(current_user,'procurement','CREATE')", sql);
+    }
+
+    [Fact]
+    public void Manifest_preserves_actual_named_partial_predicates_and_null_guards()
+    {
+        Assert.Equal("20261021084158_P29SourcingPolicyIdentity", ProcurementSourcingPolicyIdentitySchemaReadiness.MigrationId);
+        Assert.Equal("((stage)::text = 'Created'::text)", ProcurementSourcingPolicyIdentitySchemaReadiness.PartialPredicates["ux_source_policy_identity_created"]);
+        Assert.Equal("((stage)::text = 'Published'::text)", ProcurementSourcingPolicyIdentitySchemaReadiness.PartialPredicates["ux_source_policy_identity_published"]);
+        var definition = ProcurementSourcingPolicyIdentitySchemaReadiness.CheckDefinition;
+        Assert.Contains("(rules_sha256 IS NOT NULL)", definition);
+        Assert.Contains("(evidence_sha256 IS NOT NULL)", definition);
+        Assert.Contains("(created_evidence_stage IS NOT NULL)", definition);
+        Assert.Contains("(submitted_evidence_stage IS NOT NULL)", definition);
+        Assert.Contains("((schema_version = 1)", definition);
+    }
+}
