@@ -432,3 +432,30 @@ Raw negatives use genuine HTTP-produced rows, changing one field only within own
 Invocation uses the existing private connection environment variables with distinct runtime `proc_approval_runtime_*` login and bootstrap owner; parent owns reviewed migration/provider integration, protected outputs and actual execution. No SDK, database, Node or tool execution occurred while authoring this mode; all scenarios and privilege/constraint names still require independent compile/runtime review. No external invitations, RFQ publication, bid/award or Finance completeness is claimed.
 
 The same source mode also authors concurrent same-revision publication: exactly one200 and one controlled409, with one Published identity record and one consequential publication audit. An unexpected500/unconfirmed result is a failed gate, not accepted as an interchangeable conflict; no such runtime result has yet been observed by this author.
+
+### P29 mapped API execution follow-up — 21 October 2026
+
+The broader integration gate on API source `e415d58` completed **294 passed,
+1 failed**, zero skipped, from 295 selected tests. Its sole failure occurred
+before the targeted HTTP request: the confined-reviewer test helper selected a
+single location from a company now containing several genuine fixture branches.
+`06628ec` binds that assignment to the selected account's actual worker home
+branch instead. No application scope filter was loosened. The failed log and TRX
+remain in `artifacts/p29/verify-api-e415d58.log` and `artifacts/p29/api/`.
+
+Frozen `ba0690d` then passed **130/130** focused mapped API/readiness tests, zero
+failed/skipped (1m52s): the complete `ProcurementRequestHttpTests` group, sourcing
+schema tests, shared inspection contracts, and the new P29 candidate tests. This
+includes the previously failing case, current/retained worker identity, legacy
+effective-policy and supersession denials, and exact saved-reviewer lookup scope.
+It overlaps the broader run and is not an additional 130 distinct tests. Evidence:
+`artifacts/p29/verify-policy-api-followup-ba0690d.log` and `artifacts/p29/api-followup/`.
+Existing compiler/analyzer warnings remain in the logs; none were suppressed.
+
+These mapped tests use isolated application fixtures, not actual PostgreSQL
+positive readiness or deployed SSO. The private `--sourcing-policies` host now
+explicitly composes the real owning-context SQL inspector solely in that mode,
+allowing its actual finite-role proof without enabling the deployed host. This is
+not a synthetic true provider. Production `ProcurementHostIntegration` still
+registers unavailable readiness, and no configuration marker or operational RFQ
+publication is enabled. Actual retained-policy/privilege/rollback proof follows.
