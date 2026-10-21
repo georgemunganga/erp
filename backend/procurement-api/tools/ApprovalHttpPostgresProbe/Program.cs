@@ -32,9 +32,10 @@ if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_a
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
 if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--rfq" or "--sourcing-policies"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
-    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal) || args.Contains("--rfq", StringComparer.Ordinal) || args.Contains("--sourcing-policies", StringComparer.Ordinal)))))
-    throw new ArgumentException("Use --sourcing-policies, --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving, --matching, --rfq or --sourcing-policies.");
+    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--settings", StringComparer.Ordinal) || args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal) || args.Contains("--rfq", StringComparer.Ordinal) || args.Contains("--sourcing-policies", StringComparer.Ordinal)))))
+    throw new ArgumentException("Use --sourcing-policies, --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --settings, --orders, --receiving, --matching, --rfq or --sourcing-policies.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
+var authoritySettings = serve && args.Contains("--settings", StringComparer.Ordinal);
 var sourcingPolicies = args.Contains("--sourcing-policies", StringComparer.Ordinal);
 var matching = args.Contains("--matching", StringComparer.Ordinal);
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
@@ -46,8 +47,8 @@ if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE
     throw new ArgumentException("The sandbox loopback port must be between 1024 and 65535.");
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
-if ((orders || sourcingPolicies) && bootstrapConnection is null) throw new InvalidOperationException("This verification requires distinct bootstrap/runtime identities.");
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, rfq, sourcingPolicies);
+if ((orders || sourcingPolicies || authoritySettings) && bootstrapConnection is null) throw new InvalidOperationException("This verification requires distinct bootstrap/runtime identities.");
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings);
 if (!serve && !sourcingPolicies)
 {
     await probe.VerifyFinanceCheckerReadiness();
@@ -55,9 +56,11 @@ if (!serve && !sourcingPolicies)
 }
 if (serve)
 {
-    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching, rfq, sourcingPolicies);
+    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings);
     Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
+    if (authoritySettings && Environment.GetEnvironmentVariable("PROCUREMENT_SOURCING_AUTHORITY_BROWSER_VERIFY_ON_STOP") == "1")
+        await probe.VerifySourcingAuthorityBrowserCompletion();
     if (sourcingPolicies && Environment.GetEnvironmentVariable("PROCUREMENT_SOURCING_POLICY_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifySourcingPolicyBrowserCompletion();
     if(matching && Environment.GetEnvironmentVariable("PROCUREMENT_MATCHING_BROWSER_VERIFY_ON_STOP")=="1")
@@ -129,7 +132,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private Guid OrderManager2 => manager2;
     private bool OrderDistinctRuntime => distinctRuntime;
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false)
     {
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
@@ -164,7 +167,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         ProcurementHostIntegration.AddServices(builder.Services, connection, builder.Configuration);
         if(serve && matching) RegisterMatchingBrowserScanner(builder.Services);
         // Explicit isolated fixture override is not evidence of production least privilege.
-        var feature = new ProcurementApprovalExecutionOptions { Enabled = true, ExecutionDatabaseConfigured = true };
+        var feature = new ProcurementApprovalExecutionOptions { Enabled = !authoritySettings, ExecutionDatabaseConfigured = true };
         builder.Services.AddSingleton(feature);
         var orderFeature = new ProcurementOrderExecutionOptions { Enabled = orders, ExecutionDatabaseConfigured = true,
             ApprovedManualDispatchPolicyReference = "SYNTHETIC-APPROVED-DELIVERY", AllowedDeliveryChannels = ["SecureEmail"] };
@@ -254,7 +257,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 }
             }
             procurement.AddScoped(new ProcurementCategory { Code = "IT", Name = "Synthetic IT", Status = "Active" });
-            if (!rfq) procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
+            if (!rfq && !authoritySettings) procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
                 State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = Rules(orders) });
             if (orders)
             {
@@ -282,8 +285,9 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null) { matchingDocumentDirectory=matchingDocumentsDirectory };
     }
 
-    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false)
+    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false)
     {
+        if (authoritySettings) return await PrepareSourcingAuthorityBrowserManifest(port);
         if (sourcingPolicies) return await PrepareSourcingPolicyBrowserManifest(port);
         if (rfq) return await PrepareRfqBrowserManifest(port);
         if(matching) return await PrepareMatchingBrowserManifest(port);
