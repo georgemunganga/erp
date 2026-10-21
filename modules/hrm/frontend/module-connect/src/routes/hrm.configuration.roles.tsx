@@ -145,7 +145,7 @@ export function RolesConfig() {
     event.preventDefault();
     setSaving("new");
     try {
-      await realApi.createRole(draft);
+      await realApi.createRole({ ...draft });
       feedback.saved(`${draft.roleName} created.`);
       setDraft(emptyDraft);
       setTick((t) => t + 1);
@@ -159,7 +159,7 @@ export function RolesConfig() {
   const saveRole = async (role: RoleRow, patch: Partial<DraftRole>) => {
     setSaving(role.roleKey);
     try {
-      await realApi.updateRole(role.roleKey, patch);
+      await realApi.updateRole(role.roleKey, { ...patch });
       feedback.saved(`${role.roleName} updated.`);
       setEditing((current) => {
         const next = { ...current };
