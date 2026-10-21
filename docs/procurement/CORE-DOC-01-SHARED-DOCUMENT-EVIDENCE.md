@@ -457,3 +457,46 @@ the fence, then perform all authoritative loads in its transaction. A design-onl
 preflight regression is authored. The actual adapter companion additionally must
 prove A-preloads → B-retires → A-fence denied and a fresh reader rejects the retired
 version. No executed concurrency claim from this correction alone.
+
+### U2 actual owner-adapter companion — authored, unrun
+
+The existing `CoreDocumentWorkflowProbe` gains opt-in `--owner-adapter`, compatible
+with its two existing optional modes without changing defaults. Existing bootstrap
+workflow still applies real committed Core migrations, uploads/scans real synthetic
+bytes and retains document records. The new mode requires explicit same-store
+`CORE_DOCUMENT_RUNTIME_CONNECTION` using a distinct, precreated, pooled
+`core_doc_u2_*` nonowner role, and `CORE_DOCUMENT_TEST_CONNECTION` must name a
+`core_doc_rehearsal_*` disposable database. No connection values are printed.
+The mode refuses elevated/inherited/owning runtime identities, revokes previous
+Core table **and column** privileges in this private store, then grants only Core
+schema usage, full six-table/history SELECT, use-set/pin/event INSERT and the five
+managed retirement UPDATE columns. Runtime DDL, original owner/content changes,
+immutable use mutation/deletion and truncation must each fail exact SQLSTATE42501.
+
+The exact-purpose/current-actor authorizer is an explicitly synthetic fixture with
+exact owner, reference, version IDs and named reader/officer identities. Read empty
+IDs supports the documented prelookup phase. It proves port composition, **not**
+actual Procurement policy/Core identity/SSO/assigned-worker authorization. The writer
+factory asserts it receives its actual enlisted context. There is no production
+registration, permissive module adapter or operational publication capability.
+
+Source-authored actual PostgreSQL cases observe a blocked advisory lock in both
+business orderings: reader pin+Save holds the shared session until commit, after
+which managed retirement denies retained evidence; writer holds exclusive through
+commit, after which a fresh reader rejects the retired version. The companion also
+covers original actor/set replay, authorized different-current-reader recovery,
+current access revocation, current actor replay denial, exact rollback before/after
+pin Save and after a deliberately failing retirement event insert, canceled pin and
+retirement, transaction loss, disposed lease, explicit sandbox lock loss and
+close/reopen invalidation, plus tenant/entity record isolation. A preloaded identity
+map regression uses A-loads/B-retires/A-fence denial and a fresh reader denial.
+Full six-table/history/constraint/column/index fingerprints compare denial/rollback
+states without printing private rows. Bootstrap-only fault DDL is removed in finally;
+no success proof, use row or authorization is owner-inserted.
+
+Invocation, after parent compiles/reviews source and supplies a private finite role:
+`CoreDocumentWorkflowProbe --owner-adapter` with the two private connection env keys
+above. No job was run while authoring this source. Genuine paired-race/finite-role
+acceptance remains pending; failures must preserve logs/fixtures and not relax guards.
+The registered-path audit found no application Retire caller: prior calls exist only
+in domain/unit tests and the old probe's denial fixture; the new writer is unregistered.
