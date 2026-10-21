@@ -17,13 +17,16 @@ public sealed partial class ProcurementDbContext
         b.Property(x => x.CreatedEvidenceId).ValueGeneratedNever(); b.Property(x => x.SubmittedEvidenceId).ValueGeneratedNever();
         b.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.Id, x.Stage }).HasName("ak_source_policy_identity_parent");
         b.HasOne<PolicyVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.PolicyVersionNumber })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PolicyVersionNumber }).OnDelete(DeleteBehavior.Restrict);
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PolicyVersionNumber }).OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_source_policy_identity_owner");
         b.HasOne<SourcingPolicyIdentityEvidence>().WithMany()
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.CreatedEvidenceId, x.CreatedEvidenceStage })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.Id, x.Stage }).OnDelete(DeleteBehavior.Restrict);
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.Id, x.Stage }).OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_source_policy_identity_created");
         b.HasOne<SourcingPolicyIdentityEvidence>().WithMany()
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.SubmittedEvidenceId, x.SubmittedEvidenceStage })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.Id, x.Stage }).OnDelete(DeleteBehavior.Restrict);
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.Id, x.Stage }).OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_source_policy_identity_submitted");
         b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.Stage, x.PolicyRecordVersionAtAction })
             .IsUnique().HasDatabaseName("ux_source_policy_identity_revision");
         b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId }, "ux_source_policy_identity_created").IsUnique().HasDatabaseName("ux_source_policy_identity_created")
