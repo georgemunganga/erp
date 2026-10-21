@@ -5,14 +5,15 @@ using Mightyfin.Erp.Core.Documents.Domain;
 using Mightyfin.Erp.Core.Documents.Infrastructure;
 using Npgsql;
 
-if (args.Any(x => x is not ("--use-pins" or "--lifecycle-fence")) || args.Distinct(StringComparer.Ordinal).Count() != args.Length)
-    throw new ArgumentException("Only the optional --use-pins and --lifecycle-fence modes are supported.");
+if (args.Any(x => x is not ("--use-pins" or "--lifecycle-fence" or "--owner-adapter")) || args.Distinct(StringComparer.Ordinal).Count() != args.Length)
+    throw new ArgumentException("Only --use-pins, --lifecycle-fence and --owner-adapter modes are supported.");
 var verifyUsePins = args.Contains("--use-pins");
 
 var connection = Environment.GetEnvironmentVariable("CORE_DOCUMENT_TEST_CONNECTION")
     ?? throw new InvalidOperationException("Set an isolated rehearsal database connection.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.Contains("rehearsal", StringComparison.OrdinalIgnoreCase) ?? false))
     throw new InvalidOperationException("This probe requires a disposable rehearsal database.");
+if (args.Contains("--owner-adapter")) DocumentOwnerAdapterVerification.ValidateInputs(connection);
 var options = new DbContextOptionsBuilder<DocumentDbContext>().UseNpgsql(connection,
     p => p.MigrationsHistoryTable("__EFMigrationsHistory", "core_document")).Options;
 var scope = new Scope("workflow-probe", Guid.NewGuid(), "synthetic-ap");
@@ -63,6 +64,8 @@ try
         await DocumentUseVerification.RunAsync(connection, options, scope, owner, target => Upload(target, Guid.NewGuid()));
     if (args.Contains("--lifecycle-fence"))
         await DocumentLifecycleFenceVerification.RunAsync(connection, scope, owner);
+    if (args.Contains("--owner-adapter"))
+        await DocumentOwnerAdapterVerification.RunAsync(connection, scope, target => Upload(target, Guid.NewGuid()));
     return 0;
 }
 finally { Directory.Delete(root, true); }
