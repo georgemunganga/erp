@@ -1,6 +1,6 @@
 # P27 — retained Finance checker identity verification
 
-Status: source integrated; verification pending. Recorded 20 October 2026.
+Status: bounded P27 source, migration rehearsal and restricted HTTP verification PASS; production release pending. Updated21October2026.
 
 ## Candidate and boundary
 
@@ -76,3 +76,12 @@ First follow-up session19058 compiled the application API but stopped before tes
 Corrected session85845 on740a629 completed **89/89 PurchaseRequest mapped API tests**, zero failed/skipped,1m29s; the API and actual HTTP probe Release build passed. This includes stale-CAS rejection without effects, current-versus-submitted queue values, canonical retained capture and unchanged exact reference replay/workflow evidence. Original compile failure is retained separately. Evidence: artifacts/p27/business-version-corrected.log, budget-business-version TRX and business-version-binaries.sha256.
 
 Fresh restricted-role actual P27 orders/Finance HTTP verification follows in `/home/amizo/erp-backups/procurement-p27-http-20261021_063741/`; no terminal pass is inferred at this checkpoint. Exact Budget UI sourcee73b308 separately passed48focused tests/TypeScript/build/six mocked browser cases, recorded in frontend draftPR38. These sources remain undeployed.
+
+
+## Actual finite-role P27 HTTP/PostgreSQL gate — PASS
+
+Fresh private run `/home/amizo/erp-backups/procurement-p27-http-20261021_063741/` terminated0 on compiled740a629. Actual runtime/bootstrap identities remained distinct; no fake readiness provider. All eleven rollback-only schema/privilege negatives restored genuine readiness, including only-new-column SELECT/INSERT and missing audit INSERT. New genuine HTTP Finance capture reloaded bound1 canonical worker/hash/microsecond evidence; exact-reference replay made no effects; current identity rebind409, action revocation403 (old and new references) and unbound legacy409 retained original evidence. Eight actual-row NULL/zero/hash/version SQL CHECK denials and unsupported discriminator on a genuine approved schema2 submission passed.
+
+The full existing --orders suite also passed: scoped conversion/reads/recovery, current finite authority, allocation/replay/no-effects and concurrency/fence checks, independent Finance/approval/issue/delivery, cancel/release, exact decimal input, catalog drift and privilege revocation. Protected log, source, binary SHA256, provision manifest, exit0/result and database are retained. No original source fixtures or production were changed.
+
+This accepts the bounded P27 identity/migration/runtime increment; it does not prove external Finance completeness, new actual Budget UI browser acceptance, RFQ execution, invoice original-unit review, AP, payment or the full Procurement release. Existing v36/P19/full-host release hold remains.
