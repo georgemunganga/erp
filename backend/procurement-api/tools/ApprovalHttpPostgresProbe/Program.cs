@@ -30,14 +30,15 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching"))
+if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--rfq"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
     || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal)))))
-    throw new ArgumentException("Use --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving or --matching.");
+    throw new ArgumentException("Use --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --orders, --receiving or --matching.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
 var matching = args.Contains("--matching", StringComparer.Ordinal);
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
-var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving;
+var rfq = args.Contains("--rfq", StringComparer.Ordinal);
+var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving || rfq;
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
@@ -45,7 +46,7 @@ if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
 if (orders && bootstrapConnection is null) throw new InvalidOperationException("Order verification requires distinct bootstrap/runtime identities.");
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching);
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, rfq);
 if (!serve)
 {
     await probe.VerifyFinanceCheckerReadiness();
@@ -62,6 +63,11 @@ if (serve)
         await probe.VerifyReceivingBrowserCompletion();
     if (orders && !receiving && Environment.GetEnvironmentVariable("PROCUREMENT_ORDER_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifyOrderBrowserCompletion();
+}
+else if (rfq)
+{
+    await probe.VerifyGovernedRfq();
+    Console.WriteLine("PASS: actual restricted governed internal RFQ draft holds/cancellation/history; no publication, bid, award or Finance completeness claimed.");
 }
 else if (matching)
 {
@@ -111,7 +117,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private Guid OrderManager2 => manager2;
     private bool OrderDistinctRuntime => distinctRuntime;
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false)
     {
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
@@ -151,6 +157,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         var orderFeature = new ProcurementOrderExecutionOptions { Enabled = orders, ExecutionDatabaseConfigured = true,
             ApprovedManualDispatchPolicyReference = "SYNTHETIC-APPROVED-DELIVERY", AllowedDeliveryChannels = ["SecureEmail"] };
         builder.Services.AddSingleton(orderFeature);
+        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = rfq, ExecutionDatabaseConfigured = true });
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions { DraftsEnabled = receiving, PositiveExecutionEnabled = receiving, ExecutionDatabaseConfigured = true });
         builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions { Enabled = matching, ExecutionDatabaseConfigured = true });
         builder.Services.AddAuthentication("probe").AddScheme<AuthenticationSchemeOptions, ProbeAuthentication>("probe", _ => { });
@@ -163,6 +170,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
             ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
             if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
+            if (rfq) { ProcurementSourcingExecutionRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
             if (matching)
             {
                 // Exercise the actual shared context endpoint used by the purpose-scoped
@@ -197,6 +205,8 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                     PermissionsCsv = "procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide" },
                 new TenantRoleAssignment { RoleKey = "finance_approver", RoleName = "Finance", Active = true,
                     PermissionsCsv = "procurement-access,procurement-budget-check,procurement-request-read,procurement-approval-read,procurement-authority-read,procurement-authority-review,procurement-authority-revoke" });
+            if (rfq)
+                core.TenantRoleAssignments.Local.Single(x => x.RoleKey == "finance_approver").PermissionsCsv += ",procurement-configuration-read,procurement-configuration-approve";
             if (orders)
             {
                 foreach (var role in core.TenantRoleAssignments.Local)
@@ -231,7 +241,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 }
             }
             procurement.AddScoped(new ProcurementCategory { Code = "IT", Name = "Synthetic IT", Status = "Active" });
-            procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
+            if (!rfq) procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
                 State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = Rules(orders) });
             if (orders)
             {
@@ -243,6 +253,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                 procurement.AddScoped(new PolicyVersion { PolicyKey = "PURCHASE_ORDER", PolicyVersionNumber = 1,
                     State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), RulesJson = orderRules });
             }
+            if (rfq) procurement.AddScoped(new ProcurementMethod { Code = "COMPETITIVE", Name = "Synthetic approved competitive route", Status = "Active", ExecutionRoute = "CompetitiveSourcing" });
             await procurement.SaveChangesAsync();
         }
         orderFeature.ManualCommitmentPolicies = [new() { LegalEntityId = company.Id, Enabled = true,
@@ -250,7 +261,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         if (bootstrapConnection is not null)
-            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching);
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching, rfq:rfq);
         if(serve && matching) await VerifyMatchingScannerBoundary();
         await app.StartAsync();
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
