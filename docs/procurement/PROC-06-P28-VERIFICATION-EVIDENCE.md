@@ -52,3 +52,8 @@ The guard now treats only new DraftReserved as action-unique; governed create/ca
 Executable7d4e733: infrastructure Release build succeeded (0warnings/errors), EF reported no pending model changes, and actual idempotent zero-to-P28 Up plus P28-to-P27 Down scripts generated; session74431 terminated0. Log artifacts/p28/compile-sql.log. Up SHA2569ad85440e271baa283ac5a471184fd1d93fdfbabe4606d3af4bdc3b4e3f9064c; Down815ce2aa488b1c98733b9754ac6c4e84346e7cccf6bc75422a88835b8613a16a.
 
 Distinct read-only SQL review accepted seven additive event columns, three owned tables, four CHECKs and four scoped deferred ownership FKs after their referenced indexes. Transactional Down locks/guard retain the legacy cancellation correction and reject governed evidence before any drop; no backfill, precision rewrite or CASCADE. Acceptance is for private PostgreSQL rehearsal only. Exact database-returned CHECK spelling, actual legacy cancellation Down/Up preservation, finite runtime and browser integration are still separate pending gates.
+
+
+## First actual rehearsal attempt — retained runner failure
+
+Private20261021_070938 stopped at operation012 before schema application: EF SQL contains a UTF-8 BOM; prepending bounded session controls made that BOM an invalid interior SQL token. The runner now decodes utf-8-sig before execution and hashes the original SQL file bytes. Migration SQL/guards/schema are unchanged. Failed logs/database are retained; the corrected run must use a new output/prefix. This is not a database preservation or runtime pass.

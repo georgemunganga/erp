@@ -27,7 +27,8 @@ def main():
             parser.error('Use bounded disposable proc_approval_http_* database names')
     if args.source_db.startswith(args.prefix) or args.migration_id != '20261021065049_P28GovernedSourcingDrafts':
         parser.error('Require a distinct new prefix and actual reviewed migration ID')
-    up, down = args.up_sql.read_text(), args.down_sql.read_text()
+    # EF writes a UTF-8 BOM. Consume it before prepending session controls; hash original bytes.
+    up, down = args.up_sql.read_text(encoding="utf-8-sig"), args.down_sql.read_text(encoding="utf-8-sig")
     if any(args.migration_id not in script for script in (up, down)) or 'GovernedSourcingRollbackWouldLoseEvidence' not in down:
         parser.error('Supply reviewed scripts containing migration ID and exact evidence stop')
     if any(re.search(r'DROP\s+DATABASE|pg_terminate_backend|pg_cancel_backend', script, re.I) for script in (up, down)):
@@ -227,7 +228,7 @@ def main():
         raise RuntimeError('Retained original source changed')
     (args.output / 'result.json').write_text(json.dumps({'status': 'PASS', 'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'sourceDatabase': args.source_db, 'databases': names, 'migration': args.migration_id,
-        'upSha256': hashlib.sha256(up.encode()).hexdigest(), 'downSha256': hashlib.sha256(down.encode()).hexdigest(),
+        'upSha256': hashlib.sha256(args.up_sql.read_bytes()).hexdigest(), 'downSha256': hashlib.sha256(args.down_sql.read_bytes()).hexdigest(),
         'limits': 'DDL preservation only; owner-only malformed/recovery negatives are not valid RFQ authority, immutable business evidence, Finance or HTTP/runtime proof'}, indent=2)+'\n')
     print('PASS private P28 migration rehearsal:', args.output)
 
