@@ -1298,6 +1298,88 @@ public sealed partial class ProcurementRequestHttpTests
     }
 
     [Fact]
+    public async Task Sourcing_policy_retains_original_worker_after_two_active_canonical_accounts_swap_workers()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var draft = SourcingPolicy(fixture.Owner);
+        var create = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var current = await create.Content.ReadFromJsonAsync<JsonElement>(); var id = current.GetProperty("id").GetGuid();
+        var version = current.GetProperty("version").GetInt64(); var before = await fixture.SourcingConfigurationFootprint();
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Put, $"{path}/{id}", fixture.Reviewer,
+            new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(version, draft), "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        var submit = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(version, "Explicit original author review"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+        current = await submit.Content.ReadFromJsonAsync<JsonElement>(); version = current.GetProperty("version").GetInt64();
+        var original = await fixture.SourcingIdentityRows(id); var makerWorker = original.Single(x => x.Stage == "Created").ActorWorkerId;
+        await fixture.SwapSourcingWorkers(fixture.Other, fixture.Reviewer); // Both accounts remain active and individually canonical.
+        before = await fixture.SourcingConfigurationFootprint();
+        foreach (var operation in new[] { "publish", "return-for-changes" })
+            Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/{operation}", fixture.Reviewer,
+                new ProcurementPolicyDraftRoutes.PublicationInput(version, "Original maker worker under a different canonical login"), "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        Assert.All(await fixture.SourcingIdentityRows(id), x => Assert.Equal(makerWorker, x.ActorWorkerId));
+    }
+
+    [Fact]
+    public async Task Sourcing_draft_original_principal_rebound_to_another_worker_cannot_edit_or_submit()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies"; var draft = SourcingPolicy(fixture.Owner);
+        var create = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var saved = await create.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
+        var version = saved.GetProperty("version").GetInt64(); await fixture.SwapSourcingWorkers(fixture.Other, fixture.Reviewer);
+        var before = await fixture.SourcingConfigurationFootprint();
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Put, $"{path}/{id}", fixture.Other,
+            new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(version, draft), "procurement_manager")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(version, "Changed account worker cannot inherit authorship"), "procurement_manager")).StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
+
+    [Theory] [InlineData("publish")] [InlineData("return-for-changes")]
+    public async Task Sourcing_policy_independent_review_survives_original_maker_offboarding(string operation)
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        const string path = "/api/procurement/v1/configuration/policies";
+        var create = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, SourcingPolicy(fixture.Owner), "procurement_manager");
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var current = await create.Content.ReadFromJsonAsync<JsonElement>(); var id = current.GetProperty("id").GetGuid();
+        var submit = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(current.GetProperty("version").GetInt64(), "Independent source configuration review"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
+        current = await submit.Content.ReadFromJsonAsync<JsonElement>(); var original = await fixture.SourcingIdentityRows(id);
+        await fixture.SourcingIdentity("inactive", fixture.Other);
+        var result = await SendJson(fixture.Client, HttpMethod.Post, $"{path}/{id}/{operation}", fixture.Reviewer,
+            new ProcurementPolicyDraftRoutes.PublicationInput(current.GetProperty("version").GetInt64(), "Independent active reviewer, historic maker offboarded"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var after = await fixture.SourcingIdentityRows(id);
+        Assert.Equal(original.Single(x => x.Stage == "Created").EvidenceSha256, after.Single(x => x.Stage == "Created").EvidenceSha256);
+        Assert.Equal(original.Single(x => x.Stage == "Submitted").EvidenceSha256, after.Single(x => x.Stage == "Submitted").EvidenceSha256);
+        if (operation == "publish") Assert.NotEqual(after.Single(x => x.Stage == "Created").ActorWorkerId, after.Single(x => x.Stage == "Published").ActorWorkerId);
+        else Assert.Equal(2, after.Length);
+    }
+
+    [Fact]
+    public async Task Sourcing_identity_schema_unavailable_blocks_new_policy_before_writes_without_blocking_other_policy_keys()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        fixture.SetSourcingIdentityReadiness(false);
+        var before = await fixture.SourcingConfigurationFootprint();
+        var response = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/configuration/policies", fixture.Other,
+            SourcingPolicy(fixture.Owner), "procurement_manager");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        var legacyOtherType = new ProcurementPolicyDraftRoutes.PolicyDraft("PURCHASE_REQUEST", DateTimeOffset.UtcNow.AddDays(1), null, "{}");
+        Assert.Equal(HttpStatusCode.Created, (await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/configuration/policies", fixture.Other,
+            legacyOtherType, "procurement_manager")).StatusCode);
+    }
+
+    [Fact]
     public async Task Sourcing_reviewer_lookup_filters_canonical_company_identity_before_count_and_page_without_financial_eligibility()
     {
         await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
@@ -3179,6 +3261,20 @@ public sealed partial class ProcurementRequestHttpTests
             await db.SaveChangesAsync();
         }
 
+        public void SetSourcingIdentityReadiness(bool ready) => app.Services.GetRequiredService<SourcingPolicyIdentityTestReadiness>().Ready = ready;
+        public async Task SwapSourcingWorkers(Guid left, Guid right)
+        {
+            using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var a = await core.LocalUsers.SingleAsync(x => x.Id == left); var b = await core.LocalUsers.SingleAsync(x => x.Id == right);
+            (a.WorkerId, b.WorkerId) = (b.WorkerId, a.WorkerId); await core.SaveChangesAsync();
+        }
+        public async Task<SourcingPolicyIdentityEvidence[]> SourcingIdentityRows(Guid policyId)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set("tenant-a", company, Other.ToString(), null, null, false, "identity-evidence-test");
+            return await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
+                .Where(x => x.PolicyVersionId == policyId).OrderBy(x => x.PolicyRecordVersionAtAction).ToArrayAsync();
+        }
         public async Task<Guid> SeedSourcingLookupPerson(string displayName, string kind)
         {
             using var services = app.Services.CreateScope();
@@ -3232,7 +3328,8 @@ public sealed partial class ProcurementRequestHttpTests
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             return JsonSerializer.Serialize(new { policies = await db.PolicyVersions.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
                 audits = await db.AuditEvents.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
-                grants = await db.SpendingAuthorityGrants.CountAsync(), events = await db.SourcingEvents.CountAsync(), outbox = await db.OutboxEvents.CountAsync() });
+                grants = await db.SpendingAuthorityGrants.CountAsync(), events = await db.SourcingEvents.CountAsync(), outbox = await db.OutboxEvents.CountAsync(),
+                identity = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync() });
         }
         public async Task SourcingIdentity(string change, Guid subject)
         {
@@ -3709,6 +3806,8 @@ public sealed partial class ProcurementRequestHttpTests
             builder.Services.AddDbContext<ProcurementDbContext>(options =>
                 options.UseInMemoryDatabase("proc-drafts-" + databaseId));
             builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness());
+            builder.Services.AddSingleton<SourcingPolicyIdentityTestReadiness>();
+            builder.Services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness>(sp => sp.GetRequiredService<SourcingPolicyIdentityTestReadiness>());
             var documentRoot = documents ? Path.Combine(Path.GetTempPath(), "erp-http-documents-" + databaseId) : null;
             if (documents)
             {
@@ -3791,6 +3890,13 @@ public sealed partial class ProcurementRequestHttpTests
             await app.DisposeAsync();
             if (documentRoot is not null && Directory.Exists(documentRoot)) Directory.Delete(documentRoot, true);
         }
+    }
+
+    // Explicit mapped-InMemory test override, never registered by the production host.
+    private sealed class SourcingPolicyIdentityTestReadiness : IProcurementSourcingPolicyIdentitySchemaReadiness
+    {
+        public bool Ready { get; set; } = true;
+        public Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(Ready);
     }
 
     private sealed class InvoiceReadinessSchema : IProcurementInvoiceMatchingSchemaReadiness
