@@ -103,6 +103,8 @@ public sealed class DocumentOwnerLifecycleFence : IAsyncDisposable
         var capturedActor = new FenceScope(actor.TenantId, actor.LegalEntityId, actor.SubjectId);
         var keys = OrderedKeys(capturedActor, capturedOwners);
         if (!db.Database.IsNpgsql()) throw new InvalidOperationException("Document lifecycle fencing requires the owning PostgreSQL context.");
+        if (db.ChangeTracker.Entries().Any())
+            throw new InvalidOperationException("Acquire document lifecycle fencing on a clean owning context before loading authoritative records.");
         if (db.Database.CurrentTransaction is not null || db.Database.GetEnlistedTransaction() is not null
             || System.Transactions.Transaction.Current is not null)
             throw new InvalidOperationException("Acquire document lifecycle fencing before beginning or enlisting a transaction.");
