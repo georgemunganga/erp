@@ -29,9 +29,9 @@ public sealed class SourcingPublicationPolicyRulesTests
         Assert.Equal(new[] { "reviewer-a", "reviewer-b" }, Assert.Single(preview.Stages).PrincipalIds);
         Assert.Equal("All", preview.Stages[0].Stage.Mode); Assert.Equal(64, preview.PolicyDigest!.Length);
         Assert.False(preview.CanPublish);
-        // New document is NOT accepted by the live PR/PO policy registry.
+        // Generic PR/PO validation remains isolated; SOURCING dispatch uses its owned typed validator.
         Assert.NotEmpty(PolicyRuleValidator.Validate(doc.ToJsonString()));
-        Assert.Throws<InvalidOperationException>(() => ProcurementSpendingActions.Resolve("SourcingEvent.Publish"));
+        Assert.Equal("procurement-sourcing-publish", ProcurementSpendingActions.Resolve("SourcingEvent.Publish").Permission);
     }
     [Theory]
     [InlineData("schemaVersion", "2")] [InlineData("policyKey", "\"PR\"")]

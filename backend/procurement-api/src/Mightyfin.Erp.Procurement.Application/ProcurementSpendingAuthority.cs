@@ -25,7 +25,7 @@ public static class ProcurementSpendingAuthority
         EvaluateCore(context, principalId, permission, action, at, grants,
             ProcurementSpendingActions.Matches(action, permission, context.AmountBasis));
 
-    // Narrow proposed pure use, not registered public authority/configuration support.
+    // Shared publication preflight; eligibility is configuration evidence, never execution authority.
     internal static ProcurementSpendingAuthorityResult EvaluateSourcingPublication(ProcurementSpendContext context,
         string principalId, DateTimeOffset at, IEnumerable<ProcurementSpendingAuthorityGrant> grants)
     {

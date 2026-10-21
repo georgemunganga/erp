@@ -1630,7 +1630,9 @@ public sealed partial class ProcurementRequestHttpTests
         var selected = await effective.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Valid", selected.GetProperty("status").GetString()); Assert.False(selected.GetProperty("isAuthority").GetBoolean());
         Assert.Equal(id, selected.GetProperty("policy").GetProperty("id").GetGuid());
-        Assert.Throws<InvalidOperationException>(() => ProcurementSpendingActions.Resolve("SourcingEvent.Publish"));
+        Assert.Equal("procurement-sourcing-publish", ProcurementSpendingActions.Resolve("SourcingEvent.Publish").Permission);
+        Assert.Equal(HttpStatusCode.NotFound, (await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/sourcing/" + Guid.NewGuid() + "/publish", fixture.Other, new { }, "procurement_manager")).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, $"{path}/{id}", fixture.Other,
             new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(current.GetProperty("version").GetInt64(), draft), "procurement_manager")).StatusCode);
     }

@@ -173,7 +173,7 @@ public sealed class ProcurementSpendingAuthorityHttpTests
     public async Task Named_people_lookup_uses_the_requested_PR_or_PO_permission_without_cross_granting()
     {
         await using var fixture = await Fixture.Start();
-        var (requestPerson, orderPerson) = await fixture.SeedActionPeople();
+        var (requestPerson, orderPerson, _) = await fixture.SeedActionPeople();
         var requestLookup = await fixture.Send(HttpMethod.Get, Path + "/lookups/people?search=only", "erp_admin", branch: fixture.Branch);
         Assert.Equal(HttpStatusCode.OK, requestLookup.StatusCode);
         var requests = await requestLookup.Content.ReadFromJsonAsync<JsonElement>();
@@ -183,6 +183,61 @@ public sealed class ProcurementSpendingAuthorityHttpTests
         Assert.Equal(HttpStatusCode.OK, orderLookup.StatusCode);
         var orders = await orderLookup.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(orderPerson.ToString("D"), Assert.Single(orders.GetProperty("items").EnumerateArray()).GetProperty("principalId").GetString());
+    }
+
+    [Fact]
+    public async Task Sourcing_configuration_list_is_exact_and_scope_filtered_without_mixing_existing_families()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.SeedOrderGrant(); var sourceId = await fixture.SeedGrantForAction("SourcingEvent.Publish");
+        var response = await fixture.Send(HttpMethod.Get, Path + "?action=SourcingEvent.Publish", "erp_admin", branch: fixture.OtherBranch);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("SourcingEvent.Publish", body.GetProperty("createAction").GetString());
+        Assert.Equal("ApprovedLineBase", body.GetProperty("createAmountBasis").GetString());
+        Assert.True(body.GetProperty("canCreate").GetBoolean()); Assert.Equal(1, body.GetProperty("total").GetInt32());
+        var record = Assert.Single(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(sourceId, record.GetProperty("id").GetGuid());
+        Assert.Equal("SourcingEvent.Publish", record.GetProperty("action").GetString());
+        Assert.Equal("procurement-sourcing-publish", record.GetProperty("permission").GetString());
+        Assert.Equal("ApprovedLineBase", record.GetProperty("amountBasis").GetString());
+        response = await fixture.Send(HttpMethod.Get, Path + "?action=SourcingEvent.Publish", "erp_admin", branch: fixture.Branch);
+        body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, body.GetProperty("total").GetInt32()); Assert.Empty(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(HttpStatusCode.NotFound, (await fixture.Send(HttpMethod.Get, Path + "/" + sourceId, "erp_admin", branch: fixture.Branch)).StatusCode);
+        await fixture.SetReadOnly();
+        body = await (await fixture.Send(HttpMethod.Get, Path + "?action=SourcingEvent.Publish", "erp_admin", branch: fixture.OtherBranch)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(body.GetProperty("canCreate").GetBoolean());
+        Assert.Empty(Assert.Single(body.GetProperty("items").EnumerateArray()).GetProperty("allowedActions").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Sourcing_named_lookup_requires_its_own_current_permission_and_retains_branch_scope()
+    {
+        await using var fixture = await Fixture.Start(); var (_, _, source) = await fixture.SeedActionPeople();
+        const string action = "?search=only&action=SourcingEvent.Publish";
+        var response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people" + action, "erp_admin", branch: fixture.Branch);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(source.ToString("D"), Assert.Single(body.GetProperty("items").EnumerateArray()).GetProperty("principalId").GetString());
+        response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people" + action, "erp_admin", branch: fixture.OtherBranch);
+        body = await response.Content.ReadFromJsonAsync<JsonElement>(); Assert.Empty(body.GetProperty("items").EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData("currency")]
+    [InlineData("branch")]
+    public async Task Sourcing_create_rejects_wrong_company_currency_or_selected_scope_before_any_write(string invalid)
+    {
+        await using var fixture = await Fixture.Start();
+        var response = await fixture.Send(HttpMethod.Post, Path, "erp_admin", new {
+            authorityReference = "SOURCE-DENIED", principalId = fixture.User.ToString("D"), action = "SourcingEvent.Publish",
+            draft = new { currencyCode = invalid == "currency" ? "USD" : "ZMW", amountBasis = "ApprovedLineBase",
+                maximumAmount = "12.3456", branchRef = fixture.OtherBranch } }, branch: invalid == "branch" ? fixture.Branch : fixture.OtherBranch);
+        Assert.Equal(invalid == "branch" ? HttpStatusCode.NotFound : HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        if (invalid == "currency") Assert.Equal("AuthorityCompanyCurrencyRequired", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        var body = await (await fixture.Send(HttpMethod.Get, Path + "?action=SourcingEvent.Publish", "erp_admin", branch: fixture.OtherBranch)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, body.GetProperty("total").GetInt32());
     }
 
     private sealed class Fixture(WebApplication app, Guid company, Guid user, Guid branch, Guid otherBranch, Guid grant) : IAsyncDisposable
@@ -288,7 +343,8 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             });
             return (pendingId, firstId);
         }
-        public async Task<Guid> SeedOrderGrant()
+        public Task<Guid> SeedOrderGrant() => SeedGrantForAction("PurchaseOrder.Approve");
+        public async Task<Guid> SeedGrantForAction(string action)
         {
             using var services = app.Services.CreateScope();
             services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set(
@@ -298,10 +354,10 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             var actor = new SpendingAuthorityConfigurationActor("tenant-a", company, user.ToString("D"), true,
                 new HashSet<string>([SpendingAuthorityConfiguration.ConfigurePermission]));
             var order = SpendingAuthorityConfiguration.CreateDraft(existing.AuthorityReference, user.ToString("D"),
-                new("ZMW", "ApprovedLineBase", BranchRef: otherBranch), actor, DateTimeOffset.UtcNow, [existing], "PurchaseOrder.Approve");
+                new("ZMW", ProcurementSpendingActions.Resolve(action).AmountBasis, BranchRef: otherBranch), actor, DateTimeOffset.UtcNow, [existing], action);
             db.AddScoped(order); await db.SaveChangesAsync(); return order.Id;
         }
-        public async Task<(Guid Request, Guid Order)> SeedActionPeople()
+        public async Task<(Guid Request, Guid Order, Guid Sourcing)> SeedActionPeople()
         {
             using var services = app.Services.CreateScope();
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
@@ -316,9 +372,11 @@ public sealed class ProcurementSpendingAuthorityHttpTests
                 new TenantRoleAssignment { RoleKey = "pr_lookup", RoleName = "PR only fixture", Active = true,
                     PermissionsCsv = "procurement-access,procurement-approval-decide" },
                 new TenantRoleAssignment { RoleKey = "po_lookup", RoleName = "PO only fixture", Active = true,
-                    PermissionsCsv = "procurement-access,procurement-po-approve" });
-            var requestPerson = Person("PR", "pr_lookup"); var orderPerson = Person("PO", "po_lookup");
-            await core.SaveChangesAsync(); return (requestPerson.Id, orderPerson.Id);
+                    PermissionsCsv = "procurement-access,procurement-po-approve" },
+                new TenantRoleAssignment { RoleKey = "rfq_lookup", RoleName = "RFQ only fixture", Active = true,
+                    PermissionsCsv = "procurement-access,procurement-sourcing-publish" });
+            var requestPerson = Person("PR", "pr_lookup"); var orderPerson = Person("PO", "po_lookup"); var sourcingPerson = Person("RFQ", "rfq_lookup");
+            await core.SaveChangesAsync(); return (requestPerson.Id, orderPerson.Id, sourcingPerson.Id);
         }
         public static async Task<Fixture> Start()
         {

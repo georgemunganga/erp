@@ -56,6 +56,8 @@ public static class ProcurementActionCatalog
             // Source reservations/releases require explicit Core grants; legacy draft rights do not imply them.
             ["procurement-sourcing-convert"] = [],
             ["procurement-sourcing-cancel"] = [],
+            // Explicit configured grant only; catalog registration adds no publication endpoint or limit.
+            ["procurement-sourcing-publish"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
             ["procurement-invoice-capture"] = ["ap_processor"],
             ["procurement-invoice-match"] = [],
