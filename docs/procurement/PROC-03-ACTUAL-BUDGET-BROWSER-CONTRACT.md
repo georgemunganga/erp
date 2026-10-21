@@ -51,3 +51,8 @@ No author build/SDK/Node/DB/browser jobs ran. Actual restricted P27 CLI is a sep
 ### Source audit correction
 
 The generic ProcurementDbContext audit already writes snapshot/create for new BudgetCheckSnapshot, in addition to the explicit request/BudgetChecked record. Initial source dceafc3 incorrectly expected only one total audit; corrected owner proof requires both exact audit kinds and global+2, with matching retained canonical worker/hash in the business audit. This is a source-only correction, not a runtime failure/pass claim.
+
+
+## Executed coordinator gate — PASS
+
+21October2026: new private P27 fixture, unchanged frozen applicatione73b308, test9678723, toolfb03a7d. TypeScript +one actual Chromium case passed (14.4s, zero retries); new owner-context verification after shutdown passed/exit0. Exact evidence and limits are in PROC-FIN-01-P27-VERIFICATION-EVIDENCE.md. Production unchanged.

@@ -85,3 +85,12 @@ Fresh private run `/home/amizo/erp-backups/procurement-p27-http-20261021_063741/
 The full existing --orders suite also passed: scoped conversion/reads/recovery, current finite authority, allocation/replay/no-effects and concurrency/fence checks, independent Finance/approval/issue/delivery, cancel/release, exact decimal input, catalog drift and privilege revocation. Protected log, source, binary SHA256, provision manifest, exit0/result and database are retained. No original source fixtures or production were changed.
 
 This accepts the bounded P27 identity/migration/runtime increment; it does not prove external Finance completeness, new actual Budget UI browser acceptance, RFQ execution, invoice original-unit review, AP, payment or the full Procurement release. Existing v36/P19/full-host release hold remains.
+
+
+## Actual Budget browser and independent persisted owner gate — PASS
+
+Fresh fixture `/home/amizo/erp-backups/procurement-p27-http-budgetbrowser-20261021_065336/` ran real P27 API/runtime-role metadata and Budget routes. Frozen applicatione73b308 hashes were reverified unchanged; test source9678723 passed TypeScript and **1/1 actual Chromium case**, zero retries,14.4seconds. It reads genuine0.00010001 demand, rejects locally underfunded0.0001 with zeroPOST, accepts explicitly reviewed0.0002 with exactly one actual201 POST, then reads canonical retained history.
+
+Graceful private-server shutdown ran fresh bootstrap-owned contexts and terminated0: original request/line digest, versions, amounts, requester, Submitted/unapproved state and all purchase counters unchanged; exactly one bound canonical Finance snapshot plus explicit BudgetChecked and existing snapshot-create audits, no extra Core cases/decisions/pins/allocations/orders/policy/outbox effects. Protected source/binary/bundle hashes, traffic, manifest, logs, runner, exit codes and result are retained. Tool sourcefb03a7d affects private fixture only; application API matches the earlier verified funding increment.
+
+Shell authentication/branding presentation is synthetic; actual Procurement responses/grants and persistence are not mocked. References represent controlled synthetic manual Finance evidence, not independent external funding verification, SSO acceptance or production release.
