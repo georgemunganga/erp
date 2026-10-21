@@ -123,6 +123,19 @@ public sealed class DocumentUseOwnerAdapterTests
     }
 
     [Fact]
+    public async Task Preloaded_authoritative_identity_map_is_rejected_before_connection_or_lock_acquisition()
+    {
+        await using var db=new DocumentDbContext(new DbContextOptionsBuilder<DocumentDbContext>()
+            .UseNpgsql("Host=localhost;Database=design_only_never_open;Username=design_only").Options,Actor);
+        var owner=new DocumentOwner("procurement","sourcing_event",Guid.NewGuid());
+        db.Attach(CoreDocument.Create(Actor,owner.Module,owner.Type,owner.Id,At));
+        var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>
+            DocumentOwnerLifecycleFence.AcquireAsync(db,Actor,[owner],false));
+        Assert.Contains("clean owning context",error.Message);
+        Assert.Equal(System.Data.ConnectionState.Closed,db.Database.GetDbConnection().State);
+    }
+
+    [Fact]
     public void Exact_purpose_operations_distinguish_metadata_read_from_content_download()
     {
         Assert.NotEqual(DocumentUseOperation.Read,DocumentUseOperation.Download);
