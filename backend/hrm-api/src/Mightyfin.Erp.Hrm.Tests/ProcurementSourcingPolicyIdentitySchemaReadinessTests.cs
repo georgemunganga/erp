@@ -20,13 +20,13 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
     }
 
     [Fact]
-    public void Existing_production_registration_remains_unavailable_not_candidate()
+    public void Production_registration_uses_actual_owning_store_readiness_without_connection_fallback()
     {
         var services = new ServiceCollection();
         ProcurementHostIntegration.AddServices(services, "Host=never-used.invalid;Database=not-opened",
             new ConfigurationBuilder().Build());
         var registration = Assert.Single(services.Where(x => x.ServiceType == typeof(IProcurementSourcingPolicyIdentitySchemaReadiness)));
-        Assert.Equal(typeof(UnavailableSourcingPolicyIdentitySchema), registration.ImplementationType);
+        Assert.Equal(typeof(ProcurementSourcingPolicyIdentitySchemaReadiness), registration.ImplementationType);
     }
 
     [Theory]

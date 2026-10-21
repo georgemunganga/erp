@@ -1451,6 +1451,55 @@ public sealed partial class ProcurementRequestHttpTests
             legacyOtherType, "procurement_manager")).StatusCode);
     }
 
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    public async Task Sourcing_reviewer_lookup_computes_configuration_marker_without_changing_scoped_names_or_records(bool ready, int expected)
+    {
+        // Explicit mapped synthetic readiness only; actual PG readiness is proved by the separate private probe.
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        var person = await fixture.SeedSourcingLookupPerson("Marker Person", "visible");
+        fixture.SetSourcingIdentityReadiness(ready);
+        var before = await fixture.SourcingConfigurationFootprint();
+        var response = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/configuration/policies/lookups/sourcing-reviewers?principalIds=" + person.ToString("D"),
+            fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(expected, json.GetProperty("configurationVersion").GetInt32());
+        Assert.Equal(1, json.GetProperty("total").GetInt32());
+        Assert.Equal(person, Assert.Single(json.GetProperty("items").EnumerateArray()).GetProperty("principalId").GetGuid());
+        Assert.False(json.GetProperty("isAuthority").GetBoolean());
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        if (!ready)
+        {
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, (await SendJson(fixture.Client, HttpMethod.Post,
+                "/api/procurement/v1/configuration/policies", fixture.Other, SourcingPolicy(fixture.Owner), "procurement_manager")).StatusCode);
+            Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Missing_or_failed_sourcing_readiness_keeps_names_readable_but_marker_zero(bool failed)
+    {
+        await using var fixture = await Fixture.Start(sourcingSchema: failed); await fixture.ConfigureSourcingPolicyActors();
+        if (failed) fixture.FailSourcingIdentityReadiness();
+        var person = await fixture.SeedSourcingLookupPerson("Unavailable Marker Person", "visible");
+        var before = await fixture.SourcingConfigurationFootprint();
+        var response = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/configuration/policies/lookups/sourcing-reviewers?search=Unavailable%20Marker%20Person",
+            fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, json.GetProperty("configurationVersion").GetInt32());
+        Assert.Equal(person, Assert.Single(json.GetProperty("items").EnumerateArray()).GetProperty("principalId").GetGuid());
+        Assert.False(json.GetProperty("isAuthority").GetBoolean());
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
+
     [Fact]
     public async Task Sourcing_reviewer_lookup_filters_canonical_company_identity_before_count_and_page_without_financial_eligibility()
     {
@@ -3356,6 +3405,7 @@ public sealed partial class ProcurementRequestHttpTests
             row.RulesJson = "{\"tampered\":true}"; await legacy.SaveChangesAsync();
         }
         public void SetSourcingIdentityReadiness(bool ready) => app.Services.GetRequiredService<SourcingPolicyIdentityTestReadiness>().Ready = ready;
+        public void FailSourcingIdentityReadiness() => app.Services.GetRequiredService<SourcingPolicyIdentityTestReadiness>().Fail = true;
         public async Task SwapSourcingWorkers(Guid left, Guid right)
         {
             using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
@@ -3890,7 +3940,7 @@ public sealed partial class ProcurementRequestHttpTests
             await db.SaveChangesAsync();
         }
 
-        public static async Task<Fixture> Start(bool documents = false, bool matchingSchema = false)
+        public static async Task<Fixture> Start(bool documents = false, bool matchingSchema = false, bool sourcingSchema = true)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
@@ -3905,7 +3955,7 @@ public sealed partial class ProcurementRequestHttpTests
                 options.UseInMemoryDatabase("proc-drafts-" + databaseId, procurementStoreRoot));
             builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness());
             builder.Services.AddSingleton<SourcingPolicyIdentityTestReadiness>();
-            builder.Services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness>(sp => sp.GetRequiredService<SourcingPolicyIdentityTestReadiness>());
+            if (sourcingSchema) builder.Services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness>(sp => sp.GetRequiredService<SourcingPolicyIdentityTestReadiness>());
             var documentRoot = documents ? Path.Combine(Path.GetTempPath(), "erp-http-documents-" + databaseId) : null;
             if (documents)
             {
@@ -4005,7 +4055,9 @@ public sealed partial class ProcurementRequestHttpTests
     private sealed class SourcingPolicyIdentityTestReadiness : IProcurementSourcingPolicyIdentitySchemaReadiness
     {
         public bool Ready { get; set; } = true;
-        public Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(Ready);
+        public bool Fail { get; set; }
+        public Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct)
+            => Fail ? throw new InvalidOperationException("Synthetic readiness discovery failure") : Task.FromResult(Ready);
     }
 
     private sealed class InvoiceReadinessSchema : IProcurementInvoiceMatchingSchemaReadiness

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -7,7 +8,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementPolicyDraftRoutes
 {
     private static async Task<IResult> SourcingReviewers(string? search, int? offset, int? limit, string? principalIds,
-        HttpContext http, HrmDbContext core, ProcurementRequestScope scope, CancellationToken ct)
+        HttpContext http, HrmDbContext core, ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
         try
@@ -42,7 +43,19 @@ public static partial class ProcurementPolicyDraftRoutes
             var total = await query.CountAsync(ct);
             var page = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)
                 .Select(x => new { principalId = x.Id.ToString(), x.DisplayName, x.WorkerId }).ToArrayAsync(ct);
+            var configurationVersion = 0;
+            try
+            {
+                var readiness = http.RequestServices.GetService<IProcurementSourcingPolicyIdentitySchemaReadiness>();
+                if (readiness is not null && await readiness.IsReadyAsync(db, ct)) configurationVersion = 1;
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                // People remain scoped/readable if Procurement schema discovery fails.
+                // This marker confers no authority; mutation routes repeat the owning-store guard.
+            }
             return Results.Ok(new { items = page, total, offset = skip, limit = take,
+                configurationVersion,
                 nextOffset = page.Length > 0 && skip + page.Length < total && skip + page.Length <= 100000 ? (int?)(skip + page.Length) : null,
                 isAuthority = false });
         }
