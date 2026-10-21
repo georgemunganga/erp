@@ -112,8 +112,7 @@ public static class ProcurementContextRoutes
                 .Select(x => new ProcurementLocation(x.Id, x.Code, x.Name)).SingleOrDefaultAsync(ct);
             if (unit is null) return null;
         }
-        var granted = ProcurementPermissions.GrantedPolicies(claims).Where(x => x == "procurement-access"
-            || x.EndsWith("-read", StringComparison.Ordinal) || x == "procurement-receipt-view").ToArray();
+        var granted = ProcurementPermissions.GrantedPolicies(claims).Where(ProcurementPermissions.IsReadOnlyPolicy).ToArray();
         if (!granted.Contains("procurement-access", StringComparer.Ordinal)) return null;
         return new ProcurementContextResponse(scope.TenantId, company.Id, null, company, branch, unit,
             [company], ProcurementPermissions.ProcurementRoles(claims), granted, assignments.Length > 0, true);
