@@ -117,3 +117,46 @@ No publication execution policy is inferred. Next O4/O5 adapters must prove curr
 Source `17a0a5e` passed781Procurement domain/model,311mapped API/Core regression and112shared document tests (separate suites). Actual isolated PostgreSQL settings mode passed source draft creation, submission and independent activation; exact `SourcingEvent.Publish`/`procurement-sourcing-publish`/`ApprovedLineBase` tuple, PR/PO family isolation, wrong-currency no-effects and absence of operational publication were checked. Restricted runtime privileges were exercised. Protected executable/provenance/log/result: `/home/amizo/erp-backups/procurement-p29-http-policies-20261021_094635/`. This mode did not produce a schema2 request submission; its explicit NOT EXERCISED result remains retained.
 
 Existing UI application `e366f78` passed30focused unit tests, TypeScript/staged live build and22/22 mocked HTTP browser contracts, including the direct existing RFQ approvals tab. An actual UI authority workflow with independent persisted owner proof remains the next gate; it is not inferred from those mocks or the standalone API result. No publication endpoint/operational flag, production migration or deployment was enabled.
+
+## Actual configuration browser fixture — authored source, not executed
+
+The existing `ApprovalHttpPostgresProbe` adds the narrowly allowed pair
+`--serve --settings`; standalone `--settings` and all other existing modes retain
+behavior. The pair requires distinct private bootstrap/runtime connections, normal
+Host routes/readiness, real committed Procurement/CoreApproval migrations and the
+existing loopback-only Kestrel/0600 manifest boundary. It skips the ordinary browser
+PR/Finance/approval seeding and the default synthetic PR policy: no financial grant,
+policy, request, case or RFQ event is created before the browser. IT category and
+canonical synthetic Core company/branch/workers/accounts are configuration fixtures.
+
+`actors.maker` has only access/config-read/authority-read/configure;
+`actors.reviewer` only access/config-read/authority-read/review. They and
+`actors.namedmanager2` are three distinct canonical company workers, confined to the
+actual branch. The named manager has explicit `procurement-sourcing-publish` but
+**zero** authority limit until the UI creates/reviews one. No ERP-admin fallback,
+implicit unlimited grant or operational publication is enabled. Normal scoped action
+list and people lookup preflight the typed tuple and named person. Schema readiness
+is calculated by actual normal services, never a Boolean fixture substitute.
+
+The private manifest's `sourcingAuthority` specifies reference
+`BROWSER-SOURCING-LIMIT`, named manager principal/display name, exact decimal string
+`1.2345`, ZMW, ApprovedLineBase, action SourcingEvent.Publish, the actual branch,
+explicit all-departments/all-categories, UTC-midnight effective start and no end.
+Activation reason is `Browser independent sourcing limit approved`. The existing
+ERP authority editor performs exactly three POSTs: Create Draft → Submit → independent
+Activate. The fixture does not precreate these effects or fabricate approval history.
+
+With `PROCUREMENT_SOURCING_AUTHORITY_BROWSER_VERIFY_ON_STOP=1`, after shutdown a
+fresh bootstrap-owned verifier requires exactly one Active grant at record revision3,
+authority version1, the complete exact tuple/scope/amount/actors/reason/fingerprints,
+and exactly six audits: three lifecycle snapshots proving Draft1/PendingReview2/
+Active3 and three automatic create/update records. A complete original Procurement
+and CoreApproval ordinary-table/history fingerprint, excluding only that grant and
+its six audits, must remain identical; categories, outbox, policy and all operational
+records are included. No RFQ events, source request or policy may appear. This is
+configuration evidence only, not permission to execute an RFQ publication handler.
+
+All fixture/browser source is uncompiled/unrun at this checkpoint. Parent owns the
+serialized compile, private role/schema/runtime, actual browser and independent
+persisted-state gates. Preserve genuine failures and do not relax permissions or
+accept browser labels as durable success.
