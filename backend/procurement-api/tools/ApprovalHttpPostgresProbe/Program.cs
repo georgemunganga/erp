@@ -751,7 +751,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     {
         var path = Root + "/configuration/spending-authorities";
         var created = await Send(HttpMethod.Post, path, buyer, new { authorityReference = reference, principalId = principal.ToString("D"), action,
-            draft = new { currencyCode = "ZMW", amountBasis = action == "PurchaseOrder.Approve" ? "ApprovedLineBase" : "EstimatedLineBase", maximumAmount = 1000,
+            draft = new { currencyCode = "ZMW", amountBasis = ProcurementSpendingActions.Resolve(action).AmountBasis, maximumAmount = 1000,
                 effectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), effectiveUntil = DateTimeOffset.UtcNow.AddDays(1), allBranches = true,
                 allDepartments = true, allCategories = true } }, selectedBranch: false);
         await Check(created, HttpStatusCode.Created); var grant = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = grant.GetProperty("id").GetGuid();
@@ -821,8 +821,8 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             reservationStatus = status == "Available" ? "Confirmed" : null,
         });
     private async Task Budget(Guid id, long version, string status) => await Check(await BudgetResponse(id, version, status), HttpStatusCode.Created);
-    private async Task<JsonElement> Get(string path, Guid actor)
-    { var response = await Send(HttpMethod.Get, path, actor); await Check(response, HttpStatusCode.OK); return await response.Content.ReadFromJsonAsync<JsonElement>(); }
+    private async Task<JsonElement> Get(string path, Guid actor, bool selectedBranch = true)
+    { var response = await Send(HttpMethod.Get, path, actor, selectedBranch: selectedBranch); await Check(response, HttpStatusCode.OK); return await response.Content.ReadFromJsonAsync<JsonElement>(); }
     private async Task Expect(HttpStatusCode status, HttpMethod method, string path, Guid actor, object? body = null, Guid? key = null, bool selectedBranch = true)
         => await Check(await Send(method, path, actor, body, key, selectedBranch), status);
     private Task<HttpResponseMessage> Send(HttpMethod method, string path, Guid actor, object? body = null, Guid? key = null, bool selectedBranch = true, Guid? selectedLocation = null)

@@ -8,13 +8,13 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class SourcingPublicationAuthorityTests
 {
     [Fact]
-    public void Declared_tuple_is_exact_but_live_configuration_registry_stays_PR_PO_only()
+    public void Configured_publication_tuple_is_exact_without_changing_PR_PO_contracts()
     {
         var tuple = ProcurementSpendingActions.SourcingPublication;
         Assert.Equal("SourcingEvent.Publish", tuple.Action); Assert.Equal("procurement-sourcing-publish", tuple.Permission);
         Assert.Equal("ApprovedLineBase", tuple.AmountBasis);
-        Assert.Throws<InvalidOperationException>(() => ProcurementSpendingActions.Resolve(tuple.Action));
-        Assert.False(ProcurementSpendingActions.Matches(tuple.Action, tuple.Permission, tuple.AmountBasis));
+        Assert.Same(tuple, ProcurementSpendingActions.Resolve(tuple.Action));
+        Assert.True(ProcurementSpendingActions.Matches(tuple.Action, tuple.Permission, tuple.AmountBasis));
         Assert.Same(ProcurementSpendingActions.PurchaseRequest, ProcurementSpendingActions.Resolve("PurchaseRequest.Approve"));
         Assert.Same(ProcurementSpendingActions.PurchaseOrder, ProcurementSpendingActions.Resolve("PurchaseOrder.Approve"));
     }
@@ -28,7 +28,7 @@ public sealed class SourcingPublicationAuthorityTests
         var result = f.Check([grant]);
         Assert.True(result.AuthorityEligible); Assert.False(result.CanPublish);
         Assert.Equal(20m, result.Spend!.Amount);
-        Assert.False(ProcurementSpendingAuthority.Evaluate(result.Spend, f.Reviewer.SubjectId,
+        Assert.True(ProcurementSpendingAuthority.Evaluate(result.Spend, f.Reviewer.SubjectId,
             "procurement-sourcing-publish", "SourcingEvent.Publish", f.Source.Now, [grant]).Eligible);
         Assert.Equal(100m, f.Source.Source.Submission.EstimatedAmount);
         Assert.Equal(20m, Assert.Single(Assert.Single(result.Stages).Reviewers).Authority.TargetAmount);

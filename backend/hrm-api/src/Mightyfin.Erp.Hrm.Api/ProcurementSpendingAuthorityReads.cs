@@ -12,7 +12,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
     private static bool TryReadContract(string? action, out ProcurementSpendingAction contract)
     {
         var requested = action ?? SpendingAuthorityConfiguration.ApprovalAction;
-        if (requested is "PurchaseRequest.Approve" or "PurchaseOrder.Approve")
+        if (requested is "PurchaseRequest.Approve" or "PurchaseOrder.Approve" or "SourcingEvent.Publish")
         { contract = ProcurementSpendingActions.Resolve(requested); return true; }
         contract = ProcurementSpendingActions.PurchaseRequest; return false;
     }

@@ -45,6 +45,7 @@ sealed partial class Probe
         Require(persisted.MaximumAmount == 99999999999999.9999m, "PostgreSQL rounded the approved precision contract.");
         Console.WriteLine("PASS settings: all four real PostgreSQL lookup queries, bounded/minimal output, denied employee, exact18,4 persisted amount and current named actions.");
         await VerifyTypedAuthoritySettings();
+        await VerifySourcingAuthoritySettings();
     }
     private async Task VerifyTypedAuthoritySettings()
     {
@@ -80,6 +81,32 @@ sealed partial class Probe
                 && x.GetProperty("amountBasis").GetString() == "ApprovedLineBase")
             && orderList.GetProperty("createAction").GetString() == "PurchaseOrder.Approve", "Explicit PO settings did not preserve the typed family.");
         Console.WriteLine("PASS combined settings: default PR and explicit PO exact typed families share reference without cross-listing or basis changes.");
+    }
+
+    private async Task VerifySourcingAuthoritySettings()
+    {
+        var path = Root + "/configuration/spending-authorities";
+        var before = await PolicyFootprint();
+        await Expect(HttpStatusCode.UnprocessableEntity, HttpMethod.Post, path, buyer, new {
+            authorityReference = "SOURCE-WRONG-CURRENCY", principalId = manager1.ToString("D"), action = "SourcingEvent.Publish",
+            draft = new { currencyCode = "USD", amountBasis = "ApprovedLineBase", maximumAmount = "1.0000" } }, selectedBranch: false);
+        Require(before == await PolicyFootprint(), "Rejected sourcing authority currency changed persisted records.");
+        await Authority(manager1, "SOURCE-CONFIG-ONLY", "SourcingEvent.Publish");
+        var list = await Get(path + "?action=SourcingEvent.Publish&pageSize=100", buyer, selectedBranch: false);
+        var grant = list.GetProperty("items").EnumerateArray().Single();
+        Require(list.GetProperty("createAction").GetString() == "SourcingEvent.Publish"
+            && list.GetProperty("createAmountBasis").GetString() == "ApprovedLineBase"
+            && grant.GetProperty("permission").GetString() == "procurement-sourcing-publish"
+            && grant.GetProperty("amountBasis").GetString() == "ApprovedLineBase" && grant.GetProperty("state").GetString() == "Active",
+            "Actual sourcing finite configuration did not retain its exact independently reviewed tuple.");
+        foreach (var action in new[] { "PurchaseRequest.Approve", "PurchaseOrder.Approve" })
+            Require((await Get(path + "?action=" + action + "&pageSize=100", buyer, selectedBranch: false)).GetProperty("items").EnumerateArray()
+                .All(x => x.GetProperty("action").GetString() == action), "Sourcing registration mixed existing PR/PO authority families.");
+        await Check(await Send(HttpMethod.Post, Root + "/sourcing/" + Guid.NewGuid() + "/publish", buyer, new { }), HttpStatusCode.NotFound);
+        using var services = Scope(buyer);
+        var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+        Require(!await db.SourcingEvents.AnyAsync(), "Finite configuration created operational sourcing records.");
+        Console.WriteLine("PASS sourcing finite authority configuration: real draft/submit/independent activation, exact tuple/list isolation, currency no-effects; no operational publication handler or sourcing records.");
     }
 
 }

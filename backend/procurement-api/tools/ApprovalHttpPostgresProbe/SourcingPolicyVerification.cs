@@ -88,10 +88,9 @@ sealed partial class Probe
         }
         Require(!app.Services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().Enabled,
             "Policy configuration must not enable operational RFQ capabilities.");
-        var actionRejected = false;
-        try { _ = ProcurementSpendingActions.Resolve("SourcingEvent.Publish"); }
-        catch (InvalidOperationException) { actionRejected = true; }
-        Require(actionRejected, "Publication spending action became live without its workflow contract.");
+        Require(ProcurementSpendingActions.Resolve("SourcingEvent.Publish").Permission == "procurement-sourcing-publish",
+            "Exact sourcing authority configuration tuple unavailable.");
+        await Check(await Send(HttpMethod.Post, Root + "/sourcing/" + Guid.NewGuid() + "/publish", buyer, new { }), HttpStatusCode.NotFound);
         Console.WriteLine("PASS sourcing policy actual HTTP/PG: finite roles, edited-draft return/resubmit/publish/effective, retained worker swap/alias/offboarding, scope/permission denials, legacy hold and exact database constraints. No operational RFQ publication claimed.");
     }
 
