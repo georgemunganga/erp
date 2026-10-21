@@ -10,21 +10,21 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Read-only RFQ store discovery. No DDL, role changes, policy/identity authority or
-/// data backfill. Proposed CHECK spellings must be frozen against actual generated PG17 DDL.</summary>
+/// data backfill. CHECK definitions retain exact PostgreSQL17 returned grouping and casts.</summary>
 public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration configuration, IProcurementScope scope,
     IProcurementFinanceCheckerSchemaReadiness finance) : IProcurementSourcingDraftSchemaReadiness
 {
     internal static readonly Type[] OwnedTypes = [typeof(SourcingEvent), typeof(SourcingDraftEvidence),
         typeof(SourcingDemandBinding), typeof(SourcingCommandReceipt)];
 
-    // Conservative SOURCE candidates, not pg_get_constraintdef outputs claimed as verified.
-    // PG-added grouping/casts must be preserved in the parent-frozen values, never stripped.
+    // Exact pg_get_constraintdef(oid,false) from the actual upgraded private PG17 store.
+    // Evidence: procurement-p28-postgres-20261021_071011/p28-checks.json; never strip grouping/casts.
     internal static readonly IReadOnlyDictionary<string, string> CheckDefinitions = new Dictionary<string, string>
     {
-        ["ck_sourcing_owned_draft"] = "CHECK (execution_version IN (0,1) AND ((execution_version=0 AND source_evidence_id IS NULL AND maker_worker_id IS NULL AND method_id IS NULL AND method_revision IS NULL AND original_draft_fingerprint IS NULL AND branch_ref IS NULL) OR (execution_version=1 AND source_evidence_id IS NOT NULL AND maker_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled'))))",
-        ["ck_rfq_original_envelope"] = "CHECK (schema_version=1 AND payload_sha256 ~ '^[0-9a-f]{64}$' AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND create_command_key <> '00000000-0000-0000-0000-000000000000'::uuid)",
-        ["ck_rfq_binding_value"] = "CHECK (target_type='SourcingEvent' AND quantity>0 AND unit_estimate>=0 AND estimated_value=quantity*unit_estimate AND request_version>=submitted_version AND submitted_version>0 AND method_revision>0 AND minimum_quote_count BETWEEN 0 AND 20 AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)",
-        ["ck_rfq_receipt_identity"] = "CHECK (operation IN ('Create','Cancel') AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND response_schema_version=1 AND result_version>0 AND command_fingerprint ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' AND ((operation='Create' AND response_status_code=201) OR (operation='Cancel' AND response_status_code=200)))",
+        ["ck_sourcing_owned_draft"] = "CHECK (((execution_version = ANY (ARRAY[0, 1])) AND (((execution_version = 0) AND (source_evidence_id IS NULL) AND (maker_worker_id IS NULL) AND (method_id IS NULL) AND (method_revision IS NULL) AND (original_draft_fingerprint IS NULL) AND (branch_ref IS NULL)) OR ((execution_version = 1) AND (source_evidence_id IS NOT NULL) AND (maker_worker_id IS NOT NULL) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (method_id IS NOT NULL) AND (method_revision IS NOT NULL) AND (method_revision > 0) AND (original_draft_fingerprint IS NOT NULL) AND ((original_draft_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND ((status)::text = ANY ((ARRAY['Draft'::character varying, 'Cancelled'::character varying])::text[]))))))",
+        ["ck_rfq_original_envelope"] = "CHECK (((schema_version = 1) AND ((payload_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((original_draft_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (create_command_key <> '00000000-0000-0000-0000-000000000000'::uuid)))",
+        ["ck_rfq_binding_value"] = "CHECK ((((target_type)::text = 'SourcingEvent'::text) AND (quantity > (0)::numeric) AND (unit_estimate >= (0)::numeric) AND (estimated_value = (quantity * unit_estimate)) AND (request_version >= submitted_version) AND (submitted_version > 0) AND (method_revision > 0) AND ((minimum_quote_count >= 0) AND (minimum_quote_count <= 20)) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)))",
+        ["ck_rfq_receipt_identity"] = "CHECK ((((operation)::text = ANY ((ARRAY['Create'::character varying, 'Cancel'::character varying])::text[])) AND (command_key <> '00000000-0000-0000-0000-000000000000'::uuid) AND (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (response_schema_version = 1) AND (result_version > 0) AND ((command_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND ((response_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((((operation)::text = 'Create'::text) AND (response_status_code = 201)) OR (((operation)::text = 'Cancel'::text) AND (response_status_code = 200)))))",
     };
 
     public async Task<bool> IsReadyAsync(CancellationToken ct)

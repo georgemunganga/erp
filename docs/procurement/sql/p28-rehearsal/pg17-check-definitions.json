@@ -1,0 +1,30 @@
+[
+  {
+    "validated": true,
+    "definition": "CHECK ((((operation)::text = ANY ((ARRAY['Create'::character varying, 'Cancel'::character varying])::text[])) AND (command_key <> '00000000-0000-0000-0000-000000000000'::uuid) AND (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (response_schema_version = 1) AND (result_version > 0) AND ((command_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND ((response_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((((operation)::text = 'Create'::text) AND (response_status_code = 201)) OR (((operation)::text = 'Cancel'::text) AND (response_status_code = 200)))))",
+    "expression": "(((operation)::text = ANY ((ARRAY['Create'::character varying, 'Cancel'::character varying])::text[])) AND (command_key <> '00000000-0000-0000-0000-000000000000'::uuid) AND (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (response_schema_version = 1) AND (result_version > 0) AND ((command_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND ((response_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((((operation)::text = 'Create'::text) AND (response_status_code = 201)) OR (((operation)::text = 'Cancel'::text) AND (response_status_code = 200))))",
+    "table_name": "sourcing_command_receipts",
+    "constraint_name": "ck_rfq_receipt_identity"
+  },
+  {
+    "validated": true,
+    "definition": "CHECK ((((target_type)::text = 'SourcingEvent'::text) AND (quantity > (0)::numeric) AND (unit_estimate >= (0)::numeric) AND (estimated_value = (quantity * unit_estimate)) AND (request_version >= submitted_version) AND (submitted_version > 0) AND (method_revision > 0) AND ((minimum_quote_count >= 0) AND (minimum_quote_count <= 20)) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)))",
+    "expression": "(((target_type)::text = 'SourcingEvent'::text) AND (quantity > (0)::numeric) AND (unit_estimate >= (0)::numeric) AND (estimated_value = (quantity * unit_estimate)) AND (request_version >= submitted_version) AND (submitted_version > 0) AND (method_revision > 0) AND ((minimum_quote_count >= 0) AND (minimum_quote_count <= 20)) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid))",
+    "table_name": "sourcing_demand_bindings",
+    "constraint_name": "ck_rfq_binding_value"
+  },
+  {
+    "validated": true,
+    "definition": "CHECK (((schema_version = 1) AND ((payload_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((original_draft_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (create_command_key <> '00000000-0000-0000-0000-000000000000'::uuid)))",
+    "expression": "((schema_version = 1) AND ((payload_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((original_draft_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (create_command_key <> '00000000-0000-0000-0000-000000000000'::uuid))",
+    "table_name": "sourcing_draft_evidence",
+    "constraint_name": "ck_rfq_original_envelope"
+  },
+  {
+    "validated": true,
+    "definition": "CHECK (((execution_version = ANY (ARRAY[0, 1])) AND (((execution_version = 0) AND (source_evidence_id IS NULL) AND (maker_worker_id IS NULL) AND (method_id IS NULL) AND (method_revision IS NULL) AND (original_draft_fingerprint IS NULL) AND (branch_ref IS NULL)) OR ((execution_version = 1) AND (source_evidence_id IS NOT NULL) AND (maker_worker_id IS NOT NULL) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (method_id IS NOT NULL) AND (method_revision IS NOT NULL) AND (method_revision > 0) AND (original_draft_fingerprint IS NOT NULL) AND ((original_draft_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND ((status)::text = ANY ((ARRAY['Draft'::character varying, 'Cancelled'::character varying])::text[]))))))",
+    "expression": "((execution_version = ANY (ARRAY[0, 1])) AND (((execution_version = 0) AND (source_evidence_id IS NULL) AND (maker_worker_id IS NULL) AND (method_id IS NULL) AND (method_revision IS NULL) AND (original_draft_fingerprint IS NULL) AND (branch_ref IS NULL)) OR ((execution_version = 1) AND (source_evidence_id IS NOT NULL) AND (maker_worker_id IS NOT NULL) AND (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (method_id IS NOT NULL) AND (method_revision IS NOT NULL) AND (method_revision > 0) AND (original_draft_fingerprint IS NOT NULL) AND ((original_draft_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND ((status)::text = ANY ((ARRAY['Draft'::character varying, 'Cancelled'::character varying])::text[])))))",
+    "table_name": "sourcing_events",
+    "constraint_name": "ck_sourcing_owned_draft"
+  }
+]
