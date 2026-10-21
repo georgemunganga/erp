@@ -182,7 +182,7 @@ public sealed class ProcurementRequestHttpTests
         var currentVersion = await fixture.AdvanceFundingMetadataRevision(id);
         Assert.True(currentVersion > submittedVersion);
         var queue = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/requests/budget-queue",
-            fixture.Other, "finance_approver");
+            fixture.Other, role: "finance_approver");
         Assert.Equal(HttpStatusCode.OK, queue.StatusCode);
         var page = await queue.Content.ReadFromJsonAsync<JsonElement>();
         var row = Assert.Single(page.GetProperty("records").EnumerateArray(), x => x.GetProperty("id").GetGuid() == id);

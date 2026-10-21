@@ -64,3 +64,8 @@ On21October, reviewed migration20261020190554 was applied with the generated scr
 Protected evidence `/home/amizo/erp-backups/procurement-p27-postgres-20261021_062926/` contains197 operation logs and PASS result.json, exact SQL hashes and database inventory. Owner-only rollback-negative fixtures are explicitly synthetic and do not establish valid Finance identity. The actual PostgreSQL17 pg_get_expr output for both CHECKs matched readiness constants by exact string equality (no whitespace/SQL rewriting); actual-check-expressions.tsv and literal-manifest-result.json retain that proof.
 
 Runtime-role readiness/privilege negatives and genuine capture/replay/rebinding/revocation/legacy denials remain the next independent HTTP gate. This migration proof does not enable production workflows.
+
+
+## Additive Budget business-version gate — retained compile failure
+
+First follow-up session19058 compiled the application API but stopped before test execution: new test Send() supplied the Finance role positionally where that helper expects optional company Guid. Corrected only the call to named `role:`; production query/assertions/authorization remain unchanged. Original business-version-verification.log is retained. This follow-up has no test pass yet and does not invalidate or replace the earlier197-case source scope.
