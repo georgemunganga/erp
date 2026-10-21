@@ -19,8 +19,15 @@ public sealed partial class DocumentDbContext
         var pins = ChangeTracker.Entries<DocumentUsePinRow>().Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
         var retiring = ChangeTracker.Entries<CoreDocument>().Where(x => x.State == EntityState.Modified && x.Entity.IsRetired)
             .Select(x => x.Entity.Id).ToArray();
-        // This is a SAME-context persistence guard, not a race fence. A future adapter must couple all managed writers
-        // through a before-snapshot owner lease; arbitrary CoreDocument.Retire or another connection is not made safe here.
+        // Relational managed retirement requires the paired owning writer/fence. InMemory retains
+        // only same-context evidence guards; it cannot establish physical session protection.
+        if (Database.IsRelational())
+            foreach (var entry in ChangeTracker.Entries<CoreDocument>().Where(x=>x.State==EntityState.Modified).ToArray())
+            {
+                if (entry.Property(x=>x.IsRetired).OriginalValue || !entry.Entity.IsRetired)
+                    throw new InvalidOperationException("Document retirement history cannot be rewritten or reversed.");
+                await RequireManagedRetirementAsync(entry.Entity,ct);
+            }
         if (retiring.Length > 0)
         {
             if (pins.Any(x => retiring.Contains(x.DocumentId)))
