@@ -106,21 +106,8 @@ public static partial class ProcurementSpendingAuthorityRoutes
                 var now = DateTimeOffset.UtcNow;
                 // All Core boundaries are applied before pagination. A second active login for
                 // one worker is excluded, matching execution's canonical identity requirement.
-                var query = core.LocalUsers.AsNoTracking().Where(u => u.TenantId == scope.TenantId
-                    && u.IsActive && !u.IsArchived && u.WorkerId != null && (u.LockedUntil == null || u.LockedUntil <= now)
-                    && !core.LocalUsers.Any(other => other.TenantId == scope.TenantId && other.IsActive
-                        && !other.IsArchived && other.WorkerId == u.WorkerId && other.Id != u.Id)
-                    && core.Workers.Any(w => w.TenantId == scope.TenantId && w.Id == u.WorkerId && !w.IsArchived && w.Status == "active"
-                        && (scope.WorkLocationId == null || w.LocationId == scope.WorkLocationId)
-                        && (scope.OrgUnitId == null || w.OrgUnitId == scope.OrgUnitId)
-                        && (w.LocationId != null && core.WorkLocations.Any(b => b.TenantId == scope.TenantId
-                                && b.Id == w.LocationId && b.LegalEntityId == scope.LegalEntityId && !b.IsArchived)
-                            || w.LocationId == null && w.OrgUnitId != null && core.OrgUnits.Any(d => d.TenantId == scope.TenantId
-                                && d.Id == w.OrgUnitId && d.LegalEntityId == scope.LegalEntityId && !d.IsArchived && d.Status == "active"))
-                        && (w.OrgUnitId == null || core.OrgUnits.Any(d => d.TenantId == scope.TenantId
-                            && d.Id == w.OrgUnitId && d.LegalEntityId == scope.LegalEntityId && !d.IsArchived && d.Status == "active")))
-                    && (text == "" || u.DisplayName.ToLower().Contains(text)));
-                if (scope.IsConfined && scope.WorkLocationId is null) query = query.Where(_ => false);
+                var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, now)
+                    .Where(u => text == "" || u.DisplayName.ToLower().Contains(text));
                 var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)
                     .Select(x => new { x.Id, x.DisplayName, x.WorkerId, x.RolesCsv }).ToArrayAsync(ct);
                 scanned = candidates.Length;
