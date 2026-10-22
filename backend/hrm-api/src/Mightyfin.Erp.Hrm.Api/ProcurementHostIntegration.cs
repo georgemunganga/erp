@@ -29,6 +29,7 @@ public static class ProcurementHostIntegration
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(approvalOptions);
+        services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness,UnavailableProcurementPrincipalApprovalSchemaReadiness>();
         var orderOptions = configuration.GetSection("Procurement:Orders").Get<ProcurementOrderExecutionOptions>()
             ?? new ProcurementOrderExecutionOptions();
         orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
@@ -167,6 +168,9 @@ public static class ProcurementHostIntegration
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,
                         budgetRecording = financeCheckerCapture,
+                        // Separate successor contract; existing worker-based clients do not
+                        // infer compatibility merely from general approval availability.
+                        principalApprovals = !pending && await ProcurementPrincipalApprovalCapability.ReadyAsync(services,scope.LegalEntityId,ct),
                         approvals = !pending && financeCheckerReads
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>().ExecutionDatabaseConfigured

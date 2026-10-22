@@ -12,10 +12,10 @@ public sealed class SpendingAuthorityIdentityRecord : ProcurementRecord
     public string Action { get; init; } = null!;
     public string ConfigurationOwnerPrincipalId { get; init; } = null!;
     public string RecipientPrincipalId { get; init; } = null!;
-    public Guid RecipientWorkerId { get; init; }
+    public Guid? RecipientWorkerId { get; init; }
     public string Stage { get; init; } = null!;
     public string ActorPrincipalId { get; init; } = null!;
-    public Guid ActorWorkerId { get; init; }
+    public Guid? ActorWorkerId { get; init; }
     public long GrantRecordVersionAtAction { get; init; }
     public string BusinessFingerprint { get; init; } = null!;
     public DateTimeOffset ActionAt { get; init; }

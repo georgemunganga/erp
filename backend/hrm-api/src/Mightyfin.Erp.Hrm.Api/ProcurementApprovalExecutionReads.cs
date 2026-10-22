@@ -121,14 +121,16 @@ public static partial class ProcurementApprovalExecutionRoutes
                         var authority = await db.AssignmentAuthorityEvidence.AsNoTracking()
                             .SingleOrDefaultAsync(x => x.CoreAssignmentId == assignment.Id && x.SubmissionId == pin.Id, ct)
                             ?? throw Conflict("ApprovalAssignmentEvidenceMissing");
-                        await ProcurementApprovalAssigneeResolver.ValidateAssignmentAsync(request, authority, core, db, scope, DateTimeOffset.UtcNow, ct);
+                        await ValidateAssignmentCurrent(request,pin,authority,approvalCase,core,db,scope,http,options,DateTimeOffset.UtcNow,ct);
                         var evidence = await OriginalEvidence(db, pin, ct);
                         var validation = PurchaseRequestApprovalPinning.Verify(pin, request, evidence.Evaluation,
                             evidence.Policy, evidence.Finance, scope.TenantId, scope.LegalEntityId);
                         if (!validation.IsValid) throw Conflict("ApprovalPinnedEvidenceChanged");
                         allowed.AddRange(["Reject", "Return"]);
                         var current = await Evidence(db, request, pin, ct);
-                        var mode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, current.Finance, options, core, db, scope, DateTimeOffset.UtcNow, ct);
+                        var mode = pin.SnapshotSchemaVersion==3
+                            ? await ProcurementApprovalFinanceEligibility.CheckPrincipalAsync(request,current.Finance,options,core,db,scope,DateTimeOffset.UtcNow,ct)
+                            : await ProcurementApprovalFinanceEligibility.CheckAsync(request,current.Finance,options,core,db,scope,DateTimeOffset.UtcNow,ct);
                         if (mode.Mode != pin.FinanceEvidenceMode || mode.Reference != pin.ManualEvidenceAuthorityRef)
                             throw Conflict("ApprovalFinanceAuthorityChanged");
                         var assignmentPins = await db.AssignmentAuthorityEvidence.AsNoTracking()
@@ -138,8 +140,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                             !assignmentPins.Any(p => p.CoreAssignmentId == x.Id && p.PrincipalId == x.AssigneeSubjectId
                                 && p.CoreStageId == x.StageId))) throw Conflict("ApprovalAssignmentSetChanged");
                         foreach (var assignmentPin in assignmentPins)
-                            await ProcurementApprovalAssigneeResolver.ValidateAssignmentAsync(request, assignmentPin,
-                                core, db, scope, DateTimeOffset.UtcNow, ct);
+                            await ValidateAssignmentCurrent(request,pin,assignmentPin,approvalCase,core,db,scope,http,options,DateTimeOffset.UtcNow,ct);
                         allowed.Insert(0, "Approve");
                     }
                 }
@@ -227,8 +228,18 @@ public static partial class ProcurementApprovalExecutionRoutes
             .SingleOrDefaultAsync(x => x.Id == id && x.SourceModule == "procurement" && x.SourceType == "purchase_request", ct) ?? throw Missing();
     private static async Task<SpendingAuthorityConfigurationActor> Actor(HrmDbContext core, ProcurementRequestScope scope,
         HttpContext http, IAuthorizationService auth, string permission, CancellationToken ct)
-        => await ProcurementAuthorityIdentity.ActorAsync(core, scope, http.User, auth, permission, ct)
+    {
+        if(http.RequestServices.GetService<ProcurementApprovalExecutionOptions>() is {PrincipalExecutionEnabled:true})
+        {
+            var actor=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,scope.SubjectId,ct);
+            if(actor is not null && scope.PrincipalId?.ToString("D")==actor.PrincipalId
+                && actor.Permissions.Contains(permission) && (await auth.AuthorizeAsync(http.User,permission)).Succeeded)
+                return new(scope.TenantId,scope.LegalEntityId,actor.PrincipalId,true,new HashSet<string>([permission],StringComparer.Ordinal));
+            throw new ApprovalHttpError(403,"ApprovalPermissionUnavailable","Your current company account does not have this permission.");
+        }
+        return await ProcurementAuthorityIdentity.ActorAsync(core, scope, http.User, auth, permission, ct)
             ?? throw new ApprovalHttpError(403, "ApprovalPermissionUnavailable", "Your current company account does not have this permission.");
+    }
     private static async Task RecordScope(HrmDbContext core, ProcurementRequestScope scope, PurchaseRequest request, CancellationToken ct)
     {
         if (!Guid.TryParse(scope.SubjectId, out var id)) throw Missing();
@@ -288,8 +299,16 @@ public static partial class ProcurementApprovalExecutionRoutes
     private static string Hash(object payload) => ProcurementApprovalAssigneeResolver.Hash(JsonSerializer.Serialize(payload, Json));
     private static async Task RequireCheckerSchema(ProcurementDbContext db, HttpContext http, CancellationToken ct)
     {
+        if(await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,false,ct))return;
         if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, http.RequestServices, false, ct))
             throw new ApprovalHttpError(503, "FinanceCheckerSchemaUnavailable", "Funding evidence database setup is incomplete.");
+    }
+
+    private static async Task RequirePrincipalSchema(ProcurementDbContext db,HttpContext http,
+        ProcurementApprovalExecutionOptions options,CancellationToken ct)
+    {
+        if(!options.PrincipalExecutionEnabled || !await ProcurementPrincipalApprovalSchemaGuard.ExecutionReadyAsync(db,http.RequestServices,ct))
+            throw new ApprovalHttpError(503,"PrincipalApprovalSchemaUnavailable","Core-principal approval execution is not enabled for this database.");
     }
 
     private static void Enabled(ProcurementApprovalExecutionOptions options)

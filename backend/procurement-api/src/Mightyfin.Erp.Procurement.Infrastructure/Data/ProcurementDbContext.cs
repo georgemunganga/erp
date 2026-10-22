@@ -294,6 +294,17 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             b.Property(x => x.CurrencyCode).HasMaxLength(3);
             b.Property(x => x.Status).HasMaxLength(40);
             b.Property(x => x.SourceChannel).HasMaxLength(40);
+            b.Property(x => x.RequesterIdentitySchemaVersion).HasDefaultValue(0);
+            b.Property(x => x.RequesterIdentitySha256).HasMaxLength(64);
+            b.ToTable(t => t.HasCheckConstraint("ck_pr_original_principal_identity",
+                "(requester_identity_schema_version=0 AND requester_core_worker_id IS NULL AND requester_identity_sha256 IS NULL) OR " +
+                "(requester_identity_schema_version=1 AND requester_principal_id IS NOT NULL " +
+                "AND requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+                "AND (requester_core_worker_id IS NULL OR requester_core_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) " +
+                "AND created_by IS NOT NULL AND created_by=requester_principal_id::text " +
+                "AND source_channel IS NOT NULL AND source_channel='ERP' " +
+                "AND (on_behalf_of_subject_id IS NULL OR length(btrim(on_behalf_of_subject_id))=0) " +
+                "AND requester_identity_sha256 IS NOT NULL AND requester_identity_sha256 ~ '^[a-f0-9]{64}$')"));
             b.Property(x => x.ApprovalState).HasMaxLength(40);
             b.Property(x => x.ReturnedBySubjectId).HasMaxLength(200);
             b.Property(x => x.ReturnReason).HasMaxLength(1000);
@@ -437,10 +448,12 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 .OnDelete(DeleteBehavior.Restrict);
             // Core owns execution in its separate schema. CoreApprovalCaseId is an explicit reference, not a Core FK.
             b.Property(x => x.WorkerIdentitySha256).HasMaxLength(64);
+            b.Property(x => x.RequesterIdentitySha256).HasMaxLength(64);
+            b.Property(x => x.PrincipalIdentitySha256).HasMaxLength(64);
             b.ToTable(t =>
             {
                 t.HasCheckConstraint("ck_pr_approval_submission_identity",
-                    "snapshot_schema_version IN (1,2) AND submitted_business_version > 0 AND policy_version_number > 0 " +
+                    "snapshot_schema_version IN (1,2,3) AND submitted_business_version > 0 AND policy_version_number > 0 " +
                     "AND core_approval_case_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
                     "AND opening_command_key <> '00000000-0000-0000-0000-000000000000'::uuid");
                 t.HasCheckConstraint("ck_pr_approval_worker_identity",
@@ -448,7 +461,17 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                     "(snapshot_schema_version = 2 AND maker_worker_id IS NOT NULL AND requester_worker_id IS NOT NULL " +
                     "AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
                     "AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
-                    "AND worker_identity_sha256 IS NOT NULL AND worker_identity_sha256 ~ '^[a-f0-9]{64}$')");
+                    "AND worker_identity_sha256 IS NOT NULL AND worker_identity_sha256 ~ '^[a-f0-9]{64}$') OR " +
+                    "(snapshot_schema_version=3 AND worker_identity_sha256 IS NULL " +
+                    "AND (maker_worker_id IS NULL OR maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) " +
+                    "AND (requester_worker_id IS NULL OR requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid))");
+                t.HasCheckConstraint("ck_pr_approval_principal_identity",
+                    "(snapshot_schema_version IN (1,2) AND requester_principal_id IS NULL AND requester_identity_sha256 IS NULL AND principal_identity_sha256 IS NULL) OR " +
+                    "(snapshot_schema_version=3 AND requester_principal_id IS NOT NULL " +
+                    "AND requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+                    "AND maker_subject_id IS NOT NULL AND maker_subject_id=requester_principal_id::text " +
+                    "AND requester_identity_sha256 IS NOT NULL AND requester_identity_sha256 ~ '^[a-f0-9]{64}$' " +
+                    "AND principal_identity_sha256 IS NOT NULL AND principal_identity_sha256 ~ '^[a-f0-9]{64}$')");
                 t.HasCheckConstraint("ck_pr_approval_submission_amount",
                     "estimated_amount >= 0 AND amount_basis = 'EstimatedLineBase' AND currency_code ~ '^[A-Z]{3}$'");
                 t.HasCheckConstraint("ck_pr_approval_submission_digest",

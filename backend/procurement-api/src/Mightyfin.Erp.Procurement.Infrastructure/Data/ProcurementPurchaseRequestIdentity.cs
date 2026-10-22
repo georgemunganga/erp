@@ -14,12 +14,21 @@ public sealed partial class ProcurementDbContext
             if (entry.Entity.RequesterPrincipalId == Guid.Empty || entry.Entity.RequesterWorkerId == Guid.Empty
                 || entry.Entity.RequesterPrincipalId is null && entry.Entity.RequesterWorkerId is null)
                 throw new InvalidOperationException("PurchaseRequestIdentityInvalid");
+            var request=entry.Entity;
+            if (request.RequesterIdentitySchemaVersion==0
+                ? request.RequesterCoreWorkerId is not null || request.RequesterIdentitySha256 is not null
+                : !PurchaseRequestPrincipalIdentity.Valid(request))
+                throw new InvalidOperationException("PurchaseRequestOriginalIdentityInvalid");
+            if (entry.State==EntityState.Added && request.RequesterIdentitySchemaVersion==1
+                && (request.CreatedBy!=scope.SubjectId || request.RequesterCoreWorkerId!=scope.CoreLinkedWorkerId))
+                throw new InvalidOperationException("PurchaseRequestOriginalIdentityScopeMismatch");
             if (entry.State == EntityState.Modified)
             {
                 // EF OriginalValues are caller-controlled for detached graphs. Compare the
                 // real persisted scoped owner before trusting those values or recording audit.
                 var persisted = PurchaseRequests.AsNoTracking().Where(x => x.Id == entry.Entity.Id)
-                    .Select(x => new { x.RequesterPrincipalId, x.RequesterWorkerId, x.CreatedBy, x.Version })
+                    .Select(x => new { x.RequesterPrincipalId, x.RequesterWorkerId, x.CreatedBy, x.Version,
+                        x.RequesterIdentitySchemaVersion,x.RequesterCoreWorkerId,x.RequesterIdentitySha256 })
                     .SingleOrDefault();
                 if (persisted is null || persisted.Version != entry.Property(x => x.Version).OriginalValue)
                     throw new DbUpdateConcurrencyException("The purchase request changed or is outside this scope.");
@@ -28,7 +37,9 @@ public sealed partial class ProcurementDbContext
                     || entry.Property(x => x.CreatedBy).OriginalValue != entry.Entity.CreatedBy
                     || persisted.RequesterPrincipalId != entry.Entity.RequesterPrincipalId
                     || persisted.RequesterWorkerId != entry.Entity.RequesterWorkerId
-                    || persisted.CreatedBy != entry.Entity.CreatedBy)
+                    || persisted.CreatedBy != entry.Entity.CreatedBy
+                    || persisted.RequesterIdentitySchemaVersion!=request.RequesterIdentitySchemaVersion
+                    || persisted.RequesterCoreWorkerId!=request.RequesterCoreWorkerId || persisted.RequesterIdentitySha256!=request.RequesterIdentitySha256)
                     throw new InvalidOperationException("PurchaseRequestIdentityImmutable");
             }
             if (entry.State == EntityState.Added && entry.Entity.RequesterPrincipalId is { } principal
@@ -46,7 +57,10 @@ public sealed partial class ProcurementDbContext
         {
             var source = PurchaseRequests.Local.SingleOrDefault(x => x.Id == sourceId)
                 ?? PurchaseRequests.AsNoTracking().SingleOrDefault(x => x.Id == sourceId);
-            if (source?.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(source))
+            var principal = ChangeTracker.Entries<PurchaseRequestApprovalSubmission>().Any(x=>x.State==EntityState.Added && x.Entity.PurchaseRequestId==sourceId && x.Entity.SnapshotSchemaVersion==3)
+                || ChangeTracker.Entries<BudgetCheckSnapshot>().Any(x=>x.State==EntityState.Added && x.Entity.PurchaseRequestId==sourceId && x.Entity.CheckerIdentitySchemaVersion==2);
+            if (principal ? source is null || !PurchaseRequestPrincipalIdentity.Valid(source)
+                : source?.RequesterIdentitySchemaVersion!=0 || source?.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(source))
                 throw new InvalidOperationException("PrincipalOperationalEvidenceRequired");
         }
     }

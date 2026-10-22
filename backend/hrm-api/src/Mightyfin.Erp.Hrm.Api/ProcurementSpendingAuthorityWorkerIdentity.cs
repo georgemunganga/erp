@@ -33,6 +33,10 @@ internal static class ProcurementSpendingAuthorityWorkerIdentity
         return created;
     }
 
+    internal static Task<SpendingAuthorityIdentityEvidence> LoadSubmittedAsync(ProcurementDbContext db,
+        ProcurementRequestScope scope, ProcurementSpendingAuthorityGrant grant, CancellationToken ct)
+        => One(db,scope,grant,"Submitted",grant.Version,ct);
+
     internal static async Task<AuthorProof> RequireAuthorAsync(HrmDbContext core, ProcurementDbContext db,
         ProcurementRequestScope scope, ProcurementSpendingAuthorityGrant grant, CancellationToken ct)
     {
@@ -78,6 +82,8 @@ internal static class ProcurementSpendingAuthorityWorkerIdentity
         Guid expectedWorkerId, CancellationToken ct)
     {
         var proof = await RequireRetainedActivationAsync(db, scope, grant, ct);
+        if (proof.Created.SchemaVersion != 1)
+            throw new InvalidOperationException("AuthorityWorkerEvidenceRequired");
         var recipient = await Canonical(core, scope, principalId, ct);
         if (expectedWorkerId == Guid.Empty || recipient.WorkerId != expectedWorkerId)
             throw new InvalidOperationException("AuthorityRecipientIdentityChanged");
