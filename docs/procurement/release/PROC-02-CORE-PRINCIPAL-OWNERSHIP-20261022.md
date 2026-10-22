@@ -135,3 +135,18 @@ historical domain graphs; there is no public request input for this path, and th
 always requires and stamps its resolved Core principal. This is a documented infrastructure boundary,
 not permission for normal runtime code to seed historical identity. A separate legacy import use case
 would need explicit ownership, validation and review; no new runtime bypass or fixture flag was added.
+
+## Selected review scope consistency
+
+Own-request queries, submitted review reads and return-for-changes commands now share the same
+selected/confined branch and selected department predicates. An organization-wide reviewer selecting
+branch A cannot read or return a request from branch B merely because the account has broader
+company rights; clearing that selection restores its actual company scope. The same rule applies
+to selected departments. The shared query also denies a missing/empty resolved Core principal.
+Existing review permission, self-review, state, version, approval-link and Finance-release guards
+remain in force.
+
+Two mapped HTTP theory cases (branch and department) seed real current Core reviewer permissions
+without employee linkage, submit a request in scope B, prove selected-A read/return denial leaves the
+complete owning footprint unchanged, then prove selected-B read and authorized company-scope return.
+These cases are authored but not executed; no migration/model change is involved.

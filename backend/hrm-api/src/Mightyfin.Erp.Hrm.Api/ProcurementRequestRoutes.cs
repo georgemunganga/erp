@@ -56,9 +56,9 @@ public static class ProcurementRequestRoutes
     private static async Task<IResult> GetForReview(Guid id, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        var request = await db.PurchaseRequests.AsNoTracking().Include(x => x.Lines)
+        var request = await ScopedRequests(db, scope).AsNoTracking().Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.Status == "Submitted", ct);
-        if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
+        if (request is null)
             return Error("not-found", "Request not found.", 404);
         return Results.Ok(ToDetail(request));
     }
@@ -311,9 +311,9 @@ public static class ProcurementRequestRoutes
         try
         {
             await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
-            var request = await db.PurchaseRequests.Include(x => x.Lines)
+            var request = await ScopedRequests(db, scope).Include(x => x.Lines)
                 .SingleOrDefaultAsync(x => x.Id == id, ct);
-            if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
+            if (request is null)
                 return Error("not-found", "Request not found.", 404);
             if (PurchaseRequestOwnership.IsOwner(request, scope.PrincipalId))
                 return Error("self-review", "The requester cannot return their own request for changes.", 403);
@@ -533,13 +533,18 @@ public static class ProcurementRequestRoutes
         }).ToArray(),
     };
 
-    private static IQueryable<PurchaseRequest> OwnRequests(ProcurementDbContext db, ProcurementRequestScope scope)
+    private static IQueryable<PurchaseRequest> OwnRequests(ProcurementDbContext db, ProcurementRequestScope scope) =>
+        ScopedRequests(db, scope).Where(PurchaseRequestOwnership.OwnedBy(scope.PrincipalId));
+
+    private static IQueryable<PurchaseRequest> ScopedRequests(ProcurementDbContext db, ProcurementRequestScope scope)
     {
-        var own = db.PurchaseRequests.Where(PurchaseRequestOwnership.OwnedBy(scope.PrincipalId));
+        var requests = db.PurchaseRequests;
+        if (scope.PrincipalId is null || scope.PrincipalId == Guid.Empty) return requests.Where(x => false);
+        IQueryable<PurchaseRequest> scoped = requests;
         if (scope.WorkLocationId.HasValue || scope.IsConfined)
-            own = own.Where(x => scope.WorkLocationId != null && x.BranchRef == scope.WorkLocationId);
-        if (scope.OrgUnitId.HasValue) own = own.Where(x => x.DepartmentRef == scope.OrgUnitId);
-        return own;
+            scoped = scoped.Where(x => scope.WorkLocationId != null && x.BranchRef == scope.WorkLocationId);
+        if (scope.OrgUnitId.HasValue) scoped = scoped.Where(x => x.DepartmentRef == scope.OrgUnitId);
+        return scoped;
     }
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
