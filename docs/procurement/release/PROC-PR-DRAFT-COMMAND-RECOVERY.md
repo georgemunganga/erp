@@ -1,7 +1,7 @@
 # Purchase request draft command recovery
 
 **Status:** DISCOVERY ONLY — proposed contracts, not an implemented feature or release approval.
-**Feature:** `PROC-02-RECOVERY` · **Version:** 0.2 · **Prepared:** 22 October 2026
+**Feature:** `PROC-02-RECOVERY` · **Version:** 0.3 · **Prepared:** 22 October 2026
 **Hierarchy:** Procurement → Purchase Requisitions → Draft command recovery → Create / Update / Submit / Read original result.
 **Baseline ERP:** `1917405282cbefb773386eeadc930349f478ef0c`.
 **Baseline UI:** `30e17e9aad1bf86d3c94086b42fca590c9b0f05f` (published PR55/56).
@@ -18,7 +18,7 @@ This document authorises no schema change, API registration, flag activation or 
 | Business owner | Procurement product owner; name to be recorded |
 | Engineering owner | Assigned ERP backend/UI maintainers; reviewer distinct from implementer for consequential controls |
 | Classification | Tier 3: consequential buying records, tenant boundaries, confidential request text |
-| Delivery status | Discovery specification only; Technical decisions proposed in §28; Definition of Ready not yet met |
+| Delivery status | Discovery specification only; Technical design ready for independent contract review; implementation and release evidence remain pending |
 
 ## 2. Purpose and Business Outcome
 
@@ -64,7 +64,7 @@ Additional source findings that constrain this proposal:
 - `ProcurementRequestRoutes.cs:556–576` defines the complete accepted request/line DTOs. `catalogPublishedVersion` is returned/derived by `ApplyLine:474–476`, **not** an accepted line input. Do not add it to the mutable contract.
 - `PostgresSessionAdvisoryLease.cs:15–59` already supplies pinned-session acquisition, cancellation cleanup and verified release. `ProcurementCatalogAuthorityFence.cs:10–22` requires acquisition before transaction/snapshot; `CoreBranchAuthorizationFence.cs:20–28` has the existing preceding tenant-wide branch fence. Reuse these mechanics and their order.
 - `SpendingAuthorityFamilyTransaction.cs:22–31` shows SHA256/first signed big-endian Int64 advisory-key derivation, but acquires its transaction lock after BEGIN. Reuse the derivation pattern, **not** this configuration-family adapter for PR commands.
-- `ProcurementCatalogFencing.cs:20–40` currently acquires the catalog lease in an endpoint filter. The keyed path must integrate its outer branch lease there or replace that filter with one owning ordered adapter; it must not acquire branch after catalog or nest another connection/transaction.
+- `ProcurementCatalogFencing.cs:20–40` currently acquires the catalog lease in an endpoint filter. The keyed path uses one owning ordered adapter in place of that catalog-only filter for the three keyed routes; it must not acquire branch after catalog or nest another connection/transaction. Legacy unkeyed dispatch retains the existing catalog-only filter while the successor is off.
 - `ProcurementRequestRoutes.cs:536–548` owns principal, selected-branch/confinement and optional department filtering. Recovery must preserve it; employee status is not a recovery permission. `ProcurementContextRoutes.cs:50–75` already exposes the verified nullable `orgUnit` alongside `branch`; the new thin readiness projection must retain both IDs/null explicitly instead of deriving a department from HR or an untrusted saved value.
 
 A narrowly owned PR draft receipt record is proposed because every existing family has an incompatible required domain target. It is **not** a new identity system, universal receipt service or workflow engine. The proposed names are `PurchaseRequestDraftCommandReceipt` and `procurement.purchase_request_draft_command_receipts`; they remain specification contracts until implemented. No migration has been generated.
@@ -109,7 +109,7 @@ Use a narrowly named `PurchaseRequestDraftCommandTransaction` adapter around the
 
 Derive the command lease key from UTF8 bytes of `greenwebb.procurement.pr-draft-command.v1\0{tenant}\0{company:D}\0{operation}\0{key:D}`, SHA256 and `BinaryPrimitives.ReadInt64BigEndian` of the digest. Exclude actor, branch and target because the unique index excludes them: all contenders for the same database key must serialize. Hash collisions only serialize unrelated commands; they do not authorise access. Bound lease waits using request cancellation/timeout, never steal a lease.
 
-Acquire the command session lease **before BEGIN**, using `PostgresSessionAdvisoryLease`, so a waiter does not create a serializable snapshot before the winner commits. Release in reverse order after commit/rollback, on the same physical session; preserve the helper's clear-pool/close handling when acquisition/release is uncertain. The existing endpoint catalog filter must be integrated once into this ordering, not nested beneath it. All commands lock at most one PR; existing approval/Finance writers keep their request-first domain lock order and do not acquire this command lease.
+Acquire the command session lease **before BEGIN**, using `PostgresSessionAdvisoryLease`, so a waiter does not create a serializable snapshot before the winner commits. Release in reverse order after commit/rollback, on the same physical session; preserve the helper's clear-pool/close handling when acquisition/release is uncertain. Implement the keyed dispatch through one `PurchaseRequestDraftCommandExecution` endpoint adapter: parse the key/input, acquire the ordered leases on the existing connection, then invoke the transaction/use case. It replaces rather than wraps the current catalog-only filter for keyed dispatch. Reuse the existing Validate, ValidateReferences, CatalogVersions, ApplyLine, ValidateStoredReferences, released-case and policy/submission helpers inside the use case; do not copy their rules into a second validator or engine. Legacy unkeyed dispatch keeps its existing filter until activation requires keys. All commands lock at most one PR; existing approval/Finance writers keep their request-first domain lock order and do not acquire this command lease.
 
 Use the scoped unique index as the final safeguard, including clients/providers that do not participate in advisory locking. A uniqueness failure is not a successful replay: roll back, dispose the transaction and inspect the exact scoped receipt on a fresh context. Only a validated same-actor/fingerprint receipt returns history; otherwise retain a conflict/unknown result. Reattempt a whole transaction only after confirmed serialization/deadlock abort (maximum three, fresh contexts), never on uncertain commit/connection failure. Actual PostgreSQL parallel tests must verify this adapter; a nonrelational fixture cannot certify it.
 
@@ -145,7 +145,7 @@ A valid session or ERP-admin label alone grants nothing. GET acknowledgement req
 - **PRR-05:** replay/GET returns recorded history after current actor/scope checks. It does not rerun current catalog prices or policy to recreate a result. A new logical command uses current rules normally.
 - **PRR-06:** Update/Submit CAS and existing state/line guards remain authoritative. Receipt replay is checked before rejecting a legitimately completed original command because its record has since advanced.
 - **PRR-07:** repeated command/GET adds no duplicate PR/line/policy evaluation/business audit/outbox effect. Operational access logs are distinct and must not be described as business mutations.
-- **PRR-08:** no error, matching current values, list entry, history entry, GET404 or operator checkbox releases an unknown marker. A reviewed first-attempt pre-write validation response may release only that attempt if explicitly specified; status-only 4xx handling is insufficient.
+- **PRR-08:** no error, matching current values, list entry, history entry, GET404 or operator checkbox releases an unknown marker. For this slice even a first-attempt server rejection retains the marker; no pre-write-release contract or status-only 4xx exception is assumed.
 - **PRR-09:** no fabricated worker, Finance reservation, approval case, supplier activation or ledger entry.
 
 ## 12. Data Fields and Ownership
@@ -241,9 +241,9 @@ Use UTC instants with explicit offset, ISO date-only request dates and invariant
 
 ## 22. Non-Functional Requirements
 
-Apply Tier-3 recovery/tenant/accessibility requirements. Bound command/header/body/result sizes, query timeouts and retained browser metadata. Use scoped unique lookup indexes, deterministic parsing and response digests. Respect WCAG 2.2 AA interaction goals and existing responsive shell. No mandatory extra service, broker or cache for this slice.
+Apply Tier-3 recovery/tenant/accessibility requirements. Keep the fixed UUID/header and browser-locator bounds, the current accepted DTO/domain validation and existing hosting request/query limits. Do not add an arbitrary smaller body/result cap for this feature; the receipt stores the exact accepted persisted output described in §28. Use scoped unique lookup indexes, deterministic parsing and response digests. Respect WCAG 2.2 AA interaction goals and existing responsive shell. No mandatory extra service, broker or cache for this slice.
 
-Retries are bounded and only for confirmed transaction aborts using the existing PostgreSQL failure classification/fresh-context discipline. Unknown commit is never automatically rerun. Set actual performance and retention targets during DoR; do not invent throughput guarantees. Backups/restores, alert ownership and rollback/forward-recovery procedures must be reviewable before production activation.
+Retries are bounded and only for confirmed transaction aborts using the existing PostgreSQL failure classification/fresh-context discipline. Unknown commit is never automatically rerun. Measure relevant performance and complete the retention/support runbook during implementation and release verification; do not require passing runtime evidence before coding or invent throughput guarantees. Backups/restores, alert ownership and rollback/forward-recovery procedures must be reviewable before production activation.
 
 ## 23. Postconditions
 
@@ -254,7 +254,7 @@ Success: exactly one owned PR result/version/line set, its required audit/policy
 - Storage unavailable or failed readback: no mutation leaves the browser.
 - HTTP408/429/499, proxy/unrecognised status, network abort, malformed/wrong-actor/wrong-version result or 5xx: retain locator. No automatic retry/new UUID.
 - GET401/403/404/409/503 or malformed result: retain locator. A read cannot prove that an in-flight command will never commit. Login/context refresh does not erase another scope's pending intent.
-- Only an explicitly reviewed pre-write validation response for the first attempt may allow correction without reconciliation; exact code/origin and zero-write proof are required. A later rejection cannot disprove an earlier unknown completion.
+- All server rejection responses retain the marker in this slice, including first-attempt validation errors. Local validation runs before claim. Support may investigate a read-only original command lookup/current record; no absence certification, marker clearing, unsafe Reset or altered-body/new-key retry is implemented here. A future safe pre-write release contract is a separate feature, not a prerequisite for coding this bounded slice.
 - Until the proposed server receipt exists, the honest current behaviour is a durable block plus **View saved records / contact Procurement**. Ordinary GET/list/history or identical current fields cannot acknowledge a local UUID. No unsafe Reset button, “confirmed absent” claim or invented GET is permitted.
 - Client guards do not prevent duplication in a new browser/tab, after deliberate storage deletion or through another API client. Server receipt uniqueness/transaction proof is required for the reliability guarantee.
 
@@ -357,14 +357,34 @@ The keyed path first rejects duplicate properties including case aliases and unk
 
 Normalise purpose/description/unit using the existing Trim semantics; other optional text via existing Clean; category/purchaseType via `ProcurementPolicyCode.NormalizeOptional`, before any catalog-derived classification. UUIDs use D form, dates `yyyy-MM-dd`, decimals use `ProcurementEvidenceEncoding.Decimal` **as strings**, and nullable discount remains distinct from zero. Preserve array order, optional IDs and nulls. Missing/explicit null members are equivalent where the existing DTO has that same meaning. Catalog published version/classification, generated IDs/timestamps/numbers, policy assessment and computed totals are server-derived original-result evidence, not invented caller inputs. No current reference query participates in the fingerprint.
 
-Proposed keyed-only transport bounds: 256 KiB UTF8 input, existing 1–100 lines and existing field/decimal constraints, 1 MiB UTF8 original result. Reject oversized input before mutation; if the serialized original result exceeds its bound, roll back the entire still-uncommitted command rather than commit without a receipt. GET has the matching bounded envelope allowance. Do not silently truncate notes, results or fingerprints. Add boundary tests and review the new bounds against actual supported draft sizes before implementation sign-off.
+### Existing limits and receipt-output contract
 
-### Definition of Ready and remaining evidence
+Reuse the existing accepted DTO and validator limits, not guessed 256 KiB/1 MiB limits:
 
-**Definition of Ready is not yet declared met.** The eight design choices are now concrete for review; remaining gates are:
+| Source at the pinned ERP baseline | Existing constraint to preserve |
+| --- | --- |
+| `ProcurementRequestRoutes.cs:425–452` | Trimmed purpose/description up to 1000 characters; unit up to 30; 1–100 supplied lines; category up to 100 and purchaseType up to 40 through existing policy-code validation; positive quantity/nonnegative price up to `99_999_999_999_999.9999`, at most 4 decimals; discount 0–100 at most 4 decimals; total/overflow checks. Delegate to these validators rather than duplicate constants. |
+| `ProcurementRequestRoutes.cs:550–576` | Optional references/notes use the existing Clean/DTO parsing. They have no additional route-level text-length maximum; this recovery feature does not silently introduce one. |
+| `ProcurementDbContext.cs:291–328` | Reuse existing database field types/lengths/precision; currency 3, numbering 40, existing lifecycle lengths, returnReason 1000 and existing decimal mappings. Several accepted free-text fields have no configured HasMaxLength. |
+| `ProcurementRequestRoutes.cs:495–517` | Original result is existing ToDetail, including every stored line ordered by lineNumber and exactAmounts. Cancelled lines can accumulate over successive updates;100 input lines is **not** a maximum historical response count/byte size. |
+| Existing HTTP hosting/input pipeline | Keep its actual configured request-body/JSON parsing/cancellation limits. The PR routes do not declare a new body-size override. Do not claim a fixed deployment limit from framework assumptions. |
 
-1. Independent review of the exact request normalisation/DTO/headers, scope pins, serializable adapter and endpoint-filter integration; validate compatibility and the bounded-input sizing against actual callers. No production guards are changed by this draft.
-2. Assign centrally ordered successor migration, exact generated constraints/readiness capture and real finite-role grants after accepted P25; no model/migration/API exists for this proposal today. Historical receipt retention/legal hold, support owner, practical timeout/retention targets and independent reviewer still need an accountable owner.
-3. Specify the support reconciliation procedure for a retained locator whose server rejected before writing but has no durable completed receipt. Do not require business spend approval for ordinary CRUD, or replace this technical recovery gap with a fabricated Finance dependency. A later pre-write-release contract is a separate reviewed enhancement, not assumed here.
-4. Implement and execute §26 against genuine PostgreSQL, finite-role HTTP and actual lost-response browser transport. Pin actual source/artifact/schema/proof provenance; preserve failures. Existing CRUD, Open/Decide/P25 tests, source documentation and owner-only probes are not this feature's acceptance.
-5. Record corporate-standard adoption and release approvals honestly. This draft records engineering proposals, not management sign-off, DoR completion, implementation, activation or whole-module readiness.
+`ResponseJson` uses PostgreSQL `text` and stores **exactly one serialization of that accepted persisted RequestDetail**, no appended source snapshots/full request copy and no truncation. Its extent follows the real DTO/output and existing platform/database limits, not an invented receipt-specific numeric cap. Hash the same UTF8 serialization that is stored/returned. Validate finite nonzero IDs, fixed 64-character SHA256 values, enum/status/schema/version invariants and JSON/result linkage, without imposing unrelated note/line-history limits. Serialization, persistence or platform-limit failures roll back the whole still-uncommitted business/audit/receipt transaction; never commit without its complete original result.
+
+Tests must cover existing boundary values and a result larger than 1 MiB using legitimately accepted optional text/history, or an independently derived actual deployment limit if smaller, proving compatibility or an honest atomic rejection at that **existing** limit. Do not add a new numeric limit merely to make a receipt CHECK easier. Streaming/serialization allocation and cancellation checks are implementation/NFR work; any future tighter business-data bound requires a separate explicit compatibility decision.
+
+### Definition of Ready — design review, not executed acceptance
+
+The eight technical alternatives above now have concrete proposed behaviour. **No unresolved business-policy or technical behaviour is identified as a coding blocker for this bounded slice.** The next DoR action is the parent's independent contract review of this specification, especially the exact hashing/acknowledgement interface, one-filter lock ordering and retained-on-all-errors UX limitation. Record that review result; this author does not self-approve it. No passing migration, finite-role test or browser run is required to start implementation after that review.
+
+The first slice deliberately has **no support-controlled marker-clear/absence-certification feature**. Support can investigate through scoped read-only lookup/current records; the locator stays sealed without a valid original result. This limitation is a resolved safety choice for review, not an invitation to invent Finance approval, fake receipts or an unreviewed Reset. A more usable proven pre-write-rejection/reconciliation workflow can be specified separately without blocking the receipt implementation.
+
+### Definition of Done / release gates — produced by implementation
+
+The following are work and evidence to produce after design approval, **not reasons to require the feature to exist before coding**:
+
+1. Implement the exact entity/DTO/encoding/adapter/API/thin guard and relevant tests; preserve existing Core identity, optional employee, currency, UI and legacy capability boundaries. Review the code against this source-backed design.
+2. Assign/generate the narrow genuine successor migration after the accepted P25 baseline; capture actual schema/check/index/read/write readiness and least-privilege runtime grants. Prove Up, idempotency, unused Down/re-Up, used Down veto and original-data/ACL compatibility. No such migration or implementation is claimed in this draft.
+3. Execute the §26 domain/HTTP/actual PostgreSQL/finite-role/transaction-fault/lost-response browser gates. Pin exact source/artifact/schema/proof identity and retain failures. Existing CRUD/Open/Decide/P25 or owner-only evidence does not certify this feature.
+4. Complete release operations: receipt retention/legal hold consistent with the recovery promise, accountable support/review owners, measured resource/timeouts, backup/forward recovery, compatible-client activation and authenticated smoke tests. These operational acceptances govern production activation; they do not postpone ordinary authorised CRUD coding.
+5. Record corporate-standard adoption and required release approvals honestly. This specification remains discovery/design source only; independent DoR acceptance, implementation completion, activation and whole-module readiness are separate assertions.
