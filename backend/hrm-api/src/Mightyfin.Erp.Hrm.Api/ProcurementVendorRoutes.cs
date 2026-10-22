@@ -133,7 +133,9 @@ public static class ProcurementVendorRoutes
             TaxCategoryRef = Clean(input.TaxCategoryRef), LanguageCode = Clean(input.LanguageCode),
             Remarks = Clean(input.Remarks), IsLocal = input.IsLocal,
             PortalAccessState = input.PortalAccessRequested ? "Requested" : null,
-            ProposedByWorkerId = scope.WorkerId,
+            // Creation-time known alias metadata, not proof of active HR status
+            // or a company/access grant. Never backfill historical proposals.
+            ProposedByWorkerId = scope.CoreLinkedWorkerId ?? scope.WorkerId,
             Status = "Draft", IsOrderable = false,
         };
         if (input.PrimaryContact is not null)
@@ -767,7 +769,8 @@ public static class ProcurementVendorRoutes
     private static bool IsOriginalProposer(Supplier supplier, ProcurementRequestScope scope) =>
         supplier.CreatedBy == scope.SubjectId
         || supplier.ProposedByWorkerId is { } proposer && proposer != Guid.Empty
-            && scope.WorkerId is { } actor && actor != Guid.Empty && proposer == actor;
+            && (scope.CoreLinkedWorkerId is { } linked && linked != Guid.Empty && proposer == linked
+                || scope.WorkerId is { } actor && actor != Guid.Empty && proposer == actor);
 
     private static object ToDetail(Supplier x, bool canReturnForInformation, bool canDecide = false,
         bool canSuspend = false, bool canReactivate = false) => new

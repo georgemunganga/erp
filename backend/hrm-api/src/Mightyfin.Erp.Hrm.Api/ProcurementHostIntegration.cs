@@ -218,6 +218,10 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
     public Guid? OrgUnitId { get; private set; }
     public Guid? PrincipalId { get; private set; }
     public Guid? WorkerId { get; private set; }
+    // Current owning Core account link retained only as optional known-person
+    // alias metadata. Unlike WorkerId, this does not assert active employment,
+    // home-company membership, access, or operational approval authority.
+    public Guid? CoreLinkedWorkerId { get; private set; }
     // Retained response compatibility only. System users are never narrowed by HR linkage.
     public bool AdminViewOnly => false;
     public bool IsConfined { get; private set; }
@@ -237,12 +241,13 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
         resolved = true;
     }
 
-    public void AssignPrincipal(Guid principalId)
+    public void AssignPrincipal(Guid principalId, Guid? coreLinkedWorkerId = null)
     {
         if (!resolved || PrincipalId.HasValue || principalId == Guid.Empty
             || !Guid.TryParse(subjectId, out var subject) || subject != principalId)
             throw new InvalidOperationException("A resolved scope may bind only its verified Core principal once.");
         PrincipalId = principalId;
+        CoreLinkedWorkerId = coreLinkedWorkerId is { } linked && linked != Guid.Empty ? linked : null;
     }
 
     public void AssignWorker(Guid workerId)
@@ -434,7 +439,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         }
         scope.Set(tenant, selectedEntity, principal.Id.ToString("D"), effectiveLocation, effectiveOrgUnit, confined,
             http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier);
-        scope.AssignPrincipal(principal.Id);
+        scope.AssignPrincipal(principal.Id, principal.WorkerId);
         // Optional projection for existing worker-pinned operational consumers.
         // No mapping, inactive HR profile or another-company home never grants or
         // removes general Core-account access, and no worker identifier is fabricated.
