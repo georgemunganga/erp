@@ -130,21 +130,40 @@ public static partial class ProcurementSpendingAuthorityRoutes
             if (kind == "people")
             {
                 var now = DateTimeOffset.UtcNow;
-                // All Core boundaries are applied before pagination. A second active login for
-                // one worker is excluded, matching execution's canonical identity requirement.
-                var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, now)
-                    .Where(u => text == "" || u.DisplayName.ToLower().Contains(text));
-                var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)
-                    .Select(x => new { x.Id, x.DisplayName, x.WorkerId, x.RolesCsv }).ToArrayAsync(ct);
-                scanned = candidates.Length;
-                foreach (var candidate in candidates)
+                if (contract.Action==SpendingAuthorityConfiguration.ApprovalAction && PrincipalOption(http)
+                    && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,false,ct))
                 {
-                    var roles = LocalIdentityRoutes.ParseRoles(candidate.RolesCsv);
-                    var permissions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, candidate.RolesCsv, ct);
-                    if (!roles.Contains("erp_admin", StringComparer.OrdinalIgnoreCase)
-                        && (!permissions.Contains("procurement-access") || !permissions.Contains(contract.Permission))) continue;
-                    if (await ProcurementAuthorityIdentity.NamedAccountAsync(core, scope, candidate.Id.ToString("D"), ct) is null) continue;
-                    items.Add(new { principalId = candidate.Id.ToString("D"), candidate.DisplayName, candidate.WorkerId });
+                    var candidates=await ProcurementPrincipalPeople.Candidates(core,scope,now)
+                        .Where(u=>text=="" || u.DisplayName.ToLower().Contains(text))
+                        .OrderBy(u=>u.DisplayName).ThenBy(u=>u.Id).Skip(skip).Take(take)
+                        .Select(u=>new {u.Id,u.DisplayName}).ToArrayAsync(ct);
+                    scanned=candidates.Length;
+                    foreach(var candidate in candidates)
+                    {
+                        var person=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,
+                            candidate.Id.ToString("D"),ct);
+                        if(person is null || !person.Permissions.Contains(contract.Permission))continue;
+                        items.Add(new {principalId=person.PrincipalId,candidate.DisplayName,workerId=person.CoreLinkedWorkerId});
+                    }
+                }
+                else
+                {
+                    // All Core boundaries are applied before pagination. A second active login for
+                    // one worker is excluded, matching execution's canonical identity requirement.
+                    var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, now)
+                        .Where(u => text == "" || u.DisplayName.ToLower().Contains(text));
+                    var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)
+                        .Select(x => new { x.Id, x.DisplayName, x.WorkerId, x.RolesCsv }).ToArrayAsync(ct);
+                    scanned = candidates.Length;
+                    foreach (var candidate in candidates)
+                    {
+                        var roles = LocalIdentityRoutes.ParseRoles(candidate.RolesCsv);
+                        var permissions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, candidate.RolesCsv, ct);
+                        if (!roles.Contains("erp_admin", StringComparer.OrdinalIgnoreCase)
+                            && (!permissions.Contains("procurement-access") || !permissions.Contains(contract.Permission))) continue;
+                        if (await ProcurementAuthorityIdentity.NamedAccountAsync(core, scope, candidate.Id.ToString("D"), ct) is null) continue;
+                        items.Add(new { principalId = candidate.Id.ToString("D"), candidate.DisplayName, candidate.WorkerId });
+                    }
                 }
             }
             else if (kind == "branches")
