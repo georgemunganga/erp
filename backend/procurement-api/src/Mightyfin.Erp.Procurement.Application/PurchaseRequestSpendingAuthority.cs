@@ -59,7 +59,7 @@ public static class PurchaseRequestPrincipalAssignmentIdentity
         try
         {
             // Existing canonical JSON reader rejects duplicate properties recursively.
-            _ = ProcurementEvidenceEncoding.PolicyJsonDigest(value.EvidenceJson);
+            if (ProcurementEvidenceEncoding.PolicyJsonDigest(value.EvidenceJson).Length != 64) return null;
             retained = JsonSerializer.Deserialize<PurchaseRequestPrincipalAssignmentEvidence>(value.EvidenceJson, Options);
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException) { return null; }

@@ -24,7 +24,10 @@ public sealed class PrincipalAssignmentIdentityTests
         if(fault=="version")node["SchemaVersion"]=1;
         if(fault=="authority")node["Authority"]!["GrantRevision"]=5;
         if(fault=="unknown")node["UnknownAuthority"]=true;
+        if(fault=="case-alias")node["schemaVersion"]=2;
+        if(fault=="quoted-version")node["SchemaVersion"]="2";
         var json=node.ToJsonString();
+        if(fault=="nested-duplicate")json=json.Replace("\"GrantRevision\":4","\"GrantRevision\":4,\"GrantRevision\":4",StringComparison.Ordinal);
         if(fault=="duplicate")json=json.Replace("\"SchemaVersion\":2","\"SchemaVersion\":2,\"SchemaVersion\":2",StringComparison.Ordinal);
         return new() {IdentitySchemaVersion=2,TenantId="test",LegalEntityId=company,SubmissionId=id,
             CoreApprovalCaseId=caseId,CoreStageId=stage,CoreAssignmentId=assignment,PrincipalId=principal,
@@ -43,6 +46,7 @@ public sealed class PrincipalAssignmentIdentityTests
     [Theory]
     [InlineData("principal")][InlineData("stage")][InlineData("scope")][InlineData("alias")]
     [InlineData("version")][InlineData("authority")][InlineData("unknown")][InlineData("duplicate")]
+    [InlineData("nested-duplicate")][InlineData("case-alias")][InlineData("quoted-version")]
     public void Rehashed_mismatched_or_ambiguous_envelope_is_denied(string fault)
         => Assert.Null(PurchaseRequestPrincipalAssignmentIdentity.ReadVerified(Evidence(fault)));
 }

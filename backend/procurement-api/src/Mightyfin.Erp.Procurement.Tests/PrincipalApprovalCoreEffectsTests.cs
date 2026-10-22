@@ -25,7 +25,8 @@ public sealed partial class PurchaseRequestApprovalPinningTests
         var decisions=new List<ApprovalDecision>();var key=Guid.NewGuid().ToString("D");var now=pin.PinnedAt.AddMinutes(1);
         var result=ApprovalEngine.Decide(workflow,assignment,new(actor,Fixture.Tenant,f.Company,
             new HashSet<string>{"procurement-approval-decide"}),action,key,action=="Approve"?null:"Synthetic independent decision",decisions,now);
-        Assert.True(result.Recorded);Assert.True(result.CaseCompleted);Assert.Equal(terminal,workflow.State);
+        Assert.True(result.Recorded);Assert.Equal(action=="Approve",result.CaseCompleted);Assert.Equal(terminal,workflow.State);
+        Assert.Equal(now,workflow.CompletedAt);
         var decision=Assert.Single(decisions);
         var effects=PurchaseRequestApprovalOutcomes.Apply(f.Request,pin,workflow,decision,f.Evaluation,f.Policy,f.Finance,Fixture.Tenant,f.Company,now);
         Assert.False(effects.IsReplay);Assert.Equal(terminal,effects.Outcome.Outcome);
