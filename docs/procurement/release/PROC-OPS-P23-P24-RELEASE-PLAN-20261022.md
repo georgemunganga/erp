@@ -1,6 +1,6 @@
 # P23/P24 production release plan
 
-22 October 2026. **Preparation only: production is still on P22.**
+22 October 2026. **Release executed: production is on P24.** See [actual live acceptance](PROC-OPS-P23-P24-LIVE-ACCEPTANCE-20261022.md). Earlier preparation checkpoints below remain historical evidence.
 
 ## Scope
 
@@ -66,7 +66,7 @@ Operational scripts, dumps, configuration and records stay outside Git under `/h
 
 Retained failures: the first rehearsal stopped before database operations because generated SQL permissions were insufficiently restricted; new protected byte-identical copies fixed its input contract. The next restore stopped before Up because PostgreSQL reconstructed 11 literal-array CHECK casts differently. Narrow comparison and actual read-only array evaluation proved identical types, values, order and all text outside the single cast fragment. The successful successor accepts only these exact private restore forms (nine survive P23/P24); production raw checks and every other constraint/index remain exact. No database repair or general normalization was used.
 
-These are private owner/SQL/startup proofs, not production deployment or authenticated public acceptance. **Immutable candidate inspection, a fresh writer-stopped backup and restore, live cutover and signed-in CRUD acceptance remain pending.** Hosted Actions remain blocked by the GitHub account billing lock; local evidence is not hosted CI success.
+These are private owner/SQL/startup proofs, not production deployment or authenticated public acceptance. At this private-preparation checkpoint, immutable candidate inspection, a fresh writer-stopped backup and restore, live cutover and signed-in CRUD acceptance remained pending. They were subsequently completed in the [live acceptance record](PROC-OPS-P23-P24-LIVE-ACCEPTANCE-20261022.md). Hosted Actions remain blocked by the GitHub account billing lock; local evidence is not hosted CI success.
 
 ## Reviewed cutover preparation
 
@@ -79,4 +79,4 @@ The source-only coordinator and plan have passed separate root and independent r
 
 No coordinator mode, candidate image build, writer stop, production migration or static cutover has executed at this checkpoint. Disk headroom and creation of the new isolated empty restore target remain prerequisites. Four verified ignored inactive build caches were removed (64,927,957 logical bytes); tracked files, active build directories, published artifacts, backup/test evidence and databases were preserved.
 
-P25 remains excluded from this release. Its current source has passed 1,253 domain tests; the full API cohort and actual migration SQL emission are still running and are not recorded as passed.
+P25 remains excluded from this release. The later P25 source gate passed 1,253 domain and 586 host tests, an EF model check and SQL emission. Actual P25 PostgreSQL and workflow acceptance remain pending; readiness is unavailable.
