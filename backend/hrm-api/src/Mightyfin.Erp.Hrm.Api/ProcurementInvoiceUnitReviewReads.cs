@@ -52,6 +52,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 SELECT s.* FROM procurement.invoice_unit_review_sources s
                 JOIN procurement.supplier_invoices i ON i.tenant_id=s.tenant_id AND i.legal_entity_id=s.legal_entity_id AND i.id=s.supplier_invoice_id
                     AND i.branch_ref IS NOT DISTINCT FROM s.branch_ref
+                    AND i.current_mapping_version_id=s.mapping_version_id AND i.mapping_revision=s.mapping_revision
                 WHERE s.tenant_id={scope.TenantId} AND s.legal_entity_id={scope.LegalEntityId}
                 AND EXISTS (SELECT 1 FROM core_approval.cases c
                     JOIN core_approval.stages g ON g.""CaseId""=c.""Id"" AND g.""TenantId""=c.""TenantId"" AND g.""LegalEntityId""=c.""LegalEntityId""
@@ -68,7 +69,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var rows = await query.OrderBy(x => x.OpenedAt).ThenBy(x => x.Id).Skip((p - 1) * size).Take(size)
                 .Select(x => new { reviewId = x.Id, invoiceId = x.SupplierInvoiceId, mappingVersionId = x.MappingVersionId, x.MappingRevision,
                     branchId = x.BranchRef, x.OpenedAt, canPostToFinance = false, isInvoiceApproval = false }).ToArrayAsync(token);
-            return InvoiceUnitReviewCommands.Serialize(new { items = rows, total, page = p, pageSize = size, canPostToFinance = false });
+            return InvoiceUnitReviewCommands.Serialize(new { items = rows, total, page = p, pageSize = size, availabilityMeaning = "CurrentMappingAssignmentsOnly", canPostToFinance = false });
         }, ct);
 
     private static Task<IResult> Detail(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
@@ -93,7 +94,8 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 .Select(x => new { assignmentId = x.Id, assignmentVersion = x.Version }).ToArray();
             return InvoiceUnitReviewCommands.Serialize(new { reviewId = id, invoiceId = invoice.Id, invoiceVersion = invoice.Version,
                 mappingVersionId = source.MappingVersionId, source.MappingRevision, coreCaseId = workflow.Id, caseVersion = workflow.Version,
-                caseState = workflow.State, reviewState = outcome?.State ?? "Pending", currentMapping, assignments,
+                caseState = workflow.State, reviewState = outcome?.State ?? "Pending", currentMapping,
+                blockers = currentMapping ? Array.Empty<string>() : new[] { "InvoiceMappingSuperseded" }, assignments,
                 originalDocumentLines = owned.Source.Lines, attestation = InvoiceUnitReviewCommands.OriginalUnitAttestation,
                 actionCandidates = assignments.Length == 0 ? Array.Empty<string>() : new[] { "Approve", "Return", "Reject" },
                 actionCandidateMeaning = "CurrentAssignmentOnlyRevalidatedByCommand", isInvoiceApproval = false, canPostToFinance = false });

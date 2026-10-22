@@ -78,7 +78,7 @@ Load actual persisted source/pins/outcome/Core graph and matching/review policie
 
 ## 20. Invalidation and retained history
 
-New original/mapping version/digest, document version/hash/availability change, issued source mismatch or changed policy identity must prevent fresh review/consumption. Keep prior immutable sources/outcomes/receipts visible as historical facts under current scope. Returned corrections create a new mapping/review source; do not overwrite old makers, pins or outcomes.
+New original/mapping version/digest, document version/hash/availability change, issued source mismatch or changed policy identity must prevent fresh review/consumption. Keep prior immutable sources/outcomes/receipts visible as historical facts under current scope. Returned corrections create a new mapping/review source; do not overwrite old makers, pins or outcomes. A newer mapping invalidates old review consumption and removes the old pending assignment from the current-mapping task queue before count/page. The prior Core case/source remain historical with an explicit InvoiceMappingSuperseded blocker; do not fabricate a Core cancellation or terminal outcome. No funds/stock are held by this review.
 
 ## 21. Privacy and reads
 
