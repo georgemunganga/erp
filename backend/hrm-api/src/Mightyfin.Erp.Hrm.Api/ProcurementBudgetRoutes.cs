@@ -21,8 +21,12 @@ public static class ProcurementBudgetRoutes
         {
             var http = context.HttpContext;
             var owner = http.RequestServices.GetRequiredService<ProcurementDbContext>();
-            if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(owner, http.RequestServices,
-                    HttpMethods.IsPost(http.Request.Method), http.RequestAborted))
+            var write=HttpMethods.IsPost(http.Request.Method);
+            var principalOptions=http.RequestServices.GetService<ProcurementApprovalExecutionOptions>();
+            var successor=(!write || principalOptions is {PrincipalExecutionEnabled:true})
+                && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(owner,http.RequestServices,write,http.RequestAborted);
+            if (!successor && !await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(owner, http.RequestServices,
+                    write, http.RequestAborted))
                 return ProcurementFinanceCheckerSchemaGuard.Unavailable();
             return await next(context);
         });
@@ -95,8 +99,14 @@ public static class ProcurementBudgetRoutes
         });
     }
 
+    private static bool PrincipalFinanceFailure(InvalidOperationException error)=>error.Message is
+        "PrincipalFinanceOriginalIdentityRequired" or "FinanceEvidenceVerifierPermissionRevoked"
+        or "FinanceEvidenceVerifierScopeChanged" or "FinanceEvidenceVerifierInvalid"
+        or "FinanceEvidenceMakerIdentityUnavailable" or "FinanceEvidenceCheckerIdentityMissingOrInvalid"
+        or "FinanceEvidenceCheckerIdentityChanged";
+
     private static async Task<IResult> Record(Guid id, JsonElement body,
-        ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope, CancellationToken ct)
+        ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
         var parsed=ProcurementOriginalValueInput.Read<BudgetDecision>(body);
         if(parsed.Error is not null) return parsed.Error;
@@ -115,7 +125,27 @@ public static class ProcurementBudgetRoutes
         await using var enlistedCore = transaction is not null
             ? await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, ct) : null;
         var identityCore = enlistedCore ?? core;
-        var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(identityCore, scope.TenantId,
+        var principal=request.RequesterIdentitySchemaVersion==1;
+        Guid? verifierWorker;
+        if(principal)
+        {
+            var options=http.RequestServices.GetService<ProcurementApprovalExecutionOptions>();
+            if(options is not {PrincipalExecutionEnabled:true}
+                || !await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct))
+                return Error("principal-finance-unavailable","Core-principal funding checks are not enabled for this database.",503);
+            try
+            {
+                var verifier=await ProcurementPrincipalFinanceChecker.RequireAsync(request,scope.SubjectId,null,identityCore,db,scope,ct);
+                if(verifier.CoreLinkedWorkerId!=scope.CoreLinkedWorkerId)
+                    return Error("finance-identity-unavailable","The current Core account changed. Refresh before checking funding.",403);
+                verifierWorker=verifier.CoreLinkedWorkerId;
+            }
+            catch(InvalidOperationException error) when(PrincipalFinanceFailure(error))
+            { return Error("self-review","Funding requires an independent current Core account with the Finance grant.",403); }
+        }
+        else
+        {
+            var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(identityCore, scope.TenantId,
             scope.LegalEntityId, scope.SubjectId, ct);
         if (verifier is null)
             return Error("finance-identity-unavailable", "An active organisation workforce account is required to confirm funding.", 403);
@@ -125,6 +155,8 @@ public static class ProcurementBudgetRoutes
         try { await ProcurementFinanceWorkerIndependence.RequireAsync(request, verifier.WorkerId, identityCore, db, scope, ct); }
         catch (InvalidOperationException)
         { return Error("self-review", "Funding requires an independent worker and retained requester identity.", 403); }
+            verifierWorker=verifier.WorkerId;
+        }
         if (request.Status != "Submitted")
             return Error("request-locked", "Only submitted requests can be checked.", 409);
         if (request.Version != input.RequestVersion)
@@ -167,8 +199,14 @@ public static class ProcurementBudgetRoutes
             {
                 // Recovery proves the original recorder's retained identity, never today's reassigned subject.
                 if (!FinanceCheckerIdentityEvidence.MatchesCurrentCanonical(prior, scope.TenantId, scope.LegalEntityId,
-                        id, businessVersion, scope.SubjectId, verifier.WorkerId))
+                        id, businessVersion, scope.SubjectId, verifierWorker))
                     return Error("finance-checker-identity-changed", "This funding evidence needs a new independent Finance review. The original check was not changed.", 409);
+                if(principal)
+                {
+                    try { _=await ProcurementPrincipalFinanceChecker.RequireCurrentAsync(request,prior,identityCore,db,scope,ct); }
+                    catch(InvalidOperationException error) when(PrincipalFinanceFailure(error))
+                    { return Error("finance-checker-identity-changed","This funding evidence needs a new independent Finance review. The original check was not changed.",409); }
+                }
                 return Results.Ok(ToResult(prior));
             }
             return Error("finance-reference-conflict", "This Finance check reference has already been used.", 409);
@@ -183,7 +221,9 @@ public static class ProcurementBudgetRoutes
             ReservationStatus = reservationStatus,
         };
         db.AddScoped(decision);
-        var checker = FinanceCheckerIdentityEvidence.CreateForNewSnapshot(decision, scope.SubjectId, verifier.WorkerId);
+        var checker = principal
+            ? FinanceCheckerIdentityEvidence.CreatePrincipalForNewSnapshot(decision,scope.SubjectId,verifierWorker)
+            : FinanceCheckerIdentityEvidence.CreateForNewSnapshot(decision, scope.SubjectId, verifierWorker!.Value);
         decision.CheckerIdentitySchemaVersion = checker.SchemaVersion;
         decision.CheckedByWorkerId = checker.WorkerId;
         decision.CheckerIdentitySha256 = checker.Sha256;
