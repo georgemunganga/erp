@@ -63,6 +63,20 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
     }
 
     [Fact]
+    public async Task Authority_creation_resolves_workerless_current_Core_grants_and_rejects_revoked_configuration_access()
+    {
+        await using var f=await Fixture.Start();
+        var role=await f.Core.TenantRoleAssignments.SingleAsync();
+        role.PermissionsCsv="procurement-access,procurement-authority-configure";await f.Core.SaveChangesAsync();
+        var people=await ProcurementSpendingAuthorityPrincipalIdentity.ResolveCreationActorsAsync(f.Core,f.Scope,f.Maker.ToString("D"),default);
+        Assert.Null(people.Actor.WorkerId);Assert.Null(people.Actor.CoreLinkedWorkerId);Assert.Null(people.Recipient.WorkerId);
+        role.PermissionsCsv="procurement-access";await f.Core.SaveChangesAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>ProcurementSpendingAuthorityPrincipalIdentity.ResolveCreationActorsAsync(
+            f.Core,f.Scope,f.Maker.ToString("D"),default));
+        Assert.False(f.Db.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
     public async Task Retained_checker_alias_still_denies_after_current_link_is_cleared_and_maker_account_is_offboarded()
     {
         await using var f=await Fixture.Start();var alias=Guid.NewGuid();
