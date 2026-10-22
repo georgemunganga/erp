@@ -37,6 +37,11 @@ internal static class PrincipalApprovalRuntimePrivileges
             await Run("GRANT SELECT ON "+relation+" TO "+Q(record)+","+Q(execution));
         }
         await Run("GRANT SELECT ON procurement.__procurement_migrations TO "+Q(record)+","+Q(execution));
+        // Real PR draft validation reads these owning catalog tables, even for
+        // an empty selected-ID page. This is a bounded record-route dependency,
+        // not a grant to alter catalog data or Core/Finance records.
+        foreach(var table in new[]{"catalog_items","catalog_entries"})
+            await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(record));
         foreach(var table in new[]{"purchase_requests","purchase_request_lines","spending_authority_grants","policy_versions"})
             await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
         await Run("GRANT INSERT,DELETE ON procurement.spending_authority_categories TO "+Q(record));
