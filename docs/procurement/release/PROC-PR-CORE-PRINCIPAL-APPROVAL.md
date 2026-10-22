@@ -30,7 +30,7 @@ A retained optional worker link is denial-only person-alias evidence, including 
 
 ## 8. Finance checker2
 
-New checker2 binds canonical current principal, optional known alias and the complete exact funding tuple. Manual Finance policy/reference/freshness/coverage/reservation rules remain unchanged. This is not an external Finance attestation or invented reservation.
+New checker2 binds canonical current principal, optional known alias and the complete exact funding tuple. Manual Finance policy/reference/freshness/coverage/reservation rules remain unchanged. Finance is a future ERP module and no authenticated ERP Finance budget/reservation/AP/payment owner is installed. This successor only retains existing manual/recorded references under explicit configured controls. It is not a Finance attestation, verified reservation, AP posting or payment.
 
 ## 9. Finance compatibility
 
@@ -102,7 +102,7 @@ Still required: canonical workerless maker/checker/approver positives; stale cla
 
 ## 26. Required actual acceptance
 
-Genuine migration up/down and used-evidence veto, raw NULL/zero/CHECK/FK negatives, actual finite-role HTTP pipeline and independent persisted effect proof. Existing P23 tests and owner-only runs do not prove this successor.
+Genuine migration up/down and used-evidence veto, raw NULL/zero/CHECK/FK negatives, actual finite-role HTTP pipeline and independent persisted effect proof. Read-only adapter source uses existing inspection helpers and the actual owner connection/transaction; its exact migration/CHECK/partial-index constants remain empty and it is not registered. Capture all expected definitions, then prove separate finite read, Procurement-only record, and Core workflow execution roles positive. Individually revoke required SELECT/INSERT/UPDATE, grant append-column UPDATE or TRUNCATE, assume table/schema/database/elevated owner role, weaken a named key/FK/CHECK/index, remove history, or use the wrong store: readiness must be false with all data unchanged. Record role must fail with any Core workflow DML; execution role must fail with decisions UPDATE/destructive DML, delegations/history DML, or HRM identity DML. Keep production roles unchanged until a separately reviewed permission release. Existing P23 tests and owner-only runs do not prove this successor.
 
 ## 27. Downstream limits
 
