@@ -39,7 +39,7 @@ internal sealed class PurchaseRequestDraftCommandExecution(string connectionStri
             {
                 return await ExecuteAttemptAsync(http,original,authorization,command,requireWriteReady,originalBusinessAction,serializeActualPersistedDetail,ct);
             }
-            catch(Exception error) when(attempt<3&&ConfirmedAbort(error))
+            catch(Exception error) when(attempt<3&&CanRetryAttempt(error))
             {await Task.Delay(TimeSpan.FromMilliseconds(40*attempt),ct);}
             // No unknown commit/network/unique violation retry. A key unique race
             // returns retained conflict; a later explicit GET/same-key call owns recovery.
@@ -65,39 +65,52 @@ internal sealed class PurchaseRequestDraftCommandExecution(string connectionStri
         var scope=CopyContext(original);
         await using var db=Store(connection,scope);await db.Database.UseTransactionAsync(transaction,ct);
         await using var core=await ProcurementApprovalExecutionLocks.CoreAsync(db,scope,ct);
-        await RequireCurrentAsync(core,http,scope,original,authorization,command.Intent.Operation,ct);
-        await requireReady(db,ct);
-        var prior=await db.PurchaseRequestDraftCommandReceipts.AsNoTracking().SingleOrDefaultAsync(x=>x.Operation==command.Intent.Operation
-            &&x.CommandKey==command.CommandKey,ct); // actor deliberately NOT in lookup/unique family
-        if(prior is not null)
+        var commitSucceeded=false;
+        // Catch only transaction WORK. All await-using cleanup is outside this
+        // boundary, so a lease/context/connection disposal failure is never an
+        // abort marker even if its nested SQLSTATE happens to be40001/40P01.
+        try
         {
-            var replay=MatchCompleted(prior,scope,command.Intent.Operation,command.CommandKey,command.Fingerprint,command.Intent.TargetId);
-            _=await OwnedParentAsync(db,scope,prior.PurchaseRequestId,ct);
-            await transaction.CommitAsync(ct);return replay;
+            await RequireCurrentAsync(core,http,scope,original,authorization,command.Intent.Operation,ct);
+            await requireReady(db,ct);
+            var prior=await db.PurchaseRequestDraftCommandReceipts.AsNoTracking().SingleOrDefaultAsync(x=>x.Operation==command.Intent.Operation
+                &&x.CommandKey==command.CommandKey,ct); // actor deliberately NOT in lookup/unique family
+            if(prior is not null)
+            {
+                var replay=MatchCompleted(prior,scope,command.Intent.Operation,command.CommandKey,command.Fingerprint,command.Intent.TargetId);
+                _=await OwnedParentAsync(db,scope,prior.PurchaseRequestId,ct);
+                await transaction.CommitAsync(ct);commitSucceeded=true;return replay;
+            }
+            if(command.Intent.TargetId is {} target)
+            {
+                await ProcurementApprovalExecutionLocks.LockRequestAsync(db,scope,target,ct);
+                _=await OwnedParentAsync(db,scope,target,ct);
+            }
+            // Only NOW may current catalog/default/CAS/mutability validation execute.
+            // Callback must throw/reject on failure, not return an IResult early or
+            // begin/commit its own transaction. Existing Update retains UpdatedAt bump.
+            var id=await business(db,core,scope,command.AcceptedInput,ct);
+            Require(id!=Guid.Empty&&(command.Intent.TargetId is null||id==command.Intent.TargetId),"RequestDraftCommandTargetInvalid");
+            await db.SaveChangesAsync(ct);
+            Require(!core.ChangeTracker.HasChanges(),"RequestDraftCommandCoreWriteUnsupported");
+            var parent=await OwnedParentAsync(db,scope,id,ct);
+            // Owning ToDetail adapter must re-read final rows/versions/timestamps, then
+            // serialize ONCE with the SAME options as the original successful route.
+            var raw=await serialize(db,id,ct);
+            Require(!db.ChangeTracker.HasChanges()&&!core.ChangeTracker.HasChanges(),"RequestDraftCommandSerializationMustReadOnly");
+            var metadata=new PurchaseRequestDraftCommandMetadata(scope.TenantId,scope.LegalEntityId,command.Intent.Operation,command.CommandKey,
+                scope.PrincipalId!.Value,id,scope.WorkLocationId,scope.OrgUnitId,parent.BranchRef,parent.DepartmentRef,
+                command.Intent.ExpectedVersion,parent.Version,command.Fingerprint,DateTimeOffset.UtcNow);
+            var receipt=PurchaseRequestDraftCommandReceipts.Complete(metadata,raw);db.AddScoped(receipt);
+            await db.SaveChangesAsync(ct);await transaction.CommitAsync(ct);commitSucceeded=true;
+            return Reply(receipt);
         }
-        if(command.Intent.TargetId is {} target)
+        catch(Exception error)
         {
-            await ProcurementApprovalExecutionLocks.LockRequestAsync(db,scope,target,ct);
-            _=await OwnedParentAsync(db,scope,target,ct);
+            var qualified=ClassifyTransactionFailure(error,commitSucceeded);
+            if(ReferenceEquals(qualified,error))throw;
+            throw qualified; // original error/stack retained as InnerException
         }
-        // Only NOW may current catalog/default/CAS/mutability validation execute.
-        // Callback must throw/reject on failure, not return an IResult early or
-        // begin/commit its own transaction. Existing Update retains UpdatedAt bump.
-        var id=await business(db,core,scope,command.AcceptedInput,ct);
-        Require(id!=Guid.Empty&&(command.Intent.TargetId is null||id==command.Intent.TargetId),"RequestDraftCommandTargetInvalid");
-        await db.SaveChangesAsync(ct);
-        Require(!core.ChangeTracker.HasChanges(),"RequestDraftCommandCoreWriteUnsupported");
-        var parent=await OwnedParentAsync(db,scope,id,ct);
-        // Owning ToDetail adapter must re-read final rows/versions/timestamps, then
-        // serialize ONCE with the SAME options as the original successful route.
-        var raw=await serialize(db,id,ct);
-        Require(!db.ChangeTracker.HasChanges()&&!core.ChangeTracker.HasChanges(),"RequestDraftCommandSerializationMustReadOnly");
-        var metadata=new PurchaseRequestDraftCommandMetadata(scope.TenantId,scope.LegalEntityId,command.Intent.Operation,command.CommandKey,
-            scope.PrincipalId!.Value,id,scope.WorkLocationId,scope.OrgUnitId,parent.BranchRef,parent.DepartmentRef,
-            command.Intent.ExpectedVersion,parent.Version,command.Fingerprint,DateTimeOffset.UtcNow);
-        var receipt=PurchaseRequestDraftCommandReceipts.Complete(metadata,raw);db.AddScoped(receipt);
-        await db.SaveChangesAsync(ct);await transaction.CommitAsync(ct);
-        return Reply(receipt);
     }
 
     /// <summary>Consistent historic read. No execution/write flag, Finance/default,
@@ -136,6 +149,13 @@ internal sealed class PurchaseRequestDraftCommandExecution(string connectionStri
         return BinaryPrimitives.ReadInt64BigEndian(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
     }
     internal static bool ConfirmedAbort(Exception error)=>ProcurementPostgresFailures.IsConcurrency(error);
+    internal static bool CanRetryAttempt(Exception error)=>error is ConfirmedCommandTransactionAbort;
+    // Only the inner transaction-work catch may call this classifier. Raw errors
+    // from acquisition/disposal cannot qualify by SQLSTATE at the outer loop.
+    internal static Exception ClassifyTransactionFailure(Exception error,bool commitSucceeded)
+        =>!commitSucceeded&&ConfirmedAbort(error)?new ConfirmedCommandTransactionAbort(error):error;
+    private sealed class ConfirmedCommandTransactionAbort(Exception original)
+        :Exception("RequestDraftCommandTransactionAborted",original) { }
     internal static string Permission(string operation)=>operation switch
     {"Create"=>"procurement-request-create","Update"=>"procurement-request-edit","Submit"=>"procurement-request-submit",
         _=>throw new PurchaseRequestDraftCommandError(400,"RequestDraftCommandOperationInvalid")};

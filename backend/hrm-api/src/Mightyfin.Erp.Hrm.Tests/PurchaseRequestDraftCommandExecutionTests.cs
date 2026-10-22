@@ -70,6 +70,38 @@ public sealed class PurchaseRequestDraftCommandExecutionTests
         Assert.False(PurchaseRequestDraftCommandExecution.ConfirmedAbort(new OperationCanceledException()));
     }
     [Theory]
+    [InlineData("40001")][InlineData("40P01")]
+    public void Retry_requires_qualified_transaction_abort_not_postcommit_or_cleanup_SQLSTATE(string state)
+    {
+        var original=new InvalidOperationException("synthetic work wrapper",new PostgresException("synthetic","ERROR","ERROR",state));
+        var work=PurchaseRequestDraftCommandExecution.ClassifyTransactionFailure(original,false);
+        Assert.True(PurchaseRequestDraftCommandExecution.CanRetryAttempt(work));Assert.Same(original,work.InnerException);
+        var postcommit=PurchaseRequestDraftCommandExecution.ClassifyTransactionFailure(original,true);
+        Assert.Same(original,postcommit);Assert.False(PurchaseRequestDraftCommandExecution.CanRetryAttempt(postcommit));
+        // Acquisition/await-using disposal runs outside the work catch and delivers
+        // the RAW error, including both replay and business postcommit cleanup.
+        Assert.False(PurchaseRequestDraftCommandExecution.CanRetryAttempt(original));
+        Assert.False(PurchaseRequestDraftCommandExecution.CanRetryAttempt(new InvalidOperationException("cleanup",original)));
+    }
+    [Theory]
+    [InlineData("23505")][InlineData("42501")][InlineData("57014")]
+    public void Transaction_work_without_confirmed_abort_preserves_original_failure(string state)
+    {
+        var error=new PostgresException("synthetic","ERROR","ERROR",state);
+        Assert.Same(error,PurchaseRequestDraftCommandExecution.ClassifyTransactionFailure(error,false));
+        Assert.False(PurchaseRequestDraftCommandExecution.CanRetryAttempt(error));
+    }
+    [Fact]
+    public void Unknown_commit_transport_error_cannot_become_a_retry_marker()
+    {
+        var error=new NpgsqlException("synthetic unknown commit transport");
+        foreach(var committed in new[]{false,true})
+        {
+            var classified=PurchaseRequestDraftCommandExecution.ClassifyTransactionFailure(error,committed);
+            Assert.Same(error,classified);Assert.False(PurchaseRequestDraftCommandExecution.CanRetryAttempt(classified));
+        }
+    }
+    [Theory]
     [InlineData("Create",201)][InlineData("Update",200)][InlineData("Submit",200)]
     public void Replay_retains_exact_bytes_status_hash_and_only_create_location(string operation,int status)
     {
