@@ -24,6 +24,8 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(Path.IsPathFullyQualified(resultPath)&&!File.Exists(resultPath)&&Directory.Exists(Path.GetDirectoryName(resultPath)),"New result in existing protected directory required.");
         var result=new Dictionary<string,object?> { ["status"]="NOT_STARTED",["stage"]="Bootstrap",["productionTouched"]=false,["testAuthenticationOnly"]=true,
             ["realIdentityProviderAuthentication"]=false,["externalFinanceAuthority"]=false,["manualEvidencePositiveWorkflow"]=false };
+        var matrixFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_PRIVILEGE_MATRIX");
+        Need(matrixFlag is null or "1","Private privilege matrix opt-in must be exactly1 or absent.");
         var fixture=new PrincipalApprovalFixture(owner);var stage="Bootstrap";var requests=0;
         try
         {
@@ -37,6 +39,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 await using var command=new NpgsqlCommand("SELECT current_user=session_user AND current_user=@expected AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",runtime);
                 command.Parameters.AddWithValue("expected",expected);Need(await command.ExecuteScalarAsync() is true,"Finite test role is not an actual distinct restricted LOGIN.");
             }
+            if(matrixFlag=="1")await VerifyPrivilegeMatrixAsync(fixture,roles,ownerConnection,result,Advance);
             Advance("CapturedActualReadRecordExecutionReadiness");
             await using(var core=fixture.Core())
             {
@@ -156,7 +159,7 @@ internal static partial class PrincipalApprovalHttpVerification
     }
     // Shared owner-only verifier for this mode and the separately authored raw storage checks.
     // Read-only: hashes every persisted non-system table, metadata, sequences and privilege boundary.
-    internal static async Task<string> PrincipalFootprintAsync(NpgsqlConnection owner)
+    internal static async Task<string> PrincipalFootprintAsync(NpgsqlConnection owner,bool rowsOnly=false)
     {
         if(owner.State!=System.Data.ConnectionState.Open)await owner.OpenAsync();
         await using var transaction=await owner.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead);
@@ -170,6 +173,11 @@ internal static partial class PrincipalApprovalHttpVerification
             var relation=PrincipalApprovalRuntimePrivileges.Q(schema)+"."+PrincipalApprovalRuntimePrivileges.Q(table);
             await using var values=new NpgsqlCommand("SELECT count(*)::text||':'||encode(sha256(convert_to(coalesce(string_agg(h,'' ORDER BY h),''),'UTF8')),'hex') FROM (SELECT encode(sha256(convert_to(to_jsonb(t)::text,'UTF8')),'hex') h FROM "+relation+" t)q",owner,transaction);
             parts.Add(schema+"."+table+":"+(string)(await values.ExecuteScalarAsync())!);
+        }
+        if(rowsOnly)
+        {
+            await transaction.RollbackAsync();
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',parts))));
         }
         const string metadata="""
             SELECT jsonb_build_object(
