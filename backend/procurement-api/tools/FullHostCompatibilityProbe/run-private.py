@@ -19,6 +19,7 @@ def main():
     p.add_argument('--runtime-image', required=True, help='Existing local immutable sha256 image; never pulled')
     p.add_argument('--target-db', required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--default-tenant-file', type=Path, help='Protected exact deployment tenant already verified against retained company/account scope; required for actual Program')
     modes = p.add_mutually_exclusive_group()
     modes.add_argument('--diagnose-hrm-model', action='store_true', help='Read-only source model operations; never start Program or migrate')
     modes.add_argument('--rehearse-fresh-hrm', action='store_true', help='New empty template0 private database, actual owning HRM MigrateAsync twice; never start Program')
@@ -36,6 +37,15 @@ def main():
                 'FullHostCompatibilityProbe.deps.json', 'Mightyfin.Erp.Hrm.Api.dll']
     if not all((a.publish_dir / name).is_file() for name in required) or a.output.exists():
         p.error('Require full compiled publication and unused protected evidence path')
+    default_tenant = None
+    if not a.rehearse_fresh_hrm and not a.diagnose_hrm_model:
+        if a.default_tenant_file is None or a.default_tenant_file.is_symlink() or not a.default_tenant_file.is_file():
+            p.error('Actual owner composition requires a protected verified default-tenant file')
+        if a.default_tenant_file.stat().st_mode & 0o077:
+            p.error('Verified tenant file must not be group/world accessible')
+        default_tenant = a.default_tenant_file.read_text()
+        if not default_tenant or default_tenant != default_tenant.strip() or len(default_tenant) > 200 or any(ord(c) < 32 for c in default_tenant):
+            p.error('Verified default tenant is invalid')
     os.umask(0o077)
     a.output.mkdir(parents=True, mode=0o700)
 
@@ -83,6 +93,7 @@ def main():
         '--mount', 'type=bind,src=' + socket[0] + ',dst=/private-pg,readonly',
         '--mount', 'type=bind,src=' + str(a.output.resolve()) + ',dst=/evidence',
         '--env', 'ERP_HOST_SMOKE_CONNECTION=' + connection,
+        '--env', 'ERP_HOST_SMOKE_DEFAULT_TENANT=' + (default_tenant or ''),
         '--env', 'ERP_HOST_SMOKE_RESULT=/evidence/result.json',
         '--env', 'DOTNET_EnableDiagnostics=0', '--workdir', '/app', a.runtime_image,
         'dotnet', '/app/FullHostCompatibilityProbe.dll'] + (['--diagnose-hrm-model'] if a.diagnose_hrm_model else ['--rehearse-fresh-hrm'] if a.rehearse_fresh_hrm else []), text=True, capture_output=True)

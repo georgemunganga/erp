@@ -15,6 +15,7 @@ python3 backend/procurement-api/tools/FullHostCompatibilityProbe/run-private.py 
   --publish-dir /protected/full-smoke-publication \
   --runtime-image sha256:<existing-reviewed-local-runtime-image-id> \
   --target-db proc_release_backup_20261022_smoke_unique \
+  --default-tenant-file /protected/verified-deployment-default-tenant.txt \
   --output /protected/new-unique-host-smoke
 ```
 
@@ -72,3 +73,30 @@ canonical database, which it reads only. It never starts Program, changes roles 
 executes Down, and it refuses a reused/nonempty target. No runtime success is claimed
 for this newly authored mode until the parent-owned actual gate runs. Sequence state
 and finite-role provisioning remain outside this owner-schema check.
+
+
+### Scope corrections established by the actual private gates
+
+The actual entry point now starts and returns root/readiness HTTP 200. Its required
+unchanged-data gate correctly rejected a harness configuration omission: without the
+explicit deployment default tenant, existing `PrincipalTenantAccessor` chose its
+`local-tenant` fallback and normal Program startup seeded 14 role assignments there,
+with audit rows. No application seeding logic is disabled. Actual Program composition
+now requires a protected explicit default-tenant file, checked read-only against the
+unique active company/account tenant and deployment configuration before execution.
+Its value is never printed or committed. Read-only diagnostic and fresh modes do not
+start Program and do not need that tenant value.
+
+The real fresh `MigrateAsync` ran twice successfully: no pending migrations/model,
+and all fresh HRM table data/schema/history remained identical on the second run.
+The exact full fresh/retained catalog gate correctly exposed one existing import-owned
+table, `hrm.legacy_frappe_records`. Its authoritative DDL is in
+`scripts/import_frappe_people.py`; `docs/hrm/FRAPPE-EMPLOYEE-MIGRATION.md` specifies why
+its original records are preserved. No column, constraint, index or history shared by
+fresh and retained differed, and there were no fresh-only objects. The comparison
+therefore excludes **only that exact table's** objects from the retained EF-owned
+comparison. Every other extra/different object still fails. Full retained HRM catalog
+and all HRM table data, including that imported archive, must remain unchanged before
+and after. The importer table is never created, deleted, adopted or backfilled by EF.
+Both failed results and their databases remain retained; corrected runtime acceptance
+is pending a new private gate.
