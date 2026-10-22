@@ -26,6 +26,12 @@ internal static partial class PrincipalApprovalHttpVerification
             ["realIdentityProviderAuthentication"]=false,["externalFinanceAuthority"]=false,["manualEvidencePositiveWorkflow"]=false };
         var matrixFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_PRIVILEGE_MATRIX");
         Need(matrixFlag is null or "1","Private privilege matrix opt-in must be exactly1 or absent.");
+        var schemaFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_SCHEMA_NEGATIVES");
+        var accountFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_ACCOUNT_SCOPE_AUTHORITY");
+        Need(schemaFlag is null or "1","Private schema negatives opt-in must be exactly1 or absent.");
+        Need(accountFlag is null or "1","Private account/authority opt-in must be exactly1 or absent.");
+        Need(accountFlag is null || Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE")=="1",
+            "Account/authority negatives require the genuine private manual-evidence graph.");
         var fixture=new PrincipalApprovalFixture(owner);var stage="Bootstrap";var requests=0;
         try
         {
@@ -40,6 +46,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 command.Parameters.AddWithValue("expected",expected);Need(await command.ExecuteScalarAsync() is true,"Finite test role is not an actual distinct restricted LOGIN.");
             }
             if(matrixFlag=="1")await VerifyPrivilegeMatrixAsync(fixture,roles,ownerConnection,result,Advance);
+            if(schemaFlag=="1")await VerifySchemaNegativesAsync(fixture,roles,ownerConnection,result,Advance);
             Advance("CapturedActualReadRecordExecutionReadiness");
             await using(var core=fixture.Core())
             {
@@ -108,7 +115,7 @@ internal static partial class PrincipalApprovalHttpVerification
             if(Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is {} positive)
             {
                 Need(positive=="1","Private manual evidence opt-in must be exactly1.");
-                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send);
+                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1");
             }
         }
         catch(Exception error)

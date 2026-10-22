@@ -12,7 +12,7 @@ internal static partial class PrincipalApprovalHttpVerification
     internal const string PrivateManualPolicyReference="PRIVATE-P25-MANUAL-EVIDENCE-NOT-EXTERNAL-FINANCE";
     private static async Task VerifyPrivateManualApprovalAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,NpgsqlConnection ownerConnection,Dictionary<string,object?> result,
-        Action<string> stage,PrincipalSend send)
+        Action<string> stage,PrincipalSend send,Action countExtraHttp,bool verifyAccountScopeAuthority)
     {
         // Separate opt-in phase AFTER the real default-off and Finance-unavailable denials.
         // Only existing manual-evidence configuration is enabled; no Finance owner is substituted.
@@ -136,6 +136,12 @@ internal static partial class PrincipalApprovalHttpVerification
             action="Approve",reason="Private independent named Core review under explicit manual evidence policy",
             expectedCaseVersion=detail.GetProperty("caseVersion").GetInt64(),expectedAssignmentVersion=assignment.GetProperty("version").GetInt64(),
             expectedRequestVersion=detail.GetProperty("requestVersion").GetInt64()};
+        if(verifyAccountScopeAuthority)
+        {
+            stage("ActualCurrentAccountAndSelectedScopeDenials");
+            await VerifyCurrentAccountAndScopeDenialsAsync(fixture,ownerConnection,client,send,caseId,assignmentId,
+                decisionBody,decideKey,countExtraHttp,result);
+        }
         var decided=await send(client,HttpMethod.Post,decisionPath,fixture.Approver,decisionBody,HttpStatusCode.OK,decideKey);
         Need(decided.GetProperty("state").GetString()=="Approved"&&decided.GetProperty("requestState").GetString()=="Approved","Actual independent final approval failed.");
         stage("DecisionExactReplayConflictAndCurrentGrantDenial");
@@ -212,6 +218,11 @@ internal static partial class PrincipalApprovalHttpVerification
             result["currentGraphRawStorage"]="IN_PROGRESS_NOT_ACCEPTED";
             await VerifyRawStorageAsync(ownerConnection,graph);
             result["currentGraphRawStorage"]=PrincipalRawStorageVerification;
+        }
+        if(verifyAccountScopeAuthority)
+        {
+            stage("ActualAuthorityRevocationAfterFirstGraphAcceptance");
+            await VerifyAuthorityRevocationDenialAsync(fixture,ownerConnection,client,send,requestId,openKey,opened,grantId,result);
         }
         // Owner-only raw probes do not establish Finance authority or independently
         // isolate the five dependent domain graph families.
