@@ -24,6 +24,10 @@ def main():
         p.error('Require new bounded smoke clone name')
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', a.runtime_image):
         p.error('Require existing immutable local runtime image ID')
+    if a.publish_dir.is_symlink() or not a.publish_dir.is_dir():
+        p.error('Require an ordinary compiled publication directory')
+    if a.output.resolve().is_relative_to(a.publish_dir.resolve()):
+        p.error('Evidence/output must be outside the immutable publication directory')
     required = ['FullHostCompatibilityProbe.dll', 'FullHostCompatibilityProbe.runtimeconfig.json',
                 'FullHostCompatibilityProbe.deps.json', 'Mightyfin.Erp.Hrm.Api.dll']
     if not all((a.publish_dir / name).is_file() for name in required) or a.output.exists():
