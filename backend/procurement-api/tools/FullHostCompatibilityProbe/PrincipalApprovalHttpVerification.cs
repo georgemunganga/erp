@@ -74,6 +74,10 @@ internal static partial class PrincipalApprovalHttpVerification
                     Need(source.Lines.Count==1&&source.Lines.Single().RequestedQuantity==2m&&source.Lines.Single().EstimatedUnitPrice==5.1234m,"Exact source values changed.");
                     result["requestId"]=id;result["submittedBusinessVersion"]=source.SubmittedVersion;result["currentRequestVersion"]=source.Version;
                 }
+                stage="OriginalRequestRawStorage";
+                await VerifyRequestRawStorageAsync(ownerConnection,id,PrincipalApprovalFixture.Tenant,fixture.Company,
+                    submitted.GetProperty("version").GetInt64());
+                result["originalRequestRawStorage"]=PrincipalRawStorageVerification;
                 stage="FundingUnavailableNoEffects";var before=await PrincipalFootprintAsync(ownerConnection);
                 var readiness=await Send(client,HttpMethod.Get,path+"/approval-readiness",fixture.Maker);
                 Need(!readiness.GetProperty("canOpenCase").GetBoolean()&&readiness.GetProperty("blockers").EnumerateArray().Any(x=>x.GetString()=="PrincipalFinanceCheckerEvidenceRequired"),"Missing Finance/checker evidence must block actual readiness.");
