@@ -20,6 +20,8 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             return InvoiceMappingReview.Unavailable("InvoiceUnitReviewSchemaUnavailable");
         var source = await db.InvoiceUnitReviewSources.SingleOrDefaultAsync(x => x.SupplierInvoiceId == invoice.Id && x.MappingVersionId == mapping.Id, ct);
         if (source is null) return InvoiceMappingReview.Unavailable("OriginalInvoiceUnitReviewRequired");
+        if (!await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(db, scope, false, false, ct))
+            return InvoiceMappingReview.Unavailable("InvoiceUnitReviewDocumentRetentionUnavailable");
         if (source.BranchRef != invoice.BranchRef) throw new UnauthorizedAccessException();
         var outcome = await db.InvoiceUnitReviewOutcomes.SingleOrDefaultAsync(x => x.ReviewSourceId == source.Id, ct);
         if (outcome is null || outcome.State != "Verified") return InvoiceMappingReview.Unavailable(outcome?.State ?? "OriginalInvoiceUnitReviewPending");
@@ -27,6 +29,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         var actor = await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct) ?? throw new UnauthorizedAccessException();
         if (actor.PrincipalId != scope.PrincipalId?.ToString("D")) throw new UnauthorizedAccessException();
         _ = await ProcurementExecutionRecordScope.Branches(core, scope, invoice.BranchRef, true, ct);
+        await RequireRetainedOriginalDocuments(db, scope, source, ct);
         var workflow = await Workflow(cases, scope, source, false, ct);
         var pins = await db.InvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == source.Id).ToArrayAsync(ct);
         var owned = InvoiceUnitReviewStorage.Restore(source, pins, workflow);

@@ -20,6 +20,8 @@ internal static class ProcurementInvoiceUnitReviewCapability
         // This callback attaches no records; the coordinator commits no business changes.
         return await services.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async (owner, _, token) =>
             InvoiceDocumentStoreBinding.SamePhysicalDatabase(documents, owner.Database.GetDbConnection().ConnectionString)
-                && await schema.CanRecordAsync(owner, token), ct);
+                && await schema.CanRecordAsync(owner, token)
+                && await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(owner,
+                    services.GetRequiredService<ProcurementRequestScope>(), true, false, token), ct);
     }
 }

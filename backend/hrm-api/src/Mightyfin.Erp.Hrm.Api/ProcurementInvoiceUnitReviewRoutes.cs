@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Mightyfin.Erp.Core.Documents.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Domain;
@@ -11,12 +12,15 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementInvoiceUnitReviewRoutes
 {
+    private sealed record UnitReviewDocumentSession(DocumentDbContext Owner, DocumentOwnerLifecycleFence Fence);
     private sealed class ReviewProblem(string code, int status) : Exception(code) { internal int Status => status; }
     public sealed record OpenInput(long InvoiceVersion, int MappingRevision, string? Reason);
     public sealed record DecisionInput(long InvoiceVersion, long CaseVersion, long AssignmentVersion, string Action, string? Reason, string? Attestation);
     public static void MapRoutes(WebApplication app)
     {
         var invoices = app.MapGroup("/api/procurement/v1/invoices");
+        invoices.MapPost("/{id:guid}/documents/{documentId:guid}/retire", RetireOriginalDocument)
+            .RequireAuthorization(DocumentRetirementPermission, "procurement-invoice-read");
         invoices.MapGet("/{id:guid}/unit-review-readiness", Readiness).RequireAuthorization(InvoiceUnitReviewTransitions.RequestPermission, "procurement-invoice-read");
         invoices.MapPost("/{id:guid}/unit-reviews", Open).RequireAuthorization(InvoiceUnitReviewTransitions.RequestPermission, "procurement-invoice-read");
         var reviews = app.MapGroup("/api/procurement/v1/invoice-unit-reviews");
@@ -28,23 +32,34 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         reviews.MapGet("/{id:guid}/documents/{versionId:guid}/download", Download).RequireAuthorization("procurement-access");
     }
     private static Task<IResult> Run(HttpContext http, ProcurementRequestScope scope, bool write,
-        Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<string>> work, CancellationToken ct)
-        => RunResult(http, scope, write, async (db, cases, core, auth, token) => Results.Content(await work(db, cases, core, auth, token), "application/json"), ct);
+        Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, UnitReviewDocumentSession?, CancellationToken, Task<string>> work, CancellationToken ct, Guid? documentInvoice = null)
+        => RunResult(http, scope, write, async (db, cases, core, auth, documents, token) => Results.Content(await work(db, cases, core, auth, documents, token), "application/json"), ct, documentInvoice);
     private static async Task<IResult> RunResult(HttpContext http, ProcurementRequestScope scope, bool write,
-        Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<IResult>> work, CancellationToken ct)
+        Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, UnitReviewDocumentSession?, CancellationToken, Task<IResult>> work, CancellationToken ct, Guid? documentInvoice = null, bool exclusiveDocuments = false)
     {
         http.Response.Headers.CacheControl = "no-store";
         try
         {
             var options = http.RequestServices.GetRequiredService<ProcurementInvoiceUnitReviewOptions>();
             if (!options.ExecutionDatabaseConfigured || write && !options.Enabled) throw new ReviewProblem("InvoiceUnitReviewUnavailable", 503);
-            return await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async (db, cases, token) =>
+            async Task<IResult> Execute(ProcurementDbContext db, ApprovalDbContext cases,
+                UnitReviewDocumentSession? documents, CancellationToken token)
             {
                 var ready = http.RequestServices.GetRequiredService<IProcurementInvoiceUnitReviewSchemaReadiness>();
                 if (!(write ? await ready.CanRecordAsync(db, token) : await ready.IsReadyAsync(db, token))) throw new ReviewProblem("InvoiceUnitReviewSchemaUnavailable", 503);
+                if (http.RequestServices.GetRequiredService<CoreDocumentFeature>() is not { Enabled: true }
+                    || !Mightyfin.Erp.Procurement.Infrastructure.Documents.InvoiceDocumentStoreBinding.SamePhysicalDatabase(
+                        http.RequestServices.GetRequiredService<IConfiguration>().GetConnectionString("CoreDocuments"), db.Database.GetDbConnection().ConnectionString)
+                    || !await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(db, scope, write, exclusiveDocuments, token))
+                    throw new ReviewProblem("InvoiceUnitReviewDocumentRetentionUnavailable", 503);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
-                return await work(db, cases, core, http.RequestServices.GetRequiredService<IAuthorizationService>(), token);
-            }, ct);
+                return await work(db, cases, core, http.RequestServices.GetRequiredService<IAuthorizationService>(), documents, token);
+            }
+            var coordinator = http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>();
+            return documentInvoice is { } invoiceId
+                ? await coordinator.ExecuteWithInvoiceDocumentsAsync(invoiceId, (db, cases, owner, fence, token) =>
+                    Execute(db, cases, new(owner, fence), token), ct, exclusive: exclusiveDocuments)
+                : await coordinator.ExecuteAsync((db, cases, token) => Execute(db, cases, null, token), ct);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception error) when (error is ReviewProblem or InvalidOperationException or ArgumentException or UnauthorizedAccessException

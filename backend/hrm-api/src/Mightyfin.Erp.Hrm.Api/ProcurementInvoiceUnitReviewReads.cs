@@ -5,7 +5,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementInvoiceUnitReviewRoutes
 {
     private static Task<IResult> Readiness(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => Run(http, scope, false, async (db, cases, core, auth, token) =>
+        => Run(http, scope, false, async (db, cases, core, auth, documents, token) =>
         {
             var invoice = await Invoice(db, scope, id, token, false);
             var actor = await Actor(core, scope, http, auth, invoice.BranchRef, [InvoiceUnitReviewTransitions.RequestPermission], token);
@@ -41,7 +41,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         }, ct);
 
     private static Task<IResult> Tasks(int? page, int? pageSize, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => Run(http, scope, false, async (db, cases, core, auth, token) =>
+        => Run(http, scope, false, async (db, cases, core, auth, documents, token) =>
         {
             var p = page ?? 1; var size = pageSize ?? 20;
             if (p < 1 || p > 100000 || size < 1 || size > 50) throw new ReviewProblem("InvoiceUnitReviewPageInvalid", 400);
@@ -80,7 +80,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         }, ct);
 
     private static Task<IResult> Detail(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => Run(http, scope, false, async (db, cases, core, auth, token) =>
+        => Run(http, scope, false, async (db, cases, core, auth, documents, token) =>
         {
             var (source, invoice) = await Source(db, scope, id, false, token);
             var actor = await Actor(core, scope, http, auth, source.BranchRef,
@@ -125,7 +125,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         }, ct);
 
     private static Task<IResult> Recover(Guid id, Guid key, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => Run(http, scope, false, async (db, cases, core, auth, token) =>
+        => Run(http, scope, false, async (db, cases, core, auth, documents, token) =>
         {
             if (key == Guid.Empty) throw new ReviewProblem("InvoiceUnitReviewCommandKeyRequired", 400);
             var (source, invoice) = await Source(db, scope, id, false, token);

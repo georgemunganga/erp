@@ -7,7 +7,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementInvoiceUnitReviewRoutes
 {
     private static Task<IResult> Open(Guid id, OpenInput input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => Run(http, scope, true, async (db, cases, core, auth, token) =>
+        => Run(http, scope, true, async (db, cases, core, auth, documents, token) =>
         {
             var invoice = await Invoice(db, scope, id, token, true);
             var actor = await Actor(core, scope, http, auth, invoice.BranchRef, [InvoiceUnitReviewTransitions.RequestPermission], token);
@@ -30,6 +30,8 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var plan = InvoiceUnitReviewTransitions.PrepareOpen(invoice, originals, mapping, issued, matching, review, actor, people, hashes,
                 new(key, input.InvoiceVersion, input.MappingRevision, now, request.Reason));
             var source = InvoiceUnitReviewStorage.Source(plan, issued);
+            if (documents is null) throw new ReviewProblem("InvoiceUnitReviewDocumentRetentionUnavailable", 503);
+            await RetainOriginalDocuments(documents, scope, source, invoice, actor, hashes, token);
             cases.AddCase(plan.Case); await cases.SaveChangesAsync(token); // Actual insert provenance + final Core revision before receipt.
             db.AddScoped(source);
             foreach (var pin in plan.AssignmentWorkers) db.AddScoped(new InvoiceUnitReviewAssignmentEvidence { ReviewSourceId = source.Id,
@@ -41,10 +43,10 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             db.AddScoped(new AuditEvent { RecordType = nameof(InvoiceUnitReviewSource), RecordId = source.Id, ActorSubjectId = scope.SubjectId,
                 Action = "OriginalUnitReviewOpened", ChangedFieldsJson = InvoiceUnitReviewCommands.Serialize(new { invoiceId = id, mappingId = mapping.Id, coreCaseId = plan.Case.Id, commandKey = key }) });
             await db.SaveChangesAsync(token); return InvoiceUnitReviewCommands.Serialize(response);
-        }, ct);
+        }, ct, id);
 
     private static Task<IResult> Decide(Guid id, Guid assignmentId, DecisionInput input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => Run(http, scope, true, async (db, cases, core, auth, token) =>
+        => Run(http, scope, true, async (db, cases, core, auth, documents, token) =>
         {
             var (source, invoice) = await Source(db, scope, id, true, token);
             var actor = await Actor(core, scope, http, auth, source.BranchRef, [InvoiceRetainedUnitReview.ReviewPermission], token);
@@ -64,6 +66,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db, scope, http.RequestServices, matching, token);
             await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db, scope, http.RequestServices, review, token);
             var hashes = await AvailableHashes(db, scope, http, invoice.Id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
+            await RequireRetainedOriginalDocuments(db, scope, source, token);
             var issued = await ProcurementReceivingRoutes.InvoiceReviewIssuedOrder(db, cases, scope, source.PurchaseOrderId, source.IssuedVersionId, token);
             var decisions = (await cases.Decisions.Where(x => x.CaseId == workflow.Id).ToArrayAsync(token)).ToList(); var before = decisions.Select(x => x.Id).ToHashSet(); var now = Now();
             _ = InvoiceUnitReviewTransitions.ApplyNewDecision(owned, invoice, originals, mapping, issued, matching, review, actor, hashes, assignmentId,

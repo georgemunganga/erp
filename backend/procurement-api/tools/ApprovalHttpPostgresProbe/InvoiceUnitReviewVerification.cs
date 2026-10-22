@@ -47,6 +47,15 @@ sealed partial class Probe
         var reviewPath = $"{Root}/invoice-unit-reviews/{reviewId}";
         var replay = await Send(HttpMethod.Post, invoicePath + "/unit-reviews", mapper.Principal, openInput, openKey);
         await Check(replay, HttpStatusCode.OK); Require(await replay.Content.ReadAsStringAsync() == openedText, "Original review opening replay changed.");
+        using (var retentionScope=Scope(mapper.Principal))
+        {
+            var documents=retentionScope.ServiceProvider.GetRequiredService<DocumentDbContext>();
+            var set=await documents.UseSets.AsNoTracking().SingleAsync(x=>x.SourceRecordId==reviewId);
+            var pin=await documents.UsePins.AsNoTracking().SingleAsync(x=>x.UseSetId==set.Id);
+            Require(set.UseKey==reviewId && set.SourceRevision==1 && set.Kind==Mightyfin.Erp.Core.Documents.Domain.DocumentUseKind.Review
+                && set.CreatedBy==mapper.Principal.ToString("D") && pin.VersionId==original.Document && pin.Sha256==MatchingDocumentSha,
+                "Real HTTP review opening did not persist its exact Core document retention.");
+        }
         var queue = await Get(Root + "/invoice-unit-reviews/tasks", OrderManager2);
         Require(queue.GetProperty("total").GetInt32() == 1 && queue.GetProperty("items")[0].GetProperty("reviewId").GetGuid() == reviewId, "Assigned purpose-only review queue is incomplete.");
         var detail = await Get(reviewPath, OrderManager2); var assignment = detail.GetProperty("assignments")[0];
@@ -152,7 +161,13 @@ sealed partial class Probe
     private async Task<string> UnitReviewFootprint()
     {
         using var services = Scope(OrderBuyer); var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>(); var cases = services.ServiceProvider.GetRequiredService<ApprovalDbContext>();
-        return JsonSerializer.Serialize(new { sources = await db.InvoiceUnitReviewSources.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+        var documents=services.ServiceProvider.GetRequiredService<DocumentDbContext>();
+        return JsonSerializer.Serialize(new { documentUses=await documents.UseSets.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            documentPins=await documents.UsePins.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            documentRows=await documents.Documents.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            documentVersions=await documents.Versions.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            documentScans=await documents.ScanEvidence.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            documentEvents=await documents.RecordEvents.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(), sources = await db.InvoiceUnitReviewSources.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
             pins = await db.InvoiceUnitReviewAssignments.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(), outcomes = await db.InvoiceUnitReviewOutcomes.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
             receipts = await db.InvoiceUnitReviewReceipts.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(), audits = await db.AuditEvents.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
             outbox = await db.OutboxEvents.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(), cases = await cases.Cases.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
@@ -187,7 +202,7 @@ sealed partial class Probe
                 new Dictionary<Guid,string> { [original.Document] = MatchingDocumentSha },
                 new(Guid.NewGuid(), original.Version, original.MappingRevision, DateTimeOffset.UtcNow, "Synthetic persistence rollback proof"));
         }
-        var scope = new ProcurementRequestScope(); scope.Set("probe", OrderCompany, maker.ToString("D"), OrderBranch, null, true, "unit-review-provenance"); scope.AssignWorker(worker);
+        var scope = new ProcurementRequestScope(); scope.Set("probe", OrderCompany, maker.ToString("D"), OrderBranch, null, true, "unit-review-provenance"); scope.AssignWorker(worker); scope.AssignPrincipal(maker, worker);
         var coordinator = new ProcurementApprovalTransaction(databaseConnection, scope, scope);
         void Stage(ProcurementDbContext db)
         {
@@ -204,8 +219,9 @@ sealed partial class Probe
         var before = await UnitReviewFootprint();
         try
         {
-            await coordinator.ExecuteAsync<int>(async (db,cases,ct) =>
+            await coordinator.ExecuteWithInvoiceDocumentsAsync<int>(original.Invoice, async (db,cases,documents,fence,ct) =>
             {
+                await StageFixtureReviewDocumentUse(documents,fence,scope,plan,ct);
                 cases.AddCase(plan.Case); await cases.SaveChangesAsync(ct); Stage(db); await db.SaveChangesAsync(ct);
                 throw new InvalidOperationException("UnitReviewProbeRollbackAfterBothOwnersSaved");
             });
@@ -213,6 +229,7 @@ sealed partial class Probe
         }
         catch (InvalidOperationException error) when (error.Message == "UnitReviewProbeRollbackAfterBothOwnersSaved") { }
         Require(before == await UnitReviewFootprint(), "Explicit transaction rollback retained a Core case or review row.");
+        await VerifyReviewDocumentRetirementRace(scope,plan);
         // Create a genuine pre-existing Core orphan, then UPDATE it inside the finite
         // execution transaction. A tuple's xmin would now change, but it was not inserted
         // by this UoW and must not be adopted as a newly opened source.
@@ -223,8 +240,9 @@ sealed partial class Probe
         before = await UnitReviewFootprint();
         try
         {
-            await coordinator.ExecuteAsync(async (db,cases,ct) =>
+            await coordinator.ExecuteWithInvoiceDocumentsAsync(original.Invoice, async (db,cases,documents,fence,ct) =>
             {
+                await StageFixtureReviewDocumentUse(documents,fence,scope,plan,ct);
                 await cases.Database.ExecuteSqlInterpolatedAsync($"UPDATE core_approval.cases SET \"UpdatedAt\"=\"UpdatedAt\" WHERE \"Id\"={plan.Case.Id} AND \"TenantId\"={scope.TenantId} AND \"LegalEntityId\"={scope.LegalEntityId}",ct);
                 Stage(db); await db.SaveChangesAsync(ct); return 0;
             });

@@ -142,6 +142,12 @@ internal static partial class RuntimePrivileges
             await Sql(owner, $"GRANT SELECT ON core_approval.\"__EFMigrationsHistory\" TO {quotedRole}");
         }
         if(matchingDocuments) await GrantMatchingDocumentsAsync(owner,quotedRole,fixture);
+        if(unitReviews)
+        {
+            // Synthetic disposable runtime only. Production role provisioning remains
+            // a separately reviewed owner-operated manifest, never this tool.
+            await Sql(owner,$"GRANT SELECT,INSERT ON core_document.use_sets,core_document.use_pins TO {quotedRole}");
+        }
         await AssertDeniedAsync(runtime, fixture, matching, rfq, sourcingPolicies, receiving);
         if(matchingDocuments) await AssertMatchingDocumentWritesDeniedAsync(runtime,fixture);
     }
