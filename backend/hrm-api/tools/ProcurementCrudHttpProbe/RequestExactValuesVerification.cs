@@ -63,8 +63,11 @@ internal static partial class Program
         foreach (var token in new[] { "1.00001", "1.00000000000000000000000000001", "1e-1000", "\"100000000000000\"" })
         {
             var line = "{\"description\":\"Invalid exact\",\"unitCode\":\"each\",\"requestedQuantity\":1,\"estimatedUnitPrice\":" + token + "}";
-            await ExactRequestRaw(client, HttpMethod.Post, "/requests", "{\"purpose\":\"Must not create\",\"lines\":[" + line + "]}", HttpStatusCode.BadRequest);
-            await ExactRequestRaw(client, HttpMethod.Put, path, "{\"version\":" + Version(saved) + ",\"purpose\":\"Must not partially edit\",\"lines\":[" + line + "]}", HttpStatusCode.BadRequest);
+            var deniedCreate = await ExactRequestRaw(client, HttpMethod.Post, "/requests", "{\"purpose\":\"Must not create\",\"lines\":[" + line + "]}", HttpStatusCode.UnprocessableEntity);
+            Check(deniedCreate.GetProperty("code").GetString() == "validation-failed", "Raw request create did not return the exact validation contract.");
+            Check(allRows == await RequestStoreState(false), "Invalid create raw lexeme changed original/data/audit/outbox.");
+            var deniedUpdate = await ExactRequestRaw(client, HttpMethod.Put, path, "{\"version\":" + Version(saved) + ",\"purpose\":\"Must not partially edit\",\"lines\":[" + line + "]}", HttpStatusCode.UnprocessableEntity);
+            Check(deniedUpdate.GetProperty("code").GetString() == "validation-failed", "Raw request update did not return the exact validation contract.");
             Check(allRows == await RequestStoreState(false), "Invalid request raw lexeme changed original/data/audit/outbox.");
         }
 

@@ -63,7 +63,7 @@ public sealed class ProcurementSourcingCapabilityHttpTests
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             // Metadata-only fixture: no claim of PostgreSQL schema or real workflow execution.
             var history = db.GetService<IHistoryRepository>();
-            await db.Database.ExecuteSqlRawAsync(history.GetCreateIfNotExistsScript());
+            await SyntheticProcurementMetadataModel.CreateSqliteHistoryAsync(db);
             var migrations = db.Database.GetMigrations().ToArray(); Assert.NotEmpty(migrations);
             foreach (var migration in pending ? migrations.Skip(1) : migrations)
                 await db.Database.ExecuteSqlRawAsync(history.GetInsertScript(new HistoryRow(migration, "10.0.11")));

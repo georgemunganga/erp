@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -63,13 +64,16 @@ public sealed partial class ProcurementRequestHttpTests
         line = line.Replace($"\"{field}\":{needle}", $"\"{field}\":{token}");
         using var request = new HttpRequestMessage(HttpMethod.Post, ExactRequests) { Content = new StringContent("{\"purpose\":\"Raw boundary\",\"currencyCode\":\"ZMW\",\"lines\":[" + line + "]}", Encoding.UTF8, "application/json") };
         request.Headers.Add("X-Test-User", fixture.Owner.ToString());
-        var response = await fixture.Client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var response = await fixture.Client.SendAsync(request);
+        var deniedCreate = await RequestExactBody(response, HttpStatusCode.UnprocessableEntity);
+        Assert.Equal("validation-failed", deniedCreate.GetProperty("code").GetString());
         Assert.Equal(footprint, await fixture.ExactRequestFootprint());
         using var update = new HttpRequestMessage(HttpMethod.Put, $"{ExactRequests}/{seed.GetProperty("id").GetGuid()}") {
             Content = new StringContent("{\"version\":" + seed.GetProperty("version").GetInt64() + ",\"purpose\":\"Must not partially change\",\"currencyCode\":\"ZMW\",\"lines\":[" + line + "]}", Encoding.UTF8, "application/json") };
         update.Headers.Add("X-Test-User", fixture.Owner.ToString());
-        Assert.Equal(HttpStatusCode.BadRequest, (await fixture.Client.SendAsync(update)).StatusCode);
+        using var updateResponse = await fixture.Client.SendAsync(update);
+        var deniedUpdate = await RequestExactBody(updateResponse, HttpStatusCode.UnprocessableEntity);
+        Assert.Equal("validation-failed", deniedUpdate.GetProperty("code").GetString());
         Assert.Equal(footprint, await fixture.ExactRequestFootprint());
     }
     [Fact]

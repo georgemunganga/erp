@@ -19,11 +19,16 @@ def main():
     p.add_argument('--runtime-image', required=True, help='Existing local immutable sha256 image; never pulled')
     p.add_argument('--target-db', required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--diagnose-hrm-model', action='store_true', help='Read-only source model operations; never start Program or migrate')
     a = p.parse_args()
     if not re.fullmatch(r'proc_release_backup_20261022_smoke_[a-z0-9_]{1,28}', a.target_db) or len(a.target_db) > 63:
         p.error('Require new bounded smoke clone name')
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', a.runtime_image):
         p.error('Require existing immutable local runtime image ID')
+    if a.publish_dir.is_symlink() or not a.publish_dir.is_dir():
+        p.error('Require an ordinary compiled publication directory')
+    if a.output.resolve().is_relative_to(a.publish_dir.resolve()):
+        p.error('Evidence/output must be outside the immutable publication directory')
     required = ['FullHostCompatibilityProbe.dll', 'FullHostCompatibilityProbe.runtimeconfig.json',
                 'FullHostCompatibilityProbe.deps.json', 'Mightyfin.Erp.Hrm.Api.dll']
     if not all((a.publish_dir / name).is_file() for name in required) or a.output.exists():
@@ -77,16 +82,17 @@ def main():
         '--env', 'ERP_HOST_SMOKE_CONNECTION=' + connection,
         '--env', 'ERP_HOST_SMOKE_RESULT=/evidence/result.json',
         '--env', 'DOTNET_EnableDiagnostics=0', '--workdir', '/app', a.runtime_image,
-        'dotnet', '/app/FullHostCompatibilityProbe.dll'], text=True, capture_output=True)
+        'dotnet', '/app/FullHostCompatibilityProbe.dll'] + (['--diagnose-hrm-model'] if a.diagnose_hrm_model else []), text=True, capture_output=True)
     (a.output / 'host-smoke.log').write_text(r.stdout + r.stderr)
     if runtime_hashes() != manifest:
         raise RuntimeError('Frozen smoke runtime changed; no compatibility result can be accepted')
-    if r.returncode:
+    if r.returncode and not (a.diagnose_hrm_model and r.returncode == 2):
         raise RuntimeError('Actual Program smoke blocked/failed; restricted summary/log and clone retained')
     result = json.loads((a.output / 'result.json').read_text())
-    if result.get('status') != 'PASS' or result.get('allTableValuesAndSchemasUnchanged') is not True:
+    expected = 'OWNER_MODEL_DIAGNOSTIC_ONLY_PROGRAM_NOT_STARTED' if a.diagnose_hrm_model else 'PASS'
+    if result.get('status') != expected or result.get('allTableValuesAndSchemasUnchanged') is not True:
         raise RuntimeError('Actual Program smoke did not prove unchanged clone')
-    print('PASS private offline actual Program smoke; protected summary retained, no ERP rows output.')
+    print('Private owner model diagnostic complete; Program not started; protected summary retained.' if a.diagnose_hrm_model else 'PASS private offline actual Program smoke; protected summary retained, no ERP rows output.')
 
 
 if __name__ == '__main__':

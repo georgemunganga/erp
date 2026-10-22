@@ -59,7 +59,10 @@ public sealed partial class ProcurementRequestHttpTests
             // Deliberate corrupt owner-only InMemory fixture; never an adoption/authority path.
             using var services = app.Services.CreateScope(); var owner = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             await using var raw = new DbContext(new DbContextOptionsBuilder().UseInMemoryDatabase(procurementStoreName, procurementStoreRoot).UseModel(owner.Model).Options);
-            var origin = await raw.Set<SourcingPolicyIdentityEvidence>().SingleAsync(x => x.PolicyVersionId == id);
+            // The raw corruption fixture has no resolved request scope. Select the
+            // exact synthetic owner explicitly instead of inheriting its unset filter.
+            var origin = await raw.Set<SourcingPolicyIdentityEvidence>().IgnoreQueryFilters()
+                .SingleAsync(x => x.PolicyVersionId == id && x.TenantId == "tenant-a" && x.LegalEntityId == company);
             raw.Remove(origin); await raw.SaveChangesAsync();
         }
     }
