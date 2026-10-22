@@ -29,12 +29,13 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         return rows.ToDictionary(x => x.Id, x => x.Sha256);
     }
     private static Task<IResult> Documents(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => RunResult(http, scope, false, async (db, cases, core, auth, token) =>
+        => RunResult(http, scope, false, async (db, cases, core, auth, documents, token) =>
         {
             var (source, invoice) = await Source(db, scope, id, false, token); var workflow = await Workflow(cases, scope, source, false, token);
             var person = await Actor(core, scope, http, auth, source.BranchRef, [InvoiceRetainedUnitReview.ReviewPermission, InvoiceUnitReviewTransitions.RequestPermission], token);
             var pins = await db.InvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == id).ToArrayAsync(token);
             RequireDocumentPurpose(source, invoice, workflow, pins, person);
+            await RequireRetainedOriginalDocuments(db, scope, source, token);
             var mapping = await Mapping(db, invoice, token); var originals = await Originals(db, invoice.Id, token);
             var hashes = await AvailableHashes(db, scope, http, invoice.Id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
             var pinned = RetainedDocumentHashes(InvoiceUnitReviewStorage.Read(source), hashes);
@@ -45,12 +46,13 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
     private static async Task<IResult> Download(Guid id, Guid versionId, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
     {
         RecordDocumentService? authorized = null; Guid invoiceId = Guid.Empty;
-        var result = await RunResult(http, scope, false, async (db, cases, core, auth, token) =>
+        var result = await RunResult(http, scope, false, async (db, cases, core, auth, documents, token) =>
         {
             var (source, invoice) = await Source(db, scope, id, false, token); var workflow = await Workflow(cases, scope, source, false, token);
             var person = await Actor(core, scope, http, auth, source.BranchRef, [InvoiceRetainedUnitReview.ReviewPermission, InvoiceUnitReviewTransitions.RequestPermission], token);
             var pins = await db.InvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == id).ToArrayAsync(token);
             RequireDocumentPurpose(source, invoice, workflow, pins, person);
+            await RequireRetainedOriginalDocuments(db, scope, source, token);
             var mapping = await Mapping(db, invoice, token); var originals = await Originals(db, invoice.Id, token);
             var hashes = await AvailableHashes(db, scope, http, invoice.Id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
             var pinned = RetainedDocumentHashes(InvoiceUnitReviewStorage.Read(source), hashes);

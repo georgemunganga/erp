@@ -35,26 +35,7 @@ public sealed class EfDocumentRetirement(DocumentDbContext db, IDocumentScope sc
             await using var fence=await DocumentOwnerLifecycleFence.AcquireAsync(db,scope,[owner],true,ct);
             await using var transaction=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable,ct);
             var access=await authorizeOnOwner(db,ct) ?? throw new InvalidOperationException("Retirement authority is unavailable.");
-            await access.RequireAsync(owner,documentId,expectedDocumentRevision,ct);
-            await fence.RequireHeldAsync(db,scope,[owner],transaction.GetDbTransaction(),true,ct);
-            var document=await db.Documents.SingleOrDefaultAsync(x=>x.Id==documentId && x.OwnerModule==owner.Module
-                && x.OwnerType==owner.Type && x.OwnerId==owner.Id,ct)
-                ?? throw new DocumentProblemException("document-not-found","Document not found.");
-            if(document.LegalHold)
-                throw new DocumentProblemException("document-held","This document is on hold and cannot be retired.");
-            if(document.Version!=expectedDocumentRevision || document.IsRetired)
-                throw new DocumentProblemException("document-changed","This document has changed. Refresh before retiring it.");
-            if(db.UsePins.Local.Any(x=>x.DocumentId==documentId) || await db.UsePins.AnyAsync(x=>x.DocumentId==documentId,ct))
-                throw new DocumentProblemException("document-retained","This document is retained by a business record.");
-            var version=await db.Versions.Where(x=>x.DocumentId==documentId).OrderByDescending(x=>x.Number).FirstOrDefaultAsync(ct)
-                ?? throw new InvalidOperationException("Owned document version evidence is missing.");
-            var now=(timeProvider ?? TimeProvider.System).GetUtcNow();
-            if(now<document.CreatedAt) throw new InvalidOperationException("Retirement cannot predate the document.");
-            using var permit=db.EnterManagedRetirement(fence,owner,documentId,expectedDocumentRevision,transaction.GetDbTransaction());
-            document.Retire(scope,reason,now);
-            db.RecordEvents.Add(new(Guid.CreateVersion7(),scope.TenantId,scope.LegalEntityId,
-                document.Id,version.Id,"DocumentRetired",scope.SubjectId,now,null));
-            await db.SaveChangesAsync(ct);
+            await RetireEnlistedAsync(owner,documentId,expectedDocumentRevision,reason,fence,access,ct);
             await transaction.CommitAsync(ct);
         }
         finally
@@ -63,4 +44,38 @@ public sealed class EfDocumentRetirement(DocumentDbContext db, IDocumentScope sc
             await db.Database.CloseConnectionAsync();
         }
     }
+    /// <summary>Same command, enlisted in a caller-owned atomic transaction and its
+    /// pre-BEGIN exclusive owner fence. Never begins/commits, scans or touches blobs.</summary>
+    public async Task RetireEnlistedAsync(DocumentOwner owner, Guid documentId, long expectedDocumentRevision,
+        string reason, DocumentOwnerLifecycleFence fence, IDocumentRetirementAccess access, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(fence); ArgumentNullException.ThrowIfNull(access);
+        db.RequireDocumentUseScope(scope);
+        if (documentId==Guid.Empty || expectedDocumentRevision<1 || expectedDocumentRevision==long.MaxValue
+            || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length>1000 || db.Database.CurrentTransaction is null)
+            throw new ArgumentException("An exact bounded retirement command and owning transaction are required.");
+        var transaction = db.Database.CurrentTransaction;
+        await fence.RequireHeldAsync(db,scope,[owner],transaction.GetDbTransaction(),true,ct);
+        await access.RequireAsync(owner,documentId,expectedDocumentRevision,ct);
+        await fence.RequireHeldAsync(db,scope,[owner],transaction.GetDbTransaction(),true,ct);
+        var document=await db.Documents.SingleOrDefaultAsync(x=>x.Id==documentId && x.OwnerModule==owner.Module
+            && x.OwnerType==owner.Type && x.OwnerId==owner.Id,ct)
+            ?? throw new DocumentProblemException("document-not-found","Document not found.");
+        if(document.LegalHold)
+            throw new DocumentProblemException("document-held","This document is on hold and cannot be retired.");
+        if(document.Version!=expectedDocumentRevision || document.IsRetired)
+            throw new DocumentProblemException("document-changed","This document has changed. Refresh before retiring it.");
+        if(db.UsePins.Local.Any(x=>x.DocumentId==documentId) || await db.UsePins.AnyAsync(x=>x.DocumentId==documentId,ct))
+            throw new DocumentProblemException("document-retained","This document is retained by a business record.");
+        var version=await db.Versions.Where(x=>x.DocumentId==documentId).OrderByDescending(x=>x.Number).FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException("Owned document version evidence is missing.");
+        var now=(timeProvider ?? TimeProvider.System).GetUtcNow();
+        if(now<document.CreatedAt) throw new InvalidOperationException("Retirement cannot predate the document.");
+        using var permit=db.EnterManagedRetirement(fence,owner,documentId,expectedDocumentRevision,transaction.GetDbTransaction());
+        document.Retire(scope,reason,now);
+        db.RecordEvents.Add(new(Guid.CreateVersion7(),scope.TenantId,scope.LegalEntityId,
+            document.Id,version.Id,"DocumentRetired",scope.SubjectId,now,null));
+        await db.SaveChangesAsync(ct);
+    }
+
 }

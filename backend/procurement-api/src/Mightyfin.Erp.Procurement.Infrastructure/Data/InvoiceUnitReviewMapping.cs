@@ -1,4 +1,7 @@
 using System.Text.Json;
+using Mightyfin.Erp.Core.Documents.Application;
+using Mightyfin.Erp.Core.Documents.Domain;
+using Mightyfin.Erp.Core.Documents.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Core.Approvals.Domain;
@@ -105,6 +108,7 @@ public sealed partial class ProcurementDbContext
                 matchingPolicy, reviewPolicy, typed.Lines.GroupBy(x => x.DocumentVersionId).ToDictionary(x => x.Key, x => x.First().DocumentSha256), source.OpenedAt);
             VerifyUnitReviewPolicyIdentity(matchingPolicy);
             VerifyUnitReviewPolicyIdentity(reviewPolicy);
+            RequireUnitReviewDocumentPins(source);
             if (!unitReviewInsertedCases.Contains(workflow.Id) || workflow.State != "Pending" || core.Decisions.Any(x => x.CaseId == workflow.Id) || typed.ReviewPolicy.Stages.Sum(x => x.Assignees.Count) != pins.Length)
                 throw new InvalidOperationException("InvoiceUnitReviewOpeningCaseRequired");
         }
@@ -160,6 +164,36 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("InvoiceUnitReviewTerminalReceiptRequired");
         }
     }
+    private void RequireUnitReviewDocumentPins(InvoiceUnitReviewSource source)
+    {
+        using var documents = new DocumentDbContext(new DbContextOptionsBuilder<DocumentDbContext>()
+            .UseNpgsql(Database.GetDbConnection()).Options, new UnitReviewDocumentScope(scope.TenantId, scope.LegalEntityId, scope.SubjectId));
+        documents.Database.UseTransaction(Database.CurrentTransaction!.GetDbTransaction());
+        var typed = InvoiceUnitReviewStorage.Read(source);
+        var expected = typed.Lines.GroupBy(x=>x.DocumentVersionId).ToDictionary(x=>x.Key,x=>x.First().DocumentSha256);
+        var owner = new DocumentOwner("procurement", "supplier_invoice", source.SupplierInvoiceId);
+        var reference = new DocumentUseReference(source.Id, "procurement", "invoice_unit_review", source.Id, 1, DocumentUseKind.Review);
+        var pins = EfDocumentUsePinStore.ReadRetainedAsync(documents,
+            new UnitReviewDocumentScope(scope.TenantId,scope.LegalEntityId,scope.SubjectId),
+            new UnitReviewStoredPinScope(owner,reference,expected.Keys.ToHashSet()),owner,reference).GetAwaiter().GetResult();
+        if (pins.Count!=expected.Count || pins.Any(x=>x.CreatedBy!=source.MakerPrincipalId || x.CreatedAt<source.OpenedAt
+            || !expected.TryGetValue(x.VersionId,out var hash) || x.Sha256!=hash))
+            throw new InvalidOperationException("InvoiceUnitReviewDocumentRetentionRequired");
+    }
+    // Structural owning-store binding only. Current actor grants and new-use fence are
+    // enforced by the command adapter; this cannot create pins or authorize a user.
+    private sealed record UnitReviewStoredPinScope(DocumentOwner Owner,DocumentUseReference Reference,IReadOnlySet<Guid> Versions) : IDocumentUseAccess
+    {
+        public Task RequireAsync(DocumentOwner owner,DocumentUseReference source,DocumentUseOperation operation,IReadOnlyList<Guid> ids,CancellationToken ct)
+        {
+            if (owner!=Owner || source!=Reference || operation!=DocumentUseOperation.Read
+                || ids.Count>0 && (ids.Count!=Versions.Count || !ids.ToHashSet().SetEquals(Versions)))
+                throw new InvalidOperationException("InvoiceUnitReviewDocumentRetentionRequired");
+            return Task.CompletedTask;
+        }
+    }
+    private sealed record UnitReviewDocumentScope(string TenantId,Guid LegalEntityId,string SubjectId) : IDocumentScope;
+
     private readonly HashSet<Guid> unitReviewInsertedCases = [];
     private readonly HashSet<Guid> unitReviewInsertedDecisions = [];
     private ApprovalDbContext? unitReviewCore;
