@@ -1,5 +1,7 @@
 # Manus ERP collaboration handoff
 
+**Latest private acceptance (22 October):** Corrected normal-cookie Playwright draft create/edit/reload/withdraw, ungranted403 and both logout200 passed; independent read-only review confirmed two revoked sessions and preserved original Procurement rows. See [P25 acceptance](docs/procurement/release/PROC-PR-CORE-PRINCIPAL-APPROVAL.md). Earlier failed run03 remains retained. This does not enable P25 or establish full approval UI, external IdP, Finance or production acceptance. Finance/AP and payments remain owned by the future Finance module.
+
 **Updated:** 22 October 2026 (UTC)
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-CORE-BUILD-03` — repair the shared ERP frontend TypeScript/build gate; vendor milestone accepted

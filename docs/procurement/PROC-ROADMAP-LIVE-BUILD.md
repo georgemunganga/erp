@@ -1,5 +1,7 @@
 # Procurement live implementation roadmap
 
+**Latest private acceptance (22 October):** Corrected normal-cookie Playwright draft create/edit/reload/withdraw, ungranted403 and both logout200 passed; independent read-only review confirmed two revoked sessions and preserved original Procurement rows. See [P25 acceptance](release/PROC-PR-CORE-PRINCIPAL-APPROVAL.md). Earlier failed run03 remains retained. This does not enable P25 or establish full approval UI, external IdP, Finance or production acceptance. Finance/AP and payments remain owned by the future Finance module.
+
 **Status:** Active engineering roadmap, updated 22 October 2026. Individual releases have recorded acceptance; outstanding business policies and workflow activation gates remain open.
 **Standard:** [GW-ENG-STD-001](../engineering/GW-ENG-STD-001.md), Tier 3; every child uses the 28-section feature specification.
 **UI contract:** Existing Procurement workspace and `docs/procurement-ui-contract-register.md` in the Procurement UI repository; do not create a second UI.

@@ -275,6 +275,20 @@ Protected evidence under `/home/amizo/erp-backups/`:
 
 Earlier failed fixture preparation and the later disk preflight abort are retained. The preflight abort created no database; its exact immutable runtime copy was verified and reused read-only by the final attempt. The baseline capture's first read-only catalog check rejected the owned `__procurement_migrations` table; its source/diagnostic were retained and the exact table was allowlisted before a successful baseline capture and before any browser actions. No failed run is relabelled successful. P25 remains draft/default-off and undeployed.
 
+### Actual corrected normal-cookie draft UI acceptance — run04
+
+Frozen API `196f5a450be1faa2c856a3ae30bf43ce577bc261` and UI test `d5451a38662e7c26f8a88a6a4d78a64c77165012` passed one actual Playwright scenario against a fresh private PostgreSQL database using ordinary local password/session cookies and the unchanged staged app bundle. Real create/version1, edit/version2, reload, withdrawal/version3, ungranted-account403 and both logout200 checks passed. Independent read-only review confirmed exactly two revoked sessions, six synthetic workerless accounts, original row digest multiplicities across88 Procurement tables, the original approval graph, and only one new PR, one line and seven audit rows. The third request retains exact3.5678 ×10.2345 =36.51464910ZMW. All477 publication files matched; the narrow stopped SDK producer mount exception remains explicit, not a claim of globally immutable files.
+
+The separate native setup passed43 HTTP requests and the private-subject-header401 control. Neither lifecycle completion nor setup alone establishes browser acceptance. Failed run03 remains failed and retained. The correction is independently scoped Core PR40: only authenticated logout/change-password authorization changes, with15 actual mapped tests passing. No employee link, role grant, Finance facts or production mutation was introduced.
+
+| Protected receipt under `/home/amizo/erp-backups/` | SHA-256 |
+| --- | --- |
+| `procurement-p25-cookie-browser-20261022_run04/result.json` | `f8dae09b27359a68a0a57094b2a9d33e00f9833faaff40567ad8a89239656a99` |
+| `procurement-p25-local-cookie-http-20261022_run04/result.json` | `34dfc70392d3e1f054d8928f8c16a8abaaec7b9ed138ebe54a70202261db3536` |
+| `procurement-p25-independent-local-cookie-owner-prep-20261022_round04_v3/final-review-receipt.private.json` | `a4f999f1c36abdeef2c69aa11f7c592427052d35fa887d4a0974a5722619db49` |
+
+This accepts private normal-cookie draft CRUD/logout only. Full approval UI, external identity provider, genuine legacy execution, downstream RFQ/PO/receiving successors, Finance authority and production release remain outstanding. P25 stays draft/default-off and undeployed. Accounts Payable and payment execution belong to the future Finance module, not yet built.
+
 ## 27. Downstream limits
 
 New submission3 does not imply approved-demand RFQ/PO/receiving compatibility. Those worker-based source consumers need explicit successors before use. No Finance ledger, payment or historical-exposure authority is supplied here.
