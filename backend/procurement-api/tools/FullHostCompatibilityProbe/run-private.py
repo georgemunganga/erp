@@ -18,12 +18,19 @@ def main():
     p.add_argument('--publish-dir', type=Path, required=True)
     p.add_argument('--runtime-image', required=True, help='Existing local immutable sha256 image; never pulled')
     p.add_argument('--target-db', required=True)
+    p.add_argument('--source-db', default=SOURCE, help='Verified private canonical source or prepared Core-principal upgrade clone; never migrated by this runner')
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--default-tenant-file', type=Path, help='Protected exact deployment tenant already verified against retained company/account scope; required for actual Program')
     modes = p.add_mutually_exclusive_group()
     modes.add_argument('--diagnose-hrm-model', action='store_true', help='Read-only source model operations; never start Program or migrate')
     modes.add_argument('--rehearse-fresh-hrm', action='store_true', help='New empty template0 private database, actual owning HRM MigrateAsync twice; never start Program')
     a = p.parse_args()
+    if len(a.source_db) > 63 or not (a.source_db == SOURCE or re.fullmatch(r'proc_release_backup_20261022_core_principal_[a-z0-9_]+', a.source_db)):
+        p.error('Require the exact canonical source or a bounded verified private Core-principal clone')
+    if a.source_db == a.target_db:
+        p.error('Source and target must be distinct; never run against the retained source')
+    if a.rehearse_fresh_hrm and a.source_db != SOURCE:
+        p.error('Fresh HRM rehearsal retains its original canonical catalog source')
     target_pattern = r'hrm_model_reconcile_20261022_[a-z0-9_]{1,24}' if a.rehearse_fresh_hrm else r'proc_release_backup_20261022_smoke_[a-z0-9_]{1,28}'
     if not re.fullmatch(target_pattern, a.target_db) or len(a.target_db) > 63:
         p.error('Require new bounded smoke clone name')
@@ -58,7 +65,7 @@ def main():
         return r.stdout
 
     info = json.loads(docker('inspect', CONTAINER))
-    if len(info) != 1 or not info[0]['State']['Running'] or info[0]['HostConfig']['NetworkMode'] != 'none':
+    if len(info) != 1 or info[0]['Name'] != '/' + CONTAINER or not info[0]['State']['Running'] or info[0]['HostConfig']['NetworkMode'] != 'none':
         raise RuntimeError('Require exact running network-none private PostgreSQL before clone DDL')
     socket = [m['Source'] for m in info[0]['Mounts'] if m['Destination'] == '/var/run/postgresql' and m['Type'] == 'bind']
     if len(socket) != 1 or not Path(socket[0]).is_dir():
@@ -66,47 +73,94 @@ def main():
     docker('image', 'inspect', a.runtime_image)  # --pull never below; no network dependency.
     exists = docker('exec', '-i', CONTAINER, 'psql', '-X', '-U', 'postgres', '-d', 'postgres',
                     '-qAt', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=terse',
-                    data="SELECT count(*) FROM pg_database WHERE datname='" + SOURCE + "';")
+                    data="SELECT count(*) FROM pg_database WHERE datname='" + a.source_db + "';")
     if exists.strip() != '1':
         raise RuntimeError('Approved retained canonical source is missing')
-    # createdb refuses an existing target. Never DROP, terminate sessions, alter source or roles.
-    docker('exec', '-i', CONTAINER, 'createdb', '-U', 'postgres', '--template=' + ('template0' if a.rehearse_fresh_hrm else SOURCE), a.target_db,
-           label='clone')
-    # Freeze every loaded artifact before launch; later builds cannot replace running DLLs.
-    if any(path.is_symlink() for path in a.publish_dir.rglob('*')):
-        raise RuntimeError('Publication must contain regular files, not external configuration links')
-    runtime = a.output / 'runtime'
-    shutil.copytree(a.publish_dir, runtime)
-    def runtime_hashes():
-        return {str(path.relative_to(runtime)): hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in runtime.rglob('*') if path.is_file()}
-    manifest = runtime_hashes()
-    (a.output / 'run-manifest.json').write_text(json.dumps({'source': SOURCE, 'target': a.target_db,
-        'runtimeImage': a.runtime_image, 'networkMode': 'none', 'databaseTemplate': 'template0' if a.rehearse_fresh_hrm else SOURCE, 'freshHrmRehearsal': a.rehearse_fresh_hrm, 'publishedArtifacts': manifest,
-        'limit': 'Owner credential on new private clone only; no finite-role or production claim'}, indent=2) + '\n')
-    # Only the Unix socket is shared. No Docker socket, host network, source data directory,
-    # actual configuration directory or unrestricted source database connection is mounted.
-    connection = 'Host=/private-pg;Database=' + a.target_db + ';Username=postgres;Pooling=false;Include Error Detail=false'
-    r = subprocess.run(['docker', 'run', '--rm', '--pull=never', '--network=none', '--memory=512m', '--cpus=1',
-        '--read-only', '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m',
-        '--mount', 'type=bind,src=' + str(runtime.resolve()) + ',dst=/app,readonly',
-        '--mount', 'type=bind,src=' + socket[0] + ',dst=/private-pg,readonly',
-        '--mount', 'type=bind,src=' + str(a.output.resolve()) + ',dst=/evidence',
-        '--env', 'ERP_HOST_SMOKE_CONNECTION=' + connection,
-        '--env', 'ERP_HOST_SMOKE_DEFAULT_TENANT=' + (default_tenant or ''),
-        '--env', 'ERP_HOST_SMOKE_RESULT=/evidence/result.json',
-        '--env', 'DOTNET_EnableDiagnostics=0', '--workdir', '/app', a.runtime_image,
-        'dotnet', '/app/FullHostCompatibilityProbe.dll'] + (['--diagnose-hrm-model'] if a.diagnose_hrm_model else ['--rehearse-fresh-hrm'] if a.rehearse_fresh_hrm else []), text=True, capture_output=True)
-    (a.output / 'host-smoke.log').write_text(r.stdout + r.stderr)
-    if runtime_hashes() != manifest:
-        raise RuntimeError('Frozen smoke runtime changed; no compatibility result can be accepted')
-    if r.returncode and not (a.diagnose_hrm_model and r.returncode == 2):
-        raise RuntimeError('Actual Program smoke blocked/failed; restricted summary/log and clone retained')
-    result = json.loads((a.output / 'result.json').read_text())
-    expected = 'OWNER_MODEL_DIAGNOSTIC_ONLY_PROGRAM_NOT_STARTED' if a.diagnose_hrm_model else 'PASS'
-    unchanged = result.get('secondMigrationSchemaHistoryAndDataUnchanged') if a.rehearse_fresh_hrm else result.get('allTableValuesAndSchemasUnchanged')
-    if result.get('status') != expected or unchanged is not True:
-        raise RuntimeError('Actual Program smoke did not prove unchanged clone')
+    def source_footprint(label):
+        # Same table-data/history + column/constraint/index scope as the compiled
+        # smoke footprint. Only server-produced digests/counts leave PostgreSQL;
+        # source rows, default expressions and credentials are never printed.
+        sql = r"""BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL TIME ZONE 'UTC';
+SET LOCAL DateStyle='ISO,YMD';
+SELECT format($finger$
+SELECT %L||count(*)::text||':'||encode(sha256(convert_to(coalesce(string_agg(h,'' ORDER BY h),''),'UTF8')),'hex')
+FROM (SELECT encode(sha256(convert_to(to_jsonb(r)::text,'UTF8')),'hex') h FROM %I.%I r) q;
+$finger$,n.nspname||'.'||c.relname||':',n.nspname,c.relname)
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE c.relkind IN ('r','p') AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
+ORDER BY n.nspname,c.relname
+\gexec
+SELECT 'schema:'||encode(sha256(convert_to(coalesce(string_agg(s,E'\n' ORDER BY s),''),'UTF8')),'hex') FROM (
+ SELECT n.nspname||'.'||c.relname||':'||a.attnum||':'||a.attname||':'||format_type(a.atttypid,a.atttypmod)||':'||a.attnotnull::text||':'||coalesce(pg_get_expr(d.adbin,d.adrelid),'') s
+ FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+ LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum
+ WHERE c.relkind IN ('r','p') AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
+ UNION ALL SELECT n.nspname||'.'||c.relname||':'||k.conname||':'||pg_get_constraintdef(k.oid)
+ FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
+ UNION ALL SELECT schemaname||'.'||tablename||':'||indexname||':'||indexdef FROM pg_indexes
+ WHERE schemaname NOT LIKE 'pg_%' AND schemaname<>'information_schema'
+) q;
+ROLLBACK;"""
+        value = docker('exec', '-i', CONTAINER, 'psql', '-X', '-qAt', '-U', 'postgres', '-d', a.source_db,
+                       '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=terse', data=sql, label=label)
+        if not value.strip():
+            raise RuntimeError('Unavailable retained source footprint; no compatibility acceptance')
+        return hashlib.sha256(value.encode('utf-8')).hexdigest()
+
+    source_before = source_footprint('source-before')
+    try:
+        # createdb refuses an existing target. Never DROP, terminate sessions, alter source or roles.
+        docker('exec', '-i', CONTAINER, 'createdb', '-U', 'postgres', '--template=' + ('template0' if a.rehearse_fresh_hrm else a.source_db), a.target_db,
+               label='clone')
+        # Freeze every loaded artifact before launch; later builds cannot replace running DLLs.
+        if any(path.is_symlink() for path in a.publish_dir.rglob('*')):
+            raise RuntimeError('Publication must contain regular files, not external configuration links')
+        runtime = a.output / 'runtime'
+        shutil.copytree(a.publish_dir, runtime)
+        def runtime_hashes():
+            return {str(path.relative_to(runtime)): hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in runtime.rglob('*') if path.is_file()}
+        manifest = runtime_hashes()
+        (a.output / 'run-manifest.json').write_text(json.dumps({'source': a.source_db, 'target': a.target_db,
+            'runtimeImage': a.runtime_image, 'networkMode': 'none', 'databaseTemplate': 'template0' if a.rehearse_fresh_hrm else a.source_db, 'freshHrmRehearsal': a.rehearse_fresh_hrm, 'publishedArtifacts': manifest,
+            'limit': 'Owner credential on new private clone only; no finite-role or production claim'}, indent=2) + '\n')
+        # Only the Unix socket is shared. No Docker socket, host network, source data directory,
+        # actual configuration directory or unrestricted source database connection is mounted.
+        connection = 'Host=/private-pg;Database=' + a.target_db + ';Username=postgres;Pooling=false;Include Error Detail=false'
+        r = subprocess.run(['docker', 'run', '--rm', '--pull=never', '--network=none', '--memory=512m', '--cpus=1',
+            '--read-only', '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m',
+            '--mount', 'type=bind,src=' + str(runtime.resolve()) + ',dst=/app,readonly',
+            '--mount', 'type=bind,src=' + socket[0] + ',dst=/private-pg,readonly',
+            '--mount', 'type=bind,src=' + str(a.output.resolve()) + ',dst=/evidence',
+            '--env', 'ERP_HOST_SMOKE_CONNECTION=' + connection,
+            '--env', 'ERP_HOST_SMOKE_DEFAULT_TENANT=' + (default_tenant or ''),
+            '--env', 'ERP_HOST_SMOKE_RESULT=/evidence/result.json',
+            '--env', 'DOTNET_EnableDiagnostics=0', '--workdir', '/app', a.runtime_image,
+            'dotnet', '/app/FullHostCompatibilityProbe.dll'] + (['--diagnose-hrm-model'] if a.diagnose_hrm_model else ['--rehearse-fresh-hrm'] if a.rehearse_fresh_hrm else []), text=True, capture_output=True)
+        (a.output / 'host-smoke.log').write_text(r.stdout + r.stderr)
+        if runtime_hashes() != manifest:
+            raise RuntimeError('Frozen smoke runtime changed; no compatibility result can be accepted')
+        if r.returncode and not (a.diagnose_hrm_model and r.returncode == 2):
+            raise RuntimeError('Actual Program smoke blocked/failed; restricted summary/log and clone retained')
+        result = json.loads((a.output / 'result.json').read_text())
+        expected = 'OWNER_MODEL_DIAGNOSTIC_ONLY_PROGRAM_NOT_STARTED' if a.diagnose_hrm_model else 'PASS'
+        unchanged = result.get('secondMigrationSchemaHistoryAndDataUnchanged') if a.rehearse_fresh_hrm else result.get('allTableValuesAndSchemasUnchanged')
+        if result.get('status') != expected or unchanged is not True:
+            raise RuntimeError('Actual Program smoke did not prove unchanged clone')
+    finally:
+        source_after = source_footprint('source-after')
+        source_unchanged = source_before == source_after
+        (a.output / 'source-preservation.json').write_text(json.dumps({
+            'source': a.source_db, 'target': a.target_db,
+            'sourceBeforeSha256': source_before, 'sourceAfterSha256': source_after,
+            'allSourceTableDataHistoryAndSchemasUnchanged': source_unchanged,
+            'limits': 'Read-only source; table data, columns, constraints and indexes only, not sequence state or roles'
+        }, indent=2) + '\n')
+        if not source_unchanged:
+            raise RuntimeError('Retained source changed; preserve all evidence and refuse compatibility acceptance')
     print('PASS private fresh HRM actual EF migration rehearsal; Program not started; protected summary retained.' if a.rehearse_fresh_hrm else 'Private owner model diagnostic complete; Program not started; protected summary retained.' if a.diagnose_hrm_model else 'PASS private offline actual Program smoke; protected summary retained, no ERP rows output.')
 
 
