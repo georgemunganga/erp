@@ -4230,6 +4230,7 @@ public sealed partial class ProcurementRequestHttpTests
             app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>();
             app.UseAuthorization();
             app.UseMiddleware<ProcurementScopeMiddleware>();
+            ProcurementContextRoutes.MapRoutes(app);
             ProcurementRequestRoutes.Map(app);
             ProcurementBudgetRoutes.Map(app);
             ProcurementPolicyEvaluationRoutes.Map(app);
