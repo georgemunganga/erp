@@ -4088,6 +4088,7 @@ public sealed partial class ProcurementRequestHttpTests
             var app = builder.Build();
             app.UseRouting();
             app.UseAuthentication();
+            app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>();
             app.UseAuthorization();
             app.UseMiddleware<ProcurementScopeMiddleware>();
             ProcurementRequestRoutes.Map(app);

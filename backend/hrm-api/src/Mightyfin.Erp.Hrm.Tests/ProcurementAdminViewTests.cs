@@ -137,6 +137,31 @@ public sealed class ProcurementAdminViewTests
         Assert.Equal(0, await f.SupplierCount());
     }
 
+    [Fact]
+    public async Task Newly_added_Core_permission_is_effective_despite_stale_empty_module_claims()
+    {
+        await using var f = await Fixture.Start();
+        f.Client.DefaultRequestHeaders.Add("X-Test-Role", "obsolete-external-role");
+        f.Client.DefaultRequestHeaders.Add("X-Test-Configured", "true");
+        f.Role.PermissionsCsv = "procurement-access,procurement-vendor-read"; await f.Core.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Denied"))).StatusCode);
+        f.Role.PermissionsCsv += ",procurement-vendor-create"; await f.Core.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.Created, (await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Granted by current Core"))).StatusCode);
+        Assert.Equal(1, await f.SupplierCount());
+    }
+
+    [Fact]
+    public async Task Inactive_missing_and_archived_role_definitions_never_survive_in_current_claims()
+    {
+        await using var f = await Fixture.Start();
+        f.Account.RolesCsv += ",erp_admin,missing-role,retired-role";
+        f.Core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "erp_admin", RoleName = "Inactive", Active = false, PermissionsCsv = "erp_admin" });
+        f.Core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "retired-role", RoleName = "Retired", Active = true, IsArchived = true, PermissionsCsv = "procurement-access" });
+        await f.Core.SaveChangesAsync();
+        var roles = await f.Client.GetFromJsonAsync<string[]>("/api/procurement/v1/system-role-projection");
+        Assert.Equal(new[] { "system-clerk" }, roles);
+    }
+
     private static object Draft(string name) => new { legalName = name, displayName = name, countryCode = "ZM" };
 
     private sealed class Fixture(WebApplication app, HrmDbContext core, LocalUser account,
@@ -167,11 +192,16 @@ public sealed class ProcurementAdminViewTests
                 // Deliberately stale/admin-looking presentation: actual stored Core
                 // account/grants below must decide, not this test authentication claim.
                 http.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("tenant", http.Request.Headers["X-Test-Tenant"].FirstOrDefault() ?? "system-tenant"),
-                    new Claim("sub", http.Request.Headers["X-Test-Subject"].FirstOrDefault() ?? account.Id.ToString("D")), new Claim(ClaimTypes.Role, "erp_admin") }, "synthetic-test"));
+                    new Claim("sub", http.Request.Headers["X-Test-Subject"].FirstOrDefault() ?? account.Id.ToString("D")), new Claim(ClaimTypes.Role, http.Request.Headers["X-Test-Role"].FirstOrDefault() ?? "erp_admin") }
+                    .Concat(http.Request.Headers["X-Test-Configured"] == "true" ? new[] { new Claim(ProcurementPermissions.ConfiguredClaim, "true") } : Array.Empty<Claim>()), "synthetic-test"));
                 await next(http);
             });
+            app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>();
             app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
             ProcurementContextRoutes.MapRoutes(app); ProcurementVendorRoutes.MapRoutes(app);
+            app.MapGet("/api/procurement/v1/system-role-projection", (Microsoft.AspNetCore.Http.HttpContext http) =>
+                http.User.Claims.Where(x => x.Type == ClaimTypes.Role).Select(x => x.Value).ToArray())
+                .RequireAuthorization("procurement-access");
             await app.StartAsync(); return new(app, core, account, role, company, branch);
         }
         public async Task<int> SupplierCount()

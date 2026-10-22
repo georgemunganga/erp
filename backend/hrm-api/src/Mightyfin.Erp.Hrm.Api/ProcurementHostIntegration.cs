@@ -280,7 +280,8 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             await Deny(http, StatusCodes.Status403Forbidden, "A Core tenant and system user are required.");
             return;
         }
-        var principal = await ProcurementCorePrincipals.CurrentAsync(db, tenant, subject, http.RequestAborted);
+        var principal = ProcurementCorePrincipals.Cached(http, tenant, subject)
+            ?? await ProcurementCorePrincipals.CurrentAsync(db, tenant, subject, http.RequestAborted);
         if (principal is null)
         {
             await Deny(http, StatusCodes.Status403Forbidden, "An active Core system user is required.");
@@ -302,12 +303,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             await Deny(http, StatusCodes.Status403Forbidden, "Your current Core permissions do not allow this action.");
             return;
         }
-        var remaining = http.User.Claims.Where(x => x.Type is not (ClaimTypes.Role or "role" or "roles")
-            && x.Type != ProcurementPermissions.ConfiguredClaim && x.Type != ProcurementPermissions.ActionClaim
-            && x.Type != ProcurementPermissions.AdminViewOnlyClaim && x.Type != "sub" && x.Type != ClaimTypes.NameIdentifier
-            && x.Type != "tenant");
-        http.User = new ClaimsPrincipal(new ClaimsIdentity(remaining.Concat(currentClaims),
-            http.User.Identity.AuthenticationType, ClaimTypes.Name, ClaimTypes.Role));
+        ProcurementCorePrincipals.Apply(http, tenant, principal);
 
         var requestedEntityText = http.Request.Headers["X-Shell-Entity"].FirstOrDefault()?.Trim();
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
