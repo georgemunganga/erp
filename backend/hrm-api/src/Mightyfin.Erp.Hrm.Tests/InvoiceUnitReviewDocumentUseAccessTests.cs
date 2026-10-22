@@ -56,8 +56,14 @@ public sealed class InvoiceUnitReviewDocumentUseAccessTests
         if(fault=="revision")reference=reference with {Revision=2};
         if(fault=="kind")reference=reference with {Kind=DocumentUseKind.Publication};
         if(fault=="version")ids=[Guid.NewGuid()];if(fault=="duplicates")ids=[f.Version,f.Version];if(fault=="empty")ids=[];
-        if(fault=="actor")f.Scope.Set("test",f.Source.LegalEntityId,Guid.NewGuid().ToString("D"),null,null,false,"changed");
-        if(fault=="company")f.Scope.Set("test",Guid.NewGuid(),f.Principal,null,null,false,"changed");
+        if(fault is "actor" or "company")
+        {
+            var changed=new ProcurementRequestScope();
+            var principal=fault=="actor"?Guid.NewGuid().ToString("D"):f.Principal;
+            changed.Set("test",fault=="company"?Guid.NewGuid():f.Source.LegalEntityId,principal,null,null,false,"changed");
+            changed.AssignPrincipal(Guid.Parse(principal));
+            access=new ProcurementInvoiceUnitReviewRoutes.ReviewDocumentUseAccess(changed,f.Source,f.Principal,true);
+        }
         await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>access.RequireAsync(owner,reference,DocumentUseOperation.Acquire,ids,default));
     }
     [Theory]
@@ -70,7 +76,13 @@ public sealed class InvoiceUnitReviewDocumentUseAccessTests
         await access.RequireAsync(owner,document,1,default);
         if(fault=="mapping")invoice.CurrentMappingVersionId=Guid.NewGuid();if(fault=="finance")invoice.FinancePostingRef="owned";
         if(fault=="original")invoice.EvidenceDocumentRefId=Guid.NewGuid();if(fault=="state")invoice.Status="Cancelled";
-        if(fault=="actor")f.Scope.Set("test",invoice.LegalEntityId,Guid.NewGuid().ToString("D"),null,null,false,"changed");
+        if(fault=="actor")
+        {
+            var changed=new ProcurementRequestScope(); var principal=Guid.NewGuid().ToString("D");
+            changed.Set("test",invoice.LegalEntityId,principal,null,null,false,"changed");
+            changed.AssignPrincipal(Guid.Parse(principal));
+            access=new ProcurementInvoiceUnitReviewRoutes.UnusedInvoiceDocumentRetirementAccess(changed,invoice,f.Principal,document,1);
+        }
         await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>access.RequireAsync(owner,document,1,default));
     }
 }
