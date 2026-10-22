@@ -10,6 +10,9 @@ namespace Mightyfin.Erp.Hrm.Api;
 public sealed class ProcurementApprovalExecutionOptions
 {
     public bool Enabled { get; set; }
+    // Explicit successor activation, separately gated by generated schema/finite-role readiness.
+    // False until the Core-principal approval acceptance milestone is complete.
+    public bool PrincipalExecutionEnabled { get; set; }
     // Set from the explicit connection-string registration, never from an HTTP body.
     public bool ExecutionDatabaseConfigured { get; set; }
     public ProcurementManualFinancePolicy[] ManualFinancePolicies { get; set; } = [];
@@ -56,6 +59,28 @@ internal static class ProcurementApprovalFinanceEligibility
         BudgetCheckSnapshot finance, ProcurementApprovalExecutionOptions options, HrmDbContext core, ProcurementDbContext db,
         ProcurementRequestScope scope, DateTimeOffset now, CancellationToken ct)
     {
+        var policy = ManualPolicy(options,scope,finance,now);
+        if (finance.CheckedAt > now || finance.CheckedBySubjectId == request.CreatedBy)
+            throw new InvalidOperationException("FinanceEvidenceVerifierInvalid");
+        _ = await RequireCurrentCheckerAsync(request, finance, core, db, scope, ct);
+        return (PurchaseRequestApprovalPinning.ApprovedManualEvidence, policy.ApprovedPolicyReference);
+    }
+
+    internal static async Task<(string Mode,string Reference)> CheckPrincipalAsync(PurchaseRequest request,
+        BudgetCheckSnapshot finance,ProcurementApprovalExecutionOptions options,HrmDbContext core,ProcurementDbContext db,
+        ProcurementRequestScope scope,DateTimeOffset now,CancellationToken ct)
+    {
+        if(!options.Enabled || !options.PrincipalExecutionEnabled)
+            throw new InvalidOperationException("PrincipalApprovalExecutionUnavailable");
+        var policy=ManualPolicy(options,scope,finance,now);
+        if(finance.CheckedAt>now)throw new InvalidOperationException("FinanceEvidenceVerifierInvalid");
+        _=await ProcurementPrincipalFinanceChecker.RequireCurrentAsync(request,finance,core,db,scope,ct);
+        return(PurchaseRequestApprovalPinning.ApprovedManualEvidence,policy.ApprovedPolicyReference);
+    }
+
+    private static ProcurementManualFinancePolicy ManualPolicy(ProcurementApprovalExecutionOptions options,
+        ProcurementRequestScope scope,BudgetCheckSnapshot finance,DateTimeOffset now)
+    {
         var policies = options.ManualFinancePolicies.Where(x => x.Enabled && x.LegalEntityId == scope.LegalEntityId
             && x.EffectiveFrom != default && x.EffectiveFrom <= now
             && (x.EffectiveUntil is null || now < x.EffectiveUntil)).ToArray();
@@ -64,10 +89,7 @@ internal static class ProcurementApprovalFinanceEligibility
         var policy = policies[0];
         if (policy.EvidenceMaximumAgeMinutes is { } minutes && (minutes <= 0
             || finance.CheckedAt.AddMinutes(minutes) < now)) throw new InvalidOperationException("FinanceEvidenceExpired");
-        if (finance.CheckedAt > now || finance.CheckedBySubjectId == request.CreatedBy)
-            throw new InvalidOperationException("FinanceEvidenceVerifierInvalid");
-        _ = await RequireCurrentCheckerAsync(request, finance, core, db, scope, ct);
-        return (PurchaseRequestApprovalPinning.ApprovedManualEvidence, policy.ApprovedPolicyReference);
+        return policy;
     }
 
     /// <summary>New positive use only. Historic source restore/cancel/release uses original bytes,
@@ -80,7 +102,8 @@ internal static class ProcurementApprovalFinanceEligibility
             scope.LegalEntityId, finance.CheckedBySubjectId, ct);
         if (verifier is null) throw new InvalidOperationException("FinanceEvidenceVerifierUnavailable");
         await ProcurementFinanceWorkerIndependence.RequireAsync(request, verifier.WorkerId, core, db, scope, ct);
-        if (!FinanceCheckerIdentityEvidence.HasValidBinding(finance))
+        if (finance.CheckerIdentitySchemaVersion != FinanceCheckerIdentityEvidence.BoundVersion
+            || !FinanceCheckerIdentityEvidence.HasValidBinding(finance))
             throw new InvalidOperationException("FinanceEvidenceCheckerIdentityMissingOrInvalid");
         if (!FinanceCheckerIdentityEvidence.MatchesCurrentCanonical(finance, scope.TenantId, scope.LegalEntityId,
                 request.Id, request.SubmittedVersion ?? request.Version, verifier.PrincipalId, verifier.WorkerId))
