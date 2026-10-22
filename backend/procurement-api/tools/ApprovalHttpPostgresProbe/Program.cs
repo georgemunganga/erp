@@ -41,6 +41,7 @@ var matching = args.Contains("--matching", StringComparer.Ordinal);
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
 var rfq = args.Contains("--rfq", StringComparer.Ordinal);
 var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving || rfq;
+PrivateBrowserTransport.Validate(serve, receiving, matching, rfq);
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
@@ -57,7 +58,9 @@ if (!serve && !sourcingPolicies)
 if (serve)
 {
     var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings);
-    Console.WriteLine($"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
+    Console.WriteLine(PrivateBrowserTransport.Enabled
+        ? $"Private synthetic Procurement Unix-socket sandbox ready. Manifest: {manifest}"
+        : $"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
     if (authoritySettings && Environment.GetEnvironmentVariable("PROCUREMENT_SOURCING_AUTHORITY_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifySourcingAuthorityBrowserCompletion();
@@ -157,7 +160,11 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         builder.Logging.ClearProviders();
         builder.Logging.AddSimpleConsole().AddFilter((category, level) =>
             category == "Procurement.InvoiceMatching" && level >= LogLevel.Warning);
-        if (serve) builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
+        if (serve) builder.WebHost.ConfigureKestrel(options =>
+        {
+            if (PrivateBrowserTransport.Enabled) options.ListenUnixSocket(PrivateBrowserTransport.SocketPath);
+            else options.Listen(IPAddress.Loopback, port);
+        });
         else builder.WebHost.UseTestServer();
         builder.Services.AddScoped<ITenantAccessor>(_ => new Tenant());
         builder.Services.AddDbContext<HrmDbContext>(o => o.UseNpgsql(connection));
@@ -280,9 +287,10 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching, rfq:rfq, sourcingPolicies:sourcingPolicies);
         if(serve && matching) await VerifyMatchingScannerBoundary();
         await app.StartAsync();
+        if (PrivateBrowserTransport.Enabled) File.SetUnixFileMode(PrivateBrowserTransport.SocketPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
             people["buyer"].User.Id, people["finance"].User.Id, people["manager1"].User.Id, people["manager2"].User.Id, feature,
-            serve ? new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") } : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null) { matchingDocumentDirectory=matchingDocumentsDirectory };
+            serve ? PrivateBrowserTransport.Client(port) : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null) { matchingDocumentDirectory=matchingDocumentsDirectory };
     }
 
     public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false)
@@ -403,7 +411,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         var fileOptions = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
         if (!OperatingSystem.IsWindows()) fileOptions.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         await using var output = new FileStream(path, fileOptions);
-        await JsonSerializer.SerializeAsync(output, manifest, new JsonSerializerOptions(Json) { WriteIndented = true });
+        await JsonSerializer.SerializeAsync(output, PrivateBrowserTransport.Manifest(manifest), new JsonSerializerOptions(Json) { WriteIndented = true });
         return path;
     }
 
