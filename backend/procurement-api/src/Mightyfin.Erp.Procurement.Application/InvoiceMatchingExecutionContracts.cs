@@ -10,6 +10,9 @@ public sealed record InvoiceMappingSnapshot(int SchemaVersion, Guid InvoiceId, G
 public sealed record InvoiceMappingReview(bool Verified, string State, string EvidenceJson,
     IReadOnlyDictionary<Guid, string> VerifiedUnits)
 {
+    // Owning typed-v2 proof is distinct from legacy caller-bound JSON; never synthesize a v1 signer.
+    public InvoiceRetainedUnitReviewAuthority? RetainedAuthority { get; init; }
+    public InvoiceUnitReviewConsumer? CurrentConsumer { get; init; }
     public static InvoiceMappingReview Unavailable(string reason) => new(false, reason, "{}", new Dictionary<Guid, string>());
 }
 public sealed record InvoiceMappingReviewContext(string TenantId, Guid LegalEntityId, Guid? BranchId,

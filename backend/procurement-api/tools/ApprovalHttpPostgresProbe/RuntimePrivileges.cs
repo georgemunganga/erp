@@ -24,7 +24,7 @@ internal static partial class RuntimePrivileges
             throw new InvalidOperationException("Distinct bootstrap/runtime identities on the same guarded disposable database are required; runtime role must use proc_approval_runtime_ prefix.");
     }
 
-    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false, bool receiving = false, bool matching = false, bool matchingDocuments = false, bool rfq = false, bool sourcingPolicies = false)
+    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false, bool receiving = false, bool matching = false, bool matchingDocuments = false, bool rfq = false, bool sourcingPolicies = false, bool unitReviews = false)
     {
         ValidateConnections(runtime, bootstrap);
         var options = new NpgsqlConnectionStringBuilder(runtime); var role = options.Username!;
@@ -133,6 +133,9 @@ internal static partial class RuntimePrivileges
             foreach (var type in new[] { typeof(SupplierInvoiceLine), typeof(InvoiceMatchMappingVersion), typeof(InvoiceMatchAllocation), typeof(InvoiceMatchResult) })
                 await Grant(procurement,type,"SELECT,INSERT");
         }
+        if (unitReviews)
+            foreach (var type in new[] { typeof(InvoiceUnitReviewSource), typeof(InvoiceUnitReviewAssignmentEvidence), typeof(InvoiceUnitReviewOutcome), typeof(InvoiceUnitReviewCommandReceipt) })
+                await Grant(procurement,type,"SELECT,INSERT");
         if (migrations)
         {
             await Sql(owner, $"GRANT SELECT ON procurement.__procurement_migrations TO {quotedRole}");

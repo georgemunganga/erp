@@ -13,7 +13,7 @@ public sealed class OperationalPolicyWorkerIdentityTests
     private static readonly Guid ReviewerWorker = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
     private static readonly DateTimeOffset At = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
 
-    [Theory] [InlineData("RECEIVING")] [InlineData("INVOICE_MATCHING")]
+    [Theory] [InlineData("RECEIVING")] [InlineData("INVOICE_MATCHING")] [InlineData("INVOICE_UNIT_REVIEW")]
     public void Exact_original_author_submission_and_independent_publication_are_verified(string key)
     {
         var f = new Fixture(key); f.Submit();

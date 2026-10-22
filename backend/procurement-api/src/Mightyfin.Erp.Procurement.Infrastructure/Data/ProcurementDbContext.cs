@@ -504,6 +504,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureSourcingDraftExecution(modelBuilder);
         ConfigureSourcingPolicyIdentity(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
+        ConfigureInvoiceUnitReview(modelBuilder);
         ConfigureReceivingExecution(modelBuilder);
         ConfigureInvoiceMatchingExecution(modelBuilder);
         ConfigureFinanceCheckerIdentity(modelBuilder);
@@ -692,6 +693,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardSourcingDraftExecution();
         GuardSourcingPolicyIdentity();
         GuardOperationalPolicyIdentity();
+        GuardInvoiceUnitReview();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();

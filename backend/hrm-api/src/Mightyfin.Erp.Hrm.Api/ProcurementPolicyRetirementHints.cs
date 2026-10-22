@@ -22,6 +22,7 @@ public static partial class ProcurementPolicyDraftRoutes
             {
                 // Nonmutating write-readiness inspection, matching the actual command gate.
                 await RequireOperationalIdentitySchema(http, db, true, ct);
+                if (policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey) await RequireUnitReviewPolicySchema(http, db, ct);
                 _ = await ProcurementOperationalPolicyWorkerIdentity.RequireAuthorAsync(organizationDb, db, scope,
                     policy, ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, ct);
             }

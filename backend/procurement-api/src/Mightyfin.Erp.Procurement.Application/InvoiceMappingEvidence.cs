@@ -64,7 +64,7 @@ public static class InvoiceMappingEvidence
     {
         originalLines = originalLines.Where(line => line.IsActive).ToArray();
         var snapshot = Verify(mapping, invoice, originalLines);
-        var verified = ReviewCovers(mapping, invoice, snapshot, review, context);
+        var verified = ReviewCovers(mapping, invoice, snapshot, review, context, originalLines);
         Need(!review.Verified || verified, "InvoiceUnitReviewEvidenceInvalid");
         var document = InvoiceMatchDocument.From(invoice, originalLines);
         return document with { PurchaseOrderId = mapping.PurchaseOrderId, Lines = document.Lines.Select(line =>
@@ -75,8 +75,27 @@ public static class InvoiceMappingEvidence
         }).ToArray() };
     }
     public static bool ReviewCovers(InvoiceMatchMappingVersion mapping, SupplierInvoice invoice,
-        InvoiceMappingSnapshot snapshot, InvoiceMappingReview review, InvoiceMappingReviewContext? context)
+        InvoiceMappingSnapshot snapshot, InvoiceMappingReview review, InvoiceMappingReviewContext? context, IReadOnlyList<SupplierInvoiceLine>? originalLines = null)
     {
+        if (review.RetainedAuthority is not null || review.CurrentConsumer is not null)
+        {
+            if (!review.Verified || review.State != "Verified" || review.RetainedAuthority is not { } authority
+                || review.CurrentConsumer is not { } consumer || context is null || originalLines is null
+                || authority.MatchingPolicy is null || consumer.DocumentVersionHashes is null || context.DocumentVersionHashes is null || review.VerifiedUnits is null
+                || review.EvidenceJson != authority.EvidenceJson || authority.MatchingPolicy.Id != context.PolicyId
+                || ProcurementEvidenceEncoding.PolicyJsonDigest(authority.MatchingPolicy.RulesJson) != context.PolicyRulesSha256
+                || consumer.TenantId != context.TenantId || consumer.LegalEntityId != context.LegalEntityId
+                || consumer.BranchId != context.BranchId || consumer.PrincipalId != context.PrincipalId
+                || consumer.WorkerId != context.WorkerId || consumer.At != context.At
+                || consumer.DocumentVersionHashes.Count != context.DocumentVersionHashes.Count
+                || consumer.DocumentVersionHashes.Any(x => !context.DocumentVersionHashes.TryGetValue(x.Key, out var hash) || hash != x.Value)) return false;
+            try
+            {
+                var units = InvoiceRetainedUnitReview.Verify(authority, invoice, originalLines, mapping, consumer);
+                return units.Count == review.VerifiedUnits.Count && units.All(x => review.VerifiedUnits.TryGetValue(x.Key, out var unit) && unit == x.Value);
+            }
+            catch (InvalidOperationException) { return false; }
+        }
         if (!review.Verified || review.State != "Verified" || context is null
             || context.TenantId != invoice.TenantId || context.LegalEntityId != invoice.LegalEntityId
             || context.BranchId != invoice.BranchRef || string.IsNullOrWhiteSpace(context.PrincipalId)

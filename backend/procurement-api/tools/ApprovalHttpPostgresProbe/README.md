@@ -334,3 +334,27 @@ Parent must compile the full tool and copy its entire publication to a new prote
 ### Additive owner-selected evidence contract dependency
 
 The port additionally requires parent-owned `commercialEvidenceSelectionVersion:1`, `latestFinanceEvidenceId` and `latestIssuedVersionId` on actual execution-detail responses. It checks initial nulls, the first Finance producer, a genuine replacement confirmation and issued evidence against independently scoped owning records and exact history membership; no array position selects commercial evidence. Receiving goods/service producers check the same initial/funded/issued pointers. The replacement is recorded by the real Finance endpoint with an explicit replaced commitment reference, never direct owner evidence insertion. Until that additive backend read patch is integrated, this probe is expected to stop rather than infer a pointer from history ordering.
+
+### Original-unit review candidate (`--unit-reviews`, source-only)
+
+Standalone TestServer mode, separate fresh disposable database and finite role; no combination
+with `--serve` or other modes. It reuses the real approved/issued/accepted source setup and
+CoreDocs upload → known-fixture-only scan → pinned download owner pipeline. A synthetic
+current named reviewer explicitly attests original units through the actual Core case.
+The scanner is test-only, has no malware-protection claim and supplies no unit authority.
+
+Prerequisites: centrally generated **P22** applied to the fresh private database, actual PG17
+manifest frozen into the owning readiness provider, existing matching/receiving prerequisites,
+separate runtime/owner connections, no production endpoints or credentials. It does not install
+fake ready services. Until schema/capture exists, the mode must fail closed.
+
+Authored checks include actual open/queue/pinned download/vote/recovery, self-review denial,
+no broad invoice-read for purpose reviewer, immutable evidence and exact receipt counts,
+a different current matcher consuming retained v2 units while comparison remains Blocked
+by unavailable Finance history, actual EF Save/savepoint success plus explicit rollback,
+and a pre-existing Core orphan UPDATE that must not be adopted as a newly inserted case.
+The orphan is deliberate forensic fixture evidence and is never deleted/repaired by the tool.
+Existing matching browser strict invoice/count scenarios are unchanged.
+
+This section records intended source acceptance only. Compilation, actual P22 DDL/FK/CHECK
+negatives, concurrency, ACL negatives, Down rehearsals and browser gates remain unexecuted.
