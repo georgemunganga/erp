@@ -59,6 +59,16 @@ public sealed partial class SpendingAuthorityIdentityTests
         Guid? alias=fault=="knownAlias"?MakerWorker:fault=="zeroAlias"?Guid.Empty:null;
         Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.RequireIndependentReviewer(g,c,s,principal,alias));
     }
+    [Theory]
+    [InlineData("PurchaseOrder.Approve","procurement-order-approve")]
+    [InlineData("SourcingEvent.Publish","procurement-sourcing-publish")]
+    public void Principal_authority_successor_is_not_silently_reused_by_other_operational_families(string action,string permission)
+    {
+        var(_,created,_)=PrincipalPending();var changed=created with {Action=action,Permission=permission};
+        changed=changed with {EvidenceSha256=SpendingAuthorityIdentity.Digest(changed)};
+        Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.Verify(changed));
+    }
+
     [Fact]
     public void Authority_lineage_cannot_downgrade_or_mix_worker_and_principal_versions()
     {
@@ -92,6 +102,18 @@ public sealed partial class PurchaseRequestApprovalPinningTests
         Assert.True(f.Verify(pin).IsValid,string.Join(',',f.Verify(pin).Blockers));
         Assert.Throws<ArgumentException>(()=>f.Pin());
     }
+    [Fact]
+    public void Principal_readiness_uses_explicit_successor_finance_and_never_relabels_a_legacy_worker_path()
+    {
+        var f=PrincipalFixture();
+        var readiness=RequestApprovalReadiness.CheckPrincipal(f.Request,f.Evaluation,f.Policy,f.Finance);
+        Assert.DoesNotContain("PrincipalApprovalOriginalIdentityRequired",readiness.Blockers);
+        Assert.DoesNotContain("PrincipalFinanceCheckerEvidenceRequired",readiness.Blockers);
+        Assert.Contains("PrincipalApprovalEvidenceRequired",RequestApprovalReadiness.Check(f.Request,f.Evaluation,f.Policy,f.Finance).Blockers);
+        f.Finance.CheckerIdentitySchemaVersion=0;
+        Assert.Contains("PrincipalFinanceCheckerEvidenceRequired",RequestApprovalReadiness.CheckPrincipal(f.Request,f.Evaluation,f.Policy,f.Finance).Blockers);
+    }
+
     [Theory]
     [InlineData("originalAlias")][InlineData("principal")][InlineData("pinDowngrade")][InlineData("financeDowngrade")]
     public void Principal_pin_never_infers_missing_original_identity_or_accepts_a_version_downgrade(string fault)

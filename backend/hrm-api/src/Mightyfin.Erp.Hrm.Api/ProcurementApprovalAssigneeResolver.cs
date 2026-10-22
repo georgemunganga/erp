@@ -11,7 +11,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 internal sealed record ProcurementResolvedApprovalStage(PolicyPreviewStage Route,
     IReadOnlyList<ProcurementResolvedApprovalAssignee> Assignees);
-internal sealed record ProcurementResolvedApprovalAssignee(string PrincipalId, Guid WorkerId,
+internal sealed record ProcurementResolvedApprovalAssignee(string PrincipalId, Guid? WorkerId,
     PurchaseRequestAuthorityEvidence Authority);
 
 internal static class ProcurementApprovalAssigneeResolver

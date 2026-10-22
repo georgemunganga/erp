@@ -185,6 +185,8 @@ public static class SpendingAuthorityIdentity
             && Canonical(row.RecipientPrincipalId) && Canonical(row.ConfigurationOwnerPrincipalId)
             && ProcurementPrincipalEvidence.OptionalWorker(row.ActorWorkerId) && ProcurementPrincipalEvidence.OptionalWorker(row.RecipientWorkerId)
             && (row.SchemaVersion==2 || row.ActorWorkerId is not null && row.RecipientWorkerId is not null)
+            && (row.SchemaVersion==1 || row.Action==SpendingAuthorityConfiguration.ApprovalAction
+                && row.Permission==SpendingAuthorityConfiguration.ApprovalPermission)
             && row.GrantRecordVersionAtAction > 0 && row.ActionAt != default
             && row.ActionAt == Time(row.ActionAt) && Hex(row.BusinessFingerprint)
             && Hex(row.EvidenceSha256) && row.EvidenceSha256 == Digest(row), "AuthorityIdentityEvidenceInvalid");

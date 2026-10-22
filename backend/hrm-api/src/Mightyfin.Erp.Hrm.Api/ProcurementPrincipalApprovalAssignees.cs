@@ -75,6 +75,36 @@ internal static class ProcurementPrincipalApprovalAssignees
         return output;
     }
 
+    internal static async Task ValidateAssignmentAsync(PurchaseRequest request,PurchaseRequestAssignmentAuthorityEvidence value,
+        string stageCode,HrmDbContext core,ProcurementDbContext db,ProcurementRequestScope scope,
+        DateTimeOffset now,CancellationToken ct)
+    {
+        var retained=PurchaseRequestPrincipalAssignmentIdentity.ReadVerified(value)
+            ?? throw new InvalidOperationException("ApprovalPrincipalAssignmentEvidenceInvalid");
+        var source=await db.ApprovalSubmissions.AsNoTracking().SingleOrDefaultAsync(x=>x.TenantId==scope.TenantId
+            && x.LegalEntityId==scope.LegalEntityId && x.Id==value.SubmissionId && x.PurchaseRequestId==request.Id,ct);
+        if(source is null || !PurchaseRequestApprovalPinning.HasRetainedPrincipalIdentity(source)
+            || source.CoreApprovalCaseId!=value.CoreApprovalCaseId || source.MakerSubjectId!=request.CreatedBy
+            || source.RequesterPrincipalId!=request.RequesterPrincipalId
+            || source.RequesterIdentitySha256!=request.RequesterIdentitySha256 || source.RequesterWorkerId!=request.RequesterCoreWorkerId)
+            throw new InvalidOperationException("ApprovalPrincipalSourceIdentityInvalid");
+        if(!await ProcurementPrincipalPeople.IndependentNow(core,scope.TenantId,source.MakerSubjectId,source.MakerWorkerId,
+            value.PrincipalId,value.AssigneeWorkerId,ct)
+            || !await ProcurementPrincipalPeople.IndependentNow(core,scope.TenantId,request.CreatedBy,source.RequesterWorkerId,
+                value.PrincipalId,value.AssigneeWorkerId,ct))
+            throw new InvalidOperationException("ApprovalIdentityChanged");
+        var evaluation=await db.PolicyEvaluations.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==source.PolicyEvaluationId,ct)
+            ?? throw new InvalidOperationException("ApprovalPolicyEvaluationMissing");
+        var plan=await ResolveAsync(request,evaluation,core,db,scope,now,ct);
+        var stage=plan.SingleOrDefault(x=>x.Route.Code==stageCode);
+        var current=stage?.Assignees.SingleOrDefault(x=>x.Person.PrincipalId==value.PrincipalId);
+        if(stage is null || stage.Route.Assignee!=value.AssigneeKind || current is null
+            || current.Authority.GrantId!=value.GrantId || current.Authority.GrantRevision!=value.GrantRevision
+            || current.Authority.AuthorityVersion!=value.AuthorityVersion
+            || retained.Authority.RequestAmount!=source.EstimatedAmount || retained.Authority.CurrencyCode!=source.CurrencyCode)
+            throw new InvalidOperationException("ApprovalSpendingAuthorityChanged");
+    }
+
     internal static async Task<PurchaseRequestAuthorityEvidence?> AuthorityAsync(ProcurementPrincipalPeople.Person person,
         PurchaseRequest request,HrmDbContext core,ProcurementDbContext db,ProcurementRequestScope scope,
         DateTimeOffset now,CancellationToken ct)

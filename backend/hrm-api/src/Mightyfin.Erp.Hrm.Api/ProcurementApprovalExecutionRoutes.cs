@@ -46,8 +46,10 @@ public static partial class ProcurementApprovalExecutionRoutes
                 await RequireCheckerSchema(db, http, token);
                 await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, token);
                 var request = await Request(db, scope, id, token);
-                if (!PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request) || request.RequesterWorkerId is not { } requesterWorker
-                    || requesterWorker == Guid.Empty) throw Conflict("PrincipalApprovalEvidenceRequired");
+                var principal=request.RequesterIdentitySchemaVersion==1;
+                if(principal)await RequirePrincipalSchema(db,http,options,token);
+                else if (!PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request) || request.RequesterWorkerId is null
+                    || request.RequesterWorkerId == Guid.Empty) throw Conflict("PrincipalApprovalEvidenceRequired");
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 _ = await Actor(core, scope, http, authorization, OpenPermission, token);
                 await RecordScope(core, scope, request, token);
@@ -56,14 +58,30 @@ public static partial class ProcurementApprovalExecutionRoutes
                 if (request.Version != input.ExpectedRequestVersion) throw Conflict("ApprovalSourceChanged");
                 var evidence = await Evidence(db, request, null, token);
                 var now = DateTimeOffset.UtcNow;
-                var financeMode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, evidence.Finance,
-                    options, core, db, scope, now, token);
-                var plan = await ProcurementApprovalAssigneeResolver.ResolveAsync(request, evidence.Evaluation,
-                    core, db, scope, now, token);
-                var makerIdentity = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
-                    scope.LegalEntityId, request.CreatedBy, token) ?? throw Conflict("ApprovalMakerIdentityUnavailable");
-                var requesterIdentity = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
-                    scope.LegalEntityId, requesterWorker, token) ?? throw Conflict("ApprovalRequesterIdentityUnavailable");
+                var financeMode = principal
+                    ? await ProcurementApprovalFinanceEligibility.CheckPrincipalAsync(request,evidence.Finance,options,core,db,scope,now,token)
+                    : await ProcurementApprovalFinanceEligibility.CheckAsync(request,evidence.Finance,options,core,db,scope,now,token);
+                IReadOnlyList<ProcurementResolvedApprovalStage> plan;
+                Guid? makerWorker;Guid? requesterWorker;
+                if(principal)
+                {
+                    var resolved=await ProcurementPrincipalApprovalAssignees.ResolveAsync(request,evidence.Evaluation,core,db,scope,now,token);
+                    plan=resolved.Select(x=>new ProcurementResolvedApprovalStage(x.Route,x.Assignees.Select(a=>
+                        new ProcurementResolvedApprovalAssignee(a.Person.PrincipalId,a.Person.CoreLinkedWorkerId,a.Authority)).ToArray())).ToArray();
+                    var originalPrincipal=request.RequesterPrincipalId!.Value;
+                    makerWorker=await core.LocalUsers.AsNoTracking().Where(x=>x.TenantId==scope.TenantId && x.Id==originalPrincipal)
+                        .Select(x=>x.WorkerId).SingleOrDefaultAsync(token);
+                    requesterWorker=request.RequesterCoreWorkerId;
+                }
+                else
+                {
+                    plan=await ProcurementApprovalAssigneeResolver.ResolveAsync(request,evidence.Evaluation,core,db,scope,now,token);
+                    var makerIdentity=await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,scope.TenantId,
+                        scope.LegalEntityId,request.CreatedBy,token)??throw Conflict("ApprovalMakerIdentityUnavailable");
+                    var requesterIdentity=await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,scope.TenantId,
+                        scope.LegalEntityId,request.RequesterWorkerId!.Value,token)??throw Conflict("ApprovalRequesterIdentityUnavailable");
+                    makerWorker=makerIdentity.WorkerId;requesterWorker=requesterIdentity.WorkerId;
+                }
                 var approvalCase = new ApprovalCase
                 {
                     TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
@@ -72,9 +90,11 @@ public static partial class ProcurementApprovalExecutionRoutes
                     PolicyVersionNumber = evidence.Policy.PolicyVersionNumber, MakerSubjectId = request.CreatedBy,
                     OpenedAt = now,
                 };
-                var pin = PurchaseRequestApprovalPinning.Pin(request, evidence.Evaluation, evidence.Policy,
-                    evidence.Finance, scope.TenantId, scope.LegalEntityId, approvalCase.Id, key,
-                    financeMode.Mode, financeMode.Reference, now, makerIdentity.WorkerId, requesterIdentity.WorkerId);
+                var pin = principal
+                    ? PurchaseRequestApprovalPinning.PinPrincipal(request,evidence.Evaluation,evidence.Policy,evidence.Finance,
+                        scope.TenantId,scope.LegalEntityId,approvalCase.Id,key,financeMode.Mode,financeMode.Reference,now,makerWorker)
+                    : PurchaseRequestApprovalPinning.Pin(request,evidence.Evaluation,evidence.Policy,evidence.Finance,
+                        scope.TenantId,scope.LegalEntityId,approvalCase.Id,key,financeMode.Mode,financeMode.Reference,now,makerWorker!.Value,requesterWorker);
                 var sequence = 0;
                 foreach (var resolved in plan)
                 {
@@ -95,9 +115,13 @@ public static partial class ProcurementApprovalExecutionRoutes
                             PermissionKey = DecidePermission,
                         };
                         stage.Assignments.Add(assignment);
-                        var json = JsonSerializer.Serialize(new PurchaseRequestAssignmentIdentityEvidence(candidate.WorkerId, candidate.Authority));
+                        var json = principal
+                            ? JsonSerializer.Serialize(new PurchaseRequestPrincipalAssignmentEvidence(2,scope.TenantId,scope.LegalEntityId,
+                                pin.Id,approvalCase.Id,stage.Id,assignment.Id,candidate.PrincipalId,candidate.WorkerId,resolved.Route.Assignee,candidate.Authority))
+                            : JsonSerializer.Serialize(new PurchaseRequestAssignmentIdentityEvidence(candidate.WorkerId!.Value, candidate.Authority));
                         db.AddScoped(new PurchaseRequestAssignmentAuthorityEvidence
                         {
+                            IdentitySchemaVersion=principal?2:1,
                             SubmissionId = pin.Id, CoreApprovalCaseId = approvalCase.Id, CoreStageId = stage.Id,
                             CoreAssignmentId = assignment.Id, PrincipalId = candidate.PrincipalId,
                             AssigneeWorkerId = candidate.WorkerId, AssigneeKind = resolved.Route.Assignee, GrantId = candidate.Authority.GrantId,
@@ -158,7 +182,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                     && x.SubmissionId == pin.Id && x.CoreApprovalCaseId == caseId, token) ?? throw Conflict("ApprovalAssignmentEvidenceMissing");
                 if (authority.PrincipalId != scope.SubjectId || authority.CoreStageId != assignment.StageId) throw Missing();
                 var now = DateTimeOffset.UtcNow;
-                await ProcurementApprovalAssigneeResolver.ValidateAssignmentAsync(request, authority, core, db, scope, now, token);
+                await ValidateAssignmentCurrent(request,pin,authority,approvalCase,core,db,scope,http,options,now,token);
                 var prior = await Receipt(db, "Decide", key, scope.SubjectId, fingerprint, request.Id, assignmentId, token);
                 if (prior is not null) return new Reply(200, prior.ResponseJson);
                 if (request.Version != input.ExpectedRequestVersion || approvalCase.Version != input.ExpectedCaseVersion
@@ -173,7 +197,9 @@ public static partial class ProcurementApprovalExecutionRoutes
                 if (!check.IsValid) throw Conflict("ApprovalPinnedEvidenceChanged");
                 if (input.Action == "Approve")
                 {
-                    var financeMode = await ProcurementApprovalFinanceEligibility.CheckAsync(request, evidence.Finance, options, core, db, scope, now, token);
+                    var financeMode = pin.SnapshotSchemaVersion==3
+                        ? await ProcurementApprovalFinanceEligibility.CheckPrincipalAsync(request,evidence.Finance,options,core,db,scope,now,token)
+                        : await ProcurementApprovalFinanceEligibility.CheckAsync(request,evidence.Finance,options,core,db,scope,now,token);
                     if (financeMode.Mode != pin.FinanceEvidenceMode || financeMode.Reference != pin.ManualEvidenceAuthorityRef)
                         throw Conflict("ApprovalFinanceAuthorityChanged");
                 }
@@ -183,7 +209,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                     && p.PrincipalId == x.AssigneeSubjectId && p.CoreStageId == x.StageId))) throw Conflict("ApprovalAssignmentSetChanged");
                 if (input.Action == "Approve")
                     foreach (var assignedPin in allPins)
-                        await ProcurementApprovalAssigneeResolver.ValidateAssignmentAsync(request, assignedPin, core, db, scope, now, token);
+                        await ValidateAssignmentCurrent(request,pin,assignedPin,approvalCase,core,db,scope,http,options,now,token);
                 var decisions = await workflow.Decisions.Where(x => x.CaseId == caseId).ToListAsync(token);
                 var result = ApprovalEngine.Decide(approvalCase, assignment,
                     new(scope.SubjectId, scope.TenantId, scope.LegalEntityId, new HashSet<string>([DecidePermission])),
@@ -219,6 +245,25 @@ public static partial class ProcurementApprovalExecutionRoutes
             return Results.Content(reply.Json, "application/json", statusCode: reply.Status);
         }
         catch (Exception ex) when (Handled(ex)) { return Failure(ex); }
+    }
+
+    private static async Task ValidateAssignmentCurrent(PurchaseRequest request,PurchaseRequestApprovalSubmission source,
+        PurchaseRequestAssignmentAuthorityEvidence assignment,ApprovalCase approvalCase,
+        Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext core,ProcurementDbContext db,ProcurementRequestScope scope,
+        HttpContext http,ProcurementApprovalExecutionOptions options,DateTimeOffset now,CancellationToken ct)
+    {
+        if(source.SnapshotSchemaVersion==3)
+        {
+            await RequirePrincipalSchema(db,http,options,ct);
+            var stage=approvalCase.Stages.SingleOrDefault(x=>x.Id==assignment.CoreStageId)
+                ?? throw Conflict("ApprovalAssignmentSetChanged");
+            await ProcurementPrincipalApprovalAssignees.ValidateAssignmentAsync(request,assignment,stage.Code,core,db,scope,now,ct);
+        }
+        else
+        {
+            if(assignment.IdentitySchemaVersion!=1)throw Conflict("ApprovalAssignmentEvidenceVersionChanged");
+            await ProcurementApprovalAssigneeResolver.ValidateAssignmentAsync(request,assignment,core,db,scope,now,ct);
+        }
     }
 
     public sealed record OpenInput(long ExpectedRequestVersion);

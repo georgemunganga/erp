@@ -19,7 +19,8 @@ public static class ProcurementApprovalReadinessRoutes
         ProcurementRequestScope scope, HttpContext http, IAuthorizationService authorization,
         IServiceProvider services, CancellationToken ct)
     {
-        if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, false, ct))
+        if (!await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,services,false,ct)
+            && !await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, false, ct))
             return ProcurementFinanceCheckerSchemaGuard.Unavailable();
         var request = await db.PurchaseRequests.AsNoTracking().Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id, ct);
@@ -34,6 +35,8 @@ public static class ProcurementApprovalReadinessRoutes
             .Where(x => x.PurchaseRequestId == id && x.RequestVersion == version)
             .OrderByDescending(x => x.CheckedAt).ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
+        if(request.RequesterIdentitySchemaVersion==1)
+            return await PrincipalReadiness(request,evaluation,policy,finance,db,core,scope,http,authorization,services,ct);
         var readiness = RequestApprovalReadiness.Check(request, evaluation, policy, finance);
         var route = ApprovalRoutePreview.FromEvaluation(evaluation,
             request.Lines.Where(x => x.ApprovalStatus != "Cancelled").Select(x => x.Id).ToArray());
@@ -89,6 +92,48 @@ public static class ProcurementApprovalReadinessRoutes
                 : !options.Enabled ? "Purchase approvals are not enabled yet. Your request is saved."
                 : "Resolve the listed checks before starting approvals.",
         });
+    }
+
+    private static async Task<IResult> PrincipalReadiness(Mightyfin.Erp.Procurement.Domain.PurchaseRequest request,
+        Mightyfin.Erp.Procurement.Domain.PolicyEvaluation? evaluation,Mightyfin.Erp.Procurement.Domain.PolicyVersion? policy,
+        Mightyfin.Erp.Procurement.Domain.BudgetCheckSnapshot? finance,ProcurementDbContext db,HrmDbContext core,
+        ProcurementRequestScope scope,HttpContext http,IAuthorizationService authorization,IServiceProvider services,CancellationToken ct)
+    {
+        var readiness=RequestApprovalReadiness.CheckPrincipal(request,evaluation,policy,finance);
+        var route=ApprovalRoutePreview.FromEvaluation(evaluation,request.Lines.Where(x=>x.ApprovalStatus!="Cancelled").Select(x=>x.Id).ToArray());
+        var blockers=readiness.Blockers.Concat(route.Blockers).Distinct().ToList();
+        var options=services.GetService<ProcurementApprovalExecutionOptions>()??new();
+        var assignments=new ApprovalAssigneePreviewResult(false,[],["PrincipalApprovalUnavailable"]);
+        var canOpen=false;
+        if(!options.Enabled || !options.PrincipalExecutionEnabled)blockers.Add("PrincipalApprovalExecutionUnavailable");
+        else if(!options.ExecutionDatabaseConfigured)blockers.Add("ApprovalExecutionDatabaseNotConfigured");
+        else if(!await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,services,true,ct))blockers.Add("PrincipalApprovalSchemaUnavailable");
+        else if(readiness.PrerequisitesMet && route.HasSingleRoute)
+        {
+            var actor=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,scope.SubjectId,ct);
+            if(actor is null || scope.PrincipalId?.ToString("D")!=actor.PrincipalId
+                || !actor.Permissions.Contains(ProcurementApprovalExecutionRoutes.OpenPermission)
+                || !(await authorization.AuthorizeAsync(http.User,ProcurementApprovalExecutionRoutes.OpenPermission)).Succeeded)
+                blockers.Add("ApprovalOpenPermissionRequired");
+            else
+            {
+                try
+                {
+                    var plan=await ProcurementPrincipalApprovalAssignees.ResolveAsync(request,evaluation!,core,db,scope,DateTimeOffset.UtcNow,ct);
+                    assignments=new(true,plan.Select(x=>new ApprovalStageAssignees(x.Route.Code,x.Route.Assignee,x.Route.Mode,
+                        x.Assignees.Select(a=>new ApprovalAssignee(a.Person.PrincipalId,a.Person.PrincipalId)).ToArray(),null)).ToArray(),[]);
+                    _=await ProcurementApprovalFinanceEligibility.CheckPrincipalAsync(request,finance!,options,core,db,scope,DateTimeOffset.UtcNow,ct);
+                    canOpen=true;
+                }
+                catch(InvalidOperationException error) when(error.InnerException is null && error.Message.Length<=100
+                    && error.Message.All(char.IsAsciiLetterOrDigit)) { blockers.Add(error.Message); }
+            }
+        }
+        return Results.Ok(new {requestId=request.Id,readiness.RequestVersion,readiness.EstimatedAmount,readiness.CurrencyCode,
+            prerequisitesMet=readiness.PrerequisitesMet && route.HasSingleRoute && assignments.Resolved && blockers.Count==0,
+            blockers=blockers.Distinct().ToArray(),approvalRoute=route,assignmentPlan=assignments,canOpenCase=canOpen,
+            policyEvaluationId=evaluation?.Id,financeCheckId=finance?.Id,isAuthority=false,
+            nextStep=canOpen?"Start approvals to send this request to the assigned reviewers.":"Resolve the listed checks before starting approvals."});
     }
 
     private static async Task<IReadOnlyDictionary<string, IReadOnlyList<ApprovalAssignee>>> LoadCandidates(

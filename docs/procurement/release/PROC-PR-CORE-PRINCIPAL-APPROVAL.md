@@ -18,7 +18,7 @@ Core owns accounts, current grants, organisation and approval cases. Procurement
 
 ## 5. Bounded delivery
 
-Increment A adds explicit successor contracts and model/store invariants only. HTTP producers, current-account bridge, readiness, flags and workflow tests follow before activation. Existing manual CRUD remains unchanged.
+Source checkpoints add explicit successor contracts/model guards, current Core actor bridges, new-only request provenance and funding capture, and version-dispatched authority/approval commands and hints. The actual generated-schema provider is still Unavailable; PrincipalExecutionEnabled defaults false. Existing manual CRUD remains usable without operational provenance when unavailable. None of these checkpoints has been compiled or executed.
 
 ## 6. Original request attribution
 
@@ -110,4 +110,4 @@ New submission3 does not imply approved-demand RFQ/PO/receiving compatibility. T
 
 ## 28. Remaining implementation
 
-Complete versioned current-account/Finance/authority/assignment bridges; lazy LineManager resolution; HTTP Open/Decide/release dispatch and action hints; default-off configuration and exact generated readiness; mapped tests, genuine migration, actual PG proof and release review. Can approve/convert is not advertised by increment A.
+Finish full mapped end-to-end successor workflow coverage, historical release/recovery and audit/downgrade marker review, metadata readiness integration, genuine generated migration and exact PostgreSQL readiness manifests. Then run pure/model/mapped gates, private finite-role HTTP/PG proof and release review. Existing migration artifacts are unchanged and production activation remains false. RFQ/PO/receiving conversion is not supplied by this milestone.
