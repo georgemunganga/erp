@@ -259,7 +259,8 @@ public sealed class OperationalPolicyIdentityPersistenceTests
             "Created", Maker, version == 1 ? MakerWorker : null, 1, At, schemaVersion: version));
         db.Add(policy); db.Add(proof); await db.SaveChangesAsync();
         var audit = await db.AuditEvents.SingleAsync(x => x.RecordType == nameof(OperationalPolicyIdentityRecord));
-        using var json = System.Text.Json.JsonDocument.Parse(audit.ChangedFieldsJson);
+        var payload = audit.ChangedFieldsJson ?? throw new InvalidOperationException("Expected durable identity audit payload.");
+        using var json = System.Text.Json.JsonDocument.Parse(payload);
         if (version == 1) Assert.Equal(System.Text.Json.JsonValueKind.Array, json.RootElement.ValueKind);
         else
         {
