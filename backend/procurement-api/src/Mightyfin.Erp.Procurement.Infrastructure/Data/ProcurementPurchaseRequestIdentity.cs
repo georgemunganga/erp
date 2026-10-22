@@ -11,7 +11,8 @@ public sealed partial class ProcurementDbContext
         foreach (var entry in ChangeTracker.Entries<PurchaseRequest>()
             .Where(x => x.State is EntityState.Added or EntityState.Modified))
         {
-            if (entry.Entity.RequesterPrincipalId == Guid.Empty || entry.Entity.RequesterWorkerId == Guid.Empty)
+            if (entry.Entity.RequesterPrincipalId == Guid.Empty || entry.Entity.RequesterWorkerId == Guid.Empty
+                || entry.Entity.RequesterPrincipalId is null && entry.Entity.RequesterWorkerId is null)
                 throw new InvalidOperationException("PurchaseRequestIdentityInvalid");
             if (entry.State == EntityState.Modified)
             {

@@ -302,7 +302,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.RequesterPrincipalId, x.Status });
             b.ToTable(t => t.HasCheckConstraint("ck_purchase_request_identity",
                 "(requester_principal_id IS NULL OR requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid) " +
-                "AND (requester_worker_id IS NULL OR requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
+                "AND (requester_worker_id IS NULL OR requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) " +
+                "AND (requester_principal_id IS NOT NULL OR requester_worker_id IS NOT NULL)"));
             b.HasMany(x => x.Lines).WithOne()
                 .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
