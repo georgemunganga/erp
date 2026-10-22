@@ -116,7 +116,14 @@ internal static partial class PrincipalApprovalHttpVerification
             openKey,openBody,new {expectedRequestVersion=checked(openVersion+1)},opened,HttpStatusCode.Created);
         await VerifyRevokedCurrentGrantReplayAsync(fixture,ownerConnection,client,send,fixture.Maker,"p25_request_maker",
             "procurement-approval-open",path+"/approval-cases",openKey,openBody);
+        stage("ActualAssignedDecisionPreview");
+        var previewBaseline=await PrincipalFootprintAsync(ownerConnection);
         var detail=await send(client,HttpMethod.Get,"/api/procurement/v1/approvals/"+caseId,fixture.Approver,null,HttpStatusCode.OK);
+        Need(await PrincipalFootprintAsync(ownerConnection)==previewBaseline,"Assigned approval preview changed persisted facts.");
+        result["assignedDecisionPreviewBlockers"]=detail.GetProperty("blockers").EnumerateArray()
+            .Select(x=>x.ValueKind==JsonValueKind.String?x.GetString():null)
+            .Select(x=>x is {Length:>0 and <=100}&&x.All(char.IsAsciiLetterOrDigit)?x:"UnrecognizedSafeBlocker")
+            .Take(32).ToArray();
         var assignment=detail.GetProperty("stages").EnumerateArray().Single().GetProperty("assignments").EnumerateArray().Single();
         var assignmentId=assignment.GetProperty("id").GetGuid();
         Need(assignment.GetProperty("principalId").GetString()==fixture.Approver.ToString("D")

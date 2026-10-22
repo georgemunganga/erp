@@ -256,11 +256,20 @@ public static partial class ProcurementApprovalExecutionRoutes
     private static async Task ValidateAssignmentCurrent(PurchaseRequest request,PurchaseRequestApprovalSubmission source,
         PurchaseRequestAssignmentAuthorityEvidence assignment,ApprovalCase approvalCase,
         Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext core,ProcurementDbContext db,ProcurementRequestScope scope,
-        HttpContext http,ProcurementApprovalExecutionOptions options,DateTimeOffset now,CancellationToken ct)
+        HttpContext http,ProcurementApprovalExecutionOptions options,DateTimeOffset now,CancellationToken ct,
+        bool readPreview=false)
     {
         if(source.SnapshotSchemaVersion==3)
         {
-            await RequirePrincipalSchema(db,http,options,ct);
+            if(readPreview)
+            {
+                // Reads keep the ordinary finite read/record connection. Inspect
+                // the configured execution store without granting workflow DML
+                // to that read role; commands still check their actual transaction.
+                if(!await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(http.RequestServices,ct))
+                    throw new ApprovalHttpError(503,"PrincipalApprovalSchemaUnavailable","Core-principal approval execution is not enabled for this database.");
+            }
+            else await RequirePrincipalSchema(db,http,options,ct);
             var stage=approvalCase.Stages.SingleOrDefault(x=>x.Id==assignment.CoreStageId)
                 ?? throw Conflict("ApprovalAssignmentSetChanged");
             await ProcurementPrincipalApprovalAssignees.ValidateAssignmentAsync(request,assignment,stage.Code,core,db,scope,now,ct);

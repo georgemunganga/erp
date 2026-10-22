@@ -121,7 +121,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                         var authority = await db.AssignmentAuthorityEvidence.AsNoTracking()
                             .SingleOrDefaultAsync(x => x.CoreAssignmentId == assignment.Id && x.SubmissionId == pin.Id, ct)
                             ?? throw Conflict("ApprovalAssignmentEvidenceMissing");
-                        await ValidateAssignmentCurrent(request,pin,authority,approvalCase,core,db,scope,http,options,DateTimeOffset.UtcNow,ct);
+                        await ValidateAssignmentCurrent(request,pin,authority,approvalCase,core,db,scope,http,options,DateTimeOffset.UtcNow,ct,readPreview:true);
                         var evidence = await OriginalEvidence(db, pin, ct);
                         var validation = PurchaseRequestApprovalPinning.Verify(pin, request, evidence.Evaluation,
                             evidence.Policy, evidence.Finance, scope.TenantId, scope.LegalEntityId);
@@ -140,7 +140,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                             !assignmentPins.Any(p => p.CoreAssignmentId == x.Id && p.PrincipalId == x.AssigneeSubjectId
                                 && p.CoreStageId == x.StageId))) throw Conflict("ApprovalAssignmentSetChanged");
                         foreach (var assignmentPin in assignmentPins)
-                            await ValidateAssignmentCurrent(request,pin,assignmentPin,approvalCase,core,db,scope,http,options,DateTimeOffset.UtcNow,ct);
+                            await ValidateAssignmentCurrent(request,pin,assignmentPin,approvalCase,core,db,scope,http,options,DateTimeOffset.UtcNow,ct,readPreview:true);
                         allowed.Insert(0, "Approve");
                     }
                 }
