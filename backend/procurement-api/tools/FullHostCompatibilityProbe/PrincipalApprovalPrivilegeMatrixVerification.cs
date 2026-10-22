@@ -46,7 +46,7 @@ internal static partial class PrincipalApprovalHttpVerification
         var audit=Rel(procModel,typeof(AuditEvent));var outbox=Rel(procModel,typeof(OutboxEvent));
         var cases=Rel(coreModel,typeof(ApprovalCase));var assignments=Rel(coreModel,typeof(ApprovalAssignment));
         var decisions=Rel(coreModel,typeof(ApprovalDecision));var decisionAction=Rel(coreModel,typeof(ApprovalDecision),nameof(ApprovalDecision.Action));
-        var delegation=Rel(coreModel,typeof(ApprovalDelegation));
+        var delegation=Rel(coreModel,typeof(Mightyfin.Erp.Core.Approvals.Domain.ApprovalDelegation));
         var rolePermission=Rel(identityModel,typeof(TenantRoleAssignment),nameof(TenantRoleAssignment.PermissionsCsv));
         var userWorker=Rel(identityModel,typeof(LocalUser),nameof(LocalUser.WorkerId));
         var dataBefore=await PrincipalFootprintAsync(owner,rowsOnly:true);var globalBefore=await PrivilegeGlobalBoundaryAsync(owner);
