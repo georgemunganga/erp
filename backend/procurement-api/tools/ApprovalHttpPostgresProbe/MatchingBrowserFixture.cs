@@ -24,6 +24,7 @@ sealed partial class Probe
     private async Task<string> PrepareMatchingBrowserManifest(int port, bool writeManifest = true)
     {
         Require(OrderDistinctRuntime && matchingDocumentDirectory is not null,"Matching browser fixture requires separate owner/runtime and owned document storage.");
+        await VerifyUpstreamBuyerCoreGrants();
         await Authority(OrderManager1,"MATCHING-BROWSER-PR-M1");
         await Authority(OrderManager2,"MATCHING-BROWSER-PR-M2");
         await Authority(OrderManager2,"MATCHING-BROWSER-PO-M2","PurchaseOrder.Approve");

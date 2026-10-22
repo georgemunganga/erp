@@ -221,7 +221,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
         var branch = new WorkLocation { Code = "HTTP-BRANCH", Name = "Synthetic branch", LegalEntityId = company.Id };
         var people = new Dictionary<string, (Worker Worker, LocalUser User)>();
-        foreach (var (name, role) in new[] { ("requester", "employee"), ("buyer", "erp_admin"),
+        foreach (var (name, role) in new[] { ("requester", "employee"), ("buyer", FixtureBuyerRole),
             ("finance", "finance_approver"), ("manager1", "procurement_manager"), ("manager2", "procurement_manager") })
         {
             var worker = new Worker { EmployeeNo = "HTTP-" + name, FirstName = name, LastName = "Fixture", Status = "active", LocationId = branch.Id };
@@ -237,6 +237,8 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             core.LegalEntities.Add(company); core.WorkLocations.Add(branch);
             foreach (var person in people.Values) { core.Workers.Add(person.Worker); core.LocalUsers.Add(person.User); }
             core.TenantRoleAssignments.AddRange(
+                new TenantRoleAssignment { RoleKey = FixtureBuyerRole, RoleName = "Synthetic finite upstream buyer", Active = true,
+                    PermissionsCsv = string.Join(',', FixtureBuyerActions(orders, receiving, matching)) },
                 new TenantRoleAssignment { RoleKey = "employee", RoleName = "Employee", Active = true,
                     PermissionsCsv = "procurement-access,procurement-request-read,procurement-request-create,procurement-request-edit,procurement-request-submit" },
                 new TenantRoleAssignment { RoleKey = "procurement_manager", RoleName = "Procurement manager", Active = true,
@@ -261,6 +263,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             await core.SaveChangesAsync();
             var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
             scope.Set("probe", company.Id, people["buyer"].User.Id.ToString("D"), null, null, false, "probe-seed");
+            scope.AssignPrincipal(people["buyer"].User.Id, people["buyer"].User.WorkerId);
             var procurement = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             var workflow = services.ServiceProvider.GetRequiredService<ApprovalDbContext>();
             {
@@ -867,8 +870,19 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     }
     private IServiceScope Scope(Guid actor)
     {
-        var services = fixtureServices.CreateScope(); services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
-            .Set("probe", company, actor.ToString("D"), null, null, false, "probe-inspect"); return services;
+        var services = fixtureServices.CreateScope();
+        try
+        {
+            // Owning fixture inspection, not HTTP authorization. Retain only the
+            // actual scoped Core account ID/link; never derive grants from it.
+            var account = services.ServiceProvider.GetRequiredService<HrmDbContext>().LocalUsers.AsNoTracking()
+                .Where(x => x.TenantId == "probe" && x.Id == actor).Select(x => new { x.Id, x.WorkerId }).Single();
+            var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
+            scope.Set("probe", company, account.Id.ToString("D"), null, null, false, "probe-inspect");
+            scope.AssignPrincipal(account.Id, account.WorkerId);
+            return services;
+        }
+        catch { services.Dispose(); throw; }
     }
     private static JsonElement ActiveAssignment(JsonElement detail, Guid actor) => detail.GetProperty("stages").EnumerateArray()
         .Where(s => s.GetProperty("state").GetString() == "Active").SelectMany(s => s.GetProperty("assignments").EnumerateArray())
