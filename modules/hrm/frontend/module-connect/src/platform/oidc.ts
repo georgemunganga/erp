@@ -390,10 +390,10 @@ export async function handleLoginCallback(): Promise<string | null> {
 
 /** Sign out: clear local state and ask Keycloak to end its session. */
 export function signOut(nextPath = "/sign-in"): void {
-  notifyAuthContextChanged();
-  if (!oidcLoginEnabled()) { clearSession(); window.location.href = nextPath; return; }
+  if (!oidcLoginEnabled()) { clearSession(); notifyAuthContextChanged(); window.location.href = nextPath; return; }
   const session = getSession();
   clearSession();
+  notifyAuthContextChanged();
   const idTokenHint = session?.idToken;
   const qs = new URLSearchParams({
     id_token_hint: idTokenHint ?? "",
