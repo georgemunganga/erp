@@ -1,10 +1,10 @@
 # Purchase request draft command recovery
 
-**Status:** DISCOVERY ONLY — proposed contracts, not an implemented feature or release approval.  
-**Feature:** `PROC-02-RECOVERY` · **Version:** 0.1 · **Prepared:** 22 October 2026  
-**Hierarchy:** Procurement → Purchase Requisitions → Draft command recovery → Create / Update / Submit / Read original result.  
-**Baseline ERP:** `1917405282cbefb773386eeadc930349f478ef0c`.  
-**Baseline UI:** `30e17e9aad1bf86d3c94086b42fca590c9b0f05f` (published PR55/56).  
+**Status:** DISCOVERY ONLY — proposed contracts, not an implemented feature or release approval.
+**Feature:** `PROC-02-RECOVERY` · **Version:** 0.2 · **Prepared:** 22 October 2026
+**Hierarchy:** Procurement → Purchase Requisitions → Draft command recovery → Create / Update / Submit / Read original result.
+**Baseline ERP:** `1917405282cbefb773386eeadc930349f478ef0c`.
+**Baseline UI:** `30e17e9aad1bf86d3c94086b42fca590c9b0f05f` (published PR55/56).
 **Standard:** [GW-ENG-STD-001](../../engineering/GW-ENG-STD-001.md), ERP **Tier 3**; retain the [28-section feature framework](../PROC-02-PURCHASE-REQUISITION-AND-LINE-ROUTING.md).
 
 This document authorises no schema change, API registration, flag activation or deployment. The user has authorised ordinary Procurement CRUD work; its implementation does **not** require spending thresholds, supplier activation or a new business approval. Engineering contracts and verification below must be completed before this recovery capability is described as ready. P25 approval execution remains a separate source/release dependency and is not activated by this proposal.
@@ -18,7 +18,7 @@ This document authorises no schema change, API registration, flag activation or 
 | Business owner | Procurement product owner; name to be recorded |
 | Engineering owner | Assigned ERP backend/UI maintainers; reviewer distinct from implementer for consequential controls |
 | Classification | Tier 3: consequential buying records, tenant boundaries, confidential request text |
-| Delivery status | Discovery specification only; Definition of Ready decisions in §28 unresolved |
+| Delivery status | Discovery specification only; Technical decisions proposed in §28; Definition of Ready not yet met |
 
 ## 2. Purpose and Business Outcome
 
@@ -58,7 +58,16 @@ Source audit at the pinned baselines:
 | `ProcurementEvidenceEncoding.cs:10–34` | Existing canonical JSON digest (duplicate-key/precision checks), invariant decimal encoding, SHA256, PostgreSQL microsecond timestamp handling | Reuse encoding; define this command's inputs/version explicitly, not a second hashing algorithm. |
 | `ProcurementApprovalTransaction.cs:31–65`; existing catalog/branch fences and request locks | Same physical transaction, fresh-context rollback discipline, retry only confirmed serialization/deadlock aborts | Ordinary PR commands need the Procurement store and current Core reads, not Core approval DML or a Finance-enabled execution connection. Reuse/extract only the necessary transaction plumbing. |
 
-A narrowly owned PR draft receipt record is proposed because every existing family has an incompatible required domain target. It is **not** a new identity system, universal receipt service or workflow engine. Exact class/table names remain a design decision; no migration has been generated.
+Additional source findings that constrain this proposal:
+
+- `ProcurementCurrencyDefaults.cs:8–20` is **Create-only**. `ProcurementRequestRoutes.cs:128` retains the stored currency when Update omits it. A new recovery contract must preserve this difference.
+- `ProcurementRequestRoutes.cs:556–576` defines the complete accepted request/line DTOs. `catalogPublishedVersion` is returned/derived by `ApplyLine:474–476`, **not** an accepted line input. Do not add it to the mutable contract.
+- `PostgresSessionAdvisoryLease.cs:15–59` already supplies pinned-session acquisition, cancellation cleanup and verified release. `ProcurementCatalogAuthorityFence.cs:10–22` requires acquisition before transaction/snapshot; `CoreBranchAuthorizationFence.cs:20–28` has the existing preceding tenant-wide branch fence. Reuse these mechanics and their order.
+- `SpendingAuthorityFamilyTransaction.cs:22–31` shows SHA256/first signed big-endian Int64 advisory-key derivation, but acquires its transaction lock after BEGIN. Reuse the derivation pattern, **not** this configuration-family adapter for PR commands.
+- `ProcurementCatalogFencing.cs:20–40` currently acquires the catalog lease in an endpoint filter. The keyed path must integrate its outer branch lease there or replace that filter with one owning ordered adapter; it must not acquire branch after catalog or nest another connection/transaction.
+- `ProcurementRequestRoutes.cs:536–548` owns principal, selected-branch/confinement and optional department filtering. Recovery must preserve it; employee status is not a recovery permission. `ProcurementContextRoutes.cs:50–75` already exposes the verified nullable `orgUnit` alongside `branch`; the new thin readiness projection must retain both IDs/null explicitly instead of deriving a department from HR or an untrusted saved value.
+
+A narrowly owned PR draft receipt record is proposed because every existing family has an incompatible required domain target. It is **not** a new identity system, universal receipt service or workflow engine. The proposed names are `PurchaseRequestDraftCommandReceipt` and `procurement.purchase_request_draft_command_receipts`; they remain specification contracts until implemented. No migration has been generated.
 
 ## 5. Actors and Participants
 
@@ -92,7 +101,17 @@ Missing effective branch is unknown, not company-wide null. Company currency def
 8. Commit before responding. Failed commit or unknown transport is not reported as success. Unknown commit/network outcomes are not automatically retried.
 9. Client clears only its exact locator after a strictly bound successful result in the original current context. After reload, explicit GET validates the original acknowledgement, clears that locator, then reads current PR state separately. A historical Draft result never becomes a current editable draft.
 
-Concurrent identical keys must resolve to one committed result. The unique constraint is authoritative; after a unique-key race, roll back/dispose the losing transaction and read the winner's matching receipt on a fresh context, or return a retained conflict for explicit GET. Do not continue an aborted PostgreSQL transaction, retry arbitrary failures, or execute the command with a new key. Command-key fence choice is a technical DoR decision; no distributed lock/queue is required by this spec.
+Concurrent identical keys must resolve to one committed result. The unique constraint is authoritative; after a unique-key race, roll back/dispose the losing transaction and read the winner's matching receipt on a fresh context, or return a retained conflict for explicit GET. Do not continue an aborted PostgreSQL transaction, retry arbitrary failures, or execute the command with a new key. The proposed lock contract is fixed below; no distributed lock/queue is required.
+
+### Proposed transaction and lock contract
+
+Use a narrowly named `PurchaseRequestDraftCommandTransaction` adapter around the existing physical Procurement connection, shared lease and request-lock helpers, not the Finance/Core-approval execution coordinator. For keyed commands acquire in this order: **Core branch shared session lease → Procurement catalog shared session lease → exclusive command session lease → BEGIN Serializable → receipt lookup → owned request row lock for Update/Submit → business work**. Revalidate current account/action/scope after leases and before business work; the branch fence does not claim to fence account/role writers. Do not hold this transaction across network delivery or external services.
+
+Derive the command lease key from UTF8 bytes of `greenwebb.procurement.pr-draft-command.v1\0{tenant}\0{company:D}\0{operation}\0{key:D}`, SHA256 and `BinaryPrimitives.ReadInt64BigEndian` of the digest. Exclude actor, branch and target because the unique index excludes them: all contenders for the same database key must serialize. Hash collisions only serialize unrelated commands; they do not authorise access. Bound lease waits using request cancellation/timeout, never steal a lease.
+
+Acquire the command session lease **before BEGIN**, using `PostgresSessionAdvisoryLease`, so a waiter does not create a serializable snapshot before the winner commits. Release in reverse order after commit/rollback, on the same physical session; preserve the helper's clear-pool/close handling when acquisition/release is uncertain. The existing endpoint catalog filter must be integrated once into this ordering, not nested beneath it. All commands lock at most one PR; existing approval/Finance writers keep their request-first domain lock order and do not acquire this command lease.
+
+Use the scoped unique index as the final safeguard, including clients/providers that do not participate in advisory locking. A uniqueness failure is not a successful replay: roll back, dispose the transaction and inspect the exact scoped receipt on a fresh context. Only a validated same-actor/fingerprint receipt returns history; otherwise retain a conflict/unknown result. Reattempt a whole transaction only after confirmed serialization/deadlock abort (maximum three, fresh contexts), never on uncertain commit/connection failure. Actual PostgreSQL parallel tests must verify this adapter; a nonrelational fixture cannot certify it.
 
 ## 9. Status and State Transitions
 
@@ -122,7 +141,7 @@ A valid session or ERP-admin label alone grants nothing. GET acknowledgement req
 - **PRR-01:** one unique `(tenant, legal entity, operation, command key)`; exact actor, target and immutable fingerprint binding. UUID collisions under another actor do not confer access.
 - **PRR-02:** fingerprint includes schema version, operation, canonical actor/scope, target (where known), expected version and every accepted mutable header/line field. Preserve meaningful line order and null distinctions. Never hash rounded JavaScript numbers.
 - **PRR-03:** canonicalise with existing input parsing/Clean/Trim/decimal rules; reject duplicate/unsupported input fields according to a reviewed allowlist. Request status, ownership, counters or authority cannot be supplied as mutable inputs.
-- **PRR-04:** unspecified currency is a stable **organisation-default intent** in the fingerprint, while the first resolved currency is pinned in the recorded result. Replay must not resolve a newly changed default and silently create a different result or false conflict.
+- **PRR-04:** unspecified Create currency is a stable **organisation-default intent** in the fingerprint; unspecified Update currency is **retain stored request currency** intent. The first accepted currency is pinned in the recorded result. Replay must not resolve a newly changed default and silently create a different result or false conflict.
 - **PRR-05:** replay/GET returns recorded history after current actor/scope checks. It does not rerun current catalog prices or policy to recreate a result. A new logical command uses current rules normally.
 - **PRR-06:** Update/Submit CAS and existing state/line guards remain authoritative. Receipt replay is checked before rejecting a legitimately completed original command because its record has since advanced.
 - **PRR-07:** repeated command/GET adds no duplicate PR/line/policy evaluation/business audit/outbox effect. Operational access logs are distinct and must not be described as business mutations.
@@ -131,9 +150,11 @@ A valid session or ERP-admin label alone grants nothing. GET acknowledgement req
 
 ## 12. Data Fields and Ownership
 
-Preserve the existing draft inputs: purpose, currencyCode, neededBy, costCenterRef, projectRef, deliveryLocationRef, deliveryAddressText, fundingSourceRef, notesToApprover, and lines. Lines retain id, description, unitCode, requestedQuantity, estimatedUnitPrice, catalogItemId/catalogEntryId/catalogPublishedVersion, preferredSupplierId, categoryCode, purchaseType, neededBy, discountPercent, taxCodeRef, costCenterRef, projectRef and specificationDocumentRefId. Update adds expected `version`; Submit retains its version-only body.
+Preserve the existing draft inputs: purpose, currencyCode, neededBy, costCenterRef, projectRef, deliveryLocationRef, deliveryAddressText, fundingSourceRef, notesToApprover, and lines. Lines retain id, description, unitCode, requestedQuantity, estimatedUnitPrice, catalogItemId/catalogEntryId, preferredSupplierId, categoryCode, purchaseType, neededBy, discountPercent, taxCodeRef, costCenterRef, projectRef and specificationDocumentRefId. Update adds expected `version`; Submit retains its version-only body.
 
 Preserve actual returned `requesterPrincipalId`, nullable `requesterWorkerId`, `branchRef`, `departmentRef`, `requestEditVersion:1`, all documented lifecycle fields and exactAmounts strings. A company-wide current scope may legitimately open an owned request whose original BranchRef is non-null; Update/Submit preserve and validate the loaded original branch, not an invented null. The actual DTO does not echo tenant/company; use authoritative request context rather than requiring fabricated fields.
+
+Proposed domain class **`PurchaseRequestDraftCommandReceipt : ProcurementRecord`**, mapped only in Procurement to **`purchase_request_draft_command_receipts`**. Proposed scoped unique index: **`ux_pr_draft_receipt_command`** on `(tenant_id, legal_entity_id, operation, command_key)`; scoped real-request FK on `(tenant_id, legal_entity_id, purchase_request_id)`. Actor is deliberately not part of uniqueness, so a foreign actor cannot reuse a guessed key to fall through to a new command. Do not reuse an unrelated target-bound receipt table.
 
 Proposed Procurement-owned receipt minimum:
 
@@ -143,9 +164,10 @@ Proposed Procurement-owned receipt minimum:
 | Operation / CommandKey | Create/Update/Submit; nonzero UUID; scoped unique key |
 | ActorPrincipalId | Actual current canonical Core ID; immutable original actor |
 | PurchaseRequestId | Nonzero real target; Create assigns it in the owning transaction |
-| OriginalBranchRef / OriginalDepartmentRef | Nullable authorised scope pins, not master copies or employee requirements |
-| FingerprintSchemaVersion / CommandFingerprint | Version 1 candidate; deterministic lowercase SHA256 of accepted command intent |
-| ResponseSchemaVersion / ResponseStatusCode / ResultVersion | Candidate version 1, original 201/200, positive persisted version |
+| ContextBranchRef / ContextDepartmentRef | Nullable effective branch/department at command acceptance; unknown is never encoded as null |
+| OriginalBranchRef / OriginalDepartmentRef | Actual request provenance after loading/creation, immutable; not master copies or employee requirements |
+| FingerprintSchemaVersion / CommandFingerprint | Version 1; deterministic lowercase SHA256 of accepted command intent |
+| ResponseSchemaVersion / ResponseStatusCode / ResultVersion | Version 1, original 201/200, positive persisted version |
 | ResponseJson / ResponseSha256 / CompletedAt | Bounded exact original response, digest and normalised UTC completion time |
 
 No full request body is necessary in a receipt if the canonical immutable fingerprint and exact original response provide the required proof. ResponseJson may itself contain confidential request notes; restrict and retain it accordingly. No duplicate user/employee/company/catalog masters. Worker identity, if present in the historical result, remains optional original metadata and is not a new required receipt authority field.
@@ -191,9 +213,11 @@ All must retain identity/scope and historical attribution without manufacturing 
 
 The GET route cannot require a request UUID for Create: a lost creation response means the client may not know it. Update/Submit locators contain the expected target and must validate it against the returned result.
 
-Candidate GET envelope: `acknowledgementSchemaVersion:1`, `acknowledgement:"Completed"`, operation, commandKey, requestId, completedAt, originalStatusCode, responseSchemaVersion, original-result digest, and original result. Exact names/allowlist remain a DoR contract decision. Validate all links, versions, exact result fields and digests; do not copy the eight/eleven-field approval acknowledgement into this different DTO.
+Proposed typed GET DTO **`PurchaseRequestDraftCommandAcknowledgement`**, with exactly these version-1 fields: `acknowledgementSchemaVersion:1`, `acknowledgement:"Completed"`, `operation`, `commandKey`, `actorPrincipalId`, `requestId`, `contextBranchRef`, `contextDepartmentRef`, `originalBranchRef`, `originalDepartmentRef`, `commandFingerprint`, `completedAt`, `originalStatusCode`, `responseSchemaVersion:1`, `responseSha256`, `originalResultJson`. The final field is the exact stored JSON **string**, not a reserialized object: verify its UTF8 SHA256 before parsing it as the existing RequestDetail. Validate own principal, known target, expected/result versions, original provenance, exact amounts and every envelope link. Tenant/company come from the authenticated scoped request; do not invent their absence in RequestDetail. Do not copy the eight/eleven-field approval acknowledgement into this DTO.
 
-Proposed read/write availability is separate: historical GET requires the verified owning read schema/current operation permission, not a currently writable command capability. Default unavailable/readiness false until actual schema/finite-role proof. A keyed request must never silently fall back to unkeyed mutation when the new store is unavailable. Rollout must explicitly decide missing-header compatibility; recommended activation requires keys for all three operations so old clients fail before writing. Legacy routes retain their current behaviour while the successor is off and must not be advertised as idempotent.
+Return ordinary mutation successes with their existing RequestDetail body/status. Read back final persisted request/line versions and PostgreSQL-normalised timestamps without another mutation, serialize that original result once, store those exact UTF8 JSON bytes and return them unchanged on first success/replay. Echo `Idempotency-Key`, `X-Procurement-Command-Fingerprint` and `X-Procurement-Response-Sha256` response headers; the thin client verifies key, digest/raw body and strict typed result before clearing. Replayed Create preserves the original 201 and Location pointing to its real request. GET is 200 with the acknowledgement envelope, not another 201 creation. These are proposed additive contracts, not current response headers.
+
+Proposed read/write availability is separate: historical GET requires the verified owning read schema/current operation permission, not a currently writable command capability. Default unavailable/readiness false until actual schema/finite-role proof. A keyed request must never silently fall back to unkeyed mutation when the new store is unavailable. The activation decision is key-required for all three operations: a missing header returns `400 command-key-required` before business work once activated; old clients must refresh rather than write without recovery. Legacy routes retain their current behaviour while the successor is off and must not be advertised as idempotent.
 
 Sandbox: reuse existing private mapped-HTTP/PostgreSQL fixture and normal UI transport; label synthetic outer authentication explicitly. No public TCP, production credentials, fabricated employee or Finance effects. No API/schema in this table exists merely because it is specified.
 
@@ -201,7 +225,7 @@ Sandbox: reuse existing private mapped-HTTP/PostgreSQL fixture and normal UI tra
 
 Record one procurement audit per successful logical command, atomically with business state/receipt. Preserve the existing submission audit/policy snapshot; add command metadata to the new versioned event rather than a second submission audit. Draft Create/Update need explicit consequential audit evidence if currently absent. Replays and GET do not rewrite that audit. Keep command UUID, action, actor, target, prior/result versions and correlation; no credential/body dump in technical logs.
 
-Receipts are append-only to normal application roles; actual database privileges and adversarial tests must prove this, not just EF guards. Restrict response notes/specification references and exports. Current actor/tenant/company/original-branch scope is checked server-side for direct URLs. Owner/admin test execution is not finite-role authentication evidence. Retention/backup/legal hold must preserve recovery promises; never prune receipts while automatic same-key replay is still promised.
+Receipts are append-only to normal application roles: the finite runtime role receives SELECT/INSERT on this new receipt table, not UPDATE/DELETE/TRUNCATE or ownership; scoped request FK deletion is restrictive. Existing PR write grants do not imply receipt mutation grants. Actual database privileges and adversarial tests must prove this, not just EF guards. Restrict response notes/specification references and exports. Current actor/tenant/company/original-branch scope is checked server-side for direct URLs. Owner/admin test execution is not finite-role authentication evidence. Retention/backup/legal hold must preserve recovery promises; never prune receipts while automatic same-key replay is still promised.
 
 Tier-3 threat cases include cross-tenant UUID lookup, actor spoofing, key collision, stale grants, result tampering, browser storage mutation and duplicate financial/operational effects. Independent review is required before release.
 
@@ -265,6 +289,16 @@ Unused Down must restore the exact earlier schema/data/privileges. Once any comp
 | Actual PG + browser | Existing private Unix mapped host, genuine migrated store, actual persisted record/audit/receipt counts and independent owner reload; no business-response mocking or forced clicks; synthetic outer auth clearly labelled |
 | Release | Full relevant regression/model/build checks, current public asset hashes/health, normal authenticated smoke within authorised scope, independent review and retained failures |
 
+Concrete fixture assertions for the proposed slice:
+
+- Use a current Core-only maker (`workerId:null`) with finite stored Create/Edit/Submit actions and one authorised branch; a second Core-only actor with the same actions must not replay/GET the first actor's key. Test an account with company-wide scope reading its own non-null original BranchRef without rewriting that provenance.
+- Create with currency omitted, commit once, change the real organisation default under its existing owner, then replay/GET: generated request/line IDs, original currency, original 201/Location/body bytes and digest stay identical. Update omitted currency retains the original request currency. Explicit different currency/body under the same UUID conflicts.
+- Barrier-start two real physical PostgreSQL requests with one Create UUID; assert one PR, one line set, one receipt and one logical audit. Start two different UUIDs with the same Update version: exactly one accepted +1 result; no-op Update also advances exactly +1. Submit replay remains identical after actual current state/version advancement.
+- At each persistence boundary inject a confirmed rollback; independently reload business, audit, policy, receipt, sequences and original data/ACL footprint. Separately drop the actual HTTP response **after** a real committed201/200; the browser reloads, invokes only actor-owned GET using its saved key (Create still has no known PR ID), then fetches current detail. Assert zero second mutation requests.
+- Validate response headers/raw UTF8 digest and the exact acknowledgement originalResultJson before parsing. Wrong key/principal/target/version/scope, mutated result bytes, duplicate JSON, unknown fields and digest mismatch must keep the locator; GET404/403/409/503 and HTTP408/429/499 never reopen a form automatically.
+- Verify effective context branch **and orgUnit** are retained from the real context projection; unknown/absent context is not null. Storage readback failure prevents transmission; a late result after route/account/company/branch/department/nonce change cannot clear the old marker or mutate the new screen.
+- Exercise activated missing-header400, keyed-but-unavailable503, missing meta flag default-false, and successful historical GET after disabling new writes. Prove no implicit unkeyed fallback and no dependency on approval/Finance execution flags.
+
 No test in this specification has been run for this proposed receipt family. Existing Open/Decide, recurring or owner-only proofs do not certify it.
 
 ## 27. Ownership and Dependencies
@@ -298,17 +332,39 @@ C01–C20 applicability, following the Tier-3 system definition:
 | C19 Testing/quality | Required: actual PG/HTTP/browser/negative/recovery evidence |
 | C20 Lifecycle/governance | Required: versioned spec/ADR/migration/release and independent review |
 
-## 28. Open Decisions and Assumptions
+## 28. Technical Decisions, Open Decisions and Assumptions
 
-**Definition of Ready is not yet met for implementation.** Engineering must resolve and record these bounded decisions; none requires inventing business authority or waiting for spend-policy amounts:
+### Eight proposed implementation decisions
 
-1. Confirm new PR-specific receipt class/table names and exact immutable metadata/result envelope; existing target-bound families cannot be repurposed with dummy FKs.
-2. Freeze fingerprint version, exact accepted-field allowlist/normalisation, unspecified-currency intent and maximum input/result sizes against current request behaviour.
-3. Confirm unique-key race handling, transaction adapter reuse and branch/catalog/request lock order without acquiring unnecessary Core approval/Finance writes.
-4. Choose centrally ordered migration after the accepted P25 baseline, actual schema/read/write readiness providers and least-privilege runtime grants; no migration ID generated/reserved here.
-5. Freeze original-operation GET permission/actor/scope checks and historical-vs-current response semantics; no GET404 absence guarantee.
-6. Decide key-required activation and old-client failure behaviour, plus independent historical-read availability when new writes are off. Never silently fall back for a keyed command.
-7. Extract the proven low-level browser storage primitive once; retain existing wrapper contracts. Freeze same-owner cross-nonce blocking/sealing and operator reconciliation policy without representing a browser nonce as a server session ID.
-8. Specify any first-attempt pre-write validation code that can release a marker; otherwise retain until valid receipt or separately audited reconciliation. No broad4xx exception.
-9. Assign evidence retention/legal hold, technical support owner, practical performance targets and independent reviewer. Record corporate-standard adoption status honestly; this feature spec is not management sign-off.
-10. Record actual SDK/PG/finite-role/Playwright/release evidence and accepted deficiencies. Discovery documentation, existing CRUD, P25 source tests and merged Open/Decide UI are not completion of this proposal.
+These decisions resolve the original design alternatives using the pinned source. They are **specification decisions**, not implementation or readiness evidence.
+
+| Decision | Concrete contract | Source basis / required verification |
+| --- | --- | --- |
+| D1 — ownership and successor migration | New `PurchaseRequestDraftCommandReceipt` / `purchase_request_draft_command_receipts`, fields/index/FK in §12; narrow genuine migration after the centrally accepted P25 baseline. No changes to old receipt families, no backfill, no reserved migration ID. Append-only receipt with original result; used Down veto before DDL. | Existing four families in §4 require unrelated targets/case/legacy worker. Actual migration/finite grants/Up/Down/data preservation remain unproved. |
+| D2 — UUID and fingerprint | Exactly one `Idempotency-Key`, 36-character lowercase nonzero UUID D form; accept any UUID version satisfying that contract, no v4/v7-only restriction. Reject whitespace, comma/multiple header values and noncanonical case before writes. `PurchaseRequestDraftCommandIntentV1` builds an explicit typed logical input, then uses existing `ProcurementEvidenceEncoding.PolicyJsonDigest`, not raw-body bytes or a second hash engine. | Existing TryParseExact D validators and `ProcurementEvidenceEncoding`; exact rules below require field-by-field tests. |
+| D3 — current/original identity and scope | Current Core principal and original-operation action required for command/replay/GET; worker optional. Receipt actor must match exactly. Request must remain owned by that principal and visible under existing branch/confinement/department filters. Pins include original request branch/department plus accepted effective context branch/department. Recovery requires the original effective context selected, still currently authorised; company-wide null is valid only when positively supplied/authorised by server context. No old employee linkage or role label grants authority. | Existing OwnRequests/ScopedRequests and current Core middleware. Wrong actor, company, original scope or selected context yields no receipt data; test both company-wide ownership of a branch-origin request and explicit branch selection. |
+| D4 — default currency | Create omitted/null/whitespace currency hashes as `OrganizationDefault`; resolve actual selected organisation currency **only after no receipt is found**, persist it in the request/result. Update omission hashes as `RetainRequestCurrency` and retains the loaded request currency. Explicit currency trims/uppercases. Replay uses original receipt before any default/catalog re-resolution. | Actual `ProcurementCurrencyDefaults` and Update line128 differ. Settings changes after first committed acceptance cannot change replay; a confirmed aborted attempt has no pinned committed result and may read the new current default on its fresh attempt. |
+| D5 — concurrency and atomicity | Ordered pre-BEGIN session leases and one Serializable Procurement transaction in §8; new adapter reuses shared lease, existing request lock and failure classification. Scoped unique key final authority. Business + consequential audit + exact result receipt commit atomically; unknown commit is never automatically retried. | Shared session lease/fence contracts; actual lock/wait/unique-race/fault tests, no nonrelational locking claim. |
+| D6 — unknown Create ID acknowledgement | Actor-owned GET `/api/procurement/v1/request-draft-commands/{operation}/{key}`; exact operation is case-sensitive. No PR ID is needed in URL. Typed acknowledgement in §18 binds the actual generated ID and original result. GET404 never proves absence; no list/history acknowledgement. | Create allocates ID server-side. Current approval GET requires known request/case and cannot substitute. |
+| D7 — compatible activation | Add optional meta capability `requestDraftCommandRecovery` (missing/false means unavailable), backed by actual separate read/write readiness. Historical GET checks read readiness/current original-operation permission even when new writes are disabled. Keyed requests while write-unavailable return503, never unkeyed fallback. Activated routes require keys, reject legacy missing-key writes400; stage compatible clients before activation and do not roll back to an image silently accepting unkeyed writes. | Existing old routes/bodies remain unchanged when successor off. Metadata is a projection of verified schema/configuration, not a switch that creates readiness. |
+| D8 — thin client and release rules | Extract low-level claim/readback/exact-token confirmation from existing guards once; separate PR CRUD wrapper, preserve approval/recurring wrappers. Store locator/fingerprint/scope/tab nonce only, no body/reason. Before send claim/readback; same-tab frozen payload can explicitly retry the same UUID; reload GET-only. Clear only exact bound success/ACK in current context. For this first slice **all server errors retain** the marker; no status-only or presumed pre-write exception. | Existing journals provide mechanics, not an implemented CRUD receipt. Validation runs locally before claim; server-rejected/unknown attempts require separately governed reconciliation until a proven pre-write rejection contract is designed. This UX limitation is explicit, not an unsafe Reset. |
+
+### Canonical input version 1
+
+`PurchaseRequestDraftCommandIntentV1` is an application DTO for hashing only, not a second public request body. Its root includes `fingerprintSchemaVersion:1`, operation, canonical actual tenant/company/actor, accepted effective branch/department, target ID (null for Create), expected version (null for Create), and a normalised `input` object. Replay uses stored context pins; it does not substitute the actor's new employee, department or company defaults.
+
+The keyed path first rejects duplicate properties including case aliases and unknown properties against the existing DTO allowlist at every object level. Existing `ProcurementOriginalValueInput` alone does not enforce that allowlist; this is an explicit proposed keyed-path validation addition. Header/line names use the existing camelCase fields in §12; Submit input is exactly `{version}`. No client-supplied status, ownership, branch, department, catalogPublishedVersion, counters or audit fields. Preserve existing interpretation of optional line `id` (Create does not assign the supplied ID; Update uses it to identify an existing line); include the supplied nullable ID in the intent so changed body never silently matches.
+
+Normalise purpose/description/unit using the existing Trim semantics; other optional text via existing Clean; category/purchaseType via `ProcurementPolicyCode.NormalizeOptional`, before any catalog-derived classification. UUIDs use D form, dates `yyyy-MM-dd`, decimals use `ProcurementEvidenceEncoding.Decimal` **as strings**, and nullable discount remains distinct from zero. Preserve array order, optional IDs and nulls. Missing/explicit null members are equivalent where the existing DTO has that same meaning. Catalog published version/classification, generated IDs/timestamps/numbers, policy assessment and computed totals are server-derived original-result evidence, not invented caller inputs. No current reference query participates in the fingerprint.
+
+Proposed keyed-only transport bounds: 256 KiB UTF8 input, existing 1–100 lines and existing field/decimal constraints, 1 MiB UTF8 original result. Reject oversized input before mutation; if the serialized original result exceeds its bound, roll back the entire still-uncommitted command rather than commit without a receipt. GET has the matching bounded envelope allowance. Do not silently truncate notes, results or fingerprints. Add boundary tests and review the new bounds against actual supported draft sizes before implementation sign-off.
+
+### Definition of Ready and remaining evidence
+
+**Definition of Ready is not yet declared met.** The eight design choices are now concrete for review; remaining gates are:
+
+1. Independent review of the exact request normalisation/DTO/headers, scope pins, serializable adapter and endpoint-filter integration; validate compatibility and the bounded-input sizing against actual callers. No production guards are changed by this draft.
+2. Assign centrally ordered successor migration, exact generated constraints/readiness capture and real finite-role grants after accepted P25; no model/migration/API exists for this proposal today. Historical receipt retention/legal hold, support owner, practical timeout/retention targets and independent reviewer still need an accountable owner.
+3. Specify the support reconciliation procedure for a retained locator whose server rejected before writing but has no durable completed receipt. Do not require business spend approval for ordinary CRUD, or replace this technical recovery gap with a fabricated Finance dependency. A later pre-write-release contract is a separate reviewed enhancement, not assumed here.
+4. Implement and execute §26 against genuine PostgreSQL, finite-role HTTP and actual lost-response browser transport. Pin actual source/artifact/schema/proof provenance; preserve failures. Existing CRUD, Open/Decide/P25 tests, source documentation and owner-only probes are not this feature's acceptance.
+5. Record corporate-standard adoption and release approvals honestly. This draft records engineering proposals, not management sign-off, DoR completion, implementation, activation or whole-module readiness.
