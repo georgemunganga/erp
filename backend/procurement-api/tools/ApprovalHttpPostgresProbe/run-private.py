@@ -30,14 +30,14 @@ def quote_identifier(value):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--mode', choices=['receiving', 'matching', 'rfq'], required=True)
+    p.add_argument('--mode', choices=['receiving', 'matching', 'rfq', 'unit-reviews'], required=True)
     p.add_argument('--publication', type=Path, required=True, help='Complete already compiled/published tool, no individual DLL overlays')
     p.add_argument('--runtime-image', required=True, help='Existing immutable local .NET10 ASP.NET runtime sha256 ID')
     p.add_argument('--output', type=Path, required=True, help='New private evidence directory; never reused')
     p.add_argument('--browser', action='store_true', help='Foreground --serve over private Unix socket; only receiving/rfq')
     a = p.parse_args()
     if a.browser and a.mode not in ('receiving', 'rfq'):
-        p.error('Browser transport supports only receiving or rfq; matching CLI unchanged')
+        p.error('Browser transport supports only receiving or rfq; matching and unit-reviews are standalone CLI modes')
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', a.runtime_image):
         p.error('Require preexisting immutable local runtime image ID; no image pull')
     required = ['ApprovalHttpPostgresProbe.dll', 'ApprovalHttpPostgresProbe.deps.json',
@@ -82,7 +82,7 @@ def main():
         raise RuntimeError('Invalid private port')
     docker('image', 'inspect', a.runtime_image)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S') + '_' + secrets.token_hex(3)
-    mode = {'receiving': 'recv', 'matching': 'match', 'rfq': 'rfq'}[a.mode]
+    mode = {'receiving': 'recv', 'matching': 'match', 'rfq': 'rfq', 'unit-reviews': 'urev'}[a.mode]
     database = 'proc_approval_http_can_' + mode + '_' + stamp
     role = 'proc_approval_runtime_can_' + mode + '_' + stamp
     if max(len(database), len(role)) > 63:

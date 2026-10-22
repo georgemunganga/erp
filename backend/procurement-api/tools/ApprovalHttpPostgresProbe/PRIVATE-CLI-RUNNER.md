@@ -29,6 +29,26 @@ Receiving proves its supported positive goods/service workflow only after actual
 
 Python syntax/`--help` are the only completed checks for this runner. No PostgreSQL provisioning, SDK, actual HTTP or browser invocation was performed during authoring. No runtime PASS or production activation follows from this document.
 
+## Original invoice-unit review CLI mode
+
+The same runner accepts `--mode unit-reviews`. It invokes the existing
+`ApprovalHttpPostgresProbe.dll --unit-reviews` entrypoint with a fresh
+`proc_approval_http_can_urev_*` database and distinct finite runtime login.
+All existing publication, private-container, no-network, credential-file,
+hash and terminal-result checks remain in effect. No other workflow or
+transport is introduced. `--browser` is explicitly rejected for this mode;
+there is no original-unit review browser-fixture contract yet.
+
+Use this mode only after genuine P23 SQL has been applied to an isolated
+database, its exact PostgreSQL constraint definitions have been captured and
+reviewed into the owning readiness manifest, and a complete source-bound
+publication has passed its gates. An empty readiness manifest remains
+unavailable; the runner does not fill it, substitute readiness, or change
+production configuration. The probe's synthetic pre-scanned documents do
+not certify real upload/ClamD operation. Original-unit review does not
+establish Finance historical exposure, matching qualification, AP posting or
+payment authority. This addition is source-only until its actual run passes.
+
 ## Optional actual-browser Unix fixture (source candidate)
 
 Use the same runner with `--mode receiving --browser` or `--mode rfq --browser`, a whole immutable publication and a **new** protected output directory. No host networking, port publication, Docker socket mount, source/restored database or production configuration is supported. Matching CLI remains unchanged; matching browser is deliberately not added here.
