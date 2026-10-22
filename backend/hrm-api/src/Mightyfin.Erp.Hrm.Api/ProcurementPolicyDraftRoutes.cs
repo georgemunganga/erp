@@ -279,10 +279,21 @@ public static partial class ProcurementPolicyDraftRoutes
             && !db.Suppliers.Any(r => r.StatusPolicyVersionId == x.Id)
             && !db.SupplierDecisions.Any(r => r.PolicyVersionId == x.Id)
             && !db.SourcingEvents.Any(r => r.PolicyVersionId == x.Id)
-            && !db.InvoiceMatchResults.Any(r => r.PolicyVersionId == x.Id));
+            && !db.InvoiceMatchResults.Any(r => r.PolicyVersionId == x.Id)
+            && !db.ApprovalSubmissions.Any(r => r.PolicyVersionId == x.Id)
+            && !db.OrderSubmissions.Any(r => r.PolicyVersionId == x.Id)
+            && !db.ReceivingSourceStates.Any(r => r.ClassificationPolicyVersionId == x.Id)
+            && !db.GoodsReceiptLines.Any(r => r.PhysicalPolicyVersionId == x.Id)
+            && !db.ReceiptInspections.Any(r => r.PolicyVersionId == x.Id)
+            && !db.ServiceAcceptances.Any(r => r.PolicyVersionId == x.Id)
+            && !db.ReceivingAcceptanceEffects.Any(r => r.ReceivingPolicyVersionId == x.Id)
+            // Created identity is retained authorship, not downstream use. Any later
+            // or unknown stage is review history and prevents draft retirement.
+            && !db.OperationalPolicyIdentityRecords.Any(r => r.PolicyVersionId == x.Id && r.Stage != "Created")
+            && !db.SourcingPolicyIdentityEvidenceRecords.Any(r => r.PolicyVersionId == x.Id && r.Stage != "Created"));
 
     private static async Task<IResult> Retire(Guid id, DraftRetirement input,
-        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+        ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
         IDbContextTransaction? transaction = null;
         try
@@ -291,6 +302,17 @@ public static partial class ProcurementPolicyDraftRoutes
                 transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
             if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+            if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING")
+                && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
+                return Problem("receiving-authority-unavailable", "Your current account cannot configure receiving rules.", 403);
+            if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
+            {
+                await RequireSourcingIdentitySchema(http, db, ct);
+                _ = await SourcingOriginalAuthor(db, organizationDb, scope, policy, ct);
+            }
+            if (IsOperationalIdentityPolicy(policy.PolicyKey))
+                _ = await ProcurementOperationalPolicyWorkerIdentity.RequireAuthorAsync(organizationDb, db, scope, policy,
+                    ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, ct);
             if (policy.Version != input.Version)
                 return Problem("version-conflict", "Refresh this policy before retiring it.", 409);
             if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
