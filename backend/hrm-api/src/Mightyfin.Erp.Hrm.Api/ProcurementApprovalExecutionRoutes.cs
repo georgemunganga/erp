@@ -20,6 +20,7 @@ public static partial class ProcurementApprovalExecutionRoutes
 
     public static void MapRoutes(WebApplication app)
     {
+        MapCommandAcknowledgements(app);
         app.MapPost("/api/procurement/v1/requests/{id:guid}/approval-cases", Open).RequireAuthorization(OpenPermission);
         app.MapGet("/api/procurement/v1/approvals", Queue).RequireAuthorization(ReadPermission);
         app.MapGet("/api/procurement/v1/requests/approval-opening-queue", OpeningQueue).RequireAuthorization(OpenPermission);
