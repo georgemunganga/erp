@@ -12,7 +12,7 @@ internal static partial class PrincipalApprovalHttpVerification
     internal const string PrivateManualPolicyReference="PRIVATE-P25-MANUAL-EVIDENCE-NOT-EXTERNAL-FINANCE";
     private static async Task VerifyPrivateManualApprovalAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,NpgsqlConnection ownerConnection,Dictionary<string,object?> result,
-        Action<string> stage,Func<HttpClient,HttpMethod,string,Guid,object?,HttpStatusCode,Task<JsonElement>> send)
+        Action<string> stage,PrincipalSend send)
     {
         // Separate opt-in phase AFTER the real default-off and Finance-unavailable denials.
         // Only existing manual-evidence configuration is enabled; no Finance owner is substituted.
@@ -87,24 +87,48 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(checker.GetProperty("checkerIdentitySchemaVersion").GetInt32()==2&&checker.GetProperty("checkedByWorkerId").ValueKind==JsonValueKind.Null,
             "Actual checker2 must retain named workerless Core identity.");
         var readiness=await send(client,HttpMethod.Get,path+"/approval-readiness",fixture.Maker,null,HttpStatusCode.OK);
+        result["positiveReadinessBlockers"]=readiness.GetProperty("blockers").EnumerateArray()
+            .Select(x=>x.ValueKind==JsonValueKind.String?x.GetString():null)
+            .Select(x=>x is {Length:>0 and <=100}&&x.All(char.IsAsciiLetterOrDigit)?x:"UnrecognizedSafeBlocker")
+            .Take(32).ToArray();
         Need(readiness.GetProperty("canOpenCase").GetBoolean(),"Actual manual-evidence principal readiness blocked.");
-        // Budget capture advances CAS independently from submitted business identity.
+        // Read the actual current CAS independently from retained submitted business identity.
         var current=await send(client,HttpMethod.Get,path,fixture.Maker,null,HttpStatusCode.OK);
         stage("ActualSubmission3Assignment2Open");
-        var opened=await send(client,HttpMethod.Post,path+"/approval-cases",fixture.Maker,
-            new {expectedRequestVersion=current.GetProperty("version").GetInt64()},HttpStatusCode.Created);
+        var openVersion=current.GetProperty("version").GetInt64();var openKey=Guid.NewGuid();
+        var openBody=new {expectedRequestVersion=openVersion};
+        var opened=await send(client,HttpMethod.Post,path+"/approval-cases",fixture.Maker,openBody,HttpStatusCode.Created,openKey);
         var caseId=opened.GetProperty("caseId").GetGuid();
+        stage("OpenExactReplayConflictAndCurrentGrantDenial");
+        await VerifyExactReplayAndConflictAsync(ownerConnection,client,send,path+"/approval-cases",fixture.Maker,
+            openKey,openBody,new {expectedRequestVersion=checked(openVersion+1)},opened,HttpStatusCode.Created);
+        await VerifyRevokedCurrentGrantReplayAsync(fixture,ownerConnection,client,send,fixture.Maker,"p25_request_maker",
+            "procurement-approval-open",path+"/approval-cases",openKey,openBody);
         var detail=await send(client,HttpMethod.Get,"/api/procurement/v1/approvals/"+caseId,fixture.Approver,null,HttpStatusCode.OK);
         var assignment=detail.GetProperty("stages").EnumerateArray().Single().GetProperty("assignments").EnumerateArray().Single();
         var assignmentId=assignment.GetProperty("id").GetGuid();
         Need(assignment.GetProperty("principalId").GetString()==fixture.Approver.ToString("D")
             &&assignment.GetProperty("allowedActions").EnumerateArray().Any(x=>x.GetString()=="Approve"),"Actual custom-role finite assignee cannot approve.");
         stage("ActualIndependentCoreDecisionAndOutcome");
-        var decided=await send(client,HttpMethod.Post,$"/api/procurement/v1/approvals/{caseId}/assignments/{assignmentId}/decisions",fixture.Approver,new {
+        var decideKey=Guid.NewGuid();var decisionPath=$"/api/procurement/v1/approvals/{caseId}/assignments/{assignmentId}/decisions";
+        var decisionBody=new {
             action="Approve",reason="Private independent named Core review under explicit manual evidence policy",
             expectedCaseVersion=detail.GetProperty("caseVersion").GetInt64(),expectedAssignmentVersion=assignment.GetProperty("version").GetInt64(),
-            expectedRequestVersion=detail.GetProperty("requestVersion").GetInt64()},HttpStatusCode.OK);
+            expectedRequestVersion=detail.GetProperty("requestVersion").GetInt64()};
+        var decided=await send(client,HttpMethod.Post,decisionPath,fixture.Approver,decisionBody,HttpStatusCode.OK,decideKey);
         Need(decided.GetProperty("state").GetString()=="Approved"&&decided.GetProperty("requestState").GetString()=="Approved","Actual independent final approval failed.");
+        stage("DecisionExactReplayConflictAndCurrentGrantDenial");
+        await VerifyExactReplayAndConflictAsync(ownerConnection,client,send,decisionPath,fixture.Approver,decideKey,
+            decisionBody,decisionBody with {reason="Changed body must not recover original command"},decided,HttpStatusCode.OK);
+        await VerifyRevokedCurrentGrantReplayAsync(fixture,ownerConnection,client,send,fixture.Approver,"p25_custom_approver",
+            "procurement-approval-decide",decisionPath,decideKey,decisionBody);
+        result["principalApprovalReplayVerification"]=new {
+            status="PASS_PRIVATE_EXACT_POST_REPLAY_AND_CURRENT_GRANT_DENIAL_ONLY",cases=6,
+            sameKeyBodyOpenResponseExact=true,sameKeyBodyTerminalDecisionResponseExact=true,changedBodiesConflict=true,
+            currentOpenGrantRevocationDenied=true,currentDecisionGrantRevocationDenied=true,
+            fullFootprintUnchangedEachCommand=true,currentCoreGrantsRestoredExactly=true,
+            commandKeys=new {open=openKey,decide=decideKey},getUuidReceiptRecoveryAvailable=false,
+            historicalReadsAreCommandAcknowledgements=false,legacyApprovalExecutionVerified=false,externalFinanceAuthority=false};
 
         stage("IndependentOwnedGraphReload");
         await using var db=fixture.Procurement();await using var workflow=fixture.Approvals();await using var core=fixture.Core();
