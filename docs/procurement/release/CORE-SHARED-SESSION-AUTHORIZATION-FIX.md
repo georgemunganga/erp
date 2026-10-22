@@ -1,6 +1,6 @@
 # Core-owned authenticated session management authorization
 
-Source-only correction based on `5cb3d614`. No SDK/Node/database/browser jobs, migrations, role grants or deployment performed by this author. The failed private normal-cookie browser attempt03 remains acceptance evidence; nothing in this branch rewrites it.
+Independent source-only Core correction based on published Main `1917405282cbefb773386eeadc930349f478ef0c`. Original source commits `3d6daa3` and `2e358ad` were cherry-picked without importing the `5cb3d614` feature branch. This fix has no P25 approval-execution, receipt, schema, migration or feature-flag dependency. No SDK/Node/database/browser jobs, migrations, role grants or deployment performed by this author. The failed private normal-cookie browser attempt03 against the separate `5cb3d614` candidate remains valid defect evidence; this branch does not rewrite that failure or claim Main runtime verification.
 
 ## Defect and boundary
 
@@ -24,6 +24,6 @@ No new identity fields, record projections, logs or secrets. Cookie Secure/HttpO
 - 6 expired/revoked/inactive actual-session cases across aliases: both actions401 and retained password/revocation unchanged.
 - 1 policy-boundary case: non-HRM caller denied default HRM policy, genuine employee admitted to that policy; actual admin route remains forbidden; exactly four mapped endpoints reference the new shared policy and none has AllowAnonymous.
 
-The default HRM policy probe is explicitly a policy probe, not a substitute for workforce/payroll business-service integration. This fixture does not run the entire Program pipeline, CORS or actual PostgreSQL. Parent must compile/run the focused mapped tests then rerun the real ordinary-cookie logout/revocation browser case and observe the persisted session before claiming runtime completion.
+The default HRM policy probe is explicitly a policy probe, not a substitute for workforce/payroll business-service integration. This fixture does not run the entire Program pipeline, CORS or actual PostgreSQL. Parent must compile/run the focused mapped tests then rerun the real ordinary-cookie logout/revocation browser case and observe the persisted session before claiming runtime completion. Core logout must not wait for the separate P25 Procurement approval release; neither workflow is activated by this fix.
 
 Suggested focused filter: `FullyQualifiedName~SharedSessionAuthorizationHttpTests`. No release or test pass is inferred from this authored source.
