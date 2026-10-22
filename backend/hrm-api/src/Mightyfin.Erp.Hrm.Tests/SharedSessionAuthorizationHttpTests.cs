@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
+using Mightyfin.Erp.Hrm.Application.Integration;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
@@ -153,6 +154,10 @@ public sealed class SharedSessionAuthorizationHttpTests
             builder.Services.AddScoped<ITenantAccessor>(_=>new FixedTenantAccessor("session-tests"));var store="shared-session-"+Guid.NewGuid().ToString("N");builder.Services.AddDbContext<HrmDbContext>(options=>options.UseInMemoryDatabase(store));
             builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme).AddScheme<LocalAuthOptions,LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme,_=>{});
             builder.Services.AddAuthorization(options=>{options.DefaultPolicy=new AuthorizationPolicyBuilder().RequireAuthenticatedUser().RequireAssertion(context=>HrmStaffAccess.IsStaff(context.User.Claims)).Build();options.AddPolicy("hrm-admin",policy=>policy.RequireAuthenticatedUser().RequireAssertion(context=>WorkerPrincipal.FromClaims(context.User.Claims).IsRole("hr_admin","erp_admin")));SharedSessionAuthorization.AddPolicy(options);});
+            // Map() includes the unrelated admin-create route. RequestDelegateFactory
+            // must recognize its service parameter; these tests never provision identity.
+            // Factory fails loudly if a test accidentally crosses that boundary.
+            builder.Services.AddScoped<IIdentityProvisioningService>(_=>throw new InvalidOperationException("Session-only fixture must not provision or administer identity."));
             builder.Services.AddScoped<IOutboxWriter,UnusedOutbox>();builder.Services.AddRateLimiter(options=>options.AddFixedWindowLimiter("password-reset-request",limit=>{limit.PermitLimit=5;limit.Window=TimeSpan.FromMinutes(1);}));
             var app=builder.Build();app.UseRouting();app.UseAuthentication();app.UseAuthorization();app.UseMiddleware<TimesheetAccessMiddleware>();app.UseRateLimiter();LocalIdentityRoutes.Map(app);
             // Explicit default-policy probe, not an HRM feature/service integration stub.
