@@ -125,11 +125,11 @@ sealed partial class Probe
         await VerifyUnitReviewInsertProvenance(mapper.Principal, mapper.Worker);
     }
 
-    private async Task PublishUnitReviewPolicy()
+    private async Task PublishUnitReviewPolicy(Guid? reviewer = null)
     {
         var from = DateTimeOffset.UtcNow.AddSeconds(10);
         var rules = JsonSerializer.Serialize(new { schemaVersion = 1, transactionType = "InvoiceUnitReview", stages = new[] {
-            new { code = "ORIGINAL_UNITS", mode = "All", principals = new[] { OrderManager2.ToString("D") } } } });
+            new { code = "ORIGINAL_UNITS", mode = "All", principals = new[] { (reviewer ?? OrderManager2).ToString("D") } } } });
         var created = await Send(HttpMethod.Post, Root + "/configuration/policies", OrderBuyer, new { policyKey = "INVOICE_UNIT_REVIEW", effectiveFrom = from, rulesJson = rules });
         await Check(created, HttpStatusCode.Created); var row = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = row.GetProperty("id").GetGuid();
         var submitted = await Send(HttpMethod.Post, $"{Root}/configuration/policies/{id}/submit-review", OrderBuyer, new { version = row.GetProperty("version").GetInt64(), reason = "Explicit named original-unit reviewer" });

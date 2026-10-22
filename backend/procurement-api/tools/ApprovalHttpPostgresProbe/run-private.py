@@ -34,10 +34,10 @@ def main():
     p.add_argument('--publication', type=Path, required=True, help='Complete already compiled/published tool, no individual DLL overlays')
     p.add_argument('--runtime-image', required=True, help='Existing immutable local .NET10 ASP.NET runtime sha256 ID')
     p.add_argument('--output', type=Path, required=True, help='New private evidence directory; never reused')
-    p.add_argument('--browser', action='store_true', help='Foreground --serve over private Unix socket; only receiving/rfq')
+    p.add_argument('--browser', action='store_true', help='Foreground --serve over private Unix socket; only receiving/rfq/unit-reviews')
     a = p.parse_args()
-    if a.browser and a.mode not in ('receiving', 'rfq'):
-        p.error('Browser transport supports only receiving or rfq; matching and unit-reviews are standalone CLI modes')
+    if a.browser and a.mode not in ('receiving', 'rfq', 'unit-reviews'):
+        p.error('Browser transport supports only receiving, rfq or unit-reviews; serve-matching remains forbidden')
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', a.runtime_image):
         p.error('Require preexisting immutable local runtime image ID; no image pull')
     required = ['ApprovalHttpPostgresProbe.dll', 'ApprovalHttpPostgresProbe.deps.json',
@@ -115,7 +115,7 @@ def main():
     if a.browser:
         with env_file.open('a') as env:
             env.write('PROCUREMENT_APPROVAL_HTTP_PROBE_SOCKET=/procurement-browser/probe.sock\nPROCUREMENT_APPROVAL_HTTP_PROBE_MANIFEST=/procurement-browser/fixture.json\n')
-            env.write(('PROCUREMENT_RECEIVING_BROWSER_VERIFY_ON_STOP' if a.mode == 'receiving' else 'PROCUREMENT_RFQ_BROWSER_VERIFY_ON_STOP') + '=1\n')
+            env.write(('PROCUREMENT_UNIT_REVIEW_BROWSER_VERIFY_ON_STOP' if a.mode == 'unit-reviews' else 'PROCUREMENT_RECEIVING_BROWSER_VERIFY_ON_STOP' if a.mode == 'receiving' else 'PROCUREMENT_RFQ_BROWSER_VERIFY_ON_STOP') + '=1\n')
     # No real source/restored/production connection or credentials are accepted as inputs.
     manifest = {'database': database, 'runtimeRole': role, 'mode': '--' + a.mode,
         'privateContainer': PRIVATE_PG, 'runtimeImage': a.runtime_image, 'networkMode': 'none',
