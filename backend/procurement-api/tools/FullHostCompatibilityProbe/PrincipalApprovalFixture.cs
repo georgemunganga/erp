@@ -35,7 +35,10 @@ internal sealed class PrincipalApprovalFixture(string owner)
     {
         await using(var c=new NpgsqlConnection(owner))
         {
-            await c.OpenAsync();await using var q=new NpgsqlCommand("SELECT NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p'))",c);
+            await c.OpenAsync();
+            await using(var identity=new NpgsqlCommand("SELECT system_identifier::text='7698678713374847009' AND current_setting('server_version_num')::integer BETWEEN 170000 AND 179999 AND current_setting('listen_addresses')='' FROM pg_control_system()",c))
+                PrincipalApprovalHttpVerification.Need(await identity.ExecuteScalarAsync() is true,"Exact private PostgreSQL17 cluster and no TCP required before migrations or role DDL.");
+            await using var q=new NpgsqlCommand("SELECT NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p'))",c);
             PrincipalApprovalHttpVerification.Need(await q.ExecuteScalarAsync() is true,"Fresh existing empty database required; no reset/resume.");
         }
         await using(var core=Core())
