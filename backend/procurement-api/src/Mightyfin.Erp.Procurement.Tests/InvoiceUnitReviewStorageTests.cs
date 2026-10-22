@@ -42,6 +42,28 @@ public sealed class InvoiceUnitReviewStorageTests
         else Assert.Throws<InvalidOperationException>(() => InvoiceUnitReviewStorage.Restore(row, pins, plan.Case));
     }
     [Fact]
+    public void Rehashed_source_and_same_Core_graph_cannot_replace_actual_published_policy_projection()
+    {
+        var f = new InvoiceUnitReviewTransitionTests.Fixture(); var original = f.Open();
+        var stages = original.Source.ReviewPolicy.Stages.Select((stage, at) => at == 0 ? stage with { Code = "COHERENT_TAMPER" } : stage).ToArray();
+        var source = original.Source with { ReviewPolicy = original.Source.ReviewPolicy with { Stages = stages } };
+        original.Case.Stages.First(x => x.Sequence == 1).Code = "COHERENT_TAMPER";
+        var json = JsonSerializer.Serialize(source);
+        var altered = original with { Source = source, SourceJson = json, SourceSha256 = ProcurementEvidenceEncoding.Digest(json) };
+        var row = InvoiceUnitReviewStorage.Source(altered, f.Issued);
+        var pins = altered.AssignmentWorkers.Select(x => new InvoiceUnitReviewAssignmentEvidence { TenantId = row.TenantId, LegalEntityId = row.LegalEntityId,
+            ReviewSourceId = row.Id, CoreCaseId = row.CoreCaseId, CoreAssignmentId = x.AssignmentId, PrincipalId = x.PrincipalId, WorkerId = x.WorkerId }).ToArray();
+        var rebound = InvoiceUnitReviewStorage.Restore(row, pins, altered.Case); // hash + graph alone deliberately agree
+        Assert.Throws<InvalidOperationException>(() => InvoiceUnitReviewTransitions.ValidateOwnedEvidence(rebound, f.Invoice, [f.Line], f.Mapping,
+            f.Issued, f.Matching, f.Policy.Policy, f.Hashes, f.Policy.Now));
+        var second = new InvoiceUnitReviewTransitionTests.Fixture(); var valid = second.Open();
+        InvoiceUnitReviewTransitions.ValidateOwnedEvidence(valid, second.Invoice, [second.Line], second.Mapping,
+            second.Issued, second.Matching, second.Policy.Policy, second.Hashes, second.Policy.Now);
+        second.Matching.State = "Draft";
+        Assert.Throws<InvalidOperationException>(() => InvoiceUnitReviewTransitions.ValidateOwnedEvidence(valid, second.Invoice, [second.Line], second.Mapping,
+            second.Issued, second.Matching, second.Policy.Policy, second.Hashes, second.Policy.Now));
+    }
+    [Fact]
     public void Model_uses_literal_text_stable_scoped_keys_and_append_only_evidence_shapes()
     {
         using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseNpgsql("Host=invalid;Database=design_only;Username=invalid").Options, new Scope());

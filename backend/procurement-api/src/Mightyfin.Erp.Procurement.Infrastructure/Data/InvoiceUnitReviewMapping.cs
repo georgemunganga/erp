@@ -91,8 +91,14 @@ public sealed partial class ProcurementDbContext
             InvoiceUnitReviewTransitions.VerifyIssuedEvidence(projected, mapping, invoice, originals, source.OpenedAt, typed.IssuedEvidenceSha256);
             var pins = added.Select(x => x.Entity).OfType<InvoiceUnitReviewAssignmentEvidence>().Where(x => x.ReviewSourceId == source.Id).ToArray();
             var workflow = core.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments).Single(x => x.Id == source.CoreCaseId);
-            _ = InvoiceUnitReviewStorage.Restore(source, pins, workflow);
-            if (workflow.State != "Pending" || core.Decisions.Any(x => x.CaseId == workflow.Id) || typed.ReviewPolicy.Stages.Sum(x => x.Assignees.Count) != pins.Length)
+            var owned = InvoiceUnitReviewStorage.Restore(source, pins, workflow);
+            var matchingPolicy = PolicyVersions.Single(x => x.Id == source.MatchingPolicyId);
+            var reviewPolicy = PolicyVersions.Single(x => x.Id == source.ReviewPolicyId);
+            InvoiceUnitReviewTransitions.ValidateOwnedEvidence(owned, invoice, originals, mapping, projected,
+                matchingPolicy, reviewPolicy, typed.Lines.GroupBy(x => x.DocumentVersionId).ToDictionary(x => x.Key, x => x.First().DocumentSha256), source.OpenedAt);
+            VerifyUnitReviewPolicyIdentity(matchingPolicy);
+            VerifyUnitReviewPolicyIdentity(reviewPolicy);
+            if (!UnitReviewInsertedInCurrentTransaction("cases", workflow.Id) || workflow.State != "Pending" || core.Decisions.Any(x => x.CaseId == workflow.Id) || typed.ReviewPolicy.Stages.Sum(x => x.Assignees.Count) != pins.Length)
                 throw new InvalidOperationException("InvoiceUnitReviewOpeningCaseRequired");
         }
         foreach (var source in added.Select(x => x.Entity).OfType<InvoiceUnitReviewSource>())
@@ -127,15 +133,41 @@ public sealed partial class ProcurementDbContext
             if (receipt.ActorPrincipalId != scope.SubjectId || receipt.ActorWorkerId != worker || receipt.CommandKey == Guid.Empty || receipt.CompletedAt < source.OpenedAt
                 || receipt.Fingerprint != ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.RequestJson))
                 throw new InvalidOperationException("InvoiceUnitReviewReceiptBindingRequired");
-            _ = ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.ResponseJson);
-            using var response = JsonDocument.Parse(receipt.ResponseJson);
-            if (response.RootElement.GetProperty("reviewId").GetGuid() != source.Id || response.RootElement.GetProperty("invoiceId").GetGuid() != source.SupplierInvoiceId
-                || response.RootElement.GetProperty("commandKey").GetGuid() != receipt.CommandKey || response.RootElement.GetProperty("canPostToFinance").GetBoolean())
-                throw new InvalidOperationException("InvoiceUnitReviewReceiptResponseRequired");
+            var workflow = core.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments).Single(x => x.Id == source.CoreCaseId);
+            var invoice = SupplierInvoices.Single(x => x.Id == source.SupplierInvoiceId);
+            var pins = added.Select(x => x.Entity).OfType<InvoiceUnitReviewAssignmentEvidence>().Where(x => x.ReviewSourceId == source.Id).ToArray();
+            if (pins.Length == 0) pins = InvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == source.Id).ToArray();
+            var decision = receipt.Operation == "Decision" ? core.Decisions.Single(x => x.CaseId == source.CoreCaseId && x.IdempotencyKey == receipt.CommandKey.ToString("D")) : null;
+            var outcome = added.Select(x => x.Entity).OfType<InvoiceUnitReviewOutcome>().SingleOrDefault(x => x.ReviewSourceId == source.Id);
+            InvoiceUnitReviewCommands.Verify(receipt, source, invoice, workflow, pins, decision, outcome);
             if (receipt.Operation == "Open" && !added.Any(x => x.Entity is InvoiceUnitReviewSource row && row.Id == source.Id)
-                || receipt.Operation == "Decision" && !core.Decisions.Any(x => x.CaseId == source.CoreCaseId && x.ActorSubjectId == scope.SubjectId && x.IdempotencyKey == receipt.CommandKey.ToString("D")))
+                || decision is not null && !UnitReviewInsertedInCurrentTransaction("decisions", decision.Id))
                 throw new InvalidOperationException("InvoiceUnitReviewReceiptEffectRequired");
         }
+        foreach (var outcome in added.Select(x => x.Entity).OfType<InvoiceUnitReviewOutcome>())
+        {
+            var final = core.Decisions.Single(x => x.Id == outcome.FinalDecisionId);
+            if (added.Count(x => x.Entity is InvoiceUnitReviewCommandReceipt row && row.Operation == "Decision"
+                && row.ReviewSourceId == outcome.ReviewSourceId && row.CommandKey.ToString("D") == final.IdempotencyKey
+                && row.ActorPrincipalId == outcome.ReviewerPrincipalId && row.ActorWorkerId == outcome.ReviewerWorkerId) != 1)
+                throw new InvalidOperationException("InvoiceUnitReviewTerminalReceiptRequired");
+        }
+    }
+    private bool UnitReviewInsertedInCurrentTransaction(string table, Guid id)
+    {
+        if (table is not ("cases" or "decisions")) throw new InvalidOperationException("InvoiceUnitReviewCoreTableInvalid");
+        using var command = Database.GetDbConnection().CreateCommand();
+        command.Transaction = Database.CurrentTransaction!.GetDbTransaction();
+        command.CommandText = "SELECT EXISTS(SELECT 1 FROM core_approval." + table + " WHERE id=@id AND xmin::text::bigint=(txid_current()%4294967296))";
+        var parameter = command.CreateParameter(); parameter.ParameterName = "id"; parameter.DbType = System.Data.DbType.Guid; parameter.Value = id; command.Parameters.Add(parameter);
+        return command.ExecuteScalar() is true;
+    }
+    private void VerifyUnitReviewPolicyIdentity(PolicyVersion policy)
+    {
+        var created = OperationalPolicyIdentityStorage.Read(OperationalPolicyIdentityRecords.Single(x => x.PolicyVersionId == policy.Id && x.Stage == "Created"));
+        var published = OperationalPolicyIdentityStorage.Read(OperationalPolicyIdentityRecords.Single(x => x.PolicyVersionId == policy.Id && x.Stage == "Published"));
+        var submitted = OperationalPolicyIdentityStorage.Read(OperationalPolicyIdentityRecords.Single(x => x.Id == published.SubmittedEvidenceId));
+        OperationalPolicyWorkerIdentity.VerifyPublication(policy, created, submitted, published);
     }
     private sealed record UnitReviewApprovalScope(string TenantId, Guid LegalEntityId, string SubjectId) : IApprovalScope;
 }

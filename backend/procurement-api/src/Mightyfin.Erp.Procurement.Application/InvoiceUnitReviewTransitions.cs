@@ -95,7 +95,7 @@ public static class InvoiceUnitReviewTransitions
     }
 
     // Shared by new decisions and terminal sealing; never authenticates a public caller.
-    internal static void ValidateOwnedEvidence(OpeningPlan owned, SupplierInvoice invoice,
+    public static void ValidateOwnedEvidence(OpeningPlan owned, SupplierInvoice invoice,
         IReadOnlyList<SupplierInvoiceLine> originalLines, InvoiceMatchMappingVersion mapping, InvoiceIssuedOrder issued,
         PolicyVersion matchingPolicy, PolicyVersion reviewPolicy, IReadOnlyDictionary<Guid, string> ownedDocumentHashes, DateTimeOffset at)
     {

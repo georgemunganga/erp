@@ -20,15 +20,30 @@ public static class InvoiceUnitReviewPolicyRules
         Guid LegalEntityId, Guid? BranchId, string MakerPrincipalId, Guid MakerWorkerId,
         IReadOnlyList<ProjectedStage> Stages);
 
-    public static Document Parse(string json)
+    public static Document Parse(string json) => ParseMode(json, false);
+    public static Document ParseDraft(string json) => ParseMode(json, true);
+    public static IReadOnlyList<string> Validate(string json, bool draft = false)
     {
-        try { return ParseCore(json); }
+        try { _ = ParseMode(json, draft); return Array.Empty<string>(); }
+        catch (InvalidOperationException) { return new[] { draft ? "InvoiceUnitReviewDraftInvalid" : "InvoiceUnitReviewNamedStagesRequired" }; }
+    }
+    public static bool IsDocument(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || json.Length > 65536) return false;
+        try { using var value = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 16 });
+            return value.RootElement.ValueKind == JsonValueKind.Object && value.RootElement.TryGetProperty("transactionType", out var type)
+                && type.ValueKind == JsonValueKind.String && type.GetString() == "InvoiceUnitReview"; }
+        catch (JsonException) { return false; }
+    }
+    private static Document ParseMode(string json, bool draft)
+    {
+        try { return ParseCore(json, draft); }
         catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException
             or FormatException or OverflowException or KeyNotFoundException)
         { throw new InvalidOperationException("InvoiceUnitReviewPolicyUnavailable", error); }
     }
 
-    private static Document ParseCore(string json)
+    private static Document ParseCore(string json, bool draft)
     {
         Need(!string.IsNullOrWhiteSpace(json) && json.Length <= 65536 && Encoding.UTF8.GetByteCount(json) <= 65536);
         using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 16 });
@@ -37,7 +52,7 @@ public static class InvoiceUnitReviewPolicyRules
         var root = document.RootElement; Only(root, "schemaVersion", "transactionType", "stages");
         Need(root.GetProperty("schemaVersion").GetInt32() == 1
             && root.GetProperty("transactionType").GetString() == "InvoiceUnitReview");
-        var rows = root.GetProperty("stages"); Need(rows.ValueKind == JsonValueKind.Array && rows.GetArrayLength() is > 0 and <= 16);
+        var rows = root.GetProperty("stages"); Need(rows.ValueKind == JsonValueKind.Array && rows.GetArrayLength() <= 16 && (draft || rows.GetArrayLength() > 0));
         var stages = new List<Stage>(); var total = 0;
         foreach (var row in rows.EnumerateArray())
         {
@@ -46,7 +61,7 @@ public static class InvoiceUnitReviewPolicyRules
             Need(code is { Length: > 0 and <= 40 } && code[0] is >= 'A' and <= 'Z'
                 && code.All(c => c is >= 'A' and <= 'Z' or >= '0' and <= '9' or '_') && mode is "One" or "All");
             var members = row.GetProperty("principals");
-            Need(members.ValueKind == JsonValueKind.Array && members.GetArrayLength() is > 0 and <= 32);
+            Need(members.ValueKind == JsonValueKind.Array && members.GetArrayLength() <= 32 && (draft || members.GetArrayLength() > 0));
             var principals = members.EnumerateArray().Select(x => x.GetString()!).ToArray();
             Need(principals.All(Canonical) && principals.Distinct(StringComparer.Ordinal).Count() == principals.Length);
             total = checked(total + principals.Length); Need(total <= 128);
