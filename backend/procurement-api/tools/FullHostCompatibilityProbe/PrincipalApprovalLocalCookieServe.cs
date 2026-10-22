@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using Mightyfin.Erp.Procurement.Application;
 
 internal static partial class PrincipalApprovalHttpVerification
 {
@@ -60,8 +61,10 @@ internal static partial class PrincipalApprovalHttpVerification
             var subjects=fixture.Subjects;
             var users=await core.LocalUsers.AsNoTracking().Where(x=>x.TenantId==PrincipalApprovalFixture.Tenant&&subjects.Contains(x.Id)).ToArrayAsync(cancellationToken);
             Need(users.Length==6&&users.All(x=>x.IsActive&&!x.IsArchived&&x.WorkerId is null
-                &&x.PasswordHash=="private-no-real-login"&&x.LockedUntil is null&&x.FailedLoginCount==0&&!x.MustChangePassword),
-                "Only six original synthetic workerless accounts with unused fixture credentials may be prepared.");
+                &&x.PasswordHash=="private-no-real-login"&&x.LockedUntil is null&&x.FailedLoginCount==0
+                &&x.MustChangePassword&&x.PasswordChangedAt is null&&x.LastLoginAt is null),
+                "Only six original synthetic workerless default accounts with unused placeholder credentials may be activated.");
+            var activatedAt=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
             foreach(var user in users.OrderBy(x=>x.Id))
             {
                 // Exact currently owned LocalPasswordHash format; its internal class
@@ -71,13 +74,18 @@ internal static partial class PrincipalApprovalHttpVerification
                 var key=Rfc2898DeriveBytes.Pbkdf2(password,salt,210_000,HashAlgorithmName.SHA256,32);
                 var encoded="pbkdf2-sha256$210000$"+Convert.ToBase64String(salt)+"$"+Convert.ToBase64String(key);
                 Need(await core.LocalUsers.Where(x=>x.TenantId==PrincipalApprovalFixture.Tenant&&x.Id==user.Id
-                    &&x.PasswordHash=="private-no-real-login"&&x.IsActive&&!x.IsArchived&&x.WorkerId==null)
-                    .ExecuteUpdateAsync(set=>set.SetProperty(x=>x.PasswordHash,encoded),cancellationToken)==1,
-                    "Exact new synthetic credential preparation failed; retain fixture without retry or overwrite.");
+                    &&x.PasswordHash=="private-no-real-login"&&x.IsActive&&!x.IsArchived&&x.WorkerId==null
+                    &&x.LockedUntil==null&&x.FailedLoginCount==0&&x.MustChangePassword
+                    &&x.PasswordChangedAt==null&&x.LastLoginAt==null)
+                    .ExecuteUpdateAsync(set=>set.SetProperty(x=>x.PasswordHash,encoded)
+                        .SetProperty(x=>x.MustChangePassword,false)
+                        .SetProperty(x=>x.PasswordChangedAt,(DateTimeOffset?)activatedAt),cancellationToken)==1,
+                    "Exact new synthetic credential activation failed; retain fixture without retry or overwrite.");
                 credentials.Add(new(user.Id,user.Email,password));
             }
         }
         result["normalLocalCookieControlPlane"]=new {status="PREPARING_NOT_BROWSER_ACCEPTANCE",syntheticCredentialsSeeded=credentials.Count,
+            syntheticAccountsActivated=credentials.Count,syntheticActivationMode="EXACT_NEW_PLACEHOLDER_CAS_ONLY",
             nativeIdentityProviderVerified=false,localCookieLoginVerified=false,browserAcceptanceVerified=false,productionTouched=false};
         // Separate factory: the completed API setup above used private test auth.
         // Program still owns all normal local authentication/session endpoints.
@@ -115,6 +123,8 @@ internal static partial class PrincipalApprovalHttpVerification
             makerPrincipalId=fixture.Maker,checkerPrincipalId=fixture.Checker,approverPrincipalId=fixture.Approver,
             configurationMakerPrincipalId=fixture.ConfigMaker,configurationReviewerPrincipalId=fixture.ConfigReviewer,
             ungrantedPrincipalId=fixture.Ungranted,syntheticCredentials=credentials,challenge,
+            syntheticAccountsActivated=6,syntheticActivationMode="EXACT_NEW_PLACEHOLDER_CAS_ONLY",
+            mustChangePasswordFrom=true,mustChangePasswordTo=false,passwordChangedAtNormalisedUtc=true,
             completionPath=LocalCookieCompletionPath,expiresAt=deadline,
             secureCookieRequiresHttpsProxy=true,apiSetupAuthentication="PRIVATE_SUBJECT_TEST_AUTH_ONLY",
             browserAuthenticationRequired="NORMAL_LOCAL_PASSWORD_AND_SESSION_COOKIE",
@@ -125,6 +135,7 @@ internal static partial class PrincipalApprovalHttpVerification
             await JsonSerializer.SerializeAsync(stream,manifest,new JsonSerializerOptions(JsonSerializerDefaults.Web),cancellationToken);
         Need(File.GetUnixFileMode(LocalCookieManifestPath)==(UnixFileMode.UserRead|UnixFileMode.UserWrite),"Synthetic credentials manifest must be0600.");
         result["normalLocalCookieControlPlane"]=new {status="LISTENING_CONTROL_PLANE_ONLY",syntheticCredentialsSeeded=6,
+            syntheticAccountsActivated=6,syntheticActivationMode="EXACT_NEW_PLACEHOLDER_CAS_ONLY",
             realLocalSchemeSelected=true,privateSubjectHandlerAbsent=true,privateSubjectHeaderRejected401=true,controlPlaneHttpRequests=1,
             loopbackEphemeralListener=true,privateManualEvidenceOnly=true,localCookieLoginVerified=false,
             browserAcceptanceVerified=false,ownerCompletionVerified=false,nativeIdentityProviderVerified=false,externalFinanceAuthority=false,productionTouched=false};
@@ -150,6 +161,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 "Exact challenged lifecycle completion required; file does not establish browser test acceptance.");
         }
         result["normalLocalCookieControlPlane"]=new {status="CONTROL_PLANE_COMPLETED_BROWSER_NOT_VERIFIED",syntheticCredentialsSeeded=6,
+            syntheticAccountsActivated=6,syntheticActivationMode="EXACT_NEW_PLACEHOLDER_CAS_ONLY",
             realLocalSchemeSelected=true,privateSubjectHandlerAbsent=true,privateSubjectHeaderRejected401=true,controlPlaneHttpRequests=1,
             loopbackEphemeralListener=true,protectedLifecycleCompletionReceived=true,completionIsAcceptance=false,privateManualEvidenceOnly=true,
             localCookieLoginVerified=false,browserAcceptanceVerified=false,ownerCompletionVerified=false,

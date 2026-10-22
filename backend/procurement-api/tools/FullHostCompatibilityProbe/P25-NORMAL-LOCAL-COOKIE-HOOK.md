@@ -55,12 +55,21 @@ HTTP call, not a completed local-cookie login/browser journey.
 
 Only the original SIX synthetic workerless accounts can be seeded; each must
 have original placeholder PasswordHash, active/unarchived/unlocked state, no
-failure count/required password change. Each gets independent random>=12char
-password,16byte salt and32byte PBKDF2SHA256 key/210000iterations, exactly the
+failure count or prior login. Source `LocalUser.MustChangePassword` defaults TRUE
+and `PasswordChangedAt` defaults NULL; the fixture constructor leaves both at
+those defaults. These exact fresh-placeholder values are required, not bypassed.
+Each gets independent random>=12char password,16byte salt and32byte PBKDF2SHA256
+key/210000iterations, exactly the
 owned LocalPasswordHash stored format. That class is internal; no production
 hash API is exposed or replaced. Later REAL /api/hrm/auth/login must validate it.
-Only PasswordHash changes by scoped original-value CAS. No real account/role,
-auth claims, employee link or external credential is involved. Partial seed
+One scoped original-value CAS per exact seeded account changes PasswordHash,
+MustChangePassword true→false and PasswordChangedAt null→one shared normalized
+UTC microsecond activation instant. The CAS also requires the exact unchanged
+placeholder hash, active/unarchived account, no worker, no lock/failure count and
+no previous login. No real account/role, shared fixture default, auth claims,
+employee link or external credential is changed. The manifest/result records
+six synthetic activations and `EXACT_NEW_PLACEHOLDER_CAS_ONLY`, but still makes
+no successful normal-login/browser claim. Partial seed
 failure retains fixture; no blind retry/credential overwrite.
 
 Fixed new evidence mount must be0700 `/p25-evidence`. New CreateNew0600 file:
@@ -71,7 +80,7 @@ challenge and expiry/completion path. It contains NO connection strings/role
 passwords. This file IS SENSITIVE; never copy to public results, browser logs,
 storageState/HAR/traces/shared screenshots, user messages or PR attachments.
 Public tool result has counts/controlled flags only, no credentials or cookies.
-Password seeding and later login/session writes are DECLARED fixture/auth setup,
+Password seeding, synthetic activation and later login/session writes are DECLARED fixture/auth setup,
 not a claim that the original workerless acceptance footprint stayed unchanged.
 
 ## Browser transport and bounded lifecycle — not implemented here
@@ -112,3 +121,18 @@ source/outcomes via owner. Auth login/logout/sessionLastSeen create legitimate
 writes. Baseline commands AFTER login, keep per-actor session age<5minutes or
 explicitly establish a new auth baseline; never normalize those writes away.
 External OIDC/MFA, real IdP, ERP Finance/AP/payment owners remain unavailable.
+
+## Source correction: fresh placeholder activation prerequisite
+
+The initial source review missed `Domain/Entities/LocalIdentity.cs:13` defaulting
+MustChangePassword=true (PasswordChangedAt is nullable and unset). The original
+local-cookie helper incorrectly required !MustChangePassword before preparation,
+although PrincipalApprovalFixture's six new accounts do not change that default.
+This correction requires the genuine fresh default state and activates only those
+six synthetic credentials through the same exact-field CAS; it does not weaken
+production login, change roles or make local-cookie login an acceptance claim.
+
+The first running target/failure must remain retained. Do not reset accounts or
+rerun credential preparation there. Root must independently review/recompile and
+use a new bounded private localcookie02 target; this source-only correction has
+not run an SDK build, database mutation or browser test.
