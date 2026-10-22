@@ -13,9 +13,12 @@ internal static class ProcurementFinanceWorkerIndependence
         HrmDbContext core, ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         if (request.TenantId != scope.TenantId || request.LegalEntityId != scope.LegalEntityId
-            || verifierWorker == Guid.Empty || request.RequesterWorkerId == Guid.Empty
+            || verifierWorker == Guid.Empty || request.RequesterWorkerId is null || request.RequesterWorkerId == Guid.Empty
             || verifierWorker == request.RequesterWorkerId)
             throw new InvalidOperationException("FinanceEvidenceVerifierInvalid");
+
+        if (request.RequesterPrincipalId is not null)
+            throw new InvalidOperationException("PrincipalFinanceEvidenceRequired");
 
         if (request.ApprovalInstanceRef is not null)
         {

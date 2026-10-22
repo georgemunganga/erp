@@ -189,7 +189,11 @@ public sealed class CatalogEntry : ProcurementRecord
 public sealed class PurchaseRequest : ProcurementRecord
 {
     public string Number { get; set; } = null!;
-    public Guid RequesterWorkerId { get; set; }
+    // Core account identity owns the request. Null is retained for pre-principal history;
+    // CreatedBy is historical attribution and is never rewritten as a guessed backfill.
+    public Guid? RequesterPrincipalId { get; set; }
+    // Optional genuine HRMS link, never a substitute for the Core principal.
+    public Guid? RequesterWorkerId { get; set; }
     public Guid? DepartmentRef { get; set; }
     public string? CostCenterRef { get; set; }
     public string? ProjectRef { get; set; }

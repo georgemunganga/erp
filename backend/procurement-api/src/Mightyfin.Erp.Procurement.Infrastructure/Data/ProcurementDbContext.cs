@@ -299,6 +299,10 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             b.Property(x => x.ReturnReason).HasMaxLength(1000);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.RequesterWorkerId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.RequesterPrincipalId, x.Status });
+            b.ToTable(t => t.HasCheckConstraint("ck_purchase_request_identity",
+                "(requester_principal_id IS NULL OR requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid) " +
+                "AND (requester_worker_id IS NULL OR requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
             b.HasMany(x => x.Lines).WithOne()
                 .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
@@ -681,6 +685,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         if (string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(scope.SubjectId))
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
+        GuardPurchaseRequestIdentity();
         GuardFinanceCheckerIdentity();
         GuardSpendingAuthorityChanges();
         GuardSpendingAuthorityIdentity();

@@ -46,6 +46,8 @@ public static partial class ProcurementApprovalExecutionRoutes
                 await RequireCheckerSchema(db, http, token);
                 await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, token);
                 var request = await Request(db, scope, id, token);
+                if (request.RequesterPrincipalId is not null || request.RequesterWorkerId is not { } requesterWorker
+                    || requesterWorker == Guid.Empty) throw Conflict("PrincipalApprovalEvidenceRequired");
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 _ = await Actor(core, scope, http, authorization, OpenPermission, token);
                 await RecordScope(core, scope, request, token);
@@ -61,7 +63,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 var makerIdentity = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
                     scope.LegalEntityId, request.CreatedBy, token) ?? throw Conflict("ApprovalMakerIdentityUnavailable");
                 var requesterIdentity = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
-                    scope.LegalEntityId, request.RequesterWorkerId, token) ?? throw Conflict("ApprovalRequesterIdentityUnavailable");
+                    scope.LegalEntityId, requesterWorker, token) ?? throw Conflict("ApprovalRequesterIdentityUnavailable");
                 var approvalCase = new ApprovalCase
                 {
                     TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
