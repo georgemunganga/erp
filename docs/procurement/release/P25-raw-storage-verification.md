@@ -1,8 +1,10 @@
 # P25 raw storage verification integration
 
-Status: **source only; not compiled or executed**. This is a tool-only addition to
-`FullHostCompatibilityProbe`, based on published checkpoint `b871caff`. It changes
-no application logic, model, migration, provider readiness or production flags.
+Status: **private runtime passed at `bc7d589`**: four original-request probes and
+the complete 35-case current-graph suite. See the actual receipt and independent
+review in [the feature acceptance record](PROC-PR-CORE-PRINCIPAL-APPROVAL.md#actual-private-manual-evidence-approval-and-storage-checkpoint).
+This tool changes no model, migration or production flag. Owner-storage evidence
+does not establish authorization, external Finance authority or production readiness.
 
 ## Shared fixture contract
 
@@ -44,7 +46,10 @@ replace its footprint with a constant/pass-through stub.
 
 The complete method contains **35** independently rolled-back faults: 34 actual
 named `23514` CHECK failures across the eight affected constraints and one actual
-`23502` required-column failure. These are proposed counts until execution.
+`23502` required-column failure. All 35 passed in the accepted private runtime;
+the existing NOT NULL checker column is tested with empty text to reach its
+canonical-principal CHECK, while the authority-principal NULL case deliberately
+tests the required-column boundary.
 
 Before each fault, PostgreSQL must accept a scoped no-op UPDATE of exactly one
 real baseline row. An empty UPDATE is a failure. The single mutation then must

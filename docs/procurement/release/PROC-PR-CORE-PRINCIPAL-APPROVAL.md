@@ -1,18 +1,19 @@
 # Core-principal purchase-request approval successor
 
-**Current checkpoint:** genuine P25 migration generation, private migration/recovery checks,
-focused regression and the first finite-role create/submit/unavailable-funding HTTP
-slice have passed; see section 26. The first attempted private positive approval
-graph stopped at readiness after 19 actual HTTP requests. Its existing stores,
-roles and publication bytes were preserved. P25 remains default-off and is not
-deployed. Earlier source-only statements below describe the original checkpoints,
-not the current test coverage.
+**Current checkpoint:** genuine migration/recovery checks, the first finite-role
+HTTP slice, and a private manual-evidence approval graph have passed; see section
+26. The latter passed 31 HTTP requests, six exact replay/current-permission checks
+and 35 raw storage denials, followed by an independent read-only review. The new
+GET command acknowledgement is a subsequent source-only increment with 43 authored,
+unrun mapped cases. P25 remains default-off and is not deployed. Finance/AP and
+payments belong to the future Finance module. No external funding or payment
+authority, real identity-provider acceptance or whole-module completion is claimed.
 
 ## 1. Status and provenance
 
 P25 source integration starts from published ERP main `b6b62cd551ad134879cc47c7ceb32a0570201aed` (accepted P24). The prepared source `d2c75e0` was normally merged on isolated branch `codex/procurement-p25-principal-integration`. Their common ancestor is `dbf5107`; the only incoming commits absent from main are the ten bounded P25 source commits `be32829` through `d2c75e0`. No held ancestors outside that already published common history were imported. The automatic merges retain published P23/P24 fixes, current Core scope, recurring CRUD, and actual document/readiness corrections.
 
-All **141** existing backend migration/designer/snapshot artifacts are byte-identical to that main baseline (43 belong to Procurement). Path-plus-SHA256 inventory digest: `f3e06c1f81f5b45efe63cec0481151c97cd7803a976e4adbbe83d4bb0fbc3152`. P25 changes the source model only and cannot be deployed until a genuine successor migration is generated and accepted. No SDK, database, migration generation or browser jobs have run for P25. Earlier P23/P24 acceptance does not verify this source.
+At the initial source-only checkpoint, all **141** existing backend migration/designer/snapshot artifacts were byte-identical to that main baseline (43 belonged to Procurement). Path-plus-SHA256 inventory digest: `f3e06c1f81f5b45efe63cec0481151c97cd7803a976e4adbbe83d4bb0fbc3152`. Subsequent genuine P25 generation and private acceptance are recorded in sections 19 and 26; current executable evidence is not inferred from earlier P23/P24 acceptance. Published main documentation through `c21190b` was normally merged after private acceptance, without executable changes.
 
 ## 2. User outcome
 
@@ -28,7 +29,7 @@ Core owns accounts, current grants, organisation and approval cases. Procurement
 
 ## 5. Bounded delivery
 
-Source checkpoints add explicit successor contracts/model guards, current Core actor bridges, new-only request provenance and funding capture, and version-dispatched authority/approval commands and hints. The actual generated-schema provider is still Unavailable; PrincipalExecutionEnabled defaults false. Existing manual CRUD remains usable without operational provenance when unavailable. None of these checkpoints has been compiled or executed.
+Source checkpoints add explicit successor contracts/model guards, current Core actor bridges, new-only request provenance and funding capture, and version-dispatched authority/approval commands and hints. Production registration is still Unavailable; PrincipalExecutionEnabled defaults false. Existing manual CRUD remains usable without operational provenance when unavailable. The private host explicitly composes the actual captured provider for acceptance, as recorded in section 26; this does not change production registration.
 
 ## 6. Original request attribution
 
@@ -158,7 +159,28 @@ A separate actual read-only owner review independently recomputed the original p
 
 Earlier checkpoints are retained: the initial harness build missed a test-host import; the first runtime passed finite-role/default-provider checks but request creation failed because its fixture role lacked the two catalog SELECT dependencies used by the real route. The correction added those two reads only to the test record role; it changed no production grants or business guards. A fresh database was used for the passing run.
 
-This is a create/submit/unavailable-funding checkpoint, **not** a positive approval graph, full finite-role revocation matrix, 35-case graph constraint result, live release or whole-module acceptance. Independent checker/authority activation, principal submission/assignment, decisions, replay/recovery and dependent-graph downgrade proof remain required.
+That first checkpoint proves create/submit/unavailable-funding only. The subsequent positive graph below provides additional bounded evidence; neither checkpoint is a production release or whole-module acceptance.
+
+### Actual private manual-evidence approval and storage checkpoint
+
+Source `bc7d58995af6b0294894b537c5c35b43a6da7c60` passed **31 actual HTTP requests** against a fresh private PostgreSQL17 database. Independent Core users created and activated finite spending authority, published buying policy and activated a category through existing APIs. A workerless requester submitted classified demand; a distinct authorized checker recorded explicitly synthetic manual evidence under the private policy reference `PRIVATE-P25-MANUAL-EVIDENCE-NOT-EXTERNAL-FINANCE`. The actual configured execution role opened submission3/assignment2 and a distinct custom-role Core user approved it. Current principal/permission/scope and original evidence checks remained active; no employee or literal manager-role label supplied authority.
+
+All **six** original-key replay, changed-body conflict and current action-revocation cases passed. Same-key/body Open and terminal Decide returned their exact original responses without effects; changed bodies returned the exact key-conflict code. Removing the actual stored Open/Decide action denied even an old-key replay. Exact Core grants were restored, and each command preserved the complete logical store footprint. The detail GET also preserved its footprint and exposed the correct action without granting workflow DML to the read role. At source `3d1282a`, the corresponding 24 focused API/readiness tests passed with zero failures, skipped or errors; the subsequent `bc7d589` delta changes only raw-test input/diagnostics.
+
+The same completed graph passed **35 owner-only storage probes: 34 named CHECK violations and one NOT NULL violation**. Every probe first updated exactly one valid baseline row, then received the expected error and rolled back to the original complete footprint. The genuine pinned Down SQL refused the retained dependent graph with its exact `55000` guard. These are not independently isolated family fixtures: their count remains **zero**, and owner-only raw probes do not prove authorization or Finance authority.
+
+| Protected evidence | SHA-256 |
+| --- | --- |
+| `procurement-p25-http-positive-20261022_run05/result.json` | `2b5f693d3541e811a6e569a6a5a033d36aa1b3cd22a4aca40f6d7401455e4da5` |
+| Same run, `probe-result.json` | `3916bf9b4692d26e20f5b16184a01a35d085c225b093da7cb754c3364fd95063` |
+| Same run, `finally-preservation.json` | `28859c4a9b00f70e2e3ff314456e4c364df9257c3c78371a789f50908e14e36b` |
+| `procurement-p25-independent-positive05-20261022/review-receipt.json` | `95c9bdf25482ce5e786aefbc207eb4eabd41cc4236cd2aea843ef0f47ab44c10` |
+
+All paths are under `/home/amizo/erp-backups/`. The accepted launcher binds the successful frozen SDK receipt and all 477 publication/runtime files. Existing roles, memberships, database catalog, Docker objects and publication bytes were preserved; only the new private database and its two finite test LOGINs were added. No production resources changed.
+
+The independent reviewer used actual read-only owner queries and independently recomputed original principal, submission, checker, assignment JSON and request/Finance snapshot digests. It verified Approved CAS4 versus submitted business version2, quantity2 × unit price5.1234 = **10.2468 ZMW**, six active Core users, zero workers/aliases, exact authority actor lineage, one Core decision/outcome, two receipts and three version2 events. The original negative request remained Submitted/version2. Finance release, AP hand-off and payment facts remained absent. Authority identity digest shape/lineage was reviewed, not independently recomputed; the rolled-back 35 denials, six replay checks and Down veto are hash-bound runtime evidence, not independent reruns.
+
+Failed runs remain retained. Runs01/02 stopped at readiness because their test demand lacked the category required by the existing spending evaluator. Run03 exposed the read-preview/execution-role mixup corrected in `3d1282a`. Run04 completed approval/replay but stopped on a raw test expecting CHECK before an existing NOT NULL rule; `bc7d589` targets empty text instead to test the canonical-principal CHECK. No business, identity or database guard was weakened to obtain the passing run. Earlier SDK/fixture failures and two corrected read-only reviewer query errors are also retained.
 
 ### Required acknowledgement actual acceptance (pending)
 
@@ -170,4 +192,4 @@ New submission3 does not imply approved-demand RFQ/PO/receiving compatibility. T
 
 ## 28. Remaining implementation
 
-Compile/review and execute the newly authored actor-owned GET acknowledgement acceptance; keep its mapped/runtime/UI holds explicit. Finish full mapped end-to-end successor workflow coverage, historical release/recovery and audit/downgrade marker review, metadata readiness integration and exact PostgreSQL readiness manifests. Focused and full affected domain/selected host regression, genuine migration generation and SQL/drift gates are complete as recorded above; private finite-role HTTP/PG proof and release review remain pending. Earlier migration artifacts are unchanged, the current snapshot reflects genuine P25 output, and production activation remains false. RFQ/PO/receiving conversion is not supplied by this milestone.
+Compile and execute the newly authored actor-owned GET acknowledgement acceptance; keep its mapped/runtime/UI holds explicit. Complete durable browser journaling/reload recovery, real identity-provider/browser acceptance, the full finite-privilege revocation/widening matrix, actual retained/current alias and legacy compatibility negatives, and release review. The bounded private finite-role approval graph, replay/current-action denial and 35-case graph storage proof have passed as recorded above; they do not replace those remaining gates. Earlier migration artifacts are unchanged, the current snapshot reflects genuine P25 output, and production activation remains false. RFQ/PO/receiving successors and future Finance-owned budget/AP/payment integrations remain separate work.
