@@ -76,12 +76,15 @@ python3 backend/hrm-api/tools/ProcurementCrudHttpProbe/run-private-postgres.py \
 ```
 
 Parent must review source/build provenance and serialize execution after the current SDK/browser gate. Python syntax and `--help` alone were checked; C# compilation, canonical-source CLI/browser counts and this runner's PostgreSQL execution are **pending**. Earlier PASS counts above belong to their stated older sources and do not certify this increment.
-# Recurring purchase follow-up (source prepared, not yet executed)
+
+## Recurring purchase follow-up (source prepared, not yet executed)
 
 `PROCUREMENT_CRUD_RECURRING=1` adds actual HTTP create/list/detail/exact-value edit/close,
 Core-default currency, maker isolation, stale/null/wrong-supplier/precision denials,
 retained closed-contract references, independent owning-store/audit checks, and two
 concurrent HTTP writers contesting contract supplier reassignment versus plan creation.
+A private owner row lock must make both real transactions observably wait before
+release; merely starting two tasks does not count as a race proof.
 The journal contains no new Finance/AP/payment records. This is purchase planning,
 not recurring bill generation.
 

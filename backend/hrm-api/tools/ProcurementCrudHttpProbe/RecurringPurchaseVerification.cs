@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace ProcurementCrudHttpProbe;
 
@@ -88,6 +89,7 @@ internal static partial class Program
                     "Recurring lifecycle audit missing or duplicated.");
         }
         await RecurringContractRace(client, approvedSupplier, alternateSupplier, Contract, Plan);
+        Check(protectedBefore == await CreditProtectedState(), "Concurrent recurring planning changed invoices, Finance, receiving or outbox records.");
     }
 
     static async Task<string> RecurringFootprint()
@@ -118,6 +120,17 @@ internal static partial class Program
         var contract = await Send(client, HttpMethod.Post, "/contracts",
             contractDraft(supplier, "Concurrent recurring source"), HttpStatusCode.Created);
         var contractId = Id(contract);
+        // A separate owner transaction holds only the target contract row. Both
+        // actual HTTP transactions must reach an observable database lock wait
+        // before it is released; simultaneous task scheduling alone is not proof.
+        await using var barrier = new NpgsqlConnection(connection);
+        await barrier.OpenAsync();
+        await using var barrierTransaction = await barrier.BeginTransactionAsync();
+        await using (var command = new NpgsqlCommand("SELECT id FROM procurement.supplier_contracts WHERE id=@id FOR UPDATE", barrier, barrierTransaction))
+        {
+            command.Parameters.AddWithValue("id", contractId);
+            Check(await command.ExecuteScalarAsync() is Guid locked && locked == contractId, "Recurring race barrier did not lock the exact source contract.");
+        }
         var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         async Task<HttpStatusCode> Write(HttpMethod method, string path, object body)
         {
@@ -137,7 +150,28 @@ internal static partial class Program
         var reparent = Write(HttpMethod.Put, "/contracts/" + contractId, new {
             version = Version(contract), draft = contractDraft(alternate, "Concurrent supplier correction")
         });
-        start.SetResult(); var results = await Task.WhenAll(create, reparent);
+        start.SetResult();
+        var observedOverlap = false;
+        try
+        {
+            await using var observer = new NpgsqlConnection(connection); await observer.OpenAsync();
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            while (DateTime.UtcNow < deadline && !create.IsCompleted && !reparent.IsCompleted)
+            {
+                await using var waiting = new NpgsqlCommand("""
+                    SELECT count(*) FROM pg_stat_activity
+                    WHERE datname=current_database() AND state='active' AND wait_event_type='Lock'
+                      AND @barrier = ANY(pg_blocking_pids(pid))
+                      AND (query ILIKE '%supplier_contracts%' OR query ILIKE '%recurring_purchase_commitments%')
+                    """, observer);
+                waiting.Parameters.AddWithValue("barrier", barrier.ProcessID);
+                if (await waiting.ExecuteScalarAsync() is long count && count == 2) { observedOverlap = true; break; }
+                await Task.Delay(100);
+            }
+        }
+        finally { await barrierTransaction.RollbackAsync(); }
+        var results = await Task.WhenAll(create, reparent);
+        Check(observedOverlap, "Both real HTTP transactions did not reach the observed database barrier; this run cannot claim concurrent write proof.");
         Check(results.Count(status => status is HttpStatusCode.Created or HttpStatusCode.OK) == 1,
             "Concurrent recurring creation and supplier change must not both commit.");
         await using var proof = Db();
