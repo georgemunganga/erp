@@ -33,7 +33,7 @@ internal static class ProcurementPrincipalApprovalAssignees
             if(stage.Assignee=="LineManager")
             {
                 // This strategy alone requires HR. Core permission never manufactures a manager.
-                if(request.RequesterWorkerId is not { } worker || worker==Guid.Empty)
+                if(request.RequesterCoreWorkerId is not { } worker || worker==Guid.Empty)
                     throw new InvalidOperationException("ApprovalLineManagerUnavailable");
                 var requesterAccount=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,request.CreatedBy,ct);
                 if(requesterAccount?.WorkerId!=worker)throw new InvalidOperationException("ApprovalLineManagerUnavailable");

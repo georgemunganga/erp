@@ -175,6 +175,43 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
         Assert.False(f.Db.ChangeTracker.HasChanges());
     }
 
+    [Theory]
+    [InlineData("matching-no-finite-authority")][InlineData("current-link-changed")]
+    [InlineData("employee-inactive")][InlineData("workerless")]
+    public async Task LineManager_uses_retained_Core_alias_and_real_current_HR_mapping_without_granting_authority(string condition)
+    {
+        await using var f=await Fixture.Start();var worker=Guid.NewGuid();var manager=Guid.NewGuid();var other=Guid.NewGuid();var branch=Guid.NewGuid();
+        f.Core.WorkLocations.Add(new(){Id=branch,Code="LM",Name="Synthetic line manager branch",LegalEntityId=f.Company});
+        f.Core.Workers.AddRange(
+            new Worker{Id=worker,EmployeeNo="LM-MAKER",FirstName="Maker",LastName="Fixture",Status="active",LocationId=branch,ManagerId=manager},
+            new Worker{Id=manager,EmployeeNo="LM-MANAGER",FirstName="Manager",LastName="Fixture",Status="active",LocationId=branch},
+            new Worker{Id=other,EmployeeNo="LM-OTHER",FirstName="Other",LastName="Fixture",Status="active",LocationId=branch,ManagerId=manager});
+        (await f.Core.LocalUsers.SingleAsync(x=>x.Id==f.Maker)).WorkerId=condition=="workerless"?null:worker;
+        (await f.Core.LocalUsers.SingleAsync(x=>x.Id==f.Checker)).WorkerId=manager;
+        (await f.Core.TenantRoleAssignments.SingleAsync()).PermissionsCsv="procurement-access,procurement-approval-decide";
+        await f.Core.SaveChangesAsync();
+        // Active employment is not original identity. This source retains the real
+        // Core alias even when the old active-HR snapshot is absent.
+        var request=new PurchaseRequest{TenantId="principal-finance",LegalEntityId=f.Company,CreatedBy=f.Maker.ToString("D"),
+            RequesterPrincipalId=f.Maker,RequesterWorkerId=null,SourceChannel="ERP",Status="Draft",Version=1,BranchRef=branch,CurrencyCode="ZMW"};
+        PurchaseRequestPrincipalIdentity.CaptureNew(request,f.Maker.ToString("D"),condition=="workerless"?null:worker);
+        request.Status="Submitted";request.SubmittedVersion=2;request.Version=2;
+        request.Lines.Add(new(){TenantId=request.TenantId,LegalEntityId=f.Company,PurchaseRequestId=request.Id,
+            LineNumber=1,Description="Synthetic HR strategy source",RequestedQuantity=1,EstimatedUnitPrice=1,CategoryCode="IT"});
+        if(condition=="current-link-changed") (await f.Core.LocalUsers.SingleAsync(x=>x.Id==f.Maker)).WorkerId=other;
+        if(condition=="employee-inactive") (await f.Core.Workers.SingleAsync(x=>x.Id==worker)).Status="inactive";
+        await f.Core.SaveChangesAsync();
+        var policyId=Guid.NewGuid();var evaluation=new PolicyEvaluation{PurchaseRequestId=request.Id,RequestVersion=2,PolicyVersionId=policyId,
+            Outcome="Matched",AmountBasis="EstimatedLineBase",DecisionJson=System.Text.Json.JsonSerializer.Serialize(new{
+                requestId=request.Id,requestVersion=2,policyId,lines=request.Lines.Select(x=>new{lineId=x.Id,decision=new{status="Match",
+                    approvalStages=new[]{new{code="HR_MANAGER",assignee="LineManager",mode="One"}}}})})};
+        var before=await f.Db.AuditEvents.CountAsync();
+        var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>ProcurementPrincipalApprovalAssignees.ResolveAsync(
+            request,evaluation,f.Core,f.Db,f.Scope,DateTimeOffset.UtcNow,default));
+        Assert.Equal(condition=="matching-no-finite-authority"?"ApprovalAssigneeAuthorityUnavailable":"ApprovalLineManagerUnavailable",error.Message);
+        Assert.False(f.Db.ChangeTracker.HasChanges());Assert.Equal(before,await f.Db.AuditEvents.CountAsync());
+    }
+
     [Fact]
     public async Task Retained_checker_alias_still_denies_after_current_link_is_cleared_and_maker_account_is_offboarded()
     {
