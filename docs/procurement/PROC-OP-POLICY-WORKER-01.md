@@ -1,6 +1,6 @@
 # PROC-OP-POLICY-WORKER-01 — original people behind receiving and matching policy
 
-Status: implementation in progress; pure foundation and PostgreSQL persistence verified; lifecycle/consumer integration pending; not released. Prepared: 22 October 2026.
+Status: implementation in progress; foundation/persistence verified; lifecycle and consumer guards integrated with host regressions; runtime/browser release gates pending; not released. Prepared: 22 October 2026.
 Owner: Procurement coordinator/backend. Risk: Tier 3 under GW-ENG-STD-001.
 
 ## 1. Feature identification
@@ -140,3 +140,14 @@ Typed append-only persistence and P31 (`20261022041534_P31OperationalPolicyWorke
 **121 focused domain/persistence cases passed, zero failed/skipped**, including 25 new persistence cases; evidence: `artifacts/operational-policy-identity/stage2/`. The owner-level PostgreSQL probe also **passed** in private disposable database `operational_policy_identity_20261022_042007`; source hashes and output: `artifacts/operational-policy-identity/private/20261022_042007/`. It verified two unchanged legacy policies with no backfill, empty Down/Up, six persisted actions across both policy keys, two legacy-adoption denials, five scoped foreign-key denials, three uniqueness denials, an empty-worker CHECK denial, append-only context update/delete denial, and both evidence-retained and audit-only downgrade vetoes with unchanged denial footprints. Probe build passed with zero warnings/errors.
 
 This proves owning-store persistence and migration behavior. It does **not** prove Core identity, finite-role HTTP authorization, receiving/matching eligibility, concurrency, browser acceptance or production readiness. Lifecycle/API integration and operational consumers remain unfinished. No production migration or deployment was performed.
+
+
+## Lifecycle and consumer integration checkpoint — 22 October 2026
+
+The existing policy endpoints now retain original author/submission/publication workers, enforce original-author editing/submission and independent review, and coordinate operational-policy mutations in an owning SERIALIZABLE transaction with read-only Core reads enlisted on the same connection. P31 readiness is registered and validates the actual owning schema, exact PostgreSQL17 CHECK/index definitions and restricted runtime privileges. No fallback role or workerless-administrator approval is introduced.
+
+A shared new-use publication gate is consumed by receiving policy selection, assignment filtering before counts, receiving action hints, matching selectors and new comparisons. Historical receiving inspection/reconciliation and GET recovery remain outside that gate. Existing matching replay stays before new policy selection. Existing receiving POST replay ordering remains unchanged: a repeated POST can be refused after current authority becomes unavailable; use the existing GET receipt recovery route. Stronger replay ordering is a separate remaining recovery review.
+
+**99 combined host cases passed**, zero failed/skipped, including the 17 identity bridge cases, readiness contract, missing/unavailable publication controls, mapped mutation denial with unchanged footprints and historical reads, plus affected receiving, matching, scope, purchasing, sourcing and authority regression cases. Logs, TRX and source hashes: `artifacts/operational-policy-identity/stage3/`. Existing unrelated host nullable/analyzer warnings remain visible. The extended genuine finite-role policy lifecycle rehearsal built with zero warnings/errors and **passed** in private PostgreSQL database `authority_identity_http_20261022_042928`. It exercised real policy Create/Update/SubmitReview/Publish/Effective routes, rebound-author Update/Submit denial, swapped-original-worker Publish/Return denial with unchanged complete footprints, successful restored review, publication after author offboarding, and verified supersession across both keys. Four policies retain twelve action rows. Evidence and source hashes: `artifacts/authority-identity/private/http_20261022_042928/`. The existing two spending-authority flows and ownership-negative checks also passed in this combined run.
+
+Remaining: complete operational receiving/matching and assignment/recovery execution with these guards, applicable browser/API action-hint UX, concurrency/revocation semantics, explicit legacy reconciliation, normal-host restricted configuration connection and combined source/release review. No production migration/deployment or full Procurement completion is claimed.

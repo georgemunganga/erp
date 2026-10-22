@@ -17,12 +17,14 @@ public static partial class ProcurementInvoiceMatchingRoutes
         var text=q?.Trim();
         return(page??1,pageSize??25,string.IsNullOrEmpty(text)?null:"%"+text.Replace("\\","\\\\").Replace("%","\\%").Replace("_","\\_")+"%");
     }
-    private static async Task<InvoiceMatchingPolicy> SelectorPolicy(ProcurementDbContext db,SupplierInvoice invoice,CancellationToken ct)
+    private static async Task<InvoiceMatchingPolicy> SelectorPolicy(ProcurementDbContext db,ProcurementRequestScope scope,HttpContext http,SupplierInvoice invoice,CancellationToken ct)
     {
         var now=Now();
         var policies=await db.PolicyVersions.AsNoTracking().Where(x=>x.PolicyKey==InvoiceMatchingPolicyRules.PolicyKey && x.State=="Published"
             && x.EffectiveFrom<=now && (x.EffectiveTo==null || now<x.EffectiveTo)).Take(2).ToArrayAsync(ct);
         if(policies.Length!=1) throw new MatchingProblem("InvoicePublishedMatchingPolicyUnavailable",409);
+        try { await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,policies[0],ct); }
+        catch (OperationalPolicyPublicationProblem error) { throw new MatchingProblem(error.Code,error.Status); }
         var policy=InvoiceMatchingPolicyRules.Project(policies[0]);
         if(!policy.Rules.Any(x=>x.CurrencyCode==invoice.CurrencyCode)) throw new MatchingProblem("InvoiceMatchingCurrencyUnsupported",409);
         return policy;
@@ -43,7 +45,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
             var paging=SelectorPage(page,pageSize,q); var invoice=await SelectorInvoice(db,core,scope,http,auth,id,token);
-            var policy=await SelectorPolicy(db,invoice,token);
+            var policy=await SelectorPolicy(db,scope,http,invoice,token);
             var query=from order in SelectorOrders(db,scope,invoice)
                 join issued in db.OrderIssuedVersions.AsNoTracking() on new { order.Id,Revision=order.CurrentRevision } equals new { Id=issued.PurchaseOrderId,Revision=issued.RevisionNumber }
                 join line in db.PurchaseOrderLines.AsNoTracking() on order.Id equals line.PurchaseOrderId
@@ -79,7 +81,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
             var paging=SelectorPage(page,pageSize,q); var invoice=await SelectorInvoice(db,core,scope,http,auth,id,token);
-            var policy=await SelectorPolicy(db,invoice,token);
+            var policy=await SelectorPolicy(db,scope,http,invoice,token);
             var order=await SelectorOrders(db,scope,invoice).SingleOrDefaultAsync(x=>x.Id==orderId,token)??throw new MatchingProblem("InvoiceMatchingOrderNotFound",404);
             var issued=await db.OrderIssuedVersions.AsNoTracking().SingleOrDefaultAsync(x=>x.PurchaseOrderId==orderId && x.RevisionNumber==order.CurrentRevision,token)
                 ??throw new MatchingProblem("InvoiceIssuedSourceUnavailable",409);

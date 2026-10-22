@@ -22,6 +22,9 @@ public static partial class ProcurementPolicyDraftRoutes
         {
             try { return await next(context); }
             catch (SourcingIdentityProblem problem) { return Problem(problem.Code, problem.Message, problem.Status); }
+            catch (OperationalIdentityProblem problem) { return Problem(problem.Code, problem.Message, problem.Status); }
+            catch (InvalidOperationException error) when (error.Message.StartsWith("OperationalPolicy", StringComparison.Ordinal))
+            { return OperationalIdentityFailure(error); }
         });
         group.MapGet("", List).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/effective", Effective).RequireAuthorization("procurement-configuration-read");
@@ -91,6 +94,21 @@ public static partial class ProcurementPolicyDraftRoutes
                 policy = (object)new { current.Id, current.PolicyKey, current.PolicyVersionNumber, current.EffectiveFrom, current.EffectiveTo, current.PublishedAt }, evaluatedAt = instant });
         }
 
+        if (IsOperationalIdentityPolicy(normalized))
+        {
+            await RequireOperationalIdentitySchema(http, db, false, ct);
+            var policies = await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == normalized && x.State == "Published"
+                && x.EffectiveFrom <= instant && (x.EffectiveTo == null || x.EffectiveTo > instant))
+                .OrderByDescending(x => x.PolicyVersionNumber).Take(2).ToArrayAsync(ct);
+            if (policies.Length == 0) return Results.Ok(new { status = "MissingPolicy", isAuthority = false, policy = (object?)null, evaluatedAt = instant });
+            if (policies.Length > 1) return Results.Ok(new { status = "AmbiguousPolicy", isAuthority = false, policy = (object?)null, evaluatedAt = instant });
+            var current = policies[0];
+            _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,
+                http.RequestServices.GetRequiredService<ProcurementRequestScope>(), current, ct);
+            return Results.Ok(new { status = "Valid", isAuthority = false,
+                policy = (object)new { current.Id, current.PolicyKey, current.PolicyVersionNumber, current.EffectiveFrom, current.EffectiveTo, current.PublishedAt }, evaluatedAt = instant });
+        }
+
         var matches = await db.PolicyVersions.AsNoTracking()
             .Where(x => x.PolicyKey == normalized && x.State == "Published"
                 && x.EffectiveFrom <= instant && (x.EffectiveTo == null || x.EffectiveTo > instant))
@@ -150,7 +168,7 @@ public static partial class ProcurementPolicyDraftRoutes
         return Results.Ok(View(policy, lastReturnReason));
     }
 
-    private static async Task<IResult> Create(PolicyDraft input, ProcurementDbContext db,
+    private static async Task<IResult> CreatePolicy(PolicyDraft input, ProcurementDbContext db,
         HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
         var issue = Validate(input);
@@ -173,6 +191,14 @@ public static partial class ProcurementPolicyDraftRoutes
             var sourcingIssue = await CheckSourcingCompanyRules(policy, db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
             if (sourcingIssue is not null) return sourcingIssue;
         }
+        ProcurementAuthorityIdentity.CanonicalAccount? operationalCreator = null;
+        if (IsOperationalIdentityPolicy(key))
+        {
+            operationalCreator = await ProcurementOperationalPolicyWorkerIdentity.CurrentActorAsync(organizationDb, scope,
+                ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, ct);
+            policy.CreatedBy = operationalCreator.PrincipalId;
+            policy.CreatedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
+        }
         db.AddScoped(policy);
         if (key == SourcingPublicationPolicyRules.PolicyKey)
         {
@@ -180,6 +206,9 @@ public static partial class ProcurementPolicyDraftRoutes
             db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Created", actor.PrincipalId,
                 actor.WorkerId, 1, DateTimeOffset.UtcNow));
         }
+        if (operationalCreator is not null)
+            db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Created",
+                operationalCreator.PrincipalId, operationalCreator.WorkerId, 1, policy.CreatedAt)));
         AddAudit(db, policy, scope.SubjectId, "DraftCreated");
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateException)
@@ -187,7 +216,7 @@ public static partial class ProcurementPolicyDraftRoutes
         return Results.Created($"/api/procurement/v1/configuration/policies/{policy.Id}", View(policy));
     }
 
-    private static async Task<IResult> Update(Guid id, VersionedPolicyDraft input,
+    private static async Task<IResult> UpdatePolicy(Guid id, VersionedPolicyDraft input,
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
@@ -211,6 +240,9 @@ public static partial class ProcurementPolicyDraftRoutes
                 db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
             if (sourcingIssue is not null) return sourcingIssue;
         }
+        if (IsOperationalIdentityPolicy(policy.PolicyKey))
+            _ = await ProcurementOperationalPolicyWorkerIdentity.RequireAuthorAsync(organizationDb, db, scope, policy,
+                ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, ct);
         policy.EffectiveFrom = input.Draft.EffectiveFrom.ToUniversalTime();
         policy.EffectiveTo = input.Draft.EffectiveTo?.ToUniversalTime();
         policy.RulesJson = input.Draft.RulesJson!.Trim();
@@ -221,7 +253,7 @@ public static partial class ProcurementPolicyDraftRoutes
         return Results.Ok(View(policy));
     }
 
-    private static async Task<IResult> SubmitReview(Guid id, ReviewSubmission input,
+    private static async Task<IResult> SubmitReviewPolicy(Guid id, ReviewSubmission input,
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
         HttpContext http, CancellationToken ct)
     {
@@ -241,6 +273,10 @@ public static partial class ProcurementPolicyDraftRoutes
             await RequireSourcingIdentitySchema(http, db, ct);
             sourcingAuthor = await SourcingOriginalAuthor(db, organizationDb, scope, policy, ct);
         }
+        ProcurementOperationalPolicyWorkerIdentity.AuthorProof? operationalAuthor = null;
+        if (IsOperationalIdentityPolicy(policy.PolicyKey))
+            operationalAuthor = await ProcurementOperationalPolicyWorkerIdentity.RequireAuthorAsync(organizationDb, db, scope, policy,
+                ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, ct);
         var referenceIssue = await CheckCompanyRules(policy, db, organizationDb, scope, ct);
         if (referenceIssue is not null) return referenceIssue;
         policy.State = "PendingReview";
@@ -250,6 +286,10 @@ public static partial class ProcurementPolicyDraftRoutes
         if (sourcingAuthor is { } author)
             db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Submitted", author.Actor.PrincipalId,
                 author.Actor.WorkerId, checked(policy.Version + 1), policy.ReviewRequestedAt.Value, author.Origin));
+        if (operationalAuthor is not null)
+            db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Submitted",
+                operationalAuthor.Actor.PrincipalId, operationalAuthor.Actor.WorkerId, checked(policy.Version + 1),
+                policy.ReviewRequestedAt.Value, operationalAuthor.Created)));
         AddAudit(db, policy, scope.SubjectId, "ReviewRequested");
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
@@ -257,7 +297,7 @@ public static partial class ProcurementPolicyDraftRoutes
         return Results.Ok(View(policy));
     }
 
-    private static async Task<IResult> Publish(Guid id, PublicationInput input,
+    private static async Task<IResult> PublishPolicy(Guid id, PublicationInput input,
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
         HttpContext http, CancellationToken ct)
     {
@@ -266,7 +306,7 @@ public static partial class ProcurementPolicyDraftRoutes
         IDbContextTransaction? transaction = null;
         try
         {
-            if (db.Database.IsRelational())
+            if (db.Database.IsRelational() && db.Database.CurrentTransaction is null)
                 transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
             if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
@@ -288,8 +328,10 @@ public static partial class ProcurementPolicyDraftRoutes
                 await RequireSourcingIdentitySchema(http, db, ct);
                 sourcingReviewer = await SourcingIndependentPolicyReviewer(db, organizationDb, scope, policy, ct);
             }
-            if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING") && !await ReceivingIndependentReviewer(organizationDb, scope, policy, ct))
-                return Problem("self-approval", "Another current authorized worker must independently review this receiving policy.", 403);
+            ProcurementOperationalPolicyWorkerIdentity.ReviewProof? operationalReviewer = null;
+            if (IsOperationalIdentityPolicy(policy.PolicyKey))
+                operationalReviewer = await ProcurementOperationalPolicyWorkerIdentity.RequireReviewerAsync(organizationDb, db, scope, policy,
+                    ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, ct);
             var coverage = policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey ? SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson) : policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey ? InvoiceMatchingPolicyRules.Validate(policy.RulesJson) : policy.PolicyKey == "RECEIVING" ? ReceivingPolicyRules.Validate(policy.RulesJson) : PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
             if (coverage.Count != 0)
                 return Results.Json(new { code = "coverage-failed",
@@ -311,6 +353,8 @@ public static partial class ProcurementPolicyDraftRoutes
                 // automatic supersession, or turn a known conflict into a save-time 500.
                 if (key == SourcingPublicationPolicyRules.PolicyKey)
                     await VerifySourcingPublishedPolicyIdentity(db, overlaps[0], ct);
+                if (IsOperationalIdentityPolicy(key))
+                    _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope, overlaps[0], ct);
                 // Close the prior open-ended period in the same transaction. Its original
                 // decision and the controlled supersession both remain in the audit trail.
                 overlaps[0].EffectiveTo = start;
@@ -324,6 +368,10 @@ public static partial class ProcurementPolicyDraftRoutes
             if (sourcingReviewer is { } reviewer)
                 db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Published", reviewer.Actor.PrincipalId,
                     reviewer.Actor.WorkerId, checked(policy.Version + 1), policy.PublishedAt.Value, reviewer.Origin, reviewer.Submitted));
+            if (operationalReviewer is not null)
+                db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Published",
+                    operationalReviewer.Actor.PrincipalId, operationalReviewer.Actor.WorkerId, checked(policy.Version + 1),
+                    policy.PublishedAt.Value, operationalReviewer.Created, operationalReviewer.Submitted)));
             AddAudit(db, policy, scope.SubjectId, "Published");
             await db.SaveChangesAsync(ct);
             if (transaction is not null) await transaction.CommitAsync(ct);
@@ -336,7 +384,7 @@ public static partial class ProcurementPolicyDraftRoutes
         finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }
 
-    private static async Task<IResult> ReturnForChanges(Guid id, PublicationInput input,
+    private static async Task<IResult> ReturnForChangesPolicy(Guid id, PublicationInput input,
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
@@ -348,8 +396,9 @@ public static partial class ProcurementPolicyDraftRoutes
             if (!await SourcingActorCoversRules(organizationDb, scope, policy.RulesJson, ct))
                 return Problem("sourcing-policy-scope", "Another current authorized person with this policy's scope must return it.", 403);
         }
-        if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING") && !await ReceivingIndependentReviewer(organizationDb, scope, policy, ct))
-            return Problem("self-approval", "Another current authorized worker must independently review this receiving policy.", 403);
+        if (IsOperationalIdentityPolicy(policy.PolicyKey))
+            _ = await ProcurementOperationalPolicyWorkerIdentity.RequireReviewerAsync(organizationDb, db, scope, policy,
+                ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, ct);
         if (policy.Version != input.Version)
             return Problem("version-conflict", "Refresh this policy before returning it.", 409);
         if (policy.State != "PendingReview")

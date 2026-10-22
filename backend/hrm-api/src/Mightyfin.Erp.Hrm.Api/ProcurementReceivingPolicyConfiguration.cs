@@ -16,19 +16,6 @@ public static partial class ProcurementPolicyDraftRoutes
         return LocalIdentityRoutes.ParseRoles(account.RolesCsv).Contains("erp_admin", StringComparer.OrdinalIgnoreCase)
             || actions.Contains("procurement-access", StringComparer.Ordinal) && actions.Contains(permission, StringComparer.Ordinal);
     }
-    private static async Task<bool> ReceivingIndependentReviewer(HrmDbContext core, ProcurementRequestScope scope, PolicyVersion policy, CancellationToken ct)
-    {
-        if (!await ReceivingConfigurationActor(core, scope, "procurement-configuration-approve", ct)) return false;
-        var reviewer = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
-        foreach (var subject in new[] { policy.CreatedBy, policy.ReviewRequestedBy }.Distinct())
-        {
-            if (string.IsNullOrWhiteSpace(subject)) return false;
-            var maker = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, subject, ct);
-            if (maker is null || maker.WorkerId == reviewer!.WorkerId
-                || await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId, scope.LegalEntityId, maker.WorkerId, ct) is null) return false;
-        }
-        return true;
-    }
     private static async Task<IResult?> CheckReceivingCompanyRules(PolicyVersion policy, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, string permission, CancellationToken ct)
     {

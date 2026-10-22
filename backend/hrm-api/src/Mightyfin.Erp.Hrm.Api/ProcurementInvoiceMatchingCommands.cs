@@ -42,7 +42,10 @@ public static partial class ProcurementInvoiceMatchingRoutes
             var policies=await db.PolicyVersions.Where(x=>x.PolicyKey==InvoiceMatchingPolicyRules.PolicyKey && x.State=="Published"
                 && x.EffectiveFrom<=now && (x.EffectiveTo==null || now<x.EffectiveTo)).Take(2).ToArrayAsync(token);
             if(policies.Length!=1) throw new MatchingProblem("InvoicePublishedMatchingPolicyUnavailable",409);
-            var policy=policies[0]; var policyProjection=InvoiceMatchingPolicyRules.Project(policy);
+            var policy=policies[0];
+            try { await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,policy,token); }
+            catch (OperationalPolicyPublicationProblem error) { throw new MatchingProblem(error.Code,error.Status); }
+            var policyProjection=InvoiceMatchingPolicyRules.Project(policy);
             var policySha=ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson);
             var hashes=await DocumentHashes(db,scope,http,id,snapshot,token);
             var reviewContext=new InvoiceMappingReviewContext(scope.TenantId,scope.LegalEntityId,invoice.BranchRef,

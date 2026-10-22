@@ -12,6 +12,7 @@ public static partial class ProcurementReceivingRoutes
         {
             // Resolve current actor and permitted Core branches once; SQL scope precedes count/page.
             var actor = await Actor(core, scope, http, auth, "procurement-receipt-view", scope.WorkLocationId, null, token, target: false);
+            _ = await CurrentPolicy(db, scope, http, null, token);
             var branches = actor.BranchIds.ToArray(); var number = Math.Clamp(page ?? 1, 1, 100000); var size = Math.Clamp(pageSize ?? 25, 1, 100);
             var query = from order in BoundIssuedOrders(db, scope).AsNoTracking()
                 join issued in db.OrderIssuedVersions.AsNoTracking() on new { order.Id, Revision = order.CurrentRevision } equals new { Id = issued.PurchaseOrderId, Revision = issued.RevisionNumber }
@@ -29,7 +30,7 @@ public static partial class ProcurementReceivingRoutes
                 {
                     var source = await Source(db, cases, scope, row.orderId, row.issuedId, row.lineId, token, lockSource: false);
                     ReceivingRule? rule = null; string? blocker = null;
-                    try { rule = (await Policy(db, source, null, token)).Rule; }
+                    try { rule = (await Policy(db, scope, http, source, null, token)).Rule; }
                     catch (Exception ex) when (ex is ReceivingProblem or InvalidOperationException) { blocker = "Receiving policy or classification needs configuration."; }
                     var state = await db.ReceivingSourceStates.AsNoTracking().SingleOrDefaultAsync(x => x.IssuedVersionId == row.issuedId && x.PurchaseOrderLineId == row.lineId, token);
                     records.Add(new { row.orderId, orderNumber = row.Number, issuedVersionId = row.issuedId, purchaseOrderLineId = row.lineId,

@@ -24,7 +24,7 @@ using Npgsql;
 
 namespace ProcurementAuthorityHttpProbe;
 
-internal static class Program
+internal static partial class Program
 {
     private const string Tenant = "authority-http-probe";
     private const string Root = "/api/procurement/v1/configuration/spending-authorities";
@@ -89,6 +89,7 @@ internal static class Program
             await Post(client, $"/{secondId}/activate", Reviewer,
                 new { version = pending.GetProperty("version").GetInt64(), reason = "Independent review after maker offboarding" }, HttpStatusCode.OK);
             await VerifyLineage(secondId, MakerWorker, RecipientWorker, ReviewerWorker);
+            await VerifyOperationalPolicies(client, app);
             stage = "rollback-only-ownership-readiness-denials"; await OwnershipReadinessDenials(app);
             await using (var proof = Owner(Reviewer))
             {
@@ -100,7 +101,7 @@ internal static class Program
             await app.StopAsync();
             Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS", database = settings.Database, runtimeRole,
                 finiteRuntime = true, actualMappedHttp = true, restoredWorkerSwap = true, offboardedMakerIndependentReview = true,
-                newGrants = 2, retainedIdentityRows = 6, legacyReadAndRevoke = true, ownershipReadinessDenials = 2,
+                newGrants = 2, retainedIdentityRows = 6, operationalPolicies = 4, operationalPolicyIdentityRows = 12, legacyReadAndRevoke = true, ownershipReadinessDenials = 2,
                 recipientEligibility = "NOT EXERCISED: no bounded public eligibility endpoint; internal helper is not exposed",
                 production = false, retainedForensics = true }, Json));
             return 0;
@@ -194,16 +195,16 @@ internal static class Program
         await using (var procurement = Owner(Maker))
         {
             foreach (var type in new[] { typeof(ProcurementSpendingAuthorityGrant), typeof(ProcurementSpendingAuthorityCategory),
-                typeof(SpendingAuthorityIdentityRecord), typeof(Mightyfin.Erp.Procurement.Domain.AuditEvent), typeof(OutboxEvent), typeof(ProcurementCategory) })
+                typeof(SpendingAuthorityIdentityRecord), typeof(PolicyVersion), typeof(OperationalPolicyIdentityRecord), typeof(Mightyfin.Erp.Procurement.Domain.AuditEvent), typeof(OutboxEvent), typeof(ProcurementCategory) })
             {
                 var entity = procurement.Model.FindEntityType(type) ?? throw new ProbeFailure("Required Procurement read model is missing.");
                 await Sql(connection, "GRANT SELECT ON " + Quote(entity.GetSchema()!) + "." + Quote(entity.GetTableName()!) + " TO " + Quote(runtimeRole));
             }
         }
         await Sql(connection, "GRANT SELECT ON procurement.__procurement_migrations TO " + Quote(runtimeRole));
-        await Sql(connection, "GRANT INSERT,UPDATE ON procurement.spending_authority_grants TO " + Quote(runtimeRole));
+        await Sql(connection, "GRANT INSERT,UPDATE ON procurement.spending_authority_grants,procurement.policy_versions TO " + Quote(runtimeRole));
         await Sql(connection, "GRANT INSERT,DELETE ON procurement.spending_authority_categories TO " + Quote(runtimeRole));
-        await Sql(connection, "GRANT INSERT ON procurement.spending_authority_identity_evidence,procurement.audit_events,procurement.outbox_events TO " + Quote(runtimeRole));
+        await Sql(connection, "GRANT INSERT ON procurement.spending_authority_identity_evidence,procurement.operational_policy_identity_evidence,procurement.audit_events,procurement.outbox_events TO " + Quote(runtimeRole));
         var runtime = new NpgsqlConnectionStringBuilder(ownerConnection) { Username = runtimeRole, Password = secret };
         // Private trust socket uses no password; never reuse the owner's password/passfile.
         runtime.Remove("Passfile");
@@ -222,7 +223,7 @@ internal static class Program
         builder.Services.AddAuthentication("private-authority-probe").AddScheme<AuthenticationSchemeOptions, ToolAuthentication>("private-authority-probe", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build(); app.UseRouting(); app.UseAuthentication(); app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
-        ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementContextRoutes.MapRoutes(app);
+        ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementContextRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app);
         await app.StartAsync(); return app;
     }
 
