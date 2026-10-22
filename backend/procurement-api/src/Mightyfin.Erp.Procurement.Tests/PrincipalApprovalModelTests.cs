@@ -19,6 +19,8 @@ public sealed partial class FinanceCheckerIdentityPersistenceTests
         Assert.Contains("requester_identity_schema_version=0 AND requester_core_worker_id IS NULL AND requester_identity_sha256 IS NULL",original);
         Assert.Contains("requester_identity_schema_version=1 AND requester_principal_id IS NOT NULL",original);
         Assert.Contains("requester_identity_sha256 IS NOT NULL",original);
+        Assert.Contains("created_by IS NOT NULL AND created_by=requester_principal_id::text",original);
+        Assert.Contains("source_channel IS NOT NULL AND source_channel='ERP'",original);
         Assert.Equal(0,request.FindProperty(nameof(PurchaseRequest.RequesterIdentitySchemaVersion))!.GetDefaultValue());
         Assert.Equal(64,request.FindProperty(nameof(PurchaseRequest.RequesterIdentitySha256))!.GetMaxLength());
         Assert.DoesNotContain(request.GetKeys().SelectMany(x=>x.Properties),x=>x.Name==nameof(PurchaseRequest.RequesterCoreWorkerId));
@@ -26,6 +28,7 @@ public sealed partial class FinanceCheckerIdentityPersistenceTests
         var sql=pin.GetCheckConstraints().Single(x=>x.Name=="ck_pr_approval_principal_identity").Sql;
         Assert.Contains("snapshot_schema_version IN (1,2) AND requester_principal_id IS NULL",sql);
         Assert.Contains("snapshot_schema_version=3 AND requester_principal_id IS NOT NULL",sql);
+        Assert.Contains("maker_subject_id IS NOT NULL AND maker_subject_id=requester_principal_id::text",sql);
         Assert.Contains("requester_identity_sha256 IS NOT NULL",sql);Assert.Contains("principal_identity_sha256 IS NOT NULL",sql);
         var worker=pin.GetCheckConstraints().Single(x=>x.Name=="ck_pr_approval_worker_identity").Sql;
         Assert.Contains("snapshot_schema_version = 2 AND maker_worker_id IS NOT NULL AND requester_worker_id IS NOT NULL",worker);

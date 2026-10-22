@@ -37,7 +37,10 @@ public sealed partial class ProcurementDbContext
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GrantId, x.PrincipalId, x.AuthorityVersion })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PrincipalId, x.AuthorityVersion }).OnDelete(DeleteBehavior.Restrict);
         evidence.ToTable(t => t.HasCheckConstraint("ck_pr_assignment_authority_identity",
-            "identity_schema_version IN (1,2) AND core_stage_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+            "identity_schema_version IN (1,2) " +
+            "AND (identity_schema_version=1 OR (principal_id IS NOT NULL AND principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' " +
+            "AND principal_id <> '00000000-0000-0000-0000-000000000000')) " +
+            "AND core_stage_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
             "AND core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
             "AND grant_revision > 0 AND authority_version > 0 AND length(btrim(principal_id)) > 0 " +
             "AND assignee_kind IN ('LineManager','ProcurementManager') AND evidence_sha256 ~ '^[a-f0-9]{64}$' " +

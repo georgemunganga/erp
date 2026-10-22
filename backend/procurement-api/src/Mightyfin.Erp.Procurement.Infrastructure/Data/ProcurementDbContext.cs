@@ -301,6 +301,9 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 "(requester_identity_schema_version=1 AND requester_principal_id IS NOT NULL " +
                 "AND requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
                 "AND (requester_core_worker_id IS NULL OR requester_core_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) " +
+                "AND created_by IS NOT NULL AND created_by=requester_principal_id::text " +
+                "AND source_channel IS NOT NULL AND source_channel='ERP' " +
+                "AND (on_behalf_of_subject_id IS NULL OR length(btrim(on_behalf_of_subject_id))=0) " +
                 "AND requester_identity_sha256 IS NOT NULL AND requester_identity_sha256 ~ '^[a-f0-9]{64}$')"));
             b.Property(x => x.ApprovalState).HasMaxLength(40);
             b.Property(x => x.ReturnedBySubjectId).HasMaxLength(200);
@@ -466,6 +469,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                     "(snapshot_schema_version IN (1,2) AND requester_principal_id IS NULL AND requester_identity_sha256 IS NULL AND principal_identity_sha256 IS NULL) OR " +
                     "(snapshot_schema_version=3 AND requester_principal_id IS NOT NULL " +
                     "AND requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+                    "AND maker_subject_id IS NOT NULL AND maker_subject_id=requester_principal_id::text " +
                     "AND requester_identity_sha256 IS NOT NULL AND requester_identity_sha256 ~ '^[a-f0-9]{64}$' " +
                     "AND principal_identity_sha256 IS NOT NULL AND principal_identity_sha256 ~ '^[a-f0-9]{64}$')");
                 t.HasCheckConstraint("ck_pr_approval_submission_amount",
