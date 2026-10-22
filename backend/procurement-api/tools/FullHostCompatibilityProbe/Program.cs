@@ -37,6 +37,10 @@ if (freshHrmOnly)
     await HrmFreshRehearsal.RunAsync(connection, evidence);
     return;
 }
+var defaultTenant = diagnosticOnly ? "offline-diagnostic" : Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_DEFAULT_TENANT");
+if (string.IsNullOrWhiteSpace(defaultTenant) || defaultTenant != defaultTenant.Trim()
+    || defaultTenant.Length > 200 || defaultTenant.Any(char.IsControl))
+    throw new InvalidOperationException("Require explicitly verified deployment tenant for actual host composition.");
 var scope = new ProcurementRequestScope();
 scope.Set("offline-smoke", Guid.NewGuid(), "offline-smoke", null, null, false, "offline-smoke");
 var result = new Dictionary<string, object?> { ["status"] = "NOT_STARTED", ["dataPrinted"] = false,
@@ -81,10 +85,10 @@ try
         // Minimal Program reads connection/auth settings before builder.Build, while
         // WAF web configuration callbacks are deferred until that build. Supply the
         // same isolated process settings before executing the real entry point.
-        foreach (var setting in OfflineHost.Settings(connection))
+        foreach (var setting in OfflineHost.Settings(connection, defaultTenant))
             Environment.SetEnvironmentVariable(setting.Key.Replace(":", "__", StringComparison.Ordinal), setting.Value);
         phase = "ActualProgramCreateClient";
-        await using var factory = new OfflineHost(connection);
+        await using var factory = new OfflineHost(connection, defaultTenant);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         phase = "OfflineServicesCheck";
         var accrualServicePresent = factory.Services.GetServices<IHostedService>().Any(x => x is MonthlyLeaveAccrualWorker);
@@ -177,10 +181,11 @@ static async Task<string> Footprint(string connection)
 }
 
 sealed class OfflineTenant : ITenantAccessor { public string GetTenantId() => "offline-smoke"; }
-sealed class OfflineHost(string connection) : WebApplicationFactory<MonthlyLeaveAccrualWorker>
+sealed class OfflineHost(string connection, string defaultTenant) : WebApplicationFactory<MonthlyLeaveAccrualWorker>
 {
-    internal static Dictionary<string, string?> Settings(string connection) => new()
+    internal static Dictionary<string, string?> Settings(string connection, string defaultTenant) => new()
     {
+        ["HRM:DefaultTenantId"] = defaultTenant,
         ["ConnectionStrings:Hrm"] = connection, ["ConnectionStrings:Procurement"] = connection,
         ["ConnectionStrings:ProcurementApprovalExecution"] = null,
         ["ERP:AuthMode"] = "local", ["HRM:AuthMode"] = "local",
@@ -194,7 +199,7 @@ sealed class OfflineHost(string connection) : WebApplicationFactory<MonthlyLeave
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Production");
-        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(Settings(connection)));
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(Settings(connection, defaultTenant)));
         builder.ConfigureTestServices(services =>
         {
             foreach (var registration in services.Where(x => x.ServiceType == typeof(IHostedService)

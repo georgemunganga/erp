@@ -44,6 +44,10 @@ internal static class HrmFreshRehearsal
                 { Database = "proc_release_backup_20261022_canonical_0619" }.ConnectionString;
             phase = "RetainedReadOnlyCatalog";
             var retainedBefore = await CatalogAsync(source);
+            var retainedDataBefore = await DataDigestAsync(source);
+            // The sole proven extra is owned by scripts/import_frappe_people.py, not
+            // an EF migration. Preserve its complete source shape/data; never create it.
+            var retainedMigrationOwned = await CatalogAsync(source, excludeImportedArchive: true);
             phase = "MigrateFirst";
             await db.Database.MigrateAsync();
             var first = await CatalogAsync(connection);
@@ -53,12 +57,17 @@ internal static class HrmFreshRehearsal
             var second = await CatalogAsync(connection);
             var secondData = await DataDigestAsync(connection);
             var retainedAfter = await CatalogAsync(source);
+            var retainedDataAfter = await DataDigestAsync(source);
             result["realPendingModelChanges"] = db.Database.HasPendingModelChanges();
             result["pendingMigrations"] = (await db.Database.GetPendingMigrationsAsync()).Count();
             result["secondMigrationSchemaHistoryAndDataUnchanged"] = first == second && firstData == secondData;
             result["retainedCatalogUnchanged"] = retainedBefore == retainedAfter;
-            result["freshCatalogHistoryMatchesRetained"] = first == retainedBefore;
-            if (first != second || firstData != secondData || retainedBefore != retainedAfter || first != retainedBefore
+            result["retainedAllHrmTableDataUnchanged"] = retainedDataBefore == retainedDataAfter;
+            result["retainedImportedArchivePreserved"] = retainedBefore != retainedMigrationOwned
+                && retainedBefore == retainedAfter && retainedDataBefore == retainedDataAfter;
+            result["freshCatalogHistoryMatchesRetainedOwnedSchema"] = first == retainedMigrationOwned;
+            result["soleRetainedExtraTable"] = "hrm.legacy_frappe_records";
+            if (retainedBefore == retainedMigrationOwned || first != second || firstData != secondData || retainedBefore != retainedAfter || retainedDataBefore != retainedDataAfter || first != retainedMigrationOwned
                 || db.Database.HasPendingModelChanges() || (await db.Database.GetPendingMigrationsAsync()).Any())
                 throw new InvalidOperationException("Actual fresh and retained owner contracts must match without repair.");
             result["status"] = "PASS";
@@ -82,7 +91,7 @@ internal static class HrmFreshRehearsal
         Console.WriteLine("Private fresh HRM migration rehearsal finished; consult protected summary only.");
     }
 
-    private static async Task<string> CatalogAsync(string connection)
+    private static async Task<string> CatalogAsync(string connection, bool excludeImportedArchive = false)
     {
         await using var db = new NpgsqlConnection(connection); await db.OpenAsync();
         await using var tx = await db.BeginTransactionAsync();
@@ -94,12 +103,16 @@ internal static class HrmFreshRehearsal
               JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
               LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum
               WHERE n.nspname='hrm' AND c.relkind IN ('r','p')
+                AND (NOT @exclude_imported OR c.relname<>'legacy_frappe_records')
               UNION ALL SELECT c.relname||':'||k.conname||':'||pg_get_constraintdef(k.oid)
               FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='hrm'
+                AND (NOT @exclude_imported OR c.relname<>'legacy_frappe_records')
               UNION ALL SELECT tablename||':'||indexname||':'||indexdef FROM pg_indexes WHERE schemaname='hrm'
+                AND (NOT @exclude_imported OR tablename<>'legacy_frappe_records')
               UNION ALL SELECT 'history:'||"MigrationId" FROM hrm.__hrm_migrations
             ) q
             """, db, tx);
+        query.Parameters.AddWithValue("exclude_imported", excludeImportedArchive);
         var text = (string)(await query.ExecuteScalarAsync())!;
         await tx.RollbackAsync();
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
