@@ -78,7 +78,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
         if ((record is OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
-                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation) &&
+                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation or PurchaseRequestDraftCommandReceipt) &&
             (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
             throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
         record.TenantId = scope.TenantId;
@@ -537,6 +537,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureReceivingExecution(modelBuilder);
         ConfigureInvoiceMatchingExecution(modelBuilder);
         ConfigureFinanceCheckerIdentity(modelBuilder);
+        ConfigurePurchaseRequestDraftReceipts(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
@@ -712,6 +713,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         if (string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(scope.SubjectId))
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
         GuardPurchaseRequestIdentity();
+        GuardPurchaseRequestDraftReceipts();
         GuardRecurringPurchaseIdentity();
         GuardFinanceCheckerIdentity();
         GuardSpendingAuthorityChanges();
@@ -757,7 +759,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 entry.Entity.UpdatedBy = scope.SubjectId;
                 entry.Entity.Version = checked(entry.OriginalValues.GetValue<long>(nameof(ProcurementRecord.Version)) + 1);
             }
-            if (entry.Entity is AuditEvent or OutboxEvent) continue;
+            if (entry.Entity is AuditEvent or OutboxEvent or PurchaseRequestDraftCommandReceipt) continue;
             AuditEvents.Add(new AuditEvent
             {
                 RecordType = entry.Entity.GetType().Name,
