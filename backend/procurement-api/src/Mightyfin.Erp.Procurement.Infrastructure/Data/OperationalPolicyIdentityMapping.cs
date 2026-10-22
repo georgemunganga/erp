@@ -161,6 +161,15 @@ public sealed partial class ProcurementDbContext
                 OperationalPolicyWorkerIdentity.RequireAuthor(policy, origin, scope.SubjectId, actorWorker);
                 allowed.UnionWith([nameof(PolicyVersion.RulesJson), nameof(PolicyVersion.EffectiveFrom), nameof(PolicyVersion.EffectiveTo)]);
             }
+            else if (original.State == "Draft" && policy.State == "Retired" && added.Length == 0)
+            {
+                OperationalPolicyWorkerIdentity.RequireAuthor(policy, origin, scope.SubjectId, OperationalIdentityActorWorker());
+                if (policy.ReviewRequestedAt is not null || policy.ReviewRequestedBy is not null || policy.ReviewReason is not null
+                    || policy.PublishedAt is not null || policy.PublishedBy is not null || policy.PublicationReason is not null
+                    || OperationalPolicyIdentityRecords.Any(x => x.PolicyVersionId == policy.Id && x.Stage != "Created"))
+                    throw new InvalidOperationException("OperationalPolicyRetirementHistoryDenied");
+                allowed.Add(nameof(PolicyVersion.State));
+            }
             else if (original.State == "Draft" && policy.State == "PendingReview" && added.Length == 1 && added[0].Stage == "Submitted")
                 allowed.UnionWith([nameof(PolicyVersion.State), nameof(PolicyVersion.ReviewRequestedAt), nameof(PolicyVersion.ReviewRequestedBy), nameof(PolicyVersion.ReviewReason)]);
             else if (original.State == "PendingReview" && policy.State == "Published" && added.Length == 1 && added[0].Stage == "Published")

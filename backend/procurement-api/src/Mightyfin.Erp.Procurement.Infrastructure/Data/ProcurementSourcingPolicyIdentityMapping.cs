@@ -107,6 +107,16 @@ public sealed partial class ProcurementDbContext
                 if (scope.SubjectId != origin.ActorPrincipalId || added.Length != 0) throw new InvalidOperationException("SourcingPolicyOriginalAuthorRequired");
                 allowed.UnionWith([nameof(PolicyVersion.RulesJson), nameof(PolicyVersion.EffectiveFrom), nameof(PolicyVersion.EffectiveTo)]);
             }
+            else if (oldState == "Draft" && policy.State == "Retired" && added.Length == 0)
+            {
+                SourcingPolicyIdentity.RequireAuthor(policy, origin, scope.SubjectId,
+                    scope.WorkerId ?? throw new InvalidOperationException("SourcingPolicyOriginalAuthorRequired"));
+                if (policy.ReviewRequestedAt is not null || policy.ReviewRequestedBy is not null || policy.ReviewReason is not null
+                    || policy.PublishedAt is not null || policy.PublishedBy is not null || policy.PublicationReason is not null
+                    || SourcingPolicyIdentityEvidenceRecords.Any(x => x.PolicyVersionId == policy.Id && x.Stage != "Created"))
+                    throw new InvalidOperationException("SourcingPolicyRetirementHistoryDenied");
+                allowed.Add(nameof(PolicyVersion.State));
+            }
             else if (oldState == "Draft" && policy.State == "PendingReview" && added.Length == 1 && added[0].Stage == "Submitted")
                 allowed.UnionWith([nameof(PolicyVersion.State), nameof(PolicyVersion.ReviewRequestedAt), nameof(PolicyVersion.ReviewRequestedBy), nameof(PolicyVersion.ReviewReason)]);
             else if (oldState == "PendingReview" && policy.State == "Published" && added.Length == 1 && added[0].Stage == "Published")

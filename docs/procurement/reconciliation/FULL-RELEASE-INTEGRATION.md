@@ -20,3 +20,7 @@ Request input keeps the existing domain CommercialLineDecimalJsonConverter and t
 ## Pending acceptance
 
 Independent integration review; new historical-reference/author guards; combined mapped HTTP/domain cases; real private PostgreSQL draft and operational probes; browser acceptance on the final UI source; restricted backup clone compatibility; host startup/release/rollback smoke. Tier3 release gates remain in force. Source pushes and prior branch test results are not production deployment.
+
+## Review correction — authored policy retirement
+
+Independent review found that route-level retirement for authored SOURCING/RECEIVING/INVOICE_MATCHING drafts was not yet accepted by the identity persistence guards. The first combined SDK build was intentionally stopped as superseded, before a final API/test result; its logs/source manifest are retained and no pass is claimed. The correction allows only original-principal/current-original-worker Draft→Retired with unchanged rules/dates/identity, no new proof, and no review/publication history. Created identity remains immutable.24 new guard cases are authored and await execution.
