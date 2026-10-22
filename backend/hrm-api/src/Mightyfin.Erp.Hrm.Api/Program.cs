@@ -71,9 +71,6 @@ builder.Services.AddScoped<AuditInterceptor>();
 builder.Services.AddDbContext<HrmDbContext>((services, options) =>
 {
     options.UseNpgsql(connStr, npgsql => npgsql.MigrationsHistoryTable("__hrm_migrations", "hrm"));
-    // The repository snapshot predates several additive model changes. The
-    // migration runner must still apply explicit migrations in standalone mode.
-    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     options.AddInterceptors(services.GetRequiredService<AuditInterceptor>());
 });
 // Procurement is a bounded module in this ERP host. Its schema still has an
