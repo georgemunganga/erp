@@ -11,13 +11,13 @@ public static class InvoiceUnitReviewPolicyRules
 {
     public sealed record Stage(string Code, string Mode, IReadOnlyList<string> Principals);
     public sealed record Document(IReadOnlyList<Stage> Stages);
-    public sealed record Person(string TenantId, Guid LegalEntityId, string PrincipalId, Guid WorkerId,
+    public sealed record Person(string TenantId, Guid LegalEntityId, string PrincipalId, Guid? WorkerId,
         bool Active, IReadOnlySet<string> Permissions, bool OrganisationWide, IReadOnlySet<Guid> AllowedBranches);
-    public sealed record Assignee(string PrincipalId, Guid WorkerId);
+    public sealed record Assignee(string PrincipalId, Guid? WorkerId);
     public sealed record ProjectedStage(int Sequence, string Code, string CoreMode, int RequiredApprovals,
         IReadOnlyList<Assignee> Assignees);
     public sealed record Projection(Guid PolicyId, int PolicyVersion, string RulesSha256, string TenantId,
-        Guid LegalEntityId, Guid? BranchId, string MakerPrincipalId, Guid MakerWorkerId,
+        Guid LegalEntityId, Guid? BranchId, string MakerPrincipalId, Guid? MakerWorkerId,
         IReadOnlyList<ProjectedStage> Stages);
 
     public static Document Parse(string json) => ParseMode(json, false);
@@ -72,7 +72,7 @@ public static class InvoiceUnitReviewPolicyRules
     }
 
     public static Projection Resolve(PolicyVersion policy, string tenant, Guid company, Guid? branch,
-        string maker, Guid makerWorker, IReadOnlyList<Person> people, DateTimeOffset now)
+        string maker, Guid? makerWorker, IReadOnlyList<Person> people, DateTimeOffset now)
     {
         ValidatePolicy(policy, tenant, company, branch, maker, makerWorker, now);
         var rules = Parse(policy.RulesJson);
@@ -88,14 +88,13 @@ public static class InvoiceUnitReviewPolicyRules
             {
                 var person = people.Single(x => x.PrincipalId == principal);
                 Need(person.TenantId == tenant && person.LegalEntityId == company && person.Active
-                    && Canonical(person.PrincipalId) && person.WorkerId != Guid.Empty && person.PrincipalId != maker
-                    && person.WorkerId != makerWorker && person.Permissions is not null
+                    && ProcurementPrincipalEvidence.Independent(person.PrincipalId, person.WorkerId, maker, makerWorker) && person.Permissions is not null
                     && person.Permissions.Contains("procurement-access") && person.Permissions.Contains(InvoiceRetainedUnitReview.ReviewPermission)
                     && person.AllowedBranches is not null && !person.AllowedBranches.Contains(Guid.Empty)
                     && (person.OrganisationWide || branch is { } site && person.AllowedBranches.Contains(site)));
                 members.Add(new(person.PrincipalId, person.WorkerId));
             }
-            Need(members.Select(x => x.WorkerId).Distinct().Count() == members.Count);
+            Need(members.Where(x => x.WorkerId.HasValue).Select(x => x.WorkerId).Distinct().Count() == members.Count(x => x.WorkerId.HasValue));
             stages.Add(new(stages.Count + 1, stage.Code, stage.Mode == "One" ? "Any" : "All",
                 stage.Mode == "One" ? 1 : members.Count, members.AsReadOnly()));
         }
@@ -120,17 +119,16 @@ public static class InvoiceUnitReviewPolicyRules
                 && retained.CoreMode == (expected.Mode == "One" ? "Any" : "All")
                 && retained.RequiredApprovals == (expected.Mode == "One" ? 1 : expected.Principals.Count)
                 && retained.Assignees.Select(x => x.PrincipalId).SequenceEqual(expected.Principals)
-                && retained.Assignees.All(x => x.WorkerId != Guid.Empty && x.WorkerId != pinned.MakerWorkerId
-                    && x.PrincipalId != pinned.MakerPrincipalId)
-                && retained.Assignees.Select(x => x.WorkerId).Distinct().Count() == retained.Assignees.Count);
+                && retained.Assignees.All(x => ProcurementPrincipalEvidence.Independent(x.PrincipalId, x.WorkerId, pinned.MakerPrincipalId, pinned.MakerWorkerId))
+                && retained.Assignees.Where(x => x.WorkerId.HasValue).Select(x => x.WorkerId).Distinct().Count() == retained.Assignees.Count(x => x.WorkerId.HasValue));
         }
     }
 
     private static void ValidatePolicy(PolicyVersion policy, string tenant, Guid company, Guid? branch,
-        string maker, Guid makerWorker, DateTimeOffset now)
+        string maker, Guid? makerWorker, DateTimeOffset now)
     {
         Need(policy is not null && policy.TenantId == tenant && policy.LegalEntityId == company && company != Guid.Empty
-            && !string.IsNullOrWhiteSpace(tenant) && branch != Guid.Empty && Canonical(maker) && makerWorker != Guid.Empty
+            && !string.IsNullOrWhiteSpace(tenant) && branch != Guid.Empty && Canonical(maker) && ProcurementPrincipalEvidence.OptionalWorker(makerWorker)
             && policy.Id != Guid.Empty && policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey
             && policy.PolicyVersionNumber > 0 && policy.State == "Published" && policy.PublishedAt is { } published
             && published <= now && policy.EffectiveFrom != default && policy.EffectiveFrom <= now

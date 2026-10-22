@@ -13,7 +13,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             var invoice=await Invoice(db,scope,id,token);
             _=await Actor(core,scope,http,auth,"procurement-invoice-read",invoice.BranchRef,token);
             var mappings=await db.InvoiceMatchMappingVersions.Where(x=>x.SupplierInvoiceId==id).OrderBy(x=>x.MappingRevision).ToArrayAsync(token);
-            var results=await db.InvoiceMatchResults.Where(x=>x.SupplierInvoiceId==id && x.ExecutionVersion==1).OrderBy(x=>x.MatchedAt).ThenBy(x=>x.Id).ToArrayAsync(token);
+            var results=await db.InvoiceMatchResults.Where(x=>x.SupplierInvoiceId==id && (x.ExecutionVersion==1 || x.ExecutionVersion==2)).OrderBy(x=>x.MatchedAt).ThenBy(x=>x.Id).ToArrayAsync(token);
             var exceptions=await db.InvoiceExceptions.Where(x=>x.SupplierInvoiceId==id).OrderBy(x=>x.CreatedAt).ToArrayAsync(token);
             var originalLines=await db.SupplierInvoiceLines.Where(x=>x.SupplierInvoiceId==id && x.IsActive).OrderBy(x=>x.LineNumber).ToArrayAsync(token);
             var currentOriginalSha=InvoiceMappingEvidence.OriginalDigest(invoice,originalLines);

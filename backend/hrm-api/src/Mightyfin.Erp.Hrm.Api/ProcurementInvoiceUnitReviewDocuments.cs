@@ -89,11 +89,11 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         IReadOnlyList<Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewAssignmentEvidence> pins, InvoiceUnitReviewPolicyRules.Person person)
     {
         if (invoice.CurrentMappingVersionId != source.MappingVersionId || invoice.MappingRevision != source.MappingRevision) throw new KeyNotFoundException();
-        var maker = person.PrincipalId == source.MakerPrincipalId && person.WorkerId == source.MakerWorkerId
+        var maker = person.PrincipalId == source.MakerPrincipalId
             && person.Permissions.Contains(InvoiceUnitReviewTransitions.RequestPermission) && person.Permissions.Contains("procurement-invoice-read");
         var assigned = workflow.State == "Pending" && person.Permissions.Contains(InvoiceRetainedUnitReview.ReviewPermission)
             && workflow.Stages.Where(x => x.State == "Active").SelectMany(x => x.Assignments).Any(x => x.State == "Pending"
-                && x.AssigneeSubjectId == person.PrincipalId && pins.Any(p => p.CoreAssignmentId == x.Id && p.WorkerId == person.WorkerId && p.PrincipalId == person.PrincipalId));
+                && x.AssigneeSubjectId == person.PrincipalId && pins.Any(p => p.CoreAssignmentId == x.Id && p.PrincipalId == person.PrincipalId));
         if (!maker && !assigned) throw new UnauthorizedAccessException();
     }
     private static RecordDocumentService PurposeDocuments(HttpContext http, ProcurementDbContext transaction, ProcurementRequestScope scope, Guid invoice,

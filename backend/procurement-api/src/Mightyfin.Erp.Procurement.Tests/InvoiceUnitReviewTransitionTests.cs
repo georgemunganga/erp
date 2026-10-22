@@ -10,6 +10,47 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class InvoiceUnitReviewTransitionTests
 {
     [Fact]
+    public void Named_Core_users_without_employee_profiles_complete_actual_Core_stages()
+    {
+        var f = new Fixture();
+        f.Maker = f.Maker with { WorkerId = null };
+        f.Policy.People = f.Policy.People.Select(x => x with { WorkerId = null }).ToArray();
+        var proposed = InvoiceMappingEvidence.Verify(f.Mapping, f.Invoice, [f.Line]);
+        f.Mapping = InvoiceMappingEvidence.Create(f.Invoice, [f.Line], f.Mapping.PurchaseOrderId,
+            f.Mapping.IssuedVersionId, proposed.Lines, f.Maker.PrincipalId, null, f.Policy.Now, identitySchemaVersion: 2);
+        f.Invoice.CurrentMappingVersionId = f.Mapping.Id; f.Invoice.MappingRevision = f.Mapping.MappingRevision;
+        var plan = f.Open(); var decisions = new List<ApprovalDecision>();
+        Assert.Equal(3, plan.Source.IdentitySchemaVersion);
+        Assert.All(plan.AssignmentWorkers, x => Assert.Null(x.WorkerId));
+        foreach (var stage in plan.Case.Stages.OrderBy(x => x.Sequence))
+        foreach (var task in stage.Mode == "Any" ? stage.Assignments.Take(1).ToArray() : stage.Assignments.ToArray())
+        {
+            var actor = f.Policy.People.Single(x => x.PrincipalId == task.AssigneeSubjectId);
+            Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued, f.Matching, f.Policy.Policy,
+                actor, f.Hashes, task.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version, task.Version,
+                    "Approve", null, f.Policy.Now.AddMinutes(1)), decisions);
+        }
+        Assert.Equal("Approved", plan.Case.State);
+        var terminal = InvoiceUnitReviewTerminal.Seal(plan, f.Invoice, [f.Line], f.Mapping, f.Issued,
+            f.Matching, f.Policy.Policy, f.Hashes, decisions, decisions.Last().Id, f.Policy.Now.AddMinutes(2));
+        Assert.Equal(3, terminal.EvidenceSchemaVersion); Assert.Null(terminal.ReviewerWorkerId);
+        Assert.Equal("Verified", terminal.State); Assert.Null(f.Invoice.FinancePostingRef);
+    }
+
+    [Fact]
+    public void Employee_metadata_can_change_without_changing_the_named_Core_assignment()
+    {
+        var f = new Fixture(); var plan = f.Open(); var task = plan.Case.Stages.First().Assignments.First();
+        var actor = f.Policy.People.Single(x => x.PrincipalId == task.AssigneeSubjectId) with { WorkerId = null };
+        var decisions = new List<ApprovalDecision>();
+        Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued, f.Matching, f.Policy.Policy,
+            actor, f.Hashes, task.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version, task.Version,
+                "Approve", null, f.Policy.Now.AddMinutes(1)), decisions);
+        Assert.Equal(actor.PrincipalId, Assert.Single(decisions).ActorSubjectId);
+        Assert.NotNull(plan.AssignmentWorkers.Single(x => x.AssignmentId == task.Id).WorkerId);
+    }
+
+    [Fact]
     public void Plan_uses_real_Core_One_then_All_without_verifying_or_mutating_invoice_or_financial_claims()
     {
         var f = new Fixture(); var before = JsonSerializer.Serialize(f.Invoice); var plan = f.Open();

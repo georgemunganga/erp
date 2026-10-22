@@ -73,7 +73,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             // Even a provider bug may not turn an incomplete receiving projection into a qualified claim.
             if(source.Blockers.Count!=0 && comparison.ComparisonPassed) throw new MatchingProblem("InvoiceAcceptedHistoryUnavailable",409);
             var result=new InvoiceMatchResult { SupplierInvoiceId=id,MatchType=comparison.Lines.Count==0 ? "Unresolved" : string.Join("+",comparison.Lines.Select(x=>x.Method.ToString()).Distinct().Order()),
-                Outcome=comparison.Outcome,PolicyVersionId=policy.Id,MatchedAt=now,ExecutionVersion=1,MappingVersionId=mapping.Id,
+                Outcome=comparison.Outcome,PolicyVersionId=policy.Id,MatchedAt=now,ExecutionVersion=2,MappingVersionId=mapping.Id,
                 PurchaseOrderId=mapping.PurchaseOrderId,IssuedVersionId=mapping.IssuedVersionId,InvoiceVersion=invoice.Version,
                 InvoiceOriginalSha256=mapping.InvoiceOriginalSha256,ActorPrincipalId=scope.SubjectId,ActorWorkerId=worker,CommandKey=key,
                 InputFingerprint=comparison.InputFingerprint,EvidenceJson=comparison.EvidenceJson,EvidenceSha256=comparison.EvidenceSha256,

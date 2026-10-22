@@ -52,7 +52,7 @@ sealed partial class Probe
                 && link.DocumentVersionId==version.Id && link.DocumentLineReference=="Page 1 line 1"
                 && link.InvoiceUnitCode==(await db.PurchaseOrderLines.AsNoTracking().Where(x=>x.Id==source.Line).Select(x=>x.UnitCode).SingleAsync()),
                 "Persisted mapping lost original/source/document identity or falsely verified units.");
-            var result=await db.InvoiceMatchResults.AsNoTracking().SingleAsync(x=>x.SupplierInvoiceId==invoice.Id && x.ExecutionVersion==1);
+            var result=await db.InvoiceMatchResults.AsNoTracking().SingleAsync(x=>x.SupplierInvoiceId==invoice.Id && x.ExecutionVersion==2);
             var policy=await db.PolicyVersions.AsNoTracking().SingleAsync(x=>x.Id==result.PolicyVersionId);
             var summary=InvoiceMatchReadProjection.Summary(result,original.Select(x=>x.Id).ToHashSet());
             Require(await db.InvoiceMatchResults.CountAsync()==1 && result.Outcome=="Blocked" && result.Id==invoice.LastMatchResultId && invoice.MatchRevision==1

@@ -13,7 +13,7 @@ public static class InvoiceMatchReadProjection
 {
     public static InvoiceMatchSummary Summary(InvoiceMatchResult result,IReadOnlySet<Guid> originalInvoiceLineIds)
     {
-        if(result.ExecutionVersion!=1 || result.EvidenceJson is null || result.EvidenceSha256!=ProcurementEvidenceEncoding.Digest(result.EvidenceJson))
+        if(result.ExecutionVersion is not (1 or 2) || result.EvidenceJson is null || result.EvidenceSha256!=ProcurementEvidenceEncoding.Digest(result.EvidenceJson))
             throw new InvalidOperationException("InvoiceMatchReadEvidenceInvalid");
         using var evidence=JsonDocument.Parse(result.EvidenceJson); var root=evidence.RootElement;
         var json=new JsonSerializerOptions(JsonSerializerDefaults.Web); json.Converters.Add(new JsonStringEnumConverter());

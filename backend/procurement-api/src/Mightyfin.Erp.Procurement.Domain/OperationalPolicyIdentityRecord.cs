@@ -11,7 +11,7 @@ public sealed class OperationalPolicyIdentityRecord : ProcurementRecord
     public int PolicyVersionNumber { get; init; }
     public string Stage { get; init; } = null!;
     public string ActorPrincipalId { get; init; } = null!;
-    public Guid ActorWorkerId { get; init; }
+    public Guid? ActorWorkerId { get; init; }
     public long PolicyRecordVersionAtAction { get; init; }
     public string RulesSha256 { get; init; } = null!;
     public DateTimeOffset ActionAt { get; init; }

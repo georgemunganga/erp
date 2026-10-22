@@ -31,7 +31,8 @@ public static class InvoiceUnitReviewCommands
         ApprovalDecision? decision, InvoiceUnitReviewOutcome? outcome)
     {
         var request = Read<InvoiceUnitReviewRequest>(row.RequestJson); var response = Read<InvoiceUnitReviewResponse>(row.ResponseJson);
-        Need(row.Fingerprint == ProcurementEvidenceEncoding.PolicyJsonDigest(row.RequestJson) && request.SchemaVersion == 1 && response.SchemaVersion == 1
+        Need(ProcurementPrincipalEvidence.Canonical(row.ActorPrincipalId) && ProcurementPrincipalEvidence.OptionalWorker(row.ActorWorkerId)
+            && row.Fingerprint == ProcurementEvidenceEncoding.PolicyJsonDigest(row.RequestJson) && request.SchemaVersion == 1 && response.SchemaVersion == 1
             && request.Operation == row.Operation && response.Operation == row.Operation && request.CommandKey == row.CommandKey && response.CommandKey == row.CommandKey
             && request.InvoiceId == source.SupplierInvoiceId && response.InvoiceId == source.SupplierInvoiceId && invoice.Id == source.SupplierInvoiceId
             && response.ReviewId == source.Id && row.ReviewSourceId == source.Id && response.CoreCaseId == source.CoreCaseId && workflow.Id == source.CoreCaseId
@@ -43,7 +44,7 @@ public static class InvoiceUnitReviewCommands
         {
             Need(request.ReviewId is null && request.AssignmentId is null && request.MappingRevision == source.MappingRevision
                 && request.CaseVersion is null && request.AssignmentVersion is null && request.Action is null && request.Attestation is null
-                && request.InvoiceVersion == source.InvoiceVersionAtOpen && row.ActorPrincipalId == source.MakerPrincipalId && row.ActorWorkerId == source.MakerWorkerId
+                && request.InvoiceVersion == source.InvoiceVersionAtOpen && row.ActorPrincipalId == source.MakerPrincipalId
                 && decision is null && outcome is null && response.DecisionId is null && response.OutcomeId is null
                 && workflow.State == "Pending" && workflow.Version == 1 && response.ReviewState == "Pending");
             return;
@@ -58,7 +59,7 @@ public static class InvoiceUnitReviewCommands
             && (request.Action == "Approve" || !string.IsNullOrWhiteSpace(request.Reason)));
         var assignment = workflow.Stages.SelectMany(x => x.Assignments).Single(x => x.Id == request.AssignmentId);
         Need(request.AssignmentVersion == assignment.Version - 1 && pins.Any(x => x.CoreAssignmentId == assignment.Id
-            && x.PrincipalId == row.ActorPrincipalId && x.WorkerId == row.ActorWorkerId));
+            && x.PrincipalId == row.ActorPrincipalId));
         if (workflow.State == "Pending")
             Need(outcome is null && response.OutcomeId is null && response.ReviewState == "Pending");
         else Need(outcome is not null && outcome.ReviewSourceId == source.Id && outcome.CoreCaseId == workflow.Id

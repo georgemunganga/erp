@@ -13,13 +13,13 @@ public sealed record InvoiceRetainedUnitReviewEnvelope(int SchemaVersion, string
     Guid MappingVersionId, int MappingRevision, string MappingSha256, string InvoiceOriginalSha256,
     Guid PurchaseOrderId, Guid IssuedVersionId, Guid MatchingPolicyId, int MatchingPolicyVersion,
     string MatchingPolicySha256, Guid ReviewPolicyId, int ReviewPolicyVersion, string ReviewPolicySha256,
-    Guid CoreCaseId, Guid FinalDecisionId, string ReviewerPrincipalId, Guid ReviewerWorkerId,
-    string MakerPrincipalId, Guid MakerWorkerId, DateTimeOffset ReviewedAt,
+    Guid CoreCaseId, Guid FinalDecisionId, string ReviewerPrincipalId, Guid? ReviewerWorkerId,
+    string MakerPrincipalId, Guid? MakerWorkerId, DateTimeOffset ReviewedAt,
     IReadOnlyList<InvoiceReviewedDocumentLine> Lines, IReadOnlyList<InvoiceUnitReviewAssignmentWorker> AssignmentWorkers);
 
 /// <summary>Retained canonical identity pins from owned review assignment evidence, not current
 /// account lookups or HTTP authority declarations. Original offboarding does not change history.</summary>
-public sealed record InvoiceUnitReviewAssignmentWorker(Guid AssignmentId, string PrincipalId, Guid WorkerId);
+public sealed record InvoiceUnitReviewAssignmentWorker(Guid AssignmentId, string PrincipalId, Guid? WorkerId);
 
 /// <summary>All records must be loaded from the authenticated owning store under its transaction.
 /// The pure verifier validates binding, not the provenance of arbitrary in-memory objects.</summary>
@@ -31,7 +31,7 @@ public sealed record InvoiceRetainedUnitReviewAuthority(Guid ReviewId, long Revi
 /// <summary>Current authorized comparison caller, distinct from the historical signer.
 /// Document hashes are owner-authorized current Available versions for this same invoice.</summary>
 public sealed record InvoiceUnitReviewConsumer(string TenantId, Guid LegalEntityId, Guid? BranchId,
-    string PrincipalId, Guid WorkerId, IReadOnlySet<string> Permissions, DateTimeOffset At,
+    string PrincipalId, Guid? WorkerId, IReadOnlySet<string> Permissions, DateTimeOffset At,
     IReadOnlyDictionary<Guid, string> DocumentVersionHashes, Guid? SelectedBranchId,
     IReadOnlySet<Guid> AllowedBranches, bool OrganisationWide);
 
@@ -42,13 +42,18 @@ internal sealed record InvoiceUnitReviewOwnedProofContext(string TenantId, Guid 
 public static class InvoiceRetainedUnitReview
 {
     public const string ReviewPolicyKey = "INVOICE_UNIT_REVIEW";
+    private static bool Independent(int schema, string first, Guid? firstWorker, string second, Guid? secondWorker)
+        => schema == 3 ? ProcurementPrincipalEvidence.Independent(first, firstWorker, second, secondWorker)
+            : schema == 2 && !string.IsNullOrWhiteSpace(first) && !string.IsNullOrWhiteSpace(second)
+                && first != second && firstWorker is not null && secondWorker is not null
+                && firstWorker != Guid.Empty && secondWorker != Guid.Empty && firstWorker != secondWorker;
     public const string ReviewSourceType = "invoice_unit_review";
     public const string ReviewPermission = "procurement-invoice-unit-review";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, PropertyNameCaseInsensitive = false,
         NumberHandling = JsonNumberHandling.Strict };
 
-    /// <summary>Version2 only; v1 caller-bound evidence is never silently promoted to an
+    /// <summary>Retains worker-pinned version2 and principal-based version3; v1 caller-bound evidence is never silently promoted to an
     /// independent review. Returns unit evidence only, never AP/history/claim authority.</summary>
     public static IReadOnlyDictionary<Guid, string> Verify(InvoiceRetainedUnitReviewAuthority authority,
         SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originalLines,
@@ -70,11 +75,14 @@ public static class InvoiceRetainedUnitReview
             && consumer.SelectedBranchId != Guid.Empty && consumer.AllowedBranches is not null
             && (consumer.SelectedBranchId is null || consumer.SelectedBranchId == invoice.BranchRef)
             && (consumer.OrganisationWide || invoice.BranchRef is { } branch && consumer.AllowedBranches.Contains(branch))
-            && !string.IsNullOrWhiteSpace(consumer.PrincipalId) && consumer.WorkerId != Guid.Empty
+            && !string.IsNullOrWhiteSpace(consumer.PrincipalId) && ProcurementPrincipalEvidence.OptionalWorker(consumer.WorkerId)
             && consumer.At != default && consumer.Permissions is not null
             && consumer.Permissions.Contains("procurement-access") && consumer.Permissions.Contains("procurement-invoice-match")
             && consumer.DocumentVersionHashes is not null && invoice.CurrentMappingVersionId == mapping.Id
             && invoice.MappingRevision == mapping.MappingRevision);
+        var identity = JsonSerializer.Deserialize<InvoiceRetainedUnitReviewEnvelope>(authority.EvidenceJson, Json);
+        Need(identity is not null && (identity.SchemaVersion == 3
+            ? ProcurementPrincipalEvidence.Canonical(consumer.PrincipalId) : consumer.WorkerId is not null));
         return VerifyOwnedProof(authority, invoice, originalLines, mapping,
             new(consumer.TenantId, consumer.LegalEntityId, consumer.BranchId, consumer.At, consumer.DocumentVersionHashes));
     }
@@ -97,7 +105,7 @@ public static class InvoiceRetainedUnitReview
         Need(ProcurementEvidenceEncoding.PolicyJsonDigest(authority.EvidenceJson).Length == 64
             && ProcurementEvidenceEncoding.Digest(authority.EvidenceJson) == authority.EvidenceSha256);
         var evidence = JsonSerializer.Deserialize<InvoiceRetainedUnitReviewEnvelope>(authority.EvidenceJson, Json);
-        Need(evidence is not null && evidence.SchemaVersion == 2
+        Need(evidence is not null && evidence.SchemaVersion is 2 or 3
             && evidence.TenantId == invoice.TenantId && evidence.LegalEntityId == invoice.LegalEntityId
             && evidence.BranchId == invoice.BranchRef && evidence.ReviewId == authority.ReviewId
             && evidence.ReviewSourceVersion == authority.ReviewSourceVersion && evidence.InvoiceId == invoice.Id
@@ -106,9 +114,8 @@ public static class InvoiceRetainedUnitReview
             && evidence.MappingSha256 == mapping.MappingSha256 && evidence.InvoiceOriginalSha256 == mapping.InvoiceOriginalSha256
             && evidence.PurchaseOrderId == mapping.PurchaseOrderId && evidence.IssuedVersionId == mapping.IssuedVersionId
             && evidence.MakerPrincipalId == mapping.ActorPrincipalId && evidence.MakerWorkerId == mapping.ActorWorkerId
-            && evidence.MakerWorkerId != Guid.Empty && !string.IsNullOrWhiteSpace(evidence.MakerPrincipalId)
-            && evidence.ReviewerWorkerId != Guid.Empty && !string.IsNullOrWhiteSpace(evidence.ReviewerPrincipalId)
-            && evidence.MakerPrincipalId != evidence.ReviewerPrincipalId && evidence.MakerWorkerId != evidence.ReviewerWorkerId
+            && Independent(evidence.SchemaVersion, evidence.MakerPrincipalId, evidence.MakerWorkerId, evidence.ReviewerPrincipalId, evidence.ReviewerWorkerId)
+            && (evidence.SchemaVersion == 3 || evidence.MakerWorkerId is not null && evidence.ReviewerWorkerId is not null)
             && evidence.ReviewedAt >= mapping.ReviewedAt && evidence.ReviewedAt <= context.At);
 
         // Policy identities are intentionally distinct. No current matching rule is relabelled
@@ -166,7 +173,8 @@ public static class InvoiceRetainedUnitReview
         Need(assignments.Length > 0 && assignments.Select(x => x.Id).Distinct().Count() == assignments.Length
             && authority.Workers.Count == assignments.Length
             && authority.Workers.All(pin => assignments.Any(x => x.Id == pin.AssignmentId && x.AssigneeSubjectId == pin.PrincipalId)
-                && pin.WorkerId != Guid.Empty && pin.WorkerId != evidence.MakerWorkerId && pin.PrincipalId != evidence.MakerPrincipalId));
+                && Independent(evidence.SchemaVersion, pin.PrincipalId, pin.WorkerId, evidence.MakerPrincipalId, evidence.MakerWorkerId)
+                    && (evidence.SchemaVersion == 3 || pin.WorkerId is not null)));
         var priorStageCompletedAt = workflow.OpenedAt;
         foreach (var stage in workflow.Stages.OrderBy(x => x.Sequence))
         {
@@ -176,7 +184,8 @@ public static class InvoiceRetainedUnitReview
                 && (stage.Mode != "Any" || stage.RequiredApprovals == 1)
                 && (stage.Mode != "All" || stage.RequiredApprovals == stage.Assignments.Count)
                 && stage.Assignments.Select(x => x.AssigneeSubjectId).Distinct().Count() == stage.Assignments.Count
-                && stage.Assignments.Select(x => authority.Workers.Single(pin => pin.AssignmentId == x.Id).WorkerId).Distinct().Count() == stage.Assignments.Count
+                && stage.Assignments.Select(x => authority.Workers.Single(pin => pin.AssignmentId == x.Id).WorkerId).Where(x => x.HasValue).Distinct().Count()
+                    == stage.Assignments.Count(x => authority.Workers.Single(pin => pin.AssignmentId == x.Id).WorkerId.HasValue)
                 && stage.Assignments.Count(x => x.State == "Approved") == stage.RequiredApprovals);
             foreach (var assignment in stage.Assignments)
             {

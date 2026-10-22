@@ -13,7 +13,8 @@ public sealed class InvoiceMatchMappingVersion : ProcurementRecord
     public string VerificationState { get; init; } = "Unverified";
     public string VerificationEvidenceJson { get; init; } = "{}";
     public string ActorPrincipalId { get; init; } = null!;
-    public Guid ActorWorkerId { get; init; }
+    public int IdentitySchemaVersion { get; init; } = 1;
+    public Guid? ActorWorkerId { get; init; }
     public DateTimeOffset ReviewedAt { get; init; }
 }
 

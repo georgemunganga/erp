@@ -19,7 +19,10 @@ public static class InvoiceUnitReviewTransitions
         Guid? BranchId, Guid InvoiceId, long InvoiceVersionAtOpen, Guid MappingId, int MappingRevision,
         string OriginalSha256, string MappingSha256, Guid PurchaseOrderId, Guid IssuedVersionId,
         string IssuedEvidenceSha256, Guid MatchingPolicyId, int MatchingPolicyVersion, string MatchingPolicySha256,
-        Rules.Projection ReviewPolicy, DateTimeOffset OpenedAt, IReadOnlyList<InvoiceReviewedDocumentLine> Lines);
+        Rules.Projection ReviewPolicy, DateTimeOffset OpenedAt, IReadOnlyList<InvoiceReviewedDocumentLine> Lines)
+    {
+        public int IdentitySchemaVersion { get; init; }
+    }
     public sealed record OpeningPlan(Source Source, string SourceJson, string SourceSha256, ApprovalCase Case,
         IReadOnlyList<InvoiceUnitReviewAssignmentWorker> AssignmentWorkers, Guid CommandKey, string? Reason);
 
@@ -32,7 +35,7 @@ public static class InvoiceUnitReviewTransitions
             && command.ExpectedMappingRevision == mapping.MappingRevision && invoice.Version > 0);
         CurrentMapping(invoice, originalLines, mapping);
         PersonScope(maker, invoice, RequestPermission);
-        Need(maker.PrincipalId == mapping.ActorPrincipalId && maker.WorkerId == mapping.ActorWorkerId
+        Need(maker.PrincipalId == mapping.ActorPrincipalId && ProcurementPrincipalEvidence.OptionalWorker(maker.WorkerId)
             && mapping.ReviewedAt != default && mapping.ReviewedAt <= command.At);
         var projection = Rules.Resolve(reviewPolicy, invoice.TenantId, invoice.LegalEntityId, invoice.BranchRef,
             mapping.ActorPrincipalId, mapping.ActorWorkerId, reviewers, command.At);
@@ -44,7 +47,7 @@ public static class InvoiceUnitReviewTransitions
             invoice.Id, invoice.Version, mapping.Id, mapping.MappingRevision, mapping.InvoiceOriginalSha256,
             mapping.MappingSha256, mapping.PurchaseOrderId, mapping.IssuedVersionId,
             IssuedFingerprint(issued, mapping, invoice, originalLines, command.At), matchingPolicy.Id,
-            matchingPolicy.PolicyVersionNumber, matchingSha, projection, now, lines);
+            matchingPolicy.PolicyVersionNumber, matchingSha, projection, now, lines) { IdentitySchemaVersion = 3 };
         var workflow = new ApprovalCase { Id = source.CoreCaseId, TenantId = source.TenantId, LegalEntityId = source.LegalEntityId,
             SourceModule = "procurement", SourceType = InvoiceRetainedUnitReview.ReviewSourceType,
             SourceId = source.ReviewId, SourceVersion = source.SourceVersion, PolicyVersionId = projection.PolicyId,
@@ -83,10 +86,10 @@ public static class InvoiceUnitReviewTransitions
             && invoice.Version == command.ExpectedInvoiceVersion && workflow.Version == command.ExpectedCaseVersion);
         ValidateOwnedEvidence(owned, invoice, originalLines, mapping, issued, matchingPolicy, reviewPolicy, ownedDocumentHashes, command.At);
         PersonScope(actor, invoice, InvoiceRetainedUnitReview.ReviewPermission);
-        Need(actor.WorkerId != source.ReviewPolicy.MakerWorkerId && actor.PrincipalId != source.ReviewPolicy.MakerPrincipalId);
+        Need(ProcurementPrincipalEvidence.Independent(actor.PrincipalId, actor.WorkerId, source.ReviewPolicy.MakerPrincipalId, source.ReviewPolicy.MakerWorkerId));
         var assignment = workflow.Stages.SelectMany(x => x.Assignments).SingleOrDefault(x => x.Id == assignmentId);
         Need(assignment is not null && assignment.Version == command.ExpectedAssignmentVersion
-            && owned.AssignmentWorkers.Any(x => x.AssignmentId == assignmentId && x.PrincipalId == actor.PrincipalId && x.WorkerId == actor.WorkerId)
+            && owned.AssignmentWorkers.Any(x => x.AssignmentId == assignmentId && x.PrincipalId == actor.PrincipalId)
             && command.Action is "Approve" or "Reject" or "Return");
         var reason = Reason(command.Reason); Need(command.Action == "Approve" || reason is not null);
         return ApprovalEngine.Decide(workflow, assignment!, new(actor.PrincipalId, actor.TenantId, actor.LegalEntityId,
@@ -100,7 +103,7 @@ public static class InvoiceUnitReviewTransitions
         PolicyVersion matchingPolicy, PolicyVersion reviewPolicy, IReadOnlyDictionary<Guid, string> ownedDocumentHashes, DateTimeOffset at)
     {
         var source = owned.Source; var workflow = owned.Case;
-        Need(at >= source.OpenedAt && source.CoreCaseId == workflow.Id && workflow.OpenedAt == source.OpenedAt
+        Need(source.IdentitySchemaVersion == 3 && at >= source.OpenedAt && source.CoreCaseId == workflow.Id && workflow.OpenedAt == source.OpenedAt
             && source.InvoiceVersionAtOpen > 0 && invoice.Version >= source.InvoiceVersionAtOpen
             && source.ReviewPolicy.MakerPrincipalId == mapping.ActorPrincipalId && source.ReviewPolicy.MakerWorkerId == mapping.ActorWorkerId
             && source.ReviewId == workflow.SourceId && source.SourceVersion == workflow.SourceVersion
@@ -176,7 +179,7 @@ public static class InvoiceUnitReviewTransitions
     }
     private static void PersonScope(Rules.Person person, SupplierInvoice invoice, string action)
     {
-        Need(person is not null && person.Active && person.WorkerId != Guid.Empty
+        Need(person is not null && person.Active && ProcurementPrincipalEvidence.OptionalWorker(person.WorkerId)
             && Guid.TryParseExact(person.PrincipalId, "D", out var principal) && principal != Guid.Empty && person.PrincipalId == principal.ToString("D")
             && person.TenantId == invoice.TenantId && person.LegalEntityId == invoice.LegalEntityId
             && person.Permissions is not null && person.AllowedBranches is not null && !person.AllowedBranches.Contains(Guid.Empty)

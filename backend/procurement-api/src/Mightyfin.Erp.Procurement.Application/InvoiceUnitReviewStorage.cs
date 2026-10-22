@@ -31,7 +31,7 @@ public static class InvoiceUnitReviewStorage
         _ = ProcurementEvidenceEncoding.PolicyJsonDigest(row.SourceJson); // recursive duplicates fail closed
         var source = JsonSerializer.Deserialize<InvoiceUnitReviewTransitions.Source>(row.SourceJson, Json)
             ?? throw new InvalidOperationException("InvoiceUnitReviewStoredSourceInvalid");
-        Need(JsonSerializer.Serialize(source) == row.SourceJson && source.ReviewId == row.Id && source.SourceVersion == 1
+        Need(source.IdentitySchemaVersion == 3 && JsonSerializer.Serialize(source) == row.SourceJson && source.ReviewId == row.Id && source.SourceVersion == 1
             && source.TenantId == row.TenantId && source.LegalEntityId == row.LegalEntityId && source.InvoiceId == row.SupplierInvoiceId
             && source.MappingId == row.MappingVersionId && source.MappingRevision == row.MappingRevision
             && source.PurchaseOrderId == row.PurchaseOrderId && source.IssuedVersionId == row.IssuedVersionId
@@ -49,7 +49,7 @@ public static class InvoiceUnitReviewStorage
         var source = Read(row);
         Need(pins.Count > 0 && pins.Select(x => x.CoreAssignmentId).Distinct().Count() == pins.Count
             && pins.All(x => x.TenantId == row.TenantId && x.LegalEntityId == row.LegalEntityId && x.ReviewSourceId == row.Id
-                && x.CoreCaseId == row.CoreCaseId && x.WorkerId != Guid.Empty));
+                && x.CoreCaseId == row.CoreCaseId && ProcurementPrincipalEvidence.Canonical(x.PrincipalId) && ProcurementPrincipalEvidence.OptionalWorker(x.WorkerId)));
         var workers = pins.Select(x => new InvoiceUnitReviewAssignmentWorker(x.CoreAssignmentId, x.PrincipalId, x.WorkerId)).ToArray();
         InvoiceUnitReviewPolicyRules.VerifyCaseGraph(source.ReviewPolicy, workflow, workers);
         Need(workflow.Id == row.CoreCaseId && workflow.SourceId == row.Id && workflow.SourceVersion == 1

@@ -43,7 +43,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var p = page ?? 1; var size = pageSize ?? 20;
             if (p < 1 || p > 100000 || size < 1 || size > 50) throw new ReviewProblem("InvoiceUnitReviewPageInvalid", 400);
             var actor = await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, token) ?? throw new UnauthorizedAccessException();
-            if (scope.WorkerId != actor.WorkerId || !actor.Permissions.Contains("procurement-access") || !actor.Permissions.Contains(InvoiceRetainedUnitReview.ReviewPermission)
+            if (scope.PrincipalId?.ToString("D") != actor.PrincipalId || !actor.Permissions.Contains("procurement-access") || !actor.Permissions.Contains(InvoiceRetainedUnitReview.ReviewPermission)
                 || !(await auth.AuthorizeAsync(http.User, null, InvoiceRetainedUnitReview.ReviewPermission)).Succeeded) throw new UnauthorizedAccessException();
             _ = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
             // Immutable source branch and current invoice must agree BEFORE count/paging.
@@ -62,7 +62,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                     AND c.""SourceModule""='procurement' AND c.""SourceType""='invoice_unit_review' AND c.""SourceId""=s.id AND c.""SourceVersion""=1
                     AND c.""State""='Pending' AND g.""State""='Active' AND a.""State""='Pending'
                     AND a.""PermissionKey""={InvoiceRetainedUnitReview.ReviewPermission} AND a.""AssigneeSubjectId""={scope.SubjectId}
-                    AND w.principal_id={scope.SubjectId} AND w.worker_id={actor.WorkerId})").AsNoTracking();
+                    AND w.principal_id={scope.SubjectId})").AsNoTracking();
             if (scope.WorkLocationId is { } selected) query = query.Where(x => x.BranchRef == selected);
             if (!actor.OrganisationWide)
             {
@@ -85,10 +85,10 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var workflow = await Workflow(cases, scope, source, false, token);
             var pins = await db.InvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == id).ToArrayAsync(token);
             var owned = InvoiceUnitReviewStorage.Restore(source, pins, workflow);
-            var maker = actor.PrincipalId == source.MakerPrincipalId && actor.WorkerId == source.MakerWorkerId
+            var maker = actor.PrincipalId == source.MakerPrincipalId
                 && actor.Permissions.Contains(InvoiceUnitReviewTransitions.RequestPermission) && actor.Permissions.Contains("procurement-invoice-read");
             var assigned = actor.Permissions.Contains(InvoiceRetainedUnitReview.ReviewPermission)
-                && pins.Any(x => x.PrincipalId == actor.PrincipalId && x.WorkerId == actor.WorkerId);
+                && pins.Any(x => x.PrincipalId == actor.PrincipalId);
             var reader = actor.Permissions.Contains(InvoiceUnitReviewTransitions.ReadPermission) && actor.Permissions.Contains("procurement-invoice-read");
             if (!maker && !assigned && !reader) throw new UnauthorizedAccessException();
             var outcome = await db.InvoiceUnitReviewOutcomes.SingleOrDefaultAsync(x => x.ReviewSourceId == id, token);
@@ -107,7 +107,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 lines = originals.Select(x => new { x.Id, x.LineNumber, x.Description, quantity = ProcurementEvidenceEncoding.Decimal(x.Quantity),
                     unitPrice = ProcurementEvidenceEncoding.Decimal(x.UnitPrice), taxAmount = ProcurementEvidenceEncoding.Decimal(x.TaxAmount) }).ToArray() };
             var assignments = workflow.Stages.Where(x => currentMapping && originalDigestCurrent && workflow.State == "Pending" && x.State == "Active").SelectMany(x => x.Assignments)
-                .Where(x => x.State == "Pending" && x.AssigneeSubjectId == actor.PrincipalId && pins.Any(w => w.CoreAssignmentId == x.Id && w.WorkerId == actor.WorkerId))
+                .Where(x => x.State == "Pending" && x.AssigneeSubjectId == actor.PrincipalId && pins.Any(w => w.CoreAssignmentId == x.Id && w.PrincipalId == actor.PrincipalId))
                 .Select(x => new { assignmentId = x.Id, assignmentVersion = x.Version }).ToArray();
             return InvoiceUnitReviewCommands.Serialize(new { reviewId = id, invoiceId = invoice.Id, invoiceVersion = invoice.Version,
                 mappingVersionId = source.MappingVersionId, source.MappingRevision, coreCaseId = workflow.Id, caseVersion = workflow.Version,
@@ -125,7 +125,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var receipt = await db.InvoiceUnitReviewReceipts.SingleOrDefaultAsync(x => x.ReviewSourceId == id && x.CommandKey == key && x.ActorPrincipalId == scope.SubjectId, token) ?? throw new KeyNotFoundException();
             var action = receipt.Operation == "Open" ? InvoiceUnitReviewTransitions.RequestPermission : InvoiceRetainedUnitReview.ReviewPermission;
             var actor = await Actor(core, scope, http, auth, source.BranchRef, [action], token);
-            if (receipt.ActorWorkerId != actor.WorkerId) throw new UnauthorizedAccessException();
+            if (receipt.ActorPrincipalId != actor.PrincipalId) throw new UnauthorizedAccessException();
             if (receipt.Operation == "Open" && (!actor.Permissions.Contains("procurement-invoice-read") || !(await auth.AuthorizeAsync(http.User, null, "procurement-invoice-read")).Succeeded)) throw new UnauthorizedAccessException();
             var request = InvoiceUnitReviewCommands.Read<InvoiceUnitReviewRequest>(receipt.RequestJson);
             if (request.InvoiceId != invoice.Id || request.Operation == "Decision" && request.ReviewId != id

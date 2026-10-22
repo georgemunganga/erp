@@ -10,11 +10,11 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class InvoiceUnitReviewTerminalTests
 {
     [Fact]
-    public void Full_Core_proof_seals_v2_and_another_current_matcher_consumes_without_resigning()
+    public void Full_Core_proof_seals_v3_and_another_current_matcher_consumes_without_resigning()
     {
         var f = new Fixture(); f.Complete(); var before = JsonSerializer.Serialize(f.Data.Invoice);
         var outcome = f.Seal();
-        Assert.Equal("Verified", outcome.State); Assert.Equal(2, outcome.EvidenceSchemaVersion);
+        Assert.Equal("Verified", outcome.State); Assert.Equal(3, outcome.EvidenceSchemaVersion);
         Assert.Equal(f.Final.Id, outcome.FinalDecisionId); Assert.Equal(f.Plan.SourceSha256, outcome.SourceSha256);
         Assert.Equal("EACH", Assert.Single(f.Units(outcome)).Value);
         Assert.NotEqual(outcome.ReviewerPrincipalId, f.Consumer.PrincipalId);
@@ -77,7 +77,7 @@ public sealed class InvoiceUnitReviewTerminalTests
     public void Actual_Core_nonapproval_outcome_is_retained_but_never_verified_unit_authority(string action, string state)
     {
         var f = new Fixture(); f.Complete(action); var outcome = f.Seal();
-        Assert.Equal(state, outcome.State); Assert.Equal(1, outcome.EvidenceSchemaVersion);
+        Assert.Equal(state, outcome.State); Assert.Equal(3, outcome.EvidenceSchemaVersion);
         Assert.Null(f.Plan.Case.CompletionKey); // Shared engine only supplies CompletionKey on approval.
         Assert.Throws<InvalidOperationException>(() => f.Units(outcome));
         Assert.Equal("Unverified", f.Data.Mapping.VerificationState); Assert.Null(f.Data.Invoice.FinancePostingRef);

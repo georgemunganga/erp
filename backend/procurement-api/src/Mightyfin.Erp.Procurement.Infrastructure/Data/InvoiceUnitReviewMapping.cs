@@ -30,22 +30,22 @@ public sealed partial class ProcurementDbContext
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SupplierInvoiceId, x.PurchaseOrderId, x.IssuedVersionId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_source_mapping");
         source.HasOne<PolicyVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.MatchingPolicyId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_source_matching_policy");
         source.HasOne<PolicyVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewPolicyId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_source_review_policy");
-        source.ToTable(t => t.HasCheckConstraint("ck_inv_unit_source", "invoice_version_at_open > 0 AND mapping_revision > 0 AND matching_policy_id <> review_policy_id AND core_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND length(btrim(maker_principal_id))>0 AND source_sha256 IS NOT NULL AND source_sha256 ~ '^[0-9a-f]{64}$' AND original_sha256 IS NOT NULL AND original_sha256 ~ '^[0-9a-f]{64}$' AND mapping_sha256 IS NOT NULL AND mapping_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(source_json) BETWEEN 1 AND 262144 AND octet_length(issued_json) BETWEEN 1 AND 262144 AND isfinite(opened_at)"));
+        source.ToTable(t => t.HasCheckConstraint("ck_inv_unit_source", "invoice_version_at_open > 0 AND mapping_revision > 0 AND matching_policy_id <> review_policy_id AND core_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (maker_worker_id IS NULL OR maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND maker_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND maker_principal_id <> '00000000-0000-0000-0000-000000000000' AND source_sha256 IS NOT NULL AND source_sha256 ~ '^[0-9a-f]{64}$' AND original_sha256 IS NOT NULL AND original_sha256 ~ '^[0-9a-f]{64}$' AND mapping_sha256 IS NOT NULL AND mapping_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(source_json) BETWEEN 1 AND 262144 AND octet_length(issued_json) BETWEEN 1 AND 262144 AND isfinite(opened_at)"));
         var pin = model.Entity<InvoiceUnitReviewAssignmentEvidence>();
         pin.Property(x => x.PrincipalId).HasMaxLength(200);
         pin.HasOne<InvoiceUnitReviewSource>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId, x.CoreCaseId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.CoreCaseId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_assignment_source");
         pin.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreAssignmentId }).IsUnique().HasDatabaseName("ux_inv_unit_assignment");
-        pin.ToTable(t => t.HasCheckConstraint("ck_inv_unit_assignment", "core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid AND worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND length(btrim(principal_id))>0"));
+        pin.ToTable(t => t.HasCheckConstraint("ck_inv_unit_assignment", "core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (worker_id IS NULL OR worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND principal_id <> '00000000-0000-0000-0000-000000000000'"));
         var outcome = model.Entity<InvoiceUnitReviewOutcome>();
         outcome.Property(x => x.State).HasMaxLength(20); outcome.Property(x => x.EvidenceJson).HasColumnType("text"); outcome.Property(x => x.EvidenceSha256).HasMaxLength(64); outcome.Property(x => x.ReviewerPrincipalId).HasMaxLength(200);
         outcome.HasOne<InvoiceUnitReviewSource>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId, x.CoreCaseId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.CoreCaseId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_outcome_source");
         outcome.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId }).IsUnique().HasDatabaseName("ux_inv_unit_outcome_source");
-        outcome.ToTable(t => t.HasCheckConstraint("ck_inv_unit_outcome", "((state='Verified' AND evidence_schema_version=2) OR (state IN ('Returned','Rejected') AND evidence_schema_version=1)) AND final_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND reviewer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND length(btrim(reviewer_principal_id))>0 AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(evidence_json) BETWEEN 1 AND 524288 AND isfinite(completed_at)"));
+        outcome.ToTable(t => t.HasCheckConstraint("ck_inv_unit_outcome", "(state IN ('Verified','Returned','Rejected') AND evidence_schema_version=3) AND final_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (reviewer_worker_id IS NULL OR reviewer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND reviewer_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND reviewer_principal_id <> '00000000-0000-0000-0000-000000000000' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(evidence_json) BETWEEN 1 AND 524288 AND isfinite(completed_at)"));
         var receipt = model.Entity<InvoiceUnitReviewCommandReceipt>();
         receipt.Property(x => x.RequestJson).HasColumnType("text"); receipt.Property(x => x.Operation).HasMaxLength(20); receipt.Property(x => x.ActorPrincipalId).HasMaxLength(200); receipt.Property(x => x.Fingerprint).HasMaxLength(64); receipt.Property(x => x.ResponseJson).HasColumnType("text");
         receipt.HasOne<InvoiceUnitReviewSource>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_receipt_source");
         receipt.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Operation, x.CommandKey }).IsUnique().HasDatabaseName("ux_inv_unit_command_key");
-        receipt.ToTable(t => t.HasCheckConstraint("ck_inv_unit_receipt", "operation IN ('Open','Decision') AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND length(btrim(actor_principal_id))>0 AND fingerprint IS NOT NULL AND fingerprint ~ '^[0-9a-f]{64}$' AND octet_length(response_json) BETWEEN 1 AND 262144 AND octet_length(request_json) BETWEEN 1 AND 65536 AND isfinite(completed_at)"));
+        receipt.ToTable(t => t.HasCheckConstraint("ck_inv_unit_receipt", "operation IN ('Open','Decision') AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND fingerprint IS NOT NULL AND fingerprint ~ '^[0-9a-f]{64}$' AND octet_length(response_json) BETWEEN 1 AND 262144 AND octet_length(request_json) BETWEEN 1 AND 65536 AND isfinite(completed_at)"));
     }
     private void GuardInvoiceUnitReview()
     {
@@ -56,7 +56,8 @@ public sealed partial class ProcurementDbContext
             if (entry.State == EntityState.Added && (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId || entry.Entity.Version != 1)) throw new InvalidOperationException("InvoiceUnitReviewScopeMismatch");
         }
         var added = rows.Where(x => x.State == EntityState.Added).ToArray(); if (added.Length == 0) return;
-        if (scope.WorkerId is not { } worker || worker == Guid.Empty || !Database.IsNpgsql() || Database.CurrentTransaction is null || unitReviewCore is null
+        var worker = scope.WorkerId;
+        if (!ProcurementPrincipalEvidence.Canonical(scope.SubjectId) || !ProcurementPrincipalEvidence.OptionalWorker(worker) || !Database.IsNpgsql() || Database.CurrentTransaction is null || unitReviewCore is null
             || unitReviewTransaction is null || unitReviewCore.Database.CurrentTransaction is null
             || !ReferenceEquals(unitReviewTransaction, Database.CurrentTransaction.GetDbTransaction())
             || !ReferenceEquals(unitReviewTransaction, unitReviewCore.Database.CurrentTransaction.GetDbTransaction())
@@ -73,8 +74,8 @@ public sealed partial class ProcurementDbContext
             var mapping = InvoiceMatchMappingVersions.Single(x => x.Id == source.MappingVersionId);
             var originals = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).OrderBy(x => x.LineNumber).ToArray();
             _ = InvoiceMappingEvidence.Verify(mapping, invoice, originals);
-            if (source.MakerPrincipalId != scope.SubjectId || source.MakerWorkerId != worker || invoice.Version != source.InvoiceVersionAtOpen
-                || invoice.CurrentMappingVersionId != mapping.Id || invoice.BranchRef != source.BranchRef || mapping.ActorPrincipalId != scope.SubjectId || mapping.ActorWorkerId != worker
+            if (source.MakerPrincipalId != scope.SubjectId || source.MakerWorkerId != mapping.ActorWorkerId || invoice.Version != source.InvoiceVersionAtOpen
+                || invoice.CurrentMappingVersionId != mapping.Id || invoice.BranchRef != source.BranchRef || mapping.ActorPrincipalId != scope.SubjectId
                 || source.MappingRevision != mapping.MappingRevision || source.MappingSha256 != mapping.MappingSha256 || source.OriginalSha256 != mapping.InvoiceOriginalSha256)
                 throw new InvalidOperationException("InvoiceUnitReviewSourceBindingRequired");
             var order = PurchaseOrders.Single(x => x.Id == source.PurchaseOrderId);
@@ -123,7 +124,7 @@ public sealed partial class ProcurementDbContext
             var invoice = SupplierInvoices.Single(x => x.Id == source.SupplierInvoiceId);
             var originals = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).OrderBy(x => x.LineNumber).ToArray();
             var mapping = InvoiceMatchMappingVersions.Single(x => x.Id == source.MappingVersionId);
-            if (outcome.ReviewerPrincipalId != scope.SubjectId || outcome.ReviewerWorkerId != worker || outcome.CompletedAt < source.OpenedAt)
+            if (outcome.ReviewerPrincipalId != scope.SubjectId || outcome.CompletedAt < source.OpenedAt)
                 throw new InvalidOperationException("InvoiceUnitReviewOutcomeActorRequired");
             // Recreate only the immutable issued projection recorded by the validated opening adapter.
             // It is revalidated against its exact fingerprint by Seal; mutable current authority remains an API guard.
@@ -155,7 +156,7 @@ public sealed partial class ProcurementDbContext
             var final = core.Decisions.Single(x => x.Id == outcome.FinalDecisionId);
             if (added.Count(x => x.Entity is InvoiceUnitReviewCommandReceipt row && row.Operation == "Decision"
                 && row.ReviewSourceId == outcome.ReviewSourceId && row.CommandKey.ToString("D") == final.IdempotencyKey
-                && row.ActorPrincipalId == outcome.ReviewerPrincipalId && row.ActorWorkerId == outcome.ReviewerWorkerId) != 1)
+                && row.ActorPrincipalId == outcome.ReviewerPrincipalId) != 1)
                 throw new InvalidOperationException("InvoiceUnitReviewTerminalReceiptRequired");
         }
     }

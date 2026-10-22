@@ -6,6 +6,39 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class InvoiceMappingEvidenceTests
 {
     [Fact]
+    public void Principal_mapping_is_versioned_and_workerless_without_rewriting_legacy_snapshot_shape()
+    {
+        var (invoice, line) = Records(); var principal = Guid.NewGuid().ToString("D");
+        var order = Guid.NewGuid(); var issued = Guid.NewGuid(); var link = Link(line);
+        var legacy = InvoiceMappingEvidence.Create(invoice, [line], order, issued, [link], principal, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        var oldShape = System.Text.Json.JsonSerializer.Serialize(new { schemaVersion = 1, invoiceId = invoice.Id,
+            purchaseOrderId = order, issuedVersionId = issued, revision = legacy.MappingRevision,
+            invoiceOriginalSha256 = legacy.InvoiceOriginalSha256, lines = new[] { link } },
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.Equal(oldShape, legacy.MappingJson);
+        Assert.DoesNotContain("actorPrincipalId", legacy.MappingJson);
+        Assert.DoesNotContain("actorWorkerId", legacy.MappingJson);
+        Assert.Equal(1, InvoiceMappingEvidence.Verify(legacy, invoice, [line]).SchemaVersion);
+        var current = InvoiceMappingEvidence.Create(invoice, [line], order, issued, [link], principal, null,
+            DateTimeOffset.UtcNow, identitySchemaVersion: 2);
+        Assert.Null(current.ActorWorkerId); Assert.Contains(principal, current.MappingJson);
+        Assert.Equal(2, InvoiceMappingEvidence.Verify(current, invoice, [line]).SchemaVersion);
+        typeof(InvoiceMatchMappingVersion).GetProperty(nameof(InvoiceMatchMappingVersion.ActorPrincipalId))!
+            .SetValue(current, Guid.NewGuid().ToString("D"));
+        Assert.Throws<InvalidOperationException>(() => InvoiceMappingEvidence.Verify(current, invoice, [line]));
+    }
+
+    [Theory]
+    [InlineData(1)] [InlineData(3)]
+    public void Workerless_capture_cannot_downgrade_to_legacy_or_invent_a_future_schema(int schema)
+    {
+        var (invoice, line) = Records();
+        Assert.Throws<InvalidOperationException>(() => InvoiceMappingEvidence.Create(invoice, [line],
+            Guid.NewGuid(), Guid.NewGuid(), [Link(line)], Guid.NewGuid().ToString("D"), null,
+            DateTimeOffset.UtcNow, identitySchemaVersion: schema));
+    }
+
+    [Fact]
     public void Operational_version_does_not_change_original_digest_but_original_amount_does()
     {
         var (invoice, line) = Records(); var original = InvoiceMappingEvidence.OriginalDigest(invoice, [line]);

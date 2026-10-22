@@ -121,7 +121,7 @@ public static class InvoiceMatchExecutionEvidence
             && result.SourceWatermarksJson is { } sourceWatermarks
             && ProcurementEvidenceEncoding.PolicyJsonDigest(sourceWatermarks).Length == 64
             && ProcurementEvidenceEncoding.PolicyJsonDigest(sourceWatermarks) == ProcurementEvidenceEncoding.PolicyJsonDigest(SourceWatermarks(input, mapping, review))
-            && command.EvaluatedAt == at && reviewContext.At == at && comparison.ActorSubjectId == scope.SubjectId && comparison.InvoiceVersion == input.Invoice.Version && result.ExecutionVersion == 1
+            && command.EvaluatedAt == at && reviewContext.At == at && comparison.ActorSubjectId == scope.SubjectId && comparison.InvoiceVersion == input.Invoice.Version && result.ExecutionVersion is 1 or 2
             && result.PurchaseOrderId == input.Order.Id && result.IssuedVersionId == input.Order.RevisionId
             && result.PolicyVersionId == input.Policy.Id && result.Id != Guid.Empty && result.InputFingerprint == comparison.InputFingerprint
             && result.EvidenceSha256 == comparison.EvidenceSha256 && result.EvidenceJson == comparison.EvidenceJson

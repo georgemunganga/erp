@@ -13,6 +13,27 @@ public sealed class OperationalPolicyWorkerIdentityTests
     private static readonly Guid ReviewerWorker = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
     private static readonly DateTimeOffset At = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
 
+    [Fact]
+    public void Version_two_uses_named_Core_authors_and_independent_reviewers_without_employees()
+    {
+        var f = new Fixture("INVOICE_MATCHING"); var policy = f.Policy;
+        var created = OperationalPolicyWorkerIdentity.Capture(policy, "Created", Maker, null, 1, At, schemaVersion: 2);
+        OperationalPolicyWorkerIdentity.RequireAuthor(policy, created, Maker, null);
+        policy.State = "PendingReview"; policy.Version = 2; policy.ReviewRequestedBy = Maker; policy.ReviewRequestedAt = At.AddMinutes(1);
+        var submitted = OperationalPolicyWorkerIdentity.Capture(policy, "Submitted", Maker, null, 2,
+            policy.ReviewRequestedAt.Value, created, schemaVersion: 2);
+        OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, Reviewer, null);
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, Maker, ReviewerWorker));
+        policy.State = "Published"; policy.Version = 3; policy.PublishedBy = Reviewer; policy.PublishedAt = At.AddMinutes(2);
+        var published = OperationalPolicyWorkerIdentity.Capture(policy, "Published", Reviewer, null, 3,
+            policy.PublishedAt.Value, created, submitted, schemaVersion: 2);
+        OperationalPolicyWorkerIdentity.VerifyPublication(policy, created, submitted, published);
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.Verify(Rehash(created with { SchemaVersion = 1 })));
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.Verify(created with { ActorPrincipalId = Reviewer }));
+        Assert.False(ProcurementPrincipalEvidence.Independent(Maker, MakerWorker, Reviewer, MakerWorker));
+        Assert.True(ProcurementPrincipalEvidence.Independent(Maker, null, Reviewer, null));
+    }
+
     [Theory] [InlineData("RECEIVING")] [InlineData("INVOICE_MATCHING")] [InlineData("INVOICE_UNIT_REVIEW")]
     public void Exact_original_author_submission_and_independent_publication_are_verified(string key)
     {

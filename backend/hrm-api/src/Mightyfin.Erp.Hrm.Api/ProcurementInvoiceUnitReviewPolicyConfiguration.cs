@@ -36,7 +36,7 @@ public static partial class ProcurementPolicyDraftRoutes
         var text = (search ?? "").Trim().ToLowerInvariant();
         if (text.Length > 100 || (offset ?? 0) is < 0 or > 100000 || (limit ?? 25) is < 1 or > 50)
             return Problem("unit-reviewer-query-invalid", "Use a bounded name search and page.", 422);
-        var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, DateTimeOffset.UtcNow)
+        var query = ProcurementPrincipalPeople.Candidates(core, scope, DateTimeOffset.UtcNow)
             .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
         var candidateTotal = await query.CountAsync(ct);
         var page = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(offset ?? 0).Take(limit ?? 25)

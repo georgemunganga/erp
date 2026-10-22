@@ -11,7 +11,7 @@ public static class InvoiceUnitReviewTerminal
 {
     public sealed class Outcome
     {
-        internal Outcome(Flow.OpeningPlan owned, ApprovalDecision final, Guid worker, string state, int schema, string json)
+        internal Outcome(Flow.OpeningPlan owned, ApprovalDecision final, Guid? worker, string state, int schema, string json)
         {
             ReviewId = owned.Source.ReviewId; SourceVersion = owned.Source.SourceVersion;
             SourceSha256 = owned.SourceSha256; CoreCaseId = owned.Case.Id;
@@ -28,7 +28,7 @@ public static class InvoiceUnitReviewTerminal
         public Guid MappingId { get; }
         public Guid FinalDecisionId { get; }
         public string ReviewerPrincipalId { get; }
-        public Guid ReviewerWorkerId { get; }
+        public Guid? ReviewerWorkerId { get; }
         public DateTimeOffset CompletedAt { get; }
         public string State { get; }
         public int EvidenceSchemaVersion { get; }
@@ -56,11 +56,11 @@ public static class InvoiceUnitReviewTerminal
                 && final.CaseId == workflow.Id && Guid.TryParseExact(final.IdempotencyKey, "D", out var key)
                 && key != Guid.Empty && final.IdempotencyKey == key.ToString("D"));
             var signer = owned.AssignmentWorkers.SingleOrDefault(x => x.AssignmentId == final!.AssignmentId);
-            Need(signer is not null && signer.PrincipalId == final!.ActorSubjectId && signer.WorkerId != Guid.Empty);
+            Need(signer is not null && signer.PrincipalId == final!.ActorSubjectId && ProcurementPrincipalEvidence.OptionalWorker(signer.WorkerId));
             if (workflow.State == "Approved")
             {
                 var source = owned.Source;
-                var envelope = new InvoiceRetainedUnitReviewEnvelope(2, source.TenantId, source.LegalEntityId, source.BranchId,
+                var envelope = new InvoiceRetainedUnitReviewEnvelope(3, source.TenantId, source.LegalEntityId, source.BranchId,
                     source.ReviewId, source.SourceVersion, source.InvoiceId, invoice.Version, source.MappingId, source.MappingRevision,
                     source.MappingSha256, source.OriginalSha256, source.PurchaseOrderId, source.IssuedVersionId,
                     source.MatchingPolicyId, source.MatchingPolicyVersion, source.MatchingPolicySha256,
@@ -74,14 +74,14 @@ public static class InvoiceUnitReviewTerminal
                 // Reuse exactly the v2 binding/completion verifier, with no invented matcher permission/identity.
                 _ = InvoiceRetainedUnitReview.VerifyOwnedProof(authority, invoice, originals, mapping,
                     new(source.TenantId, source.LegalEntityId, source.BranchId, now, documentHashes));
-                return new(owned, final, signer.WorkerId, "Verified", 2, json);
+                return new(owned, final, signer.WorkerId, "Verified", 3, json);
             }
             VerifyNonVerification(owned, ownedDecisions, final!);
-            var denied = JsonSerializer.Serialize(new { schemaVersion = 1, type = "InvoiceUnitReviewNonVerification",
+            var denied = JsonSerializer.Serialize(new { schemaVersion = 3, type = "InvoiceUnitReviewNonVerification",
                 owned.Source.ReviewId, owned.Source.SourceVersion, owned.SourceSha256, owned.Source.InvoiceId,
                 owned.Source.MappingId, coreCaseId = workflow.Id, state = workflow.State, finalDecisionId = final!.Id,
                 final.ActorSubjectId, signer!.WorkerId, final.DecidedAt, final.Reason });
-            return new(owned, final, signer.WorkerId, workflow.State, 1, denied);
+            return new(owned, final, signer.WorkerId, workflow.State, 3, denied);
         }
         catch (Exception error) when (error is InvalidOperationException or ArgumentException or JsonException
             or FormatException or OverflowException or NullReferenceException or KeyNotFoundException)
@@ -95,7 +95,7 @@ public static class InvoiceUnitReviewTerminal
         InvoiceIssuedOrder issued, PolicyVersion matchingPolicy, PolicyVersion reviewPolicy,
         IReadOnlyList<ApprovalDecision> ownedDecisions, InvoiceUnitReviewConsumer currentConsumer)
     {
-        Need(outcome.State == "Verified" && outcome.EvidenceSchemaVersion == 2 && outcome.ReviewId == owned.Source.ReviewId
+        Need(outcome.State == "Verified" && outcome.EvidenceSchemaVersion is 2 or 3 && outcome.ReviewId == owned.Source.ReviewId
             && outcome.SourceVersion == owned.Source.SourceVersion && outcome.SourceSha256 == owned.SourceSha256
             && outcome.CoreCaseId == owned.Case.Id && outcome.InvoiceId == invoice.Id && outcome.MappingId == mapping.Id
             && outcome.EvidenceSha256 == ProcurementEvidenceEncoding.Digest(outcome.EvidenceJson));

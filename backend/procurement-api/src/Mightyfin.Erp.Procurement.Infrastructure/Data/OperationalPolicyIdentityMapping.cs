@@ -48,11 +48,12 @@ public sealed partial class ProcurementDbContext
         b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.PolicyKey }, "ux_operational_policy_identity_published")
             .IsUnique().HasDatabaseName("ux_operational_policy_identity_published").HasFilter("stage = 'Published'");
         b.ToTable(t => t.HasCheckConstraint("ck_operational_policy_identity", """
-            schema_version=1 AND policy_key IN ('RECEIVING','INVOICE_MATCHING','INVOICE_UNIT_REVIEW')
+            schema_version IN (1,2) AND policy_key IN ('RECEIVING','INVOICE_MATCHING','INVOICE_UNIT_REVIEW')
             AND id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND policy_version_number>0 AND policy_record_version_at_action>0
-            AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid
+            AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)
+            AND (schema_version=2 OR actor_worker_id IS NOT NULL)
             AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
             AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'
             AND rules_sha256 IS NOT NULL AND rules_sha256 ~ '^[0-9a-f]{64}$'
@@ -219,11 +220,11 @@ public sealed partial class ProcurementDbContext
             throw new InvalidOperationException("OperationalPolicyOwnerVersionManagedByStore");
         return original + 1;
     }
-    private Guid OperationalIdentityActorWorker()
+    private Guid? OperationalIdentityActorWorker()
     {
-        var worker = scope.WorkerId ?? throw new InvalidOperationException("OperationalPolicyIdentityActorMismatch");
-        if (worker == Guid.Empty) throw new InvalidOperationException("OperationalPolicyIdentityActorMismatch");
-        return worker;
+        if (!ProcurementPrincipalEvidence.Canonical(scope.SubjectId) || scope.WorkerId == Guid.Empty)
+            throw new InvalidOperationException("OperationalPolicyIdentityActorMismatch");
+        return scope.WorkerId;
     }
     private OperationalPolicyIdentityRecord OperationalIdentityRetainedRow(Guid id)
     {

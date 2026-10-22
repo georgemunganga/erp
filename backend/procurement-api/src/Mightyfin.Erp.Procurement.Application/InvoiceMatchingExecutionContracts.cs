@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Application;
@@ -6,7 +7,13 @@ public sealed record InvoiceMappingLine(Guid InvoiceLineId, Guid PurchaseOrderLi
     Guid? GoodsReceiptLineId, Guid? ServiceAcceptanceId, string InvoiceUnitCode,
     Guid DocumentVersionId, string DocumentLineReference);
 public sealed record InvoiceMappingSnapshot(int SchemaVersion, Guid InvoiceId, Guid PurchaseOrderId,
-    Guid IssuedVersionId, int Revision, string InvoiceOriginalSha256, IReadOnlyList<InvoiceMappingLine> Lines);
+    Guid IssuedVersionId, int Revision, string InvoiceOriginalSha256, IReadOnlyList<InvoiceMappingLine> Lines)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ActorPrincipalId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? ActorWorkerId { get; init; }
+}
 public sealed record InvoiceMappingReview(bool Verified, string State, string EvidenceJson,
     IReadOnlyDictionary<Guid, string> VerifiedUnits)
 {
@@ -16,7 +23,7 @@ public sealed record InvoiceMappingReview(bool Verified, string State, string Ev
     public static InvoiceMappingReview Unavailable(string reason) => new(false, reason, "{}", new Dictionary<Guid, string>());
 }
 public sealed record InvoiceMappingReviewContext(string TenantId, Guid LegalEntityId, Guid? BranchId,
-    string PrincipalId, Guid WorkerId, Guid PolicyId, string PolicyRulesSha256, DateTimeOffset At,
+    string PrincipalId, Guid? WorkerId, Guid PolicyId, string PolicyRulesSha256, DateTimeOffset At,
     IReadOnlyDictionary<Guid, string> DocumentVersionHashes);
 public sealed record InvoiceReviewedDocumentLine(Guid InvoiceLineId, Guid DocumentVersionId,
     string DocumentSha256, string DocumentLineReference, string UnitCode);

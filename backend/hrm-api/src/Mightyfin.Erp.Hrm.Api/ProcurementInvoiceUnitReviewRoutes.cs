@@ -61,7 +61,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
     {
         var person = await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct)
             ?? throw new UnauthorizedAccessException();
-        if (scope.WorkerId != person.WorkerId || !person.Permissions.Contains("procurement-access")) throw new UnauthorizedAccessException();
+        if (scope.PrincipalId?.ToString("D") != person.PrincipalId || !person.Permissions.Contains("procurement-access")) throw new UnauthorizedAccessException();
         var allowed = false;
         foreach (var action in actions)
             if (person.Permissions.Contains(action) && (await auth.AuthorizeAsync(http.User, null, action)).Succeeded) { allowed = true; break; }
@@ -108,18 +108,18 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             ?? throw new ReviewProblem("InvoiceUnitReviewCurrentMappingRequired", 409);
     private static Task<SupplierInvoiceLine[]> Originals(ProcurementDbContext db, Guid id, CancellationToken ct)
         => db.SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == id && x.IsActive).OrderBy(x => x.LineNumber).ToArrayAsync(ct);
-    private static async Task<string?> Replay(ProcurementDbContext db, ProcurementRequestScope scope, InvoiceUnitReviewRequest request, SupplierInvoice invoice, Guid worker, CancellationToken ct)
+    private static async Task<string?> Replay(ProcurementDbContext db, ProcurementRequestScope scope, InvoiceUnitReviewRequest request, SupplierInvoice invoice, Guid? worker, CancellationToken ct)
     {
         var receipt = await db.InvoiceUnitReviewReceipts.SingleOrDefaultAsync(x => x.Operation == request.Operation && x.CommandKey == request.CommandKey, ct);
         if (receipt is null) return null;
-        if (receipt.ActorPrincipalId != scope.SubjectId || receipt.ActorWorkerId != worker || receipt.Fingerprint != ProcurementEvidenceEncoding.PolicyJsonDigest(InvoiceUnitReviewCommands.Serialize(request)))
+        if (receipt.ActorPrincipalId != scope.SubjectId || receipt.Fingerprint != ProcurementEvidenceEncoding.PolicyJsonDigest(InvoiceUnitReviewCommands.Serialize(request)))
             throw new ReviewProblem("InvoiceUnitReviewCommandKeyConflict", 409);
         var source = await db.InvoiceUnitReviewSources.SingleAsync(x => x.Id == receipt.ReviewSourceId, ct);
         if (source.BranchRef != invoice.BranchRef || source.SupplierInvoiceId != invoice.Id || source.SupplierInvoiceId != request.InvoiceId || request.ReviewId is { } id && source.Id != id) throw new ReviewProblem("InvoiceUnitReviewCommandKeyConflict", 409);
         return receipt.ResponseJson;
     }
     private static void Receipt(ProcurementDbContext db, ProcurementRequestScope scope, InvoiceUnitReviewSource source,
-        InvoiceUnitReviewRequest request, InvoiceUnitReviewResponse response, Guid worker)
+        InvoiceUnitReviewRequest request, InvoiceUnitReviewResponse response, Guid? worker)
     {
         var json = InvoiceUnitReviewCommands.Serialize(request);
         db.AddScoped(new InvoiceUnitReviewCommandReceipt { ReviewSourceId = source.Id, Operation = request.Operation, CommandKey = request.CommandKey,

@@ -24,7 +24,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         if (outcome is null || outcome.State != "Verified") return InvoiceMappingReview.Unavailable(outcome?.State ?? "OriginalInvoiceUnitReviewPending");
         await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, ct);
         var actor = await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct) ?? throw new UnauthorizedAccessException();
-        if (actor.WorkerId != scope.WorkerId) throw new UnauthorizedAccessException();
+        if (actor.PrincipalId != scope.PrincipalId?.ToString("D")) throw new UnauthorizedAccessException();
         _ = await ProcurementExecutionRecordScope.Branches(core, scope, invoice.BranchRef, true, ct);
         var workflow = await Workflow(cases, scope, source, false, ct);
         var pins = await db.InvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == source.Id).ToArrayAsync(ct);

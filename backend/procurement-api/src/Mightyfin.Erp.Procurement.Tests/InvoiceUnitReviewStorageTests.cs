@@ -21,6 +21,7 @@ public sealed class InvoiceUnitReviewStorageTests
         Assert.False(InvoiceHistoricalExposure.Unavailable().Complete);
     }
     [Theory] [InlineData("scalar-mapping")] [InlineData("literal-change")] [InlineData("case-alias")]
+    [InlineData("identity-downgrade")][InlineData("identity-missing")]
     [InlineData("other-case")] [InlineData("missing-assignment")][InlineData("rebound-assignment-worker")]
     public void Altered_storage_or_assignment_bindings_never_rehydrate_review_authority(string fault)
     {
@@ -34,6 +35,12 @@ public sealed class InvoiceUnitReviewStorageTests
         if (fault == "case-alias")
         {
             var source = JsonNode.Parse(original.SourceJson)!.AsObject(); source["reviewId"] = Guid.NewGuid();
+            var json = source.ToJsonString(); node["SourceJson"] = json; node["SourceSha256"] = ProcurementEvidenceEncoding.Digest(json);
+        }
+        if (fault is "identity-downgrade" or "identity-missing")
+        {
+            var source = JsonNode.Parse(original.SourceJson)!.AsObject();
+            if (fault == "identity-missing") source.Remove("IdentitySchemaVersion"); else source["IdentitySchemaVersion"] = 2;
             var json = source.ToJsonString(); node["SourceJson"] = json; node["SourceSha256"] = ProcurementEvidenceEncoding.Digest(json);
         }
         if (fault == "other-case") plan.Case.Id = Guid.NewGuid();
@@ -71,6 +78,9 @@ public sealed class InvoiceUnitReviewStorageTests
         var model = db.GetService<IDesignTimeModel>().Model;
         var source = model.FindEntityType(typeof(InvoiceUnitReviewSource))!;
         Assert.Equal("text", source.FindProperty(nameof(InvoiceUnitReviewSource.SourceJson))!.GetColumnType());
+        Assert.True(source.FindProperty(nameof(InvoiceUnitReviewSource.MakerWorkerId))!.IsNullable);
+        Assert.Contains("maker_principal_id ~", source.GetCheckConstraints().Single().Sql);
+        Assert.Contains("maker_worker_id IS NULL OR", source.GetCheckConstraints().Single().Sql);
         Assert.Equal("text", source.FindProperty(nameof(InvoiceUnitReviewSource.IssuedJson))!.GetColumnType());
         Assert.All(source.GetKeys(), key => Assert.DoesNotContain(key.Properties, p => p.Name == nameof(ProcurementRecord.Version)));
         Assert.Contains(source.GetForeignKeys(), fk => fk.GetConstraintName() == "fk_inv_unit_source_mapping" && fk.Properties.Count == 6);

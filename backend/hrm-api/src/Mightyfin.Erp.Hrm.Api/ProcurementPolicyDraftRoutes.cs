@@ -220,7 +220,7 @@ public static partial class ProcurementPolicyDraftRoutes
             var sourcingIssue = await CheckSourcingCompanyRules(policy, db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
             if (sourcingIssue is not null) return sourcingIssue;
         }
-        ProcurementAuthorityIdentity.CanonicalAccount? operationalCreator = null;
+        ProcurementPrincipalPeople.Person? operationalCreator = null;
         if (IsOperationalIdentityPolicy(key))
         {
             operationalCreator = await ProcurementOperationalPolicyWorkerIdentity.CurrentActorAsync(organizationDb, scope,
@@ -237,7 +237,7 @@ public static partial class ProcurementPolicyDraftRoutes
         }
         if (operationalCreator is not null)
             db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Created",
-                operationalCreator.PrincipalId, operationalCreator.WorkerId, 1, policy.CreatedAt)));
+                operationalCreator.PrincipalId, operationalCreator.WorkerId, 1, policy.CreatedAt, schemaVersion: 2)));
         AddAudit(db, policy, scope.SubjectId, "DraftCreated");
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateException)
@@ -393,7 +393,7 @@ public static partial class ProcurementPolicyDraftRoutes
         if (operationalAuthor is not null)
             db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Submitted",
                 operationalAuthor.Actor.PrincipalId, operationalAuthor.Actor.WorkerId, checked(policy.Version + 1),
-                policy.ReviewRequestedAt.Value, operationalAuthor.Created)));
+                policy.ReviewRequestedAt.Value, operationalAuthor.Created, schemaVersion: operationalAuthor.Created.SchemaVersion)));
         AddAudit(db, policy, scope.SubjectId, "ReviewRequested");
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
@@ -475,7 +475,7 @@ public static partial class ProcurementPolicyDraftRoutes
             if (operationalReviewer is not null)
                 db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Published",
                     operationalReviewer.Actor.PrincipalId, operationalReviewer.Actor.WorkerId, checked(policy.Version + 1),
-                    policy.PublishedAt.Value, operationalReviewer.Created, operationalReviewer.Submitted)));
+                    policy.PublishedAt.Value, operationalReviewer.Created, operationalReviewer.Submitted, operationalReviewer.Created.SchemaVersion)));
             AddAudit(db, policy, scope.SubjectId, "Published");
             await db.SaveChangesAsync(ct);
             if (transaction is not null) await transaction.CommitAsync(ct);
