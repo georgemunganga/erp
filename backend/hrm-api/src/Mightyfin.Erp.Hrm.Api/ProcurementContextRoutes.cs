@@ -19,81 +19,25 @@ public static class ProcurementContextRoutes
         var context = await BuildAsync(db, scope, http.User.Claims, ct);
         return context is null
             ? Results.Problem(statusCode: StatusCodes.Status403Forbidden,
-                title: "The Procurement company or active worker is unavailable.")
+                title: "The current Core account, permissions or company scope is unavailable.")
             : Results.Ok(context);
     }
 
-    /// <summary>
-    /// Recheck the selected company and employee, or the explicit read-only Core
-    /// administrator scope, before exposing display information. This endpoint
-    /// offers only the verified current company.
-    /// </summary>
+    /// <summary>Current Core account, grants and organisation scope; HR profile is optional.</summary>
     public static async Task<ProcurementContextResponse?> BuildAsync(HrmDbContext db,
         ProcurementRequestScope scope, IEnumerable<Claim> claims, CancellationToken ct = default)
     {
-        var claimArray = claims.ToArray();
-        if (scope.AdminViewOnly)
-            return await BuildAdminViewAsync(db, scope, claimArray, ct);
-        if (scope.WorkerId is not Guid workerId || workerId == Guid.Empty) return null;
-
-        var company = await db.LegalEntities.AsNoTracking()
-            .Where(x => x.TenantId == scope.TenantId && x.Id == scope.LegalEntityId && !x.IsArchived)
-            .Select(x => new ProcurementCompany(x.Id, x.Code, x.RegisteredName, x.Currency))
-            .SingleOrDefaultAsync(ct);
-        if (company is null) return null;
-
-        var worker = await db.Workers.AsNoTracking()
-            .Where(x => x.TenantId == scope.TenantId && x.Id == workerId && !x.IsArchived && x.Status == "active")
-            .Select(x => new { x.Id, x.LocationId, x.OrgUnitId })
-            .SingleOrDefaultAsync(ct);
-        if (worker is null) return null;
-
-        var branchId = scope.WorkLocationId ?? worker.LocationId;
-        ProcurementLocation? branch = null;
-        if (branchId is Guid selectedBranchId)
-        {
-            branch = await db.WorkLocations.AsNoTracking()
-                .Where(x => x.TenantId == scope.TenantId && x.Id == selectedBranchId
-                    && x.LegalEntityId == company.Id && !x.IsArchived)
-                .Select(x => new ProcurementLocation(x.Id, x.Code, x.Name))
-                .SingleOrDefaultAsync(ct);
-            if (branch is null) return null;
-        }
-
-        var orgUnitId = scope.OrgUnitId ?? worker.OrgUnitId;
-        ProcurementLocation? orgUnit = null;
-        if (orgUnitId is Guid selectedOrgUnitId)
-        {
-            orgUnit = await db.OrgUnits.AsNoTracking()
-                .Where(x => x.TenantId == scope.TenantId && x.Id == selectedOrgUnitId
-                    && x.LegalEntityId == company.Id && !x.IsArchived && x.Status == "active")
-                .Select(x => new ProcurementLocation(x.Id, x.Code, x.Name))
-                .SingleOrDefaultAsync(ct);
-            if (orgUnit is null) return null;
-        }
-
-        if (branch is null && orgUnit is null) return null;
-
-        var granted = ProcurementPermissions.GrantedPolicies(claimArray);
+        var principal = await ProcurementCorePrincipals.CurrentAsync(db, scope.TenantId, scope.SubjectId, ct);
+        if (principal is null || scope.PrincipalId != principal.Id) return null;
+        var currentClaims = principal.Claims(scope.TenantId);
+        var granted = ProcurementPermissions.GrantedPolicies(currentClaims);
         if (!granted.Contains("procurement-access", StringComparer.Ordinal)) return null;
-
-        return new ProcurementContextResponse(scope.TenantId, company.Id, worker.Id,
-            company, branch, orgUnit, [company],
-            ProcurementPermissions.ProcurementRoles(claimArray), granted, scope.IsConfined, false);
-    }
-
-    private static async Task<ProcurementContextResponse?> BuildAdminViewAsync(HrmDbContext db,
-        ProcurementRequestScope scope, Claim[] claims, CancellationToken ct)
-    {
-        if (!await ProcurementWorkforce.IsUnmappedErpAdministrator(db, scope.TenantId,
-            scope.SubjectId, claims, ct)) return null;
         var company = await db.LegalEntities.AsNoTracking()
             .Where(x => x.TenantId == scope.TenantId && x.Id == scope.LegalEntityId && !x.IsArchived)
             .Select(x => new ProcurementCompany(x.Id, x.Code, x.RegisteredName, x.Currency)).SingleOrDefaultAsync(ct);
         if (company is null) return null;
-        var userId = Guid.Parse(scope.SubjectId);
         var assignments = await db.UserBranchAssignments.AsNoTracking()
-            .Where(x => x.TenantId == scope.TenantId && x.UserId == userId && !x.IsArchived)
+            .Where(x => x.TenantId == scope.TenantId && x.UserId == principal.Id && !x.IsArchived)
             .Select(x => x.LocationId).Distinct().ToArrayAsync(ct);
         if (assignments.Length > 0 && (scope.WorkLocationId is not Guid selected || !assignments.Contains(selected))) return null;
         ProcurementLocation? branch = null;
@@ -112,10 +56,11 @@ public static class ProcurementContextRoutes
                 .Select(x => new ProcurementLocation(x.Id, x.Code, x.Name)).SingleOrDefaultAsync(ct);
             if (unit is null) return null;
         }
-        var granted = ProcurementPermissions.GrantedPolicies(claims).Where(ProcurementPermissions.IsReadOnlyPolicy).ToArray();
-        if (!granted.Contains("procurement-access", StringComparer.Ordinal)) return null;
-        return new ProcurementContextResponse(scope.TenantId, company.Id, null, company, branch, unit,
-            [company], ProcurementPermissions.ProcurementRoles(claims), granted, assignments.Length > 0, true);
+        var workerId = await ProcurementWorkforce.ResolveActiveWorker(db, scope, ct);
+        if (workerId != scope.WorkerId) return null;
+        return new ProcurementContextResponse(scope.TenantId, company.Id, workerId, company, branch, unit,
+            [company], ProcurementPermissions.ProcurementRoles(currentClaims), granted, assignments.Length > 0,
+            false, principal.Id);
     }
 
 }
@@ -133,4 +78,5 @@ public sealed record ProcurementContextResponse(
     string[] Roles,
     string[] Permissions,
     bool Confined,
-    bool AdminViewOnly = false);
+    bool AdminViewOnly = false,
+    Guid? PrincipalId = null);

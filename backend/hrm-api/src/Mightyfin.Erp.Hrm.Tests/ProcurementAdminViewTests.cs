@@ -1,222 +1,215 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Domain.Entities;
-using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
+// Replaces the obsolete employee-less-admin read-only contract. System accounts
+// are authoritative; this mapped InMemory proof is not a PostgreSQL/SSO test.
 public sealed class ProcurementAdminViewTests
 {
     [Theory]
-    [InlineData("/api/procurement/v1/context")]
-    [InlineData("/api/procurement/v1/meta")]
-    [InlineData("/api/procurement/v1/vendors")]
-    public async Task Actual_unmapped_admin_can_read_without_creating_an_employee(string path)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Active_system_account_context_and_real_vendor_CRUD_do_not_require_an_employee(bool admin)
     {
-        await using var db = TestDbContextFactory.Create("admin-tenant");
-        var company = new LegalEntity { Code="A", RegisteredName="Company", IsDefault=true };
-        db.LegalEntities.Add(company);
-        var account = Account(); db.LocalUsers.Add(account); await db.SaveChangesAsync();
-        var (http, scope) = Request(account.Id, path);
-        ProcurementContextResponse? context = null;
-        await Middleware(async _ => context = await ProcurementContextRoutes.BuildAsync(db, scope, http.User.Claims))
-            .InvokeAsync(http, scope, db);
-        Assert.NotNull(context); Assert.True(context.AdminViewOnly); Assert.Null(context.WorkerId);
-        Assert.Null(context.Branch); Assert.Null(context.OrgUnit); Assert.Equal(company.Id,context.LegalEntityId);
-        Assert.True(scope.AdminViewOnly); Assert.Null(scope.WorkerId);
-        Assert.Contains("procurement-vendor-read",context.Permissions);
-        Assert.All(context.Permissions,x=>Assert.True(x=="procurement-access" || x.EndsWith("-read") || x=="procurement-receipt-view"));
-        Assert.DoesNotContain("procurement-configuration-edit",context.Permissions);
-        Assert.DoesNotContain("procurement-authority-configure",context.Permissions);
-        Assert.DoesNotContain("procurement-approval-decide",context.Permissions);
-        Assert.Empty(db.Workers); Assert.Null(account.WorkerId);
-        Assert.False(db.ChangeTracker.HasChanges());
+        await using var f = await Fixture.Start(admin);
+        var context = await f.Client.GetFromJsonAsync<JsonElement>("/api/procurement/v1/context");
+        Assert.Equal(f.Account.Id, context.GetProperty("principalId").GetGuid());
+        Assert.Equal(JsonValueKind.Null, context.GetProperty("workerId").ValueKind);
+        Assert.False(context.GetProperty("adminViewOnly").GetBoolean());
+        Assert.Contains(context.GetProperty("permissions").EnumerateArray(), x => x.GetString() == "procurement-vendor-create");
+        var create = await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Original"));
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var created = await create.Content.ReadFromJsonAsync<JsonElement>(); var id = created.GetProperty("id").GetGuid();
+        var detail = await f.Client.GetFromJsonAsync<JsonElement>("/api/procurement/v1/vendors/" + id);
+        var update = await f.Client.PutAsJsonAsync("/api/procurement/v1/vendors/" + id,
+            new { version = detail.GetProperty("version").GetInt64(), draft = Draft("Corrected") });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        detail = await f.Client.GetFromJsonAsync<JsonElement>("/api/procurement/v1/vendors/" + id);
+        Assert.Equal("Corrected", detail.GetProperty("displayName").GetString());
+        var cancel = await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors/" + id + "/withdraw",
+            new { version = detail.GetProperty("version").GetInt64(), reason = "Retain documentary draft" });
+        Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
+        detail = await f.Client.GetFromJsonAsync<JsonElement>("/api/procurement/v1/vendors/" + id);
+        Assert.Equal("Withdrawn", detail.GetProperty("status").GetString());
+        Assert.Empty(f.Core.Workers); Assert.Null(f.Account.WorkerId);
     }
 
     [Theory]
-    [InlineData("POST")]
-    [InlineData("PUT")]
-    [InlineData("PATCH")]
-    [InlineData("DELETE")]
-    public async Task Unmapped_admin_never_reaches_a_business_command(string method)
-    {
-        await using var db = TestDbContextFactory.Create("admin-tenant");
-        db.LegalEntities.Add(new LegalEntity {Code="A",RegisteredName="Company",IsDefault=true});
-        var account=Account(); db.LocalUsers.Add(account);await db.SaveChangesAsync();
-        var (http,scope)=Request(account.Id,"/api/procurement/v1/vendors");http.Request.Method=method;
-        var reached=false;await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(http,scope,db);
-        Assert.False(reached);Assert.Equal(403,http.Response.StatusCode);Assert.False(scope.AdminViewOnly);
-        Assert.Empty(db.Workers);Assert.False(db.ChangeTracker.HasChanges());
-    }
-
-    [Theory]
-    [InlineData("stored-role")]
-    [InlineData("claim-role")]
     [InlineData("inactive")]
     [InlineData("archived")]
     [InlineData("locked")]
-    [InlineData("other-tenant")]
-    public async Task Read_requires_current_same_tenant_active_account_and_both_admin_grants(string failure)
+    [InlineData("account-role-revoked")]
+    [InlineData("role-inactive")]
+    [InlineData("role-archived")]
+    [InlineData("all-grants-revoked")]
+    [InlineData("hr-only")]
+    [InlineData("unknown-actions")]
+    public async Task Current_Core_revocation_denies_stale_admin_claims_before_real_vendor_effects(string failure)
     {
-        await using var db=TestDbContextFactory.Create("admin-tenant");
-        db.LegalEntities.Add(new LegalEntity {Code="A",RegisteredName="Company",IsDefault=true});
-        var account=Account();
-        if(failure=="stored-role")account.RolesCsv="hr_admin";
-        if(failure=="inactive")account.IsActive=false;
-        if(failure=="archived")account.IsArchived=true;
-        if(failure=="locked")account.LockedUntil=DateTimeOffset.UtcNow.AddHours(1);
-        db.LocalUsers.Add(account);await db.SaveChangesAsync();
-        var (http,scope)=Request(account.Id,"/api/procurement/v1/context",failure=="claim-role"?"hr_admin":"erp_admin");
-        if(failure=="other-tenant")http.User=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("tenant","foreign"),
-            new Claim("sub",account.Id.ToString()),new Claim(ClaimTypes.Role,"erp_admin")},"test"));
-        var reached=false;await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(http,scope,db);
-        Assert.False(reached);Assert.Equal(403,http.Response.StatusCode);Assert.False(scope.AdminViewOnly);
-        Assert.Empty(db.Workers);Assert.False(db.ChangeTracker.HasChanges());
+        await using var f = await Fixture.Start();
+        Assert.Equal(HttpStatusCode.OK, (await f.Client.GetAsync("/api/procurement/v1/context")).StatusCode);
+        if (failure == "inactive") f.Account.IsActive = false;
+        if (failure == "archived") f.Account.IsArchived = true;
+        if (failure == "locked") f.Account.LockedUntil = DateTimeOffset.UtcNow.AddDays(1);
+        if (failure == "account-role-revoked") f.Account.RolesCsv = "";
+        if (failure == "role-inactive") f.Role.Active = false;
+        if (failure == "role-archived") f.Role.IsArchived = true;
+        if (failure == "all-grants-revoked") f.Role.PermissionsCsv = "";
+        if (failure == "hr-only") f.Role.PermissionsCsv = "hr_admin";
+        if (failure == "unknown-actions") f.Role.PermissionsCsv = "procurement-made-up";
+        await f.Core.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.GetAsync("/api/procurement/v1/context")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Denied"))).StatusCode);
+        Assert.Equal(0, await f.SupplierCount()); Assert.Empty(f.Core.Workers);
+    }
+
+    [Fact]
+    public async Task Retaining_access_but_revoking_only_create_denies_command_and_updates_context()
+    {
+        await using var f = await Fixture.Start();
+        f.Role.PermissionsCsv = "procurement-access,procurement-vendor-read"; await f.Core.SaveChangesAsync();
+        var context = await f.Client.GetFromJsonAsync<JsonElement>("/api/procurement/v1/context");
+        Assert.DoesNotContain(context.GetProperty("permissions").EnumerateArray(), x => x.GetString() == "procurement-vendor-create");
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Denied"))).StatusCode);
+        Assert.Equal(0, await f.SupplierCount());
     }
 
     [Theory]
+    [InlineData("foreign-tenant")]
     [InlineData("foreign-company")]
     [InlineData("unassigned-branch")]
-    [InlineData("company-branch-mismatch")]
-    public async Task Admin_view_preserves_company_and_branch_boundaries(string failure)
+    [InlineData("missing-core-user")]
+    [InlineData("external-subject-without-core-user")]
+    public async Task System_account_scope_and_identity_denials_preserve_store(string failure)
     {
-        await using var db=TestDbContextFactory.Create("admin-tenant");
-        var a=new LegalEntity {Code="A",RegisteredName="A",IsDefault=true};
-        var b=new LegalEntity {Code="B",RegisteredName="B"};db.LegalEntities.AddRange(a,b);
-        var ba=new WorkLocation {Code="A1",Name="A1",LegalEntityId=a.Id};
-        var bb=new WorkLocation {Code="B1",Name="B1",LegalEntityId=b.Id};db.WorkLocations.AddRange(ba,bb);
-        var account=Account();db.LocalUsers.Add(account);
-        if(failure=="unassigned-branch")db.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=account.Id,LocationId=ba.Id});
-        await db.SaveChangesAsync();
-        var (http,scope)=Request(account.Id,"/api/procurement/v1/context");
-        http.Request.Headers["X-Shell-Entity"]=(failure=="foreign-company"?Guid.NewGuid():a.Id).ToString();
-        if(failure!="foreign-company")http.Request.Headers["X-Shell-Location"]=bb.Id.ToString();
-        var reached=false;await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(http,scope,db);
-        Assert.False(reached);Assert.Equal(403,http.Response.StatusCode);Assert.False(db.ChangeTracker.HasChanges());
+        await using var f = await Fixture.Start();
+        if (failure == "foreign-tenant") f.Client.DefaultRequestHeaders.Add("X-Test-Tenant", "other-tenant");
+        if (failure == "foreign-company") f.Client.DefaultRequestHeaders.Add("X-Shell-Entity", Guid.NewGuid().ToString());
+        if (failure == "unassigned-branch")
+        {
+            var other = new WorkLocation { Code = "OTHER", Name = "Other", LegalEntityId = f.Company.Id };
+            f.Core.WorkLocations.Add(other);
+            f.Core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = f.Account.Id, LocationId = f.Branch.Id });
+            await f.Core.SaveChangesAsync();
+            f.Client.DefaultRequestHeaders.Add("X-Shell-Location", other.Id.ToString());
+        }
+        if (failure == "missing-core-user") f.Client.DefaultRequestHeaders.Add("X-Test-Subject", Guid.NewGuid().ToString());
+        if (failure == "external-subject-without-core-user") f.Client.DefaultRequestHeaders.Add("X-Test-Subject", "external-oidc-subject");
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Denied"))).StatusCode);
+        Assert.Equal(0, await f.SupplierCount());
+    }
+
+    [Fact]
+    public async Task Clearing_legacy_admin_role_permissions_revokes_admin_module_access_too()
+    {
+        await using var f = await Fixture.Start(admin: true);
+        Assert.Equal(HttpStatusCode.OK, (await f.Client.GetAsync("/api/procurement/v1/context")).StatusCode);
+        f.Role.PermissionsCsv = ""; await f.Core.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.GetAsync("/api/procurement/v1/context")).StatusCode);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Inactive_or_wrong_company_mapped_admin_cannot_fall_back_to_view_mode(bool inactive)
+    [InlineData("")]
+    [InlineData("hr_admin")]
+    [InlineData("procurement-unknown")]
+    public async Task Revoking_a_known_legacy_role_never_restores_bootstrap_permissions(string replacement)
     {
-        await using var db=TestDbContextFactory.Create("admin-tenant");
-        var a=new LegalEntity {Code="A",RegisteredName="A",IsDefault=true};
-        var b=new LegalEntity {Code="B",RegisteredName="B"};db.LegalEntities.AddRange(a,b);
-        var branch=new WorkLocation {Code="B1",Name="B1",LegalEntityId=b.Id};db.WorkLocations.Add(branch);
-        var worker=new Worker {EmployeeNo="W",FirstName="Mapped",LastName="Admin",LocationId=branch.Id,Status=inactive?"terminated":"active"};db.Workers.Add(worker);
-        var account=Account();account.WorkerId=worker.Id;db.LocalUsers.Add(account);await db.SaveChangesAsync();
-        var (http,scope)=Request(account.Id,"/api/procurement/v1/context");http.Request.Headers["X-Shell-Entity"]=a.Id.ToString();
-        var reached=false;await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(http,scope,db);
-        Assert.False(reached);Assert.Equal(403,http.Response.StatusCode);Assert.False(scope.AdminViewOnly);
+        await using var f = await Fixture.Start();
+        f.Account.RolesCsv = "procurement_manager"; f.Role.RoleKey = "procurement_manager";
+        f.Role.PermissionsCsv = "procurement_manager"; await f.Core.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.OK, (await f.Client.GetAsync("/api/procurement/v1/context")).StatusCode);
+        f.Role.PermissionsCsv = replacement; await f.Core.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.GetAsync("/api/procurement/v1/context")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Denied"))).StatusCode);
+        Assert.Equal(0, await f.SupplierCount());
     }
 
     [Fact]
-    public async Task Context_rechecks_admin_account_after_middleware_resolution()
+    public async Task Newly_added_Core_permission_is_effective_despite_stale_empty_module_claims()
     {
-        await using var db=TestDbContextFactory.Create("admin-tenant");
-        var company=new LegalEntity {Code="A",RegisteredName="A",IsDefault=true};db.LegalEntities.Add(company);
-        var account=Account();db.LocalUsers.Add(account);await db.SaveChangesAsync();
-        var (http,scope)=Request(account.Id,"/api/procurement/v1/context");
-        await Middleware(_=>Task.CompletedTask).InvokeAsync(http,scope,db);Assert.True(scope.AdminViewOnly);
-        account.IsActive=false;await db.SaveChangesAsync();
-        Assert.Null(await ProcurementContextRoutes.BuildAsync(db,scope,http.User.Claims));
+        await using var f = await Fixture.Start();
+        f.Client.DefaultRequestHeaders.Add("X-Test-Role", "obsolete-external-role");
+        f.Client.DefaultRequestHeaders.Add("X-Test-Configured", "true");
+        f.Role.PermissionsCsv = "procurement-access,procurement-vendor-read"; await f.Core.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, (await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Denied"))).StatusCode);
+        f.Role.PermissionsCsv += ",procurement-vendor-create"; await f.Core.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.Created, (await f.Client.PostAsJsonAsync("/api/procurement/v1/vendors", Draft("Granted by current Core"))).StatusCode);
+        Assert.Equal(1, await f.SupplierCount());
     }
 
     [Fact]
-    public async Task Admin_context_rechecks_new_branch_confinement_without_broadening_scope()
+    public async Task Inactive_missing_and_archived_role_definitions_never_survive_in_current_claims()
     {
-        await using var db=TestDbContextFactory.Create("admin-tenant");
-        var company=new LegalEntity {Code="A",RegisteredName="A",IsDefault=true};db.LegalEntities.Add(company);
-        var a=new WorkLocation {Code="A1",Name="A1",LegalEntityId=company.Id};
-        var b=new WorkLocation {Code="A2",Name="A2",LegalEntityId=company.Id};db.WorkLocations.AddRange(a,b);
-        var account=Account();db.LocalUsers.Add(account);await db.SaveChangesAsync();
-        var (http,scope)=Request(account.Id,"/api/procurement/v1/context");http.Request.Headers["X-Shell-Location"]=a.Id.ToString();
-        await Middleware(_=>Task.CompletedTask).InvokeAsync(http,scope,db);Assert.True(scope.AdminViewOnly);
-        Assert.Equal(a.Id,(await ProcurementContextRoutes.BuildAsync(db,scope,http.User.Claims))!.Branch!.Id);
-        db.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=account.Id,LocationId=b.Id});await db.SaveChangesAsync();
-        Assert.Null(await ProcurementContextRoutes.BuildAsync(db,scope,http.User.Claims));
-        Assert.False(await ProcurementWorkforce.IsUnmappedErpAdministrator(db,"different-tenant",account.Id.ToString(),http.User.Claims,default));
+        await using var f = await Fixture.Start();
+        f.Account.RolesCsv += ",erp_admin,missing-role,retired-role";
+        f.Core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "erp_admin", RoleName = "Inactive", Active = false, PermissionsCsv = "erp_admin" });
+        f.Core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "retired-role", RoleName = "Retired", Active = true, IsArchived = true, PermissionsCsv = "procurement-access" });
+        await f.Core.SaveChangesAsync();
+        var roles = await f.Client.GetFromJsonAsync<string[]>("/api/procurement/v1/system-role-projection");
+        Assert.Equal(new[] { "system-clerk" }, roles);
     }
 
-    [Fact]
-    public async Task Mapped_context_returns_nullable_worker_and_mapped_command_stays_denied()
-    {
-        await using var db=TestDbContextFactory.Create("admin-tenant");
-        db.LegalEntities.Add(new LegalEntity {Code="A",RegisteredName="A",IsDefault=true});
-        var account=Account();db.LocalUsers.Add(account);await db.SaveChangesAsync();
-        var builder=WebApplication.CreateBuilder(new WebApplicationOptions {EnvironmentName="Production"});
-        builder.WebHost.UseTestServer();builder.Services.AddSingleton(db);
-        builder.Services.AddScoped<ProcurementRequestScope>();builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
-        await using var app=builder.Build();app.UseRouting();
-        app.Use(async (http,next)=>{
-            http.User=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("tenant","admin-tenant"),
-                new Claim("sub",account.Id.ToString()),new Claim(ClaimTypes.Role,"erp_admin")},"synthetic-test"));
-            await next(http);
-        });
-        app.UseAuthorization();app.UseMiddleware<ProcurementScopeMiddleware>();ProcurementContextRoutes.MapRoutes(app);
-        app.MapGet("/api/procurement/v1/admin-test-actions", async (HttpContext http, IAuthorizationService auth) => Results.Ok(new {
-            canRead=(await auth.AuthorizeAsync(http.User,null,"procurement-vendor-read")).Succeeded,
-            canApprove=(await auth.AuthorizeAsync(http.User,null,"procurement-vendor-approve")).Succeeded,
-            canConfigure=(await auth.AuthorizeAsync(http.User,null,"procurement-configuration-edit")).Succeeded,
-            canActivate=(await auth.AuthorizeAsync(http.User,null,"procurement-configuration-approve")).Succeeded
-        })).RequireAuthorization("procurement-access");
-        var writes=0;app.MapPost("/api/procurement/v1/admin-test-command",()=>{writes++;return Results.Ok();})
-            .RequireAuthorization("procurement-vendor-manage");
-        await app.StartAsync();var client=app.GetTestClient();
-        var response=await client.GetAsync("/api/procurement/v1/context");Assert.Equal(HttpStatusCode.OK,response.StatusCode);
-        var body=await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(JsonValueKind.Null,body.GetProperty("workerId").ValueKind);
-        Assert.True(body.GetProperty("adminViewOnly").GetBoolean());
-        Assert.DoesNotContain(body.GetProperty("permissions").EnumerateArray(),x=>x.GetString()=="procurement-vendor-manage");
-        var actions=await client.GetFromJsonAsync<JsonElement>("/api/procurement/v1/admin-test-actions");
-        Assert.True(actions.GetProperty("canRead").GetBoolean());
-        Assert.False(actions.GetProperty("canApprove").GetBoolean());
-        Assert.False(actions.GetProperty("canConfigure").GetBoolean());
-        Assert.False(actions.GetProperty("canActivate").GetBoolean());
-        Assert.Equal(HttpStatusCode.Forbidden,(await client.PostAsJsonAsync("/api/procurement/v1/admin-test-command",new {})).StatusCode);
-        Assert.Equal(0,writes);Assert.Empty(db.Workers);Assert.False(db.ChangeTracker.HasChanges());
-    }
+    private static object Draft(string name) => new { legalName = name, displayName = name, countryCode = "ZM" };
 
-    [Fact]
-    public void Readonly_claim_narrows_admin_action_metadata_without_granting_other_roles_access()
+    private sealed class Fixture(WebApplication app, HrmDbContext core, LocalUser account,
+        TenantRoleAssignment role, LegalEntity company, WorkLocation branch) : IAsyncDisposable
     {
-        var claim=new Claim(ProcurementPermissions.AdminViewOnlyClaim,"true");
-        var admin=new[]{new Claim(ClaimTypes.Role,"erp_admin"),claim};
-        Assert.True(ProcurementPermissions.Allows("procurement-configuration-read",admin));
-        Assert.True(ProcurementPermissions.Allows("procurement-po-read",admin));
-        foreach(var policy in new[]{"procurement-vendor-approve","procurement-vendor-suspend","procurement-authority-review",
-            "procurement-authority-configure","procurement-budget-check","procurement-po-issue","procurement-invoice-match"})
-            Assert.False(ProcurementPermissions.Allows(policy,admin));
-        Assert.False(ProcurementPermissions.Allows("procurement-authority-read",new[]{new Claim(ClaimTypes.Role,"employee"),claim}));
-        Assert.False(ProcurementPermissions.Allows("unknown-read",admin));
-        Assert.True(ProcurementPermissions.Allows("procurement-authority-read",admin)); // Governed integration adds the read policy; mutation denials above remain mandatory.
-        Assert.True(ProcurementPermissions.Allows("procurement-vendor-approve",new[]{new Claim(ClaimTypes.Role,"erp_admin")}));
-    }
-
-    private static LocalUser Account()=>new() {Email="admin@example.test",NormalizedEmail="ADMIN@EXAMPLE.TEST",
-        DisplayName="ERP administrator",PasswordHash="synthetic",IsActive=true,RolesCsv="erp_admin,hr_admin"};
-    private static (DefaultHttpContext,ProcurementRequestScope) Request(Guid user,string path,string role="erp_admin")
-    {
-        var http=new DefaultHttpContext();http.Request.Path=path;http.Request.Method="GET";http.Response.Body=new MemoryStream();
-        http.User=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("tenant","admin-tenant"),new Claim("sub",user.ToString()),new Claim(ClaimTypes.Role,role)},"test"));
-        return(http,new ProcurementRequestScope());
-    }
-    private static ProcurementScopeMiddleware Middleware(RequestDelegate next)=>new(next,new Environment());
-    private sealed class Environment:IWebHostEnvironment
-    {
-        public string ApplicationName {get;set;}="tests";public string EnvironmentName {get;set;}="Production";
-        public string WebRootPath {get;set;}="";public IFileProvider WebRootFileProvider {get;set;}=new NullFileProvider();
-        public string ContentRootPath {get;set;}="";public IFileProvider ContentRootFileProvider {get;set;}=new NullFileProvider();
+        public HrmDbContext Core => core; public LocalUser Account => account; public TenantRoleAssignment Role => role;
+        public LegalEntity Company => company; public WorkLocation Branch => branch;
+        public HttpClient Client { get; } = app.GetTestClient();
+        public static async Task<Fixture> Start(bool admin = false)
+        {
+            var core = TestDbContextFactory.Create("system-tenant");
+            var company = new LegalEntity { Code = "SYS", RegisteredName = "Synthetic", Currency = "ZMW", IsDefault = true };
+            var branch = new WorkLocation { Code = "SYS", Name = "Synthetic branch", LegalEntityId = company.Id };
+            var role = new TenantRoleAssignment { RoleKey = admin ? "erp_admin" : "system-clerk", RoleName = "Synthetic existing Core role", Active = true,
+                PermissionsCsv = admin ? "erp_admin" : "procurement-access,procurement-vendor-read,procurement-vendor-create,procurement-vendor-edit" };
+            var account = new LocalUser { Email = "system@example.test", NormalizedEmail = "SYSTEM@EXAMPLE.TEST", DisplayName = "System user",
+                PasswordHash = "synthetic-unused", RolesCsv = role.RoleKey, IsActive = true };
+            core.LegalEntities.Add(company); core.WorkLocations.Add(branch); core.LocalUsers.Add(account); core.TenantRoleAssignments.Add(role);
+            await core.SaveChangesAsync();
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Production" });
+            builder.WebHost.UseTestServer(); builder.Services.AddSingleton(core); builder.Services.AddScoped<ProcurementRequestScope>();
+            builder.Services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
+            builder.Services.AddDbContext<ProcurementDbContext>(options => options.UseInMemoryDatabase("system-principal-" + account.Id));
+            builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
+            var app = builder.Build(); app.UseRouting();
+            app.Use(async (http, next) =>
+            {
+                // Deliberately stale/admin-looking presentation: actual stored Core
+                // account/grants below must decide, not this test authentication claim.
+                http.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("tenant", http.Request.Headers["X-Test-Tenant"].FirstOrDefault() ?? "system-tenant"),
+                    new Claim("sub", http.Request.Headers["X-Test-Subject"].FirstOrDefault() ?? account.Id.ToString("D")), new Claim(ClaimTypes.Role, http.Request.Headers["X-Test-Role"].FirstOrDefault() ?? "erp_admin") }
+                    .Concat(http.Request.Headers["X-Test-Configured"] == "true" ? new[] { new Claim(ProcurementPermissions.ConfiguredClaim, "true") } : Array.Empty<Claim>()), "synthetic-test"));
+                await next(http);
+            });
+            app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>();
+            app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
+            ProcurementContextRoutes.MapRoutes(app); ProcurementVendorRoutes.MapRoutes(app);
+            app.MapGet("/api/procurement/v1/system-role-projection", (Microsoft.AspNetCore.Http.HttpContext http) =>
+                http.User.Claims.Where(x => x.Type == ClaimTypes.Role).Select(x => x.Value).ToArray())
+                .RequireAuthorization("procurement-access");
+            await app.StartAsync(); return new(app, core, account, role, company, branch);
+        }
+        public async Task<int> SupplierCount()
+        {
+            using var services = app.Services.CreateScope(); var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
+            scope.Set("system-tenant", company.Id, account.Id.ToString("D"), null, null, false, "read-assertion"); scope.AssignPrincipal(account.Id);
+            return await services.ServiceProvider.GetRequiredService<ProcurementDbContext>().Suppliers.CountAsync();
+        }
+        public async ValueTask DisposeAsync() { Client.Dispose(); await app.DisposeAsync(); }
     }
 }

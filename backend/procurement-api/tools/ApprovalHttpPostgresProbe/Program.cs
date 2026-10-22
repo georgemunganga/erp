@@ -195,7 +195,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         builder.Services.AddAuthentication("probe").AddScheme<AuthenticationSchemeOptions, ProbeAuthentication>("probe", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build();
-        app.UseRouting(); app.UseAuthentication(); app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
+        app.UseRouting(); app.UseAuthentication(); app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>(); app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
         if (serve) ProcurementHostIntegration.MapRoutes(app);
         else
         {

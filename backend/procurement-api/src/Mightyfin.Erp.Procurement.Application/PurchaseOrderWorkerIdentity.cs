@@ -28,14 +28,14 @@ public static class PurchaseOrderWorkerIdentity
             && pin.WorkerIdentitySha256 == Digest(order, pin.CommercialRevision, pin.CoreApprovalCaseId,
                 pin.BuyerWorkerId, pin.ParticipantWorkersJson);
 
-    public static bool IsIndependent(string retainedWorkers, Guid currentWorker)
+    public static bool IsIndependent(string retainedWorkers, Guid? currentWorker)
     {
-        if (currentWorker == Guid.Empty) return false;
+        if (currentWorker is null || currentWorker == Guid.Empty) return false;
         Guid[]? workers;
         try { workers = JsonSerializer.Deserialize<Guid[]>(retainedWorkers); }
         catch (JsonException) { return false; }
         return workers is { Length: > 0 } && workers.All(x => x != Guid.Empty)
-            && workers.Distinct().Count() == workers.Length && !workers.Contains(currentWorker);
+            && workers.Distinct().Count() == workers.Length && !workers.Contains(currentWorker.Value);
     }
 }
 

@@ -364,6 +364,9 @@ app.Use(async (ctx, next) =>
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
+// Current Procurement Core grants must precede named route authorization.
+if (!string.IsNullOrWhiteSpace(procurementConnStr))
+    app.UseMiddleware<Mightyfin.Erp.Hrm.Api.ProcurementCorePrincipalRefreshMiddleware>();
 
 // M34: append-only request evidence for every authenticated privileged
 // mutation. Entity-level before/after evidence is written independently by

@@ -4820,7 +4820,11 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("purpose");
 
-                    b.Property<Guid>("RequesterWorkerId")
+                    b.Property<Guid?>("RequesterPrincipalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requester_principal_id");
+
+                    b.Property<Guid?>("RequesterWorkerId")
                         .HasColumnType("uuid")
                         .HasColumnName("requester_worker_id");
 
@@ -4886,9 +4890,14 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.HasIndex("TenantId", "LegalEntityId", "Number")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "LegalEntityId", "RequesterPrincipalId", "Status");
+
                     b.HasIndex("TenantId", "LegalEntityId", "RequesterWorkerId", "Status");
 
-                    b.ToTable("purchase_requests", "procurement");
+                    b.ToTable("purchase_requests", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_purchase_request_identity", "(requester_principal_id IS NULL OR requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_worker_id IS NULL OR requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_principal_id IS NOT NULL OR requester_worker_id IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PurchaseRequestAllocation", b =>

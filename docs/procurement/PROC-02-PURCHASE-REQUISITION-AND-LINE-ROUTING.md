@@ -8,6 +8,13 @@
 **Module source:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)<br>
 **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx)
 
+**Identity correction — 22 October 2026:** Procurement request access belongs to an active Core
+system user with assigned module/action permissions and authorized company/branch scope. An HRMS
+employee link and job designation are optional metadata. This supersedes earlier employee-only
+wording. [Principal ownership contract](release/PROC-02-CORE-PRINCIPAL-OWNERSHIP-20261022.md)
+defines the current source change, retained legacy ownership and release gates. It does not claim
+that the new migration or runtime verification has completed.
+
 A purchase requisition (PR) records an internal need and the authority to procure it. **The PR header is a summary; every line has its own approval, route, allocation and balance.** One approved PR can therefore send laptops to an RFQ, printers to a direct PO, and software to a contract release without pretending they share one lifecycle state. This is a configurable draft, not an approved purchasing policy.
 
 ## 1. Feature Identification
@@ -18,7 +25,7 @@ Operation IDs are `PROC-02-O1` create/save, `O2` submit, `O3` return/revise/resu
 
 ## 2. Purpose and Business Outcome
 
-An employee needs a clear way to request goods, services, assets or subscriptions before a supplier commitment exists. Procurement needs a trustworthy record of approved demand and of how each line was handled. The outcome is a request with valid coding, authority, budget evidence, route and remaining balance; no unapproved or over-allocated line can create a PO. Measures include time to approval, approved-but-unprocessed line age, route mix, duplicate requests, conversion accuracy and cancelled/unused demand.
+An authorized system user needs a clear way to request goods, services, assets or subscriptions before a supplier commitment exists. Procurement needs a trustworthy record of approved demand and of how each line was handled. The outcome is a request with valid coding, authority, budget evidence, route and remaining balance; no unapproved or over-allocated line can create a PO. Measures include time to approval, approved-but-unprocessed line age, route mix, duplicate requests, conversion accuracy and cancelled/unused demand.
 
 ## 3. Scope and Exclusions
 
@@ -32,7 +39,7 @@ Launch entities, currencies, purchase types, on-behalf-of requests and partial l
 
 ## 4. Parent and Related Features
 
-Parent is Employee Requests and Guided Buying in [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md). Procurement configuration provides categories, methods, policy and numbering. Workforce/HRMS provides active employee and reporting-line references; Organization/Core or its agreed interim source provides entity, department, site and cost centre. Finance provides budget decision and reservation reference. Shared Workflow executes approvals. Supplier Management (`PROC-01`) provides supplier eligibility if a preference or route uses one. Sourcing, Contracts and Purchasing consume approved line quantities; Receiving and Invoice Validation return downstream progress. Annual Procurement Planning may supply an optional plan reference when documented.
+Parent is Employee Requests and Guided Buying in [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md). Procurement configuration provides categories, methods, policy and numbering. Core provides active system users and access grants. HRMS optionally provides genuine employee and reporting-line references; Organization/Core or its agreed interim source provides entity, department, site and cost centre. Finance provides budget decision and reservation reference. Shared Workflow executes approvals. Supplier Management (`PROC-01`) provides supplier eligibility if a preference or route uses one. Sourcing, Contracts and Purchasing consume approved line quantities; Receiving and Invoice Validation return downstream progress. Annual Procurement Planning may supply an optional plan reference when documented.
 
 ## 5. Actors and Participants
 
@@ -53,7 +60,7 @@ Employee Self-Service **Create Request**; My Requests draft/resume/duplicate; au
 
 ## 7. Preconditions
 
-An authenticated, active workforce subject has a permitted tenant/entity and organization assignment. Effective procurement policy, category, unit, location and coding references are available. A request cannot submit with missing required fields or an unknown currency. Budget source and approval route must be available or the request enters a visible Pending/Blocked state under an approved controlled manual procedure; no outage is treated as budget approval. Downstream conversion additionally requires a current approved PR version, approved unconsumed line balance, permitted route, eligible supplier where relevant, and valid funding evidence.
+An authenticated, active Core system user has assigned Procurement module/action permissions and a permitted tenant/entity and organization scope. Employee linkage or job designation is not a prerequisite for ordinary request CRUD. Effective procurement policy, category, unit, location and coding references are available. A request cannot submit with missing required fields or an unknown currency. Budget source and approval route must be available or the request enters a visible Pending/Blocked state under an approved controlled manual procedure; no outage is treated as budget approval. Downstream conversion additionally requires a current approved PR version, approved unconsumed line balance, permitted route, eligible supplier where relevant, and valid funding evidence.
 
 ## 8. Workflow
 
@@ -87,7 +94,7 @@ Every scenario records actor, effective policy, source version, reason where req
 
 | Transition example | Permitted actor and scope | Conditions and evidence | Automation, SLA and recovery |
 |---|---|---|---|
-| Draft → Submitted | Requester or authorized on-behalf-of creator in entity | Required fields/evidence, active worker, current policy | Budget and approval tasks; submission clock starts; retry returns same version |
+| Draft → Submitted | Requester or authorized on-behalf-of creator in entity | Required fields/evidence, active authorized Core user, current policy | Budget and approval tasks; submission clock starts; retry returns same version |
 | Submitted → Returned | Assigned approver in scope | Reason and requested correction | Notify requester; task clock pauses per policy; prior version locked |
 | Approved line → RFQ allocation | Buyer in entity/category | Approved available quantity, sourcing method, evidence | Create RFQ draft; if creation fails release or reconcile allocation |
 | Approved line → PO allocation | Buyer in entity/category | Approved available quantity, eligible supplier, funding | Create PO draft; no issued commitment until PO workflow completes |
@@ -100,7 +107,7 @@ State SLA definitions must include business calendar, start/pause/resume, target
 | Action | Permission example | Data scope and segregation |
 |---|---|---|
 | Create or edit Draft | `procurement.pr.create` / `.edit` | Self or authorized on-behalf-of; permitted tenant/entity/department; only Draft/Returned version |
-| Submit or withdraw | `procurement.pr.submit` / `.withdraw` | Own/assigned request; active workforce identity; state gate |
+| Submit or withdraw | `procurement.pr.submit` / `.withdraw` | Own/assigned request; active authorized Core identity; state gate |
 | Read | `procurement.pr.read` | Self, assigned approval, department, buyer entity/category or auditor scope; field restrictions apply |
 | Approve/return/reject | `procurement.pr.approve` | Assigned task and delegated authority; requester cannot finally approve own need under normal policy |
 | Decide route | `procurement.pr.route` | Buyer assigned entity/category; no authority to alter approved scope or Finance decision |
@@ -116,7 +123,7 @@ Permissions and record scope are independent. A manager with approval permission
 |---|---|
 | BR-PROC-PR-001 | A submitted PR version is immutable; changes create a new version and rerun affected policy/budget/approval checks. |
 | BR-PROC-PR-002 | A line needs valid type, description/item ref, unit, quantity, need date, entity, delivery location, coding, estimate/currency and reason according to category policy. |
-| BR-PROC-PR-003 | An inactive worker cannot submit a new PR; historic requests retain original actor attribution. |
+| BR-PROC-PR-003 | A suspended/inactive Core account or revoked Procurement permission cannot submit a PR. Employee offboarding alone does not revoke an otherwise active authorized system user; historic principal/worker attribution remains unchanged. |
 | BR-PROC-PR-004 | No unapproved, rejected, cancelled or expired line balance can create a sourcing/order allocation. |
 | BR-PROC-PR-005 | The sum of live line allocations and ordered quantities cannot exceed approved quantity/value under the applicable conversion rule. An RFQ allocation cannot also be used for a direct PO. |
 | BR-PROC-PR-006 | Material change to quantity, estimated value, coding, type or supplier preference as defined by policy requires re-evaluation and reapproval. |
@@ -158,11 +165,11 @@ Candidate documents include business case, specification, supplier quote/prefere
 
 ## 17. Exceptions and Edge Cases
 
-Inactive employee with draft; manager or department changes while approval pending; multiple employment assignments; invalid or closed cost centre; no budget configured; stale budget response; estimated price changes before ordering; mixed currency; request line with zero/decimal quantity or service value; catalog item deactivated after draft; supplier suspended after route decision; one line split among two suppliers; RFQ allocation cancelled before award; PO draft creation succeeds but confirmation is lost; partial PO issued then remaining line cancelled; return after partial order; duplicate/out-of-order downstream event. Each case must either block, create a controlled exception with owner, or reconcile; none silently rewrites approved demand.
+Inactive Core user with draft; active system user without an employee; employee profile deactivated while its Core account remains active; manager or department changes while approval pending; multiple employment assignments; invalid or closed cost centre; no budget configured; stale budget response; estimated price changes before ordering; mixed currency; request line with zero/decimal quantity or service value; catalog item deactivated after draft; supplier suspended after route decision; one line split among two suppliers; RFQ allocation cancelled before award; PO draft creation succeeds but confirmation is lost; partial PO issued then remaining line cancelled; return after partial order; duplicate/out-of-order downstream event. Each case must either block, create a controlled exception with owner, or reconcile; none silently rewrites approved demand.
 
 ## 18. Integrations, APIs, Events and Sandbox
 
-Consume workforce active/manager/org projection, organization/location/coding references, catalog/contract eligibility when enabled, Finance budget check/reserve/release, and shared workflow decision results. Publish versioned `PurchaseRequisitionCreated`, `PurchaseRequisitionSubmitted`, `PurchaseRequisitionApproved`, `PurchaseRequisitionReturned`, `PurchaseRequisitionCancelled`, `PurchaseRequisitionLineRouted` and allocation/release facts only after commit. Sourcing/Contracts/Purchasing return target ID/version and quantity/value outcome; Receiving returns accepted progress. API resources should cover header, lines, submit, revise, cancel, route, allocate and reconcile; exact paths, schemas and auth claims are technical design tasks. Every contract includes tenant/entity, PR and line ID/version, actor/source, occurred time, correlation and idempotency keys. No other module reads Procurement tables directly. Sandbox uses synthetic workers, budgets, catalog items, suppliers and downstream responses; test retries, concurrent conversions, late events and permission failures before production promotion.
+Consume current Core account, permissions and authorized organization scope, optional employee/manager projection, organization/location/coding references, catalog/contract eligibility when enabled, Finance budget check/reserve/release, and shared workflow decision results. Publish versioned `PurchaseRequisitionCreated`, `PurchaseRequisitionSubmitted`, `PurchaseRequisitionApproved`, `PurchaseRequisitionReturned`, `PurchaseRequisitionCancelled`, `PurchaseRequisitionLineRouted` and allocation/release facts only after commit. Sourcing/Contracts/Purchasing return target ID/version and quantity/value outcome; Receiving returns accepted progress. API resources should cover header, lines, submit, revise, cancel, route, allocate and reconcile; exact paths, schemas and auth claims are technical design tasks. Every contract includes tenant/entity, PR and line ID/version, actor/source, occurred time, correlation and idempotency keys. No other module reads Procurement tables directly. Sandbox uses synthetic workers, budgets, catalog items, suppliers and downstream responses; test retries, concurrent conversions, late events and permission failures before production promotion.
 
 ## 19. Audit, Security and Privacy
 
@@ -190,8 +197,8 @@ Validation failure leaves editable Draft; it does not create approval tasks. Fin
 
 ## 25. Acceptance Criteria
 
-1. **Given** an active employee and valid references, **when** they submit a complete PR, **then** one immutable submitted version and the configured budget/approval tasks exist after any retry.
-2. **Given** an inactive employee or invalid entity/coding, **when** submission is attempted, **then** it fails with a scoped, actionable error and no approval task.
+1. **Given** an active authorized Core user (with or without an employee) and valid references, **when** they submit a complete PR, **then** one immutable submitted version and the configured budget/approval tasks exist after any retry.
+2. **Given** an inactive Core account, revoked action permission or invalid entity/coding, **when** submission is attempted, **then** it fails with a scoped, actionable error and no approval task.
 3. **Given** a hard policy or Finance budget failure, **when** approval or conversion is attempted, **then** progression is blocked until the designated exception is approved and recorded.
 4. **Given** a returned PR, **when** the requester edits and resubmits, **then** prior version, reason and decisions remain visible and policy/budget/approval are reevaluated.
 5. **Given** one PR with three approved lines, **when** the buyer routes them respectively to RFQ, direct PO and contract release, **then** each line shows its own target and balance while the header shows derived overall progress.
@@ -203,7 +210,7 @@ Validation failure leaves editable Draft; it does not create approval tasks. Fin
 
 ## 26. Test Scenarios
 
-**Positive:** create/save/resume, goods/service/asset/subscription lines, submit/approve, return/resubmit, route mixed lines, partial direct order, RFQ/contract allocation, close remaining balance. **Negative:** missing fields, stale organization/cost centre, inactive worker, hard budget failure, unapproved line conversion, wrong route, supplier ineligible, insufficient balance, self-approval conflict. **Boundary/concurrency:** zero/decimal quantity, threshold edge, currency conversion, one line split, two concurrent conversions, cancellation after partial order, catalog deactivation. **Security:** self/team/department/entity/tenant scope, field masking, attachment and export access, on-behalf-of attribution. **Integration/recovery:** Finance outage/stale result, duplicated submit, lost target confirmation, duplicate/out-of-order downstream event, reservation-release failure. **Load/accessibility:** peak list/form and conversion targets once volumes are agreed; keyboard and mobile completion.
+**Positive:** create/save/resume, goods/service/asset/subscription lines, submit/approve, return/resubmit, route mixed lines, partial direct order, RFQ/contract allocation, close remaining balance. **Negative:** missing fields, stale organization/cost centre, inactive Core account, revoked permission, hard budget failure, unapproved line conversion, wrong route, supplier ineligible, insufficient balance, self-approval conflict. **Boundary/concurrency:** zero/decimal quantity, threshold edge, currency conversion, one line split, two concurrent conversions, cancellation after partial order, catalog deactivation. **Security:** self/team/department/entity/tenant scope, field masking, attachment and export access, on-behalf-of attribution. **Integration/recovery:** Finance outage/stale result, duplicated submit, lost target confirmation, duplicate/out-of-order downstream event, reservation-release failure. **Load/accessibility:** peak list/form and conversion targets once volumes are agreed; keyboard and mobile completion.
 
 ## 27. Ownership and Dependencies
 

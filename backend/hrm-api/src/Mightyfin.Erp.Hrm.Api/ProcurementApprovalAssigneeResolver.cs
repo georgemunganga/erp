@@ -20,6 +20,8 @@ internal static class ProcurementApprovalAssigneeResolver
         PurchaseRequest request, PolicyEvaluation evaluation, HrmDbContext core, ProcurementDbContext db,
         ProcurementRequestScope scope, DateTimeOffset now, CancellationToken ct)
     {
+        if (!PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request) || request.RequesterWorkerId is not { } requesterWorker
+            || requesterWorker == Guid.Empty) throw new InvalidOperationException("PrincipalApprovalEvidenceRequired");
         var route = ApprovalRoutePreview.FromEvaluation(evaluation,
             request.Lines.Where(x => x.ApprovalStatus != "Cancelled").Select(x => x.Id).ToArray());
         if (!route.HasSingleRoute || route.Lines.Count == 0)
@@ -30,7 +32,7 @@ internal static class ProcurementApprovalAssigneeResolver
         var maker = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
             scope.LegalEntityId, request.CreatedBy, ct);
         var requester = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
-            scope.LegalEntityId, request.RequesterWorkerId, ct);
+            scope.LegalEntityId, requesterWorker, ct);
         if (maker is null || requester is null) throw new InvalidOperationException("ApprovalMakerIdentityUnavailable");
         var requesterManagerId = await core.Workers.AsNoTracking().Where(x => x.Id == request.RequesterWorkerId)
             .Select(x => x.ManagerId).SingleAsync(ct);
@@ -78,10 +80,12 @@ internal static class ProcurementApprovalAssigneeResolver
         PurchaseRequestAssignmentAuthorityEvidence pin, HrmDbContext core, ProcurementDbContext db,
         ProcurementRequestScope scope, DateTimeOffset now, CancellationToken ct)
     {
+        if (!PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request) || request.RequesterWorkerId is not { } requesterWorker
+            || requesterWorker == Guid.Empty) throw new InvalidOperationException("PrincipalApprovalEvidenceRequired");
         var account = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
             scope.LegalEntityId, pin.PrincipalId, ct);
         var requester = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,
-            scope.TenantId, scope.LegalEntityId, request.RequesterWorkerId, ct);
+            scope.TenantId, scope.LegalEntityId, requesterWorker, ct);
         var sourceIdentity = await db.ApprovalSubmissions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == pin.SubmissionId, ct);
         if (sourceIdentity is null || !PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(sourceIdentity))
             throw new InvalidOperationException("ApprovalHistoricalWorkerEvidenceMissing");

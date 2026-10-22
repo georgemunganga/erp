@@ -31,6 +31,41 @@ public sealed class PurchaseRequestApprovalPinningTests
     }
 
     [Fact]
+    public void Principal_identity_different_from_pinned_creator_cannot_reuse_worker_approval_pins()
+    {
+        var f = new Fixture(); var pin = f.Pin(); f.Link(pin);
+        Assert.True(f.Verify(pin).IsValid);
+        f.Request.RequesterPrincipalId = Guid.NewGuid();
+        Assert.Contains("PrincipalApprovalEvidenceRequired", f.Verify(pin).Blockers);
+    }
+
+    [Fact]
+    public void Exact_immutable_principal_metadata_keeps_genuine_worker_pins_compatible()
+    {
+        var f = new Fixture();
+        var canonicalCreator = Guid.NewGuid(); f.Request.CreatedBy = canonicalCreator.ToString("D");
+        var pin = f.Pin(); f.Link(pin);
+        Assert.True(f.Verify(pin).IsValid);
+        f.Request.RequesterPrincipalId = canonicalCreator;
+        Assert.True(PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(f.Request));
+        Assert.True(f.Verify(pin).IsValid);
+        f.Request.RequesterWorkerId = null;
+        Assert.False(PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(f.Request));
+        Assert.Contains("PrincipalApprovalEvidenceRequired", f.Verify(pin).Blockers);
+    }
+
+    [Fact]
+    public void Missing_optional_employee_never_becomes_fabricated_legacy_approval_identity()
+    {
+        var f = new Fixture(); var pin = f.Pin(); f.Link(pin);
+        f.Request.RequesterWorkerId = null;
+        Assert.Contains("InvalidSource", f.Verify(pin).Blockers);
+        Assert.Contains("PinnedWorkerIdentityMissingOrInvalid", f.Verify(pin).Blockers);
+        Assert.Throws<ArgumentException>(() => PurchaseRequestApprovalPinning.WorkerIdentityDigest(
+            "test", Guid.NewGuid(), Guid.NewGuid(), 1, Guid.NewGuid(), "maker", Guid.NewGuid(), null));
+    }
+
+    [Fact]
     public void Published_successor_closing_prior_period_does_not_strand_pinned_pending_case()
     {
         var f = new Fixture();

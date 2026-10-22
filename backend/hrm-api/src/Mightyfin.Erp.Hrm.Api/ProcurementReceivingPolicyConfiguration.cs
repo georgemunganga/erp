@@ -10,11 +10,9 @@ public static partial class ProcurementPolicyDraftRoutes
 {
     private static async Task<bool> ReceivingConfigurationActor(HrmDbContext core, ProcurementRequestScope scope, string permission, CancellationToken ct)
     {
-        var account = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
-        if (account is null || await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId, scope.LegalEntityId, account.WorkerId, ct) is null) return false;
-        var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, account.RolesCsv, ct);
-        return LocalIdentityRoutes.ParseRoles(account.RolesCsv).Contains("erp_admin", StringComparer.OrdinalIgnoreCase)
-            || actions.Contains("procurement-access", StringComparer.Ordinal) && actions.Contains(permission, StringComparer.Ordinal);
+        var principal = await ProcurementCorePrincipals.CurrentAsync(core, scope.TenantId, scope.SubjectId, ct);
+        return principal is not null && scope.PrincipalId == principal.Id
+            && ProcurementPermissions.Allows(permission, principal.Claims(scope.TenantId));
     }
     private static async Task<IResult?> CheckReceivingCompanyRules(PolicyVersion policy, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, string permission, CancellationToken ct)

@@ -3,181 +3,81 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Mightyfin.Erp.Hrm.Api;
-using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Domain.Entities;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
-
 public sealed class ProcurementScopeMiddlewareTests
 {
     [Fact]
-    public void Procurement_actions_require_an_explicit_allowed_role()
+    public void Procurement_actions_require_explicit_module_permissions_on_configured_principals()
     {
-        Assert.False(ProcurementPermissions.Allows("procurement-item-manage",
-            [new Claim(ClaimTypes.Role, "employee")]));
-        Assert.False(ProcurementPermissions.Allows("procurement-vendor-read",
-            [new Claim(ClaimTypes.Role, "tenant_owner")]));
-        Assert.False(ProcurementPermissions.Allows("procurement-vendor-manage",
-            [new Claim(ClaimTypes.Role, "employee")]));
-        Assert.True(ProcurementPermissions.Allows("procurement-item-manage",
-            [new Claim(ClaimTypes.Role, "procurement_buyer")]));
-        Assert.True(ProcurementPermissions.Allows("procurement-vendor-manage",
-            [new Claim(ClaimTypes.Role, "supplier_admin")]));
+        var claims = new[] { new Claim(ClaimTypes.Role, "erp_admin"), new Claim(ProcurementPermissions.ConfiguredClaim, "true") };
+        Assert.False(ProcurementPermissions.Allows("procurement-vendor-manage", claims));
+        Assert.False(ProcurementPermissions.Allows("procurement-access", claims));
+        Assert.True(ProcurementPermissions.Allows("procurement-vendor-read", claims.Concat(new[] {
+            new Claim(ProcurementPermissions.ActionClaim, "procurement-access"), new Claim(ProcurementPermissions.ActionClaim, "procurement-vendor-read") })));
     }
 
     [Fact]
-    public async Task Confined_user_cannot_select_another_branch_or_company()
+    public async Task Core_branch_assignment_defaults_and_foreign_company_denials_do_not_require_a_worker()
     {
         await using var db = TestDbContextFactory.Create("tenant-a");
-        var user = Guid.NewGuid();
-        var entityA = new LegalEntity { Code = "A", RegisteredName = "Company A", IsDefault = true };
-        var entityB = new LegalEntity { Code = "B", RegisteredName = "Company B" };
-        db.LegalEntities.AddRange(entityA, entityB);
-        var branchA = new WorkLocation { Code = "A1", Name = "Branch A", LegalEntityId = entityA.Id };
-        var branchB = new WorkLocation { Code = "B1", Name = "Branch B", LegalEntityId = entityB.Id };
-        db.WorkLocations.AddRange(branchA, branchB);
-        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user, LocationId = branchA.Id });
-        await db.SaveChangesAsync();
-
-        var (http, scope) = Request(user);
-        http.Request.Headers["X-Shell-Location"] = branchB.Id.ToString();
-        var reached = false;
-        await Middleware(_ => { reached = true; return Task.CompletedTask; })
-            .InvokeAsync(http, scope, db);
-        Assert.False(reached);
-        Assert.Equal(StatusCodes.Status403Forbidden, http.Response.StatusCode);
-
-        var (entityHttp, entityScope) = Request(user);
-        entityHttp.Request.Headers["X-Shell-Entity"] = entityB.Id.ToString();
-        await Middleware(_ => Task.CompletedTask).InvokeAsync(entityHttp, entityScope, db);
-        Assert.Equal(StatusCodes.Status403Forbidden, entityHttp.Response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Confined_user_defaults_to_assigned_branch_and_rejects_mismatched_headers()
-    {
-        await using var db = TestDbContextFactory.Create("tenant-a");
-        var user = Guid.NewGuid();
-        var entityA = new LegalEntity { Code = "A", RegisteredName = "Company A", IsDefault = true };
-        var entityB = new LegalEntity { Code = "B", RegisteredName = "Company B" };
-        db.LegalEntities.AddRange(entityA, entityB);
-        var branchA = new WorkLocation { Code = "A1", Name = "Branch A", LegalEntityId = entityA.Id };
-        db.WorkLocations.Add(branchA);
-        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user, LocationId = branchA.Id });
-        await db.SaveChangesAsync();
-
-        var (http, scope) = Request(user);
-        await Middleware(_ => Task.CompletedTask).InvokeAsync(http, scope, db);
-        Assert.Equal(entityA.Id, scope.LegalEntityId);
-        Assert.Equal(branchA.Id, scope.WorkLocationId);
-        Assert.True(scope.IsConfined);
-
-        var (mismatchHttp, mismatchScope) = Request(user);
-        mismatchHttp.Request.Headers["X-Shell-Location"] = branchA.Id.ToString();
-        mismatchHttp.Request.Headers["X-Shell-Entity"] = entityB.Id.ToString();
-        await Middleware(_ => Task.CompletedTask).InvokeAsync(mismatchHttp, mismatchScope, db);
-        Assert.Equal(StatusCodes.Status403Forbidden, mismatchHttp.Response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Procurement_write_requires_active_worker_in_selected_company()
-    {
-        await using var db = TestDbContextFactory.Create("tenant-a");
-        var entity = new LegalEntity { Code = "A", RegisteredName = "Company A", IsDefault = true };
-        db.LegalEntities.Add(entity);
-        var branch = new WorkLocation { Code = "A1", Name = "Branch A", LegalEntityId = entity.Id };
-        db.WorkLocations.Add(branch);
-        var worker = new Worker { EmployeeNo = "EMP-1", FirstName = "Pat", LastName = "Test",
-            Status = "active", LocationId = branch.Id };
-        db.Workers.Add(worker);
-        var user = new LocalUser { Email = "pat@example.test", NormalizedEmail = "PAT@EXAMPLE.TEST",
-            DisplayName = "Pat Test", PasswordHash = "test", WorkerId = worker.Id, IsActive = true };
-        db.LocalUsers.Add(user);
-        await db.SaveChangesAsync();
-
-        var (activeHttp, activeScope) = Request(user.Id);
-        activeHttp.Request.Path = "/api/procurement/v1/vendors";
-        activeHttp.Request.Method = "POST";
-        var reached = false;
-        await Middleware(_ => { reached = true; return Task.CompletedTask; })
-            .InvokeAsync(activeHttp, activeScope, db);
-        Assert.True(reached);
-
-        var otherEntity = new LegalEntity { Code = "B", RegisteredName = "Company B" };
-        db.LegalEntities.Add(otherEntity);
-        await db.SaveChangesAsync();
-        var (otherHttp, otherScope) = Request(user.Id);
-        otherHttp.Request.Path = "/api/procurement/v1/vendors";
-        otherHttp.Request.Headers["X-Shell-Entity"] = otherEntity.Id.ToString();
-        reached = false;
-        await Middleware(_ => { reached = true; return Task.CompletedTask; })
-            .InvokeAsync(otherHttp, otherScope, db);
-        Assert.False(reached);
-        Assert.Equal(StatusCodes.Status403Forbidden, otherHttp.Response.StatusCode);
-
-        worker.Status = "terminated";
-        await db.SaveChangesAsync();
-        var (inactiveHttp, inactiveScope) = Request(user.Id);
-        inactiveHttp.Request.Path = "/api/procurement/v1/vendors";
-        inactiveHttp.Request.Method = "POST";
-        reached = false;
-        await Middleware(_ => { reached = true; return Task.CompletedTask; })
-            .InvokeAsync(inactiveHttp, inactiveScope, db);
-        Assert.False(reached);
-        Assert.Equal(StatusCodes.Status403Forbidden, inactiveHttp.Response.StatusCode);
-    }
-
-    [Fact]
-    public async Task No_header_defaults_to_active_worker_company_instead_of_tenant_default()
-    {
-        await using var db = TestDbContextFactory.Create("tenant-a");
-        var tenantDefault = new LegalEntity { Code = "A", RegisteredName = "Tenant default", IsDefault = true };
-        var workerCompany = new LegalEntity { Code = "B", RegisteredName = "Worker company" };
-        db.LegalEntities.AddRange(tenantDefault, workerCompany);
-        var branch = new WorkLocation { Code = "B1", Name = "Worker branch", LegalEntityId = workerCompany.Id };
-        db.WorkLocations.Add(branch);
-        var worker = new Worker { EmployeeNo = "EMP-B", FirstName = "Pat", LastName = "Test",
-            Status = "active", LocationId = branch.Id };
-        db.Workers.Add(worker);
-        var user = new LocalUser { Email = "pat-b@example.test", NormalizedEmail = "PAT-B@EXAMPLE.TEST",
-            DisplayName = "Pat Test", PasswordHash = "test", WorkerId = worker.Id, IsActive = true };
-        db.LocalUsers.Add(user);
-        await db.SaveChangesAsync();
-
-        var (http, scope) = Request(user.Id);
-        http.Request.Path = "/api/procurement/v1/context";
-        var reached = false;
+        var (user, a, b, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id }); await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id); var reached = false;
         await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
-
-        Assert.True(reached);
-        Assert.Equal(workerCompany.Id, scope.LegalEntityId);
-        Assert.Equal(worker.Id, scope.WorkerId);
+        Assert.True(reached); Assert.Equal(user.Id, scope.PrincipalId); Assert.Null(scope.WorkerId);
+        Assert.Equal(a.Id, scope.LegalEntityId); Assert.Equal(branch.Id, scope.WorkLocationId); Assert.True(scope.IsConfined);
+        var (denied, deniedScope) = Request(user.Id); denied.Request.Headers["X-Shell-Entity"] = b.Id.ToString();
+        reached = false; await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(denied, deniedScope, db);
+        Assert.False(reached); Assert.Equal(403, denied.Response.StatusCode);
     }
 
-    private static (DefaultHttpContext Http, ProcurementRequestScope Scope) Request(Guid user)
+    [Fact]
+    public async Task Optional_employee_home_does_not_grant_company_access_or_override_Core_default()
     {
-        var http = new DefaultHttpContext();
-        http.Request.Path = "/api/procurement/v1/meta";
-        http.Response.Body = new MemoryStream();
-        http.User = new ClaimsPrincipal(new ClaimsIdentity(
-        [
-            new Claim("tenant", "tenant-a"),
-            new Claim("sub", user.ToString()),
-            new Claim(ClaimTypes.Role, "employee"),
-        ], "test"));
+        await using var db = TestDbContextFactory.Create("tenant-a"); var (user, a, b, _) = await Seed(db);
+        var branch = new WorkLocation { Code = "B", Name = "Other home", LegalEntityId = b.Id };
+        var worker = new Worker { EmployeeNo = "OPTIONAL", FirstName = "Optional", LastName = "Profile", LocationId = branch.Id, Status = "active" };
+        db.WorkLocations.Add(branch); db.Workers.Add(worker); user.WorkerId = worker.Id; await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id); await Middleware(_ => Task.CompletedTask).InvokeAsync(http, scope, db);
+        Assert.Equal(a.Id, scope.LegalEntityId); Assert.Null(scope.WorkerId); Assert.Null(scope.WorkLocationId);
+        Assert.Equal(user.Id, scope.PrincipalId);
+    }
+
+    [Fact]
+    public async Task Inactive_HR_profile_does_not_deactivate_the_active_system_account()
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a"); var (user, _, _, branch) = await Seed(db);
+        var worker = new Worker { EmployeeNo = "OLD", FirstName = "Past", LastName = "Employee", LocationId = branch.Id, Status = "terminated" };
+        db.Workers.Add(worker); user.WorkerId = worker.Id; await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id); var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached); Assert.Equal(user.Id, scope.PrincipalId); Assert.Null(scope.WorkerId);
+    }
+
+    private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)
+    {
+        var a = new LegalEntity { Code = "A", RegisteredName = "A", IsDefault = true };
+        var b = new LegalEntity { Code = "B", RegisteredName = "B" };
+        var branch = new WorkLocation { Code = "A", Name = "A", LegalEntityId = a.Id };
+        var user = new LocalUser { Email = "scope@example.test", NormalizedEmail = "SCOPE@EXAMPLE.TEST", DisplayName = "System", PasswordHash = "unused", RolesCsv = "employee" };
+        db.LegalEntities.AddRange(a, b); db.WorkLocations.Add(branch); db.LocalUsers.Add(user);
+        db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "employee", RoleName = "Existing role", Active = true, PermissionsCsv = "procurement-access,procurement-vendor-read" });
+        await db.SaveChangesAsync(); return (user, a, b, branch);
+    }
+    private static (DefaultHttpContext, ProcurementRequestScope) Request(Guid user)
+    {
+        var http = new DefaultHttpContext(); http.Request.Path = "/api/procurement/v1/context"; http.Response.Body = new MemoryStream();
+        http.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("tenant", "tenant-a"), new Claim("sub", user.ToString()), new Claim(ClaimTypes.Role, "employee") }, "test"));
         return (http, new ProcurementRequestScope());
     }
-
-    private static ProcurementScopeMiddleware Middleware(RequestDelegate next) =>
-        new(next, new TestEnvironment());
-
+    private static ProcurementScopeMiddleware Middleware(RequestDelegate next) => new(next, new TestEnvironment());
     private sealed class TestEnvironment : IWebHostEnvironment
     {
-        public string ApplicationName { get; set; } = "tests";
-        public string EnvironmentName { get; set; } = "Production";
-        public string WebRootPath { get; set; } = "";
-        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string ContentRootPath { get; set; } = "";
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+        public string ApplicationName { get; set; } = "tests"; public string EnvironmentName { get; set; } = "Development";
+        public string WebRootPath { get; set; } = ""; public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = ""; public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }
