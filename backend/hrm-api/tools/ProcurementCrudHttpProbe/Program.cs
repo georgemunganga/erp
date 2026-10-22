@@ -190,7 +190,7 @@ internal static partial class Program
         ProcurementHostIntegration.AddServices(b.Services,connection);
         b.Services.AddAuthentication("private-crud").AddScheme<AuthenticationSchemeOptions,ToolAuthentication>("private-crud",_=>{});
         b.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
-        var app=b.Build();app.UseRouting();app.UseAuthentication();app.UseAuthorization();app.UseMiddleware<ProcurementScopeMiddleware>();
+        var app=b.Build();app.UseRouting();app.UseAuthentication();app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>();app.UseAuthorization();app.UseMiddleware<ProcurementScopeMiddleware>();
         ProcurementHostIntegration.MapRoutes(app);
         if (browserMode) MapPrivateCoreShell(app);
         await app.StartAsync();return app;
