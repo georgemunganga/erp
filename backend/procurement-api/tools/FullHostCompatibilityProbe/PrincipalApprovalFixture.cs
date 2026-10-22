@@ -75,7 +75,7 @@ internal sealed class PrincipalApprovalFixture(string owner)
     }
 }
 
-internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false):WebApplicationFactory<MonthlyLeaveAccrualWorker>
+internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false,bool normalLocalAuthentication=false):WebApplicationFactory<MonthlyLeaveAccrualWorker>
 {
     internal Dictionary<string,string?> Settings()
     {
@@ -107,9 +107,14 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
                     EffectiveFrom=DateTimeOffset.UtcNow.AddMinutes(-1),EffectiveUntil=DateTimeOffset.UtcNow.AddHours(1),EvidenceMaximumAgeMinutes=30}]
                 : [];
 
-            services.AddSingleton(new PrincipalApprovalSubjects(fixture.Subjects));
-            services.AddAuthentication(o=>{o.DefaultAuthenticateScheme="private-p25-subject";o.DefaultChallengeScheme="private-p25-subject";})
-                .AddScheme<AuthenticationSchemeOptions,PrincipalSubjectAuthentication>("private-p25-subject",_=>{});
+            // Normal-cookie opt-in keeps Program's real local scheme untouched.
+            // Existing callers retain the explicitly private subject substitution.
+            if(!normalLocalAuthentication)
+            {
+                services.AddSingleton(new PrincipalApprovalSubjects(fixture.Subjects));
+                services.AddAuthentication(o=>{o.DefaultAuthenticateScheme="private-p25-subject";o.DefaultChallengeScheme="private-p25-subject";})
+                    .AddScheme<AuthenticationSchemeOptions,PrincipalSubjectAuthentication>("private-p25-subject",_=>{});
+            }
             // This is the ACTUAL captured owning-store provider, never a boolean test stub.
             if(actualSchema) {services.RemoveAll<IProcurementPrincipalApprovalSchemaReadiness>();services.AddScoped<IProcurementPrincipalApprovalSchemaReadiness,ProcurementPrincipalApprovalStoreReadiness>();}
         });
