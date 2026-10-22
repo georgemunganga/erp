@@ -5,6 +5,7 @@ using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 
@@ -117,6 +118,13 @@ public static class ProcurementHostIntegration
                 var receivingOptions = services.GetRequiredService<ProcurementReceivingExecutionOptions>();
                 var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
                     && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
+                var unitReviewOptions = services.GetService<ProcurementInvoiceUnitReviewOptions>();
+                var unitReviewSchema = services.GetService<IProcurementInvoiceUnitReviewSchemaReadiness>();
+                var originalUnitReview = !pending && unitReviewOptions is { Enabled: true, ExecutionDatabaseConfigured: true }
+                    && unitReviewSchema is not null && services.GetRequiredService<CoreDocumentFeature>().Enabled
+                    && InvoiceDocumentStoreBinding.SamePhysicalDatabase(services.GetRequiredService<IConfiguration>().GetConnectionString("CoreDocuments"), db.Database.GetDbConnection().ConnectionString)
+                    && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct)
+                    && await unitReviewSchema.CanRecordAsync(db, ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
                     ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
@@ -194,7 +202,8 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().ExecutionDatabaseConfigured
                             && await services.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(ct),
-                        invoiceQualifiedClaims = false, // No production original-unit reviewer or authenticated Finance history owner is installed.
+                        invoiceOriginalUnitReview = originalUnitReview, // Configured availability only; per-record policy/actor/document guards still apply.
+                        invoiceQualifiedClaims = false, // No authenticated complete Finance history owner is installed.
                         invoiceValidation = false,
                         financeHandoff = false,
                         supplierPortal = false,

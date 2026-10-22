@@ -8,10 +8,12 @@ finite runtime and actual browser proof pending. Execution option defaults false
 ## Availability and existing UI
 
 Use existing Bills detail/review components; no new invoice/approval/document master or payment action.
-Current metadata does not advertise a new review capability. Missing optional capability means false;
+Additive metadata `capabilities.invoiceOriginalUnitReview` describes configured review execution only.
+It is true only with the explicit option+execution store, actual finite P22 schema and supported same-store
+CoreDocs availability. Its current uncaptured schema implementation returns false. Missing capability means false;
 configurationVersion, an ERP administrator role, matching enabled or a recorded unit string does not
-establish available review execution. Hold mutation activation until verified backend capability is
-explicitly supplied. Old backend 404/503 is unavailable, never success or an empty review history.
+establish available review execution. Hold mutation activation until this verified backend capability is explicitly true; use the current named action
+and per-record readiness separately. Old backend 404/503 is unavailable, never success or an empty review history.
 The existing manual invoice capture/edit/document/mapping UI keeps its existing contracts.
 
 All routes have prefix `/api/procurement/v1`. Company and selected branch use existing shell headers.
