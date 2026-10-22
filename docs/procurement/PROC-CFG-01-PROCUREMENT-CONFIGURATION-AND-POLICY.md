@@ -213,3 +213,37 @@ Procurement governance owner approves method, category, approval and evidence po
 | Procurement runtime, migration owner, deployment and policy-cache strategy | ERP technical owner | Implementation plan |
 
 This is a complete draft structure for review. The business must approve values and owners, and the technical owners must agree shared contracts before this feature becomes an implementation contract.
+## Receiving settings: named reference selection — 22 October 2026
+
+The receiving policy editor consumes existing records through
+`GET /api/procurement/v1/configuration/policies/lookups/receiving/{kind}`.
+This is a read-only extension of configuration, not a new employee, location,
+category or authorization master. `kind` is `people`, `sites` or `categories`.
+
+- **Permission and scope:** `procurement-configuration-read`, a current canonical
+  employee/account and current configured access are required. People reuse the
+  shared Core canonical account query; tenant, company, selected branch and
+  department filters apply before count/pagination. Locations also respect the
+  actor's existing branch assignments. Only active company categories appear.
+- **Inputs:** `search` up to 100 characters, `offset` 0–100000, `limit` 1–50
+  (default 25). Optional `ids` resolves up to 25 distinct canonical UUIDs without
+  search or another page. For people, the ID is the employee ID required by the
+  receiving policy. Invalid saved selections fail rather than opening a broad
+  directory query. Unavailable selections are omitted without leaking names.
+- **Response:** `{kind, companyId, items, total, offset, limit, nextOffset,
+  isAuthority:false, canAcceptDelivery:false}`. Each item has `id`, `displayName`,
+  nullable `code` and nullable `principalId`. No email, payroll, banking or other
+  employee profile fields are returned. Responses are `Cache-Control: no-store`.
+- **Workflow and ownership:** selecting a reference changes only the unsaved
+  form. Existing policy commands still revalidate the full policy, current
+  identities, author/reviewer independence and scope. No approval, receiving,
+  inventory, Finance or notification side effect occurs from a lookup.
+- **Failures:** malformed selections return 422, denied access 403, unavailable
+  stores 503. The UI preserves saved selections and cannot substitute a different
+  person or site when a reference is unavailable. An ordinary GET may be retried;
+  no writes or alternate store are attempted.
+- **Acceptance:** mapped HTTP tests cover current employee eligibility, alias/
+  inactive/foreign exclusions before counts, branch confinement, active category
+  filtering, exact retained IDs, malformed targeting, permission denial and
+  unchanged configuration/audit footprint. Compilation and runtime verification
+  are pending for this source increment; test source is not passing evidence.

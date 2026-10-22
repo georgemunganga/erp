@@ -3547,6 +3547,15 @@ public sealed partial class ProcurementRequestHttpTests
             await core.SaveChangesAsync(); return account.Id;
         }
 
+        public async Task<Guid> SeedReceivingLookupCategory(string code, string status, bool foreignCompany = false)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set("tenant-a",
+                foreignCompany ? OtherCompany : company, Other.ToString(), null, null, false, "receiving-lookup-test");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var category = new ProcurementCategory { Code = code, Name = "Receiving category " + code, Status = status };
+            db.AddScoped(category); await db.SaveChangesAsync(); return category.Id;
+        }
         public async Task ConfigureSourcingPolicyActors()
         {
             using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
