@@ -1,4 +1,6 @@
 using System.Net;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
@@ -23,7 +25,7 @@ public sealed class ProcurementSpendingAuthorityHttpTests
     private const string Path = "/api/procurement/v1/configuration/spending-authorities";
 
     [Fact]
-    public async Task Hidden_global_predecessor_does_not_advertise_activation_or_leak_its_identity()
+    public async Task Legacy_review_does_not_advertise_review_or_leak_hidden_predecessor_identity()
     {
         await using var fixture = await Fixture.Start();
         var (pending, predecessor) = await fixture.SeedReviewFamily(globalActive: true, newerDraft: false);
@@ -31,31 +33,31 @@ public sealed class ProcurementSpendingAuthorityHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var text = await response.Content.ReadAsStringAsync();
         using var json = JsonDocument.Parse(text);
-        Assert.Equal(new[] { "Return" }, json.RootElement.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
+        Assert.Empty(json.RootElement.GetProperty("allowedActions").EnumerateArray());
         Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("previousGrantId").ValueKind);
         Assert.DoesNotContain(predecessor.ToString("D"), text);
     }
 
     [Fact]
-    public async Task Newer_family_draft_suppresses_activation_of_older_pending_version()
+    public async Task Legacy_review_with_newer_draft_remains_readable_without_advertising_review()
     {
         await using var fixture = await Fixture.Start();
         var (pending, _) = await fixture.SeedReviewFamily(globalActive: false, newerDraft: true);
         var response = await fixture.Send(HttpMethod.Get, Path + "/" + pending, "erp_admin", branch: fixture.Branch);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(new[] { "Return" }, json.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
-        Assert.Contains(json.GetProperty("blockingReasons").EnumerateArray(), x => x.GetProperty("code").GetString() == "AuthorityLatestVersionRequired");
+        Assert.Empty(json.GetProperty("allowedActions").EnumerateArray());
+        Assert.Contains(json.GetProperty("blockingReasons").EnumerateArray(), x => x.GetProperty("code").GetString() == "AuthorityIdentityStoreUnavailable");
     }
 
     [Fact]
-    public async Task Read_projection_has_exact_amount_name_and_current_server_actions()
+    public async Task Legacy_read_projection_preserves_exact_amount_name_and_blocks_new_actions()
     {
         await using var fixture = await Fixture.Start();
         var response = await fixture.Send(HttpMethod.Get, Path + "/" + fixture.Grant, "erp_admin", branch: fixture.OtherBranch);
         var detail = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("0", detail.GetProperty("maximumAmount").GetString());
         Assert.Equal("Authority owner", detail.GetProperty("principalDisplayName").GetString());
-        Assert.Equal(new[] { "Edit" }, detail.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
+        Assert.Empty(detail.GetProperty("allowedActions").EnumerateArray());
         Assert.NotEmpty(detail.GetProperty("blockingReasons").EnumerateArray());
         await fixture.SetReadOnly();
         response = await fixture.Send(HttpMethod.Get, Path + "/" + fixture.Grant, "erp_admin", branch: fixture.OtherBranch);
@@ -164,7 +166,7 @@ public sealed class ProcurementSpendingAuthorityHttpTests
         Assert.Equal("procurement-po-approve", grant.GetProperty("permission").GetString());
         Assert.Equal("ApprovedLineBase", orders.GetProperty("createAmountBasis").GetString());
         Assert.Equal("0", grant.GetProperty("maximumAmount").GetString());
-        Assert.Equal(new[] { "Edit" }, grant.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
+        Assert.Empty(grant.GetProperty("allowedActions").EnumerateArray());
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await fixture.Send(HttpMethod.Get,
             Path + "?action=PurchaseOrder.Pay", "erp_admin")).StatusCode);
     }
@@ -195,7 +197,7 @@ public sealed class ProcurementSpendingAuthorityHttpTests
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("SourcingEvent.Publish", body.GetProperty("createAction").GetString());
         Assert.Equal("ApprovedLineBase", body.GetProperty("createAmountBasis").GetString());
-        Assert.True(body.GetProperty("canCreate").GetBoolean()); Assert.Equal(1, body.GetProperty("total").GetInt32());
+        Assert.False(body.GetProperty("canCreate").GetBoolean()); Assert.Equal(1, body.GetProperty("total").GetInt32());
         var record = Assert.Single(body.GetProperty("items").EnumerateArray());
         Assert.Equal(sourceId, record.GetProperty("id").GetGuid());
         Assert.Equal("SourcingEvent.Publish", record.GetProperty("action").GetString());
@@ -240,6 +242,25 @@ public sealed class ProcurementSpendingAuthorityHttpTests
         Assert.Equal(0, body.GetProperty("total").GetInt32());
     }
 
+    [Fact]
+    public async Task Legacy_active_authority_keeps_authorized_revocation_when_identity_store_is_unavailable()
+    {
+        await using var fixture = await Fixture.Start();
+        var (_, active) = await fixture.SeedReviewFamily(globalActive: true, newerDraft: false);
+        var response = await fixture.Send(HttpMethod.Get, Path + "/" + active, "erp_admin");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(new[] { "Revoke" }, body.GetProperty("allowedActions")
+            .EnumerateArray().Select(x => x.GetString()).ToArray());
+    }
+
+    [Fact]
+    public async Task Current_Core_rebinding_cannot_replace_the_worker_already_resolved_for_this_request()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.AssertStaleActorDenied();
+    }
+
     private sealed class Fixture(WebApplication app, Guid company, Guid user, Guid branch, Guid otherBranch, Guid grant) : IAsyncDisposable
     {
         public Guid User => user;
@@ -257,6 +278,28 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             if (branch.HasValue) request.Headers.Add("X-Shell-Location", branch.ToString());
             if (body is not null) request.Content = JsonContent.Create(body);
             return await Client.SendAsync(request);
+        }
+        public async Task AssertStaleActorDenied()
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var account = await core.LocalUsers.SingleAsync(x => x.Id == user);
+            var scope = new ProcurementRequestScope();
+            scope.Set("tenant-a", company, user.ToString("D"), null, null, false, "stale-worker-test");
+            scope.AssignWorker(account.WorkerId!.Value);
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.Role, "erp_admin"), new Claim("tenant", "tenant-a"),
+                new Claim("sub", user.ToString("D"))
+            }, "test"));
+            var authorization = services.ServiceProvider.GetRequiredService<IAuthorizationService>();
+            Assert.NotNull(await ProcurementAuthorityIdentity.ActorAsync(core, scope, principal, authorization,
+                SpendingAuthorityConfiguration.ConfigurePermission, CancellationToken.None));
+            var replacement = new Worker { EmployeeNo = "NEW", FirstName = "Another", LastName = "Person",
+                Status = "active", LocationId = branch };
+            core.Workers.Add(replacement); account.WorkerId = replacement.Id; await core.SaveChangesAsync();
+            Assert.Null(await ProcurementAuthorityIdentity.ActorAsync(core, scope, principal, authorization,
+                SpendingAuthorityConfiguration.ConfigurePermission, CancellationToken.None));
         }
         public async Task SetRoles(string roles)
         {

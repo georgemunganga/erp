@@ -15,19 +15,17 @@ public static partial class ProcurementReceivingRoutes
     {
         var actor = await Actor(core, scope, http, auth, service ? ControlledReceiving.CertifyPermission : ControlledReceiving.InspectPermission,
             scope.WorkLocationId, null, ct, target: false);
-        var now = Now(); var policies = await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
-            && x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo)).Take(2).ToArrayAsync(ct);
-        if (policies.Length != 1) throw new ReceivingProblem("ReceivingPublishedPolicyUnavailable", 409);
-        var document = ReceivingPolicyRules.Parse(policies[0].RulesJson);
+        var policy = await CurrentPolicy(db, scope, http, null, ct);
+        var document = ReceivingPolicyRules.Parse(policy.RulesJson);
         var rules = document.Rules.Where(rule => service ? rule.Kind == ReceivingKind.Service && rule.ServiceOwnerWorkerIds.Contains(actor.WorkerId)
             : rule.Kind == ReceivingKind.Goods && rule.InspectionRequired && rule.InspectorWorkerIds.Contains(actor.WorkerId)).ToArray();
-        foreach (var rule in rules) _ = ReceivingPolicyRules.Project(policies[0], rule);
+        foreach (var rule in rules) _ = ReceivingPolicyRules.Project(policy, rule);
         var configuredSites = rules.SelectMany(rule => rule.SiteIds).Distinct().ToArray();
         var activeSites = await core.WorkLocations.AsNoTracking().Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
             && !x.IsArchived && configuredSites.Contains(x.Id)).Select(x => x.Id).ToArrayAsync(ct);
         var assigned = rules.SelectMany(rule => rule.SiteIds.Where(activeSites.Contains).Select(site => new { category = rule.CategoryCode,
             purchase_type = rule.PurchaseType, site })).ToArray();
-        return new(policies[0], actor, document.CurrencyCode, JsonSerializer.Serialize(assigned));
+        return new(policy, actor, document.CurrencyCode, JsonSerializer.Serialize(assigned));
     }
     // Immutable submitted source lineage drives assignment filtering before count/page.
     // A state pin is not present on an un-certified service draft, so use the existing
@@ -105,7 +103,7 @@ public static partial class ProcurementReceivingRoutes
             foreach (var line in lines.Where(x => eligibleIds.Contains(x.PurchaseOrderLineId) && x.PhysicalObservationId != null && x.PhysicalPolicyVersionId == assigned.Policy.Id))
             {
                 var source = await Source(db, cases, scope, header.PurchaseOrderId, header.IssuedVersionId!.Value, line.PurchaseOrderLineId, token, lockSource: false);
-                var final = await Resolve(db, source, line.PhysicalPolicyVersionId, token, persistState: false); var ledger = await Ledger(db, final, token);
+                var final = await Resolve(db, scope, http, source, line.PhysicalPolicyVersionId, token, persistState: false); var ledger = await Ledger(db, final, token);
                 var actor = await Actor(core, scope, http, auth, ControlledReceiving.InspectPermission, source.Order.BranchRef, header.SiteRef, token);
                 ControlledReceiving.VerifyCurrentActor(final.Source, final.Rules, actor, ledger, ControlledReceiving.InspectPermission, Now(), header.SiteRef, line.PhysicalObservationId);
                 permitted.Add(line);
@@ -122,7 +120,7 @@ public static partial class ProcurementReceivingRoutes
             if (row.SourcePurchaseOrderId is null || !await AssignedLines(db, scope, assigned).AnyAsync(x => x.Id == row.PurchaseOrderLineId, token))
                 throw new ReceivingProblem("ReceivingAssignedTaskNotFound", 404);
             var source = await Source(db, cases, scope, row.SourcePurchaseOrderId.Value, row.IssuedBindingId, row.PurchaseOrderLineId, token, lockSource: false);
-            var final = await Resolve(db, source, row.PolicyVersionId, token, persistState: false);
+            var final = await Resolve(db, scope, http, source, row.PolicyVersionId, token, persistState: false);
             var actor = await Actor(core, scope, http, auth, ControlledReceiving.CertifyPermission, source.Order.BranchRef, source.Order.BranchRef, token);
             // Membership/site/current identity defines task visibility; maker/checker/capacity
             // may block Certify and is represented by the separate action hint, not hidden.

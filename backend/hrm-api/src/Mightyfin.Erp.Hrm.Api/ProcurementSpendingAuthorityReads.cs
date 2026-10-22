@@ -28,7 +28,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
     }
 
     private static async Task<object> ReadView(ProcurementSpendingAuthorityGrant grant, ProcurementDbContext db,
-        HrmDbContext core, ProcurementRequestScope scope, HashSet<string> permissions, CancellationToken ct)
+        HrmDbContext core, ProcurementRequestScope scope, HashSet<string> permissions, bool identityReady, CancellationToken ct)
     {
         var actions = new List<string>();
         var blockers = new List<object>();
@@ -51,15 +51,26 @@ public static partial class ProcurementSpendingAuthorityRoutes
         if (grant.State == "Draft" && grant.ConfigurationOwnerPrincipalId == scope.SubjectId
             && permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission))
         {
-            actions.Add("Edit");
-            if (await References("Submit") && Eligible("Submit", () => SpendingAuthorityConfiguration.AssertCanSubmit(
-                grant, grant.Version, actor, subject!, now))) actions.Add("Submit");
+            try
+            {
+                if (!identityReady) throw new InvalidOperationException("AuthorityIdentityStoreUnavailable");
+                await ProcurementSpendingAuthorityWorkerIdentity.RequireAuthorAsync(core, db, scope, grant, ct);
+                actions.Add("Edit");
+                if (await References("Submit") && Eligible("Submit", () => SpendingAuthorityConfiguration.AssertCanSubmit(
+                    grant, grant.Version, actor, subject!, now))) actions.Add("Submit");
+            }
+            catch (InvalidOperationException ex)
+            {
+                blockers.Add(new { action = "Edit", code = ex.Message });
+                blockers.Add(new { action = "Submit", code = ex.Message });
+            }
         }
         if (grant.State == "PendingReview" && permissions.Contains(SpendingAuthorityConfiguration.ReviewPermission))
         {
             try
             {
-                await ProcurementAuthorityIdentity.RequireIndependentReviewerAsync(core, scope, grant, ct);
+                if (!identityReady) throw new InvalidOperationException("AuthorityIdentityStoreUnavailable");
+                await ProcurementSpendingAuthorityWorkerIdentity.RequireReviewerAsync(core, db, scope, grant, ct);
                 if (Eligible("Return", () => SpendingAuthorityConfiguration.AssertCanReturn(grant, grant.Version, actor))) actions.Add("Return");
                 // A complete internal family is required even when a predecessor is outside
                 // caller scope. Never publish from a filtered family or expose hidden IDs.
@@ -74,13 +85,17 @@ public static partial class ProcurementSpendingAuthorityRoutes
                 else if (predecessors.Length == 1 && InScope(predecessors[0], scope))
                 {
                     var previous = predecessors[0];
+                    await ProcurementSpendingAuthorityWorkerIdentity.RequireRetainedActivationAsync(db, scope, previous, ct);
                     if (await References("Supersede") && Eligible("Supersede", () => SpendingAuthorityConfiguration.AssertCanSupersede(
                         current, grant.Version, previous, previous.Version, actor, subject!, now, family)))
                     { actions.Add("Supersede"); previousId = previous.Id; previousVersion = previous.Version; }
                 }
                 else blockers.Add(new { action = "Activate", code = "AuthorityActionUnavailableInCurrentScope" });
             }
-            catch (InvalidOperationException ex) when (ex.Message == "IndependentAuthorityReviewerRequired") { }
+            catch (InvalidOperationException ex)
+            {
+                blockers.Add(new { action = "Review", code = ex.Message });
+            }
         }
         // Revocation deliberately follows the existing permission policy; no invented maker/checker requirement.
         if (grant.State == "Active" && permissions.Contains(SpendingAuthorityConfiguration.RevokePermission)

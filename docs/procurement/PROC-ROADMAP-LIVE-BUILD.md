@@ -7,6 +7,16 @@
 The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared services can already be reused and which HRMS implementations are still module-specific.
 The [workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) ties Zoho's help journeys to the child features and ERP ownership boundaries. Use ERPNext as a secondary public implementation example for complex data/control decisions.
 
+## Active continuation — 22 October 2026
+
+The coordinator continues backend implementation while Manus works the separately assigned vendor milestone from merged main. This is held source integration, not a deployment baseline.
+
+- Spending authority retained-worker integration: `60b3cca`; actual finite-role HTTP/PostgreSQL verification: `f7006e9`. Original workers remain retained across account changes; new PR/PO authority selection verifies the retained activation/recipient. Actual public PR/PO recipient-rebind execution and concurrency/browser release gates remain distinct.
+- Receiving/invoice-matching policy foundation: `bc184d7`; additive P31 persistence: `9c29a69`. **121 domain/persistence cases passed**, and actual private PostgreSQL verified legacy preservation/no backfill, scoped constraints, append-only records and evidence/audit-protected Down.
+- API identity bridge: **17 focused host cases passed**, including genuine Core-account fixture swaps, offboarded historical makers and retained scoped proof. These InMemory-backed tests are not PostgreSQL runtime authorization evidence.
+- Currently integrating policy lifecycle and operational receiving/matching consumers using existing UI and shared Core identity. **99 combined host regressions passed**, zero failed/skipped; the extended genuine finite-role policy lifecycle rehearsal also **passed** in `authority_identity_http_20261022_042928`: four policies, twelve retained action rows, actual author/reviewer worker-swap denials, author offboarding and controlled replacement. Full receiving/matching operations, browser and release review remain distinct gates.
+- Procurement remains unfinished. No production migration, financial execution enablement, or full-module/browser completion is claimed. See [operational-policy specification](PROC-OP-POLICY-WORKER-01.md) for the bounded stages and remaining acceptance.
+
 ## Continued verified checkpoint —21October2026,09:52UTC
 
 - Shared document owner use/retirement increment `17a0a5e` passed112Core tests and actual finite-role PostgreSQL race/rollback/access/session verification. Independent review caught the pre-fence stale tracking race and its correction is covered by the actual interleaving. See [U2 evidence](CORE-DOC-U2-ACTUAL-VERIFICATION.md). Runtime module adapters are still unregistered.

@@ -72,21 +72,41 @@ public static partial class ProcurementReceivingRoutes
         return new(order, line, submission, issued, delivery, lineage.GetProperty("CategoryCode").GetString()!, lineage.GetProperty("PurchaseType").GetString()!);
     }
     private static decimal SealedDecimal(JsonElement value) => decimal.Parse(value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText(), CultureInfo.InvariantCulture);
-    private static async Task<(PolicyVersion Policy, ReceivingRule Rule)> Policy(ProcurementDbContext db, SourceLoad source, Guid? retained, CancellationToken ct, bool requireCurrent = true)
+    private static async Task<PolicyVersion> CurrentPolicy(ProcurementDbContext db, ProcurementRequestScope scope,
+        HttpContext http, Guid? retained, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var matches = await db.PolicyVersions.Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
-            && (retained == null || x.Id == retained) && ((!requireCurrent && retained != null)
-                || x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo))).Take(2).ToArrayAsync(ct);
+            && (retained == null || x.Id == retained) && x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo))
+            .Take(2).ToArrayAsync(ct);
         if (matches.Length != 1) throw new ReceivingProblem("ReceivingPublishedPolicyUnavailable", 409);
-        var document = ReceivingPolicyRules.Parse(matches[0].RulesJson);
+        try { await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db, scope, http.RequestServices, matches[0], ct); }
+        catch (OperationalPolicyPublicationProblem error) { throw new ReceivingProblem(error.Code, error.Status); }
+        return matches[0];
+    }
+    private static async Task<(PolicyVersion Policy, ReceivingRule Rule)> Policy(ProcurementDbContext db, ProcurementRequestScope scope,
+        HttpContext http, SourceLoad source, Guid? retained, CancellationToken ct, bool requireCurrent = true)
+    {
+        PolicyVersion policy;
+        if (requireCurrent) policy = await CurrentPolicy(db, scope, http, retained, ct);
+        else
+        {
+            // Historical source inspection does not grant current policy authority.
+            var now = DateTimeOffset.UtcNow;
+            var matches = await db.PolicyVersions.Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
+                && (retained == null || x.Id == retained) && (retained != null
+                    || x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo))).Take(2).ToArrayAsync(ct);
+            if (matches.Length != 1) throw new ReceivingProblem("ReceivingPublishedPolicyUnavailable", 409);
+            policy = matches[0];
+        }
+        var document = ReceivingPolicyRules.Parse(policy.RulesJson);
         if (document.CurrencyCode != source.Order.CurrencyCode) throw new ReceivingProblem("ReceivingPolicyCurrencyMismatch", 409);
         var rule = ReceivingPolicyRules.Select(document, source.Category, source.PurchaseType);
-        return (matches[0], rule);
+        return (policy, rule);
     }
-    private static async Task<FinalSource> Resolve(ProcurementDbContext db, SourceLoad source, Guid? retainedPolicy, CancellationToken ct, bool persistState = true, bool requireCurrentPolicy = true)
+    private static async Task<FinalSource> Resolve(ProcurementDbContext db, ProcurementRequestScope scope, HttpContext http, SourceLoad source, Guid? retainedPolicy, CancellationToken ct, bool persistState = true, bool requireCurrentPolicy = true)
     {
-        var (policy, rule) = await Policy(db, source, retainedPolicy, ct, requireCurrentPolicy);
+        var (policy, rule) = await Policy(db, scope, http, source, retainedPolicy, ct, requireCurrentPolicy);
         var state = await db.ReceivingSourceStates.SingleOrDefaultAsync(x => x.IssuedVersionId == source.Issued.Id && x.PurchaseOrderLineId == source.Line.Id, ct);
         if (state is null)
         {

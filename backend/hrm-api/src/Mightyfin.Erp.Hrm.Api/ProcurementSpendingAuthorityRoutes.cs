@@ -66,10 +66,13 @@ public static partial class ProcurementSpendingAuthorityRoutes
             var records = await query.Include(x => x.Categories).OrderBy(x => x.AuthorityReference).ThenByDescending(x => x.AuthorityVersion)
                 .Skip((number - 1) * size).Take(size).ToListAsync(ct);
             var permissions = await ReadActions(core, scope, http, auth, ct);
+            // Inspect the actual store once per request, not once per listed grant.
+            var identityReady = await IdentityStoreReady(http, db, true, ct);
             var items = new List<object>();
-            foreach (var grant in records) items.Add(await ReadView(grant, db, core, scope, permissions, ct));
+            foreach (var grant in records) items.Add(await ReadView(grant, db, core, scope, permissions, identityReady, ct));
             return Results.Ok(new { items, total, page = number, pageSize = size,
-                currentActorPrincipalId = scope.SubjectId, canCreate = permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission),
+                currentActorPrincipalId = scope.SubjectId, canCreate = permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission)
+                    && identityReady,
                 createAction = contract.Action, createAmountBasis = contract.AmountBasis,
                 scope = new { branchId = scope.WorkLocationId, departmentId = scope.OrgUnitId, confined = scope.IsConfined } });
         }
@@ -85,7 +88,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
             var grant = await Scoped(db, scope).AsNoTracking().Include(x => x.Categories)
                 .SingleOrDefaultAsync(x => x.Id == id, ct);
             return grant is null ? Missing() : Results.Ok(await ReadView(grant, db, core, scope,
-                await ReadActions(core, scope, http, auth, ct), ct));
+                await ReadActions(core, scope, http, auth, ct), await IdentityStoreReady(http, db, true, ct), ct));
         }
         catch (Exception ex) when (Handled(ex)) { return Failure(ex); }
     }
@@ -121,9 +124,14 @@ public static partial class ProcurementSpendingAuthorityRoutes
             var family = await SpendingAuthorityFamilyTransaction.LoadAsync(db, input.PrincipalId,
                 contract.Permission, contract.Action,
                 input.AuthorityReference, ct);
+            if (!await IdentityStoreReady(http, db, true, ct)) return IdentityUnavailable();
             var grant = SpendingAuthorityConfiguration.CreateDraft(input.AuthorityReference, input.PrincipalId,
-                draft, actor, DateTimeOffset.UtcNow, family, contract.Action);
+                draft, actor, ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value, family, contract.Action);
+            var identities = await ProcurementSpendingAuthorityWorkerIdentity.ResolveCreationActorsAsync(
+                core, scope, grant.PrincipalId, ct);
             db.AddScoped(grant);
+            db.AddScoped(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureCreation(
+                grant, identities.Actor.WorkerId, identities.Recipient.WorkerId)));
             ProcurementDraftAudit.Add(db, scope, nameof(ProcurementSpendingAuthorityGrant), grant.Id,
                 "authority.draft_created", null, View(grant));
             await db.SaveChangesAsync(ct);
@@ -155,6 +163,8 @@ public static partial class ProcurementSpendingAuthorityRoutes
             if (!ProcurementAuthorityIdentity.InputInScope(draft, scope)) return Missing();
             var issue = await ProcurementAuthorityIdentity.ReferenceIssueAsync(core, db, scope, draft, false, ct);
             if (issue is not null) return Invalid(issue);
+            if (!await IdentityStoreReady(http, db, true, ct)) return IdentityUnavailable();
+            await ProcurementSpendingAuthorityWorkerIdentity.RequireAuthorAsync(core, db, scope, grant, ct);
             var before = View(grant);
             db.SpendingAuthorityCategories.RemoveRange(grant.Categories);
             SpendingAuthorityConfiguration.EditDraft(grant, input.Version, draft, actor, DateTimeOffset.UtcNow);
@@ -191,8 +201,11 @@ public static partial class ProcurementSpendingAuthorityRoutes
             if (grant is null || !InScope(grant, scope)) return Missing();
             actor = await Actor(core, scope, http, auth, permission, ct);
             if (actor is null) return AccessDenied();
+            if (operation != "revoke" && !await IdentityStoreReady(http, db, true, ct)) return IdentityUnavailable();
             var before = View(grant);
-            var now = DateTimeOffset.UtcNow;
+            var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
+            ProcurementSpendingAuthorityWorkerIdentity.AuthorProof? authorIdentity = null;
+            ProcurementSpendingAuthorityWorkerIdentity.ReviewProof? reviewIdentity = null;
             SpendingAuthoritySubject? subject = null;
             if (operation is "submit" or "activate" or "supersede")
             {
@@ -202,8 +215,10 @@ public static partial class ProcurementSpendingAuthorityRoutes
                     ProcurementAuthorityIdentity.Draft(grant), true, ct);
                 if (issue is not null) return Invalid(issue);
             }
+            if (operation == "submit")
+                authorIdentity = await ProcurementSpendingAuthorityWorkerIdentity.RequireAuthorAsync(core, db, scope, grant, ct);
             if (operation is "activate" or "supersede" or "return")
-                await ProcurementAuthorityIdentity.RequireIndependentReviewerAsync(core, scope, grant, ct);
+                reviewIdentity = await ProcurementSpendingAuthorityWorkerIdentity.RequireReviewerAsync(core, db, scope, grant, ct);
             switch (operation)
             {
                 case "submit": SpendingAuthorityConfiguration.Submit(grant, version, actor, subject!, now); break;
@@ -213,6 +228,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
                 case "supersede":
                     var previous = family.SingleOrDefault(x => x.Id == previousId);
                     if (previous is null || !InScope(previous, scope) || !previousVersion.HasValue) return Missing();
+                    await ProcurementSpendingAuthorityWorkerIdentity.RequireRetainedActivationAsync(db, scope, previous, ct);
                     var previousBefore = View(previous);
                     SpendingAuthorityConfiguration.Supersede(grant, version, previous, previousVersion.Value,
                         actor, subject!, reason ?? "", now, family);
@@ -232,6 +248,14 @@ public static partial class ProcurementSpendingAuthorityRoutes
                     break;
                 default: return Invalid("AuthorityCommandUnsupported");
             }
+            if (operation == "submit")
+                db.AddScoped(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureSubmission(
+                    grant, authorIdentity!.Created, authorIdentity.Actor.PrincipalId,
+                    authorIdentity.Actor.WorkerId, authorIdentity.Recipient.WorkerId)));
+            if (operation is "activate" or "supersede")
+                db.AddScoped(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureActivation(
+                    grant, reviewIdentity!.Created, reviewIdentity.Submitted, reviewIdentity.Actor.PrincipalId,
+                    reviewIdentity.Actor.WorkerId, reviewIdentity.Recipient.WorkerId)));
             ProcurementDraftAudit.Add(db, scope, nameof(ProcurementSpendingAuthorityGrant), id,
                 "authority." + operation, before, View(grant));
             await db.SaveChangesAsync(ct);
@@ -291,6 +315,15 @@ public static partial class ProcurementSpendingAuthorityRoutes
         principalDisplayName, allowedActions = allowedActions ?? [], previousGrantId, previousVersion,
         blockingReasons = blockingReasons ?? [],
     };
+    private static Task<bool> IdentityStoreReady(HttpContext? http, ProcurementDbContext db, bool write, CancellationToken ct)
+    {
+        var readiness = http?.RequestServices.GetService<IProcurementSpendingAuthorityIdentitySchemaReadiness>()
+            ?? new ProcurementSpendingAuthorityIdentitySchemaReadiness();
+        return write ? readiness.CanRecordAsync(db, ct) : readiness.IsReadyAsync(db, ct);
+    }
+    private static IResult IdentityUnavailable() => Results.Problem(statusCode: 503,
+        title: "Spending authority identity checks are not available yet.",
+        extensions: new Dictionary<string, object?> { ["code"] = "AuthorityIdentityStoreUnavailable" });
     private static IResult Missing() => Results.Problem(statusCode: 404, title: "Spending authority not found.", extensions: new Dictionary<string, object?> { ["code"] = "AuthorityNotFound" });
     private static IResult AccessDenied() => Results.Problem(statusCode: 403, title: "An active company account with this configuration permission is required.");
     private static IResult Invalid(string code) => Results.Problem(statusCode: 422, title: "Check the spending authority details.", extensions: new Dictionary<string, object?> { ["code"] = code });
@@ -310,7 +343,8 @@ public static partial class ProcurementSpendingAuthorityRoutes
             || ex is InvalidOperationException && ex.Message.StartsWith("SubmittedAuthority", StringComparison.Ordinal)
                 ? ex.Message : "AuthorityOperationUnavailable";
         var status = code == "AuthorityPostgresTransactionRequired" ? 503
-            : code is "AuthorityConfigurationAccessDenied" or "AuthorityConfigurationOwnerRequired" or "IndependentAuthorityReviewerRequired" ? 403 : 409;
+            : code is "AuthorityConfigurationAccessDenied" or "AuthorityConfigurationOwnerRequired" or "IndependentAuthorityReviewerRequired" or "AuthorityIndependentWorkerRequired"
+                or "AuthorityOriginalAuthorRequired" or "AuthorityCurrentActorIdentityChanged" ? 403 : 409;
         return Results.Problem(statusCode: status, title: "This spending authority action could not be completed.", extensions: new Dictionary<string, object?> { ["code"] = code });
     }
 

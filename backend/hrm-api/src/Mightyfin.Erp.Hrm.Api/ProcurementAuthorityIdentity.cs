@@ -52,7 +52,7 @@ internal static class ProcurementAuthorityIdentity
     {
         if (!(await authorization.AuthorizeAsync(principal, permission)).Succeeded) return null;
         var account = await ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
-        if (account is null) return null;
+        if (account is null || scope.WorkerId != account.WorkerId) return null;
         // Local identity middleware refreshes claims, but configuration must also reject
         // currently removed action grants rather than trusting a previously issued claim.
         var roles = LocalIdentityRoutes.ParseRoles(account.RolesCsv);
@@ -95,24 +95,6 @@ internal static class ProcurementAuthorityIdentity
             && x.WorkerId == workerId && x.IsActive && !x.IsArchived).Select(x => x.Id).Take(2).ToArrayAsync(ct);
         return accounts.Length == 1 ? await ResolveCanonicalAccountAsync(core, tenantId,
             legalEntityId, accounts[0].ToString("D"), ct) : null;
-    }
-
-    internal static async Task RequireIndependentReviewerAsync(HrmDbContext core, ProcurementRequestScope scope,
-        ProcurementSpendingAuthorityGrant grant, CancellationToken ct)
-    {
-        var reviewer = await ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
-        if (reviewer is null || await ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
-            scope.LegalEntityId, reviewer.WorkerId, ct) is null)
-            throw new InvalidOperationException("IndependentAuthorityReviewerRequired");
-        var principals = new[] { grant.PrincipalId, grant.CreatedBy, grant.ConfigurationOwnerPrincipalId, grant.SubmittedByPrincipalId };
-        if (principals.Any(string.IsNullOrWhiteSpace)) throw new InvalidOperationException("IndependentAuthorityReviewerRequired");
-        foreach (var principalId in principals.Distinct(StringComparer.Ordinal))
-        {
-            var participant = await ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, principalId!, ct);
-            if (participant is null || participant.WorkerId == reviewer.WorkerId
-                || await ResolveCanonicalWorkerAccountAsync(core, scope.TenantId, scope.LegalEntityId, participant.WorkerId, ct) is null)
-                throw new InvalidOperationException("IndependentAuthorityReviewerRequired");
-        }
     }
 
     public static async Task<string?> ReferenceIssueAsync(HrmDbContext core, ProcurementDbContext db,

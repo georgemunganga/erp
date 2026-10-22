@@ -35,15 +35,19 @@ public static partial class ProcurementReceivingRoutes
         return new { ownerModule = "procurement", ownerType, ownerId = id, references,
             contentAccessAvailable = false, uploadAvailable = false, status = "CoreReceivingOwnerAdapterUnavailable" };
     }
-    private static async Task<ReceivingActionCandidate> CurrentHint(HrmDbContext core, ProcurementRequestScope scope, HttpContext http,
+    private static async Task<ReceivingActionCandidate> CurrentHint(ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope, HttpContext http,
         IAuthorizationService auth, FinalSource final, ReceivingLedger ledger, string permission, Guid? site,
         Func<ReceivingActorProjection, ReceivingActionCandidate> hint, CancellationToken ct)
     {
         try
         {
             var actor = await Actor(core, scope, http, auth, permission, final.Load.Order.BranchRef, site, ct);
+            await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db, scope, http.RequestServices, final.Policy, ct);
             return hint(actor);
         }
+        catch (OperationalPolicyPublicationProblem)
+        { return new(permission switch { ControlledReceiving.InspectPermission => "Inspect", ControlledReceiving.AcceptPermission => "Accept",
+                ControlledReceiving.CertifyPermission => "Certify", _ => "Record" }, false, "ReceivingCurrentPolicyAuthorityUnavailable"); }
         catch (ReceivingProblem ex) when (ex.Status == 403) { return new(permission switch { ControlledReceiving.InspectPermission => "Inspect", ControlledReceiving.AcceptPermission => "Accept",
                 ControlledReceiving.CertifyPermission => "Certify", _ => "Record" }, false, "ReceivingCurrentPermissionRequired"); }
     }
@@ -62,17 +66,17 @@ public static partial class ProcurementReceivingRoutes
                 if (header.ExecutionVersion != 1 || header.IssuedVersionId is null) throw new ReceivingProblem("ReceivingLegacyOrUnsupportedEvidence", 409);
                 var source = await Source(db, cases, scope, header.PurchaseOrderId, header.IssuedVersionId.Value, line.PurchaseOrderLineId, ct, lockSource: false);
                 retainedLabels = SourceLabels(source); verifiedSourceCount++;
-                var final = await Resolve(db, source, line.PhysicalPolicyVersionId, ct, persistState: false, requireCurrentPolicy: false);
+                var final = await Resolve(db, scope, http, source, line.PhysicalPolicyVersionId, ct, persistState: false, requireCurrentPolicy: false);
                 var ledger = await Ledger(db, final, ct);
                 var actions = new List<ReceivingActionCandidate>();
                 if (line.PhysicalObservationId is { } physical)
                 {
-                    actions.Add(await CurrentHint(core, scope, http, auth, final, ledger, ControlledReceiving.InspectPermission, header.SiteRef,
+                    actions.Add(await CurrentHint(db, core, scope, http, auth, final, ledger, ControlledReceiving.InspectPermission, header.SiteRef,
                         actor => ReceivingPositiveReadModel.Inspect(final.Source, final.Rules, actor, ledger, physical, now), ct));
-                    if (!purposeOnly) actions.Add(await CurrentHint(core, scope, http, auth, final, ledger, ControlledReceiving.AcceptPermission, header.SiteRef,
+                    if (!purposeOnly) actions.Add(await CurrentHint(db, core, scope, http, auth, final, ledger, ControlledReceiving.AcceptPermission, header.SiteRef,
                         actor => ReceivingPositiveReadModel.Accept(final.Source, final.Rules, actor, ledger, physical, now), ct));
                 }
-                else if (!purposeOnly) actions.Add(await CurrentHint(core, scope, http, auth, final, ledger, ControlledReceiving.RecordPermission, header.SiteRef,
+                else if (!purposeOnly) actions.Add(await CurrentHint(db, core, scope, http, auth, final, ledger, ControlledReceiving.RecordPermission, header.SiteRef,
                     actor => ReceivingPositiveReadModel.Record(final.Source, final.Rules, actor, ledger, header, line, now), ct));
                 var capacity = ReceivingPositiveReadModel.Capacity(ledger, final.Rules, line.PhysicalObservationId);
                 hints.Add(new { lineId = line.Id, sourceVersion = states.TryGetValue(final.State.Id, out var persisted) ? persisted.Version : 0,
@@ -129,13 +133,13 @@ public static partial class ProcurementReceivingRoutes
                 }
                 catch (ReceivingProblem ex) when (ex.Status == 403) { node["draftActionCandidates"] = new JsonArray(); }
             }
-            var final = await Resolve(db, source, row.PolicyVersionId, ct, persistState: false, requireCurrentPolicy: false);
+            var final = await Resolve(db, scope, http, source, row.PolicyVersionId, ct, persistState: false, requireCurrentPolicy: false);
             // A pending certificate is not yet bound to the source state. A prior delivery
             // can already own that state, whose current version is the command CAS token.
             // Expose the verified source revision without fabricating a row state binding.
             node["sourceVersion"] = db.Entry(final.State).State is EntityState.Added or EntityState.Detached ? 0 : final.State.Version;
             var ledger = await Ledger(db, final, ct);
-            var candidate = await CurrentHint(core, scope, http, auth, final, ledger, ControlledReceiving.CertifyPermission, source.Order.BranchRef,
+            var candidate = await CurrentHint(db, core, scope, http, auth, final, ledger, ControlledReceiving.CertifyPermission, source.Order.BranchRef,
                 actor => ReceivingPositiveReadModel.Certify(final.Source, final.Rules, actor, ledger, row, Now()), ct);
             node["capacity"] = JsonSerializer.SerializeToNode(CapacityView(ReceivingPositiveReadModel.Capacity(ledger, final.Rules, null)), Json);
             node["actionCandidates"] = JsonSerializer.SerializeToNode(new[] { candidate }, Json);

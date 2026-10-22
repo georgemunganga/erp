@@ -16,7 +16,7 @@ public static partial class ProcurementReceivingRoutes
             foreach (var line in lines.OrderBy(x => x.PurchaseOrderLineId))
             {
                 var source = await Source(db, cases, scope, header.PurchaseOrderId, header.IssuedVersionId!.Value, line.PurchaseOrderLineId, token);
-                var final = await Resolve(db, source, line.PhysicalPolicyVersionId, token);
+                var final = await Resolve(db, scope, http, source, line.PhysicalPolicyVersionId, token);
                 var ledger = await Ledger(db, final, token);
                 var actor = await Actor(core, scope, http, auth, ControlledReceiving.RecordPermission, header.BranchRef, header.SiteRef, token);
                 ReceivingPolicyRules.VerifyReference(final.Rule, input.EvidenceReference);
@@ -62,7 +62,7 @@ public static partial class ProcurementReceivingRoutes
             var line = lines.SingleOrDefault(x => x.Id == lineId) ?? throw new ReceivingProblem("ReceivingLineNotFound", 404);
             if (line.PhysicalObservationId is null || line.ReceivingSourceStateId is null) throw new ReceivingProblem("ReceivingPhysicalObservationRequired", 409);
             var source = await Source(db, cases, scope, header.PurchaseOrderId, header.IssuedVersionId!.Value, line.PurchaseOrderLineId, token);
-            var final = await Resolve(db, source, line.PhysicalPolicyVersionId, token); var ledger = await Ledger(db, final, token);
+            var final = await Resolve(db, scope, http, source, line.PhysicalPolicyVersionId, token); var ledger = await Ledger(db, final, token);
             var permission = inspect ? ControlledReceiving.InspectPermission : ControlledReceiving.AcceptPermission;
             var actor = await Actor(core, scope, http, auth, permission, header.BranchRef, header.SiteRef, token);
             var now = Now(); ReceivingPolicyRules.VerifyReference(final.Rule, input.EvidenceReference);
@@ -110,7 +110,7 @@ public static partial class ProcurementReceivingRoutes
             if (row.ExecutionVersion != 1 || row.SourcePurchaseOrderId is null || row.IssuedBindingId == Guid.Empty)
                 throw new ReceivingProblem("ReceivingLegacyOrUnsupportedEvidence", 409);
             var source = await Source(db, cases, scope, row.SourcePurchaseOrderId.Value, row.IssuedBindingId, row.PurchaseOrderLineId, token);
-            var final = await Resolve(db, source, row.PolicyVersionId, token); var ledger = await Ledger(db, final, token);
+            var final = await Resolve(db, scope, http, source, row.PolicyVersionId, token); var ledger = await Ledger(db, final, token);
             var actor = await Actor(core, scope, http, auth, ControlledReceiving.CertifyPermission, source.Order.BranchRef, source.Order.BranchRef, token);
             var now = Now(); ReceivingPolicyRules.VerifyReference(final.Rule, input.EvidenceReference);
             ControlledReceiving.VerifyCurrentActor(final.Source, final.Rules, actor, ledger, ControlledReceiving.CertifyPermission, now);
