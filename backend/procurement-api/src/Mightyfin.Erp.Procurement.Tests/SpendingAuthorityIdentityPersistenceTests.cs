@@ -172,7 +172,7 @@ public sealed class SpendingAuthorityIdentityPersistenceTests
         var inventedOrigin = Origin(grant);
         command.Attach(inventedOrigin); // Deliberately not persisted; a hash is not provenance.
         SpendingAuthorityConfiguration.Submit(grant, grant.Version,
-            Actor(Maker, SpendingAuthorityConfiguration.ConfigurePermission), Subject(), DateTimeOffset.UtcNow.AddMinutes(1));
+            Actor(Maker, SpendingAuthorityConfiguration.ConfigurePermission), Subject(), At.AddMinutes(1));
         var envelope = SpendingAuthorityIdentity.CaptureSubmission(grant,
             SpendingAuthorityIdentityStorage.Read(inventedOrigin), Maker, MakerWorker, RecipientWorker);
         command.Add(SpendingAuthorityIdentityStorage.ToRecord(envelope));
