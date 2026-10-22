@@ -1,15 +1,29 @@
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
 using Xunit;
+using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class InvoiceUnitReviewReadinessTests
 {
     [Fact]
-    public void Execution_is_default_off_and_uncaptured_schema_cannot_claim_ready()
+    public void Execution_stays_default_off_after_actual_catalog_capture()
     {
         var options = new ProcurementInvoiceUnitReviewOptions();
         Assert.False(options.Enabled); Assert.False(options.ExecutionDatabaseConfigured);
-        Assert.False(ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured);
+        Assert.True(ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured);
+    }
+    [Fact]
+    public async Task Captured_catalog_does_not_authorize_an_unverified_store()
+    {
+        var principal = Guid.NewGuid(); var scope = new ProcurementRequestScope();
+        scope.Set("readiness", Guid.NewGuid(), principal.ToString("D"), null, null, false, "captured-not-authority");
+        scope.AssignPrincipal(principal);
+        await using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+        var readiness = new ProcurementInvoiceUnitReviewSchemaReadiness();
+        Assert.False(await readiness.IsReadyAsync(db, default));
+        Assert.False(await readiness.CanRecordAsync(db, default));
     }
     [Fact]
     public void New_purpose_permissions_have_no_bootstrap_role_grants()
