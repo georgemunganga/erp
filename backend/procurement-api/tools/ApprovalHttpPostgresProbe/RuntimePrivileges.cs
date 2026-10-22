@@ -132,6 +132,10 @@ internal static partial class RuntimePrivileges
                 await Grant(procurement,type,"SELECT,INSERT,UPDATE");
             foreach (var type in new[] { typeof(SupplierInvoiceLine), typeof(InvoiceMatchMappingVersion), typeof(InvoiceMatchAllocation), typeof(InvoiceMatchResult) })
                 await Grant(procurement,type,"SELECT,INSERT");
+            // ManualInvoiceDrafts checks these retained references when presenting edit/cancel
+            // actions. Reading their absence is not authority to post, pay or create a credit.
+            foreach (var type in new[] { typeof(FinanceInvoiceHandoff), typeof(FinancePaymentStatusRef), typeof(SupplierCreditNoteRef) })
+                await Grant(procurement, type, "SELECT");
         }
         if (unitReviews)
             foreach (var type in new[] { typeof(InvoiceUnitReviewSource), typeof(InvoiceUnitReviewAssignmentEvidence), typeof(InvoiceUnitReviewOutcome), typeof(InvoiceUnitReviewCommandReceipt) })
@@ -206,6 +210,21 @@ internal static partial class RuntimePrivileges
             forbidden.Add($"DELETE FROM {Table(entity)} WHERE FALSE");
         }
         await using var connection = new NpgsqlConnection(runtime); await connection.OpenAsync();
+        if (matching)
+        {
+            foreach (var type in new[] { typeof(FinanceInvoiceHandoff), typeof(FinancePaymentStatusRef), typeof(SupplierCreditNoteRef) })
+            {
+                var entity = procurement.Model.FindEntityType(type)!;
+                var store = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
+                var key = Quote(entity.FindProperty("Id")!.GetColumnName(store)!);
+                await using var read = new NpgsqlCommand($"SELECT EXISTS(SELECT 1 FROM {Table(entity)})", connection);
+                _ = await read.ExecuteScalarAsync(); // Actual finite login, not an owner privilege projection.
+                forbidden.Add($"INSERT INTO {Table(entity)} ({key}) SELECT '10000000-0000-0000-0000-000000000001'::uuid WHERE FALSE");
+                forbidden.Add($"UPDATE {Table(entity)} SET {key}={key} WHERE FALSE");
+                forbidden.Add($"DELETE FROM {Table(entity)} WHERE FALSE");
+                forbidden.Add($"TRUNCATE {Table(entity)}");
+            }
+        }
         foreach (var statement in forbidden)
         {
             await using var transaction = await connection.BeginTransactionAsync();

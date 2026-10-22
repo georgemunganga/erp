@@ -51,5 +51,6 @@ sealed partial class Probe
             await host.StopAsync();
         }
         Require(before == await UnitReviewFootprint(), "Metadata availability probes created business/case/evidence effects.");
+        Console.WriteLine("PASS actual unit-review metadata finite execution connection=true, owner execution connection=false; no business/case/evidence effects.");
     }
 }
