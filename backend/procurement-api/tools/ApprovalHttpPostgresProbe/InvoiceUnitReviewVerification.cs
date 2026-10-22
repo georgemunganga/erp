@@ -34,6 +34,7 @@ sealed partial class Probe
             (await core.LocalUsers.SingleAsync(x => x.Id == OrderManager2)).RolesCsv = reviewRole.RoleKey;
             await core.SaveChangesAsync();
         }
+        await VerifyUnitReviewMetadataExecutionStore(mapper.Principal);
         await PublishUnitReviewPolicy();
         var original = await CaptureUnitOriginal(mapper.Principal, "UNIT-REVIEW-ORIGINAL-1");
         var invoicePath = $"{Root}/invoices/{original.Invoice}";

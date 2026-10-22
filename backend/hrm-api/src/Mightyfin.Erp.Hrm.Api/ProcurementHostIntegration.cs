@@ -5,7 +5,6 @@ using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
-using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 
@@ -118,13 +117,7 @@ public static class ProcurementHostIntegration
                 var receivingOptions = services.GetRequiredService<ProcurementReceivingExecutionOptions>();
                 var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
                     && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
-                var unitReviewOptions = services.GetService<ProcurementInvoiceUnitReviewOptions>();
-                var unitReviewSchema = services.GetService<IProcurementInvoiceUnitReviewSchemaReadiness>();
-                var originalUnitReview = !pending && unitReviewOptions is { Enabled: true, ExecutionDatabaseConfigured: true }
-                    && unitReviewSchema is not null && services.GetRequiredService<CoreDocumentFeature>().Enabled
-                    && InvoiceDocumentStoreBinding.SamePhysicalDatabase(services.GetRequiredService<IConfiguration>().GetConnectionString("CoreDocuments"), db.Database.GetDbConnection().ConnectionString)
-                    && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct)
-                    && await unitReviewSchema.CanRecordAsync(db, ct);
+                var originalUnitReview = !pending && await ProcurementInvoiceUnitReviewCapability.ReadyAsync(services, ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
                     ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
