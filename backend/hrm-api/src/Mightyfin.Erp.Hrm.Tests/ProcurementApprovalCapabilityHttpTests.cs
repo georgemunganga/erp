@@ -95,7 +95,7 @@ public sealed class ProcurementApprovalCapabilityHttpTests
             // Only migration history is needed by metadata. This is an availability unit fixture,
             // deliberately not a claim that PostgreSQL business tables/migrations were tested.
             var history = db.GetService<IHistoryRepository>();
-            await db.Database.ExecuteSqlRawAsync(history.GetCreateIfNotExistsScript());
+            await SyntheticProcurementMetadataModel.CreateSqliteHistoryAsync(db);
             var migrations = db.Database.GetMigrations().ToArray();
             Assert.NotEmpty(migrations);
             foreach (var migration in scenario == "pending-procurement-schema" ? migrations.Skip(1) : migrations)

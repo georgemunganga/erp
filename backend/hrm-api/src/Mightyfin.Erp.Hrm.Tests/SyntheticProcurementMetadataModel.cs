@@ -1,3 +1,6 @@
+using System.Data;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -17,6 +20,27 @@ internal static class SyntheticProcurementMetadataModel
         if (scenario == "pending-model") options.ReplaceService<IMigrationsModelDiffer, Pending>();
         else if (scenario == "unknown-model") options.ReplaceService<IMigrationsModelDiffer, Unknown>();
         else options.ReplaceService<IMigrationsModelDiffer, Unchanged>();
+    }
+
+    /// <summary>
+    /// Generate only SQLite's history DDL with its normal provider services. The fixture's
+    /// synthetic differ must remain incapable of generating migration operations.
+    /// The caller owns the already-open connection; no business schema is created.
+    /// </summary>
+    public static async Task CreateSqliteHistoryAsync(DbContext fixture, CancellationToken ct = default)
+    {
+        if (!fixture.Database.IsSqlite()
+            || fixture.Database.GetDbConnection() is not SqliteConnection connection
+            || connection.State != ConnectionState.Open)
+            throw new InvalidOperationException("Synthetic metadata history setup requires an existing open SQLite fixture connection.");
+
+        // Do not copy fixture options: those intentionally replace IMigrationsModelDiffer.
+        // UseSqlite(DbConnection) leaves connection ownership with the caller.
+        var options = new DbContextOptionsBuilder<DbContext>().UseSqlite(connection).Options;
+        await using var normalProvider = new DbContext(options);
+        var history = normalProvider.GetService<IHistoryRepository>();
+        var ddl = history.GetCreateIfNotExistsScript();
+        await fixture.Database.ExecuteSqlRawAsync(ddl, ct);
     }
 
     public class Unchanged : IMigrationsModelDiffer
