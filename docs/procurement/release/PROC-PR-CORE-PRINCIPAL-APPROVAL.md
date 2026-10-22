@@ -104,7 +104,7 @@ No client supplied identity/schema selector is accepted. Basic legacy numeric/ex
 
 ## 23. Atomicity and recovery
 
-Keep current transaction coordinator, shared Core physical transaction, current record scope and original UUID command receipts. Ambiguous results recover by existing GET receipts with current access. Historical receipt proof cannot authorize a new command or recipient transfer.
+Keep current transaction coordinator, shared Core physical transaction, current record scope and original UUID command receipts. The current API has no GET-by-command-UUID receipt endpoint. An ambiguous Open/Decide result can be reconciled by replaying its exact original POST key and payload, subject to the route's current authorization and evidence guards. GET detail/history shows workflow history; it does not acknowledge a particular command UUID. Durable client journaling and explicit receipt recovery remain release work. Historical receipt proof cannot authorize a new command or recipient transfer.
 
 ## 24. Pure acceptance
 

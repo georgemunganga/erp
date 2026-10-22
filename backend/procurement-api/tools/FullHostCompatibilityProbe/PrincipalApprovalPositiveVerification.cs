@@ -87,8 +87,12 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(checker.GetProperty("checkerIdentitySchemaVersion").GetInt32()==2&&checker.GetProperty("checkedByWorkerId").ValueKind==JsonValueKind.Null,
             "Actual checker2 must retain named workerless Core identity.");
         var readiness=await send(client,HttpMethod.Get,path+"/approval-readiness",fixture.Maker,null,HttpStatusCode.OK);
+        result["positiveReadinessBlockers"]=readiness.GetProperty("blockers").EnumerateArray()
+            .Select(x=>x.ValueKind==JsonValueKind.String?x.GetString():null)
+            .Select(x=>x is {Length:>0 and <=100}&&x.All(char.IsAsciiLetterOrDigit)?x:"UnrecognizedSafeBlocker")
+            .Take(32).ToArray();
         Need(readiness.GetProperty("canOpenCase").GetBoolean(),"Actual manual-evidence principal readiness blocked.");
-        // Budget capture advances CAS independently from submitted business identity.
+        // Read the actual current CAS independently from retained submitted business identity.
         var current=await send(client,HttpMethod.Get,path,fixture.Maker,null,HttpStatusCode.OK);
         stage("ActualSubmission3Assignment2Open");
         var opened=await send(client,HttpMethod.Post,path+"/approval-cases",fixture.Maker,
