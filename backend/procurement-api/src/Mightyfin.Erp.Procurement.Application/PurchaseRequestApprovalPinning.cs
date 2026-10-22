@@ -145,9 +145,10 @@ public static class PurchaseRequestApprovalPinning
         PolicyVersion policy, BudgetCheckSnapshot finance, string tenantId, Guid legalEntityId, bool requirePendingState = true)
     {
         var issues = new List<string>();
-        // The retained v2 schema proves worker identities, not the new Core principal field.
-        // Never reinterpret that old evidence as authority for a principal-owned request.
-        if (request.RequesterPrincipalId is not null) issues.Add("PrincipalApprovalEvidenceRequired");
+        // A genuine worker path remains compatible when immutable principal metadata
+        // exactly denotes CreatedBy, which is already bound by the retained snapshot.
+        if (request.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request))
+            issues.Add("PrincipalApprovalEvidenceRequired");
         if (string.IsNullOrWhiteSpace(tenantId) || legalEntityId == Guid.Empty
             || new ProcurementRecord[] { request, evaluation, policy, finance }.Any(x => !InScope(x, tenantId, legalEntityId)))
             issues.Add("SourceScopeMismatch");

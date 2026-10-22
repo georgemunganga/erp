@@ -31,11 +31,26 @@ public sealed class PurchaseRequestApprovalPinningTests
     }
 
     [Fact]
-    public void Principal_owned_request_cannot_reuse_legacy_worker_approval_pins()
+    public void Principal_identity_different_from_pinned_creator_cannot_reuse_worker_approval_pins()
     {
         var f = new Fixture(); var pin = f.Pin(); f.Link(pin);
         Assert.True(f.Verify(pin).IsValid);
         f.Request.RequesterPrincipalId = Guid.NewGuid();
+        Assert.Contains("PrincipalApprovalEvidenceRequired", f.Verify(pin).Blockers);
+    }
+
+    [Fact]
+    public void Exact_immutable_principal_metadata_keeps_genuine_worker_pins_compatible()
+    {
+        var f = new Fixture();
+        var canonicalCreator = Guid.NewGuid(); f.Request.CreatedBy = canonicalCreator.ToString("D");
+        var pin = f.Pin(); f.Link(pin);
+        Assert.True(f.Verify(pin).IsValid);
+        f.Request.RequesterPrincipalId = canonicalCreator;
+        Assert.True(PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(f.Request));
+        Assert.True(f.Verify(pin).IsValid);
+        f.Request.RequesterWorkerId = null;
+        Assert.False(PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(f.Request));
         Assert.Contains("PrincipalApprovalEvidenceRequired", f.Verify(pin).Blockers);
     }
 

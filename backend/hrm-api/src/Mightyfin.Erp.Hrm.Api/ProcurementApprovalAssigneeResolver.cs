@@ -20,7 +20,7 @@ internal static class ProcurementApprovalAssigneeResolver
         PurchaseRequest request, PolicyEvaluation evaluation, HrmDbContext core, ProcurementDbContext db,
         ProcurementRequestScope scope, DateTimeOffset now, CancellationToken ct)
     {
-        if (request.RequesterPrincipalId is not null || request.RequesterWorkerId is not { } requesterWorker
+        if (!PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request) || request.RequesterWorkerId is not { } requesterWorker
             || requesterWorker == Guid.Empty) throw new InvalidOperationException("PrincipalApprovalEvidenceRequired");
         var route = ApprovalRoutePreview.FromEvaluation(evaluation,
             request.Lines.Where(x => x.ApprovalStatus != "Cancelled").Select(x => x.Id).ToArray());
@@ -80,7 +80,7 @@ internal static class ProcurementApprovalAssigneeResolver
         PurchaseRequestAssignmentAuthorityEvidence pin, HrmDbContext core, ProcurementDbContext db,
         ProcurementRequestScope scope, DateTimeOffset now, CancellationToken ct)
     {
-        if (request.RequesterPrincipalId is not null || request.RequesterWorkerId is not { } requesterWorker
+        if (!PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request) || request.RequesterWorkerId is not { } requesterWorker
             || requesterWorker == Guid.Empty) throw new InvalidOperationException("PrincipalApprovalEvidenceRequired");
         var account = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
             scope.LegalEntityId, pin.PrincipalId, ct);

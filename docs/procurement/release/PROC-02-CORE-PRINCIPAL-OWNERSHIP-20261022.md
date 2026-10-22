@@ -53,17 +53,22 @@ future approved ownership transfer needs its own explicit permission, evidence a
 ## Operational approval and Finance boundary
 
 Existing worker-specific approval pins keep their original schema, digests and JSON representation.
-A nullable employee does not become a dummy worker. Old v2 worker pins cannot authorize a new
-principal-owned request because they do not bind its principal field. Readiness, assignee resolution,
-case opening and pin verification explicitly fail closed until principal-aware operational contracts
-are implemented. A missing worker also cannot satisfy old worker evidence. The old Finance worker
-independence path similarly denies new principal-owned sources; this source change does not invent
-principalized reservation/checker evidence or relax maker/checker independence.
+A nullable employee does not become a dummy worker. A genuine employee-based path remains compatible
+when the request's immutable principal metadata exactly equals its already-pinned canonical
+`CreatedBy` identity and a genuine nonempty requester worker exists. The old snapshot already binds
+that exact creator and worker; the added immutable principal is equivalent metadata, not new authority.
+Existing current worker, assignment, amount, source, Finance and maker/checker guards still apply.
+
+Readiness, assignee resolution, case opening, pin verification and owning-store evidence attachment
+reject a mismatched principal or a system-only request lacking the worker required by the old schema.
+Such requests can still use ordinary CRUD and submission; a future principal-aware operational
+contract must provide actual approval and reservation evidence before positive downstream use.
+This change invents neither employee IDs nor principalized Finance evidence.
 
 Old genuine employee-based history remains attributed and readable through its existing contracts.
 No stored snapshot, approved decision, Finance reservation or policy version is silently rewritten.
-The legacy approval snapshot serializer deliberately excludes the new field to preserve old hashes;
-its callers reject principal-owned sources before issuing/accepting such pins.
+The legacy approval snapshot serializer deliberately excludes the equivalent metadata field to
+preserve old hashes; its callers verify the strict creator equivalence when that field is present.
 
 ## Model delta and migration gates
 
@@ -106,9 +111,27 @@ real final sequence, preserving existing constraints. Do not bypass pending-mode
 - Current Core permission/account revocation denies stale claims before effects.
 - Canonical legacy creator can edit/withdraw without populating the new field; noncanonical legacy
   attribution remains inaccessible and cannot be mutated.
-- Operational negative tests reject missing employee and reject interpreting old worker pins as
-  principal-aware authority. Existing SoD checks stay in force.
+- Operational tests preserve genuine worker pins when immutable principal metadata exactly equals
+  the already-pinned canonical creator; mismatched principal and missing employee remain denied.
+  Existing source and SoD checks stay in force.
 
 The shared host identity agent owns scope resolution and central fixture Core role seeding. These
 route/model tests must run against that source, followed by actual PostgreSQL HTTP and Playwright.
 No test handler may assign roles/permissions from request headers into Core merely to make a test pass.
+
+
+## Owning-store review correction
+
+For Modified requests the guard now reads persisted identity and version through the same scoped
+Procurement context before trusting EF OriginalValues. Detached callers cannot substitute both
+current and original owner/worker/creator values and transfer ownership with a valid version.
+Missing/out-of-scope or stale persisted versions raise a concurrency error; mismatched identity
+raises immutable-identity denial. Added negative tests cover all three detached identity forgeries,
+stale CAS and foreign-company attachment, with independent full request/line/audit/outbox snapshots.
+These regressions are authored, not executed.
+
+Added null-principal rows remain compatible with existing trusted owner/migration fixtures and
+historical domain graphs; there is no public request input for this path, and the actual create route
+always requires and stamps its resolved Core principal. This is a documented infrastructure boundary,
+not permission for normal runtime code to seed historical identity. A separate legacy import use case
+would need explicit ownership, validation and review; no new runtime bypass or fixture flag was added.

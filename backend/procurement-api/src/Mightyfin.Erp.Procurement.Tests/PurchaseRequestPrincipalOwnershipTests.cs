@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -61,6 +62,76 @@ public sealed class PurchaseRequestPrincipalOwnershipTests
     }
 
     [Theory]
+    [InlineData("principal")][InlineData("worker")][InlineData("creator")]
+    public async Task Detached_graph_cannot_forge_original_identity_even_with_current_CAS_version(string field)
+    {
+        var scope = new Scope();
+        var options = new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        PurchaseRequest original;
+        await using (var seed = new ProcurementDbContext(options, scope))
+        {
+            original = new PurchaseRequest { Number = "PR-DETACHED", CurrencyCode = "ZMW", Purpose = "Retained need",
+                RequesterPrincipalId = scope.Principal, RequesterWorkerId = Guid.NewGuid() };
+            seed.AddScoped(original); await seed.SaveChangesAsync();
+        }
+        var before = await Snapshot(options, scope);
+        // Simulate a detached DTO mapper whose forged values become both EF's current
+        // and original values. Only a real owning-store read can detect the substitution.
+        var detached = JsonSerializer.Deserialize<PurchaseRequest>(JsonSerializer.Serialize(original))!;
+        if (field == "principal") detached.RequesterPrincipalId = Guid.NewGuid();
+        if (field == "worker") detached.RequesterWorkerId = Guid.NewGuid();
+        if (field == "creator") detached.CreatedBy = Guid.NewGuid().ToString("D");
+        detached.Purpose = "Forged detached change";
+        await using (var writer = new ProcurementDbContext(options, scope))
+        {
+            writer.Attach(detached); writer.Entry(detached).State = EntityState.Modified;
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.SaveChangesAsync());
+            Assert.Equal("PurchaseRequestIdentityImmutable", error.Message);
+        }
+        Assert.Equal(before, await Snapshot(options, scope));
+    }
+
+    [Theory]
+    [InlineData("stale")][InlineData("foreign-company")]
+    public async Task Detached_request_requires_real_current_scoped_version_before_any_audit(string mutation)
+    {
+        var scope = new Scope();
+        var options = new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        PurchaseRequest original;
+        await using (var seed = new ProcurementDbContext(options, scope))
+        {
+            original = new PurchaseRequest { Number = "PR-CAS", CurrencyCode = "ZMW", Purpose = "Retained need",
+                RequesterPrincipalId = scope.Principal };
+            seed.AddScoped(original); await seed.SaveChangesAsync();
+        }
+        var before = await Snapshot(options, scope);
+        var detached = JsonSerializer.Deserialize<PurchaseRequest>(JsonSerializer.Serialize(original))!;
+        if (mutation == "stale") detached.Version = 0;
+        var writerScope = mutation == "foreign-company" ? new Scope(scope.Principal) : scope;
+        detached.TenantId = writerScope.TenantId; detached.LegalEntityId = writerScope.LegalEntityId;
+        detached.Purpose = "Denied detached update";
+        await using (var writer = new ProcurementDbContext(options, writerScope))
+        {
+            writer.Attach(detached); writer.Entry(detached).State = EntityState.Modified;
+            await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => writer.SaveChangesAsync());
+        }
+        Assert.Equal(before, await Snapshot(options, scope));
+    }
+
+    private static async Task<string> Snapshot(DbContextOptions<ProcurementDbContext> options, Scope scope)
+    {
+        await using var proof = new ProcurementDbContext(options, scope);
+        return JsonSerializer.Serialize(new {
+            requests = await proof.PurchaseRequests.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+            lines = await proof.PurchaseRequestLines.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+            audits = await proof.AuditEvents.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync(),
+            outbox = await proof.OutboxEvents.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync()
+        });
+    }
+
+    [Theory]
     [InlineData("approval")][InlineData("finance")]
     public async Task Old_employee_evidence_cannot_be_attached_to_a_principal_owned_request(string kind)
     {
@@ -95,9 +166,9 @@ public sealed class PurchaseRequestPrincipalOwnershipTests
         Assert.DoesNotContain(entity.GetForeignKeys(), x => x.PrincipalEntityType.GetSchema() != "procurement");
     }
 
-    private sealed class Scope : IProcurementScope
+    private sealed class Scope(Guid? principal = null) : IProcurementScope
     {
-        public Guid Principal { get; } = Guid.NewGuid();
+        public Guid Principal { get; } = principal ?? Guid.NewGuid();
         public string TenantId => "principal-ownership-test";
         public Guid LegalEntityId { get; } = Guid.NewGuid();
         public string SubjectId => Principal.ToString("D");
