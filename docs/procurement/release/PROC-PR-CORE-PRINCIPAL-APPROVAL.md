@@ -203,10 +203,26 @@ Independent read-only owner review verified the exact private PostgreSQL identit
 
 Still required: separate revoked spending-authority historical-read versus new-command denial, full finite-privilege matrix, retained/current alias and legacy compatibility, browser reload/interruption recovery and real identity-provider acceptance. Default registration and production execution remain unavailable.
 
+### Actual finite-LOGIN privilege mutation acceptance
+
+At source `61817758410547970d51f98e308aa8c74906e580`, the separate new private database passed **18 actual privilege mutation cases**, then the complete43-request approval/GET graph, six POST replay/current-action checks,35 storage denials and retained-graph Down veto. Record and execution connections were actual distinct restricted LOGINs, not owner `SET ROLE`. Each case verified the effective targeted privilege on the same connection as the real readiness provider, required the affected write modes to close, restored exact raw table/column ACLs and the complete logical footprint, and re-established both role baselines. Read readiness intentionally remains available for some write-only defects; no blanket all-modes-false claim is made.
+
+Cases cover missing request/Core-permission SELECT, checker/decision INSERT, authority/assignment/request UPDATE; prohibited evidence/decision/identity column UPDATE; audit/outbox or case TRUNCATE; and forbidden Core case/delegation INSERT or decision DELETE. Six explicitly declared owner-only ACL initialization steps occurred before the new fixture baseline, preserving business rows, global roles/memberships and default privileges. This avoids equating original NULL ACLs with empty arrays after temporary grants. These are new-fixture prerequisites, not edits to accepted databases or production privileges.
+
+| Protected evidence under `/home/amizo/erp-backups/` | SHA-256 |
+| --- | --- |
+| `procurement-p25-privilege-http-20261022_run01/result.json` | `be2aca899d3d0a924f74bf39acec4b5e453f34fa8af974fae156f9de5409a261` |
+| Same run, `probe-result.json` | `cb6473734f14a8145cc7902acaf09a13e28edb50e0ff8bf62739ce3a1528c4fa` |
+| `procurement-p25-independent-privilege01-20261022/review-receipt.json` | `0210be0229b97a6054e5b8f48b5912a34f555fcb66b753ee13e7adc0c5685ac0` |
+
+Independent read-only owner review compared all477 publication/runtime files and frozen source, the five final prepared relation/column ACL projections, both finite role flags/no memberships/no ownership, and24 effective privilege expectations. The retained Approved graph, digests, exact amount, receipts and absence of Finance effects were verified again. The18 transient mutations and restoration assertions remain attributed to the hash-bound runtime, not independently replayed. No physical DDL/OID restoration or schema-defect matrix is claimed. The initial tool compile failure due to an ambiguous Core/HRM delegation type is retained; the explicit Core qualification changes no application guard or schema.
+
+The controlled UI prerequisite is separately merged as UI PR56, main `30e17e9aad1bf86d3c94086b42fca590c9b0f05f`:98 focused unit cases, staged TypeScript/build and37 controlled Playwright cases passed. This establishes scoped locator/reload interaction behavior against controlled responses, not actual browser/API/identity-provider integration. P25 remains draft/default-off and undeployed.
+
 ## 27. Downstream limits
 
 New submission3 does not imply approved-demand RFQ/PO/receiving compatibility. Those worker-based source consumers need explicit successors before use. No Finance ledger, payment or historical-exposure authority is supplied here.
 
 ## 28. Remaining implementation
 
-The actual finite-role PostgreSQL/HTTP GET acknowledgement acceptance has passed as recorded above. Complete durable browser journaling/reload recovery, real identity-provider/browser acceptance, the full finite-privilege revocation/widening matrix, actual retained/current alias and legacy compatibility negatives, and release review. The bounded private finite-role approval graph, replay/current-action denial and 35-case graph storage proof have passed as recorded above; they do not replace those remaining gates. Earlier migration artifacts are unchanged, the current snapshot reflects genuine P25 output, and production activation remains false. RFQ/PO/receiving successors and future Finance-owned budget/AP/payment integrations remain separate work.
+The actual finite-role PostgreSQL/HTTP GET acknowledgement acceptance has passed as recorded above. Complete durable browser journaling/reload recovery, real identity-provider/browser acceptance, remaining schema/ownership readiness negatives, actual retained/current alias and legacy compatibility negatives, and release review. The bounded private finite-role approval graph, replay/current-action denial and 35-case graph storage proof have passed as recorded above; they do not replace those remaining gates. Earlier migration artifacts are unchanged, the current snapshot reflects genuine P25 output, and production activation remains false. RFQ/PO/receiving successors and future Finance-owned budget/AP/payment integrations remain separate work.
