@@ -49,6 +49,11 @@ sealed partial class Probe
         var queue = await Get(Root + "/invoice-unit-reviews/tasks", OrderManager2);
         Require(queue.GetProperty("total").GetInt32() == 1 && queue.GetProperty("items")[0].GetProperty("reviewId").GetGuid() == reviewId, "Assigned purpose-only review queue is incomplete.");
         var detail = await Get(reviewPath, OrderManager2); var assignment = detail.GetProperty("assignments")[0];
+        Require(detail.GetProperty("originalDigestCurrent").GetBoolean()
+            && detail.GetProperty("original").GetProperty("lines")[0].GetProperty("quantity").GetString() == "1"
+            && detail.GetProperty("original").GetProperty("lines")[0].GetProperty("unitPrice").GetString() == "100"
+            && !detail.TryGetProperty("sourceAllocations", out _) && !detail.TryGetProperty("financeEvidence", out _),
+            "Purpose review detail lost exact own-invoice facts or exposed unrelated owner history.");
         var documentList = await Get(reviewPath + "/documents", OrderManager2);
         Require(documentList.GetProperty("items").GetArrayLength() == 1 && documentList.GetProperty("items")[0].GetProperty("versionId").GetGuid() == original.Document,
             "Purpose reviewer could not resolve the exact original document.");
