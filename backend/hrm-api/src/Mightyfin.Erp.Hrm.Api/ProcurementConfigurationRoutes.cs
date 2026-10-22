@@ -155,7 +155,7 @@ public static partial class ProcurementConfigurationRoutes
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.Trim());
         var total = await query.CountAsync(ct);
         var items = await query.OrderBy(x => x.Code).Skip((number - 1) * size).Take(size)
-            .Select(x => new { x.Id, x.Code, x.Name, x.Description, x.PolicyVersionId,
+            .Select(x => new { x.Id, x.Code, x.Name, x.Description, x.PolicyVersionId, x.ExecutionRoute,
                 x.Status, x.Version, x.CreatedAt })
             .ToListAsync(ct);
         return Results.Ok(new { items, total, page = number, pageSize = size });
@@ -180,7 +180,7 @@ public static partial class ProcurementConfigurationRoutes
         var method = new ProcurementMethod
         {
             Code = code, Name = input.Name!.Trim(), Description = Clean(input.Description),
-            PolicyVersionId = input.PolicyVersionId, Status = "Draft",
+            PolicyVersionId = input.PolicyVersionId, ExecutionRoute = input.ExecutionRoute ?? "Unconfigured", Status = "Draft",
         };
         db.AddScoped(method);
         try { await db.SaveChangesAsync(ct); }
@@ -205,6 +205,7 @@ public static partial class ProcurementConfigurationRoutes
         method.Name = input.Draft.Name!.Trim();
         method.Description = Clean(input.Draft.Description);
         method.PolicyVersionId = input.Draft.PolicyVersionId;
+        method.ExecutionRoute = input.Draft.ExecutionRoute ?? "Unconfigured";
         method.UpdatedAt = DateTimeOffset.UtcNow;
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this method before saving.", 409); }
@@ -249,7 +250,9 @@ public static partial class ProcurementConfigurationRoutes
     private static string? MethodIssue(MethodInput input) =>
         ProcurementReferenceRules.ValidateCode(input.Code)
         ?? ProcurementReferenceRules.ValidateName(input.Name)
-        ?? ProcurementReferenceRules.ValidateOptional(input.Description, "Description", 2000);
+        ?? ProcurementReferenceRules.ValidateOptional(input.Description, "Description", 2000)
+        ?? (input.ExecutionRoute is null or "Unconfigured" or "DirectPurchase" or "CompetitiveSourcing" or "ContractRelease"
+            ? null : "Choose a supported execution route.");
 
     private static object CategoryDetail(ProcurementCategory x) => new
     {
@@ -259,7 +262,7 @@ public static partial class ProcurementConfigurationRoutes
 
     private static object MethodDetail(ProcurementMethod x) => new
     {
-        x.Id, x.Code, x.Name, x.Description, x.PolicyVersionId,
+        x.Id, x.Code, x.Name, x.Description, x.PolicyVersionId, x.ExecutionRoute,
         x.Status, x.Version, x.CreatedAt, x.UpdatedAt,
     };
 
@@ -269,7 +272,8 @@ public static partial class ProcurementConfigurationRoutes
 
     public sealed record CategoryInput(string? Code, string? Name, string? ParentCode, string? ExpenseAccountRef);
     public sealed record VersionedCategory(long Version, CategoryInput Draft);
-    public sealed record MethodInput(string? Code, string? Name, string? Description, Guid? PolicyVersionId);
+    public sealed record MethodInput(string? Code, string? Name, string? Description, Guid? PolicyVersionId,
+        string? ExecutionRoute = null);
     public sealed record ActivationInput(long Version, string? Reason);
     public sealed record VersionedMethod(long Version, MethodInput Draft);
 }

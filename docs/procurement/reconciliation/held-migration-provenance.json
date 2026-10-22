@@ -1,0 +1,326 @@
+{
+  "canonical_source": "844190e484be7913b975313bf10bb25a8f4d5d18",
+  "held_source": "727ee08a3da3e035756f026894c2a2e7465818d9",
+  "held_branch": "codex/procurement-authority-worker-evidence",
+  "common_ancestor": "1013866eecbc0517051826e9d710d2cbeb1428e4",
+  "runtime_history_policy": "Canonical Procurement release P01-P19 and P20InvoiceDraftMaintenance only until a separately reviewed new forward delta; never insert held Procurement applied IDs or run old held Procurement histories through the canonical migrator. Core Documents preserves its distinct original owning lineage.",
+  "excluded_held_migrations": [
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020055251_P20SupplierInvoiceBranchScope.Designer.cs",
+      "sha256": "b6562d8219261fecb05d2f71cfda667dd97c325e799886e46d00b2c9cefdef84",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020055251_P20SupplierInvoiceBranchScope.cs",
+      "sha256": "198068060df50e158436cc74f0593a5f44834773667f56e484148e9f9f2804cc",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020073918_P21PurchaseRequestApprovalSubmission.Designer.cs",
+      "sha256": "422335c7e1abbd578c1372179cee2aa542d13965833241ec2f64aafa5e3c9484",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020073918_P21PurchaseRequestApprovalSubmission.cs",
+      "sha256": "cde3e30d459638b468ee9be5bdf99a3f49964efe7ac043c4aad4f1a030273670",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020084544_P22SpendingAuthorityConfiguration.Designer.cs",
+      "sha256": "ec905333d7c1a04e04cfdd28dbf13035e43b8a687a9d5d6d21f02b5dc5fa4d2f",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020084544_P22SpendingAuthorityConfiguration.cs",
+      "sha256": "4d676d070f88b1d03d22cf5481b9d8f0e583c8af51ada4d241da282719d540fa",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020095652_P23PurchaseRequestApprovalExecution.Designer.cs",
+      "sha256": "647443956495c9b0b1baea37e7c16c09df6ff1b212357e257f9106d070515dba",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020095652_P23PurchaseRequestApprovalExecution.cs",
+      "sha256": "2532afc6a58afc63b87456fc9caa20e3cb993cefa552b7d630d8b84096730340",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020114243_P24PurchaseOrderCommercialExecution.Designer.cs",
+      "sha256": "f97f8d3f59bc898bb2f9007f490aad7e8e7c7963ac9cf759135907bffc172cb4",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020114243_P24PurchaseOrderCommercialExecution.cs",
+      "sha256": "f5225a30bae38afb9b3cbb1606745de74a5feeae5d9bba8b76d3b824a3e0d0e7",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020133820_P25PositiveReceivingExecution.Designer.cs",
+      "sha256": "cc8a944eeafa6390cf3b60f1ed2dce36c2ed5a838dd744720e87a37fb2f5971d",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020133820_P25PositiveReceivingExecution.cs",
+      "sha256": "0a361aa9db2ee0f8f1c9e1554411b1c9e05c11ee543b0036e5eb839424a75ad1",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020144755_P25ReceivingStableEvidenceBindings.Designer.cs",
+      "sha256": "4a0cb29e221132e16180fc92376bb17715843f8dda5db8f924f503435e2f657f",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020144755_P25ReceivingStableEvidenceBindings.cs",
+      "sha256": "d150f45c56319ac559076b3ea4df6691b59cad0d988b64b9ae71c733c1a52d23",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020164745_P26InvoiceMatchingExecution.Designer.cs",
+      "sha256": "50df1a6adcd9091952e2d86c2d6e53afcf32f064bc6e398ce635b7daeac6133f",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020164745_P26InvoiceMatchingExecution.cs",
+      "sha256": "808a22945a5e02016b84ee712ced702b42ca511428a70c67953da96f3dcf82e5",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020190554_P27FinanceCheckerIdentity.Designer.cs",
+      "sha256": "6506876bced3dde608e0905e8863cbb718b12ca897c6b6ce04a3c7c3a6185ccc",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020190554_P27FinanceCheckerIdentity.cs",
+      "sha256": "1203d3f8e7f6d5e6ca3dfb56f4937c1f83350a7bd123205494fa905791d2f83c",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261021065049_P28GovernedSourcingDrafts.Designer.cs",
+      "sha256": "0b07b9b8b3edfd466e473215ecb4a71ee66ec63ac4e974c76c9ad1f5bdc0fdb3",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261021065049_P28GovernedSourcingDrafts.cs",
+      "sha256": "03a690d244cd552fc3fa3cc15e7b739fed068cecb0d69d0868dd6d4613333e88",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261021084158_P29SourcingPolicyIdentity.Designer.cs",
+      "sha256": "13896841590b5f6f2dabf418785e0a856adc21a1f80f642c9835dcd83cb2ef00",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261021084158_P29SourcingPolicyIdentity.cs",
+      "sha256": "3cc5594896ba9100fde7a43b2b8fea350b012ec30164c16e85ef7a873cf6d1db",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261021114959_P30SpendingAuthorityWorkerIdentity.Designer.cs",
+      "sha256": "53972ee2b58890f62314f5301a224d8020d3bf1d1d3c2aadab71ef6c4e943435",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261021114959_P30SpendingAuthorityWorkerIdentity.cs",
+      "sha256": "2d844acf03c21dec6b256d0ef11565ce011364ee13c413d8e18ed42a3e00efa2",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261022041534_P31OperationalPolicyWorkerIdentity.Designer.cs",
+      "sha256": "98f9b3e381522a1ca8e7ff1b97d5b09bd92565c0705fc643d526d321760d2cfd",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261022041534_P31OperationalPolicyWorkerIdentity.cs",
+      "sha256": "8ba75c6dbfd27c937bade4f7a689816bb1bdf0191433337dff73a1c7c814bdcc",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/ProcurementDbContextModelSnapshot.cs",
+      "sha256": "1f5cbbf003d7ffa33a494716daad7dd1f1e779a966a88e5a0619a261d07ba963",
+      "disposition": "Retained immutable on held published branch; not imported into canonical runtime migration chain."
+    }
+  ],
+  "preserved_core_document_migrations_and_snapshot": [
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/Migrations/20261020060744_P01CoreDocumentFoundation.Designer.cs",
+      "sha256": "94fb7bb7af01f5ff8dbe7b127bebb136ea7f30747d98a6b60ca3b3a1545093e6",
+      "disposition": "Imported byte-identical: distinct DocumentDbContext/core_document.__EFMigrationsHistory has no canonical predecessor or overlap."
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/Migrations/20261020060744_P01CoreDocumentFoundation.cs",
+      "sha256": "0ab5fa9d40d43cfd8491bb7639fc5cf588ccf192cb0baf6a9cf7413f12fb6ba9",
+      "disposition": "Imported byte-identical: distinct DocumentDbContext/core_document.__EFMigrationsHistory has no canonical predecessor or overlap."
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/Migrations/20261020063543_P02CoreDocumentUploadRecovery.Designer.cs",
+      "sha256": "0d8342ed665214962c04b468a39f911153ad2c8a2ef43618904cfec19b387c51",
+      "disposition": "Imported byte-identical: distinct DocumentDbContext/core_document.__EFMigrationsHistory has no canonical predecessor or overlap."
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/Migrations/20261020063543_P02CoreDocumentUploadRecovery.cs",
+      "sha256": "bbdc99676c953ce0ccfdde8765261fc9b3e333b889205351e4bec535655ad229",
+      "disposition": "Imported byte-identical: distinct DocumentDbContext/core_document.__EFMigrationsHistory has no canonical predecessor or overlap."
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/Migrations/20261021080548_P03DocumentUseRetention.Designer.cs",
+      "sha256": "7381d0d3b645b8f9249840992724eef12c9932be0930e72dd988440f21dee930",
+      "disposition": "Imported byte-identical: distinct DocumentDbContext/core_document.__EFMigrationsHistory has no canonical predecessor or overlap."
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/Migrations/20261021080548_P03DocumentUseRetention.cs",
+      "sha256": "37c7cee3743d4536b5d5d3f1e1864f32cec9afd9bbb4e0dd29e00cfcc74b8616",
+      "disposition": "Imported byte-identical: distinct DocumentDbContext/core_document.__EFMigrationsHistory has no canonical predecessor or overlap."
+    },
+    {
+      "path": "backend/core-api/src/Mightyfin.Erp.Core.Documents.Infrastructure/Migrations/DocumentDbContextModelSnapshot.cs",
+      "sha256": "0089da1b5117a7003fcf45e3b12a4751d66481e9b7878c75ce7a1ed3faf11f48",
+      "disposition": "Imported byte-identical: distinct DocumentDbContext/core_document.__EFMigrationsHistory has no canonical predecessor or overlap."
+    }
+  ],
+  "core_documents_history_policy": "Preserve the original P01/P02/P03 Core Documents lineage byte-identical in its separate context/history. No second fork, fake history or implied readiness.",
+  "canonical_baseline_migrations_and_snapshot": [
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004005431_P0Foundation.Designer.cs",
+      "sha256": "9c693b73d082b808e1f063b2fb94cbe979b8e9b958585cd06cf2287adff3bd5e"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004005431_P0Foundation.cs",
+      "sha256": "c03b19c9c44089d93963443af8da70a78458529016aaf258a71f2ca0fd22d5bd"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004022058_P1P3FieldCoverage.Designer.cs",
+      "sha256": "13fb3db63619ef6fa6249a219236b5a4c227f0a0021e907b553d058f1d340307"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261004022058_P1P3FieldCoverage.cs",
+      "sha256": "da281d75d0efa4b59bb9779685190888363579cbf9a68a8343ebc69bb065b9d4"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082232_P4P6CommercialLifecycle.Designer.cs",
+      "sha256": "567ac2475775a4fad5c4bdb23c30c70da353adc4bd8b9f79f86cdd582d09d4ba"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082232_P4P6CommercialLifecycle.cs",
+      "sha256": "7775229a9c3b23b22c2d2ffb611c54b6d170f361a231ca4e78a3f93b2c6f4745"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082548_P7PlanningPortalAndControls.Designer.cs",
+      "sha256": "79d35197127f0e7865ee70083fe4737a98731a038da2d1c15aa4531f63e4f0c7"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018082548_P7PlanningPortalAndControls.cs",
+      "sha256": "94046891985126c8568cd86864aec1938ef231539fdc3bd19fdda1809f775218"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018083709_P8PlanningDraftLifecycle.Designer.cs",
+      "sha256": "30fd42f460473a7353cbfd19537c61d3d926a3e3144f6845168dc9b81e17cdbb"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018083709_P8PlanningDraftLifecycle.cs",
+      "sha256": "a5f0b9ce90751489f3dc5d085b89e27709f9d0f992e95deae45df51ed10c6c46"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018090240_P9DraftCommercialLineLifecycle.Designer.cs",
+      "sha256": "cef8f2de39e1e09d9d1e421dcc160bc02d52831b3e3e5b04bd449be038b7abe3"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261018090240_P9DraftCommercialLineLifecycle.cs",
+      "sha256": "84ad84c655c74499992dcee19f07b52acf55d0fec45e28ee90aad9155646e70e"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019144739_P10BudgetDecisionEvidence.Designer.cs",
+      "sha256": "a2ccd3ceac1044499257bbfecde7f0ad86a8bf4d674e5bc64be8a4e74b04bc00"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019144739_P10BudgetDecisionEvidence.cs",
+      "sha256": "80c5f90fe15841a8027af7dfe7c0229158d791d1fcff6da1b87c081cee041ca5"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019160005_P11CatalogPriceProvenance.Designer.cs",
+      "sha256": "defaadbfe4ef5f4f8616455c7c5c4794711797f4ffba3415f98ffa8ee66177c3"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019160005_P11CatalogPriceProvenance.cs",
+      "sha256": "089029e0fc42ec0160d59f0a285d65d8d60df512faf7fd9e05809186f7cfdfc3"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019165639_P12PolicyReviewEvidence.Designer.cs",
+      "sha256": "8ecf9f4654399acbcbc8018869bdf82a22ac832a8b80b14fd18f95a880d3cf59"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019165639_P12PolicyReviewEvidence.cs",
+      "sha256": "402e123bda316aff7a89e6ba1fc94c0c84cb9a017367780b347f0158bff5a73f"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019174729_P13PolicyEvaluationSnapshot.Designer.cs",
+      "sha256": "99405524394c5fc41d85596b2347c11d0968339e60cb77081f0d97c263b7f413"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019174729_P13PolicyEvaluationSnapshot.cs",
+      "sha256": "185d1194b45e2ba843d2c8b84fb640e3f99fb425a13115656c9df4f99aab0b50"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019180916_P14RequestCorrection.Designer.cs",
+      "sha256": "52df4bba7cbd644a60d481b45b6d181db9d2a4102c4af2816854b496f3564b5f"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019180916_P14RequestCorrection.cs",
+      "sha256": "7edc55ec7e6b61f71ee9ba49f37493595eec5934f66b8f3a53182527ebdf305b"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019212425_P15VendorDraftDetailLifecycle.Designer.cs",
+      "sha256": "4a4134d4d9dda89ec22feb40cb9576d60ea44ad780c6a5bd04fcf9984bb84d87"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019212425_P15VendorDraftDetailLifecycle.cs",
+      "sha256": "cb33d065aae388fcf95b19ee23d4235768f63ed12060972f4934002984f276c6"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019231750_P16VendorQualificationLifecycle.Designer.cs",
+      "sha256": "938e32002b15794292bd74213dcdc5519527ea9c3ea8e53f0afe4e8fbdb9f548"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261019231750_P16VendorQualificationLifecycle.cs",
+      "sha256": "ec41dcbc342a4354bef3a1862fe9b37705c4b79113147e0780a78474365e79da"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020003506_P17InvoiceIntakeDuplicateKey.Designer.cs",
+      "sha256": "b21d1cbee17c334c763290d987f35c13da07b55f72c706549c50ca54bef50965"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020003506_P17InvoiceIntakeDuplicateKey.cs",
+      "sha256": "601150afe9ba558c6c4402e75285fc96c993a62d58b54d2cf80ae883256dd5fc"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020013258_P18PurchaseOrderDraftLineLifecycle.Designer.cs",
+      "sha256": "8920d6cf5bdd6e1bb2de4921457d3aa3cd19d1ef161742e15bd98df46710f1ba"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020013258_P18PurchaseOrderDraftLineLifecycle.cs",
+      "sha256": "10328e8f834a85525bfe10002e7bc7d121667303fdeb86f33e21a7d7844b5b73"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020033932_P19PurchaseOrderBranchScope.Designer.cs",
+      "sha256": "6f286e51de1219551b244788b58ef5ead688639bc7b158ecdd1a53f60ff865b7"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261020033932_P19PurchaseOrderBranchScope.cs",
+      "sha256": "d158a1ff88d22b3087b7ad6f4a84926a38fda09766c21e9b2dde53b288a695d5"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261022043718_P20InvoiceDraftMaintenance.Designer.cs",
+      "sha256": "ce49552cbebca6eab8a65a84cd42fbfdac3d254630ef201a174fa3dda352bda6"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/20261022043718_P20InvoiceDraftMaintenance.cs",
+      "sha256": "996a85501d269a55e1e9729cec1ae9ce522f4f1fdcd8e5274f4297d1383a8e53"
+    },
+    {
+      "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Migrations/ProcurementDbContextModelSnapshot.cs",
+      "sha256": "251b2d3db6e5efe5f482f65f635208e077e59bdd4e6d27bf099d297bd6c1cf8d",
+      "disposition": "Original baseline snapshot hash retained for provenance. Current snapshot advanced only through canonical P21 EF generation; baseline remains in canonical git history."
+    }
+  ],
+  "canonical_forward_migration": "20261022052824_P21CanonicalGovernedProcurementFoundation"
+}

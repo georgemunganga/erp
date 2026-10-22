@@ -24,7 +24,7 @@ public static class ProcurementSourcingDraftRoutes
     {
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
-        var own = db.SourcingEvents.AsNoTracking().Where(x => x.OwnerSubjectId == scope.SubjectId);
+        var own = db.SourcingEvents.AsNoTracking().Where(x => x.ExecutionVersion == 0 && x.OwnerSubjectId == scope.SubjectId);
         var total = await own.CountAsync(ct);
         var items = await own.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip((number - 1) * size).Take(size)
@@ -39,7 +39,7 @@ public static class ProcurementSourcingDraftRoutes
         ProcurementRequestScope scope, CancellationToken ct)
     {
         var item = await db.SourcingEvents.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
+            .SingleOrDefaultAsync(x => x.Id == id && x.ExecutionVersion == 0 && x.OwnerSubjectId == scope.SubjectId, ct);
         if (item is null) return Problem("not-found", "Sourcing event not found.", 404);
         var lines = await db.SourcingLines.AsNoTracking().Where(x => x.SourcingEventId == id)
             .OrderBy(x => x.LineNumber).ToListAsync(ct);
@@ -76,7 +76,7 @@ public static class ProcurementSourcingDraftRoutes
         ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         var item = await db.SourcingEvents
-            .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
+            .SingleOrDefaultAsync(x => x.Id == id && x.ExecutionVersion == 0 && x.OwnerSubjectId == scope.SubjectId, ct);
         if (item is null) return Problem("not-found", "Sourcing event not found.", 404);
         if (item.Status != "Draft") return Problem("sourcing-locked", "Only a draft sourcing event can be changed.", 409);
         if (item.Version != input.Version) return Problem("version-conflict", "Refresh this event before saving.", 409);
@@ -134,7 +134,7 @@ public static class ProcurementSourcingDraftRoutes
         ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         var item = await db.SourcingEvents
-            .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
+            .SingleOrDefaultAsync(x => x.Id == id && x.ExecutionVersion == 0 && x.OwnerSubjectId == scope.SubjectId, ct);
         if (item is null) return Problem("not-found", "Sourcing event not found.", 404);
         if (item.Status != "Draft") return Problem("sourcing-locked", "Only a draft sourcing event can be cancelled.", 409);
         if (item.Version != input.Version) return Problem("version-conflict", "Refresh this event before cancelling.", 409);

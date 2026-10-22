@@ -97,6 +97,28 @@ public sealed class JobsAdminTests
     }
 
     [Fact]
+    public async Task Existing_Core_role_CRUD_roundtrips_explicit_governed_sourcing_actions()
+    {
+        using var db = CreateContext(); var service = CreateService(db);
+        db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "hr_admin", RoleName = "Admin",
+            Category = "system", PermissionsCsv = "hr_admin", Active = true });
+        await db.SaveChangesAsync();
+        var created = await service.CreateRoleAsync(new RoleCreateRequest("source_operator", "Source operator", "procurement",
+            ["procurement-access", "procurement-sourcing-convert"]), default);
+        Assert.Contains("procurement-sourcing-convert", created.Permissions);
+        Assert.DoesNotContain("procurement-sourcing-cancel", created.Permissions);
+        var updated = await service.UpdateRoleAsync("source_operator", new RoleUpdateRequest(Permissions:
+            ["procurement-access", "procurement-sourcing-cancel"]), default);
+        Assert.Contains("procurement-sourcing-cancel", updated.Permissions);
+        Assert.DoesNotContain("procurement-sourcing-convert", updated.Permissions);
+        var read = Assert.Single((await service.ListRolesAsync(default)).Where(x => x.RoleKey == "source_operator"));
+        Assert.Equal(updated.Permissions, read.Permissions);
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.UpdateRoleAsync("source_operator",
+            new RoleUpdateRequest(Permissions: ["procurement-access", "procurement-sourcing-publish"]), default));
+        Assert.Equal("invalid-permissions", error.Code); // No publication action is introduced by this slice.
+    }
+
+    [Fact]
     public async Task Core_role_admin_can_configure_procurement_actions()
     {
         using var db = CreateContext();

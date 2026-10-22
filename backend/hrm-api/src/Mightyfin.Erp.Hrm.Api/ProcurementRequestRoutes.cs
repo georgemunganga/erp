@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -19,9 +20,9 @@ public static class ProcurementRequestRoutes
         group.MapGet("", List).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/review", GetForReview).RequireAuthorization("procurement-request-return");
-        group.MapPost("", Create).RequireAuthorization("procurement-request-create");
-        group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-request-edit");
-        group.MapPost("/{id:guid}/submit", Submit).RequireAuthorization("procurement-request-submit");
+        group.MapPost("", Create).Accepts<NewRequest>("application/json").AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-create");
+        group.MapPut("/{id:guid}", Update).Accepts<UpdateRequest>("application/json").AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-edit");
+        group.MapPost("/{id:guid}/submit", Submit).AddEndpointFilter(ProcurementCatalogFencing.Read).RequireAuthorization("procurement-request-submit");
         group.MapPost("/{id:guid}/return-for-changes", ReturnForChanges)
             .RequireAuthorization("procurement-request-return");
         group.MapPost("/{id:guid}/withdraw", Withdraw).RequireAuthorization("procurement-request-edit");
@@ -61,9 +62,12 @@ public static class ProcurementRequestRoutes
         return Results.Ok(ToDetail(request));
     }
 
-    private static async Task<IResult> Create(NewRequest input, ProcurementDbContext db, HrmDbContext core,
+    private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<NewRequest>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var currency = string.IsNullOrWhiteSpace(input.CurrencyCode)
             ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct)
             : input.CurrencyCode;
@@ -74,7 +78,8 @@ public static class ProcurementRequestRoutes
         var workerId = scope.WorkerId;
         if (workerId is null)
             return Error("employee-unavailable", "An active employee record is needed to create a request.", 403);
-        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, ct);
+        var catalogItems = new Dictionary<Guid, CatalogItem>();
+        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, catalogItems, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
         var catalogVersions = await CatalogVersions(input.Lines!, db, ct);
 
@@ -97,20 +102,25 @@ public static class ProcurementRequestRoutes
             Status = "Draft",
         };
         for (var i = 0; i < input.Lines!.Count; i++)
-            request.Lines.Add(NewLine(request.Id, i + 1, input.Lines[i], request.CurrencyCode, catalogVersions));
+            request.Lines.Add(NewLine(request.Id, i + 1, input.Lines[i], request.CurrencyCode, catalogVersions, catalogItems));
         db.AddScoped(request);
         await db.SaveChangesAsync(ct);
         return Results.Created($"/api/procurement/v1/requests/{request.Id}", ToDetail(request));
     }
 
-    private static async Task<IResult> Update(Guid id, UpdateRequest input, ProcurementDbContext db,
+    private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<UpdateRequest>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
         if (request.Status is not ("Draft" or "ReturnedForChanges"))
             return Error("request-locked", "Only a draft or returned request can be changed.", 409);
+        if (request.ApprovalInstanceRef is not null && !await ReleasedPriorCase(db, request, ct))
+            return Error("finance-release-pending", "Finance must confirm the previous reservation release before changes.", 409);
         if (request.Version != input.Version) return Error("version-conflict", "Refresh this request before saving changes.", 409);
         if (scope.WorkerId != request.RequesterWorkerId)
             return Error("employee-unavailable", "An active employee record is needed to change this request.", 403);
@@ -120,7 +130,8 @@ public static class ProcurementRequestRoutes
         if (input.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id).Distinct().Count()
             != input.Lines!.Count(x => x.Id.HasValue))
             return Error("validation-failed", "A request line was repeated.", 422);
-        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, ct);
+        var catalogItems = new Dictionary<Guid, CatalogItem>();
+        var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, catalogItems, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
         var catalogVersions = await CatalogVersions(input.Lines!, db, ct);
         var existing = request.Lines.ToDictionary(x => x.Id);
@@ -149,10 +160,10 @@ public static class ProcurementRequestRoutes
         foreach (var incoming in input.Lines)
         {
             if (incoming.Id is Guid lineId)
-                ApplyLine(existing[lineId], incoming, request.CurrencyCode, catalogVersions);
+                ApplyLine(existing[lineId], incoming, request.CurrencyCode, catalogVersions, catalogItems);
             else
             {
-                var line = NewLine(request.Id, nextLine++, incoming, request.CurrencyCode, catalogVersions);
+                var line = NewLine(request.Id, nextLine++, incoming, request.CurrencyCode, catalogVersions, catalogItems);
                 db.AddScoped(line);
             }
         }
@@ -168,11 +179,15 @@ public static class ProcurementRequestRoutes
             ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
         try
         {
+        await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
         if (request.Status is not ("Draft" or "Submitted" or "ReturnedForChanges"))
             return Error("request-locked", "Only a draft, returned or submitted request can be withdrawn here.", 409);
+        if (request.Status == "ReturnedForChanges" && request.ApprovalInstanceRef is not null
+            && !await ReleasedPriorCase(db, request, ct))
+            return Error("finance-release-pending", "Finance must confirm the previous reservation release before withdrawal.", 409);
         if (request.Version != input.Version) return Error("version-conflict", "Refresh this request before withdrawing it.", 409);
         if (scope.WorkerId != request.RequesterWorkerId)
             return Error("employee-unavailable", "An active employee record is needed to withdraw this request.", 403);
@@ -208,7 +223,7 @@ public static class ProcurementRequestRoutes
         return Results.Ok(ToDetail(request));
         }
         catch (DbUpdateConcurrencyException) { return Error("version-conflict", "Refresh this request before withdrawing it.", 409); }
-        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        catch (Exception error) when (ProcurementPostgresFailures.IsConcurrency(error))
         { return Error("withdrawal-conflict", "The funding or request state changed. Refresh before withdrawing it.", 409); }
     }
 
@@ -217,6 +232,7 @@ public static class ProcurementRequestRoutes
     {
         await using var transaction = db.Database.IsRelational()
             ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+        await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
@@ -240,7 +256,18 @@ public static class ProcurementRequestRoutes
         decimal estimatedTotal;
         try { estimatedTotal = currentLines.Sum(x => x.RequestedQuantity * x.EstimatedUnitPrice); }
         catch (OverflowException) { return Error("validation-failed", "The estimated amount is too large.", 422); }
+        if (request.ApprovalInstanceRef is not null && !await ReleasedPriorCase(db, request, ct))
+            return Error("finance-release-pending", "Finance must confirm the previous reservation release before resubmitting.", 409);
         var priorStatus = request.Status;
+        request.ApprovalInstanceRef = null;
+        foreach (var line in currentLines)
+        {
+            if (line.AllocatedQuantity != 0 || line.OrderedQuantity != 0 || line.AcceptedQuantity != 0)
+                return Error("request-committed", "An ordered or received request cannot be resubmitted here.", 409);
+            line.ApprovalStatus = "Pending";
+            line.ApprovedQuantity = 0;
+            line.Route = "Unassigned";
+        }
         request.Status = "Submitted";
         request.ApprovalState = "PendingPolicyAndBudget";
         request.SubmittedAt = DateTimeOffset.UtcNow;
@@ -273,7 +300,7 @@ public static class ProcurementRequestRoutes
         }
         catch (DbUpdateException)
         { return Error("submission-conflict", "Another submission or buying-rule check was recorded. Refresh the request.", 409); }
-        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        catch (Exception error) when (ProcurementPostgresFailures.IsConcurrency(error))
         { return Error("version-conflict", "A selected item or catalog price changed. Refresh before submitting.", 409); }
         return Results.Ok(ToDetail(request));
     }
@@ -285,6 +312,7 @@ public static class ProcurementRequestRoutes
             ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
         try
         {
+            await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
             var request = await db.PurchaseRequests.Include(x => x.Lines)
                 .SingleOrDefaultAsync(x => x.Id == id, ct);
             if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
@@ -328,18 +356,16 @@ public static class ProcurementRequestRoutes
         }
         catch (DbUpdateConcurrencyException)
         { return Error("version-conflict", "Refresh this request before returning it.", 409); }
-        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        catch (Exception error) when (ProcurementPostgresFailures.IsConcurrency(error))
         { return Error("return-conflict", "The funding or request state changed. Refresh before returning it.", 409); }
     }
 
     private static async Task<string?> ValidateStoredReferences(PurchaseRequestLine[] lines,
         string currency, ProcurementDbContext db, CancellationToken ct)
     {
-        var items = lines.Where(x => x.CatalogItemId.HasValue).Select(x => x.CatalogItemId!.Value).Distinct().ToArray();
         var suppliers = lines.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
-        if (items.Length > 0 && await db.CatalogItems.AsNoTracking()
-                .CountAsync(x => items.Contains(x.Id) && x.Status == "Active" && x.IsPurchasable, ct) != items.Length)
-            return "An item is no longer available for purchase.";
+        if (await ProcurementCatalogClassificationBinding.StoredIssue(db, lines, ct, currency) is not null)
+            return "A selected catalog item or price is unavailable or changed. Edit the draft to select the current catalog classification and price.";
         if (suppliers.Length > 0)
         {
             var selected = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
@@ -347,39 +373,21 @@ public static class ProcurementRequestRoutes
             if (selected.Count != suppliers.Length || selected.Any(x => !SupplierEligibility.CanReceiveNewOrders(x, DateTimeOffset.UtcNow)))
                 return "A preferred vendor is no longer available or its qualification has expired.";
         }
-        var catalogIds = lines.Where(x => x.CatalogEntryId.HasValue)
-            .Select(x => x.CatalogEntryId!.Value).Distinct().ToArray();
-        if (catalogIds.Length > 0)
-        {
-            var entries = await db.CatalogEntries.AsNoTracking().Where(x => catalogIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, ct);
-            foreach (var line in lines.Where(x => x.CatalogEntryId.HasValue))
-            {
-                if (!entries.TryGetValue(line.CatalogEntryId!.Value, out var entry)
-                    || !CatalogEntryIsAvailable(entry)
-                    || entry.CatalogItemId != line.CatalogItemId
-                    || entry.SupplierId != line.PreferredSupplierId
-                    || entry.UnitCode != line.UnitCode
-                    || entry.CurrencyCode != currency
-                    || entry.UnitPrice != line.EstimatedUnitPrice
-                    || entry.MinimumQuantity is decimal minimum && line.RequestedQuantity < minimum
-                    || entry.MaximumQuantity is decimal maximum && line.RequestedQuantity > maximum
-                    || entry.PublishedVersion != line.CatalogPublishedVersion)
-                    return "A selected catalog price changed or is no longer available. Update the request line before submitting.";
-            }
-        }
         return null;
     }
 
     private static async Task<string?> ValidateReferences(IEnumerable<RequestLineInput> lines,
-        string currency, ProcurementDbContext db, CancellationToken ct)
+        string currency, ProcurementDbContext db, IDictionary<Guid, CatalogItem> catalogItems, CancellationToken ct)
     {
         var submitted = lines.ToArray();
         var itemIds = submitted.Where(x => x.CatalogItemId.HasValue).Select(x => x.CatalogItemId!.Value).Distinct().ToArray();
         var supplierIds = submitted.Where(x => x.PreferredSupplierId.HasValue).Select(x => x.PreferredSupplierId!.Value).Distinct().ToArray();
-        if (itemIds.Length > 0 && await db.CatalogItems.AsNoTracking()
-                .CountAsync(x => itemIds.Contains(x.Id) && x.Status == "Active" && x.IsPurchasable, ct) != itemIds.Length)
-            return "One or more items are unavailable for purchase.";
+        var ownedItems = await db.CatalogItems.AsNoTracking().Where(x => itemIds.Contains(x.Id)).ToListAsync(ct);
+        foreach (var item in ownedItems) catalogItems.Add(item.Id, item);
+        foreach (var line in submitted.Where(x => x.CatalogItemId.HasValue))
+            if (!catalogItems.TryGetValue(line.CatalogItemId!.Value, out var item)
+                || CatalogRequestClassification.Bind(item, line.CategoryCode, line.PurchaseType, allowMissing: true) is null)
+                return "Choose an available item with its catalog category and purchase type; catalog classification cannot be overridden.";
         if (supplierIds.Length > 0)
         {
             var selected = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
@@ -396,26 +404,13 @@ public static class ProcurementRequestRoutes
             foreach (var line in submitted.Where(x => x.CatalogEntryId.HasValue))
             {
                 if (!entries.TryGetValue(line.CatalogEntryId!.Value, out var entry)
-                    || !CatalogEntryIsAvailable(entry)
-                    || entry.CatalogItemId != line.CatalogItemId
-                    || entry.SupplierId != line.PreferredSupplierId
-                    || entry.UnitCode != line.UnitCode
-                    || entry.CurrencyCode != currency.Trim().ToUpperInvariant()
-                    || entry.UnitPrice != line.EstimatedUnitPrice
-                    || entry.MinimumQuantity is decimal minimum && line.RequestedQuantity < minimum
-                    || entry.MaximumQuantity is decimal maximum && line.RequestedQuantity > maximum)
+                    || !CatalogRequestClassification.OfferMatches(entry, line.CatalogItemId, line.PreferredSupplierId,
+                        line.UnitCode, currency.Trim().ToUpperInvariant(), line.RequestedQuantity,
+                        line.EstimatedUnitPrice, publishedVersion: null, DateTimeOffset.UtcNow))
                     return "Choose an available catalog price with the same item, vendor, unit, currency and price.";
             }
         }
         return null;
-    }
-
-    private static bool CatalogEntryIsAvailable(CatalogEntry entry)
-    {
-        var now = DateTimeOffset.UtcNow;
-        return entry.Status == "Published" && entry.PublishedVersion > 0
-            && entry.EffectiveFrom <= now && (entry.EffectiveTo is null || entry.EffectiveTo > now)
-            && entry.AudienceCode is null && entry.SiteRef is null && entry.ContractRef is null;
     }
 
     private static async Task<Dictionary<Guid, int>> CatalogVersions(IEnumerable<RequestLineInput> lines,
@@ -444,6 +439,11 @@ public static class ProcurementRequestRoutes
                 return "Every line needs a valid unit.";
             if (!ValidMoney(line.RequestedQuantity, positive: true) || !ValidMoney(line.EstimatedUnitPrice))
                 return "Line quantity must be positive and unit price cannot be negative; use at most four decimal places.";
+            if (!ProcurementPolicyCode.TryNormalizeOptional(line.CategoryCode, out _))
+                return "Category code must contain up to 100 letters, digits or underscores.";
+            if (!ProcurementPolicyCode.TryNormalizeOptional(line.PurchaseType, out var purchaseType)
+                || purchaseType is { Length: > 40 })
+                return "Purchase type must contain up to 40 letters, digits or underscores.";
             if (line.DiscountPercent is decimal discount && (discount < 0 || discount > 100 || decimal.Round(discount, 4) != discount))
                 return "Discount must be between 0 and 100 with at most four decimal places.";
             try { total += line.RequestedQuantity * line.EstimatedUnitPrice; }
@@ -459,15 +459,15 @@ public static class ProcurementRequestRoutes
         && decimal.Round(value, 4) == value;
 
     private static PurchaseRequestLine NewLine(Guid requestId, int number, RequestLineInput input, string currency,
-        IReadOnlyDictionary<Guid, int> catalogVersions)
+        IReadOnlyDictionary<Guid, int> catalogVersions, IReadOnlyDictionary<Guid, CatalogItem> catalogItems)
     {
         var line = new PurchaseRequestLine { PurchaseRequestId = requestId, LineNumber = number };
-        ApplyLine(line, input, currency, catalogVersions);
+        ApplyLine(line, input, currency, catalogVersions, catalogItems);
         return line;
     }
 
     private static void ApplyLine(PurchaseRequestLine line, RequestLineInput input, string currency,
-        IReadOnlyDictionary<Guid, int> catalogVersions)
+        IReadOnlyDictionary<Guid, int> catalogVersions, IReadOnlyDictionary<Guid, CatalogItem> catalogItems)
     {
         line.Description = input.Description!.Trim();
         line.UnitCode = input.UnitCode!.Trim();
@@ -478,8 +478,12 @@ public static class ProcurementRequestRoutes
         line.CatalogPublishedVersion = input.CatalogEntryId is Guid catalogEntryId
             ? catalogVersions[catalogEntryId] : null;
         line.PreferredSupplierId = input.PreferredSupplierId;
-        line.CategoryCode = Clean(input.CategoryCode);
-        line.PurchaseType = Clean(input.PurchaseType);
+        var classification = input.CatalogItemId is Guid itemId
+            ? CatalogRequestClassification.Bind(catalogItems[itemId], input.CategoryCode, input.PurchaseType, allowMissing: true)
+                ?? throw new InvalidOperationException("CatalogClassificationChanged")
+            : null;
+        line.CategoryCode = classification?.CategoryCode ?? ProcurementPolicyCode.NormalizeOptional(input.CategoryCode);
+        line.PurchaseType = classification?.PurchaseType ?? ProcurementPolicyCode.NormalizeOptional(input.PurchaseType);
         line.NeededBy = input.NeededBy;
         line.EstimatedCurrencyCode = currency;
         line.DiscountPercent = input.DiscountPercent;
@@ -491,7 +495,7 @@ public static class ProcurementRequestRoutes
 
     private static object ToDetail(PurchaseRequest x) => new
     {
-        x.Id, x.Number, x.Status, x.ApprovalState, x.SubmittedAt, x.SubmittedVersion,
+        x.Id, x.Number, x.Status, x.ApprovalState, x.ApprovalInstanceRef, x.SubmittedAt, x.SubmittedVersion,
         x.ReturnedAt, x.ReturnedBySubjectId, x.ReturnReason,
         x.Version, x.RequesterWorkerId, x.Purpose, x.CurrencyCode,
         x.NeededBy, x.BranchRef, x.DepartmentRef, x.CostCenterRef, x.ProjectRef,
@@ -500,7 +504,7 @@ public static class ProcurementRequestRoutes
         Lines = x.Lines.OrderBy(line => line.LineNumber).Select(line => new
         {
             line.Id, line.LineNumber, line.Version, line.Description, line.UnitCode,
-            line.RequestedQuantity, line.EstimatedUnitPrice, line.EstimatedCurrencyCode,
+            line.RequestedQuantity, line.ApprovedQuantity, line.EstimatedUnitPrice, line.EstimatedCurrencyCode,
             line.CatalogItemId, line.CatalogEntryId, line.CatalogPublishedVersion,
             line.PreferredSupplierId, line.CategoryCode, line.PurchaseType,
             line.NeededBy, line.DiscountPercent, line.TaxCodeRef, line.CostCenterRef,
@@ -543,12 +547,33 @@ public static class ProcurementRequestRoutes
         : NewRequest(Purpose, CurrencyCode, NeededBy, CostCenterRef, ProjectRef,
             DeliveryLocationRef, DeliveryAddressText, FundingSourceRef, NotesToApprover, Lines);
     public sealed record RequestLineInput(Guid? Id, string? Description, string? UnitCode,
-        decimal RequestedQuantity, decimal EstimatedUnitPrice, Guid? CatalogItemId,
+        [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal RequestedQuantity,
+        [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal EstimatedUnitPrice, Guid? CatalogItemId,
         Guid? PreferredSupplierId, string? CategoryCode, string? PurchaseType,
-        DateOnly? NeededBy, decimal? DiscountPercent, string? TaxCodeRef,
+        DateOnly? NeededBy, [property: JsonConverter(typeof(RequestDiscountJsonConverter))] decimal? DiscountPercent, string? TaxCodeRef,
         string? CostCenterRef, string? ProjectRef, Guid? SpecificationDocumentRefId,
         Guid? CatalogEntryId = null);
     public sealed record VersionCommand(long Version);
+    private static async Task<bool> ReleasedPriorCase(ProcurementDbContext db, PurchaseRequest request, CancellationToken ct)
+    {
+        if (request.Status != "ReturnedForChanges" || !Guid.TryParse(request.ApprovalInstanceRef, out var caseId)) return false;
+        var submissionId = await ReleasedPriorSubmissionIds(db, request.Id, caseId, request.SubmittedVersion)
+            .SingleOrDefaultAsync(ct);
+        if (submissionId is null) return false;
+        return await db.FinanceReleaseRequests.AsNoTracking().Where(x => x.SubmissionId == submissionId.Value
+            && x.CoreApprovalCaseId == caseId && x.Outcome == "Returned")
+            .Join(db.FinanceReleaseConfirmations.AsNoTracking(), r => r.Id, c => c.ReleaseRequestId,
+                (r, c) => new { r, c }).AnyAsync(x => x.c.ReservationRef == x.r.ReservationRef
+                    && x.c.ReleasedAmount == x.r.ReservedAmount && x.c.CurrencyCode == x.r.CurrencyCode, ct);
+    }
+
+    // Draft CRUD needs only the old scoped source ID. Do not materialize new Finance identity
+    // columns here or make historical return/release proof depend on positive-use schema readiness.
+    internal static IQueryable<Guid?> ReleasedPriorSubmissionIds(ProcurementDbContext db, Guid requestId,
+        Guid caseId, long? submittedVersion) => db.ApprovalSubmissions.AsNoTracking()
+        .Where(x => x.PurchaseRequestId == requestId && x.CoreApprovalCaseId == caseId
+            && x.SubmittedBusinessVersion == submittedVersion).Select(x => (Guid?)x.Id);
+
     public sealed record ReturnInput(long Version, string? Reason);
     public sealed record WithdrawCommand(long Version, string? Reason = null);
 }

@@ -31,17 +31,8 @@ public static partial class ProcurementInvoiceIntakeRoutes
     }
     private static bool IsMakerOrManager(SupplierInvoice invoice, ProcurementRequestScope scope, HttpContext http)
         => invoice.CreatedBy == scope.SubjectId || http.User.IsInRole("erp_admin") || http.User.IsInRole("procurement_manager");
-    private static async Task<bool> Unprocessed(ProcurementDbContext db, SupplierInvoice invoice, CancellationToken ct)
-        => invoice.Status == "Received" && invoice.IntakeChannel == "Manual"
-            && invoice.FinancePostingRef is null && invoice.EvidenceDocumentRefId is null && invoice.CreditForInvoiceRef is null
-            && !await db.SupplierInvoiceLines.AnyAsync(x => x.SupplierInvoiceId == invoice.Id
-                && (x.PurchaseOrderLineId != null || x.GoodsReceiptLineId != null || x.ServiceAcceptanceId != null), ct)
-            && !await db.AttachmentRefs.AnyAsync(x => x.OwnerId == invoice.Id, ct)
-            && !await db.InvoiceMatchResults.AnyAsync(x => x.SupplierInvoiceId == invoice.Id, ct)
-            && !await db.InvoiceExceptions.AnyAsync(x => x.SupplierInvoiceId == invoice.Id, ct)
-            && !await db.FinanceInvoiceHandoffs.AnyAsync(x => x.SupplierInvoiceId == invoice.Id, ct)
-            && !await db.FinancePaymentStatusRefs.AnyAsync(x => x.SupplierInvoiceId == invoice.Id, ct)
-            && !await db.SupplierCreditNoteRefs.AnyAsync(x => x.SupplierInvoiceId == invoice.Id, ct);
+    private static Task<bool> Unprocessed(ProcurementDbContext db, SupplierInvoice invoice, CancellationToken ct)
+        => db.ManualInvoiceDrafts().AnyAsync(row => row.Id == invoice.Id, ct);
     private static async Task<string[]> Actions(ProcurementDbContext db, SupplierInvoice invoice,
         ProcurementRequestScope scope, HttpContext http, IAuthorizationService authorization, CancellationToken ct)
         => IsMakerOrManager(invoice, scope, http)

@@ -4,6 +4,14 @@ namespace Mightyfin.Erp.Procurement.Domain;
 // authorities are referenced by stable IDs rather than copied into this schema.
 public sealed class SourcingEvent : ProcurementRecord
 {
+    // Legacy rows stay execution0. Never infer retained source authority from old draft fields.
+    public int ExecutionVersion { get; set; }
+    public Guid? BranchRef { get; set; }
+    public Guid? MakerWorkerId { get; set; }
+    public Guid? SourceEvidenceId { get; set; }
+    public Guid? MethodId { get; set; }
+    public long? MethodRevision { get; set; }
+    public string? OriginalDraftFingerprint { get; set; }
     public string Number { get; set; } = null!;
     public string Title { get; set; } = null!;
     public string Method { get; set; } = null!;
@@ -148,6 +156,9 @@ public sealed class ContractRate : ProcurementRecord
 
 public sealed class PurchaseOrder : ProcurementRecord
 {
+    public long? SubmittedBusinessVersion { get; set; }
+    public DateTimeOffset? SubmittedAt { get; set; }
+    public string? ReturnReason { get; set; }
     public string Number { get; set; } = null!;
     public Guid SupplierId { get; set; }
     public Guid? SourcingAwardId { get; set; }
@@ -209,7 +220,7 @@ public sealed class SupplierOrderAcknowledgement : ProcurementRecord
     public DateTimeOffset RespondedAt { get; set; }
 }
 
-public sealed class GoodsReceipt : ProcurementRecord
+public sealed partial class GoodsReceipt : ProcurementRecord
 {
     public string Number { get; set; } = null!;
     public Guid PurchaseOrderId { get; set; }
@@ -222,7 +233,7 @@ public sealed class GoodsReceipt : ProcurementRecord
     public string? AssetHandoffRef { get; set; }
 }
 
-public sealed class GoodsReceiptLine : ProcurementRecord
+public sealed partial class GoodsReceiptLine : ProcurementRecord
 {
     public Guid GoodsReceiptId { get; set; }
     public Guid PurchaseOrderLineId { get; set; }
@@ -235,7 +246,7 @@ public sealed class GoodsReceiptLine : ProcurementRecord
     public string? RejectionReason { get; set; }
 }
 
-public sealed class ReceiptInspection : ProcurementRecord
+public sealed partial class ReceiptInspection : ProcurementRecord
 {
     public Guid GoodsReceiptLineId { get; set; }
     public string Status { get; set; } = "Pending";
@@ -247,7 +258,7 @@ public sealed class ReceiptInspection : ProcurementRecord
     public DateTimeOffset? InspectedAt { get; set; }
 }
 
-public sealed class ServiceAcceptance : ProcurementRecord
+public sealed partial class ServiceAcceptance : ProcurementRecord
 {
     public Guid PurchaseOrderLineId { get; set; }
     public string Status { get; set; } = "PendingCertification";
@@ -291,6 +302,12 @@ public sealed class SupplierInvoice : ProcurementRecord
     public string? FinancePostingRef { get; set; }
     public Guid? EvidenceDocumentRefId { get; set; }
     public string? CreditForInvoiceRef { get; set; }
+    public int MappingRevision { get; set; }
+    public Guid? CurrentMappingVersionId { get; set; }
+    public Guid? LastMatchResultId { get; set; }
+    public Guid? ActiveMatchClaimResultId { get; set; }
+    public string MatchingState { get; set; } = "NotCompared";
+    public long MatchRevision { get; set; }
 }
 
 public sealed class SupplierInvoiceLine : ProcurementRecord
@@ -316,10 +333,24 @@ public sealed class InvoiceMatchResult : ProcurementRecord
     public string MatchType { get; set; } = null!;
     public string Outcome { get; set; } = null!;
     public Guid? PolicyVersionId { get; set; }
-    public decimal QuantityVariance { get; set; }
-    public decimal PriceVariance { get; set; }
-    public decimal TaxVariance { get; set; }
+    public decimal? QuantityVariance { get; set; }
+    public decimal? PriceVariance { get; set; }
+    public decimal? TaxVariance { get; set; }
     public DateTimeOffset MatchedAt { get; set; }
+    public int ExecutionVersion { get; init; }
+    public Guid? MappingVersionId { get; init; }
+    public Guid? PurchaseOrderId { get; init; }
+    public Guid? IssuedVersionId { get; init; }
+    public long InvoiceVersion { get; init; }
+    public string? InvoiceOriginalSha256 { get; init; }
+    public string? ActorPrincipalId { get; init; }
+    public Guid? ActorWorkerId { get; init; }
+    public Guid? CommandKey { get; init; }
+    public string? InputFingerprint { get; init; }
+    public string? EvidenceJson { get; init; }
+    public string? EvidenceSha256 { get; init; }
+    public string? PolicyRulesSha256 { get; init; }
+    public string? SourceWatermarksJson { get; init; }
 }
 
 public sealed class InvoiceException : ProcurementRecord
@@ -332,6 +363,11 @@ public sealed class InvoiceException : ProcurementRecord
     public string? Reason { get; set; }
     public DateTimeOffset? DueAt { get; set; }
     public DateTimeOffset? ResolvedAt { get; set; }
+    public Guid? MatchResultId { get; init; }
+    public Guid? SupplierInvoiceLineId { get; init; }
+    public string? DiscrepancyKey { get; init; }
+    public Guid? OwnerWorkerId { get; set; }
+    public Guid? ResolvingMatchResultId { get; set; }
 }
 
 public sealed class FinanceInvoiceHandoff : ProcurementRecord

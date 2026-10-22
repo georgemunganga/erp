@@ -16,15 +16,16 @@ public static class ProcurementItemEndpoints
     public static void MapRoutes(WebApplication app)
     {
         var items = app.MapGroup("/api/procurement/v1/items");
+        items.AddEndpointFilter(ProcurementCatalogFencing.Write);
         items.MapGet("", List).RequireAuthorization("procurement-item-manage");
         items.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-item-manage");
-        items.MapPost("", Create).RequireAuthorization("procurement-item-manage");
-        items.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-item-manage");
+        items.MapPost("", Create).Accepts<ItemInput>("application/json").RequireAuthorization("procurement-item-manage");
+        items.MapPut("/{id:guid}", Update).Accepts<ItemUpdate>("application/json").RequireAuthorization("procurement-item-manage");
         items.MapPost("/{id:guid}/activate", Activate).RequireAuthorization("procurement-item-approve");
         items.MapPost("/{id:guid}/deactivate", Deactivate).RequireAuthorization("procurement-item-manage");
         items.MapGet("/{id:guid}/catalog-entries", ListEntries).RequireAuthorization("procurement-item-manage");
-        items.MapPost("/{id:guid}/catalog-entries", AddEntry).RequireAuthorization("procurement-item-manage");
-        items.MapPut("/{id:guid}/catalog-entries/{entryId:guid}", UpdateEntry).RequireAuthorization("procurement-item-manage");
+        items.MapPost("/{id:guid}/catalog-entries", AddEntry).Accepts<EntryInput>("application/json").RequireAuthorization("procurement-item-manage");
+        items.MapPut("/{id:guid}/catalog-entries/{entryId:guid}", UpdateEntry).Accepts<EntryUpdate>("application/json").RequireAuthorization("procurement-item-manage");
         items.MapPost("/{id:guid}/catalog-entries/{entryId:guid}/publish", PublishEntry).RequireAuthorization("procurement-catalog-approve");
         items.MapPost("/{id:guid}/catalog-entries/{entryId:guid}/withdraw", WithdrawEntry).RequireAuthorization("procurement-item-manage");
         app.MapGet("/api/procurement/v1/catalog", Catalog).RequireAuthorization("procurement-item-read");
@@ -100,10 +101,13 @@ public static class ProcurementItemEndpoints
         return Results.Ok(new { items = rows, total, page = number, pageSize = size });
     }
 
-    private static async Task<IResult> Create(ItemInput input, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<ItemInput>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var error = ValidateItem(input);
-        if (error is not null) return BadRequest(error);
+        if (error is not null) return Results.UnprocessableEntity(new { code="validation-failed",message=error });
         var code = input.Code.Trim().ToUpperInvariant();
         if (await db.CatalogItems.AnyAsync(x => x.Code == code, ct)) return Conflict("An item with this code already exists.");
         var item = new CatalogItem { Code = code, Status = "Inactive" };
@@ -114,10 +118,13 @@ public static class ProcurementItemEndpoints
         return Results.Created($"/api/procurement/v1/items/{item.Id}", ToView(item));
     }
 
-    private static async Task<IResult> Update(Guid id, ItemUpdate input, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<ItemUpdate>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var error = ValidateItem(input.Item);
-        if (error is not null) return BadRequest(error);
+        if (error is not null) return Results.UnprocessableEntity(new { code="validation-failed",message=error });
         if (input.Version < 1) return BadRequest("A valid record version is required.");
         var item = await db.CatalogItems.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (item is null) return NotFound();
@@ -194,10 +201,13 @@ public static class ProcurementItemEndpoints
         return Results.Ok(new { items = entries.Select(ToView) });
     }
 
-    private static async Task<IResult> AddEntry(Guid id, EntryInput input, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> AddEntry(Guid id, JsonElement body, ProcurementDbContext db, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<EntryInput>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var error = ValidateEntry(input);
-        if (error is not null) return BadRequest(error);
+        if (error is not null) return Results.UnprocessableEntity(new { code="validation-failed",message=error });
         var item = await db.CatalogItems.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (item is null) return NotFound();
         if (input.SupplierId.HasValue && !await db.Suppliers.AnyAsync(x => x.Id == input.SupplierId.Value, ct))
@@ -210,10 +220,13 @@ public static class ProcurementItemEndpoints
         return Results.Created($"/api/procurement/v1/items/{id}/catalog-entries/{entry.Id}", ToView(entry));
     }
 
-    private static async Task<IResult> UpdateEntry(Guid id, Guid entryId, EntryUpdate input, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> UpdateEntry(Guid id, Guid entryId, JsonElement body, ProcurementDbContext db, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<EntryUpdate>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var error = ValidateEntry(input.Entry);
-        if (error is not null) return BadRequest(error);
+        if (error is not null) return Results.UnprocessableEntity(new { code="validation-failed",message=error });
         if (input.Version < 1) return BadRequest("A valid record version is required.");
         var entry = await db.CatalogEntries.SingleOrDefaultAsync(x => x.Id == entryId && x.CatalogItemId == id, ct);
         if (entry is null) return NotFound();
@@ -309,13 +322,16 @@ public static class ProcurementItemEndpoints
         return Results.Ok(ToView(entry));
     }
 
-    private static string? ValidateItem(ItemInput x)
+    private static string? ValidateItem(ItemInput? x)
     {
+        if(x is null) return "Enter the item details before saving.";
         if (string.IsNullOrWhiteSpace(x.Code) || x.Code.Trim().Length > 50) return "Enter an item code of up to 50 characters.";
         if (string.IsNullOrWhiteSpace(x.Name) || x.Name.Trim().Length > 300) return "Enter an item name of up to 300 characters.";
         if (string.IsNullOrWhiteSpace(x.Kind) || x.Kind.Trim().Length > 40) return "Choose an item type.";
         if (string.IsNullOrWhiteSpace(x.CategoryCode)) return "Choose a category.";
         if (string.IsNullOrWhiteSpace(x.UnitCode) || x.UnitCode.Trim().Length > 30) return "Choose a unit.";
+        if(x.PurchaseUnitConversion.HasValue && !ExactDecimalJsonCodec.IsRepresentable(x.PurchaseUnitConversion.Value,18,6)) return "Unit conversion must fit 18 digits with up to six decimal places.";
+        if(x.MinimumOrderQuantity.HasValue && !ExactDecimalJsonCodec.IsRepresentable(x.MinimumOrderQuantity.Value,18,4)) return "Minimum order quantity must fit 18 digits with up to four decimal places.";
         if (x.PurchaseUnitConversion is <= 0) return "Unit conversion must be greater than zero.";
         if (x.MinimumOrderQuantity is < 0 || x.LeadTimeDays is < 0) return "Quantity and lead time cannot be negative.";
         return null;
@@ -325,6 +341,10 @@ public static class ProcurementItemEndpoints
     {
         if (string.IsNullOrWhiteSpace(x.CurrencyCode) || x.CurrencyCode.Trim().Length != 3) return "Choose a three-letter currency code.";
         if (string.IsNullOrWhiteSpace(x.UnitCode) || x.UnitCode.Trim().Length > 30) return "Choose a unit.";
+        if(!ExactDecimalJsonCodec.IsRepresentable(x.UnitPrice,18,4)
+            || x.MinimumQuantity.HasValue && !ExactDecimalJsonCodec.IsRepresentable(x.MinimumQuantity.Value,18,4)
+            || x.MaximumQuantity.HasValue && !ExactDecimalJsonCodec.IsRepresentable(x.MaximumQuantity.Value,18,4))
+            return "Price and quantities must fit 18 digits with up to four decimal places.";
         if (x.UnitPrice < 0 || x.MinimumQuantity is < 0 || x.MaximumQuantity is < 0) return "Price and quantities cannot be negative.";
         if (!ExactDecimalJsonCodec.IsRepresentable(x.UnitPrice, 18, 4)
             || x.MinimumQuantity is { } min && !ExactDecimalJsonCodec.IsRepresentable(min, 18, 4)
@@ -378,9 +398,9 @@ public static class ProcurementItemEndpoints
 }
 
 public sealed record ItemInput(string Code, string Name, string Kind, string CategoryCode, string UnitCode,
-    string? Description, string? TaxCodeRef, string? PurchaseUnitCode, decimal? PurchaseUnitConversion,
+    string? Description, string? TaxCodeRef, string? PurchaseUnitCode, [property: JsonConverter(typeof(PurchaseUnitConversionJsonConverter))] decimal? PurchaseUnitConversion,
     string? Brand, string? Manufacturer, string? ManufacturerPartNumber, int? LeadTimeDays,
-    decimal? MinimumOrderQuantity, string? ExpenseAccountRef, bool IsStockItem, bool IsAsset, bool InspectionRequired);
+    [property: JsonConverter(typeof(NullableCommercialLineDecimalJsonConverter))] decimal? MinimumOrderQuantity, string? ExpenseAccountRef, bool IsStockItem, bool IsAsset, bool InspectionRequired);
 public sealed record ItemUpdate(long Version, ItemInput Item);
 public sealed record VersionInput(long Version);
 public sealed record ItemActivationInput(long Version, string? Reason);

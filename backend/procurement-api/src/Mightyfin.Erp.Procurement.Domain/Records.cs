@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Mightyfin.Erp.Procurement.Domain;
 
 /// <summary>Every Procurement row is scoped to one tenant and legal entity.</summary>
@@ -278,6 +280,13 @@ public sealed class PolicyEvaluation : ProcurementRecord
 
 public sealed class BudgetCheckSnapshot : ProcurementRecord
 {
+    // Additive provenance only. Zero/null means unbound legacy history, never a guessed worker.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int CheckerIdentitySchemaVersion { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? CheckedByWorkerId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CheckerIdentitySha256 { get; set; }
     public Guid PurchaseRequestId { get; set; }
     public long RequestVersion { get; set; }
     public string FinanceCheckRef { get; set; } = null!;

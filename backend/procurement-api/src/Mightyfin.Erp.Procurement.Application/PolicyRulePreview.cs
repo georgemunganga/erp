@@ -17,7 +17,13 @@ public static class PolicyRulePreview
         var structural = PolicyRuleValidator.Validate(json);
         if (structural.Count != 0) return structural;
         using var document = JsonDocument.Parse(json);
-        var rules = document.RootElement.GetProperty("rules").EnumerateArray().ToArray();
+        return AnalyzeValidatedCoverage(document.RootElement.GetProperty("rules"));
+    }
+
+    // Shared conditions/priority engine. Callers must strictly validate their own typed document first.
+    internal static IReadOnlyList<PolicyRuleIssue> AnalyzeValidatedCoverage(JsonElement ruleArray)
+    {
+        var rules = ruleArray.EnumerateArray().ToArray();
         var issues = new List<PolicyRuleIssue>();
         var fallbacks = rules.Where(rule => IsFallback(rule.GetProperty("when"))).ToArray();
         if (fallbacks.Length != 1)
@@ -70,7 +76,7 @@ public static class PolicyRulePreview
             quotes.ValueKind == JsonValueKind.Null ? null : quotes.GetInt32(), stages, []);
     }
 
-    private static bool Matches(JsonElement when, PolicyScenario scenario)
+    internal static bool Matches(JsonElement when, PolicyScenario scenario)
     {
         var minimum = Amount(when, "minimumAmountInclusive");
         var maximum = Amount(when, "maximumAmountExclusive");
@@ -108,8 +114,7 @@ public static class PolicyRulePreview
         && values.EnumerateArray().Any(value => value.GetGuid() == branch.Value);
     private static decimal? Amount(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null ? value.GetDecimal() : null;
-    private static bool ValidOptionalCode(string? value) => value is null || value.Length is > 0 and <= 100
-        && value.All(c => c is >= 'A' and <= 'Z' or >= '0' and <= '9' or '_');
+    private static bool ValidOptionalCode(string? value) => value is null || ProcurementPolicyCode.IsValid(value);
     private static PolicyPreviewResult Empty(string status, IReadOnlyList<PolicyRuleIssue> issues) =>
         new(status, null, null, null, null, null, [], issues);
 }

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -14,8 +15,8 @@ public static class ProcurementPlanRoutes
         var group = app.MapGroup("/api/procurement/v1/plans");
         group.MapGet("", List).RequireAuthorization("procurement-plan-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-plan-read");
-        group.MapPost("", Create).RequireAuthorization("procurement-plan-create");
-        group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-plan-edit");
+        group.MapPost("", Create).Accepts<ProcurementPlanInput>("application/json").RequireAuthorization("procurement-plan-create");
+        group.MapPut("/{id:guid}", Update).Accepts<UpdatePlan>("application/json").RequireAuthorization("procurement-plan-edit");
         group.MapPost("/{id:guid}/cancel", Cancel).RequireAuthorization("procurement-plan-edit");
     }
 
@@ -44,9 +45,12 @@ public static class ProcurementPlanRoutes
         return plan is null ? Problem("not-found", "Plan not found.", 404) : Results.Ok(Detail(plan));
     }
 
-    private static async Task<IResult> Create(ProcurementPlanInput input, ProcurementDbContext db, HrmDbContext core,
+    private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<ProcurementPlanInput>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
             ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
         var issue = ProcurementPlanRules.Validate(input);
@@ -74,9 +78,12 @@ public static class ProcurementPlanRoutes
         return Results.Created($"/api/procurement/v1/plans/{plan.Id}", Detail(plan));
     }
 
-    private static async Task<IResult> Update(Guid id, UpdatePlan input, ProcurementDbContext db,
+    private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<UpdatePlan>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var plan = await db.ProcurementPlans.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
         if (plan is null) return Problem("not-found", "Plan not found.", 404);

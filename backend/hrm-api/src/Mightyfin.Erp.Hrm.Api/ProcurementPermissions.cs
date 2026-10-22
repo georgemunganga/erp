@@ -27,7 +27,8 @@ public static class ProcurementPermissions
         var assigned = LocalIdentityRoutes.ParseRoles(csv);
         if (assigned.Length == 0) return [];
         var configured = await db.TenantRoleAssignments.AsNoTracking()
-            .Where(r => r.Active && assigned.Contains(r.RoleKey)).ToListAsync(ct);
+            .Where(r => r.Active && !r.IsArchived && assigned.Contains(r.RoleKey))
+            .Select(r => new { r.RoleKey, r.PermissionsCsv }).ToListAsync(ct);
         var known = RoleGrants.Keys.ToHashSet(StringComparer.Ordinal);
         var grants = new HashSet<string>(StringComparer.Ordinal);
         foreach (var role in assigned)

@@ -28,6 +28,22 @@ public static class ProcurementActionCatalog
             ["procurement-plan-read"] = ["manager", "procurement_buyer", "procurement_manager"],
             ["procurement-plan-create"] = ["manager", "procurement_buyer", "procurement_manager"],
             ["procurement-plan-edit"] = ["manager", "procurement_buyer", "procurement_manager"],
+            // These actions require explicit configured grants (or existing ERP administrator
+            // governance access). Neither role bootstrap nor this catalog grants spending limits.
+            ["procurement-receipt-view"] = [],
+            ["procurement-receipt-create"] = [],
+            ["procurement-receipt-edit"] = [],
+            ["procurement-receipt-record"] = [],
+            ["procurement-receipt-inspect"] = [],
+            ["procurement-receipt-accept"] = [],
+            ["procurement-service-certify"] = [],
+            ["procurement-authority-read"] = [],
+            ["procurement-authority-configure"] = [],
+            ["procurement-authority-review"] = [],
+            ["procurement-authority-revoke"] = [],
+            ["procurement-approval-decide"] = [],
+            ["procurement-approval-open"] = [],
+            ["procurement-approval-read"] = [],
             ["procurement-configuration-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-configuration-edit"] = ["procurement_manager"],
             ["procurement-configuration-approve"] = ["procurement_manager"],
@@ -37,11 +53,24 @@ public static class ProcurementActionCatalog
             ["procurement-sourcing-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-sourcing-create"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-sourcing-edit"] = ["procurement_buyer", "procurement_manager"],
+            // Source reservations/releases require explicit Core grants; legacy draft rights do not imply them.
+            ["procurement-sourcing-convert"] = [],
+            ["procurement-sourcing-cancel"] = [],
+            // Explicit configured grant only; catalog registration adds no publication endpoint or limit.
+            ["procurement-sourcing-publish"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
             ["procurement-invoice-capture"] = ["ap_processor"],
+            ["procurement-invoice-match"] = [],
             ["procurement-po-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-po-create"] = ["procurement_buyer"],
             ["procurement-po-edit"] = ["procurement_buyer"],
+            ["procurement-po-convert"] = ["procurement_buyer"],
+            ["procurement-po-submit"] = ["procurement_buyer"],
+            ["procurement-po-approve"] = ["procurement_manager"],
+            ["procurement-po-issue"] = ["procurement_buyer"],
+            ["procurement-po-amend"] = ["procurement_buyer"],
+            ["procurement-po-finance-confirm"] = ["finance_approver"],
+            ["procurement-po-dispatch-confirm"] = ["procurement_manager"],
         };
 
     public static string[] ForRole(string role) => BootstrapGrants

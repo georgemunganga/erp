@@ -1,0 +1,250 @@
+using System.Text.Json;
+using Mightyfin.Erp.Core.Approvals.Domain;
+using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
+
+namespace Mightyfin.Erp.Procurement.Tests;
+
+public sealed class PurchaseOrderSourceAllocationTests
+{
+    [Fact]
+    public void Reserved_quantity_moves_to_ordered_once_and_is_not_available_to_another_buyer()
+    {
+        var f = new Fixture();
+        var allocation = f.Reserve(3);
+        Assert.Equal(7, f.Available());
+        f.Order.Status = "Approved";
+        PurchaseOrderSourceAllocation.ConfirmOrdered(f.Source, f.Order, f.PoLine, allocation, f.Now.AddMinutes(2));
+        Assert.Equal(0, f.Line.AllocatedQuantity);
+        Assert.Equal(3, f.Line.OrderedQuantity);
+        Assert.Equal(7, f.Available());
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.ConfirmOrdered(
+            f.Source, f.Order, f.PoLine, allocation, f.Now.AddMinutes(2)));
+        Assert.Equal(3, f.Line.OrderedQuantity);
+    }
+
+    [Fact]
+    public void Another_order_cannot_reserve_more_than_remaining_approved_quantity()
+    {
+        var f = new Fixture();
+        _ = f.Reserve(8);
+        var other = f.NewOrder(); var line = f.NewPoLine(other, 3);
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.Reserve(f.Source,
+            other, line, 3, Guid.NewGuid(), "other-buyer", f.Now.AddMinutes(2)));
+        Assert.Equal(8, f.Line.AllocatedQuantity);
+    }
+
+    [Fact]
+    public void Unreconciled_counter_does_not_make_quantity_available()
+    {
+        var f = new Fixture();
+        _ = f.Reserve(8);
+        f.Line.AllocatedQuantity = 0;
+        Assert.Throws<InvalidOperationException>(() => f.Available());
+    }
+
+    [Theory]
+    [InlineData("unapproved")]
+    [InlineData("wrongCoreSource")]
+    [InlineData("policyUnitChange")]
+    [InlineData("wrongCurrency")]
+    [InlineData("foreignSource")]
+    [InlineData("methodUnconfigured")]
+    [InlineData("quotesRequired")]
+    public void Source_authority_cannot_be_replaced_by_a_label_or_unknown_buying_method(string change)
+    {
+        var f = new Fixture();
+        switch (change)
+        {
+            case "unapproved": f.Case.State = "Pending"; break;
+            case "wrongCoreSource": f.Case.SourceId = Guid.NewGuid(); break;
+            case "policyUnitChange": f.Line.UnitCode = "BOX"; break;
+            case "wrongCurrency": f.Request.CurrencyCode = "USD"; break;
+            case "foreignSource": f.Request.LegalEntityId = Guid.NewGuid(); break;
+            case "methodUnconfigured": f.Method.ExecutionRoute = "Unconfigured"; break;
+            case "quotesRequired": f.Method.ExecutionRoute = "CompetitiveSourcing"; break;
+        }
+        Assert.Throws<InvalidOperationException>(() => f.Available());
+    }
+
+    [Fact]
+    public void Unsupported_unit_conversion_and_currency_cannot_reserve_source_authority()
+    {
+        var f = new Fixture();
+        f.PoLine.UnitCode = "BOX";
+        Assert.Throws<InvalidOperationException>(() => f.Reserve(1));
+        f.PoLine.UnitCode = "EA"; f.Order.CurrencyCode = "USD";
+        Assert.Throws<InvalidOperationException>(() => f.Reserve(1));
+        Assert.Equal(0, f.Line.AllocatedQuantity);
+    }
+
+    [Fact]
+    public void Draft_release_requires_no_active_Finance_commitment_and_keeps_allocation_history()
+    {
+        var f = new Fixture(); var allocation = f.Reserve(4);
+        f.Order.FinanceCommitmentRef = "FINANCE-COMMITMENT";
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.ReleaseDraft(
+            f.Source, f.Order, allocation, "Cancelled", f.Now.AddMinutes(2)));
+        Assert.Equal(4, f.Line.AllocatedQuantity);
+        f.Order.FinanceCommitmentRef = null;
+        PurchaseOrderSourceAllocation.ReleaseDraft(f.Source, f.Order, allocation, "Cancelled", f.Now.AddMinutes(2));
+        Assert.Equal("Released", allocation.Status);
+        Assert.Equal(10, f.Available());
+        Assert.Single(f.Ledger);
+    }
+
+    [Fact]
+    public void Excess_tax_precision_is_rejected_before_reserving_or_resizing_source_counters()
+    {
+        var f = new Fixture(); f.PoLine.TaxAmount = 12.34567m;
+        Assert.Throws<InvalidOperationException>(() => f.Reserve(1));
+        Assert.Equal(0, f.Line.AllocatedQuantity); Assert.Empty(f.Ledger);
+        f.PoLine.TaxAmount = 12.3456m;
+        var allocation = f.Reserve(1);
+        var before = (f.Line.AllocatedQuantity, allocation.Quantity, allocation.EstimatedValue, f.PoLine.Quantity);
+        f.PoLine.TaxAmount = 12.34567m;
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.ResizeReservation(
+            f.Source, f.Order, f.PoLine, allocation, 2, "Exact tax required", f.Now.AddMinutes(2)));
+        Assert.Equal(before, (f.Line.AllocatedQuantity, allocation.Quantity, allocation.EstimatedValue, f.PoLine.Quantity));
+    }
+
+    [Fact]
+    public void Source_unit_value_is_retained_separately_from_proposed_PO_value()
+    {
+        var f = new Fixture(); f.PoLine.UnitPrice = 20;
+        var allocation = f.Reserve(2);
+        var source = PurchaseOrderSourceAllocation.Check(f.Source, Fixture.Tenant, f.Company, f.Now.AddMinutes(2));
+        Assert.Equal(10, source.ApprovedUnitPrice);
+        Assert.Equal(40, allocation.EstimatedValue);
+        Assert.Equal(100, source.ApprovedLineBase);
+        Assert.Equal("Draft", f.Order.Status); // a larger proposed value still needs independent PO approval/Finance.
+    }
+
+    [Fact]
+    public void Unrepresentable_proposed_reservation_product_leaves_source_route_and_counters_unchanged()
+    {
+        const decimal maximum = 99999999999999.9999m;
+        var f = new Fixture(maximum, 0.0001m);
+        f.PoLine.Quantity = maximum; f.PoLine.UnitPrice = maximum;
+        var before = (f.Request.UpdatedAt, f.Line.Route, f.Line.AllocatedQuantity, f.Line.OrderedQuantity, f.PoLine.Quantity);
+        var error = Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.Reserve(f.Source,
+            f.Order, f.PoLine, maximum, Guid.NewGuid(), "buyer", f.Now.AddMinutes(1)));
+        Assert.Equal("ExactDecimalNotRepresentable", error.Message);
+        Assert.Equal(before, (f.Request.UpdatedAt, f.Line.Route, f.Line.AllocatedQuantity, f.Line.OrderedQuantity, f.PoLine.Quantity));
+        Assert.Empty(f.Ledger);
+    }
+
+    [Fact]
+    public void Unrepresentable_resize_product_leaves_existing_allocation_and_source_aggregate_unchanged()
+    {
+        const decimal maximum = 99999999999999.9999m;
+        var f = new Fixture(maximum, 0.0001m);
+        var allocation = f.Reserve(1); f.PoLine.UnitPrice = maximum;
+        var before = (f.Request.UpdatedAt, f.Line.AllocatedQuantity, allocation.Quantity, allocation.EstimatedValue,
+            allocation.Reason, allocation.Status, f.PoLine.Quantity);
+        Assert.Throws<InvalidOperationException>(() => PurchaseOrderSourceAllocation.ResizeReservation(f.Source,
+            f.Order, f.PoLine, allocation, maximum, "Synthetic resize", f.Now.AddMinutes(2)));
+        Assert.Equal(before, (f.Request.UpdatedAt, f.Line.AllocatedQuantity, allocation.Quantity, allocation.EstimatedValue,
+            allocation.Reason, allocation.Status, f.PoLine.Quantity));
+        Assert.Same(allocation, Assert.Single(f.Ledger));
+    }
+
+    [Fact]
+    public void Approved_source_base_cannot_reuse_a_silently_rounded_estimate()
+    {
+        var f = new Fixture(99999999999999.9999m, 99999999999999.9999m);
+        var before = (f.Request.UpdatedAt, f.Line.Route, f.Line.AllocatedQuantity, f.Line.OrderedQuantity);
+        Assert.Throws<InvalidOperationException>(() => f.Available());
+        Assert.Equal(before, (f.Request.UpdatedAt, f.Line.Route, f.Line.AllocatedQuantity, f.Line.OrderedQuantity));
+    }
+
+    internal sealed class Fixture
+    {
+        public const string Tenant = "source-test";
+        public Guid Company { get; } = Guid.NewGuid();
+        public DateTimeOffset Now { get; } = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
+        public PurchaseRequest Request { get; }
+        public PurchaseRequestLine Line => Request.Lines.Single();
+        public ProcurementMethod Method { get; }
+        public ApprovalCase Case { get; }
+        public ApprovedPurchaseSource Source { get; }
+        public List<PurchaseRequestAllocation> Ledger { get; } = [];
+        public List<PurchaseDemandAllocationOwner> Owners { get; } = [];
+        public PurchaseOrder Order { get; }
+        public PurchaseOrderLine PoLine { get; }
+
+        public Fixture(decimal requestedQuantity = 10m, decimal estimatedUnitPrice = 10m,
+            string sourceUnitCode = "EA", string? purchaseType = null,
+            string executionRoute = "DirectPurchase", int? minimumQuoteCount = 0, bool omitMinimumQuoteCount = false, bool boundFinance = false)
+        {
+            Request = Scoped(new PurchaseRequest { Number = "PR-TEST", RequesterWorkerId = Guid.NewGuid(),
+                CurrencyCode = "ZMW", Purpose = "Source authority test", Status = "Submitted", Version = 1,
+                SubmittedVersion = 1, SubmittedAt = Now, CreatedBy = "requester" });
+            Request.Lines.Add(Scoped(new PurchaseRequestLine { PurchaseRequestId = Request.Id, LineNumber = 1,
+                Description = "Item", UnitCode = sourceUnitCode, PurchaseType = purchaseType, RequestedQuantity = requestedQuantity, EstimatedUnitPrice = estimatedUnitPrice,
+                EstimatedCurrencyCode = "ZMW", CategoryCode = "OFFICE" }));
+            Method = Scoped(new ProcurementMethod { Code = "BUSINESS_METHOD", Name = "Configured direct route",
+                Status = "Active", ExecutionRoute = executionRoute });
+            var policy = Scoped(new PolicyVersion { PolicyKey = "PURCHASE_REQUEST", PolicyVersionNumber = 1,
+                State = "Published", EffectiveFrom = Now.AddDays(-1), RulesJson = "{}" });
+            var evaluation = Scoped(new PolicyEvaluation { PurchaseRequestId = Request.Id, RequestVersion = 1,
+                PolicyVersionId = policy.Id, PolicyVersionNumber = 1, Outcome = "Matched", AmountBasis = "EstimatedLineBase",
+                DecisionJson = JsonSerializer.Serialize(new { requestId = Request.Id, requestVersion = 1, policyId = policy.Id,
+                    lines = new[] { new { lineId = Line.Id, decision = new { status = "Match",
+                        sourcingMethodCode = Method.Code, minimumQuoteCount,
+                        approvalStages = new[] { new { code = "NEED", assignee = "LineManager", mode = "One" } } } } } }) });
+            if (omitMinimumQuoteCount)
+                evaluation.DecisionJson = evaluation.DecisionJson.Replace("\"minimumQuoteCount\":" +
+                    (minimumQuoteCount?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null") + ",", "");
+            var finance = Scoped(new BudgetCheckSnapshot { PurchaseRequestId = Request.Id, RequestVersion = 1,
+                Status = "Available", CheckedAmount = requestedQuantity * estimatedUnitPrice, CurrencyCode = "ZMW", FinanceCheckRef = "CHECK",
+                EvidenceRef = "SYNTHETIC", ReservationRef = "RESERVE", ReservationStatus = "Confirmed", CheckedAt = Now });
+            if (boundFinance)
+            {
+                finance.CheckedBySubjectId = "independent-finance";
+                var binding = FinanceCheckerIdentityEvidence.CreateForNewSnapshot(finance, finance.CheckedBySubjectId, Guid.NewGuid());
+                finance.CheckerIdentitySchemaVersion = binding.SchemaVersion;
+                finance.CheckedByWorkerId = binding.WorkerId; finance.CheckerIdentitySha256 = binding.Sha256;
+            }
+            Case = new ApprovalCase { TenantId = Tenant, LegalEntityId = Company, SourceModule = "procurement",
+                SourceType = "purchase_request", SourceId = Request.Id, SourceVersion = 1,
+                PolicyVersionId = policy.Id, PolicyVersionNumber = 1, MakerSubjectId = "requester" };
+            var stage = new ApprovalStage { TenantId = Tenant, LegalEntityId = Company, CaseId = Case.Id,
+                Sequence = 1, Code = "NEED", State = "Active", Mode = "Any", RequiredApprovals = 1 };
+            var assignment = new ApprovalAssignment { TenantId = Tenant, LegalEntityId = Company, CaseId = Case.Id,
+                StageId = stage.Id, AssigneeSubjectId = "independent-approver", PermissionKey = "procurement-approval-decide" };
+            stage.Assignments.Add(assignment); Case.Stages.Add(stage);
+            var pin = PurchaseRequestApprovalPinning.Pin(Request, evaluation, policy, finance, Tenant, Company,
+                Case.Id, Guid.NewGuid(), "ApprovedManualEvidence", "SYNTHETIC", Now.AddSeconds(1), Guid.NewGuid(), Request.RequesterWorkerId);
+            Request.ApprovalInstanceRef = Case.Id.ToString("D"); Request.Version++;
+            var decisions = new List<ApprovalDecision>();
+            ApprovalEngine.Decide(Case, assignment, new("independent-approver", Tenant, Company,
+                new HashSet<string> { "procurement-approval-decide" }), "Approve", Guid.NewGuid().ToString("D"),
+                null, decisions, Now.AddSeconds(2));
+            var decision = decisions.Single();
+            var effects = PurchaseRequestApprovalOutcomes.Apply(Request, pin, Case, decision, evaluation, policy,
+                finance, Tenant, Company, Now.AddSeconds(2));
+            Source = new(Request, Line, pin, effects.Outcome, Case, decision, evaluation, policy, finance, Method, Ledger, Owners);
+            Order = NewOrder(); PoLine = NewPoLine(Order, 1);
+        }
+        public PurchaseOrder NewOrder() => Scoped(new PurchaseOrder { Number = Guid.NewGuid().ToString(),
+            CurrencyCode = "ZMW", BuyerSubjectId = "buyer", SupplierId = Guid.NewGuid(), Status = "Draft" });
+        public PurchaseOrderLine NewPoLine(PurchaseOrder order, decimal quantity)
+        {
+            var row = Scoped(new PurchaseOrderLine { PurchaseOrderId = order.Id, PurchaseRequestLineId = Line.Id,
+                LineNumber = 1, Description = "Item", UnitCode = "EA", Quantity = quantity, UnitPrice = 10 });
+            Owners.Add(PurchaseDemandAllocationOwner.FromOrder(order, row));
+            return row;
+        }
+        public PurchaseRequestAllocation Reserve(decimal quantity)
+        {
+            PoLine.Quantity = quantity;
+            var allocation = PurchaseOrderSourceAllocation.Reserve(Source, Order, PoLine, quantity,
+                Guid.NewGuid(), "buyer", Now.AddMinutes(1));
+            Ledger.Add(allocation); return allocation;
+        }
+        public decimal Available() => PurchaseOrderSourceAllocation.Check(Source, Tenant, Company, Now.AddMinutes(2)).AvailableQuantity;
+        private T Scoped<T>(T record) where T : ProcurementRecord
+        { record.TenantId = Tenant; record.LegalEntityId = Company; return record; }
+    }
+}

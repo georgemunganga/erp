@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -102,6 +103,8 @@ public static class ProcurementOrderDraftRoutes
         var allLines = await db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == id)
             .OrderBy(x => x.LineNumber).ToListAsync(ct);
         var active = allLines.Where(x => x.IsActive).ToList();
+        if (active.Any(x => x.PurchaseRequestLineId != null) || order.FinanceCommitmentRef is not null)
+            return Problem("source-controlled-order", "Use the approved-source editor so request quantities and funding stay correct.", 409);
         var suppliedIds = draft.Lines!.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToList();
         if (suppliedIds.Count != suppliedIds.Distinct().Count()
             || suppliedIds.Any(lineId => active.All(x => x.Id != lineId)))
@@ -151,6 +154,8 @@ public static class ProcurementOrderDraftRoutes
             return Problem("validation-failed", "Give a cancellation reason of up to 1,000 characters.", 422);
         var lines = await db.PurchaseOrderLines.AsNoTracking()
             .Where(x => x.PurchaseOrderId == id && x.IsActive).OrderBy(x => x.LineNumber).ToListAsync(ct);
+        if (lines.Any(x => x.PurchaseRequestLineId != null) || order.FinanceCommitmentRef is not null)
+            return Problem("source-controlled-order", "Cancel this order through its source and funding review.", 409);
         var before = ProcurementDraftAudit.Snapshot(Detail(order, lines, null));
         order.Status = "Cancelled";
         order.ClosureReason = input.Reason.Trim();
@@ -162,11 +167,15 @@ public static class ProcurementOrderDraftRoutes
         return Results.Ok(Detail(order, lines, null));
     }
 
-    private static Task<bool> SupplierAvailable(ProcurementDbContext db, Guid supplierId,
-        CancellationToken ct) => db.Suppliers.AsNoTracking().AnyAsync(x => x.Id == supplierId
-            && (x.Status == "Active" || x.Status == "Approved") && x.IsOrderable, ct);
+    private static async Task<bool> SupplierAvailable(ProcurementDbContext db, Guid supplierId,
+        CancellationToken ct)
+    {
+        var supplier = await db.Suppliers.AsNoTracking().Include(x => x.Qualifications)
+            .SingleOrDefaultAsync(x => x.Id == supplierId, ct);
+        return supplier is not null && SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow);
+    }
 
-    private static string? Validate(OrderDraftInput input)
+    internal static string? Validate(OrderDraftInput input)
     {
         if (input.SupplierId == Guid.Empty) return "Choose a vendor.";
         if (input.CurrencyCode is null || input.CurrencyCode.Trim().Length != 3
@@ -182,6 +191,10 @@ public static class ProcurementOrderDraftRoutes
                 return "Each line needs a description of up to 500 characters.";
             if (string.IsNullOrWhiteSpace(line.UnitCode) || line.UnitCode.Trim().Length > 20)
                 return "Each line needs a unit of up to 20 characters.";
+            if (!ExactDecimalJsonCodec.IsRepresentable(line.Quantity, 18, 4)
+                || !ExactDecimalJsonCodec.IsRepresentable(line.UnitPrice, 18, 4)
+                || !ExactDecimalJsonCodec.IsRepresentable(line.TaxAmount, 18, 4))
+                return "Use up to four decimal places for quantity, unit price and tax. No changes were saved.";
             if (line.Quantity <= 0 || line.UnitPrice < 0 || line.TaxAmount < 0
                 || line.Quantity > 1_000_000m || line.UnitPrice > 1_000_000_000m
                 || line.TaxAmount > 1_000_000_000_000m)
@@ -190,14 +203,14 @@ public static class ProcurementOrderDraftRoutes
         return null;
     }
 
-    private static PurchaseOrderLine NewLine(Guid orderId, int number, OrderDraftLineInput input)
+    internal static PurchaseOrderLine NewLine(Guid orderId, int number, OrderDraftLineInput input)
     {
         var line = new PurchaseOrderLine { PurchaseOrderId = orderId, LineNumber = number };
         ApplyLine(line, input);
         return line;
     }
 
-    private static void ApplyLine(PurchaseOrderLine line, OrderDraftLineInput input)
+    internal static void ApplyLine(PurchaseOrderLine line, OrderDraftLineInput input)
     {
         line.Description = input.Description!.Trim();
         line.UnitCode = input.UnitCode!.Trim().ToUpperInvariant();
@@ -209,16 +222,18 @@ public static class ProcurementOrderDraftRoutes
         line.ExpectedDeliveryOn = input.ExpectedDeliveryOn;
     }
 
-    private static object Detail(PurchaseOrder order, IReadOnlyCollection<PurchaseOrderLine> lines,
+    internal static object Detail(PurchaseOrder order, IReadOnlyCollection<PurchaseOrderLine> lines,
         string? supplierName) => new
     {
         order.Id, order.Number, order.SupplierId, supplierName, order.CurrencyCode,
         order.Status, order.BuyerSubjectId, order.BranchRef, order.ShipToRef, order.BillToRef,
         order.PaymentTermRef, order.ExpectedDeliveryOn, order.ClosureReason,
-        order.Version, order.CreatedAt,
+        order.Version, order.CreatedAt, order.CurrentRevision, order.SubmittedBusinessVersion,
+        order.SubmittedAt, order.ApprovalInstanceRef,
         total = lines.Sum(x => x.Quantity * x.UnitPrice + x.TaxAmount),
         lines = lines.Select(x => new { x.Id, x.LineNumber, x.Description, x.UnitCode,
             x.Quantity, x.UnitPrice, x.TaxAmount, x.CostCenterRef, x.ProjectRef,
+            sourcePurchaseRequestLineId = x.PurchaseRequestLineId,
             x.ExpectedDeliveryOn }),
         nextStep = "Approval and issue require an approved source, Finance commitment and delegated authority.",
     };
@@ -235,5 +250,7 @@ public sealed record OrderDraftInput(Guid SupplierId, string? CurrencyCode, stri
     string? BillToRef, string? PaymentTermRef, DateOnly? ExpectedDeliveryOn,
     List<OrderDraftLineInput>? Lines);
 public sealed record OrderDraftLineInput(Guid? Id, string? Description, string? UnitCode,
-    decimal Quantity, decimal UnitPrice, decimal TaxAmount, string? CostCenterRef,
+    [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal Quantity,
+    [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal UnitPrice,
+    [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal TaxAmount, string? CostCenterRef,
     string? ProjectRef, DateOnly? ExpectedDeliveryOn);

@@ -63,7 +63,7 @@ public static class PolicyRuleValidator
         return issues;
     }
 
-    private static void ValidateWhen(JsonElement rule, string path, List<PolicyRuleIssue> issues)
+    internal static void ValidateWhen(JsonElement rule, string path, List<PolicyRuleIssue> issues)
     {
         if (!rule.TryGetProperty("when", out var when) || when.ValueKind != JsonValueKind.Object)
         { Add(issues, path + ".when", "Add matching conditions, even when all are unrestricted."); return; }
@@ -151,8 +151,7 @@ public static class PolicyRuleValidator
         && value.TryGetInt32(out var number) && number >= minimum && number <= maximum;
     private static string? String(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-    private static bool ValidCode(string? code) => !string.IsNullOrWhiteSpace(code) && code.Length <= 100
-        && code.All(c => c is >= 'A' and <= 'Z' or >= '0' and <= '9' or '_');
+    private static bool ValidCode(string? code) => ProcurementPolicyCode.IsValid(code);
     private static void Add(List<PolicyRuleIssue> issues, string path, string message)
     { if (issues.Count < 100) issues.Add(new(path, message)); }
 }

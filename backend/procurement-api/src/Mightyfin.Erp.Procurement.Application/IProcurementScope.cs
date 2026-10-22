@@ -9,5 +9,8 @@ public interface IProcurementScope
     Guid? OrgUnitId { get; }
     bool IsConfined { get; }
     string SubjectId { get; }
+    // Identity comes from Core, never inferred from SubjectId or a role. Older/read-only
+    // scopes may omit it; new worker-bound evidence requires a concrete current worker.
+    Guid? WorkerId => null;
     string? CorrelationId { get; }
 }
