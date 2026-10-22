@@ -64,7 +64,7 @@ internal static partial class Program
             var meta = await Get(client, "/meta"); Check(meta.GetProperty("crudEnabled").GetBoolean(), "Normal host CRUD capability unavailable.");
             foreach (var capability in new[] { "approvals", "orders", "sourcingSourceDrafts", "receivingDrafts", "invoiceComparison" })
                 Check(!meta.GetProperty("capabilities").GetProperty(capability).GetBoolean(), "Draft fixture must not enable an operational workflow.");
-            await Vendors(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await ReceivingLookups(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client);
+            await Vendors(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await ReceivingLookups(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client); await VerifyUsedCorePrincipalMigration();
             stage = "independent-final-owning-context";
             await using (var proof = Db())
             {
@@ -178,6 +178,7 @@ internal static partial class Program
         // the genuine canonical forward delta; metadata must never fake away that pending ID.
         stage = "canonical-P21-before-current-HTTP";
         await using (var db = Db()) await db.GetService<IMigrator>().MigrateAsync(CanonicalP21);
+        await RehearseUnusedCorePrincipalMigration();
         await VerifyCanonicalSchema();
         Check(oldValues==await Legacy(),"Canonical upgrade changed original legacy columns.");
     }
@@ -488,8 +489,7 @@ internal static partial class Program
             await using var command = new NpgsqlCommand(manifest, raw);
             Check(await command.ExecuteScalarAsync() is true, "Exact canonical ownership manifest missing.");
         }
-        Check(await Scalar("SELECT count(*)::text FROM pg_constraint WHERE connamespace='procurement'::regnamespace AND contype='c' AND convalidated") == "39",
-            "Canonical validated CHECK inventory mismatch.");
+        await VerifyCorePrincipalSchema();
     }
 
     static async Task RawInsert(string table,object value,string excluded)
