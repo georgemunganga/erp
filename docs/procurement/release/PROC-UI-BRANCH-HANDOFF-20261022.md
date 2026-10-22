@@ -79,3 +79,25 @@ Frozen tree hash:
 Protected evidence includes `deployment.private.json`,
 `live-after.private.json`, frozen manifest, actual live screenshots,
 final unit/build/browser logs, and the retained first timeout trace.
+
+## Follow-up: explicit verified workspace recovery
+
+UI PR #52 merged at `f11500eaa9063c79aa4b1ff11349d87cf4366b7f`
+(application `e21214a21f7ad5bc7950ffb0738f591d476509dd`). The shared
+header/picker stays available when readiness returns an access error.
+A user whose verified Core context authorizes a company-wide workspace
+can explicitly choose that workspace when an obsolete saved branch cannot
+be resolved. No automatic scope clearing, inferred company, administrative
+grant or business-route rendering is introduced.
+
+Verification: 67 focused units, supported Node 22 TypeScript/live staged
+build, and all 14 focused Playwright cases passed, one worker/no retries,
+no skipped or flaky cases. These browser cases use controlled API fixtures.
+The frozen five-file bundle was deployed with an atomic index replacement;
+public HTML/JavaScript/CSS hashes matched. New JavaScript is
+`index-W93NqqfS.js`; CSS remains `index-B_T57PCm.css`.
+Protected logs, frozen bundle, deployment backup/manifest and public-byte
+checks are in
+`/home/amizo/erp-backups/procurement-company-scope-recovery-20261022`.
+This follow-up does not expand the preceding actual-account acceptance
+into full live CRUD or operational-workflow certification.
