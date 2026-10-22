@@ -1,6 +1,6 @@
 # P23 — Core principal original-unit review
 
-Status: source candidate; build, generated migration, private PostgreSQL rehearsal and browser gates NOT RUN.
+Status: source candidate; owning infrastructure build and genuine P23 generation completed. Full test/publication, private PostgreSQL rehearsal and browser gates NOT RUN.
 
 ## Baseline and ownership
 

@@ -1,6 +1,6 @@
 # P23 original-unit review — generation readiness
 
-Status: source alignment only. No build, migration generation, database application or runtime proof for this P23 candidate.
+Status: source candidate with genuine P23 generation. Infrastructure build passed; full test/publication and database/runtime proof remain pending.
 
 ## Source baseline and preservation
 
@@ -60,3 +60,9 @@ dotnet build "$I" --no-restore -c Release -m:1 -p:UseSharedCompilation=false
 ## Release evidence required
 
 Record the generation source commit, actual migration ID, immutable pre/post migration inventory, generated SQL hashes, full domain/host test TRX, all full publication manifests, real finite-role privilege proof, private actual API/Docs/Approvals/browser results, used-downgrade veto and operational rollback/forward-recovery decision. Keep feature flags off until these gates pass. None is claimed complete by this alignment document.
+
+## Genuine generation checkpoint — 22 October 2026
+
+Reviewed source `a0ca734908395771ead3df8bcae1e16b2c5aefa7` compiled the owning infrastructure in the offline cached .NET 10 SDK with **0 errors and 8 nullable warnings**. Actual EF assigned migration **`20261022112145_P23CorePrincipalInvoiceUnitReview`**. The original emitted migration, Designer and snapshot are archived privately before any customization. Up, Designer and snapshot remain byte-identical to genuine generation; only the new Down prepends the reviewed literal retained-evidence lock/veto guard and removes the two automatically emitted Guid.Empty reverse-column defaults.
+
+Independent source review confirmed the expected four tables, six restrictive scoped FKs, keys/indexes, two nullable actor workers, mapping discriminator default 1 and three successor CHECKs. The other 136 existing migration/Designer/snapshot artifacts are unchanged; the Procurement snapshot change is the genuine EF output. The observed migration ID is recorded here and in its emitted artifact, but runtime readiness constants remain empty until real PostgreSQL definition capture. No SQL has been applied. Full domain/host tests and complete publications follow under the exclusive SDK gate; this checkpoint is not their result.
