@@ -77,8 +77,9 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
         Assert.False(f.Db.ChangeTracker.HasChanges());
     }
 
-    [Fact]
-    public async Task Mixed_case_stored_manager_role_still_requires_actual_current_permission_and_one_complete_finite_authority()
+    [Theory]
+    [InlineData("matching")][InlineData("wrong-department")][InlineData("ambiguous")][InlineData("no-grant")]
+    public async Task Selected_department_and_mixed_case_role_require_exact_finite_authority_without_granting_access(string condition)
     {
         await using var f=await Fixture.Start();var reviewer=Guid.NewGuid();var now=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
         f.Core.LocalUsers.Add(new(){Id=reviewer,Email="reviewer@example.test",NormalizedEmail="REVIEWER@EXAMPLE.TEST",
@@ -89,6 +90,10 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
             new TenantRoleAssignment{RoleKey="authority_maker",RoleName="Synthetic grant maker",PermissionsCsv="procurement-access,procurement-authority-configure",Active=true});
         (await f.Core.LocalUsers.SingleAsync(x=>x.Id==f.Maker)).RolesCsv="authority_maker";
         (await f.Core.LocalUsers.SingleAsync(x=>x.Id==f.Checker)).RolesCsv="PROCUREMENT_MANAGER";
+        var department=Guid.NewGuid();var otherDepartment=Guid.NewGuid();var branch=Guid.NewGuid();
+        f.Core.WorkLocations.Add(new(){Id=branch,Code="BRANCH",Name="Synthetic selected branch",LegalEntityId=f.Company});
+        f.Core.OrgUnits.AddRange(new OrgUnit{Id=department,Code="DEPT",Name="Synthetic selected department",LegalEntityId=f.Company,Status="active"},
+            new OrgUnit{Id=otherDepartment,Code="OTHER",Name="Other department",LegalEntityId=f.Company,Status="active"});
         await f.Core.SaveChangesAsync();
         ProcurementRequestScope ScopeFor(Guid principal)
         {
@@ -98,34 +103,39 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
         ProcurementDbContext Store(Guid principal)=>new(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseInMemoryDatabase(f.ProcurementStore).Options,ScopeFor(principal));
         SpendingAuthorityConfigurationActor Actor(Guid principal,string permission)=>new("principal-finance",f.Company,principal.ToString("D"),true,new HashSet<string>{permission});
-        var subject=new SpendingAuthoritySubject("principal-finance",f.Company,f.Checker.ToString("D"),true,true);
-        Guid grantId;
-        await using(var create=Store(f.Maker))
+        async Task SeedAuthority(Guid recipient,string reference)
         {
-            var grant=SpendingAuthorityConfiguration.CreateDraft("FINITE-MANAGER",f.Checker.ToString("D"),
-                new("ZMW","EstimatedLineBase",100,now.AddDays(-1),now.AddDays(1),AllBranches:true,AllDepartments:true,AllCategories:true),
-                Actor(f.Maker,SpendingAuthorityConfiguration.ConfigurePermission),now,[]);
-            var people=await ProcurementSpendingAuthorityPrincipalIdentity.ResolveCreationActorsAsync(f.Core,ScopeFor(f.Maker),f.Checker.ToString("D"),default);
-            grantId=grant.Id;create.Add(grant);create.Add(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureCreation(grant,
-                people.Actor.CoreLinkedWorkerId,people.Recipient.CoreLinkedWorkerId,2)));
-            await create.SaveChangesAsync();
+            var subject=new SpendingAuthoritySubject("principal-finance",f.Company,recipient.ToString("D"),true,true);
+            Guid grantId;
+            await using(var create=Store(f.Maker))
+            {
+                var grant=SpendingAuthorityConfiguration.CreateDraft(reference,recipient.ToString("D"),
+                    new("ZMW","EstimatedLineBase",100,now.AddDays(-1),now.AddDays(1),AllBranches:true,AllDepartments:false,DepartmentRef:department,AllCategories:true),
+                    Actor(f.Maker,SpendingAuthorityConfiguration.ConfigurePermission),now,[]);
+                var people=await ProcurementSpendingAuthorityPrincipalIdentity.ResolveCreationActorsAsync(f.Core,ScopeFor(f.Maker),recipient.ToString("D"),default);
+                grantId=grant.Id;create.Add(grant);create.Add(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureCreation(grant,
+                    people.Actor.CoreLinkedWorkerId,people.Recipient.CoreLinkedWorkerId,2)));
+                await create.SaveChangesAsync();
+            }
+            await using(var submit=Store(f.Maker))
+            {
+                var grant=await submit.SpendingAuthorityGrants.SingleAsync(x=>x.Id==grantId);
+                var origin=await ProcurementSpendingAuthorityWorkerIdentity.LoadCreatedAsync(submit,ScopeFor(f.Maker),grant,default);
+                SpendingAuthorityConfiguration.Submit(grant,grant.Version,Actor(f.Maker,SpendingAuthorityConfiguration.ConfigurePermission),subject,now.AddMinutes(1));
+                submit.Add(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureSubmission(grant,origin,f.Maker.ToString("D"),null,null)));
+                await submit.SaveChangesAsync();
+            }
+            await using(var activate=Store(reviewer))
+            {
+                var grant=await activate.SpendingAuthorityGrants.SingleAsync(x=>x.Id==grantId);
+                var proof=await ProcurementSpendingAuthorityPrincipalIdentity.RequireReviewerAsync(f.Core,activate,ScopeFor(reviewer),grant,default);
+                SpendingAuthorityConfiguration.Activate(grant,grant.Version,Actor(reviewer,SpendingAuthorityConfiguration.ReviewPermission),subject,"Synthetic independent review",now.AddMinutes(2),[grant]);
+                activate.Add(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureActivation(grant,proof.Created,proof.Submitted,reviewer.ToString("D"),null,null)));
+                await activate.SaveChangesAsync();
+            }
         }
-        await using(var submit=Store(f.Maker))
-        {
-            var grant=await submit.SpendingAuthorityGrants.SingleAsync(x=>x.Id==grantId);
-            var origin=await ProcurementSpendingAuthorityWorkerIdentity.LoadCreatedAsync(submit,ScopeFor(f.Maker),grant,default);
-            SpendingAuthorityConfiguration.Submit(grant,grant.Version,Actor(f.Maker,SpendingAuthorityConfiguration.ConfigurePermission),subject,now.AddMinutes(1));
-            submit.Add(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureSubmission(grant,origin,f.Maker.ToString("D"),null,null)));
-            await submit.SaveChangesAsync();
-        }
-        await using(var activate=Store(reviewer))
-        {
-            var grant=await activate.SpendingAuthorityGrants.SingleAsync(x=>x.Id==grantId);
-            var proof=await ProcurementSpendingAuthorityPrincipalIdentity.RequireReviewerAsync(f.Core,activate,ScopeFor(reviewer),grant,default);
-            SpendingAuthorityConfiguration.Activate(grant,grant.Version,Actor(reviewer,SpendingAuthorityConfiguration.ReviewPermission),subject,"Synthetic independent review",now.AddMinutes(2),[grant]);
-            activate.Add(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureActivation(grant,proof.Created,proof.Submitted,reviewer.ToString("D"),null,null)));
-            await activate.SaveChangesAsync();
-        }
+        var selected=new ProcurementRequestScope();selected.Set("principal-finance",f.Company,f.Checker.ToString("D"),branch,department,true,"selected-department");
+        selected.AssignPrincipal(f.Checker);f.Request.BranchRef=branch;f.Request.DepartmentRef=department;
         f.Request.Lines.Add(new(){TenantId=f.Request.TenantId,LegalEntityId=f.Company,PurchaseRequestId=f.Request.Id,
             LineNumber=1,Description="Supplies",CategoryCode="IT",RequestedQuantity=1,EstimatedUnitPrice=1});
         var policyId=Guid.NewGuid();
@@ -134,11 +144,34 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
                 requestId=f.Request.Id,requestVersion=f.Request.SubmittedVersion.Value,policyId,
                 lines=f.Request.Lines.Select(x=>new{lineId=x.Id,decision=new{status="Match",
                     approvalStages=new[]{new{code="FINITE",assignee="ProcurementManager",mode="One"}}}})})};
-        var resolved=await ProcurementPrincipalApprovalAssignees.ResolveAsync(f.Request,evaluation,f.Core,f.Db,f.Scope,now.AddMinutes(3),default);
+        Task<IReadOnlyList<ProcurementPrincipalApprovalStage>> Resolve()=>ProcurementPrincipalApprovalAssignees.ResolveAsync(
+            f.Request,evaluation,f.Core,f.Db,selected,now.AddMinutes(3),default);
+        if(condition=="no-grant")
+        {
+            Assert.Equal("ApprovalAssigneeAuthorityUnavailable",(await Assert.ThrowsAsync<InvalidOperationException>(()=>Resolve())).Message);
+            Assert.False(f.Db.ChangeTracker.HasChanges());return;
+        }
+        await SeedAuthority(f.Checker,"FINITE-MANAGER");
+        var resolved=await Resolve();
         Assert.Equal(f.Checker.ToString("D"),Assert.Single(Assert.Single(resolved).Assignees).Person.PrincipalId);
-        (await f.Core.TenantRoleAssignments.SingleAsync(x=>x.RoleKey=="procurement_manager")).PermissionsCsv="procurement-access";
-        await f.Core.SaveChangesAsync();
-        await Assert.ThrowsAsync<InvalidOperationException>(()=>ProcurementPrincipalApprovalAssignees.ResolveAsync(f.Request,evaluation,f.Core,f.Db,f.Scope,now.AddMinutes(3),default));
+        if(condition=="wrong-department")
+        {
+            f.Request.DepartmentRef=otherDepartment;
+            Assert.Equal("ApprovalAssigneeAuthorityUnavailable",(await Assert.ThrowsAsync<InvalidOperationException>(()=>Resolve())).Message);
+        }
+        else if(condition=="ambiguous")
+        {
+            var second=Guid.NewGuid();f.Core.LocalUsers.Add(new(){Id=second,Email="second@example.test",NormalizedEmail="SECOND@EXAMPLE.TEST",
+                DisplayName="Synthetic second finite manager",PasswordHash="not-a-login",RolesCsv="procurement_manager",IsActive=true});
+            await f.Core.SaveChangesAsync();await SeedAuthority(second,"FINITE-SECOND");
+            Assert.Equal("ApprovalAssigneeAmbiguous",(await Assert.ThrowsAsync<InvalidOperationException>(()=>Resolve())).Message);
+        }
+        else
+        {
+            (await f.Core.TenantRoleAssignments.SingleAsync(x=>x.RoleKey=="procurement_manager")).PermissionsCsv="procurement-access";
+            await f.Core.SaveChangesAsync();
+            Assert.Equal("ApprovalAssigneeAuthorityUnavailable",(await Assert.ThrowsAsync<InvalidOperationException>(()=>Resolve())).Message);
+        }
         Assert.False(f.Db.ChangeTracker.HasChanges());
     }
 

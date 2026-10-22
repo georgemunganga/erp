@@ -49,10 +49,16 @@ internal static class ProcurementPrincipalApprovalAssignees
             }
             else if(stage.Assignee=="ProcurementManager")
             {
-                // Core permits case-insensitive role keys. Do not discard a valid
-                // stored assignment with a case-sensitive SQL substring prefilter.
-                // The complete current scoped family is required to detect ambiguity.
-                var declared=await ProcurementPrincipalPeople.Candidates(core,scope,now)
+                // Enumerate complete owned authority families, not active/amount-
+                // filtered rows. Core department selections are not grants and do
+                // not imply the company-wide policy-reviewer picker contract.
+                var principals=await db.SpendingAuthorityGrants.AsNoTracking().Where(x=>x.TenantId==scope.TenantId && x.LegalEntityId==scope.LegalEntityId
+                    && x.Permission==SpendingAuthorityConfiguration.ApprovalPermission && x.Action==SpendingAuthorityConfiguration.ApprovalAction)
+                    .Select(x=>x.PrincipalId).Distinct().ToArrayAsync(ct);
+                var ids=principals.Where(ProcurementPrincipalEvidence.Canonical).Select(x=>Guid.ParseExact(x,"D")).Distinct().ToArray();
+                // Role casing is handled by the existing exact Core parser. Current
+                // account/action/branch eligibility is revalidated below by Resolve.
+                var declared=await core.LocalUsers.AsNoTracking().Where(x=>x.TenantId==scope.TenantId && ids.Contains(x.Id))
                     .Select(x=>new {x.Id,x.RolesCsv}).ToArrayAsync(ct);
                 foreach(var account in declared.Where(x=>LocalIdentityRoutes.ParseRoles(x.RolesCsv)
                     .Contains("procurement_manager",StringComparer.OrdinalIgnoreCase)))
@@ -113,7 +119,8 @@ internal static class ProcurementPrincipalApprovalAssignees
     {
         if(!person.Permissions.Contains(SpendingAuthorityConfiguration.ApprovalPermission)
             || !person.OrganisationWide && (request.BranchRef is not { } branch || !person.AllowedBranches.Contains(branch)))return null;
-        var grants=await db.SpendingAuthorityGrants.Include(x=>x.Categories).Where(x=>x.PrincipalId==person.PrincipalId
+        var grants=await db.SpendingAuthorityGrants.Include(x=>x.Categories).Where(x=>x.TenantId==scope.TenantId && x.LegalEntityId==scope.LegalEntityId
+            && x.PrincipalId==person.PrincipalId
             && x.Permission==SpendingAuthorityConfiguration.ApprovalPermission && x.Action==SpendingAuthorityConfiguration.ApprovalAction).ToListAsync(ct);
         var result=PurchaseRequestSpendingAuthority.Evaluate(request,person.PrincipalId,
             SpendingAuthorityConfiguration.ApprovalPermission,SpendingAuthorityConfiguration.ApprovalAction,
