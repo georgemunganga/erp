@@ -179,6 +179,7 @@ internal static partial class Program
         stage = "canonical-P21-before-current-HTTP";
         await using (var db = Db()) await db.GetService<IMigrator>().MigrateAsync(CanonicalP21);
         await RehearseUnusedCorePrincipalMigration();
+        await VerifyCorePrincipalAuditOnlyDown();
         await VerifyCanonicalSchema();
         Check(oldValues==await Legacy(),"Canonical upgrade changed original legacy columns.");
     }

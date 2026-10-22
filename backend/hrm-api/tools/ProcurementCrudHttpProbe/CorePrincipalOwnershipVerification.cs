@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
+using NpgsqlTypes;
+using System.Text.Json;
 
 namespace ProcurementCrudHttpProbe;
 internal static partial class Program
@@ -30,6 +32,59 @@ internal static partial class Program
         Check(original == await LookupFootprint(), "Unused P22 Down changed retained Core/Procurement rows or migration history.");
         await using (var db = Db()) await db.GetService<IMigrator>().MigrateAsync(id);
         Check(legacy == await Legacy(), "Core principal re-upgrade changed legacy invoice columns.");
+    }
+
+    // Migration-only synthetic audit fixtures never commit and never claim an
+    // actual request, approval, supplier identity or business transition.
+    static async Task VerifyCorePrincipalAuditOnlyDown()
+    {
+        var id = CorePrincipalMigration(); var original = await LookupFootprint();
+        string sql;
+        await using (var db = Db())
+        {
+            Check(!await db.PurchaseRequests.AnyAsync(), "Audit-only Down must precede every HTTP request record.");
+            sql = db.GetService<IMigrator>().GenerateScript(id, CanonicalP21);
+        }
+        Check(sql.Contains(CorePrincipalDownMessage, StringComparison.Ordinal), "Audit-only check requires the real guarded Down SQL.");
+        var cases = new List<(string Label, string Json)>();
+        foreach (var key in new[] { "RequesterPrincipalId", "requesterPrincipalId" })
+        {
+            cases.Add(("array-" + key, JsonSerializer.Serialize(new[] { key })));
+            foreach (var container in new[] { "before", "after", "snapshot", "submittedSnapshot" })
+                cases.Add((container + "-" + key, JsonSerializer.Serialize(new Dictionary<string, object>
+                    { [container] = new Dictionary<string, Guid> { [key] = Actor } })));
+        }
+        Check(cases.Count == 10, "Expected ten exact producer-shaped identity audit cases.");
+        foreach (var test in cases)
+        {
+            stage = "audit-only-P22-Down-" + test.Label;
+            await using var owner = new NpgsqlConnection(connection); await owner.OpenAsync();
+            await using var transaction = await owner.BeginTransactionAsync();
+            await using (var empty = new NpgsqlCommand("SELECT count(*) FROM procurement.purchase_requests", owner, transaction))
+                Check((long)(await empty.ExecuteScalarAsync())! == 0, "A request masked the independent audit-only veto.");
+            await using (var insert = new NpgsqlCommand("""
+                INSERT INTO procurement.audit_events
+                  (id,tenant_id,legal_entity_id,created_at,created_by,version,record_type,record_id,action,actor_subject_id,changed_fields_json,correlation_id)
+                VALUES (@id,@tenant,@company,@now,@actor,1,'PurchaseRequest',@record,'MigrationOnlySyntheticIdentityGuard',@actor,@changed,'private-migration-only-no-business-authority');
+                """, owner, transaction))
+            {
+                insert.Parameters.AddWithValue("id", Guid.NewGuid()); insert.Parameters.AddWithValue("record", Guid.NewGuid());
+                insert.Parameters.AddWithValue("tenant", Tenant); insert.Parameters.AddWithValue("company", Company);
+                insert.Parameters.AddWithValue("now", DateTimeOffset.UtcNow); insert.Parameters.AddWithValue("actor", Actor.ToString("D"));
+                insert.Parameters.Add(new NpgsqlParameter("changed", NpgsqlDbType.Jsonb) { Value = test.Json });
+                Check(await insert.ExecuteNonQueryAsync() == 1, "Synthetic audit-only fixture was not inserted exactly once.");
+            }
+            // Execute the literal generated script on this SAME physical connection
+            // and outer transaction. Its nested BEGIN is harmless; the guard must
+            // abort before any DDL/COMMIT. Rollback discards the never-published fixture.
+            await using (var down = new NpgsqlCommand(sql, owner, transaction))
+            {
+                try { await down.ExecuteNonQueryAsync(); throw new ProbeFailure("Audit-only identity allowed destructive Down."); }
+                catch (Exception error) when (FindPg(error) is { SqlState: "55000", MessageText: CorePrincipalDownMessage }) { }
+            }
+            await transaction.RollbackAsync();
+            Check(original == await LookupFootprint(), "Denied audit-only Down or rollback changed retained rows/history.");
+        }
     }
 
     static async Task VerifyCorePrincipalSchema()
