@@ -31,7 +31,12 @@ public static partial class ProcurementInvoiceIntakeRoutes
         group.MapPost("", Capture).Accepts<InvoiceIntakeInput>("application/json").RequireAuthorization("procurement-invoice-capture");
         group.MapPut("/{id:guid}", Update).Accepts<InvoiceIntakeUpdateInput>("application/json").RequireAuthorization("procurement-invoice-read", "procurement-invoice-capture");
         group.MapPost("/{id:guid}/cancel", Cancel).RequireAuthorization("procurement-invoice-read", "procurement-invoice-capture");
+        ProcurementInvoiceFinanceReadinessRoutes.MapRoutes(app);
     }
+
+    // Shared canonical released invoice scope: selected branches and unknown legacy branches
+    // must behave identically for intake, documents, credit intake and AP readiness.
+    internal static IQueryable<SupplierInvoice> ReadableInvoices(ProcurementDbContext db, ProcurementRequestScope scope) => Visible(db, scope);
 
     private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope, int? page, int? pageSize,
         CancellationToken ct)

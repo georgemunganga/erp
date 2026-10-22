@@ -92,16 +92,16 @@ public static class ProcurementVendorRoutes
             && supplier.CreatedBy != scope.SubjectId && !canReview && !canViewHistoricObligation)
             return Results.NotFound();
         var canDecide = canApprove
-            && supplier.Status == "Submitted" && supplier.CreatedBy != scope.SubjectId
+            && supplier.Status == "Submitted" && !IsOriginalProposer(supplier, scope)
             && supplier.StatusDecidedBy != scope.SubjectId;
         var canSuspend = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-suspend")).Succeeded
             && supplier.Status == "Active" && supplier.IsOrderable
-            && supplier.CreatedBy != scope.SubjectId;
+            && !IsOriginalProposer(supplier, scope);
         var canReactivate = canApprove
             && supplier.Status == "Suspended" && !supplier.IsOrderable
-            && supplier.CreatedBy != scope.SubjectId && supplier.StatusDecidedBy != scope.SubjectId;
+            && !IsOriginalProposer(supplier, scope) && supplier.StatusDecidedBy != scope.SubjectId;
         return Results.Ok(canManage || supplier.CreatedBy == scope.SubjectId || canReview
-            ? ToDetail(supplier, canManage && supplier.CreatedBy != scope.SubjectId
+            ? ToDetail(supplier, canManage && !IsOriginalProposer(supplier, scope)
                 && supplier.Status == "Submitted", canDecide, canSuspend, canReactivate) : ToBasicDetail(supplier));
     }
 
@@ -133,7 +133,9 @@ public static class ProcurementVendorRoutes
             TaxCategoryRef = Clean(input.TaxCategoryRef), LanguageCode = Clean(input.LanguageCode),
             Remarks = Clean(input.Remarks), IsLocal = input.IsLocal,
             PortalAccessState = input.PortalAccessRequested ? "Requested" : null,
-            ProposedByWorkerId = scope.WorkerId,
+            // Creation-time known alias metadata, not proof of active HR status
+            // or a company/access grant. Never backfill historical proposals.
+            ProposedByWorkerId = scope.CoreLinkedWorkerId ?? scope.WorkerId,
             Status = "Draft", IsOrderable = false,
         };
         if (input.PrimaryContact is not null)
@@ -347,7 +349,7 @@ public static class ProcurementVendorRoutes
         if (supplier.Status != "Submitted")
             return Conflict("Only a submitted vendor can be returned for more information.");
         if (supplier.Version != input.Version) return Stale();
-        if (supplier.CreatedBy == scope.SubjectId)
+        if (IsOriginalProposer(supplier, scope))
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return BadInput("Give a reason of up to 1,000 characters for the requested changes.");
@@ -376,7 +378,7 @@ public static class ProcurementVendorRoutes
         if (supplier is null) return Results.NotFound();
         if (supplier.Status != "Submitted") return Conflict("Only a submitted vendor can be approved.");
         if (supplier.Version != input.Version) return Stale();
-        if (supplier.CreatedBy == scope.SubjectId || supplier.StatusDecidedBy == scope.SubjectId)
+        if (IsOriginalProposer(supplier, scope) || supplier.StatusDecidedBy == scope.SubjectId)
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         if (!input.DuplicatesReviewed)
             return BadInput("Review possible duplicate vendors before approval.");
@@ -417,7 +419,7 @@ public static class ProcurementVendorRoutes
         if (supplier is null) return Results.NotFound();
         if (supplier.Status != "Submitted") return Conflict("Only a submitted vendor can be rejected.");
         if (supplier.Version != input.Version) return Stale();
-        if (supplier.CreatedBy == scope.SubjectId || supplier.StatusDecidedBy == scope.SubjectId)
+        if (IsOriginalProposer(supplier, scope) || supplier.StatusDecidedBy == scope.SubjectId)
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return BadInput("Record a rejection reason of up to 1,000 characters.");
@@ -450,7 +452,7 @@ public static class ProcurementVendorRoutes
             if (supplier.Status != "Active" || !supplier.IsOrderable)
                 return Conflict("Only an active vendor can be suspended.");
             if (supplier.Version != input.Version) return Stale();
-            if (supplier.CreatedBy == scope.SubjectId)
+            if (IsOriginalProposer(supplier, scope))
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
                 return BadInput("Explain why this vendor must be placed on hold in up to 1,000 characters.");
@@ -508,7 +510,7 @@ public static class ProcurementVendorRoutes
         if (supplier.Status != "Suspended" || supplier.IsOrderable)
             return Conflict("Only a vendor on hold can be reactivated.");
         if (supplier.Version != input.Version) return Stale();
-        if (supplier.CreatedBy == scope.SubjectId || supplier.StatusDecidedBy == scope.SubjectId)
+        if (IsOriginalProposer(supplier, scope) || supplier.StatusDecidedBy == scope.SubjectId)
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return BadInput("Explain how the hold was resolved in up to 1,000 characters.");
@@ -729,7 +731,7 @@ public static class ProcurementVendorRoutes
         if (supplier.Status != "Submitted")
             return Conflict("Qualifications can be reviewed only while the vendor is submitted.");
         if (supplier.Version != input.Version) return Stale();
-        if (supplier.CreatedBy == scope.SubjectId || supplier.StatusDecidedBy == scope.SubjectId)
+        if (IsOriginalProposer(supplier, scope) || supplier.StatusDecidedBy == scope.SubjectId)
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         var qualification = supplier.Qualifications.SingleOrDefault(x => x.Id == qualificationId && x.IsActive);
         if (qualification is null) return Results.NotFound();
@@ -760,6 +762,15 @@ public static class ProcurementVendorRoutes
         return Results.Ok(new { qualification.Id, qualification.ReviewStatus,
             qualification.ReviewedAt, qualification.Version, supplierVersion = supplier.Version });
     }
+
+    // Core principal remains the authority. The original optional employee pin adds
+    // a known-alias veto only; two absent employee links are not the same person.
+    // There is no retained submitter/hold-decider worker pin to infer or fabricate.
+    private static bool IsOriginalProposer(Supplier supplier, ProcurementRequestScope scope) =>
+        supplier.CreatedBy == scope.SubjectId
+        || supplier.ProposedByWorkerId is { } proposer && proposer != Guid.Empty
+            && (scope.CoreLinkedWorkerId is { } linked && linked != Guid.Empty && proposer == linked
+                || scope.WorkerId is { } actor && actor != Guid.Empty && proposer == actor);
 
     private static object ToDetail(Supplier x, bool canReturnForInformation, bool canDecide = false,
         bool canSuspend = false, bool canReactivate = false) => new

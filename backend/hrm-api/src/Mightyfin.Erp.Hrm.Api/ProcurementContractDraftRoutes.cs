@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -14,8 +15,8 @@ public static class ProcurementContractDraftRoutes
         var group = app.MapGroup("/api/procurement/v1/contracts");
         group.MapGet("", List).RequireAuthorization("procurement-contract-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-contract-read");
-        group.MapPost("", Create).RequireAuthorization("procurement-contract-create");
-        group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-contract-edit");
+        group.MapPost("", Create).Accepts<ContractDraftInput>("application/json").RequireAuthorization("procurement-contract-create");
+        group.MapPut("/{id:guid}", Update).Accepts<VersionedContractDraft>("application/json").RequireAuthorization("procurement-contract-edit");
         group.MapPost("/{id:guid}/cancel", Cancel).RequireAuthorization("procurement-contract-edit");
     }
 
@@ -45,9 +46,12 @@ public static class ProcurementContractDraftRoutes
         return Results.Ok(Detail(contract, version));
     }
 
-    private static async Task<IResult> Create(ContractDraftInput input, ProcurementDbContext db,
+    private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db,
         HrmDbContext core, ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<ContractDraftInput>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
             ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
         var issue = ProcurementContractDraftRules.Validate(input);
@@ -73,9 +77,12 @@ public static class ProcurementContractDraftRoutes
         return Results.Created($"/api/procurement/v1/contracts/{contract.Id}", Detail(contract, version));
     }
 
-    private static async Task<IResult> Update(Guid id, VersionedContractDraft input,
+    private static async Task<IResult> Update(Guid id, JsonElement body,
         ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<VersionedContractDraft>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
         var contract = await db.SupplierContracts
             .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
         if (contract is null) return Problem("not-found", "Contract not found.", 404);

@@ -11,6 +11,7 @@ public sealed class RequestApprovalReadinessTests
         var request = new PurchaseRequest
         {
             Status = "Submitted", Version = 4, SubmittedVersion = 4,
+            RequesterWorkerId = Guid.NewGuid(),
             CurrencyCode = "ZMW", ApprovalState = "PendingPolicyAndBudget",
             Lines = [new PurchaseRequestLine
             {
@@ -46,6 +47,32 @@ public sealed class RequestApprovalReadinessTests
         Assert.True(result.PrerequisitesMet);
         Assert.Equal(250m, result.EstimatedAmount);
         Assert.Empty(result.Blockers);
+        Assert.Equal("PendingPolicyAndBudget", request.ApprovalState);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Missing_legacy_worker_identity_cannot_satisfy_worker_pinned_approval(bool emptyWorker)
+    {
+        var (request, evaluation, policy, finance) = Ready();
+        request.RequesterWorkerId = emptyWorker ? Guid.Empty : null;
+        var result = RequestApprovalReadiness.Check(request, evaluation, policy, finance);
+        Assert.False(result.PrerequisitesMet);
+        Assert.Contains("LegacyWorkerApprovalIdentityUnavailable", result.Blockers);
+        Assert.Equal("PendingPolicyAndBudget", request.ApprovalState);
+    }
+
+    [Fact]
+    public void System_user_request_requires_principal_based_approval_evidence()
+    {
+        var (request, evaluation, policy, finance) = Ready();
+        request.RequesterPrincipalId = Guid.NewGuid();
+        request.CreatedBy = request.RequesterPrincipalId.Value.ToString("D");
+        request.RequesterWorkerId = null;
+        var result = RequestApprovalReadiness.Check(request, evaluation, policy, finance);
+        Assert.False(result.PrerequisitesMet);
+        Assert.Contains("PrincipalApprovalEvidenceRequired", result.Blockers);
         Assert.Equal("PendingPolicyAndBudget", request.ApprovalState);
     }
 

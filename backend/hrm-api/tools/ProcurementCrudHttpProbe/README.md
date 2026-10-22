@@ -43,3 +43,46 @@ The synthetic manifest contains only company/branch/actor/worker/supplier/legacy
 Tool-only authenticated Core presentation endpoints (`auth/me`, branding, legal entities, locations, shell) exist in socket mode only. User, worker, company and assigned branch are read from actual fixture Core records; branding is explicitly synthetic. They are not a production Core/auth implementation. Procurement context, metadata, error, command and read responses always come from the actual normal host routes and PostgreSQL; no Procurement response is mocked. Two synthetic actor IDs are the only accepted outer auth-header values.
 
 No frontend, auth master, public test endpoint or production adapter is introduced. Private fixture shell routes disappear when this standalone tool stops.
+
+
+## Exact request draft companion (source authored; execution pending)
+
+`RequestExactValuesVerification.cs` runs inside the existing guarded private tool, before the other draft scenarios. It uses normal mapped category/item create and independent `Other` activation, then actual catalog price create and independent publication (the existing supplier is explicitly a synthetic approved/orderable owner prerequisite, not a supplier-approval proof). It then proves:
+
+- Maximum `99999999999999.9999` string original quantity/rate transport, additive exact GET companions and unchanged legacy numeric fields.
+- Current-CAS header correction retaining hidden header/line/discount/source fields; a removed line remains with its original quantity and Cancelled quantity/status.
+- Actual PostgreSQL owner reload, old-CAS conflict, foreign-company Core denial and nonowner read denial; full owning-table snapshots unchanged for denials.
+- Raw scale/long-significand/underflow/range lexeme rejections before POST/PUT data or audit writes.
+- Legacy numeric input with two exact eight-place products (sum `0.00000002`), no currency rounding requirement.
+- Selected genuinely published catalog IDs/version and exact price preserved through draft correction/reload.
+- No request submission/approval/budget/policy evaluation and no unrelated Procurement table/history/outbox/audit changes during request operations. Full table snapshots reuse the existing independent `PolicyStoreRows` owner helper; intended request audit rows are excluded only in the success-protected snapshot.
+
+These new scenarios are **not executed yet**. Existing PASS counts describe earlier sources and must not be reused as this candidate's evidence. The complete tool's assertion/request totals are computed at runtime; no fixed new totals are claimed. It retains existing no-production connection/prefix and synthetic outer-auth/owner-connection limitations, other CLI/browser modes and original source/DB preservation behavior.
+
+## Canonical governed-source compatibility candidate
+
+This tool-only increment is authored against canonical P21 with operational options still disabled. It keeps the real released P19 legacy fixture and P20 unused Down/Up preservation check, using old-schema column projections rather than materializing new P21 invoice fields against P20. It then applies the **actual** `20261022052824_P21CanonicalGovernedProcurementFoundation` before mapping current HTTP routes; no pending-model/migration check is stubbed and no history is invented. Original legacy invoice fields compare identically after the additive upgrade. All nine exact ownership FKs, all 39 validated model CHECKs and actual migration/model readiness must remain present both before HTTP and after the expected used P20 Down veto.
+
+The existing synthetic HRM `EnsureCreated` remains only a tool identity fixture. Core.Approvals and Core.Documents use distinct schemas; with execution/document options absent and false, the bounded CRUD handlers do not require or create those schemas. This candidate explicitly verifies all operational metadata capabilities remain false and both schemas remain absent after the CRUD matrix. It is not PR approval, PO issue, receiving, document-owner or qualified invoice-matching proof; the separate genuine workflow tool owns those gates.
+
+The tracked `run-private-postgres.py` replaces the old ignored fixed-worktree launcher for this candidate. It freezes and hashes the **entire** supplied publication (rejecting root/nested symlinks and recursive output placement), inspects the exact private PostgreSQL container's running/network-none state before creating a fresh database, and launches only a preexisting immutable local .NET10 runtime image with `--pull=never --network=none`. Only read-only runtime and private Unix socket are mounted; no source, actual configuration directory, NuGet cache or Docker socket is exposed. Credentials remain inherited environment only and never enter manifests/log commands. Optional browser transport uses the existing Unix socket only and publishes readiness only after all actual CLI checks pass. Databases/logs are retained on failure; no automatic retry/reset/cleanup occurs.
+
+```bash
+python3 backend/hrm-api/tools/ProcurementCrudHttpProbe/run-private-postgres.py \
+  --publication /protected/complete-reviewed-tool-publication \
+  --runtime-image sha256:<existing-reviewed-local-runtime-image-id> \
+  --output /protected/new-unique-canonical-crud-run \
+  --browser
+```
+
+Parent must review source/build provenance and serialize execution after the current SDK/browser gate. Python syntax and `--help` alone were checked; C# compilation, canonical-source CLI/browser counts and this runner's PostgreSQL execution are **pending**. Earlier PASS counts above belong to their stated older sources and do not certify this increment.
+
+## Source candidate — workerless supplier lifecycle
+
+Added source-only on `codex/procurement-system-supplier-proof`, baseline `de4c6b2`. **Not built or run yet.** The isolated coordinator gate must execute this candidate before claiming the proof.
+
+The existing `systemUser` Core account (no employee) creates a separate vendor and real category/contact/qualification through mapped HTTP. A second real Core `systemReviewer` account has no employee and only explicit stored access/vendor read/manage/approve/suspend grants plus company-branch membership. It returns the submission, the maker corrects/resubmits, and the independent reviewer explicitly assesses the synthetic qualification and approves. Actual grant revocation, foreign scope, stale/repeated approval, maker self-approval, active withdrawal and hold self-release must fail without changing supplier/contact/qualification/decision/audit/outbox evidence. Existing third Core actor places the hold; the workerless reviewer independently reactivates. A separate draft is withdrawn through HTTP. Fresh owning queries check final principal attribution, exact versions, qualification review, SupplierDecisions and audits.
+
+No supplier status is owner-seeded for this workflow. The older `approvedSupplierId` remains an explicitly separate synthetic prerequisite; it is not retroactively relabelled as workflow evidence. Qualification evidence is synthetic human assessment, not external compliance or document-service verification. No bank/payment verification is invented. Database connection remains a private owner connection, so finite **application grants** do not prove restricted PostgreSQL role privileges. Outer identity-provider authentication remains synthetic.
+
+Only after all CLI checks finish does the protected browser manifest include `actors.systemReviewer={principalId,workerId:null}` and `browserActorSwitch:"manifest-alias-v1"`. Test-only browser proxy may map the fixed alias to this manifest UUID; it must strip aliases and arbitrary actor headers before injecting the allowlisted actor. This does not extend production authentication. CLI PASS scope now explicitly names this separate supplier lifecycle while still excluding requisition/PO approvals, Finance, stock and full-module completion.

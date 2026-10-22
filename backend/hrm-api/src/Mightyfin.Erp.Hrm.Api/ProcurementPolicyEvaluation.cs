@@ -27,7 +27,9 @@ internal static class ProcurementPolicyEvaluation
                 && x.RequestVersion == requestVersion, ct);
         if (existing is not null) return new(existing.Outcome, false, existing, null);
 
-        var instant = DateTimeOffset.UtcNow;
+        // Submission time is the business boundary; delayed evaluation must not adopt
+        // a later policy simply because an operator retries after a cutover.
+        var instant = request.SubmittedAt ?? DateTimeOffset.UtcNow;
         var policies = await db.PolicyVersions.AsNoTracking()
             .Where(x => x.PolicyKey == "PURCHASE_REQUEST" && x.State == "Published"
                 && x.EffectiveFrom <= instant && (x.EffectiveTo == null || x.EffectiveTo > instant))

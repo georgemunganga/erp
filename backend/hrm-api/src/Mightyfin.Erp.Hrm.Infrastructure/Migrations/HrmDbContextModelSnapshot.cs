@@ -1171,6 +1171,11 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_archived");
 
+                    b.Property<string>("PermissionsCsv")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("permissions_csv");
+
                     b.Property<string>("RoleKey")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1180,11 +1185,6 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("role_name");
-
-                    b.Property<string>("PermissionsCsv")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("permissions_csv");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -1731,13 +1731,13 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("overtime_decision_reason");
 
-                    b.Property<decimal>("OvertimeHours")
-                        .HasColumnType("numeric")
-                        .HasColumnName("overtime_hours");
-
                     b.Property<decimal>("OvertimeHourlyDivisor")
                         .HasColumnType("numeric")
                         .HasColumnName("overtime_hourly_divisor");
+
+                    b.Property<decimal>("OvertimeHours")
+                        .HasColumnType("numeric")
+                        .HasColumnName("overtime_hours");
 
                     b.Property<decimal>("OvertimeMultiplier")
                         .HasColumnType("numeric")
@@ -1809,7 +1809,9 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "OvertimeStatus", "WorkDate");
 
-                    b.HasIndex("TenantId", "WorkerId", "WorkDate").IsUnique().HasFilter("NOT is_archived");
+                    b.HasIndex("TenantId", "WorkerId", "WorkDate")
+                        .IsUnique()
+                        .HasFilter("NOT is_archived");
 
                     b.ToTable("attendance_records", "hrm");
                 });
@@ -1961,6 +1963,10 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("paid_by_subject_id");
 
+                    b.Property<Guid?>("PayPeriodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pay_period_id");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1979,17 +1985,15 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid?>("PayPeriodId").HasColumnType("uuid").HasColumnName("pay_period_id");
-
                     b.Property<Guid>("WorkerId")
                         .HasColumnType("uuid")
                         .HasColumnName("worker_id");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PayPeriodId");
-
                     b.HasIndex("BenefitTypeId");
+
+                    b.HasIndex("PayPeriodId");
 
                     b.HasIndex("WorkerId");
 
@@ -2027,6 +2031,10 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<bool>("IncludeInPayroll")
+                        .HasColumnType("boolean")
+                        .HasColumnName("include_in_payroll");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -2035,9 +2043,9 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_archived");
 
-                    b.Property<bool>("IncludeInPayroll")
+                    b.Property<bool>("IsTaxable")
                         .HasColumnType("boolean")
-                        .HasColumnName("include_in_payroll");
+                        .HasColumnName("is_taxable");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2125,6 +2133,164 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.ToTable("capability_configs", "hrm");
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CompanyBranding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccentColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("accent_color");
+
+                    b.Property<string>("AccentForegroundColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("accent_foreground_color");
+
+                    b.Property<string>("ButtonColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("button_color");
+
+                    b.Property<string>("ButtonForegroundColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("button_foreground_color");
+
+                    b.Property<string>("CompanyDomain")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("company_domain");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("company_name");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("display_name");
+
+                    b.Property<string>("EmailPlaceholder")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("email_placeholder");
+
+                    b.Property<string>("FaviconDataUri")
+                        .HasColumnType("text")
+                        .HasColumnName("favicon_data_uri");
+
+                    b.Property<string>("FontFamily")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("font_family");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<string>("LoginDescription")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("login_description");
+
+                    b.Property<string>("LoginHeading")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("login_heading");
+
+                    b.Property<string>("LogoDarkDataUri")
+                        .HasColumnType("text")
+                        .HasColumnName("logo_dark_data_uri");
+
+                    b.Property<string>("LogoLightDataUri")
+                        .HasColumnType("text")
+                        .HasColumnName("logo_light_data_uri");
+
+                    b.Property<string>("PasswordPlaceholder")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("password_placeholder");
+
+                    b.Property<string>("PrimaryColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("primary_color");
+
+                    b.Property<string>("PrimaryForegroundColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("primary_foreground_color");
+
+                    b.Property<string>("RailActiveColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("rail_active_color");
+
+                    b.Property<string>("RailColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("rail_color");
+
+                    b.Property<string>("RailForegroundColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("rail_foreground_color");
+
+                    b.Property<string>("RailMutedColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("rail_muted_color");
+
+                    b.Property<string>("SecondaryColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("secondary_color");
+
+                    b.Property<string>("SecondaryForegroundColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("secondary_foreground_color");
+
+                    b.Property<string>("SupportEmail")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("support_email");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("company_brandings", "hrm");
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.ComplianceEvidence", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2195,6 +2361,71 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.HasIndex("TenantId", "ControlKey", "ExecutedAt");
 
                     b.ToTable("compliance_evidence", "hrm");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.ContractType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<int>("NoticeDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("notice_days");
+
+                    b.Property<int>("ProbationDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("probation_days");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_contract_types");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_contract_types_tenant_id_code");
+
+                    b.ToTable("contract_types", "hrm");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.ContributionRule", b =>
@@ -3406,26 +3637,26 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.LeaveType", b =>
                 {
-                    b.Property<DateOnly?>("AccrualStartDate")
-                        .HasColumnType("date")
-                        .HasColumnName("accrual_start_date");
-
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateOnly?>("AccrualStartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("accrual_start_date");
+
                     b.Property<bool>("AllowNegative")
                         .HasColumnType("boolean")
                         .HasColumnName("allow_negative");
 
-                    b.Property<bool>("AutoAccrueMonthly")
-                        .HasColumnType("boolean")
-                        .HasColumnName("auto_accrue_monthly");
-
                     b.Property<bool>("AllowsPartialDays")
                         .HasColumnType("boolean")
                         .HasColumnName("allows_partial_days");
+
+                    b.Property<bool>("AutoAccrueMonthly")
+                        .HasColumnType("boolean")
+                        .HasColumnName("auto_accrue_monthly");
 
                     b.Property<int>("CarryForwardDays")
                         .HasColumnType("integer")
@@ -3678,6 +3909,69 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasFilter("status = 'active'");
 
                     b.ToTable("legal_holds", "hrm");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.LocalCredentialLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<Guid>("LocalUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("local_user_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_local_credential_links");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_local_credential_links_token_hash");
+
+                    b.HasIndex("TenantId", "LocalUserId", "ExpiresAt")
+                        .HasDatabaseName("ix_local_credential_links_tenant_id_local_user_id_expires_at");
+
+                    b.ToTable("local_credential_links", "hrm");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.LocalSession", b =>
@@ -4519,6 +4813,10 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("date")
                         .HasColumnName("end_date");
 
+                    b.Property<string>("HistoricalReason")
+                        .HasColumnType("text")
+                        .HasColumnName("historical_reason");
+
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean")
                         .HasColumnName("is_archived");
@@ -4526,6 +4824,10 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.Property<bool>("IsCurrent")
                         .HasColumnType("boolean")
                         .HasColumnName("is_current");
+
+                    b.Property<bool>("IsHistorical")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_historical");
 
                     b.Property<DateOnly>("PayDate")
                         .HasColumnType("date")
@@ -4571,53 +4873,6 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
                     b.ToTable("pay_periods", "hrm");
                 });
-
-            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PeriodBenefit", b =>
-            {
-                b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid").HasColumnName("id");
-                b.Property<string>("TenantId").IsRequired().HasColumnType("text").HasColumnName("tenant_id");
-                b.Property<Guid>("PayPeriodId").HasColumnType("uuid").HasColumnName("pay_period_id");
-                b.Property<Guid>("WorkerId").HasColumnType("uuid").HasColumnName("worker_id");
-                b.Property<Guid>("BenefitTypeId").HasColumnType("uuid").HasColumnName("benefit_type_id");
-                b.Property<decimal>("Amount").HasPrecision(18, 2).HasColumnType("numeric(18,2)").HasColumnName("amount");
-                b.Property<string>("Note").IsRequired().HasColumnType("text").HasColumnName("note");
-                b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone").HasColumnName("created_at");
-                b.Property<string>("CreatedBy").IsRequired().HasColumnType("text").HasColumnName("created_by");
-                b.Property<DateTimeOffset?>("UpdatedAt").HasColumnType("timestamp with time zone").HasColumnName("updated_at");
-                b.Property<string>("UpdatedBy").HasColumnType("text").HasColumnName("updated_by");
-                b.Property<bool>("IsArchived").HasColumnType("boolean").HasColumnName("is_archived");
-                b.HasKey("Id");
-                b.HasIndex("PayPeriodId");
-                b.HasIndex("WorkerId");
-                b.HasIndex("BenefitTypeId");
-                b.HasIndex("TenantId", "PayPeriodId", "WorkerId", "BenefitTypeId").IsUnique().HasFilter("NOT is_archived");
-                b.ToTable("period_benefits", "hrm");
-                b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.BenefitType", "BenefitType").WithMany().HasForeignKey("BenefitTypeId").OnDelete(DeleteBehavior.Restrict).IsRequired();
-                b.Navigation("BenefitType");
-                b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.PayPeriod", null).WithMany().HasForeignKey("PayPeriodId").OnDelete(DeleteBehavior.Restrict).IsRequired();
-                b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.Worker", null).WithMany().HasForeignKey("WorkerId").OnDelete(DeleteBehavior.Restrict).IsRequired();
-            });
-            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PeriodOvertime", b =>
-            {
-                b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid").HasColumnName("id");
-                b.Property<string>("TenantId").IsRequired().HasColumnType("text").HasColumnName("tenant_id");
-                b.Property<Guid>("PayPeriodId").HasColumnType("uuid").HasColumnName("pay_period_id");
-                b.Property<Guid>("WorkerId").HasColumnType("uuid").HasColumnName("worker_id");
-                b.Property<decimal>("Amount").HasPrecision(18, 2).HasColumnType("numeric(18,2)").HasColumnName("amount");
-                b.Property<string>("Note").IsRequired().HasColumnType("text").HasColumnName("note");
-                b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone").HasColumnName("created_at");
-                b.Property<string>("CreatedBy").IsRequired().HasColumnType("text").HasColumnName("created_by");
-                b.Property<DateTimeOffset?>("UpdatedAt").HasColumnType("timestamp with time zone").HasColumnName("updated_at");
-                b.Property<string>("UpdatedBy").HasColumnType("text").HasColumnName("updated_by");
-                b.Property<bool>("IsArchived").HasColumnType("boolean").HasColumnName("is_archived");
-                b.HasKey("Id");
-                b.HasIndex("PayPeriodId");
-                b.HasIndex("WorkerId");
-                b.HasIndex("TenantId", "PayPeriodId", "WorkerId").IsUnique().HasFilter("NOT is_archived");
-                b.ToTable("period_overtime", "hrm");
-                b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.PayPeriod", null).WithMany().HasForeignKey("PayPeriodId").OnDelete(DeleteBehavior.Restrict).IsRequired();
-                b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.Worker", null).WithMany().HasForeignKey("WorkerId").OnDelete(DeleteBehavior.Restrict).IsRequired();
-            });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PayrollLineComponent", b =>
                 {
@@ -4739,9 +4994,17 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("exception_count");
 
+                    b.Property<string>("HistoricalReason")
+                        .HasColumnType("text")
+                        .HasColumnName("historical_reason");
+
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean")
                         .HasColumnName("is_archived");
+
+                    b.Property<bool>("IsHistorical")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_historical");
 
                     b.Property<bool>("IsReversal")
                         .HasColumnType("boolean")
@@ -5493,6 +5756,140 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.ToTable("performance_goals", "hrm");
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PeriodBenefit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("BenefitTypeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("benefit_type_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("PayPeriodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pay_period_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("WorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BenefitTypeId");
+
+                    b.HasIndex("PayPeriodId");
+
+                    b.HasIndex("WorkerId");
+
+                    b.HasIndex("TenantId", "PayPeriodId", "WorkerId", "BenefitTypeId")
+                        .IsUnique()
+                        .HasFilter("NOT is_archived");
+
+                    b.ToTable("period_benefits", "hrm");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PeriodOvertime", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("PayPeriodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pay_period_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("WorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PayPeriodId");
+
+                    b.HasIndex("WorkerId");
+
+                    b.HasIndex("TenantId", "PayPeriodId", "WorkerId")
+                        .IsUnique()
+                        .HasFilter("NOT is_archived");
+
+                    b.ToTable("period_overtime", "hrm");
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PrivilegedActionEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5919,6 +6316,121 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.HasIndex("RequisitionId");
 
                     b.ToTable("requisition_events", "hrm");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.SalaryAdvance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("text")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<string>("CancelledBySubjectId")
+                        .HasColumnType("text")
+                        .HasColumnName("cancelled_by_subject_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CreatedBySubjectId")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by_subject_id");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("currency");
+
+                    b.Property<bool>("DeductFromPayslip")
+                        .HasColumnType("boolean")
+                        .HasColumnName("deduct_from_payslip");
+
+                    b.Property<DateOnly>("DeductionStartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("deduction_start_date");
+
+                    b.Property<decimal>("InstallmentAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("installment_amount");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<DateOnly?>("IssueDate")
+                        .HasColumnType("date")
+                        .HasColumnName("issue_date");
+
+                    b.Property<decimal>("OpeningRecoveredAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("opening_recovered_amount");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("RecordType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("record_type");
+
+                    b.Property<string>("Reference")
+                        .HasColumnType("text")
+                        .HasColumnName("reference");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("WorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_salary_advances");
+
+                    b.HasIndex("WorkerId")
+                        .HasDatabaseName("ix_salary_advances_worker_id");
+
+                    b.HasIndex("TenantId", "DeductFromPayslip", "DeductionStartDate")
+                        .HasDatabaseName("ix_salary_advances_tenant_deduct_start");
+
+                    b.HasIndex("TenantId", "WorkerId", "Status")
+                        .HasDatabaseName("ix_salary_advances_tenant_id_worker_id_status");
+
+                    b.ToTable("salary_advances", "hrm");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.SalaryComponent", b =>
@@ -6562,6 +7074,10 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("ContractType")
+                        .HasColumnType("text")
+                        .HasColumnName("contract_type");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -6649,6 +7165,10 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.Property<string>("PassportNo")
                         .HasColumnType("text")
                         .HasColumnName("passport_no");
+
+                    b.Property<string>("PersonalEmail")
+                        .HasColumnType("text")
+                        .HasColumnName("personal_email");
 
                     b.Property<string>("Phone")
                         .HasColumnType("text")
@@ -7130,13 +7650,13 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("WorkerId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("worker_id");
-
                     b.Property<decimal>("WeeklyOvertimeThresholdHours")
                         .HasColumnType("numeric")
                         .HasColumnName("weekly_overtime_threshold_hours");
+
+                    b.Property<Guid>("WorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_id");
 
                     b.HasKey("Id");
 
@@ -7578,13 +8098,16 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.BenefitClaim", b =>
                 {
-                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.PayPeriod", null).WithMany().HasForeignKey("PayPeriodId").OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.BenefitType", "BenefitType")
                         .WithMany()
                         .HasForeignKey("BenefitTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.PayPeriod", null)
+                        .WithMany()
+                        .HasForeignKey("PayPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.Worker", "Worker")
                         .WithMany()
@@ -7898,6 +8421,44 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.Navigation("Worker");
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PeriodBenefit", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.BenefitType", "BenefitType")
+                        .WithMany()
+                        .HasForeignKey("BenefitTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.PayPeriod", null)
+                        .WithMany()
+                        .HasForeignKey("PayPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.Worker", null)
+                        .WithMany()
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BenefitType");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PeriodOvertime", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.PayPeriod", null)
+                        .WithMany()
+                        .HasForeignKey("PayPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.Worker", null)
+                        .WithMany()
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.PublicHoliday", b =>
                 {
                     b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.WorkCalendar", "Calendar")
@@ -7929,6 +8490,18 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Requisition");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.SalaryAdvance", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.Worker", "Worker")
+                        .WithMany()
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_salary_advances_workers_worker_id");
+
+                    b.Navigation("Worker");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.SalaryStructureItem", b =>

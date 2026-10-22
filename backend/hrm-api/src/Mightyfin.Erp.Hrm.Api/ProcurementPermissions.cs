@@ -8,26 +8,27 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>
 /// Every route also checks the resolved entity and its own record/state scope.
-/// Local sessions use Core's configured action grants; OIDC uses bootstrap
-/// roles until the IdP-to-Core permission contract is established.
+/// Every Procurement request revalidates its actual Core account and configured
+/// grants; authentication claims alone never establish module authority.
 /// </summary>
 public static class ProcurementPermissions
 {
     private static readonly IReadOnlyDictionary<string, string[]> RoleGrants = ProcurementActionCatalog.BootstrapGrants;
     public const string ConfiguredClaim = "procurement_permissions_configured";
     public const string ActionClaim = "procurement_permission";
-    // Added only after the middleware verifies a worker-less Core admin GET.
-    // A narrowing claim: it cannot grant an action or replace existing authorization.
+    // Legacy wire claim is stripped on current Core-principal requests; never emitted.
     public const string AdminViewOnlyClaim = "procurement_admin_view_only";
     public static bool IsReadOnlyPolicy(string policy) => policy == "procurement-access"
         || policy.EndsWith("-read", StringComparison.Ordinal) || policy == "procurement-receipt-view";
 
-    public static async Task<string[]> ResolveConfiguredActionsAsync(HrmDbContext db, string csv, CancellationToken ct)
+    public static async Task<string[]> ResolveConfiguredActionsAsync(HrmDbContext db, string csv, CancellationToken ct, string? tenantId = null)
     {
         var assigned = LocalIdentityRoutes.ParseRoles(csv);
         if (assigned.Length == 0) return [];
         var configured = await db.TenantRoleAssignments.AsNoTracking()
-            .Where(r => r.Active && assigned.Contains(r.RoleKey)).ToListAsync(ct);
+            .Where(r => r.Active && !r.IsArchived && assigned.Contains(r.RoleKey)
+                && (tenantId == null || r.TenantId == tenantId))
+            .Select(r => new { r.RoleKey, r.PermissionsCsv }).ToListAsync(ct);
         var known = RoleGrants.Keys.ToHashSet(StringComparer.Ordinal);
         var grants = new HashSet<string>(StringComparer.Ordinal);
         foreach (var role in assigned)
@@ -36,8 +37,14 @@ public static class ProcurementPermissions
             if (row is null) continue;
             var explicitActions = row.PermissionsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Where(known.Contains).ToArray();
-            foreach (var action in explicitActions.Length > 0 ? explicitActions : ProcurementActionCatalog.ForRole(role))
-                grants.Add(action);
+            // Only the exact intentional legacy seed token opts into bootstrap
+            // compatibility. Empty, HR-only or unknown action sets mean no module grants.
+            var legacySeed = string.Equals(row.PermissionsCsv.Trim(), row.RoleKey, StringComparison.OrdinalIgnoreCase);
+            var actions = explicitActions.Length > 0 ? explicitActions : legacySeed
+                ? role.Equals("erp_admin", StringComparison.OrdinalIgnoreCase)
+                    ? RoleGrants.Keys.ToArray() : ProcurementActionCatalog.ForRole(role)
+                : [];
+            foreach (var action in actions) grants.Add(action);
         }
         return grants.Order(StringComparer.Ordinal).ToArray();
     }
@@ -56,12 +63,9 @@ public static class ProcurementPermissions
     public static bool Allows(string policy, IEnumerable<Claim> claims)
     {
         if (!RoleGrants.TryGetValue(policy, out var roles)) return false;
-        if (claims.Any(x => x.Type == AdminViewOnlyClaim && x.Value == "true")
-            && !IsReadOnlyPolicy(policy)) return false;
         var principal = WorkerPrincipal.FromClaims(claims);
         if (claims.Any(x => x.Type == ConfiguredClaim))
         {
-            if (principal.IsRole("erp_admin")) return true;
             var hasAccess = claims.Any(x => x.Type == ActionClaim && x.Value == "procurement-access");
             return hasAccess && (policy == "procurement-access"
                 || claims.Any(x => x.Type == ActionClaim && x.Value == policy));

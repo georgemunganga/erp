@@ -13,6 +13,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Catalog_draft_edit_roundtrips_exact_amounts_and_previously_unprojected_terms()
     {
         await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var itemResponse = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/items", fixture.Owner,
             new { code = "PRICE-EDIT", name = "Catalog draft item", kind = "Goods", categoryCode = "OFFICE", unitCode = "each" }, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Created, itemResponse.StatusCode);
@@ -37,9 +38,25 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal("1.2345", reloaded.GetProperty("exactAmounts").GetProperty("minimumQuantity").GetString());
         Assert.Equal("Exclusive", reloaded.GetProperty("taxBasis").GetString()); Assert.Equal("STAFF", reloaded.GetProperty("audienceCode").GetString());
         Assert.Equal(created.GetProperty("effectiveFrom").GetString(), reloaded.GetProperty("effectiveFrom").GetString());
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, entryPath, fixture.Owner, new { version = 1, entry = draft }, "procurement_buyer")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Put, entryPath, fixture.Owner, new { version = 2, entry = draft }, "procurement_buyer", fixture.OtherCompany)).StatusCode);
         Assert.Equal(1, await fixture.VendorDetailAuditCount(created.GetProperty("id").GetGuid(), "update"));
+    }
+
+    [Theory]
+    [InlineData("100.1234")]
+    [InlineData("99999999999999.9999")]
+    [InlineData("0.0001")]
+    public void Published_catalog_keeps_legacy_numeric_and_lossless_price_companion(string amount)
+    {
+        var value = decimal.Parse(amount, System.Globalization.CultureInfo.InvariantCulture);
+        var row = new CatalogView(Guid.NewGuid(), Guid.NewGuid(), "EXACT", "Exact catalog price", "Goods",
+            null, "OFFICE", "each", value, "ZMW", Guid.NewGuid(), "Synthetic supplier", null, 1);
+        var body = JsonSerializer.SerializeToElement(row, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Equal(JsonValueKind.Number, body.GetProperty("estimatedUnitPrice").ValueKind);
+        Assert.Equal(value, body.GetProperty("estimatedUnitPrice").GetDecimal());
+        Assert.Equal(amount, body.GetProperty("exactEstimatedUnitPrice").GetString());
     }
 
     [Theory]

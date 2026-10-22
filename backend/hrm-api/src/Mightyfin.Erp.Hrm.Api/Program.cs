@@ -71,9 +71,6 @@ builder.Services.AddScoped<AuditInterceptor>();
 builder.Services.AddDbContext<HrmDbContext>((services, options) =>
 {
     options.UseNpgsql(connStr, npgsql => npgsql.MigrationsHistoryTable("__hrm_migrations", "hrm"));
-    // The repository snapshot predates several additive model changes. The
-    // migration runner must still apply explicit migrations in standalone mode.
-    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     options.AddInterceptors(services.GetRequiredService<AuditInterceptor>());
 });
 // Procurement is a bounded module in this ERP host. Its schema still has an
@@ -83,7 +80,7 @@ if (!string.IsNullOrWhiteSpace(procurementConnStr))
 {
     if (procurementConnStr.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && procurementConnStr.Contains('?'))
         procurementConnStr = NpgsqlConnectionStringNormalizer.Normalize(procurementConnStr);
-    Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.AddServices(builder.Services, procurementConnStr);
+    Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.AddServices(builder.Services, procurementConnStr, builder.Configuration);
 }
 
 // ---------- Tenant / auth principal ----------
@@ -367,6 +364,9 @@ app.Use(async (ctx, next) =>
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
+// Current Procurement Core grants must precede named route authorization.
+if (!string.IsNullOrWhiteSpace(procurementConnStr))
+    app.UseMiddleware<Mightyfin.Erp.Hrm.Api.ProcurementCorePrincipalRefreshMiddleware>();
 
 // M34: append-only request evidence for every authenticated privileged
 // mutation. Entity-level before/after evidence is written independently by

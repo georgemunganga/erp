@@ -23,7 +23,9 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Credit_draft_crud_retains_source_exact_amount_audit_and_original_bill()
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier = await fixture.AddInvoiceSupplier();
         var invoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-SOURCE", [InvoiceLine("Wide source", "1", "12345678901234.5678")]);
         var billBefore = await fixture.CreditSourceSnapshot(invoice);
         var created = await CaptureCredit(fixture, invoice, " cn-001 ", "12345678901234.5678"); var id = created.GetProperty("id").GetGuid();
@@ -51,7 +53,9 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Credit_cumulative_ceiling_counts_existing_references_and_cancel_preserves_reserved_number()
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier = await fixture.AddInvoiceSupplier();
         var invoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-CEILING", [InvoiceLine("Bill", "1", "10")]);
         var first = await CaptureCredit(fixture, invoice, "FIRST", "6"); var second = await CaptureCredit(fixture, invoice, "SECOND", "4");
         var before = await fixture.CreditFootprint();
@@ -73,7 +77,9 @@ public sealed partial class ProcurementRequestHttpTests
     [InlineData("100000000000000")]
     public async Task Credit_invalid_amounts_have_no_effects(string amount)
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier = await fixture.AddInvoiceSupplier();
         var invoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-PRECISION"); var before = await fixture.CreditFootprint();
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(fixture.Client, HttpMethod.Post, CreditPath, fixture.Other,
             new { supplierInvoiceId = invoice, creditNumber = "INVALID", amount, reason = "Invalid amount" }, "ap_processor")).StatusCode);
@@ -82,13 +88,19 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Credit_read_scope_and_current_permissions_precede_mutation_or_count()
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier = await fixture.AddInvoiceSupplier();
         var invoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-SCOPE"); var created = await CaptureCredit(fixture, invoice, "SCOPED", "1");
         var id = created.GetProperty("id").GetGuid(); var before = await fixture.CreditFootprint();
+        await fixture.ConfigureCoreRole(fixture.Owner, "ap_processor");
         Assert.Equal(HttpStatusCode.NotFound, (await SendJson(fixture.Client, HttpMethod.Put, $"{CreditPath}/{id}", fixture.Owner,
             new { version = 1, draft = new { creditNumber = "CHANGED", amount = "1", reason = "Not original maker" }, reason = "Wrong actor" }, "ap_processor")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, $"{CreditPath}/{id}/cancel", fixture.Other,
             new { version = 1, reason = "Missing permission" }, "employee")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        await fixture.RestrictCoreAccountToCompany(fixture.Other);
         Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, $"{CreditPath}/{id}", fixture.Other,
             company: fixture.OtherCompany, role: "ap_processor")).StatusCode);
         await fixture.ConfineInvoiceActor();
@@ -104,7 +116,9 @@ public sealed partial class ProcurementRequestHttpTests
     [InlineData("finance-reference")]
     public async Task Credit_historical_or_finance_bound_reference_cannot_be_rewritten(string blocker)
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier = await fixture.AddInvoiceSupplier();
         var invoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-FROZEN"); var created = await CaptureCredit(fixture, invoice, "LOCKED", "1");
         var id = created.GetProperty("id").GetGuid(); await fixture.SetCreditBlocker(id, blocker); var before = await fixture.CreditFootprint();
         var get = await Send(fixture.Client, HttpMethod.Get, $"{CreditPath}/{id}", fixture.Other, role: "ap_processor");
@@ -120,7 +134,9 @@ public sealed partial class ProcurementRequestHttpTests
     [InlineData("unknown-status")]
     public async Task Credit_unknown_legacy_registered_history_is_not_assumed_zero(string blocker)
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier = await fixture.AddInvoiceSupplier();
         var invoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-UNKNOWN");
         var created = await CaptureCredit(fixture, invoice, "OLD-REFERENCE", "1");
         // Explicit owner-only corrupt legacy fixture, never a valid credit-authority producer.
@@ -135,7 +151,9 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Credit_list_search_and_status_are_applied_before_pagination_and_count()
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier = await fixture.AddInvoiceSupplier();
         var invoice = await CaptureCrudInvoice(fixture, supplier, "FIND-ME");
         var other = await CaptureCrudInvoice(fixture, supplier, "UNRELATED");
         var first = await CaptureCredit(fixture, invoice, "MATCH-A", "1");

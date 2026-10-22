@@ -10,42 +10,21 @@ public sealed record ProcurementWorkerHome(Guid WorkerId, Guid? LegalEntityId,
 /// <summary>Checks the HRMS-owned employee mapping for Procurement requests.</summary>
 public static class ProcurementWorkforce
 {
-    /// <summary>Existing ERP governance account, deliberately without an employee mapping.
-    /// This is read-only shell access, never a replacement canonical business actor.</summary>
-    public static async Task<bool> IsUnmappedErpAdministrator(HrmDbContext db, string tenantId,
-        string subjectId, IEnumerable<System.Security.Claims.Claim> claims, CancellationToken ct)
-    {
-        if (!Guid.TryParse(subjectId, out var id)
-            || !WorkerPrincipal.FromClaims(claims).IsRole("erp_admin")) return false;
-        var now = DateTimeOffset.UtcNow;
-        var account = await db.LocalUsers.AsNoTracking()
-            .Where(x => x.TenantId == tenantId && x.Id == id && !x.IsArchived && x.IsActive && x.WorkerId == null)
-            .Select(x => new { x.RolesCsv, x.LockedUntil }).SingleOrDefaultAsync(ct);
-        return account is not null && (account.LockedUntil is null || account.LockedUntil <= now)
-            && LocalIdentityRoutes.ParseRoles(account.RolesCsv)
-            .Contains("erp_admin", StringComparer.OrdinalIgnoreCase);
-    }
-
     public static async Task<ProcurementWorkerHome?> ResolveActiveWorkerHome(HrmDbContext hrm,
         string tenantId, string subjectId, CancellationToken ct)
     {
-        Guid? workerId = null;
-        if (Guid.TryParse(subjectId, out var accountId))
-        {
-            var localAccount = await hrm.LocalUsers.AsNoTracking()
-                .Where(x => x.TenantId == tenantId && x.Id == accountId && !x.IsArchived)
-                .Select(x => new { x.WorkerId, x.IsActive }).SingleOrDefaultAsync(ct);
-            if (localAccount is not null)
-            {
-                if (!localAccount.IsActive || localAccount.WorkerId is null) return null;
-                workerId = localAccount.WorkerId;
-            }
-        }
-        if (workerId is null)
-            workerId = await hrm.Workers.AsNoTracking()
-                .Where(x => x.TenantId == tenantId && x.SubjectId == subjectId && !x.IsArchived)
-                .Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct);
-        if (workerId is null) return null;
+        // Optional HR projection only. An external subject/employee mapping is
+        // never a substitute for an existing current Core system account.
+        if (!Guid.TryParse(subjectId, out var accountId) || accountId == Guid.Empty) return null;
+        var now = DateTimeOffset.UtcNow;
+        // Read at most one tenant account; optional lock ordering is evaluated
+        // on its projection so this boundary works with both PostgreSQL and SQLite.
+        var account = await hrm.LocalUsers.AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.Id == accountId && !x.IsArchived && x.IsActive)
+            .Select(x => new { x.WorkerId, x.LockedUntil }).SingleOrDefaultAsync(ct);
+        if (account is null || account.LockedUntil is { } lockedUntil && lockedUntil > now
+            || account.WorkerId is null) return null;
+        var workerId = account.WorkerId;
 
         var worker = await hrm.Workers.AsNoTracking()
             .Where(x => x.TenantId == tenantId && x.Id == workerId && !x.IsArchived && x.Status == "active")

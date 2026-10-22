@@ -13,9 +13,48 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// <summary>Composes Procurement into the existing ERP process and authentication pipeline.</summary>
 public static class ProcurementHostIntegration
 {
+    // Released draft-only callers do not opt into governed execution merely by composing services.
+    // The production entrypoint passes its explicit IConfiguration to the overload below.
     public static void AddServices(IServiceCollection services, string connection)
+        => AddServices(services, connection, new ConfigurationBuilder().Build());
+
+    public static void AddServices(IServiceCollection services, string connection, IConfiguration configuration)
     {
         services.AddScoped<ProcurementRequestScope>();
+        services.AddSingleton<IProcurementSpendingAuthorityIdentitySchemaReadiness, ProcurementSpendingAuthorityIdentitySchemaReadiness>();
+        services.AddSingleton<IProcurementOperationalPolicyIdentitySchemaReadiness, ProcurementOperationalPolicyIdentitySchemaReadiness>();
+        services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness, ProcurementSourcingPolicyIdentitySchemaReadiness>();
+        var executionConnection = configuration.GetConnectionString("ProcurementApprovalExecution");
+        var approvalOptions = configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
+            ?? new ProcurementApprovalExecutionOptions();
+        approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(approvalOptions);
+        var orderOptions = configuration.GetSection("Procurement:Orders").Get<ProcurementOrderExecutionOptions>()
+            ?? new ProcurementOrderExecutionOptions();
+        orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(orderOptions);
+        var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
+        sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(sourcingOptions);
+        services.AddScoped<IProcurementSourcingDraftSchemaReadiness, ProcurementSourcingDraftSchemaReadiness>();
+        services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
+        services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
+        services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
+        services.AddScoped(sp => new Mightyfin.Erp.Procurement.Infrastructure.Approvals.ProcurementApprovalTransaction(
+            // The normal host connection may be composed while disabled, but every execution
+            // route refuses to run until the explicit least-privilege connection is configured.
+            string.IsNullOrWhiteSpace(executionConnection) ? connection : executionConnection, sp.GetRequiredService<IProcurementScope>(), sp.GetRequiredService<IApprovalScope>()));
+        var receivingOptions = configuration.GetSection("Procurement:Receiving").Get<ProcurementReceivingExecutionOptions>() ?? new();
+        receivingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(receivingOptions);
+        services.AddScoped<IProcurementReceivingSchemaReadiness, ProcurementReceivingSchemaReadiness>();
+        var matchingOptions = configuration.GetSection("Procurement:InvoiceMatching").Get<ProcurementInvoiceMatchingExecutionOptions>() ?? new();
+        matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(matchingOptions);
+        services.AddScoped<IProcurementInvoiceMatchingSchemaReadiness, ProcurementInvoiceMatchingSchemaReadiness>();
+        services.AddScoped<IInvoiceHistoricalExposureOwner, UnavailableInvoiceHistoricalExposureOwner>();
+        services.AddScoped<IInvoiceMappingEvidenceReviewer, UnavailableInvoiceMappingEvidenceReviewer>();
+        ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
         services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
         services.AddDbContext<ProcurementDbContext>(options =>
             options.UseNpgsql(connection, provider =>
@@ -39,26 +78,61 @@ public static class ProcurementHostIntegration
         ProcurementBudgetRoutes.Map(app);
         ProcurementPolicyEvaluationRoutes.Map(app);
         ProcurementApprovalReadinessRoutes.Map(app);
+        ProcurementApprovalExecutionRoutes.MapRoutes(app);
         ProcurementPlanRoutes.MapRoutes(app);
         ProcurementConfigurationRoutes.MapRoutes(app);
+        ProcurementSpendingAuthorityRoutes.MapRoutes(app);
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
+        ProcurementSourcingExecutionRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapCreditRoutes(app);
+        ProcurementInvoiceMatchingRoutes.MapRoutes(app);
+        if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
+        ProcurementOrderExecutionRoutes.MapRoutes(app);
+        ProcurementReceivingRoutes.MapRoutes(app);
+        MapMetadataRoute(app);
+    }
+
+    /// <summary>Maps module availability using the same checks as the complete host.</summary>
+    public static void MapMetadataRoute(WebApplication app)
+    {
         app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
-            ProcurementDbContext db, CancellationToken ct) =>
+            ProcurementDbContext db, IServiceProvider services, CancellationToken ct) =>
         {
             try
             {
                 if (!await db.Database.CanConnectAsync(ct))
                     return Results.Problem(statusCode: 503, title: "Procurement database unavailable.");
-                var pending = (await db.Database.GetPendingMigrationsAsync(ct)).Any();
+                var pending = db.Database.HasPendingModelChanges() || (await db.Database.GetPendingMigrationsAsync(ct)).Any();
+                var financeCheckerReads = !pending && await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, false, ct);
+                var financeCheckerCapture = financeCheckerReads && await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, true, ct);
+                var receivingOptions = services.GetRequiredService<ProcurementReceivingExecutionOptions>();
+                var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
+                    && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
+                var now = DateTimeOffset.UtcNow;
+                var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
+                    ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
+                        && x.PublishedAt != null && x.EffectiveFrom <= now && (x.EffectiveTo == null || now < x.EffectiveTo)).Take(2).ToArrayAsync(ct)
+                    : [];
+                var receivingPositive = false;
+                ReceivingRuleDocument? receivingRules = null;
+                if (receivingPolicies.Length == 1 && ReceivingPolicyRules.Validate(receivingPolicies[0].RulesJson).Count == 0)
+                {
+                    try
+                    {
+                        receivingRules = ReceivingPolicyRules.Parse(receivingPolicies[0].RulesJson);
+                        receivingPositive = receivingRules.Rules.All(rule => ReceivingPolicyRules.Project(receivingPolicies[0], rule).Published);
+                    }
+                    catch (InvalidOperationException) { receivingPositive = false; }
+                }
                 return Results.Ok(new
                 {
                     module = "procurement",
                     version = 1,
+                    receivingSchemas = new { source = 1, policy = 1 },
                     tenantId = scope.TenantId,
                     legalEntityId = scope.LegalEntityId,
                     workLocationId = scope.WorkLocationId,
@@ -76,14 +150,46 @@ public static class ProcurementHostIntegration
                         configurationDraft = !pending,
                         contractDraft = !pending,
                         sourcingDraft = !pending,
-                        approvals = false,
+                        // Separate future governed holds/releases from existing unlinked draft CRUD.
+                        sourcingSourceDrafts = !pending
+                            && services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().ExecutionDatabaseConfigured
+                            && await services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct),
+                        // Capability describes configured availability; each command still
+                        // checks current identity, record scope, policy, authority and Finance.
+                        budgetEvidence = financeCheckerReads,
+                        budgetRecording = financeCheckerCapture,
+                        approvals = !pending && financeCheckerReads
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>().ExecutionDatabaseConfigured
+                            && services.GetRequiredService<ProcurementApprovalExecutionOptions>()
+                                .HasCurrentManualEvidencePolicy(scope.LegalEntityId, DateTimeOffset.UtcNow)
+                            && await services.GetRequiredService<IProcurementApprovalSchemaReadiness>().IsReadyAsync(ct),
                         sourcing = false,
                         contracts = false,
-                        orders = false,
+                        orders = !pending && financeCheckerReads
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>().ExecutionDatabaseConfigured
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>()
+                                .HasCurrentManualCommitmentPolicy(scope.LegalEntityId, DateTimeOffset.UtcNow)
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>().HasApprovedDeliveryPolicy
+                            && await services.GetRequiredService<IProcurementOrderSchemaReadiness>().IsReadyAsync(ct),
                         orderDraft = !pending,
-                        receiving = false,
+                        receiving = false, // Existing UI is not yet a compatible live receiving adapter.
+                        receivingDrafts,
+                        receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
+                        receivingInspection = receivingPositive && receivingRules!.Rules.Any(x => x.InspectionRequired),
+                        receivingServices = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Service"),
+                        receivingCorrections = false,
                         invoiceIntake = !pending,
                         vendorCreditDraft = !pending,
+                        invoiceDocuments = !pending && app.Services.GetRequiredService<CoreDocumentFeature>().Enabled
+                            && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct),
+                        invoiceComparison = !pending
+                            && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().Enabled
+                            && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().ExecutionDatabaseConfigured
+                            && await services.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(ct),
+                        invoiceQualifiedClaims = false, // No production original-unit reviewer or authenticated Finance history owner is installed.
                         invoiceValidation = false,
                         financeHandoff = false,
                         supplierPortal = false,
@@ -98,7 +204,7 @@ public static class ProcurementHostIntegration
     }
 }
 
-public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope
+public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope, Mightyfin.Erp.Core.Documents.Domain.IDocumentScope
 {
     private bool resolved;
     private string tenantId = "";
@@ -110,8 +216,14 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope
     public string SubjectId => resolved ? subjectId : throw new InvalidOperationException("Procurement scope has not been resolved.");
     public Guid? WorkLocationId { get; private set; }
     public Guid? OrgUnitId { get; private set; }
+    public Guid? PrincipalId { get; private set; }
     public Guid? WorkerId { get; private set; }
-    public bool AdminViewOnly { get; private set; }
+    // Current owning Core account link retained only as optional known-person
+    // alias metadata. Unlike WorkerId, this does not assert active employment,
+    // home-company membership, access, or operational approval authority.
+    public Guid? CoreLinkedWorkerId { get; private set; }
+    // Retained response compatibility only. System users are never narrowed by HR linkage.
+    public bool AdminViewOnly => false;
     public bool IsConfined { get; private set; }
     public string? CorrelationId { get; private set; }
 
@@ -129,11 +241,13 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope
         resolved = true;
     }
 
-    public void AssignAdminViewOnly()
+    public void AssignPrincipal(Guid principalId, Guid? coreLinkedWorkerId = null)
     {
-        if (!resolved || WorkerId.HasValue || AdminViewOnly)
-            throw new InvalidOperationException("Only an unmapped resolved account can have read-only administrator scope.");
-        AdminViewOnly = true;
+        if (!resolved || PrincipalId.HasValue || principalId == Guid.Empty
+            || !Guid.TryParse(subjectId, out var subject) || subject != principalId)
+            throw new InvalidOperationException("A resolved scope may bind only its verified Core principal once.");
+        PrincipalId = principalId;
+        CoreLinkedWorkerId = coreLinkedWorkerId is { } linked && linked != Guid.Empty ? linked : null;
     }
 
     public void AssignWorker(Guid workerId)
@@ -149,6 +263,8 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
 {
     public async Task InvokeAsync(HttpContext http, ProcurementRequestScope scope, HrmDbContext db)
     {
+        // Preserve constructor compatibility; Core account checks do not have a development exception.
+        _ = environment;
         if (!http.Request.Path.StartsWithSegments("/api/procurement/v1"))
         {
             await next(http);
@@ -166,15 +282,33 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var subject = http.User.FindFirstValue("sub") ?? http.User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrWhiteSpace(tenant) || string.IsNullOrWhiteSpace(subject))
         {
-            await Deny(http, StatusCodes.Status403Forbidden, "A workforce tenant and user are required.");
+            await Deny(http, StatusCodes.Status403Forbidden, "A Core tenant and system user are required.");
             return;
         }
-        if (!Guid.TryParse(subject, out var userId)
-            && !(environment.IsDevelopment() && http.User.Identity.AuthenticationType == "dev"))
+        var principal = ProcurementCorePrincipals.Cached(http, tenant, subject)
+            ?? await ProcurementCorePrincipals.CurrentAsync(db, tenant, subject, http.RequestAborted);
+        if (principal is null)
         {
-            await Deny(http, StatusCodes.Status403Forbidden, "This account needs a workforce user mapping.");
+            await Deny(http, StatusCodes.Status403Forbidden, "An active Core system user is required.");
             return;
         }
+        var userId = principal.Id;
+        var currentClaims = principal.Claims(tenant);
+        if (!ProcurementPermissions.Allows("procurement-access", currentClaims))
+        {
+            await Deny(http, StatusCodes.Status403Forbidden, "Your current Core permissions do not allow Procurement access.");
+            return;
+        }
+        // Named route authorization has already run. Recheck it against current
+        // stored Core grants, including revocations after session/claim creation.
+        var required = http.GetEndpoint()?.Metadata.GetOrderedMetadata<IAuthorizeData>();
+        if (required is not null && required.Any(x => !string.IsNullOrWhiteSpace(x.Policy)
+            && !ProcurementPermissions.Allows(x.Policy, currentClaims)))
+        {
+            await Deny(http, StatusCodes.Status403Forbidden, "Your current Core permissions do not allow this action.");
+            return;
+        }
+        ProcurementCorePrincipals.Apply(http, tenant, principal);
 
         var requestedEntityText = http.Request.Headers["X-Shell-Entity"].FirstOrDefault()?.Trim();
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
@@ -248,7 +382,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             else if (!confined)
             {
                 var orgUnit = await db.OrgUnits.AsNoTracking()
-                    .Where(x => x.Id == requestedLocation.Value && !x.IsArchived && x.Status == "active")
+                    .Where(x => x.TenantId == tenant && x.Id == requestedLocation.Value && !x.IsArchived && x.Status == "active")
                     .Join(db.LegalEntities.Where(e => e.TenantId == tenant && !e.IsArchived),
                         x => x.LegalEntityId, e => e.Id, (x, _) => new { x.Id, x.LegalEntityId })
                     .SingleOrDefaultAsync(http.RequestAborted);
@@ -294,55 +428,23 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             return;
         }
 
-        // Without a shell selection, start in the active worker's HRMS company.
-        // The tenant default may belong to a different company and is not an
-        // authorization grant for this employee.
-        var workerHomeEntity = !requestedEntity.HasValue && !entityFromLocation.HasValue
-            ? (await ProcurementWorkforce.ResolveActiveWorkerHome(db, tenant, subject,
-                http.RequestAborted))?.LegalEntityId
-            : null;
-        var selectedEntity = requestedEntity ?? entityFromLocation ?? workerHomeEntity
+        // Existing branch assignments are authoritative. Empty assignments retain
+        // Core's tenant-wide semantics; an employee home is never a company grant.
+        var selectedEntity = requestedEntity ?? entityFromLocation
             ?? legalEntities.OrderBy(x => x.IsDefault ? 0 : 1).ThenBy(x => x.RegisteredName).First().Id;
         if (!legalEntities.Any(x => x.Id == selectedEntity))
         {
             await Deny(http, StatusCodes.Status403Forbidden, "The selected company is unavailable.");
             return;
         }
-        scope.Set(tenant, selectedEntity, subject, effectiveLocation, effectiveOrgUnit, confined,
+        scope.Set(tenant, selectedEntity, principal.Id.ToString("D"), effectiveLocation, effectiveOrgUnit, confined,
             http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier);
-        var isMeta = http.Request.Path.Equals("/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase);
-        if (!isMeta || WorkerPrincipal.FromClaims(http.User.Claims).IsRole("erp_admin"))
-        {
-            var workerId = await ProcurementWorkforce.ResolveActiveWorker(db, scope, http.RequestAborted);
-            if (workerId is null)
-            {
-                var adminView = HttpMethods.IsGet(http.Request.Method)
-                    && await ProcurementWorkforce.IsUnmappedErpAdministrator(db, tenant, subject,
-                        http.User.Claims, http.RequestAborted);
-                if (!adminView)
-                {
-                    await Deny(http, StatusCodes.Status403Forbidden,
-                        "An active employee in this company is required for Procurement business actions.");
-                    return;
-                }
-                scope.AssignAdminViewOnly();
-                // Endpoint action projections re-use IAuthorizationService. Narrow those
-                // checks as well as context permissions; never alter global ERP roles.
-                http.User.AddIdentity(new ClaimsIdentity([new Claim(ProcurementPermissions.AdminViewOnlyClaim, "true")]));
-                // Route authorization has already run. A GET guarded by a command
-                // permission (for example vendor-suspend) must not inherit the
-                // earlier administrator shortcut after this request is narrowed.
-                var required = http.GetEndpoint()?.Metadata.GetOrderedMetadata<IAuthorizeData>();
-                if (required is not null && required.Any(x => !string.IsNullOrWhiteSpace(x.Policy)
-                    && !ProcurementPermissions.IsReadOnlyPolicy(x.Policy)))
-                {
-                    await Deny(http, StatusCodes.Status403Forbidden,
-                        "This Procurement view requires an employee business permission.");
-                    return;
-                }
-            }
-            else scope.AssignWorker(workerId.Value);
-        }
+        scope.AssignPrincipal(principal.Id, principal.WorkerId);
+        // Optional projection for existing worker-pinned operational consumers.
+        // No mapping, inactive HR profile or another-company home never grants or
+        // removes general Core-account access, and no worker identifier is fabricated.
+        var workerId = await ProcurementWorkforce.ResolveActiveWorker(db, scope, http.RequestAborted);
+        if (workerId is Guid worker) scope.AssignWorker(worker);
         await next(http);
     }
 

@@ -1,0 +1,251 @@
+{
+  "immutableSource": "727ee08a3da3e035756f026894c2a2e7465818d9",
+  "canonicalBase": "9138b3c",
+  "status": "SOURCE_ONLY_UNCOMPILED",
+  "files": [
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/ApprovalHttpPostgresProbe.csproj",
+      "originalSha256": "d3786f9f3c7001a7ee25d8a23b2c41acc5c0518be3329d9c31874b8ff303c314",
+      "candidateSha256": "d3786f9f3c7001a7ee25d8a23b2c41acc5c0518be3329d9c31874b8ff303c314",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/BranchFenceVerification.cs",
+      "originalSha256": "a4461900e847c8c33fd3821d42d867a34ed9b31c8c93cd5e618005268f590983",
+      "candidateSha256": "a4461900e847c8c33fd3821d42d867a34ed9b31c8c93cd5e618005268f590983",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/BudgetBrowserFixture.cs",
+      "originalSha256": "42bef88ba04565236bc3ec4e42aa7a287ee31d289cb76d0930c564ba49a0609b",
+      "candidateSha256": "42bef88ba04565236bc3ec4e42aa7a287ee31d289cb76d0930c564ba49a0609b",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/CatalogClassificationVerification.cs",
+      "originalSha256": "3cfb7435f5cd3c9427c5b6cd2a4dc505d4a9ad5ee9c42651c1833ea342b6d49a",
+      "candidateSha256": "3cfb7435f5cd3c9427c5b6cd2a4dc505d4a9ad5ee9c42651c1833ea342b6d49a",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/CatalogPublicationFenceVerification.cs",
+      "originalSha256": "2273b3821b191a5fdb09634be21622be888e844745a2dd4484c8d7ba29a4c86a",
+      "candidateSha256": "2273b3821b191a5fdb09634be21622be888e844745a2dd4484c8d7ba29a4c86a",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/CoreBranchEndpointVerification.cs",
+      "originalSha256": "a669eebd14595fe435c08e87dcb929693287b8826f58f7b396f0eb249b9e622b",
+      "candidateSha256": "a669eebd14595fe435c08e87dcb929693287b8826f58f7b396f0eb249b9e622b",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/FinanceCheckerIdentityVerification.cs",
+      "originalSha256": "bf1531d5f5161fb04216c4b4aec02e3f72df4556921a8dffa548c9e47ab74639",
+      "candidateSha256": "bf1531d5f5161fb04216c4b4aec02e3f72df4556921a8dffa548c9e47ab74639",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/FinanceCheckerSchemaVerification.cs",
+      "originalSha256": "10b6f2c3ccc2e59182d96d6e109b8222aeec61cd1b24046d71dbd6895704dfa2",
+      "candidateSha256": "10b6f2c3ccc2e59182d96d6e109b8222aeec61cd1b24046d71dbd6895704dfa2",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/InvoiceAllocationOwnershipVerification.cs",
+      "originalSha256": "2f46a34e8d492f304bb2cc05c4c964240707ca6f764762196834a2b30428e225",
+      "candidateSha256": "2f46a34e8d492f304bb2cc05c4c964240707ca6f764762196834a2b30428e225",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/InvoiceIntakeExactVerification.cs",
+      "originalSha256": "fc327263f441b0da8c6b98c8570552db5f42e21a5cf9fdac7f02b8e0f40fc4f9",
+      "candidateSha256": "fc327263f441b0da8c6b98c8570552db5f42e21a5cf9fdac7f02b8e0f40fc4f9",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/InvoiceMatchingRequiredEvidenceVerification.cs",
+      "originalSha256": "3ff0d855aba62df12e677f072cdb0f088953eb6ad34e7a85e6ce07840f6211c2",
+      "candidateSha256": "3ff0d855aba62df12e677f072cdb0f088953eb6ad34e7a85e6ce07840f6211c2",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/InvoiceMatchingVerification.cs",
+      "originalSha256": "f3d3bc75425b19f3b4b3c7a3e706554ec594b2acfcb42f0ebf3302a5dc2c4e62",
+      "candidateSha256": "f3d3bc75425b19f3b4b3c7a3e706554ec594b2acfcb42f0ebf3302a5dc2c4e62",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/InvoiceSelectorSafetyVerification.cs",
+      "originalSha256": "98098091a218c24a5cf02ed6bca1bdd2269c4da507880ad8c0bd31d6e1c1055f",
+      "candidateSha256": "98098091a218c24a5cf02ed6bca1bdd2269c4da507880ad8c0bd31d6e1c1055f",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/InvoiceSourceSelectorVerification.cs",
+      "originalSha256": "694d6f29716beeb84aa35df24310c172a3bdb049b734a8e66d0d32b548ad916d",
+      "candidateSha256": "694d6f29716beeb84aa35df24310c172a3bdb049b734a8e66d0d32b548ad916d",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/MatchingBrowserCompletion.cs",
+      "originalSha256": "afe5ef02ca0a6402a544c08ddea8087d8adaea3954d8ee11d0107bd78024318c",
+      "candidateSha256": "afe5ef02ca0a6402a544c08ddea8087d8adaea3954d8ee11d0107bd78024318c",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/MatchingBrowserDocuments.cs",
+      "originalSha256": "46e03ee5c8d27ac05ce3b948b39a00149fdc13047b4b541a5a4eec34d7176200",
+      "candidateSha256": "46e03ee5c8d27ac05ce3b948b39a00149fdc13047b4b541a5a4eec34d7176200",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/MatchingBrowserFixture.cs",
+      "originalSha256": "eb3cdb9340a904c4b830017e0de000a87d66fb44d863f8a56df3117539b0ff8a",
+      "candidateSha256": "eb3cdb9340a904c4b830017e0de000a87d66fb44d863f8a56df3117539b0ff8a",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/OrderAmountVerification.cs",
+      "originalSha256": "5ca5321d7986edd89c7110aa5faeaee5abaf4442491bfb3e1adf5788b0eed313",
+      "candidateSha256": "5ca5321d7986edd89c7110aa5faeaee5abaf4442491bfb3e1adf5788b0eed313",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/OrderBrowserFixture.cs",
+      "originalSha256": "fd2aa6f4908718e58cdec65f907ca0198c55d3b8e43c034b6bbc3b659aa07bdb",
+      "candidateSha256": "fd2aa6f4908718e58cdec65f907ca0198c55d3b8e43c034b6bbc3b659aa07bdb",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/OrderConversionReplayVerification.cs",
+      "originalSha256": "eca791b53751b477b97c5a9cae55f8da87d141deff63b78c7f00cecba1c68a35",
+      "candidateSha256": "eca791b53751b477b97c5a9cae55f8da87d141deff63b78c7f00cecba1c68a35",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/OrderExactInputVerification.cs",
+      "originalSha256": "6d5b41d3afb1ebd07c20eaed868e9e0528fe1ce091689eb50d11083055ad0d22",
+      "candidateSha256": "6d5b41d3afb1ebd07c20eaed868e9e0528fe1ce091689eb50d11083055ad0d22",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/OrderReadVerification.cs",
+      "originalSha256": "3e5c2f5dbebb4267b28f3ccb9eb7c1b3356b2c54478b55c8eb4acf8163af18ee",
+      "candidateSha256": "451b11844fceecc8e784329a28dfcca73d8cf99c5cec77f2bb6eff75636ebd83",
+      "changed": true
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/OrderVerification.cs",
+      "originalSha256": "50c1a2b7162a64435cf4bdd1e16edad24ad2e1bebeef6ab7ed441b473118c7ce",
+      "candidateSha256": "2ec212ae2579cb5793f54e833b0d0f9ff55700ef9040144e56f802ad58b205c9",
+      "changed": true
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/Program.cs",
+      "originalSha256": "385a0bed6e70fbfcbd09507a82e6034a02f584843319139907e37b8e5c18a10b",
+      "candidateSha256": "a4bfb7343e6d9608dc3566034be73fb735ffcf42b4868cd10deddcfb5fc5d861",
+      "changed": true
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/README.md",
+      "originalSha256": "8ed699733d78d71d6f5feb6ac0e3a3c92d3b8cc80a1c091a75a4c9c3ea4d7d8c",
+      "candidateSha256": "0e27e3a3405b7d4448ceac7f23a1792abb97948a4861b4de27ca2e2a619a4558",
+      "changed": true
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/ReceivingBindingOwnershipVerification.cs",
+      "originalSha256": "5a0927da1f2fc1928e4c6fae6c619a9dfe8ddf62c729a8220a6ebeec4d421e26",
+      "candidateSha256": "5a0927da1f2fc1928e4c6fae6c619a9dfe8ddf62c729a8220a6ebeec4d421e26",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/ReceivingBrowserFixture.cs",
+      "originalSha256": "76c4e133f7f7c4f4bcf43e4b137664ab895d7aad426f02943826d00344b9355c",
+      "candidateSha256": "76c4e133f7f7c4f4bcf43e4b137664ab895d7aad426f02943826d00344b9355c",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/ReceivingRequiredSequenceVerification.cs",
+      "originalSha256": "8a49f0ff9e6374cb6604c5405082652e0947452063ff9ea01ae5b142c5ae7a45",
+      "candidateSha256": "8a49f0ff9e6374cb6604c5405082652e0947452063ff9ea01ae5b142c5ae7a45",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/ReceivingVerification.cs",
+      "originalSha256": "5fc35cdcd9afad2a3f4a73cb279f56764e2023c93c6197e917f4624e4013c785",
+      "candidateSha256": "b02ae69199a78cc28e8fb5fc90989997d0b907be9f43c11f40da25589f91c6ab",
+      "changed": true
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/RuntimePrivileges.cs",
+      "originalSha256": "5205313758001ec4e5de8ef6c64626d29a0019240095eb2d9a2c564d86f8a0c4",
+      "candidateSha256": "874c984ef00d14e60c0029816a9aec820b8806b0ac41d6affd19f1be52e89621",
+      "changed": true
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SettingsVerification.cs",
+      "originalSha256": "93f61398be9f804526d189d4e62a2509c6deb4189057aa1e7410f20caa860995",
+      "candidateSha256": "93f61398be9f804526d189d4e62a2509c6deb4189057aa1e7410f20caa860995",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingAuthorityBrowserFixture.cs",
+      "originalSha256": "a064cf351d2e29ef4ed92bee387426c4132c10aea87a26ea109a1e946bb64d09",
+      "candidateSha256": "a064cf351d2e29ef4ed92bee387426c4132c10aea87a26ea109a1e946bb64d09",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingBrowserFixture.cs",
+      "originalSha256": "4e751b76fd112693ab29b2632b42b625f883f21923fee36e730bd586eaa483dd",
+      "candidateSha256": "4e751b76fd112693ab29b2632b42b625f883f21923fee36e730bd586eaa483dd",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingPolicyBrowserFixture.cs",
+      "originalSha256": "ddf726904781b6ba606e76fd862696863d44e69cf20367c289797f5e451f0ad5",
+      "candidateSha256": "ddf726904781b6ba606e76fd862696863d44e69cf20367c289797f5e451f0ad5",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingPolicySchemaVerification.cs",
+      "originalSha256": "775b900444deb9814ce8735a7cd44caf968796135de648123cd963c6d61a6b5c",
+      "candidateSha256": "a2ad69fe2065fc259969e4c7b414adb0ccec75849817a6739d5b66d5650ca808",
+      "changed": true
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingPolicyVerification.cs",
+      "originalSha256": "4a996419839f2aff2216707059b9dd3a0895ab6e487b0503abd340db836ea39e",
+      "candidateSha256": "4a996419839f2aff2216707059b9dd3a0895ab6e487b0503abd340db836ea39e",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingRawInvariantVerification.cs",
+      "originalSha256": "9d3a4c4e0a896e1bc4573cb72886652c7498f8a19e7775c82162a1aeb70c54dd",
+      "candidateSha256": "9d3a4c4e0a896e1bc4573cb72886652c7498f8a19e7775c82162a1aeb70c54dd",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingSchemaPrivilegeVerification.cs",
+      "originalSha256": "c25699ee19c3be005805b1c63a88e2a143378869975d823ce7cba7a6fc9be16a",
+      "candidateSha256": "c25699ee19c3be005805b1c63a88e2a143378869975d823ce7cba7a6fc9be16a",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingSecurityVerification.cs",
+      "originalSha256": "baa1300d6bd70778b80c885dd9b754fdbf6f6a5a4ebd2c991342b7460597a0ff",
+      "candidateSha256": "baa1300d6bd70778b80c885dd9b754fdbf6f6a5a4ebd2c991342b7460597a0ff",
+      "changed": false
+    },
+    {
+      "path": "backend/procurement-api/tools/ApprovalHttpPostgresProbe/SourcingVerification.cs",
+      "originalSha256": "8e147f4b990259de74239a23afaaef48f4e3b51325d3fb4f14b68d06294cfe6c",
+      "candidateSha256": "8e147f4b990259de74239a23afaaef48f4e3b51325d3fb4f14b68d06294cfe6c",
+      "changed": false
+    }
+  ],
+  "additionalFiles": [
+    "backend/procurement-api/tools/ApprovalHttpPostgresProbe/OrderEvidenceSelectionVerification.cs"
+  ],
+  "requiredPendingParentReadContract": "commercialEvidenceSelectionVersion1/latestFinanceEvidenceId/latestIssuedVersionId"
+}

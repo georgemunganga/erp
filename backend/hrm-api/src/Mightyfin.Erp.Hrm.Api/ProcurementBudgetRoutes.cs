@@ -1,9 +1,12 @@
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using System.Text.Json.Serialization;
 using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -14,10 +17,19 @@ public static class ProcurementBudgetRoutes
     public static void Map(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/requests");
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            var http = context.HttpContext;
+            var owner = http.RequestServices.GetRequiredService<ProcurementDbContext>();
+            if (!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(owner, http.RequestServices,
+                    HttpMethods.IsPost(http.Request.Method), http.RequestAborted))
+                return ProcurementFinanceCheckerSchemaGuard.Unavailable();
+            return await next(context);
+        });
         group.MapGet("/budget-queue", Queue).RequireAuthorization("procurement-budget-check");
         group.MapGet("/{id:guid}/budget-status", OwnStatus).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/budget-checks", List).RequireAuthorization("procurement-budget-check");
-        group.MapPost("/{id:guid}/budget-checks", Record).RequireAuthorization("procurement-budget-check");
+        group.MapPost("/{id:guid}/budget-checks", Record).Accepts<BudgetDecision>("application/json").RequireAuthorization("procurement-budget-check");
     }
 
     private static async Task<IResult> Queue(ProcurementDbContext db, ProcurementRequestScope scope,
@@ -35,7 +47,7 @@ public static class ProcurementBudgetRoutes
             .Skip(skip).Take(take).Select(x => new
             {
                 x.Id, x.Number, x.Purpose, x.CurrencyCode, x.SubmittedAt,
-                x.Version, x.ApprovalState, x.CreatedBy,
+                x.Version, BusinessVersion = x.SubmittedVersion ?? x.Version, x.ApprovalState, x.CreatedBy,
                 EstimatedAmount = x.Lines.Where(line => line.ApprovalStatus != "Cancelled")
                     .Sum(line => line.RequestedQuantity * line.EstimatedUnitPrice),
             }).ToListAsync(ct);
@@ -52,6 +64,7 @@ public static class ProcurementBudgetRoutes
             .Where(x => x.PurchaseRequestId == id).OrderByDescending(x => x.CheckedAt)
             .Select(x => new { x.Id, x.RequestVersion, x.FinanceCheckRef, x.Status,
                 x.CheckedAmount, x.CurrencyCode, x.CheckedAt, x.CheckedBySubjectId,
+        x.CheckerIdentitySchemaVersion, x.CheckedByWorkerId,
                 x.EvidenceRef, x.DecisionReason, x.ReservationRef, x.ReservationStatus })
             .ToListAsync(ct);
         return Results.Ok(new { records });
@@ -65,30 +78,53 @@ public static class ProcurementBudgetRoutes
         if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
             return Error("not-found", "Request not found.", 404);
         var latest = await db.BudgetCheckSnapshots.AsNoTracking()
-            .Where(x => x.PurchaseRequestId == id && x.RequestVersion == request.Version)
+            .Where(x => x.PurchaseRequestId == id && x.RequestVersion == (request.SubmittedVersion ?? request.Version))
             .OrderByDescending(x => x.CheckedAt).ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync(ct);
         return Results.Ok(new
         {
-            requestId = id, requestVersion = request.Version,
+            requestId = id, requestVersion = request.Version, submittedVersion = request.SubmittedVersion,
             status = latest?.Status ?? "Pending",
             checkedAt = latest?.CheckedAt,
+            checkerIdentitySchemaVersion = latest?.CheckerIdentitySchemaVersion,
+            // Retained integrity only, not current authorisation or external reservation verification.
+            retainedCheckerIdentity = latest is not null && FinanceCheckerIdentityEvidence.HasValidBinding(latest),
+            needsIndependentFinanceReview = latest is not null && !FinanceCheckerIdentityEvidence.HasValidBinding(latest),
             reservationConfirmed = latest?.Status == "Available"
                 && latest.ReservationStatus == "Confirmed",
         });
     }
 
-    private static async Task<IResult> Record(Guid id, BudgetDecision input,
-        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    private static async Task<IResult> Record(Guid id, JsonElement body,
+        ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope, CancellationToken ct)
     {
+        var parsed=ProcurementOriginalValueInput.Read<BudgetDecision>(body);
+        if(parsed.Error is not null) return parsed.Error;
+        var input=parsed.Value!;
+        try
+        {
         await using var transaction = db.Database.IsRelational()
             ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+        await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
         var request = await db.PurchaseRequests.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
             return Error("not-found", "Request not found.", 404);
         if (request.CreatedBy == scope.SubjectId)
             return Error("self-review", "The requester cannot confirm their own funding.", 403);
+        await using var enlistedCore = transaction is not null
+            ? await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, ct) : null;
+        var identityCore = enlistedCore ?? core;
+        var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(identityCore, scope.TenantId,
+            scope.LegalEntityId, scope.SubjectId, ct);
+        if (verifier is null)
+            return Error("finance-identity-unavailable", "An active organisation workforce account is required to confirm funding.", 403);
+        try { await ProcurementApprovalFinanceEligibility.RequireCurrentBudgetPermissionAsync(identityCore, verifier, ct); }
+        catch (InvalidOperationException)
+        { return Error("finance-access-revoked", "Current Finance permission is required to confirm funding.", 403); }
+        try { await ProcurementFinanceWorkerIndependence.RequireAsync(request, verifier.WorkerId, identityCore, db, scope, ct); }
+        catch (InvalidOperationException)
+        { return Error("self-review", "Funding requires an independent worker and retained requester identity.", 403); }
         if (request.Status != "Submitted")
             return Error("request-locked", "Only submitted requests can be checked.", 409);
         if (request.Version != input.RequestVersion)
@@ -118,35 +154,47 @@ public static class ProcurementBudgetRoutes
             || !string.Equals(input.CurrencyCode?.Trim(), request.CurrencyCode, StringComparison.OrdinalIgnoreCase))
             return Error("validation-failed", "Check the full request amount in its selected currency.", 422);
 
+        var businessVersion = request.SubmittedVersion ?? request.Version;
         var prior = await db.BudgetCheckSnapshots.AsNoTracking()
             .SingleOrDefaultAsync(x => x.FinanceCheckRef == financeRef, ct);
         if (prior is not null)
         {
-            if (prior.PurchaseRequestId == id && prior.RequestVersion == input.RequestVersion
+            if (prior.PurchaseRequestId == id && prior.RequestVersion == businessVersion
                 && prior.Status == input.Status && prior.CheckedAmount == input.CheckedAmount
                 && prior.CurrencyCode == request.CurrencyCode && prior.EvidenceRef == evidenceRef
                 && prior.DecisionReason == reason && prior.ReservationRef == reservationRef
                 && prior.ReservationStatus == reservationStatus)
+            {
+                // Recovery proves the original recorder's retained identity, never today's reassigned subject.
+                if (!FinanceCheckerIdentityEvidence.MatchesCurrentCanonical(prior, scope.TenantId, scope.LegalEntityId,
+                        id, businessVersion, scope.SubjectId, verifier.WorkerId))
+                    return Error("finance-checker-identity-changed", "This funding evidence needs a new independent Finance review. The original check was not changed.", 409);
                 return Results.Ok(ToResult(prior));
+            }
             return Error("finance-reference-conflict", "This Finance check reference has already been used.", 409);
         }
         var decision = new BudgetCheckSnapshot
         {
-            PurchaseRequestId = id, RequestVersion = request.Version, FinanceCheckRef = financeRef,
+            PurchaseRequestId = id, RequestVersion = businessVersion, FinanceCheckRef = financeRef,
             Status = input.Status, CheckedAmount = input.CheckedAmount,
-            CurrencyCode = request.CurrencyCode, CheckedAt = DateTimeOffset.UtcNow,
+            CurrencyCode = request.CurrencyCode, CheckedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value,
             CheckedBySubjectId = scope.SubjectId, EvidenceRef = evidenceRef,
             DecisionReason = reason, ReservationRef = reservationRef,
             ReservationStatus = reservationStatus,
         };
         db.AddScoped(decision);
+        var checker = FinanceCheckerIdentityEvidence.CreateForNewSnapshot(decision, scope.SubjectId, verifier.WorkerId);
+        decision.CheckerIdentitySchemaVersion = checker.SchemaVersion;
+        decision.CheckedByWorkerId = checker.WorkerId;
+        decision.CheckerIdentitySha256 = checker.Sha256;
         db.AddScoped(new AuditEvent
         {
             RecordType = "PurchaseRequest", RecordId = id, Action = "BudgetChecked",
             ActorSubjectId = scope.SubjectId,
             ChangedFieldsJson = JsonSerializer.Serialize(new
             {
-                requestVersion = request.Version, financeRef, input.Status,
+                requestVersion = businessVersion, sourceRevision = request.Version, financeRef, input.Status,
+                decision.CheckerIdentitySchemaVersion, decision.CheckedByWorkerId, decision.CheckerIdentitySha256,
                 input.CheckedAmount, request.CurrencyCode, evidenceRef,
                 reservationRef, reservationStatus, reason,
             }),
@@ -160,18 +208,22 @@ public static class ProcurementBudgetRoutes
         catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
         { return Error("budget-check-conflict", "The request or funding changed. Refresh before recording the Finance check.", 409); }
         return Results.Created($"/api/procurement/v1/requests/{id}/budget-checks", ToResult(decision));
+        }
+        catch (Exception error) when (ProcurementPostgresFailures.IsConcurrency(error))
+        { return Error("budget-check-conflict", "The request or funding changed. Refresh before recording the Finance check.", 409); }
     }
 
     private static object ToResult(BudgetCheckSnapshot x) => new
     {
         x.Id, x.PurchaseRequestId, x.RequestVersion, x.FinanceCheckRef, x.Status,
         x.CheckedAmount, x.CurrencyCode, x.CheckedAt, x.CheckedBySubjectId,
+        x.CheckerIdentitySchemaVersion, x.CheckedByWorkerId,
         x.EvidenceRef, x.DecisionReason, x.ReservationRef, x.ReservationStatus,
     };
     private static IResult Error(string code, string message, int status) =>
         Results.Json(new ApiError(code, message, []), statusCode: status);
 
     public sealed record BudgetDecision(long RequestVersion, string? FinanceCheckRef,
-        string? Status, decimal CheckedAmount, string? CurrencyCode, string? EvidenceRef,
+        string? Status, [property: JsonConverter(typeof(CommercialLineDecimalJsonConverter))] decimal CheckedAmount, string? CurrencyCode, string? EvidenceRef,
         string? DecisionReason, string? ReservationRef, string? ReservationStatus);
 }

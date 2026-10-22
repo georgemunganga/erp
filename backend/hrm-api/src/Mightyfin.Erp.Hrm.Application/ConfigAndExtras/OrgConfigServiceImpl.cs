@@ -5,18 +5,20 @@ namespace Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 /// <summary>M1 CRUD implementation for organization configuration.</summary>
 public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService authz) : IConfigAdminService
 {
+    // Core organization administration is tenant-wide, independent of HRM operational authority.
+    // Repository tenant filters remain authoritative; ERP admins gain no HRM calendar/payroll grants.
     // ================= Legal entities =================
 
     public async Task<Paged<LegalEntityDtoFull>> ListLegalEntitiesAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var items = await repo.ListLegalEntitiesAsync(ct);
         return new Paged<LegalEntityDtoFull>(items.Select(ToLegalEntityDto).ToList(), items.Count, 1, 100);
     }
 
     public async Task<LegalEntityDtoFull> GetLegalEntityAsync(Guid id, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var e = await repo.GetLegalEntityAsync(id, ct)
             ?? throw new DomainException("legal-entity-not-found", $"Legal entity {id} does not exist.");
         return ToLegalEntityDto(e);
@@ -24,10 +26,12 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<LegalEntityDtoFull> CreateLegalEntityAsync(LegalEntityCreateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         RequireNonEmpty(request.Code, "code");
         RequireNonEmpty(request.RegisteredName, "registeredName");
-        var existing = (await repo.ListLegalEntitiesAsync(ct)).FirstOrDefault(e => e.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase));
+        var currency = NormalizeReferenceCode(request.Currency, 3, "currency");
+        var country = NormalizeReferenceCode(request.CountryCode, 2, "country");
+        var existing = (await repo.ListLegalEntitiesAsync(ct)).FirstOrDefault(e => e.Code.Equals(request.Code.Trim(), StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
             throw new DomainException("legal-entity-code-taken", $"Code '{request.Code}' is already in use.");
         var entity = new LegalEntity
@@ -35,15 +39,18 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
             Code = request.Code.Trim(), RegisteredName = request.RegisteredName.Trim(), TradingName = request.TradingName?.Trim(),
             PacraNumber = request.PacraNumber?.Trim(), Tpin = request.Tpin?.Trim(),
             NapsaEmployerRef = request.NapsaEmployerRef?.Trim(), NhimaEmployerRef = request.NhimaEmployerRef?.Trim(),
-            WcfcbEmployerRef = request.WcfcbEmployerRef?.Trim(), Currency = request.Currency.ToUpperInvariant(),
-            CountryCode = request.CountryCode.ToUpperInvariant(), IsDefault = request.IsDefault,
+            WcfcbEmployerRef = request.WcfcbEmployerRef?.Trim(), Currency = currency,
+            CountryCode = country, IsDefault = request.IsDefault,
         };
         return ToLegalEntityDto(await repo.CreateLegalEntityAsync(entity, ct));
     }
 
     public async Task<LegalEntityDtoFull> UpdateLegalEntityAsync(Guid id, LegalEntityUpdateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
+        // Validate the entire supported change before touching a tracked company.
+        if (request.RegisteredName is not null) RequireNonEmpty(request.RegisteredName, "registeredName");
+        var currency = request.Currency is null ? null : NormalizeReferenceCode(request.Currency, 3, "currency");
         var entity = await repo.GetLegalEntityAsync(id, ct)
             ?? throw new DomainException("legal-entity-not-found", $"Legal entity {id} does not exist.");
         if (request.RegisteredName is not null) entity.RegisteredName = request.RegisteredName.Trim();
@@ -53,7 +60,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         if (request.NapsaEmployerRef is not null) entity.NapsaEmployerRef = request.NapsaEmployerRef.Trim();
         if (request.NhimaEmployerRef is not null) entity.NhimaEmployerRef = request.NhimaEmployerRef.Trim();
         if (request.WcfcbEmployerRef is not null) entity.WcfcbEmployerRef = request.WcfcbEmployerRef.Trim();
-        if (request.Currency is not null) entity.Currency = request.Currency.ToUpperInvariant();
+        if (currency is not null) entity.Currency = currency;
         if (request.IsDefault.HasValue) entity.IsDefault = request.IsDefault.Value;
         return ToLegalEntityDto(await repo.UpdateLegalEntityAsync(entity, ct));
     }
@@ -62,7 +69,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<Paged<WorkLocationDtoFull>> ListLocationsAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var items = await repo.ListLocationsAsync(ct);
         var entities = await repo.ListLegalEntitiesAsync(ct);
         var calendars = await repo.ListCalendarsAsync(ct);
@@ -71,7 +78,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<WorkLocationDtoFull> CreateLocationAsync(WorkLocationCreateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         RequireNonEmpty(request.Code, "code");
         RequireNonEmpty(request.Name, "name");
         var existing = (await repo.ListLocationsAsync(ct)).FirstOrDefault(l => l.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase));
@@ -98,7 +105,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<WorkLocationDtoFull> UpdateLocationAsync(Guid id, WorkLocationUpdateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var location = await repo.GetLocationAsync(id, ct)
             ?? throw new DomainException("location-not-found", $"Work location {id} does not exist.");
         if (request.Name is not null) location.Name = request.Name.Trim();
@@ -121,24 +128,24 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<List<OrgUnitDtoFull>> ListOrgUnitsAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
         var entities = await repo.ListLegalEntitiesAsync(ct);
-        var workers = await repo.ListAllWorkersAsync(null, ct);
-        return units.Select(u => ToOrgUnitDto(u, entities, workers)).ToList();
+        var workers = await OrganisationWorkersAsync(ct);
+        return units.Select(u => ToOrgUnitDto(u, entities, workers, CanReadOrganisationWorkers)).ToList();
     }
 
     public async Task<List<OrgUnitTreeDto>> GetOrgUnitTreeAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
-        var workers = await repo.ListAllWorkersAsync(null, ct);
+        var workers = await OrganisationWorkersAsync(ct);
         var now = DateOnly.FromDateTime(DateTime.UtcNow);
         var effective = units.Where(u =>
             u.EffectiveFrom <= now && (u.EffectiveTo is null || u.EffectiveTo > now) && u.Status != "closed").ToList();
 
         OrgUnitTreeDto ToTree(OrgUnit u) => new(
-            u.Id, u.Code, u.Name, u.UnitType, u.Status, u.ManagerId,
+            u.Id, u.Code, u.Name, u.UnitType, u.Status, CanReadOrganisationWorkers ? u.ManagerId : null,
             u.ManagerId.HasValue ? workers.FirstOrDefault(w => w.Id == u.ManagerId)?.FullName : null,
             u.EffectiveFrom.ToString("yyyy-MM-dd"), u.EffectiveTo?.ToString("yyyy-MM-dd"), []);
 
@@ -159,15 +166,15 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
     /// Units whose legal entity is missing or unknown fall under an "Unassigned" root so nothing disappears.</summary>
     public async Task<List<OrgUnitTreeDto>> GetEntityTreeAsync(CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin", "employee", "manager", "payroll");
         var units = await repo.ListOrgUnitsAsync(ct);
-        var workers = await repo.ListAllWorkersAsync(null, ct);
+        var workers = await OrganisationWorkersAsync(ct);
         var now = DateOnly.FromDateTime(DateTime.UtcNow);
         var effective = units.Where(u =>
             u.EffectiveFrom <= now && (u.EffectiveTo is null || u.EffectiveTo > now) && u.Status != "closed").ToList();
 
         OrgUnitTreeDto ToTree(OrgUnit u) => new(
-            u.Id, u.Code, u.Name, u.UnitType, u.Status, u.ManagerId,
+            u.Id, u.Code, u.Name, u.UnitType, u.Status, CanReadOrganisationWorkers ? u.ManagerId : null,
             u.ManagerId.HasValue ? workers.FirstOrDefault(w => w.Id == u.ManagerId)?.FullName : null,
             u.EffectiveFrom.ToString("yyyy-MM-dd"), u.EffectiveTo?.ToString("yyyy-MM-dd"), []);
 
@@ -202,7 +209,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     public async Task<OrgUnitDtoFull> CreateOrgUnitAsync(OrgUnitCreateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         RequireNonEmpty(request.Code, "code");
         RequireNonEmpty(request.Name, "name");
         var effectiveFrom = string.IsNullOrWhiteSpace(request.EffectiveFrom) ? DateOnly.FromDateTime(DateTime.UtcNow) : DateOnly.Parse(request.EffectiveFrom);
@@ -214,6 +221,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
             throw new DomainException("legal-entity-not-found", $"Legal entity {request.LegalEntityId} does not exist.");
         if (request.ParentId.HasValue && (await repo.ListOrgUnitsAsync(ct)).All(u => u.Id != request.ParentId))
             throw new DomainException("parent-unit-not-found", $"Parent unit {request.ParentId} does not exist.");
+        if (request.ManagerId.HasValue) authz.RequireAnyRole("hr_ops", "hr_admin");
         if (request.ManagerId.HasValue && (await repo.ListAllWorkersAsync(null, ct)).All(w => w.Id != request.ManagerId))
             throw new DomainException("manager-not-found", $"Worker {request.ManagerId} does not exist.");
         var unit = new OrgUnit
@@ -223,12 +231,14 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
             ManagerId = request.ManagerId, EffectiveFrom = effectiveFrom,
             EffectiveTo = string.IsNullOrWhiteSpace(request.EffectiveTo) ? null : DateOnly.Parse(request.EffectiveTo),
         };
-        return ToOrgUnitDto(await repo.CreateOrgUnitAsync(unit, ct), entities, await repo.ListAllWorkersAsync(null, ct));
+        return ToOrgUnitDto(await repo.CreateOrgUnitAsync(unit, ct), entities, await OrganisationWorkersAsync(ct), CanReadOrganisationWorkers);
     }
 
     public async Task<OrgUnitDtoFull> UpdateOrgUnitAsync(Guid id, OrgUnitUpdateRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
+        if (request.Name is not null) RequireNonEmpty(request.Name, "name");
+        if (request.ManagerId.HasValue) authz.RequireAnyRole("hr_ops", "hr_admin");
         var unit = await repo.GetOrgUnitAsync(id, ct)
             ?? throw new DomainException("org-unit-not-found", $"Org unit {id} does not exist.");
         if (request.Name is not null) unit.Name = request.Name.Trim();
@@ -245,14 +255,14 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         if (request.ManagerId.HasValue) unit.ManagerId = request.ManagerId;
         if (request.EffectiveTo is not null) unit.EffectiveTo = string.IsNullOrWhiteSpace(request.EffectiveTo) ? null : DateOnly.Parse(request.EffectiveTo);
         if (request.Status is not null) unit.Status = request.Status;
-        return ToOrgUnitDto(await repo.UpdateOrgUnitAsync(unit, ct), await repo.ListLegalEntitiesAsync(ct), await repo.ListAllWorkersAsync(null, ct));
+        return ToOrgUnitDto(await repo.UpdateOrgUnitAsync(unit, ct), await repo.ListLegalEntitiesAsync(ct), await OrganisationWorkersAsync(ct), CanReadOrganisationWorkers);
     }
 
     /// <summary>Structural changes are future-effective: units are closed with an
     /// effective-to date rather than hard-deleted, preserving history.</summary>
     public async Task CloseOrgUnitAsync(Guid id, OrgUnitCloseRequest request, CancellationToken ct)
     {
-        authz.RequireAnyRole("hr_ops", "hr_admin");
+        authz.RequireAnyRole("erp_admin", "hr_ops", "hr_admin");
         var unit = await repo.GetOrgUnitAsync(id, ct)
             ?? throw new DomainException("org-unit-not-found", $"Org unit {id} does not exist.");
         var effectiveDate = DateOnly.Parse(request.EffectiveDate);
@@ -263,6 +273,12 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         unit.Status = "closed";
         await repo.UpdateOrgUnitAsync(unit, ct);
     }
+
+    // ERP Core authority does not confer HRM workforce visibility or manager-assignment authority.
+    private bool CanReadOrganisationWorkers => authz.IsRole("hr_ops", "hr_admin", "employee", "manager", "payroll");
+
+    private Task<List<Worker>> OrganisationWorkersAsync(CancellationToken ct) =>
+        CanReadOrganisationWorkers ? repo.ListAllWorkersAsync(null, ct) : Task.FromResult(new List<Worker>());
 
     // ================= Work calendars & holidays =================
 
@@ -523,9 +539,9 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         l.AddressLine, l.Province, l.District, l.City, l.Type ?? "branch", l.DefaultCalendarId,
         l.DefaultCalendarId.HasValue ? calendars.FirstOrDefault(c => c.Id == l.DefaultCalendarId)?.Name : null, l.CreatedAt);
 
-    private static OrgUnitDtoFull ToOrgUnitDto(OrgUnit u, List<LegalEntity> entities, List<Worker> workers) => new(
+    private static OrgUnitDtoFull ToOrgUnitDto(OrgUnit u, List<LegalEntity> entities, List<Worker> workers, bool includeManager = true) => new(
         u.Id, u.Code, u.Name, u.LegalEntityId, entities.FirstOrDefault(e => e.Id == u.LegalEntityId)?.RegisteredName,
-        u.ParentId, u.UnitType ?? "department", u.CostCentreRef, u.ManagerId,
+        u.ParentId, u.UnitType ?? "department", u.CostCentreRef, includeManager ? u.ManagerId : null,
         u.ManagerId.HasValue ? workers.FirstOrDefault(w => w.Id == u.ManagerId)?.FullName : null,
         u.EffectiveFrom.ToString("yyyy-MM-dd"), u.EffectiveTo?.ToString("yyyy-MM-dd"), u.Status ?? "active", u.CreatedAt);
 
@@ -545,6 +561,14 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     private static ContractTypeDto ToContractTypeDto(ContractType t) => new(
         t.Id, t.Code, t.Name, t.ProbationDays, t.NoticeDays, t.IsActive, t.CreatedAt);
+
+    private static string NormalizeReferenceCode(string? value, int length, string field)
+    {
+        var normalized = value?.Trim();
+        if (normalized is null || normalized.Length != length || normalized.Any(c => !(c is >= 'A' and <= 'Z' or >= 'a' and <= 'z')))
+            throw new DomainException($"{field}-invalid", $"Enter a {length}-letter {field} code using A to Z.");
+        return normalized.ToUpperInvariant();
+    }
 
     private static void RequireNonEmpty(string? value, string field)
     {

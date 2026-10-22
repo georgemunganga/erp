@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Mightyfin.Erp.Procurement.Domain;
 
 /// <summary>Every Procurement row is scoped to one tenant and legal entity.</summary>
@@ -187,7 +189,11 @@ public sealed class CatalogEntry : ProcurementRecord
 public sealed class PurchaseRequest : ProcurementRecord
 {
     public string Number { get; set; } = null!;
-    public Guid RequesterWorkerId { get; set; }
+    // Core account identity owns the request. Null is retained for pre-principal history;
+    // CreatedBy is historical attribution and is never rewritten as a guessed backfill.
+    public Guid? RequesterPrincipalId { get; set; }
+    // Optional genuine HRMS link, never a substitute for the Core principal.
+    public Guid? RequesterWorkerId { get; set; }
     public Guid? DepartmentRef { get; set; }
     public string? CostCenterRef { get; set; }
     public string? ProjectRef { get; set; }
@@ -278,6 +284,13 @@ public sealed class PolicyEvaluation : ProcurementRecord
 
 public sealed class BudgetCheckSnapshot : ProcurementRecord
 {
+    // Additive provenance only. Zero/null means unbound legacy history, never a guessed worker.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int CheckerIdentitySchemaVersion { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? CheckedByWorkerId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CheckerIdentitySha256 { get; set; }
     public Guid PurchaseRequestId { get; set; }
     public long RequestVersion { get; set; }
     public string FinanceCheckRef { get; set; } = null!;

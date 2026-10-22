@@ -1,3 +1,4 @@
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Sockets;
@@ -22,12 +23,14 @@ using Npgsql;
 using NpgsqlTypes;
 
 namespace ProcurementCrudHttpProbe;
-internal static class Program
+internal static partial class Program
 {
     const string Tenant = "crud-private-probe", Root = "/api/procurement/v1";
     const string P19 = "P19PurchaseOrderBranchScope", P20 = "P20InvoiceDraftMaintenance";
+    const string CanonicalP21 = "20261022052824_P21CanonicalGovernedProcurementFoundation";
     static readonly Guid Company = Guid.NewGuid(), ForeignCompany = Guid.NewGuid(), Branch = Guid.NewGuid();
     static readonly Guid Actor = Guid.NewGuid(), Other = Guid.NewGuid(), Worker = Guid.NewGuid(), OtherWorker = Guid.NewGuid();
+    static readonly Guid SystemActor = Guid.NewGuid(), SystemReviewer = Guid.NewGuid();
     static readonly JsonSerializerOptions Snake = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     static string connection = "", stage = "input"; static int assertions, requests;
     static Guid approvedSupplier, legacyInvoice;
@@ -57,12 +60,20 @@ internal static class Program
             await Bootstrap();
             await using var app = await Host(); using var client = Client(app);
             var context = await Get(client, "/context"); Check(context.GetProperty("workerId").GetGuid() == Worker, "Actual context did not bind the synthetic Core worker.");
+            Check(context.GetProperty("principalId").GetGuid() == Actor, "Context must identify the actual Core account independently of its optional worker.");
+            await SystemUserContext(client);
             var meta = await Get(client, "/meta"); Check(meta.GetProperty("crudEnabled").GetBoolean(), "Normal host CRUD capability unavailable.");
-            await Vendors(client); await Items(client); await Requests(client); await OtherDrafts(client); await Settings(client); await Invoices(client); await Credits(client);
+            foreach (var capability in new[] { "approvals", "orders", "sourcingSourceDrafts", "receivingDrafts", "invoiceComparison" })
+                Check(!meta.GetProperty("capabilities").GetProperty(capability).GetBoolean(), "Draft fixture must not enable an operational workflow.");
+            await Vendors(client); await SystemSupplierLifecycle(client); await SupplierKnownAliasWithoutActiveWorkforce(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await ReceivingLookups(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client); await VerifyUsedCorePrincipalMigration();
             stage = "independent-final-owning-context";
             await using (var proof = Db())
             {
                 Check(await proof.SupplierInvoices.CountAsync() == 4, "Unexpected invoices.");
+                Check(await proof.PolicyVersions.CountAsync() == 2, "Unexpected policy draft count.");
+                Check(await proof.ProcurementMethods.CountAsync() == 2 + (policyRaceMethodCreated ? 1 : 0), "Unexpected method count after policy race.");
+                Check(!await proof.PolicyVersions.AnyAsync(p => p.State == "Retired" && proof.ProcurementMethods.Any(m => m.PolicyVersionId == p.Id)),
+                    "A retired policy has a method reference.");
                 Check(!await proof.FinanceInvoiceHandoffs.AnyAsync() && !await proof.FinancePaymentStatusRefs.AnyAsync()
                     && !await proof.InvoiceMatchResults.AnyAsync() && !await proof.GoodsReceipts.AnyAsync(), "Draft CRUD caused downstream effects.");
                 Check((await proof.SupplierInvoices.SingleAsync(x => x.Id == legacyInvoice)).BranchRef is null, "Legacy scope was fabricated.");
@@ -70,14 +81,29 @@ internal static class Program
             var beforeDown = await Footprint();
             await using (var db = Db())
             {
-                try { await db.GetService<IMigrator>().MigrateAsync(P19); throw new ProbeFailure("Used invoice scope/history allowed destructive Down."); }
+                // Exercise this released migration's veto without first downgrading P21.
+                // EF commits migrations individually; MigrateAsync(P19) is not an atomic
+                // rollback of the complete P21 -> P19 chain.
+                var downSql = db.GetService<IMigrator>().GenerateScript(P20, P19);
+                Check(!downSql.Contains(CanonicalP21, StringComparison.Ordinal)
+                    && downSql.Contains("Retained invoice branch or removed-line history prevents destructive downgrade.", StringComparison.Ordinal),
+                    "Expected only the released P20 invoice-history downgrade guard.");
+                await using var downConnection = new NpgsqlConnection(connection);
+                await downConnection.OpenAsync();
+                await using var downCommand = new NpgsqlCommand(downSql, downConnection);
+                try { await downCommand.ExecuteNonQueryAsync(); throw new ProbeFailure("Used invoice scope/history allowed destructive Down."); }
                 catch (Exception e) when (FindPg(e) is { SqlState: "55000", MessageText: "Retained invoice branch or removed-line history prevents destructive downgrade." }) { }
             }
             Check(beforeDown == await Footprint(), "Denied used Down changed retained data/history.");
+            await VerifyCanonicalSchema();
+            Check(await Scalar("SELECT (NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname IN ('core_approval','core_document')))::text") == "true",
+                "Bounded CRUD unexpectedly required or created shared approval/document schemas.");
             Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS", assertions, actualHttpRequests = requests,
-                actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true,
-                legacyP19Preserved = true, emptyDownUp = true, usedDownBlocked = true, production = false,
-                scope = "Basic draft CRUD only; no procurement approval, supplier approval, Finance, stock or full-module completion" }));
+                actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true, systemSupplierLifecycle = true, systemSupplierReviewerFiniteGrants = true,
+                legacyP19Preserved = true, emptyDownUp = true, usedP20DownBlocked = true, production = false,
+                policyDraftRetirement = true, policyReferenceRace = true, policyRaceMethodCreated, exactRequestDrafts = true,
+                policyRaceRequestsOverlapped = policyRaceOverlapped,
+                scope = "Basic draft CRUD plus separate mapped supplier lifecycle with actual workerless Core maker/reviewer and finite reviewer grants; no procurement requisition/PO approval, Finance, stock, real identity-provider authentication or full-module completion" }));
             if (browserMode)
             {
                 if (publishManifest) await WriteManifest();
@@ -118,6 +144,20 @@ internal static class Program
                 core.LocalUsers.Add(new LocalUser {Id=actor,WorkerId=worker,Email=label+"@example.test",NormalizedEmail=label.ToUpperInvariant()+"@EXAMPLE.TEST",DisplayName=label,PasswordHash="synthetic-no-login",RolesCsv="erp_admin",IsActive=true});
                 core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=actor,LocationId=Branch});
             }
+            // Actual Core grants, not an employee designation or a header-only
+            // administrator shortcut. Browser CRUD deliberately uses no employee.
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey="erp_admin",RoleName="Synthetic ERP administrator",
+                Category="system",PermissionsCsv="erp_admin",Active=true});
+            core.LocalUsers.Add(new LocalUser {Id=SystemActor,WorkerId=null,Email="system-only@example.test",
+                NormalizedEmail="SYSTEM-ONLY@EXAMPLE.TEST",DisplayName="Synthetic system user",PasswordHash="synthetic-no-login",
+                RolesCsv="erp_admin",IsActive=true});
+            core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=SystemActor,LocationId=Branch});
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey=SystemSupplierRole,RoleName="Finite synthetic system supplier reviewer",
+                Category="system",PermissionsCsv=SystemSupplierActions,Active=true});
+            core.LocalUsers.Add(new LocalUser {Id=SystemReviewer,WorkerId=null,Email="system-reviewer@example.test",
+                NormalizedEmail="SYSTEM-REVIEWER@EXAMPLE.TEST",DisplayName="Synthetic system supplier reviewer",PasswordHash="synthetic-no-login",
+                RolesCsv=SystemSupplierRole,IsActive=true});
+            core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=SystemReviewer,LocationId=Branch});
             await core.SaveChangesAsync();
         }
         await using (var db=Db())
@@ -135,11 +175,20 @@ internal static class Program
         await using(var db=Db())
         {
             var migrator=db.GetService<IMigrator>();await migrator.MigrateAsync(P20);await migrator.MigrateAsync(P19);await migrator.MigrateAsync(P20);
-            Check((await db.SupplierInvoices.SingleAsync(x=>x.Id==legacyInvoice)).BranchRef is null,"Upgrade backfilled branch.");
-            Check((await db.SupplierInvoiceLines.SingleAsync(x=>x.SupplierInvoiceId==legacyInvoice)).IsActive,"Legacy line lost active default.");
-            Check(!db.Database.HasPendingModelChanges(),"Snapshot/model mismatch.");
+            // The current invoice CLR model also contains P21 fields; do not materialize it
+            // against old P20 while proving the released two-column upgrade in isolation.
+            Check(await Scalar("SELECT (branch_ref IS NULL)::text FROM procurement.supplier_invoices WHERE invoice_number='LEGACY-1'") == "true", "Upgrade backfilled branch.");
+            Check(await Scalar("SELECT is_active::text FROM procurement.supplier_invoice_lines WHERE description='Original legacy line'") == "true", "Legacy line lost active default.");
         }
         Check(oldValues==await Legacy(),"Upgrade/unusedDown changed original legacy columns.");
+        // Retain the released P19/P20 rehearsal above. The current application also needs
+        // the genuine canonical forward delta; metadata must never fake away that pending ID.
+        stage = "canonical-P21-before-current-HTTP";
+        await using (var db = Db()) await db.GetService<IMigrator>().MigrateAsync(CanonicalP21);
+        await RehearseUnusedCorePrincipalMigration();
+        await VerifyCorePrincipalAuditOnlyDown();
+        await VerifyCanonicalSchema();
+        Check(oldValues==await Legacy(),"Canonical upgrade changed original legacy columns.");
     }
     static async Task<WebApplication> Host()
     {
@@ -150,7 +199,7 @@ internal static class Program
         ProcurementHostIntegration.AddServices(b.Services,connection);
         b.Services.AddAuthentication("private-crud").AddScheme<AuthenticationSchemeOptions,ToolAuthentication>("private-crud",_=>{});
         b.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
-        var app=b.Build();app.UseRouting();app.UseAuthentication();app.UseAuthorization();app.UseMiddleware<ProcurementScopeMiddleware>();
+        var app=b.Build();app.UseRouting();app.UseAuthentication();app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>();app.UseAuthorization();app.UseMiddleware<ProcurementScopeMiddleware>();
         ProcurementHostIntegration.MapRoutes(app);
         if (browserMode) MapPrivateCoreShell(app);
         await app.StartAsync();return app;
@@ -171,10 +220,10 @@ internal static class Program
         if (OperatingSystem.IsLinux()) File.SetUnixFileMode(BrowserManifest,UnixFileMode.UserRead|UnixFileMode.UserWrite);
         await JsonSerializer.SerializeAsync(stream,new { database=new NpgsqlConnectionStringBuilder(connection).Database,
             tenantId=Tenant,companyId=Company,foreignCompanyId=ForeignCompany,
-            branchId=Branch,actorId=Actor,workerId=Worker,approvedSupplierId=approvedSupplier,legacyInvoiceId=legacyInvoice,
+            branchId=Branch,actorId=SystemActor,workerId=(Guid?)null,approvedSupplierId=approvedSupplier,legacyInvoiceId=legacyInvoice,
             authenticationHeader="X-Crud-Actor",socketPath=BrowserSocket,
-            actors=new {maker=new {principalId=Actor,workerId=Worker},other=new {principalId=Other,workerId=OtherWorker}},
-            cliProofComplete=true,production=false,finiteRole=false,coreShellPresentationOnly=true,
+            actors=new {maker=new {principalId=Actor,workerId=Worker},other=new {principalId=Other,workerId=OtherWorker},systemUser=new {principalId=SystemActor,workerId=(Guid?)null},systemReviewer=new {principalId=SystemReviewer,workerId=(Guid?)null}},
+            cliProofComplete=true,browserActorSwitch="manifest-alias-v1",production=false,finiteRole=false,coreShellPresentationOnly=true,
             supplierApproval="Synthetic owner fixture, not supplier approval proof" },new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
     // Tool-only browser presentation endpoints; no production Core implementation or permission bypass.
@@ -208,18 +257,16 @@ internal static class Program
             return facts is null?(IResult)Results.Unauthorized():Results.Ok(new {assignedLocationIds=new[]{facts.Branch.Id},confined=true,privateSyntheticShell=true});
         }).RequireAuthorization();
     }
-    sealed record ShellProjection(LocalUser User,Mightyfin.Erp.Hrm.Domain.Entities.Worker Worker,LegalEntity Company,WorkLocation Branch);
+    sealed record ShellProjection(LocalUser User,LegalEntity Company,WorkLocation Branch);
     static async Task<ShellProjection?> ShellFacts(HttpContext http,HrmDbContext core)
     {
-        if (!Guid.TryParse(http.User.FindFirst("sub")?.Value,out var actor)||(actor!=Actor&&actor!=Other)) return null;
+        if (!Guid.TryParse(http.User.FindFirst("sub")?.Value,out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor&&actor!=SystemReviewer)) return null;
         var user=await core.LocalUsers.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==actor&&x.IsActive);
-        if (user is null || user.WorkerId is not {} workerId) return null;
-        var worker=await core.Workers.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==workerId&&x.Status=="active");
-        if (worker is null || worker.LocationId!=Branch) return null;
+        if (user is null || user.IsArchived || user.LockedUntil>DateTimeOffset.UtcNow) return null;
         var branch=await core.WorkLocations.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==Branch&&x.LegalEntityId==Company&&!x.IsArchived);
         var company=await core.LegalEntities.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==Company);
         if (branch is null||company is null||!await core.UserBranchAssignments.AsNoTracking().AnyAsync(x=>x.UserId==actor&&x.LocationId==Branch)) return null;
-        return new(user,worker,company,branch);
+        return new(user,company,branch);
     }
     static async Task Vendors(HttpClient c)
     {
@@ -437,13 +484,29 @@ internal static class Program
         return string.IsNullOrWhiteSpace(content)?default:JsonDocument.Parse(content).RootElement.Clone();
     }
     static string SafeCode(string content){try{return JsonDocument.Parse(content).RootElement.TryGetProperty("code",out var code)?code.GetString()??"none":"none";}catch(JsonException){return "non-json";}}
+    static async Task VerifyCanonicalSchema()
+    {
+        await using var db = Db();
+        Check(!db.Database.HasPendingModelChanges(), "Snapshot/model mismatch.");
+        Check(!(await db.Database.GetPendingMigrationsAsync()).Any(), "Actual canonical migration is missing; no availability override.");
+        Check((await db.Database.GetAppliedMigrationsAsync()).Contains(CanonicalP21), "Canonical forward marker missing.");
+        await using var raw = new NpgsqlConnection(connection); await raw.OpenAsync();
+        foreach (var manifest in new[] { ReceivingOwnershipConstraintSql.ManifestQuery,
+            InvoiceMatchingOwnershipConstraintSql.ManifestQuery, SourcingDraftOwnershipConstraintSql.ManifestQuery })
+        {
+            await using var command = new NpgsqlCommand(manifest, raw);
+            Check(await command.ExecuteScalarAsync() is true, "Exact canonical ownership manifest missing.");
+        }
+        await VerifyCorePrincipalSchema();
+    }
+
     static async Task RawInsert(string table,object value,string excluded)
     {
         var json=JsonSerializer.SerializeToNode(value,Snake)!.AsObject();json.Remove(excluded);await using var raw=new NpgsqlConnection(connection);await raw.OpenAsync();
         await using var command=new NpgsqlCommand("INSERT INTO procurement."+table+" SELECT * FROM jsonb_populate_record(NULL::procurement."+table+",@row)",raw);
         command.Parameters.Add(new NpgsqlParameter("row",NpgsqlDbType.Jsonb){Value=json.ToJsonString()});Check(await command.ExecuteNonQueryAsync()==1,"Legacy raw insert failed.");
     }
-    static async Task<string> Legacy()=>await Scalar("SELECT jsonb_build_object('invoice',(SELECT to_jsonb(t)-'branch_ref' FROM procurement.supplier_invoices t WHERE invoice_number='LEGACY-1'),'line',(SELECT to_jsonb(t)-'is_active' FROM procurement.supplier_invoice_lines t WHERE description='Original legacy line'))::text");
+    static async Task<string> Legacy()=>await Scalar("SELECT jsonb_build_object('invoice',(SELECT to_jsonb(t)-'branch_ref'-ARRAY['active_match_claim_result_id','current_mapping_version_id','last_match_result_id','mapping_revision','match_revision','matching_state'] FROM procurement.supplier_invoices t WHERE invoice_number='LEGACY-1'),'line',(SELECT to_jsonb(t)-'is_active' FROM procurement.supplier_invoice_lines t WHERE description='Original legacy line'))::text");
     static async Task<string> Scalar(string sql){await using var raw=new NpgsqlConnection(connection);await raw.OpenAsync();await using var c=new NpgsqlCommand(sql,raw);return (string)(await c.ExecuteScalarAsync())!;}
     static async Task<string> Footprint()=>await Scalar("SELECT jsonb_build_object('vendor',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.suppliers t),'attrs',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_attributes t),'items',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.catalog_items t),'catalogEntries',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.catalog_entries t),'invoices',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_invoices t),'lines',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_invoice_lines t),'credits',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_credit_note_refs t),'audit',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.audit_events t),'outbox',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.outbox_events t),'history',(SELECT jsonb_agg(to_jsonb(t) ORDER BY \"MigrationId\") FROM procurement.__procurement_migrations t))::text");
     static PostgresException? FindPg(Exception e)=>e as PostgresException??(e.InnerException is {} inner?FindPg(inner):null);
@@ -459,7 +522,7 @@ internal static class Program
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            if(!Guid.TryParse(Request.Headers["X-Crud-Actor"],out var actor)||(actor!=Actor&&actor!=Other))return Task.FromResult(AuthenticateResult.NoResult());
+            if(!Guid.TryParse(Request.Headers["X-Crud-Actor"],out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor&&actor!=SystemReviewer))return Task.FromResult(AuthenticateResult.NoResult());
             var principal=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("tenant",Tenant),new Claim("sub",actor.ToString()),new Claim(ClaimTypes.Role,"erp_admin")},"private-crud"));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal,"private-crud")));
         }
