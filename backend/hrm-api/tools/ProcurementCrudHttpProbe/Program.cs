@@ -58,11 +58,11 @@ internal static class Program
             await using var app = await Host(); using var client = Client(app);
             var context = await Get(client, "/context"); Check(context.GetProperty("workerId").GetGuid() == Worker, "Actual context did not bind the synthetic Core worker.");
             var meta = await Get(client, "/meta"); Check(meta.GetProperty("crudEnabled").GetBoolean(), "Normal host CRUD capability unavailable.");
-            await Vendors(client); await Items(client); await Requests(client); await OtherDrafts(client); await Settings(client); await Invoices(client);
+            await Vendors(client); await Items(client); await Requests(client); await OtherDrafts(client); await Settings(client); await Invoices(client); await Credits(client);
             stage = "independent-final-owning-context";
             await using (var proof = Db())
             {
-                Check(await proof.SupplierInvoices.CountAsync() == 2, "Unexpected invoices.");
+                Check(await proof.SupplierInvoices.CountAsync() == 4, "Unexpected invoices.");
                 Check(!await proof.FinanceInvoiceHandoffs.AnyAsync() && !await proof.FinancePaymentStatusRefs.AnyAsync()
                     && !await proof.InvoiceMatchResults.AnyAsync() && !await proof.GoodsReceipts.AnyAsync(), "Draft CRUD caused downstream effects.");
                 Check((await proof.SupplierInvoices.SingleAsync(x => x.Id == legacyInvoice)).BranchRef is null, "Legacy scope was fabricated.");
@@ -248,8 +248,30 @@ internal static class Program
         var item=new{code="CRUD-ITEM",name="Draft item",kind="Goods",categoryCode="SYNTHETIC",unitCode="each"};
         var saved=await Send(c,HttpMethod.Post,"/items",item,HttpStatusCode.Created);var id=Id(saved);var path="/items/"+id;
         saved=await Send(c,HttpMethod.Put,path,new{version=Version(saved),item=new{item.code,name="Updated item",item.kind,item.categoryCode,item.unitCode}});
-        await Get(c,"/items");await Get(c,path);await Send(c,HttpMethod.Post,path+"/deactivate",new{version=Version(saved)});
+        await Get(c,"/items");await Get(c,path);
+        var entries=path+"/catalog-entries";
+        object Price(string price,string min,string max,string tax,string audience)=>new{supplierId=approvedSupplier,currencyCode="ZMW",unitCode="each",
+            unitPrice=price,minimumQuantity=min,maximumQuantity=max,taxBasis=tax,audienceCode=audience,
+            effectiveFrom="2026-10-22T00:00:00+00:00",effectiveTo="2027-10-22T00:00:00+00:00"};
+        var price=await Send(c,HttpMethod.Post,entries,Price("12345678901234.5678","1.2345","100.0001","Inclusive","OFFICE"),HttpStatusCode.Created);
+        var entryId=Id(price);Check(price.GetProperty("catalogEditVersion").GetInt32()==1
+            &&price.GetProperty("exactAmounts").GetProperty("unitPrice").GetString()=="12345678901234.5678","Catalog create lost exact wide amount.");
+        price=await Send(c,HttpMethod.Put,entries+"/"+entryId,new{version=Version(price),entry=Price("98765432109876.5432","2.3456","100.9999","Exclusive","FIELD_TEAM")});
+        var stored=(await Get(c,entries)).GetProperty("items").EnumerateArray().Single(x=>Id(x)==entryId);
+        Check(stored.GetProperty("taxBasis").GetString()=="Exclusive"&&stored.GetProperty("audienceCode").GetString()=="FIELD_TEAM"
+            &&stored.GetProperty("exactAmounts").GetProperty("unitPrice").GetString()=="98765432109876.5432"
+            &&stored.GetProperty("exactAmounts").GetProperty("minimumQuantity").GetString()=="2.3456"
+            &&stored.GetProperty("exactAmounts").GetProperty("maximumQuantity").GetString()=="100.9999","Catalog draft reload lost commercial scope/limits/exact amount.");
+        var beforePrice=await Footprint();
+        await Send(c,HttpMethod.Put,entries+"/"+entryId,new{version=1,entry=Price("1","1","2","Changed","CHANGED")},HttpStatusCode.Conflict);
+        Check(beforePrice==await Footprint(),"Stale catalog correction changed owning rows/audits.");
+        await Send(c,HttpMethod.Post,path+"/deactivate",new{version=Version(saved)});
         await using var db=Db();Check((await db.CatalogItems.SingleAsync(x=>x.Id==id)).Name=="Updated item","Item update not persisted.");
+        var ownerPrice=await db.CatalogEntries.AsNoTracking().SingleAsync(x=>x.Id==entryId);
+        Check(ownerPrice.CatalogItemId==id&&ownerPrice.SupplierId==approvedSupplier&&ownerPrice.Status=="Draft"&&ownerPrice.PublishedVersion==0
+            &&ownerPrice.UnitPrice==98765432109876.5432m&&ownerPrice.MinimumQuantity==2.3456m&&ownerPrice.MaximumQuantity==100.9999m
+            &&ownerPrice.TaxBasis=="Exclusive"&&ownerPrice.AudienceCode=="FIELD_TEAM","Owning PostgreSQL catalog draft differs from exact HTTP result.");
+        Check(!(await db.CatalogItems.SingleAsync(x=>x.Id==id)).IsPurchasable,"Catalog draft checking activated the item.");
         // A newly created inactive item deactivation is intentionally a no-op, not an activation proof.
     }
     static object RequestDraft(string purpose)=>new{purpose,currencyCode="ZMW",lines=new[]{new{description="Synthetic request need",unitCode="each",requestedQuantity=2,estimatedUnitPrice=3}}};
@@ -298,13 +320,118 @@ internal static class Program
         Check(row.Status=="Cancelled"&&row.GrossAmount==12345678901234.5678m&&row.BranchRef==Branch,"Invoice exact/header/cancel persistence mismatch.");
         Check(lines.Length==2&&lines.Count(x=>x.IsActive)==1&&lines.Single(x=>x.IsActive).UnitPrice==12345678901234.5678m,"Invoice removal destroyed or rounded history.");
     }
+    static async Task Credits(HttpClient c)
+    {
+        stage="credit-actual-invoice-prerequisites";
+        object Bill(string number)=>new{supplierId=approvedSupplier,invoiceNumber=number,invoiceDate="2026-10-22",currencyCode="ZMW",
+            lines=new[]{new{description="Actual credit intake source",quantity="1",unitPrice="10",taxAmount="0"}}};
+        var source=await Send(c,HttpMethod.Post,"/invoices",Bill("CREDIT-CRUD-SOURCE"),HttpStatusCode.Created);var invoice=Id(source);
+        var raceSource=await Send(c,HttpMethod.Post,"/invoices",Bill("CREDIT-RACE-SOURCE"),HttpStatusCode.Created);var raceInvoice=Id(raceSource);
+        var protectedBefore=await CreditProtectedState();
+        var saved=await Send(c,HttpMethod.Post,"/vendor-credits",new{supplierInvoiceId=invoice,creditNumber=" cn-http-001 ",amount="1.2345",reason="Synthetic supplier credit document received"},HttpStatusCode.Created);
+        var id=Id(saved);var path="/vendor-credits/"+id;
+        Check(saved.GetProperty("creditCrudVersion").GetInt32()==1&&saved.GetProperty("creditNumber").GetString()=="CN-HTTP-001"
+            &&saved.GetProperty("exactAmount").GetString()=="1.2345"&&saved.GetProperty("status").GetString()=="Draft","Credit capture contract or exact amount mismatch.");
+        var reload=await Get(c,path);Check(Id(reload)==id&&reload.GetProperty("supplierInvoiceId").GetGuid()==invoice,"Credit source identity not retained on HTTP reload.");
+        saved=await Send(c,HttpMethod.Put,path,new{version=Version(saved),draft=new{creditNumber="cn-http-002",amount="2.3456",reason="Supplier corrected commercial explanation"},reason="Correct original credit capture"});
+        Check(Version(saved)==2&&saved.GetProperty("exactAmount").GetString()=="2.3456","Credit update lost exact amount/CAS.");
+        var before=await Footprint();
+        await Send(c,HttpMethod.Put,path,new{version=1,draft=new{creditNumber="CHANGED",amount="1",reason="Stale edit"},reason="Must not overwrite"},HttpStatusCode.Conflict);
+        Check(before==await Footprint(),"Stale credit correction changed stored state.");
+        await Send(c,HttpMethod.Get,path,null,HttpStatusCode.Forbidden,foreign:true);
+        await Send(c,HttpMethod.Post,"/vendor-credits",new{supplierInvoiceId=invoice,creditNumber="FOREIGN",amount="1",reason="Wrong company"},HttpStatusCode.Forbidden,foreign:true);
+        Check(before==await Footprint(),"Wrong-scope credit read/capture changed stored state.");
+        saved=await Send(c,HttpMethod.Post,path+"/cancel",new{version=Version(saved),reason="Supplier withdrew documentary reference"});
+        reload=await Get(c,path);Check(Version(reload)==3&&reload.GetProperty("status").GetString()=="Cancelled"
+            &&reload.GetProperty("exactAmount").GetString()=="2.3456"&&reload.GetProperty("allowedActions").GetArrayLength()==0,"Credit cancellation did not retain exact reference/history.");
+        Check(protectedBefore==await CreditProtectedState(),"Credit CRUD changed invoices, Finance, receiving or outbox records.");
+
+        stage="credit-two-separate-HTTP-requests-concurrent-ceiling";
+        var gate=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<(HttpStatusCode Status,JsonElement Body)> Race(string number)
+        {
+            using var request=new HttpRequestMessage(HttpMethod.Post,Root+"/vendor-credits");
+            request.Headers.Add("X-Crud-Actor",Actor.ToString());request.Headers.Add("X-Shell-Entity",Company.ToString());request.Headers.Add("X-Shell-Location",Branch.ToString());
+            request.Content=JsonContent.Create(new{supplierInvoiceId=raceInvoice,creditNumber=number,amount="6",reason="Separate actual concurrent documentary credit"});
+            await gate.Task;
+            using var response=await c.SendAsync(request);Interlocked.Increment(ref requests);
+            var content=await response.Content.ReadAsStringAsync();
+            Check(response.StatusCode is HttpStatusCode.Created or HttpStatusCode.Conflict or HttpStatusCode.UnprocessableEntity,
+                "Concurrent credit returned unexpected status "+(int)response.StatusCode+"; code="+SafeCode(content));
+            return(response.StatusCode,JsonDocument.Parse(content).RootElement.Clone());
+        }
+        var one=Race("RACE-CREDIT-A");var two=Race("RACE-CREDIT-B");gate.SetResult();
+        var outcomes=await Task.WhenAll(one,two);
+        Check(outcomes.Count(x=>x.Status==HttpStatusCode.Created)==1,"Exactly one competing six-of-ten credit must persist.");
+        foreach(var denied in outcomes.Where(x=>x.Status!=HttpStatusCode.Created))
+            Check(denied.Body.GetProperty("code").GetString() is "stale-credit" or "credit-captured-total-exceeded","Competing credit failed for an unrelated reason.");
+        await using(var db=Db())
+        {
+            var original=await db.SupplierInvoices.AsNoTracking().SingleAsync(x=>x.Id==raceInvoice);
+            var rows=await db.SupplierCreditNoteRefs.AsNoTracking().Where(x=>x.SupplierInvoiceId==raceInvoice).ToArrayAsync();
+            Check(rows.Length==1&&rows[0].Amount==6m&&rows[0].Status=="Draft"&&rows[0].FinanceCreditRef is null
+                &&rows.Sum(x=>x.Amount)<=original.GrossAmount,"Owning PostgreSQL reload failed concurrent captured-gross conservation.");
+            var corrected=await db.SupplierCreditNoteRefs.AsNoTracking().SingleAsync(x=>x.Id==id);
+            Check(corrected.Status=="Cancelled"&&corrected.Amount==2.3456m&&corrected.CreditNumber=="CN-HTTP-002"&&corrected.Version==3,"Owning reload lost corrected/cancelled credit.");
+            Check(await db.SupplierCreditNoteRefs.CountAsync()==2,"A denied concurrent/wrong-scope credit persisted.");
+            Check(await db.AuditEvents.CountAsync(x=>x.RecordId==id&&x.Action=="CreditIntakeCaptured")==1
+                &&await db.AuditEvents.CountAsync(x=>x.RecordId==id&&x.Action=="CreditIntakeCorrected")==1
+                &&await db.AuditEvents.CountAsync(x=>x.RecordId==id&&x.Action=="CreditIntakeCancelled")==1,"Credit lifecycle audit evidence incomplete.");
+            var winner=rows[0].Id;
+            Check(await db.AuditEvents.CountAsync(x=>x.RecordType==nameof(SupplierCreditNoteRef)&&x.Action=="CreditIntakeCaptured")==2
+                &&await db.AuditEvents.CountAsync(x=>x.RecordId==winner&&x.Action=="CreditIntakeCaptured")==1,"Concurrent loser leaked credit audit effects.");
+        }
+        Check(protectedBefore==await CreditProtectedState(),"Concurrent credit intake changed original invoices or external-owner records.");
+        await CreditUnknownLegacyStatus(c,id,invoice);
+        await Get(c,"/vendor-credits?search=CN-HTTP&status=Cancelled&page=1&pageSize=1");
+    }
+    // Explicit bootstrap-owner anomaly fixture, not an authorized credit lifecycle or financial outcome.
+    // Change ONLY the status of a genuinely API-produced cancelled row, deny a new API write,
+    // then restore that one original value and independently compare the entire retained footprint.
+    static async Task CreditUnknownLegacyStatus(HttpClient c,Guid id,Guid invoice)
+    {
+        stage="owner-only-unknown-legacy-credit-status";
+        var original=await Footprint();
+        async Task SetStatus(string status)
+        {
+            await using var owner=new NpgsqlConnection(connection);await owner.OpenAsync();
+            await using var command=new NpgsqlCommand("UPDATE procurement.supplier_credit_note_refs SET status=@status WHERE tenant_id=@tenant AND legal_entity_id=@company AND id=@id",owner);
+            command.Parameters.AddWithValue("status",status);command.Parameters.AddWithValue("tenant",Tenant);
+            command.Parameters.AddWithValue("company",Company);command.Parameters.AddWithValue("id",id);
+            Check(await command.ExecuteNonQueryAsync()==1,"Synthetic legacy status fixture target not exact.");
+        }
+        await SetStatus("UnknownLegacyState");
+        try
+        {
+            var anomaly=await Footprint();
+            var denied=await Send(c,HttpMethod.Post,"/vendor-credits",new{supplierInvoiceId=invoice,creditNumber="UNKNOWN-HISTORY-MUST-NOT-CAPTURE",amount="1",reason="Explicit synthetic legacy anomaly"},HttpStatusCode.Conflict);
+            Check(denied.GetProperty("code").GetString()=="credit-history-needs-review","Unknown legacy credit state was not blocked by its intended guard.");
+            Check(anomaly==await Footprint(),"Denied unknown-history capture changed retained credit/invoice/audit state.");
+        }
+        finally { await SetStatus("Cancelled"); }
+        Check(original==await Footprint(),"Owner-only status fixture failed exact original-footprint restoration.");
+    }
+    // Independent owning-store snapshot, excluding only the credit records and their intended audit changes.
+    static async Task<string> CreditProtectedState()
+    {
+        await using var db=Db();
+        return JsonSerializer.Serialize(new { invoices=await db.SupplierInvoices.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            lines=await db.SupplierInvoiceLines.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            handoffs=await db.FinanceInvoiceHandoffs.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            payments=await db.FinancePaymentStatusRefs.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            matches=await db.InvoiceMatchResults.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            receipts=await db.GoodsReceipts.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            services=await db.ServiceAcceptances.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            returns=await db.SupplierReturns.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync(),
+            outbox=await db.OutboxEvents.AsNoTracking().OrderBy(x=>x.Id).ToArrayAsync() });
+    }
     static Guid Id(JsonElement v)=>v.GetProperty("id").GetGuid();static long Version(JsonElement v)=>v.GetProperty("version").GetInt64();
     static Task<JsonElement> Get(HttpClient c,string path)=>Send(c,HttpMethod.Get,path,null);
     static async Task<JsonElement> Send(HttpClient c,HttpMethod method,string path,object? body,HttpStatusCode expected=HttpStatusCode.OK,bool foreign=false)
     {
         stage="HTTP "+method+" "+path;using var request=new HttpRequestMessage(method,Root+path);
         request.Headers.Add("X-Crud-Actor",Actor.ToString());request.Headers.Add("X-Shell-Entity",(foreign?ForeignCompany:Company).ToString());request.Headers.Add("X-Shell-Location",Branch.ToString());
-        if(body is not null)request.Content=JsonContent.Create(body);using var response=await c.SendAsync(request);requests++;
+        if(body is not null)request.Content=JsonContent.Create(body);using var response=await c.SendAsync(request);Interlocked.Increment(ref requests);
         var content=await response.Content.ReadAsStringAsync();
         Check(response.StatusCode==expected,$"{stage}: expected {(int)expected}, got {(int)response.StatusCode}; code={SafeCode(content)}");
         return string.IsNullOrWhiteSpace(content)?default:JsonDocument.Parse(content).RootElement.Clone();
@@ -318,9 +445,9 @@ internal static class Program
     }
     static async Task<string> Legacy()=>await Scalar("SELECT jsonb_build_object('invoice',(SELECT to_jsonb(t)-'branch_ref' FROM procurement.supplier_invoices t WHERE invoice_number='LEGACY-1'),'line',(SELECT to_jsonb(t)-'is_active' FROM procurement.supplier_invoice_lines t WHERE description='Original legacy line'))::text");
     static async Task<string> Scalar(string sql){await using var raw=new NpgsqlConnection(connection);await raw.OpenAsync();await using var c=new NpgsqlCommand(sql,raw);return (string)(await c.ExecuteScalarAsync())!;}
-    static async Task<string> Footprint()=>await Scalar("SELECT jsonb_build_object('vendor',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.suppliers t),'attrs',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_attributes t),'invoices',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_invoices t),'lines',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_invoice_lines t),'audit',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.audit_events t),'outbox',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.outbox_events t),'history',(SELECT jsonb_agg(to_jsonb(t) ORDER BY \"MigrationId\") FROM procurement.__procurement_migrations t))::text");
+    static async Task<string> Footprint()=>await Scalar("SELECT jsonb_build_object('vendor',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.suppliers t),'attrs',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_attributes t),'items',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.catalog_items t),'catalogEntries',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.catalog_entries t),'invoices',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_invoices t),'lines',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_invoice_lines t),'credits',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_credit_note_refs t),'audit',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.audit_events t),'outbox',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.outbox_events t),'history',(SELECT jsonb_agg(to_jsonb(t) ORDER BY \"MigrationId\") FROM procurement.__procurement_migrations t))::text");
     static PostgresException? FindPg(Exception e)=>e as PostgresException??(e.InnerException is {} inner?FindPg(inner):null);
-    static void Check(bool condition,string message){if(!condition)throw new ProbeFailure(message);assertions++;}
+    static void Check(bool condition,string message){if(!condition)throw new ProbeFailure(message);Interlocked.Increment(ref assertions);}
     sealed class ProbeFailure(string message):InvalidOperationException(message);
     sealed class ToolTenant:ITenantAccessor{public string GetTenantId()=>Tenant;}
     sealed class ToolScope:IProcurementScope

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Globalization;
 using Npgsql;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Application;
@@ -188,10 +190,8 @@ public static class ProcurementItemEndpoints
     {
         if (!await db.CatalogItems.AnyAsync(x => x.Id == id, ct)) return NotFound();
         var entries = await db.CatalogEntries.AsNoTracking().Where(x => x.CatalogItemId == id)
-            .OrderByDescending(x => x.EffectiveFrom).Select(x => new EntryView(x.Id, x.CatalogItemId, x.SupplierId,
-                x.CurrencyCode, x.UnitCode, x.UnitPrice, x.EffectiveFrom, x.EffectiveTo, x.MinimumQuantity,
-                x.MaximumQuantity, x.Status, x.Version)).ToListAsync(ct);
-        return Results.Ok(new { items = entries });
+            .OrderByDescending(x => x.EffectiveFrom).ToListAsync(ct);
+        return Results.Ok(new { items = entries.Select(ToView) });
     }
 
     private static async Task<IResult> AddEntry(Guid id, EntryInput input, ProcurementDbContext db, CancellationToken ct)
@@ -326,6 +326,10 @@ public static class ProcurementItemEndpoints
         if (string.IsNullOrWhiteSpace(x.CurrencyCode) || x.CurrencyCode.Trim().Length != 3) return "Choose a three-letter currency code.";
         if (string.IsNullOrWhiteSpace(x.UnitCode) || x.UnitCode.Trim().Length > 30) return "Choose a unit.";
         if (x.UnitPrice < 0 || x.MinimumQuantity is < 0 || x.MaximumQuantity is < 0) return "Price and quantities cannot be negative.";
+        if (!ExactDecimalJsonCodec.IsRepresentable(x.UnitPrice, 18, 4)
+            || x.MinimumQuantity is { } min && !ExactDecimalJsonCodec.IsRepresentable(min, 18, 4)
+            || x.MaximumQuantity is { } max && !ExactDecimalJsonCodec.IsRepresentable(max, 18, 4))
+            return "Price and quantities must fit 18 digits with up to four decimal places; nothing was rounded.";
         if (x.MinimumQuantity.HasValue && x.MaximumQuantity.HasValue && x.MinimumQuantity > x.MaximumQuantity) return "Maximum quantity must be at least the minimum.";
         if (x.EffectiveTo.HasValue && x.EffectiveTo.Value <= x.EffectiveFrom) return "The end date must be after the start date.";
         return null;
@@ -364,7 +368,10 @@ public static class ProcurementItemEndpoints
         x.InspectionRequired, x.Status, x.IsPurchasable, x.Version,
     };
     private static EntryView ToView(CatalogEntry x) => new(x.Id, x.CatalogItemId, x.SupplierId, x.CurrencyCode,
-        x.UnitCode, x.UnitPrice, x.EffectiveFrom, x.EffectiveTo, x.MinimumQuantity, x.MaximumQuantity, x.Status, x.Version);
+        x.UnitCode, x.UnitPrice, x.EffectiveFrom, x.EffectiveTo, x.MinimumQuantity, x.MaximumQuantity, x.Status, x.Version,
+        x.TaxBasis, x.AudienceCode, new CatalogEntryExactAmounts(EntryExact(x.UnitPrice),
+            x.MinimumQuantity is { } min ? EntryExact(min) : null, x.MaximumQuantity is { } max ? EntryExact(max) : null), 1);
+    private static string EntryExact(decimal value) => value.ToString("0.####", CultureInfo.InvariantCulture);
     private static IResult BadRequest(string message) => Results.BadRequest(new { code = "invalid-item", message });
     private static IResult Conflict(string message) => Results.Conflict(new { code = "conflict", message });
     private static IResult NotFound() => Results.NotFound(new { code = "not-found", message = "Item not found." });
@@ -381,13 +388,31 @@ public sealed record CatalogPublishInput(long Version, string? Reason);
 public sealed record CatalogWithdrawInput(long Version, string? Reason);
 public sealed record ItemView(Guid Id, string Code, string Name, string Kind, string CategoryCode, string UnitCode,
     string? Description, string Status, bool IsPurchasable, bool IsStockItem, bool IsAsset, string? Brand, int? LeadTimeDays, long Version);
-public sealed record EntryInput(Guid? SupplierId, string CurrencyCode, string UnitCode, decimal UnitPrice,
-    string? TaxBasis, decimal? MinimumQuantity, decimal? MaximumQuantity, DateTimeOffset EffectiveFrom,
+public sealed class CatalogEntryDecimalJsonConverter : JsonConverter<decimal>
+{
+    public override decimal Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+        => ExactDecimalJsonCodec.Read(ref reader, 18, 4, "CatalogEntryAmount");
+    public override void Write(Utf8JsonWriter writer, decimal value, JsonSerializerOptions options) => writer.WriteNumberValue(value);
+}
+public sealed class CatalogEntryNullableDecimalJsonConverter : JsonConverter<decimal?>
+{
+    public override decimal? Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+        => reader.TokenType == JsonTokenType.Null ? null : ExactDecimalJsonCodec.Read(ref reader, 18, 4, "CatalogEntryQuantity");
+    public override void Write(Utf8JsonWriter writer, decimal? value, JsonSerializerOptions options)
+    { if (value is { } amount) writer.WriteNumberValue(amount); else writer.WriteNullValue(); }
+}
+public sealed record EntryInput(Guid? SupplierId, string CurrencyCode, string UnitCode,
+    [property: JsonConverter(typeof(CatalogEntryDecimalJsonConverter))] decimal UnitPrice,
+    string? TaxBasis,
+    [property: JsonConverter(typeof(CatalogEntryNullableDecimalJsonConverter))] decimal? MinimumQuantity,
+    [property: JsonConverter(typeof(CatalogEntryNullableDecimalJsonConverter))] decimal? MaximumQuantity, DateTimeOffset EffectiveFrom,
     DateTimeOffset? EffectiveTo, string? AudienceCode);
 public sealed record EntryUpdate(long Version, EntryInput Entry);
 public sealed record EntryView(Guid Id, Guid CatalogItemId, Guid? SupplierId, string CurrencyCode, string UnitCode,
     decimal UnitPrice, DateTimeOffset EffectiveFrom, DateTimeOffset? EffectiveTo, decimal? MinimumQuantity,
-    decimal? MaximumQuantity, string Status, long Version);
+    decimal? MaximumQuantity, string Status, long Version, string? TaxBasis, string? AudienceCode,
+    CatalogEntryExactAmounts ExactAmounts, int CatalogEditVersion);
+public sealed record CatalogEntryExactAmounts(string UnitPrice, string? MinimumQuantity, string? MaximumQuantity);
 public sealed record CatalogView(Guid EntryId, Guid ItemId, string Code, string Name, string Kind,
     string? Description, string CategoryCode, string UnitCode, decimal EstimatedUnitPrice,
     string CurrencyCode, Guid SupplierId, string SupplierName, DateTimeOffset? PriceValidUntil, int PublishedVersion);
