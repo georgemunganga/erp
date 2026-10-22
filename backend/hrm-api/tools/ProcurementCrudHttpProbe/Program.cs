@@ -30,7 +30,7 @@ internal static partial class Program
     const string CanonicalP21 = "20261022052824_P21CanonicalGovernedProcurementFoundation";
     static readonly Guid Company = Guid.NewGuid(), ForeignCompany = Guid.NewGuid(), Branch = Guid.NewGuid();
     static readonly Guid Actor = Guid.NewGuid(), Other = Guid.NewGuid(), Worker = Guid.NewGuid(), OtherWorker = Guid.NewGuid();
-    static readonly Guid SystemActor = Guid.NewGuid();
+    static readonly Guid SystemActor = Guid.NewGuid(), SystemReviewer = Guid.NewGuid();
     static readonly JsonSerializerOptions Snake = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     static string connection = "", stage = "input"; static int assertions, requests;
     static Guid approvedSupplier, legacyInvoice;
@@ -65,7 +65,7 @@ internal static partial class Program
             var meta = await Get(client, "/meta"); Check(meta.GetProperty("crudEnabled").GetBoolean(), "Normal host CRUD capability unavailable.");
             foreach (var capability in new[] { "approvals", "orders", "sourcingSourceDrafts", "receivingDrafts", "invoiceComparison" })
                 Check(!meta.GetProperty("capabilities").GetProperty(capability).GetBoolean(), "Draft fixture must not enable an operational workflow.");
-            await Vendors(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await ReceivingLookups(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client); await VerifyUsedCorePrincipalMigration();
+            await Vendors(client); await SystemSupplierLifecycle(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await ReceivingLookups(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client); await VerifyUsedCorePrincipalMigration();
             stage = "independent-final-owning-context";
             await using (var proof = Db())
             {
@@ -99,11 +99,11 @@ internal static partial class Program
             Check(await Scalar("SELECT (NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname IN ('core_approval','core_document')))::text") == "true",
                 "Bounded CRUD unexpectedly required or created shared approval/document schemas.");
             Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS", assertions, actualHttpRequests = requests,
-                actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true,
+                actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true, systemSupplierLifecycle = true, systemSupplierReviewerFiniteGrants = true,
                 legacyP19Preserved = true, emptyDownUp = true, usedP20DownBlocked = true, production = false,
                 policyDraftRetirement = true, policyReferenceRace = true, policyRaceMethodCreated, exactRequestDrafts = true,
                 policyRaceRequestsOverlapped = policyRaceOverlapped,
-                scope = "Basic draft CRUD only; no procurement approval, supplier approval, Finance, stock or full-module completion" }));
+                scope = "Basic draft CRUD plus separate mapped supplier lifecycle with actual workerless Core maker/reviewer and finite reviewer grants; no procurement requisition/PO approval, Finance, stock, real identity-provider authentication or full-module completion" }));
             if (browserMode)
             {
                 if (publishManifest) await WriteManifest();
@@ -152,6 +152,12 @@ internal static partial class Program
                 NormalizedEmail="SYSTEM-ONLY@EXAMPLE.TEST",DisplayName="Synthetic system user",PasswordHash="synthetic-no-login",
                 RolesCsv="erp_admin",IsActive=true});
             core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=SystemActor,LocationId=Branch});
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey=SystemSupplierRole,RoleName="Finite synthetic system supplier reviewer",
+                Category="system",PermissionsCsv=SystemSupplierActions,Active=true});
+            core.LocalUsers.Add(new LocalUser {Id=SystemReviewer,WorkerId=null,Email="system-reviewer@example.test",
+                NormalizedEmail="SYSTEM-REVIEWER@EXAMPLE.TEST",DisplayName="Synthetic system supplier reviewer",PasswordHash="synthetic-no-login",
+                RolesCsv=SystemSupplierRole,IsActive=true});
+            core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=SystemReviewer,LocationId=Branch});
             await core.SaveChangesAsync();
         }
         await using (var db=Db())
@@ -216,8 +222,8 @@ internal static partial class Program
             tenantId=Tenant,companyId=Company,foreignCompanyId=ForeignCompany,
             branchId=Branch,actorId=SystemActor,workerId=(Guid?)null,approvedSupplierId=approvedSupplier,legacyInvoiceId=legacyInvoice,
             authenticationHeader="X-Crud-Actor",socketPath=BrowserSocket,
-            actors=new {maker=new {principalId=Actor,workerId=Worker},other=new {principalId=Other,workerId=OtherWorker},systemUser=new {principalId=SystemActor,workerId=(Guid?)null}},
-            cliProofComplete=true,production=false,finiteRole=false,coreShellPresentationOnly=true,
+            actors=new {maker=new {principalId=Actor,workerId=Worker},other=new {principalId=Other,workerId=OtherWorker},systemUser=new {principalId=SystemActor,workerId=(Guid?)null},systemReviewer=new {principalId=SystemReviewer,workerId=(Guid?)null}},
+            cliProofComplete=true,browserActorSwitch="manifest-alias-v1",production=false,finiteRole=false,coreShellPresentationOnly=true,
             supplierApproval="Synthetic owner fixture, not supplier approval proof" },new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
     // Tool-only browser presentation endpoints; no production Core implementation or permission bypass.
@@ -254,7 +260,7 @@ internal static partial class Program
     sealed record ShellProjection(LocalUser User,LegalEntity Company,WorkLocation Branch);
     static async Task<ShellProjection?> ShellFacts(HttpContext http,HrmDbContext core)
     {
-        if (!Guid.TryParse(http.User.FindFirst("sub")?.Value,out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor)) return null;
+        if (!Guid.TryParse(http.User.FindFirst("sub")?.Value,out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor&&actor!=SystemReviewer)) return null;
         var user=await core.LocalUsers.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==actor&&x.IsActive);
         if (user is null || user.IsArchived || user.LockedUntil>DateTimeOffset.UtcNow) return null;
         var branch=await core.WorkLocations.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==Branch&&x.LegalEntityId==Company&&!x.IsArchived);
@@ -516,7 +522,7 @@ internal static partial class Program
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            if(!Guid.TryParse(Request.Headers["X-Crud-Actor"],out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor))return Task.FromResult(AuthenticateResult.NoResult());
+            if(!Guid.TryParse(Request.Headers["X-Crud-Actor"],out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor&&actor!=SystemReviewer))return Task.FromResult(AuthenticateResult.NoResult());
             var principal=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("tenant",Tenant),new Claim("sub",actor.ToString()),new Claim(ClaimTypes.Role,"erp_admin")},"private-crud"));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal,"private-crud")));
         }
