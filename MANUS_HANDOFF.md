@@ -13,7 +13,7 @@ New assignments start from published `origin/main` in both existing repositories
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
 | ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `2491e104c0a87bb9fc2a409196172bde9093fa5d` or a published main descendant; includes PR #21 and tested application `5f199c84`. Production deployment remains a separate gate. |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `63054fc2400d0d5d6cc14350470b6cf169b073e6` or a published main descendant; includes PR #50, application `36127ad` and browser-test source `2259282`. |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `8b980800a4a65501f98cc38d927fd51ee33b611f` or a published main descendant; includes PR #51, application `fe8c5b3` and final browser-test source `4c19a29`. This branch hand-off fix is live. |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
@@ -22,7 +22,9 @@ The ERP already serves this Procurement UI. Its source remains in the existing U
 
 Before work, fetch `origin/main` in both repositories, record the exact starting commits and verify they contain the minimum baselines above. Branch from those main tips. Read ERP `AGENTS.md`, `docs/engineering/GW-ENG-STD-001.md`, UI `AGENTS.md` and `reference-ui/UI_COMPONENT_STANDARD.md`.
 
-P20–P29 development branches are not the released baseline. They contain pending schema/authority work and remain subject to their release holds. Do not deploy them, apply their migrations or enable workflow/Finance flags to complete this UI task.
+Production now includes the reviewed P20–P22 CRUD schema and Core-principal application. P23 and successor development branches contain pending authority/document/workflow work and remain subject to their release holds. Do not deploy those branches, apply their migrations or enable workflow/Finance flags to complete this UI task.
+
+**Branch-scope regression fixed:** preserve PR #51's verified legacy-name-to-ID hand-off before readiness or business requests. Do not silently clear a stored branch, infer another company, choose the first match, or reintroduce a read-only gate that strands the branch picker. See [the incident and real-account verification](docs/procurement/release/PROC-UI-BRANCH-HANDOFF-20261022.md). The actual signed-in account can open Vendors/My Requests and their new forms; this narrow acceptance does not certify every workflow.
 
 ## Accepted coordination and remaining work
 
