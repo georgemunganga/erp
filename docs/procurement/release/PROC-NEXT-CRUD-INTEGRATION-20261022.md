@@ -89,3 +89,17 @@ acceptance evidence.
 
 Release source, migrations, browser evidence, runtime-role provisioning and deployment remain
 separate gates. No live workflow, account grant, production role or feature flag was changed here.
+
+## Recurring unchanged-save CAS correction
+
+Source follow-up makes every accepted recurring PUT consume exactly one version, including an
+unchanged draft. The route sets the tracked version to its checked successor and explicitly marks
+that concurrency property modified before constructing the `PlanUpdated` audit. The existing
+`PrepareChanges` stamps `OriginalValue + 1`, so it does not increment that precomputed value twice.
+The original concurrency token remains the update predicate; a stale replay still returns 409.
+
+Added mapped HTTP regression checks unchanged PUT, independent GET, before/after audit versions,
+and stale replay without additional audit. Extended the actual PostgreSQL verifier with unchanged
+PUT/reload/replay footprint checks and exact audit pairs 1→2 and 2→3. These new tests are authored
+but **not run**; the CPU slot and SDK/runtime gates remain with the release owner. No schema or
+migration artifact changed for this correction.

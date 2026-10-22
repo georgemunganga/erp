@@ -104,6 +104,12 @@ public static class ProcurementRecurringPurchaseRoutes
                 return Problem("contract-unavailable", "Choose a contract for this supplier and company.", 422);
             var before = ProcurementDraftAudit.Snapshot(Detail(record));
             Assign(record, draft);
+            // Every accepted PUT consumes its CAS version, even when the business values
+            // are unchanged. PrepareChanges stamps OriginalValue + 1 (not CurrentValue + 1),
+            // so this also gives the same-transaction audit its final version without
+            // incrementing twice during SaveChanges.
+            record.Version = checked(record.Version + 1);
+            db.Entry(record).Property(x => x.Version).IsModified = true;
             ProcurementDraftAudit.Add(db, scope, nameof(RecurringPurchaseCommitment), record.Id,
                 "PlanUpdated", before, Detail(record));
             await db.SaveChangesAsync(ct);

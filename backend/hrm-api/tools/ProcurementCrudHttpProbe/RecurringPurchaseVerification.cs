@@ -45,8 +45,22 @@ internal static partial class Program
             version = Version(saved), draft = Plan(approvedSupplier, contractId, "Updated service plan", "0.0001")
         });
         Check(saved.GetProperty("exactExpectedAmount").GetString() == "0.0001"
-            && saved.GetProperty("title").GetString() == "Updated service plan", "Recurring update lost exact values.");
+            && saved.GetProperty("title").GetString() == "Updated service plan"
+            && Version(saved) == 2, "Recurring update lost exact values or did not advance exactly one version.");
+        var beforeNoOpVersion = Version(saved);
+        saved = await Send(client, HttpMethod.Put, path, new {
+            version = beforeNoOpVersion, draft = Plan(approvedSupplier, contractId, "Updated service plan", "0.0001")
+        });
+        Check(Version(saved) == beforeNoOpVersion + 1, "Unchanged recurring PUT did not consume exactly one CAS version.");
+        var reloaded = await Get(client, path);
+        Check(Version(reloaded) == Version(saved)
+            && reloaded.GetProperty("exactExpectedAmount").GetString() == "0.0001"
+            && reloaded.GetProperty("title").GetString() == "Updated service plan", "Unchanged recurring PUT did not survive owning HTTP reload.");
         var before = await RecurringFootprint();
+        await Send(client, HttpMethod.Put, path, new {
+            version = beforeNoOpVersion, draft = Plan(approvedSupplier, contractId, "Updated service plan", "0.0001")
+        }, HttpStatusCode.Conflict);
+        Check(before == await RecurringFootprint(), "Replayed unchanged recurring PUT changed retained records or audit.");
         await Send(client, HttpMethod.Put, path, new {
             version = 1, draft = Plan(approvedSupplier, contractId, "Stale plan", "1")
         }, HttpStatusCode.Conflict);
@@ -85,8 +99,20 @@ internal static partial class Program
             Check(row.Status == "Closed" && row.ExpectedAmount == 0.0001m && row.SupplierContractId == contractId
                 && row.SupplierId == approvedSupplier && row.OwnerWorkerId == Worker, "Independent owning-store recurring reload mismatch.");
             foreach (var action in new[] { "PlanCreated", "PlanUpdated", "PlanClosed" })
-                Check(await proof.AuditEvents.CountAsync(x => x.RecordId == id && x.Action == action) == 1,
+                Check(await proof.AuditEvents.CountAsync(x => x.RecordId == id && x.Action == action) == (action == "PlanUpdated" ? 2 : 1),
                     "Recurring lifecycle audit missing or duplicated.");
+            var updateAudits = await proof.AuditEvents.AsNoTracking()
+                .Where(x => x.RecordId == id && x.Action == "PlanUpdated").Select(x => x.ChangedFieldsJson).ToArrayAsync();
+            var versionPairs = new HashSet<(long Before, long After)>();
+            foreach (var updateAudit in updateAudits)
+            {
+                using var auditDocument = JsonDocument.Parse(updateAudit);
+                var audit = auditDocument.RootElement;
+                versionPairs.Add((audit.GetProperty("before").GetProperty("Version").GetInt64(),
+                    audit.GetProperty("after").GetProperty("Version").GetInt64()));
+            }
+            Check(versionPairs.SetEquals(new[] { (1L, 2L), (2L, 3L) }),
+                "Recurring change and unchanged PUT audit versions do not match persisted CAS transitions.");
         }
         await RecurringContractRace(client, approvedSupplier, alternateSupplier, Contract, Plan);
         Check(protectedBefore == await CreditProtectedState(), "Concurrent recurring planning changed invoices, Finance, receiving or outbox records.");

@@ -65,6 +65,50 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.True(footprint.Audit >= 3);
     }
 
+    [Fact]
+    public async Task Recurring_purchase_unchanged_put_consumes_one_version_and_rejects_replay_without_audit()
+    {
+        await using var fixture = await Fixture.Start();
+        var supplier = await fixture.AddInvoiceSupplier();
+        var draft = new { supplierId = supplier, supplierContractId = (Guid?)null,
+            title = "Unchanged monthly service", frequency = "Monthly", firstCycleOn = "2026-11-01",
+            lastCycleOn = (string?)null, nextCycleOn = "2026-11-01", expectedAmount = "10.0001", currencyCode = "ZMW" };
+        var createdResponse = await SendJson(fixture.Client, HttpMethod.Post, RecurringPath,
+            fixture.Owner, draft, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
+        var created = await createdResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var id = created.GetProperty("id").GetGuid();
+        var path = $"{RecurringPath}/{id}";
+        Assert.Equal(1, created.GetProperty("version").GetInt64());
+
+        var savedResponse = await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Owner,
+            new { version = 1, draft }, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, savedResponse.StatusCode);
+        var saved = await savedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, saved.GetProperty("version").GetInt64());
+        var readResponse = await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner, role: "procurement_buyer");
+        var read = await readResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, read.GetProperty("version").GetInt64());
+        Assert.Equal("Unchanged monthly service", read.GetProperty("title").GetString());
+        Assert.Equal("10.0001", read.GetProperty("exactExpectedAmount").GetString());
+        var updates = await fixture.RecurringUpdateAudits(id);
+        using var updateDocument = JsonDocument.Parse(Assert.Single(updates));
+        var update = updateDocument.RootElement;
+        Assert.Equal(1, update.GetProperty("before").GetProperty("Version").GetInt64());
+        Assert.Equal(2, update.GetProperty("after").GetProperty("Version").GetInt64());
+        var footprint = await fixture.RecurringFootprint(id);
+
+        var replay = await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Owner,
+            new { version = 1, draft }, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Conflict, replay.StatusCode);
+        Assert.Equal(footprint, await fixture.RecurringFootprint(id));
+        Assert.Equal(updates, await fixture.RecurringUpdateAudits(id));
+        var afterResponse = await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner, role: "procurement_buyer");
+        var after = await afterResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, after.GetProperty("version").GetInt64());
+        Assert.Equal("Unchanged monthly service", after.GetProperty("title").GetString());
+    }
+
     [Theory]
     [InlineData("0")]
     [InlineData("-1")]
@@ -295,6 +339,15 @@ public sealed partial class ProcurementRequestHttpTests
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             var row = await db.RecurringPurchaseCommitments.AsNoTracking().SingleAsync(x => x.Id == id);
             return (row.OwnerWorkerId, row.WorkLocationId, row.Status);
+        }
+        public async Task<string[]> RecurringUpdateAudits(Guid id)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Hrm.Api.ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "recurring-update-audit-fixture");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return await db.AuditEvents.AsNoTracking().Where(x => x.RecordId == id && x.Action == "PlanUpdated")
+                .OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).Select(x => x.ChangedFieldsJson).ToArrayAsync();
         }
         public async Task<(int Records, int Invoices, int Handoffs, int Audit)> RecurringFootprint(Guid id)
         {
