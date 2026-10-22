@@ -30,6 +30,7 @@ def main():
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--database', help='New procurement_crud_http_* name; default UTC timestamp')
     p.add_argument('--browser', action='store_true', help='After CLI PASS serve only the existing fixed Unix socket')
+    p.add_argument('--recurring', action='store_true', help='Include planning-only recurring CRUD after genuine additive schema gates')
     a = p.parse_args()
     database = a.database or ('procurement_crud_http_' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S'))
     if not re.fullmatch(r'procurement_crud_http_[a-z0-9_]{1,42}', database) or len(database) > 63:
@@ -89,13 +90,16 @@ def main():
     connection += ';Pooling=false;Include Error Detail=false'
     env = os.environ.copy()
     env['ConnectionStrings__Procurement'] = connection
-    for key in ['PROCUREMENT_CRUD_BROWSER_SOCKET', 'PROCUREMENT_CRUD_BROWSER_MANIFEST']:
+    for key in ['PROCUREMENT_CRUD_BROWSER_SOCKET', 'PROCUREMENT_CRUD_BROWSER_MANIFEST', 'PROCUREMENT_CRUD_RECURRING']:
         env.pop(key, None)
     cmd = ['docker', 'run', '--rm', '--pull=never', '--network=none', '--memory=768m', '--cpus=1',
            '--read-only', '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m',
            '--mount', 'type=bind,src=' + str(runtime.resolve()) + ',dst=/crud-runtime,readonly',
            '--mount', 'type=bind,src=' + mounts[0] + ',dst=/authority-identity-private-socket,readonly',
            '--env', 'ConnectionStrings__Procurement', '--env', 'DOTNET_EnableDiagnostics=0', '--workdir', '/crud-runtime']
+    if a.recurring:
+        env['PROCUREMENT_CRUD_RECURRING'] = '1'
+        cmd += ['--env', 'PROCUREMENT_CRUD_RECURRING']
     if a.browser:
         env['PROCUREMENT_CRUD_BROWSER_SOCKET'] = '/crud-browser-socket/api.sock'
         env['PROCUREMENT_CRUD_BROWSER_MANIFEST'] = '/crud-browser-socket/fixture.json'
@@ -104,6 +108,7 @@ def main():
     cmd += [a.runtime_image, 'dotnet', '/crud-runtime/ProcurementCrudHttpProbe.dll']
     manifest = {'database': database, 'privateContainer': PRIVATE_PG, 'runtimeImage': a.runtime_image,
                 'networkMode': 'none', 'browserUnixSocketOnly': a.browser, 'runtimeFiles': frozen,
+                'recurringPurchasePlanningCrudRequested': a.recurring,
                 'finiteRole': False, 'productionTouched': False,
                 'buildProvenanceRequiresParentReview': True,
                 'limits': 'Synthetic HRM/owner supplier fixture, draft CRUD only; no approval/Finance/receiving/AP claim'}
