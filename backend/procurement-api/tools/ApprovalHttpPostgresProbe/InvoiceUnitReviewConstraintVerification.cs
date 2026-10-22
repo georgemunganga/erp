@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
-using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using Npgsql;
 sealed partial class Probe
 {
