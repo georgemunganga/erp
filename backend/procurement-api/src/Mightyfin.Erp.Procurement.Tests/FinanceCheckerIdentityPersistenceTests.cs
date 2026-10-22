@@ -10,7 +10,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Procurement.Tests;
 
 /// <summary>SaveChanges and PostgreSQL design-model source contracts, not real PostgreSQL execution proof.</summary>
-public sealed class FinanceCheckerIdentityPersistenceTests
+public sealed partial class FinanceCheckerIdentityPersistenceTests
 {
     private sealed class Scope(Guid company) : IProcurementScope
     {
@@ -47,7 +47,7 @@ public sealed class FinanceCheckerIdentityPersistenceTests
         Assert.Equal(18, finance.FindProperty(nameof(BudgetCheckSnapshot.CheckedAmount))!.GetPrecision());
         Assert.Equal(4, finance.FindProperty(nameof(BudgetCheckSnapshot.CheckedAmount))!.GetScale());
         Assert.Equal(0, pin.FindProperty(nameof(PurchaseRequestApprovalSubmission.FinanceIdentitySchemaVersion))!.GetDefaultValue());
-        Assert.Contains("finance_identity_schema_version = 0 OR (finance_identity_schema_version = 1 AND snapshot_schema_version = 2)",
+        Assert.Contains("(finance_identity_schema_version = 0 AND snapshot_schema_version IN (1,2)) OR (finance_identity_schema_version = 1 AND snapshot_schema_version = 2) OR (finance_identity_schema_version=2 AND snapshot_schema_version=3)",
             pin.GetCheckConstraints().Single(x => x.Name == "ck_pr_finance_identity_version").Sql);
         Assert.DoesNotContain(finance.GetKeys().SelectMany(x => x.Properties), x =>
             x.Name is "CheckerIdentitySchemaVersion" or "CheckedByWorkerId" or "CheckerIdentitySha256");

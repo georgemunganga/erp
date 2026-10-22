@@ -49,14 +49,16 @@ internal static class ProcurementPrincipalApprovalAssignees
             }
             else if(stage.Assignee=="ProcurementManager")
             {
-                var ids=await ProcurementPrincipalPeople.Candidates(core,scope,now)
-                    .Where(x=>x.RolesCsv.Contains("procurement_manager")).Select(x=>x.Id).ToArrayAsync(ct);
-                foreach(var id in ids)
+                // Core permits case-insensitive role keys. Do not discard a valid
+                // stored assignment with a case-sensitive SQL substring prefilter.
+                // The complete current scoped family is required to detect ambiguity.
+                var declared=await ProcurementPrincipalPeople.Candidates(core,scope,now)
+                    .Select(x=>new {x.Id,x.RolesCsv}).ToArrayAsync(ct);
+                foreach(var account in declared.Where(x=>LocalIdentityRoutes.ParseRoles(x.RolesCsv)
+                    .Contains("procurement_manager",StringComparer.OrdinalIgnoreCase)))
                 {
-                    var current=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,id.ToString("D"),ct);
-                    var roles=await core.LocalUsers.AsNoTracking().Where(x=>x.TenantId==scope.TenantId && x.Id==id)
-                        .Select(x=>x.RolesCsv).SingleAsync(ct);
-                    if(current is not null && LocalIdentityRoutes.ParseRoles(roles).Contains("procurement_manager",StringComparer.OrdinalIgnoreCase))candidates.Add(current);
+                    var current=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,account.Id.ToString("D"),ct);
+                    if(current is not null)candidates.Add(current);
                 }
             }
             else throw new InvalidOperationException(stage.Assignee=="BudgetOwner"?"BudgetOwnerMappingRequired":"ApprovalAssigneeKindUnsupported");
