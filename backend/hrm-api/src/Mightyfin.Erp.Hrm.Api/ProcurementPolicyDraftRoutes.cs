@@ -435,7 +435,7 @@ public static partial class ProcurementPolicyDraftRoutes
             if (IsOperationalIdentityPolicy(policy.PolicyKey))
                 operationalReviewer = await ProcurementOperationalPolicyWorkerIdentity.RequireReviewerAsync(organizationDb, db, scope, policy,
                     ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, ct);
-            var coverage = policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey ? InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson) : policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey ? SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson) : policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey ? InvoiceMatchingPolicyRules.Validate(policy.RulesJson) : policy.PolicyKey == "RECEIVING" ? ReceivingPolicyRules.Validate(policy.RulesJson) : PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
+            var coverage = policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey ? InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson).Select(message => new PolicyRuleIssue("stages", message)).ToArray() : policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey ? SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson) : policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey ? InvoiceMatchingPolicyRules.Validate(policy.RulesJson) : policy.PolicyKey == "RECEIVING" ? ReceivingPolicyRules.Validate(policy.RulesJson) : PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
             if (coverage.Count != 0)
                 return Results.Json(new { code = "coverage-failed",
                     message = "Resolve rule coverage and overlaps before publication.", issues = coverage },
