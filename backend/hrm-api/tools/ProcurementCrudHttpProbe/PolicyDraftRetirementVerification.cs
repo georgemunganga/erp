@@ -99,23 +99,24 @@ internal static partial class Program
         await using (var proof = Db()) before = await proof.PolicyVersions.AsNoTracking().SingleAsync(x => x.Id == id);
         var outsideBefore = await PolicyStoreRows();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        async Task<(HttpStatusCode Status, long Start, long End)> Race(string path, object body, Guid actor)
+        async Task<(HttpStatusCode Status, long Start, long End, string Code)> Race(string path, object body, Guid actor)
         {
             await gate.Task;
             using var request = new HttpRequestMessage(HttpMethod.Post, Root + path) { Content = JsonContent.Create(body) };
             request.Headers.Add("X-Crud-Actor", actor.ToString()); request.Headers.Add("X-Shell-Entity", Company.ToString()); request.Headers.Add("X-Shell-Location", Branch.ToString());
             var start = Stopwatch.GetTimestamp(); using var response = await client.SendAsync(request);
-            await response.Content.ReadAsByteArrayAsync(); var end = Stopwatch.GetTimestamp(); Interlocked.Increment(ref requests);
-            return (response.StatusCode, start, end);
+            var content = await response.Content.ReadAsStringAsync(); var end = Stopwatch.GetTimestamp(); Interlocked.Increment(ref requests);
+            return (response.StatusCode, start, end, SafeCode(content));
         }
+        stage = "simultaneous-policy-retire-method-reference-HTTP";
         var retire = Race(PolicyRoute + "/" + id + "/retire", new { version = Version(created), reason = "Concurrent unused draft retirement" }, Actor);
         var method = Race("/configuration/methods", new { code = "POLICY_RACE", name = "Concurrent real reference", policyVersionId = id }, Other);
         gate.SetResult(); var outcomes = await Task.WhenAll(retire, method);
         var retirement = outcomes[0]; var reference = outcomes[1];
         policyRaceOverlapped = Math.Max(retirement.Start, reference.Start) < Math.Min(retirement.End, reference.End);
         Check(policyRaceOverlapped, "HTTP attempts did not overlap; this run cannot prove the intended concurrent scenario.");
-        Check(retirement.Status is HttpStatusCode.OK or HttpStatusCode.Conflict, "Unexpected concurrent retirement status.");
-        Check(reference.Status is HttpStatusCode.Created or HttpStatusCode.Conflict or HttpStatusCode.UnprocessableEntity, "Unexpected concurrent reference status.");
+        Check(retirement.Status is HttpStatusCode.OK or HttpStatusCode.Conflict, $"Unexpected concurrent retirement status {(int)retirement.Status}/{retirement.Code}; reference {(int)reference.Status}/{reference.Code}.");
+        Check(reference.Status is HttpStatusCode.Created or HttpStatusCode.Conflict or HttpStatusCode.UnprocessableEntity, $"Unexpected concurrent reference status {(int)reference.Status}/{reference.Code}; retirement {(int)retirement.Status}/{retirement.Code}.");
         Check((retirement.Status == HttpStatusCode.OK) != (reference.Status == HttpStatusCode.Created), "Race did not have exactly one compatible successful outcome.");
         policyRaceMethodCreated = reference.Status == HttpStatusCode.Created;
         await using (var proof = Db())

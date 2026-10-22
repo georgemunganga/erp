@@ -213,7 +213,7 @@ public static class ProcurementPolicyDraftRoutes
         { return Problem("version-conflict", "Refresh this policy before retiring it.", 409); }
         catch (DbUpdateException error) when (error.InnerException is PostgresException { SqlState: "40001" or "40P01" })
         { return Problem("version-conflict", "Another setting changed. Refresh before saving.", 409); }
-        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        catch (Exception error) when (error.GetBaseException() is PostgresException { SqlState: "40001" or "40P01" })
         { return Problem("version-conflict", "Another setting changed. Refresh before retiring this draft.", 409); }
         finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }
@@ -306,7 +306,7 @@ public static class ProcurementPolicyDraftRoutes
         { return Problem("version-conflict", "Refresh this policy before publication.", 409); }
         catch (DbUpdateException error) when (error.InnerException is PostgresException { SqlState: "40001" or "40P01" })
         { return Problem("version-conflict", "Another setting changed. Refresh before saving.", 409); }
-        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        catch (Exception error) when (error.GetBaseException() is PostgresException { SqlState: "40001" or "40P01" })
         { return Problem("publication-conflict", "Another policy changed. Refresh and review the effective period.", 409); }
         finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }

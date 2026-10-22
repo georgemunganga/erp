@@ -237,7 +237,7 @@ public static partial class ProcurementConfigurationRoutes
         }
         catch (DbUpdateException error) when (error.InnerException is PostgresException { SqlState: "40001" or "40P01" })
         { return Problem("version-conflict", "Another setting changed. Refresh before saving.", 409); }
-        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        catch (Exception error) when (error.GetBaseException() is PostgresException { SqlState: "40001" or "40P01" })
         { return Problem("version-conflict", "The policy or method changed. Refresh before saving.", 409); }
     }
 
