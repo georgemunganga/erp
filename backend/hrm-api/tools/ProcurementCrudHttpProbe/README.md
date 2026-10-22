@@ -1,6 +1,6 @@
 # Actual Procurement draft CRUD HTTP/PostgreSQL probe
 
-Status: authored, uncompiled and unrun. Coordinator owns serial build/execution and release decisions. This tool is not permission to deploy or run production test writes.
+Status: first checkpoint at backend dfdf36a compiled and passed 109 assertions / 72 actual HTTP requests; the companion UI passed seven actual private browser cases. The second backend checkpoint including credit/catalog checks compiled and passed 152 assertions / 90 actual HTTP requests. Its additional browser gate is pending. Coordinator owns serial build/execution and release decisions. This tool is not permission to deploy or run production test writes.
 
 ## Guarded environment
 

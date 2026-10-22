@@ -1,10 +1,10 @@
 # Manus ERP collaboration handoff
 
-**Updated:** 21 October 2026 (UTC)
+**Updated:** 22 October 2026 (UTC)
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-PROC-VENDOR-01` — complete the existing vendor editor and supported vendor workflows
 **Owner:** Manus / `Greenwebb`; primary agent reviews and releases
-**Status:** Ready. Both prerequisite merges are published on `main`: ERP PR #10 and UI PR #44. Start a fresh branch from current `origin/main` in each repository.
+**Status:** Ready. Reviewed prerequisites are published on `main`: ERP PR #14 and UI PR #45 (following ERP PR #10 and UI PR #44). Start a fresh branch from current `origin/main` in each repository.
 
 ## Start from merged code
 
@@ -12,8 +12,8 @@ New assignments start from published `origin/main` in both existing repositories
 
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `30e87a0d07df9b6a45c3d975467b22068742b5b6` or a published main descendant; released backend source `a7645e2` |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `4f7054a52e54d8fc68da0f0868dc8eeefc3f0007` or a published main descendant; includes vendor layout source `24e7bc9` and verification `7caebb7` |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `42fc26373887ac7e2d26d8e6401c05cbaa4c27b5` or a published main descendant; production remains P19 `a7645e2`, not this un-deployed source |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `b2e824fa60b4e6ceb8083dc73c2d8546dbafb5ce` or a published main descendant; preserves vendor layout and adds real bill draft maintenance, reference retirement and private actual-browser tests |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
@@ -34,6 +34,8 @@ The user correctly identified a layout regression: live routing used a separate 
 - Existing vendor form/presentation components in `Catalogs.tsx` or an extracted shared component, only where required to reuse the original editor.
 - `src/platform/procurement-vendors-api.ts` and vendor-specific helpers/tests.
 - ERP `docs/collaboration/manus/vendor-contract-verification.md` and progress log.
+
+The new baseline includes vendor attribute update persistence: keyed CustomField/ReportingTag patches preserve omitted keys and retain explicitly cleared rows. Use this real contract; no workaround storage is needed. The new invoice P20 migration is coordinator-owned and must not be applied by Manus. Credits/catalog follow-up work is separate and not part of this baseline.
 
 Backend supplier routes/contracts are read-only during this milestone. Report precise gaps for a separate owned backend task. Do not change migrations, identity, Core settings, global styles/navigation, shared controls, Finance, approvals, sourcing or other modules. Do not overwrite coordinator work or manufacture endpoints.
 
