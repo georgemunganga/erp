@@ -107,7 +107,7 @@ public sealed partial class ProcurementDbContext
                 var lines = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).ToArray();
                 InvoiceMappingEvidence.Verify(entry.Entity, invoice, lines);
                 if (entry.Entity.ActorPrincipalId != scope.SubjectId || !ProcurementPrincipalEvidence.OptionalWorker(entry.Entity.ActorWorkerId)
-                    || entry.Entity.IdentitySchemaVersion == 2 && entry.Entity.ActorWorkerId != scope.WorkerId) throw new InvalidOperationException("InvoiceMappingActorInvalid");
+                    || entry.Entity.IdentitySchemaVersion == 2 && entry.Entity.ActorWorkerId != scope.CoreLinkedWorkerId) throw new InvalidOperationException("InvoiceMappingActorInvalid");
             }
         }
         foreach (var entry in ChangeTracker.Entries<InvoiceMatchAllocation>())
@@ -156,7 +156,7 @@ public sealed partial class ProcurementDbContext
                     throw new InvalidOperationException("InvoiceMatchCurrentSourceRequired");
                 if (row.ActorPrincipalId != scope.SubjectId || !ProcurementPrincipalEvidence.OptionalWorker(row.ActorWorkerId)
                     || row.ExecutionVersion == 1 && row.ActorWorkerId is null
-                    || row.ExecutionVersion == 2 && (!ProcurementPrincipalEvidence.Canonical(row.ActorPrincipalId) || row.ActorWorkerId != scope.WorkerId) || row.CommandKey is null || row.CommandKey == Guid.Empty
+                    || row.ExecutionVersion == 2 && (!ProcurementPrincipalEvidence.Canonical(row.ActorPrincipalId) || row.ActorWorkerId != scope.CoreLinkedWorkerId) || row.CommandKey is null || row.CommandKey == Guid.Empty
                     || row.EvidenceJson is null || row.EvidenceSha256 != ProcurementEvidenceEncoding.Digest(row.EvidenceJson)
                     || row.Outcome is not ("Compared" or "Blocked")) throw new InvalidOperationException("InvoiceMatchEvidenceInvalid");
             }

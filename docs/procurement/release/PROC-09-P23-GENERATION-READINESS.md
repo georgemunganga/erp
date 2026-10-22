@@ -13,11 +13,11 @@ A byte comparison against that baseline covered all **137 tracked backend migrat
 | Owner table | Expected change |
 | --- | --- |
 | `invoice_unit_review_sources` | New append-only scoped original-invoice/mapping/issued-order/policy source, canonical maker principal, optional genuine worker, source/issued JSON and hashes, exact scoped ownership FKs/unique keys. |
-| `invoice_unit_review_assignments` | New immutable source/Core-assignment principal pins with optional genuine worker metadata. |
+| `invoice_unit_review_assignments` | New immutable source/Core-assignment principal pins with optional genuine Core-worker alias metadata for denial only. |
 | `invoice_unit_review_outcomes` | New immutable terminal outcome; principal and optional worker; explicit evidence schema 3, JSON/hash and retained Core decision reference. |
 | `invoice_unit_review_receipts` | New immutable actor-owned, idempotent command receipts with versioned source binding, request fingerprint and serialized response. |
 | `operational_policy_identity_evidence` | Existing actor worker becomes nullable; CHECK admits identity schema 1 or 2 and the third policy key `INVOICE_UNIT_REVIEW`. Legacy schema 1 still requires its worker; no historical principal/worker or digest backfill. |
-| `invoice_match_mapping_versions` | Add identity-schema discriminator with legacy default 1; make actor worker nullable, with version-specific principal/worker CHECK. No old JSON/hash rewriting. |
+| `invoice_match_mapping_versions` | Add identity-schema discriminator with legacy default 1; make actor worker nullable, with version-specific principal/worker CHECK. New-version optional worker fields are genuine Core-link alias metadata, not active employment. Legacy v1 active-worker/digest semantics remain unchanged; no old JSON/hash rewriting. |
 | `invoice_match_results` | Version-specific CHECK admits execution 2 with canonical Core principal/optional worker; retains execution 0/1 semantics. Review that EF emits only the expected constraint replacement here. |
 
 Actual generated operations must match the owning model, including all new scoped keys, indexes and FKs. This table is an expected review scope, not generated SQL or a license to edit the snapshot manually.

@@ -32,7 +32,7 @@ public sealed class ProcurementApprovalTransaction
         this.connectionString = connectionString;
         scope = new(procurementScope.TenantId, procurementScope.LegalEntityId, procurementScope.SubjectId,
             procurementScope.WorkLocationId, procurementScope.OrgUnitId, procurementScope.IsConfined,
-            procurementScope.CorrelationId, procurementScope.WorkerId);
+            procurementScope.CorrelationId, procurementScope.WorkerId, procurementScope.CoreLinkedWorkerId);
     }
 
     /// <summary>
@@ -100,6 +100,6 @@ public sealed class ProcurementApprovalTransaction
             { SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected };
 
     private sealed record TransactionScope(string TenantId, Guid LegalEntityId, string SubjectId,
-        Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId, Guid? WorkerId)
+        Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId, Guid? WorkerId, Guid? CoreLinkedWorkerId)
         : IProcurementScope, IApprovalScope;
 }

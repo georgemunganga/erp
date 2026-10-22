@@ -70,7 +70,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
         if (actor is null || scope.PrincipalId is not { } principal || actor.PrincipalId != principal.ToString("D")
             || !actor.Permissions.Contains(permission)) throw new MatchingProblem("InvoiceMatchingAccessDenied",403);
         _=await ProcurementExecutionRecordScope.Branches(core,scope,branch,true,ct);
-        return actor.WorkerId;
+        return actor.CoreLinkedWorkerId;
     }
     private static async Task<SupplierInvoice> Invoice(ProcurementDbContext db,ProcurementRequestScope scope,Guid id,CancellationToken ct,bool locked=false)
     {

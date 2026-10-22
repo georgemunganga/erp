@@ -38,6 +38,23 @@ public sealed class InvoiceUnitReviewTransitionTests
     }
 
     [Fact]
+    public void Retained_source_maker_alias_still_blocks_another_account_after_current_maker_link_is_cleared()
+    {
+        var f = new Fixture(); var plan = f.Open(); var retainedAlias = plan.Source.ReviewPolicy.MakerWorkerId;
+        Assert.NotNull(retainedAlias);
+        f.Maker = f.Maker with { WorkerId = null }; // Current Core link changed; immutable source does not.
+        var task = plan.Case.Stages.First().Assignments.First();
+        var actor = f.Policy.People.Single(x => x.PrincipalId == task.AssigneeSubjectId) with { WorkerId = retainedAlias };
+        var before = JsonSerializer.Serialize(plan.Case); var invoice = JsonSerializer.Serialize(f.Invoice);
+        var decisions = new List<ApprovalDecision>();
+        Assert.Throws<InvalidOperationException>(() => Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued,
+            f.Matching, f.Policy.Policy, actor, f.Hashes, task.Id,
+            new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version, task.Version, "Approve", null, f.Policy.Now.AddMinutes(1)), decisions));
+        Assert.Empty(decisions); Assert.Equal(before, JsonSerializer.Serialize(plan.Case));
+        Assert.Equal(invoice, JsonSerializer.Serialize(f.Invoice)); Assert.Equal(retainedAlias, plan.Source.ReviewPolicy.MakerWorkerId);
+    }
+
+    [Fact]
     public void Employee_metadata_can_change_without_changing_the_named_Core_assignment()
     {
         var f = new Fixture(); var plan = f.Open(); var task = plan.Case.Stages.First().Assignments.First();

@@ -69,6 +69,15 @@ public sealed class InvoiceUnitReviewCommandTests
         // The same receipt cannot authorize a new save against the changed current invoice.
         Assert.Throws<InvalidOperationException>(() => f.Verify());
     }
+    [Fact]
+    public void Historical_open_receipt_cannot_replace_the_original_known_maker_alias()
+    {
+        var f = new Fixture(false); f.Verify(); var saved = f.Receipt();
+        var forged = new InvoiceUnitReviewCommandReceipt { ReviewSourceId = saved.ReviewSourceId, ActorPrincipalId = saved.ActorPrincipalId,
+            ActorWorkerId = Guid.NewGuid(), Operation = saved.Operation, CommandKey = saved.CommandKey, RequestJson = saved.RequestJson,
+            ResponseJson = saved.ResponseJson, Fingerprint = saved.Fingerprint, CompletedAt = saved.CompletedAt };
+        Assert.Throws<InvalidOperationException>(() => InvoiceUnitReviewCommands.ReadHistorical(forged, f.Source));
+    }
     sealed class Fixture
     {
         public readonly InvoiceUnitReviewTransitionTests.Fixture Data = new();

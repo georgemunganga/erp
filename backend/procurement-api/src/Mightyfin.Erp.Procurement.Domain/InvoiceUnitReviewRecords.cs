@@ -1,7 +1,9 @@
 namespace Mightyfin.Erp.Procurement.Domain;
 
 /// <summary>Immutable owned review proposal. Units are human attestations over exact original
-/// document versions, never inferred from PO units or from this record's existence.</summary>
+/// document versions, never inferred from PO units or from this record's existence.
+/// V3 worker fields retain optional genuine Core links only for known-person
+/// separation; they do not assert active employment or grant authority.</summary>
 public sealed class InvoiceUnitReviewSource : ProcurementRecord
 {
     public Guid SupplierInvoiceId { get; init; }

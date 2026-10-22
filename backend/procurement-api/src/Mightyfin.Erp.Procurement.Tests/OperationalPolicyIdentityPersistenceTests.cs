@@ -18,12 +18,13 @@ public sealed class OperationalPolicyIdentityPersistenceTests
     private static readonly Guid Company = Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
     private static readonly DateTimeOffset At = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
     private static readonly InMemoryDatabaseRoot Store = new();
-    private sealed class Scope(string actor, Guid? worker) : IProcurementScope
+    private sealed class Scope(string actor, Guid? worker, Guid? coreAlias = null) : IProcurementScope
     {
         public string TenantId => "operational-policy-test";
         public Guid LegalEntityId => Company;
         public string SubjectId => actor;
         public Guid? WorkerId => worker;
+        public Guid? CoreLinkedWorkerId => coreAlias ?? worker;
         public Guid? WorkLocationId => null;
         public Guid? OrgUnitId => null;
         public bool IsConfined => false;
@@ -266,6 +267,54 @@ public sealed class OperationalPolicyIdentityPersistenceTests
             Assert.Equal("OperationalPolicyIdentity", json.RootElement.GetProperty("principalEvidenceKind").GetString());
             Assert.Contains(json.RootElement.GetProperty("fields").EnumerateArray(), x => x.GetString() == nameof(OperationalPolicyIdentityRecord.SchemaVersion));
         }
+    }
+    [Fact]
+    public async Task Principal_policy_retains_inactive_Core_alias_after_author_link_clear_and_blocks_old_alias_reviewer_without_effects()
+    {
+        var name = Guid.NewGuid().ToString(); Guid id;
+        ProcurementDbContext AliasContext(string actor, Guid? alias) => new(
+            new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(name, Store).Options, new Scope(actor, null, alias));
+        await using (var create = AliasContext(Maker, MakerWorker))
+        {
+            var policy = Policy(); id = policy.Id;
+            create.Add(policy); create.Add(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(
+                policy, "Created", Maker, MakerWorker, 1, At, schemaVersion: 2)));
+            await create.SaveChangesAsync();
+        }
+        await using (var submit = AliasContext(Maker, null))
+        {
+            var policy = await submit.PolicyVersions.SingleAsync(); var created = await Origin(submit, id);
+            policy.State = "PendingReview"; policy.ReviewRequestedAt = At.AddMinutes(1); policy.ReviewRequestedBy = Maker; policy.ReviewReason = "Review principal policy";
+            submit.Add(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Submitted", Maker,
+                null, 2, policy.ReviewRequestedAt.Value, created, schemaVersion: 2))); await submit.SaveChangesAsync();
+        }
+        await using (var publish = AliasContext(Reviewer, MakerWorker))
+        {
+            var policy = await publish.PolicyVersions.SingleAsync(); var created = await Origin(publish, id);
+            var submitted = OperationalPolicyIdentityStorage.Read(await publish.OperationalPolicyIdentityRecords.SingleAsync(x => x.Stage == "Submitted"));
+            policy.State = "Published"; policy.PublishedAt = At.AddMinutes(2); policy.PublishedBy = Reviewer; policy.PublicationReason = "Known alias must deny";
+            publish.Add(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Published", Reviewer,
+                MakerWorker, 3, policy.PublishedAt.Value, created, submitted, 2)));
+            Assert.Equal("OperationalPolicyIndependentReviewerRequired", (await Assert.ThrowsAsync<InvalidOperationException>(() => publish.SaveChangesAsync())).Message);
+        }
+        await using var verify = Context(name);
+        var saved = await verify.PolicyVersions.SingleAsync(); Assert.Equal("PendingReview", saved.State); Assert.Equal(2, saved.Version);
+        Assert.Equal(2, await verify.OperationalPolicyIdentityRecords.CountAsync()); Assert.Equal(4, await verify.AuditEvents.CountAsync());
+        Assert.Equal(MakerWorker, (await verify.OperationalPolicyIdentityRecords.SingleAsync(x => x.Stage == "Created")).ActorWorkerId);
+    }
+    [Fact]
+    public async Task Known_Core_alias_is_not_active_worker_authority_for_legacy_identity_one()
+    {
+        var name = Guid.NewGuid().ToString();
+        await using (var command = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(name, Store).Options, new Scope(Maker, null, MakerWorker)))
+        {
+            var policy = Policy(); command.Add(policy); command.Add(Capture(policy, "Created", Maker, MakerWorker, 1, At));
+            Assert.Equal("OperationalPolicyIdentityActorMismatch", (await Assert.ThrowsAsync<InvalidOperationException>(() => command.SaveChangesAsync())).Message);
+        }
+        await using var verify = Context(name);
+        Assert.Empty(await verify.PolicyVersions.ToArrayAsync()); Assert.Empty(await verify.OperationalPolicyIdentityRecords.ToArrayAsync());
+        Assert.Empty(await verify.AuditEvents.ToArrayAsync());
     }
     private static async Task<Guid> Create(string name, string key = "RECEIVING", int number = 1, DateTimeOffset? effectiveTo = null)
     {

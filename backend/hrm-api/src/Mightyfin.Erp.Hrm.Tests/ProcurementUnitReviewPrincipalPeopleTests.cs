@@ -32,10 +32,16 @@ public sealed partial class ProcurementRequestHttpTests
         await fixture.SetFinanceWorker(fixture.Other, fixture.Owner);
         await fixture.DeactivatePrincipalEmployee(fixture.Owner);
         var person = await fixture.UnitReviewPerson(fixture.Owner);
-        Assert.NotNull(person); Assert.Null(person.WorkerId);
+        Assert.NotNull(person); Assert.NotNull(person.WorkerId); // New v3 denial-only Core alias, not active employment.
+        var retainedAlias = person.WorkerId;
+        var corePerson = await fixture.UnitReviewCorePerson(fixture.Owner);
+        Assert.NotNull(corePerson); Assert.Null(corePerson.WorkerId); Assert.Equal(retainedAlias, corePerson.CoreLinkedWorkerId);
         Assert.Contains(InvoiceRetainedUnitReview.ReviewPermission, person.Permissions);
         Assert.False(await fixture.UnitReviewIndependent(fixture.Owner, fixture.Other));
         await fixture.ConfigurePrincipalRequester(fixture.Owner, false);
+        var before = await fixture.OriginalValueFootprint();
+        Assert.False(await fixture.UnitReviewIndependent(fixture.Owner, fixture.Other, retainedAlias));
+        Assert.Equal(before, await fixture.OriginalValueFootprint()); // Denial-only reads create no Procurement/audit effects.
         await fixture.ConfigurePrincipalRequester(fixture.Other, false);
         Assert.True(await fixture.UnitReviewIndependent(fixture.Owner, fixture.Other));
         Assert.False(await fixture.UnitReviewIndependent(fixture.Owner, fixture.Owner));
@@ -48,11 +54,17 @@ public sealed partial class ProcurementRequestHttpTests
             return await ProcurementInvoiceUnitReviewPeople.Resolve(services.ServiceProvider.GetRequiredService<HrmDbContext>(),
                 "tenant-a", company, user.ToString("D"), default);
         }
-        public async Task<bool> UnitReviewIndependent(Guid maker, Guid reviewer)
+        public async Task<ProcurementPrincipalPeople.Person?> UnitReviewCorePerson(Guid user)
+        {
+            using var services = app.Services.CreateScope();
+            return await ProcurementPrincipalPeople.Resolve(services.ServiceProvider.GetRequiredService<HrmDbContext>(),
+                "tenant-a", company, user.ToString("D"), default);
+        }
+        public async Task<bool> UnitReviewIndependent(Guid maker, Guid reviewer, Guid? retainedMakerAlias = null)
         {
             using var services = app.Services.CreateScope();
             return await ProcurementPrincipalPeople.IndependentNow(services.ServiceProvider.GetRequiredService<HrmDbContext>(),
-                "tenant-a", maker.ToString("D"), null, reviewer.ToString("D"), null, default);
+                "tenant-a", maker.ToString("D"), retainedMakerAlias, reviewer.ToString("D"), null, default);
         }
     }
 }

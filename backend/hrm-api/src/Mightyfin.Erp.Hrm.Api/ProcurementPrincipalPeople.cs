@@ -9,7 +9,12 @@ namespace Mightyfin.Erp.Hrm.Api;
 internal static class ProcurementPrincipalPeople
 {
     internal sealed record Person(string PrincipalId, Guid? WorkerId, IReadOnlySet<string> Permissions,
-        bool OrganisationWide, IReadOnlySet<Guid> AllowedBranches);
+        bool OrganisationWide, IReadOnlySet<Guid> AllowedBranches)
+    {
+        internal Guid? CoreLinkedWorkerId { get; init; }
+        internal Guid? EvidenceWorker(int schema) => schema == 1 ? WorkerId : schema == 2 ? CoreLinkedWorkerId
+            : throw new InvalidOperationException("OperationalPolicyIdentitySchemaUnsupported");
+    }
     // Core branch grants define company reach before search/count/paging; employee
     // home department is metadata, not a grant. No assignments means tenant-wide,
     // matching the existing current-account Core scope contract.
@@ -60,6 +65,7 @@ internal static class ProcurementPrincipalPeople
         projection.Set(tenant, company, account.Id.ToString("D"), null, null, false, "principal-optional-employee-projection");
         projection.AssignPrincipal(account.Id);
         var worker = await ProcurementWorkforce.ResolveActiveWorker(core, projection, ct);
-        return new(account.Id.ToString("D"), worker, account.Actions.ToHashSet(StringComparer.Ordinal), declared.Length == 0, branches.ToHashSet());
+        return new(account.Id.ToString("D"), worker, account.Actions.ToHashSet(StringComparer.Ordinal), declared.Length == 0, branches.ToHashSet())
+        { CoreLinkedWorkerId = account.WorkerId is { } linked && linked != Guid.Empty ? linked : null };
     }
 }

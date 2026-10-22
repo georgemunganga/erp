@@ -64,7 +64,7 @@ public static class InvoiceUnitReviewCommands
             && (response.ReviewState == "Pending" ? response.CaseState == "Pending" && response.EvidenceSchemaVersion is null && response.OutcomeId is null
                 : (response.ReviewState is "Verified" or "Returned" or "Rejected") && response.EvidenceSchemaVersion == 3 && response.OutcomeId is not null
                     && response.CaseState == (response.ReviewState == "Verified" ? "Approved" : response.ReviewState)));
-        if (row.Operation == "Open") Need(row.ActorPrincipalId == source.MakerPrincipalId && request.ReviewId is null
+        if (row.Operation == "Open") Need(row.ActorPrincipalId == source.MakerPrincipalId && row.ActorWorkerId == source.MakerWorkerId && request.ReviewId is null
             && request.AssignmentId is null && request.MappingRevision == source.MappingRevision && request.InvoiceVersion == source.InvoiceVersionAtOpen
             && response.CaseState == "Pending" && response.CaseVersion == 1 && response.ReviewState == "Pending" && response.DecisionId is null);
         else Need(row.Operation == "Decision" && request.ReviewId == source.Id && request.AssignmentId is not null

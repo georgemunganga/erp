@@ -11,6 +11,8 @@ public sealed class OperationalPolicyIdentityRecord : ProcurementRecord
     public int PolicyVersionNumber { get; init; }
     public string Stage { get; init; } = null!;
     public string ActorPrincipalId { get; init; } = null!;
+    // Schema 1 retains its active-worker proof. Schema 2 retains the genuine Core
+    // link solely as optional known-person alias evidence, never employment/authority.
     public Guid? ActorWorkerId { get; init; }
     public long PolicyRecordVersionAtAction { get; init; }
     public string RulesSha256 { get; init; } = null!;

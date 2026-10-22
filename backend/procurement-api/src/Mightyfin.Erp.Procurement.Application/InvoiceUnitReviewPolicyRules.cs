@@ -11,6 +11,7 @@ public static class InvoiceUnitReviewPolicyRules
 {
     public sealed record Stage(string Code, string Mode, IReadOnlyList<string> Principals);
     public sealed record Document(IReadOnlyList<Stage> Stages);
+    // For source 3, WorkerId is optional genuine Core-link alias metadata, not employment.
     public sealed record Person(string TenantId, Guid LegalEntityId, string PrincipalId, Guid? WorkerId,
         bool Active, IReadOnlySet<string> Permissions, bool OrganisationWide, IReadOnlySet<Guid> AllowedBranches);
     public sealed record Assignee(string PrincipalId, Guid? WorkerId);

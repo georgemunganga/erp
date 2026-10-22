@@ -47,7 +47,7 @@ internal static class ProcurementOperationalPolicyWorkerIdentity
             throw new InvalidOperationException("OperationalPolicyConfigurationPermissionUnsupported");
         var actor = await CurrentActorAsync(core, scope, configurePermission, ct);
         var created = await LoadCreatedAsync(db, scope, policy, ct);
-        OperationalPolicyWorkerIdentity.RequireAuthor(policy, created, actor.PrincipalId, actor.WorkerId);
+        OperationalPolicyWorkerIdentity.RequireAuthor(policy, created, actor.PrincipalId, actor.EvidenceWorker(created.SchemaVersion));
         return new(created, actor);
     }
 
@@ -59,7 +59,7 @@ internal static class ProcurementOperationalPolicyWorkerIdentity
         var actor = await CurrentActorAsync(core, scope, reviewPermission, ct);
         var created = await LoadCreatedAsync(db, scope, policy, ct);
         var submitted = await One(db, scope, policy, "Submitted", policy.Version, ct);
-        OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, actor.PrincipalId, actor.WorkerId);
+        OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, actor.PrincipalId, actor.EvidenceWorker(created.SchemaVersion));
         if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, created.ActorPrincipalId, created.ActorWorkerId, actor.PrincipalId, actor.WorkerId, ct)
             || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, submitted.ActorPrincipalId, submitted.ActorWorkerId, actor.PrincipalId, actor.WorkerId, ct))
             throw new InvalidOperationException("OperationalPolicyIndependentReviewerRequired");

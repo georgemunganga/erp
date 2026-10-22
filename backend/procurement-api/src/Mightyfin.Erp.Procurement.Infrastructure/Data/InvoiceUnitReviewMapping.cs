@@ -56,7 +56,7 @@ public sealed partial class ProcurementDbContext
             if (entry.State == EntityState.Added && (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId || entry.Entity.Version != 1)) throw new InvalidOperationException("InvoiceUnitReviewScopeMismatch");
         }
         var added = rows.Where(x => x.State == EntityState.Added).ToArray(); if (added.Length == 0) return;
-        var worker = scope.WorkerId;
+        var worker = scope.CoreLinkedWorkerId;
         if (!ProcurementPrincipalEvidence.Canonical(scope.SubjectId) || !ProcurementPrincipalEvidence.OptionalWorker(worker) || !Database.IsNpgsql() || Database.CurrentTransaction is null || unitReviewCore is null
             || unitReviewTransaction is null || unitReviewCore.Database.CurrentTransaction is null
             || !ReferenceEquals(unitReviewTransaction, Database.CurrentTransaction.GetDbTransaction())
