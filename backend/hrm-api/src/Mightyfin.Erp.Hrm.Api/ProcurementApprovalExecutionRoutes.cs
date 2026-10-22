@@ -136,7 +136,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 request.ApprovalInstanceRef = approvalCase.Id.ToString("D"); request.ApprovalState = "Pending";
                 var eventVersion=principal?2:1;
                 db.AddScoped(Event(request, $"procurement.pr.approval_opened.{pin.Id:N}.v{eventVersion}", $"purchase_request.approval_opened.v{eventVersion}",
-                    ApprovalIdentityPayload(pin,new { requestId = id, caseId = approvalCase.Id, pin.SubmittedBusinessVersion })));
+                    ApprovalIdentityPayload(pin,new { requestId = id, caseId = approvalCase.Id, pin.SubmittedBusinessVersion }),eventVersion));
                 Audit(db, scope, request.Id, "ApprovalCaseOpened", ApprovalIdentityPayload(pin,new { caseId = approvalCase.Id, pin.Id, pin.SubmittedBusinessVersion }));
                 await workflow.SaveChangesAsync(token); await db.SaveChangesAsync(token);
                 var response = JsonSerializer.Serialize(Response(request, approvalCase), Json);
@@ -227,7 +227,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 }
                 var eventVersion=pin.SnapshotSchemaVersion==3?2:1;
                 db.AddScoped(Event(request, $"procurement.pr.decision.{decision.Id:N}.v{eventVersion}", $"purchase_request.approval_decision_recorded.v{eventVersion}",
-                    ApprovalIdentityPayload(pin,new { requestId = request.Id, caseId, assignmentId, decisionId = decision.Id, action = input.Action })));
+                    ApprovalIdentityPayload(pin,new { requestId = request.Id, caseId, assignmentId, decisionId = decision.Id, action = input.Action }),eventVersion));
                 Audit(db, scope, request.Id, "ApprovalDecisionRecorded", ApprovalIdentityPayload(pin,new
                     { caseId, assignmentId, decisionId = decision.Id, input.Action, reason, caseState = approvalCase.State,
                         currentFinanceSnapshotId = currentFinance?.Id, currentFinanceStatus = currentFinance?.Status,

@@ -285,10 +285,10 @@ public static partial class ProcurementApprovalExecutionRoutes
     private static void Audit(ProcurementDbContext db, ProcurementRequestScope scope, Guid id, string action, object evidence)
         => db.AddScoped(new AuditEvent { RecordType = "PurchaseRequest", RecordId = id, Action = action,
             ActorSubjectId = scope.SubjectId, ChangedFieldsJson = JsonSerializer.Serialize(evidence, Json) });
-    private static OutboxEvent Event(PurchaseRequest request, string key, string type, object payload) => new()
+    private static OutboxEvent Event(PurchaseRequest request, string key, string type, object payload, int version = 1) => new()
     {
         TenantId = request.TenantId, LegalEntityId = request.LegalEntityId, AggregateType = "purchase_request",
-        AggregateId = request.Id, EventType = type, IdempotencyKey = key, PayloadJson = JsonSerializer.Serialize(payload, Json),
+        AggregateId = request.Id, EventType = type, EventVersion = version, IdempotencyKey = key, PayloadJson = JsonSerializer.Serialize(payload, Json),
     };
     private static Guid CommandKey(HttpContext http)
         => http.Request.Headers["Idempotency-Key"].Count == 1
