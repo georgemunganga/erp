@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
@@ -60,6 +61,18 @@ public sealed class HrmHandwrittenModelContractTests
         Assert.True(index.IsUnique);
         Assert.Equal(new[] { "TenantId", "SubjectId" }, index.Properties.Select(x => x.Name));
         Assert.Equal("subject_id IS NOT NULL", index.GetFilter());
+    }
+
+    [Fact]
+    public void Genuine_initialized_snapshot_and_current_model_have_no_pending_or_generated_operations()
+    {
+        using var db = Context();
+        var snapshot = db.GetService<IMigrationsAssembly>().ModelSnapshot;
+        Assert.NotNull(snapshot);
+        var source = db.GetService<IModelRuntimeInitializer>().Initialize(snapshot.Model, designTime: true).GetRelationalModel();
+        var current = db.GetService<IDesignTimeModel>().Model.GetRelationalModel();
+        Assert.Empty(db.GetService<IMigrationsModelDiffer>().GetDifferences(source, current));
+        Assert.False(db.Database.HasPendingModelChanges());
     }
 
     private static HrmDbContext Context() => new(new DbContextOptionsBuilder<HrmDbContext>()
