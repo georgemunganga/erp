@@ -129,7 +129,7 @@ sealed partial class Probe
                 && workflow.Stages.SelectMany(x => x.Assignments).Single().Id == pin.CoreAssignmentId
                 && workflow.Stages.SelectMany(x => x.Assignments).Single().AssigneeSubjectId == reviewer.ToString("D")
                 && outcome.ReviewSourceId == reviewId && outcome.CoreCaseId == workflow.Id
-                && outcome.EvidenceSha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(outcome.EvidenceJson)
+                && outcome.EvidenceSha256 == ProcurementEvidenceEncoding.Digest(outcome.EvidenceJson)
                 && workflow.State == "Approved" && outcome.State == "Verified" && outcome.EvidenceSchemaVersion == 3
                 && outcome.ReviewerPrincipalId == reviewer.ToString("D") && outcome.ReviewerWorkerId is null
                 && receipts.Length == 2 && receipts.All(x => x.ActorWorkerId is null), "Browser did not persist exact workerless source3/case/outcome3/two receipts.");
