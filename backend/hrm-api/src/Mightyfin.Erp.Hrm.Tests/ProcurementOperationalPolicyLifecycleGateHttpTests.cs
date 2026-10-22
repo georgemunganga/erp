@@ -1,3 +1,4 @@
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -88,7 +89,7 @@ public sealed class ProcurementOperationalPolicyLifecycleGateHttpTests
                 ProcurementRequestHttpTests.TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
             // Deliberately no schema-readiness registration/provider override.
-            var app = builder.Build(); app.UseRouting(); app.UseAuthentication(); app.UseAuthorization();
+            var app = builder.Build(); app.UseRouting(); app.UseAuthentication(); app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>(); app.UseAuthorization();
             app.UseMiddleware<ProcurementScopeMiddleware>(); ProcurementPolicyDraftRoutes.MapRoutes(app);
             var company = new LegalEntity { Code = "OP", RegisteredName = "Operational policy gate", Currency = "ZMW" };
             var branch = new WorkLocation { Code = "HOME", Name = "Home", LegalEntityId = company.Id };
@@ -101,7 +102,10 @@ public sealed class ProcurementOperationalPolicyLifecycleGateHttpTests
             using (var services = app.Services.CreateScope())
             {
                 var core = services.ServiceProvider.GetRequiredService<HrmDbContext>(); core.LegalEntities.Add(company);
-                core.WorkLocations.Add(branch); core.Workers.Add(worker); core.LocalUsers.Add(user); await core.SaveChangesAsync();
+                core.WorkLocations.Add(branch); core.Workers.Add(worker); core.LocalUsers.Add(user);
+                core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "erp_admin",
+                    RoleName = "Synthetic operational policy administrator", Active = true, PermissionsCsv = "erp_admin" });
+                await core.SaveChangesAsync();
                 var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
                 scope.Set("tenant-a", company.Id, user.Id.ToString("D"), null, null, false, "legacy-gate-seed");
                 var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();

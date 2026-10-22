@@ -370,23 +370,26 @@ public sealed partial class ProcurementRequestHttpTests
 
         var own = await Send(client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
         Assert.Equal(HttpStatusCode.OK, own.StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         var other = await Send(client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Other);
         Assert.Equal(HttpStatusCode.NotFound, other.StatusCode);
         var otherList = await Send(client, HttpMethod.Get, "/api/procurement/v1/requests", fixture.Other);
         Assert.Equal(0, (await otherList.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("count").GetInt32());
 
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         var wrongCompany = await Send(client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}",
             fixture.Owner, fixture.OtherCompany);
         Assert.Equal(HttpStatusCode.Forbidden, wrongCompany.StatusCode);
     }
 
     [Fact]
-    public async Task Draft_write_requires_an_active_employee_and_action_permission()
+    public async Task Draft_write_requires_an_active_Core_account_and_current_action_permission()
     {
         await using var fixture = await Fixture.Start();
         var noSession = await fixture.Client.PostAsJsonAsync("/api/procurement/v1/requests", Draft("No session"));
         Assert.Equal(HttpStatusCode.Unauthorized, noSession.StatusCode);
 
+        await fixture.ConfigureCoreRole(fixture.Owner, "ap_processor");
         var noPermission = new HttpRequestMessage(HttpMethod.Post, "/api/procurement/v1/requests")
         {
             Content = JsonContent.Create(Draft("No permission")),
@@ -397,7 +400,7 @@ public sealed partial class ProcurementRequestHttpTests
 
         var inactive = new HttpRequestMessage(HttpMethod.Post, "/api/procurement/v1/requests")
         {
-            Content = JsonContent.Create(Draft("Inactive employee")),
+            Content = JsonContent.Create(Draft("No active Core account")),
         };
         inactive.Headers.Add("X-Test-User", fixture.Inactive.ToString());
         Assert.Equal(HttpStatusCode.Forbidden, (await fixture.Client.SendAsync(inactive)).StatusCode);
@@ -528,6 +531,7 @@ public sealed partial class ProcurementRequestHttpTests
         var pendingStatus = await Send(fixture.Client, HttpMethod.Get, ownStatusPath, fixture.Owner);
         Assert.Equal("Pending", (await pendingStatus.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("status").GetString());
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, ownStatusPath, fixture.Other)).StatusCode);
         var decision = new ProcurementBudgetRoutes.BudgetDecision(version, "FIN-001", "Available",
@@ -535,9 +539,11 @@ public sealed partial class ProcurementRequestHttpTests
 
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, decision)).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "finance_approver");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, decision,
                 "finance_approver")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "finance_approver");
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
                 decision with { ReservationRef = null }, "finance_approver")).StatusCode);
@@ -558,6 +564,7 @@ public sealed partial class ProcurementRequestHttpTests
                 decision with { Status = "Insufficient", DecisionReason = "No funds" },
                 "finance_approver")).StatusCode);
         Assert.Equal(1, await fixture.RequestAuditCount(id, "BudgetChecked"));
+        await fixture.ConfigureCoreRole(fixture.Owner, "employee");
         var ownBudget = await Send(fixture.Client, HttpMethod.Get, ownStatusPath, fixture.Owner);
         var budgetStatus = await ownBudget.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Available", budgetStatus.GetProperty("status").GetString());
@@ -566,6 +573,7 @@ public sealed partial class ProcurementRequestHttpTests
         var own = await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/requests/{id}", fixture.Owner);
         Assert.Equal("PendingPolicyAndBudget", (await own.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("approvalState").GetString());
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_manager");
         var protectedReturn = await SendJson(fixture.Client, HttpMethod.Post,
             $"/api/procurement/v1/requests/{id}/return-for-changes", fixture.Other,
             new ProcurementRequestRoutes.ReturnInput(version, "Correct the requested amount"),
@@ -605,6 +613,7 @@ public sealed partial class ProcurementRequestHttpTests
         var version = request.GetProperty("version").GetInt64();
         await fixture.MoveRequestToOtherBranchAndConfineReviewer(id);
 
+        await fixture.ConfigureCoreRole(fixture.Other, "finance_approver");
         var queue = await Send(fixture.Client, HttpMethod.Get,
             "/api/procurement/v1/requests/budget-queue", fixture.Other, role: "finance_approver");
         Assert.Equal(HttpStatusCode.OK, queue.StatusCode);
@@ -621,6 +630,7 @@ public sealed partial class ProcurementRequestHttpTests
                 "finance_approver")).StatusCode);
         Assert.Equal(0, await fixture.RequestAuditCount(id, "BudgetChecked"));
 
+        await fixture.ConfigureCoreRole(fixture.Reviewer, "finance_approver");
         var companyQueue = await Send(fixture.Client, HttpMethod.Get,
             "/api/procurement/v1/requests/budget-queue", fixture.Reviewer,
             role: "finance_approver");
@@ -641,6 +651,7 @@ public sealed partial class ProcurementRequestHttpTests
         var savedVendor = await fixture.Client.SendAsync(vendor);
         Assert.Equal(HttpStatusCode.Created, savedVendor.StatusCode);
         var vendorId = (await savedVendor.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/vendors/{vendorId}", fixture.Other)).StatusCode);
 
@@ -659,6 +670,7 @@ public sealed partial class ProcurementRequestHttpTests
         };
         buyerItem.Headers.Add("X-Test-User", fixture.Owner.ToString());
         buyerItem.Headers.Add("X-Test-Role", "procurement_buyer");
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var savedItem = await fixture.Client.SendAsync(buyerItem);
         Assert.Equal(HttpStatusCode.Created, savedItem.StatusCode);
         var result = await savedItem.Content.ReadFromJsonAsync<JsonElement>();
@@ -718,6 +730,7 @@ public sealed partial class ProcurementRequestHttpTests
         var deniedPlan = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
             fixture.Owner, planInput);
         Assert.Equal(HttpStatusCode.Forbidden, deniedPlan.StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "manager");
         var savedPlan = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
             fixture.Owner, planInput, "manager");
         Assert.Equal(HttpStatusCode.Created, savedPlan.StatusCode);
@@ -726,6 +739,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal("ZMW", plan.GetProperty("currencyCode").GetString());
         var planId = plan.GetProperty("id").GetGuid();
         Assert.Equal(1, await fixture.RequestAuditCount(planId, "DraftCreated"));
+        await fixture.ConfigureCoreRole(fixture.Other, "manager");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/plans/{planId}",
                 fixture.Other, role: "manager")).StatusCode);
@@ -736,6 +750,7 @@ public sealed partial class ProcurementRequestHttpTests
         var deniedSource = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/sourcing",
             fixture.Owner, sourceInput, "manager");
         Assert.Equal(HttpStatusCode.Forbidden, deniedSource.StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var savedSource = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/sourcing",
             fixture.Owner, sourceInput, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Created, savedSource.StatusCode);
@@ -744,6 +759,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal("ZMW", source.GetProperty("currencyCode").GetString());
         var sourceId = source.GetProperty("id").GetGuid();
         Assert.Equal(1, await fixture.RequestAuditCount(sourceId, "DraftCreated"));
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_buyer");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/sourcing/{sourceId}",
                 fixture.Other, role: "procurement_buyer")).StatusCode);
@@ -774,6 +790,7 @@ public sealed partial class ProcurementRequestHttpTests
         await using var fixture = await Fixture.Start();
         var planLine = new ProcurementPlanLineInput(null, null, "Office chairs", "OFFICE", "each",
             10, 5_000, null, null);
+        await fixture.ConfigureCoreRole(fixture.Owner, "manager");
         var planResponse = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
             fixture.Owner, new ProcurementPlanInput("FY2026", null, null, [planLine]), "manager");
         Assert.Equal(HttpStatusCode.Created, planResponse.StatusCode);
@@ -786,6 +803,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity, duplicatePlan.StatusCode);
 
         var sourcingLine = new SourcingLineInput(null, null, "Office chairs", "each", 10, "OFFICE", null);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var sourceResponse = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/sourcing",
             fixture.Owner, new SourcingDraftInput("Office chairs", "RFQ", null,
                 DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddDays(8), [sourcingLine]),
@@ -810,6 +828,7 @@ public sealed partial class ProcurementRequestHttpTests
             5_000, null, null);
         var second = new ProcurementPlanLineInput(null, null, "Desks", "OFFICE", "each", 5,
             3_000, null, null);
+        await fixture.ConfigureCoreRole(fixture.Owner, "manager");
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
             fixture.Owner, new ProcurementPlanInput("FY2026", null, null, [first, second]), "manager");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -852,6 +871,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftCancelled"));
         Assert.All(cancelledPlan.GetProperty("lines").EnumerateArray(),
             line => Assert.Equal("Cancelled", line.GetProperty("status").GetString()));
+        await fixture.ConfigureCoreRole(fixture.Other, "manager");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"/api/procurement/v1/plans/{id}",
                 fixture.Other, role: "manager")).StatusCode);
@@ -864,9 +884,11 @@ public sealed partial class ProcurementRequestHttpTests
         const string categories = "/api/procurement/v1/configuration/categories";
         const string methods = "/api/procurement/v1/configuration/methods";
         var category = new ProcurementConfigurationRoutes.CategoryInput("IT", "Technology", null, null);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, categories, fixture.Owner,
                 category, "procurement_buyer")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         var created = await SendJson(fixture.Client, HttpMethod.Post, categories, fixture.Owner,
             category, "procurement_manager");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -891,6 +913,7 @@ public sealed partial class ProcurementRequestHttpTests
             (await SendJson(fixture.Client, HttpMethod.Put, $"{categories}/{id}", fixture.Owner,
                 new ProcurementConfigurationRoutes.VersionedCategory(version,
                     category), "procurement_manager")).StatusCode);
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, $"{categories}/{id}", fixture.Owner,
                 fixture.OtherCompany, "procurement_manager")).StatusCode);
@@ -901,6 +924,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Created, savedMethod.StatusCode);
         Assert.Equal("Draft", (await savedMethod.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("status").GetString());
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         Assert.Equal(1, (await (await Send(fixture.Client, HttpMethod.Get, methods,
             fixture.Owner, role: "procurement_buyer")).Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
@@ -911,6 +935,7 @@ public sealed partial class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start();
         const string methods = "/api/procurement/v1/configuration/methods";
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         var created = await SendJson(fixture.Client, HttpMethod.Post, methods, fixture.Owner,
             new ProcurementConfigurationRoutes.MethodInput("DIRECT", "Direct purchase", null, null),
             "procurement_manager");
@@ -920,6 +945,7 @@ public sealed partial class ProcurementRequestHttpTests
         var version = method.GetProperty("version").GetInt64();
         var path = $"{methods}/{id}/activate";
         var review = new ProcurementConfigurationRoutes.ActivationInput(version, "Reviewed method and scope");
+        await fixture.RestrictCoreAccountToCompany(fixture.Other);
         using var otherCompanyReview = new HttpRequestMessage(HttpMethod.Post, path)
         { Content = JsonContent.Create(review) };
         otherCompanyReview.Headers.Add("X-Test-User", fixture.Other.ToString());
@@ -972,9 +998,11 @@ public sealed partial class ProcurementRequestHttpTests
         var from = DateTimeOffset.UtcNow.AddDays(1).ToOffset(TimeSpan.FromHours(2));
         var draft = new ProcurementPolicyDraftRoutes.PolicyDraft("PURCHASE_REQUEST", from,
             from.AddMonths(1), "{\"schemaVersion\":1}");
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, policies, fixture.Owner,
                 draft, "procurement_buyer")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, policies, fixture.Owner,
                 draft with { RulesJson = "[1,2]" }, "procurement_manager")).StatusCode);
@@ -988,6 +1016,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(TimeSpan.Zero, policy.GetProperty("effectiveFrom").GetDateTimeOffset().Offset);
         Assert.Equal(from.ToUniversalTime(), policy.GetProperty("effectiveFrom").GetDateTimeOffset());
         Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftCreated"));
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, $"{policies}/{id}", fixture.Owner,
                 fixture.OtherCompany, "procurement_manager")).StatusCode);
@@ -1047,10 +1076,12 @@ public sealed partial class ProcurementRequestHttpTests
                     { new { code = "NEED", assignee = "LineManager", mode = "One" } } },
             } },
         });
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
                 new ProcurementPolicyDraftRoutes.PolicyValidationRequest(rules),
                 "procurement_buyer")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         var valid = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
             new ProcurementPolicyDraftRoutes.PolicyValidationRequest(rules), "procurement_manager");
         Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
@@ -1206,6 +1237,8 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Buyer_can_return_a_blocked_request_for_correction_and_new_rule_evidence()
     {
         await using var fixture = await Fixture.Start();
+        await fixture.RestrictCoreAccountToCompany(fixture.Other);
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         await fixture.AddPublishedBuyingPolicy();
         const string requests = "/api/procurement/v1/requests";
         var input = Draft("Correct category") with
@@ -1240,6 +1273,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
                 command, "employee")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
                 command, "procurement_manager")).StatusCode);
@@ -1262,6 +1296,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
                 command, "procurement_manager")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "employee");
         var priorStatus = await Send(fixture.Client, HttpMethod.Get,
             $"{requests}/{id}/policy-status", fixture.Owner);
         Assert.Equal("NotSubmitted", (await priorStatus.Content.ReadFromJsonAsync<JsonElement>())
@@ -1829,6 +1864,7 @@ public sealed partial class ProcurementRequestHttpTests
         });
         var draft = new ProcurementPolicyDraftRoutes.PolicyDraft("PURCHASE_REQUEST",
             DateTimeOffset.UtcNow.AddDays(1), null, rules);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         var created = await SendJson(fixture.Client, HttpMethod.Post, basePath, fixture.Owner,
             draft, "procurement_manager");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -2021,11 +2057,13 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Null_nested_item_update_returns_scoped_validation_without_changing_record_or_version()
     {
         await using var fixture=await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         using var created=await SendJson(fixture.Client,HttpMethod.Post,"/api/procurement/v1/items",fixture.Owner,
             new { code="NULL-UPDATE",name="Retained item",kind="Goods",categoryCode="IT",unitCode="each" },"procurement_buyer");
         Assert.Equal(HttpStatusCode.Created,created.StatusCode);var item=await created.Content.ReadFromJsonAsync<JsonElement>();
         var path="/api/procurement/v1/items/"+item.GetProperty("id").GetGuid();
         var payload=new { version=item.GetProperty("version").GetInt64(),item=(object?)null };
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         var before=await fixture.OriginalValueFootprint();
         using var denied=await SendJson(fixture.Client,HttpMethod.Put,path,fixture.Owner,payload,"procurement_buyer",company:fixture.OtherCompany);
         Assert.Equal(HttpStatusCode.Forbidden,denied.StatusCode);
@@ -2050,6 +2088,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Catalog_original_values_reject_precision_or_range_without_any_persisted_effect(string field,string token)
     {
         await using var fixture=await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var created=await SendJson(fixture.Client,HttpMethod.Post,"/api/procurement/v1/items",fixture.Owner,
             new { code="EXACT-PARENT",name="Existing draft",kind="Goods",categoryCode="IT",unitCode="each" },"procurement_buyer");
         Assert.Equal(HttpStatusCode.Created,created.StatusCode);var item=await created.Content.ReadFromJsonAsync<JsonElement>();
@@ -2086,6 +2125,7 @@ public sealed partial class ProcurementRequestHttpTests
             _=>("/requests/"+suffix+"/budget-checks","{\"checkedAmount\":"+invalid+"}",HttpMethod.Post)
         };
         var role=feature=="budget"?"finance_approver":feature.StartsWith("request")?"employee":feature.StartsWith("plan")?"manager":"procurement_buyer";
+        await fixture.ConfigureCoreRole(fixture.Owner, role);
         var before=await fixture.OriginalValueFootprint();using var response=await RawOriginalValue(fixture,"/api/procurement/v1"+path,body,role,method);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
         var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
@@ -2096,6 +2136,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Catalog_original_exact_bounds_round_trip_and_invalid_update_retains_version_and_price()
     {
         await using var fixture=await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var body="{\"code\":\"EXACT-VALID\",\"name\":\"Exact units\",\"kind\":\"Goods\",\"categoryCode\":\"IT\",\"unitCode\":\"each\",\"purchaseUnitConversion\":\"1.000001\",\"minimumOrderQuantity\":0.0001}";
         using var created=await RawOriginalValue(fixture,"/api/procurement/v1/items",body,"procurement_buyer");Assert.Equal(HttpStatusCode.Created,created.StatusCode);
         var item=await created.Content.ReadFromJsonAsync<JsonElement>();var path="/api/procurement/v1/items/"+item.GetProperty("id").GetGuid();
@@ -2123,6 +2164,7 @@ public sealed partial class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start();
         const string categories = "/api/procurement/v1/configuration/categories";
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         var createdCategory = await SendJson(fixture.Client, HttpMethod.Post, categories, fixture.Owner,
             new ProcurementConfigurationRoutes.CategoryInput("OFFICE", "Office equipment", null, null),
             "procurement_manager");
@@ -2135,6 +2177,7 @@ public sealed partial class ProcurementRequestHttpTests
             (await SendJson(fixture.Client, HttpMethod.Post, categoryPath, fixture.Owner,
                 categoryReview, "procurement_manager")).StatusCode);
 
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var createdItem = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/items", fixture.Owner,
             new { code = "CHAIR-1", name = "Office chair", kind = "Goods",
@@ -2147,13 +2190,16 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Post, itemPath, fixture.Other,
                 itemReview, "procurement_manager")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, itemPath, fixture.Owner,
                 itemReview, "procurement_manager")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, itemPath, fixture.Other,
                 itemReview, "procurement_buyer")).StatusCode);
 
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_manager");
         Assert.Equal(HttpStatusCode.OK,
             (await SendJson(fixture.Client, HttpMethod.Post, categoryPath, fixture.Other,
                 categoryReview, "procurement_manager")).StatusCode);
@@ -2165,6 +2211,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.True(active.GetProperty("isPurchasable").GetBoolean());
         Assert.Equal(1, await fixture.RequestAuditCount(item.GetProperty("id").GetGuid(), "Activated"));
         Assert.Equal(1, await fixture.RequestAuditCount(category.GetProperty("id").GetGuid(), "Activated"));
+        await fixture.ConfigureCoreRole(fixture.Owner, "employee");
         var catalog = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/catalog",
             fixture.Owner, role: "employee");
         Assert.Equal(0, (await catalog.Content.ReadFromJsonAsync<JsonElement>())
@@ -2181,6 +2228,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Catalog_price_publication_requires_active_item_vendor_and_independent_review()
     {
         await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         var categoryResponse = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/configuration/categories", fixture.Owner,
             new ProcurementConfigurationRoutes.CategoryInput("OFFICE", "Office", null, null),
@@ -2190,6 +2238,7 @@ public sealed partial class ProcurementRequestHttpTests
             $"/api/procurement/v1/configuration/categories/{category.GetProperty("id").GetGuid()}/activate",
             fixture.Other, new ProcurementConfigurationRoutes.ActivationInput(
                 category.GetProperty("version").GetInt64(), "Reviewed"), "procurement_manager");
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var itemResponse = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/items", fixture.Owner,
             new { code = "CHAIR-1", name = "Chair", kind = "Goods", categoryCode = "OFFICE", unitCode = "each" },
@@ -2200,6 +2249,7 @@ public sealed partial class ProcurementRequestHttpTests
             $"/api/procurement/v1/items/{itemId}/activate", fixture.Other,
             new ItemActivationInput(item.GetProperty("version").GetInt64(), "Reviewed"),
             "procurement_manager");
+        await fixture.ConfigureCoreRole(fixture.Owner, "employee");
         var vendorResponse = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/vendors", fixture.Owner,
             new { legalName = "Office Supply Ltd", displayName = "Office Supply", countryCode = "ZM",
@@ -2208,6 +2258,7 @@ public sealed partial class ProcurementRequestHttpTests
         var vendor = await vendorResponse.Content.ReadFromJsonAsync<JsonElement>();
         var vendorId = vendor.GetProperty("id").GetGuid();
         var entryPath = $"/api/procurement/v1/items/{itemId}/catalog-entries";
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var entryResponse = await SendJson(fixture.Client, HttpMethod.Post, entryPath,
             fixture.Owner, new EntryInput(vendorId, "ZMW", "each", 250,
                 null, null, null, DateTimeOffset.UtcNow.AddDays(-1),
@@ -2217,6 +2268,7 @@ public sealed partial class ProcurementRequestHttpTests
         var publishPath = $"{entryPath}/{entry.GetProperty("id").GetGuid()}/publish";
         var publish = new CatalogPublishInput(entry.GetProperty("version").GetInt64(),
             "Checked approved vendor and price");
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, publishPath, fixture.Owner,
                 publish, "procurement_manager")).StatusCode);
@@ -2224,6 +2276,7 @@ public sealed partial class ProcurementRequestHttpTests
             (await SendJson(fixture.Client, HttpMethod.Post, publishPath, fixture.Other,
                 publish, "procurement_manager")).StatusCode);
 
+        await fixture.ConfigureCoreRole(fixture.Owner, "employee");
         var submitted = await SendJson(fixture.Client, HttpMethod.Post,
             $"/api/procurement/v1/vendors/{vendorId}/submit", fixture.Owner,
             new VendorSubmitInput(vendor.GetProperty("version").GetInt64(), "Catalog supply"));
@@ -2317,9 +2370,11 @@ public sealed partial class ProcurementRequestHttpTests
             "/api/procurement/v1/catalog", fixture.Owner);
         Assert.Equal(1, (await renewedCatalog.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/catalog",
                 fixture.Owner, fixture.OtherCompany)).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var invalidPriceRequest = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/requests", fixture.Owner, new
             {
@@ -2373,10 +2428,12 @@ public sealed partial class ProcurementRequestHttpTests
                 "Superseded by a new vendor price"), "procurement_buyer");
         Assert.Equal(HttpStatusCode.OK, withdrawn.StatusCode);
         Assert.Equal(1, await fixture.RequestAuditCount(entry.GetProperty("id").GetGuid(), "Withdrawn"));
+        await fixture.ConfigureCoreRole(fixture.Owner, "employee");
         var emptyCatalog = await Send(fixture.Client, HttpMethod.Get,
             "/api/procurement/v1/catalog", fixture.Owner);
         Assert.Equal(0, (await emptyCatalog.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("total").GetInt32());
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var staleCatalogSubmit = await SendJson(fixture.Client, HttpMethod.Post,
             $"/api/procurement/v1/requests/{request.GetProperty("id").GetGuid()}/submit",
             fixture.Owner, new ProcurementRequestRoutes.VersionCommand(request.GetProperty("version").GetInt64()),
@@ -2437,6 +2494,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
                 new VendorSubmitInput(version, ""))).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.NotFound,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
                 new VendorSubmitInput(version, "Office supplies"))).StatusCode);
@@ -2456,11 +2514,13 @@ public sealed partial class ProcurementRequestHttpTests
         var rows = (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items");
         Assert.Contains(rows.EnumerateArray(), row => row.GetProperty("id").GetGuid() == id
             && row.GetProperty("status").GetString() == "Submitted");
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_manager");
         var reviewerList = await Send(fixture.Client, HttpMethod.Get,
             "/api/procurement/v1/vendors?status=Submitted", fixture.Other,
             role: "procurement_manager");
         Assert.Contains((await reviewerList.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("items").EnumerateArray(), row => row.GetProperty("id").GetGuid() == id);
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         var unrelatedList = await Send(fixture.Client, HttpMethod.Get,
             "/api/procurement/v1/vendors?status=Submitted", fixture.Other);
         Assert.Empty((await unrelatedList.Content.ReadFromJsonAsync<JsonElement>())
@@ -2471,12 +2531,14 @@ public sealed partial class ProcurementRequestHttpTests
             $"/api/procurement/v1/vendors/{id}", fixture.Owner);
         Assert.False((await proposerView.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("canReturnForInformation").GetBoolean());
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_manager");
         var reviewerView = await Send(fixture.Client, HttpMethod.Get,
             $"/api/procurement/v1/vendors/{id}", fixture.Other, role: "procurement_manager");
         Assert.True((await reviewerView.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("canReturnForInformation").GetBoolean());
 
         var reviewPath = $"/api/procurement/v1/vendors/{id}/return";
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Owner,
                 new VendorReviewReturnInput(result.GetProperty("version").GetInt64(), "Need more details"),
@@ -2494,6 +2556,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.False(returnedRecord.GetProperty("isOrderable").GetBoolean());
         Assert.Equal(2, await fixture.DecisionCount(id));
 
+        await fixture.ConfigureCoreRole(fixture.Owner, "employee");
         var resubmitted = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
             new VendorSubmitInput(returnedRecord.GetProperty("version").GetInt64(),
                 "Legal address confirmed with contact"));
@@ -2539,6 +2602,7 @@ public sealed partial class ProcurementRequestHttpTests
         var contactPath = $"{path}/contacts/{contactId}";
         var editContact = new { version, contact = new { name = "New contact", email = "new@example.test",
             isPrimary = true } };
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.NotFound,
             (await SendJson(fixture.Client, HttpMethod.Put, contactPath, fixture.Other,
                 editContact)).StatusCode);
@@ -2603,12 +2667,15 @@ public sealed partial class ProcurementRequestHttpTests
         var version = pending.GetProperty("version").GetInt64();
         var approvalPath = $"/api/procurement/v1/vendors/{id}/approve";
 
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Other,
                 new VendorApprovalInput(version, "Reviewed", true))).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Owner,
                 new VendorApprovalInput(version, "Reviewed", true), "procurement_manager")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_manager");
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, approvalPath, fixture.Other,
                 new VendorApprovalInput(version, "Reviewed", false), "procurement_manager")).StatusCode);
@@ -2644,6 +2711,7 @@ public sealed partial class ProcurementRequestHttpTests
         var id = draft.GetProperty("id").GetGuid();
         var path = $"/api/procurement/v1/vendors/{id}";
 
+        await fixture.ConfigureCoreActions(fixture.Reviewer, reviewerActions);
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, path, fixture.Reviewer,
                 actions: reviewerActions)).StatusCode);
@@ -2668,9 +2736,11 @@ public sealed partial class ProcurementRequestHttpTests
                 new { version = detail.GetProperty("version").GetInt64() },
                 actions: reviewerActions)).StatusCode);
 
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
                 role: "employee")).StatusCode);
+        await fixture.RestrictCoreAccountToCompany(fixture.Reviewer);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, path, fixture.Reviewer,
                 company: fixture.OtherCompany, actions: reviewerActions)).StatusCode);
@@ -2683,6 +2753,7 @@ public sealed partial class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start(matchingSchema: matchingSchema);
         var supplier = await fixture.AddInvoiceSupplier();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         var captured = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/invoices", fixture.Other,
             new InvoiceIntakeInput(supplier, null, "READINESS-1", DateOnly.FromDateTime(DateTime.UtcNow), null, "ZMW",
                 [new InvoiceIntakeLineInput("Recorded invoice", 1, 100, 0, null, null)]), "ap_processor");
@@ -2714,6 +2785,8 @@ public sealed partial class ProcurementRequestHttpTests
         }
         Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get,
             "/api/procurement/v1/invoices/" + Guid.NewGuid() + "/finance-readiness", fixture.Other, role: "ap_processor")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "erp_admin");
+        await fixture.RestrictCoreAccountToCompany(fixture.Other);
         Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other,
             company: fixture.OtherCompany, role: "erp_admin")).StatusCode);
         var foreignInvoiceId = await fixture.AddForeignTenantReadinessInvoice();
@@ -2723,6 +2796,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.DoesNotContain("FOREIGN-TENANT-PRIVATE", await foreignRead.Content.ReadAsStringAsync());
         Assert.Equal(before, await fixture.InvoiceReadinessFootprint());
         await fixture.ConfineInvoiceReaderElsewhere(fixture.Other);
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor")).StatusCode);
         Assert.Equal(before, await fixture.InvoiceReadinessFootprint());
     }
@@ -2741,6 +2815,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, input)).StatusCode);
 
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input,
             "ap_processor");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -2755,6 +2830,7 @@ public sealed partial class ProcurementRequestHttpTests
         var saved = await detail.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("INV-001", saved.GetProperty("invoiceNumber").GetString());
         Assert.Single(saved.GetProperty("lines").EnumerateArray());
+        await fixture.RestrictCoreAccountToCompany(fixture.Other);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other,
                 company: fixture.OtherCompany, role: "ap_processor")).StatusCode);
@@ -2782,7 +2858,9 @@ public sealed partial class ProcurementRequestHttpTests
     [InlineData("quantity","100000000000000")]
     public async Task Invoice_raw_decimal_lexemes_reject_without_rounding_or_any_writes(string field,string token)
     {
-        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        await using var fixture=await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier=await fixture.AddInvoiceSupplier();
         var before=await fixture.InvoiceReadinessFootprint();
         var values=new Dictionary<string,string> { ["quantity"]="1",["unitPrice"]="1",["taxAmount"]="0" };values[field]=token;
         var line="{\"description\":\"Raw exact invoice\",\"quantity\":"+values["quantity"]+",\"unitPrice\":"+values["unitPrice"]+",\"taxAmount\":"+values["taxAmount"]+"}";
@@ -2797,7 +2875,9 @@ public sealed partial class ProcurementRequestHttpTests
     [InlineData("header-scale")][InlineData("invoice-number")][InlineData("null-line")]
     public async Task Invoice_exact_header_contract_rejects_before_tracking_or_persisting(string scenario)
     {
-        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        await using var fixture=await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier=await fixture.AddInvoiceSupplier();
         var before=await fixture.InvoiceReadinessFootprint();var number="INVALID-HEADER";
         var lines=scenario switch
         {
@@ -2817,7 +2897,9 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Invoice_exact_eight_place_products_may_sum_to_representable_header_without_line_rounding()
     {
-        await using var fixture=await Fixture.Start();var supplier=await fixture.AddInvoiceSupplier();
+        await using var fixture=await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
+        var supplier=await fixture.AddInvoiceSupplier();
         const string lines="{\"description\":\"First exact product\",\"quantity\":\"0.0001\",\"unitPrice\":0.0001,\"taxAmount\":0},{\"description\":\"Second exact product\",\"quantity\":0.0001,\"unitPrice\":\"0.9999\",\"taxAmount\":0}";
         using var response=await RawInvoice(fixture,supplier,"EXACT-PRODUCT-SUM",lines);Assert.Equal(HttpStatusCode.Created,response.StatusCode);
         var captured=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal(.0001m,captured.GetProperty("grossAmount").GetDecimal());
@@ -2842,6 +2924,7 @@ public sealed partial class ProcurementRequestHttpTests
         var supplierId = await fixture.AddInvoiceSupplier();
         var orderInput = new OrderDraftInput(supplierId, "ZMW", null, null, null, null,
             [new OrderDraftLineInput(null, "Office supplies", "EA", 1, 100, 0, null, null, null)]);
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_buyer");
         var orderResponse = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/orders", fixture.Other, orderInput, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Created, orderResponse.StatusCode);
@@ -2853,6 +2936,7 @@ public sealed partial class ProcurementRequestHttpTests
         var assignedBranch = await fixture.ConfineBuyerAndMoveOrderToOtherBranch(orderId);
         var invoiceBranch = await fixture.OrderBranch(orderId);
         // Capture the original in its real branch; never rewrite a captured invoice to arrange scope.
+        await fixture.ConfigureCoreRole(fixture.Reviewer, "ap_processor");
         var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Reviewer, input,
             "ap_processor", selectedLocation: invoiceBranch);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -2860,6 +2944,7 @@ public sealed partial class ProcurementRequestHttpTests
         var id = original.GetProperty("id").GetGuid();
         Assert.Equal(invoiceBranch, original.GetProperty("branchRef").GetGuid());
 
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         var list = await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor");
         Assert.Equal(0, (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
         Assert.Equal(HttpStatusCode.NotFound,
@@ -2890,6 +2975,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Buyer_order_drafts_are_scoped_versioned_and_retire_removed_lines()
     {
         await using var fixture = await Fixture.Start();
+        await fixture.RestrictCoreAccountToCompany(fixture.Other);
         var supplierId = await fixture.AddInvoiceSupplier();
         var path = "/api/procurement/v1/orders";
         var first = new OrderDraftLineInput(null, "Laptop", "EA", 2, 500, 100, "IT", null, null);
@@ -2898,6 +2984,7 @@ public sealed partial class ProcurementRequestHttpTests
             (await fixture.Client.PostAsJsonAsync(path, input)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, input)).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_buyer");
         var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
             input, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -2910,6 +2997,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Other,
                 company: fixture.OtherCompany, role: "procurement_buyer")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         Assert.Equal(HttpStatusCode.NotFound,
             (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Owner,
                 role: "procurement_buyer")).StatusCode);
@@ -2964,6 +3052,7 @@ public sealed partial class ProcurementRequestHttpTests
         var input = new OrderDraftInput(supplierId, null, "Lusaka office", null, "Net 30", null,
             [new OrderDraftLineInput(null, "Laptop", "EA", 1, 500, 0, null, null, null)]);
         const string path = "/api/procurement/v1/orders";
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_buyer");
         var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
             input, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -3030,16 +3119,20 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(1, ordersBody.GetProperty("count").GetInt32());
         Assert.Equal("Issued", ordersBody.GetProperty("items")[0].GetProperty("status").GetString());
         var path = $"/api/procurement/v1/vendors/{id}/suspend";
+        await fixture.RestrictCoreAccountToCompany(fixture.Other);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
                 new VendorSuspendInput(version, "Risk", true),
                 role: "procurement_manager", company: fixture.OtherCompany)).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
                 new VendorSuspendInput(version, "Risk", false))).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner,
                 new VendorSuspendInput(version, "Risk", false), "procurement_manager")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_manager");
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
                 new VendorSuspendInput(version, "", false), "procurement_manager")).StatusCode);
@@ -3071,9 +3164,11 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Owner,
                 new VendorReactivateInput(heldVersion, "Resolved", true), "procurement_manager")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Reviewer, "employee");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Reviewer,
                 new VendorReactivateInput(heldVersion, "Resolved", true))).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Reviewer, "procurement_manager");
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, reactivatePath, fixture.Reviewer,
                 new VendorReactivateInput(heldVersion, "", true), "procurement_manager")).StatusCode);
@@ -3096,6 +3191,7 @@ public sealed partial class ProcurementRequestHttpTests
                 new VendorReactivateInput(reopened.GetProperty("version").GetInt64(), "Repeat", true),
                 "procurement_manager")).StatusCode);
         await fixture.AddExpiredQualification(id);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var requestWithExpiredVendor = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/requests", fixture.Owner, new
             {
@@ -3159,6 +3255,7 @@ public sealed partial class ProcurementRequestHttpTests
         var path = $"/api/procurement/v1/vendors/{id}/qualifications/{qualificationId}";
         var revision = new VersionedQualification(current.GetProperty("version").GetInt64(),
             qualification with { ReferenceNumber = "POL-2" });
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.NotFound,
             (await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Other, revision)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict,
@@ -3209,6 +3306,7 @@ public sealed partial class ProcurementRequestHttpTests
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, invalid)).StatusCode);
         var valid = invalid with { Qualification = invalid.Qualification with
             { ExpiresOn = new DateOnly(2027, 12, 31) } };
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.NotFound,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, valid)).StatusCode);
         Assert.Equal(HttpStatusCode.Created,
@@ -3235,10 +3333,12 @@ public sealed partial class ProcurementRequestHttpTests
         var submittedVersion = submitted.GetProperty("version").GetInt64();
         var qualificationId = submitted.GetProperty("qualifications")[0].GetProperty("id").GetGuid();
         var reviewPath = $"/api/procurement/v1/vendors/{id}/qualifications/{qualificationId}/review";
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_manager");
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Post,
                 $"/api/procurement/v1/vendors/{id}/approve", fixture.Other,
                 new VendorApprovalInput(submittedVersion, "Ready", true), "procurement_manager")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Post, reviewPath, fixture.Owner,
                 new VendorQualificationReviewInput(submittedVersion, "Verified", "Checked"),
@@ -3278,9 +3378,11 @@ public sealed partial class ProcurementRequestHttpTests
         var input = new ContractDraftInput(supplierId, "Office supplies", "Framework", null,
             10_000, new DateOnly(2026, 10, 1), new DateOnly(2027, 9, 30),
             new DateOnly(2027, 6, 30));
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_buyer");
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/contracts",
                 fixture.Other, input, "procurement_buyer")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
         var created = await SendJson(fixture.Client, HttpMethod.Post,
             "/api/procurement/v1/contracts", fixture.Owner, input, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -3357,6 +3459,7 @@ public sealed partial class ProcurementRequestHttpTests
     {
         await using var fixture = await Fixture.Start(documents: true);
         var supplierId = await fixture.AddInvoiceSupplier();
+        await fixture.ConfigureCoreRole(fixture.Owner, "ap_processor");
         var invoice = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/invoices", fixture.Owner,
             new InvoiceIntakeInput(supplierId, null, "DOC-INV-1", new DateOnly(2026, 10, 20), null, "ZMW",
                 [new InvoiceIntakeLineInput("Supplies", 1, 100, 0, null, null)]), "ap_processor");
@@ -3364,6 +3467,7 @@ public sealed partial class ProcurementRequestHttpTests
         var id = (await invoice.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         var path = $"/api/procurement/v1/invoices/{id}/documents";
         Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.Client.GetAsync(path)).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other)).StatusCode);
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, (await SendJson(fixture.Client, HttpMethod.Post,
             path, fixture.Owner, new { file = "not a raw upload" }, "ap_processor")).StatusCode);
@@ -3383,6 +3487,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal("%PDF-1.7 evidence", await download.Content.ReadAsStringAsync());
         Assert.Equal("no-store", download.Headers.CacheControl?.ToString());
         await fixture.ConfineInvoiceReaderElsewhere(fixture.Other);
+        await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, role: "ap_processor")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, path + $"/{version}/download", fixture.Other, role: "ap_processor")).StatusCode);
         fixture.FailDocumentScan(true);
@@ -3556,6 +3661,39 @@ public sealed partial class ProcurementRequestHttpTests
             var category = new ProcurementCategory { Code = code, Name = "Receiving category " + code, Status = status };
             db.AddScoped(category); await db.SaveChangesAsync(); return category.Id;
         }
+        // Explicit persisted preconditions. Authentication headers below remain presentation claims only.
+        public Task ConfigureCoreRole(Guid actor, string role) => ConfigureCoreActions(actor,
+            string.Join(",", role == "erp_admin" ? ProcurementActionCatalog.BootstrapGrants.Keys
+                : ProcurementActionCatalog.ForRole(role)), role, actorSpecific: false);
+
+        public async Task ConfigureCoreActions(Guid actor, string actions, string? roleKey = null, bool actorSpecific = true)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var account = await core.LocalUsers.SingleAsync(x => x.Id == actor);
+            // Custom action sets stay account-specific; named role cases retain their actual role identity.
+            roleKey = (roleKey ?? "fixture_actions") + (actorSpecific ? "_" + actor.ToString("N") : "");
+            var role = await core.TenantRoleAssignments.SingleOrDefaultAsync(x => x.RoleKey == roleKey);
+            if (role is null)
+            {
+                role = new TenantRoleAssignment { RoleKey = roleKey, RoleName = "Explicit synthetic Core assignment", Active = true };
+                core.TenantRoleAssignments.Add(role);
+            }
+            role.PermissionsCsv = actions; role.Active = true;
+            account.RolesCsv = roleKey;
+            await core.SaveChangesAsync();
+        }
+
+        public async Task RestrictCoreAccountToCompany(Guid actor)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var location = await core.WorkLocations.Where(x => x.LegalEntityId == company).OrderBy(x => x.Code).FirstAsync();
+            if (!await core.UserBranchAssignments.AnyAsync(x => x.UserId == actor && x.LocationId == location.Id))
+                core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = actor, LocationId = location.Id });
+            await core.SaveChangesAsync();
+        }
+
         public async Task ConfigureSourcingPolicyActors()
         {
             using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
@@ -3820,6 +3958,7 @@ public sealed partial class ProcurementRequestHttpTests
             var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             var location = new WorkLocation { Code = "OTHER-INVOICE-BRANCH", Name = "Other invoice branch", LegalEntityId = company };
             core.WorkLocations.Add(location);
+            core.UserBranchAssignments.RemoveRange(await core.UserBranchAssignments.Where(x => x.UserId == user).ToArrayAsync());
             core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = user, LocationId = location.Id });
             await core.SaveChangesAsync();
         }

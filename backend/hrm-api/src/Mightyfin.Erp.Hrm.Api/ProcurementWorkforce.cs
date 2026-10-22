@@ -17,11 +17,14 @@ public static class ProcurementWorkforce
         // never a substitute for an existing current Core system account.
         if (!Guid.TryParse(subjectId, out var accountId) || accountId == Guid.Empty) return null;
         var now = DateTimeOffset.UtcNow;
-        var workerId = await hrm.LocalUsers.AsNoTracking()
-            .Where(x => x.TenantId == tenantId && x.Id == accountId && !x.IsArchived && x.IsActive
-                && (x.LockedUntil == null || x.LockedUntil <= now))
-            .Select(x => x.WorkerId).SingleOrDefaultAsync(ct);
-        if (workerId is null) return null;
+        // Read at most one tenant account; optional lock ordering is evaluated
+        // on its projection so this boundary works with both PostgreSQL and SQLite.
+        var account = await hrm.LocalUsers.AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.Id == accountId && !x.IsArchived && x.IsActive)
+            .Select(x => new { x.WorkerId, x.LockedUntil }).SingleOrDefaultAsync(ct);
+        if (account is null || account.LockedUntil is { } lockedUntil && lockedUntil > now
+            || account.WorkerId is null) return null;
+        var workerId = account.WorkerId;
 
         var worker = await hrm.Workers.AsNoTracking()
             .Where(x => x.TenantId == tenantId && x.Id == workerId && !x.IsArchived && x.Status == "active")

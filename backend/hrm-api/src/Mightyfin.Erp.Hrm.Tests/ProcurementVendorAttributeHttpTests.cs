@@ -106,6 +106,8 @@ public sealed partial class ProcurementRequestHttpTests
         var draft = AttributeDraft(new[] { new { id = Attribute(other, "Site").GetProperty("id").GetGuid(), kind = "CustomField", key = "Site", value = "Owned only" } });
         var root = $"/api/procurement/v1/vendors/{id}";
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, root, fixture.Owner, new { version = version - 1, draft })).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Other, "employee");
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         Assert.Equal(HttpStatusCode.NotFound, (await SendJson(fixture.Client, HttpMethod.Put, root, fixture.Other, new { version, draft })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Put, root, fixture.Owner, new { version, draft }, company: fixture.OtherCompany)).StatusCode);
         Assert.Equal(before.GetRawText(), (await AttributeDetail(fixture, id)).GetRawText());

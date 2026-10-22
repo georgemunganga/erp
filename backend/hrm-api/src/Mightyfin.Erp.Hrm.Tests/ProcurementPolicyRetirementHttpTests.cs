@@ -28,7 +28,9 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Unused_policy_retirement_retains_original_rules_and_does_not_create_authority()
     {
-        await using var fixture = await Fixture.Start(); var original = await NewRetirementPolicy(fixture);
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
+        var original = await NewRetirementPolicy(fixture);
         var id = original.GetProperty("id").GetGuid(); var version = original.GetProperty("version").GetInt64();
         Assert.True((await ReadRetirementPolicy(fixture, id)).GetProperty("canRetireDraft").GetBoolean());
         var response = await SendJson(fixture.Client, HttpMethod.Post, $"{RetirementPolicies}/{id}/retire", fixture.Owner,
@@ -66,8 +68,13 @@ public sealed partial class ProcurementRequestHttpTests
     [InlineData("read-only", HttpStatusCode.Forbidden)]
     public async Task Policy_retirement_denials_make_no_policy_audit_or_outbox_changes(string denial, HttpStatusCode expected)
     {
-        await using var fixture = await Fixture.Start(); var policy = await NewRetirementPolicy(fixture); var id = policy.GetProperty("id").GetGuid();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
+        var policy = await NewRetirementPolicy(fixture); var id = policy.GetProperty("id").GetGuid();
+        if (denial == "read-only")
+            await fixture.ConfigureCoreActions(fixture.Owner, "procurement-access,procurement-configuration-read");
         var footprint = await fixture.PolicyRetirementFootprint(id);
+        await fixture.RestrictCoreAccountToCompany(fixture.Owner);
         var response = await SendJson(fixture.Client, HttpMethod.Post, $"{RetirementPolicies}/{id}/retire", fixture.Owner,
             new ProcurementPolicyDraftRoutes.DraftRetirement(denial == "stale" ? 99 : policy.GetProperty("version").GetInt64(),
                 denial == "blank" ? " " : denial == "long" ? new string('x', 1001) : "Unused"), "procurement_manager",
@@ -82,7 +89,9 @@ public sealed partial class ProcurementRequestHttpTests
     [InlineData("sourcing")] [InlineData("evaluation")] [InlineData("invoice-match")]
     public async Task Any_retained_review_or_consumer_prevents_draft_retirement(string evidence)
     {
-        await using var fixture = await Fixture.Start(); var policy = await NewRetirementPolicy(fixture); var id = policy.GetProperty("id").GetGuid();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
+        var policy = await NewRetirementPolicy(fixture); var id = policy.GetProperty("id").GetGuid();
         await fixture.AddPolicyRetirementBlocker(id, evidence); var current = await ReadRetirementPolicy(fixture, id);
         Assert.False(current.GetProperty("canRetireDraft").GetBoolean()); var footprint = await fixture.PolicyRetirementFootprint(id);
         var response = await SendJson(fixture.Client, HttpMethod.Post, $"{RetirementPolicies}/{id}/retire", fixture.Owner,
@@ -92,7 +101,10 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Read_only_policy_hints_never_grant_retirement()
     {
-        await using var fixture = await Fixture.Start(); var policy = await NewRetirementPolicy(fixture); var id = policy.GetProperty("id").GetGuid();
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
+        var policy = await NewRetirementPolicy(fixture); var id = policy.GetProperty("id").GetGuid();
+        await fixture.ConfigureCoreActions(fixture.Owner, "procurement-access,procurement-configuration-read");
         foreach (var path in new[] { RetirementPolicies, $"{RetirementPolicies}/{id}" })
         {
             var response = await Send(fixture.Client, HttpMethod.Get, path, fixture.Owner, actions: "procurement-access,procurement-configuration-read");

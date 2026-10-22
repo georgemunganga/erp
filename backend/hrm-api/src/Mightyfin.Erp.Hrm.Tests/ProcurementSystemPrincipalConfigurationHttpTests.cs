@@ -1,3 +1,4 @@
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +30,7 @@ public sealed partial class ProcurementRequestHttpTests
         {
             using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             var account = await core.LocalUsers.SingleAsync(x => x.Id == Other);
-            account.WorkerId = null; account.RolesCsv = "system-configuration-reader";
+            account.WorkerId = null; account.RolesCsv = "system_configuration_reader";
             core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = account.RolesCsv, RoleName = "Synthetic Core configuration reader",
                 Active = true, PermissionsCsv = "procurement-access,procurement-configuration-read" });
             await core.SaveChangesAsync();
@@ -37,7 +38,7 @@ public sealed partial class ProcurementRequestHttpTests
         public async Task RevokeSystemOnlyConfigurationRole()
         {
             using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
-            var role = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "system-configuration-reader");
+            var role = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "system_configuration_reader");
             role.PermissionsCsv = ""; await core.SaveChangesAsync();
         }
     }

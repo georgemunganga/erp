@@ -11,6 +11,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Vendor_category_reference_prevents_unused_draft_retirement()
     {
         await using var f = await Fixture.Start(); const string root = "/api/procurement/v1/configuration/categories";
+        await f.ConfigureCoreRole(f.Owner, "procurement_manager");
         var created = await SendJson(f.Client, HttpMethod.Post, root, f.Owner,
             new ProcurementConfigurationRoutes.CategoryInput("VENDOR-USED", "Vendor category", null, null), "procurement_manager");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -34,13 +35,16 @@ public sealed partial class ProcurementRequestHttpTests
         object draft = kind == "categories"
             ? new ProcurementConfigurationRoutes.CategoryInput("REMOVE", "Unused draft", null, null)
             : new ProcurementConfigurationRoutes.MethodInput("REMOVE", "Unused draft", null, null);
+        await f.ConfigureCoreRole(f.Owner, "procurement_manager");
         var created = await SendJson(f.Client, HttpMethod.Post, root, f.Owner, draft, "procurement_manager");
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var saved = await created.Content.ReadFromJsonAsync<JsonElement>();
         var id = saved.GetProperty("id").GetGuid(); var version = saved.GetProperty("version").GetInt64();
         var action = root + "/" + id + "/retire";
+        await f.ConfigureCoreRole(f.Owner, "procurement_buyer");
         Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(f.Client, HttpMethod.Post, action, f.Owner,
             new { version, reason = "No longer needed" }, "procurement_buyer")).StatusCode);
+        await f.ConfigureCoreRole(f.Owner, "procurement_manager");
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(f.Client, HttpMethod.Post, action, f.Owner,
             new { version = version + 1, reason = "No longer needed" }, "procurement_manager")).StatusCode);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(f.Client, HttpMethod.Post, action, f.Owner,
@@ -54,6 +58,7 @@ public sealed partial class ProcurementRequestHttpTests
         var read = await Send(f.Client, HttpMethod.Get, root + "/" + id, f.Owner, role: "procurement_manager");
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
         Assert.Equal("Retired", (await read.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+        await f.RestrictCoreAccountToCompany(f.Owner);
         Assert.Equal(HttpStatusCode.Forbidden, (await Send(f.Client, HttpMethod.Get, root + "/" + id,
             f.Owner, f.OtherCompany, "procurement_manager")).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(f.Client, HttpMethod.Post, action, f.Owner,
@@ -64,6 +69,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Parent_category_cannot_be_retired_under_an_existing_child()
     {
         await using var f = await Fixture.Start(); const string root = "/api/procurement/v1/configuration/categories";
+        await f.ConfigureCoreRole(f.Owner, "procurement_manager");
         var response = await SendJson(f.Client, HttpMethod.Post, root, f.Owner,
             new ProcurementConfigurationRoutes.CategoryInput("PARENT", "Parent", null, null), "procurement_manager");
         var parent = await response.Content.ReadFromJsonAsync<JsonElement>();

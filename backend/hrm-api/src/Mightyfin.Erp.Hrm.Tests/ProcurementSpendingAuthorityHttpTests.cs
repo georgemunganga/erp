@@ -84,15 +84,17 @@ public sealed class ProcurementSpendingAuthorityHttpTests
         response = await fixture.Send(HttpMethod.Get, Path + "/lookups/people", "erp_admin", branch: fixture.Branch);
         body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Empty(body.GetProperty("items").EnumerateArray());
-        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.Send(HttpMethod.Get, Path + "/lookups/people", "employee")).StatusCode);
+        await fixture.SetModuleOnlyCoreRole();
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.Send(HttpMethod.Get, Path + "/lookups/people", "erp_admin")).StatusCode);
     }
 
     [Fact]
-    public async Task Anonymous_and_unconfigured_roles_cannot_read_or_mutate_authority_configuration()
+    public async Task Anonymous_and_accounts_without_current_authority_grants_cannot_read_or_mutate_configuration()
     {
         await using var fixture = await Fixture.Start();
         Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.Client.GetAsync(Path)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.Send(HttpMethod.Get, Path, "employee")).StatusCode);
+        await fixture.SetModuleOnlyCoreRole();
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.Send(HttpMethod.Get, Path, "erp_admin")).StatusCode);
         foreach (var suffix in new[] { "", "/submit", "/return", "/activate", "/revoke", "/supersede" })
         {
             var url = suffix.Length == 0 ? Path : Path + "/" + fixture.Grant + suffix;
@@ -308,6 +310,16 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             (await core.LocalUsers.SingleAsync(x => x.Id == user)).RolesCsv = roles;
             await core.SaveChangesAsync();
         }
+        public async Task SetModuleOnlyCoreRole()
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.LocalUsers.SingleAsync(x => x.Id == user)).RolesCsv = "module_reader";
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "module_reader",
+                RoleName = "No authority grant", Active = true, PermissionsCsv = "procurement-access" });
+            await core.SaveChangesAsync();
+        }
+
         public async Task SetReadOnly()
         {
             using var services = app.Services.CreateScope();
@@ -435,7 +447,7 @@ public sealed class ProcurementSpendingAuthorityHttpTests
                 ProcurementRequestHttpTests.TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
             var app = builder.Build();
-            app.UseRouting(); app.UseAuthentication(); app.UseAuthorization();
+            app.UseRouting(); app.UseAuthentication(); app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>(); app.UseAuthorization();
             app.UseMiddleware<ProcurementScopeMiddleware>();
             ProcurementSpendingAuthorityRoutes.MapRoutes(app);
             var company = new LegalEntity { Code = "AUTH", RegisteredName = "Authority test company", Currency = "ZMW" };
@@ -450,7 +462,10 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             {
                 var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
                 core.LegalEntities.Add(company); core.WorkLocations.AddRange(branch, other);
-                core.Workers.Add(worker); core.LocalUsers.Add(user); await core.SaveChangesAsync();
+                core.Workers.Add(worker); core.LocalUsers.Add(user);
+                core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "erp_admin",
+                    RoleName = "Synthetic authority administrator", Active = true, PermissionsCsv = "erp_admin" });
+                await core.SaveChangesAsync();
                 var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
                 scope.Set("tenant-a", company.Id, user.Id.ToString("D"), null, null, false, "authority-seed");
                 var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();

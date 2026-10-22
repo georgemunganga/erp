@@ -38,7 +38,10 @@ public sealed class ProcurementConfiguredPermissionsTests
         Assert.DoesNotContain("procurement-sourcing-convert", actions);
         Assert.DoesNotContain("procurement-sourcing-cancel", actions);
         Assert.DoesNotContain("procurement-sourcing-publish", actions);
-        Assert.Contains("procurement-sourcing-create", actions); // Preserve established fallback/legacy draft behavior.
+        if (csv == "procurement-access,procurement-sourcing-create,procurement-sourcing-edit")
+            Assert.Equal(new[] { "procurement-access", "procurement-sourcing-create", "procurement-sourcing-edit" }, actions);
+        else
+            Assert.Empty(actions); // Missing/unknown configured permissions never restore legacy grants.
     }
 
     [Theory]

@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Authentication;
+using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
@@ -154,12 +157,12 @@ public sealed class ProcurementAdminViewTests
     public async Task Inactive_missing_and_archived_role_definitions_never_survive_in_current_claims()
     {
         await using var f = await Fixture.Start();
-        f.Account.RolesCsv += ",erp_admin,missing-role,retired-role";
+        f.Account.RolesCsv += ",erp_admin,missing_role,retired_role";
         f.Core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "erp_admin", RoleName = "Inactive", Active = false, PermissionsCsv = "erp_admin" });
-        f.Core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "retired-role", RoleName = "Retired", Active = true, IsArchived = true, PermissionsCsv = "procurement-access" });
+        f.Core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "retired_role", RoleName = "Retired", Active = true, IsArchived = true, PermissionsCsv = "procurement-access" });
         await f.Core.SaveChangesAsync();
         var roles = await f.Client.GetFromJsonAsync<string[]>("/api/procurement/v1/system-role-projection");
-        Assert.Equal(new[] { "system-clerk" }, roles);
+        Assert.Equal(new[] { "system_clerk" }, roles);
     }
 
     private static object Draft(string name) => new { legalName = name, displayName = name, countryCode = "ZM" };
@@ -175,7 +178,7 @@ public sealed class ProcurementAdminViewTests
             var core = TestDbContextFactory.Create("system-tenant");
             var company = new LegalEntity { Code = "SYS", RegisteredName = "Synthetic", Currency = "ZMW", IsDefault = true };
             var branch = new WorkLocation { Code = "SYS", Name = "Synthetic branch", LegalEntityId = company.Id };
-            var role = new TenantRoleAssignment { RoleKey = admin ? "erp_admin" : "system-clerk", RoleName = "Synthetic existing Core role", Active = true,
+            var role = new TenantRoleAssignment { RoleKey = admin ? "erp_admin" : "system_clerk", RoleName = "Synthetic existing Core role", Active = true,
                 PermissionsCsv = admin ? "erp_admin" : "procurement-access,procurement-vendor-read,procurement-vendor-create,procurement-vendor-edit" };
             var account = new LocalUser { Email = "system@example.test", NormalizedEmail = "SYSTEM@EXAMPLE.TEST", DisplayName = "System user",
                 PasswordHash = "synthetic-unused", RolesCsv = role.RoleKey, IsActive = true };
@@ -185,6 +188,11 @@ public sealed class ProcurementAdminViewTests
             builder.WebHost.UseTestServer(); builder.Services.AddSingleton(core); builder.Services.AddScoped<ProcurementRequestScope>();
             builder.Services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
             builder.Services.AddDbContext<ProcurementDbContext>(options => options.UseInMemoryDatabase("system-principal-" + account.Id));
+            // The fixture supplies its principal explicitly below. Register only
+            // the normal test scheme plumbing required for real authorization
+            // middleware to return Forbid instead of throwing on denied actions.
+            builder.Services.AddAuthentication("test")
+                .AddScheme<AuthenticationSchemeOptions, ProcurementRequestHttpTests.TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
             var app = builder.Build(); app.UseRouting();
             app.Use(async (http, next) =>
