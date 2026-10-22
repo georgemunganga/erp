@@ -435,7 +435,7 @@ public sealed class ProcurementSpendingAuthorityHttpTests
                 ProcurementRequestHttpTests.TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
             var app = builder.Build();
-            app.UseRouting(); app.UseAuthentication(); app.UseAuthorization();
+            app.UseRouting(); app.UseAuthentication(); app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>(); app.UseAuthorization();
             app.UseMiddleware<ProcurementScopeMiddleware>();
             ProcurementSpendingAuthorityRoutes.MapRoutes(app);
             var company = new LegalEntity { Code = "AUTH", RegisteredName = "Authority test company", Currency = "ZMW" };
@@ -450,7 +450,10 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             {
                 var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
                 core.LegalEntities.Add(company); core.WorkLocations.AddRange(branch, other);
-                core.Workers.Add(worker); core.LocalUsers.Add(user); await core.SaveChangesAsync();
+                core.Workers.Add(worker); core.LocalUsers.Add(user);
+                core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "erp_admin",
+                    RoleName = "Synthetic authority administrator", Active = true, PermissionsCsv = "erp_admin" });
+                await core.SaveChangesAsync();
                 var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
                 scope.Set("tenant-a", company.Id, user.Id.ToString("D"), null, null, false, "authority-seed");
                 var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();

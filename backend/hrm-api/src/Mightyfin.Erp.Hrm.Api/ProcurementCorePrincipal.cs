@@ -41,10 +41,13 @@ public static class ProcurementCorePrincipals
     {
         if (string.IsNullOrWhiteSpace(tenant) || !Guid.TryParse(subject, out var id) || id == Guid.Empty) return null;
         var now = DateTimeOffset.UtcNow;
+        // Bound the owning-store read to this single active tenant account. Check
+        // its optional lock after projection: SQLite cannot translate DateTimeOffset
+        // ordering, and no directory-wide client evaluation is needed or permitted.
         var account = await db.LocalUsers.AsNoTracking().Where(x => x.TenantId == tenant && x.Id == id
-            && x.IsActive && !x.IsArchived && (x.LockedUntil == null || x.LockedUntil <= now))
-            .Select(x => new { x.Id, x.WorkerId, x.RolesCsv }).SingleOrDefaultAsync(ct);
-        if (account is null) return null;
+            && x.IsActive && !x.IsArchived)
+            .Select(x => new { x.Id, x.WorkerId, x.RolesCsv, x.LockedUntil }).SingleOrDefaultAsync(ct);
+        if (account is null || account.LockedUntil is { } lockedUntil && lockedUntil > now) return null;
         var assigned = LocalIdentityRoutes.ParseRoles(account.RolesCsv);
         var activeRoles = await db.TenantRoleAssignments.AsNoTracking().Where(role => role.TenantId == tenant
             && role.Active && !role.IsArchived && assigned.Contains(role.RoleKey)).Select(role => role.RoleKey).ToArrayAsync(ct);

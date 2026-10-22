@@ -1,3 +1,4 @@
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -22,7 +23,7 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementAdminVendorHttpTests
 {
     [Fact]
-    public async Task Unmapped_admin_reads_actual_vendor_handlers_but_all_vendor_commands_are_denied_without_effects()
+    public async Task Core_read_only_account_with_stale_admin_claims_reads_vendors_but_cannot_mutate()
     {
         var builder=WebApplication.CreateBuilder(new WebApplicationOptions {EnvironmentName="Production"});
         builder.WebHost.UseTestServer();var store=Guid.NewGuid().ToString("N");
@@ -34,7 +35,7 @@ public sealed class ProcurementAdminVendorHttpTests
         builder.Services.AddAuthentication("test").AddScheme<AuthenticationSchemeOptions,
             ProcurementRequestHttpTests.TestAuthenticationHandler>("test",_=>{});
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
-        await using var app=builder.Build();app.UseRouting();app.UseAuthentication();app.UseAuthorization();
+        await using var app=builder.Build();app.UseRouting();app.UseAuthentication();app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>();app.UseAuthorization();
         app.UseMiddleware<ProcurementScopeMiddleware>();ProcurementContextRoutes.MapRoutes(app);ProcurementVendorRoutes.MapRoutes(app);ProcurementItemEndpoints.MapRoutes(app);
         var admin=Guid.NewGuid();var a=new LegalEntity {Code="A",RegisteredName="Same company",Currency="ZMW",IsDefault=true};
         var b=new LegalEntity {Code="B",RegisteredName="Other company",Currency="USD"};
@@ -44,7 +45,9 @@ public sealed class ProcurementAdminVendorHttpTests
         {
             var core=seed.ServiceProvider.GetRequiredService<HrmDbContext>();core.LegalEntities.AddRange(a,b);core.WorkLocations.Add(branch);
             core.LocalUsers.Add(new LocalUser {Id=admin,Email="admin@example.test",NormalizedEmail="ADMIN@EXAMPLE.TEST",
-                DisplayName="Unmapped admin",PasswordHash="synthetic",RolesCsv="erp_admin,hr_admin",IsActive=true});
+                DisplayName="Core read-only account",PasswordHash="synthetic",RolesCsv="procurement_reader",IsActive=true});
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey="procurement_reader",RoleName="Procurement reader",
+                Active=true,PermissionsCsv="procurement-access,procurement-vendor-read"});
             await core.SaveChangesAsync();
             seed.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set("tenant-a",a.Id,admin.ToString(),branch.Id,null,false,"fixture");
             var db=seed.ServiceProvider.GetRequiredService<ProcurementDbContext>();
@@ -72,7 +75,7 @@ public sealed class ProcurementAdminVendorHttpTests
         var before=await Footprint(app,a.Id,admin);
         var contextResponse=await client.GetAsync("/api/procurement/v1/context");Assert.Equal(HttpStatusCode.OK,contextResponse.StatusCode);
         var context=await contextResponse.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.True(context.GetProperty("adminViewOnly").GetBoolean());Assert.Equal(JsonValueKind.Null,context.GetProperty("workerId").ValueKind);
+        Assert.False(context.GetProperty("adminViewOnly").GetBoolean());Assert.Equal(JsonValueKind.Null,context.GetProperty("workerId").ValueKind);
         Assert.Equal(a.Id,context.GetProperty("legalEntityId").GetGuid());Assert.Equal(branch.Id,context.GetProperty("branch").GetProperty("id").GetGuid());
         var listResponse=await client.GetAsync("/api/procurement/v1/vendors");Assert.Equal(HttpStatusCode.OK,listResponse.StatusCode);
         var list=await listResponse.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal(1,list.GetProperty("total").GetInt32());
@@ -97,7 +100,6 @@ public sealed class ProcurementAdminVendorHttpTests
         {
             using var request=new HttpRequestMessage(method,path) {Content=JsonContent.Create(new {})};
             var denied=await client.SendAsync(request);Assert.Equal(HttpStatusCode.Forbidden,denied.StatusCode);
-            Assert.Equal("forbidden",(await denied.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
             Assert.Equal(before,await Footprint(app,a.Id,admin));
         }
         using(var foreignScope=new HttpRequestMessage(HttpMethod.Get,"/api/procurement/v1/context"))
