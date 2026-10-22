@@ -82,7 +82,7 @@ New original/mapping version/digest, document version/hash/availability change, 
 
 ## 21. Privacy and reads
 
-GET invoice unit-review readiness, own/mapped case detail, assigned tasks and original command recovery expose only current invoice/review fields, exact strings and safe blockers. Filter immutable source+current actor/branch before count/page. Assigned reviewer cannot enumerate other invoices/POs/source allocations or original Finance references. GET never runs compare, creates state or writes audit.
+GET invoice unit-review readiness, own/mapped case detail, assigned tasks and original command recovery expose only current invoice/review fields, exact strings and safe blockers. Filter immutable source+current actor/branch before count/page. Assigned reviewer cannot enumerate other invoices/POs/source allocations or original Finance references. Metadata GET never runs compare, creates state or writes audit. Authorized document download retains the existing Core DownloadAuthorized audit after immutable content-hash verification; this is a document access fact, never unit verification.
 
 ## 22. Finance boundary
 
@@ -121,3 +121,15 @@ Based on published combined `9445dc1`; imported the four reviewed pure contracts
 ### Increment A source review corrections (unexecuted)
 
 Distinct review found two missing persistence correlations in `499660f`; corrected source now calls the shared owning-evidence verifier against actual review/matching policies and actual retained operational publication proofs before opening source persistence. Typed strict request/response receipts bind actual Core assignment/action/expected versions/decision/state/outcome. A terminal outcome requires its same-save final-decision receipt; pending votes require no outcome. The guard additionally checks actual Core case/vote row `xmin` against the enlisted transaction ID, so an older orphan vote/case cannot be adopted as a newly committed command merely by rehashing request JSON. This check is deliberately PostgreSQL-specific and must receive actual PG positive/negative proof; pure DTO tests only emulate documented EF version increments and do not claim persistence execution. Original unit or Finance ownership is not inferred from these correlations.
+
+
+### Source review correction: Core insert provenance (unexecuted)
+
+The initial xmin/top-level-transaction approach was retracted before execution: Core columns are quoted, EF savepoints can use subtransaction xmin, and an updated old row is not an INSERT. Source now binds the coordinator's actual shared physical connection/transaction Core context internally before any work, records Added case/vote IDs only following successful EF SavedChanges, and still reloads the persisted Core graph in the same transaction. Pending insert observations clear on failed SaveChanges. This is owning-adapter provenance, not an HTTP-provided completeness flag or a claim of executed PostgreSQL proof. Private actual positive, rollback and old-orphan adoption regressions remain required.
+
+
+### Source checkpoint — composed adapter (unexecuted)
+
+The isolated P22 adapter now composes opening, current assigned queue, decisions, immutable outcomes, actor-owned historical command recovery, purpose-only pinned Core document reads/downloads, and an explicit typed-v2 comparison consumer. New policy/actions are default off with empty bootstrap grants. Exact P22 migration/CHECK manifests intentionally remain uncaptured and readiness false pending central generation and genuine PostgreSQL verification. Existing P21 migration files remain unchanged. The existing Finance history owner remains unavailable.
+
+Actual Core INSERT provenance uses coordinator-owned EF Added/Saved events tied to the exact physical connection and original transaction object, not PostgreSQL xmin. The predicate is still subject to positive Save/savepoint, rollback/rebind and updated-orphan denial verification. No source checkpoint claims compilation, migration, runtime workflow completion or deployment.

@@ -275,6 +275,43 @@ public sealed class InvoiceRetainedUnitReviewTests
         return f;
     }
 
+    [Fact]
+    public void Mapping_projection_consumes_typed_v2_without_fabricating_a_current_signer_envelope()
+    {
+        var f = new Fixture();
+        var units = f.Verify();
+        var review = new InvoiceMappingReview(true, "Verified", f.Authority.EvidenceJson, units)
+            { RetainedAuthority = f.Authority, CurrentConsumer = f.Consumer };
+        var context = new InvoiceMappingReviewContext(f.Consumer.TenantId, f.Consumer.LegalEntityId, f.Consumer.BranchId,
+            f.Consumer.PrincipalId, f.Consumer.WorkerId, f.Authority.MatchingPolicy.Id,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(f.Authority.MatchingPolicy.RulesJson), f.Consumer.At, f.Consumer.DocumentVersionHashes);
+        var projected = InvoiceMappingEvidence.Project(f.Mapping, f.Invoice, [f.Line], review, context);
+        Assert.Equal("EACH", Assert.Single(projected.Lines).UnitCode);
+        Assert.Equal(f.Authority.EvidenceJson, review.EvidenceJson);
+        Assert.NotEqual(f.Envelope.ReviewerPrincipalId, context.PrincipalId);
+    }
+
+    [Theory]
+    [InlineData("actor")][InlineData("worker")][InlineData("policy")][InlineData("time")][InlineData("units")][InlineData("documents")]
+    public void Typed_v2_projection_rechecks_current_consumer_and_actual_retained_units(string changed)
+    {
+        var f = new Fixture();
+        var review = new InvoiceMappingReview(true, "Verified", f.Authority.EvidenceJson, f.Verify())
+            { RetainedAuthority = f.Authority, CurrentConsumer = f.Consumer };
+        var context = new InvoiceMappingReviewContext(f.Consumer.TenantId, f.Consumer.LegalEntityId, f.Consumer.BranchId,
+            f.Consumer.PrincipalId, f.Consumer.WorkerId, f.Authority.MatchingPolicy.Id,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(f.Authority.MatchingPolicy.RulesJson), f.Consumer.At, f.Consumer.DocumentVersionHashes);
+        context = changed switch {
+            "actor" => context with { PrincipalId = "other" },
+            "worker" => context with { WorkerId = Guid.NewGuid() },
+            "policy" => context with { PolicyId = Guid.NewGuid() },
+            "time" => context with { At = context.At.AddTicks(10) },
+            "documents" => context with { DocumentVersionHashes = new Dictionary<Guid,string>() },
+            _ => context };
+        if (changed == "units") review = review with { VerifiedUnits = new Dictionary<Guid,string> { [f.Line.Id] = "BOX" } };
+        Assert.Throws<InvalidOperationException>(() => InvoiceMappingEvidence.Project(f.Mapping, f.Invoice, [f.Line], review, context));
+    }
+
     private sealed class Fixture
     {
         public SupplierInvoice Invoice; public SupplierInvoiceLine Line; public InvoiceMatchMappingVersion Mapping;

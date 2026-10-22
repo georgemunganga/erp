@@ -56,7 +56,13 @@ public sealed partial class ProcurementDbContext
             if (entry.State == EntityState.Added && (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId || entry.Entity.Version != 1)) throw new InvalidOperationException("InvoiceUnitReviewScopeMismatch");
         }
         var added = rows.Where(x => x.State == EntityState.Added).ToArray(); if (added.Length == 0) return;
-        if (scope.WorkerId is not { } worker || worker == Guid.Empty || !Database.IsNpgsql() || Database.CurrentTransaction is null || unitReviewCore is null)
+        if (scope.WorkerId is not { } worker || worker == Guid.Empty || !Database.IsNpgsql() || Database.CurrentTransaction is null || unitReviewCore is null
+            || unitReviewTransaction is null || unitReviewCore.Database.CurrentTransaction is null
+            || !ReferenceEquals(unitReviewTransaction, Database.CurrentTransaction.GetDbTransaction())
+            || !ReferenceEquals(unitReviewTransaction, unitReviewCore.Database.CurrentTransaction.GetDbTransaction())
+            || !ReferenceEquals(unitReviewConnection, Database.GetDbConnection())
+            || !ReferenceEquals(unitReviewConnection, unitReviewCore.Database.GetDbConnection())
+            || !ReferenceEquals(unitReviewTransaction.Connection, unitReviewConnection))
             throw new InvalidOperationException("InvoiceUnitReviewOwningTransactionRequired");
         using var core = new ApprovalDbContext(new DbContextOptionsBuilder<ApprovalDbContext>().UseNpgsql(Database.GetDbConnection()).Options, new UnitReviewApprovalScope(scope.TenantId, scope.LegalEntityId, scope.SubjectId));
         core.Database.UseTransaction(Database.CurrentTransaction.GetDbTransaction());
@@ -156,6 +162,8 @@ public sealed partial class ProcurementDbContext
     private readonly HashSet<Guid> unitReviewInsertedCases = [];
     private readonly HashSet<Guid> unitReviewInsertedDecisions = [];
     private ApprovalDbContext? unitReviewCore;
+    private System.Data.Common.DbTransaction? unitReviewTransaction;
+    private System.Data.Common.DbConnection? unitReviewConnection;
     // Coordinator-only binding: actual EF Added inserts in the same physical transaction,
     // recorded after successful SaveChanges. No xmin/top-level xid or updated-row inference.
     internal void BindInvoiceUnitReviewCoreContext(ApprovalDbContext owner)
@@ -165,6 +173,8 @@ public sealed partial class ProcurementDbContext
             || !ReferenceEquals(Database.CurrentTransaction.GetDbTransaction(), owner.Database.CurrentTransaction.GetDbTransaction()))
             throw new InvalidOperationException("InvoiceUnitReviewCoreTransactionMismatch");
         unitReviewCore = owner;
+        unitReviewTransaction = Database.CurrentTransaction.GetDbTransaction();
+        unitReviewConnection = Database.GetDbConnection();
         Guid[] pendingCases = [], pendingDecisions = [];
         owner.SavingChanges += (_, _) =>
         {

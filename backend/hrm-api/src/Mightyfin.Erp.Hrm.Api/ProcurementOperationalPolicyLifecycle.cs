@@ -30,7 +30,7 @@ public static partial class ProcurementPolicyDraftRoutes
         => RunOperationalPolicyMutation(null, id, db, organizationDb, scope, http, ct,
             core => ReturnForChangesPolicy(id, input, db, core, scope, http, ct));
 
-    private static bool IsOperationalIdentityPolicy(string? key) => key is "RECEIVING" or "INVOICE_MATCHING";
+    private static bool IsOperationalIdentityPolicy(string? key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW";
 
     private static async Task<IResult> RunOperationalPolicyMutation(string? createKey, Guid? id,
         ProcurementDbContext db, HrmDbContext originalCore, ProcurementRequestScope scope, HttpContext http,
@@ -55,6 +55,7 @@ public static partial class ProcurementPolicyDraftRoutes
                 return Problem("operational-policy-context-conflict", "Refresh this policy before trying again.", 409);
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             await RequireOperationalIdentitySchema(http, db, true, ct);
+            if (key == InvoiceRetainedUnitReview.ReviewPolicyKey) await RequireUnitReviewPolicySchema(http, db, ct);
             if (id.HasValue)
             {
                 var currentKey = await db.PolicyVersions.AsNoTracking().Where(x => x.Id == id.Value).Select(x => x.PolicyKey).SingleOrDefaultAsync(ct);

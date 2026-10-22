@@ -52,6 +52,10 @@ public static class ProcurementHostIntegration
         matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(matchingOptions);
         services.AddScoped<IProcurementInvoiceMatchingSchemaReadiness, ProcurementInvoiceMatchingSchemaReadiness>();
+        var unitReviewOptions = configuration.GetSection("Procurement:InvoiceUnitReview").Get<ProcurementInvoiceUnitReviewOptions>() ?? new();
+        unitReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(unitReviewOptions);
+        services.AddSingleton<IProcurementInvoiceUnitReviewSchemaReadiness, ProcurementInvoiceUnitReviewSchemaReadiness>();
         services.AddScoped<IInvoiceHistoricalExposureOwner, UnavailableInvoiceHistoricalExposureOwner>();
         services.AddScoped<IInvoiceMappingEvidenceReviewer, UnavailableInvoiceMappingEvidenceReviewer>();
         ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
@@ -89,6 +93,7 @@ public static class ProcurementHostIntegration
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapCreditRoutes(app);
         ProcurementInvoiceMatchingRoutes.MapRoutes(app);
+        ProcurementInvoiceUnitReviewRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
         ProcurementOrderExecutionRoutes.MapRoutes(app);
