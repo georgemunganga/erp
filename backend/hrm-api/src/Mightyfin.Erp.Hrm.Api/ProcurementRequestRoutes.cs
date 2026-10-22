@@ -34,7 +34,7 @@ public static class ProcurementRequestRoutes
     {
         var take = Math.Clamp(limit ?? 50, 1, 100);
         var skip = Math.Clamp(offset ?? 0, 0, 100_000);
-        var own = db.PurchaseRequests.AsNoTracking().Where(x => x.CreatedBy == scope.SubjectId);
+        var own = OwnRequests(db, scope).AsNoTracking();
         var count = await own.CountAsync(ct);
         var records = await own.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip(skip).Take(take)
@@ -48,8 +48,8 @@ public static class ProcurementRequestRoutes
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db, ProcurementRequestScope scope,
         CancellationToken ct)
     {
-        var request = await db.PurchaseRequests.AsNoTracking().Include(x => x.Lines)
-            .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
+        var request = await OwnRequests(db, scope).AsNoTracking().Include(x => x.Lines)
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
         return request is null ? Error("not-found", "Request not found.", 404) : Results.Ok(ToDetail(request));
     }
 
@@ -76,9 +76,8 @@ public static class ProcurementRequestRoutes
         if (issue is not null) return Error("validation-failed", issue, 422);
         if (input.Lines!.Any(x => x.Id.HasValue))
             return Error("validation-failed", "New request lines cannot carry an existing line ID.", 422);
-        var workerId = scope.WorkerId;
-        if (workerId is null)
-            return Error("employee-unavailable", "An active employee record is needed to create a request.", 403);
+        if (scope.PrincipalId is not { } principalId || principalId == Guid.Empty)
+            return Error("account-unavailable", "An active system account is needed to create a request.", 403);
         var catalogItems = new Dictionary<Guid, CatalogItem>();
         var referenceIssue = await ValidateReferences(input.Lines!, currency!, db, catalogItems, ct);
         if (referenceIssue is not null) return Error("validation-failed", referenceIssue, 422);
@@ -87,7 +86,8 @@ public static class ProcurementRequestRoutes
         var request = new PurchaseRequest
         {
             Number = "PR-" + Guid.CreateVersion7().ToString("N"),
-            RequesterWorkerId = workerId.Value,
+            RequesterPrincipalId = principalId,
+            RequesterWorkerId = scope.WorkerId,
             Purpose = input.Purpose!.Trim(),
             CurrencyCode = currency!.Trim().ToUpperInvariant(),
             NeededBy = input.NeededBy,
@@ -115,16 +115,15 @@ public static class ProcurementRequestRoutes
         var parsed=ProcurementOriginalValueInput.Read<UpdateRequest>(body);
         if(parsed.Error is not null) return parsed.Error;
         var input=parsed.Value!;
-        var request = await db.PurchaseRequests.Include(x => x.Lines)
-            .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
+        var request = await OwnRequests(db, scope).Include(x => x.Lines)
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
         if (request.Status is not ("Draft" or "ReturnedForChanges"))
             return Error("request-locked", "Only a draft or returned request can be changed.", 409);
         if (request.ApprovalInstanceRef is not null && !await ReleasedPriorCase(db, request, ct))
             return Error("finance-release-pending", "Finance must confirm the previous reservation release before changes.", 409);
         if (request.Version != input.Version) return Error("version-conflict", "Refresh this request before saving changes.", 409);
-        if (scope.WorkerId != request.RequesterWorkerId)
-            return Error("employee-unavailable", "An active employee record is needed to change this request.", 403);
+
         var currency = string.IsNullOrWhiteSpace(input.CurrencyCode) ? request.CurrencyCode : input.CurrencyCode;
         var issue = Validate(input.Purpose, currency, input.Lines);
         if (issue is not null) return Error("validation-failed", issue, 422);
@@ -181,8 +180,8 @@ public static class ProcurementRequestRoutes
         try
         {
         await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
-        var request = await db.PurchaseRequests.Include(x => x.Lines)
-            .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
+        var request = await OwnRequests(db, scope).Include(x => x.Lines)
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
         if (request.Status is not ("Draft" or "Submitted" or "ReturnedForChanges"))
             return Error("request-locked", "Only a draft, returned or submitted request can be withdrawn here.", 409);
@@ -190,8 +189,7 @@ public static class ProcurementRequestRoutes
             && !await ReleasedPriorCase(db, request, ct))
             return Error("finance-release-pending", "Finance must confirm the previous reservation release before withdrawal.", 409);
         if (request.Version != input.Version) return Error("version-conflict", "Refresh this request before withdrawing it.", 409);
-        if (scope.WorkerId != request.RequesterWorkerId)
-            return Error("employee-unavailable", "An active employee record is needed to withdraw this request.", 403);
+
         if (request.Status == "Submitted" && (string.IsNullOrWhiteSpace(input.Reason)
             || input.Reason.Trim().Length > 1000))
             return Error("validation-failed", "Give a reason of up to 1,000 characters for withdrawing a submitted request.", 422);
@@ -234,15 +232,14 @@ public static class ProcurementRequestRoutes
         await using var transaction = db.Database.IsRelational()
             ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
         await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, ct);
-        var request = await db.PurchaseRequests.Include(x => x.Lines)
-            .SingleOrDefaultAsync(x => x.Id == id && x.CreatedBy == scope.SubjectId, ct);
+        var request = await OwnRequests(db, scope).Include(x => x.Lines)
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (request is null) return Error("not-found", "Request not found.", 404);
         if (request.Status is not ("Draft" or "ReturnedForChanges"))
             return Error("request-locked", "Only a draft or returned request can be submitted.", 409);
         if (request.Version != input.Version)
             return Error("version-conflict", "Refresh this request before submitting it.", 409);
-        if (scope.WorkerId != request.RequesterWorkerId)
-            return Error("employee-unavailable", "An active employee record is needed to submit this request.", 403);
+
         var currentLines = request.Lines.Where(x => x.ApprovalStatus != "Cancelled").ToArray();
         if (currentLines.Length == 0)
             return Error("validation-failed", "Add at least one request line before submitting.", 422);
@@ -318,7 +315,7 @@ public static class ProcurementRequestRoutes
                 .SingleOrDefaultAsync(x => x.Id == id, ct);
             if (request is null || scope.IsConfined && request.BranchRef != scope.WorkLocationId)
                 return Error("not-found", "Request not found.", 404);
-            if (request.CreatedBy == scope.SubjectId)
+            if (PurchaseRequestOwnership.IsOwner(request, scope.PrincipalId))
                 return Error("self-review", "The requester cannot return their own request for changes.", 403);
             if (request.Status != "Submitted" || request.ApprovalInstanceRef is not null)
                 return Error("request-locked", "Only a submitted request without an active approval can be returned here.", 409);
@@ -498,7 +495,7 @@ public static class ProcurementRequestRoutes
     {
         x.Id, x.Number, x.Status, x.ApprovalState, x.ApprovalInstanceRef, x.SubmittedAt, x.SubmittedVersion,
         x.ReturnedAt, x.ReturnedBySubjectId, x.ReturnReason,
-        x.Version, x.RequesterWorkerId, x.Purpose, x.CurrencyCode,
+        x.Version, x.RequesterPrincipalId, x.RequesterWorkerId, x.Purpose, x.CurrencyCode,
         x.NeededBy, x.BranchRef, x.DepartmentRef, x.CostCenterRef, x.ProjectRef,
         x.DeliveryLocationRef, x.DeliveryAddressText, x.FundingSourceRef, x.NotesToApprover,
         x.CreatedAt, x.UpdatedAt, RequestEditVersion = 1,
@@ -521,7 +518,7 @@ public static class ProcurementRequestRoutes
 
     private static object SubmissionSnapshot(PurchaseRequest request, PurchaseRequestLine[] lines) => new
     {
-        request.Id, request.SubmittedVersion, request.Purpose,
+        request.Id, request.RequesterPrincipalId, request.RequesterWorkerId, request.SubmittedVersion, request.Purpose,
         request.CurrencyCode, request.NeededBy, request.BranchRef, request.DepartmentRef,
         request.CostCenterRef, request.ProjectRef, request.DeliveryLocationRef,
         request.DeliveryAddressText, request.FundingSourceRef, request.NotesToApprover,
@@ -535,6 +532,15 @@ public static class ProcurementRequestRoutes
             line.SpecificationDocumentRefId,
         }).ToArray(),
     };
+
+    private static IQueryable<PurchaseRequest> OwnRequests(ProcurementDbContext db, ProcurementRequestScope scope)
+    {
+        var own = db.PurchaseRequests.Where(PurchaseRequestOwnership.OwnedBy(scope.PrincipalId));
+        if (scope.WorkLocationId.HasValue || scope.IsConfined)
+            own = own.Where(x => scope.WorkLocationId != null && x.BranchRef == scope.WorkLocationId);
+        if (scope.OrgUnitId.HasValue) own = own.Where(x => x.DepartmentRef == scope.OrgUnitId);
+        return own;
+    }
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
     private static IResult Error(string code, string message, int status) =>

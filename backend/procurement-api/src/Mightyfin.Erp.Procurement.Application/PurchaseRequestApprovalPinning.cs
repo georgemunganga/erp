@@ -25,12 +25,12 @@ public static class PurchaseRequestApprovalPinning
         PolicyEvaluation evaluation, PolicyVersion policy, BudgetCheckSnapshot finance,
         string tenantId, Guid legalEntityId, Guid coreCaseId, Guid openingCommandKey,
         string financeEvidenceMode, string? manualEvidenceAuthorityRef, DateTimeOffset pinnedAt,
-        Guid makerWorkerId, Guid requesterWorkerId)
+        Guid makerWorkerId, Guid? requesterWorkerId)
     {
         var issues = ValidateInputs(request, evaluation, policy, finance, tenantId, legalEntityId);
         if (request.Version != request.SubmittedVersion || request.ApprovalInstanceRef is not null)
             issues.Add("SourceAlreadyChangedOrLinked");
-        if (makerWorkerId == Guid.Empty || requesterWorkerId == Guid.Empty || requesterWorkerId != request.RequesterWorkerId)
+        if (makerWorkerId == Guid.Empty || requesterWorkerId is null || requesterWorkerId == Guid.Empty || requesterWorkerId != request.RequesterWorkerId)
             issues.Add("OpeningWorkerIdentityRequired");
         if (coreCaseId == Guid.Empty || openingCommandKey == Guid.Empty)
             issues.Add("OpeningIdentityRequired");
@@ -67,10 +67,15 @@ public static class PurchaseRequestApprovalPinning
     }
 
     public static string WorkerIdentityDigest(string tenant, Guid company, Guid request, long submittedVersion,
-        Guid caseId, string makerSubject, Guid makerWorker, Guid requesterWorker) => Digest(JsonSerializer.Serialize(new
+        Guid caseId, string makerSubject, Guid makerWorker, Guid? requesterWorker)
+    {
+        if (requesterWorker is null || requesterWorker == Guid.Empty)
+            throw new ArgumentException("A retained requester worker is required.", nameof(requesterWorker));
+        return Digest(JsonSerializer.Serialize(new
         {
             schemaVersion = 2, tenant, company, request, submittedVersion, caseId, makerSubject, makerWorker, requesterWorker,
         }));
+    }
 
     public static bool HasRetainedWorkerIdentity(PurchaseRequestApprovalSubmission pin) => pin.SnapshotSchemaVersion == 2
         && pin.MakerWorkerId is { } maker && maker != Guid.Empty
@@ -140,13 +145,16 @@ public static class PurchaseRequestApprovalPinning
         PolicyVersion policy, BudgetCheckSnapshot finance, string tenantId, Guid legalEntityId, bool requirePendingState = true)
     {
         var issues = new List<string>();
+        // The retained v2 schema proves worker identities, not the new Core principal field.
+        // Never reinterpret that old evidence as authority for a principal-owned request.
+        if (request.RequesterPrincipalId is not null) issues.Add("PrincipalApprovalEvidenceRequired");
         if (string.IsNullOrWhiteSpace(tenantId) || legalEntityId == Guid.Empty
             || new ProcurementRecord[] { request, evaluation, policy, finance }.Any(x => !InScope(x, tenantId, legalEntityId)))
             issues.Add("SourceScopeMismatch");
         if (request.Id == Guid.Empty || request.SubmittedVersion is not > 0
             || request.Version < request.SubmittedVersion || requirePendingState && request.Status != "Submitted"
             || request.SubmittedAt is null || string.IsNullOrWhiteSpace(request.CreatedBy)
-            || request.RequesterWorkerId == Guid.Empty || string.IsNullOrWhiteSpace(request.CurrencyCode))
+            || request.RequesterWorkerId is null || request.RequesterWorkerId == Guid.Empty || string.IsNullOrWhiteSpace(request.CurrencyCode))
             issues.Add("InvalidSource");
         var lines = request.Lines.Where(x => x.ApprovalStatus != "Cancelled").ToArray();
         if (lines.Length == 0 || lines.Any(x => !InScope(x, tenantId, legalEntityId)
