@@ -415,4 +415,9 @@ public sealed record EntryView(Guid Id, Guid CatalogItemId, Guid? SupplierId, st
 public sealed record CatalogEntryExactAmounts(string UnitPrice, string? MinimumQuantity, string? MaximumQuantity);
 public sealed record CatalogView(Guid EntryId, Guid ItemId, string Code, string Name, string Kind,
     string? Description, string CategoryCode, string UnitCode, decimal EstimatedUnitPrice,
-    string CurrencyCode, Guid SupplierId, string SupplierName, DateTimeOffset? PriceValidUntil, int PublishedVersion);
+    string CurrencyCode, Guid SupplierId, string SupplierName, DateTimeOffset? PriceValidUntil, int PublishedVersion)
+{
+    // Keep the numeric member for existing clients; display/decimal-aware clients
+    // use this additive companion without a JavaScript binary-float conversion.
+    public string ExactEstimatedUnitPrice => EstimatedUnitPrice.ToString("0.####", CultureInfo.InvariantCulture);
+}

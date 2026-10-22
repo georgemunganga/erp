@@ -43,6 +43,21 @@ public sealed partial class ProcurementRequestHttpTests
     }
 
     [Theory]
+    [InlineData("100.1234")]
+    [InlineData("99999999999999.9999")]
+    [InlineData("0.0001")]
+    public void Published_catalog_keeps_legacy_numeric_and_lossless_price_companion(string amount)
+    {
+        var value = decimal.Parse(amount, System.Globalization.CultureInfo.InvariantCulture);
+        var row = new CatalogView(Guid.NewGuid(), Guid.NewGuid(), "EXACT", "Exact catalog price", "Goods",
+            null, "OFFICE", "each", value, "ZMW", Guid.NewGuid(), "Synthetic supplier", null, 1);
+        var body = JsonSerializer.SerializeToElement(row, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Equal(JsonValueKind.Number, body.GetProperty("estimatedUnitPrice").ValueKind);
+        Assert.Equal(value, body.GetProperty("estimatedUnitPrice").GetDecimal());
+        Assert.Equal(amount, body.GetProperty("exactEstimatedUnitPrice").GetString());
+    }
+
+    [Theory]
     [InlineData("1.00001")]
     [InlineData("12345678901234.567899999999999999999999")]
     [InlineData("1E-1000")]
