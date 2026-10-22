@@ -16,6 +16,13 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
+// Explicit private P25 acceptance is separate from the unchanged read-only smoke mode.
+if (args.SequenceEqual(new[] { "--principal-approvals" }))
+{
+    await PrincipalApprovalHttpVerification.RunAsync();
+    return;
+}
+
 // This tool never creates a database. The reviewed launcher must create a NEW clone of the
 // retained canonical private restored backup and run this binary in --network none.
 var connection = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_CONNECTION")
