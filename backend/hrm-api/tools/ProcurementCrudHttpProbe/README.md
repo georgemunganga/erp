@@ -58,3 +58,21 @@ No frontend, auth master, public test endpoint or production adapter is introduc
 - No request submission/approval/budget/policy evaluation and no unrelated Procurement table/history/outbox/audit changes during request operations. Full table snapshots reuse the existing independent `PolicyStoreRows` owner helper; intended request audit rows are excluded only in the success-protected snapshot.
 
 These new scenarios are **not executed yet**. Existing PASS counts describe earlier sources and must not be reused as this candidate's evidence. The complete tool's assertion/request totals are computed at runtime; no fixed new totals are claimed. It retains existing no-production connection/prefix and synthetic outer-auth/owner-connection limitations, other CLI/browser modes and original source/DB preservation behavior.
+
+## Canonical governed-source compatibility candidate
+
+This tool-only increment is authored against canonical P21 with operational options still disabled. It keeps the real released P19 legacy fixture and P20 unused Down/Up preservation check, using old-schema column projections rather than materializing new P21 invoice fields against P20. It then applies the **actual** `20261022052824_P21CanonicalGovernedProcurementFoundation` before mapping current HTTP routes; no pending-model/migration check is stubbed and no history is invented. Original legacy invoice fields compare identically after the additive upgrade. All nine exact ownership FKs, all 39 validated model CHECKs and actual migration/model readiness must remain present both before HTTP and after the expected used P20 Down veto.
+
+The existing synthetic HRM `EnsureCreated` remains only a tool identity fixture. Core.Approvals and Core.Documents use distinct schemas; with execution/document options absent and false, the bounded CRUD handlers do not require or create those schemas. This candidate explicitly verifies all operational metadata capabilities remain false and both schemas remain absent after the CRUD matrix. It is not PR approval, PO issue, receiving, document-owner or qualified invoice-matching proof; the separate genuine workflow tool owns those gates.
+
+The tracked `run-private-postgres.py` replaces the old ignored fixed-worktree launcher for this candidate. It freezes and hashes the **entire** supplied publication (rejecting root/nested symlinks and recursive output placement), inspects the exact private PostgreSQL container's running/network-none state before creating a fresh database, and launches only a preexisting immutable local .NET10 runtime image with `--pull=never --network=none`. Only read-only runtime and private Unix socket are mounted; no source, actual configuration directory, NuGet cache or Docker socket is exposed. Credentials remain inherited environment only and never enter manifests/log commands. Optional browser transport uses the existing Unix socket only and publishes readiness only after all actual CLI checks pass. Databases/logs are retained on failure; no automatic retry/reset/cleanup occurs.
+
+```bash
+python3 backend/hrm-api/tools/ProcurementCrudHttpProbe/run-private-postgres.py \
+  --publication /protected/complete-reviewed-tool-publication \
+  --runtime-image sha256:<existing-reviewed-local-runtime-image-id> \
+  --output /protected/new-unique-canonical-crud-run \
+  --browser
+```
+
+Parent must review source/build provenance and serialize execution after the current SDK/browser gate. Python syntax and `--help` alone were checked; C# compilation, canonical-source CLI/browser counts and this runner's PostgreSQL execution are **pending**. Earlier PASS counts above belong to their stated older sources and do not certify this increment.

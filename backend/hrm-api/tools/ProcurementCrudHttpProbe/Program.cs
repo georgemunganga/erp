@@ -26,6 +26,7 @@ internal static partial class Program
 {
     const string Tenant = "crud-private-probe", Root = "/api/procurement/v1";
     const string P19 = "P19PurchaseOrderBranchScope", P20 = "P20InvoiceDraftMaintenance";
+    const string CanonicalP21 = "20261022052824_P21CanonicalGovernedProcurementFoundation";
     static readonly Guid Company = Guid.NewGuid(), ForeignCompany = Guid.NewGuid(), Branch = Guid.NewGuid();
     static readonly Guid Actor = Guid.NewGuid(), Other = Guid.NewGuid(), Worker = Guid.NewGuid(), OtherWorker = Guid.NewGuid();
     static readonly JsonSerializerOptions Snake = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
@@ -58,6 +59,8 @@ internal static partial class Program
             await using var app = await Host(); using var client = Client(app);
             var context = await Get(client, "/context"); Check(context.GetProperty("workerId").GetGuid() == Worker, "Actual context did not bind the synthetic Core worker.");
             var meta = await Get(client, "/meta"); Check(meta.GetProperty("crudEnabled").GetBoolean(), "Normal host CRUD capability unavailable.");
+            foreach (var capability in new[] { "approvals", "orders", "sourcingSourceDrafts", "receivingDrafts", "invoiceComparison" })
+                Check(!meta.GetProperty("capabilities").GetProperty(capability).GetBoolean(), "Draft fixture must not enable an operational workflow.");
             await Vendors(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client);
             stage = "independent-final-owning-context";
             await using (var proof = Db())
@@ -78,6 +81,9 @@ internal static partial class Program
                 catch (Exception e) when (FindPg(e) is { SqlState: "55000", MessageText: "Retained invoice branch or removed-line history prevents destructive downgrade." }) { }
             }
             Check(beforeDown == await Footprint(), "Denied used Down changed retained data/history.");
+            await VerifyCanonicalSchema();
+            Check(await Scalar("SELECT (NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname IN ('core_approval','core_document')))::text") == "true",
+                "Bounded CRUD unexpectedly required or created shared approval/document schemas.");
             Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS", assertions, actualHttpRequests = requests,
                 actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true,
                 legacyP19Preserved = true, emptyDownUp = true, usedDownBlocked = true, production = false,
@@ -141,11 +147,18 @@ internal static partial class Program
         await using(var db=Db())
         {
             var migrator=db.GetService<IMigrator>();await migrator.MigrateAsync(P20);await migrator.MigrateAsync(P19);await migrator.MigrateAsync(P20);
-            Check((await db.SupplierInvoices.SingleAsync(x=>x.Id==legacyInvoice)).BranchRef is null,"Upgrade backfilled branch.");
-            Check((await db.SupplierInvoiceLines.SingleAsync(x=>x.SupplierInvoiceId==legacyInvoice)).IsActive,"Legacy line lost active default.");
-            Check(!db.Database.HasPendingModelChanges(),"Snapshot/model mismatch.");
+            // The current invoice CLR model also contains P21 fields; do not materialize it
+            // against old P20 while proving the released two-column upgrade in isolation.
+            Check(await Scalar("SELECT (branch_ref IS NULL)::text FROM procurement.supplier_invoices WHERE invoice_number='LEGACY-1'") == "true", "Upgrade backfilled branch.");
+            Check(await Scalar("SELECT is_active::text FROM procurement.supplier_invoice_lines WHERE description='Original legacy line'") == "true", "Legacy line lost active default.");
         }
         Check(oldValues==await Legacy(),"Upgrade/unusedDown changed original legacy columns.");
+        // Retain the released P19/P20 rehearsal above. The current application also needs
+        // the genuine canonical forward delta; metadata must never fake away that pending ID.
+        stage = "canonical-P21-before-current-HTTP";
+        await using (var db = Db()) await db.GetService<IMigrator>().MigrateAsync(CanonicalP21);
+        await VerifyCanonicalSchema();
+        Check(oldValues==await Legacy(),"Canonical upgrade changed original legacy columns.");
     }
     static async Task<WebApplication> Host()
     {
@@ -443,13 +456,30 @@ internal static partial class Program
         return string.IsNullOrWhiteSpace(content)?default:JsonDocument.Parse(content).RootElement.Clone();
     }
     static string SafeCode(string content){try{return JsonDocument.Parse(content).RootElement.TryGetProperty("code",out var code)?code.GetString()??"none":"none";}catch(JsonException){return "non-json";}}
+    static async Task VerifyCanonicalSchema()
+    {
+        await using var db = Db();
+        Check(!db.Database.HasPendingModelChanges(), "Snapshot/model mismatch.");
+        Check(!(await db.Database.GetPendingMigrationsAsync()).Any(), "Actual canonical migration is missing; no availability override.");
+        Check((await db.Database.GetAppliedMigrationsAsync()).Contains(CanonicalP21), "Canonical forward marker missing.");
+        await using var raw = new NpgsqlConnection(connection); await raw.OpenAsync();
+        foreach (var manifest in new[] { ReceivingOwnershipConstraintSql.ManifestQuery,
+            InvoiceMatchingOwnershipConstraintSql.ManifestQuery, SourcingDraftOwnershipConstraintSql.ManifestQuery })
+        {
+            await using var command = new NpgsqlCommand(manifest, raw);
+            Check(await command.ExecuteScalarAsync() is true, "Exact canonical ownership manifest missing.");
+        }
+        Check(await Scalar("SELECT count(*)::text FROM pg_constraint WHERE connamespace='procurement'::regnamespace AND contype='c' AND convalidated") == "39",
+            "Canonical validated CHECK inventory mismatch.");
+    }
+
     static async Task RawInsert(string table,object value,string excluded)
     {
         var json=JsonSerializer.SerializeToNode(value,Snake)!.AsObject();json.Remove(excluded);await using var raw=new NpgsqlConnection(connection);await raw.OpenAsync();
         await using var command=new NpgsqlCommand("INSERT INTO procurement."+table+" SELECT * FROM jsonb_populate_record(NULL::procurement."+table+",@row)",raw);
         command.Parameters.Add(new NpgsqlParameter("row",NpgsqlDbType.Jsonb){Value=json.ToJsonString()});Check(await command.ExecuteNonQueryAsync()==1,"Legacy raw insert failed.");
     }
-    static async Task<string> Legacy()=>await Scalar("SELECT jsonb_build_object('invoice',(SELECT to_jsonb(t)-'branch_ref' FROM procurement.supplier_invoices t WHERE invoice_number='LEGACY-1'),'line',(SELECT to_jsonb(t)-'is_active' FROM procurement.supplier_invoice_lines t WHERE description='Original legacy line'))::text");
+    static async Task<string> Legacy()=>await Scalar("SELECT jsonb_build_object('invoice',(SELECT to_jsonb(t)-'branch_ref'-ARRAY['active_match_claim_result_id','current_mapping_version_id','last_match_result_id','mapping_revision','match_revision','matching_state'] FROM procurement.supplier_invoices t WHERE invoice_number='LEGACY-1'),'line',(SELECT to_jsonb(t)-'is_active' FROM procurement.supplier_invoice_lines t WHERE description='Original legacy line'))::text");
     static async Task<string> Scalar(string sql){await using var raw=new NpgsqlConnection(connection);await raw.OpenAsync();await using var c=new NpgsqlCommand(sql,raw);return (string)(await c.ExecuteScalarAsync())!;}
     static async Task<string> Footprint()=>await Scalar("SELECT jsonb_build_object('vendor',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.suppliers t),'attrs',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_attributes t),'items',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.catalog_items t),'catalogEntries',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.catalog_entries t),'invoices',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_invoices t),'lines',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_invoice_lines t),'credits',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.supplier_credit_note_refs t),'audit',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.audit_events t),'outbox',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM procurement.outbox_events t),'history',(SELECT jsonb_agg(to_jsonb(t) ORDER BY \"MigrationId\") FROM procurement.__procurement_migrations t))::text");
     static PostgresException? FindPg(Exception e)=>e as PostgresException??(e.InnerException is {} inner?FindPg(inner):null);
