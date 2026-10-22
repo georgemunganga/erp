@@ -111,3 +111,8 @@ A: frozen pure contracts+28section spec and explicit third-key policy integratio
 ## 28. Decision and remaining work
 
 Plan ready for parent technical review, not implementation completion. Need adopt exact baseline once combined source is committed; review required policy lifecycle extension and v2 result/projector API shape before broad code. No user policy defaults requested/invented. New source may be developed default-off while named policies/grants remain unconfigured. Finance/AP completeness is an explicit separate owning-system dependency, not a reason to omit this unit-review workflow.
+
+
+## Isolated source increment A — persistence prerequisite (unexecuted)
+
+Based on published combined `9445dc1`; imported the four reviewed pure contracts/four test files from held `eb9e58a`. Added four immutable review records, literal text source/issued/outcome/command JSON, strict storage rehydration and actual same-transaction Core graph persistence guards. The storage guard requires a current worker and genuine Npgsql enlisted transaction; it does not install a fake InMemory authority provider. Existing coordinator now carries its already-authenticated WorkerId into its private transaction scope rather than dropping it. Source opening verifies actual scoped mapping/current original/PO issued record and Core approval graph; outcomes re-run terminal sealing using retained pins. These are source-only prerequisites: no routes, DI provider, feature activation, policy adoption, P22 migration or test execution yet. Subsequent increments must add third-key governed policy/schema compatibility, actual case routes/purpose documents, typed v2 consumption and real HTTP/PG proof before any completion claim.
