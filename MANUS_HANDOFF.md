@@ -13,7 +13,7 @@ New assignments start from published `origin/main` in both existing repositories
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
 | ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `2491e104c0a87bb9fc2a409196172bde9093fa5d` or a published main descendant; includes PR #21 and tested application `5f199c84`. Production deployment remains a separate gate. |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `8b980800a4a65501f98cc38d927fd51ee33b611f` or a published main descendant; includes PR #51, application `fe8c5b3` and final browser-test source `4c19a29`. This branch hand-off fix is live. |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `f11500eaa9063c79aa4b1ff11349d87cf4366b7f` or a published main descendant; includes PR #51 and #52. Application `e21214a` adds verified, explicit workspace recovery to the live branch hand-off fix. |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
