@@ -45,6 +45,8 @@ public static class ProcurementRecurringPurchaseRoutes
     {
         if (scope.AdminViewOnly || !scope.WorkerId.HasValue)
             return Problem("worker-required", "An active employee account is required.", 403);
+        if (scope.OrgUnitId.HasValue || scope.IsConfined && !scope.WorkLocationId.HasValue)
+            return Problem("scope-unavailable", "Choose an authorized branch before creating a recurring purchase.", 403);
         var parsed = ProcurementOriginalValueInput.Read<RecurringPurchaseCommitmentInput>(body);
         if (parsed.Error is not null) return parsed.Error;
         var input = parsed.Value! with { CurrencyCode = string.IsNullOrWhiteSpace(parsed.Value!.CurrencyCode)
@@ -77,6 +79,7 @@ public static class ProcurementRecurringPurchaseRoutes
         var parsed = ProcurementOriginalValueInput.Read<VersionedRecurringPurchase>(body);
         if (parsed.Error is not null) return parsed.Error;
         var input = parsed.Value!;
+        if (input.Draft is null) return Problem("validation-failed", "Enter the recurring purchase details.", 422);
         var record = await Own(db, scope).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (record is null) return Problem("not-found", "Recurring purchase not found.", 404);
         if (record.Status != "Draft") return Problem("record-closed", "A closed recurring purchase cannot be changed.", 409);
@@ -122,7 +125,9 @@ public static class ProcurementRecurringPurchaseRoutes
 
     private static IQueryable<RecurringPurchaseCommitment> Own(ProcurementDbContext db, ProcurementRequestScope scope)
     {
-        if (!scope.WorkerId.HasValue) return db.RecurringPurchaseCommitments.Where(x => false);
+        if (!scope.WorkerId.HasValue || scope.OrgUnitId.HasValue
+            || scope.IsConfined && !scope.WorkLocationId.HasValue)
+            return db.RecurringPurchaseCommitments.Where(x => false);
         var workerId = scope.WorkerId.Value;
         var own = db.RecurringPurchaseCommitments.Where(x => x.OwnerSubjectId == scope.SubjectId
             && x.OwnerWorkerId == workerId);
@@ -165,6 +170,6 @@ public static class ProcurementRecurringPurchaseRoutes
     private static IResult Problem(string code, string message, int status) =>
         Results.Json(new { code, message }, statusCode: status);
 
-    public sealed record VersionedRecurringPurchase(long Version, RecurringPurchaseCommitmentInput Draft);
+    public sealed record VersionedRecurringPurchase(long Version, RecurringPurchaseCommitmentInput? Draft);
     public sealed record CloseRecurringPurchase(long Version, string? Reason);
 }

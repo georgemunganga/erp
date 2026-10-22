@@ -28,7 +28,7 @@ Manual create from the recurring purchases list; later manual edit or close. A d
 
 ## 7. Preconditions
 
-Valid tenant, selected legal entity, authorized branch, action permission, mapped worker, eligible supplier, and optional own contract for that supplier.
+Valid tenant, selected legal entity, authorized branch, action permission, mapped worker, eligible supplier, and optional own contract for that supplier. A department-only context has no recurring schedule scope in this milestone.
 
 ## 8. Workflow
 
@@ -40,7 +40,7 @@ Create → `Draft`; edit retains `Draft`; close → `Closed`. A closed plan cann
 
 ## 10. Permissions and Data Scope
 
-Actions: `procurement-recurring-read/create/edit`. Reads and writes are restricted to the authenticated subject's own records in the selected tenant/company and branch. The server derives owner worker/subject and branch; the client cannot assign them.
+Actions: `procurement-recurring-read/create/edit`. Reads and writes are restricted to the authenticated subject's own worker-owned records in the selected tenant/company and branch. A confined account without a resolved branch gets no records and cannot create. The server derives owner worker/subject and branch; the client cannot assign them.
 
 ## 11. Business Rules
 
@@ -68,7 +68,7 @@ No attachments in this milestone. Link relevant evidence through the separately 
 
 ## 17. Exceptions and Edge Cases
 
-Unavailable supplier, mismatched contract, invalid date or precision, closed record, stale version, lost network acknowledgement, worker offboarding, company/branch switch, and cross-owner URL access all fail closed.
+Unavailable supplier, mismatched contract, invalid or missing draft, date or precision, closed record, stale version, lost network acknowledgement, worker rebinding or offboarding, company/branch switch, and cross-owner URL access all fail closed.
 
 ## 18. Integrations, APIs, Events and Sandbox
 
