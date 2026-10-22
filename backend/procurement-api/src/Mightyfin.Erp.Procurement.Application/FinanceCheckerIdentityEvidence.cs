@@ -4,11 +4,12 @@ using Mightyfin.Erp.Procurement.Domain;
 namespace Mightyfin.Erp.Procurement.Application;
 
 /// <summary>Retained attribution, not a permission grant, external Finance signature or reservation proof.</summary>
-public sealed record FinanceCheckerBinding(int SchemaVersion, Guid WorkerId, string Sha256);
+public sealed record FinanceCheckerBinding(int SchemaVersion, Guid? WorkerId, string Sha256);
 
 public static class FinanceCheckerIdentityEvidence
 {
     public const int BoundVersion = 1;
+    public const int PrincipalVersion = 2;
 
     /// <summary>
     /// Construct only for a NEW, not-yet-persisted snapshot, after the server resolves the exact
@@ -27,18 +28,42 @@ public static class FinanceCheckerIdentityEvidence
         return new(BoundVersion, canonicalWorkerId, IdentityDigest(snapshot, canonicalWorkerId));
     }
 
+    public static FinanceCheckerBinding CreatePrincipalForNewSnapshot(BudgetCheckSnapshot snapshot,
+        string canonicalSubjectId, Guid? knownCoreAlias)
+    {
+        if (!HasCaptureTuple(snapshot) || snapshot.CreatedAt != default || snapshot.UpdatedAt is not null
+            || !ProcurementPrincipalEvidence.Canonical(canonicalSubjectId) || canonicalSubjectId != snapshot.CheckedBySubjectId
+            || !ProcurementPrincipalEvidence.OptionalWorker(knownCoreAlias) || snapshot.CheckerIdentitySchemaVersion != 0
+            || snapshot.CheckedByWorkerId is not null || snapshot.CheckerIdentitySha256 is not null)
+            throw new ArgumentException("FinanceCheckerCaptureInvalid");
+        return new(PrincipalVersion, knownCoreAlias, PrincipalDigest(snapshot, knownCoreAlias));
+    }
+
     public static bool HasValidBinding(BudgetCheckSnapshot snapshot) => HasCaptureTuple(snapshot)
-        && snapshot.CheckerIdentitySchemaVersion == BoundVersion
-        && snapshot.CheckedByWorkerId is { } worker && worker != Guid.Empty
-        && snapshot.CheckerIdentitySha256 == IdentityDigest(snapshot, worker);
+        && (snapshot.CheckerIdentitySchemaVersion == BoundVersion
+            ? snapshot.CheckedByWorkerId is { } worker && worker != Guid.Empty && snapshot.CheckerIdentitySha256 == IdentityDigest(snapshot, worker)
+            : snapshot.CheckerIdentitySchemaVersion == PrincipalVersion && ProcurementPrincipalEvidence.Canonical(snapshot.CheckedBySubjectId)
+                && ProcurementPrincipalEvidence.OptionalWorker(snapshot.CheckedByWorkerId)
+                && snapshot.CheckerIdentitySha256 == PrincipalDigest(snapshot, snapshot.CheckedByWorkerId));
 
     /// <summary>Caller still owns current activity, permission, independence and exact authoritative scope.</summary>
     public static bool MatchesCurrentCanonical(BudgetCheckSnapshot snapshot, string tenant, Guid company,
-        Guid requestId, long submittedVersion, string canonicalSubjectId, Guid canonicalWorkerId) =>
+        Guid requestId, long submittedVersion, string canonicalSubjectId, Guid? canonicalWorkerId) =>
         HasValidBinding(snapshot) && snapshot.TenantId == tenant && snapshot.LegalEntityId == company
         && snapshot.PurchaseRequestId == requestId && snapshot.RequestVersion == submittedVersion
-        && snapshot.CheckedBySubjectId == canonicalSubjectId && snapshot.CheckedByWorkerId == canonicalWorkerId
-        && canonicalWorkerId != Guid.Empty;
+        && snapshot.CheckedBySubjectId == canonicalSubjectId && ProcurementPrincipalEvidence.OptionalWorker(canonicalWorkerId)
+        && (snapshot.CheckerIdentitySchemaVersion == PrincipalVersion
+            ? ProcurementPrincipalEvidence.Canonical(canonicalSubjectId)
+            : canonicalWorkerId is not null && snapshot.CheckedByWorkerId == canonicalWorkerId);
+
+    private static string PrincipalDigest(BudgetCheckSnapshot snapshot, Guid? knownCoreAlias) =>
+        ProcurementEvidenceEncoding.Digest(JsonSerializer.Serialize(new
+        {
+            schemaVersion = PrincipalVersion, snapshot.Id, snapshot.TenantId, snapshot.LegalEntityId,
+            snapshot.PurchaseRequestId, snapshot.RequestVersion, checkedByPrincipalId = snapshot.CheckedBySubjectId,
+            knownCoreWorkerId = knownCoreAlias, checkedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(snapshot.CheckedAt),
+            financeTupleSha256 = ProcurementEvidenceEncoding.Digest(FinanceSnapshotCodec.Legacy(snapshot)),
+        }));
 
     private static bool HasCaptureTuple(BudgetCheckSnapshot f) => f.Id != Guid.Empty
         && !string.IsNullOrWhiteSpace(f.TenantId) && f.LegalEntityId != Guid.Empty
@@ -78,8 +103,14 @@ public static class FinanceSnapshotCodec
         if (identitySchemaVersion == 0 && snapshot.CheckerIdentitySchemaVersion == 0
             && snapshot.CheckedByWorkerId is null && snapshot.CheckerIdentitySha256 is null)
             return Legacy(snapshot);
+        if (identitySchemaVersion == FinanceCheckerIdentityEvidence.PrincipalVersion
+            && snapshot.CheckerIdentitySchemaVersion == identitySchemaVersion && FinanceCheckerIdentityEvidence.HasValidBinding(snapshot))
+            return JsonSerializer.Serialize(new { financeIdentitySchemaVersion = identitySchemaVersion,
+                finance = JsonSerializer.Deserialize<JsonElement>(Legacy(snapshot)),
+                checkedByPrincipalId = snapshot.CheckedBySubjectId, knownCoreWorkerId = snapshot.CheckedByWorkerId,
+                snapshot.CheckerIdentitySha256 });
         if (identitySchemaVersion == FinanceCheckerIdentityEvidence.BoundVersion
-            && FinanceCheckerIdentityEvidence.HasValidBinding(snapshot))
+            && snapshot.CheckerIdentitySchemaVersion == identitySchemaVersion && FinanceCheckerIdentityEvidence.HasValidBinding(snapshot))
         {
             using var output = new MemoryStream();
             using (var writer = new Utf8JsonWriter(output))

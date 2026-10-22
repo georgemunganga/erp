@@ -4,7 +4,7 @@ using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Tests;
 
-public sealed class FinanceCheckerIdentityEvidenceTests
+public sealed partial class FinanceCheckerIdentityEvidenceTests
 {
     private static readonly Guid Worker = Guid.Parse("44444444-4444-4444-4444-444444444444");
     // Frozen before the new identity encoder: no new property, naming, ordering or decimal/date rewrite.

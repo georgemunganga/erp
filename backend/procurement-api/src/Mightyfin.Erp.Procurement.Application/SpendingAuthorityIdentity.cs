@@ -19,10 +19,10 @@ public sealed record SpendingAuthorityIdentityEvidence
     public string Action { get; init; } = "";
     public string ConfigurationOwnerPrincipalId { get; init; } = "";
     public string RecipientPrincipalId { get; init; } = "";
-    public Guid RecipientWorkerId { get; init; }
+    public Guid? RecipientWorkerId { get; init; }
     public string Stage { get; init; } = "";
     public string ActorPrincipalId { get; init; } = "";
-    public Guid ActorWorkerId { get; init; }
+    public Guid? ActorWorkerId { get; init; }
     public long GrantRecordVersionAtAction { get; init; }
     public string BusinessFingerprint { get; init; } = "";
     public DateTimeOffset ActionAt { get; init; }
@@ -37,17 +37,17 @@ public sealed record SpendingAuthorityIdentityEvidence
 public static class SpendingAuthorityIdentity
 {
     public static SpendingAuthorityIdentityEvidence CaptureCreation(ProcurementSpendingAuthorityGrant grant,
-        Guid makerWorker, Guid recipientWorker)
+        Guid? makerWorker, Guid? recipientWorker, int schemaVersion = 1)
     {
         Require(grant.State == "Draft" && grant.Version == 1
             && grant.ConfigurationOwnerPrincipalId == grant.CreatedBy, "AuthorityOriginalMakerRequired");
-        var row = Capture(grant, "Created", grant.CreatedBy, makerWorker, recipientWorker, grant.CreatedAt);
+        var row = Capture(grant, "Created", grant.CreatedBy, makerWorker, recipientWorker, grant.CreatedAt, schemaVersion: schemaVersion);
         VerifyOrigin(grant, row);
         return row;
     }
 
     public static SpendingAuthorityIdentityEvidence CaptureSubmission(ProcurementSpendingAuthorityGrant grant,
-        SpendingAuthorityIdentityEvidence created, string principal, Guid worker, Guid currentRecipientWorker)
+        SpendingAuthorityIdentityEvidence created, string principal, Guid? worker, Guid? currentRecipientWorker)
     {
         RequireAuthor(grant, created, principal, worker);
         RequireCurrentRecipient(grant, created, grant.PrincipalId, currentRecipientWorker);
@@ -60,7 +60,7 @@ public static class SpendingAuthorityIdentity
 
     public static SpendingAuthorityIdentityEvidence CaptureActivation(ProcurementSpendingAuthorityGrant grant,
         SpendingAuthorityIdentityEvidence created, SpendingAuthorityIdentityEvidence submitted,
-        string principal, Guid worker, Guid currentRecipientWorker)
+        string principal, Guid? worker, Guid? currentRecipientWorker)
     {
         RequireCurrentRecipient(grant, created, grant.PrincipalId, currentRecipientWorker);
         var activatedAt = grant.ActivatedAt ?? throw new InvalidOperationException("AuthorityActivationIdentityRequired");
@@ -80,20 +80,20 @@ public static class SpendingAuthorityIdentity
     }
 
     public static void RequireAuthor(ProcurementSpendingAuthorityGrant grant,
-        SpendingAuthorityIdentityEvidence? created, string principal, Guid worker)
+        SpendingAuthorityIdentityEvidence? created, string principal, Guid? worker)
     {
         VerifyOrigin(grant, created);
-        Require(Canonical(principal) && worker != Guid.Empty
-            && principal == created!.ActorPrincipalId && worker == created.ActorWorkerId,
+        Require(Canonical(principal) && principal == created!.ActorPrincipalId
+            && IdentityWorkerBinding(created.SchemaVersion,created.ActorWorkerId,worker),
             "AuthorityOriginalAuthorRequired");
     }
 
     public static void RequireCurrentRecipient(ProcurementSpendingAuthorityGrant grant,
-        SpendingAuthorityIdentityEvidence? created, string principal, Guid worker)
+        SpendingAuthorityIdentityEvidence? created, string principal, Guid? worker)
     {
         VerifyOrigin(grant, created);
-        Require(Canonical(principal) && worker != Guid.Empty
-            && principal == created!.RecipientPrincipalId && worker == created.RecipientWorkerId,
+        Require(Canonical(principal) && principal == created!.RecipientPrincipalId
+            && IdentityWorkerBinding(created.SchemaVersion,created.RecipientWorkerId,worker),
             "AuthorityRecipientIdentityChanged");
     }
 
@@ -106,7 +106,7 @@ public static class SpendingAuthorityIdentity
 
     public static void RequireIndependentReviewer(ProcurementSpendingAuthorityGrant grant,
         SpendingAuthorityIdentityEvidence created, SpendingAuthorityIdentityEvidence submitted,
-        string principal, Guid worker)
+        string principal, Guid? worker)
     {
         VerifySubmission(grant, created, submitted);
         RequireIndependent(created, submitted, principal, worker);
@@ -120,7 +120,7 @@ public static class SpendingAuthorityIdentity
         VerifySubmittedAtVersion(grant, created, submitted, grant.Version - 1);
         VerifyOwned(grant, activated);
         RequireIndependent(created, submitted, activated.ActorPrincipalId, activated.ActorWorkerId);
-        Require(activated.Stage == "Activated" && activated.CreatedEvidenceId == created.Id
+        Require(activated.SchemaVersion==created.SchemaVersion && activated.Stage == "Activated" && activated.CreatedEvidenceId == created.Id
             && activated.SubmittedEvidenceId == submitted.Id
             && activated.RecipientWorkerId == created.RecipientWorkerId
             && activated.GrantRecordVersionAtAction == grant.Version
@@ -137,9 +137,9 @@ public static class SpendingAuthorityIdentity
     {
         VerifyOrigin(grant, created);
         VerifyOwned(grant, submitted);
-        Require(submitted.Stage == "Submitted" && submitted.CreatedEvidenceId == created.Id
+        Require(submitted.SchemaVersion==created.SchemaVersion && submitted.Stage == "Submitted" && submitted.CreatedEvidenceId == created.Id
             && submitted.ActorPrincipalId == created.ActorPrincipalId
-            && submitted.ActorWorkerId == created.ActorWorkerId
+            && IdentityWorkerBinding(created.SchemaVersion,created.ActorWorkerId,submitted.ActorWorkerId)
             && submitted.RecipientWorkerId == created.RecipientWorkerId
             && submitted.GrantRecordVersionAtAction == version
             && submitted.GrantRecordVersionAtAction > created.GrantRecordVersionAtAction
@@ -152,12 +152,19 @@ public static class SpendingAuthorityIdentity
     }
 
     private static void RequireIndependent(SpendingAuthorityIdentityEvidence created,
-        SpendingAuthorityIdentityEvidence submitted, string principal, Guid worker)
-        => Require(Canonical(principal) && worker != Guid.Empty
-            && principal != created.ActorPrincipalId && principal != submitted.ActorPrincipalId
+        SpendingAuthorityIdentityEvidence submitted, string principal, Guid? worker)
+        => Require(Canonical(principal) && principal != created.ActorPrincipalId && principal != submitted.ActorPrincipalId
             && principal != created.RecipientPrincipalId && principal != created.ConfigurationOwnerPrincipalId
-            && worker != created.ActorWorkerId && worker != submitted.ActorWorkerId
-            && worker != created.RecipientWorkerId, "AuthorityIndependentWorkerRequired");
+            && (created.SchemaVersion==1 ? worker is not null && worker!=Guid.Empty && worker!=created.ActorWorkerId
+                && worker!=submitted.ActorWorkerId && worker!=created.RecipientWorkerId
+                : ProcurementPrincipalEvidence.Independent(created.ActorPrincipalId,created.ActorWorkerId,principal,worker)
+                    && ProcurementPrincipalEvidence.Independent(submitted.ActorPrincipalId,submitted.ActorWorkerId,principal,worker)
+                    && ProcurementPrincipalEvidence.Independent(created.RecipientPrincipalId,created.RecipientWorkerId,principal,worker)),
+            "AuthorityIndependentWorkerRequired");
+
+    private static bool IdentityWorkerBinding(int schema,Guid? retained,Guid? current) => schema==1
+        ? retained is not null && retained!=Guid.Empty && retained==current
+        : schema==2 && ProcurementPrincipalEvidence.OptionalWorker(retained) && ProcurementPrincipalEvidence.OptionalWorker(current);
 
     public static string Digest(SpendingAuthorityIdentityEvidence row)
         => ProcurementEvidenceEncoding.Digest(JsonSerializer.Serialize(new
@@ -171,12 +178,13 @@ public static class SpendingAuthorityIdentity
 
     public static void Verify(SpendingAuthorityIdentityEvidence row)
     {
-        Require(row.SchemaVersion == 1 && row.Id != Guid.Empty && !string.IsNullOrWhiteSpace(row.TenantId)
+        Require(row.SchemaVersion is 1 or 2 && row.Id != Guid.Empty && !string.IsNullOrWhiteSpace(row.TenantId)
             && row.LegalEntityId != Guid.Empty && row.GrantId != Guid.Empty && row.AuthorityVersion > 0
             && !string.IsNullOrWhiteSpace(row.AuthorityReference) && !string.IsNullOrWhiteSpace(row.Permission)
             && !string.IsNullOrWhiteSpace(row.Action) && Canonical(row.ActorPrincipalId)
             && Canonical(row.RecipientPrincipalId) && Canonical(row.ConfigurationOwnerPrincipalId)
-            && row.ActorWorkerId != Guid.Empty && row.RecipientWorkerId != Guid.Empty
+            && ProcurementPrincipalEvidence.OptionalWorker(row.ActorWorkerId) && ProcurementPrincipalEvidence.OptionalWorker(row.RecipientWorkerId)
+            && (row.SchemaVersion==2 || row.ActorWorkerId is not null && row.RecipientWorkerId is not null)
             && row.GrantRecordVersionAtAction > 0 && row.ActionAt != default
             && row.ActionAt == Time(row.ActionAt) && Hex(row.BusinessFingerprint)
             && Hex(row.EvidenceSha256) && row.EvidenceSha256 == Digest(row), "AuthorityIdentityEvidenceInvalid");
@@ -203,11 +211,12 @@ public static class SpendingAuthorityIdentity
     }
 
     private static SpendingAuthorityIdentityEvidence Capture(ProcurementSpendingAuthorityGrant grant,
-        string stage, string principal, Guid worker, Guid recipientWorker, DateTimeOffset at,
-        SpendingAuthorityIdentityEvidence? created = null, SpendingAuthorityIdentityEvidence? submitted = null)
+        string stage, string principal, Guid? worker, Guid? recipientWorker, DateTimeOffset at,
+        SpendingAuthorityIdentityEvidence? created = null, SpendingAuthorityIdentityEvidence? submitted = null, int schemaVersion = 1)
     {
         var row = new SpendingAuthorityIdentityEvidence
         {
+            SchemaVersion = created?.SchemaVersion ?? schemaVersion,
             TenantId = grant.TenantId, LegalEntityId = grant.LegalEntityId, GrantId = grant.Id,
             AuthorityReference = grant.AuthorityReference, AuthorityVersion = grant.AuthorityVersion,
             Permission = grant.Permission, Action = grant.Action,
