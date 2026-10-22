@@ -166,6 +166,7 @@ Proposed Procurement-owned receipt minimum:
 | PurchaseRequestId | Nonzero real target; Create assigns it in the owning transaction |
 | ContextBranchRef / ContextDepartmentRef | Nullable effective branch/department at command acceptance; unknown is never encoded as null |
 | OriginalBranchRef / OriginalDepartmentRef | Actual request provenance after loading/creation, immutable; not master copies or employee requirements |
+| ExpectedVersion | Null for Create; positive pre-command version for Update/Submit, with ResultVersion exactly +1 |
 | FingerprintSchemaVersion / CommandFingerprint | Version 1; deterministic lowercase SHA256 of accepted command intent |
 | ResponseSchemaVersion / ResponseStatusCode / ResultVersion | Version 1, original 201/200, positive persisted version |
 | ResponseJson / ResponseSha256 / CompletedAt | Bounded exact original response, digest and normalised UTC completion time |
@@ -378,6 +379,15 @@ Tests must cover existing boundary values and a result larger than 1 MiB using l
 The eight technical alternatives above now have concrete proposed behaviour. **No unresolved business-policy or technical behaviour is identified as a coding blocker for this bounded slice.** The next DoR action is the parent's independent contract review of this specification, especially the exact hashing/acknowledgement interface, one-filter lock ordering and retained-on-all-errors UX limitation. Record that review result; this author does not self-approve it. No passing migration, finite-role test or browser run is required to start implementation after that review.
 
 The first slice deliberately has **no support-controlled marker-clear/absence-certification feature**. Support can investigate through scoped read-only lookup/current records; the locator stays sealed without a valid original result. This limitation is a resolved safety choice for review, not an invitation to invent Finance approval, fake receipts or an unreviewed Reset. A more usable proven pre-write-rejection/reconciliation workflow can be specified separately without blocking the receipt implementation.
+
+
+### Independent backend design review and bounded source start
+
+On 22 October 2026 the parent engineer independently accepted the backend receipt slice DoR against D1–D8 and the actual encoding/lease/filter/DTO sources. This permits bounded backend implementation; it does not activate a UI, schema, route, migration or Finance workflow. UI activation remains **held**: retaining every server error is safe but unsuitable as an active indefinite lock after ordinary validation without a separately reviewed safe pre-write/reconciliation experience.
+
+The first isolated foundation source checkpoint is `9e23344` on `codex/procurement-pr-draft-receipt-foundation`, based on published `bb932c5`: domain record, application structural metadata/UUID/digest helpers and authored tests only. There is no EF mapping/migration, registered route, UI integration or runtime acceptance. Tests have **not run** at this checkpoint. `ExpectedVersion` is explicitly retained to enforce Create 1 and Update/Submit exact+1. The receipt adds **no ActorWorkerId field**; optional genuine worker provenance stays in the original request/result.
+
+Compatibility finding at that foundation baseline: `PurchaseRequestOwnership.OwnedBy/IsOwner` accepts a historic null RequesterPrincipalId only when actual stored CreatedBy exactly equals the current canonical Core ID. The structural result helper requires principal equality for Create; Update/Submit may retain historic null, but a nonnull principal must equal the receipt actor. Helper validity grants no ownership. Future command/replay/GET routes must independently apply the existing scoped ownership rule to the real request, never infer access from null, backfill/adopt it or use a caller-provided verification Boolean.
 
 ### Definition of Done / release gates — produced by implementation
 
