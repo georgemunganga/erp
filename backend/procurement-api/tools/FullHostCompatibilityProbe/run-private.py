@@ -19,9 +19,12 @@ def main():
     p.add_argument('--runtime-image', required=True, help='Existing local immutable sha256 image; never pulled')
     p.add_argument('--target-db', required=True)
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--diagnose-hrm-model', action='store_true', help='Read-only source model operations; never start Program or migrate')
+    modes = p.add_mutually_exclusive_group()
+    modes.add_argument('--diagnose-hrm-model', action='store_true', help='Read-only source model operations; never start Program or migrate')
+    modes.add_argument('--rehearse-fresh-hrm', action='store_true', help='New empty template0 private database, actual owning HRM MigrateAsync twice; never start Program')
     a = p.parse_args()
-    if not re.fullmatch(r'proc_release_backup_20261022_smoke_[a-z0-9_]{1,28}', a.target_db) or len(a.target_db) > 63:
+    target_pattern = r'hrm_model_reconcile_20261022_[a-z0-9_]{1,24}' if a.rehearse_fresh_hrm else r'proc_release_backup_20261022_smoke_[a-z0-9_]{1,28}'
+    if not re.fullmatch(target_pattern, a.target_db) or len(a.target_db) > 63:
         p.error('Require new bounded smoke clone name')
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', a.runtime_image):
         p.error('Require existing immutable local runtime image ID')
@@ -57,7 +60,7 @@ def main():
     if exists.strip() != '1':
         raise RuntimeError('Approved retained canonical source is missing')
     # createdb refuses an existing target. Never DROP, terminate sessions, alter source or roles.
-    docker('exec', '-i', CONTAINER, 'createdb', '-U', 'postgres', '--template=' + SOURCE, a.target_db,
+    docker('exec', '-i', CONTAINER, 'createdb', '-U', 'postgres', '--template=' + ('template0' if a.rehearse_fresh_hrm else SOURCE), a.target_db,
            label='clone')
     # Freeze every loaded artifact before launch; later builds cannot replace running DLLs.
     if any(path.is_symlink() for path in a.publish_dir.rglob('*')):
@@ -69,7 +72,7 @@ def main():
                 for path in runtime.rglob('*') if path.is_file()}
     manifest = runtime_hashes()
     (a.output / 'run-manifest.json').write_text(json.dumps({'source': SOURCE, 'target': a.target_db,
-        'runtimeImage': a.runtime_image, 'networkMode': 'none', 'publishedArtifacts': manifest,
+        'runtimeImage': a.runtime_image, 'networkMode': 'none', 'databaseTemplate': 'template0' if a.rehearse_fresh_hrm else SOURCE, 'freshHrmRehearsal': a.rehearse_fresh_hrm, 'publishedArtifacts': manifest,
         'limit': 'Owner credential on new private clone only; no finite-role or production claim'}, indent=2) + '\n')
     # Only the Unix socket is shared. No Docker socket, host network, source data directory,
     # actual configuration directory or unrestricted source database connection is mounted.
@@ -82,7 +85,7 @@ def main():
         '--env', 'ERP_HOST_SMOKE_CONNECTION=' + connection,
         '--env', 'ERP_HOST_SMOKE_RESULT=/evidence/result.json',
         '--env', 'DOTNET_EnableDiagnostics=0', '--workdir', '/app', a.runtime_image,
-        'dotnet', '/app/FullHostCompatibilityProbe.dll'] + (['--diagnose-hrm-model'] if a.diagnose_hrm_model else []), text=True, capture_output=True)
+        'dotnet', '/app/FullHostCompatibilityProbe.dll'] + (['--diagnose-hrm-model'] if a.diagnose_hrm_model else ['--rehearse-fresh-hrm'] if a.rehearse_fresh_hrm else []), text=True, capture_output=True)
     (a.output / 'host-smoke.log').write_text(r.stdout + r.stderr)
     if runtime_hashes() != manifest:
         raise RuntimeError('Frozen smoke runtime changed; no compatibility result can be accepted')
@@ -90,9 +93,10 @@ def main():
         raise RuntimeError('Actual Program smoke blocked/failed; restricted summary/log and clone retained')
     result = json.loads((a.output / 'result.json').read_text())
     expected = 'OWNER_MODEL_DIAGNOSTIC_ONLY_PROGRAM_NOT_STARTED' if a.diagnose_hrm_model else 'PASS'
-    if result.get('status') != expected or result.get('allTableValuesAndSchemasUnchanged') is not True:
+    unchanged = result.get('secondMigrationSchemaHistoryAndDataUnchanged') if a.rehearse_fresh_hrm else result.get('allTableValuesAndSchemasUnchanged')
+    if result.get('status') != expected or unchanged is not True:
         raise RuntimeError('Actual Program smoke did not prove unchanged clone')
-    print('Private owner model diagnostic complete; Program not started; protected summary retained.' if a.diagnose_hrm_model else 'PASS private offline actual Program smoke; protected summary retained, no ERP rows output.')
+    print('PASS private fresh HRM actual EF migration rehearsal; Program not started; protected summary retained.' if a.rehearse_fresh_hrm else 'Private owner model diagnostic complete; Program not started; protected summary retained.' if a.diagnose_hrm_model else 'PASS private offline actual Program smoke; protected summary retained, no ERP rows output.')
 
 
 if __name__ == '__main__':
