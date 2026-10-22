@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -71,8 +72,9 @@ public static partial class ProcurementApprovalExecutionRoutes
             if(scope.WorkLocationId is {} branch&&originalScope.Branch!=branch
                 ||scope.OrgUnitId is {} department&&originalScope.Department!=department)throw Missing();
             await RecordScope(core,scope,new PurchaseRequest {BranchRef=originalScope.Branch},ct);
-            var original=ReadAcknowledgementResult(receipt.ResponseJson);
-            if(original.CaseId!=approvalCase.Id||original.RequestId!=id||original.SubmittedVersion!=pin.SubmittedBusinessVersion)
+            var original=ReadAcknowledgementResult(operation,receipt.ResponseJson);
+            if(original.CaseId!=approvalCase.Id||original.RequestId!=id||original.SubmittedVersion!=pin.SubmittedBusinessVersion
+                ||original.RequestVersion>request.Version||original.CaseVersion>approvalCase.Version)
                 throw AcknowledgementUnavailable();
             if(operation=="Open")
             {
@@ -92,7 +94,9 @@ public static partial class ProcurementApprovalExecutionRoutes
                 var decision=await workflow.Decisions.AsNoTracking().SingleOrDefaultAsync(x=>x.CaseId==approvalCase.Id
                     &&x.AssignmentId==assignmentId&&x.IdempotencyKey==commandKey.ToString("D")&&x.ActorSubjectId==receipt.ActorSubjectId,ct)
                     ??throw AcknowledgementUnavailable();
-                if(bound.IdentitySchemaVersion!=2||retained is null||bound.PrincipalId!=receipt.ActorSubjectId
+                if(original.AssignmentId!=assignmentId||original.DecisionId!=decision.Id
+                    ||original.AssignmentVersion is not {} originalAssignmentVersion||originalAssignmentVersion>assignment.Version
+                    ||bound.IdentitySchemaVersion!=2||retained is null||bound.PrincipalId!=receipt.ActorSubjectId
                     ||bound.CoreStageId!=assignment.StageId||assignment.AssigneeSubjectId!=receipt.ActorSubjectId
                     ||assignment.PermissionKey!=DecidePermission||decision.StageId!=assignment.StageId
                     ||receipt.CompletedAt<decision.DecidedAt)throw AcknowledgementUnavailable();
@@ -130,13 +134,17 @@ public static partial class ProcurementApprovalExecutionRoutes
     internal sealed record ApprovalCommandAcknowledgement(int AcknowledgementSchemaVersion,string Acknowledgement,string Operation,
         Guid CommandKey,Guid RequestId,Guid CaseId,Guid? AssignmentId,DateTimeOffset CompletedAt,ApprovalCommandOriginalResult Result);
     internal sealed record ApprovalCommandOriginalResult(Guid CaseId,Guid RequestId,long SubmittedVersion,long RequestVersion,
-        long CaseVersion,string State,string RequestState,string ApprovalState);
-    internal static ApprovalCommandOriginalResult ReadAcknowledgementResult(string json)
+        long CaseVersion,string State,string RequestState,string ApprovalState,
+        [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] Guid? AssignmentId=null,
+        [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] long? AssignmentVersion=null,
+        [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] Guid? DecisionId=null);
+    internal static ApprovalCommandOriginalResult ReadAcknowledgementResult(string operation,string json)
     {
-        if(string.IsNullOrEmpty(json)||json.Length>4096)throw AcknowledgementUnavailable();
+        if(operation is not ("Open" or "Decide")||string.IsNullOrEmpty(json)||json.Length>4096)throw AcknowledgementUnavailable();
         using var document=JsonDocument.Parse(json,new JsonDocumentOptions {MaxDepth=4});var root=document.RootElement;
         if(root.ValueKind!=JsonValueKind.Object)throw AcknowledgementUnavailable();
-        string[] expected=["caseId","requestId","submittedVersion","requestVersion","caseVersion","state","requestState","approvalState"];
+        string[] common=["caseId","requestId","submittedVersion","requestVersion","caseVersion","state","requestState","approvalState"];
+        string[] expected=operation=="Open"?common:[..common,"assignmentId","assignmentVersion","decisionId"];
         var names=root.EnumerateObject().Select(x=>x.Name).ToArray();
         if(names.Length!=expected.Length||names.Distinct(StringComparer.Ordinal).Count()!=names.Length
             ||names.Except(expected,StringComparer.Ordinal).Any())throw AcknowledgementUnavailable();
@@ -144,7 +152,9 @@ public static partial class ProcurementApprovalExecutionRoutes
         long Version(string name)=>root.GetProperty(name).ValueKind==JsonValueKind.Number&&root.GetProperty(name).TryGetInt64(out var version)&&version>0?version:throw AcknowledgementUnavailable();
         string Text(string name)=>root.GetProperty(name).ValueKind==JsonValueKind.String?root.GetProperty(name).GetString()!:throw AcknowledgementUnavailable();
         var value=new ApprovalCommandOriginalResult(Identity("caseId"),Identity("requestId"),Version("submittedVersion"),Version("requestVersion"),
-            Version("caseVersion"),Text("state"),Text("requestState"),Text("approvalState"));
+            Version("caseVersion"),Text("state"),Text("requestState"),Text("approvalState"),
+            operation=="Decide"?Identity("assignmentId"):null,operation=="Decide"?Version("assignmentVersion"):null,
+            operation=="Decide"?Identity("decisionId"):null);
         var stateValid=value.State switch {"Pending"=>value.RequestState=="Submitted","Approved"=>value.RequestState=="Approved",
             "Rejected"=>value.RequestState=="Rejected","Returned"=>value.RequestState=="ReturnPendingFinanceRelease",_=>false};
         if(!stateValid||value.ApprovalState!=value.State||value.RequestVersion<value.SubmittedVersion)throw AcknowledgementUnavailable();

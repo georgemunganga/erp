@@ -38,6 +38,14 @@ public sealed class ProcurementApprovalCommandAcknowledgementTests
         Assert.Equal(f.Request,body.GetProperty("requestId").GetGuid());Assert.Equal(2,body.GetProperty("result").GetProperty("submittedVersion").GetInt64());
         Assert.Equal(operation=="Open"?3:4,body.GetProperty("result").GetProperty("requestVersion").GetInt64());
         Assert.Equal(operation=="Open"?"Pending":"Approved",body.GetProperty("result").GetProperty("state").GetString());
+        var original=body.GetProperty("result");
+        if(operation=="Decide")
+        {
+            Assert.Equal(11,original.EnumerateObject().Count());Assert.Equal(2,original.GetProperty("assignmentVersion").GetInt64());
+            Assert.NotEqual(Guid.Empty,original.GetProperty("assignmentId").GetGuid());Assert.NotEqual(Guid.Empty,original.GetProperty("decisionId").GetGuid());
+            Assert.Equal(body.GetProperty("assignmentId").GetGuid(),original.GetProperty("assignmentId").GetGuid());
+        }
+        else {Assert.Equal(8,original.EnumerateObject().Count());Assert.False(original.TryGetProperty("assignmentVersion",out _));}
         Assert.DoesNotContain("ResponseJson",await response.Content.ReadAsStringAsync(),StringComparison.OrdinalIgnoreCase);
         Assert.False(f.Options.ExecutionDatabaseConfigured);Assert.Empty(f.Options.ManualFinancePolicies);
         Assert.Equal(before,await f.Footprint());Assert.True(f.Readiness.ReadCalls>0);Assert.Equal(0,f.Readiness.WriteCalls);
@@ -82,11 +90,22 @@ public sealed class ProcurementApprovalCommandAcknowledgementTests
     [InlineData("unknown-state")][InlineData("wrong-result-id")][InlineData("wrong-case-source")]
     [InlineData("wrong-decision-key")][InlineData("missing-outcome")][InlineData("unsupported-pin")]
     [InlineData("bad-source-hash")][InlineData("source-branch")]
+    [InlineData("missing-assignment-id")][InlineData("missing-assignment-version")][InlineData("missing-decision-id")]
+    [InlineData("wrong-assignment-id")][InlineData("wrong-decision-id")][InlineData("zero-assignment-id")][InlineData("zero-decision-id")]
+    [InlineData("zero-assignment-version")][InlineData("wrong-assignment-version-type")]
+    [InlineData("future-request-version")][InlineData("future-case-version")][InlineData("future-assignment-version")]
     public async Task Corrupt_or_unsupported_receipt_projection_is_never_a_successful_ack(string fault)
     {
         await using var f=await Fixture.Start("Decide",fault);var before=await f.Footprint();
         var response=await f.Get();Assert.Equal(fault=="source-branch"?HttpStatusCode.NotFound:HttpStatusCode.ServiceUnavailable,response.StatusCode);
         Assert.Equal(before,await f.Footprint());
+    }
+
+    [Fact]
+    public async Task Open_does_not_accept_Decide_only_properties()
+    {
+        await using var f=await Fixture.Start("Open","open-decision-field");var before=await f.Footprint();
+        Assert.Equal(HttpStatusCode.ServiceUnavailable,(await f.Get()).StatusCode);Assert.Equal(before,await f.Footprint());
     }
 
     [Theory][InlineData("Release")][InlineData("open")][InlineData("zero")]
@@ -199,7 +218,7 @@ public sealed class ProcurementApprovalCommandAcknowledgementTests
                 FinanceSnapshotId=Guid.NewGuid(),FinanceIdentitySchemaVersion=2,FinanceSnapshotJson="{}",FinanceSnapshotSha256=ProcurementEvidenceEncoding.Digest("{}"),
                 FinanceEvidenceMode=PurchaseRequestApprovalPinning.ApprovedManualEvidence,ManualEvidenceAuthorityRef="SYNTHETIC-PROJECTION-NOT-FINANCE",AmountBasis="EstimatedLineBase",EstimatedAmount=1,CurrencyCode="ZMW",PinnedAt=c.OpenedAt};
             var stage=new ApprovalStage {TenantId="tenant-a",LegalEntityId=company.Id,CaseId=c.Id,Sequence=1,Code="REVIEW",State="Approved"};
-            var assigned=new ApprovalAssignment {TenantId="tenant-a",LegalEntityId=company.Id,CaseId=c.Id,StageId=stage.Id,AssigneeSubjectId=decider.ToString("D"),PermissionKey=ProcurementApprovalExecutionRoutes.DecidePermission,State="Approved"};
+            var assigned=new ApprovalAssignment {TenantId="tenant-a",LegalEntityId=company.Id,CaseId=c.Id,StageId=stage.Id,AssigneeSubjectId=decider.ToString("D"),PermissionKey=ProcurementApprovalExecutionRoutes.DecidePermission,State="Approved",Version=10};
             var decision=new ApprovalDecision {TenantId="tenant-a",LegalEntityId=company.Id,CaseId=c.Id,StageId=stage.Id,AssignmentId=assigned.Id,ActorSubjectId=decider.ToString("D"),Action="Approve",IdempotencyKey=(fault=="wrong-decision-key"?Guid.NewGuid():decideKey).ToString("D"),DecidedAt=c.CompletedAt!.Value};
             var authority=new PurchaseRequestAuthorityEvidence(Guid.NewGuid(),1,"SYNTHETIC-RETAINED-NOT-CURRENT",1,"tenant-a",company.Id,decider.ToString("D"),"procurement-approval-decide","PurchaseRequest.Approve","ZMW","EstimatedLineBase",1,1,c.OpenedAt,null,c.OpenedAt,false,branch.Id,true,null,true,[]);
             var bindingJson=JsonSerializer.Serialize(new PurchaseRequestPrincipalAssignmentEvidence(2,"tenant-a",company.Id,pinId,c.Id,stage.Id,assigned.Id,decider.ToString("D"),null,"ProcurementManager",authority));
@@ -207,6 +226,23 @@ public sealed class ProcurementApprovalCommandAcknowledgementTests
             var outcome=new PurchaseRequestApprovalOutcome {TenantId="tenant-a",LegalEntityId=company.Id,SubmissionId=pinId,PurchaseRequestId=r.Id,SubmittedBusinessVersion=2,CoreApprovalCaseId=c.Id,CoreDecisionId=decision.Id,DecisionCommandKey=decideKey.ToString("D"),Outcome="Approved",EffectKey="synthetic-recovery-projection",ActorSubjectId=decider.ToString("D"),AppliedAt=decision.DecidedAt};
             var original=JsonSerializer.Serialize(new {caseId=c.Id,requestId=r.Id,submittedVersion=2,requestVersion=operation=="Open"?3:4,caseVersion=operation=="Open"?1:2,state=operation=="Open"?"Pending":"Approved",requestState=operation=="Open"?"Submitted":"Approved",approvalState=operation=="Open"?"Pending":"Approved"});
             var node=JsonNode.Parse(original)!.AsObject();
+            // Exact current producer contract: Open8 fields, Decide11. Assignment
+            // version2 is original; current assignment/case versions are10.
+            if(operation=="Decide")
+            {node["assignmentId"]=assigned.Id;node["assignmentVersion"]=2;node["decisionId"]=decision.Id;}
+            if(fault=="open-decision-field")node["decisionId"]=decision.Id;
+            if(fault=="missing-assignment-id")node.Remove("assignmentId");
+            if(fault=="missing-assignment-version")node.Remove("assignmentVersion");
+            if(fault=="missing-decision-id")node.Remove("decisionId");
+            if(fault=="wrong-assignment-id")node["assignmentId"]=Guid.NewGuid();
+            if(fault=="wrong-decision-id")node["decisionId"]=Guid.NewGuid();
+            if(fault=="zero-assignment-id")node["assignmentId"]=Guid.Empty;
+            if(fault=="zero-decision-id")node["decisionId"]=Guid.Empty;
+            if(fault=="zero-assignment-version")node["assignmentVersion"]=0;
+            if(fault=="wrong-assignment-version-type")node["assignmentVersion"]="2";
+            if(fault=="future-request-version")node["requestVersion"]=999;
+            if(fault=="future-case-version")node["caseVersion"]=999;
+            if(fault=="future-assignment-version")node["assignmentVersion"]=999;
             if(fault=="extra")node["unownedSecret"]="must-not-be-returned";if(fault=="wrong-type")node["requestVersion"]="4";
             if(fault=="zero-version")node["caseVersion"]=0;if(fault=="unknown-state")node["state"]="Invented";
             if(fault=="wrong-result-id")node["requestId"]=Guid.NewGuid();original=node.ToJsonString();
