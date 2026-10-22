@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Net;
@@ -187,6 +188,11 @@ public sealed class ProcurementAdminViewTests
             builder.WebHost.UseTestServer(); builder.Services.AddSingleton(core); builder.Services.AddScoped<ProcurementRequestScope>();
             builder.Services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
             builder.Services.AddDbContext<ProcurementDbContext>(options => options.UseInMemoryDatabase("system-principal-" + account.Id));
+            // The fixture supplies its principal explicitly below. Register only
+            // the normal test scheme plumbing required for real authorization
+            // middleware to return Forbid instead of throwing on denied actions.
+            builder.Services.AddAuthentication("test")
+                .AddScheme<AuthenticationSchemeOptions, ProcurementRequestHttpTests.TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
             var app = builder.Build(); app.UseRouting();
             app.Use(async (http, next) =>
