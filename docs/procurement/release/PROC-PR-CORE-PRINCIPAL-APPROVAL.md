@@ -60,7 +60,7 @@ Retained evidence never confers current permission. New command bridge must reso
 
 ## 15. Assignee strategies
 
-Use existing ProcurementManager strategy and explicit finite authority. One requires exactly one eligible current principal; All retains its existing semantics. Query HR manager only for LineManager, using the retained `RequesterCoreWorkerId` and requiring the current resolved active HR worker to equal that exact pin before reading its actual manager. An absent, inactive or rebound employee mapping makes that strategy unavailable. The old `RequesterWorkerId` snapshot is not a substitute for the retained Core alias. BudgetOwner remains unsupported until an owning contract exists.
+For successor submission3, existing `ProcurementManager` strategy selects current Core principals with the exact approval action and complete finite authority; it does not require the literal `procurement_manager` role label. Custom Core roles are supported only through their explicit current action grants. The legacy worker resolver retains its original strategy semantics. One requires exactly one eligible current principal; All retains its existing semantics. Query HR manager only for LineManager, using the retained `RequesterCoreWorkerId` and requiring the current resolved active HR worker to equal that exact pin before reading its actual manager. An absent, inactive or rebound employee mapping makes that strategy unavailable. The old `RequesterWorkerId` snapshot is not a substitute for the retained Core alias. BudgetOwner remains unsupported until an owning contract exists.
 
 ## 16. Core approval execution
 

@@ -26,7 +26,7 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
             Scope.Set("principal-finance",Company,Checker.ToString("D"),null,null,false,"principal-finance");Scope.AssignPrincipal(Checker);
             Db=new(new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(ProcurementStore).Options,Scope);
             Request=new(){TenantId="principal-finance",LegalEntityId=Company,Status="Draft",Version=1,SourceChannel="ERP",
-                CreatedBy=Maker.ToString("D"),RequesterPrincipalId=Maker};
+                CreatedBy=Maker.ToString("D"),RequesterPrincipalId=Maker,CurrencyCode="ZMW"};
             PurchaseRequestPrincipalIdentity.CaptureNew(Request,Maker.ToString("D"),null);
             Request.Status="Submitted";Request.SubmittedVersion=2;Request.Version=2;
         }
@@ -79,17 +79,17 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
 
     [Theory]
     [InlineData("matching")][InlineData("wrong-department")][InlineData("ambiguous")][InlineData("no-grant")]
-    public async Task Selected_department_and_mixed_case_role_require_exact_finite_authority_without_granting_access(string condition)
+    public async Task Selected_department_and_custom_Core_role_require_current_action_and_exact_finite_authority(string condition)
     {
         await using var f=await Fixture.Start();var reviewer=Guid.NewGuid();var now=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
         f.Core.LocalUsers.Add(new(){Id=reviewer,Email="reviewer@example.test",NormalizedEmail="REVIEWER@EXAMPLE.TEST",
             DisplayName="Synthetic independent authority reviewer",PasswordHash="not-a-login",RolesCsv="authority_reviewer",IsActive=true});
         f.Core.TenantRoleAssignments.AddRange(
-            new TenantRoleAssignment{RoleKey="procurement_manager",RoleName="Synthetic finite manager",PermissionsCsv="procurement-access,procurement-approval-decide",Active=true},
+            new TenantRoleAssignment{RoleKey="custom_request_approver",RoleName="Synthetic custom finite approver",PermissionsCsv="procurement-access,procurement-approval-decide",Active=true},
             new TenantRoleAssignment{RoleKey="authority_reviewer",RoleName="Synthetic grant reviewer",PermissionsCsv="procurement-access,procurement-authority-review",Active=true},
             new TenantRoleAssignment{RoleKey="authority_maker",RoleName="Synthetic grant maker",PermissionsCsv="procurement-access,procurement-authority-configure",Active=true});
         (await f.Core.LocalUsers.SingleAsync(x=>x.Id==f.Maker)).RolesCsv="authority_maker";
-        (await f.Core.LocalUsers.SingleAsync(x=>x.Id==f.Checker)).RolesCsv="PROCUREMENT_MANAGER";
+        (await f.Core.LocalUsers.SingleAsync(x=>x.Id==f.Checker)).RolesCsv="CUSTOM_REQUEST_APPROVER";
         var department=Guid.NewGuid();var otherDepartment=Guid.NewGuid();var branch=Guid.NewGuid();
         f.Core.WorkLocations.Add(new(){Id=branch,Code="BRANCH",Name="Synthetic selected branch",LegalEntityId=f.Company});
         f.Core.OrgUnits.AddRange(new OrgUnit{Id=department,Code="DEPT",Name="Synthetic selected department",LegalEntityId=f.Company,Status="active"},
@@ -162,13 +162,13 @@ public sealed class ProcurementPrincipalFinanceCheckerTests
         else if(condition=="ambiguous")
         {
             var second=Guid.NewGuid();f.Core.LocalUsers.Add(new(){Id=second,Email="second@example.test",NormalizedEmail="SECOND@EXAMPLE.TEST",
-                DisplayName="Synthetic second finite manager",PasswordHash="not-a-login",RolesCsv="procurement_manager",IsActive=true});
+                DisplayName="Synthetic second finite manager",PasswordHash="not-a-login",RolesCsv="custom_request_approver",IsActive=true});
             await f.Core.SaveChangesAsync();await SeedAuthority(second,"FINITE-SECOND");
             Assert.Equal("ApprovalAssigneeAmbiguous",(await Assert.ThrowsAsync<InvalidOperationException>(()=>Resolve())).Message);
         }
         else
         {
-            (await f.Core.TenantRoleAssignments.SingleAsync(x=>x.RoleKey=="procurement_manager")).PermissionsCsv="procurement-access";
+            (await f.Core.TenantRoleAssignments.SingleAsync(x=>x.RoleKey=="custom_request_approver")).PermissionsCsv="procurement-access";
             await f.Core.SaveChangesAsync();
             Assert.Equal("ApprovalAssigneeAuthorityUnavailable",(await Assert.ThrowsAsync<InvalidOperationException>(()=>Resolve())).Message);
         }

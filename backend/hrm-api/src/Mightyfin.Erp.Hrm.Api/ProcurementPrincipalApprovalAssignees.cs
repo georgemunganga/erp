@@ -55,15 +55,12 @@ internal static class ProcurementPrincipalApprovalAssignees
                 var principals=await db.SpendingAuthorityGrants.AsNoTracking().Where(x=>x.TenantId==scope.TenantId && x.LegalEntityId==scope.LegalEntityId
                     && x.Permission==SpendingAuthorityConfiguration.ApprovalPermission && x.Action==SpendingAuthorityConfiguration.ApprovalAction)
                     .Select(x=>x.PrincipalId).Distinct().ToArrayAsync(ct);
-                var ids=principals.Where(ProcurementPrincipalEvidence.Canonical).Select(x=>Guid.ParseExact(x,"D")).Distinct().ToArray();
-                // Role casing is handled by the existing exact Core parser. Current
-                // account/action/branch eligibility is revalidated below by Resolve.
-                var declared=await core.LocalUsers.AsNoTracking().Where(x=>x.TenantId==scope.TenantId && ids.Contains(x.Id))
-                    .Select(x=>new {x.Id,x.RolesCsv}).ToArrayAsync(ct);
-                foreach(var account in declared.Where(x=>LocalIdentityRoutes.ParseRoles(x.RolesCsv)
-                    .Contains("procurement_manager",StringComparer.OrdinalIgnoreCase)))
+                // A role label is not authority. Existing current Core action,
+                // company/branch reach and complete activated finite grants decide
+                // eligibility for the explicit principal successor only.
+                foreach(var principal in principals.Where(ProcurementPrincipalEvidence.Canonical))
                 {
-                    var current=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,account.Id.ToString("D"),ct);
+                    var current=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,principal,ct);
                     if(current is not null)candidates.Add(current);
                 }
             }
