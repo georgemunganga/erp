@@ -111,6 +111,8 @@ internal static partial class PrincipalApprovalHttpVerification
         var openBody=new {expectedRequestVersion=openVersion};
         var opened=await send(client,HttpMethod.Post,path+"/approval-cases",fixture.Maker,openBody,HttpStatusCode.Created,openKey);
         var caseId=opened.GetProperty("caseId").GetGuid();
+        stage("ActualOpenGetAcknowledgementBeforeDecision");
+        await VerifyActualAcknowledgementAsync(fixture,ownerConnection,client,send,requestId,"Open",openKey,fixture.Maker,opened);
         stage("OpenExactReplayConflictAndCurrentGrantDenial");
         await VerifyExactReplayAndConflictAsync(ownerConnection,client,send,path+"/approval-cases",fixture.Maker,
             openKey,openBody,new {expectedRequestVersion=checked(openVersion+1)},opened,HttpStatusCode.Created);
@@ -146,8 +148,12 @@ internal static partial class PrincipalApprovalHttpVerification
             sameKeyBodyOpenResponseExact=true,sameKeyBodyTerminalDecisionResponseExact=true,changedBodiesConflict=true,
             currentOpenGrantRevocationDenied=true,currentDecisionGrantRevocationDenied=true,
             fullFootprintUnchangedEachCommand=true,currentCoreGrantsRestoredExactly=true,
-            commandKeys=new {open=openKey,decide=decideKey},getUuidReceiptRecoveryAvailable=false,
+            commandKeys=new {open=openKey,decide=decideKey},getUuidReceiptRecoveryVerifiedByReplaySlice=false,
             historicalReadsAreCommandAcknowledgements=false,legacyApprovalExecutionVerified=false,externalFinanceAuthority=false};
+
+        stage("ActualHistoricalGetAcknowledgements");
+        await VerifyHistoricalAcknowledgementsAsync(fixture,ownerConnection,client,send,options,requestId,
+            negativeRequestId,openKey,decideKey,opened,decided,result);
 
         stage("IndependentOwnedGraphReload");
         await using var db=fixture.Procurement();await using var workflow=fixture.Approvals();await using var core=fixture.Core();

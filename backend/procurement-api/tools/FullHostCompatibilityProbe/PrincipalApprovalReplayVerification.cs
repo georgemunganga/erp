@@ -20,7 +20,7 @@ internal static partial class PrincipalApprovalHttpVerification
     }
 
     private static async Task VerifyRevokedCurrentGrantReplayAsync(PrincipalApprovalFixture fixture,NpgsqlConnection owner,
-        HttpClient client,PrincipalSend send,Guid actor,string roleKey,string permission,string path,Guid commandKey,object originalBody)
+        HttpClient client,PrincipalSend send,Guid actor,string roleKey,string permission,string path,Guid commandKey,object? originalBody,HttpMethod? method=null)
     {
         var before=await PrincipalFootprintAsync(owner);
         await using var core=fixture.Core();
@@ -40,7 +40,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 &&x.PermissionsCsv==original).ExecuteUpdateAsync(set=>set.SetProperty(x=>x.PermissionsCsv,revoked))==1,
                 "Exact stored Core grant revocation failed.");
             var deniedBaseline=await PrincipalFootprintAsync(owner);
-            await send(client,HttpMethod.Post,path,actor,originalBody,HttpStatusCode.Forbidden,commandKey);
+            await send(client,method??HttpMethod.Post,path,actor,originalBody,HttpStatusCode.Forbidden,commandKey);
             Need(await PrincipalFootprintAsync(owner)==deniedBaseline,"Replay after actual current-grant revocation changed persisted facts.");
         }
         finally
