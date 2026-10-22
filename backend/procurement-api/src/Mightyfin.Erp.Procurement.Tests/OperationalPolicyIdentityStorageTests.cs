@@ -23,6 +23,7 @@ public sealed class OperationalPolicyIdentityStorageTests
     [Theory]
     [InlineData("RECEIVING")]
     [InlineData("INVOICE_MATCHING")]
+    [InlineData("INVOICE_UNIT_REVIEW")]
     public void Typed_conversion_preserves_the_entire_verified_envelope(string key)
     {
         var origin = Origin(key);

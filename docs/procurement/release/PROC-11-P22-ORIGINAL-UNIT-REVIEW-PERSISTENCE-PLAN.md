@@ -78,11 +78,11 @@ Load actual persisted source/pins/outcome/Core graph and matching/review policie
 
 ## 20. Invalidation and retained history
 
-New original/mapping version/digest, document version/hash/availability change, issued source mismatch or changed policy identity must prevent fresh review/consumption. Keep prior immutable sources/outcomes/receipts visible as historical facts under current scope. Returned corrections create a new mapping/review source; do not overwrite old makers, pins or outcomes.
+New original/mapping version/digest, document version/hash/availability change, issued source mismatch or changed policy identity must prevent fresh review/consumption. Keep prior immutable sources/outcomes/receipts visible as historical facts under current scope. Returned corrections create a new mapping/review source; do not overwrite old makers, pins or outcomes. A newer mapping invalidates old review consumption and removes the old pending assignment from the current-mapping task queue before count/page. The prior Core case/source remain historical with an explicit InvoiceMappingSuperseded blocker; do not fabricate a Core cancellation or terminal outcome. No funds/stock are held by this review.
 
 ## 21. Privacy and reads
 
-GET invoice unit-review readiness, own/mapped case detail, assigned tasks and original command recovery expose only current invoice/review fields, exact strings and safe blockers. Filter immutable source+current actor/branch before count/page. Assigned reviewer cannot enumerate other invoices/POs/source allocations or original Finance references. GET never runs compare, creates state or writes audit.
+GET invoice unit-review readiness, own/mapped case detail, assigned tasks and original command recovery expose only current invoice/review fields, exact strings and safe blockers. Filter immutable source+current actor/branch before count/page. Assigned reviewer cannot enumerate other invoices/POs/source allocations or original Finance references. Metadata GET never runs compare, creates state or writes audit. Authorized document download retains the existing Core DownloadAuthorized audit after immutable content-hash verification; this is a document access fact, never unit verification.
 
 ## 22. Finance boundary
 
@@ -111,3 +111,25 @@ A: frozen pure contracts+28section spec and explicit third-key policy integratio
 ## 28. Decision and remaining work
 
 Plan ready for parent technical review, not implementation completion. Need adopt exact baseline once combined source is committed; review required policy lifecycle extension and v2 result/projector API shape before broad code. No user policy defaults requested/invented. New source may be developed default-off while named policies/grants remain unconfigured. Finance/AP completeness is an explicit separate owning-system dependency, not a reason to omit this unit-review workflow.
+
+
+## Isolated source increment A — persistence prerequisite (unexecuted)
+
+Based on published combined `9445dc1`; imported the four reviewed pure contracts/four test files from held `eb9e58a`. Added four immutable review records, literal text source/issued/outcome/command JSON, strict storage rehydration and actual same-transaction Core graph persistence guards. The storage guard requires a current worker and genuine Npgsql enlisted transaction; it does not install a fake InMemory authority provider. Existing coordinator now carries its already-authenticated WorkerId into its private transaction scope rather than dropping it. Source opening verifies actual scoped mapping/current original/PO issued record and Core approval graph; outcomes re-run terminal sealing using retained pins. These are source-only prerequisites: no routes, DI provider, feature activation, policy adoption, P22 migration or test execution yet. Subsequent increments must add third-key governed policy/schema compatibility, actual case routes/purpose documents, typed v2 consumption and real HTTP/PG proof before any completion claim.
+
+
+### Increment A source review corrections (unexecuted)
+
+Distinct review found two missing persistence correlations in `499660f`; corrected source now calls the shared owning-evidence verifier against actual review/matching policies and actual retained operational publication proofs before opening source persistence. Typed strict request/response receipts bind actual Core assignment/action/expected versions/decision/state/outcome. A terminal outcome requires its same-save final-decision receipt; pending votes require no outcome. The guard additionally checks actual Core case/vote row `xmin` against the enlisted transaction ID, so an older orphan vote/case cannot be adopted as a newly committed command merely by rehashing request JSON. This check is deliberately PostgreSQL-specific and must receive actual PG positive/negative proof; pure DTO tests only emulate documented EF version increments and do not claim persistence execution. Original unit or Finance ownership is not inferred from these correlations.
+
+
+### Source review correction: Core insert provenance (unexecuted)
+
+The initial xmin/top-level-transaction approach was retracted before execution: Core columns are quoted, EF savepoints can use subtransaction xmin, and an updated old row is not an INSERT. Source now binds the coordinator's actual shared physical connection/transaction Core context internally before any work, records Added case/vote IDs only following successful EF SavedChanges, and still reloads the persisted Core graph in the same transaction. Pending insert observations clear on failed SaveChanges. This is owning-adapter provenance, not an HTTP-provided completeness flag or a claim of executed PostgreSQL proof. Private actual positive, rollback and old-orphan adoption regressions remain required.
+
+
+### Source checkpoint — composed adapter (unexecuted)
+
+The isolated P22 adapter now composes opening, current assigned queue, decisions, immutable outcomes, actor-owned historical command recovery, purpose-only pinned Core document reads/downloads, and an explicit typed-v2 comparison consumer. New policy/actions are default off with empty bootstrap grants. Exact P22 migration/CHECK manifests intentionally remain uncaptured and readiness false pending central generation and genuine PostgreSQL verification. Existing P21 migration files remain unchanged. The existing Finance history owner remains unavailable.
+
+Actual Core INSERT provenance uses coordinator-owned EF Added/Saved events tied to the exact physical connection and original transaction object, not PostgreSQL xmin. The predicate is still subject to positive Save/savepoint, rollback/rebind and updated-orphan denial verification. No source checkpoint claims compilation, migration, runtime workflow completion or deployment.

@@ -52,6 +52,10 @@ public static class ProcurementHostIntegration
         matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(matchingOptions);
         services.AddScoped<IProcurementInvoiceMatchingSchemaReadiness, ProcurementInvoiceMatchingSchemaReadiness>();
+        var unitReviewOptions = configuration.GetSection("Procurement:InvoiceUnitReview").Get<ProcurementInvoiceUnitReviewOptions>() ?? new();
+        unitReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(unitReviewOptions);
+        services.AddSingleton<IProcurementInvoiceUnitReviewSchemaReadiness, ProcurementInvoiceUnitReviewSchemaReadiness>();
         services.AddScoped<IInvoiceHistoricalExposureOwner, UnavailableInvoiceHistoricalExposureOwner>();
         services.AddScoped<IInvoiceMappingEvidenceReviewer, UnavailableInvoiceMappingEvidenceReviewer>();
         ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
@@ -89,6 +93,7 @@ public static class ProcurementHostIntegration
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapCreditRoutes(app);
         ProcurementInvoiceMatchingRoutes.MapRoutes(app);
+        ProcurementInvoiceUnitReviewRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
         ProcurementOrderExecutionRoutes.MapRoutes(app);
@@ -112,6 +117,7 @@ public static class ProcurementHostIntegration
                 var receivingOptions = services.GetRequiredService<ProcurementReceivingExecutionOptions>();
                 var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
                     && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
+                var originalUnitReview = !pending && await ProcurementInvoiceUnitReviewCapability.ReadyAsync(services, ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
                     ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
@@ -189,7 +195,8 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().ExecutionDatabaseConfigured
                             && await services.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(ct),
-                        invoiceQualifiedClaims = false, // No production original-unit reviewer or authenticated Finance history owner is installed.
+                        invoiceOriginalUnitReview = originalUnitReview, // Configured availability only; per-record policy/actor/document guards still apply.
+                        invoiceQualifiedClaims = false, // No authenticated complete Finance history owner is installed.
                         invoiceValidation = false,
                         financeHandoff = false,
                         supplierPortal = false,

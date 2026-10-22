@@ -45,8 +45,14 @@ public sealed class ProcurementOperationalPolicyIdentitySchemaReadiness : IProcu
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
-            if (!(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
+            if (owner.Database.HasPendingModelChanges()) return false;
+            var pending = (await owner.Database.GetPendingMigrationsAsync(ct)).ToArray();
+            var unitMigration = ProcurementInvoiceUnitReviewSchemaReadiness.MigrationId;
+            // Keep the exact established two-key contract usable before the additive review
+            // migration; no other pending migration/schema broadening is tolerated.
+            if (pending.Any(x => unitMigration.Length == 0 || x != unitMigration)) return false;
+            var applied = (await owner.Database.GetAppliedMigrationsAsync(ct)).ToArray();
+            if (!applied.Contains(MigrationId, StringComparer.Ordinal)) return false;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
             await using var command = connection.CreateCommand();
@@ -72,7 +78,10 @@ public sealed class ProcurementOperationalPolicyIdentitySchemaReadiness : IProcu
             var checks = identity.GetCheckConstraints().ToArray();
             if (checks.Length != 1 || checks[0].Name != "ck_operational_policy_identity") return false;
             command.CommandText = CheckSql(table, checks[0].Name!);
-            if (await command.ExecuteScalarAsync(ct) is not string actual || actual != CheckDefinition) return false;
+            if (await command.ExecuteScalarAsync(ct) is not string actual) return false;
+            var unitInstalled = unitMigration.Length > 0 && applied.Contains(unitMigration, StringComparer.Ordinal);
+            if (unitInstalled ? !ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured || actual != ProcurementInvoiceUnitReviewSchemaReadiness.OperationalCheckDefinition
+                : actual != CheckDefinition) return false;
             var foreigns = identity.GetForeignKeys().ToArray();
             if (foreigns.Length != ForeignNames.Count || !foreigns.Select(x => x.GetConstraintName()!).ToHashSet(StringComparer.Ordinal).SetEquals(ForeignNames)) return false;
             foreach (var foreign in foreigns)

@@ -50,8 +50,9 @@ public static partial class ProcurementInvoiceMatchingRoutes
             var hashes=await DocumentHashes(db,scope,http,id,snapshot,token);
             var reviewContext=new InvoiceMappingReviewContext(scope.TenantId,scope.LegalEntityId,invoice.BranchRef,
                 scope.SubjectId,worker,policy.Id,policySha,now,hashes);
-            var review=await http.RequestServices.GetRequiredService<IInvoiceMappingEvidenceReviewer>().ReviewAsync(mapping,
-                InvoiceMatchDocument.From(invoice,originalLines),reviewContext,token);
+            var review=await ProcurementInvoiceUnitReviewRoutes.RetainedReview(db,cases,scope,http,invoice,originalLines,mapping,reviewContext,token)
+                ?? await http.RequestServices.GetRequiredService<IInvoiceMappingEvidenceReviewer>().ReviewAsync(mapping,
+                    InvoiceMatchDocument.From(invoice,originalLines),reviewContext,token);
             var projected=InvoiceMappingEvidence.Project(mapping,invoice,originalLines,review,reviewContext);
             var ownerContext=new InvoiceExposureReadContext(scope.TenantId,scope.LegalEntityId,invoice.BranchRef,
                 source.Order.Id,source.Order.RevisionId,invoice.SupplierId,invoice.CurrencyCode,policySha,now);
