@@ -43,3 +43,18 @@ The synthetic manifest contains only company/branch/actor/worker/supplier/legacy
 Tool-only authenticated Core presentation endpoints (`auth/me`, branding, legal entities, locations, shell) exist in socket mode only. User, worker, company and assigned branch are read from actual fixture Core records; branding is explicitly synthetic. They are not a production Core/auth implementation. Procurement context, metadata, error, command and read responses always come from the actual normal host routes and PostgreSQL; no Procurement response is mocked. Two synthetic actor IDs are the only accepted outer auth-header values.
 
 No frontend, auth master, public test endpoint or production adapter is introduced. Private fixture shell routes disappear when this standalone tool stops.
+
+
+## Exact request draft companion (source authored; execution pending)
+
+`RequestExactValuesVerification.cs` runs inside the existing guarded private tool, before the other draft scenarios. It uses normal mapped category/item create and independent `Other` activation, then actual catalog price create and independent publication (the existing supplier is explicitly a synthetic approved/orderable owner prerequisite, not a supplier-approval proof). It then proves:
+
+- Maximum `99999999999999.9999` string original quantity/rate transport, additive exact GET companions and unchanged legacy numeric fields.
+- Current-CAS header correction retaining hidden header/line/discount/source fields; a removed line remains with its original quantity and Cancelled quantity/status.
+- Actual PostgreSQL owner reload, old-CAS conflict, foreign-company Core denial and nonowner read denial; full owning-table snapshots unchanged for denials.
+- Raw scale/long-significand/underflow/range lexeme rejections before POST/PUT data or audit writes.
+- Legacy numeric input with two exact eight-place products (sum `0.00000002`), no currency rounding requirement.
+- Selected genuinely published catalog IDs/version and exact price preserved through draft correction/reload.
+- No request submission/approval/budget/policy evaluation and no unrelated Procurement table/history/outbox/audit changes during request operations. Full table snapshots reuse the existing independent `PolicyStoreRows` owner helper; intended request audit rows are excluded only in the success-protected snapshot.
+
+These new scenarios are **not executed yet**. Existing PASS counts describe earlier sources and must not be reused as this candidate's evidence. The complete tool's assertion/request totals are computed at runtime; no fixed new totals are claimed. It retains existing no-production connection/prefix and synthetic outer-auth/owner-connection limitations, other CLI/browser modes and original source/DB preservation behavior.

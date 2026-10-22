@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Globalization;
 using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -500,7 +501,7 @@ public static class ProcurementRequestRoutes
         x.Version, x.RequesterWorkerId, x.Purpose, x.CurrencyCode,
         x.NeededBy, x.BranchRef, x.DepartmentRef, x.CostCenterRef, x.ProjectRef,
         x.DeliveryLocationRef, x.DeliveryAddressText, x.FundingSourceRef, x.NotesToApprover,
-        x.CreatedAt, x.UpdatedAt,
+        x.CreatedAt, x.UpdatedAt, RequestEditVersion = 1,
         Lines = x.Lines.OrderBy(line => line.LineNumber).Select(line => new
         {
             line.Id, line.LineNumber, line.Version, line.Description, line.UnitCode,
@@ -510,6 +511,11 @@ public static class ProcurementRequestRoutes
             line.NeededBy, line.DiscountPercent, line.TaxCodeRef, line.CostCenterRef,
             line.ProjectRef, line.SpecificationDocumentRefId, line.ApprovalStatus,
             line.CancelledQuantity,
+            ExactAmounts = new {
+                RequestedQuantity = line.RequestedQuantity.ToString("0.####", CultureInfo.InvariantCulture),
+                EstimatedUnitPrice = line.EstimatedUnitPrice.ToString("0.####", CultureInfo.InvariantCulture),
+                DiscountPercent = line.DiscountPercent?.ToString("0.####", CultureInfo.InvariantCulture),
+            },
         }),
     };
 
