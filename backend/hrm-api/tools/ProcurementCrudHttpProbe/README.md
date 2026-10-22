@@ -76,3 +76,13 @@ python3 backend/hrm-api/tools/ProcurementCrudHttpProbe/run-private-postgres.py \
 ```
 
 Parent must review source/build provenance and serialize execution after the current SDK/browser gate. Python syntax and `--help` alone were checked; C# compilation, canonical-source CLI/browser counts and this runner's PostgreSQL execution are **pending**. Earlier PASS counts above belong to their stated older sources and do not certify this increment.
+
+## Source candidate — workerless supplier lifecycle
+
+Added source-only on `codex/procurement-system-supplier-proof`, baseline `de4c6b2`. **Not built or run yet.** The isolated coordinator gate must execute this candidate before claiming the proof.
+
+The existing `systemUser` Core account (no employee) creates a separate vendor and real category/contact/qualification through mapped HTTP. A second real Core `systemReviewer` account has no employee and only explicit stored access/vendor read/manage/approve/suspend grants plus company-branch membership. It returns the submission, the maker corrects/resubmits, and the independent reviewer explicitly assesses the synthetic qualification and approves. Actual grant revocation, foreign scope, stale/repeated approval, maker self-approval, active withdrawal and hold self-release must fail without changing supplier/contact/qualification/decision/audit/outbox evidence. Existing third Core actor places the hold; the workerless reviewer independently reactivates. A separate draft is withdrawn through HTTP. Fresh owning queries check final principal attribution, exact versions, qualification review, SupplierDecisions and audits.
+
+No supplier status is owner-seeded for this workflow. The older `approvedSupplierId` remains an explicitly separate synthetic prerequisite; it is not retroactively relabelled as workflow evidence. Qualification evidence is synthetic human assessment, not external compliance or document-service verification. No bank/payment verification is invented. Database connection remains a private owner connection, so finite **application grants** do not prove restricted PostgreSQL role privileges. Outer identity-provider authentication remains synthetic.
+
+Only after all CLI checks finish does the protected browser manifest include `actors.systemReviewer={principalId,workerId:null}` and `browserActorSwitch:"manifest-alias-v1"`. Test-only browser proxy may map the fixed alias to this manifest UUID; it must strip aliases and arbitrary actor headers before injecting the allowlisted actor. This does not extend production authentication. CLI PASS scope now explicitly names this separate supplier lifecycle while still excluding requisition/PO approvals, Finance, stock and full-module completion.
