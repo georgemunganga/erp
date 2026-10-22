@@ -232,11 +232,24 @@ public sealed class OperationalPolicyWorkerIdentityTests
         {
             "worker" => f.Created with { ActorWorkerId = Guid.Empty },
             "stage" => f.Created with { Stage = "Reviewed" },
-            "schema" => f.Created with { SchemaVersion = 2 },
+            "schema" => f.Created with { SchemaVersion = 3 },
             _ => f.Created with { ActionAt = At.AddTicks(1) },
         };
         changed = Rehash(changed);
         Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.Verify(changed));
+    }
+
+    [Fact]
+    public void Individually_valid_identity_two_cannot_reinterpret_retained_identity_one_submission_or_publication()
+    {
+        var f = new Fixture(); f.Submit();
+        var changedSubmission = Rehash(f.Submitted! with { SchemaVersion = 2 });
+        OperationalPolicyWorkerIdentity.Verify(changedSubmission); // Version 2 is an explicit supported contract.
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.VerifySubmission(f.Policy, f.Created, changedSubmission));
+        f.Publish();
+        var changedPublication = Rehash(f.Published! with { SchemaVersion = 2 });
+        OperationalPolicyWorkerIdentity.Verify(changedPublication);
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.VerifyPublication(f.Policy, f.Created, f.Submitted!, changedPublication));
     }
 
     private static OperationalPolicyWorkerIdentityEvidence Rehash(OperationalPolicyWorkerIdentityEvidence row)
