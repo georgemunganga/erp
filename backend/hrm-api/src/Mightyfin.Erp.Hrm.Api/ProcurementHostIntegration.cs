@@ -88,6 +88,7 @@ public static class ProcurementHostIntegration
         ProcurementSpendingAuthorityRoutes.MapRoutes(app);
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
+        ProcurementRecurringPurchaseRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
         ProcurementSourcingExecutionRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
@@ -155,6 +156,7 @@ public static class ProcurementHostIntegration
                         planningDraft = !pending,
                         configurationDraft = !pending,
                         contractDraft = !pending,
+                        recurringPurchaseDraft = !pending,
                         sourcingDraft = !pending,
                         // Separate future governed holds/releases from existing unlinked draft CRUD.
                         sourcingSourceDrafts = !pending

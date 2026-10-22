@@ -4094,6 +4094,7 @@ public sealed partial class ProcurementRequestHttpTests
             ProcurementPlanRoutes.MapRoutes(app);
             ProcurementSourcingDraftRoutes.MapRoutes(app);
             ProcurementContractDraftRoutes.MapRoutes(app);
+            ProcurementRecurringPurchaseRoutes.MapRoutes(app);
             ProcurementInvoiceIntakeRoutes.MapRoutes(app);
             ProcurementInvoiceIntakeRoutes.MapCreditRoutes(app);
             if (documents) ProcurementInvoiceDocumentRoutes.MapRoutes(app);

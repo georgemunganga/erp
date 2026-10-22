@@ -507,6 +507,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigureReceivingExecution(modelBuilder);
         ConfigureInvoiceMatchingExecution(modelBuilder);
+        ConfigureRecurringPurchaseCommitments(modelBuilder);
         ConfigureFinanceCheckerIdentity(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
