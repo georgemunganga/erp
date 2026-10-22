@@ -50,7 +50,8 @@ public sealed class PurchaseRequestPrincipalOwnershipTests
         await using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
         var row = new PurchaseRequest { Number = "PR-OWN", CurrencyCode = "ZMW", Purpose = "Own need",
-            RequesterPrincipalId = field == "principal" ? null : scope.Principal };
+            RequesterPrincipalId = field == "principal" ? null : scope.Principal,
+            RequesterWorkerId = field == "principal" ? Guid.NewGuid() : null };
         db.AddScoped(row); await db.SaveChangesAsync();
         var originalCreator = row.CreatedBy;
         if (field == "principal") row.RequesterPrincipalId = scope.Principal;
@@ -59,6 +60,19 @@ public sealed class PurchaseRequestPrincipalOwnershipTests
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
         Assert.Equal("PurchaseRequestIdentityImmutable", error.Message);
         Assert.NotNull(originalCreator);
+    }
+
+    [Fact]
+    public async Task Missing_both_requester_references_is_rejected_without_records_or_audit()
+    {
+        var scope = new Scope();
+        await using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+        db.AddScoped(new PurchaseRequest { Number = "PR-NO-OWNER", CurrencyCode = "ZMW", Purpose = "Unattributed need" });
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        Assert.Equal("PurchaseRequestIdentityInvalid", error.Message);
+        Assert.Empty(await db.PurchaseRequests.AsNoTracking().ToListAsync());
+        Assert.Empty(await db.AuditEvents.AsNoTracking().ToListAsync());
     }
 
     [Theory]
