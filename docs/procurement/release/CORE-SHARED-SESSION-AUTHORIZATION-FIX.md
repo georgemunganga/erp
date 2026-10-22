@@ -33,3 +33,18 @@ Suggested focused filter: `FullyQualifiedName~SharedSessionAuthorizationHttpTest
 Parent's first minimal Main SDK attempt compiled but all15 mapped cases failed during endpoint startup before any policy assertion: LocalIdentityRoutes.Map also maps user creation, whose IIdentityProvisioningService parameter was not registered. RequestDelegateFactory inferred it as UNKNOWN instead of a service. Evidence remains in `/home/amizo/erp-backups/core-shared-session-tests-20261022_run01`; these are startup failures, not failing authorization outcomes.
 
 A narrow test-only correction registers an explicit throwing/uncalled IIdentityProvisioningService factory so all real route signatures bind correctly. It is not a substitute for authentication, Core identity, user provision or password/session behavior. If any test calls it, the fixture fails immediately. Actual production registers IdentityProvisioningService with its owning external dependencies; injecting that graph is outside this session-only fixture. All other mapped service parameters were source-checked: HrmDbContext, IOutboxWriter (existing fail-if-used boundary), IConfiguration and ILoggerFactory (WebApplication builder services), plus platform HttpContext/CancellationToken. No production policy or handler changes accompany this correction. Rerun and genuine browser/session-row verification remain pending.
+
+## Subsequent actual verification
+
+Minimal Main source `80013e2ef7c48b7ed1911693e9ba1c945faae6ce` passed15 focused mapped HTTP tests, zero failures/skips. Protected run02 result SHA256: `20f679880fdfcaf5ab60d4bfd2a2ea5a5402321a9d41ef3c589bf5265c338df1`. The test-only incremental rebuild reused227 unchanged production binary files; the first fixture-startup failure remains retained. A distinct source review found no blocker for the scoped correction.
+
+The same production correction in private API source `196f5a450be1faa2c856a3ae30bf43ce577bc261` passed actual normal-cookie Playwright draft create/edit/reload/withdraw, ungranted403 and both logout200 checks. Independent read-only PostgreSQL review confirmed exactly two revoked sessions and original row digest multiplicities across88 Procurement tables.
+
+Protected evidence under `/home/amizo/erp-backups/`:
+
+| Receipt | SHA256 |
+| --- | --- |
+| `procurement-p25-cookie-browser-20261022_run04/result.json` | `f8dae09b27359a68a0a57094b2a9d33e00f9833faaff40567ad8a89239656a99` |
+| `procurement-p25-independent-local-cookie-owner-prep-20261022_round04_v3/final-review-receipt.private.json` | `a4f999f1c36abdeef2c69aa11f7c592427052d35fa887d4a0974a5722619db49` |
+
+This is not a claim that minimal Main was deployed, hosted CI passed, or P25/full approval UI/Finance/OIDC is accepted. No production session, role, employee link or data was changed. This Core fix remains independently releasable without P25 migrations or activation.
