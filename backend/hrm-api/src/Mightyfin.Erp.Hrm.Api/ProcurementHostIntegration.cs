@@ -216,8 +216,10 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
     public string SubjectId => resolved ? subjectId : throw new InvalidOperationException("Procurement scope has not been resolved.");
     public Guid? WorkLocationId { get; private set; }
     public Guid? OrgUnitId { get; private set; }
+    public Guid? PrincipalId { get; private set; }
     public Guid? WorkerId { get; private set; }
-    public bool AdminViewOnly { get; private set; }
+    // Retained response compatibility only. System users are never narrowed by HR linkage.
+    public bool AdminViewOnly => false;
     public bool IsConfined { get; private set; }
     public string? CorrelationId { get; private set; }
 
@@ -235,11 +237,12 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
         resolved = true;
     }
 
-    public void AssignAdminViewOnly()
+    public void AssignPrincipal(Guid principalId)
     {
-        if (!resolved || WorkerId.HasValue || AdminViewOnly)
-            throw new InvalidOperationException("Only an unmapped resolved account can have read-only administrator scope.");
-        AdminViewOnly = true;
+        if (!resolved || PrincipalId.HasValue || principalId == Guid.Empty
+            || !Guid.TryParse(subjectId, out var subject) || subject != principalId)
+            throw new InvalidOperationException("A resolved scope may bind only its verified Core principal once.");
+        PrincipalId = principalId;
     }
 
     public void AssignWorker(Guid workerId)
@@ -255,6 +258,8 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
 {
     public async Task InvokeAsync(HttpContext http, ProcurementRequestScope scope, HrmDbContext db)
     {
+        // Preserve constructor compatibility; Core account checks do not have a development exception.
+        _ = environment;
         if (!http.Request.Path.StartsWithSegments("/api/procurement/v1"))
         {
             await next(http);
@@ -272,15 +277,37 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var subject = http.User.FindFirstValue("sub") ?? http.User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrWhiteSpace(tenant) || string.IsNullOrWhiteSpace(subject))
         {
-            await Deny(http, StatusCodes.Status403Forbidden, "A workforce tenant and user are required.");
+            await Deny(http, StatusCodes.Status403Forbidden, "A Core tenant and system user are required.");
             return;
         }
-        if (!Guid.TryParse(subject, out var userId)
-            && !(environment.IsDevelopment() && http.User.Identity.AuthenticationType == "dev"))
+        var principal = await ProcurementCorePrincipals.CurrentAsync(db, tenant, subject, http.RequestAborted);
+        if (principal is null)
         {
-            await Deny(http, StatusCodes.Status403Forbidden, "This account needs a workforce user mapping.");
+            await Deny(http, StatusCodes.Status403Forbidden, "An active Core system user is required.");
             return;
         }
+        var userId = principal.Id;
+        var currentClaims = principal.Claims(tenant);
+        if (!ProcurementPermissions.Allows("procurement-access", currentClaims))
+        {
+            await Deny(http, StatusCodes.Status403Forbidden, "Your current Core permissions do not allow Procurement access.");
+            return;
+        }
+        // Named route authorization has already run. Recheck it against current
+        // stored Core grants, including revocations after session/claim creation.
+        var required = http.GetEndpoint()?.Metadata.GetOrderedMetadata<IAuthorizeData>();
+        if (required is not null && required.Any(x => !string.IsNullOrWhiteSpace(x.Policy)
+            && !ProcurementPermissions.Allows(x.Policy, currentClaims)))
+        {
+            await Deny(http, StatusCodes.Status403Forbidden, "Your current Core permissions do not allow this action.");
+            return;
+        }
+        var remaining = http.User.Claims.Where(x => x.Type is not (ClaimTypes.Role or "role" or "roles")
+            && x.Type != ProcurementPermissions.ConfiguredClaim && x.Type != ProcurementPermissions.ActionClaim
+            && x.Type != ProcurementPermissions.AdminViewOnlyClaim && x.Type != "sub" && x.Type != ClaimTypes.NameIdentifier
+            && x.Type != "tenant");
+        http.User = new ClaimsPrincipal(new ClaimsIdentity(remaining.Concat(currentClaims),
+            http.User.Identity.AuthenticationType, ClaimTypes.Name, ClaimTypes.Role));
 
         var requestedEntityText = http.Request.Headers["X-Shell-Entity"].FirstOrDefault()?.Trim();
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
@@ -354,7 +381,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             else if (!confined)
             {
                 var orgUnit = await db.OrgUnits.AsNoTracking()
-                    .Where(x => x.Id == requestedLocation.Value && !x.IsArchived && x.Status == "active")
+                    .Where(x => x.TenantId == tenant && x.Id == requestedLocation.Value && !x.IsArchived && x.Status == "active")
                     .Join(db.LegalEntities.Where(e => e.TenantId == tenant && !e.IsArchived),
                         x => x.LegalEntityId, e => e.Id, (x, _) => new { x.Id, x.LegalEntityId })
                     .SingleOrDefaultAsync(http.RequestAborted);
@@ -400,55 +427,23 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             return;
         }
 
-        // Without a shell selection, start in the active worker's HRMS company.
-        // The tenant default may belong to a different company and is not an
-        // authorization grant for this employee.
-        var workerHomeEntity = !requestedEntity.HasValue && !entityFromLocation.HasValue
-            ? (await ProcurementWorkforce.ResolveActiveWorkerHome(db, tenant, subject,
-                http.RequestAborted))?.LegalEntityId
-            : null;
-        var selectedEntity = requestedEntity ?? entityFromLocation ?? workerHomeEntity
+        // Existing branch assignments are authoritative. Empty assignments retain
+        // Core's tenant-wide semantics; an employee home is never a company grant.
+        var selectedEntity = requestedEntity ?? entityFromLocation
             ?? legalEntities.OrderBy(x => x.IsDefault ? 0 : 1).ThenBy(x => x.RegisteredName).First().Id;
         if (!legalEntities.Any(x => x.Id == selectedEntity))
         {
             await Deny(http, StatusCodes.Status403Forbidden, "The selected company is unavailable.");
             return;
         }
-        scope.Set(tenant, selectedEntity, subject, effectiveLocation, effectiveOrgUnit, confined,
+        scope.Set(tenant, selectedEntity, principal.Id.ToString("D"), effectiveLocation, effectiveOrgUnit, confined,
             http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier);
-        var isMeta = http.Request.Path.Equals("/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase);
-        if (!isMeta || WorkerPrincipal.FromClaims(http.User.Claims).IsRole("erp_admin"))
-        {
-            var workerId = await ProcurementWorkforce.ResolveActiveWorker(db, scope, http.RequestAborted);
-            if (workerId is null)
-            {
-                var adminView = HttpMethods.IsGet(http.Request.Method)
-                    && await ProcurementWorkforce.IsUnmappedErpAdministrator(db, tenant, subject,
-                        http.User.Claims, http.RequestAborted);
-                if (!adminView)
-                {
-                    await Deny(http, StatusCodes.Status403Forbidden,
-                        "An active employee in this company is required for Procurement business actions.");
-                    return;
-                }
-                scope.AssignAdminViewOnly();
-                // Endpoint action projections re-use IAuthorizationService. Narrow those
-                // checks as well as context permissions; never alter global ERP roles.
-                http.User.AddIdentity(new ClaimsIdentity([new Claim(ProcurementPermissions.AdminViewOnlyClaim, "true")]));
-                // Route authorization has already run. A GET guarded by a command
-                // permission (for example vendor-suspend) must not inherit the
-                // earlier administrator shortcut after this request is narrowed.
-                var required = http.GetEndpoint()?.Metadata.GetOrderedMetadata<IAuthorizeData>();
-                if (required is not null && required.Any(x => !string.IsNullOrWhiteSpace(x.Policy)
-                    && !ProcurementPermissions.IsReadOnlyPolicy(x.Policy)))
-                {
-                    await Deny(http, StatusCodes.Status403Forbidden,
-                        "This Procurement view requires an employee business permission.");
-                    return;
-                }
-            }
-            else scope.AssignWorker(workerId.Value);
-        }
+        scope.AssignPrincipal(principal.Id);
+        // Optional projection for existing worker-pinned operational consumers.
+        // No mapping, inactive HR profile or another-company home never grants or
+        // removes general Core-account access, and no worker identifier is fabricated.
+        var workerId = await ProcurementWorkforce.ResolveActiveWorker(db, scope, http.RequestAborted);
+        if (workerId is Guid worker) scope.AssignWorker(worker);
         await next(http);
     }
 
