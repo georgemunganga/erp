@@ -128,7 +128,7 @@ public static partial class ProcurementPolicyDraftRoutes
             policy = (object)matches[0], evaluatedAt = instant });
     }
 
-    private static async Task<IResult> List(ProcurementDbContext db, string? key,
+    private static async Task<IResult> List(ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, string? key,
         int? page, int? pageSize, HttpContext http, IAuthorizationService authorization, CancellationToken ct)
     {
         var number = Math.Clamp(page ?? 1, 1, 100000);
@@ -147,15 +147,20 @@ public static partial class ProcurementPolicyDraftRoutes
             .ToListAsync(ct);
         var ids = items.Select(x => x.Id).ToArray();
         var canEdit = (await authorization.AuthorizeAsync(http.User, "procurement-configuration-edit")).Succeeded;
-        var eligible = canEdit ? await RetirableDrafts(db).Where(x => ids.Contains(x.Id))
-            .Select(x => x.Id).ToListAsync(ct) : new List<Guid>();
+        var eligible = new List<Guid>();
+        if (canEdit)
+        {
+            var candidates = await RetirableDrafts(db).AsNoTracking().Where(x => ids.Contains(x.Id)).ToArrayAsync(ct);
+            foreach (var candidate in candidates)
+                if (await CanRetirePolicyAuthorHint(candidate, db, organizationDb, scope, http, ct)) eligible.Add(candidate.Id);
+        }
         return Results.Ok(new { items = items.Select(x => new { x.Id, x.PolicyKey, x.PolicyVersionNumber,
             x.State, x.EffectiveFrom, x.EffectiveTo, x.Version, x.CreatedAt,
             draftRetirementVersion = 1, canRetireDraft = eligible.Contains(x.Id) }),
             total, page = number, pageSize = size });
     }
 
-    private static async Task<IResult> Get(Guid id, ProcurementDbContext db, HttpContext http,
+    private static async Task<IResult> Get(Guid id, ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http,
         IAuthorizationService authorization, CancellationToken ct)
     {
         var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
@@ -176,7 +181,8 @@ public static partial class ProcurementPolicyDraftRoutes
                 lastReturnReason = reason.GetString();
         }
         var canRetire = (await authorization.AuthorizeAsync(http.User, "procurement-configuration-edit")).Succeeded
-            && await RetirableDrafts(db).AnyAsync(x => x.Id == id, ct);
+            && await RetirableDrafts(db).AnyAsync(x => x.Id == id, ct)
+            && await CanRetirePolicyAuthorHint(policy, db, organizationDb, scope, http, ct);
         return Results.Ok(View(policy, lastReturnReason, canRetire));
     }
 
@@ -311,8 +317,11 @@ public static partial class ProcurementPolicyDraftRoutes
                 _ = await SourcingOriginalAuthor(db, organizationDb, scope, policy, ct);
             }
             if (IsOperationalIdentityPolicy(policy.PolicyKey))
+            {
+                await RequireOperationalIdentitySchema(http, db, true, ct);
                 _ = await ProcurementOperationalPolicyWorkerIdentity.RequireAuthorAsync(organizationDb, db, scope, policy,
                     ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, ct);
+            }
             if (policy.Version != input.Version)
                 return Problem("version-conflict", "Refresh this policy before retiring it.", 409);
             if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
