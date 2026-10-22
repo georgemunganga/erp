@@ -1,3 +1,4 @@
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -9,7 +10,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
-/// <summary>Mapped HTTP/in-memory evidence; PostgreSQL constraints and migration are separate P23 gates.</summary>
+/// <summary>Mapped HTTP/in-memory evidence; PostgreSQL constraints and migration are separate P24 gates.</summary>
 public sealed partial class ProcurementRequestHttpTests
 {
     private const string RecurringPath = "/api/procurement/v1/recurring-purchases";
@@ -17,7 +18,7 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Recurring_purchase_create_update_close_is_owned_exact_and_never_posts_payable()
     {
-        await using var fixture = await Fixture.Start();
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureRecurringActors();
         var supplier = await fixture.AddInvoiceSupplier();
         object draft(string amount, string title = "Monthly service") => new
         {
@@ -38,9 +39,11 @@ public sealed partial class ProcurementRequestHttpTests
                 role: "procurement_buyer")).StatusCode);
         var ownList = await Send(fixture.Client, HttpMethod.Get, RecurringPath, fixture.Owner, role: "procurement_buyer");
         Assert.Equal(1, (await ownList.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
+        await fixture.SetRecurringEditPermission(false);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await SendJson(fixture.Client, HttpMethod.Put, $"{RecurringPath}/{id}", fixture.Owner,
                 new { version = 1, draft = draft("4") }, "employee")).StatusCode);
+        await fixture.SetRecurringEditPermission(true);
         var savedResponse = await SendJson(fixture.Client, HttpMethod.Put, $"{RecurringPath}/{id}", fixture.Owner,
             new { version = 1, draft = draft("0.0001", "Revised monthly service") }, "procurement_buyer");
         Assert.Equal(HttpStatusCode.OK, savedResponse.StatusCode);
@@ -68,7 +71,7 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Recurring_purchase_unchanged_put_consumes_one_version_and_rejects_replay_without_audit()
     {
-        await using var fixture = await Fixture.Start();
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureRecurringActors();
         var supplier = await fixture.AddInvoiceSupplier();
         var draft = new { supplierId = supplier, supplierContractId = (Guid?)null,
             title = "Unchanged monthly service", frequency = "Monthly", firstCycleOn = "2026-11-01",
@@ -136,7 +139,7 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Recurring_purchase_missing_draft_is_validation_error_without_mutation()
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureRecurringActors(); var supplier = await fixture.AddInvoiceSupplier();
         var created = await SendJson(fixture.Client, HttpMethod.Post, RecurringPath, fixture.Owner,
             new { supplierId = supplier, title = "Weekly service", frequency = "Weekly", firstCycleOn = "2026-11-01",
                 nextCycleOn = "2026-11-01", expectedAmount = "10.0001", currencyCode = "ZMW" }, "procurement_buyer");
@@ -154,9 +157,9 @@ public sealed partial class ProcurementRequestHttpTests
     }
 
     [Fact]
-    public async Task Recurring_purchase_selected_branch_company_worker_and_inactive_actor_fail_closed()
+    public async Task Recurring_purchase_selected_branch_company_and_inactive_Core_actor_fail_closed()
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureRecurringActors(); var supplier = await fixture.AddInvoiceSupplier();
         var originalBranch = await fixture.SourcingBranch();
         var created = await SendJson(fixture.Client, HttpMethod.Post, RecurringPath, fixture.Owner,
             new { supplierId = supplier, title = "Monthly service", frequency = "Monthly", firstCycleOn = "2026-11-01",
@@ -184,10 +187,7 @@ public sealed partial class ProcurementRequestHttpTests
                 role: "procurement_buyer")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await fixture.RecurringGetAtBranch(id, originalBranch)).StatusCode);
-        await fixture.SetFinanceWorker(fixture.Owner, fixture.Other);
-        var rebound = await Send(fixture.Client, HttpMethod.Get, $"{RecurringPath}/{id}", fixture.Owner, role: "procurement_buyer");
-        Assert.NotEqual(HttpStatusCode.OK, rebound.StatusCode);
-        await fixture.SetFinanceWorker(fixture.Owner, fixture.Owner, active: false);
+        await fixture.DeactivatePrincipalAccount(fixture.Owner);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await Send(fixture.Client, HttpMethod.Get, $"{RecurringPath}/{id}", fixture.Owner, role: "procurement_buyer")).StatusCode);
         var stored = await fixture.RecurringStored(id);
@@ -199,7 +199,7 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Recurring_purchase_closed_history_remains_readable_and_currently_scoped()
     {
-        await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureRecurringActors(); var supplier = await fixture.AddInvoiceSupplier();
         var created = await SendJson(fixture.Client, HttpMethod.Post, RecurringPath, fixture.Owner,
             new { supplierId = supplier, title = "Annual service", frequency = "Yearly", firstCycleOn = "2026-11-01",
                 nextCycleOn = "2026-11-01", expectedAmount = "50", currencyCode = "ZMW" }, "procurement_buyer");
@@ -218,7 +218,7 @@ public sealed partial class ProcurementRequestHttpTests
     [Fact]
     public async Task Recurring_contract_reference_rejects_supplier_reparenting_even_after_plan_closure()
     {
-        await using var fixture = await Fixture.Start();
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureRecurringActors();
         var supplierA = await fixture.AddInvoiceSupplier();
         var supplierB = await fixture.AddInvoiceSupplier();
         var contractDraft = new ContractDraftInput(supplierA, "Annual supplies", "Framework", "ZMW",
@@ -299,6 +299,38 @@ public sealed partial class ProcurementRequestHttpTests
 
     private sealed partial class Fixture
     {
+        private const string RecurringActions = "procurement-access,procurement-recurring-read,procurement-recurring-create,procurement-recurring-edit,procurement-contract-read,procurement-contract-create,procurement-contract-edit";
+        public async Task ConfigureRecurringActors(bool withoutEmployee = false)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext>();
+            foreach (var account in await core.LocalUsers.Where(x => x.Id == Owner || x.Id == Other).ToArrayAsync())
+            {
+                account.RolesCsv = "procurement_buyer";
+                if (withoutEmployee) account.WorkerId = null;
+            }
+            var role = await core.TenantRoleAssignments.SingleOrDefaultAsync(x => x.RoleKey == "procurement_buyer");
+            if (role is null)
+            {
+                role = new TenantRoleAssignment { RoleKey = "procurement_buyer", RoleName = "Synthetic recurring planner", Active = true };
+                core.TenantRoleAssignments.Add(role);
+            }
+            role.Active = true; role.PermissionsCsv = RecurringActions;
+            var branch = await core.WorkLocations.Where(x => x.LegalEntityId == company).Select(x => x.Id).SingleAsync();
+            foreach (var actor in new[] { Owner, Other })
+                if (!await core.UserBranchAssignments.AnyAsync(x => x.UserId == actor && x.LocationId == branch && !x.IsArchived))
+                    core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = actor, LocationId = branch });
+            await core.SaveChangesAsync();
+        }
+        public async Task SetRecurringEditPermission(bool allowed)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext>();
+            (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_buyer")).PermissionsCsv = allowed
+                ? RecurringActions : RecurringActions.Replace(",procurement-recurring-edit", "", StringComparison.Ordinal);
+            await core.SaveChangesAsync();
+        }
+
         public async Task<(int Plans, int Audits, int Outbox)> RecurringAreaFootprint()
         {
             using var services = app.Services.CreateScope();
@@ -313,7 +345,9 @@ public sealed partial class ProcurementRequestHttpTests
             using var services = app.Services.CreateScope();
             var core = services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext>();
             var branch = new WorkLocation { Code = "RPC-OTHER", Name = "Other recurring branch", LegalEntityId = company };
-            core.WorkLocations.Add(branch); await core.SaveChangesAsync(); return branch.Id;
+            core.WorkLocations.Add(branch);
+            core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = Owner, LocationId = branch.Id });
+            await core.SaveChangesAsync(); return branch.Id;
         }
         public Task<HttpResponseMessage> RecurringGetAtBranch(Guid id, Guid branch)
         {
@@ -327,11 +361,13 @@ public sealed partial class ProcurementRequestHttpTests
         {
             using var services = app.Services.CreateScope();
             var core = services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext>();
-            core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment
-                { UserId = Owner, LocationId = branch });
+            foreach (var assignment in await core.UserBranchAssignments.Where(x => x.UserId == Owner && !x.IsArchived && x.LocationId != branch).ToArrayAsync())
+                assignment.IsArchived = true;
+            if (!await core.UserBranchAssignments.AnyAsync(x => x.UserId == Owner && x.LocationId == branch && !x.IsArchived))
+                core.UserBranchAssignments.Add(new Mightyfin.Erp.Hrm.Application.HrUserBranchAssignment { UserId = Owner, LocationId = branch });
             await core.SaveChangesAsync();
         }
-        public async Task<(Guid OwnerWorkerId, Guid? WorkLocationId, string Status)> RecurringStored(Guid id)
+        public async Task<(Guid? OwnerWorkerId, Guid? WorkLocationId, string Status)> RecurringStored(Guid id)
         {
             using var services = app.Services.CreateScope();
             services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Hrm.Api.ProcurementRequestScope>()

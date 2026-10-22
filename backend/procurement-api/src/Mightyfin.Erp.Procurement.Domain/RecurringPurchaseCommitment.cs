@@ -7,7 +7,8 @@ public sealed class RecurringPurchaseCommitment : ProcurementRecord
     public string Title { get; set; } = null!;
     public Guid SupplierId { get; set; }
     public Guid? SupplierContractId { get; set; }
-    public Guid OwnerWorkerId { get; set; }
+    public Guid OwnerPrincipalId { get; set; }
+    public Guid? OwnerWorkerId { get; set; }
     public string OwnerSubjectId { get; set; } = null!;
     public Guid? WorkLocationId { get; set; }
     public string Frequency { get; set; } = null!;

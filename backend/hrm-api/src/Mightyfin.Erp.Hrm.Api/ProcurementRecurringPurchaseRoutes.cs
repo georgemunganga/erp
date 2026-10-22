@@ -43,8 +43,8 @@ public static class ProcurementRecurringPurchaseRoutes
     private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        if (scope.AdminViewOnly || !scope.WorkerId.HasValue)
-            return Problem("worker-required", "An active employee account is required.", 403);
+        if (scope.PrincipalId is null || scope.PrincipalId == Guid.Empty)
+            return Problem("account-required", "An active system account is required.", 403);
         if (scope.OrgUnitId.HasValue || scope.IsConfined && !scope.WorkLocationId.HasValue)
             return Problem("scope-unavailable", "Choose an authorized branch before creating a recurring purchase.", 403);
         var parsed = ProcurementOriginalValueInput.Read<RecurringPurchaseCommitmentInput>(body);
@@ -63,7 +63,7 @@ public static class ProcurementRecurringPurchaseRoutes
             var record = new RecurringPurchaseCommitment
             {
                 Number = "RPC-" + Guid.CreateVersion7().ToString("N"),
-                OwnerWorkerId = scope.WorkerId.Value, OwnerSubjectId = scope.SubjectId,
+                OwnerPrincipalId = scope.PrincipalId.Value, OwnerWorkerId = scope.WorkerId, OwnerSubjectId = scope.SubjectId,
                 WorkLocationId = scope.WorkLocationId,
             };
             Assign(record, input);
@@ -81,8 +81,8 @@ public static class ProcurementRecurringPurchaseRoutes
     private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        if (scope.AdminViewOnly || !scope.WorkerId.HasValue)
-            return Problem("worker-required", "An active employee account is required.", 403);
+        if (scope.PrincipalId is null || scope.PrincipalId == Guid.Empty)
+            return Problem("account-required", "An active system account is required.", 403);
         var parsed = ProcurementOriginalValueInput.Read<VersionedRecurringPurchase>(body);
         if (parsed.Error is not null) return parsed.Error;
         var input = parsed.Value!;
@@ -123,8 +123,8 @@ public static class ProcurementRecurringPurchaseRoutes
     private static async Task<IResult> Close(Guid id, CloseRecurringPurchase input, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        if (scope.AdminViewOnly || !scope.WorkerId.HasValue)
-            return Problem("worker-required", "An active employee account is required.", 403);
+        if (scope.PrincipalId is null || scope.PrincipalId == Guid.Empty)
+            return Problem("account-required", "An active system account is required.", 403);
         var record = await Own(db, scope).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (record is null) return Problem("not-found", "Recurring purchase not found.", 404);
         if (record.Status != "Draft") return Problem("record-closed", "This recurring purchase is already closed.", 409);
@@ -135,6 +135,8 @@ public static class ProcurementRecurringPurchaseRoutes
         record.Status = "Closed";
         record.ClosedAt = DateTimeOffset.UtcNow;
         record.ClosedReason = input.Reason.Trim();
+        record.Version = checked(record.Version + 1);
+        db.Entry(record).Property(x => x.Version).IsModified = true;
         ProcurementDraftAudit.Add(db, scope, nameof(RecurringPurchaseCommitment), record.Id,
             "PlanClosed", before, Detail(record));
         try { await db.SaveChangesAsync(ct); }
@@ -144,12 +146,11 @@ public static class ProcurementRecurringPurchaseRoutes
 
     private static IQueryable<RecurringPurchaseCommitment> Own(ProcurementDbContext db, ProcurementRequestScope scope)
     {
-        if (!scope.WorkerId.HasValue || scope.OrgUnitId.HasValue
+        if (scope.PrincipalId is not { } principalId || principalId == Guid.Empty || scope.OrgUnitId.HasValue
             || scope.IsConfined && !scope.WorkLocationId.HasValue)
             return db.RecurringPurchaseCommitments.Where(x => false);
-        var workerId = scope.WorkerId.Value;
-        var own = db.RecurringPurchaseCommitments.Where(x => x.OwnerSubjectId == scope.SubjectId
-            && x.OwnerWorkerId == workerId);
+        var own = db.RecurringPurchaseCommitments.Where(x => x.OwnerPrincipalId == principalId
+            && x.OwnerSubjectId == scope.SubjectId);
         if (scope.WorkLocationId.HasValue) own = own.Where(x => x.WorkLocationId == scope.WorkLocationId);
         return own;
     }
@@ -179,7 +180,7 @@ public static class ProcurementRecurringPurchaseRoutes
 
     private static object Detail(RecurringPurchaseCommitment x) => new
     {
-        x.Id, x.Number, x.Title, x.SupplierId, x.SupplierContractId, x.OwnerWorkerId,
+        x.Id, x.Number, x.Title, x.SupplierId, x.SupplierContractId, x.OwnerPrincipalId, x.OwnerWorkerId,
         x.WorkLocationId, x.Frequency, x.FirstCycleOn, x.LastCycleOn, x.NextCycleOn,
         x.ExpectedAmount, exactExpectedAmount = x.ExpectedAmount.ToString(CultureInfo.InvariantCulture),
         x.CurrencyCode, x.Status, x.ClosedAt, x.ClosedReason,

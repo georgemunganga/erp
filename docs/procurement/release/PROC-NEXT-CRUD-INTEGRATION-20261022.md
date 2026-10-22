@@ -1,5 +1,11 @@
 # Next Procurement CRUD integration: source preparation
 
+**Ordering correction, 22 October 2026:** The original P22/P23 numbering below records the earlier
+source preparation. P22 now belongs to genuinely generated Core principal ownership; original-unit
+review follows as P23, recurring planning as P24. Current recurring principal contract and gates are
+in [PROC-07A P24 plan](PROC-07A-P24-CORE-PRINCIPAL-PLAN.md). Do not generate either future delta from
+a combined model before its prerequisite migration has been separately generated and reviewed.
+
 Status: **source integration only; not ready for deployment**. No SDK, browser, database,
 production or migration-generation job was run for this integration. This document does not
 extend the verification claims of the separately frozen P21 release candidate.

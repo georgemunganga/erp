@@ -12,6 +12,7 @@ internal static partial class Program
     // This source increment deliberately does not bypass the canonical schema gate.
     static async Task RecurringPurchases(HttpClient client)
     {
+        await RecurringSystemUserPurchases(client);
         stage = "recurring-real-http-crud";
         object Contract(Guid supplier, string title) => new {
             supplierId = supplier, title, contractType = "Services", currencyCode = "ZMW",
@@ -36,6 +37,7 @@ internal static partial class Program
         var id = Id(saved); var path = "/recurring-purchases/" + id;
         Check(saved.GetProperty("currencyCode").GetString() == "ZMW"
             && saved.GetProperty("exactExpectedAmount").GetString() == "12345678901234.5678"
+            && saved.GetProperty("ownerPrincipalId").GetGuid() == Actor
             && saved.GetProperty("ownerWorkerId").GetGuid() == Worker,
             "Recurring create lost Core currency, canonical owner or exact amount.");
         Check(Id(await Get(client, path)) == id, "Recurring plan did not survive HTTP reload.");
@@ -97,7 +99,7 @@ internal static partial class Program
         {
             var row = await proof.RecurringPurchaseCommitments.AsNoTracking().SingleAsync(x => x.Id == id);
             Check(row.Status == "Closed" && row.ExpectedAmount == 0.0001m && row.SupplierContractId == contractId
-                && row.SupplierId == approvedSupplier && row.OwnerWorkerId == Worker, "Independent owning-store recurring reload mismatch.");
+                && row.SupplierId == approvedSupplier && row.OwnerPrincipalId == Actor && row.OwnerWorkerId == Worker, "Independent owning-store recurring reload mismatch.");
             foreach (var action in new[] { "PlanCreated", "PlanUpdated", "PlanClosed" })
                 Check(await proof.AuditEvents.CountAsync(x => x.RecordId == id && x.Action == action) == (action == "PlanUpdated" ? 2 : 1),
                     "Recurring lifecycle audit missing or duplicated.");
@@ -116,6 +118,60 @@ internal static partial class Program
         }
         await RecurringContractRace(client, approvedSupplier, alternateSupplier, Contract, Plan);
         Check(protectedBefore == await CreditProtectedState(), "Concurrent recurring planning changed invoices, Finance, receiving or outbox records.");
+    }
+
+    static async Task RecurringSystemUserPurchases(HttpClient client)
+    {
+        stage = "recurring-system-user-without-employee-real-HTTP";
+        var protectedBefore = await CreditProtectedState();
+        object Plan(string title = "System user recurring plan") => new {
+            supplierId = approvedSupplier, title, frequency = "Monthly", firstCycleOn = "2026-10-22",
+            nextCycleOn = "2026-11-22", expectedAmount = "10.0001",
+            ownerPrincipalId = Actor, ownerWorkerId = Worker // Ignored input cannot substitute the actual owner.
+        };
+        var saved = await SendSystem(HttpMethod.Post, "/recurring-purchases", Plan(), HttpStatusCode.Created);
+        var id = Id(saved); var path = "/recurring-purchases/" + id;
+        Check(saved.GetProperty("ownerPrincipalId").GetGuid() == SystemActor
+            && saved.GetProperty("ownerWorkerId").ValueKind == JsonValueKind.Null
+            && saved.GetProperty("currencyCode").GetString() == "ZMW", "Recurring system-user creation fabricated an employee, owner or currency.");
+        Check(Id(await SendSystem(HttpMethod.Get, path)) == id, "System-user recurring plan did not survive HTTP reload.");
+        saved = await SendSystem(HttpMethod.Put, path, new { version = 1, draft = Plan() });
+        Check(Version(saved) == 2, "System-user unchanged recurring PUT did not consume exactly one version.");
+        var before = await RecurringFootprint();
+        await SendSystem(HttpMethod.Put, path, new { version = 1, draft = Plan("Stale replacement") }, HttpStatusCode.Conflict);
+        await Send(client, HttpMethod.Get, path, null, HttpStatusCode.NotFound);
+        await SendSystem(HttpMethod.Get, path, null, HttpStatusCode.Forbidden, foreign: true);
+        Check(before == await RecurringFootprint(), "Denied system-user recurring access changed retained records or audit.");
+        saved = await SendSystem(HttpMethod.Put, path, new { version = 2, draft = Plan("Updated system-user recurring plan") });
+        Check(Version(saved) == 3, "System-user recurring correction lost exact CAS successor.");
+        saved = await SendSystem(HttpMethod.Post, path + "/close", new { version = 3, reason = "System user planning completed" });
+        var read = await SendSystem(HttpMethod.Get, path);
+        Check(Version(saved) == 4 && read.GetProperty("status").GetString() == "Closed"
+            && read.GetProperty("ownerPrincipalId").GetGuid() == SystemActor
+            && read.GetProperty("ownerWorkerId").ValueKind == JsonValueKind.Null,
+            "System-user recurring close/reload lost its real owner or state.");
+        await using (var owner = Db())
+        {
+            var row = await owner.RecurringPurchaseCommitments.AsNoTracking().SingleAsync(x => x.Id == id);
+            Check(row.OwnerPrincipalId == SystemActor && row.OwnerWorkerId is null && row.OwnerSubjectId == SystemActor.ToString("D")
+                && row.CreatedBy == SystemActor.ToString("D") && row.Version == 4 && row.Status == "Closed",
+                "Independent recurring store did not preserve the actual workerless Core principal.");
+        }
+        Check(protectedBefore == await CreditProtectedState(), "System-user recurring planning changed downstream owners.");
+
+        async Task<JsonElement> SendSystem(HttpMethod method, string endpoint, object? body = null,
+            HttpStatusCode expected = HttpStatusCode.OK, bool foreign = false)
+        {
+            using var request = new HttpRequestMessage(method, Root + endpoint);
+            request.Headers.Add("X-Crud-Actor", SystemActor.ToString("D"));
+            request.Headers.Add("X-Shell-Entity", (foreign ? ForeignCompany : Company).ToString("D"));
+            request.Headers.Add("X-Shell-Location", Branch.ToString("D"));
+            if (body is not null) request.Content = JsonContent.Create(body);
+            using var response = await client.SendAsync(request); Interlocked.Increment(ref requests);
+            var json = await response.Content.ReadAsStringAsync();
+            Check(response.StatusCode == expected, $"Recurring system-user expected {(int)expected}, got {(int)response.StatusCode}; code={SafeCode(json)}");
+            return string.IsNullOrWhiteSpace(json) ? default : JsonDocument.Parse(json).RootElement.Clone();
+        }
     }
 
     static async Task<string> RecurringFootprint()
