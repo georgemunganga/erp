@@ -171,8 +171,99 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(2, history.GetProperty("version").GetInt64());
     }
 
+    [Fact]
+    public async Task Recurring_contract_reference_rejects_supplier_reparenting_even_after_plan_closure()
+    {
+        await using var fixture = await Fixture.Start();
+        var supplierA = await fixture.AddInvoiceSupplier();
+        var supplierB = await fixture.AddInvoiceSupplier();
+        var contractDraft = new ContractDraftInput(supplierA, "Annual supplies", "Framework", "ZMW",
+            1000m, new DateOnly(2026, 11, 1), new DateOnly(2027, 10, 31), null);
+        const string contracts = "/api/procurement/v1/contracts";
+        var createdContract = await SendJson(fixture.Client, HttpMethod.Post, contracts, fixture.Owner,
+            contractDraft, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, createdContract.StatusCode);
+        var contract = await createdContract.Content.ReadFromJsonAsync<JsonElement>();
+        var contractId = contract.GetProperty("id").GetGuid();
+        var contractPath = $"{contracts}/{contractId}";
+        object plan(Guid supplier, string amount = "10.0001") => new
+        {
+            supplierId = supplier, supplierContractId = contractId, title = "Monthly supplies", frequency = "Monthly",
+            firstCycleOn = "2026-11-01", nextCycleOn = "2026-11-01", expectedAmount = amount, currencyCode = "ZMW"
+        };
+        var untouched = await fixture.RecurringAreaFootprint();
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, RecurringPath, fixture.Owner,
+                plan(supplierB), "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Post, RecurringPath, fixture.Other,
+                plan(supplierA), "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await SendJson(fixture.Client, HttpMethod.Post, RecurringPath, fixture.Owner,
+                plan(supplierA), "procurement_buyer", company: fixture.OtherCompany)).StatusCode);
+        var rejectedPrecision = await SendJson(fixture.Client, HttpMethod.Post, RecurringPath, fixture.Owner,
+            plan(supplierA, "0.00001"), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, rejectedPrecision.StatusCode);
+        var numericBody = JsonSerializer.Serialize(plan(supplierA))
+            .Replace("\"expectedAmount\":\"10.0001\"", "\"expectedAmount\":0.00001", StringComparison.Ordinal);
+        Assert.Contains("\"expectedAmount\":0.00001", numericBody, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await RawOriginalValue(fixture, RecurringPath, numericBody, "procurement_buyer")).StatusCode);
+        Assert.Equal(untouched, await fixture.RecurringAreaFootprint());
+
+        var createdPlan = await SendJson(fixture.Client, HttpMethod.Post, RecurringPath, fixture.Owner,
+            plan(supplierA), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, createdPlan.StatusCode);
+        var recurring = await createdPlan.Content.ReadFromJsonAsync<JsonElement>();
+        var recurringId = recurring.GetProperty("id").GetGuid();
+        var footprint = await fixture.RecurringFootprint(recurringId);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await SendJson(fixture.Client, HttpMethod.Put, $"{RecurringPath}/{recurringId}", fixture.Owner,
+                new { version = 1, draft = plan(supplierB) }, "procurement_buyer")).StatusCode);
+        Assert.Equal(footprint, await fixture.RecurringFootprint(recurringId));
+        var reparent = new ProcurementContractDraftRoutes.VersionedContractDraft(
+            contract.GetProperty("version").GetInt64(), contractDraft with { SupplierId = supplierB });
+        var blocked = await SendJson(fixture.Client, HttpMethod.Put, contractPath, fixture.Owner,
+            reparent, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+        Assert.Equal("contract-referenced", (await blocked.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(0, await fixture.RequestAuditCount(contractId, "DraftUpdated"));
+        Assert.Equal(footprint, await fixture.RecurringFootprint(recurringId));
+        Assert.Equal(supplierA, (await (await Send(fixture.Client, HttpMethod.Get, contractPath, fixture.Owner,
+            role: "procurement_buyer")).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("supplierId").GetGuid());
+
+        var closed = await SendJson(fixture.Client, HttpMethod.Post, $"{RecurringPath}/{recurringId}/close",
+            fixture.Owner, new { version = 1, reason = "Schedule ended" }, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+        blocked = await SendJson(fixture.Client, HttpMethod.Put, contractPath, fixture.Owner,
+            reparent, "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+        Assert.Equal(0, await fixture.RequestAuditCount(contractId, "DraftUpdated"));
+        var savedPlan = await Send(fixture.Client, HttpMethod.Get, $"{RecurringPath}/{recurringId}",
+            fixture.Owner, role: "procurement_buyer");
+        var retained = await savedPlan.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(supplierA, retained.GetProperty("supplierId").GetGuid());
+        Assert.Equal(contractId, retained.GetProperty("supplierContractId").GetGuid());
+        Assert.Equal("Closed", retained.GetProperty("status").GetString());
+        var safeEdit = await SendJson(fixture.Client, HttpMethod.Put, contractPath, fixture.Owner,
+            new ProcurementContractDraftRoutes.VersionedContractDraft(contract.GetProperty("version").GetInt64(),
+                contractDraft with { Title = "Annual supplies revised" }), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, safeEdit.StatusCode);
+        Assert.Equal(supplierA, (await safeEdit.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("supplierId").GetGuid());
+    }
+
     private sealed partial class Fixture
     {
+        public async Task<(int Plans, int Audits, int Outbox)> RecurringAreaFootprint()
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Hrm.Api.ProcurementRequestScope>()
+                .Set("tenant-a", company, Owner.ToString(), null, null, false, "recurring-area-fixture");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            return (await db.RecurringPurchaseCommitments.CountAsync(), await db.AuditEvents.CountAsync(),
+                await db.OutboxEvents.CountAsync());
+        }
         public async Task<Guid> AddRecurringBranch()
         {
             using var services = app.Services.CreateScope();

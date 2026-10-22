@@ -44,7 +44,7 @@ Actions: `procurement-recurring-read/create/edit`. Reads and writes are restrict
 
 ## 11. Business Rules
 
-Frequency is Weekly, Monthly, Quarterly or Yearly. First cycle ≤ next cycle ≤ optional last cycle. Amount is positive `numeric(18,4)` and cannot be rounded from a browser number. Supplier must be own draft or approved active and orderable. Optional contract must be the owner's non-cancelled record for the same supplier. Link does not authorize contract purchasing.
+Frequency is Weekly, Monthly, Quarterly or Yearly. First cycle ≤ next cycle ≤ optional last cycle. Amount is positive `numeric(18,4)` and cannot be rounded from a browser number. Supplier must be own draft or approved active and orderable. Optional contract must be the owner's non-cancelled record for the same supplier. Once any recurring plan references a contract, including a closed plan, the contract draft cannot change supplier. Link does not authorize contract purchasing.
 
 ## 12. Data Fields and Ownership
 
@@ -68,11 +68,11 @@ No attachments in this milestone. Link relevant evidence through the separately 
 
 ## 17. Exceptions and Edge Cases
 
-Unavailable supplier, mismatched contract, invalid or missing draft, date or precision, closed record, stale version, lost network acknowledgement, worker rebinding or offboarding, company/branch switch, and cross-owner URL access all fail closed.
+Unavailable supplier, mismatched contract, attempted supplier reparenting of a referenced contract, invalid or missing draft, date or precision, closed record, stale version, lost network acknowledgement, worker rebinding or offboarding, company/branch switch, and cross-owner URL access all fail closed.
 
 ## 18. Integrations, APIs, Events and Sandbox
 
-`GET/POST /api/procurement/v1/recurring-purchases`, `GET/PUT /{id}`, `POST /{id}/close`. Consume Core scope/currency and Procurement supplier/contract references. No financial business event or AP command is emitted. Sandbox mapped route tests exercise own scope and version conflicts; PostgreSQL migration/constraint tests remain a P23 gate.
+`GET/POST /api/procurement/v1/recurring-purchases`, `GET/PUT /{id}`, `POST /{id}/close`. Consume Core scope/currency and Procurement supplier/contract references. No financial business event or AP command is emitted. Recurring create/update and contract draft update use serializable relational transactions for the supplier/reference invariant; a PostgreSQL serialization conflict returns 409. Mapped HTTP tests cover the sequential contract reparenting failure. PostgreSQL migration, relational concurrency and constraint tests remain a P23 gate after P22.
 
 ## 19. Audit, Security and Privacy
 

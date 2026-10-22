@@ -53,22 +53,29 @@ public static class ProcurementRecurringPurchaseRoutes
             ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : parsed.Value.CurrencyCode };
         var issue = RecurringPurchaseCommitmentRules.Validate(input);
         if (issue is not null) return Problem("validation-failed", issue, 422);
-        if (!await SupplierAvailable(db, input.SupplierId, scope.SubjectId, ct))
-            return Problem("supplier-unavailable", "Choose an available supplier in this company.", 422);
-        if (!await ContractAvailable(db, input.SupplierContractId, input.SupplierId, scope.SubjectId, ct))
-            return Problem("contract-unavailable", "Choose a contract for this supplier and company.", 422);
-        var record = new RecurringPurchaseCommitment
+        try
         {
-            Number = "RPC-" + Guid.CreateVersion7().ToString("N"),
-            OwnerWorkerId = scope.WorkerId.Value, OwnerSubjectId = scope.SubjectId,
-            WorkLocationId = scope.WorkLocationId,
-        };
-        Assign(record, input);
-        db.AddScoped(record);
-        ProcurementDraftAudit.Add(db, scope, nameof(RecurringPurchaseCommitment), record.Id,
-            "PlanCreated", null, Detail(record));
-        await db.SaveChangesAsync(ct);
-        return Results.Created($"/api/procurement/v1/recurring-purchases/{record.Id}", Detail(record));
+            await using var transaction = await ProcurementRecurringContractTransactions.BeginAsync(db, ct);
+            if (!await SupplierAvailable(db, input.SupplierId, scope.SubjectId, ct))
+                return Problem("supplier-unavailable", "Choose an available supplier in this company.", 422);
+            if (!await ContractAvailable(db, input.SupplierContractId, input.SupplierId, scope.SubjectId, ct))
+                return Problem("contract-unavailable", "Choose a contract for this supplier and company.", 422);
+            var record = new RecurringPurchaseCommitment
+            {
+                Number = "RPC-" + Guid.CreateVersion7().ToString("N"),
+                OwnerWorkerId = scope.WorkerId.Value, OwnerSubjectId = scope.SubjectId,
+                WorkLocationId = scope.WorkLocationId,
+            };
+            Assign(record, input);
+            db.AddScoped(record);
+            ProcurementDraftAudit.Add(db, scope, nameof(RecurringPurchaseCommitment), record.Id,
+                "PlanCreated", null, Detail(record));
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return Results.Created($"/api/procurement/v1/recurring-purchases/{record.Id}", Detail(record));
+        }
+        catch (Exception error) when (ProcurementRecurringContractTransactions.IsConflict(error))
+        { return Problem("version-conflict", "The contract changed. Refresh before saving this recurring purchase.", 409); }
     }
 
     private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db,
@@ -80,25 +87,31 @@ public static class ProcurementRecurringPurchaseRoutes
         if (parsed.Error is not null) return parsed.Error;
         var input = parsed.Value!;
         if (input.Draft is null) return Problem("validation-failed", "Enter the recurring purchase details.", 422);
-        var record = await Own(db, scope).SingleOrDefaultAsync(x => x.Id == id, ct);
-        if (record is null) return Problem("not-found", "Recurring purchase not found.", 404);
-        if (record.Status != "Draft") return Problem("record-closed", "A closed recurring purchase cannot be changed.", 409);
-        if (record.Version != input.Version) return Problem("version-conflict", "Refresh and compare before saving.", 409);
-        var draft = input.Draft with { CurrencyCode = string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
-            ? record.CurrencyCode : input.Draft.CurrencyCode };
-        var issue = RecurringPurchaseCommitmentRules.Validate(draft);
-        if (issue is not null) return Problem("validation-failed", issue, 422);
-        if (!await SupplierAvailable(db, draft.SupplierId, scope.SubjectId, ct))
-            return Problem("supplier-unavailable", "Choose an available supplier in this company.", 422);
-        if (!await ContractAvailable(db, draft.SupplierContractId, draft.SupplierId, scope.SubjectId, ct))
-            return Problem("contract-unavailable", "Choose a contract for this supplier and company.", 422);
-        var before = ProcurementDraftAudit.Snapshot(Detail(record));
-        Assign(record, draft);
-        ProcurementDraftAudit.Add(db, scope, nameof(RecurringPurchaseCommitment), record.Id,
-            "PlanUpdated", before, Detail(record));
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh and compare before saving.", 409); }
-        return Results.Ok(Detail(record));
+        try
+        {
+            await using var transaction = await ProcurementRecurringContractTransactions.BeginAsync(db, ct);
+            var record = await Own(db, scope).SingleOrDefaultAsync(x => x.Id == id, ct);
+            if (record is null) return Problem("not-found", "Recurring purchase not found.", 404);
+            if (record.Status != "Draft") return Problem("record-closed", "A closed recurring purchase cannot be changed.", 409);
+            if (record.Version != input.Version) return Problem("version-conflict", "Refresh and compare before saving.", 409);
+            var draft = input.Draft with { CurrencyCode = string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
+                ? record.CurrencyCode : input.Draft.CurrencyCode };
+            var issue = RecurringPurchaseCommitmentRules.Validate(draft);
+            if (issue is not null) return Problem("validation-failed", issue, 422);
+            if (!await SupplierAvailable(db, draft.SupplierId, scope.SubjectId, ct))
+                return Problem("supplier-unavailable", "Choose an available supplier in this company.", 422);
+            if (!await ContractAvailable(db, draft.SupplierContractId, draft.SupplierId, scope.SubjectId, ct))
+                return Problem("contract-unavailable", "Choose a contract for this supplier and company.", 422);
+            var before = ProcurementDraftAudit.Snapshot(Detail(record));
+            Assign(record, draft);
+            ProcurementDraftAudit.Add(db, scope, nameof(RecurringPurchaseCommitment), record.Id,
+                "PlanUpdated", before, Detail(record));
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return Results.Ok(Detail(record));
+        }
+        catch (Exception error) when (ProcurementRecurringContractTransactions.IsConflict(error))
+        { return Problem("version-conflict", "The recurring purchase or contract changed. Refresh before saving.", 409); }
     }
 
     private static async Task<IResult> Close(Guid id, CloseRecurringPurchase input, ProcurementDbContext db,
