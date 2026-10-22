@@ -6776,6 +6776,151 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.RecurringPurchaseCommitment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("ClosedReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("closed_reason");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<decimal>("ExpectedAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("expected_amount");
+
+                    b.Property<DateOnly>("FirstCycleOn")
+                        .HasColumnType("date")
+                        .HasColumnName("first_cycle_on");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("frequency");
+
+                    b.Property<DateOnly?>("LastCycleOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_cycle_on");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<DateOnly>("NextCycleOn")
+                        .HasColumnType("date")
+                        .HasColumnName("next_cycle_on");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("number");
+
+                    b.Property<Guid>("OwnerPrincipalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_principal_id");
+
+                    b.Property<string>("OwnerSubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("owner_subject_id");
+
+                    b.Property<Guid?>("OwnerWorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_worker_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("SupplierContractId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_contract_id");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<Guid?>("WorkLocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_location_id");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierContractId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierId")
+                        .HasDatabaseName("IX_recurring_purchase_commitments_tenant_id_legal_entity_id_s~1");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "OwnerPrincipalId", "NextCycleOn");
+
+                    b.ToTable("recurring_purchase_commitments", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_recurring_purchase_schedule", "status IN ('Draft','Closed') AND frequency IN ('Weekly','Monthly','Quarterly','Yearly') AND expected_amount > 0 AND next_cycle_on >= first_cycle_on AND (last_cycle_on IS NULL OR (last_cycle_on >= first_cycle_on AND next_cycle_on <= last_cycle_on)) AND owner_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (owner_worker_id IS NULL OR owner_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND owner_subject_id = owner_principal_id::text AND ((status = 'Draft' AND closed_at IS NULL AND closed_reason IS NULL) OR (status = 'Closed' AND closed_at IS NOT NULL AND closed_reason IS NOT NULL))");
+                        });
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.ServiceAcceptance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -10988,6 +11133,22 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId", "LegalEntityId", "IssuedVersionId", "PurchaseOrderId", "SubmissionId")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId", "SubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.RecurringPurchaseCommitment", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SupplierContract", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SupplierContractId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SupplierId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

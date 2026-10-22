@@ -1,6 +1,6 @@
 # P24 recurring planning integration readiness
 
-Status: source integration and review only; no P24 generation, SDK, SQL or browser execution yet.
+Status: focused tests and genuine P24 generation complete; full SDK/publication, private provider, finite database HTTP and browser acceptance remain pending. No P24 SQL has been applied.
 
 ## Published prerequisites and owned integration
 
@@ -46,3 +46,13 @@ Private schema rehearsal must cover fresh and used-P23 Up twice, unused Down/Up,
 Actual API/PostgreSQL and existing UI Playwright run serially on private fixtures, followed by independent saved-data verification after controlled shutdown. Capture full source/publication/UI/fixture identities and retain failed traces. No production migration or capability enablement is authorized by this source checkpoint.
 
 Finance/AP is a future ERP module and is not built. Planning creates no PO, reservation, liability, invoice, payment, stock or asset transaction. Never substitute a zero Finance history, invented funding success or mock ledger for that unavailable owner.
+
+## Actual generated checkpoint — 22 October 2026
+
+- Actual EF ID: `20261022144102_P24CorePrincipalRecurringPurchasePlanning`.
+- First gate `20261022_142858`: infrastructure build and12 domain cases passed, then new mapped-test fixture compilation failed on its missing API namespace. No generation ran in that failed attempt; logs/results are preserved.
+- Corrected source `5d476fc`: actual20 mapped recurring HTTP cases passed; the12 domain results were reused only after exact unchanged dependency-byte verification. Genuine EF generation then exited0/no OOM.
+- Evidence: `/home/amizo/erp-backups/procurement-p24-recurring-20261022/20261022_143906/result.json`; raw generated files retained under `genuine-gen01` before custom Down.
+- Exactly138 historical artifacts unchanged; only genuinely refreshed Procurement snapshot changes among the139 prior artifacts. Generated Designer target-model body equals snapshot build-model body exactly.
+- Up remains byte-identical to the generated archive. New migration Down alone adds the reviewed first-statement exclusive locks and SQLSTATE55000 retained-row/audit/owned-event veto before generated DropTable. Any Closed row vetoes as well.
+- Captured actual PostgreSQL CHECK definition, provider SQL/role proof, unused/retained Down tests, complete suites/publications and actual CLI/browser verification are still pending. No placeholder schema-ready fact is supplied.
