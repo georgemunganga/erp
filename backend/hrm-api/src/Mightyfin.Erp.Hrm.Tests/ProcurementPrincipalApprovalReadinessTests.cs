@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -38,6 +41,23 @@ public sealed class ProcurementPrincipalApprovalReadinessTests
         var production=new UnavailableProcurementPrincipalApprovalSchemaReadiness();
         Assert.False(await production.CanExecuteAsync(owner,default));
         Assert.False(new ProcurementApprovalExecutionOptions().PrincipalExecutionEnabled);
+    }
+
+    [Fact]
+    public void Core_readiness_uses_only_actual_identity_grant_and_optional_manager_projection_not_credentials_or_payroll()
+    {
+        using var core=new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=design_only_not_a_runtime_store;Username=invalid").Options,new FixedTenantAccessor("read-only-model"));
+        var model=core.GetService<IDesignTimeModel>().Model;
+        foreach(var type in ProcurementPrincipalApprovalStoreReadiness.CoreIdentityReadProperties.Keys)
+        {
+            var sql=ProcurementPrincipalApprovalStoreReadiness.CoreIdentitySelectSql(model.FindEntityType(type)!);
+            Assert.StartsWith("SELECT ",sql);Assert.EndsWith(" LIMIT 0",sql);
+            Assert.DoesNotContain("*",sql);Assert.DoesNotContain("password",sql,StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("salary",sql,StringComparison.OrdinalIgnoreCase);Assert.DoesNotContain("email",sql,StringComparison.OrdinalIgnoreCase);
+        }
+        Assert.Contains("\"worker_id\"",ProcurementPrincipalApprovalStoreReadiness.CoreIdentitySelectSql(model.FindEntityType(typeof(LocalUser))!));
+        Assert.Contains("\"manager_id\"",ProcurementPrincipalApprovalStoreReadiness.CoreIdentitySelectSql(model.FindEntityType(typeof(Worker))!));
     }
 
     [Fact]

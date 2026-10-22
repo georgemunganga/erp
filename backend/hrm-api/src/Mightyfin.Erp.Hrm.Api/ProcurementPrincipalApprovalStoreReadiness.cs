@@ -31,8 +31,19 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
     private static readonly string[] AppendTables=["budget_check_snapshots","spending_authority_identity_evidence","purchase_request_approval_submissions",
         "assignment_authority_evidence","purchase_request_approval_outcomes","purchase_request_finance_release_requests","purchase_request_finance_release_confirmations",
         "approval_command_receipts","audit_events","outbox_events"];
-    private static readonly Type[] CoreIdentityTypes=[typeof(LegalEntity),typeof(WorkLocation),typeof(OrgUnit),typeof(Worker),
-        typeof(LocalUser),typeof(HrUserBranchAssignment),typeof(TenantRoleAssignment)];
+    // Only fields read by the existing current-account/grant/branch and optional
+    // HR-manager queries. Catalog validation may inspect model column metadata;
+    // the actual finite role never needs credential, pay or personal-field SELECT.
+    internal static readonly IReadOnlyDictionary<Type,string[]> CoreIdentityReadProperties=new Dictionary<Type,string[]>
+    {
+        [typeof(LegalEntity)]=[nameof(LegalEntity.Id),nameof(LegalEntity.TenantId),nameof(LegalEntity.IsArchived)],
+        [typeof(WorkLocation)]=[nameof(WorkLocation.Id),nameof(WorkLocation.TenantId),nameof(WorkLocation.LegalEntityId),nameof(WorkLocation.IsArchived)],
+        [typeof(OrgUnit)]=[nameof(OrgUnit.Id),nameof(OrgUnit.TenantId),nameof(OrgUnit.LegalEntityId),nameof(OrgUnit.IsArchived),nameof(OrgUnit.Status)],
+        [typeof(Worker)]=[nameof(Worker.Id),nameof(Worker.TenantId),nameof(Worker.IsArchived),nameof(Worker.Status),nameof(Worker.LocationId),nameof(Worker.OrgUnitId),nameof(Worker.ManagerId)],
+        [typeof(LocalUser)]=[nameof(LocalUser.Id),nameof(LocalUser.TenantId),nameof(LocalUser.WorkerId),nameof(LocalUser.RolesCsv),nameof(LocalUser.LockedUntil),nameof(LocalUser.IsActive),nameof(LocalUser.IsArchived)],
+        [typeof(HrUserBranchAssignment)]=[nameof(HrUserBranchAssignment.TenantId),nameof(HrUserBranchAssignment.UserId),nameof(HrUserBranchAssignment.LocationId),nameof(HrUserBranchAssignment.IsArchived)],
+        [typeof(TenantRoleAssignment)]=[nameof(TenantRoleAssignment.TenantId),nameof(TenantRoleAssignment.Active),nameof(TenantRoleAssignment.IsArchived),nameof(TenantRoleAssignment.RoleKey),nameof(TenantRoleAssignment.PermissionsCsv)],
+    };
     private static readonly Type[] CoreTypes=[typeof(ApprovalCase),typeof(ApprovalStage),typeof(ApprovalAssignment),typeof(ApprovalDecision)];
     public Task<bool> IsReadyAsync(ProcurementDbContext owner,CancellationToken ct)=>Check(owner,0,ct);
     public Task<bool> CanRecordAsync(ProcurementDbContext owner,CancellationToken ct)=>Check(owner,1,ct);
@@ -64,12 +75,12 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
             // Metadata comes from the existing Core owner model; reads/privilege
             // discovery still use ONLY the original Procurement connection/transaction.
             var identityModel=coreIdentity.GetService<IDesignTimeModel>().Model;
-            foreach(var type in CoreIdentityTypes)
+            foreach(var type in CoreIdentityReadProperties.Keys)
             {
                 var entity=identityModel.FindEntityType(type);
                 if(entity is null || entity.GetSchema()!="hrm")return false;
                 var table=StoreObjectIdentifier.Table(entity.GetTableName()!,entity.GetSchema());
-                command.CommandText=SelectAllColumnsSql(entity,table);await using(var reader=await command.ExecuteReaderAsync(ct)){}
+                command.CommandText=CoreIdentitySelectSql(entity);await using(var reader=await command.ExecuteReaderAsync(ct)){}
                 if(!await True(ColumnsSql(entity,table)))return false;
             }
             var relations=entities.Select(x=>x!.GetTableName()!).Append("__procurement_migrations").Distinct().ToArray();
@@ -151,6 +162,16 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
         }
         catch(Exception error) when(error is not OperationCanceledException){return false;}
         finally{if(opened)await owner.Database.CloseConnectionAsync();}
+    }
+
+    internal static string CoreIdentitySelectSql(IEntityType entity)
+    {
+        var table=StoreObjectIdentifier.Table(entity.GetTableName()!,entity.GetSchema());
+        if(!CoreIdentityReadProperties.TryGetValue(entity.ClrType,out var names) || table.Schema!="hrm")
+            throw new InvalidOperationException("PrincipalApprovalCoreReadProjectionUnsupported");
+        return "SELECT "+string.Join(',',names.Select(name=>Quote((entity.FindProperty(name)
+            ?? throw new InvalidOperationException("PrincipalApprovalCoreReadPropertyMissing")).GetColumnName(table)!)))
+            +" FROM "+Quote(table.Schema)+"."+Quote(table.Name)+" LIMIT 0";
     }
 
     internal static string RequiredSql(string relation,params string[] privileges)=>"SELECT "+string.Join(" AND ",privileges.Select(p=>
