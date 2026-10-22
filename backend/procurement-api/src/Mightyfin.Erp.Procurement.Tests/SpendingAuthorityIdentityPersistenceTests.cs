@@ -166,13 +166,18 @@ public sealed class SpendingAuthorityIdentityPersistenceTests
     public async Task Unchanged_attached_historical_envelope_is_not_trusted_without_persisted_lineage()
     {
         var name = Guid.NewGuid().ToString();
-        await using (var db = Context(name)) { db.Add(Draft()); await db.SaveChangesAsync(); }
+        await using (var db = Context(name))
+        {
+            var legacyDraft = Draft();
+            legacyDraft.EffectiveUntil = null; // Provenance test: the store timestamps this draft without retained origin.
+            db.Add(legacyDraft); await db.SaveChangesAsync();
+        }
         await using var command = Context(name, worker: MakerWorker);
         var grant = await command.SpendingAuthorityGrants.SingleAsync();
         var inventedOrigin = Origin(grant);
         command.Attach(inventedOrigin); // Deliberately not persisted; a hash is not provenance.
         SpendingAuthorityConfiguration.Submit(grant, grant.Version,
-            Actor(Maker, SpendingAuthorityConfiguration.ConfigurePermission), Subject(), DateTimeOffset.UtcNow.AddMinutes(1));
+            Actor(Maker, SpendingAuthorityConfiguration.ConfigurePermission), Subject(), grant.CreatedAt.AddMinutes(1));
         var envelope = SpendingAuthorityIdentity.CaptureSubmission(grant,
             SpendingAuthorityIdentityStorage.Read(inventedOrigin), Maker, MakerWorker, RecipientWorker);
         command.Add(SpendingAuthorityIdentityStorage.ToRecord(envelope));

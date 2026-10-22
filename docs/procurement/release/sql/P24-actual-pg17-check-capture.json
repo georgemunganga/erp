@@ -1,0 +1,9 @@
+{
+  "procurement.recurring_purchase_commitments.ck_recurring_purchase_schedule": {
+    "type": "c",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK ((((status)::text = ANY ((ARRAY['Draft'::character varying, 'Closed'::character varying])::text[])) AND ((frequency)::text = ANY ((ARRAY['Weekly'::character varying, 'Monthly'::character varying, 'Quarterly'::character varying, 'Yearly'::character varying])::text[])) AND (expected_amount > (0)::numeric) AND (next_cycle_on >= first_cycle_on) AND ((last_cycle_on IS NULL) OR ((last_cycle_on >= first_cycle_on) AND (next_cycle_on <= last_cycle_on))) AND (owner_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((owner_worker_id IS NULL) OR (owner_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((owner_subject_id)::text = (owner_principal_id)::text) AND ((((status)::text = 'Draft'::text) AND (closed_at IS NULL) AND (closed_reason IS NULL)) OR (((status)::text = 'Closed'::text) AND (closed_at IS NOT NULL) AND (closed_reason IS NOT NULL)))))"
+  }
+}

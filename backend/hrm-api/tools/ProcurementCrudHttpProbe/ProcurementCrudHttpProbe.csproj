@@ -5,4 +5,8 @@
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../../../docs/procurement/release/sql/P23-actual-pg17-check-capture.json" LogicalName="Captured.P23.Checks" />
+    <EmbeddedResource Include="../../../../docs/procurement/release/sql/P24-actual-pg17-check-capture.json" LogicalName="Captured.P24.Checks" Condition="Exists('../../../../docs/procurement/release/sql/P24-actual-pg17-check-capture.json')" />
+  </ItemGroup>
 </Project>

@@ -86,3 +86,39 @@ The existing `systemUser` Core account (no employee) creates a separate vendor a
 No supplier status is owner-seeded for this workflow. The older `approvedSupplierId` remains an explicitly separate synthetic prerequisite; it is not retroactively relabelled as workflow evidence. Qualification evidence is synthetic human assessment, not external compliance or document-service verification. No bank/payment verification is invented. Database connection remains a private owner connection, so finite **application grants** do not prove restricted PostgreSQL role privileges. Outer identity-provider authentication remains synthetic.
 
 Only after all CLI checks finish does the protected browser manifest include `actors.systemReviewer={principalId,workerId:null}` and `browserActorSwitch:"manifest-alias-v1"`. Test-only browser proxy may map the fixed alias to this manifest UUID; it must strip aliases and arbitrary actor headers before injecting the allowlisted actor. This does not extend production authentication. CLI PASS scope now explicitly names this separate supplier lifecycle while still excluding requisition/PO approvals, Finance, stock and full-module completion.
+
+## P24 recurring planning opt-in
+
+`run-private-postgres.py --recurring` retains the ordinary fresh owner/bootstrap and legacy
+P19–P22 rehearsal. It then applies the actual generated P23/P24, compares the exact legacy
+CHECK inventory plus hash-bound actual P23/P24 captures, and reuses real mapped routes.
+Never skip pending migrations or supply guessed schema-ready values.
+
+The opt-in creates a separate real private database LOGIN with no elevated flags, memberships
+or ownership. A second composition of the existing module host uses that restricted
+Procurement connection for actual plan create/read/list/edit/no-op/close, while its existing
+Core projection connection remains separate. It receives only supplier/contract/history reads,
+plan SELECT/INSERT/UPDATE and audit SELECT/INSERT. Actual role identity and rollback-only denied
+DDL/Core/Finance/append-evidence operations are checked independently. This is distinct from
+finite current Core action grants and from the ordinary owner-based CRUD/browser fixture.
+The global `finiteRole=false` marker remains truthful; the nested recurring proof becomes true
+only after the real finite-database HTTP subset passes.
+
+The new workerless Core planner has an explicit stored action list and branch membership.
+The original administrator remains a separate permitted other owner, and the supplier reviewer
+has no recurring actions. The existing request sender/real handlers and c4 recurring/race partial
+are reused; no API or runner is duplicated. The contract race requires observed PostgreSQL
+blocking of both actual HTTP transactions before releasing its exact row-lock barrier.
+
+With `--browser --recurring`, the protected manifest exposes only the fixed `recurringPlanner`
+alias after CLI proof completes. It includes actual company currency and a real unassigned
+branch for denial checks. A controlled stop must complete the fresh owning database-only check:
+exact two new browser plans (one closed through versions1/2/3/4, one original lost-delivery
+create), current workerless owner, exact amounts/dates/currency/audit, preserved original plans,
+contracts and downstream records. Do not call HTTP after the listener stops. Exit0 alone or UI
+screenshots without this owner completion are insufficient.
+
+No test connection, role creation, fake login, scanner, Finance history, ledger or scheduler is
+registered in the production application. The future ERP Finance/AP owner is unavailable;
+planning creates no payable, reservation, invoice or payment. Failed runs retain their private
+DB/role/logs and are never reset or automatically retried.

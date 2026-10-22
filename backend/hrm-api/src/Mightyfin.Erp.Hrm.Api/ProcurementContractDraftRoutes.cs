@@ -83,40 +83,53 @@ public static class ProcurementContractDraftRoutes
         var parsed=ProcurementOriginalValueInput.Read<VersionedContractDraft>(body);
         if(parsed.Error is not null) return parsed.Error;
         var input=parsed.Value!;
-        var contract = await db.SupplierContracts
-            .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
-        if (contract is null) return Problem("not-found", "Contract not found.", 404);
-        if (contract.Status != "Draft") return Problem("contract-locked", "Only a draft contract can be changed.", 409);
-        if (contract.Version != input.Version) return Problem("version-conflict", "Refresh this contract before saving.", 409);
-        var draft = input.Draft with { CurrencyCode = string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
-            ? contract.CurrencyCode : input.Draft.CurrencyCode };
-        var issue = ProcurementContractDraftRules.Validate(draft);
-        if (issue is not null) return Problem("validation-failed", issue, 422);
-        if (!await SupplierAvailable(db, draft.SupplierId, scope.SubjectId, ct))
-            return Problem("supplier-unavailable", "Choose an available supplier in this company.", 422);
-        var version = await db.SupplierContractVersions
-            .SingleOrDefaultAsync(x => x.SupplierContractId == id && x.RevisionNumber == 1, ct);
-        if (version is null || version.Status != "Draft")
-            return Problem("contract-version-unavailable", "The draft version is unavailable.", 409);
-        var before = ProcurementDraftAudit.Snapshot(Detail(contract, version));
+        if (input.Draft is null) return Problem("validation-failed", "Enter the contract details.", 422);
+        try
+        {
+            await using var transaction = await ProcurementRecurringContractTransactions.BeginAsync(db, ct);
+            var contract = await db.SupplierContracts
+                .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
+            if (contract is null) return Problem("not-found", "Contract not found.", 404);
+            if (contract.Status != "Draft") return Problem("contract-locked", "Only a draft contract can be changed.", 409);
+            if (contract.Version != input.Version) return Problem("version-conflict", "Refresh this contract before saving.", 409);
+            var draft = input.Draft with { CurrencyCode = string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
+                ? contract.CurrencyCode : input.Draft.CurrencyCode };
+            var issue = ProcurementContractDraftRules.Validate(draft);
+            if (issue is not null) return Problem("validation-failed", issue, 422);
+            if (!await SupplierAvailable(db, draft.SupplierId, scope.SubjectId, ct))
+                return Problem("supplier-unavailable", "Choose an available supplier in this company.", 422);
+            // Include closed plans: they retain the original commercial relationship.
+            // Serializable reads pair with recurring create/update contract reads, so
+            // concurrent reparenting cannot commit a mismatched supplier reference.
+            if (draft.SupplierId != contract.SupplierId && await db.RecurringPurchaseCommitments.AsNoTracking()
+                .AnyAsync(x => x.SupplierContractId == contract.Id, ct))
+                return Problem("contract-referenced", "This contract is referenced by a recurring purchase and its supplier cannot be changed.", 409);
+            var version = await db.SupplierContractVersions
+                .SingleOrDefaultAsync(x => x.SupplierContractId == id && x.RevisionNumber == 1, ct);
+            if (version is null || version.Status != "Draft")
+                return Problem("contract-version-unavailable", "The draft version is unavailable.", 409);
+            var before = ProcurementDraftAudit.Snapshot(Detail(contract, version));
 
-        contract.SupplierId = draft.SupplierId;
-        contract.Title = draft.Title!.Trim();
-        contract.ContractType = draft.ContractType!.Trim();
-        contract.CurrencyCode = draft.CurrencyCode!.Trim().ToUpperInvariant();
-        contract.CeilingAmount = draft.CeilingAmount;
-        contract.EffectiveFrom = draft.EffectiveFrom;
-        contract.ExpiresOn = draft.ExpiresOn;
-        contract.RenewalNoticeOn = draft.RenewalNoticeOn;
-        contract.UpdatedAt = DateTimeOffset.UtcNow;
-        version.CeilingAmount = draft.CeilingAmount;
-        version.EffectiveFrom = draft.EffectiveFrom;
-        version.ExpiresOn = draft.ExpiresOn;
-        ProcurementDraftAudit.Add(db, scope, "SupplierContract", contract.Id,
-            "DraftUpdated", before, Detail(contract, version));
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this contract before saving.", 409); }
-        return Results.Ok(Detail(contract, version));
+            contract.SupplierId = draft.SupplierId;
+            contract.Title = draft.Title!.Trim();
+            contract.ContractType = draft.ContractType!.Trim();
+            contract.CurrencyCode = draft.CurrencyCode!.Trim().ToUpperInvariant();
+            contract.CeilingAmount = draft.CeilingAmount;
+            contract.EffectiveFrom = draft.EffectiveFrom;
+            contract.ExpiresOn = draft.ExpiresOn;
+            contract.RenewalNoticeOn = draft.RenewalNoticeOn;
+            contract.UpdatedAt = DateTimeOffset.UtcNow;
+            version.CeilingAmount = draft.CeilingAmount;
+            version.EffectiveFrom = draft.EffectiveFrom;
+            version.ExpiresOn = draft.ExpiresOn;
+            ProcurementDraftAudit.Add(db, scope, "SupplierContract", contract.Id,
+                "DraftUpdated", before, Detail(contract, version));
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return Results.Ok(Detail(contract, version));
+        }
+        catch (Exception error) when (ProcurementRecurringContractTransactions.IsConflict(error))
+        { return Problem("version-conflict", "The contract or a recurring purchase changed. Refresh before saving.", 409); }
     }
 
     private static async Task<IResult> Cancel(Guid id, ContractCancel input,

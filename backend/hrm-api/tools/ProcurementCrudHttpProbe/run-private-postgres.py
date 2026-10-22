@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import subprocess
 
@@ -30,6 +31,7 @@ def main():
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--database', help='New procurement_crud_http_* name; default UTC timestamp')
     p.add_argument('--browser', action='store_true', help='After CLI PASS serve only the existing fixed Unix socket')
+    p.add_argument('--recurring', action='store_true', help='Also prove recurring planning with a separate finite private Procurement login')
     a = p.parse_args()
     database = a.database or ('procurement_crud_http_' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S'))
     if not re.fullmatch(r'procurement_crud_http_[a-z0-9_]{1,42}', database) or len(database) > 63:
@@ -79,6 +81,19 @@ def main():
     docker('image', 'inspect', a.runtime_image)
     # createdb refuses an existing target. No source/restore DB, DROP/reset or session termination.
     docker('exec', PRIVATE_PG, 'createdb', '-U', user, database, label='create-db')
+    recurring_role = None
+    recurring_password = None
+    if a.recurring:
+        recurring_role = 'procurement_plan_rt_' + secrets.token_hex(8)
+        recurring_password = secrets.token_urlsafe(32)
+        if not re.fullmatch(r'[A-Za-z0-9_-]+', recurring_password):
+            raise RuntimeError('Unsupported generated private secret encoding')
+        # Generated identifiers/secrets only. SQL stdin is never persisted or printed.
+        docker('exec', '-i', PRIVATE_PG, 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=terse',
+               '-U', user, '-d', 'postgres', data='CREATE ROLE "' + recurring_role
+               + '" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD '
+               + "'" + recurring_password + "';")
+
 
     def quote(value):
         return '"' + value.replace('"', '""') + '"'
@@ -89,13 +104,19 @@ def main():
     connection += ';Pooling=false;Include Error Detail=false'
     env = os.environ.copy()
     env['ConnectionStrings__Procurement'] = connection
-    for key in ['PROCUREMENT_CRUD_BROWSER_SOCKET', 'PROCUREMENT_CRUD_BROWSER_MANIFEST']:
+    for key in ['PROCUREMENT_CRUD_BROWSER_SOCKET', 'PROCUREMENT_CRUD_BROWSER_MANIFEST', 'PROCUREMENT_CRUD_RECURRING', 'PROCUREMENT_CRUD_RECURRING_CONNECTION']:
         env.pop(key, None)
     cmd = ['docker', 'run', '--rm', '--pull=never', '--network=none', '--memory=768m', '--cpus=1',
            '--read-only', '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m',
            '--mount', 'type=bind,src=' + str(runtime.resolve()) + ',dst=/crud-runtime,readonly',
            '--mount', 'type=bind,src=' + mounts[0] + ',dst=/authority-identity-private-socket,readonly',
            '--env', 'ConnectionStrings__Procurement', '--env', 'DOTNET_EnableDiagnostics=0', '--workdir', '/crud-runtime']
+    if a.recurring:
+        env['PROCUREMENT_CRUD_RECURRING'] = '1'
+        env['PROCUREMENT_CRUD_RECURRING_CONNECTION'] = ('Host=/authority-identity-private-socket;Port=' + port
+            + ';Database=' + quote(database) + ';Username=' + quote(recurring_role)
+            + ';Password=' + quote(recurring_password) + ';Pooling=false;Include Error Detail=false')
+        cmd += ['--env', 'PROCUREMENT_CRUD_RECURRING', '--env', 'PROCUREMENT_CRUD_RECURRING_CONNECTION']
     if a.browser:
         env['PROCUREMENT_CRUD_BROWSER_SOCKET'] = '/crud-browser-socket/api.sock'
         env['PROCUREMENT_CRUD_BROWSER_MANIFEST'] = '/crud-browser-socket/fixture.json'
@@ -104,7 +125,7 @@ def main():
     cmd += [a.runtime_image, 'dotnet', '/crud-runtime/ProcurementCrudHttpProbe.dll']
     manifest = {'database': database, 'privateContainer': PRIVATE_PG, 'runtimeImage': a.runtime_image,
                 'networkMode': 'none', 'browserUnixSocketOnly': a.browser, 'runtimeFiles': frozen,
-                'finiteRole': False, 'productionTouched': False,
+                'finiteRole': False, 'recurringRequested': a.recurring, 'recurringRuntimeRole': recurring_role, 'recurringFiniteDatabaseHttpProofRequiresToolPass': a.recurring, 'productionTouched': False,
                 'buildProvenanceRequiresParentReview': True,
                 'limits': 'Synthetic HRM/owner supplier fixture, draft CRUD only; no approval/Finance/receiving/AP claim'}
     (a.output / 'launch-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -112,7 +133,7 @@ def main():
         run = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
     unchanged = hashes(runtime) == frozen
     (a.output / 'completion.json').write_text(json.dumps({'exitCode': run.returncode, 'runtimeUnchanged': unchanged,
-        'databaseRetained': True, 'productionTouched': False}, indent=2) + '\n')
+        'databaseRetained': True, 'recurringRequested': a.recurring, 'recurringRoleRetained': recurring_role, 'productionTouched': False}, indent=2) + '\n')
     if run.returncode or not unchanged:
         raise RuntimeError('Private CRUD run failed/changed; preserve first log/database, no automatic retry')
     # Do not print the entire HTTP log or any credential/configuration/row payload.
