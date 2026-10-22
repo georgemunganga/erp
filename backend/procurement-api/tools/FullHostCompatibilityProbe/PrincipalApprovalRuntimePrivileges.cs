@@ -42,7 +42,7 @@ internal static class PrincipalApprovalRuntimePrivileges
         // not a grant to alter catalog data or Core/Finance records.
         foreach(var table in new[]{"catalog_items","catalog_entries"})
             await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(record));
-        foreach(var table in new[]{"purchase_requests","purchase_request_lines","spending_authority_grants","policy_versions"})
+        foreach(var table in new[]{"purchase_requests","purchase_request_lines","spending_authority_grants","policy_versions","procurement_categories"})
             await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
         await Run("GRANT INSERT,DELETE ON procurement.spending_authority_categories TO "+Q(record));
         foreach(var table in new[]{"budget_check_snapshots","spending_authority_identity_evidence","policy_evaluations","audit_events","outbox_events"})

@@ -72,10 +72,22 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(remaining<=TimeSpan.FromSeconds(30),"Unexpected private policy activation wait.");
         if(remaining>TimeSpan.Zero)await Task.Delay(remaining+TimeSpan.FromMilliseconds(50));
 
+        // Draft CRUD permits uncategorized demand, while spending authority requires
+        // classified lines. Satisfy that real prerequisite through independent API
+        // activation; do not weaken the authority evaluator or seed an active row.
+        stage("ActualIndependentCategoryActivation");
+        const string categoryRoot="/api/procurement/v1/configuration/categories";
+        const string categoryCode="PRIVATE_P25";
+        var category=await send(client,HttpMethod.Post,categoryRoot,fixture.ConfigMaker,
+            new {code=categoryCode,name="Private approval test category",parentCode=(string?)null,expenseAccountRef=(string?)null},HttpStatusCode.Created);
+        var activeCategory=await send(client,HttpMethod.Post,categoryRoot+"/"+category.GetProperty("id").GetGuid()+"/activate",fixture.ConfigReviewer,
+            new {version=category.GetProperty("version").GetInt64(),reason="Private independent category review"},HttpStatusCode.OK);
+        Need(activeCategory.GetProperty("status").GetString()=="Active","Actual independent category activation failed.");
+
         stage("ActualPrincipalSourceAndChecker2");
         var created=await send(client,HttpMethod.Post,"/api/procurement/v1/requests",fixture.Maker,new {
             purpose="Private manual evidence principal approval",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
-            lines=new[]{new {description="Exact Core principal source",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234"}}},HttpStatusCode.Created);
+            lines=new[]{new {description="Exact Core principal source",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234",categoryCode}}},HttpStatusCode.Created);
         var requestId=created.GetProperty("id").GetGuid();var path="/api/procurement/v1/requests/"+requestId;
         var submitted=await send(client,HttpMethod.Post,path+"/submit",fixture.Maker,new {version=created.GetProperty("version").GetInt64()},HttpStatusCode.OK);
         var checker=await send(client,HttpMethod.Post,path+"/budget-checks",fixture.Checker,new {
