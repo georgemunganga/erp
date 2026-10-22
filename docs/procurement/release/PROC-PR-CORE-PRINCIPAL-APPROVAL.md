@@ -256,6 +256,25 @@ First-error-preserving finally checks restored all three temporary Core account 
 
 Independent read-only owner review verified the exact private source/cluster/socket, SDK source snapshots, all477 publication/runtime files, finite roles without elevation/membership/ownership, three retained requests and both approved graphs. It recomputed original principal, submission, checker, assignment and raw snapshot digests, and independently verified each2 ×5.1234 =10.2468ZMW source. All six current Core accounts had null worker links, while the one genuine synthetic worker remained active/unarchived with no SubjectId; the new request/pin retained its original worker, and the pin maker, checker2 and assignment2 aliases remained null. Finance/AP/payment owning facts remained absent. Temporary alias/offboarding outcomes and exact-restoration/no-effect claims are hash-bound runtime evidence, not independent reruns. Normal local-cookie/browser, external IdP, legacy execution and production release are not established by this cohort. P25 remains draft/default-off and undeployed.
 
+### Actual normal-cookie UI attempt — partial CRUD only; logout release hold
+
+Frozen API source `5cb3d614dee9284aabdac219b3e28ee9d795eb56` and UI test source `b7ac2c740446d2a8dc93eae21a7cc0848be5bf43` ran against a fresh private PostgreSQL database using the real local password/session-cookie scheme, an isolated HTTPS transport and the unchanged staged application bundle. No private subject header authenticated that host (actual401 control).
+
+The browser exercised real login, workerless Core context, request create/version1, edit/version2, reload, withdrawal/version3 and an ungranted account's403 denial. **The one browser scenario FAILED at logout: zero passes, one failure, no retries/skips.** Existing logout inherits the HRM staff default policy, blocking a valid non-HRM Core account. Both synthetic sessions remained unrevoked. This is a Core session-policy defect to repair; CRUD success does not make the whole scenario pass.
+
+Independent read-only owner inspection verified all477 published/runtime files and before/after row-digest multiplicities for all88 Procurement tables. Original rows were preserved; the browser added exactly one PR, one line and seven audit rows. The third request is Withdrawn/version3 with exact quantity3.5678 × unit price10.2345 =36.51464910ZMW, no worker link, and no approval or Finance-owning facts. Six explicitly activated synthetic accounts were used; no real user, production system or external identity provider was touched.
+
+Protected evidence under `/home/amizo/erp-backups/`:
+
+| Receipt | SHA-256 |
+| --- | --- |
+| `procurement-p25-cookie-browser-20261022_run03/result.json` (FAILED) | `f2e036bfc7ddd6ab7c05d4694013bb9406770fc137bb647dcfa0f48ae676a4f2` |
+| `procurement-p25-local-cookie-http-20261022_run03/result.json` (43 setup requests + separate401 control; not browser acceptance) | `970f536860a69eceab4ebf621de860b3ca1f1895ba18da6cee99077ee7cabcb3` |
+| `procurement-p25-independent-local-cookie-owner-prep-20261022/partial-review-receipt.private.json` | `0d8e003477ed58138faca9fd8f58e11a8fc1dff51a3784ab3773d4b577c4f817` |
+| Same directory, `before-browser-procurement-row-digests.private.json` | `8de837b3050139d197fa9244c99d5f46fb56ee549cd22bfb4aebbb10899413d4` |
+
+Earlier failed fixture preparation and the later disk preflight abort are retained. The preflight abort created no database; its exact immutable runtime copy was verified and reused read-only by the final attempt. The baseline capture's first read-only catalog check rejected the owned `__procurement_migrations` table; its source/diagnostic were retained and the exact table was allowlisted before a successful baseline capture and before any browser actions. No failed run is relabelled successful. P25 remains draft/default-off and undeployed.
+
 ## 27. Downstream limits
 
 New submission3 does not imply approved-demand RFQ/PO/receiving compatibility. Those worker-based source consumers need explicit successors before use. No Finance ledger, payment or historical-exposure authority is supplied here.

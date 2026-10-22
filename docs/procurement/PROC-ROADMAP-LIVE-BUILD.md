@@ -75,3 +75,7 @@ Supplier proposal, review and activation; reasoned category/item and buying-meth
 | Portal, performance, analytics | Schema/read-model design only | Complete wave 7 and security/KPI tests |
 
 This roadmap is a sequence of implementable increments, not a claim that any undecided policy is approved. Update the progress register with actual evidence as each increment lands.
+
+## 22 October — real-cookie UI release hold
+
+The actual private browser exercised request create/edit/reload/withdraw and ungranted-user denial, but its scenario failed because shared logout still requires an HRM role. Independent owner review confirmed exact persisted values and preserved original Procurement rows; both synthetic sessions remained unrevoked. This is not a passing browser milestone or deployment. A narrow Core session-policy repair and fresh verification are required. P26 receipt domain foundation has53 actual passing tests; persistence is source-only draft PR39 with focused89 verification underway. AP/payment execution stays with the future Finance module.
