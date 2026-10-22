@@ -150,3 +150,13 @@ Confirm launch companies/currencies; supplier diligence and approval matrix; ite
 4. Implement sourcing and award, contract versions, PO and revisions, receiving/service/returns in dependency order.
 5. Implement invoice validation/matching, AP hand-off, callback reconciliation and payment visibility. Supplier portal, planning, performance and analytics follow their own ownership and security gates.
 6. Repeat the chain in staging with UAT, authorization and recovery evidence before production migration or switching off demo mode.
+
+### Confirmed integration owner — 22 October 2026
+
+The product owner confirmed Finance/AP and payments will be owned by the
+ERP Finance module, which has not been built. Existing unavailable owner
+contracts remain truthful until that module provides authenticated budget,
+reservation/release, historical exposure and AP status interfaces. No
+Procurement ledger or synthetic successful Finance response substitutes
+for those contracts. Procurement's own permitted CRUD and non-financial
+evidence workflows continue independently.
