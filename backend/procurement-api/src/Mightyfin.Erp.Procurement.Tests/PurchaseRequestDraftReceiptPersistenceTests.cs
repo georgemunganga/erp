@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -211,6 +212,58 @@ public sealed class PurchaseRequestDraftReceiptPersistenceTests
         Assert.Equal(baseline,await Footprint(options,scope));
     }
 
+    [Theory]
+    [InlineData("emptyObject")]
+    [InlineData("array")]
+    [InlineData("nonJson")]
+    [InlineData("duplicateNestedKey")]
+    [InlineData("missingId")]
+    [InlineData("nullVersion")]
+    [InlineData("stringVersion")]
+    [InlineData("wrongId")]
+    [InlineData("wrongActor")]
+    [InlineData("nullOriginalBranch")]
+    [InlineData("zeroWorker")]
+    [InlineData("currencyCase")]
+    [InlineData("wrongState")]
+    [InlineData("missingApprovalState")]
+    public async Task Self_hashed_invalid_response_metadata_cannot_bypass_the_completed_receipt_store_guard(string fault)
+    {
+        var scope=NewScope() with {WorkLocationId=Guid.NewGuid()};var options=Options();var request=Request(scope);
+        await using(var seed=new ProcurementDbContext(options,scope))
+        {
+            seed.AddScoped(request);await seed.SaveChangesAsync();
+            if(fault=="missingApprovalState")
+            {request.Status="Submitted";request.ApprovalState="PendingPolicyAndBudget";await seed.SaveChangesAsync();}
+        }
+        var baseline=await Footprint(options,scope);
+        await using(var db=new ProcurementDbContext(options,scope))
+        {
+            var receipt=fault=="missingApprovalState"?Receipt(scope,request,"Submit",1):Receipt(scope,request);
+            var node=JsonNode.Parse(receipt.ResponseJson)!.AsObject();
+            switch(fault)
+            {
+                case "missingId":node.Remove("id");break;
+                case "nullVersion":node["version"]=null;break;
+                case "stringVersion":node["version"]="1";break;
+                case "wrongId":node["id"]=Guid.NewGuid().ToString("D");break;
+                case "wrongActor":node["requesterPrincipalId"]=Guid.NewGuid().ToString("D");break;
+                case "nullOriginalBranch":node["branchRef"]=null;break;
+                case "zeroWorker":node["requesterWorkerId"]=Guid.Empty.ToString("D");break;
+                case "currencyCase":node["currencyCode"]="zmw";break;
+                case "wrongState":node["status"]="Approved";break;
+                case "missingApprovalState":node.Remove("approvalState");break;
+            }
+            var body=fault switch {"emptyObject"=>"{}","array"=>"[]","nonJson"=>"not JSON",
+                "duplicateNestedKey"=>receipt.ResponseJson[..^1]+",\"extra\":{\"x\":1,\"x\":2}}",_=>node.ToJsonString()};
+            db.AddScoped(receipt);
+            db.Entry(receipt).Property(x=>x.ResponseJson).CurrentValue=body;
+            db.Entry(receipt).Property(x=>x.ResponseSha256).CurrentValue=ProcurementEvidenceEncoding.Digest(body);
+            await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
+        }
+        Assert.Equal(baseline,await Footprint(options,scope));
+    }
+
     [Fact]
     public void Model_has_one_actor_independent_scoped_key_restrict_parent_text_hash_and_NULL_safe_overflow_safe_checks()
     {
@@ -228,7 +281,7 @@ public sealed class PurchaseRequestDraftReceiptPersistenceTests
         Assert.Equal("text",entity.FindProperty("ResponseJson")!.GetColumnType());
         foreach(var name in new[]{"Id","TenantId","LegalEntityId","ActorPrincipalId","CommandKey","Operation","CommandFingerprint","ResponseJson","ResponseSha256","CompletedAt","ResultVersion","Version"})
             Assert.False(entity.FindProperty(name)!.IsNullable);
-        var checks=entity.GetCheckConstraints().ToDictionary(x=>x.Name!,x=>x.Sql);Assert.Equal(4,checks.Count);
+        var checks=entity.GetCheckConstraints().ToDictionary(x=>x.Name!,x=>x.Sql);Assert.Equal(5,checks.Count);
         Assert.Contains("expected_version IS NOT NULL",checks["ck_pr_draft_receipt_version"]);
         Assert.Contains("result_version::numeric=expected_version::numeric+1",checks["ck_pr_draft_receipt_version"]);
         Assert.DoesNotContain("expected_version+1",checks["ck_pr_draft_receipt_version"]);
@@ -236,5 +289,25 @@ public sealed class PurchaseRequestDraftReceiptPersistenceTests
         Assert.Contains("IS NOT DISTINCT FROM",checks["ck_pr_draft_receipt_scope"]);
         Assert.Contains("sha256(convert_to(response_json,'UTF8'))",checks["ck_pr_draft_receipt_completion"]);
         Assert.Contains("version=1 AND updated_at IS NULL AND updated_by IS NULL",checks["ck_pr_draft_receipt_completion"]);
+        Assert.Contains("isfinite(created_at)",checks["ck_pr_draft_receipt_completion"]);
+        var metadata=checks["ck_pr_draft_receipt_response_metadata"];
+        Assert.StartsWith("CASE WHEN response_json IS JSON OBJECT WITH UNIQUE KEYS THEN ((",metadata);
+        Assert.EndsWith(") IS TRUE) ELSE FALSE END",metadata);
+        foreach(var field in new[]{"id","version","requestEditVersion","requesterPrincipalId","requesterWorkerId","branchRef","departmentRef","status","currencyCode","approvalState"})
+        {
+            Assert.Contains("response_json::json->'"+field+"' IS NOT NULL",metadata);
+            Assert.Contains("json_typeof(response_json::json->'"+field+"')",metadata);
+        }
+        Assert.Contains("->>'id'=purchase_request_id::text",metadata);
+        Assert.Contains("->>'version'=result_version::text",metadata);
+        Assert.Contains("->>'requestEditVersion'='1'",metadata);
+        Assert.Contains("->>'requesterPrincipalId'=actor_principal_id::text",metadata);
+        Assert.Contains("operation IN ('Update','Submit') AND json_typeof(response_json::json->'requesterPrincipalId')='null'",metadata);
+        Assert.Contains("->>'branchRef'=original_branch_ref::text",metadata);
+        Assert.Contains("->>'departmentRef'=original_department_ref::text",metadata);
+        Assert.Contains("operation='Update' AND response_json::json->>'status' IN ('Draft','ReturnedForChanges')",metadata);
+        Assert.Contains("->>'currencyCode' ~ '^[A-Z]{3}$'",metadata);
+        Assert.Contains("->>'approvalState'='PendingPolicyAndBudget'",metadata);
+        Assert.DoesNotContain("::jsonb",metadata);Assert.DoesNotContain("::bigint",metadata);Assert.DoesNotContain("::uuid",metadata);
     }
 }

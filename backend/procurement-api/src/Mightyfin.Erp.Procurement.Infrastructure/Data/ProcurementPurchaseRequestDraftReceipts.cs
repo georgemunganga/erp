@@ -57,9 +57,43 @@ public sealed partial class ProcurementDbContext
                 "fingerprint_schema_version=1 AND response_schema_version=1 " +
                 "AND command_fingerprint ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' " +
                 "AND response_sha256=encode(sha256(convert_to(response_json,'UTF8')),'hex') " +
-                "AND length(response_json)>0 AND isfinite(completed_at) AND completed_at > '0001-01-01 00:00:00+00'::timestamptz " +
+                "AND length(response_json)>0 AND isfinite(created_at) AND isfinite(completed_at) AND completed_at > '0001-01-01 00:00:00+00'::timestamptz " +
                 "AND completed_at <= created_at AND created_by=actor_principal_id::text " +
                 "AND version=1 AND updated_at IS NULL AND updated_by IS NULL");
+            // PG17 validates a unique-key object BEFORE extraction. json keeps the
+            // original response text/lossless uninspected DTO fields intact. Compare
+            // typed scalar text to owned UUID/bigint metadata, never cast untrusted
+            // result strings/numbers into UUID or bigint (including overflow input).
+            t.HasCheckConstraint("ck_pr_draft_receipt_response_metadata",
+                "CASE WHEN response_json IS JSON OBJECT WITH UNIQUE KEYS THEN ((" +
+                "response_json::json->'id' IS NOT NULL AND json_typeof(response_json::json->'id')='string' " +
+                "AND response_json::json->>'id'=purchase_request_id::text " +
+                "AND response_json::json->'version' IS NOT NULL AND json_typeof(response_json::json->'version')='number' " +
+                "AND response_json::json->>'version'=result_version::text " +
+                "AND response_json::json->'requestEditVersion' IS NOT NULL AND json_typeof(response_json::json->'requestEditVersion')='number' " +
+                "AND response_json::json->>'requestEditVersion'='1' " +
+                "AND response_json::json->'requesterPrincipalId' IS NOT NULL AND (" +
+                "(json_typeof(response_json::json->'requesterPrincipalId')='string' AND response_json::json->>'requesterPrincipalId'=actor_principal_id::text) " +
+                "OR (operation IN ('Update','Submit') AND json_typeof(response_json::json->'requesterPrincipalId')='null')) " +
+                "AND response_json::json->'branchRef' IS NOT NULL AND (" +
+                "(json_typeof(response_json::json->'branchRef')='null' AND original_branch_ref IS NULL) OR " +
+                "(json_typeof(response_json::json->'branchRef')='string' AND original_branch_ref IS NOT NULL AND response_json::json->>'branchRef'=original_branch_ref::text)) " +
+                "AND response_json::json->'departmentRef' IS NOT NULL AND (" +
+                "(json_typeof(response_json::json->'departmentRef')='null' AND original_department_ref IS NULL) OR " +
+                "(json_typeof(response_json::json->'departmentRef')='string' AND original_department_ref IS NOT NULL AND response_json::json->>'departmentRef'=original_department_ref::text)) " +
+                "AND response_json::json->'requesterWorkerId' IS NOT NULL AND (json_typeof(response_json::json->'requesterWorkerId')='null' OR " +
+                "(json_typeof(response_json::json->'requesterWorkerId')='string' " +
+                "AND response_json::json->>'requesterWorkerId' ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' " +
+                "AND response_json::json->>'requesterWorkerId' <> '00000000-0000-0000-0000-000000000000')) " +
+                "AND response_json::json->'status' IS NOT NULL AND json_typeof(response_json::json->'status')='string' AND (" +
+                "(operation='Create' AND response_json::json->>'status'='Draft') OR " +
+                "(operation='Update' AND response_json::json->>'status' IN ('Draft','ReturnedForChanges')) OR " +
+                "(operation='Submit' AND response_json::json->>'status'='Submitted')) " +
+                "AND response_json::json->'currencyCode' IS NOT NULL AND json_typeof(response_json::json->'currencyCode')='string' " +
+                "AND response_json::json->>'currencyCode' ~ '^[A-Z]{3}$' " +
+                "AND (operation <> 'Submit' OR (response_json::json->'approvalState' IS NOT NULL " +
+                "AND json_typeof(response_json::json->'approvalState')='string' AND response_json::json->>'approvalState'='PendingPolicyAndBudget'))" +
+                ") IS TRUE) ELSE FALSE END");
         });
     }
 
