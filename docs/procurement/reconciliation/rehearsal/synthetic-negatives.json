@@ -32,7 +32,7 @@
   "allocation_precision": {
     "base": "actual",
     "expected": "P24RollbackAmountWouldLosePrecision",
-    "sql": "INSERT INTO procurement.purchase_request_allocations(id,purchase_request_id,purchase_request_line_id,method,status,quantity,estimated_value,currency_code,reason,tenant_id,legal_entity_id,created_at,created_by,version) SELECT '22222222-2222-4222-8222-222222222206',purchase_request_id,id,'SyntheticLegacy','Released',1,0.00000001,'ZMW','SYNTHETIC precision negative, not demand authority',tenant_id,legal_entity_id,now(),'SYNTHETIC-NEGATIVE',1 FROM procurement.purchase_request_lines ORDER BY id LIMIT 1;"
+    "sql": "INSERT INTO procurement.purchase_request_allocations(id,purchase_request_id,purchase_request_line_id,method,status,quantity,estimated_value,currency_code,reason,idempotency_key,tenant_id,legal_entity_id,created_at,created_by,version) SELECT '22222222-2222-4222-8222-222222222206',purchase_request_id,id,'SyntheticLegacy','Released',1,0.00000001,'ZMW','SYNTHETIC precision negative, not demand authority','SYNTHETIC-CANONICAL-ALLOCATION-PRECISION',tenant_id,legal_entity_id,now(),'SYNTHETIC-NEGATIVE',1 FROM procurement.purchase_request_lines ORDER BY id LIMIT 1;"
   },
   "partial_checker": {
     "base": "legacy",
