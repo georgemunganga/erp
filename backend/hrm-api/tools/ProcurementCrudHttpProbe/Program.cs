@@ -33,13 +33,16 @@ internal static partial class Program
     static string connection = "", stage = "input"; static int assertions, requests;
     static Guid approvedSupplier, legacyInvoice;
     const string BrowserSocket = "/crud-browser-socket/api.sock", BrowserManifest = "/crud-browser-socket/fixture.json";
-    static bool browserMode, publishManifest;
+    static bool browserMode, publishManifest, recurringCrudMode;
     public static async Task<int> Main(string[] args)
     {
         try
         {
             connection = Environment.GetEnvironmentVariable("ConnectionStrings__Procurement") ?? throw new ProbeFailure("Explicit private owner connection required.");
             var settings = new NpgsqlConnectionStringBuilder(connection);
+            var recurringMode = Environment.GetEnvironmentVariable("PROCUREMENT_CRUD_RECURRING");
+            Check(recurringMode is null or "1", "Recurring verification accepts only an explicit 1 or an absent flag.");
+            recurringCrudMode = recurringMode == "1";
             Check(args.Length == 0 && settings.Host is "localhost" or "127.0.0.1" or "::1" or "/authority-identity-private-socket", "Private socket/loopback only; no arguments.");
             Check(settings.Database is { Length: <= 63 } name && name.StartsWith("procurement_crud_http_", StringComparison.Ordinal)
                 && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'), "A fresh procurement_crud_http_ database is required.");
@@ -62,6 +65,7 @@ internal static partial class Program
             foreach (var capability in new[] { "approvals", "orders", "sourcingSourceDrafts", "receivingDrafts", "invoiceComparison" })
                 Check(!meta.GetProperty("capabilities").GetProperty(capability).GetBoolean(), "Draft fixture must not enable an operational workflow.");
             await Vendors(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client);
+            if (recurringCrudMode) await RecurringPurchases(client);
             stage = "independent-final-owning-context";
             await using (var proof = Db())
             {
@@ -99,6 +103,7 @@ internal static partial class Program
                 legacyP19Preserved = true, emptyDownUp = true, usedP20DownBlocked = true, production = false,
                 policyDraftRetirement = true, policyReferenceRace = true, policyRaceMethodCreated, exactRequestDrafts = true,
                 policyRaceRequestsOverlapped = policyRaceOverlapped,
+                recurringPurchasePlanningCrud = recurringCrudMode,
                 scope = "Basic draft CRUD only; no procurement approval, supplier approval, Finance, stock or full-module completion" }));
             if (browserMode)
             {
