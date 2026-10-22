@@ -77,7 +77,17 @@ internal static partial class Program
             var beforeDown = await Footprint();
             await using (var db = Db())
             {
-                try { await db.GetService<IMigrator>().MigrateAsync(P19); throw new ProbeFailure("Used invoice scope/history allowed destructive Down."); }
+                // Exercise this released migration's veto without first downgrading P21.
+                // EF commits migrations individually; MigrateAsync(P19) is not an atomic
+                // rollback of the complete P21 -> P19 chain.
+                var downSql = db.GetService<IMigrator>().GenerateScript(P20, P19);
+                Check(!downSql.Contains(CanonicalP21, StringComparison.Ordinal)
+                    && downSql.Contains("Retained invoice branch or removed-line history prevents destructive downgrade.", StringComparison.Ordinal),
+                    "Expected only the released P20 invoice-history downgrade guard.");
+                await using var downConnection = new NpgsqlConnection(connection);
+                await downConnection.OpenAsync();
+                await using var downCommand = new NpgsqlCommand(downSql, downConnection);
+                try { await downCommand.ExecuteNonQueryAsync(); throw new ProbeFailure("Used invoice scope/history allowed destructive Down."); }
                 catch (Exception e) when (FindPg(e) is { SqlState: "55000", MessageText: "Retained invoice branch or removed-line history prevents destructive downgrade." }) { }
             }
             Check(beforeDown == await Footprint(), "Denied used Down changed retained data/history.");
@@ -86,7 +96,7 @@ internal static partial class Program
                 "Bounded CRUD unexpectedly required or created shared approval/document schemas.");
             Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS", assertions, actualHttpRequests = requests,
                 actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true,
-                legacyP19Preserved = true, emptyDownUp = true, usedDownBlocked = true, production = false,
+                legacyP19Preserved = true, emptyDownUp = true, usedP20DownBlocked = true, production = false,
                 policyDraftRetirement = true, policyReferenceRace = true, policyRaceMethodCreated, exactRequestDrafts = true,
                 policyRaceRequestsOverlapped = policyRaceOverlapped,
                 scope = "Basic draft CRUD only; no procurement approval, supplier approval, Finance, stock or full-module completion" }));
