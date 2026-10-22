@@ -22,7 +22,7 @@ using Npgsql;
 using NpgsqlTypes;
 
 namespace ProcurementCrudHttpProbe;
-internal static class Program
+internal static partial class Program
 {
     const string Tenant = "crud-private-probe", Root = "/api/procurement/v1";
     const string P19 = "P19PurchaseOrderBranchScope", P20 = "P20InvoiceDraftMaintenance";
@@ -58,11 +58,15 @@ internal static class Program
             await using var app = await Host(); using var client = Client(app);
             var context = await Get(client, "/context"); Check(context.GetProperty("workerId").GetGuid() == Worker, "Actual context did not bind the synthetic Core worker.");
             var meta = await Get(client, "/meta"); Check(meta.GetProperty("crudEnabled").GetBoolean(), "Normal host CRUD capability unavailable.");
-            await Vendors(client); await Items(client); await Requests(client); await OtherDrafts(client); await Settings(client); await Invoices(client); await Credits(client);
+            await Vendors(client); await Items(client); await Requests(client); await OtherDrafts(client); await Settings(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client);
             stage = "independent-final-owning-context";
             await using (var proof = Db())
             {
                 Check(await proof.SupplierInvoices.CountAsync() == 4, "Unexpected invoices.");
+                Check(await proof.PolicyVersions.CountAsync() == 2, "Unexpected policy draft count.");
+                Check(await proof.ProcurementMethods.CountAsync() == 2 + (policyRaceMethodCreated ? 1 : 0), "Unexpected method count after policy race.");
+                Check(!await proof.PolicyVersions.AnyAsync(p => p.State == "Retired" && proof.ProcurementMethods.Any(m => m.PolicyVersionId == p.Id)),
+                    "A retired policy has a method reference.");
                 Check(!await proof.FinanceInvoiceHandoffs.AnyAsync() && !await proof.FinancePaymentStatusRefs.AnyAsync()
                     && !await proof.InvoiceMatchResults.AnyAsync() && !await proof.GoodsReceipts.AnyAsync(), "Draft CRUD caused downstream effects.");
                 Check((await proof.SupplierInvoices.SingleAsync(x => x.Id == legacyInvoice)).BranchRef is null, "Legacy scope was fabricated.");
@@ -77,6 +81,8 @@ internal static class Program
             Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS", assertions, actualHttpRequests = requests,
                 actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true,
                 legacyP19Preserved = true, emptyDownUp = true, usedDownBlocked = true, production = false,
+                policyDraftRetirement = true, policyReferenceRace = true, policyRaceMethodCreated,
+                policyRaceRequestsOverlapped = policyRaceOverlapped,
                 scope = "Basic draft CRUD only; no procurement approval, supplier approval, Finance, stock or full-module completion" }));
             if (browserMode)
             {
