@@ -1,5 +1,13 @@
 # Core-principal purchase-request approval successor
 
+**Current checkpoint:** genuine P25 migration generation, private migration/recovery checks,
+focused regression and the first finite-role create/submit/unavailable-funding HTTP
+slice have passed; see section 26. The first attempted private positive approval
+graph stopped at readiness after 19 actual HTTP requests. Its existing stores,
+roles and publication bytes were preserved. P25 remains default-off and is not
+deployed. Earlier source-only statements below describe the original checkpoints,
+not the current test coverage.
+
 ## 1. Status and provenance
 
 P25 source integration starts from published ERP main `b6b62cd551ad134879cc47c7ceb32a0570201aed` (accepted P24). The prepared source `d2c75e0` was normally merged on isolated branch `codex/procurement-p25-principal-integration`. Their common ancestor is `dbf5107`; the only incoming commits absent from main are the ten bounded P25 source commits `be32829` through `d2c75e0`. No held ancestors outside that already published common history were imported. The automatic merges retain published P23/P24 fixes, current Core scope, recurring CRUD, and actual document/readiness corrections.
