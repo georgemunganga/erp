@@ -7,9 +7,9 @@
 
 ## Start and boundaries
 
-- Primary repository `georgemunganga/erp`, fresh `origin/main`, containing published main `d2d45117d050357d84a63d90313782955bc80700` or its merged descendant. Record the exact starting SHA.
+- Primary repository `georgemunganga/erp`, fresh `origin/main`, containing published main `9f77b03c29a7537f97a759fd5d586ceb2879e0b2` or its merged descendant. Record the exact starting SHA.
 - Source: existing `modules/hrm/frontend/module-connect/`. Do not copy Procurement UI here or create another app.
-- Procurement UI main baseline is `georgemunganga/module-connect` commit `0adb132fe721de5e74551f1fa5758c30b11fb013`; it is reference only for this task. No changes in that repository.
+- Procurement UI main baseline is `georgemunganga/module-connect` commit `6fca23d4687668e85445c1c56ca92eefac1ab27c`; it is reference only for this task. No changes in that repository.
 - Read AGENTS.md, GW-ENG-STD-001 and the existing UI standards. Preserve published history and all other work.
 - Do not cherry-pick PR17 or held Core/Procurement branches. The coordinator will combine the narrowly reviewed patch with its auth producer. Do not edit auth.tsx, oidc.ts, auth-context.ts, migrations, APIs, permission grants, tenants, payroll calculations, deployment or production data.
 
