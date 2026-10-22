@@ -321,7 +321,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.ToTable("budget_check_snapshots", "procurement", t =>
                         {
-                            t.HasCheckConstraint("ck_budget_checker_identity", "(checker_identity_schema_version = 0 AND checked_by_worker_id IS NULL AND checker_identity_sha256 IS NULL) OR (checker_identity_schema_version = 1 AND checked_by_worker_id IS NOT NULL AND checked_by_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND checker_identity_sha256 IS NOT NULL AND checker_identity_sha256 ~ '^[a-f0-9]{64}$')");
+                            t.HasCheckConstraint("ck_budget_checker_identity", "(checker_identity_schema_version = 0 AND checked_by_worker_id IS NULL AND checker_identity_sha256 IS NULL) OR (checker_identity_schema_version = 1 AND checked_by_worker_id IS NOT NULL AND checked_by_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND checker_identity_sha256 IS NOT NULL AND checker_identity_sha256 ~ '^[a-f0-9]{64}$') OR (checker_identity_schema_version=2 AND (checked_by_worker_id IS NULL OR checked_by_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND checked_by_subject_id IS NOT NULL AND checked_by_subject_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND checked_by_subject_id <> '00000000-0000-0000-0000-000000000000' AND checker_identity_sha256 IS NOT NULL AND checker_identity_sha256 ~ '^[a-f0-9]{64}$')");
                         });
                 });
 
@@ -5258,6 +5258,21 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("purpose");
 
+                    b.Property<Guid?>("RequesterCoreWorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requester_core_worker_id");
+
+                    b.Property<int>("RequesterIdentitySchemaVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("requester_identity_schema_version");
+
+                    b.Property<string>("RequesterIdentitySha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("requester_identity_sha256");
+
                     b.Property<Guid?>("RequesterPrincipalId")
                         .HasColumnType("uuid")
                         .HasColumnName("requester_principal_id");
@@ -5334,6 +5349,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.ToTable("purchase_requests", "procurement", t =>
                         {
+                            t.HasCheckConstraint("ck_pr_original_principal_identity", "(requester_identity_schema_version=0 AND requester_core_worker_id IS NULL AND requester_identity_sha256 IS NULL) OR (requester_identity_schema_version=1 AND requester_principal_id IS NOT NULL AND requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (requester_core_worker_id IS NULL OR requester_core_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND created_by IS NOT NULL AND created_by=requester_principal_id::text AND source_channel IS NOT NULL AND source_channel='ERP' AND (on_behalf_of_subject_id IS NULL OR length(btrim(on_behalf_of_subject_id))=0) AND requester_identity_sha256 IS NOT NULL AND requester_identity_sha256 ~ '^[a-f0-9]{64}$')");
+
                             t.HasCheckConstraint("ck_purchase_request_identity", "(requester_principal_id IS NULL OR requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_worker_id IS NULL OR requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_principal_id IS NOT NULL OR requester_worker_id IS NOT NULL)");
                         });
                 });
@@ -5691,6 +5708,11 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("policy_version_number");
 
+                    b.Property<string>("PrincipalIdentitySha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("principal_identity_sha256");
+
                     b.Property<Guid>("PurchaseRequestId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_request_id");
@@ -5705,6 +5727,15 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("request_snapshot_sha256");
+
+                    b.Property<string>("RequesterIdentitySha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("requester_identity_sha256");
+
+                    b.Property<Guid?>("RequesterPrincipalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requester_principal_id");
 
                     b.Property<Guid?>("RequesterWorkerId")
                         .HasColumnType("uuid")
@@ -5776,17 +5807,19 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.ToTable("purchase_request_approval_submissions", "procurement", t =>
                         {
+                            t.HasCheckConstraint("ck_pr_approval_principal_identity", "(snapshot_schema_version IN (1,2) AND requester_principal_id IS NULL AND requester_identity_sha256 IS NULL AND principal_identity_sha256 IS NULL) OR (snapshot_schema_version=3 AND requester_principal_id IS NOT NULL AND requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid AND maker_subject_id IS NOT NULL AND maker_subject_id=requester_principal_id::text AND requester_identity_sha256 IS NOT NULL AND requester_identity_sha256 ~ '^[a-f0-9]{64}$' AND principal_identity_sha256 IS NOT NULL AND principal_identity_sha256 ~ '^[a-f0-9]{64}$')");
+
                             t.HasCheckConstraint("ck_pr_approval_submission_amount", "estimated_amount >= 0 AND amount_basis = 'EstimatedLineBase' AND currency_code ~ '^[A-Z]{3}$'");
 
                             t.HasCheckConstraint("ck_pr_approval_submission_digest", "request_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND finance_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND policy_decision_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 ~ '^[0-9a-f]{64}$'");
 
                             t.HasCheckConstraint("ck_pr_approval_submission_finance_mode", "(finance_evidence_mode = 'AutomatedFinance' AND manual_evidence_authority_ref IS NULL) OR (finance_evidence_mode = 'ApprovedManualEvidence' AND manual_evidence_authority_ref IS NOT NULL AND length(btrim(manual_evidence_authority_ref)) > 0)");
 
-                            t.HasCheckConstraint("ck_pr_approval_submission_identity", "snapshot_schema_version IN (1,2) AND submitted_business_version > 0 AND policy_version_number > 0 AND core_approval_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND opening_command_key <> '00000000-0000-0000-0000-000000000000'::uuid");
+                            t.HasCheckConstraint("ck_pr_approval_submission_identity", "snapshot_schema_version IN (1,2,3) AND submitted_business_version > 0 AND policy_version_number > 0 AND core_approval_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND opening_command_key <> '00000000-0000-0000-0000-000000000000'::uuid");
 
-                            t.HasCheckConstraint("ck_pr_approval_worker_identity", "(snapshot_schema_version = 1 AND maker_worker_id IS NULL AND requester_worker_id IS NULL AND worker_identity_sha256 IS NULL) OR (snapshot_schema_version = 2 AND maker_worker_id IS NOT NULL AND requester_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND worker_identity_sha256 IS NOT NULL AND worker_identity_sha256 ~ '^[a-f0-9]{64}$')");
+                            t.HasCheckConstraint("ck_pr_approval_worker_identity", "(snapshot_schema_version = 1 AND maker_worker_id IS NULL AND requester_worker_id IS NULL AND worker_identity_sha256 IS NULL) OR (snapshot_schema_version = 2 AND maker_worker_id IS NOT NULL AND requester_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND worker_identity_sha256 IS NOT NULL AND worker_identity_sha256 ~ '^[a-f0-9]{64}$') OR (snapshot_schema_version=3 AND worker_identity_sha256 IS NULL AND (maker_worker_id IS NULL OR maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_worker_id IS NULL OR requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid))");
 
-                            t.HasCheckConstraint("ck_pr_finance_identity_version", "finance_identity_schema_version = 0 OR (finance_identity_schema_version = 1 AND snapshot_schema_version = 2)");
+                            t.HasCheckConstraint("ck_pr_finance_identity_version", "(finance_identity_schema_version = 0 AND snapshot_schema_version IN (1,2)) OR (finance_identity_schema_version = 1 AND snapshot_schema_version = 2) OR (finance_identity_schema_version=2 AND snapshot_schema_version=3)");
                         });
                 });
 
@@ -5852,6 +5885,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("grant_revision");
 
+                    b.Property<int>("IdentitySchemaVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("identity_schema_version");
+
                     b.Property<Guid>("LegalEntityId")
                         .HasColumnType("uuid")
                         .HasColumnName("legal_entity_id");
@@ -5899,7 +5938,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.ToTable("assignment_authority_evidence", "procurement", t =>
                         {
-                            t.HasCheckConstraint("ck_pr_assignment_authority_identity", "core_stage_id <> '00000000-0000-0000-0000-000000000000'::uuid AND core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid AND grant_revision > 0 AND authority_version > 0 AND length(btrim(principal_id)) > 0 AND assignee_kind IN ('LineManager','ProcurementManager') AND evidence_sha256 ~ '^[a-f0-9]{64}$' AND (assignee_worker_id IS NULL OR assignee_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)");
+                            t.HasCheckConstraint("ck_pr_assignment_authority_identity", "identity_schema_version IN (1,2) AND (identity_schema_version=1 OR (principal_id IS NOT NULL AND principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND principal_id <> '00000000-0000-0000-0000-000000000000')) AND core_stage_id <> '00000000-0000-0000-0000-000000000000'::uuid AND core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid AND grant_revision > 0 AND authority_version > 0 AND length(btrim(principal_id)) > 0 AND assignee_kind IN ('LineManager','ProcurementManager') AND evidence_sha256 ~ '^[a-f0-9]{64}$' AND (assignee_worker_id IS NULL OR assignee_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)");
                         });
                 });
 
@@ -8180,7 +8219,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("actor_principal_id");
 
-                    b.Property<Guid>("ActorWorkerId")
+                    b.Property<Guid?>("ActorWorkerId")
                         .HasColumnType("uuid")
                         .HasColumnName("actor_worker_id");
 
@@ -8255,7 +8294,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("recipient_principal_id");
 
-                    b.Property<Guid>("RecipientWorkerId")
+                    b.Property<Guid?>("RecipientWorkerId")
                         .HasColumnType("uuid")
                         .HasColumnName("recipient_worker_id");
 
@@ -8326,7 +8365,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.ToTable("spending_authority_identity_evidence", "procurement", t =>
                         {
-                            t.HasCheckConstraint("ck_authority_identity_evidence", "schema_version=1 AND id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND grant_id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND authority_version>0 AND grant_record_version_at_action>0\nAND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND recipient_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND length(btrim(authority_reference))>0 AND length(btrim(permission))>0 AND length(btrim(action))>0\nAND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND actor_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND recipient_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND recipient_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND configuration_owner_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND configuration_owner_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND business_fingerprint IS NOT NULL AND business_fingerprint ~ '^[0-9a-fA-F]{64}$'\nAND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$'\nAND isfinite(action_at) AND created_at=action_at AND created_by=actor_principal_id\nAND version=1 AND updated_at IS NULL AND updated_by IS NULL\nAND ((stage='Created' AND grant_record_version_at_action=1\n    AND created_evidence_id IS NULL AND created_evidence_stage IS NULL\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Submitted' AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Activated' AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NOT NULL AND submitted_evidence_id<>id AND submitted_evidence_id<>created_evidence_id\n    AND submitted_evidence_stage IS NOT NULL AND submitted_evidence_stage='Submitted'))");
+                            t.HasCheckConstraint("ck_authority_identity_evidence", "schema_version IN (1,2) AND (schema_version=2 OR (actor_worker_id IS NOT NULL AND recipient_worker_id IS NOT NULL)) AND id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND grant_id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND (schema_version=1 OR (action='PurchaseRequest.Approve' AND permission='procurement-approval-decide'))\nAND authority_version>0 AND grant_record_version_at_action>0\nAND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)\nAND (recipient_worker_id IS NULL OR recipient_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)\nAND length(btrim(authority_reference))>0 AND length(btrim(permission))>0 AND length(btrim(action))>0\nAND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND actor_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND recipient_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND recipient_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND configuration_owner_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND configuration_owner_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND business_fingerprint IS NOT NULL AND business_fingerprint ~ '^[0-9a-fA-F]{64}$'\nAND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$'\nAND isfinite(action_at) AND created_at=action_at AND created_by=actor_principal_id\nAND version=1 AND updated_at IS NULL AND updated_by IS NULL\nAND ((stage='Created' AND grant_record_version_at_action=1\n    AND created_evidence_id IS NULL AND created_evidence_stage IS NULL\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Submitted' AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Activated' AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NOT NULL AND submitted_evidence_id<>id AND submitted_evidence_id<>created_evidence_id\n    AND submitted_evidence_stage IS NOT NULL AND submitted_evidence_stage='Submitted'))");
                         });
                 });
 
