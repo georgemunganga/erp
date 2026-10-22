@@ -32,8 +32,8 @@ if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_a
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
 if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--rfq" or "--sourcing-policies" or "--unit-reviews"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
-    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--settings", StringComparer.Ordinal) || args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal) || args.Contains("--rfq", StringComparer.Ordinal) || args.Contains("--sourcing-policies", StringComparer.Ordinal)))))
-    throw new ArgumentException("Use --unit-reviews (standalone only), --sourcing-policies, --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --settings, --orders, --receiving, --matching, --rfq or --sourcing-policies.");
+    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--settings", StringComparer.Ordinal) || args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal) || args.Contains("--rfq", StringComparer.Ordinal) || args.Contains("--sourcing-policies", StringComparer.Ordinal) || args.Contains("--unit-reviews", StringComparer.Ordinal)))))
+    throw new ArgumentException("Use --unit-reviews, --serve --unit-reviews (guarded Unix only), --sourcing-policies, --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --settings, --orders, --receiving, --matching, --rfq or --sourcing-policies.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
 var authoritySettings = serve && args.Contains("--settings", StringComparer.Ordinal);
 var sourcingPolicies = args.Contains("--sourcing-policies", StringComparer.Ordinal);
@@ -42,7 +42,9 @@ var matching = args.Contains("--matching", StringComparer.Ordinal) || unitReview
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
 var rfq = args.Contains("--rfq", StringComparer.Ordinal);
 var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving || rfq;
-PrivateBrowserTransport.Validate(serve, receiving, matching, rfq);
+PrivateBrowserTransport.Validate(serve, receiving, matching, rfq, unitReviews);
+if (serve && unitReviews && !PrivateBrowserTransport.Enabled) throw new ArgumentException("Original-unit review browser mode requires the fixed private Unix transport.");
+if (serve && unitReviews && Environment.GetEnvironmentVariable("PROCUREMENT_UNIT_REVIEW_BROWSER_VERIFY_ON_STOP") != "1") throw new ArgumentException("Original-unit review browser requires owning completion verification on stop.");
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
@@ -58,11 +60,13 @@ if (!serve && !sourcingPolicies)
 }
 if (serve)
 {
-    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings);
+    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings, unitReviews);
     Console.WriteLine(PrivateBrowserTransport.Enabled
         ? $"Private synthetic Procurement Unix-socket sandbox ready. Manifest: {manifest}"
         : $"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
+    if (unitReviews && Environment.GetEnvironmentVariable("PROCUREMENT_UNIT_REVIEW_BROWSER_VERIFY_ON_STOP") == "1")
+        await probe.VerifyUnitReviewBrowserCompletion();
     if (authoritySettings && Environment.GetEnvironmentVariable("PROCUREMENT_SOURCING_AUTHORITY_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifySourcingAuthorityBrowserCompletion();
     if (sourcingPolicies && Environment.GetEnvironmentVariable("PROCUREMENT_SOURCING_POLICY_BROWSER_VERIFY_ON_STOP") == "1")
@@ -304,8 +308,9 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             serve ? PrivateBrowserTransport.Client(port) : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null) { matchingDocumentDirectory=matchingDocumentsDirectory };
     }
 
-    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false)
+    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false, bool unitReviews = false)
     {
+        if (unitReviews) return await PrepareUnitReviewBrowserManifest(port);
         if (authoritySettings) return await PrepareSourcingAuthorityBrowserManifest(port);
         if (sourcingPolicies) return await PrepareSourcingPolicyBrowserManifest(port);
         if (rfq) return await PrepareRfqBrowserManifest(port);

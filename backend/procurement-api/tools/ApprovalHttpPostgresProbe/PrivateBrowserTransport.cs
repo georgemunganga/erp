@@ -8,13 +8,13 @@ internal static class PrivateBrowserTransport
     internal const string SocketPath = DirectoryPath + "/probe.sock";
     internal const string ManifestPath = DirectoryPath + "/fixture.json";
     internal static bool Enabled { get; private set; }
-    internal static void Validate(bool serve, bool receiving, bool matching, bool rfq)
+    internal static void Validate(bool serve, bool receiving, bool matching, bool rfq, bool unitReviews = false)
     {
         var requested = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_SOCKET");
         if (requested is null) return;
-        if (!OperatingSystem.IsLinux() || !serve || matching || !(receiving || rfq) || requested != SocketPath
+        if (!OperatingSystem.IsLinux() || !serve || matching && !unitReviews || !(receiving || rfq || unitReviews) || requested != SocketPath
             || Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_MANIFEST") != ManifestPath)
-            throw new InvalidOperationException("Unix transport requires only guarded --serve --receiving or --serve --rfq and fixed private paths.");
+            throw new InvalidOperationException("Unix transport requires only guarded --serve --receiving, --serve --rfq or --serve --unit-reviews and fixed private paths.");
         if (!Directory.Exists(DirectoryPath) || new DirectoryInfo(DirectoryPath).LinkTarget is not null
             || (File.GetUnixFileMode(DirectoryPath) & (UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute
                 | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute)) != 0
