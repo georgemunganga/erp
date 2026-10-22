@@ -23,10 +23,14 @@ public sealed partial class ProcurementDbContext
             // OriginalValues can be fabricated by attaching a detached DTO. The scoped
             // persisted identity and CAS version are authoritative, including closed history.
             var stored = RecurringPurchaseCommitments.AsNoTracking().Where(x => x.Id == record.Id)
-                .Select(x => new { x.OwnerPrincipalId, x.OwnerSubjectId, x.OwnerWorkerId, x.WorkLocationId, x.CreatedBy, x.Version })
+                .Select(x => new { x.OwnerPrincipalId, x.OwnerSubjectId, x.OwnerWorkerId, x.WorkLocationId, x.CreatedBy, x.Version, x.Status })
                 .SingleOrDefault();
             if (stored is null || stored.Version != entry.Property(x => x.Version).OriginalValue)
                 throw new DbUpdateConcurrencyException("The recurring purchase changed or is outside this scope.");
+            if (stored.Status == "Closed")
+                throw new InvalidOperationException("RecurringPurchaseClosedImmutable");
+            if (stored.OwnerSubjectId != scope.SubjectId || stored.OwnerPrincipalId.ToString("D") != scope.SubjectId)
+                throw new InvalidOperationException("RecurringPurchaseOwnerScopeMismatch");
             if (entry.Property(x => x.OwnerPrincipalId).OriginalValue != record.OwnerPrincipalId
                 || entry.Property(x => x.OwnerSubjectId).OriginalValue != record.OwnerSubjectId
                 || entry.Property(x => x.OwnerWorkerId).OriginalValue != record.OwnerWorkerId

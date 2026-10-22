@@ -69,6 +69,59 @@ public sealed class RecurringPurchasePrincipalIdentityTests
     }
 
     [Fact]
+    public async Task Another_actor_in_the_same_company_cannot_modify_the_persisted_owners_plan()
+    {
+        var owner = new Scope(); var options = Options(); RecurringPurchaseCommitment original;
+        await using (var seed = new ProcurementDbContext(options, owner))
+        { original = Record(owner); seed.AddScoped(original); await seed.SaveChangesAsync(); }
+        var before = await State(options, owner);
+        var other = new Scope(Guid.NewGuid(), owner.LegalEntityId);
+        var detached = JsonSerializer.Deserialize<RecurringPurchaseCommitment>(JsonSerializer.Serialize(original))!;
+        detached.Title = "Denied other-account edit";
+        await using (var writer = new ProcurementDbContext(options, other))
+        {
+            writer.Attach(detached); writer.Entry(detached).State = EntityState.Modified;
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.SaveChangesAsync());
+            Assert.Equal("RecurringPurchaseOwnerScopeMismatch", error.Message);
+        }
+        Assert.Equal(before, await State(options, owner));
+    }
+
+    [Theory]
+    [InlineData("loaded-title")][InlineData("detached-amount")][InlineData("detached-reopen")]
+    public async Task Persisted_closed_history_cannot_be_changed_or_reopened(string mutation)
+    {
+        var scope = new Scope(); var options = Options(); RecurringPurchaseCommitment original;
+        await using (var seed = new ProcurementDbContext(options, scope))
+        {
+            original = Record(scope); seed.AddScoped(original); await seed.SaveChangesAsync();
+            original.Status = "Closed"; original.ClosedAt = DateTimeOffset.UtcNow;
+            original.ClosedReason = "Synthetic planning complete"; await seed.SaveChangesAsync();
+            Assert.Equal(2, original.Version);
+        }
+        var before = await State(options, scope);
+        await using (var writer = new ProcurementDbContext(options, scope))
+        {
+            RecurringPurchaseCommitment changed;
+            if (mutation == "loaded-title")
+            {
+                changed = await writer.RecurringPurchaseCommitments.SingleAsync(x => x.Id == original.Id);
+                changed.Title = "Denied historical edit";
+            }
+            else
+            {
+                changed = JsonSerializer.Deserialize<RecurringPurchaseCommitment>(JsonSerializer.Serialize(original))!;
+                if (mutation == "detached-amount") changed.ExpectedAmount = 99.9999m;
+                else { changed.Status = "Draft"; changed.ClosedAt = null; changed.ClosedReason = null; }
+                writer.Attach(changed); writer.Entry(changed).State = EntityState.Modified;
+            }
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.SaveChangesAsync());
+            Assert.Equal("RecurringPurchaseClosedImmutable", error.Message);
+        }
+        Assert.Equal(before, await State(options, scope));
+    }
+
+    [Fact]
     public void Recurring_model_has_required_principal_optional_worker_and_principal_schedule_index()
     {
         using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
@@ -100,11 +153,11 @@ public sealed class RecurringPurchasePrincipalIdentityTests
             outbox = await proof.OutboxEvents.AsNoTracking().OrderBy(x => x.Id).ToArrayAsync()
         });
     }
-    private sealed class Scope(Guid? principal = null) : IProcurementScope
+    private sealed class Scope(Guid? principal = null, Guid? company = null) : IProcurementScope
     {
         public Guid Principal { get; } = principal ?? Guid.NewGuid();
         public string TenantId => "recurring-principal-test";
-        public Guid LegalEntityId { get; } = Guid.NewGuid();
+        public Guid LegalEntityId { get; } = company ?? Guid.NewGuid();
         public string SubjectId => Principal.ToString("D");
         public Guid? WorkerId => null;
         public Guid? WorkLocationId => null;
