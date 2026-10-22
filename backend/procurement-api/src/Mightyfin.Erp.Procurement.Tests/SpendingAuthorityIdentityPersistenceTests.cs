@@ -113,6 +113,18 @@ public sealed class SpendingAuthorityIdentityPersistenceTests
     }
 
     [Fact]
+    public void Attaching_original_identity_never_relabels_it_as_another_company()
+    {
+        var grant = Draft(); var origin = Origin(grant);
+        var originalTenant = origin.TenantId; var originalCompany = origin.LegalEntityId;
+        var originalDigest = origin.EvidenceSha256;
+        using var db = Context(Guid.NewGuid().ToString(), worker: MakerWorker, company: Guid.NewGuid());
+        Assert.Throws<InvalidOperationException>(() => db.AddScoped(origin));
+        Assert.Equal(originalTenant, origin.TenantId); Assert.Equal(originalCompany, origin.LegalEntityId);
+        Assert.Equal(originalDigest, origin.EvidenceSha256); Assert.Empty(db.ChangeTracker.Entries());
+    }
+
+    [Fact]
     public async Task Legacy_grant_remains_seedable_but_cannot_adopt_a_new_creation_envelope()
     {
         var name = Guid.NewGuid().ToString();

@@ -152,3 +152,22 @@ Down locks grant/evidence/audit tables in ACCESS EXCLUSIVE mode before testing r
 Initial runner/build failures remain retained: initial EF relational version conflict (explicit 10.0.11 pin fixes it), password/TCP assumptions incompatible with the existing isolated trust/socket rehearsal server, an incorrect lowercase EF history-column name, and an expected retention SQL55000 wrapped by EF before the probe handled that exact state/message. The final probe builds with zero warnings/errors. Private authentication/network settings were not changed; each actual run used a fresh synthetic database and failed databases remain available for inspection.
 
 This proves owner-role persistence and migration behavior only. The schema/readiness provider, canonical Core capture, guarded API action hints and PR/PO eligibility integration remain A3; actual Core swaps, finite runtime-role/HTTP/browser evidence remain A4. Historical grant/policy holds and production P19-compatible image/flags are unchanged. No production data, identities or schema were touched.
+
+
+## A3 command and consumer integration — 22 October 2026
+
+Implemented on the held development branch, not released:
+
+- The owning-store bridge reads persisted typed evidence with explicit tenant/company/grant scope. Attached or client-provided envelopes cannot establish historical identity.
+- Create records observed canonical maker/recipient workers. Submit and Activate append their exact identity stages in the same grant/audit transaction. Edit/Submit retain original-person authorship; Return/Activate/Supersede enforce original-worker independence and exact pending submission lineage. Supersede requires retained activation proof for its predecessor; legacy unknown authorities require authorized revocation instead of adoption.
+- Existing PR and PO resolvers evaluate complete authority families before validating the selected grant's retained activation and current recipient worker. Missing identity never filters an overlapping grant out or silently selects a different authority.
+- Server action hints use the same identity rules and actual recording readiness. List readiness is inspected once per request. Historical views and authorized Revoke remain available when identity capture is unavailable; unknown legacy records advertise no protected new-work actions.
+- Current Core actor resolution rejects a worker mapping that differs from the one resolved for the request. No scope replacement, fake employee, Core UPDATE privilege or administrative financial allowance is introduced.
+- P30 readiness checks its actual owning connection/current transaction, applied history, model, mapped fields, exact PostgreSQL17 CHECK/index predicates and scoped typed FKs. Read and recording grants differ. Evidence/audit/outbox stay append-only. Core identity writes, protected table/schema/database ownership and assumable elevated roles deny readiness, even after ordinary DML ACLs are revoked.
+- AddScoped rejects foreign identity evidence before stamping or tracking; it cannot relabel another company's original evidence.
+
+Verification so far: **95 host tests and 108 domain/persistence cases passed, zero failed/skipped**, including the new identity/schema cases and affected Procurement scope/approval/order/receiving/invoice/sourcing access gates. The first 38-case run is retained separately; review then identified and fixed the owner-ACL bypass. Source review confirmed the ownership fix. One new nullable warning was corrected; unrelated pre-existing host/analyzer warnings remain visible in logs. Evidence: `artifacts/authority-identity/a3/` (source hashes, logs and TRX).
+
+The standalone private finite-role mapped-HTTP rehearsal is being implemented separately. It does not replace actual operational PR/PO recipient-rebind, concurrency or browser evidence. The future SOURCING publication preflight remains non-operational; original sealed evidence is unchanged. RECEIVING/INVOICE_MATCHING historical-maker holds remain separate.
+
+Concurrency contract remains the existing coordinated SERIALIZABLE snapshot, not instant wall-clock revocation: swaps committed before canonical resolution are rejected, and retained workers are rechecked on subsequent actions. A stronger immediate/queued identity-change fence would require Core-owned cooperative identity mutations; no SELECT row lock requiring Core UPDATE permission is used or claimed here. A4/A5 release gates remain open.

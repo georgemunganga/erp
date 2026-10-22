@@ -92,6 +92,14 @@ internal static class ProcurementOrderAuthorityResolver
         if (pinnedAmount is { } originalAmount) context = context with { Amount = originalAmount };
         var result = ProcurementSpendingAuthority.Evaluate(context,
             account.PrincipalId, "procurement-po-approve", "PurchaseOrder.Approve", now, grants);
-        return result.Eligible ? result.Evidence : null;
+        if (!result.Eligible || result.Evidence is null) return null;
+        // Evaluate the complete family first: invalid identity must never hide overlap
+        // or cause selection of a different, apparently usable authority.
+        var selected = grants.Single(x => x.Id == result.Evidence.GrantId);
+        if (!await new ProcurementSpendingAuthorityIdentitySchemaReadiness().IsReadyAsync(db, ct))
+            throw new InvalidOperationException("AuthorityIdentityStoreUnavailable");
+        await ProcurementSpendingAuthorityWorkerIdentity.RequireEligibleRecipientAsync(
+            core, db, scope, selected, account.PrincipalId, account.WorkerId, ct);
+        return result.Evidence;
     }
 }

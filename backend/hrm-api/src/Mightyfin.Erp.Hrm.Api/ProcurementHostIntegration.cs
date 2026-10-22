@@ -15,6 +15,7 @@ public static class ProcurementHostIntegration
     public static void AddServices(IServiceCollection services, string connection, IConfiguration configuration)
     {
         services.AddScoped<ProcurementRequestScope>();
+        services.AddSingleton<IProcurementSpendingAuthorityIdentitySchemaReadiness, ProcurementSpendingAuthorityIdentitySchemaReadiness>();
         services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness, ProcurementSourcingPolicyIdentitySchemaReadiness>();
         var executionConnection = configuration.GetConnectionString("ProcurementApprovalExecution");
         var approvalOptions = configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
