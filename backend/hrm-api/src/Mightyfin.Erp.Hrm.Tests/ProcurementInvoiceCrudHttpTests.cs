@@ -97,8 +97,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Invoice_crud_never_changes_processed_originals(string blocker)
     {
         await using var fixture = await Fixture.Start(); var supplier = await fixture.AddInvoiceSupplier();
-        var id = await CaptureCrudInvoice(fixture, supplier, "CRUD-LOCKED");
-        await fixture.SetInvoiceBlocker(id, blocker); var before = await fixture.InvoiceFootprint(id);
+        var id = await fixture.SeedProcessedInvoiceOriginal(supplier, blocker); var before = await fixture.InvoiceFootprint(id);
         var detail = await InvoiceDetail(fixture, id); Assert.Empty(detail.GetProperty("allowedActions").EnumerateArray());
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, $"{InvoicePath}/{id}", fixture.Other,
             new { version = detail.GetProperty("version").GetInt64(), draft = InvoiceDraft(supplier, "CHANGED"), reason = "Must not edit evidence" }, "ap_processor")).StatusCode);
@@ -170,19 +169,29 @@ public sealed partial class ProcurementRequestHttpTests
                 lines = await db.SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == id).OrderBy(x => x.LineNumber).ToListAsync(),
                 auditCount = await db.AuditEvents.CountAsync(), invoiceCount = await db.SupplierInvoices.CountAsync(), lineCount = await db.SupplierInvoiceLines.CountAsync(), handoffs = await db.FinanceInvoiceHandoffs.CountAsync() });
         }
-        public async Task SetInvoiceBlocker(Guid id, string blocker)
+        // Owner-only synthetic processed-original fixture. Its blocker is present at initial
+        // insertion; never mutate an HTTP-captured immutable original to prepare a denial test.
+        public async Task<Guid> SeedProcessedInvoiceOriginal(Guid supplier, string blocker)
         {
             using var scope = InvoiceScope(); var db = scope.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            var invoice = await db.SupplierInvoices.SingleAsync(x => x.Id == id);
+            var invoice = new SupplierInvoice { SupplierId = supplier, InvoiceNumber = "CRUD-LOCKED",
+                NormalizedInvoiceNumber = "CRUD-LOCKED", InvoiceDate = new DateOnly(2026, 10, 22),
+                IntakeChannel = "Manual", Status = "Received", CurrencyCode = "ZMW",
+                NetAmount = 24.6912m, TaxAmount = 1.2345m, GrossAmount = 25.9257m };
+            var line = new SupplierInvoiceLine { SupplierInvoiceId = invoice.Id, LineNumber = 1,
+                Description = "Processed original", Quantity = 2m, UnitPrice = 12.3456m, TaxAmount = 1.2345m };
             switch (blocker)
             {
                 case "document": invoice.EvidenceDocumentRefId = Guid.NewGuid(); break;
                 case "posting": invoice.FinancePostingRef = "EXTERNAL-POSTING"; break;
                 case "channel": invoice.IntakeChannel = "Electronic"; break;
-                case "mapped": (await db.SupplierInvoiceLines.SingleAsync(x => x.SupplierInvoiceId == id)).PurchaseOrderLineId = Guid.NewGuid(); break;
-                case "matched": db.AddScoped(new InvoiceMatchResult { SupplierInvoiceId = id, MatchType = "TwoWay", Outcome = "Review", MatchedAt = DateTimeOffset.UtcNow }); break;
+                case "mapped": line.PurchaseOrderLineId = Guid.NewGuid(); break;
+                case "matched": db.AddScoped(new InvoiceMatchResult { SupplierInvoiceId = invoice.Id, MatchType = "TwoWay", Outcome = "Review", MatchedAt = DateTimeOffset.UtcNow }); break;
+                default: throw new ArgumentOutOfRangeException(nameof(blocker));
             }
+            db.AddScoped(invoice); db.AddScoped(line);
             await db.SaveChangesAsync();
+            return invoice.Id;
         }
         public async Task ConfineInvoiceActor()
         {

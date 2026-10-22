@@ -200,7 +200,7 @@ public sealed class ProcurementAdminViewTests
             Assert.False(ProcurementPermissions.Allows(policy,admin));
         Assert.False(ProcurementPermissions.Allows("procurement-authority-read",new[]{new Claim(ClaimTypes.Role,"employee"),claim}));
         Assert.False(ProcurementPermissions.Allows("unknown-read",admin));
-        Assert.False(ProcurementPermissions.Allows("procurement-authority-read",admin)); // Future policy stays absent on P19.
+        Assert.True(ProcurementPermissions.Allows("procurement-authority-read",admin)); // Governed integration adds the read policy; mutation denials above remain mandatory.
         Assert.True(ProcurementPermissions.Allows("procurement-vendor-approve",new[]{new Claim(ClaimTypes.Role,"erp_admin")}));
     }
 

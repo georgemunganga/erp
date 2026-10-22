@@ -37,6 +37,8 @@ public sealed class ProcurementApprovalCapabilityHttpTests
     [InlineData("finance-checker-schema-not-ready", false)]
     [InlineData("pending-procurement-schema", false)]
     [InlineData("configured", true)]
+    [InlineData("pending-model", false)]
+    [InlineData("unknown-model", false)]
     public async Task Mapped_metadata_exposes_only_configured_current_available_approvals(string scenario, bool expected)
     {
         var company = Guid.NewGuid();
@@ -71,7 +73,7 @@ public sealed class ProcurementApprovalCapabilityHttpTests
         builder.WebHost.UseTestServer();
         builder.Services.AddSingleton(scope);
         builder.Services.AddSingleton<IProcurementScope>(scope);
-        builder.Services.AddDbContext<ProcurementDbContext>(o => o.UseSqlite(connection));
+        builder.Services.AddDbContext<ProcurementDbContext>(o => { o.UseSqlite(connection); SyntheticProcurementMetadataModel.Configure(o, scenario); });
         builder.Services.AddSingleton(options);
         builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
         builder.Services.AddSingleton<IProcurementApprovalSchemaReadiness>(readiness);
@@ -102,10 +104,16 @@ public sealed class ProcurementApprovalCapabilityHttpTests
         await app.StartAsync();
         using var client = app.GetTestClient();
         using var response = await client.GetAsync("/api/procurement/v1/meta");
+        if (scenario == "unknown-model")
+        {
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            Assert.Equal(0, readiness.Calls);
+            return;
+        }
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(expected, body.GetProperty("capabilities").GetProperty("approvals").GetBoolean());
-        Assert.Equal(scenario != "pending-procurement-schema", body.GetProperty("schemaReady").GetBoolean());
+        Assert.Equal(scenario is not ("pending-procurement-schema" or "pending-model"), body.GetProperty("schemaReady").GetBoolean());
         Assert.Equal(expected || scenario == "schema-not-ready" ? 1 : 0, readiness.Calls);
     }
 

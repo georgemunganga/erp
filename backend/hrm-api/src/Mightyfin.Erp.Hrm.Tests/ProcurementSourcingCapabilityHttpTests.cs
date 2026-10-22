@@ -45,7 +45,7 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         await using var connection = new SqliteConnection("Data Source=:memory:"); await connection.OpenAsync();
         var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
         builder.Services.AddSingleton(scope); builder.Services.AddSingleton<IProcurementScope>(scope);
-        builder.Services.AddDbContext<ProcurementDbContext>(o => o.UseSqlite(connection));
+        builder.Services.AddDbContext<ProcurementDbContext>(o => { o.UseSqlite(connection); SyntheticProcurementMetadataModel.Configure(o, "synthetic-history-only"); });
         builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = enabled, ExecutionDatabaseConfigured = configured });
         var readiness = new Readiness(ready);
         builder.Services.AddSingleton<IProcurementSourcingDraftSchemaReadiness>(readiness);

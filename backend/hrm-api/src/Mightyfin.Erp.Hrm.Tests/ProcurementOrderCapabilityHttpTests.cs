@@ -40,6 +40,8 @@ public sealed class ProcurementOrderCapabilityHttpTests
     [InlineData("absent-delivery-channels", false)]
     [InlineData("invalid-freshness", false)]
     [InlineData("configured", true)]
+    [InlineData("pending-model", false)]
+    [InlineData("unknown-model", false)]
     public async Task Mapped_metadata_exposes_only_configured_current_available_orders(string scenario, bool expected)
     {
         var company = Guid.NewGuid();
@@ -78,7 +80,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
         builder.WebHost.UseTestServer();
         builder.Services.AddSingleton(scope);
         builder.Services.AddSingleton<IProcurementScope>(scope);
-        builder.Services.AddDbContext<ProcurementDbContext>(o => o.UseSqlite(connection));
+        builder.Services.AddDbContext<ProcurementDbContext>(o => { o.UseSqlite(connection); SyntheticProcurementMetadataModel.Configure(o, scenario); });
         builder.Services.AddSingleton(options);
         builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions());
         builder.Services.AddSingleton<IProcurementOrderSchemaReadiness>(readiness);
@@ -109,10 +111,16 @@ public sealed class ProcurementOrderCapabilityHttpTests
         await app.StartAsync();
         using var client = app.GetTestClient();
         using var response = await client.GetAsync("/api/procurement/v1/meta");
+        if (scenario == "unknown-model")
+        {
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            Assert.Equal(0, readiness.Calls);
+            return;
+        }
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(expected, body.GetProperty("capabilities").GetProperty("orders").GetBoolean());
-        Assert.Equal(scenario != "pending-procurement-schema", body.GetProperty("schemaReady").GetBoolean());
+        Assert.Equal(scenario is not ("pending-procurement-schema" or "pending-model"), body.GetProperty("schemaReady").GetBoolean());
         Assert.Equal(expected || scenario == "schema-not-ready" ? 1 : 0, readiness.Calls);
     }
 
