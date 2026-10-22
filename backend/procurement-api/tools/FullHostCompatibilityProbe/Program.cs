@@ -32,9 +32,10 @@ var scope = new ProcurementRequestScope();
 scope.Set("offline-smoke", Guid.NewGuid(), "offline-smoke", null, null, false, "offline-smoke");
 var result = new Dictionary<string, object?> { ["status"] = "NOT_STARTED", ["dataPrinted"] = false,
     ["limits"] = "Private clone only; no runtime-role, authenticated business workflow or deployment proof." };
-var before = await Footprint(connection);
+string? before = null;
 try
 {
+    before = await Footprint(connection);
     await using var hrm = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
         .UseNpgsql(connection, n => n.MigrationsHistoryTable("__hrm_migrations", "hrm")).Options, new OfflineTenant());
     await using var procurement = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseNpgsql(connection, n => n.MigrationsHistoryTable("__procurement_migrations", "procurement")).Options, scope);
@@ -81,11 +82,23 @@ catch (Exception error)
 }
 finally
 {
-    var after = await Footprint(connection);
-    result["allTableValuesAndSchemasUnchanged"] = before == after;
-    if (before != after) { result["status"] = "FAIL_CLONE_CHANGED"; Environment.ExitCode = 1; }
-    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(evidence))!);
-    await File.WriteAllTextAsync(evidence, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+    try
+    {
+        var after = await Footprint(connection);
+        result["allTableValuesAndSchemasUnchanged"] = before is not null && before == after;
+        if (before is not null && before != after) { result["status"] = "FAIL_CLONE_CHANGED"; Environment.ExitCode = 1; }
+    }
+    catch (Exception error)
+    {
+        result["status"] = "FAIL_FOOTPRINT"; result["footprintExceptionType"] = error.GetType().Name;
+        result["allTableValuesAndSchemasUnchanged"] = false; Environment.ExitCode = 1;
+    }
+    try
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(evidence))!);
+        await File.WriteAllTextAsync(evidence, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+    }
+    catch { Environment.ExitCode = 1; }
     Console.WriteLine("Private full Program compatibility probe finished; consult protected summary only.");
 }
 

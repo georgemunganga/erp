@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import shutil
 
 CONTAINER = 'procurement-approval-rehearsal-postgres'
 SOURCE = 'proc_release_backup_20261022_canonical_0619'
@@ -53,7 +54,15 @@ def main():
     # createdb refuses an existing target. Never DROP, terminate sessions, alter source or roles.
     docker('exec', '-i', CONTAINER, 'createdb', '-U', 'postgres', '--template=' + SOURCE, a.target_db,
            label='clone')
-    manifest = {name: hashlib.sha256((a.publish_dir / name).read_bytes()).hexdigest() for name in required}
+    # Freeze every loaded artifact before launch; later builds cannot replace running DLLs.
+    if any(path.is_symlink() for path in a.publish_dir.rglob('*')):
+        raise RuntimeError('Publication must contain regular files, not external configuration links')
+    runtime = a.output / 'runtime'
+    shutil.copytree(a.publish_dir, runtime)
+    def runtime_hashes():
+        return {str(path.relative_to(runtime)): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in runtime.rglob('*') if path.is_file()}
+    manifest = runtime_hashes()
     (a.output / 'run-manifest.json').write_text(json.dumps({'source': SOURCE, 'target': a.target_db,
         'runtimeImage': a.runtime_image, 'networkMode': 'none', 'publishedArtifacts': manifest,
         'limit': 'Owner credential on new private clone only; no finite-role or production claim'}, indent=2) + '\n')
@@ -62,7 +71,7 @@ def main():
     connection = 'Host=/private-pg;Database=' + a.target_db + ';Username=postgres;Pooling=false;Include Error Detail=false'
     r = subprocess.run(['docker', 'run', '--rm', '--pull=never', '--network=none', '--memory=512m', '--cpus=1',
         '--read-only', '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m',
-        '--mount', 'type=bind,src=' + str(a.publish_dir.resolve()) + ',dst=/app,readonly',
+        '--mount', 'type=bind,src=' + str(runtime.resolve()) + ',dst=/app,readonly',
         '--mount', 'type=bind,src=' + socket[0] + ',dst=/private-pg,readonly',
         '--mount', 'type=bind,src=' + str(a.output.resolve()) + ',dst=/evidence',
         '--env', 'ERP_HOST_SMOKE_CONNECTION=' + connection,
@@ -70,6 +79,8 @@ def main():
         '--env', 'DOTNET_EnableDiagnostics=0', '--workdir', '/app', a.runtime_image,
         'dotnet', '/app/FullHostCompatibilityProbe.dll'], text=True, capture_output=True)
     (a.output / 'host-smoke.log').write_text(r.stdout + r.stderr)
+    if runtime_hashes() != manifest:
+        raise RuntimeError('Frozen smoke runtime changed; no compatibility result can be accepted')
     if r.returncode:
         raise RuntimeError('Actual Program smoke blocked/failed; restricted summary/log and clone retained')
     result = json.loads((a.output / 'result.json').read_text())
