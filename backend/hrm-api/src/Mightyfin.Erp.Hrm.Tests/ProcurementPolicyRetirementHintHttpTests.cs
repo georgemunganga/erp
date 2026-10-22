@@ -51,6 +51,7 @@ public sealed partial class ProcurementRequestHttpTests
     {
         internal async Task SetRetirementHintAdminWithoutWorker(Guid id)
         {
+            await ConfigureCoreActions(id, "procurement-access,procurement-configuration-read", "erp_admin", actorSpecific: false);
             using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             var actor = await core.LocalUsers.SingleAsync(x => x.Id == id); actor.WorkerId = null; actor.RolesCsv = "erp_admin"; await core.SaveChangesAsync();
         }
