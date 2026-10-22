@@ -29,6 +29,7 @@ internal static partial class Program
     const string CanonicalP21 = "20261022052824_P21CanonicalGovernedProcurementFoundation";
     static readonly Guid Company = Guid.NewGuid(), ForeignCompany = Guid.NewGuid(), Branch = Guid.NewGuid();
     static readonly Guid Actor = Guid.NewGuid(), Other = Guid.NewGuid(), Worker = Guid.NewGuid(), OtherWorker = Guid.NewGuid();
+    static readonly Guid SystemActor = Guid.NewGuid();
     static readonly JsonSerializerOptions Snake = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     static string connection = "", stage = "input"; static int assertions, requests;
     static Guid approvedSupplier, legacyInvoice;
@@ -58,6 +59,8 @@ internal static partial class Program
             await Bootstrap();
             await using var app = await Host(); using var client = Client(app);
             var context = await Get(client, "/context"); Check(context.GetProperty("workerId").GetGuid() == Worker, "Actual context did not bind the synthetic Core worker.");
+            Check(context.GetProperty("principalId").GetGuid() == Actor, "Context must identify the actual Core account independently of its optional worker.");
+            await SystemUserContext(client);
             var meta = await Get(client, "/meta"); Check(meta.GetProperty("crudEnabled").GetBoolean(), "Normal host CRUD capability unavailable.");
             foreach (var capability in new[] { "approvals", "orders", "sourcingSourceDrafts", "receivingDrafts", "invoiceComparison" })
                 Check(!meta.GetProperty("capabilities").GetProperty(capability).GetBoolean(), "Draft fixture must not enable an operational workflow.");
@@ -140,6 +143,14 @@ internal static partial class Program
                 core.LocalUsers.Add(new LocalUser {Id=actor,WorkerId=worker,Email=label+"@example.test",NormalizedEmail=label.ToUpperInvariant()+"@EXAMPLE.TEST",DisplayName=label,PasswordHash="synthetic-no-login",RolesCsv="erp_admin",IsActive=true});
                 core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=actor,LocationId=Branch});
             }
+            // Actual Core grants, not an employee designation or a header-only
+            // administrator shortcut. Browser CRUD deliberately uses no employee.
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey="erp_admin",RoleName="Synthetic ERP administrator",
+                Category="system",PermissionsCsv="erp_admin",Active=true});
+            core.LocalUsers.Add(new LocalUser {Id=SystemActor,WorkerId=null,Email="system-only@example.test",
+                NormalizedEmail="SYSTEM-ONLY@EXAMPLE.TEST",DisplayName="Synthetic system user",PasswordHash="synthetic-no-login",
+                RolesCsv="erp_admin",IsActive=true});
+            core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=SystemActor,LocationId=Branch});
             await core.SaveChangesAsync();
         }
         await using (var db=Db())
@@ -200,9 +211,9 @@ internal static partial class Program
         if (OperatingSystem.IsLinux()) File.SetUnixFileMode(BrowserManifest,UnixFileMode.UserRead|UnixFileMode.UserWrite);
         await JsonSerializer.SerializeAsync(stream,new { database=new NpgsqlConnectionStringBuilder(connection).Database,
             tenantId=Tenant,companyId=Company,foreignCompanyId=ForeignCompany,
-            branchId=Branch,actorId=Actor,workerId=Worker,approvedSupplierId=approvedSupplier,legacyInvoiceId=legacyInvoice,
+            branchId=Branch,actorId=SystemActor,workerId=(Guid?)null,approvedSupplierId=approvedSupplier,legacyInvoiceId=legacyInvoice,
             authenticationHeader="X-Crud-Actor",socketPath=BrowserSocket,
-            actors=new {maker=new {principalId=Actor,workerId=Worker},other=new {principalId=Other,workerId=OtherWorker}},
+            actors=new {maker=new {principalId=Actor,workerId=Worker},other=new {principalId=Other,workerId=OtherWorker},systemUser=new {principalId=SystemActor,workerId=(Guid?)null}},
             cliProofComplete=true,production=false,finiteRole=false,coreShellPresentationOnly=true,
             supplierApproval="Synthetic owner fixture, not supplier approval proof" },new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
@@ -237,18 +248,16 @@ internal static partial class Program
             return facts is null?(IResult)Results.Unauthorized():Results.Ok(new {assignedLocationIds=new[]{facts.Branch.Id},confined=true,privateSyntheticShell=true});
         }).RequireAuthorization();
     }
-    sealed record ShellProjection(LocalUser User,Mightyfin.Erp.Hrm.Domain.Entities.Worker Worker,LegalEntity Company,WorkLocation Branch);
+    sealed record ShellProjection(LocalUser User,LegalEntity Company,WorkLocation Branch);
     static async Task<ShellProjection?> ShellFacts(HttpContext http,HrmDbContext core)
     {
-        if (!Guid.TryParse(http.User.FindFirst("sub")?.Value,out var actor)||(actor!=Actor&&actor!=Other)) return null;
+        if (!Guid.TryParse(http.User.FindFirst("sub")?.Value,out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor)) return null;
         var user=await core.LocalUsers.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==actor&&x.IsActive);
-        if (user is null || user.WorkerId is not {} workerId) return null;
-        var worker=await core.Workers.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==workerId&&x.Status=="active");
-        if (worker is null || worker.LocationId!=Branch) return null;
+        if (user is null || user.IsArchived || user.LockedUntil>DateTimeOffset.UtcNow) return null;
         var branch=await core.WorkLocations.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==Branch&&x.LegalEntityId==Company&&!x.IsArchived);
         var company=await core.LegalEntities.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==Company);
         if (branch is null||company is null||!await core.UserBranchAssignments.AsNoTracking().AnyAsync(x=>x.UserId==actor&&x.LocationId==Branch)) return null;
-        return new(user,worker,company,branch);
+        return new(user,company,branch);
     }
     static async Task Vendors(HttpClient c)
     {
@@ -505,7 +514,7 @@ internal static partial class Program
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            if(!Guid.TryParse(Request.Headers["X-Crud-Actor"],out var actor)||(actor!=Actor&&actor!=Other))return Task.FromResult(AuthenticateResult.NoResult());
+            if(!Guid.TryParse(Request.Headers["X-Crud-Actor"],out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor))return Task.FromResult(AuthenticateResult.NoResult());
             var principal=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("tenant",Tenant),new Claim("sub",actor.ToString()),new Claim(ClaimTypes.Role,"erp_admin")},"private-crud"));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal,"private-crud")));
         }
