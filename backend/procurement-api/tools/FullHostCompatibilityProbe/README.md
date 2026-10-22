@@ -33,3 +33,42 @@ Read-only catalog checks accompany every emitted operation. They compare current
 Source inspection suggests inherited snapshot lag: the current HRM model includes SalaryAdvance/CompanyBranding whereas the retained snapshot omits those entity/table mappings; handwritten migrations may already have created them. This is a hypothesis until the real diagnostic runs. Never apply a naive generated CreateTable/AddColumn diff to that database. If catalog evidence establishes every difference is already represented by applied owning DDL, the owner may review a targeted snapshot-only reconciliation or a guarded no-DDL reconciliation migration; otherwise it must design the smallest additive owning migration from the actual schema. Existing migrations/history/rows and the startup block remain intact throughout.
 
 This increment is source-only and uncompiled. No diagnostic result, snapshot repair, database mutation or actual Program compatibility is claimed.
+
+## HRM owner reconciliation checkpoint (22 October 2026)
+
+The actual retained catalog established that the handwritten migrations already own all
+18 reported differences: four tables, seven columns and seven indexes. Three explicit
+model names now match their existing PK/index/FK contracts; existing delete behaviour,
+filters, types and nullability are retained. The refreshed snapshot records that proven
+model without a new migration or history entry. The temporary generated draft was
+archived outside Git and was never applied; every earlier migration file is unchanged.
+The real initialized snapshot/current Npgsql differ and `HasPendingModelChanges` gates,
+plus focused model/loan regressions, passed 7/7. This does not establish host startup.
+
+The first two actual Program attempts retained clean owner model/migration gates and
+unchanged table/schema fingerprints, but failed startup. The tool now records fixed
+phase names, numeric root/readiness HTTP statuses, worker/bootstrap booleans and method
+names only. It never records exception messages, response bodies, SQL or configuration.
+Its isolated environment and deferred web configuration share the same safe settings:
+the actual minimal Program reads database/auth settings before `builder.Build`, so they
+must exist before its entry point executes. The content-root setting is supplied using
+the WebHost `ASPNETCORE_` environment prefix. These are tool composition changes, not
+application readiness overrides; actual startup remains gated on its real result.
+
+### Fresh owning migration engine, separate from idempotent SQL scripting
+
+The original full-chain EF idempotent SQL failed on a handwritten raw `UPDATE` without
+a semicolon inside the generated PL/pgSQL wrapper. That SQL and failed new database are
+retained. No old migration or generated SQL is patched to conceal the limitation.
+
+The explicit `--rehearse-fresh-hrm` mode instead exercises the application's actual EF
+migration path. Use the same launcher/publication/image arguments, a new target matching
+`hrm_model_reconcile_20261022_<unique>` and that flag. The launcher creates the target
+from `template0`, never from a source database. The tool first requires a real matching
+owner model and zero user objects/history, then calls the real `MigrateAsync` twice.
+It requires all HRM table-data/schema/history fingerprints unchanged on the second run,
+no pending migrations/model changes, and catalog/history equality with the fixed retained
+canonical database, which it reads only. It never starts Program, changes roles or
+executes Down, and it refuses a reused/nonempty target. No runtime success is claimed
+for this newly authored mode until the parent-owned actual gate runs. Sequence state
+and finite-role provisioning remain outside this owner-schema check.

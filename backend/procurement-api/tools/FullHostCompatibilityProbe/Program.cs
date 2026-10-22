@@ -20,23 +20,33 @@ using Npgsql;
 // retained canonical private restored backup and run this binary in --network none.
 var connection = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_CONNECTION")
     ?? throw new InvalidOperationException("Private new-clone connection required.");
+var freshHrmOnly = args.SequenceEqual(new[] { "--rehearse-fresh-hrm" });
 var parsed = new NpgsqlConnectionStringBuilder(connection);
-if (parsed.Database is not { } name || !name.StartsWith("proc_release_backup_20261022_smoke_", StringComparison.Ordinal)
-    || !parsed.Host.StartsWith("/", StringComparison.Ordinal) || parsed.Host.Contains(','))
+if (parsed.Database is not { } name || !(freshHrmOnly
+        ? System.Text.RegularExpressions.Regex.IsMatch(name, "^hrm_model_reconcile_20261022_[a-z0-9_]{1,24}$")
+        : name.StartsWith("proc_release_backup_20261022_smoke_", StringComparison.Ordinal))
+    || parsed.Host is not { } host || !host.StartsWith("/", StringComparison.Ordinal) || host.Contains(','))
     throw new InvalidOperationException("Only a new bounded smoke clone over a local Unix socket is supported.");
 var diagnosticOnly = args.SequenceEqual(new[] { "--diagnose-hrm-model" });
-if (args.Length != 0 && !diagnosticOnly) throw new InvalidOperationException("Only the read-only HRM model diagnostic flag is supported; no migration/publisher arguments.");
+if (args.Length != 0 && !diagnosticOnly && !freshHrmOnly) throw new InvalidOperationException("Only explicit read-only diagnostic or new-empty HRM rehearsal flags are supported; no publisher arguments.");
 var evidence = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_RESULT")
     ?? throw new InvalidOperationException("Private result path required.");
 if (File.Exists(evidence)) throw new InvalidOperationException("Do not reuse evidence paths.");
+if (freshHrmOnly)
+{
+    await HrmFreshRehearsal.RunAsync(connection, evidence);
+    return;
+}
 var scope = new ProcurementRequestScope();
 scope.Set("offline-smoke", Guid.NewGuid(), "offline-smoke", null, null, false, "offline-smoke");
 var result = new Dictionary<string, object?> { ["status"] = "NOT_STARTED", ["dataPrinted"] = false,
     ["limits"] = "Private clone only; no runtime-role, authenticated business workflow or deployment proof." };
 string? before = null;
+var phase = "InitialFootprint";
 try
 {
     before = await Footprint(connection);
+    phase = "OwnerModels";
     await using var hrm = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
         .UseNpgsql(connection, n => n.MigrationsHistoryTable("__hrm_migrations", "hrm")).Options, new OfflineTenant());
     await using var procurement = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseNpgsql(connection, n => n.MigrationsHistoryTable("__procurement_migrations", "procurement")).Options, scope);
@@ -65,16 +75,31 @@ try
         // WebApplicationFactory uses the actual API assembly entry point, not copied routes.
         // Its default content-root search needs an explicit root when no solution file exists.
         var key = "TEST_CONTENTROOT_" + typeof(MonthlyLeaveAccrualWorker).Assembly.GetName().Name!.ToUpperInvariant().Replace('.', '_');
-        Environment.SetEnvironmentVariable(key, AppContext.BaseDirectory);
+        // WebHostBuilder imports ASPNETCORE_* environment settings before WAF searches
+        // for a solution file. A raw process variable is not an IWebHostBuilder setting.
+        Environment.SetEnvironmentVariable("ASPNETCORE_" + key, AppContext.BaseDirectory);
+        // Minimal Program reads connection/auth settings before builder.Build, while
+        // WAF web configuration callbacks are deferred until that build. Supply the
+        // same isolated process settings before executing the real entry point.
+        foreach (var setting in OfflineHost.Settings(connection))
+            Environment.SetEnvironmentVariable(setting.Key.Replace(":", "__", StringComparison.Ordinal), setting.Value);
+        phase = "ActualProgramCreateClient";
         await using var factory = new OfflineHost(connection);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        if (factory.Services.GetServices<IHostedService>().Any(x => x is MonthlyLeaveAccrualWorker))
+        phase = "OfflineServicesCheck";
+        var accrualServicePresent = factory.Services.GetServices<IHostedService>().Any(x => x is MonthlyLeaveAccrualWorker);
+        result["accrualServicePresent"] = accrualServicePresent;
+        if (accrualServicePresent)
             throw new InvalidOperationException("Leave accrual worker must not be registered in this smoke harness.");
         var config = factory.Services.GetRequiredService<IConfiguration>();
-        if (!string.IsNullOrEmpty(config["HRM:LocalAdminEmail"]) || !string.IsNullOrEmpty(config["HRM:LocalAdminPassword"]))
+        var bootstrapConfigured = !string.IsNullOrEmpty(config["HRM:LocalAdminEmail"]) || !string.IsNullOrEmpty(config["HRM:LocalAdminPassword"]);
+        result["bootstrapConfigured"] = bootstrapConfigured;
+        if (bootstrapConfigured)
             throw new InvalidOperationException("Bootstrap must be disabled.");
+        phase = "RootAndReadinessHttp";
         using var welcome = await client.GetAsync("/");
         using var health = await client.GetAsync("/health/ready");
+        result["welcomeStatus"] = (int)welcome.StatusCode; result["healthStatus"] = (int)health.StatusCode;
         if (welcome.StatusCode != HttpStatusCode.OK || health.StatusCode != HttpStatusCode.OK)
             throw new InvalidOperationException("Actual Program startup/root/database health failed.");
         result["status"] = "PASS"; result["actualProgramStarted"] = true;
@@ -86,7 +111,17 @@ catch (Exception error)
 {
     // Actual clone may contain private business records. Never serialize exception messages,
     // SQL, connection strings, HTTP bodies, configuration or row data to any console/log.
-    result["status"] = "FAIL"; result["exceptionType"] = error.GetType().Name; Environment.ExitCode = 1;
+    result["status"] = "FAIL"; result["exceptionType"] = error.GetType().Name;
+    result["failurePhase"] = phase;
+    result["failureMethods"] = new System.Diagnostics.StackTrace(error, false).GetFrames()
+        .Select(frame => frame.GetMethod())
+        .Where(method => method is not null)
+        .Take(16)
+        .Select(method => method!.DeclaringType?.FullName + "." + method.Name).ToArray();
+    // Fixed diagnostic classification only, never emit private exception text.
+    result["solutionRootDiscoveryFailure"] = error is InvalidOperationException
+        && error.StackTrace?.Contains("UseSolutionRelativeContentRoot", StringComparison.Ordinal) == true;
+    Environment.ExitCode = 1;
 }
 finally
 {
@@ -144,20 +179,22 @@ static async Task<string> Footprint(string connection)
 sealed class OfflineTenant : ITenantAccessor { public string GetTenantId() => "offline-smoke"; }
 sealed class OfflineHost(string connection) : WebApplicationFactory<MonthlyLeaveAccrualWorker>
 {
+    internal static Dictionary<string, string?> Settings(string connection) => new()
+    {
+        ["ConnectionStrings:Hrm"] = connection, ["ConnectionStrings:Procurement"] = connection,
+        ["ConnectionStrings:ProcurementApprovalExecution"] = null,
+        ["ERP:AuthMode"] = "local", ["HRM:AuthMode"] = "local",
+        ["Procurement:Approvals:Enabled"] = "false", ["Procurement:Orders:Enabled"] = "false",
+        ["Procurement:SourcingDrafts:Enabled"] = "false", ["Procurement:Receiving:DraftsEnabled"] = "false",
+        ["Procurement:Receiving:PositiveExecutionEnabled"] = "false", ["Procurement:InvoiceMatching:Enabled"] = "false",
+        ["CoreDocuments:Enabled"] = "false",
+        ["HRM:LocalAdminEmail"] = "", ["HRM:LocalAdminPassword"] = "",
+    };
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Production");
-        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:Hrm"] = connection, ["ConnectionStrings:Procurement"] = connection,
-            ["ConnectionStrings:ProcurementApprovalExecution"] = null,
-            ["ERP:AuthMode"] = "local", ["HRM:AuthMode"] = "local",
-            ["Procurement:Approvals:Enabled"] = "false", ["Procurement:Orders:Enabled"] = "false",
-            ["Procurement:SourcingDrafts:Enabled"] = "false", ["Procurement:Receiving:DraftsEnabled"] = "false",
-            ["Procurement:Receiving:PositiveExecutionEnabled"] = "false", ["Procurement:InvoiceMatching:Enabled"] = "false",
-            ["CoreDocuments:Enabled"] = "false",
-            ["HRM:LocalAdminEmail"] = "", ["HRM:LocalAdminPassword"] = "",
-        }));
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(Settings(connection)));
         builder.ConfigureTestServices(services =>
         {
             foreach (var registration in services.Where(x => x.ServiceType == typeof(IHostedService)
