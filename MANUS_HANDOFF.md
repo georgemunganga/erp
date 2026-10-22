@@ -99,3 +99,5 @@ UI PR #47 merged normally at `5f88d54917525c6642d05e94409068f37212b5fa`; reviewe
 ## Current independent assignment
 
 Manus owns [MANUS-CORE-BUILD-03](docs/collaboration/manus/MANUS-CORE-BUILD-03.md), a complete repair/verification milestone for inherited shared ERP frontend TypeScript failures. Start from the latest merged ERP main with the minimum baseline above, not the coordinator’s unmerged branches. Procurement implementation continues independently; the existing vendor and settings assignments must not be duplicated.
+
+**P25 private recovery checkpoint (22 October):** Frozen ERP source `e50344a4e02361c699a7c716d60668af629a3206` passed43 actual HTTP requests including12 actor-owned GET acknowledgements, six POST replay/action checks and35 storage denials, followed by independent read-only owner review. See the existing P25 acceptance record. This remains private synthetic manual evidence, default-off and undeployed; durable browser recovery and further authorization/release gates remain coordinator-owned. Do not duplicate this work or enable execution/Finance flags. Published main prerequisites above remain unchanged.
