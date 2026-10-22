@@ -155,8 +155,15 @@ internal static partial class PrincipalApprovalHttpVerification
         result["checker2Authority2Submission3Assignment2Acceptance"]="ACTUAL_HTTP_GRAPH_AND_INDEPENDENT_OWNER_RELOAD";
         result["manualEvidenceAuthorityReference"]=PrivateManualPolicyReference;result["externalFinanceAuthority"]=false;
         result["status"]="PASS_PRIVATE_P25_MANUAL_PRINCIPAL_APPROVAL_ONLY";
-        // The separately owned full raw-storage matrix can consume graph in a later opt-in
-        // checkpoint. This phase does not claim its35 negatives or independent-family vetoes.
-        _=ownerConnection;
+        result["currentGraphRawStorage"]="NOT_RUN";
+        if(Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is {} raw)
+        {
+            Need(raw=="1","Private raw graph opt-in must be exactly1.");
+            stage("OwnerCurrentGraphRawStorage");
+            await VerifyRawStorageAsync(ownerConnection,graph);
+            result["currentGraphRawStorage"]=PrincipalRawStorageVerification;
+        }
+        // Owner-only raw probes do not establish Finance authority or independently
+        // isolate the five dependent domain graph families.
     }
 }
