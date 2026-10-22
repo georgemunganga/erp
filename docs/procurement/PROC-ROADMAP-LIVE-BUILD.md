@@ -1,13 +1,23 @@
 # Procurement live implementation roadmap
 
-**Status:** Active engineering roadmap, updated 19 October 2026. Business policies and release approvals remain open.
+**Status:** Active engineering roadmap, updated 22 October 2026. Individual releases have recorded acceptance; outstanding business policies and workflow activation gates remain open.
 **Standard:** [GW-ENG-STD-001](../engineering/GW-ENG-STD-001.md), Tier 3; every child uses the 28-section feature specification.
 **UI contract:** Existing Procurement workspace and `docs/procurement-ui-contract-register.md` in the Procurement UI repository; do not create a second UI.
 
 The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared services can already be reused and which HRMS implementations are still module-specific.
 The [workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) ties Zoho's help journeys to the child features and ERP ownership boundaries. Use ERPNext as a secondary public implementation example for complex data/control decisions.
 
-## Current baseline
+## Current baseline — 22 October 2026
+
+The P23/P24 application and schema are deployed. The [live release acceptance](release/PROC-OPS-P23-P24-LIVE-ACCEPTANCE-20261022.md) records the exact application image, migration IDs, public UI assets, real-account browser results and independent database/audit reconciliation. Public vendor draft create/edit and recurring-purchase planning create/edit/close passed using a Core account with no employee link. These scoped results do not establish completion of the whole module.
+
+P25 is the next source milestone: Core-principal purchase requests, authority evidence and approval contracts. It remains a draft, default-off change under [PR 33](https://github.com/georgemunganga/erp/pull/33). Its source suites passed 1,253 domain and 586 host tests; isolated migration and subsequent runtime/workflow acceptance are separate gates. P25 has not been deployed. Existing worker-based sourcing, ordering and receiving consumers require an explicitly tested bridge before using the new principal contracts.
+
+**Finance ownership confirmed:** AP, accounting and payments belong to the future ERP Finance module, which has not been built. Procurement can store and validate its own records and prepare integration contracts. It must not manufacture budget reservations, posting IDs, payment status or a substitute finance ledger. Financial transitions remain unavailable until their owning service and acceptance evidence exist.
+
+**Next sequence:** finish P25 database preservation/constraint/downgrade checks; verify current Core grants and record scopes with finite runtime roles and real API/browser journeys; then implement and verify the sourcing → order → receipt bridges in dependency order. Keep invoice evidence/scanning, approval activation and all external hand-offs subject to their recorded prerequisites. Manus retains its focused task in [MANUS_HANDOFF.md](../../MANUS_HANDOFF.md).
+
+## Historical baseline — 19 October 2026
 
 The shared ERP host has authenticated, tenant/entity-scoped draft CRUD for suppliers, items, purchase requests, plans, categories, methods, contracts, sourcing events and buyer-owned purchase orders. Production runs the isolated Procurement schema through P18 and a Procurement-enabled API/UI; see [the live enablement record](PROC-OPS-02-LIVE-ENABLEMENT-20261019.md). The live workspace uses API-backed draft screens and empty workflow states for unsupported routes. Core supplies sign-in and organisation context; local sessions resolve configurable Procurement action grants from Core tenant roles. Supplier, item, catalog price and buying-method activation and buying-rule publication have independent review controls. A vendor approver with read and approve grants can inspect submitted or suspended suppliers in the selected legal entity without a manage grant; individual task assignments are not yet implemented. Submitted requests pin non-authoritative policy evidence to their current version; Finance can record an external reservation reference, but no ERP Finance reservation, delegated approval, purchase commitment, AP posting or payment is enabled. Vendor draft contacts, addresses and pending qualifications support reasoned, retained removal. Plan and sourcing revisions reject duplicate saved line IDs in their shared validators; plan, sourcing and contract draft changes record before/after business audit evidence. P18 adds retained line deactivation for buyer-owned purchase-order drafts; approval and issue remain gated. P17 adds a normalized supplier-invoice duplicate key; the first invoice slice only records structured manual intake as `Received`, with no source-document upload, matching, AP posting or payment. Read-only HRMS approver candidates are visible, but Core approval cases remain disabled. OIDC role mapping, binding workflow assignments, document upload, Finance and Inventory/Asset contracts require completion or verification.
 
