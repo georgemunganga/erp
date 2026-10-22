@@ -84,6 +84,7 @@ public sealed class ProcurementApprovalTransaction
         await using var approvals = new ApprovalDbContext(approvalOptions, scope);
         await procurement.Database.UseTransactionAsync(transaction, ct);
         await approvals.Database.UseTransactionAsync(transaction, ct);
+        procurement.BindInvoiceUnitReviewCoreContext(approvals);
 
         var outcome = await command(procurement, approvals, ct);
         await procurement.SaveChangesAsync(ct);

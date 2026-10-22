@@ -56,7 +56,7 @@ public sealed partial class ProcurementDbContext
             if (entry.State == EntityState.Added && (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId || entry.Entity.Version != 1)) throw new InvalidOperationException("InvoiceUnitReviewScopeMismatch");
         }
         var added = rows.Where(x => x.State == EntityState.Added).ToArray(); if (added.Length == 0) return;
-        if (scope.WorkerId is not { } worker || worker == Guid.Empty || !Database.IsNpgsql() || Database.CurrentTransaction is null)
+        if (scope.WorkerId is not { } worker || worker == Guid.Empty || !Database.IsNpgsql() || Database.CurrentTransaction is null || unitReviewCore is null)
             throw new InvalidOperationException("InvoiceUnitReviewOwningTransactionRequired");
         using var core = new ApprovalDbContext(new DbContextOptionsBuilder<ApprovalDbContext>().UseNpgsql(Database.GetDbConnection()).Options, new UnitReviewApprovalScope(scope.TenantId, scope.LegalEntityId, scope.SubjectId));
         core.Database.UseTransaction(Database.CurrentTransaction.GetDbTransaction());
@@ -98,7 +98,7 @@ public sealed partial class ProcurementDbContext
                 matchingPolicy, reviewPolicy, typed.Lines.GroupBy(x => x.DocumentVersionId).ToDictionary(x => x.Key, x => x.First().DocumentSha256), source.OpenedAt);
             VerifyUnitReviewPolicyIdentity(matchingPolicy);
             VerifyUnitReviewPolicyIdentity(reviewPolicy);
-            if (!UnitReviewInsertedInCurrentTransaction("cases", workflow.Id) || workflow.State != "Pending" || core.Decisions.Any(x => x.CaseId == workflow.Id) || typed.ReviewPolicy.Stages.Sum(x => x.Assignees.Count) != pins.Length)
+            if (!unitReviewInsertedCases.Contains(workflow.Id) || workflow.State != "Pending" || core.Decisions.Any(x => x.CaseId == workflow.Id) || typed.ReviewPolicy.Stages.Sum(x => x.Assignees.Count) != pins.Length)
                 throw new InvalidOperationException("InvoiceUnitReviewOpeningCaseRequired");
         }
         foreach (var source in added.Select(x => x.Entity).OfType<InvoiceUnitReviewSource>())
@@ -141,7 +141,7 @@ public sealed partial class ProcurementDbContext
             var outcome = added.Select(x => x.Entity).OfType<InvoiceUnitReviewOutcome>().SingleOrDefault(x => x.ReviewSourceId == source.Id);
             InvoiceUnitReviewCommands.Verify(receipt, source, invoice, workflow, pins, decision, outcome);
             if (receipt.Operation == "Open" && !added.Any(x => x.Entity is InvoiceUnitReviewSource row && row.Id == source.Id)
-                || decision is not null && !UnitReviewInsertedInCurrentTransaction("decisions", decision.Id))
+                || decision is not null && !unitReviewInsertedDecisions.Contains(decision.Id))
                 throw new InvalidOperationException("InvoiceUnitReviewReceiptEffectRequired");
         }
         foreach (var outcome in added.Select(x => x.Entity).OfType<InvoiceUnitReviewOutcome>())
@@ -153,14 +153,30 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("InvoiceUnitReviewTerminalReceiptRequired");
         }
     }
-    private bool UnitReviewInsertedInCurrentTransaction(string table, Guid id)
+    private readonly HashSet<Guid> unitReviewInsertedCases = [];
+    private readonly HashSet<Guid> unitReviewInsertedDecisions = [];
+    private ApprovalDbContext? unitReviewCore;
+    // Coordinator-only binding: actual EF Added inserts in the same physical transaction,
+    // recorded after successful SaveChanges. No xmin/top-level xid or updated-row inference.
+    internal void BindInvoiceUnitReviewCoreContext(ApprovalDbContext owner)
     {
-        if (table is not ("cases" or "decisions")) throw new InvalidOperationException("InvoiceUnitReviewCoreTableInvalid");
-        using var command = Database.GetDbConnection().CreateCommand();
-        command.Transaction = Database.CurrentTransaction!.GetDbTransaction();
-        command.CommandText = "SELECT EXISTS(SELECT 1 FROM core_approval." + table + " WHERE id=@id AND xmin::text::bigint=(txid_current()%4294967296))";
-        var parameter = command.CreateParameter(); parameter.ParameterName = "id"; parameter.DbType = System.Data.DbType.Guid; parameter.Value = id; command.Parameters.Add(parameter);
-        return command.ExecuteScalar() is true;
+        if (unitReviewCore is not null || Database.CurrentTransaction is null || owner.Database.CurrentTransaction is null
+            || !ReferenceEquals(Database.GetDbConnection(), owner.Database.GetDbConnection())
+            || !ReferenceEquals(Database.CurrentTransaction.GetDbTransaction(), owner.Database.CurrentTransaction.GetDbTransaction()))
+            throw new InvalidOperationException("InvoiceUnitReviewCoreTransactionMismatch");
+        unitReviewCore = owner;
+        Guid[] pendingCases = [], pendingDecisions = [];
+        owner.SavingChanges += (_, _) =>
+        {
+            pendingCases = owner.ChangeTracker.Entries<ApprovalCase>().Where(x => x.State == EntityState.Added).Select(x => x.Entity.Id).ToArray();
+            pendingDecisions = owner.ChangeTracker.Entries<ApprovalDecision>().Where(x => x.State == EntityState.Added).Select(x => x.Entity.Id).ToArray();
+        };
+        owner.SavedChanges += (_, _) =>
+        {
+            unitReviewInsertedCases.UnionWith(pendingCases); unitReviewInsertedDecisions.UnionWith(pendingDecisions);
+            pendingCases = []; pendingDecisions = [];
+        };
+        owner.SaveChangesFailed += (_, _) => { pendingCases = []; pendingDecisions = []; };
     }
     private void VerifyUnitReviewPolicyIdentity(PolicyVersion policy)
     {
