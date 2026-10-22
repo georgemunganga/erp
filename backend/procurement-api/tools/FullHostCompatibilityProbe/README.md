@@ -100,3 +100,32 @@ and all HRM table data, including that imported archive, must remain unchanged b
 and after. The importer table is never created, deleted, adopted or backfilled by EF.
 Both failed results and their databases remain retained; corrected runtime acceptance
 is pending a new private gate.
+
+### Executed owner gates — source `db837e3`
+
+The exact API and tool were rebuilt together after removing the obsolete application
+`PendingModelChangesWarning` suppression: build succeeded with zero errors (18 inherited
+warnings). The earlier focused real-model/loan suite passed 7/7; unchanged tests are not
+counted again as a new suite run.
+
+On a new clone using the explicitly verified deployment tenant, the actual unmodified
+entry point passed root/readiness HTTP 200 with both real pending-migration counts zero
+and both real pending-model checks false. Bootstrap, leave accrual and outbox publishing
+were off, and **all table values/history and schema definitions were unchanged**.
+
+On a separate new `template0` database, two actual HRM `MigrateAsync` runs passed, with
+zero pending migration/model differences, identical full HRM data/schema/history after
+the second run, exact fresh-owned catalog/history equality, and complete retained HRM
+catalog/data preservation including the sole import-owned archive. No old migration was
+edited, no new history entry was invented, and no production database was touched.
+
+Protected evidence is retained under
+`/home/amizo/erp-backups/hrm-model-reconciliation-20261022/`: the exact source/publication
+manifest and build log are in `0814-db837-api-tool`, actual Program result in
+`0820-actual-program-verified-tenant`, and fresh owner-engine result in
+`0822-fresh-engine-import-owned`. Prior compile, wrapper-script and fixture-composition
+failures remain retained. The old full-chain idempotent wrapper-script semicolon issue
+is still a documented limitation; this acceptance proves the actual EF migration path,
+not repaired script text. Sequence state, finite-role business authorization, external
+integrations, production upgrade/deployment and operational Procurement workflow are
+separate gates and are not inferred from these owner checks.
