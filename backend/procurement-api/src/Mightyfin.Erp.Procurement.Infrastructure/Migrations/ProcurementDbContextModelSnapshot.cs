@@ -1973,6 +1973,154 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.OperationalPolicyIdentityRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("ActionAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("action_at");
+
+                    b.Property<string>("ActorPrincipalId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_principal_id");
+
+                    b.Property<Guid>("ActorWorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_worker_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("CreatedEvidenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_evidence_id");
+
+                    b.Property<string>("CreatedEvidenceStage")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("created_evidence_stage");
+
+                    b.Property<string>("EvidenceSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("evidence_sha256");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<string>("PolicyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("policy_key");
+
+                    b.Property<long>("PolicyRecordVersionAtAction")
+                        .HasColumnType("bigint")
+                        .HasColumnName("policy_record_version_at_action");
+
+                    b.Property<Guid>("PolicyVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("policy_version_id");
+
+                    b.Property<int>("PolicyVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("policy_version_number");
+
+                    b.Property<string>("RulesSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("rules_sha256");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("stage");
+
+                    b.Property<Guid?>("SubmittedEvidenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submitted_evidence_id");
+
+                    b.Property<string>("SubmittedEvidenceStage")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("submitted_evidence_stage");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "Id", "Stage")
+                        .HasName("ak_operational_policy_identity_lineage");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "PolicyVersionNumber");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "CreatedEvidenceId", "CreatedEvidenceStage")
+                        .HasDatabaseName("IX_operational_policy_identity_evidence_tenant_id_legal_entit~1");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "Stage", "PolicyRecordVersionAtAction")
+                        .IsUnique()
+                        .HasDatabaseName("ux_operational_policy_identity_revision");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "SubmittedEvidenceId", "SubmittedEvidenceStage")
+                        .HasDatabaseName("IX_operational_policy_identity_evidence_tenant_id_legal_entit~2");
+
+                    b.HasIndex(new[] { "TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey" }, "ux_operational_policy_identity_created")
+                        .IsUnique()
+                        .HasDatabaseName("ux_operational_policy_identity_created")
+                        .HasFilter("stage = 'Created'");
+
+                    b.HasIndex(new[] { "TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey" }, "ux_operational_policy_identity_published")
+                        .IsUnique()
+                        .HasDatabaseName("ux_operational_policy_identity_published")
+                        .HasFilter("stage = 'Published'");
+
+                    b.ToTable("operational_policy_identity_evidence", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_operational_policy_identity", "schema_version=1 AND policy_key IN ('RECEIVING','INVOICE_MATCHING')\nAND id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND policy_version_number>0 AND policy_record_version_at_action>0\nAND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND actor_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND rules_sha256 IS NOT NULL AND rules_sha256 ~ '^[0-9a-f]{64}$'\nAND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$'\nAND isfinite(action_at) AND created_at=action_at AND created_by=actor_principal_id\nAND version=1 AND updated_at IS NULL AND updated_by IS NULL\nAND ((stage='Created' AND policy_record_version_at_action=1\n    AND created_evidence_id IS NULL AND created_evidence_stage IS NULL\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Submitted' AND policy_record_version_at_action>1\n    AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Published' AND policy_record_version_at_action>2\n    AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NOT NULL AND submitted_evidence_id<>id AND submitted_evidence_id<>created_evidence_id\n    AND submitted_evidence_stage IS NOT NULL AND submitted_evidence_stage='Submitted'))");
+                        });
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.OutboxEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2273,6 +2421,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnName("version");
 
                     b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "PolicyKey", "PolicyVersionNumber")
+                        .HasName("ak_operational_policy_identity_owner");
 
                     b.HasIndex("TenantId", "LegalEntityId", "PolicyKey", "PolicyVersionNumber")
                         .IsUnique();
@@ -9835,6 +9986,31 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasForeignKey("TenantId", "LegalEntityId", "MappingVersionId", "SupplierInvoiceId", "PurchaseOrderId", "IssuedVersionId")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "SupplierInvoiceId", "PurchaseOrderId", "IssuedVersionId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.OperationalPolicyIdentityRecord", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PolicyVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "PolicyVersionNumber")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PolicyKey", "PolicyVersionNumber")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_operational_policy_identity_owner");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.OperationalPolicyIdentityRecord", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "CreatedEvidenceId", "CreatedEvidenceStage")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "Id", "Stage")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_operational_policy_identity_created");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.OperationalPolicyIdentityRecord", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "SubmittedEvidenceId", "SubmittedEvidenceStage")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "Id", "Stage")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_operational_policy_identity_submitted");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PolicyEvaluation", b =>

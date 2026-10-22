@@ -1,6 +1,6 @@
 # PROC-OP-POLICY-WORKER-01 — original people behind receiving and matching policy
 
-Status: implementation in progress; pure foundation verified, persistence/lifecycle/consumer integration pending; not released. Prepared: 22 October 2026.
+Status: implementation in progress; pure foundation and PostgreSQL persistence verified; lifecycle/consumer integration pending; not released. Prepared: 22 October 2026.
 Owner: Procurement coordinator/backend. Risk: Tier 3 under GW-ENG-STD-001.
 
 ## 1. Feature identification
@@ -131,3 +131,12 @@ Legacy open-ended published policies need an authorized retirement/replacement r
 The policy-key-aware pure contract, typed record, lossless storage converter and focused cases are implemented. Independent source review found no concrete blocker in this bounded contract. **96 cases passed, zero failed/skipped**: 46 new operational-policy identity/storage cases and 50 existing SOURCING/spending identity cases. Evidence is retained under `artifacts/operational-policy-identity/stage1/` with source hashes. Existing unrelated GovernedRfqDraft nullable warnings remain visible.
 
 This checkpoint adds no DbSet/mapping/context hooks/migration, HTTP behavior or effective-policy eligibility. A hash is not provenance. Actual same-save actor/lineage ownership and allowed policy changes belong to the next persistence stage. P29 SOURCING and P30 spending evidence formats remain unchanged. The previously passed finite-role spending API checkpoint remains `f7006e9`; its actual API/database result does not certify this new policy foundation.
+
+
+## Stage 2 verification checkpoint — 22 October 2026
+
+Typed append-only persistence and P31 (`20261022041534_P31OperationalPolicyWorkerIdentity`) are implemented. The additive migration adds one evidence table and a policy identity alternate key without rewriting historical policies. SaveChanges binds observed request workers, exact original authors, persisted scoped lineage and intended owner revisions. Retained evidence and audit veto destructive downgrade.
+
+**121 focused domain/persistence cases passed, zero failed/skipped**, including 25 new persistence cases; evidence: `artifacts/operational-policy-identity/stage2/`. The owner-level PostgreSQL probe also **passed** in private disposable database `operational_policy_identity_20261022_042007`; source hashes and output: `artifacts/operational-policy-identity/private/20261022_042007/`. It verified two unchanged legacy policies with no backfill, empty Down/Up, six persisted actions across both policy keys, two legacy-adoption denials, five scoped foreign-key denials, three uniqueness denials, an empty-worker CHECK denial, append-only context update/delete denial, and both evidence-retained and audit-only downgrade vetoes with unchanged denial footprints. Probe build passed with zero warnings/errors.
+
+This proves owning-store persistence and migration behavior. It does **not** prove Core identity, finite-role HTTP authorization, receiving/matching eligibility, concurrency, browser acceptance or production readiness. Lifecycle/API integration and operational consumers remain unfinished. No production migration or deployment was performed.

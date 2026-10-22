@@ -77,7 +77,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
-        if ((record is SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
+        if ((record is OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation) &&
             (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
             throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
@@ -502,6 +502,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigurePurchaseOrderExecution(modelBuilder);
         ConfigureSourcingDraftExecution(modelBuilder);
         ConfigureSourcingPolicyIdentity(modelBuilder);
+        ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureReceivingExecution(modelBuilder);
         ConfigureInvoiceMatchingExecution(modelBuilder);
         ConfigureFinanceCheckerIdentity(modelBuilder);
@@ -689,6 +690,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardInvoiceMatchingExecution();
         GuardSourcingDraftExecution();
         GuardSourcingPolicyIdentity();
+        GuardOperationalPolicyIdentity();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();
@@ -705,7 +707,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             {
                 if (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId)
                     throw new InvalidOperationException("A new record must be stamped with the authenticated scope before tracking.");
-                if (!PreserveAuthorityCreationMetadata(entry.Entity))
+                if (!PreserveAuthorityCreationMetadata(entry.Entity)
+                    && !PreserveOperationalPolicyCreationMetadata(entry.Entity))
                 {
                     entry.Entity.CreatedAt = now;
                     entry.Entity.CreatedBy = scope.SubjectId;
