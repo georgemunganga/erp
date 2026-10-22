@@ -75,7 +75,7 @@ internal sealed class PrincipalApprovalFixture(string owner)
     }
 }
 
-internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema):WebApplicationFactory<MonthlyLeaveAccrualWorker>
+internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false):WebApplicationFactory<MonthlyLeaveAccrualWorker>
 {
     internal Dictionary<string,string?> Settings()
     {
@@ -101,7 +101,11 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             var feature=services.Last(x=>x.ServiceType==typeof(ProcurementApprovalExecutionOptions)).ImplementationInstance as ProcurementApprovalExecutionOptions
                 ?? throw new InvalidOperationException("Expected normal composed approval options instance.");
             // Explicit PRIVATE negative prerequisite, independent of inherited template policy arrays.
-            feature.ManualFinancePolicies=[];
+            feature.ManualFinancePolicies=privateManualEvidence
+                ? [new ProcurementManualFinancePolicy {Enabled=true,LegalEntityId=fixture.Company,
+                    ApprovedPolicyReference=PrincipalApprovalHttpVerification.PrivateManualPolicyReference,
+                    EffectiveFrom=DateTimeOffset.UtcNow.AddMinutes(-1),EffectiveUntil=DateTimeOffset.UtcNow.AddHours(1),EvidenceMaximumAgeMinutes=30}]
+                : [];
 
             services.AddSingleton(new PrincipalApprovalSubjects(fixture.Subjects));
             services.AddAuthentication(o=>{o.DefaultAuthenticateScheme="private-p25-subject";o.DefaultChallengeScheme="private-p25-subject";})

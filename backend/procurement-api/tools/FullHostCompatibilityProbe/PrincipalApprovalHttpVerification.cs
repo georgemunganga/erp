@@ -96,6 +96,11 @@ internal static partial class PrincipalApprovalHttpVerification
             result["status"]="PASS_PRIVATE_P25_CREATE_SUBMIT_FUNDING_UNAVAILABLE_ONLY";result["finiteRecordAndExecutionLoginsVerified"]=true;
             result["currentCoreWorkerlessSourceVerified"]=true;result["defaultUnavailableRegistrationVerified"]=true;result["fundingUnavailableNoEffectsVerified"]=true;
             result["positiveApprovalGraph"]=false;result["checker2Authority2Submission3Assignment2Acceptance"]="NOT_RUN_NEXT_CHECKPOINT";
+            if(Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is {} positive)
+            {
+                Need(positive=="1","Private manual evidence opt-in must be exactly1.");
+                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,value=>stage=value,Send);
+            }
         }
         catch(Exception error)
         {
