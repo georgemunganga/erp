@@ -54,8 +54,16 @@ Before schema application, separately verified restart of the exact baseline may
 Operational scripts, dumps, configuration and records stay outside Git under `/home/amizo/erp-backups/`.
 
 - Read-only audit/plan: `procurement-p23-p24-release-audit-20261022T153955Z`.
-- Reviewed full-ACL successor pack: `procurement-p23-p24-full-acl-prep-20261022`; plan SHA `96452b9961974b5b2bb37fd176079fb604a09eb13fe3ec7af969e4fca3a4d818`.
+- Initial full-ACL successor pack: `procurement-p23-p24-full-acl-prep-20261022`. Executed successor: `procurement-p23-p24-full-acl-restore-variants-prep-20261022/plan.v3.REVIEW.json`, SHA `361bb66db3630b3b722e1e2c396dc55ed48afff3106528f102f2f1b144e56783`.
 - Prepared full native harness: `procurement-p23-p24-native-prep-20261022`.
 - Reviewed successor runtime adapters: `procurement-p23-p24-native-runner-prep-20261022-v3`.
 
-The retained SDK input validator has passed against actual P24 evidence. **Fresh restore, native startup, publisher execution, cutover and authenticated live acceptance are still pending.** Hosted Actions remain blocked by the GitHub account billing lock; local evidence is not hosted CI success.
+## Completed private gates
+
+- Fresh production-backup restore, exact genuine P23/P24 Up, original data/owner/ACL/default-ACL preservation and rollback-only finite `SET ROLE` checks passed. Final production schema/privilege preservation passed. Receipt: `procurement-p23-p24-full-acl-actual-20261022_review02/result.json`, SHA `8584c850f5a4d269e65cae102245e1b9791b391900bd5a971d16b5482e6ed50a`.
+- Actual API Program started on a separate private clone using the complete frozen native harness. HRM/Procurement pending migrations and model changes were zero, and table values/schema were unchanged. Final acceptance: `procurement-p23-p24-native-program-20261022_run01/execution-acceptance.json`, SHA `41bc947112c3894d8c749be2d3b0520f74ee5db3fb071a2416548fc80e6d6d93`.
+- The actual HRM-only publisher entrypoint executed a successful EF claim query on another private clone; immutable payloads and source preservation passed. Receipt: `procurement-p23-p24-native-publisher-20261022_run01/result.json`, SHA `813a8cb6d380c338cb026bae2abd95e3c1c22be18c8ede5d5661ac2bae20fa4f`. No Procurement dispatcher or external delivery success is claimed.
+
+Retained failures: the first rehearsal stopped before database operations because generated SQL permissions were insufficiently restricted; new protected byte-identical copies fixed its input contract. The next restore stopped before Up because PostgreSQL reconstructed 11 literal-array CHECK casts differently. Narrow comparison and actual read-only array evaluation proved identical types, values, order and all text outside the single cast fragment. The successful successor accepts only these exact private restore forms (nine survive P23/P24); production raw checks and every other constraint/index remain exact. No database repair or general normalization was used.
+
+These are private owner/SQL/startup proofs, not production deployment or authenticated public acceptance. **Immutable candidate inspection, a fresh writer-stopped backup and restore, live cutover and signed-in CRUD acceptance remain pending.** Hosted Actions remain blocked by the GitHub account billing lock; local evidence is not hosted CI success.
