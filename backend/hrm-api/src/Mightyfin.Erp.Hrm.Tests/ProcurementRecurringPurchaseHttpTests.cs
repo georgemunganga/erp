@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Domain.Entities;
+using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
@@ -405,8 +406,9 @@ public sealed partial class ProcurementRequestHttpTests
             services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Hrm.Api.ProcurementRequestScope>()
                 .Set("tenant-a", company, Owner.ToString(), null, null, false, "recurring-update-audit-fixture");
             var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
-            return await db.AuditEvents.AsNoTracking().Where(x => x.RecordId == id && x.Action == "PlanUpdated")
+            var rows = await db.AuditEvents.AsNoTracking().Where(x => x.RecordId == id && x.Action == "PlanUpdated")
                 .OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).Select(x => x.ChangedFieldsJson).ToArrayAsync();
+            return rows.Select(x => x ?? throw new InvalidOperationException("Recurring update audit JSON is missing.")).ToArray();
         }
         public async Task<(int Records, int Invoices, int Handoffs, int Audit)> RecurringFootprint(Guid id)
         {
