@@ -93,13 +93,25 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             if (!maker && !assigned && !reader) throw new UnauthorizedAccessException();
             var outcome = await db.InvoiceUnitReviewOutcomes.SingleOrDefaultAsync(x => x.ReviewSourceId == id, token);
             var currentMapping = invoice.CurrentMappingVersionId == source.MappingVersionId && invoice.MappingRevision == source.MappingRevision;
-            var assignments = workflow.Stages.Where(x => currentMapping && workflow.State == "Pending" && x.State == "Active").SelectMany(x => x.Assignments)
+            var originals = await Originals(db, invoice.Id, token);
+            var originalDigestCurrent = InvoiceMappingEvidence.OriginalDigest(invoice, originals) == source.OriginalSha256;
+            var blockers = new List<string>();
+            if (!currentMapping) blockers.Add("InvoiceMappingSuperseded");
+            if (!originalDigestCurrent) blockers.Add("InvoiceOriginalChanged");
+            // Same invoice only; no source-PO lines, other allocations or Finance references.
+            // Exact original line values make the named document/unit mapping reviewable
+            // without granting a purpose reviewer general invoice list/detail access.
+            object? original = !originalDigestCurrent ? null : new { invoice.InvoiceNumber, invoice.InvoiceDate, invoice.CurrencyCode,
+                netAmount = ProcurementEvidenceEncoding.Decimal(invoice.NetAmount), taxAmount = ProcurementEvidenceEncoding.Decimal(invoice.TaxAmount),
+                grossAmount = ProcurementEvidenceEncoding.Decimal(invoice.GrossAmount),
+                lines = originals.Select(x => new { x.Id, x.LineNumber, x.Description, quantity = ProcurementEvidenceEncoding.Decimal(x.Quantity),
+                    unitPrice = ProcurementEvidenceEncoding.Decimal(x.UnitPrice), taxAmount = ProcurementEvidenceEncoding.Decimal(x.TaxAmount) }).ToArray() };
+            var assignments = workflow.Stages.Where(x => currentMapping && originalDigestCurrent && workflow.State == "Pending" && x.State == "Active").SelectMany(x => x.Assignments)
                 .Where(x => x.State == "Pending" && x.AssigneeSubjectId == actor.PrincipalId && pins.Any(w => w.CoreAssignmentId == x.Id && w.WorkerId == actor.WorkerId))
                 .Select(x => new { assignmentId = x.Id, assignmentVersion = x.Version }).ToArray();
             return InvoiceUnitReviewCommands.Serialize(new { reviewId = id, invoiceId = invoice.Id, invoiceVersion = invoice.Version,
                 mappingVersionId = source.MappingVersionId, source.MappingRevision, coreCaseId = workflow.Id, caseVersion = workflow.Version,
-                caseState = workflow.State, reviewState = outcome?.State ?? "Pending", currentMapping,
-                blockers = currentMapping ? Array.Empty<string>() : new[] { "InvoiceMappingSuperseded" }, assignments,
+                caseState = workflow.State, reviewState = outcome?.State ?? "Pending", currentMapping, originalDigestCurrent, original, blockers, assignments,
                 originalDocumentLines = owned.Source.Lines, attestation = InvoiceUnitReviewCommands.OriginalUnitAttestation,
                 actionCandidates = assignments.Length == 0 ? Array.Empty<string>() : new[] { "Approve", "Return", "Reject" },
                 actionCandidateMeaning = "CurrentAssignmentOnlyRevalidatedByCommand", isInvoiceApproval = false, canPostToFinance = false });

@@ -90,7 +90,12 @@ does not receive broad invoice or PO read grants. Response:
   mappingVersionId: string; mappingRevision: number; coreCaseId: string; caseVersion: number;
   caseState: 'Pending' | 'Approved' | 'Returned' | 'Rejected';
   reviewState: 'Pending' | 'Verified' | 'Returned' | 'Rejected';
-  currentMapping: boolean; blockers: string[];
+  currentMapping: boolean; originalDigestCurrent: boolean; blockers: string[];
+  original: null | {
+    invoiceNumber: string; invoiceDate: string; currencyCode: string;
+    netAmount: string; taxAmount: string; grossAmount: string;
+    lines: Array<{id: string;lineNumber: number;description: string;quantity: string;unitPrice: string;taxAmount: string}>;
+  };
   assignments: Array<{assignmentId: string; assignmentVersion: number}>;
   originalDocumentLines: Array<{
     invoiceLineId: string; documentVersionId: string; documentSha256: string;
@@ -103,7 +108,9 @@ does not receive broad invoice or PO read grants. Response:
 }
 ```
 
-Candidates prove current assignment/mapping only. They do not certify current policy/document
+The same invoice original summary uses exact decimal strings and is omitted if its digest changed;
+no source PO lines, other invoice allocations or Finance references are exposed. Changed originals
+yield `InvoiceOriginalChanged` and no action candidates. Candidates prove current assignment/mapping only. They do not certify current policy/document
 availability or guarantee command success. A newer mapping yields `InvoiceMappingSuperseded`, empty
 assignments/candidates and historical detail. The old Core case is retained; no terminal outcome or
 Core cancellation is fabricated.
