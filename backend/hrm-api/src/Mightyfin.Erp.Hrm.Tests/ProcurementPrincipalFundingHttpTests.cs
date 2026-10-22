@@ -38,7 +38,7 @@ public sealed partial class ProcurementRequestHttpTests
         await using var f=await Fixture.Start(principalApprovalEnabled:true,principalApprovalSchema:true);
         await f.ConfigurePrincipalRequester(f.Owner,false);await f.ConfigurePrincipalRequester(f.Other,false);
         await f.ConfigureCoreActions(f.Other,"procurement-access,procurement-budget-check");
-        var created=await SendJson(f.Client,HttpMethod.Post,PrincipalRequests,f.Owner,new {purpose="Independent principal funding",
+        var created=await SendJson(f.Client,HttpMethod.Post,PrincipalRequests,f.Owner,new {purpose="Independent principal funding",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),
             lines=new[]{new {description="Supplies",unitCode="each",requestedQuantity="1",estimatedUnitPrice="1.0001"}}});
         Assert.Equal(HttpStatusCode.Created,created.StatusCode);var original=await created.Content.ReadFromJsonAsync<JsonElement>();
         var id=original.GetProperty("id").GetGuid();var path=$"{PrincipalRequests}/{id}";

@@ -6,6 +6,7 @@ using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
@@ -58,6 +59,16 @@ public sealed class ProcurementPrincipalApprovalReadinessTests
         }
         Assert.Contains("\"worker_id\"",ProcurementPrincipalApprovalStoreReadiness.CoreIdentitySelectSql(model.FindEntityType(typeof(LocalUser))!));
         Assert.Contains("\"manager_id\"",ProcurementPrincipalApprovalStoreReadiness.CoreIdentitySelectSql(model.FindEntityType(typeof(Worker))!));
+        var company=ProcurementPrincipalApprovalStoreReadiness.CoreIdentitySelectSql(model.FindEntityType(typeof(LegalEntity))!);
+        Assert.Contains("\"currency\"",company);
+        var department=ProcurementPrincipalApprovalStoreReadiness.CoreIdentitySelectSql(model.FindEntityType(typeof(OrgUnit))!);
+        Assert.Contains("\"effective_from\"",department);Assert.Contains("\"effective_to\"",department);
+        using var owner=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=design_only_not_a_runtime_store;Username=invalid").Options,new Scope());
+        var category=ProcurementPrincipalApprovalStoreReadiness.CategorySelectSql(owner.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(ProcurementCategory))!);
+        Assert.Equal("SELECT \"tenant_id\",\"legal_entity_id\",\"code\",\"status\" FROM \"procurement\".\"procurement_categories\" LIMIT 0",category);
+        Assert.DoesNotContain("expense_account",category,StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("name",category,StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

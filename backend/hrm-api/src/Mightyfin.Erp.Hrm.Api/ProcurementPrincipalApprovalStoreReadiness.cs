@@ -24,7 +24,7 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
     internal static readonly IReadOnlyDictionary<string,string> PartialPredicates=new Dictionary<string,string>();
     internal static bool ManifestCaptured=>MigrationId.Length>0 && CheckDefinitions.Count>0 && PartialPredicates.Count>0;
     private static readonly Type[] SourceTypes=[typeof(PurchaseRequest),typeof(PurchaseRequestLine),typeof(BudgetCheckSnapshot),
-        typeof(PolicyVersion),typeof(PolicyEvaluation),typeof(PurchaseRequestApprovalSubmission),typeof(PurchaseRequestAssignmentAuthorityEvidence),
+        typeof(ProcurementCategory),typeof(PolicyVersion),typeof(PolicyEvaluation),typeof(PurchaseRequestApprovalSubmission),typeof(PurchaseRequestAssignmentAuthorityEvidence),
         typeof(ProcurementSpendingAuthorityGrant),typeof(ProcurementSpendingAuthorityCategory),typeof(SpendingAuthorityIdentityRecord),
         typeof(PurchaseRequestApprovalOutcome),typeof(PurchaseRequestFinanceReleaseRequest),typeof(PurchaseRequestFinanceReleaseConfirmation),
         typeof(ProcurementApprovalCommandReceipt),typeof(AuditEvent),typeof(OutboxEvent)];
@@ -36,9 +36,9 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
     // the actual finite role never needs credential, pay or personal-field SELECT.
     internal static readonly IReadOnlyDictionary<Type,string[]> CoreIdentityReadProperties=new Dictionary<Type,string[]>
     {
-        [typeof(LegalEntity)]=[nameof(LegalEntity.Id),nameof(LegalEntity.TenantId),nameof(LegalEntity.IsArchived)],
+        [typeof(LegalEntity)]=[nameof(LegalEntity.Id),nameof(LegalEntity.TenantId),nameof(LegalEntity.IsArchived),nameof(LegalEntity.Currency)],
         [typeof(WorkLocation)]=[nameof(WorkLocation.Id),nameof(WorkLocation.TenantId),nameof(WorkLocation.LegalEntityId),nameof(WorkLocation.IsArchived)],
-        [typeof(OrgUnit)]=[nameof(OrgUnit.Id),nameof(OrgUnit.TenantId),nameof(OrgUnit.LegalEntityId),nameof(OrgUnit.IsArchived),nameof(OrgUnit.Status)],
+        [typeof(OrgUnit)]=[nameof(OrgUnit.Id),nameof(OrgUnit.TenantId),nameof(OrgUnit.LegalEntityId),nameof(OrgUnit.IsArchived),nameof(OrgUnit.Status),nameof(OrgUnit.EffectiveFrom),nameof(OrgUnit.EffectiveTo)],
         [typeof(Worker)]=[nameof(Worker.Id),nameof(Worker.TenantId),nameof(Worker.IsArchived),nameof(Worker.Status),nameof(Worker.LocationId),nameof(Worker.OrgUnitId),nameof(Worker.ManagerId)],
         [typeof(LocalUser)]=[nameof(LocalUser.Id),nameof(LocalUser.TenantId),nameof(LocalUser.WorkerId),nameof(LocalUser.RolesCsv),nameof(LocalUser.LockedUntil),nameof(LocalUser.IsActive),nameof(LocalUser.IsArchived)],
         [typeof(HrUserBranchAssignment)]=[nameof(HrUserBranchAssignment.TenantId),nameof(HrUserBranchAssignment.UserId),nameof(HrUserBranchAssignment.LocationId),nameof(HrUserBranchAssignment.IsArchived)],
@@ -132,7 +132,7 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
             async Task<bool> Inspect(IEntityType entity,bool procurement)
             {
                 var table=StoreObjectIdentifier.Table(entity.GetTableName()!,entity.GetSchema());
-                command.CommandText=SelectAllColumnsSql(entity,table);await using(var reader=await command.ExecuteReaderAsync(ct)){}
+                command.CommandText=entity.ClrType==typeof(ProcurementCategory)?CategorySelectSql(entity):SelectAllColumnsSql(entity,table);await using(var reader=await command.ExecuteReaderAsync(ct)){}
                 if(!await True(ColumnsSql(entity,table)))return false;
                 foreach(var check in entity.GetCheckConstraints())
                 {
@@ -162,6 +162,17 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
         }
         catch(Exception error) when(error is not OperationCanceledException){return false;}
         finally{if(opened)await owner.Database.CloseConnectionAsync();}
+    }
+
+    internal static string CategorySelectSql(IEntityType entity)
+    {
+        var table=StoreObjectIdentifier.Table(entity.GetTableName()!,entity.GetSchema());
+        if(entity.ClrType!=typeof(ProcurementCategory) || table.Schema!="procurement")
+            throw new InvalidOperationException("PrincipalApprovalCategoryProjectionUnsupported");
+        string[] names=[nameof(ProcurementCategory.TenantId),nameof(ProcurementCategory.LegalEntityId),nameof(ProcurementCategory.Code),nameof(ProcurementCategory.Status)];
+        return "SELECT "+string.Join(',',names.Select(name=>Quote((entity.FindProperty(name)
+            ?? throw new InvalidOperationException("PrincipalApprovalCategoryPropertyMissing")).GetColumnName(table)!)))
+            +" FROM "+Quote(table.Schema)+"."+Quote(table.Name)+" LIMIT 0";
     }
 
     internal static string CoreIdentitySelectSql(IEntityType entity)
