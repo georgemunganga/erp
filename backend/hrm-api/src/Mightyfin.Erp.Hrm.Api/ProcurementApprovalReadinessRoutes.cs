@@ -107,7 +107,7 @@ public static class ProcurementApprovalReadinessRoutes
         var canOpen=false;
         if(!options.Enabled || !options.PrincipalExecutionEnabled)blockers.Add("PrincipalApprovalExecutionUnavailable");
         else if(!options.ExecutionDatabaseConfigured)blockers.Add("ApprovalExecutionDatabaseNotConfigured");
-        else if(!await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,services,true,ct))blockers.Add("PrincipalApprovalSchemaUnavailable");
+        else if(!await ProcurementPrincipalApprovalSchemaGuard.ExecutionReadyAsync(db,services,ct))blockers.Add("PrincipalApprovalSchemaUnavailable");
         else if(readiness.PrerequisitesMet && route.HasSingleRoute)
         {
             var actor=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,scope.SubjectId,ct);

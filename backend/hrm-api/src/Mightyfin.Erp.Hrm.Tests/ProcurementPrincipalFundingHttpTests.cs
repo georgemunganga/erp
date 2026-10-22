@@ -14,6 +14,7 @@ public sealed partial class ProcurementRequestHttpTests
     {
         public Task<bool> IsReadyAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
         public Task<bool> CanRecordAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
+        public Task<bool> CanExecuteAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
     }
 
     [Theory]

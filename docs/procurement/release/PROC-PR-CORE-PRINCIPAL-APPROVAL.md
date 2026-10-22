@@ -82,7 +82,7 @@ Future Down must refuse any new request provenance, Finance2, authority2, submis
 
 ## 21. Readiness and activation
 
-Future execution requires a default-off explicit principal-approval option plus owning-context exact successor schema and finite execution role. Missing/unknown schema is unavailable. Old providers must dispatch exact old/new manifests rather than accepting a broader CHECK by implication.
+Execution requires a default-off explicit principal-approval option plus owning-context exact successor schema and finite execution role. IsReady covers reads; CanRecord covers Procurement-only funding/configuration writes; CanExecute additionally covers the coordinated finite Core workflow role. Metadata principalApprovals is a separate optional capability computed on the actual configured execution context, never the normal read context. Current production registration is Unavailable for all three checks. Missing/unknown schema is unavailable. Old providers must dispatch exact old/new manifests rather than accepting a broader CHECK by implication.
 
 ## 22. API compatibility
 

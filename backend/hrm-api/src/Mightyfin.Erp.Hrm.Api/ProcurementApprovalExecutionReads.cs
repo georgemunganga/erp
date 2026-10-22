@@ -307,7 +307,7 @@ public static partial class ProcurementApprovalExecutionRoutes
     private static async Task RequirePrincipalSchema(ProcurementDbContext db,HttpContext http,
         ProcurementApprovalExecutionOptions options,CancellationToken ct)
     {
-        if(!options.PrincipalExecutionEnabled || !await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct))
+        if(!options.PrincipalExecutionEnabled || !await ProcurementPrincipalApprovalSchemaGuard.ExecutionReadyAsync(db,http.RequestServices,ct))
             throw new ApprovalHttpError(503,"PrincipalApprovalSchemaUnavailable","Core-principal approval execution is not enabled for this database.");
     }
 
