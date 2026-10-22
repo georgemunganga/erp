@@ -6,6 +6,10 @@ Status: source candidate; build, generated migration, private PostgreSQL rehears
 
 Isolated branch `codex/procurement-unit-review-core-principal` normally merges genuine P22 root `d6602c3` with original review source `f4af7d4` (merge `e593ea0`). It deliberately excludes recurring model changes. Core owns accounts, grants, company/branch scope, Approvals and Documents. Procurement owns mapping, original-unit evidence and commercial rules.
 
+## Current source alignment
+
+Normal merge `dac5688` incorporates verified backend `5f199c84c95dab582f273d914652aa7d6a42a42e` into this isolated P23 branch. The merge was clean; its host integration retains both stable Core alias resolution and original-unit-review registration. All 137 tracked backend migration/designer/snapshot files from that baseline remain byte-identical. No SDK, EF generation, database or browser job ran for this alignment. See [P23 generation readiness](PROC-09-P23-GENERATION-READINESS.md) for the current schema scope, generation procedure and release blockers. Older PROC-11-P22 filenames below are historical source plans; P22 now means the released Core-principal ownership migration.
+
 ## Identity contracts
 
 - Current active Core account and actual action grants authorize every new effect. Named reviewers need no employee profile. An employee link is optional metadata, never a substitute principal.
