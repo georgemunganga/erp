@@ -3560,8 +3560,13 @@ public sealed partial class ProcurementRequestHttpTests
         {
             using var services = app.Services.CreateScope(); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
             // Explicit finite test configuration role. No publication permission or spending grant is supplied.
-            core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "procurement_manager", RoleName = "Synthetic policy configuration",
-                Active = true, PermissionsCsv = "procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-configuration-approve" });
+            var role = await core.TenantRoleAssignments.SingleOrDefaultAsync(x => x.RoleKey == "procurement_manager");
+            if (role is null)
+            {
+                role = new TenantRoleAssignment { RoleKey = "procurement_manager", RoleName = "Synthetic policy configuration", Active = true };
+                core.TenantRoleAssignments.Add(role);
+            }
+            role.PermissionsCsv = "procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-configuration-approve";
             await core.SaveChangesAsync();
         }
         public async Task<Guid> SourcingBranch()
@@ -4122,6 +4127,11 @@ public sealed partial class ProcurementRequestHttpTests
                         SubjectId = reviewer.ToString(), Status = "active", LocationId = branch.Id },
                     new Worker { EmployeeNo = "PROC-3", FirstName = "Inactive", LastName = "Employee",
                         SubjectId = inactive.ToString(), Status = "terminated", LocationId = branch.Id });
+                // Intentional existing legacy role seeds for the actual stored account
+                // roles below. Request headers never create or expand these grants.
+                foreach (var roleKey in new[] { "employee", "procurement_manager" })
+                    core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = roleKey,
+                        RoleName = "Synthetic " + roleKey, Active = true, PermissionsCsv = roleKey });
                 // Finance writes require a canonical Core account, not merely a test role claim.
                 foreach (var principal in new[] { owner, other, reviewer })
                 {

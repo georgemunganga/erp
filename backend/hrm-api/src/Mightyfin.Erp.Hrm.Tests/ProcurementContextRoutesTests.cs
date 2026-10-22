@@ -2,102 +2,58 @@ using System.Security.Claims;
 using System.Text.Json;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Domain.Entities;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
-
 public sealed class ProcurementContextRoutesTests
 {
     [Fact]
-    public async Task Context_contains_only_verified_current_company_and_safe_workforce_fields()
+    public async Task Context_returns_real_Core_principal_current_grants_and_no_private_HR_fields()
     {
         await using var db = TestDbContextFactory.Create("tenant-a");
-        var company = new LegalEntity { Code = "A", RegisteredName = "Company A", Currency = "USD" };
-        var otherCompany = new LegalEntity { Code = "B", RegisteredName = "Company B" };
-        db.LegalEntities.AddRange(company, otherCompany);
-        var branch = new WorkLocation { Code = "A1", Name = "Main branch", LegalEntityId = company.Id };
-        var unit = new OrgUnit { Code = "IT", Name = "IT", LegalEntityId = company.Id,
-            EffectiveFrom = new DateOnly(2025, 1, 1), Status = "active" };
-        db.WorkLocations.Add(branch);
-        db.OrgUnits.Add(unit);
-        var worker = new Worker { EmployeeNo = "EMP-1", FirstName = "Pat", LastName = "Test",
-            Nrc = "private-nrc", PersonalEmail = "private@example.test", Status = "active",
-            LocationId = branch.Id, OrgUnitId = unit.Id };
-        db.Workers.Add(worker);
-        await db.SaveChangesAsync();
-
-        var scope = Scope(company.Id, worker.Id);
-        var response = await ProcurementContextRoutes.BuildAsync(db, scope, Claims("employee"));
-
-        Assert.NotNull(response);
-        Assert.Equal("tenant-a", response.TenantId);
-        Assert.Equal(company.Id, response.LegalEntityId);
-        Assert.Equal(worker.Id, response.WorkerId);
-        Assert.Equal("Company A", response.Company.Name);
-        Assert.Equal("USD", response.Company.CurrencyCode);
-        Assert.Equal("USD", await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(db, scope, default));
-        Assert.Equal(branch.Id, response.Branch?.Id);
-        Assert.Equal(unit.Id, response.OrgUnit?.Id);
-        Assert.Single(response.AllowedCompanies);
-        Assert.Equal(company.Id, response.AllowedCompanies[0].Id);
-        Assert.Contains("procurement-request-create", response.Permissions);
-        Assert.DoesNotContain("procurement-item-manage", response.Permissions);
-        var json = JsonSerializer.Serialize(response);
-        Assert.DoesNotContain("private-nrc", json);
-        Assert.DoesNotContain("private@example.test", json);
-        Assert.DoesNotContain("Company B", json);
+        var (user, company, branch) = await Seed(db);
+        var worker = new Worker { EmployeeNo = "OPTIONAL", FirstName = "Optional", LastName = "Employee", LocationId = branch.Id,
+            Nrc = "private-nrc", PersonalEmail = "private@example.test", Status = "active" };
+        db.Workers.Add(worker); user.WorkerId = worker.Id; await db.SaveChangesAsync();
+        var scope = Scope(user.Id, company.Id, branch.Id); scope.AssignWorker(worker.Id);
+        var context = await ProcurementContextRoutes.BuildAsync(db, scope, [new Claim(ClaimTypes.Role, "erp_admin")]);
+        Assert.NotNull(context); Assert.Equal(user.Id, context.PrincipalId); Assert.Equal(worker.Id, context.WorkerId);
+        Assert.Equal(branch.Id, context.Branch?.Id); Assert.False(context.AdminViewOnly); Assert.Single(context.AllowedCompanies);
+        Assert.Contains("procurement-vendor-read", context.Permissions); Assert.DoesNotContain("procurement-vendor-approve", context.Permissions);
+        var json = JsonSerializer.Serialize(context); Assert.DoesNotContain("private-nrc", json); Assert.DoesNotContain("private@example.test", json);
     }
 
     [Fact]
-    public async Task Context_rejects_worker_from_another_company_or_no_active_worker()
+    public async Task Context_requires_verified_actual_principal_not_claims_or_employee_identity()
     {
-        await using var db = TestDbContextFactory.Create("tenant-a");
-        var company = new LegalEntity { Code = "A", RegisteredName = "Company A" };
-        var otherCompany = new LegalEntity { Code = "B", RegisteredName = "Company B" };
-        db.LegalEntities.AddRange(company, otherCompany);
-        var otherBranch = new WorkLocation { Code = "B1", Name = "Other branch", LegalEntityId = otherCompany.Id };
-        db.WorkLocations.Add(otherBranch);
-        var worker = new Worker { EmployeeNo = "EMP-2", FirstName = "Lee", LastName = "Test",
-            Status = "active", LocationId = otherBranch.Id };
-        db.Workers.Add(worker);
-        await db.SaveChangesAsync();
-
-        Assert.Null(await ProcurementContextRoutes.BuildAsync(db, Scope(company.Id, worker.Id), Claims("employee")));
-        worker.Status = "terminated";
-        await db.SaveChangesAsync();
-        Assert.Null(await ProcurementContextRoutes.BuildAsync(db, Scope(otherCompany.Id, worker.Id), Claims("employee")));
+        await using var db = TestDbContextFactory.Create("tenant-a"); var (user, company, branch) = await Seed(db);
+        var scope = new ProcurementRequestScope(); scope.Set("tenant-a", company.Id, user.Id.ToString(), branch.Id, null, false, "test");
+        Assert.Null(await ProcurementContextRoutes.BuildAsync(db, scope, [new Claim(ClaimTypes.Role, "erp_admin")]));
+        scope.AssignPrincipal(user.Id); Assert.NotNull(await ProcurementContextRoutes.BuildAsync(db, scope, []));
+        user.IsActive = false; await db.SaveChangesAsync(); Assert.Null(await ProcurementContextRoutes.BuildAsync(db, scope, []));
     }
 
     [Fact]
-    public async Task Context_uses_procurement_roles_and_never_exposes_unrelated_roles()
+    public async Task Context_rechecks_current_role_revocation_and_new_branch_confinement()
     {
-        await using var db = TestDbContextFactory.Create("tenant-a");
-        var company = new LegalEntity { Code = "A", RegisteredName = "Company A" };
-        db.LegalEntities.Add(company);
-        var branch = new WorkLocation { Code = "A1", Name = "Branch", LegalEntityId = company.Id };
-        db.WorkLocations.Add(branch);
-        var worker = new Worker { EmployeeNo = "EMP-3", FirstName = "Sam", LastName = "Test",
-            Status = "active", LocationId = branch.Id };
-        db.Workers.Add(worker);
-        await db.SaveChangesAsync();
-
-        var response = await ProcurementContextRoutes.BuildAsync(db, Scope(company.Id, worker.Id),
-            Claims("procurement_buyer", "hr_admin"));
-
-        Assert.NotNull(response);
-        Assert.Equal(["procurement_buyer"], response.Roles);
-        Assert.Contains("procurement-item-manage", response.Permissions);
-        Assert.Contains("procurement-vendor-manage", response.Permissions);
-        Assert.DoesNotContain("hr_admin", response.Roles);
+        await using var db = TestDbContextFactory.Create("tenant-a"); var (user, company, branch) = await Seed(db);
+        var scope = Scope(user.Id, company.Id, branch.Id);
+        Assert.NotNull(await ProcurementContextRoutes.BuildAsync(db, scope, []));
+        var other = new WorkLocation { Code = "OTHER", Name = "Other", LegalEntityId = company.Id };
+        db.WorkLocations.Add(other); db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = other.Id });
+        await db.SaveChangesAsync(); Assert.Null(await ProcurementContextRoutes.BuildAsync(db, scope, []));
     }
-
-    private static ProcurementRequestScope Scope(Guid companyId, Guid workerId)
+    private static async Task<(LocalUser, LegalEntity, WorkLocation)> Seed(HrmDbContext db)
     {
-        var scope = new ProcurementRequestScope();
-        scope.Set("tenant-a", companyId, Guid.NewGuid().ToString(), null, null, false, "test");
-        scope.AssignWorker(workerId);
-        return scope;
+        var company = new LegalEntity { Code = "A", RegisteredName = "Company", Currency = "ZMW", IsDefault = true };
+        var branch = new WorkLocation { Code = "A", Name = "Branch", LegalEntityId = company.Id };
+        var user = new LocalUser { Email = "context@example.test", NormalizedEmail = "CONTEXT@EXAMPLE.TEST", DisplayName = "System user", PasswordHash = "unused", RolesCsv = "system-reader" };
+        db.LegalEntities.Add(company); db.WorkLocations.Add(branch); db.LocalUsers.Add(user);
+        db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "system-reader", RoleName = "Existing Core role", Active = true, PermissionsCsv = "procurement-access,procurement-vendor-read" });
+        await db.SaveChangesAsync(); return (user, company, branch);
     }
-
-    private static Claim[] Claims(params string[] roles) =>
-        roles.Select(x => new Claim(ClaimTypes.Role, x)).ToArray();
+    private static ProcurementRequestScope Scope(Guid user, Guid company, Guid branch)
+    {
+        var scope = new ProcurementRequestScope(); scope.Set("tenant-a", company, user.ToString("D"), branch, null, false, "test"); scope.AssignPrincipal(user); return scope;
+    }
 }
