@@ -16,7 +16,6 @@ sealed partial class Probe
 {
     private readonly Dictionary<string, Guid> unitBrowserActors = [];
     private CapturedOriginal? unitBrowserOriginal;
-    private const string UnitBrowserReviewerRole = "unit_browser_reviewer";
 
     private async Task<string> PrepareUnitReviewBrowserManifest(int port)
     {
@@ -34,7 +33,7 @@ sealed partial class Probe
                 ("reviewer", "procurement-invoice-unit-review", OrderBranch),
                 ("unassigned", "procurement-invoice-unit-review", OrderBranch),
                 ("otherBranch", "procurement-invoice-unit-review", other.Id),
-                ("revoked", "", OrderBranch) })
+                ("revoked", "procurement-invoice-unit-review", OrderBranch) })
             {
                 var key = "unit_browser_" + name.ToLowerInvariant();
                 core.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = key, RoleName = "Synthetic unit review " + name,
@@ -48,6 +47,18 @@ sealed partial class Probe
             }
             await core.SaveChangesAsync();
         }
+        // Test current stored revocation while the actual mapped listener is running.
+        // The named reviewer is untouched; this is a separate soon-to-be-revoked account.
+        await Expect(HttpStatusCode.OK, HttpMethod.Get, Root + "/invoice-unit-reviews/tasks", unitBrowserActors["revoked"]);
+        var beforeRevocation = await UnitReviewFootprint();
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "unit_browser_revoked")).PermissionsCsv = "procurement-access";
+            await core.SaveChangesAsync();
+        }
+        await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, Root + "/invoice-unit-reviews/tasks", unitBrowserActors["revoked"]);
+        Require(beforeRevocation == await UnitReviewFootprint(), "Current action revocation or denied tasks changed review effects.");
         await PublishUnitReviewPolicy(unitBrowserActors["reviewer"]);
         var original = await CaptureUnitOriginal(unitBrowserActors["maker"], "UNIT-BROWSER-ORIGINAL-1");
         unitBrowserOriginal = original;
@@ -87,7 +98,7 @@ sealed partial class Probe
             original = new { invoiceId = original.Invoice, invoiceVersion = original.Version,
                 mappingVersionId = original.Mapping, mappingRevision = original.MappingRevision,
                 documentVersionId = original.Document, documentSha256 = MatchingDocumentSha },
-            noReviewEffectsSeeded = true, scannerMode = "synthetic-known-bytes", production = false,
+            noReviewEffectsSeeded = true, revocationVerifiedBeforeBrowser = true, scannerMode = "synthetic-known-bytes", production = false,
             limits = "Synthetic outer authentication and known-byte scanner only; real scoped API/Core/PG/document use. No real ClamD, complete Finance history, AP or payment proof." });
     }
 
@@ -95,7 +106,7 @@ sealed partial class Probe
     {
         var original = unitBrowserOriginal ?? throw new InvalidOperationException("Unit browser original missing.");
         var maker = unitBrowserActors["maker"]; var reviewer = unitBrowserActors["reviewer"];
-        Guid reviewId; Guid assignmentId; long assignmentVersion; string decisionRequest; Guid decisionKey;
+        Guid reviewId;
         using (var services = Scope(OrderBuyer))
         {
             // Fresh owning contexts, never browser reports, certify persisted effects.
@@ -142,31 +153,15 @@ sealed partial class Probe
             Require(await core.LocalUsers.Where(x => x.Id == maker || x.Id == reviewer).AllAsync(x => x.WorkerId == null),
                 "Workerless browser actors acquired employee identities.");
             var invoice = await db.SupplierInvoices.AsNoTracking().SingleAsync(x => x.Id == original.Invoice);
+            var vote = await cases.Decisions.AsNoTracking().SingleAsync(x => x.CaseId == workflow.Id);
+            InvoiceUnitReviewCommands.Verify(decided, source, invoice, workflow, [pin], vote, outcome);
             Require(invoice.ActiveMatchClaimResultId is null && invoice.FinancePostingRef is null
                 && !await db.InvoiceMatchAllocations.AnyAsync() && !await db.FinanceInvoiceHandoffs.AnyAsync(),
                 "Unit browser invented qualified matching or AP authority.");
-            var assignment = workflow.Stages.SelectMany(x => x.Assignments).Single(); assignmentId = assignment.Id;
-            var request = JsonSerializer.Deserialize<InvoiceUnitReviewRequest>(decided.RequestJson, Json)!;
-            assignmentVersion = request.AssignmentVersion!.Value; decisionRequest = decided.RequestJson; decisionKey = decided.CommandKey;
         }
-        var path = $"{Root}/invoice-unit-reviews/{reviewId}";
-        var before = await UnitReviewFootprint();
-        await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, path, unitBrowserActors["revoked"]);
-        await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, $"{Root}/invoices/{original.Invoice}", reviewer);
-        // Current action revocation is tested against the actual mapped handler after browser completion.
-        using (var services = Scope(OrderBuyer))
-        {
-            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
-            (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == UnitBrowserReviewerRole)).PermissionsCsv = "procurement-access";
-            await core.SaveChangesAsync();
-        }
-        await Expect(HttpStatusCode.Forbidden, HttpMethod.Get, Root + "/invoice-unit-reviews/tasks", reviewer);
-        var input = JsonSerializer.Deserialize<InvoiceUnitReviewRequest>(decisionRequest, Json)!;
-        await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, path + $"/assignments/{assignmentId}/decisions", reviewer,
-            new ProcurementInvoiceUnitReviewRoutes.DecisionInput(input.InvoiceVersion, input.CaseVersion!.Value,
-                assignmentVersion, input.Action!, input.Reason, input.Attestation), decisionKey);
-        Require(before == await UnitReviewFootprint(), "Denied/revoked browser follow-up changed review/document/Core effects.");
+        // WaitForShutdownAsync has already stopped the listener. Completion is DB-only;
+        // no HTTP client is used and no current grants are modified here.
         Require(matchingBrowserSourceBefore == await MatchingSourceFootprint(), "Unit browser changed its genuine upstream source.");
-        Console.WriteLine("PASS browser original-unit review owning reload: source3/outcome3/wire1, workerless named actors, one Core decision/two receipts, exact retained documents; revocation denies, no Finance/AP authority.");
+        Console.WriteLine("PASS browser original-unit review owning reload: source3/outcome3/wire1, workerless named actors, one Core decision/two receipts, exact retained documents; preparation revocation verified separately, no Finance/AP authority.");
     }
 }

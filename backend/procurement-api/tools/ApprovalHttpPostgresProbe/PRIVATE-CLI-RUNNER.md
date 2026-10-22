@@ -78,8 +78,12 @@ outcome or receipt is seeded for the browser. P23 readiness must actually pass.
 
 The browser uses the existing private request bridge with real mapped Procurement responses.
 Owner completion independently reloads source3, outcome3, wire1 receipts, actual Core decisions and
-exact retained document pins; verifies current grant revocation via mapped HTTP; and preserves
-upstream source plus no qualified claim/AP effect. This is not a live mid-browser revocation proof.
+exact retained document pins; preserves
+upstream source plus no qualified claim/AP effect. Completion runs after shutdown and is DB-only.
+During preparation a separate genuinely granted actor gets actual mapped tasks200, has its stored
+review action revoked, then gets tasks403 with no review-effect change; the manifest explicitly
+labels `revocationVerifiedBeforeBrowser=true`. The named reviewer remains granted for the UI.
+This is not a live mid-browser or post-browser revocation proof.
 The outer actor authentication and `scannerMode=synthetic-known-bytes` remain synthetic. No real
 ClamD/scanner socket is configured or certified. The current source has not been compiled, started,
 provisioned or tested; genuine P23 SQL/readiness capture and frozen publication precede any run.
