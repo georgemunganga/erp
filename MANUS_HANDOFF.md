@@ -4,7 +4,7 @@
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-PROC-VENDOR-01` — complete the existing vendor editor and supported vendor workflows
 **Owner:** Manus / `Greenwebb`; primary agent reviews and releases
-**Status:** Coordinator is verifying the prepared vendor editor fallback during the 24-hour CRUD completion window. No vendor implementation PR has been submitted as of this update. Do not start a duplicate editor; publish any existing work/claim in a PR so it can be reconciled. Settings milestone remains queued until vendor acceptance and its new merged baseline are published. Reviewed CRUD prerequisites ERP PR #15 and UI PR #46 are now merged.
+**Status:** Vendor fallback accepted and merged in UI PR #47. Do not duplicate the editor. The coordinator is verifying the settings shell and remaining CRUD controls on a separate branch; do not start overlapping settings implementation. Publish any existing work/claim in a PR for reconciliation. No Manus implementation PR has been observed. See the fresh merged source baselines below; they are not a production release.
 
 ## Start from merged code
 
@@ -12,8 +12,8 @@ New assignments start from published `origin/main` in both existing repositories
 
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `3163204b402695bfa20beb98af3f04d8f744df64` or a published main descendant; production remains P19 `a7645e2`, not this un-deployed source |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `4fd15af3769dd51d3a131d0a8c1a630953bdc882` or a published main descendant; preserves vendor layout and adds real bill draft maintenance, reference retirement and private actual-browser tests |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `45a4871180bcfbf4ad137233e0d76513a4d15beb` or a published main descendant; production remains P19 `a7645e2`, not this un-deployed source |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `5f88d54917525c6642d05e94409068f37212b5fa` or a published main descendant; includes the accepted full vendor editor, real bill/credit draft maintenance, exact catalog price edits, reference retirement and private actual-browser tests |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
@@ -77,3 +77,9 @@ Do not merge, deploy, change production identities/data/permissions, apply produ
 ## 24-hour coordination update — 22 October 2026
 
 The new merged source includes exact catalog price edits, persisted invoice-linked credit drafts and safe editor recovery. It passed10 actual browser flows (real API/private PostgreSQL),152 API assertions/90requests,84 backend cases,42 units and111 mocked browser cases across48+63 batches on one application bundle. It is not yet production-deployed. The coordinator is actively verifying the original full seven-tab vendor layout with actual child persistence; this is fallback integration, not acceptance of an unseen Manus implementation. Receiving/approval source reconciliation and forward migration remain separate held work. Preserve all existing contributions; do not reset branches or copy a second frontend.
+
+## Accepted vendor milestone — 22 October 2026
+
+UI PR #47 merged normally at `5f88d54917525c6642d05e94409068f37212b5fa`; reviewed final feature head `26142f51d809efd3a5ec6364bfffa689e5b8e3c2`. Final source passed24 mocked browser cases and2 actual API/private-PostgreSQL browser cases, one worker/no retries, plus10 focused units, TypeScript and production build. Independent review found no remaining blocker in the reviewed saved-header reconciliation path. The final actual bundle was `index-BhacWz3_.js`; traces and source/asset manifests are retained privately. This is acceptance of supported vendor CRUD, not unsupported bank/portal/document contracts or production deployment.
+
+**Collaboration reservation:** the coordinator already has a module-only settings shell, Home/employee catalog, permission/context invalidation and uncertain-save guards under verification. Do not implement those in parallel. Manus may review the fresh merged vendor form and return concrete layout/interaction defects in a focused PR or verification report, with no duplicate frontend or backend changes. Any new implementation milestone will name its owned files and a newly merged baseline.
