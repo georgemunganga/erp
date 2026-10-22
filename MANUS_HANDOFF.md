@@ -4,7 +4,7 @@
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-PROC-VENDOR-01` — complete the existing vendor editor and supported vendor workflows
 **Owner:** Manus / `Greenwebb`; primary agent reviews and releases
-**Status:** Ready. Reviewed prerequisites are published on `main`: ERP PR #14 and UI PR #45 (following ERP PR #10 and UI PR #44). Start a fresh branch from current `origin/main` in each repository.
+**Status:** Coordinator is verifying the prepared vendor editor fallback during the 24-hour CRUD completion window. No vendor implementation PR has been submitted as of this update. Do not start a duplicate editor; publish any existing work/claim in a PR so it can be reconciled. Settings milestone remains queued until vendor acceptance and its new merged baseline are published. Reviewed CRUD prerequisites ERP PR #15 and UI PR #46 are now merged.
 
 ## Start from merged code
 
@@ -12,8 +12,8 @@ New assignments start from published `origin/main` in both existing repositories
 
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `42fc26373887ac7e2d26d8e6401c05cbaa4c27b5` or a published main descendant; production remains P19 `a7645e2`, not this un-deployed source |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `b2e824fa60b4e6ceb8083dc73c2d8546dbafb5ce` or a published main descendant; preserves vendor layout and adds real bill draft maintenance, reference retirement and private actual-browser tests |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `3163204b402695bfa20beb98af3f04d8f744df64` or a published main descendant; production remains P19 `a7645e2`, not this un-deployed source |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `4fd15af3769dd51d3a131d0a8c1a630953bdc882` or a published main descendant; preserves vendor layout and adds real bill draft maintenance, reference retirement and private actual-browser tests |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
@@ -73,3 +73,7 @@ Do not merge, deploy, change production identities/data/permissions, apply produ
 ## Queued milestone after vendor acceptance
 
 `MANUS-PROC-SETTINGS-02`: restore the imported Procurement settings index and navigation shell; maintain the original simple layout and module-specific groups. Audit each child against a real owning API. Global organisation, branding, locations, users and roles stay in Core. Do not mount browser-preview save handlers as live configuration. This is queued, not assigned concurrently with the vendor editor. The coordinator publishes fresh merged ERP/UI baseline SHAs after vendor acceptance.
+
+## 24-hour coordination update — 22 October 2026
+
+The new merged source includes exact catalog price edits, persisted invoice-linked credit drafts and safe editor recovery. It passed10 actual browser flows (real API/private PostgreSQL),152 API assertions/90requests,84 backend cases,42 units and111 mocked browser cases across48+63 batches on one application bundle. It is not yet production-deployed. The coordinator is actively verifying the original full seven-tab vendor layout with actual child persistence; this is fallback integration, not acceptance of an unseen Manus implementation. Receiving/approval source reconciliation and forward migration remain separate held work. Preserve all existing contributions; do not reset branches or copy a second frontend.
