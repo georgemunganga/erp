@@ -1,5 +1,7 @@
 # P23 actual schema capture and remaining release gates
 
+Current result: [P23 private milestone acceptance](PROC-11-P23-ACCEPTANCE-20261022.md) supersedes the earlier SDK/runtime pending checkpoints below. The captured SQL/catalog evidence remains unchanged. Production activation and real scanner/Finance prerequisites remain separate.
+
 ## Source checkpoint
 
 P23 source `aa49760` passed SDK gate `20261022_120639`: actual 38 focused and 542 selected host tests, four complete publications, genuine forward/reverse/idempotent SQL, and actual Procurement/Core Documents model checks. The earlier 1194 Procurement, 112 Core Documents and 20 Core Approvals tests are explicitly reused only through unchanged dependency/source-byte proof from `dbf5107` gate `20261022_114512`. That earlier host failure (523 passed / 14 failed) is retained; two test-only fixture corrections preserve production authorization guards.
