@@ -63,7 +63,8 @@ public sealed class SharedSessionAuthorizationHttpTests
         await using var fixture=await Fixture.Start();var cookie=await fixture.Login(prefix);
         var original=(await fixture.Account()).PasswordHash;
         var denied=await fixture.Send(HttpMethod.Post,prefix+"/change-password",cookie,new{currentPassword="Wrong-current-password",newPassword=NewPassword});
-        Assert.Equal(HttpStatusCode.Unauthorized,denied.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,denied.StatusCode);
+        Assert.Equal("invalid-password",(await Json(denied)).GetProperty("code").GetString());
         Assert.Equal(original,(await fixture.Account()).PasswordHash);
         var changed=await fixture.Send(HttpMethod.Post,prefix+"/change-password",cookie,new{currentPassword=Password,newPassword=NewPassword});
         Assert.Equal(HttpStatusCode.OK,changed.StatusCode);
