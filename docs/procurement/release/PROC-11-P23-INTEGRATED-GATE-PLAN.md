@@ -1,5 +1,7 @@
 # P23 principal review and Core document retention — integrated gate plan
 
+Current result: the final integrated source passed [private milestone acceptance](PROC-11-P23-ACCEPTANCE-20261022.md). The candidate checkpoints and instructions below preserve the original plan; they are not current failure/pending claims. No production activation is implied.
+
 ## Candidate and evidence boundary
 
 Normal merge `5371d9deca544208944ec5a184a30eab48315990` combines P23 source `4f8216b` with independently reviewed Core document-use source `c8d4f1b`, without conflicts. No model, migration, Designer or snapshot changes are intended. The 139 tracked migration artifacts must remain byte-identical to `4f8216b` before and after every job.

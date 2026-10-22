@@ -2,14 +2,14 @@
 
 **Assigned:** 22 October 2026 UTC, during the Procurement24-hour completion window.
 **Owner:** Manus / Greenwebb. Coordinator continues Procurement implementation in parallel.
-**Status:** Ready for pickup from merged main after this assignment PR is merged.
+**Status:** Ready for pickup from published main; use the refreshed baselines below and in MANUS_HANDOFF.md.
 **Outcome:** The existing shared ERP/Core login frontend passes TypeScript and its production client/SSR build without weakening authorization or changing payroll rules. This unblocks verification of the small canonical-login context notification in coordinator ERP PR17.
 
 ## Start and boundaries
 
-- Primary repository `georgemunganga/erp`, fresh `origin/main`, containing published main `5ec211a5308084a6c7a6168407ee5fa90ffd983b` or its merged descendant. Record the exact starting SHA.
+- Primary repository `georgemunganga/erp`, fresh `origin/main`, containing published main `d2d45117d050357d84a63d90313782955bc80700` or its merged descendant. Record the exact starting SHA.
 - Source: existing `modules/hrm/frontend/module-connect/`. Do not copy Procurement UI here or create another app.
-- Procurement UI main baseline is `georgemunganga/module-connect` commit `5f88d54917525c6642d05e94409068f37212b5fa`; it is reference only for this task. No changes in that repository.
+- Procurement UI main baseline is `georgemunganga/module-connect` commit `0adb132fe721de5e74551f1fa5758c30b11fb013`; it is reference only for this task. No changes in that repository.
 - Read AGENTS.md, GW-ENG-STD-001 and the existing UI standards. Preserve published history and all other work.
 - Do not cherry-pick PR17 or held Core/Procurement branches. The coordinator will combine the narrowly reviewed patch with its auth producer. Do not edit auth.tsx, oidc.ts, auth-context.ts, migrations, APIs, permission grants, tenants, payroll calculations, deployment or production data.
 

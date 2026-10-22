@@ -12,8 +12,8 @@ New assignments start from published `origin/main` in both existing repositories
 
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `2491e104c0a87bb9fc2a409196172bde9093fa5d` or a published main descendant; includes PR #21 and tested application `5f199c84`. Production deployment remains a separate gate. |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `f11500eaa9063c79aa4b1ff11349d87cf4366b7f` or a published main descendant; includes PR #51 and #52. Application `e21214a` adds verified, explicit workspace recovery to the live branch hand-off fix. |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `d2d45117d050357d84a63d90313782955bc80700` or a published main descendant; includes reviewed P23 PR #24, source `87c2d35`, with private API/browser/owning-database acceptance. Production deployment remains a separate gate. |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `0adb132fe721de5e74551f1fa5758c30b11fb013` or a published main descendant; includes PR #53, source `cec39de`, and preserves branch recovery PR #51/#52. This newer source is not the deployed UI. |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
@@ -22,7 +22,9 @@ The ERP already serves this Procurement UI. Its source remains in the existing U
 
 Before work, fetch `origin/main` in both repositories, record the exact starting commits and verify they contain the minimum baselines above. Branch from those main tips. Read ERP `AGENTS.md`, `docs/engineering/GW-ENG-STD-001.md`, UI `AGENTS.md` and `reference-ui/UI_COMPONENT_STANDARD.md`.
 
-Production now includes the reviewed P20–P22 CRUD schema and Core-principal application. P23 and successor development branches contain pending authority/document/workflow work and remain subject to their release holds. Do not deploy those branches, apply their migrations or enable workflow/Finance flags to complete this UI task.
+Production includes the reviewed P20–P22 CRUD schema and Core-principal application. P23 is now merged with private acceptance; its live workflow remains disabled and its production migration/document-service/integration prerequisites are separate gates. Successor work remains pending. Do not deploy source branches, apply migrations or enable workflow/Finance flags to complete this UI task.
+
+**Current coordinator milestone:** [P23 private acceptance](docs/procurement/release/PROC-11-P23-ACCEPTANCE-20261022.md) is complete. P24 recurring-purchase planning CRUD is next, using the already prepared backend/UI and the existing Core account/organisation contracts. Manus retains `MANUS-CORE-BUILD-03`; do not duplicate recurring CRUD, invoice review, settings or backend migrations. Finance/AP and payments belong to the future ERP Finance module, which is not built; no substitute ledger or fake funding/payment success is authorized.
 
 **Branch-scope regression fixed:** preserve PR #51's verified legacy-name-to-ID hand-off before readiness or business requests. Do not silently clear a stored branch, infer another company, choose the first match, or reintroduce a read-only gate that strands the branch picker. See [the incident and real-account verification](docs/procurement/release/PROC-UI-BRANCH-HANDOFF-20261022.md). The actual signed-in account can open Vendors/My Requests and their new forms; this narrow acceptance does not certify every workflow.
 

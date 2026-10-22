@@ -1,6 +1,6 @@
 # P23 original-unit review — generation readiness
 
-Status: source candidate with genuine P23 generation. Infrastructure build passed; full test/publication and database/runtime proof remain pending.
+Current status: P23 source is merged with [private milestone acceptance](PROC-11-P23-ACCEPTANCE-20261022.md). Production activation remains separate. The generation checkpoints below are historical; their earlier pending statements are not the current gate result.
 
 ## Source baseline and preservation
 
