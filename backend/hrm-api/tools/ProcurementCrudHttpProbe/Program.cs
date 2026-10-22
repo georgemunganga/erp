@@ -31,6 +31,11 @@ internal static partial class Program
     static readonly Guid Company = Guid.NewGuid(), ForeignCompany = Guid.NewGuid(), Branch = Guid.NewGuid();
     static readonly Guid Actor = Guid.NewGuid(), Other = Guid.NewGuid(), Worker = Guid.NewGuid(), OtherWorker = Guid.NewGuid();
     static readonly Guid SystemActor = Guid.NewGuid(), SystemReviewer = Guid.NewGuid();
+    static readonly Guid RecurringPlanner = Guid.NewGuid(), RecurringOtherBranch = Guid.NewGuid();
+    const string RecurringPlannerRole = "recurring_planner";
+    const string RecurringPlannerActions = "procurement-access,procurement-vendor-read,procurement-vendor-create,procurement-contract-read,procurement-contract-create,procurement-contract-edit,procurement-recurring-read,procurement-recurring-create,procurement-recurring-edit";
+    static bool recurringMode, recurringProofComplete;
+    static string recurringRuntimeConnection = "";
     static readonly JsonSerializerOptions Snake = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     static string connection = "", stage = "input"; static int assertions, requests;
     static Guid approvedSupplier, legacyInvoice;
@@ -57,6 +62,11 @@ internal static partial class Program
                 Check(!File.Exists(BrowserSocket) && !Directory.Exists(BrowserSocket), "Refusing to replace an existing socket.");
                 if (publishManifest) Check(!File.Exists(BrowserManifest) && !Directory.Exists(BrowserManifest), "Refusing to overwrite an existing manifest.");
             }
+            var recurring = Environment.GetEnvironmentVariable("PROCUREMENT_CRUD_RECURRING");
+            Check(recurring is null or "1", "Recurring acceptance is absent or explicit1 only.");
+            recurringMode = recurring == "1";
+            recurringRuntimeConnection = Environment.GetEnvironmentVariable("PROCUREMENT_CRUD_RECURRING_CONNECTION") ?? "";
+            Check(recurringMode == !string.IsNullOrWhiteSpace(recurringRuntimeConnection), "Recurring opt-in requires its distinct private runtime connection only.");
             await Bootstrap();
             await using var app = await Host(); using var client = Client(app);
             var context = await Get(client, "/context"); Check(context.GetProperty("workerId").GetGuid() == Worker, "Actual context did not bind the synthetic Core worker.");
@@ -66,6 +76,13 @@ internal static partial class Program
             foreach (var capability in new[] { "approvals", "orders", "sourcingSourceDrafts", "receivingDrafts", "invoiceComparison" })
                 Check(!meta.GetProperty("capabilities").GetProperty(capability).GetBoolean(), "Draft fixture must not enable an operational workflow.");
             await Vendors(client); await SystemSupplierLifecycle(client); await SupplierKnownAliasWithoutActiveWorkforce(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await ReceivingLookups(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client); await VerifyUsedCorePrincipalMigration();
+            if (recurringMode)
+            {
+                await VerifyRecurringPlannerContext(client);
+                await RecurringPurchases(client);
+                await VerifyFiniteRecurringHttp(client);
+                recurringProofComplete = true;
+            }
             stage = "independent-final-owning-context";
             await using (var proof = Db())
             {
@@ -99,7 +116,7 @@ internal static partial class Program
             Check(await Scalar("SELECT (NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname IN ('core_approval','core_document')))::text") == "true",
                 "Bounded CRUD unexpectedly required or created shared approval/document schemas.");
             Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS", assertions, actualHttpRequests = requests,
-                actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true, systemSupplierLifecycle = true, systemSupplierReviewerFiniteGrants = true,
+                actualPostgres = true, genuineCoreScope = true, finiteRole = false, recurringRequested=recurringMode, recurringFiniteDatabaseHttp=recurringProofComplete, syntheticSupplierApprovalFixture = true, systemSupplierLifecycle = true, systemSupplierReviewerFiniteGrants = true,
                 legacyP19Preserved = true, emptyDownUp = true, usedP20DownBlocked = true, production = false,
                 policyDraftRetirement = true, policyReferenceRace = true, policyRaceMethodCreated, exactRequestDrafts = true,
                 policyRaceRequestsOverlapped = policyRaceOverlapped,
@@ -110,6 +127,7 @@ internal static partial class Program
                 Console.WriteLine(JsonSerializer.Serialize(new { status="PRIVATE_BROWSER_READY", socketPath=BrowserSocket,
                     manifestPath=publishManifest?BrowserManifest:null, procurementResponses="Actual mapped handlers/database", coreShell="Tool-only synthetic presentation over actual Core rows", publicTcp=false }));
                 await app.WaitForShutdownAsync();
+                if (recurringMode) await VerifyRecurringBrowserCompletion();
             }
             else await app.StopAsync();
             return 0;
@@ -158,6 +176,13 @@ internal static partial class Program
                 NormalizedEmail="SYSTEM-REVIEWER@EXAMPLE.TEST",DisplayName="Synthetic system supplier reviewer",PasswordHash="synthetic-no-login",
                 RolesCsv=SystemSupplierRole,IsActive=true});
             core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=SystemReviewer,LocationId=Branch});
+            if (recurringMode)
+            {
+                core.WorkLocations.Add(new WorkLocation {Id=RecurringOtherBranch,Code="OTHER-PLAN",Name="Other recurring branch",LegalEntityId=Company});
+                core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey=RecurringPlannerRole,RoleName="Finite recurring planner",Category="system",PermissionsCsv=RecurringPlannerActions,Active=true});
+                core.LocalUsers.Add(new LocalUser {Id=RecurringPlanner,WorkerId=null,Email="recurring-planner@example.test",NormalizedEmail="RECURRING-PLANNER@EXAMPLE.TEST",DisplayName="Recurring planner",PasswordHash="synthetic-no-login",RolesCsv=RecurringPlannerRole,IsActive=true});
+                core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=RecurringPlanner,LocationId=Branch});
+            }
             await core.SaveChangesAsync();
         }
         await using (var db=Db())
@@ -187,21 +212,23 @@ internal static partial class Program
         await using (var db = Db()) await db.GetService<IMigrator>().MigrateAsync(CanonicalP21);
         await RehearseUnusedCorePrincipalMigration();
         await VerifyCorePrincipalAuditOnlyDown();
+        await VerifyCanonicalP22Schema();
+        await UpgradeRecurringSchema();
         await VerifyCanonicalSchema();
         Check(oldValues==await Legacy(),"Canonical upgrade changed original legacy columns.");
     }
-    static async Task<WebApplication> Host()
+    static async Task<WebApplication> Host(string? procurementConnection = null, bool finiteProbe = false)
     {
         var b=WebApplication.CreateBuilder(new WebApplicationOptions {EnvironmentName="Production"});b.Logging.ClearProviders();
-        if (browserMode) b.WebHost.ConfigureKestrel(options=>options.ListenUnixSocket(BrowserSocket));
+        if (browserMode && !finiteProbe) b.WebHost.ConfigureKestrel(options=>options.ListenUnixSocket(BrowserSocket));
         else b.WebHost.UseTestServer();
         b.Services.AddScoped<ITenantAccessor>(_=>new ToolTenant());b.Services.AddDbContext<HrmDbContext>(o=>o.UseNpgsql(connection));
-        ProcurementHostIntegration.AddServices(b.Services,connection);
+        ProcurementHostIntegration.AddServices(b.Services,procurementConnection ?? connection);
         b.Services.AddAuthentication("private-crud").AddScheme<AuthenticationSchemeOptions,ToolAuthentication>("private-crud",_=>{});
         b.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app=b.Build();app.UseRouting();app.UseAuthentication();app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>();app.UseAuthorization();app.UseMiddleware<ProcurementScopeMiddleware>();
         ProcurementHostIntegration.MapRoutes(app);
-        if (browserMode) MapPrivateCoreShell(app);
+        if (browserMode && !finiteProbe) MapPrivateCoreShell(app);
         await app.StartAsync();return app;
     }
     static HttpClient Client(WebApplication app)
@@ -216,15 +243,27 @@ internal static partial class Program
     }
     static async Task WriteManifest()
     {
+        if (recurringMode) await CaptureRecurringBrowserBaseline();
         await using var stream=new FileStream(BrowserManifest,FileMode.CreateNew,FileAccess.Write,FileShare.None);
         if (OperatingSystem.IsLinux()) File.SetUnixFileMode(BrowserManifest,UnixFileMode.UserRead|UnixFileMode.UserWrite);
-        await JsonSerializer.SerializeAsync(stream,new { database=new NpgsqlConnectionStringBuilder(connection).Database,
+        var manifest = JsonSerializer.SerializeToNode(new { database=new NpgsqlConnectionStringBuilder(connection).Database,
             tenantId=Tenant,companyId=Company,foreignCompanyId=ForeignCompany,
             branchId=Branch,actorId=SystemActor,workerId=(Guid?)null,approvedSupplierId=approvedSupplier,legacyInvoiceId=legacyInvoice,
             authenticationHeader="X-Crud-Actor",socketPath=BrowserSocket,
             actors=new {maker=new {principalId=Actor,workerId=Worker},other=new {principalId=Other,workerId=OtherWorker},systemUser=new {principalId=SystemActor,workerId=(Guid?)null},systemReviewer=new {principalId=SystemReviewer,workerId=(Guid?)null}},
             cliProofComplete=true,browserActorSwitch="manifest-alias-v1",production=false,finiteRole=false,coreShellPresentationOnly=true,
-            supplierApproval="Synthetic owner fixture, not supplier approval proof" },new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            supplierApproval="Synthetic owner fixture, not supplier approval proof" },new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        if (recurringMode)
+        {
+            Check(recurringProofComplete, "Recurring manifest requires completed actual CLI and finite database HTTP proof.");
+            manifest["fixtureKind"] = "recurring-purchases-v1";
+            manifest["otherBranchId"] = RecurringOtherBranch.ToString("D");
+            await using var core = Core();
+            manifest["defaultCurrencyCode"] = await core.LegalEntities.Where(x => x.Id == Company).Select(x => x.Currency).SingleAsync();
+            manifest["recurringFiniteDatabaseHttpProofComplete"] = true;
+            manifest["actors"]!.AsObject()["recurringPlanner"] = JsonSerializer.SerializeToNode(new {principalId=RecurringPlanner,workerId=(Guid?)null},new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        }
+        await JsonSerializer.SerializeAsync(stream,manifest);
     }
     // Tool-only browser presentation endpoints; no production Core implementation or permission bypass.
     // Every company/user/worker/branch response comes from the actual private Core store.
@@ -260,7 +299,7 @@ internal static partial class Program
     sealed record ShellProjection(LocalUser User,LegalEntity Company,WorkLocation Branch);
     static async Task<ShellProjection?> ShellFacts(HttpContext http,HrmDbContext core)
     {
-        if (!Guid.TryParse(http.User.FindFirst("sub")?.Value,out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor&&actor!=SystemReviewer)) return null;
+        if (!Guid.TryParse(http.User.FindFirst("sub")?.Value,out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor&&actor!=SystemReviewer&&(!recurringMode||actor!=RecurringPlanner))) return null;
         var user=await core.LocalUsers.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==actor&&x.IsActive);
         if (user is null || user.IsArchived || user.LockedUntil>DateTimeOffset.UtcNow) return null;
         var branch=await core.WorkLocations.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==Branch&&x.LegalEntityId==Company&&!x.IsArchived);
@@ -474,21 +513,21 @@ internal static partial class Program
     }
     static Guid Id(JsonElement v)=>v.GetProperty("id").GetGuid();static long Version(JsonElement v)=>v.GetProperty("version").GetInt64();
     static Task<JsonElement> Get(HttpClient c,string path)=>Send(c,HttpMethod.Get,path,null);
-    static async Task<JsonElement> Send(HttpClient c,HttpMethod method,string path,object? body,HttpStatusCode expected=HttpStatusCode.OK,bool foreign=false)
+    static async Task<JsonElement> Send(HttpClient c,HttpMethod method,string path,object? body,HttpStatusCode expected=HttpStatusCode.OK,bool foreign=false,Guid? actor=null,Guid? selectedBranch=null)
     {
         stage="HTTP "+method+" "+path;using var request=new HttpRequestMessage(method,Root+path);
-        request.Headers.Add("X-Crud-Actor",Actor.ToString());request.Headers.Add("X-Shell-Entity",(foreign?ForeignCompany:Company).ToString());request.Headers.Add("X-Shell-Location",Branch.ToString());
+        request.Headers.Add("X-Crud-Actor",(actor ?? Actor).ToString());request.Headers.Add("X-Shell-Entity",(foreign?ForeignCompany:Company).ToString());request.Headers.Add("X-Shell-Location",(selectedBranch ?? Branch).ToString());
         if(body is not null)request.Content=JsonContent.Create(body);using var response=await c.SendAsync(request);Interlocked.Increment(ref requests);
         var content=await response.Content.ReadAsStringAsync();
         Check(response.StatusCode==expected,$"{stage}: expected {(int)expected}, got {(int)response.StatusCode}; code={SafeCode(content)}");
         return string.IsNullOrWhiteSpace(content)?default:JsonDocument.Parse(content).RootElement.Clone();
     }
     static string SafeCode(string content){try{return JsonDocument.Parse(content).RootElement.TryGetProperty("code",out var code)?code.GetString()??"none":"none";}catch(JsonException){return "non-json";}}
-    static async Task VerifyCanonicalSchema()
+    static async Task VerifyCanonicalP22Schema()
     {
         await using var db = Db();
         Check(!db.Database.HasPendingModelChanges(), "Snapshot/model mismatch.");
-        Check(!(await db.Database.GetPendingMigrationsAsync()).Any(), "Actual canonical migration is missing; no availability override.");
+        Check((await db.Database.GetPendingMigrationsAsync()).SequenceEqual(new[] { ActualP23, ActualP24 }), "Only genuine P23/P24 may be pending at the isolated legacy P22 stage.");
         Check((await db.Database.GetAppliedMigrationsAsync()).Contains(CanonicalP21), "Canonical forward marker missing.");
         await using var raw = new NpgsqlConnection(connection); await raw.OpenAsync();
         foreach (var manifest in new[] { ReceivingOwnershipConstraintSql.ManifestQuery,
@@ -498,6 +537,7 @@ internal static partial class Program
             Check(await command.ExecuteScalarAsync() is true, "Exact canonical ownership manifest missing.");
         }
         await VerifyCorePrincipalSchema();
+        recurringLegacyChecks = await ReadCurrentChecks();
     }
 
     static async Task RawInsert(string table,object value,string excluded)
@@ -522,8 +562,8 @@ internal static partial class Program
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            if(!Guid.TryParse(Request.Headers["X-Crud-Actor"],out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor&&actor!=SystemReviewer))return Task.FromResult(AuthenticateResult.NoResult());
-            var principal=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("tenant",Tenant),new Claim("sub",actor.ToString()),new Claim(ClaimTypes.Role,"erp_admin")},"private-crud"));
+            if(!Guid.TryParse(Request.Headers["X-Crud-Actor"],out var actor)||(actor!=Actor&&actor!=Other&&actor!=SystemActor&&actor!=SystemReviewer&&(!recurringMode||actor!=RecurringPlanner)))return Task.FromResult(AuthenticateResult.NoResult());
+            var principal=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("tenant",Tenant),new Claim("sub",actor.ToString()),new Claim(ClaimTypes.Role,actor==RecurringPlanner?RecurringPlannerRole:"erp_admin")},"private-crud"));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal,"private-crud")));
         }
     }

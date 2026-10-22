@@ -55,4 +55,18 @@ Finance/AP is a future ERP module and is not built. Planning creates no PO, rese
 - Evidence: `/home/amizo/erp-backups/procurement-p24-recurring-20261022/20261022_143906/result.json`; raw generated files retained under `genuine-gen01` before custom Down.
 - Exactly138 historical artifacts unchanged; only genuinely refreshed Procurement snapshot changes among the139 prior artifacts. Generated Designer target-model body equals snapshot build-model body exactly.
 - Up remains byte-identical to the generated archive. New migration Down alone adds the reviewed first-statement exclusive locks and SQLSTATE55000 retained-row/audit/owned-event veto before generated DropTable. Any Closed row vetoes as well.
-- Captured actual PostgreSQL CHECK definition, provider SQL/role proof, unused/retained Down tests, complete suites/publications and actual CLI/browser verification are still pending. No placeholder schema-ready fact is supplied.
+- Actual private DDL capture subsequently passed at `/home/amizo/erp-backups/procurement-p24-private-capture-20261022_1452/result.json`: fresh/used genuine upgrades, twice-idempotent Up, exact unused Down/reUp, independent synthetic Closed/audit/outbox55000 rollback vetoes and complete prior-data/catalog/history/source preservation. These are DDL-only facts, not financial, authentication or positive workflow proof.
+- The actual P24 CHECK resource is `sql/P24-actual-pg17-check-capture.json`, SHA `19bd4610fb2250b8ae18b28146c5882c0cfef1fadbf284f4f808baee161e50db`, copied byte-for-byte from the private capture and embedded into the probe. No placeholder schema-ready fact is supplied.
+- Full affected suites/publications, actual restricted Procurement DB login HTTP, provider-role release checks and actual browser/owner completion remain pending.
+
+## Prepared actual acceptance source (not executed)
+
+The existing CRUD probe/runner now contain the focused c4 recurring port, real finite Core planner,
+actual captured schema resources, separate restricted Procurement database login/second existing
+host composition, actual no-op/CAS/close and permission/scope/owner negatives, same-row observed
+contract race, and browser completion verifier. The ordinary owner-based legacy/browser path stays
+`finiteRole=false`; the additional finite-DB HTTP proof is a separate explicit marker only after it
+passes. Runner inherited recurring flags are stripped and set only by `--recurring`; credentials
+are generated for its new private login, never committed or printed. All actual runtime/PW results
+remain unrun at this source checkpoint. The app/domain/model checkpoint is unchanged by these
+tool-only edits; no second module, public endpoint or Finance/scheduler function is introduced.
