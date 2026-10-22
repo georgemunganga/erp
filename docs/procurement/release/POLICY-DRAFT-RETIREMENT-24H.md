@@ -2,7 +2,7 @@
 
 ## 1. Reference and status
 
-PROC-SETTINGS-DRAFT-RETIRE-01; GW-ENG-STD-001 Tier 3. Source candidate only, prepared outside release checkouts. No build, SQL, browser, migration or deployment evidence is claimed.
+PROC-SETTINGS-DRAFT-RETIRE-01; GW-ENG-STD-001 Tier 3. Source candidate with the bounded mapped/API/PostgreSQL verification recorded below. UI retirement browser acceptance and production deployment remain pending. No schema change is required.
 
 ## 2. Outcome
 
@@ -111,3 +111,11 @@ Backend ProcurementPolicyDraftRoutes.cs, ProcurementConfigurationRoutes.cs and n
 ## 28. Remaining gates and exclusions
 
 Current status: authored, uncompiled and unexecuted. No source registration outside existing routes, no new publish/approval permission, no current authority inferred, no Finance/stock side effect. Integrate only after current release candidate gates finish and exact source is reviewed/frozen. Maintain governance-worker evidence separately before combining held stacks.
+
+## Verification addendum — 22 October 2026
+
+The original18 authored retirement cases and the existing84-case mapped cohort passed together:102 passed, zero failures/skips. One initial expected foreign-scope status was corrected to the existing Core403 (before record lookup), without changing authorization; the original failed run is retained.
+
+A private real PostgreSQL/API run initially exposed an actual wrapped serialization abort returning500. Commit `2e6a0df` narrowly recognizes underlying PostgreSQL40001/40P01 in the existing transaction error paths and returns409. It does not swallow other exceptions or retry commands. The failed run remains retained. The corrected candidate passed268 assertions across114 HTTP requests, including an overlapping policy retirement/method reference race with exactly one compatible commit and no newly committed reference to a retired policy. Source/runtime manifests bind the private run to `2e6a0df`.
+
+Private evidence: `artifacts/crud-release-24h/private/browser_20261022_055126/launch-manifest.json` and `probe.log`; mapped gates under `artifacts/crud-release-24h/policy-increment/`. These local artifacts include protected fixture metadata and are not committed. The API fixture uses synthetic outer identity and an owner database connection; this is not genuine SSO or finite-role database proof. UI browser retirement and final integrated release gates are still pending. No production migration, policy publication or deployment occurred.
