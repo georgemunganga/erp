@@ -58,6 +58,9 @@ internal static partial class PrincipalApprovalHttpVerification
                 var baseline=await PrincipalFootprintAsync(ownerConnection);
                 var meta=await Send(client,HttpMethod.Get,"/api/procurement/v1/meta",fixture.Maker);Need(!meta.GetProperty("capabilities").GetProperty("principalApprovals").GetBoolean(),"Default unavailable provider advertised approval.");
                 await Send(client,HttpMethod.Post,$"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-cases",fixture.Maker,new{expectedRequestVersion=1L},HttpStatusCode.ServiceUnavailable);
+                await ReadAcknowledgementWithoutEffectsAsync(ownerConnection,client,Send,
+                    $"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-commands/Open/{Guid.NewGuid()}",fixture.Maker,HttpStatusCode.ServiceUnavailable);
+                result["defaultUnavailableGetAcknowledgementVerified"]=true;
                 Need(await PrincipalFootprintAsync(ownerConnection)==baseline,"Unavailable host calls wrote business evidence.");
             }
             Advance("ActualProgramFiniteCreateSubmit");
@@ -138,6 +141,8 @@ internal static partial class PrincipalApprovalHttpVerification
             if(body is not null)request.Content=JsonContent.Create(body);
             using var response=await client.SendAsync(request);requests++;
             var text=await response.Content.ReadAsStringAsync();
+            if(method==HttpMethod.Get&&path.Contains("/approval-commands/",StringComparison.Ordinal))
+                Need(response.Headers.CacheControl?.NoStore==true,"Every command acknowledgement response must be no-store.");
             if(response.StatusCode!=expected)
             {
                 string? code=null;
