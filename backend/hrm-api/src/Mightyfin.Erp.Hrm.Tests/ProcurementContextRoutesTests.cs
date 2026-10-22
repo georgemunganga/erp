@@ -49,9 +49,9 @@ public sealed class ProcurementContextRoutesTests
     {
         var company = new LegalEntity { Code = "A", RegisteredName = "Company", Currency = "ZMW", IsDefault = true };
         var branch = new WorkLocation { Code = "A", Name = "Branch", LegalEntityId = company.Id };
-        var user = new LocalUser { Email = "context@example.test", NormalizedEmail = "CONTEXT@EXAMPLE.TEST", DisplayName = "System user", PasswordHash = "unused", RolesCsv = "system-reader" };
+        var user = new LocalUser { Email = "context@example.test", NormalizedEmail = "CONTEXT@EXAMPLE.TEST", DisplayName = "System user", PasswordHash = "unused", RolesCsv = "system_reader" };
         db.LegalEntities.Add(company); db.WorkLocations.Add(branch); db.LocalUsers.Add(user);
-        db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "system-reader", RoleName = "Existing Core role", Active = true, PermissionsCsv = "procurement-access,procurement-vendor-read" });
+        db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "system_reader", RoleName = "Existing Core role", Active = true, PermissionsCsv = "procurement-access,procurement-vendor-read" });
         await db.SaveChangesAsync(); return (user, company, branch);
     }
     private static ProcurementRequestScope Scope(Guid user, Guid company, Guid branch)
