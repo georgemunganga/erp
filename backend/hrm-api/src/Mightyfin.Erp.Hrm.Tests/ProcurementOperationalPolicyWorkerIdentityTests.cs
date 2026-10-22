@@ -59,9 +59,9 @@ public sealed class ProcurementOperationalPolicyWorkerIdentityTests
         Assert.Equal(count, await db.AuditEvents.CountAsync()); Assert.False(db.ChangeTracker.HasChanges());
     }
 
-    [Theory] [InlineData("revoke-action")] [InlineData("alias")]
-    [InlineData("stale-worker")] [InlineData("workerless-admin")]
-    public async Task Current_actor_requires_stored_permission_unique_canonical_worker_and_unchanged_request_mapping(string fault)
+    [Theory] [InlineData("revoke-action")] [InlineData("workerless-admin")]
+    [InlineData("missing-principal")]
+    public async Task Current_actor_requires_actual_current_action_and_matching_canonical_principal(string fault)
     {
         await using var f = await Fixture.Start();
         var scope = f.Scope(f.Reviewer, f.ReviewerWorker);
@@ -70,13 +70,11 @@ public sealed class ProcurementOperationalPolicyWorkerIdentityTests
             (await f.Core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "policy_reviewer")).PermissionsCsv = "procurement-access";
             await f.Core.SaveChangesAsync();
         }
-        if (fault == "alias")
+        if (fault == "missing-principal")
         {
-            f.Core.LocalUsers.Add(new LocalUser { WorkerId = f.ReviewerWorker, IsActive = true, Email = "alias@example.test",
-                NormalizedEmail = "ALIAS@EXAMPLE.TEST", DisplayName = "Alias", PasswordHash = "synthetic-not-a-credential", RolesCsv = "policy_reviewer" });
-            await f.Core.SaveChangesAsync();
+            scope = new ProcurementRequestScope();
+            scope.Set("op-policy-test", f.Company, f.Reviewer, null, null, false, "mismatch");
         }
-        if (fault == "stale-worker") scope = f.Scope(f.Reviewer, f.MakerWorker);
         if (fault == "workerless-admin")
         {
             var actor = await f.Core.LocalUsers.SingleAsync(x => x.Id == Guid.Parse(f.Reviewer));
@@ -84,6 +82,56 @@ public sealed class ProcurementOperationalPolicyWorkerIdentityTests
         }
         await Assert.ThrowsAsync<InvalidOperationException>(() => ProcurementOperationalPolicyWorkerIdentity.CurrentActorAsync(
             f.Core, scope, ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, default));
+    }
+
+    [Theory] [InlineData("workerless")] [InlineData("stale-active-worker")]
+    [InlineData("inactive-employee")] [InlineData("duplicate-link")]
+    public async Task Current_Core_action_survives_optional_HR_metadata_without_creating_extra_authority(string condition)
+    {
+        await using var f = await Fixture.Start();
+        var account = await f.Core.LocalUsers.SingleAsync(x => x.Id == Guid.Parse(f.Reviewer));
+        if (condition == "workerless") account.WorkerId = null;
+        if (condition == "inactive-employee")
+            (await f.Core.Workers.SingleAsync(x => x.Id == f.ReviewerWorker)).Status = "inactive";
+        if (condition == "duplicate-link")
+            f.Core.LocalUsers.Add(new LocalUser { WorkerId = f.ReviewerWorker, IsActive = true,
+                Email = "alias@example.test", NormalizedEmail = "ALIAS@EXAMPLE.TEST", DisplayName = "Alias",
+                PasswordHash = "synthetic-not-a-credential", RolesCsv = "" });
+        await f.Core.SaveChangesAsync();
+        var scope = f.Scope(f.Reviewer, condition == "workerless" ? null : condition == "stale-active-worker" ? f.MakerWorker : f.ReviewerWorker);
+        var actor = await ProcurementOperationalPolicyWorkerIdentity.CurrentActorAsync(f.Core, scope,
+            ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, default);
+        Assert.Equal(f.Reviewer, actor.PrincipalId);
+        Assert.Contains(ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, actor.Permissions);
+        Assert.DoesNotContain(ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, actor.Permissions);
+        Assert.Equal(account.WorkerId, actor.CoreLinkedWorkerId);
+        if (condition is "stale-active-worker" or "duplicate-link") Assert.Equal(f.ReviewerWorker, actor.WorkerId);
+        if (condition is "workerless" or "inactive-employee") Assert.Null(actor.WorkerId);
+        if (condition == "duplicate-link")
+        {
+            var alias = await f.Core.LocalUsers.SingleAsync(x => x.Email == "alias@example.test");
+            await Assert.ThrowsAsync<InvalidOperationException>(() => ProcurementOperationalPolicyWorkerIdentity.CurrentActorAsync(
+                f.Core, f.Scope(alias.Id.ToString("D"), alias.WorkerId), ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, default));
+        }
+    }
+
+    [Theory] [InlineData("author-workerless")] [InlineData("reviewer-workerless")]
+    public async Task Legacy_worker_pinned_evidence_never_reinterprets_a_current_Core_grant_as_its_missing_employee_proof(string condition)
+    {
+        await using var f = await Fixture.Start(); await f.Submit();
+        var principal = condition == "author-workerless" ? f.Maker : f.Reviewer;
+        (await f.Core.LocalUsers.SingleAsync(x => x.Id == Guid.Parse(principal))).WorkerId = null;
+        await f.Core.SaveChangesAsync();
+        await using var db = f.Db(principal, null); var policy = await db.PolicyVersions.SingleAsync();
+        var before = await db.OperationalPolicyIdentityRecords.CountAsync();
+        var error = condition == "author-workerless"
+            ? await Assert.ThrowsAsync<InvalidOperationException>(() => ProcurementOperationalPolicyWorkerIdentity.RequireAuthorAsync(
+                f.Core, db, f.Scope(principal, null), policy, ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, default))
+            : await Assert.ThrowsAsync<InvalidOperationException>(() => ProcurementOperationalPolicyWorkerIdentity.RequireReviewerAsync(
+                f.Core, db, f.Scope(principal, null), policy, ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, default));
+        Assert.Equal(condition == "author-workerless" ? "OperationalPolicyOriginalAuthorRequired" : "OperationalPolicyIndependentReviewerRequired", error.Message);
+        Assert.Equal(before, await db.OperationalPolicyIdentityRecords.CountAsync());
+        Assert.False(db.ChangeTracker.HasChanges());
     }
 
     [Fact]
@@ -168,7 +216,13 @@ public sealed class ProcurementOperationalPolicyWorkerIdentityTests
         internal ProcurementRequestScope Scope(string actor, Guid? worker)
         {
             var scope = new ProcurementRequestScope(); scope.Set("op-policy-test", Company, actor, null, null, false, "op-policy-test");
-            if (worker.HasValue) scope.AssignWorker(worker.Value); return scope;
+            if (worker.HasValue) scope.AssignWorker(worker.Value);
+            // Explicit fixture account resolution, as the real host performs once.
+            // Retain the actual Core link separately from optional active-worker metadata.
+            var principal = Guid.Parse(actor);
+            var account = Core.LocalUsers.Single(x => x.Id == principal);
+            scope.AssignPrincipal(principal, account.WorkerId);
+            return scope;
         }
         internal ProcurementDbContext Db(string actor, Guid? worker) => new(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseInMemoryDatabase("op-policy-proc-" + database).Options, Scope(actor, worker));
