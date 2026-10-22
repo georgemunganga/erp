@@ -58,7 +58,7 @@ internal static partial class Program
             await using var app = await Host(); using var client = Client(app);
             var context = await Get(client, "/context"); Check(context.GetProperty("workerId").GetGuid() == Worker, "Actual context did not bind the synthetic Core worker.");
             var meta = await Get(client, "/meta"); Check(meta.GetProperty("crudEnabled").GetBoolean(), "Normal host CRUD capability unavailable.");
-            await Vendors(client); await Items(client); await Requests(client); await OtherDrafts(client); await Settings(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client);
+            await Vendors(client); await Items(client); await Requests(client); await ExactRequests(client); await OtherDrafts(client); await Settings(client); await PolicyDraftRetirement(client); await Invoices(client); await Credits(client);
             stage = "independent-final-owning-context";
             await using (var proof = Db())
             {
@@ -81,7 +81,7 @@ internal static partial class Program
             Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS", assertions, actualHttpRequests = requests,
                 actualPostgres = true, genuineCoreScope = true, finiteRole = false, syntheticSupplierApprovalFixture = true,
                 legacyP19Preserved = true, emptyDownUp = true, usedDownBlocked = true, production = false,
-                policyDraftRetirement = true, policyReferenceRace = true, policyRaceMethodCreated,
+                policyDraftRetirement = true, policyReferenceRace = true, policyRaceMethodCreated, exactRequestDrafts = true,
                 policyRaceRequestsOverlapped = policyRaceOverlapped,
                 scope = "Basic draft CRUD only; no procurement approval, supplier approval, Finance, stock or full-module completion" }));
             if (browserMode)
