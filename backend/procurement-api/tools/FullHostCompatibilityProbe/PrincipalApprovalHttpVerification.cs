@@ -11,7 +11,7 @@ using Npgsql;
 
 internal static partial class PrincipalApprovalHttpVerification
 {
-    internal static void Need(bool condition,string message) {if(!condition)throw new InvalidOperationException(message);}
+    internal static void Need(bool condition,string controlledMessage) {if(!condition)throw new PrivatePrincipalProbeFailure(controlledMessage);}
     internal static async Task RunAsync()
     {
         var owner=Environment.GetEnvironmentVariable("P25_HTTP_OWNER_CONNECTION")??throw new InvalidOperationException("Explicit private owner connection required.");
@@ -93,7 +93,15 @@ internal static partial class PrincipalApprovalHttpVerification
             result["currentCoreWorkerlessSourceVerified"]=true;result["defaultUnavailableRegistrationVerified"]=true;result["fundingUnavailableNoEffectsVerified"]=true;
             result["positiveApprovalGraph"]=false;result["checker2Authority2Submission3Assignment2Acceptance"]="NOT_RUN_NEXT_CHECKPOINT";
         }
-        catch(Exception error) {result["status"]="FAILED";result["exceptionType"]=error.GetType().FullName;Environment.ExitCode=2;}
+        catch(Exception error)
+        {
+            result["status"]="FAILED";result["exceptionType"]=error.GetType().FullName;
+            result["failureCode"]=error is PrivatePrincipalProbeFailure known?known.SafeCode:"P25_Unclassified_SeeStageAndTypedCause";
+            var cause=error.GetBaseException();result["underlyingExceptionType"]=cause.GetType().FullName;
+            if(cause is PostgresException postgres)result["sqlState"]=postgres.SqlState;
+            // Never export arbitrary exception messages, SQL, row payloads or connection configuration.
+            Environment.ExitCode=2;
+        }
         finally
         {
             result["stage"]=stage;result["actualHttpRequests"]=requests;
@@ -109,8 +117,16 @@ internal static partial class PrincipalApprovalHttpVerification
             if(method==HttpMethod.Post)request.Headers.Add("Idempotency-Key",Guid.NewGuid().ToString("D"));
             if(body is not null)request.Content=JsonContent.Create(body);
             using var response=await client.SendAsync(request);requests++;
-            Need(response.StatusCode==expected,"Actual private HTTP status differs: "+(int)expected+"/"+(int)response.StatusCode);
-            var text=await response.Content.ReadAsStringAsync();return string.IsNullOrWhiteSpace(text)?default:JsonDocument.Parse(text).RootElement.Clone();
+            var text=await response.Content.ReadAsStringAsync();
+            if(response.StatusCode!=expected)
+            {
+                string? code=null;
+                try {using var problem=JsonDocument.Parse(text);if(problem.RootElement.TryGetProperty("code",out var value)&&value.ValueKind==JsonValueKind.String
+                    && value.GetString() is {} candidate && System.Text.RegularExpressions.Regex.IsMatch(candidate,"^[A-Za-z0-9_-]{1,100}$"))code=candidate;} catch(JsonException){}
+                result["failedHttp"]=new {method=method.Method,path,expectedStatus=(int)expected,actualStatus=(int)response.StatusCode,code};
+                throw new PrivatePrincipalProbeFailure("Http_"+method.Method+"_Expected_"+(int)expected+"_Actual_"+(int)response.StatusCode+"_"+(code??"NoSafeProblemCode"));
+            }
+            return string.IsNullOrWhiteSpace(text)?default:JsonDocument.Parse(text).RootElement.Clone();
         }
     }
     // Shared owner-only verifier for this mode and the separately authored raw storage checks.
@@ -147,5 +163,16 @@ internal static partial class PrincipalApprovalHttpVerification
         await using(var shape=new NpgsqlCommand(metadata,owner,transaction))parts.Add((string)(await shape.ExecuteScalarAsync())!);
         await transaction.RollbackAsync();
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',parts))));
+    }
+}
+
+// Controlled tool-generated messages only; arbitrary application/SQL exception text is never accepted here.
+internal sealed class PrivatePrincipalProbeFailure(string controlledMessage):Exception("Private P25 verification guard failed.")
+{
+    internal string SafeCode {get;}=Code(controlledMessage);
+    private static string Code(string value)
+    {
+        var normalized=System.Text.RegularExpressions.Regex.Replace(value,"[^A-Za-z0-9]+","_").Trim('_');
+        return "P25_"+normalized[..Math.Min(160,normalized.Length)];
     }
 }
