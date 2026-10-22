@@ -4,6 +4,39 @@ using Mightyfin.Erp.Procurement.Domain;
 namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementInvoiceUnitReviewRoutes
 {
+    private static Task<IResult> Readiness(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
+        => Run(http, scope, false, async (db, cases, core, auth, token) =>
+        {
+            var invoice = await Invoice(db, scope, id, token, false);
+            var actor = await Actor(core, scope, http, auth, invoice.BranchRef, [InvoiceUnitReviewTransitions.RequestPermission], token);
+            if (!actor.Permissions.Contains("procurement-invoice-read") || !(await auth.AuthorizeAsync(http.User, null, "procurement-invoice-read")).Succeeded) throw new UnauthorizedAccessException();
+            var enabled = http.RequestServices.GetRequiredService<ProcurementInvoiceUnitReviewOptions>().Enabled;
+            var blockers = new List<string>(); Guid? existingReview = null;
+            try
+            {
+                var mapping = await Mapping(db, invoice, token); var originals = await Originals(db, id, token);
+                existingReview = await db.InvoiceUnitReviewSources.Where(x => x.SupplierInvoiceId == id && x.MappingVersionId == mapping.Id && x.BranchRef == invoice.BranchRef).Select(x => (Guid?)x.Id).SingleOrDefaultAsync(token);
+                if (existingReview is not null) blockers.Add("OriginalUnitReviewAlreadyOpened");
+                var matching = await Policy(db, scope, http, InvoiceMatchingPolicyRules.PolicyKey, token);
+                var review = await Policy(db, scope, http, InvoiceRetainedUnitReview.ReviewPolicyKey, token);
+                var people = new List<InvoiceUnitReviewPolicyRules.Person>();
+                foreach (var principal in InvoiceUnitReviewPolicyRules.Parse(review.RulesJson).Stages.SelectMany(x => x.Principals).Distinct(StringComparer.Ordinal))
+                    people.Add(await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, principal, token) ?? throw new ReviewProblem("InvoiceUnitReviewerUnavailable", 409));
+                var hashes = await AvailableHashes(db, scope, http, id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
+                var issued = await ProcurementReceivingRoutes.InvoiceReviewIssuedOrder(db, cases, scope, mapping.PurchaseOrderId, mapping.IssuedVersionId, token);
+                // Pure validation plan only. No entity is attached, no Core case is inserted.
+                _ = InvoiceUnitReviewTransitions.PrepareOpen(invoice, originals, mapping, issued, matching, review, actor, people, hashes,
+                    new(Guid.NewGuid(), invoice.Version, invoice.MappingRevision, Now(), null));
+            }
+            catch (ReviewProblem problem) when (problem.Status == 409) { blockers.Add(problem.Message); }
+            catch (InvalidOperationException error) when (!ProcurementPostgresFailures.IsStoreFailure(error)
+                && (error.Message.StartsWith("Invoice", StringComparison.Ordinal) || error.Message.StartsWith("Receiving", StringComparison.Ordinal)))
+            { blockers.Add("OriginalUnitReviewEvidenceUnavailable"); }
+            if (!enabled) blockers.Add("OriginalUnitReviewExecutionDisabled");
+            return InvoiceUnitReviewCommands.Serialize(new { invoiceId = id, invoiceVersion = invoice.Version, mappingRevision = invoice.MappingRevision,
+                existingReviewId = existingReview, canRequestReview = blockers.Count == 0, blockers, isUnitVerification = false, isInvoiceApproval = false, canPostToFinance = false });
+        }, ct);
+
     private static Task<IResult> Tasks(int? page, int? pageSize, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => Run(http, scope, false, async (db, cases, core, auth, token) =>
         {

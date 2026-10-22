@@ -17,6 +17,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
     public static void MapRoutes(WebApplication app)
     {
         var invoices = app.MapGroup("/api/procurement/v1/invoices");
+        invoices.MapGet("/{id:guid}/unit-review-readiness", Readiness).RequireAuthorization(InvoiceUnitReviewTransitions.RequestPermission, "procurement-invoice-read");
         invoices.MapPost("/{id:guid}/unit-reviews", Open).RequireAuthorization(InvoiceUnitReviewTransitions.RequestPermission, "procurement-invoice-read");
         var reviews = app.MapGroup("/api/procurement/v1/invoice-unit-reviews");
         reviews.MapGet("/tasks", Tasks).RequireAuthorization(InvoiceRetainedUnitReview.ReviewPermission);

@@ -81,6 +81,7 @@ public static class InvoiceMappingEvidence
         {
             if (!review.Verified || review.State != "Verified" || review.RetainedAuthority is not { } authority
                 || review.CurrentConsumer is not { } consumer || context is null || originalLines is null
+                || authority.MatchingPolicy is null || consumer.DocumentVersionHashes is null || context.DocumentVersionHashes is null || review.VerifiedUnits is null
                 || review.EvidenceJson != authority.EvidenceJson || authority.MatchingPolicy.Id != context.PolicyId
                 || ProcurementEvidenceEncoding.PolicyJsonDigest(authority.MatchingPolicy.RulesJson) != context.PolicyRulesSha256
                 || consumer.TenantId != context.TenantId || consumer.LegalEntityId != context.LegalEntityId
