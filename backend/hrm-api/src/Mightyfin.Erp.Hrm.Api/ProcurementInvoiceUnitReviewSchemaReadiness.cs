@@ -94,8 +94,8 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
             }
             command.CommandText = CheckSql(StoreObjectIdentifier.Table("operational_policy_identity_evidence", "procurement"), "ck_operational_policy_identity");
             if (await command.ExecuteScalarAsync(ct) is not string operational || operational != OperationalCheckDefinition) return false;
-            if (!await True(ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql)
-                || !await True(ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
+            if (!await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql)
+                || !await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
                 || !await True(CoreReadBoundarySql)) return false;
             if (write)
             {
