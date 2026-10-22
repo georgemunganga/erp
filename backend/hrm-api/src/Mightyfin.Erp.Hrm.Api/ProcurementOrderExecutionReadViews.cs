@@ -130,6 +130,11 @@ public static partial class ProcurementOrderExecutionRoutes
                 }
                 return new
                 {
+                    // Owner-selected identities: callers must not infer operational
+                    // selection from the order of the read-only history arrays.
+                    commercialEvidenceSelectionVersion = 1,
+                    latestFinanceEvidenceId = finance.FirstOrDefault()?.Id,
+                    latestIssuedVersionId = issued.LastOrDefault()?.Id,
                     order = new { order.Id, order.Number, order.SupplierId, supplierName, order.CurrencyCode,
                         order.Status, order.BuyerSubjectId, order.BranchRef, order.ShipToRef, order.BillToRef,
                         order.PaymentTermRef, order.ExpectedDeliveryOn, order.ClosureReason, order.Version,
