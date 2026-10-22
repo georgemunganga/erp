@@ -37,9 +37,8 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             RequireDocumentPurpose(source, invoice, workflow, pins, person);
             var mapping = await Mapping(db, invoice, token); var originals = await Originals(db, invoice.Id, token);
             var hashes = await AvailableHashes(db, scope, http, invoice.Id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
-            var retained = InvoiceUnitReviewStorage.Read(source);
-            if (retained.Lines.Any(x => !hashes.TryGetValue(x.DocumentVersionId, out var sha) || sha != x.DocumentSha256)) throw new ReviewProblem("InvoiceOriginalDocumentChanged", 409);
-            var service = PurposeDocuments(http, db, scope, invoice.Id, hashes);
+            var pinned = RetainedDocumentHashes(InvoiceUnitReviewStorage.Read(source), hashes);
+            var service = PurposeDocuments(http, db, scope, invoice.Id, pinned);
             return Results.Ok(new { reviewId = id, invoiceId = invoice.Id, items = await service.ListAsync(new("procurement", "supplier_invoice", invoice.Id), token),
                 availabilityMeaning = "PinnedOriginalDocumentVersionsOnly", isUnitVerification = false, canPostToFinance = false });
         }, ct);
@@ -54,9 +53,9 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             RequireDocumentPurpose(source, invoice, workflow, pins, person);
             var mapping = await Mapping(db, invoice, token); var originals = await Originals(db, invoice.Id, token);
             var hashes = await AvailableHashes(db, scope, http, invoice.Id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
-            var retained = InvoiceUnitReviewStorage.Read(source);
-            if (!retained.Lines.Any(x => x.DocumentVersionId == versionId && hashes.TryGetValue(versionId, out var sha) && sha == x.DocumentSha256)) throw new KeyNotFoundException();
-            invoiceId = invoice.Id; authorized = PurposeDocuments(http, db, scope, invoice.Id, hashes);
+            var pinned = RetainedDocumentHashes(InvoiceUnitReviewStorage.Read(source), hashes);
+            if (!pinned.ContainsKey(versionId)) throw new KeyNotFoundException();
+            invoiceId = invoice.Id; authorized = PurposeDocuments(http, db, scope, invoice.Id, pinned);
             return Results.Ok(); // Authorisation linearizes under the paired branch fence.
         }, ct);
         if (result is not IStatusCodeHttpResult { StatusCode: 200 } || authorized is null) return result;
@@ -72,6 +71,18 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         { return Results.Json(new { code = error.Code, message = "The pinned original document is unavailable." }, statusCode: error.Code == "document-not-found" ? 404 : error.Code == "document-content-changed" ? 503 : 409); }
         catch (UnauthorizedAccessException) { return Results.Forbid(); }
         catch (IOException) { return Results.Problem(statusCode: 503, title: "The original document could not be read."); }
+    }
+    private static IReadOnlyDictionary<Guid,string> RetainedDocumentHashes(InvoiceUnitReviewTransitions.Source retained, IReadOnlyDictionary<Guid,string> available)
+    {
+        if (retained.Lines is null || retained.Lines.Count is < 1 or > 200) throw new ReviewProblem("InvoiceOriginalDocumentChanged", 409);
+        var pinned = new Dictionary<Guid,string>();
+        foreach (var line in retained.Lines)
+        {
+            if (line.DocumentVersionId == Guid.Empty || !available.TryGetValue(line.DocumentVersionId, out var sha) || sha != line.DocumentSha256
+                || pinned.TryGetValue(line.DocumentVersionId, out var earlier) && earlier != sha) throw new ReviewProblem("InvoiceOriginalDocumentChanged", 409);
+            pinned[line.DocumentVersionId] = sha;
+        }
+        return pinned;
     }
     private static void RequireDocumentPurpose(Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewSource source,
         Mightyfin.Erp.Procurement.Domain.SupplierInvoice invoice, Mightyfin.Erp.Core.Approvals.Domain.ApprovalCase workflow,
