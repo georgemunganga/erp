@@ -206,7 +206,7 @@ sealed partial class Probe
     }
     private async Task RestoreRfqSetupActor()
     { using var services = Scope(buyer); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
-        (await core.LocalUsers.SingleAsync(x => x.Id == buyer)).RolesCsv = "erp_admin"; await core.SaveChangesAsync(); }
+        (await core.LocalUsers.SingleAsync(x => x.Id == buyer)).RolesCsv = FixtureBuyerRole; await core.SaveChangesAsync(); }
 
     private async Task VerifyRfqCurrentActionDenial(Guid id, Guid key)
     {

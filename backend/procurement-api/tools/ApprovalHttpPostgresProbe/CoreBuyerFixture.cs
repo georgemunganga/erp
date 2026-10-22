@@ -10,7 +10,7 @@ sealed partial class Probe
     private const string FixtureBuyerRole = "probe_upstream_buyer";
     // Synthetic setup authority only, explicitly stored in Core. No administrator
     // wildcard, operational decision, authority review, Finance, bank or payment grant.
-    private static string[] FixtureBuyerActions(bool orders, bool receiving, bool matching)
+    private static string[] FixtureBuyerActions(bool orders, bool receiving, bool matching, bool rfq = false)
     {
         var actions = new List<string> { "procurement-access", "procurement-request-read", "procurement-request-create",
             "procurement-request-edit", "procurement-request-submit", "procurement-policy-evaluate",
@@ -20,7 +20,10 @@ sealed partial class Probe
             "procurement-po-convert", "procurement-po-submit", "procurement-po-issue", "procurement-po-amend"]);
         // Existing policy maker-self-publication negative must reach the actual
         // independence guard; missing permission alone must not make it pass.
-        if (receiving) actions.AddRange(["procurement-receipt-view", "procurement-configuration-approve"]);
+        if (receiving) actions.Add("procurement-receipt-view");
+        if (receiving || rfq) actions.Add("procurement-configuration-approve");
+        // RFQ execution deliberately switches to the separate finite rfq_buyer role;
+        // this setup role does not acquire sourcing conversion/cancellation rights.
         if (matching) actions.AddRange(["procurement-invoice-read", "procurement-invoice-capture",
             "procurement-invoice-match", "procurement-vendor-read"]);
         return actions.ToArray();

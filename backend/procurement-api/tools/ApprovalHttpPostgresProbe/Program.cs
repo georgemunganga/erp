@@ -200,24 +200,9 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build();
         app.UseRouting(); app.UseAuthentication(); app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>(); app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
-        if (serve) ProcurementHostIntegration.MapRoutes(app);
-        else
-        {
-            ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
-            ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
-            if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
-            if (rfq) { ProcurementSourcingExecutionRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
-            if (sourcingPolicies) { ProcurementPolicyDraftRoutes.MapRoutes(app); ProcurementContextRoutes.MapRoutes(app); }
-            if (matching)
-            {
-                // Exercise the actual shared context endpoint used by the purpose-scoped
-                // selector assertions; do not manufacture a fixture permission response.
-                ProcurementContextRoutes.MapRoutes(app);
-                ProcurementInvoiceIntakeRoutes.MapRoutes(app); ProcurementInvoiceMatchingRoutes.MapRoutes(app);
-                if (unitReviews) { ProcurementInvoiceUnitReviewRoutes.MapRoutes(app); ProcurementInvoiceDocumentRoutes.MapRoutes(app); }
-            }
-            ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
-        }
+        // Exercise the production module route graph in both actual HTTP hosts.
+        // Feature options and current Core permissions still control every action.
+        ProcurementHostIntegration.MapRoutes(app);
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
         var branch = new WorkLocation { Code = "HTTP-BRANCH", Name = "Synthetic branch", LegalEntityId = company.Id };
         var people = new Dictionary<string, (Worker Worker, LocalUser User)>();
@@ -238,7 +223,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             foreach (var person in people.Values) { core.Workers.Add(person.Worker); core.LocalUsers.Add(person.User); }
             core.TenantRoleAssignments.AddRange(
                 new TenantRoleAssignment { RoleKey = FixtureBuyerRole, RoleName = "Synthetic finite upstream buyer", Active = true,
-                    PermissionsCsv = string.Join(',', FixtureBuyerActions(orders, receiving, matching)) },
+                    PermissionsCsv = string.Join(',', FixtureBuyerActions(orders, receiving, matching, rfq)) },
                 new TenantRoleAssignment { RoleKey = "employee", RoleName = "Employee", Active = true,
                     PermissionsCsv = "procurement-access,procurement-request-read,procurement-request-create,procurement-request-edit,procurement-request-submit" },
                 new TenantRoleAssignment { RoleKey = "procurement_manager", RoleName = "Procurement manager", Active = true,
