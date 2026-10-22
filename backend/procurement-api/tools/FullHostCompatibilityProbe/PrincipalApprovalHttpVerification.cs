@@ -11,6 +11,8 @@ using Npgsql;
 
 internal static partial class PrincipalApprovalHttpVerification
 {
+    internal delegate Task<JsonElement> PrincipalSend(HttpClient client,HttpMethod method,string path,Guid actor,
+        object? body=null,HttpStatusCode expected=HttpStatusCode.OK,Guid? commandKey=null);
     internal static void Need(bool condition,string controlledMessage) {if(!condition)throw new PrivatePrincipalProbeFailure(controlledMessage);}
     internal static async Task RunAsync()
     {
@@ -25,8 +27,9 @@ internal static partial class PrincipalApprovalHttpVerification
         var fixture=new PrincipalApprovalFixture(owner);var stage="Bootstrap";var requests=0;
         try
         {
+            Advance("Bootstrap");
             await fixture.BootstrapAsync();
-            stage="FiniteRoleProvision";var roles=await PrincipalApprovalRuntimePrivileges.CreateAsync(owner,fixture);
+            Advance("FiniteRoleProvision");var roles=await PrincipalApprovalRuntimePrivileges.CreateAsync(owner,fixture);
             await using var ownerConnection=new NpgsqlConnection(owner);await ownerConnection.OpenAsync();
             foreach(var (text,expected) in new[]{(roles.Record,roles.RecordRole),(roles.Execution,roles.ExecutionRole)})
             {
@@ -34,7 +37,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 await using var command=new NpgsqlCommand("SELECT current_user=session_user AND current_user=@expected AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",runtime);
                 command.Parameters.AddWithValue("expected",expected);Need(await command.ExecuteScalarAsync() is true,"Finite test role is not an actual distinct restricted LOGIN.");
             }
-            stage="CapturedActualReadRecordExecutionReadiness";
+            Advance("CapturedActualReadRecordExecutionReadiness");
             await using(var core=fixture.Core())
             {
                 var real=new ProcurementPrincipalApprovalStoreReadiness(fixture.Scope,core);
@@ -46,7 +49,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 Need(!await real.IsReadyAsync(privileged,default),"Owning bootstrap role must never be accepted as finite readiness.");
             }
             // First actual Program host retains normal Unavailable registration.
-            stage="UnavailableDefaultRegistration";
+            Advance("UnavailableDefaultRegistration");
             await using(var disabled=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,false))
             {
                 disabled.PrepareEntryPointEnvironment();using var client=disabled.CreateClient(new(){AllowAutoRedirect=false});
@@ -57,7 +60,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 await Send(client,HttpMethod.Post,$"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-cases",fixture.Maker,new{expectedRequestVersion=1L},HttpStatusCode.ServiceUnavailable);
                 Need(await PrincipalFootprintAsync(ownerConnection)==baseline,"Unavailable host calls wrote business evidence.");
             }
-            stage="ActualProgramFiniteCreateSubmit";
+            Advance("ActualProgramFiniteCreateSubmit");
             await using(var host=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,true))
             {
                 host.PrepareEntryPointEnvironment();using var client=host.CreateClient(new(){AllowAutoRedirect=false});
@@ -74,11 +77,11 @@ internal static partial class PrincipalApprovalHttpVerification
                     Need(source.Lines.Count==1&&source.Lines.Single().RequestedQuantity==2m&&source.Lines.Single().EstimatedUnitPrice==5.1234m,"Exact source values changed.");
                     result["requestId"]=id;result["submittedBusinessVersion"]=source.SubmittedVersion;result["currentRequestVersion"]=source.Version;
                 }
-                stage="OriginalRequestRawStorage";
+                Advance("OriginalRequestRawStorage");
                 await VerifyRequestRawStorageAsync(ownerConnection,id,PrincipalApprovalFixture.Tenant,fixture.Company,
                     submitted.GetProperty("version").GetInt64());
                 result["originalRequestRawStorage"]=PrincipalRawStorageVerification;
-                stage="FundingUnavailableNoEffects";var before=await PrincipalFootprintAsync(ownerConnection);
+                Advance("FundingUnavailableNoEffects");var before=await PrincipalFootprintAsync(ownerConnection);
                 var readiness=await Send(client,HttpMethod.Get,path+"/approval-readiness",fixture.Maker);
                 Need(!readiness.GetProperty("canOpenCase").GetBoolean()&&readiness.GetProperty("blockers").EnumerateArray().Any(x=>x.GetString()=="PrincipalFinanceCheckerEvidenceRequired"),"Missing Finance/checker evidence must block actual readiness.");
                 // This also detects default-record versus configured-execution role mixups after the reviewed preview fix.
@@ -99,7 +102,7 @@ internal static partial class PrincipalApprovalHttpVerification
             if(Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is {} positive)
             {
                 Need(positive=="1","Private manual evidence opt-in must be exactly1.");
-                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,value=>stage=value,Send);
+                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send);
             }
         }
         catch(Exception error)
@@ -119,11 +122,18 @@ internal static partial class PrincipalApprovalHttpVerification
         }
         Console.WriteLine(result["status"]);
 
-        async Task<JsonElement> Send(HttpClient client,HttpMethod method,string path,Guid actor,object? body=null,HttpStatusCode expected=HttpStatusCode.OK)
+        void Advance(string next)
+        {
+            Need(System.Text.RegularExpressions.Regex.IsMatch(next,"^[A-Za-z][A-Za-z0-9]{0,79}$"),"Only controlled private stage names may be logged.");
+            stage=next;Console.WriteLine("P25_STAGE "+next);
+        }
+
+        async Task<JsonElement> Send(HttpClient client,HttpMethod method,string path,Guid actor,object? body=null,HttpStatusCode expected=HttpStatusCode.OK,Guid? commandKey=null)
         {
             using var request=new HttpRequestMessage(method,path);request.Headers.Add("X-Private-P25-Subject",actor.ToString("D"));
             request.Headers.Add("X-Shell-Entity",fixture.Company.ToString("D"));request.Headers.Add("X-Shell-Location",fixture.Branch.ToString("D"));
-            if(method==HttpMethod.Post)request.Headers.Add("Idempotency-Key",Guid.NewGuid().ToString("D"));
+            if(commandKey is not null)Need(commandKey!=Guid.Empty,"Explicit private command key cannot be empty.");
+            if(method==HttpMethod.Post)request.Headers.Add("Idempotency-Key",(commandKey??Guid.NewGuid()).ToString("D"));
             if(body is not null)request.Content=JsonContent.Create(body);
             using var response=await client.SendAsync(request);requests++;
             var text=await response.Content.ReadAsStringAsync();
