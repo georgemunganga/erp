@@ -13,6 +13,11 @@ public sealed partial class ProcurementDbContext
             OperationalPolicyIdentityRecord { SchemaVersion: 2 } => "OperationalPolicyIdentity",
             InvoiceMatchMappingVersion { IdentitySchemaVersion: 2 } => "InvoiceMappingIdentity",
             InvoiceMatchResult { ExecutionVersion: 2 } => "InvoiceMatchExecution",
+            PurchaseRequest { RequesterIdentitySchemaVersion: 1 } => "PurchaseRequestOriginalIdentity",
+            BudgetCheckSnapshot { CheckerIdentitySchemaVersion: 2 } => "FinanceCheckerIdentity",
+            SpendingAuthorityIdentityRecord { SchemaVersion: 2 } => "SpendingAuthorityIdentity",
+            PurchaseRequestApprovalSubmission { SnapshotSchemaVersion: 3 } => "PurchaseRequestApprovalSubmission",
+            PurchaseRequestAssignmentAuthorityEvidence { IdentitySchemaVersion: 2 } => "PurchaseRequestAssignmentAuthority",
             _ => null,
         };
         return kind is null ? JsonSerializer.Serialize(fields) : JsonSerializer.Serialize(new
