@@ -67,3 +67,16 @@ Operational scripts, dumps, configuration and records stay outside Git under `/h
 Retained failures: the first rehearsal stopped before database operations because generated SQL permissions were insufficiently restricted; new protected byte-identical copies fixed its input contract. The next restore stopped before Up because PostgreSQL reconstructed 11 literal-array CHECK casts differently. Narrow comparison and actual read-only array evaluation proved identical types, values, order and all text outside the single cast fragment. The successful successor accepts only these exact private restore forms (nine survive P23/P24); production raw checks and every other constraint/index remain exact. No database repair or general normalization was used.
 
 These are private owner/SQL/startup proofs, not production deployment or authenticated public acceptance. **Immutable candidate inspection, a fresh writer-stopped backup and restore, live cutover and signed-in CRUD acceptance remain pending.** Hosted Actions remain blocked by the GitHub account billing lock; local evidence is not hosted CI success.
+
+## Reviewed cutover preparation
+
+The source-only coordinator and plan have passed separate root and independent review. All 12 raw acceptance gates and the actual browser-observed five-file UI artifact matched. The coordinator preserves both writers, verifies the separate empty restore target before building and again before stopping either writer, requires fresh database/filesystem restore proof, and marks forward recovery before the first live Up attempt.
+
+- Coordinator: `procurement-p23-p24-cutover-prep-20261022/cutover.py`, SHA `69931b0c3261b0d1cf6d2baafb69a69f3cf72ef64a242e6c40d6691a37f3245a`.
+- Reviewed plan: `plan.REVIEW.json`, SHA `cf600f2639a04b792a8ab8e1f606c257f5cc4a5c5cc88b15f846cfb50f7212a2`.
+- Independent source review: `procurement-p23-p24-cutover-independent-review-20261022/source-review.json`, SHA `2c03576763b614eb57c60a0543d3b6227ff2a3465b8d3af5b9f4b2b647c2e9fd`.
+- Separate new empty private target creation is prepared under `procurement-p23-p24-empty-target-prep-20261022`; it must preserve the retained private source and cannot create or repair roles.
+
+No coordinator mode, candidate image build, writer stop, production migration or static cutover has executed at this checkpoint. Disk headroom and creation of the new isolated empty restore target remain prerequisites. Four verified ignored inactive build caches were removed (64,927,957 logical bytes); tracked files, active build directories, published artifacts, backup/test evidence and databases were preserved.
+
+P25 remains excluded from this release. Its current source has passed 1,253 domain tests; the full API cohort and actual migration SQL emission are still running and are not recorded as passed.
