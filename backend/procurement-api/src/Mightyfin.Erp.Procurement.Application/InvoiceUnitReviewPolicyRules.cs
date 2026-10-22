@@ -175,5 +175,5 @@ public static class InvoiceUnitReviewPolicyRules
         Need(row.ValueKind == JsonValueKind.Object && row.EnumerateObject().Count() == keys.Length
             && row.EnumerateObject().All(x => keys.Contains(x.Name, StringComparer.Ordinal)));
     }
-    private static void Need(bool condition) { if (!condition) throw new InvalidOperationException("InvoiceUnitReviewPolicyUnavailable"); }
+    private static void Need([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool condition) { if (!condition) throw new InvalidOperationException("InvoiceUnitReviewPolicyUnavailable"); }
 }
