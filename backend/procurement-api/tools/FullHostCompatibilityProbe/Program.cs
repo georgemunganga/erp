@@ -24,7 +24,8 @@ var parsed = new NpgsqlConnectionStringBuilder(connection);
 if (parsed.Database is not { } name || !name.StartsWith("proc_release_backup_20261022_smoke_", StringComparison.Ordinal)
     || !parsed.Host.StartsWith("/", StringComparison.Ordinal) || parsed.Host.Contains(','))
     throw new InvalidOperationException("Only a new bounded smoke clone over a local Unix socket is supported.");
-if (args.Length != 0) throw new InvalidOperationException("No migration/publisher mode or custom host arguments are permitted.");
+var diagnosticOnly = args.SequenceEqual(new[] { "--diagnose-hrm-model" });
+if (args.Length != 0 && !diagnosticOnly) throw new InvalidOperationException("Only the read-only HRM model diagnostic flag is supported; no migration/publisher arguments.");
 var evidence = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_RESULT")
     ?? throw new InvalidOperationException("Private result path required.");
 if (File.Exists(evidence)) throw new InvalidOperationException("Do not reuse evidence paths.");
@@ -47,7 +48,14 @@ try
     result["procurementPendingMigrations"] = procPending; result["procurementPendingModelChanges"] = procDrift;
     // Actual Program calls Hrm Migrate at startup and ignores its pending-model warning.
     // Do not let that implicit behavior hide a compatibility blocker or apply unknown DDL.
-    if (hrmPending != 0 || hrmDrift || procPending != 0 || procDrift)
+    if (diagnosticOnly)
+    {
+        result["hrmModelDiagnostic"] = await HrmModelDiagnostic.DescribeAsync(hrm, hrmDrift);
+        result["status"] = "OWNER_MODEL_DIAGNOSTIC_ONLY_PROGRAM_NOT_STARTED";
+        result["actualProgramStarted"] = false;
+        if (hrmPending != 0 || hrmDrift || procPending != 0 || procDrift) Environment.ExitCode = 2;
+    }
+    else if (hrmPending != 0 || hrmDrift || procPending != 0 || procDrift)
     {
         result["status"] = "BLOCKED_OWNER_MIGRATION_OR_MODEL";
         Environment.ExitCode = 2;
