@@ -17,7 +17,7 @@ internal static class ProcurementFinanceWorkerIndependence
             || verifierWorker == request.RequesterWorkerId)
             throw new InvalidOperationException("FinanceEvidenceVerifierInvalid");
 
-        if (request.RequesterPrincipalId is not null)
+        if (request.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request))
             throw new InvalidOperationException("PrincipalFinanceEvidenceRequired");
 
         if (request.ApprovalInstanceRef is not null)

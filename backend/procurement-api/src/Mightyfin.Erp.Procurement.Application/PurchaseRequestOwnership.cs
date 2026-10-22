@@ -16,6 +16,14 @@ public static class PurchaseRequestOwnership
             || request.RequesterPrincipalId == null && request.CreatedBy == canonicalSubject;
     }
 
+    /// <summary>Existing worker-specific pins already bind CreatedBy and the genuine
+    /// requester worker. Additional immutable principal metadata is compatible only
+    /// when it exactly denotes that already-pinned canonical creator.</summary>
+    public static bool HasLegacyWorkerEvidenceIdentity(PurchaseRequest request) =>
+        request.RequesterWorkerId is { } worker && worker != Guid.Empty
+        && (request.RequesterPrincipalId is null || request.RequesterPrincipalId is { } principal
+            && principal != Guid.Empty && request.CreatedBy == principal.ToString("D"));
+
     public static bool IsOwner(PurchaseRequest request, Guid? principalId) => principalId is { } principal
         && principal != Guid.Empty && (request.RequesterPrincipalId == principal
             || request.RequesterPrincipalId is null && request.CreatedBy == principal.ToString("D"));

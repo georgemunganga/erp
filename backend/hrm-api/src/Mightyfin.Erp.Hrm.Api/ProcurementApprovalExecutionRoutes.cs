@@ -46,7 +46,7 @@ public static partial class ProcurementApprovalExecutionRoutes
                 await RequireCheckerSchema(db, http, token);
                 await ProcurementApprovalExecutionLocks.LockRequestAsync(db, scope, id, token);
                 var request = await Request(db, scope, id, token);
-                if (request.RequesterPrincipalId is not null || request.RequesterWorkerId is not { } requesterWorker
+                if (!PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request) || request.RequesterWorkerId is not { } requesterWorker
                     || requesterWorker == Guid.Empty) throw Conflict("PrincipalApprovalEvidenceRequired");
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 _ = await Actor(core, scope, http, authorization, OpenPermission, token);

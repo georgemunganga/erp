@@ -12,7 +12,7 @@ public static class RequestApprovalReadiness
         PolicyVersion? policy, BudgetCheckSnapshot? finance)
     {
         var blockers = new List<string>();
-        if (request.RequesterPrincipalId is not null)
+        if (request.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request))
             blockers.Add("PrincipalApprovalEvidenceRequired");
         if (request.RequesterWorkerId is null || request.RequesterWorkerId == Guid.Empty)
             blockers.Add("LegacyWorkerApprovalIdentityUnavailable");

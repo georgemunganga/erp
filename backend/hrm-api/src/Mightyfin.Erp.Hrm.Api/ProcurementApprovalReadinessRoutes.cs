@@ -37,7 +37,7 @@ public static class ProcurementApprovalReadinessRoutes
         var readiness = RequestApprovalReadiness.Check(request, evaluation, policy, finance);
         var route = ApprovalRoutePreview.FromEvaluation(evaluation,
             request.Lines.Where(x => x.ApprovalStatus != "Cancelled").Select(x => x.Id).ToArray());
-        var candidates = route.HasSingleRoute && request.RequesterPrincipalId is null && request.RequesterWorkerId is { } requesterWorker
+        var candidates = route.HasSingleRoute && PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request) && request.RequesterWorkerId is { } requesterWorker
             && requesterWorker != Guid.Empty
             ? await LoadCandidates(requesterWorker, core, scope, ct)
             : new Dictionary<string, IReadOnlyList<ApprovalAssignee>>();
