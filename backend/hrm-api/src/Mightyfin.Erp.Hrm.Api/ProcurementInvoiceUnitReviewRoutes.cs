@@ -67,6 +67,9 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             if (person.Permissions.Contains(action) && (await auth.AuthorizeAsync(http.User, null, action)).Succeeded) { allowed = true; break; }
         if (!allowed) throw new UnauthorizedAccessException();
         _ = await ProcurementExecutionRecordScope.Branches(core, scope, branch, true, ct);
+        // The canonical people projection excludes archived/foreign company locations.
+        // A retained raw assignment to such a location cannot grant document/history access.
+        if (!person.OrganisationWide && (branch is not { } target || !person.AllowedBranches.Contains(target))) throw new KeyNotFoundException();
         return person;
     }
     private static async Task<SupplierInvoice> Invoice(ProcurementDbContext db, ProcurementRequestScope scope, Guid id, CancellationToken ct, bool locked)

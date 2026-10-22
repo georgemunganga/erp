@@ -45,7 +45,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var actor = await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, token) ?? throw new UnauthorizedAccessException();
             if (scope.WorkerId != actor.WorkerId || !actor.Permissions.Contains("procurement-access") || !actor.Permissions.Contains(InvoiceRetainedUnitReview.ReviewPermission)
                 || !(await auth.AuthorizeAsync(http.User, null, InvoiceRetainedUnitReview.ReviewPermission)).Succeeded) throw new UnauthorizedAccessException();
-            var branches = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
+            _ = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
             // Immutable source branch and current invoice must agree BEFORE count/paging.
             // Current actual Core assignment and its retained canonical worker must both match.
             var query = db.InvoiceUnitReviewSources.FromSqlInterpolated($@"
@@ -64,7 +64,11 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                     AND a.""PermissionKey""={InvoiceRetainedUnitReview.ReviewPermission} AND a.""AssigneeSubjectId""={scope.SubjectId}
                     AND w.principal_id={scope.SubjectId} AND w.worker_id={actor.WorkerId})").AsNoTracking();
             if (scope.WorkLocationId is { } selected) query = query.Where(x => x.BranchRef == selected);
-            if (branches.Length != 0) query = query.Where(x => x.BranchRef != null && branches.Contains(x.BranchRef.Value));
+            if (!actor.OrganisationWide)
+            {
+                var allowed = actor.AllowedBranches.ToArray();
+                query = query.Where(x => x.BranchRef != null && allowed.Contains(x.BranchRef.Value));
+            }
             var total = await query.CountAsync(token);
             var rows = await query.OrderBy(x => x.OpenedAt).ThenBy(x => x.Id).Skip((p - 1) * size).Take(size)
                 .Select(x => new { reviewId = x.Id, invoiceId = x.SupplierInvoiceId, mappingVersionId = x.MappingVersionId, x.MappingRevision,
