@@ -12,7 +12,7 @@ internal static partial class PrincipalApprovalHttpVerification
     internal const string PrivateManualPolicyReference="PRIVATE-P25-MANUAL-EVIDENCE-NOT-EXTERNAL-FINANCE";
     private static async Task VerifyPrivateManualApprovalAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,NpgsqlConnection ownerConnection,Dictionary<string,object?> result,
-        Action<string> stage,PrincipalSend send,Action countExtraHttp,bool verifyAccountScopeAuthority)
+        Action<string> stage,PrincipalSend send,Action countExtraHttp,bool verifyAccountScopeAuthority,bool verifyRetainedAlias)
     {
         // Separate opt-in phase AFTER the real default-off and Finance-unavailable denials.
         // Only existing manual-evidence configuration is enabled; no Finance owner is substituted.
@@ -218,6 +218,11 @@ internal static partial class PrincipalApprovalHttpVerification
             result["currentGraphRawStorage"]="IN_PROGRESS_NOT_ACCEPTED";
             await VerifyRawStorageAsync(ownerConnection,graph);
             result["currentGraphRawStorage"]=PrincipalRawStorageVerification;
+        }
+        if(verifyRetainedAlias)
+        {
+            stage("ActualRetainedAliasAndHistoricalMakerOffboarding");
+            await VerifyRetainedAliasOffboardingAsync(fixture,ownerConnection,client,send,grantId,result,stage);
         }
         if(verifyAccountScopeAuthority)
         {

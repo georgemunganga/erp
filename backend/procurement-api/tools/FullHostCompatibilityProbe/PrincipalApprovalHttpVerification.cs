@@ -28,10 +28,14 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(matrixFlag is null or "1","Private privilege matrix opt-in must be exactly1 or absent.");
         var schemaFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_SCHEMA_NEGATIVES");
         var accountFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_ACCOUNT_SCOPE_AUTHORITY");
+        var aliasFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RETAINED_ALIAS");
         Need(schemaFlag is null or "1","Private schema negatives opt-in must be exactly1 or absent.");
         Need(accountFlag is null or "1","Private account/authority opt-in must be exactly1 or absent.");
         Need(accountFlag is null || Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE")=="1",
             "Account/authority negatives require the genuine private manual-evidence graph.");
+        Need(aliasFlag is null or "1","Private retained alias opt-in must be exactly1 or absent.");
+        Need(aliasFlag is null || Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE")=="1",
+            "Retained alias checks require the genuine private manual-evidence graph.");
         var fixture=new PrincipalApprovalFixture(owner);var stage="Bootstrap";var requests=0;
         try
         {
@@ -115,7 +119,7 @@ internal static partial class PrincipalApprovalHttpVerification
             if(Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is {} positive)
             {
                 Need(positive=="1","Private manual evidence opt-in must be exactly1.");
-                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1");
+                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1");
             }
         }
         catch(Exception error)
