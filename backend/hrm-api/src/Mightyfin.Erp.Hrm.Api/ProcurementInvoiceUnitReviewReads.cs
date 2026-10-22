@@ -47,7 +47,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 || !(await auth.AuthorizeAsync(http.User, null, InvoiceRetainedUnitReview.ReviewPermission)).Succeeded) throw new UnauthorizedAccessException();
             _ = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
             // Immutable source branch and current invoice must agree BEFORE count/paging.
-            // Current actual Core assignment and its retained canonical worker must both match.
+            // Current actual Core assignment and its retained principal pin must both match.
             var query = db.InvoiceUnitReviewSources.FromSqlInterpolated($@"
                 SELECT s.* FROM procurement.invoice_unit_review_sources s
                 JOIN procurement.supplier_invoices i ON i.tenant_id=s.tenant_id AND i.legal_entity_id=s.legal_entity_id AND i.id=s.supplier_invoice_id

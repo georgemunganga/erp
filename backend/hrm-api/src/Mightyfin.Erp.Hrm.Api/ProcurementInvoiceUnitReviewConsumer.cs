@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -29,6 +30,13 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         var workflow = await Workflow(cases, scope, source, false, ct);
         var pins = await db.InvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == source.Id).ToArrayAsync(ct);
         var owned = InvoiceUnitReviewStorage.Restore(source, pins, workflow);
+        var terminal = JsonSerializer.Deserialize<InvoiceRetainedUnitReviewEnvelope>(outcome.EvidenceJson,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new InvalidOperationException("InvoiceUnitReviewOutcomeIdentityInvalid");
+        if (outcome.EvidenceSchemaVersion != owned.Source.IdentitySchemaVersion || terminal.SchemaVersion != outcome.EvidenceSchemaVersion
+            || outcome.ReviewSourceId != source.Id || outcome.CoreCaseId != workflow.Id || terminal.ReviewId != source.Id
+            || terminal.FinalDecisionId != outcome.FinalDecisionId || terminal.ReviewerPrincipalId != outcome.ReviewerPrincipalId
+            || terminal.ReviewerWorkerId != outcome.ReviewerWorkerId || terminal.ReviewedAt != outcome.CompletedAt)
+            throw new InvalidOperationException("InvoiceUnitReviewOutcomeIdentityInvalid");
         var matching = await db.PolicyVersions.SingleAsync(x => x.Id == source.MatchingPolicyId, ct);
         var review = await db.PolicyVersions.SingleAsync(x => x.Id == source.ReviewPolicyId, ct);
         await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db, scope, http.RequestServices, matching, ct);
