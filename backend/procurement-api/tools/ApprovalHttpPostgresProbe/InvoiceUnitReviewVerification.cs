@@ -61,6 +61,24 @@ sealed partial class Probe
         Require(beforeDenied == await UnitReviewFootprint(), "Unauthorized self-review changed persisted facts.");
         var voteInput = new ProcurementInvoiceUnitReviewRoutes.DecisionInput(original.Version, opened.GetProperty("caseVersion").GetInt64(),
             assignment.GetProperty("assignmentVersion").GetInt64(), "Approve", "Synthetic human attests original document units", InvoiceUnitReviewCommands.OriginalUnitAttestation);
+        // Current canonical identity cannot borrow a retained assignment through an alias.
+        Guid originalReviewerWorker;
+        using (var services = Scope(OrderBuyer))
+        {
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>(); var account = await core.LocalUsers.SingleAsync(x => x.Id == OrderManager2);
+            originalReviewerWorker = account.WorkerId!.Value; account.WorkerId = mapper.Worker; await core.SaveChangesAsync();
+        }
+        try
+        {
+            var beforeAlias = await UnitReviewFootprint();
+            await Expect(HttpStatusCode.Forbidden, HttpMethod.Post, reviewPath + $"/assignments/{assignment.GetProperty("assignmentId").GetGuid()}/decisions", OrderManager2, voteInput, Guid.NewGuid());
+            Require(beforeAlias == await UnitReviewFootprint(), "Rebound reviewer recorded a decision or source outcome.");
+        }
+        finally
+        {
+            using var services = Scope(OrderBuyer); var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.LocalUsers.SingleAsync(x => x.Id == OrderManager2)).WorkerId = originalReviewerWorker; await core.SaveChangesAsync();
+        }
         var voteKey = Guid.NewGuid();
         var vote = await Send(HttpMethod.Post, reviewPath + $"/assignments/{assignment.GetProperty("assignmentId").GetGuid()}/decisions", OrderManager2, voteInput, voteKey);
         await Check(vote, HttpStatusCode.OK); var voteText = await vote.Content.ReadAsStringAsync(); var terminal = JsonSerializer.Deserialize<JsonElement>(voteText);
@@ -88,6 +106,7 @@ sealed partial class Probe
             Require(await docs.RecordEvents.AnyAsync(x => x.Action == "DownloadAuthorized"), "Core download audit was bypassed.");
         }
         Require(matchingBrowserSourceBefore == await MatchingSourceFootprint(), "Original-unit review mutated approved/received upstream source.");
+        await VerifyInvoiceUnitReviewConstraints();
         await VerifyUnitReviewInsertProvenance(mapper.Principal, mapper.Worker);
     }
 
