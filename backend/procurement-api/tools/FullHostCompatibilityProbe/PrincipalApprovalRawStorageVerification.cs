@@ -13,6 +13,7 @@ internal sealed record PrincipalApprovalStorageGraph(Guid RequestId, Guid Checke
 internal static partial class PrincipalApprovalHttpVerification
 {
     internal static object? PrincipalRawStorageVerification { get; private set; }
+    internal static object? PrincipalRawStorageFailure { get; private set; }
     private const string OriginalCheck = "ck_pr_original_principal_identity";
     private const string DownSha = "1b298d0a0fb8ccd42ab1f0b93260ef02d89896c1a21b3209728286e75492ba1c";
     private const string DownMessage = "Retained Core-principal request approval evidence prevents destructive downgrade.";
@@ -90,7 +91,9 @@ internal static partial class PrincipalApprovalHttpVerification
         {
             new("original-creator-mismatch", "purchase_requests", graph.RequestId, "created_by=@otherPrincipal", "23514", OriginalCheck, OtherPrincipal: checkerPrincipal),
             new("checker-missing-hash", budget, graph.CheckerSnapshotId, "checker_identity_sha256=NULL", "23514", "ck_budget_checker_identity"),
-            new("checker-missing-principal", budget, graph.CheckerSnapshotId, "checked_by_subject_id=NULL", "23514", "ck_budget_checker_identity"),
+            // The existing column is NOT NULL. Empty text targets the successor
+            // canonical-principal CHECK instead of the earlier column constraint.
+            new("checker-missing-principal", budget, graph.CheckerSnapshotId, "checked_by_subject_id=''", "23514", "ck_budget_checker_identity"),
             new("checker-zero-alias", budget, graph.CheckerSnapshotId, "checked_by_worker_id=" + Zero, "23514", "ck_budget_checker_identity"),
             new("checker-unsupported-version", budget, graph.CheckerSnapshotId, "checker_identity_schema_version=99", "23514", "ck_budget_checker_identity"),
             new("checker-false-worker-version", budget, graph.CheckerSnapshotId, "checker_identity_schema_version=1", "23514", "ck_budget_checker_identity"),
@@ -165,6 +168,12 @@ internal static partial class PrincipalApprovalHttpVerification
                     }
                     catch (PostgresException error)
                     {
+                        if(error.SqlState != fault.SqlState || fault.Constraint is not null && error.ConstraintName != fault.Constraint
+                            || fault.Column is not null && error.ColumnName != fault.Column)
+                            PrincipalRawStorageFailure=new {
+                                fault=fault.Name,expectedSqlState=fault.SqlState,
+                                actualSqlState=Regex.IsMatch(error.SqlState,"^[0-9A-Z]{5}$")?error.SqlState:"Unrecognized",
+                                actualConstraint=SafeRawIdentifier(error.ConstraintName),actualColumn=SafeRawIdentifier(error.ColumnName)};
                         RawNeed(error.SqlState == fault.SqlState && (fault.Constraint is null || error.ConstraintName == fault.Constraint)
                             && (fault.Column is null || error.ColumnName == fault.Column), "Unexpected raw constraint/column denial: " + fault.Name);
                     }
@@ -174,6 +183,9 @@ internal static partial class PrincipalApprovalHttpVerification
             RawNeed(before == await PrincipalFootprintAsync(owner), "Raw rollback changed owning facts: " + fault.Name);
         }
     }
+
+    private static string? SafeRawIdentifier(string? value)=>value is null?null:
+        Regex.IsMatch(value,"^[a-z0-9_]{1,120}$")?value:"Unrecognized";
 
     private static NpgsqlCommand RawCommand(NpgsqlConnection owner, NpgsqlTransaction tx, string table,
         string assignment, Guid id, string tenant, Guid company)

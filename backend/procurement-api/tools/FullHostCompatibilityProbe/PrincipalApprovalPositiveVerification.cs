@@ -203,6 +203,7 @@ internal static partial class PrincipalApprovalHttpVerification
         {
             Need(raw=="1","Private raw graph opt-in must be exactly1.");
             stage("OwnerCurrentGraphRawStorage");
+            result["currentGraphRawStorage"]="IN_PROGRESS_NOT_ACCEPTED";
             await VerifyRawStorageAsync(ownerConnection,graph);
             result["currentGraphRawStorage"]=PrincipalRawStorageVerification;
         }

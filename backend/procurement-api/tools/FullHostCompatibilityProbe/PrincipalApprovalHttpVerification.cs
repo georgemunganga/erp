@@ -111,6 +111,7 @@ internal static partial class PrincipalApprovalHttpVerification
             result["failureCode"]=error is PrivatePrincipalProbeFailure known?known.SafeCode:"P25_Unclassified_SeeStageAndTypedCause";
             var cause=error.GetBaseException();result["underlyingExceptionType"]=cause.GetType().FullName;
             if(cause is PostgresException postgres)result["sqlState"]=postgres.SqlState;
+            if(PrincipalRawStorageFailure is not null)result["rawStorageFailure"]=PrincipalRawStorageFailure;
             // Never export arbitrary exception messages, SQL, row payloads or connection configuration.
             Environment.ExitCode=2;
         }
