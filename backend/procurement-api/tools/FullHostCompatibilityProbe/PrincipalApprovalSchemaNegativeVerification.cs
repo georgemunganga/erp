@@ -92,22 +92,54 @@ internal static partial class PrincipalApprovalHttpVerification
             var before=await PrincipalFootprintAsync(owner);var acl=await PrivilegeAclAsync(owner,relation);
             Need(await ReadWithSelect(roles.Record,roles.RecordRole,relation)==recordBaseline
                 &&await ReadWithSelect(roles.Execution,roles.ExecutionRole,relation)==executionBaseline,"Non-vacuous schema baseline required on both finite LOGIN connections.");
+            var removeCompleted=false;var phase="Remove";Exception? firstFailure=null;string? firstFailurePhase=null;
+            var secondary=new List<object>();
+            static string FailureKind(Exception error)=>error switch
+            {
+                PrivatePrincipalProbeFailure=>"Verification",
+                PostgresException=>"PostgreSql",
+                NpgsqlException=>"Transport",
+                OperationCanceledException=>"Cancellation",
+                _=>"Unexpected"
+            };
             try
             {
-                await remove();await absent();
+                await remove();removeCompleted=true;phase="AssertAbsent";await absent();
+                phase="FiniteReadiness";
                 Need(await ReadWithSelect(roles.Record,roles.RecordRole,relation)==new PrivilegeState(false,false,false)
                     &&await ReadWithSelect(roles.Execution,roles.ExecutionRole,relation)==new PrivilegeState(false,false,false),
                     "Actual provider must reject missing schema independently of retained SELECT.");
+                phase="DefectRawAcl";
                 Need(await PrivilegeAclAsync(owner,relation)==acl,"Schema defect changed table or column ACLs.");
             }
+            catch(Exception error){firstFailure=error;firstFailurePhase=phase;}
             finally
             {
-                // Exact trusted pg_get_* definition/original history values only.
-                // Failure aborts and retains this disposable fixture; no repair fallback.
-                await restore();
-                Need(await PrivilegeAclAsync(owner,relation)==acl,"Schema restore changed raw table or column ACLs.");
-                Need(await PrincipalFootprintAsync(owner)==before,"Schema negative did not restore complete logical data/catalog/privilege footprint.");
-                await Baselines();
+                async Task Check(string check,Func<Task> action)
+                {
+                    try{await action();}
+                    catch(Exception error)
+                    {
+                        if(firstFailure is null){firstFailure=error;firstFailurePhase=check;}
+                        else secondary.Add(new {check,kind=FailureKind(error)});
+                    }
+                }
+                // Only a successfully completed removal authorizes its inverse.
+                // A transport error can leave commit status unknown: retain failure,
+                // inspect the safe read-only checks below, and NEVER guess a repair.
+                if(removeCompleted)await Check("Restore",restore);
+                await Check("RestoredRawAcl",async()=>
+                    Need(await PrivilegeAclAsync(owner,relation)==acl,"Schema restore changed raw table or column ACLs."));
+                await Check("RestoredLogicalFootprint",async()=>
+                    Need(await PrincipalFootprintAsync(owner)==before,"Schema negative did not restore complete logical data/catalog/privilege footprint."));
+                await Check("RestoredRoleBaselines",Baselines);
+            }
+            if(firstFailure is not null)
+            {
+                result["principalApprovalSchemaNegativeFailure"]=new {status="FAILED_RETAIN_FIXTURE",name,removeCompleted,
+                    restorationAttempted=removeCompleted,firstFailurePhase,firstFailureKind=FailureKind(firstFailure),secondary,
+                    noGuessedRepair=true,productionTouched=false};
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure).Throw();
             }
             completed.Add(new {name,actualFiniteLogins=true,selectStillEffective=true,affectedReadAndWriteReadinessFalse=true,
                 logicalFootprintRestoredExactly=true,rawAclRestoredExactly=true,bothRoleBaselinesRestored=true});
