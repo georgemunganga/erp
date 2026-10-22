@@ -33,3 +33,24 @@ Read-only catalog checks accompany every emitted operation. They compare current
 Source inspection suggests inherited snapshot lag: the current HRM model includes SalaryAdvance/CompanyBranding whereas the retained snapshot omits those entity/table mappings; handwritten migrations may already have created them. This is a hypothesis until the real diagnostic runs. Never apply a naive generated CreateTable/AddColumn diff to that database. If catalog evidence establishes every difference is already represented by applied owning DDL, the owner may review a targeted snapshot-only reconciliation or a guarded no-DDL reconciliation migration; otherwise it must design the smallest additive owning migration from the actual schema. Existing migrations/history/rows and the startup block remain intact throughout.
 
 This increment is source-only and uncompiled. No diagnostic result, snapshot repair, database mutation or actual Program compatibility is claimed.
+
+### Actual diagnostic follow-up and proposed owner repair (22 October 2026)
+
+Parent executed the diagnostic on its fresh restricted clone: 18 source operations (7 AddColumn, 4 CreateTable, 7 CreateIndex). All affected columns already exist with matching types/nullability and no extra columns. Program remained stopped; the original pending-model guard remains active. A separate metadata-only `BEGIN READ ONLY`/`ROLLBACK` inspection of that **diagnostic clone only** found:
+
+| Model object | Existing applied contract | Interpretation |
+| --- | --- | --- |
+| ContractType PK/index | `pk_contract_types`, `ix_contract_types_tenant_id_code` | Published handwritten ContractTypes migration uses these lowercase names; correct validated ID PK and unique tenant/code index. |
+| LocalCredentialLink PK/two indexes | `pk_local_credential_links`, `ix_local_credential_links_token_hash`, `ix_local_credential_links_tenant_id_local_user_id_expires_at` | Published AccountCredentialLinks migration uses these names; correct ID PK, unique token index and ordered lookup index. |
+| SalaryAdvance PK/FK/three indexes | `pk_salary_advances`, `fk_salary_advances_workers_worker_id`, `ix_salary_advances_worker_id`, `ix_salary_advances_tenant_id_worker_id_status`, `ix_salary_advances_tenant_deduct_start` | Published SalaryAdvances migration uses these names. Worker FK is validated/immediate, references `hrm.workers(id)`, and retains existing CASCADE behavior. Index columns/uniqueness match. |
+| Workers identity index | `IX_workers_tenant_id_subject_id` | Exists and is valid unique tenant/subject index with exactly the single `subject_id IS NOT NULL` predicate. Catalog diagnostic mismatch is PostgreSQL's deparsed outer parentheses, not changed integrity. No filter/model change is needed. |
+| CompanyBranding and remaining affected tables | Expected names/shapes present | Existing applied owning DDL already supplies the source additions. |
+
+All inspected indexes are valid/ready btree indexes with ascending options, no expressions or included columns; non-worker indexes have no predicate. Metadata evidence stays in the protected diagnostic directory, never in source. No business rows/defaults/credentials were selected by this follow-up and no database mutation occurred. This is bounded catalog evidence, not actual Program startup or a complete manual-default/trigger proof.
+
+Proposed minimum implementation, pending parent authorization:
+
+1. Explicitly map only the listed ContractType/LocalCredentialLink/SalaryAdvance key/FK/index names to their immutable published names. Preserve relationship shape, delete action, columns, defaults, filter, values and prior migration bytes.
+2. Refresh only the owning HRM snapshot from that corrected real Npgsql design model. Do not import a generated duplicate CreateTable/AddColumn migration or invent applied history. Workers' predicate requires no SQL-normalization workaround.
+3. Require actual model/snapshot differences zero, complete fresh HRM migration-chain success, retained clone zero pending migration/model with history unchanged and exact values/schema retention. Inspect generated differences before accepting any artifact. A guarded no-DDL owner reconciliation marker is an alternative only if governance requires it; it must validate exact preconditions and never pretend unapplied DDL ran.
+4. Repeat actual Program smoke afterward with workers/bootstrap/outbound execution disabled and unchanged footprint. No release acceptance follows from snapshot equality alone.
