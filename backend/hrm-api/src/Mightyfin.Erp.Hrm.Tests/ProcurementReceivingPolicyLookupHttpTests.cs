@@ -1,12 +1,42 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed partial class ProcurementRequestHttpTests
 {
     private const string ReceivingLookupPath = "/api/procurement/v1/configuration/policies/lookups/receiving/";
+
+    [Theory]
+    [InlineData("people")]
+    [InlineData("sites")]
+    [InlineData("categories")]
+    public void Receiving_lookup_search_and_retained_selection_translate_with_the_actual_Npgsql_provider(string kind)
+    {
+        // Translation only: no connection is opened and no table/schema is created.
+        const string connection = "Host=127.0.0.1;Database=receiving_translation_only;Username=unused";
+        var scope = new ProcurementRequestScope();
+        scope.Set("translation-tenant", Guid.NewGuid(), Guid.NewGuid().ToString("D"), Guid.NewGuid(), null, false, "translation-only");
+        using var core = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>().UseNpgsql(connection).Options,
+            new FixedTenantAccessor(scope.TenantId));
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseNpgsql(connection).Options, scope);
+        var selected = new[] { Guid.NewGuid() }; var search = "named selection";
+        var query = ProcurementPolicyDraftRoutes.ReceivingPolicyLookupQuery(kind, core, db, scope, DateTimeOffset.UtcNow)
+            .Where(x => selected.Contains(x.Id) && (x.DisplayName.ToLower().Contains(search)
+                || x.Code != null && x.Code.ToLower().Contains(search)))
+            .OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(1).Take(25);
+        var sql = query.ToQueryString();
+        Assert.Contains("LIMIT", sql, StringComparison.Ordinal);
+        Assert.Contains("OFFSET", sql, StringComparison.Ordinal);
+        Assert.Contains("tenant_id", sql, StringComparison.Ordinal);
+        Assert.Contains("legal_entity_id", sql, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"email\"", sql, StringComparison.OrdinalIgnoreCase);
+    }
 
     [Fact]
     public async Task Receiving_people_lookup_filters_before_count_and_resolves_only_exact_saved_worker_ids()
