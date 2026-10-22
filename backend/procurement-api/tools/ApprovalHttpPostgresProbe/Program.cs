@@ -157,6 +157,8 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         }
         var fixtureServices = fixtureCollection.BuildServiceProvider();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        if (PrivateBrowserTransport.Enabled && builder.Configuration.GetSection("Kestrel:Endpoints").GetChildren().Any())
+            throw new InvalidOperationException("Private Unix fixture refuses additional configured listeners.");
         builder.Logging.ClearProviders();
         builder.Logging.AddSimpleConsole().AddFilter((category, level) =>
             category == "Procurement.InvoiceMatching" && level >= LogLevel.Warning);
