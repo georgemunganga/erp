@@ -246,5 +246,5 @@ internal static partial class PrincipalApprovalHttpVerification
         identity.Parameters.AddWithValue("database", parsed.Database!);
         RawNeed(await identity.ExecuteScalarAsync() is true, "Exact private owning session/cluster required before raw mutations.");
     }
-    private static void RawNeed(bool ok, string message) { if (!ok) throw new InvalidOperationException(message); }
+    private static void RawNeed(bool ok, string message) => Need(ok, message);
 }
