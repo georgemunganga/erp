@@ -12,8 +12,8 @@ New assignments start from published `origin/main` in both existing repositories
 
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `b6b62cd551ad134879cc47c7ceb32a0570201aed` or a published main descendant; includes accepted P23 and P24 PR #30, source `8f3c500`, with private API/browser/owning-database acceptance. P23/P24 deployment and actual public ordinary-CRUD acceptance are now recorded below. |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `6fca23d4687668e85445c1c56ca92eefac1ab27c` or a published main descendant; includes P24 PR #54, source `4a76f4e`, and preserves P23 review and branch recovery. The accepted P24 bundle is now deployed. |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `4c4c9ad702ff218b175d218716d5915925b6f6ea` or a published main descendant; includes the P23/P24 live release acceptance in PR #32 and current roadmap in PR #34. Exact deployed application/schema/public assets and scoped real-account acceptance are recorded in the release receipt below. |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `ecf48db33a863bef4235e877f9d2dc699c07a1b4` or a published main descendant; includes P24 PR #54 and P25 request-approval UI compatibility/retry PR #55. Source `e00d475` passed 53 units, staged typecheck/build and 25 controlled browser cases. PR #55 is source preparation, not a production deployment; the accepted P24 bundle remains the public UI. |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
@@ -28,13 +28,19 @@ Production now includes the reviewed P20–P24 CRUD schema and Core-principal ap
 
 **Branch-scope regression fixed:** preserve PR #51's verified legacy-name-to-ID hand-off before readiness or business requests. Do not silently clear a stored branch, infer another company, choose the first match, or reintroduce a read-only gate that strands the branch picker. See [the incident and real-account verification](docs/procurement/release/PROC-UI-BRANCH-HANDOFF-20261022.md). The actual signed-in account can open Vendors/My Requests and their new forms; this narrow acceptance does not certify every workflow.
 
+**Approval work ownership:** PR #55 preserves the existing UI, handles the separate optional principal capability and fixes in-session same-command recovery. It does not enable approval execution or prove real API/PostgreSQL workflow success. The coordinator owns the remaining P25 finite-role/runtime acceptance and durable recovery; do not duplicate these changes or enable Finance/approval flags.
+
 ## Accepted coordination and remaining work
 
 The claim/status contributions from ERP PR #9 are retained with their original author. That PR has no vendor implementation. Its historical missing-SHA observation and old branch references do not govern new work. The coordinator has confirmed that `445a5cb` is published; the new baseline table supersedes the old instructions.
 
 The user correctly identified a layout regression: live routing used a separate simplified vendor page while the imported directory, sticky toolbar and detail tabs remained in `CatalogDetail.tsx`. The coordinator has restored the directory, compact header, split overview and URL tabs in the reviewed UI baseline. Preserve that work, the real API adapter and the explicit administrator read-only controls.
 
-## Owned files
+## Historical vendor milestone — accepted, not the active assignment
+
+The following vendor scope and verification instructions are retained for traceability. The active `MANUS-CORE-BUILD-03` file defines Manus’s current owned files and acceptance; these older sections do not assign new vendor or settings work.
+
+### Vendor owned files
 
 - `reference-ui/src/features/LiveVendors.tsx`: focus on editor/form integration and concrete save/context safety; preserve the merged detail layout.
 - Existing vendor form/presentation components in `Catalogs.tsx` or an extracted shared component, only where required to reuse the original editor.
