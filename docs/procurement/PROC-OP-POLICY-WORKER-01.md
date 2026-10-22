@@ -1,6 +1,6 @@
 # PROC-OP-POLICY-WORKER-01 — original people behind receiving and matching policy
 
-Status: planned next backend milestone; not released. Prepared: 22 October 2026.
+Status: implementation in progress; pure foundation verified, persistence/lifecycle/consumer integration pending; not released. Prepared: 22 October 2026.
 Owner: Procurement coordinator/backend. Risk: Tier 3 under GW-ENG-STD-001.
 
 ## 1. Feature identification
@@ -124,3 +124,10 @@ Implementation stages:
 ## 28. Open decisions and assumptions
 
 Legacy open-ended published policies need an authorized retirement/replacement reconciliation path; no authority is assumed. A stronger immediate identity-change fence is separate Core work. Financial and historical-maker release holds stay in place until actual evidence and independent review close them. This specification does not approve deployment or claim implementation is complete.
+
+
+## Stage 1 verification checkpoint — 22 October 2026
+
+The policy-key-aware pure contract, typed record, lossless storage converter and focused cases are implemented. Independent source review found no concrete blocker in this bounded contract. **96 cases passed, zero failed/skipped**: 46 new operational-policy identity/storage cases and 50 existing SOURCING/spending identity cases. Evidence is retained under `artifacts/operational-policy-identity/stage1/` with source hashes. Existing unrelated GovernedRfqDraft nullable warnings remain visible.
+
+This checkpoint adds no DbSet/mapping/context hooks/migration, HTTP behavior or effective-policy eligibility. A hash is not provenance. Actual same-save actor/lineage ownership and allowed policy changes belong to the next persistence stage. P29 SOURCING and P30 spending evidence formats remain unchanged. The previously passed finite-role spending API checkpoint remains `f7006e9`; its actual API/database result does not certify this new policy foundation.
