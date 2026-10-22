@@ -1,6 +1,16 @@
 # PROC-UX-05 — New Vendor form
 
-**Status:** UI handoff draft, 3 October 2026. Applies to `/procurement/suppliers/new` in the Procurement frontend demo.
+**Status:** Historical UI handoff draft, 3 October 2026; live implementation boundary updated22 October2026. The draft below describes the original preview and must not be treated as persisted production behavior.
+
+## Current live implementation boundary
+
+The existing workspace route is `/procurement/workspace/vendors/new`. The full seven-tab adapter is being verified in UI `codex/procurement-full-vendor-editor`; source checkpoint `42a6994`. It uses the existing Supplier records and atomic create API. Draft editing separates vendor header/attributes from explicit contact/site/qualification saves; each child save validates its actual returned ID and supplier version, then reloads that saved child without discarding other unsaved edits. Existing reasoned child removals stay on vendor detail.
+
+Currency defaults from Core company settings. Country remains the existing explicit two-letter input/default; it is not guessed from legal entity. Company/display name and country are required for draft capture; submission/activation requirements remain enforced by their existing distinct server workflows. A save creates a Draft, never fabricated diligence or approval. Bank credentials/masked bank inputs, fake document uploads, tax-rate entry and portal activation are unavailable here. A portal request is not an account. Unknown attribute kinds and historical evidence are retained. Reviewed/document-linked qualifications are read-only in this editor.
+
+TypeScript,10 focused model/receipt tests and live staged build pass. Browser/persistence verification is in progress at this documentation checkpoint. No production deployment is implied. The prior preview storage/automatic statuses below are historical design evidence only.
+
+## Historical preview specification
 
 The form opens from **Vendors → Add vendor**. Primary Contact is visible first: salutation, first name, last name, company name, display name with suggestions or free entry, email, work phone, mobile and vendor language. The current legal entity determines the country and initial currency.
 

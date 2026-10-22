@@ -2,6 +2,7 @@ using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
@@ -33,6 +34,7 @@ public static partial class ProcurementPolicyDraftRoutes
         group.MapPost("", Create).RequireAuthorization("procurement-configuration-edit");
         group.MapPost("/validate", ValidateRules).RequireAuthorization("procurement-configuration-edit");
         group.MapPut("/{id:guid}", Update).RequireAuthorization("procurement-configuration-edit");
+        group.MapPost("/{id:guid}/retire", Retire).RequireAuthorization("procurement-configuration-edit");
         group.MapPost("/{id:guid}/preview", Preview).RequireAuthorization("procurement-configuration-read");
         group.MapPost("/{id:guid}/submit-review", SubmitReview).RequireAuthorization("procurement-configuration-edit");
         group.MapPost("/{id:guid}/publish", Publish).RequireAuthorization("procurement-configuration-approve");
@@ -127,7 +129,7 @@ public static partial class ProcurementPolicyDraftRoutes
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, string? key,
-        int? page, int? pageSize, CancellationToken ct)
+        int? page, int? pageSize, HttpContext http, IAuthorizationService authorization, CancellationToken ct)
     {
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
@@ -143,10 +145,18 @@ public static partial class ProcurementPolicyDraftRoutes
             .Select(x => new { x.Id, x.PolicyKey, x.PolicyVersionNumber, x.State,
                 x.EffectiveFrom, x.EffectiveTo, x.Version, x.CreatedAt })
             .ToListAsync(ct);
-        return Results.Ok(new { items, total, page = number, pageSize = size });
+        var ids = items.Select(x => x.Id).ToArray();
+        var canEdit = (await authorization.AuthorizeAsync(http.User, "procurement-configuration-edit")).Succeeded;
+        var eligible = canEdit ? await RetirableDrafts(db).Where(x => ids.Contains(x.Id))
+            .Select(x => x.Id).ToListAsync(ct) : new List<Guid>();
+        return Results.Ok(new { items = items.Select(x => new { x.Id, x.PolicyKey, x.PolicyVersionNumber,
+            x.State, x.EffectiveFrom, x.EffectiveTo, x.Version, x.CreatedAt,
+            draftRetirementVersion = 1, canRetireDraft = eligible.Contains(x.Id) }),
+            total, page = number, pageSize = size });
     }
 
-    private static async Task<IResult> Get(Guid id, ProcurementDbContext db, CancellationToken ct)
+    private static async Task<IResult> Get(Guid id, ProcurementDbContext db, HttpContext http,
+        IAuthorizationService authorization, CancellationToken ct)
     {
         var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
@@ -165,7 +175,9 @@ public static partial class ProcurementPolicyDraftRoutes
                 && reason.ValueKind == JsonValueKind.String)
                 lastReturnReason = reason.GetString();
         }
-        return Results.Ok(View(policy, lastReturnReason));
+        var canRetire = (await authorization.AuthorizeAsync(http.User, "procurement-configuration-edit")).Succeeded
+            && await RetirableDrafts(db).AnyAsync(x => x.Id == id, ct);
+        return Results.Ok(View(policy, lastReturnReason, canRetire));
     }
 
     private static async Task<IResult> CreatePolicy(PolicyDraft input, ProcurementDbContext db,
@@ -251,6 +263,53 @@ public static partial class ProcurementPolicyDraftRoutes
         catch (DbUpdateConcurrencyException)
         { return Problem("version-conflict", "Refresh this policy draft before saving.", 409); }
         return Results.Ok(View(policy));
+    }
+
+    // A draft with any review/publication history is retained for controlled correction.
+    // All reference queries include inactive/historical rows and the existing scope filters.
+    private static IQueryable<PolicyVersion> RetirableDrafts(ProcurementDbContext db) =>
+        db.PolicyVersions.Where(x => x.State == "Draft"
+            && x.ReviewRequestedAt == null && x.ReviewRequestedBy == null && x.ReviewReason == null
+            && x.PublishedAt == null && x.PublishedBy == null && x.PublicationReason == null
+            && !db.AuditEvents.Any(a => a.RecordType == "PolicyVersion" && a.RecordId == x.Id
+                && a.Action != "DraftCreated" && a.Action != "DraftUpdated"
+                && a.Action != "create" && a.Action != "update")
+            && !db.PolicyEvaluations.Any(r => r.PolicyVersionId == x.Id)
+            && !db.ProcurementMethods.Any(r => r.PolicyVersionId == x.Id)
+            && !db.Suppliers.Any(r => r.StatusPolicyVersionId == x.Id)
+            && !db.SupplierDecisions.Any(r => r.PolicyVersionId == x.Id)
+            && !db.SourcingEvents.Any(r => r.PolicyVersionId == x.Id)
+            && !db.InvoiceMatchResults.Any(r => r.PolicyVersionId == x.Id));
+
+    private static async Task<IResult> Retire(Guid id, DraftRetirement input,
+        ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        IDbContextTransaction? transaction = null;
+        try
+        {
+            if (db.Database.IsRelational())
+                transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
+            if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+            if (policy.Version != input.Version)
+                return Problem("version-conflict", "Refresh this policy before retiring it.", 409);
+            if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+                return Problem("validation-failed", "Enter a retirement reason of up to 1,000 characters.", 422);
+            if (!await RetirableDrafts(db).AnyAsync(x => x.Id == id, ct))
+                return Problem("policy-retained", "Only an unused draft with no review or publication history can be retired.", 409);
+            policy.State = "Retired";
+            AddAudit(db, policy, scope.SubjectId, "DraftRetired", input.Reason.Trim());
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return Results.Ok(View(policy));
+        }
+        catch (DbUpdateConcurrencyException)
+        { return Problem("version-conflict", "Refresh this policy before retiring it.", 409); }
+        catch (DbUpdateException error) when (error.InnerException is PostgresException { SqlState: "40001" or "40P01" })
+        { return Problem("version-conflict", "Another setting changed. Refresh before saving.", 409); }
+        catch (PostgresException error) when (error.SqlState is "40001" or "40P01")
+        { return Problem("version-conflict", "Another setting changed. Refresh before retiring this draft.", 409); }
+        finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }
 
     private static async Task<IResult> SubmitReviewPolicy(Guid id, ReviewSubmission input,
@@ -507,13 +566,13 @@ public static partial class ProcurementPolicyDraftRoutes
         });
     }
 
-    private static object View(PolicyVersion x, string? lastReturnReason = null) => new
+    private static object View(PolicyVersion x, string? lastReturnReason = null, bool canRetireDraft = false) => new
     {
         x.Id, x.PolicyKey, x.PolicyVersionNumber, x.State, x.EffectiveFrom,
         x.EffectiveTo, x.RulesJson, x.Version, x.CreatedAt, x.UpdatedAt,
         x.ReviewRequestedAt, x.ReviewRequestedBy, x.ReviewReason,
         x.PublishedAt, x.PublishedBy, x.PublicationReason,
-        LastReturnReason = lastReturnReason,
+        LastReturnReason = lastReturnReason, DraftRetirementVersion = 1, CanRetireDraft = canRetireDraft,
     };
     private static IResult Problem(string code, string message, int status) =>
         Results.Json(new { code, message }, statusCode: status);
@@ -523,5 +582,6 @@ public static partial class ProcurementPolicyDraftRoutes
     public sealed record VersionedPolicyDraft(long Version, PolicyDraft Draft);
     public sealed record PolicyValidationRequest(string? RulesJson);
     public sealed record ReviewSubmission(long Version, string? Reason);
+    public sealed record DraftRetirement(long Version, string? Reason);
     public sealed record PublicationInput(long Version, string? Reason);
 }
