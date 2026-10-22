@@ -200,8 +200,11 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         });
         ConfigureEntity<LocalCredentialLink>(modelBuilder, "local_credential_links", e =>
         {
-            e.HasIndex(x => x.TokenHash).IsUnique();
-            e.HasIndex(x => new { x.TenantId, x.LocalUserId, x.ExpiresAt });
+            // Preserve names published by AccountCredentialLinks; no schema rename is needed.
+            e.HasKey(x => x.Id).HasName("pk_local_credential_links");
+            e.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("ix_local_credential_links_token_hash");
+            e.HasIndex(x => new { x.TenantId, x.LocalUserId, x.ExpiresAt })
+                .HasDatabaseName("ix_local_credential_links_tenant_id_local_user_id_expires_at");
         });
         ConfigureEntity<HrUserBranchAssignment>(modelBuilder, "hr_user_branch_assignments",
             e => e.HasIndex(x => new { x.TenantId, x.UserId, x.LocationId }).IsUnique());
@@ -233,7 +236,11 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             e.Property(x => x.ErrorsJson).HasColumnType("jsonb");
         });
         ConfigureEntity<LeaveType>(modelBuilder, "leave_types", e => e.HasIndex(x => new { x.TenantId, x.Code }));
-        ConfigureEntity<ContractType>(modelBuilder, "contract_types", e => e.HasIndex(x => new { x.TenantId, x.Code }).IsUnique());
+        ConfigureEntity<ContractType>(modelBuilder, "contract_types", e =>
+        {
+            e.HasKey(x => x.Id).HasName("pk_contract_types");
+            e.HasIndex(x => new { x.TenantId, x.Code }).IsUnique().HasDatabaseName("ix_contract_types_tenant_id_code");
+        });
         ConfigureEntity<LeaveBalanceLedger>(modelBuilder, "leave_balance_ledger");
         ConfigureEntity<LeaveRequest>(modelBuilder, "leave_requests");
         ConfigureEntity<PeriodBenefit>(modelBuilder, "period_benefits", e =>
@@ -282,8 +289,15 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             e => { e.HasIndex(x => new { x.TenantId, x.WorkerId, x.Status }); e.HasOne<PayPeriod>().WithMany().HasForeignKey(x => x.PayPeriodId).OnDelete(DeleteBehavior.Restrict); });
         ConfigureEntity<SalaryAdvance>(modelBuilder, "salary_advances", e =>
         {
-            e.HasIndex(x => new { x.TenantId, x.WorkerId, x.Status });
-            e.HasIndex(x => new { x.TenantId, x.DeductFromPayslip, x.DeductionStartDate });
+            // Match immutable SalaryAdvances DDL, including its existing cascade contract.
+            e.HasKey(x => x.Id).HasName("pk_salary_advances");
+            e.HasOne(x => x.Worker).WithMany().HasForeignKey(x => x.WorkerId)
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_salary_advances_workers_worker_id");
+            e.HasIndex(x => x.WorkerId).HasDatabaseName("ix_salary_advances_worker_id");
+            e.HasIndex(x => new { x.TenantId, x.WorkerId, x.Status })
+                .HasDatabaseName("ix_salary_advances_tenant_id_worker_id_status");
+            e.HasIndex(x => new { x.TenantId, x.DeductFromPayslip, x.DeductionStartDate })
+                .HasDatabaseName("ix_salary_advances_tenant_deduct_start");
         });
         ConfigureEntity<PayGroup>(modelBuilder, "pay_groups");
         ConfigureEntity<PayPeriod>(modelBuilder, "pay_periods", e => e.HasIndex(x => new { x.TenantId, x.PayGroupId, x.PeriodLabel }).IsUnique());
