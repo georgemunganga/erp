@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Hrm.Api;
 using Npgsql;
 sealed partial class Probe
 {
@@ -32,7 +33,10 @@ sealed partial class Probe
             finally { await tx.RollbackAsync(); }
         }
         Require(before == await UnitReviewFootprint(), "Raw owner constraint negatives changed retained evidence.");
-        await using var runtime = new NpgsqlConnection(databaseConnection); await runtime.OpenAsync();
+        Require(OrderDistinctRuntime && InvoiceDocumentStoreBinding.SamePhysicalDatabase(databaseConnection, runtimeConnection)
+            && new NpgsqlConnectionStringBuilder(databaseConnection).Username != new NpgsqlConnectionStringBuilder(runtimeConnection).Username,
+            "Unit-review append-evidence denials require the distinct finite runtime on the same actual store.");
+        await using var runtime = new NpgsqlConnection(runtimeConnection); await runtime.OpenAsync();
         foreach (var table in new[] { "invoice_unit_review_sources", "invoice_unit_review_assignments", "invoice_unit_review_outcomes", "invoice_unit_review_receipts" })
             foreach (var sql in new[] { $"UPDATE procurement.{table} SET version=version WHERE false", $"DELETE FROM procurement.{table} WHERE false", $"TRUNCATE procurement.{table}" })
             {

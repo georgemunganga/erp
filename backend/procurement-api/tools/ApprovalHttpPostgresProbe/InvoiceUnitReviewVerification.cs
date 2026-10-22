@@ -230,8 +230,8 @@ sealed partial class Probe
         catch (InvalidOperationException error) when (error.Message == "UnitReviewProbeRollbackAfterBothOwnersSaved") { }
         Require(before == await UnitReviewFootprint(), "Explicit transaction rollback retained a Core case or review row.");
         await VerifyReviewDocumentRetirementRace(scope,plan);
-        // Create a genuine pre-existing Core orphan, then UPDATE it inside the finite
-        // execution transaction. A tuple's xmin would now change, but it was not inserted
+        // Create a genuine pre-existing Core orphan, then UPDATE it inside the
+        // owner storage-only transaction. A tuple's xmin would now change, but it was not inserted
         // by this UoW and must not be adopted as a newly opened source.
         using (var services = Scope(maker))
         {
