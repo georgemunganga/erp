@@ -183,3 +183,14 @@ schema2 original review + actual Core completion and separately validates the cu
 action/worker/branch/document/policy evidence. It never fabricates caller-bound v1 review JSON.
 Historical reviewer offboarding does not erase retained proof. The external Finance exposure owner is
 still unavailable: valid units alone leave comparison Blocked with no claim/AP/payment effects.
+
+
+## P23 source amendment — not yet built or enabled
+
+The P22 filename above is historical. New original-unit review belongs to future genuine P23. Detail and newly recorded command receipts add canonical `makerPrincipalId` and retained `identitySchemaVersion: 3`. They do not derive the owner from the current employee. `evidenceSchemaVersion` is absent on pending receipts and null on pending detail; terminal Verified, Returned and Rejected responses carry actual terminal version 3. Returned/Rejected are never unit verification. The request/receipt envelope remains `schemaVersion: 1`; it is not source/evidence version 3. Existing separately retained legacy v2 review evidence preserves its original bytes/consumer semantics and is not relabelled as a new-table v3 source.
+
+Every new stored receipt is source-bound; historical recovery/replay validates its key, request fingerprint, actor, invoice/review/Core-case references, source owner/version, original completion and non-financial flags. Historical acknowledgement may outlive a later invoice revision and does not authorize a new state change. Fresh commands still require current Core account/actions/scope and current CAS. Known optional Core-worker aliases only restrict maker/reviewer independence; they never supply active employment or permission.
+
+Principal evidence v2 now emits an explicit durable `principalEvidenceVersion: 2`/`principalEvidenceKind` audit marker. Legacy v1 field-array audit bytes are unchanged. New comparison execution 2 publishes `supplier_invoice.compared.v2` with explicit execution/principal version; execution 1 retains its old v1 event and payload. Down guards must consider these actual retained producers even if a business row was selectively removed.
+
+Readiness remains false until genuine P23 migration/catalog capture includes all four new review CHECKs, both altered mapping/execution CHECKs and the operational identity CHECK, plus actual finite-role/atomic Core Documents/Approvals evidence. No authority is granted by these additive metadata fields.

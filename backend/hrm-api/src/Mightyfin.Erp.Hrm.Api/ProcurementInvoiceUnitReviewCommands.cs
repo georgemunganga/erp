@@ -21,6 +21,9 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var people = new List<InvoiceUnitReviewPolicyRules.Person>();
             foreach (var principal in InvoiceUnitReviewPolicyRules.Parse(review.RulesJson).Stages.SelectMany(x => x.Principals).Distinct(StringComparer.Ordinal))
                 people.Add(await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, principal, token) ?? throw new ReviewProblem("InvoiceUnitReviewerUnavailable", 409));
+            foreach (var person in people)
+                if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, actor.PrincipalId, actor.WorkerId, person.PrincipalId, person.WorkerId, token))
+                    throw new ReviewProblem("InvoiceUnitReviewIndependentReviewerRequired", 409);
             var hashes = await AvailableHashes(db, scope, http, id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
             var issued = await ProcurementReceivingRoutes.InvoiceReviewIssuedOrder(db, cases, scope, mapping.PurchaseOrderId, mapping.IssuedVersionId, token);
             var now = Now();
@@ -33,6 +36,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 CoreCaseId = source.CoreCaseId, CoreAssignmentId = pin.AssignmentId, PrincipalId = pin.PrincipalId, WorkerId = pin.WorkerId });
             var response = new InvoiceUnitReviewResponse(1, id, source.Id, plan.Case.Id, key, "Open", invoice.Version,
                 plan.Case.Version, plan.Case.State, "Pending", null, null, now, true, false, false);
+            response = InvoiceUnitReviewCommands.BindSource(response, source);
             Receipt(db, scope, source, request, response, actor.WorkerId);
             db.AddScoped(new AuditEvent { RecordType = nameof(InvoiceUnitReviewSource), RecordId = source.Id, ActorSubjectId = scope.SubjectId,
                 Action = "OriginalUnitReviewOpened", ChangedFieldsJson = InvoiceUnitReviewCommands.Serialize(new { invoiceId = id, mappingId = mapping.Id, coreCaseId = plan.Case.Id, commandKey = key }) });
@@ -49,6 +53,8 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var key = Key(http); var request = new InvoiceUnitReviewRequest(1, "Decision", key, invoice.Id, source.Id, assignmentId,
                 input.InvoiceVersion, null, input.CaseVersion, input.AssignmentVersion, input.Action, Reason(input.Reason), input.Attestation);
             if (await Replay(db, scope, request, invoice, actor.WorkerId, token) is { } replay) return replay;
+            if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, source.MakerPrincipalId, source.MakerWorkerId, actor.PrincipalId, actor.WorkerId, token))
+                throw new ReviewProblem("InvoiceUnitReviewIndependentReviewerRequired", 403);
             var workflow = await Workflow(cases, scope, source, true, token);
             var pins = await db.InvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == id).ToArrayAsync(token);
             var owned = InvoiceUnitReviewStorage.Restore(source, pins, workflow);
@@ -72,6 +78,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             await cases.SaveChangesAsync(token);
             var response = new InvoiceUnitReviewResponse(1, invoice.Id, source.Id, workflow.Id, key, "Decision", invoice.Version,
                 workflow.Version, workflow.State, outcome?.State ?? "Pending", vote.Id, outcome?.Id, now, true, false, false);
+            response = InvoiceUnitReviewCommands.BindSource(response, source, outcome);
             Receipt(db, scope, source, request, response, actor.WorkerId);
             db.AddScoped(new AuditEvent { RecordType = nameof(InvoiceUnitReviewSource), RecordId = id, ActorSubjectId = scope.SubjectId,
                 Action = "OriginalUnitReviewDecision", ChangedFieldsJson = InvoiceUnitReviewCommands.Serialize(new { invoiceId = invoice.Id, assignmentId, decisionId = vote.Id, input.Action, state = response.ReviewState, commandKey = key }) });

@@ -249,6 +249,24 @@ public sealed class OperationalPolicyIdentityPersistenceTests
         Assert.Contains("rules_sha256 IS NOT NULL", check); Assert.Contains("version=1", check);
     }
 
+    [Theory] [InlineData(1)][InlineData(2)]
+    public async Task Only_new_principal_evidence_emits_durable_downgrade_marker_without_rewriting_legacy_audit(int version)
+    {
+        var name = Guid.NewGuid().ToString(); await using var db = Context(name, worker: version == 1 ? MakerWorker : null);
+        var policy = Policy();
+        var proof = OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy,
+            "Created", Maker, version == 1 ? MakerWorker : null, 1, At, schemaVersion: version));
+        db.Add(policy); db.Add(proof); await db.SaveChangesAsync();
+        var audit = await db.AuditEvents.SingleAsync(x => x.RecordType == nameof(OperationalPolicyIdentityRecord));
+        using var json = System.Text.Json.JsonDocument.Parse(audit.ChangedFieldsJson);
+        if (version == 1) Assert.Equal(System.Text.Json.JsonValueKind.Array, json.RootElement.ValueKind);
+        else
+        {
+            Assert.Equal(2, json.RootElement.GetProperty("principalEvidenceVersion").GetInt32());
+            Assert.Equal("OperationalPolicyIdentity", json.RootElement.GetProperty("principalEvidenceKind").GetString());
+            Assert.Contains(json.RootElement.GetProperty("fields").EnumerateArray(), x => x.GetString() == nameof(OperationalPolicyIdentityRecord.SchemaVersion));
+        }
+    }
     private static async Task<Guid> Create(string name, string key = "RECEIVING", int number = 1, DateTimeOffset? effectiveTo = null)
     {
         await using var db = Context(name, worker: MakerWorker); var policy = Policy(key, number); policy.EffectiveTo = effectiveTo;

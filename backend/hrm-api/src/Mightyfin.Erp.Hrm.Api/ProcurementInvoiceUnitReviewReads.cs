@@ -22,6 +22,9 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 var people = new List<InvoiceUnitReviewPolicyRules.Person>();
                 foreach (var principal in InvoiceUnitReviewPolicyRules.Parse(review.RulesJson).Stages.SelectMany(x => x.Principals).Distinct(StringComparer.Ordinal))
                     people.Add(await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, principal, token) ?? throw new ReviewProblem("InvoiceUnitReviewerUnavailable", 409));
+                foreach (var person in people)
+                    if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, actor.PrincipalId, actor.WorkerId, person.PrincipalId, person.WorkerId, token))
+                        throw new ReviewProblem("InvoiceUnitReviewIndependentReviewerRequired", 409);
                 var hashes = await AvailableHashes(db, scope, http, id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
                 var issued = await ProcurementReceivingRoutes.InvoiceReviewIssuedOrder(db, cases, scope, mapping.PurchaseOrderId, mapping.IssuedVersionId, token);
                 // Pure validation plan only. No entity is attached, no Core case is inserted.
@@ -106,11 +109,15 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 grossAmount = ProcurementEvidenceEncoding.Decimal(invoice.GrossAmount),
                 lines = originals.Select(x => new { x.Id, x.LineNumber, x.Description, quantity = ProcurementEvidenceEncoding.Decimal(x.Quantity),
                     unitPrice = ProcurementEvidenceEncoding.Decimal(x.UnitPrice), taxAmount = ProcurementEvidenceEncoding.Decimal(x.TaxAmount) }).ToArray() };
-            var assignments = workflow.Stages.Where(x => currentMapping && originalDigestCurrent && workflow.State == "Pending" && x.State == "Active").SelectMany(x => x.Assignments)
+            var independent = await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                source.MakerPrincipalId, source.MakerWorkerId, actor.PrincipalId, actor.WorkerId, token);
+            if (assigned && !independent) blockers.Add("InvoiceUnitReviewIndependentReviewerRequired");
+            var assignments = workflow.Stages.Where(x => independent && currentMapping && originalDigestCurrent && workflow.State == "Pending" && x.State == "Active").SelectMany(x => x.Assignments)
                 .Where(x => x.State == "Pending" && x.AssigneeSubjectId == actor.PrincipalId && pins.Any(w => w.CoreAssignmentId == x.Id && w.PrincipalId == actor.PrincipalId))
                 .Select(x => new { assignmentId = x.Id, assignmentVersion = x.Version }).ToArray();
             return InvoiceUnitReviewCommands.Serialize(new { reviewId = id, invoiceId = invoice.Id, invoiceVersion = invoice.Version,
-                mappingVersionId = source.MappingVersionId, source.MappingRevision, coreCaseId = workflow.Id, caseVersion = workflow.Version,
+                makerPrincipalId = source.MakerPrincipalId, identitySchemaVersion = owned.Source.IdentitySchemaVersion,
+                evidenceSchemaVersion = outcome?.EvidenceSchemaVersion, mappingVersionId = source.MappingVersionId, source.MappingRevision, coreCaseId = workflow.Id, caseVersion = workflow.Version,
                 caseState = workflow.State, reviewState = outcome?.State ?? "Pending", currentMapping, originalDigestCurrent, original, blockers, assignments,
                 originalDocumentLines = owned.Source.Lines, attestation = InvoiceUnitReviewCommands.OriginalUnitAttestation,
                 actionCandidates = assignments.Length == 0 ? Array.Empty<string>() : new[] { "Approve", "Return", "Reject" },
@@ -131,7 +138,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             if (request.InvoiceId != invoice.Id || request.Operation == "Decision" && request.ReviewId != id
                 || receipt.Fingerprint != ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.RequestJson)) throw new ReviewProblem("InvoiceUnitReviewReceiptInvalid", 409);
             // Actor-owned historical acknowledgement only; no fresh decision or authorization is inferred.
-            var response = InvoiceUnitReviewCommands.Read<InvoiceUnitReviewResponse>(receipt.ResponseJson);
+            var response = InvoiceUnitReviewCommands.ReadHistorical(receipt, source);
             if (response.ReviewId != id || response.InvoiceId != invoice.Id || response.CommandKey != key || !response.RecordedHistoricalResult || response.CanPostToFinance || response.IsInvoiceApproval)
                 throw new ReviewProblem("InvoiceUnitReviewReceiptInvalid", 409);
             return receipt.ResponseJson;

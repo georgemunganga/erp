@@ -30,6 +30,45 @@ public sealed class InvoiceUnitReviewCommandTests
         if (fault == "current-mapping") f.Data.Invoice.CurrentMappingVersionId = Guid.NewGuid();
         Assert.Throws<InvalidOperationException>(() => f.Verify());
     }
+    [Theory]
+    [InlineData("missing-maker")][InlineData("other-maker")][InlineData("missing-source-version")]
+    [InlineData("downgraded-source-version")][InlineData("pending-terminal-version")][InlineData("invoice-approval")]
+    public void Rehashed_receipt_cannot_drop_or_replace_retained_principal_or_schema_claims(string fault)
+    {
+        var f = new Fixture(false); f.Verify();
+        f.Response = fault switch
+        {
+            "missing-maker" => f.Response with { MakerPrincipalId = null },
+            "other-maker" => f.Response with { MakerPrincipalId = Guid.NewGuid().ToString("D") },
+            "missing-source-version" => f.Response with { IdentitySchemaVersion = null },
+            "downgraded-source-version" => f.Response with { IdentitySchemaVersion = 2 },
+            "pending-terminal-version" => f.Response with { EvidenceSchemaVersion = 3 },
+            _ => f.Response with { IsInvoiceApproval = true },
+        };
+        Assert.Throws<InvalidOperationException>(() => f.Verify());
+    }
+    [Fact]
+    public void Source_identity_metadata_is_additive_to_envelope_one_and_pending_is_not_terminal_evidence()
+    {
+        var f = new Fixture(false); f.Verify();
+        Assert.Equal(1, f.Response.SchemaVersion); Assert.Equal(3, f.Response.IdentitySchemaVersion);
+        Assert.Equal(f.Source.MakerPrincipalId, f.Response.MakerPrincipalId); Assert.Null(f.Response.EvidenceSchemaVersion);
+        var json = InvoiceUnitReviewCommands.Serialize(f.Response);
+        Assert.Contains("\"makerPrincipalId\"", json); Assert.Contains("\"identitySchemaVersion\":3", json);
+        Assert.DoesNotContain("evidenceSchemaVersion", json);
+    }
+    [Fact]
+    public void Historical_acknowledgement_keeps_original_receipt_when_current_invoice_revision_changes()
+    {
+        var f = new Fixture(false); f.Verify(); var receipt = f.Receipt();
+        f.Data.Invoice.Version++; f.Data.Invoice.CurrentMappingVersionId = Guid.NewGuid();
+        var recovered = InvoiceUnitReviewCommands.ReadHistorical(receipt, f.Source);
+        Assert.Equal(f.Source.InvoiceVersionAtOpen, recovered.InvoiceVersion);
+        Assert.Equal(f.Source.MakerPrincipalId, recovered.MakerPrincipalId);
+        Assert.False(recovered.CanPostToFinance); Assert.False(recovered.IsInvoiceApproval);
+        // The same receipt cannot authorize a new save against the changed current invoice.
+        Assert.Throws<InvalidOperationException>(() => f.Verify());
+    }
     sealed class Fixture
     {
         public readonly InvoiceUnitReviewTransitionTests.Fixture Data = new();
@@ -62,8 +101,9 @@ public sealed class InvoiceUnitReviewCommandTests
             }
             Response = new(1, Data.Invoice.Id, Source.Id, Source.CoreCaseId, key, Request.Operation, Data.Invoice.Version,
                 Plan.Case.Version, Plan.Case.State, "Pending", Decision?.Id, null, at, true, false, false);
+            Response = InvoiceUnitReviewCommands.BindSource(Response, Source);
         }
-        public void Verify()
+        public InvoiceUnitReviewCommandReceipt Receipt()
         {
             var pin = Decision is null ? null : Pins.Single(x => x.CoreAssignmentId == Decision.AssignmentId);
             var request = InvoiceUnitReviewCommands.Serialize(Request);
@@ -71,7 +111,8 @@ public sealed class InvoiceUnitReviewCommandTests
                 ActorWorkerId = pin?.WorkerId ?? Source.MakerWorkerId, Operation = Request.Operation, CommandKey = Request.CommandKey,
                 RequestJson = request, Fingerprint = ProcurementEvidenceEncoding.PolicyJsonDigest(request),
                 ResponseJson = InvoiceUnitReviewCommands.Serialize(Response), CompletedAt = Response.CompletedAt };
-            InvoiceUnitReviewCommands.Verify(row, Source, Data.Invoice, Plan.Case, Pins, Decision, null);
+            return row;
         }
+        public void Verify() => InvoiceUnitReviewCommands.Verify(Receipt(), Source, Data.Invoice, Plan.Case, Pins, Decision, null);
     }
 }

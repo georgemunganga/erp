@@ -28,6 +28,22 @@ internal static class ProcurementPrincipalPeople
             query = query.Where(_ => false);
         return query;
     }
+    // Optional owning Core links are denial-only known-person aliases. They never
+    // assert active employment, company membership or action authority. Include a
+    // historical maker account even if inactive; current actor authorization is
+    // checked separately by Resolve and the named command policy.
+    internal static async Task<bool> IndependentNow(HrmDbContext core, string tenant, string first,
+        Guid? firstRetainedWorker, string second, Guid? secondRetainedWorker, CancellationToken ct)
+    {
+        if (!ProcurementPrincipalEvidence.Independent(first, firstRetainedWorker, second, secondRetainedWorker)) return false;
+        var firstId = Guid.ParseExact(first, "D"); var secondId = Guid.ParseExact(second, "D");
+        var aliases = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == tenant && (x.Id == firstId || x.Id == secondId))
+            .Select(x => new { x.Id, x.WorkerId }).ToArrayAsync(ct);
+        var firstAlias = aliases.SingleOrDefault(x => x.Id == firstId)?.WorkerId;
+        var secondAlias = aliases.SingleOrDefault(x => x.Id == secondId)?.WorkerId;
+        var firstKnown = new[] { firstRetainedWorker, firstAlias }.Where(x => x is not null && x != Guid.Empty).ToHashSet();
+        return !new[] { secondRetainedWorker, secondAlias }.Any(x => x is not null && x != Guid.Empty && firstKnown.Contains(x));
+    }
     internal static async Task<Person?> Resolve(HrmDbContext core, string tenant, Guid company,
         string principal, CancellationToken ct)
     {

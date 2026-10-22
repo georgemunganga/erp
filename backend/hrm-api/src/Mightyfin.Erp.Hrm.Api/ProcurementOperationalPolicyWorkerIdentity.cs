@@ -60,6 +60,9 @@ internal static class ProcurementOperationalPolicyWorkerIdentity
         var created = await LoadCreatedAsync(db, scope, policy, ct);
         var submitted = await One(db, scope, policy, "Submitted", policy.Version, ct);
         OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, actor.PrincipalId, actor.WorkerId);
+        if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, created.ActorPrincipalId, created.ActorWorkerId, actor.PrincipalId, actor.WorkerId, ct)
+            || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, submitted.ActorPrincipalId, submitted.ActorWorkerId, actor.PrincipalId, actor.WorkerId, ct))
+            throw new InvalidOperationException("OperationalPolicyIndependentReviewerRequired");
         return new(created, submitted, actor);
     }
 

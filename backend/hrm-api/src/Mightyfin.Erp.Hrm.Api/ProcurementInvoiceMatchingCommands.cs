@@ -98,8 +98,10 @@ public static partial class ProcurementInvoiceMatchingRoutes
                     DiscrepancyKey=Fingerprint(new { invoiceId=id,issue.InvoiceLineId,issue.Code }),Reason="Review the original invoice and authoritative source evidence." });
             invoice.LastMatchResultId=result.Id; invoice.MatchRevision=checked(invoice.MatchRevision+1);
             invoice.MatchingState=comparison.ComparisonPassed ? "ComparisonPassed" : "ComparisonBlocked";
-            db.AddScoped(new OutboxEvent { AggregateType="SupplierInvoice",AggregateId=id,EventType="supplier_invoice.compared.v1",
-                IdempotencyKey=key.ToString("D"),PayloadJson=JsonSerializer.Serialize(new { invoiceId=id,resultId=result.Id,outcome=result.Outcome,canPostToFinance=false },Json) });
+            db.AddScoped(new OutboxEvent { AggregateType="SupplierInvoice",AggregateId=id,EventType=result.ExecutionVersion==2 ? "supplier_invoice.compared.v2" : "supplier_invoice.compared.v1",
+                IdempotencyKey=key.ToString("D"),PayloadJson=result.ExecutionVersion==2
+                    ? JsonSerializer.Serialize(new { invoiceId=id,resultId=result.Id,outcome=result.Outcome,executionVersion=2,principalEvidenceVersion=2,canPostToFinance=false },Json)
+                    : JsonSerializer.Serialize(new { invoiceId=id,resultId=result.Id,outcome=result.Outcome,canPostToFinance=false },Json) });
             return await Save(db,scope,id,mapping.PurchaseOrderId,"InvoiceCompare","procurement-invoice-match",key,fingerprint,
                 ()=>new { result.Id,result.Outcome,invoice.Version,invoice.MatchingState,hasCapacityClaim=invoice.ActiveMatchClaimResultId==result.Id,
                     canPostToFinance=false,discrepancies=comparison.Discrepancies,sourceBlockers=source.Blockers },token);

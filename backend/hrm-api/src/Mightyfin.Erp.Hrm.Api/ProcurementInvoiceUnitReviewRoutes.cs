@@ -116,6 +116,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             throw new ReviewProblem("InvoiceUnitReviewCommandKeyConflict", 409);
         var source = await db.InvoiceUnitReviewSources.SingleAsync(x => x.Id == receipt.ReviewSourceId, ct);
         if (source.BranchRef != invoice.BranchRef || source.SupplierInvoiceId != invoice.Id || source.SupplierInvoiceId != request.InvoiceId || request.ReviewId is { } id && source.Id != id) throw new ReviewProblem("InvoiceUnitReviewCommandKeyConflict", 409);
+        _ = InvoiceUnitReviewCommands.ReadHistorical(receipt, source);
         return receipt.ResponseJson;
     }
     private static void Receipt(ProcurementDbContext db, ProcurementRequestScope scope, InvoiceUnitReviewSource source,

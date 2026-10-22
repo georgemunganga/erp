@@ -24,8 +24,11 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
     internal const string MigrationId = "";
     internal const string OperationalCheckDefinition = "";
     internal static readonly IReadOnlyDictionary<string, string> CheckDefinitions = new Dictionary<string, string>();
+    // Exact PostgreSQL-rendered P23 CHECK definitions for the two altered legacy
+    // tables. No model SQL string or EF migration history alone grants readiness.
+    internal static readonly IReadOnlyDictionary<string, string> PrincipalCheckDefinitions = new Dictionary<string, string>();
     private static readonly Type[] Types = [typeof(InvoiceUnitReviewSource), typeof(InvoiceUnitReviewAssignmentEvidence), typeof(InvoiceUnitReviewOutcome), typeof(InvoiceUnitReviewCommandReceipt)];
-    internal static bool ManifestCaptured => MigrationId.Length > 0 && OperationalCheckDefinition.Length > 0 && CheckDefinitions.Count == 4;
+    internal static bool ManifestCaptured => MigrationId.Length > 0 && OperationalCheckDefinition.Length > 0 && CheckDefinitions.Count == 4 && PrincipalCheckDefinitions.Count == 2;
     public Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct) => Check(owner, false, ct);
     public Task<bool> CanRecordAsync(ProcurementDbContext owner, CancellationToken ct) => Check(owner, true, ct);
     internal const string CoreDecisionPrivilegesSql = "SELECT has_table_privilege(current_user,'core_approval.decisions','SELECT') AND has_table_privilege(current_user,'core_approval.decisions','INSERT') AND NOT has_any_column_privilege(current_user,'core_approval.decisions','UPDATE') AND NOT has_table_privilege(current_user,'core_approval.decisions','DELETE,TRUNCATE')";
@@ -69,6 +72,14 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
                 // Eligibility reads trust retained append-only facts too: an overprivileged
                 // reader cannot use evidence it could have rewritten itself.
                 if (!await True(AppendPrivilegesSql(relation, write))) return false;
+            }
+            foreach (var (type, name) in new[] { (typeof(InvoiceMatchMappingVersion), "ck_invoice_mapping_evidence"), (typeof(InvoiceMatchResult), "ck_invoice_match_execution") })
+            {
+                var entity = model.FindEntityType(type); if (entity is null || !PrincipalCheckDefinitions.TryGetValue(name, out var expected)) return false;
+                var table = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
+                if (table.Schema != "procurement" || !await True(ColumnsSql(entity, table))) return false;
+                command.CommandText = CheckSql(table, name);
+                if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
             }
             command.CommandText = CheckSql(StoreObjectIdentifier.Table("operational_policy_identity_evidence", "procurement"), "ck_operational_policy_identity");
             if (await command.ExecuteScalarAsync(ct) is not string operational || operational != OperationalCheckDefinition) return false;

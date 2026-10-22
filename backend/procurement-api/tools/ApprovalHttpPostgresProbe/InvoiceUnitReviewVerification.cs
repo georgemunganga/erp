@@ -196,6 +196,7 @@ sealed partial class Probe
                 CoreAssignmentId = pin.AssignmentId, PrincipalId = pin.PrincipalId, WorkerId = pin.WorkerId });
             var request = new InvoiceUnitReviewRequest(1,"Open",plan.CommandKey,original.Invoice,null,null,original.Version,original.MappingRevision,null,null,null,plan.Reason,null);
             var response = new InvoiceUnitReviewResponse(1,original.Invoice,source.Id,source.CoreCaseId,plan.CommandKey,"Open",original.Version,1,"Pending","Pending",null,null,plan.Source.OpenedAt,true,false,false);
+            response = InvoiceUnitReviewCommands.BindSource(response,source);
             var json = InvoiceUnitReviewCommands.Serialize(request);
             db.AddScoped(new InvoiceUnitReviewCommandReceipt { ReviewSourceId = source.Id, Operation = "Open", CommandKey = plan.CommandKey, ActorPrincipalId = maker.ToString("D"), ActorWorkerId = worker,
                 Fingerprint = ProcurementEvidenceEncoding.PolicyJsonDigest(json), RequestJson = json, ResponseJson = InvoiceUnitReviewCommands.Serialize(response), CompletedAt = plan.Source.OpenedAt });
