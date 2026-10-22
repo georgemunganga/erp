@@ -2,9 +2,9 @@
 
 **Updated:** 22 October 2026 (UTC)
 **Primary project:** https://github.com/georgemunganga/erp
-**Milestone:** `MANUS-PROC-VENDOR-01` — complete the existing vendor editor and supported vendor workflows
+**Milestone:** `MANUS-CORE-BUILD-03` — repair the shared ERP frontend TypeScript/build gate; vendor milestone accepted
 **Owner:** Manus / `Greenwebb`; primary agent reviews and releases
-**Status:** Vendor fallback accepted and merged in UI PR #47. Do not duplicate the editor. The coordinator is verifying the settings shell and remaining CRUD controls on a separate branch; do not start overlapping settings implementation. Publish any existing work/claim in a PR for reconciliation. No Manus implementation PR has been observed. See the fresh merged source baselines below; they are not a production release.
+**Status:** New independent Core frontend milestone [MANUS-CORE-BUILD-03](docs/collaboration/manus/MANUS-CORE-BUILD-03.md) is ready for pickup after its assignment merge. Vendor fallback accepted and merged in UI PR #47. Do not duplicate the editor. The coordinator is verifying the settings shell and remaining CRUD controls on a separate branch; do not start overlapping settings implementation. Publish any existing work/claim in a PR for reconciliation. No Manus implementation PR has been observed. See the fresh merged source baselines below; they are not a production release.
 
 ## Start from merged code
 
@@ -12,7 +12,7 @@ New assignments start from published `origin/main` in both existing repositories
 
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `45a4871180bcfbf4ad137233e0d76513a4d15beb` or a published main descendant; production remains P19 `a7645e2`, not this un-deployed source |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `5ec211a5308084a6c7a6168407ee5fa90ffd983b` or a published main descendant; production remains P19 `a7645e2`, not this un-deployed source |
 | Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `5f88d54917525c6642d05e94409068f37212b5fa` or a published main descendant; includes the accepted full vendor editor, real bill/credit draft maintenance, exact catalog price edits, reference retirement and private actual-browser tests |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
@@ -83,3 +83,7 @@ The new merged source includes exact catalog price edits, persisted invoice-link
 UI PR #47 merged normally at `5f88d54917525c6642d05e94409068f37212b5fa`; reviewed final feature head `26142f51d809efd3a5ec6364bfffa689e5b8e3c2`. Final source passed24 mocked browser cases and2 actual API/private-PostgreSQL browser cases, one worker/no retries, plus10 focused units, TypeScript and production build. Independent review found no remaining blocker in the reviewed saved-header reconciliation path. The final actual bundle was `index-BhacWz3_.js`; traces and source/asset manifests are retained privately. This is acceptance of supported vendor CRUD, not unsupported bank/portal/document contracts or production deployment.
 
 **Collaboration reservation:** the coordinator already has a module-only settings shell, Home/employee catalog, permission/context invalidation and uncertain-save guards under verification. Do not implement those in parallel. Manus may review the fresh merged vendor form and return concrete layout/interaction defects in a focused PR or verification report, with no duplicate frontend or backend changes. Any new implementation milestone will name its owned files and a newly merged baseline.
+
+## Current independent assignment
+
+Manus owns [MANUS-CORE-BUILD-03](docs/collaboration/manus/MANUS-CORE-BUILD-03.md), a complete repair/verification milestone for inherited shared ERP frontend TypeScript failures. Start from the latest merged ERP main with the minimum baseline above, not the coordinator’s unmerged branches. Procurement implementation continues independently; the existing vendor and settings assignments must not be duplicated.
