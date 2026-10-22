@@ -1,3 +1,4 @@
+import { notifyAuthContextChanged } from "@/platform/auth-context";
 /**
  * Minimal OpenID Connect client for the ERP web shell.
  *
@@ -375,6 +376,7 @@ export async function handleLoginCallback(): Promise<string | null> {
   try {
     const session = await exchangeCode(code, st.codeVerifier, st.redirectUri);
     saveSession(session);
+    notifyAuthContextChanged();
     const origin = st.origin || "/hrm";
     clearAuthState();
     // Strip the callback params before navigating so the URL stays clean.
@@ -388,6 +390,7 @@ export async function handleLoginCallback(): Promise<string | null> {
 
 /** Sign out: clear local state and ask Keycloak to end its session. */
 export function signOut(nextPath = "/sign-in"): void {
+  notifyAuthContextChanged();
   if (!oidcLoginEnabled()) { clearSession(); window.location.href = nextPath; return; }
   const session = getSession();
   clearSession();

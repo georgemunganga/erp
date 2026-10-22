@@ -1,3 +1,4 @@
+import { notifyAuthContextChanged } from "@/platform/auth-context";
 /**
  * Authentication provider for the ERP web shell.
  *
@@ -219,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInLocal = useCallback(async (email: string, password: string) => {
     if (!authSettings.localEnabled) throw new Error("Local sign-in is not enabled.");
     const result = await hrmApi.auth.login(email, password);
+    notifyAuthContextChanged();
     setLocalUser(result.user);
     setSession(null);
   }, [authSettings.localEnabled]);
@@ -228,7 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     if (localUser) {
       setLocalUser(null);
-      void hrmApi.auth.logout().finally(() => window.location.assign("/sign-in"));
+      void hrmApi.auth.logout().finally(() => { notifyAuthContextChanged(); window.location.assign("/sign-in"); });
       return;
     }
     if (USE_REAL) {
