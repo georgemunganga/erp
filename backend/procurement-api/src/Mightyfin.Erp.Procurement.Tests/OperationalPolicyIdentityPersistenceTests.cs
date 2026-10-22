@@ -43,7 +43,7 @@ public sealed class OperationalPolicyIdentityPersistenceTests
     private static async Task<OperationalPolicyWorkerIdentityEvidence> Origin(ProcurementDbContext db, Guid id)
         => OperationalPolicyIdentityStorage.Read(await db.OperationalPolicyIdentityRecords.AsNoTracking().SingleAsync(x => x.PolicyVersionId == id && x.Stage == "Created"));
 
-    [Theory] [InlineData("RECEIVING")] [InlineData("INVOICE_MATCHING")]
+    [Theory] [InlineData("RECEIVING")] [InlineData("INVOICE_MATCHING")] [InlineData("INVOICE_UNIT_REVIEW")]
     public async Task Owning_create_submit_publish_roundtrip_retains_exact_people_rules_revision_and_metadata(string key)
     {
         var name = Guid.NewGuid().ToString(); var id = await Create(name, key); await Submit(name, id); await Publish(name, id);
