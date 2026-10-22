@@ -21,9 +21,10 @@ sealed partial class Probe
     private string? matchingBrowserSourceBefore;
     private const string MatchingBrowserInvoiceNumber="P26-BROWSER-ORIGINAL-1";
 
-    private async Task<string> PrepareMatchingBrowserManifest(int port)
+    private async Task<string> PrepareMatchingBrowserManifest(int port, bool writeManifest = true)
     {
         Require(OrderDistinctRuntime && matchingDocumentDirectory is not null,"Matching browser fixture requires separate owner/runtime and owned document storage.");
+        await VerifyUpstreamBuyerCoreGrants();
         await Authority(OrderManager1,"MATCHING-BROWSER-PR-M1");
         await Authority(OrderManager2,"MATCHING-BROWSER-PR-M2");
         await Authority(OrderManager2,"MATCHING-BROWSER-PO-M2","PurchaseOrder.Approve");
@@ -111,6 +112,7 @@ sealed partial class Probe
             Require(order.Status=="Issued" && line.Quantity==1 && line.UnitPrice==100 && line.AcceptedQuantity==1
                 && state.Sequence==3 && state.CurrentAcceptedQuantity==1 && state.CurrentAcceptedNetAmount==100 && requestLine.CategoryCode=="IT" && requestLine.PurchaseType=="GOODS","Matching browser source lacks exact actual accepted authority.");
             matchingBrowserSourceBefore=await MatchingSourceFootprint();
+            if (!writeManifest) return "";
             return await WriteBrowserManifest(new
             {
                 baseUrl=$"http://127.0.0.1:{port}",tenantId="probe",companyId=OrderCompany,branchId=OrderBranch,currencyCode="ZMW",authenticationHeader="X-Probe-User",actors,

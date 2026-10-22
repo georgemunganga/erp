@@ -29,6 +29,26 @@ Receiving proves its supported positive goods/service workflow only after actual
 
 Python syntax/`--help` are the only completed checks for this runner. No PostgreSQL provisioning, SDK, actual HTTP or browser invocation was performed during authoring. No runtime PASS or production activation follows from this document.
 
+## Original invoice-unit review CLI mode
+
+The same runner accepts `--mode unit-reviews`. It invokes the existing
+`ApprovalHttpPostgresProbe.dll --unit-reviews` entrypoint with a fresh
+`proc_approval_http_can_urev_*` database and distinct finite runtime login.
+All existing publication, private-container, no-network, credential-file,
+hash and terminal-result checks remain in effect. No other workflow or
+transport is introduced. `--browser` is explicitly rejected for this mode;
+there is no original-unit review browser-fixture contract yet.
+
+Use this mode only after genuine P23 SQL has been applied to an isolated
+database, its exact PostgreSQL constraint definitions have been captured and
+reviewed into the owning readiness manifest, and a complete source-bound
+publication has passed its gates. An empty readiness manifest remains
+unavailable; the runner does not fill it, substitute readiness, or change
+production configuration. The probe's synthetic pre-scanned documents do
+not certify real upload/ClamD operation. Original-unit review does not
+establish Finance historical exposure, matching qualification, AP posting or
+payment authority. This addition is source-only until its actual run passes.
+
 ## Optional actual-browser Unix fixture (source candidate)
 
 Use the same runner with `--mode receiving --browser` or `--mode rfq --browser`, a whole immutable publication and a **new** protected output directory. No host networking, port publication, Docker socket mount, source/restored database or production configuration is supported. Matching CLI remains unchanged; matching browser is deliberately not added here.
@@ -40,3 +60,30 @@ Wait for `<output>/browser/fixture.json`. Pass its path to `PROCUREMENT_APPROVAL
 Run existing receiving browser scenarios or the scoped actual RFQ source spec against a separately frozen canonical UI publication. After browser completion, stop **only** the sandbox container named in `launch-manifest.json` with a graceful `docker stop --time 90 <sandboxContainer>` from the orchestration host. Do not send a browser completion flag. Existing fixture-owned OnStop verifiers query fresh owner contexts and require exact effects/receipts/conservation/unchanged upstream footprints. Exit 0 and runtime hash equality are necessary; retain failed container logs, database, role and manifests. No used data is deleted to make a verifier pass. The runner does not execute browser jobs itself.
 
 Source authored only. Required parent gates: merged tool compile, private finite fixture startup/schema/grant proof, frozen UI actual browser scenarios, graceful independent owner verification, unchanged runtime files. This source is not runtime acceptance or production readiness.
+
+## P23 actual browser successor (source only)
+
+`--mode unit-reviews --browser` now prepares the existing staged ERP UI's original-unit workflow
+over the exact private Unix transport. The tool accepts exactly `--serve --unit-reviews`; this
+combination refuses TCP fallback and requires `PROCUREMENT_UNIT_REVIEW_BROWSER_VERIFY_ON_STOP=1`.
+The existing runner writes that flag, 0700 mount and CreateNew0600 manifest. `--serve --matching`
+remains forbidden by the Unix transport; standalone `--unit-reviews` behavior remains unchanged.
+
+The new manifest has `fixtureKind=invoice-unit-review-v1`, actual workerless Core principals and
+contexts, original invoice/mapping/document references and `noReviewEffectsSeeded=true`. Existing
+actual upstream order/receipt helpers are reused, as are actual invoice capture, document upload,
+known-byte scan, mapping and policy create/submit/independent publish. The intermediate matching
+manifest is suppressed; only one final guarded manifest is created. No review case, assignment,
+outcome or receipt is seeded for the browser. P23 readiness must actually pass.
+
+The browser uses the existing private request bridge with real mapped Procurement responses.
+Owner completion independently reloads source3, outcome3, wire1 receipts, actual Core decisions and
+exact retained document pins; preserves
+upstream source plus no qualified claim/AP effect. Completion runs after shutdown and is DB-only.
+During preparation a separate genuinely granted actor gets actual mapped tasks200, has its stored
+review action revoked, then gets tasks403 with no review-effect change; the manifest explicitly
+labels `revocationVerifiedBeforeBrowser=true`. The named reviewer remains granted for the UI.
+This is not a live mid-browser or post-browser revocation proof.
+The outer actor authentication and `scannerMode=synthetic-known-bytes` remain synthetic. No real
+ClamD/scanner socket is configured or certified. The current source has not been compiled, started,
+provisioned or tested; genuine P23 SQL/readiness capture and frozen publication precede any run.

@@ -1,0 +1,51 @@
+{
+  "procurement.invoice_unit_review_sources.ck_inv_unit_source": {
+    "type": "c",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((invoice_version_at_open > 0) AND (mapping_revision > 0) AND (matching_policy_id <> review_policy_id) AND (core_case_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((maker_worker_id IS NULL) OR (maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((maker_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((maker_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND (source_sha256 IS NOT NULL) AND ((source_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (original_sha256 IS NOT NULL) AND ((original_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (mapping_sha256 IS NOT NULL) AND ((mapping_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((octet_length(source_json) >= 1) AND (octet_length(source_json) <= 262144)) AND ((octet_length(issued_json) >= 1) AND (octet_length(issued_json) <= 262144)) AND isfinite(opened_at)))"
+  },
+  "procurement.invoice_match_results.ck_invoice_match_execution": {
+    "type": "c",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((execution_version = 0) OR ((execution_version = ANY (ARRAY[1, 2])) AND (mapping_version_id IS NOT NULL) AND (purchase_order_id IS NOT NULL) AND (issued_version_id IS NOT NULL) AND (invoice_version > 0) AND (command_key IS NOT NULL) AND ((execution_version = 2) OR (actor_worker_id IS NOT NULL)) AND ((actor_worker_id IS NULL) OR (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND (actor_principal_id IS NOT NULL) AND ((execution_version = 1) OR (((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text))) AND (invoice_original_sha256 IS NOT NULL) AND ((invoice_original_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (input_fingerprint IS NOT NULL) AND ((input_fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND (evidence_sha256 IS NOT NULL) AND ((evidence_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (policy_rules_sha256 IS NOT NULL) AND ((policy_rules_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (evidence_json IS NOT NULL) AND (source_watermarks_json IS NOT NULL) AND ((outcome)::text = ANY ((ARRAY['Compared'::character varying, 'Blocked'::character varying])::text[])))))"
+  },
+  "procurement.invoice_unit_review_outcomes.ck_inv_unit_outcome": {
+    "type": "c",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK ((((state)::text = ANY ((ARRAY['Verified'::character varying, 'Returned'::character varying, 'Rejected'::character varying])::text[])) AND (evidence_schema_version = 3) AND (final_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((reviewer_worker_id IS NULL) OR (reviewer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((reviewer_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((reviewer_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND (evidence_sha256 IS NOT NULL) AND ((evidence_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((octet_length(evidence_json) >= 1) AND (octet_length(evidence_json) <= 524288)) AND isfinite(completed_at)))"
+  },
+  "procurement.invoice_unit_review_receipts.ck_inv_unit_receipt": {
+    "type": "c",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK ((((operation)::text = ANY ((ARRAY['Open'::character varying, 'Decision'::character varying])::text[])) AND (command_key <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((actor_worker_id IS NULL) OR (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND (fingerprint IS NOT NULL) AND ((fingerprint)::text ~ '^[0-9a-f]{64}$'::text) AND ((octet_length(response_json) >= 1) AND (octet_length(response_json) <= 262144)) AND ((octet_length(request_json) >= 1) AND (octet_length(request_json) <= 65536)) AND isfinite(completed_at)))"
+  },
+  "procurement.invoice_unit_review_assignments.ck_inv_unit_assignment": {
+    "type": "c",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((worker_id IS NULL) OR (worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text)))"
+  },
+  "procurement.invoice_match_mapping_versions.ck_invoice_mapping_evidence": {
+    "type": "c",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((mapping_revision > 0) AND ((mapping_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((invoice_original_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (identity_schema_version = ANY (ARRAY[1, 2])) AND ((identity_schema_version = 2) OR (actor_worker_id IS NOT NULL)) AND ((actor_worker_id IS NULL) OR (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND (actor_principal_id IS NOT NULL) AND ((identity_schema_version = 1) OR (((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text)))))"
+  },
+  "procurement.operational_policy_identity_evidence.ck_operational_policy_identity": {
+    "type": "c",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((schema_version = ANY (ARRAY[1, 2])) AND ((policy_key)::text = ANY ((ARRAY['RECEIVING'::character varying, 'INVOICE_MATCHING'::character varying, 'INVOICE_UNIT_REVIEW'::character varying])::text[])) AND (id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_number > 0) AND (policy_record_version_at_action > 0) AND ((actor_worker_id IS NULL) OR (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((schema_version = 2) OR (actor_worker_id IS NOT NULL)) AND ((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND (rules_sha256 IS NOT NULL) AND ((rules_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (evidence_sha256 IS NOT NULL) AND ((evidence_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND isfinite(action_at) AND (created_at = action_at) AND ((created_by)::text = (actor_principal_id)::text) AND (version = 1) AND (updated_at IS NULL) AND (updated_by IS NULL) AND ((((stage)::text = 'Created'::text) AND (policy_record_version_at_action = 1) AND (created_evidence_id IS NULL) AND (created_evidence_stage IS NULL) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Submitted'::text) AND (policy_record_version_at_action > 1) AND (created_evidence_id IS NOT NULL) AND (created_evidence_id <> id) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Published'::text) AND (policy_record_version_at_action > 2) AND (created_evidence_id IS NOT NULL) AND (created_evidence_id <> id) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NOT NULL) AND (submitted_evidence_id <> id) AND (submitted_evidence_id <> created_evidence_id) AND (submitted_evidence_stage IS NOT NULL) AND ((submitted_evidence_stage)::text = 'Submitted'::text)))))"
+  }
+}

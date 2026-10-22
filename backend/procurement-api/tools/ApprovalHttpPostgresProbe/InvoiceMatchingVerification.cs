@@ -148,7 +148,9 @@ sealed partial class Probe
             Require(saved.Status=="Received" && saved.FinancePostingRef==null && saved.ActiveMatchClaimResultId==null,"Comparison changed invoice approval/Finance ownership.");
             Require(!await db.InvoiceMatchAllocations.AnyAsync(x=>x.SupplierInvoiceId==id),"Unknown owner checkpoint was treated as complete zero history.");
             Require(await db.InvoiceExceptions.AnyAsync(x=>x.SupplierInvoiceId==id && x.OwnerWorkerId!=null),"Blocked invoice lacks a responsible exception owner.");
-            Require(await db.OutboxEvents.AnyAsync(x=>x.AggregateId==id && x.EventType=="supplier_invoice.compared.v1"),"Comparison missing transactional outbox evidence.");
+            var retainedComparison=await db.InvoiceMatchResults.SingleAsync(x=>x.Id==saved.LastMatchResultId);
+            var expectedEvent=retainedComparison.ExecutionVersion==2 ? "supplier_invoice.compared.v2" : "supplier_invoice.compared.v1";
+            Require(await db.OutboxEvents.AnyAsync(x=>x.AggregateId==id && x.EventType==expectedEvent),"Comparison missing versioned transactional outbox evidence.");
         }
     }
     private async Task<string> InvoiceApReadFootprint(Guid id)

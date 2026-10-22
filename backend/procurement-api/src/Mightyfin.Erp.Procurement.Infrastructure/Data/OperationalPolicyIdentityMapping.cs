@@ -48,11 +48,12 @@ public sealed partial class ProcurementDbContext
         b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.PolicyKey }, "ux_operational_policy_identity_published")
             .IsUnique().HasDatabaseName("ux_operational_policy_identity_published").HasFilter("stage = 'Published'");
         b.ToTable(t => t.HasCheckConstraint("ck_operational_policy_identity", """
-            schema_version=1 AND policy_key IN ('RECEIVING','INVOICE_MATCHING')
+            schema_version IN (1,2) AND policy_key IN ('RECEIVING','INVOICE_MATCHING','INVOICE_UNIT_REVIEW')
             AND id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND policy_version_number>0 AND policy_record_version_at_action>0
-            AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid
+            AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)
+            AND (schema_version=2 OR actor_worker_id IS NOT NULL)
             AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
             AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'
             AND rules_sha256 IS NOT NULL AND rules_sha256 ~ '^[0-9a-f]{64}$'
@@ -84,7 +85,7 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("OperationalPolicyIdentityAppendOnly");
             if (entry.State != EntityState.Added) continue;
             var row = OperationalPolicyIdentityStorage.Read(entry.Entity);
-            var actorWorker = OperationalIdentityActorWorker();
+            var actorWorker = OperationalIdentityActorWorker(row.SchemaVersion);
             if (row.TenantId != scope.TenantId || row.LegalEntityId != scope.LegalEntityId
                 || row.ActorPrincipalId != scope.SubjectId || row.ActorWorkerId != actorWorker)
                 throw new InvalidOperationException("OperationalPolicyIdentityActorMismatch");
@@ -157,13 +158,13 @@ public sealed partial class ProcurementDbContext
             var allowed = new HashSet<string>([nameof(PolicyVersion.Version), nameof(PolicyVersion.UpdatedAt), nameof(PolicyVersion.UpdatedBy)]);
             if (original.State == "Draft" && policy.State == "Draft" && added.Length == 0)
             {
-                var actorWorker = OperationalIdentityActorWorker();
+                var actorWorker = OperationalIdentityActorWorker(origin.SchemaVersion);
                 OperationalPolicyWorkerIdentity.RequireAuthor(policy, origin, scope.SubjectId, actorWorker);
                 allowed.UnionWith([nameof(PolicyVersion.RulesJson), nameof(PolicyVersion.EffectiveFrom), nameof(PolicyVersion.EffectiveTo)]);
             }
             else if (original.State == "Draft" && policy.State == "Retired" && added.Length == 0)
             {
-                OperationalPolicyWorkerIdentity.RequireAuthor(policy, origin, scope.SubjectId, OperationalIdentityActorWorker());
+                OperationalPolicyWorkerIdentity.RequireAuthor(policy, origin, scope.SubjectId, OperationalIdentityActorWorker(origin.SchemaVersion));
                 if (policy.ReviewRequestedAt is not null || policy.ReviewRequestedBy is not null || policy.ReviewReason is not null
                     || policy.PublishedAt is not null || policy.PublishedBy is not null || policy.PublicationReason is not null
                     || OperationalPolicyIdentityRecords.Any(x => x.PolicyVersionId == policy.Id && x.Stage != "Created"))
@@ -176,14 +177,14 @@ public sealed partial class ProcurementDbContext
                 allowed.UnionWith([nameof(PolicyVersion.State), nameof(PolicyVersion.PublishedAt), nameof(PolicyVersion.PublishedBy), nameof(PolicyVersion.PublicationReason)]);
             else if (original.State == "PendingReview" && policy.State == "Draft" && added.Length == 0)
             {
-                var actorWorker = OperationalIdentityActorWorker();
+                var actorWorker = OperationalIdentityActorWorker(origin.SchemaVersion);
                 var submitted = OperationalPolicyIdentityStorage.Read(OperationalIdentityRetainedStage(policy.Id, "Submitted", original.Version));
                 OperationalPolicyWorkerIdentity.RequireIndependent(original, origin, submitted, scope.SubjectId, actorWorker);
                 allowed.Add(nameof(PolicyVersion.State));
             }
             else if (original.State == "Published" && policy.State == "Published" && added.Length == 0)
             {
-                _ = OperationalIdentityActorWorker();
+                _ = OperationalIdentityActorWorker(origin.SchemaVersion);
                 var published = OperationalPolicyIdentityStorage.Read(OperationalIdentityRetainedStage(policy.Id, "Published"));
                 var submitted = OperationalPolicyIdentityStorage.Read(OperationalIdentityRetainedRow(published.SubmittedEvidenceId ?? throw new InvalidOperationException("OperationalPolicySubmittedIdentityRequired")));
                 OperationalPolicyWorkerIdentity.VerifyPublication(original, origin, submitted, published,
@@ -219,11 +220,12 @@ public sealed partial class ProcurementDbContext
             throw new InvalidOperationException("OperationalPolicyOwnerVersionManagedByStore");
         return original + 1;
     }
-    private Guid OperationalIdentityActorWorker()
+    private Guid? OperationalIdentityActorWorker(int schema)
     {
-        var worker = scope.WorkerId ?? throw new InvalidOperationException("OperationalPolicyIdentityActorMismatch");
-        if (worker == Guid.Empty) throw new InvalidOperationException("OperationalPolicyIdentityActorMismatch");
-        return worker;
+        if (!ProcurementPrincipalEvidence.Canonical(scope.SubjectId) || scope.WorkerId == Guid.Empty)
+            throw new InvalidOperationException("OperationalPolicyIdentityActorMismatch");
+        return schema switch { 1 => scope.WorkerId, 2 => scope.CoreLinkedWorkerId,
+            _ => throw new InvalidOperationException("OperationalPolicyIdentitySchemaUnsupported") };
     }
     private OperationalPolicyIdentityRecord OperationalIdentityRetainedRow(Guid id)
     {
@@ -240,7 +242,7 @@ public sealed partial class ProcurementDbContext
         if (rows.Length != 1) throw new InvalidOperationException("OperationalPolicyHistoricalIdentityMissing");
         return rows[0];
     }
-    private static bool OperationalIdentityPolicyKey(string key) => key is "RECEIVING" or "INVOICE_MATCHING";
+    private static bool OperationalIdentityPolicyKey(string key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW";
     private bool PreserveOperationalPolicyCreationMetadata(ProcurementRecord row) => row is OperationalPolicyIdentityRecord
         || row is PolicyVersion policy && OperationalIdentityPolicyKey(policy.PolicyKey)
             && ChangeTracker.Entries<OperationalPolicyIdentityRecord>().Any(x => x.State == EntityState.Added

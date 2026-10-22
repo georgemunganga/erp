@@ -62,16 +62,15 @@ public static partial class ProcurementInvoiceMatchingRoutes
                     : "Refresh the invoice and review its original documents, current access and source evidence. No new payment was created." },statusCode:status);
         }
     }
-    private static async Task<Guid> Actor(HrmDbContext core,ProcurementRequestScope scope,HttpContext http,
+    private static async Task<Guid?> Actor(HrmDbContext core,ProcurementRequestScope scope,HttpContext http,
         IAuthorizationService auth,string permission,Guid? branch,CancellationToken ct)
     {
-        if(await ProcurementAuthorityIdentity.ActorAsync(core,scope,http.User,auth,permission,ct) is null) throw new MatchingProblem("InvoiceMatchingAccessDenied",403);
-        var actor=await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,scope.TenantId,scope.LegalEntityId,scope.SubjectId,ct)
-            ?? throw new MatchingProblem("InvoiceMatchingCanonicalPersonRequired",403);
-        if(await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,scope.TenantId,scope.LegalEntityId,actor.WorkerId,ct) is null)
-            throw new MatchingProblem("InvoiceMatchingCanonicalPersonRequired",403);
+        if (!(await auth.AuthorizeAsync(http.User, permission)).Succeeded) throw new MatchingProblem("InvoiceMatchingAccessDenied",403);
+        var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
+        if (actor is null || scope.PrincipalId is not { } principal || actor.PrincipalId != principal.ToString("D")
+            || !actor.Permissions.Contains(permission)) throw new MatchingProblem("InvoiceMatchingAccessDenied",403);
         _=await ProcurementExecutionRecordScope.Branches(core,scope,branch,true,ct);
-        return actor.WorkerId;
+        return actor.CoreLinkedWorkerId;
     }
     private static async Task<SupplierInvoice> Invoice(ProcurementDbContext db,ProcurementRequestScope scope,Guid id,CancellationToken ct,bool locked=false)
     {
@@ -123,7 +122,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             invoice=await Invoice(db,scope,id,token,true);
             if(invoice.Version!=input.Version || invoice.ActiveMatchClaimResultId is not null) throw new MatchingProblem("InvoiceMappingVersionOrActiveClaimChanged",409);
             var lines=await db.SupplierInvoiceLines.Where(x=>x.SupplierInvoiceId==id && x.IsActive).OrderBy(x=>x.LineNumber).ToArrayAsync(token);
-            var mapping=InvoiceMappingEvidence.Create(invoice,lines,input.PurchaseOrderId,input.IssuedVersionId,input.Lines,scope.SubjectId,worker,Now());
+            var mapping=InvoiceMappingEvidence.Create(invoice,lines,input.PurchaseOrderId,input.IssuedVersionId,input.Lines,scope.SubjectId,worker,Now(), identitySchemaVersion: 2);
             db.AddScoped(mapping); invoice.CurrentMappingVersionId=mapping.Id; invoice.MappingRevision=mapping.MappingRevision; invoice.MatchingState="MappingUnverified";
             return await Save(db,scope,id,input.PurchaseOrderId,"InvoiceMapping","procurement-invoice-capture",key,fingerprint,
                 ()=>new { mapping.Id,mapping.MappingRevision,mapping.MappingSha256,mapping.VerificationState,invoice.Version },token);

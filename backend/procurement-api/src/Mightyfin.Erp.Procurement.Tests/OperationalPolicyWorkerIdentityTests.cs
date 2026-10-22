@@ -13,7 +13,28 @@ public sealed class OperationalPolicyWorkerIdentityTests
     private static readonly Guid ReviewerWorker = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
     private static readonly DateTimeOffset At = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
 
-    [Theory] [InlineData("RECEIVING")] [InlineData("INVOICE_MATCHING")]
+    [Fact]
+    public void Version_two_uses_named_Core_authors_and_independent_reviewers_without_employees()
+    {
+        var f = new Fixture("INVOICE_MATCHING"); var policy = f.Policy;
+        var created = OperationalPolicyWorkerIdentity.Capture(policy, "Created", Maker, null, 1, At, schemaVersion: 2);
+        OperationalPolicyWorkerIdentity.RequireAuthor(policy, created, Maker, null);
+        policy.State = "PendingReview"; policy.Version = 2; policy.ReviewRequestedBy = Maker; policy.ReviewRequestedAt = At.AddMinutes(1);
+        var submitted = OperationalPolicyWorkerIdentity.Capture(policy, "Submitted", Maker, null, 2,
+            policy.ReviewRequestedAt.Value, created, schemaVersion: 2);
+        OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, Reviewer, null);
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, Maker, ReviewerWorker));
+        policy.State = "Published"; policy.Version = 3; policy.PublishedBy = Reviewer; policy.PublishedAt = At.AddMinutes(2);
+        var published = OperationalPolicyWorkerIdentity.Capture(policy, "Published", Reviewer, null, 3,
+            policy.PublishedAt.Value, created, submitted, schemaVersion: 2);
+        OperationalPolicyWorkerIdentity.VerifyPublication(policy, created, submitted, published);
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.Verify(Rehash(created with { SchemaVersion = 1 })));
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.Verify(created with { ActorPrincipalId = Reviewer }));
+        Assert.False(ProcurementPrincipalEvidence.Independent(Maker, MakerWorker, Reviewer, MakerWorker));
+        Assert.True(ProcurementPrincipalEvidence.Independent(Maker, null, Reviewer, null));
+    }
+
+    [Theory] [InlineData("RECEIVING")] [InlineData("INVOICE_MATCHING")] [InlineData("INVOICE_UNIT_REVIEW")]
     public void Exact_original_author_submission_and_independent_publication_are_verified(string key)
     {
         var f = new Fixture(key); f.Submit();
@@ -211,11 +232,24 @@ public sealed class OperationalPolicyWorkerIdentityTests
         {
             "worker" => f.Created with { ActorWorkerId = Guid.Empty },
             "stage" => f.Created with { Stage = "Reviewed" },
-            "schema" => f.Created with { SchemaVersion = 2 },
+            "schema" => f.Created with { SchemaVersion = 3 },
             _ => f.Created with { ActionAt = At.AddTicks(1) },
         };
         changed = Rehash(changed);
         Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.Verify(changed));
+    }
+
+    [Fact]
+    public void Individually_valid_identity_two_cannot_reinterpret_retained_identity_one_submission_or_publication()
+    {
+        var f = new Fixture(); f.Submit();
+        var changedSubmission = Rehash(f.Submitted! with { SchemaVersion = 2 });
+        OperationalPolicyWorkerIdentity.Verify(changedSubmission); // Version 2 is an explicit supported contract.
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.VerifySubmission(f.Policy, f.Created, changedSubmission));
+        f.Publish();
+        var changedPublication = Rehash(f.Published! with { SchemaVersion = 2 });
+        OperationalPolicyWorkerIdentity.Verify(changedPublication);
+        Assert.Throws<InvalidOperationException>(() => OperationalPolicyWorkerIdentity.VerifyPublication(f.Policy, f.Created, f.Submitted!, changedPublication));
     }
 
     private static OperationalPolicyWorkerIdentityEvidence Rehash(OperationalPolicyWorkerIdentityEvidence row)

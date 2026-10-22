@@ -5,6 +5,9 @@ using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
+using Mightyfin.Erp.Core.Documents.Domain;
+using Mightyfin.Erp.Core.Documents.Application;
+using Mightyfin.Erp.Core.Documents.Infrastructure;
 
 namespace Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 
@@ -32,7 +35,7 @@ public sealed class ProcurementApprovalTransaction
         this.connectionString = connectionString;
         scope = new(procurementScope.TenantId, procurementScope.LegalEntityId, procurementScope.SubjectId,
             procurementScope.WorkLocationId, procurementScope.OrgUnitId, procurementScope.IsConfined,
-            procurementScope.CorrelationId);
+            procurementScope.CorrelationId, procurementScope.WorkerId, procurementScope.CoreLinkedWorkerId);
     }
 
     /// <summary>
@@ -51,7 +54,7 @@ public sealed class ProcurementApprovalTransaction
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                return await ExecuteAttemptAsync(command, cancellationToken);
+                return await ExecuteAttemptAsync((db, cases, documents, fence, token) => command(db, cases, token), null, false, cancellationToken);
             }
             catch (Exception exception) when (attempt < 3 && IsConfirmedTransactionAbort(exception))
             {
@@ -61,9 +64,31 @@ public sealed class ProcurementApprovalTransaction
         }
     }
 
+    /// <summary>Exact invoice-owner lifecycle fence before BEGIN. Invoice scope/current
+    /// authority is revalidated inside the callback; a route UUID itself grants no access.
+    /// Same-key retry always reacquires every lease on a fresh physical session.</summary>
+    public async Task<TResult> ExecuteWithInvoiceDocumentsAsync<TResult>(Guid invoiceId,
+        Func<ProcurementDbContext, ApprovalDbContext, DocumentDbContext, DocumentOwnerLifecycleFence, CancellationToken, Task<TResult>> command,
+        CancellationToken cancellationToken = default, bool exclusive = false)
+    {
+        if (invoiceId == Guid.Empty) throw new ArgumentException("An exact invoice owner is required.", nameof(invoiceId));
+        ArgumentNullException.ThrowIfNull(command);
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return await ExecuteAttemptAsync((db, cases, documents, fence, token) =>
+                    command(db, cases, documents!, fence!, token), new("procurement", "supplier_invoice", invoiceId), exclusive, cancellationToken);
+            }
+            catch (Exception exception) when (attempt < 3 && IsConfirmedTransactionAbort(exception))
+            { await Task.Delay(TimeSpan.FromMilliseconds(40 * attempt), cancellationToken); }
+        }
+    }
+
     private async Task<TResult> ExecuteAttemptAsync<TResult>(
-        Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> command,
-        CancellationToken ct)
+        Func<ProcurementDbContext, ApprovalDbContext, DocumentDbContext?, DocumentOwnerLifecycleFence?, CancellationToken, Task<TResult>> command,
+        DocumentOwner? documentOwner, bool exclusiveDocuments, CancellationToken ct)
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(ct);
@@ -73,7 +98,13 @@ public sealed class ProcurementApprovalTransaction
             scope.TenantId, exclusive: false, ct);
         await using var catalogFence = await ProcurementCatalogAuthorityFence.AcquireAsync(connection,
             scope.TenantId, scope.LegalEntityId, exclusive: false, ct);
+        await using var documents = documentOwner is null ? null : new DocumentDbContext(
+            new DbContextOptionsBuilder<DocumentDbContext>().UseNpgsql(connection,
+                provider => provider.MigrationsHistoryTable("__EFMigrationsHistory", "core_document")).Options, scope);
+        await using var documentFence = documents is null ? null : await DocumentOwnerLifecycleFence.AcquireAsync(
+            documents, scope, [documentOwner!], exclusive: exclusiveDocuments, ct);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        if (documents is not null) await documents.Database.UseTransactionAsync(transaction, ct);
         var procurementOptions = new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseNpgsql(connection, provider => provider.MigrationsHistoryTable("__procurement_migrations", "procurement"))
             .Options;
@@ -84,8 +115,10 @@ public sealed class ProcurementApprovalTransaction
         await using var approvals = new ApprovalDbContext(approvalOptions, scope);
         await procurement.Database.UseTransactionAsync(transaction, ct);
         await approvals.Database.UseTransactionAsync(transaction, ct);
+        procurement.BindInvoiceUnitReviewCoreContext(approvals);
 
-        var outcome = await command(procurement, approvals, ct);
+        var outcome = await command(procurement, approvals, documents, documentFence, ct);
+        if (documents is not null) await documents.SaveChangesAsync(ct);
         await procurement.SaveChangesAsync(ct);
         await approvals.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -99,6 +132,6 @@ public sealed class ProcurementApprovalTransaction
             { SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected };
 
     private sealed record TransactionScope(string TenantId, Guid LegalEntityId, string SubjectId,
-        Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId)
-        : IProcurementScope, IApprovalScope;
+        Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId, Guid? WorkerId, Guid? CoreLinkedWorkerId)
+        : IProcurementScope, IApprovalScope, IDocumentScope;
 }

@@ -50,8 +50,9 @@ public static partial class ProcurementInvoiceMatchingRoutes
             var hashes=await DocumentHashes(db,scope,http,id,snapshot,token);
             var reviewContext=new InvoiceMappingReviewContext(scope.TenantId,scope.LegalEntityId,invoice.BranchRef,
                 scope.SubjectId,worker,policy.Id,policySha,now,hashes);
-            var review=await http.RequestServices.GetRequiredService<IInvoiceMappingEvidenceReviewer>().ReviewAsync(mapping,
-                InvoiceMatchDocument.From(invoice,originalLines),reviewContext,token);
+            var review=await ProcurementInvoiceUnitReviewRoutes.RetainedReview(db,cases,scope,http,invoice,originalLines,mapping,reviewContext,token)
+                ?? await http.RequestServices.GetRequiredService<IInvoiceMappingEvidenceReviewer>().ReviewAsync(mapping,
+                    InvoiceMatchDocument.From(invoice,originalLines),reviewContext,token);
             var projected=InvoiceMappingEvidence.Project(mapping,invoice,originalLines,review,reviewContext);
             var ownerContext=new InvoiceExposureReadContext(scope.TenantId,scope.LegalEntityId,invoice.BranchRef,
                 source.Order.Id,source.Order.RevisionId,invoice.SupplierId,invoice.CurrencyCode,policySha,now);
@@ -72,7 +73,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             // Even a provider bug may not turn an incomplete receiving projection into a qualified claim.
             if(source.Blockers.Count!=0 && comparison.ComparisonPassed) throw new MatchingProblem("InvoiceAcceptedHistoryUnavailable",409);
             var result=new InvoiceMatchResult { SupplierInvoiceId=id,MatchType=comparison.Lines.Count==0 ? "Unresolved" : string.Join("+",comparison.Lines.Select(x=>x.Method.ToString()).Distinct().Order()),
-                Outcome=comparison.Outcome,PolicyVersionId=policy.Id,MatchedAt=now,ExecutionVersion=1,MappingVersionId=mapping.Id,
+                Outcome=comparison.Outcome,PolicyVersionId=policy.Id,MatchedAt=now,ExecutionVersion=2,MappingVersionId=mapping.Id,
                 PurchaseOrderId=mapping.PurchaseOrderId,IssuedVersionId=mapping.IssuedVersionId,InvoiceVersion=invoice.Version,
                 InvoiceOriginalSha256=mapping.InvoiceOriginalSha256,ActorPrincipalId=scope.SubjectId,ActorWorkerId=worker,CommandKey=key,
                 InputFingerprint=comparison.InputFingerprint,EvidenceJson=comparison.EvidenceJson,EvidenceSha256=comparison.EvidenceSha256,
@@ -97,8 +98,10 @@ public static partial class ProcurementInvoiceMatchingRoutes
                     DiscrepancyKey=Fingerprint(new { invoiceId=id,issue.InvoiceLineId,issue.Code }),Reason="Review the original invoice and authoritative source evidence." });
             invoice.LastMatchResultId=result.Id; invoice.MatchRevision=checked(invoice.MatchRevision+1);
             invoice.MatchingState=comparison.ComparisonPassed ? "ComparisonPassed" : "ComparisonBlocked";
-            db.AddScoped(new OutboxEvent { AggregateType="SupplierInvoice",AggregateId=id,EventType="supplier_invoice.compared.v1",
-                IdempotencyKey=key.ToString("D"),PayloadJson=JsonSerializer.Serialize(new { invoiceId=id,resultId=result.Id,outcome=result.Outcome,canPostToFinance=false },Json) });
+            db.AddScoped(new OutboxEvent { AggregateType="SupplierInvoice",AggregateId=id,EventType=result.ExecutionVersion==2 ? "supplier_invoice.compared.v2" : "supplier_invoice.compared.v1",
+                IdempotencyKey=key.ToString("D"),PayloadJson=result.ExecutionVersion==2
+                    ? JsonSerializer.Serialize(new { invoiceId=id,resultId=result.Id,outcome=result.Outcome,executionVersion=2,principalEvidenceVersion=2,canPostToFinance=false },Json)
+                    : JsonSerializer.Serialize(new { invoiceId=id,resultId=result.Id,outcome=result.Outcome,canPostToFinance=false },Json) });
             return await Save(db,scope,id,mapping.PurchaseOrderId,"InvoiceCompare","procurement-invoice-match",key,fingerprint,
                 ()=>new { result.Id,result.Outcome,invoice.Version,invoice.MatchingState,hasCapacityClaim=invoice.ActiveMatchClaimResultId==result.Id,
                     canPostToFinance=false,discrepancies=comparison.Discrepancies,sourceBlockers=source.Blockers },token);

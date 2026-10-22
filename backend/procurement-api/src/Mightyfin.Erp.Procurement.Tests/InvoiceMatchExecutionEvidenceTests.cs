@@ -173,7 +173,7 @@ public sealed class InvoiceMatchExecutionEvidenceTests
             var policySha = Digest(rulesJson);
             ReviewContext = new(TenantId, LegalEntityId, WorkLocationId, SubjectId, Mapping.ActorWorkerId, policyId, policySha, Now, new Dictionary<Guid,string> { [document] = new string('c',64) });
             ReviewEnvelope = new(1,TenantId,LegalEntityId,WorkLocationId,Invoice.Id,Mapping.Id,Mapping.MappingSha256,
-                Mapping.InvoiceOriginalSha256,order,issued,SubjectId,Mapping.ActorWorkerId,policyId,policySha,Now,
+                Mapping.InvoiceOriginalSha256,order,issued,SubjectId,Mapping.ActorWorkerId!.Value,policyId,policySha,Now,
                 [new(Line.Id,document,new string('c',64),"1","each")]);
             Review = new(true,"Verified",Serialize(ReviewEnvelope),new Dictionary<Guid,string> { [Line.Id] = "each" });
             OwnerContext = new(TenantId,LegalEntityId,WorkLocationId,order,issued,Invoice.SupplierId,"ZMW",policySha,Now);

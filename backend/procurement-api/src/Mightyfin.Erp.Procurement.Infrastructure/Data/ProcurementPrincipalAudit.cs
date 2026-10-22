@@ -1,0 +1,21 @@
+using System.Text.Json;
+using Mightyfin.Erp.Procurement.Domain;
+namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
+public sealed partial class ProcurementDbContext
+{
+    // Legacy v1 field-array bytes stay unchanged. New principal evidence emits a
+    // durable marker so an administrator cannot make a destructive downgrade safe
+    // by selectively removing only its owning business row.
+    private static string PrincipalAuditFields(ProcurementRecord row, IEnumerable<string> fields)
+    {
+        var kind = row switch
+        {
+            OperationalPolicyIdentityRecord { SchemaVersion: 2 } => "OperationalPolicyIdentity",
+            InvoiceMatchMappingVersion { IdentitySchemaVersion: 2 } => "InvoiceMappingIdentity",
+            InvoiceMatchResult { ExecutionVersion: 2 } => "InvoiceMatchExecution",
+            _ => null,
+        };
+        return kind is null ? JsonSerializer.Serialize(fields) : JsonSerializer.Serialize(new
+        { fields, principalEvidenceVersion = 2, principalEvidenceKind = kind });
+    }
+}

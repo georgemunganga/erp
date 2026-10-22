@@ -16,7 +16,7 @@ public sealed record OperationalPolicyWorkerIdentityEvidence
     public int PolicyVersionNumber { get; init; }
     public string Stage { get; init; } = "";
     public string ActorPrincipalId { get; init; } = "";
-    public Guid ActorWorkerId { get; init; }
+    public Guid? ActorWorkerId { get; init; }
     public long PolicyRecordVersionAtAction { get; init; }
     public string RulesSha256 { get; init; } = "";
     public DateTimeOffset ActionAt { get; init; }
@@ -42,13 +42,13 @@ public static class OperationalPolicyWorkerIdentity
     /// revision (existing policy routes increment on SaveChanges). Call the lifecycle verifier before
     /// using evidence; persistence must bind capture to the actual same-save owner/observed actor.</summary>
     public static OperationalPolicyWorkerIdentityEvidence Capture(PolicyVersion policy, string stage,
-        string principal, Guid worker, long recordVersionAtAction, DateTimeOffset at,
+        string principal, Guid? worker, long recordVersionAtAction, DateTimeOffset at,
         OperationalPolicyWorkerIdentityEvidence? created = null,
-        OperationalPolicyWorkerIdentityEvidence? submitted = null)
+        OperationalPolicyWorkerIdentityEvidence? submitted = null, int schemaVersion = 1)
     {
         var row = new OperationalPolicyWorkerIdentityEvidence
         {
-            TenantId = policy.TenantId, LegalEntityId = policy.LegalEntityId, PolicyKey = policy.PolicyKey,
+            SchemaVersion = schemaVersion, TenantId = policy.TenantId, LegalEntityId = policy.LegalEntityId, PolicyKey = policy.PolicyKey,
             PolicyVersionId = policy.Id, PolicyVersionNumber = policy.PolicyVersionNumber, Stage = stage,
             ActorPrincipalId = principal, ActorWorkerId = worker, PolicyRecordVersionAtAction = recordVersionAtAction,
             RulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
@@ -79,10 +79,11 @@ public static class OperationalPolicyWorkerIdentity
 
     public static void Verify(OperationalPolicyWorkerIdentityEvidence row)
     {
-        Require(row.SchemaVersion == 1 && row.Id != Guid.Empty && !string.IsNullOrWhiteSpace(row.TenantId)
+        Require(row.SchemaVersion is 1 or 2 && row.Id != Guid.Empty && !string.IsNullOrWhiteSpace(row.TenantId)
             && row.LegalEntityId != Guid.Empty && Supported(row.PolicyKey) && row.PolicyVersionId != Guid.Empty
             && row.PolicyVersionNumber > 0 && row.PolicyRecordVersionAtAction > 0
-            && Canonical(row.ActorPrincipalId) && row.ActorWorkerId != Guid.Empty && row.ActionAt != default
+            && Canonical(row.ActorPrincipalId) && ProcurementPrincipalEvidence.OptionalWorker(row.ActorWorkerId)
+            && (row.SchemaVersion == 2 || row.ActorWorkerId is not null) && row.ActionAt != default
             && row.ActionAt == ProcurementEvidenceEncoding.DatabaseTimestamp(row.ActionAt)
             && Hash(row.RulesSha256) && Hash(row.EvidenceSha256) && row.EvidenceSha256 == Digest(row),
             "OperationalPolicyIdentityInvalid");
@@ -111,11 +112,11 @@ public static class OperationalPolicyWorkerIdentity
     }
 
     public static void RequireAuthor(PolicyVersion policy, OperationalPolicyWorkerIdentityEvidence? created,
-        string principal, Guid worker)
+        string principal, Guid? worker)
     {
         VerifyOrigin(policy, created);
-        Require(Canonical(principal) && worker != Guid.Empty && principal == created!.ActorPrincipalId
-            && worker == created.ActorWorkerId, "OperationalPolicyOriginalAuthorRequired");
+        Require(Canonical(principal) && principal == created!.ActorPrincipalId
+            && ProcurementPrincipalEvidence.WorkerBinding(created.SchemaVersion, created.ActorWorkerId, worker), "OperationalPolicyOriginalAuthorRequired");
     }
 
     /// <param name="expectedRecordVersion">Owning server's intended committed revision for a same-save
@@ -128,7 +129,7 @@ public static class OperationalPolicyWorkerIdentity
     }
 
     public static void RequireIndependent(PolicyVersion policy, OperationalPolicyWorkerIdentityEvidence created,
-        OperationalPolicyWorkerIdentityEvidence submitted, string principal, Guid worker)
+        OperationalPolicyWorkerIdentityEvidence submitted, string principal, Guid? worker)
     {
         VerifySubmission(policy, created, submitted);
         Independent(created, submitted, principal, worker);
@@ -149,7 +150,7 @@ public static class OperationalPolicyWorkerIdentity
         VerifyOwned(policy, published);
         Independent(created, submitted, published.ActorPrincipalId, published.ActorWorkerId);
         var currentVersion = ownerRecordVersion ?? policy.Version;
-        Require(published.Stage == "Published" && published.CreatedEvidenceId == created.Id
+        Require(published.SchemaVersion == created.SchemaVersion && published.Stage == "Published" && published.CreatedEvidenceId == created.Id
             && published.SubmittedEvidenceId == submitted.Id
             && published.PolicyRecordVersionAtAction > 1
             && published.PolicyRecordVersionAtAction - 1 == submitted.PolicyRecordVersionAtAction
@@ -168,7 +169,8 @@ public static class OperationalPolicyWorkerIdentity
         VerifyOrigin(policy, created);
         VerifyOwned(policy, submitted);
         Require(expectedVersion > 0 && submitted.Stage == "Submitted" && submitted.CreatedEvidenceId == created.Id
-            && submitted.ActorPrincipalId == created.ActorPrincipalId && submitted.ActorWorkerId == created.ActorWorkerId
+            && submitted.SchemaVersion == created.SchemaVersion && submitted.ActorPrincipalId == created.ActorPrincipalId
+            && ProcurementPrincipalEvidence.WorkerBinding(created.SchemaVersion, created.ActorWorkerId, submitted.ActorWorkerId)
             && submitted.PolicyRecordVersionAtAction == expectedVersion
             && submitted.PolicyRecordVersionAtAction > created.PolicyRecordVersionAtAction
             && submitted.ActionAt >= created.ActionAt
@@ -179,10 +181,10 @@ public static class OperationalPolicyWorkerIdentity
     }
 
     private static void Independent(OperationalPolicyWorkerIdentityEvidence created,
-        OperationalPolicyWorkerIdentityEvidence submitted, string principal, Guid worker)
-        => Require(Canonical(principal) && worker != Guid.Empty && principal != created.ActorPrincipalId
-            && principal != submitted.ActorPrincipalId && worker != created.ActorWorkerId && worker != submitted.ActorWorkerId,
-            "OperationalPolicyIndependentReviewerRequired");
+        OperationalPolicyWorkerIdentityEvidence submitted, string principal, Guid? worker)
+        => Require(ProcurementPrincipalEvidence.Independent(principal, worker, created.ActorPrincipalId, created.ActorWorkerId)
+            && ProcurementPrincipalEvidence.Independent(principal, worker, submitted.ActorPrincipalId, submitted.ActorWorkerId)
+            && (created.SchemaVersion == 2 || worker is not null), "OperationalPolicyIndependentReviewerRequired");
 
     private static void VerifyOwned(PolicyVersion policy, OperationalPolicyWorkerIdentityEvidence row)
     {
@@ -192,7 +194,7 @@ public static class OperationalPolicyWorkerIdentity
             && row.LegalEntityId == policy.LegalEntityId, "OperationalPolicyIdentityScopeMismatch");
     }
 
-    private static bool Supported(string key) => key is "RECEIVING" or "INVOICE_MATCHING";
+    private static bool Supported(string key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW";
     private static bool Canonical(string principal) => Guid.TryParseExact(principal, "D", out var id)
         && id != Guid.Empty && principal == id.ToString("D");
     private static bool Hash(string value) => value is { Length: 64 } && value.All(x => x is >= '0' and <= '9' or >= 'a' and <= 'f');

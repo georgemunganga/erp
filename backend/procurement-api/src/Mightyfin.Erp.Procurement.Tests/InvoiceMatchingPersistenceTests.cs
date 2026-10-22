@@ -76,7 +76,9 @@ public sealed class InvoiceMatchingPersistenceTests
     {
         using var db=Context(); var entity=db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(InvoiceMatchResult))!;
         var sql=entity.GetCheckConstraints().Single(x=>x.Name=="ck_invoice_match_execution").Sql;
-        Assert.StartsWith("execution_version = 0 OR (execution_version = 1 AND",sql);
+        Assert.StartsWith("execution_version = 0 OR (execution_version IN (1,2) AND",sql);
+        Assert.Contains("(execution_version=2 OR actor_worker_id IS NOT NULL)", sql);
+        Assert.Contains("actor_principal_id ~", sql);
         foreach(var (property,column) in new[] {
             (nameof(InvoiceMatchResult.InvoiceOriginalSha256),"invoice_original_sha256"),
             (nameof(InvoiceMatchResult.InputFingerprint),"input_fingerprint"),

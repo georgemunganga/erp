@@ -19,11 +19,12 @@ public static class InvoiceMappingEvidence
         }, Json));
 
     public static InvoiceMatchMappingVersion Create(SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originalLines,
-        Guid orderId, Guid issuedId, IReadOnlyList<InvoiceMappingLine> lines, string actor, Guid worker, DateTimeOffset at)
+        Guid orderId, Guid issuedId, IReadOnlyList<InvoiceMappingLine> lines, string actor, Guid? worker, DateTimeOffset at, int identitySchemaVersion = 1)
     {
         originalLines = originalLines.Where(line => line.IsActive).ToArray();
-        Need(invoice.Id != Guid.Empty && orderId != Guid.Empty && issuedId != Guid.Empty && worker != Guid.Empty
-            && !string.IsNullOrWhiteSpace(actor) && at != default && invoice.FinancePostingRef is null
+        Need(invoice.Id != Guid.Empty && orderId != Guid.Empty && issuedId != Guid.Empty && identitySchemaVersion is 1 or 2
+            && ProcurementPrincipalEvidence.OptionalWorker(worker) && (identitySchemaVersion == 2 || worker is not null)
+            && (identitySchemaVersion == 1 ? !string.IsNullOrWhiteSpace(actor) : ProcurementPrincipalEvidence.Canonical(actor)) && at != default && invoice.FinancePostingRef is null
             && invoice.Status is "Received" or "MatchPending" or "Exception", "InvoiceMappingSourceUnavailable");
         Need(invoice.PurchaseOrderId is null || invoice.PurchaseOrderId == orderId, "InvoiceMappingOrderChanged");
         Need(originalLines.Count is > 0 and <= 200 && originalLines.All(x => x.SupplierInvoiceId == invoice.Id
@@ -36,12 +37,13 @@ public static class InvoiceMappingEvidence
             && x.DocumentLineReference is not null && x.DocumentLineReference.Length <= 200), "InvoiceMappingInputInvalid");
         var revision = checked(invoice.MappingRevision + 1);
         var digest = OriginalDigest(invoice, originalLines);
-        var snapshot = new InvoiceMappingSnapshot(1, invoice.Id, orderId, issuedId, revision, digest, lines.OrderBy(x => x.InvoiceLineId).ToArray());
+        var snapshot = new InvoiceMappingSnapshot(identitySchemaVersion, invoice.Id, orderId, issuedId, revision, digest, lines.OrderBy(x => x.InvoiceLineId).ToArray())
+        { ActorPrincipalId = identitySchemaVersion == 2 ? actor : null, ActorWorkerId = identitySchemaVersion == 2 ? worker : null };
         var json = JsonSerializer.Serialize(snapshot, Json);
         return new() { TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId, SupplierInvoiceId = invoice.Id,
             PurchaseOrderId = orderId, IssuedVersionId = issuedId, MappingRevision = revision, InvoiceOriginalSha256 = digest,
             MappingJson = json, MappingSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(json), VerificationState = "Unverified",
-            ActorPrincipalId = actor, ActorWorkerId = worker, ReviewedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(at)!.Value };
+            ActorPrincipalId = actor, ActorWorkerId = worker, IdentitySchemaVersion = identitySchemaVersion, ReviewedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(at)!.Value };
     }
 
     public static InvoiceMappingSnapshot Verify(InvoiceMatchMappingVersion mapping, SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> lines)
@@ -51,7 +53,11 @@ public static class InvoiceMappingEvidence
             && mapping.MappingRevision > 0 && mapping.InvoiceOriginalSha256 == OriginalDigest(invoice, lines)
             && mapping.MappingSha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(mapping.MappingJson), "InvoiceMappingEvidenceChanged");
         var snapshot = JsonSerializer.Deserialize<InvoiceMappingSnapshot>(mapping.MappingJson, Json) ?? throw new InvalidOperationException("InvoiceMappingEvidenceChanged");
-        Need(snapshot.SchemaVersion == 1 && snapshot.InvoiceId == invoice.Id && snapshot.PurchaseOrderId == mapping.PurchaseOrderId
+        Need(mapping.IdentitySchemaVersion is 1 or 2 && snapshot.SchemaVersion == mapping.IdentitySchemaVersion
+            && ProcurementPrincipalEvidence.OptionalWorker(mapping.ActorWorkerId)
+            && (mapping.IdentitySchemaVersion == 1 ? mapping.ActorWorkerId is not null && snapshot.ActorPrincipalId is null && snapshot.ActorWorkerId is null
+                : ProcurementPrincipalEvidence.Canonical(mapping.ActorPrincipalId) && snapshot.ActorPrincipalId == mapping.ActorPrincipalId && snapshot.ActorWorkerId == mapping.ActorWorkerId)
+            && snapshot.InvoiceId == invoice.Id && snapshot.PurchaseOrderId == mapping.PurchaseOrderId
             && snapshot.IssuedVersionId == mapping.IssuedVersionId && snapshot.Revision == mapping.MappingRevision
             && snapshot.InvoiceOriginalSha256 == mapping.InvoiceOriginalSha256
             && snapshot.Lines.Count == lines.Count && snapshot.Lines.Select(x => x.InvoiceLineId).Distinct().Count() == lines.Count
@@ -64,7 +70,7 @@ public static class InvoiceMappingEvidence
     {
         originalLines = originalLines.Where(line => line.IsActive).ToArray();
         var snapshot = Verify(mapping, invoice, originalLines);
-        var verified = ReviewCovers(mapping, invoice, snapshot, review, context);
+        var verified = ReviewCovers(mapping, invoice, snapshot, review, context, originalLines);
         Need(!review.Verified || verified, "InvoiceUnitReviewEvidenceInvalid");
         var document = InvoiceMatchDocument.From(invoice, originalLines);
         return document with { PurchaseOrderId = mapping.PurchaseOrderId, Lines = document.Lines.Select(line =>
@@ -75,12 +81,31 @@ public static class InvoiceMappingEvidence
         }).ToArray() };
     }
     public static bool ReviewCovers(InvoiceMatchMappingVersion mapping, SupplierInvoice invoice,
-        InvoiceMappingSnapshot snapshot, InvoiceMappingReview review, InvoiceMappingReviewContext? context)
+        InvoiceMappingSnapshot snapshot, InvoiceMappingReview review, InvoiceMappingReviewContext? context, IReadOnlyList<SupplierInvoiceLine>? originalLines = null)
     {
+        if (review.RetainedAuthority is not null || review.CurrentConsumer is not null)
+        {
+            if (!review.Verified || review.State != "Verified" || review.RetainedAuthority is not { } authority
+                || review.CurrentConsumer is not { } consumer || context is null || originalLines is null
+                || authority.MatchingPolicy is null || consumer.DocumentVersionHashes is null || context.DocumentVersionHashes is null || review.VerifiedUnits is null
+                || review.EvidenceJson != authority.EvidenceJson || authority.MatchingPolicy.Id != context.PolicyId
+                || ProcurementEvidenceEncoding.PolicyJsonDigest(authority.MatchingPolicy.RulesJson) != context.PolicyRulesSha256
+                || consumer.TenantId != context.TenantId || consumer.LegalEntityId != context.LegalEntityId
+                || consumer.BranchId != context.BranchId || consumer.PrincipalId != context.PrincipalId
+                || consumer.WorkerId != context.WorkerId || consumer.At != context.At
+                || consumer.DocumentVersionHashes.Count != context.DocumentVersionHashes.Count
+                || consumer.DocumentVersionHashes.Any(x => !context.DocumentVersionHashes.TryGetValue(x.Key, out var hash) || hash != x.Value)) return false;
+            try
+            {
+                var units = InvoiceRetainedUnitReview.Verify(authority, invoice, originalLines, mapping, consumer);
+                return units.Count == review.VerifiedUnits.Count && units.All(x => review.VerifiedUnits.TryGetValue(x.Key, out var unit) && unit == x.Value);
+            }
+            catch (InvalidOperationException) { return false; }
+        }
         if (!review.Verified || review.State != "Verified" || context is null
             || context.TenantId != invoice.TenantId || context.LegalEntityId != invoice.LegalEntityId
             || context.BranchId != invoice.BranchRef || string.IsNullOrWhiteSpace(context.PrincipalId)
-            || context.WorkerId == Guid.Empty || context.PolicyId == Guid.Empty || !Sha(context.PolicyRulesSha256)
+            || context.WorkerId is null || context.WorkerId == Guid.Empty || context.PolicyId == Guid.Empty || !Sha(context.PolicyRulesSha256)
             || context.At == default || context.DocumentVersionHashes is null || review.VerifiedUnits.Count != snapshot.Lines.Count) return false;
         try
         {

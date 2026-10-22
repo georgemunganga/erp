@@ -24,7 +24,7 @@ internal static partial class RuntimePrivileges
             throw new InvalidOperationException("Distinct bootstrap/runtime identities on the same guarded disposable database are required; runtime role must use proc_approval_runtime_ prefix.");
     }
 
-    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false, bool receiving = false, bool matching = false, bool matchingDocuments = false, bool rfq = false, bool sourcingPolicies = false)
+    public static async Task ProvisionAndVerifyAsync(string bootstrap, string runtime, IServiceProvider fixture, bool migrations, bool orders = false, bool receiving = false, bool matching = false, bool matchingDocuments = false, bool rfq = false, bool sourcingPolicies = false, bool unitReviews = false)
     {
         ValidateConnections(runtime, bootstrap);
         var options = new NpgsqlConnectionStringBuilder(runtime); var role = options.Username!;
@@ -132,13 +132,26 @@ internal static partial class RuntimePrivileges
                 await Grant(procurement,type,"SELECT,INSERT,UPDATE");
             foreach (var type in new[] { typeof(SupplierInvoiceLine), typeof(InvoiceMatchMappingVersion), typeof(InvoiceMatchAllocation), typeof(InvoiceMatchResult) })
                 await Grant(procurement,type,"SELECT,INSERT");
+            // ManualInvoiceDrafts checks these retained references when presenting edit/cancel
+            // actions. Reading their absence is not authority to post, pay or create a credit.
+            foreach (var type in new[] { typeof(FinanceInvoiceHandoff), typeof(FinancePaymentStatusRef), typeof(SupplierCreditNoteRef) })
+                await Grant(procurement, type, "SELECT");
         }
+        if (unitReviews)
+            foreach (var type in new[] { typeof(InvoiceUnitReviewSource), typeof(InvoiceUnitReviewAssignmentEvidence), typeof(InvoiceUnitReviewOutcome), typeof(InvoiceUnitReviewCommandReceipt) })
+                await Grant(procurement,type,"SELECT,INSERT");
         if (migrations)
         {
             await Sql(owner, $"GRANT SELECT ON procurement.__procurement_migrations TO {quotedRole}");
             await Sql(owner, $"GRANT SELECT ON core_approval.\"__EFMigrationsHistory\" TO {quotedRole}");
         }
         if(matchingDocuments) await GrantMatchingDocumentsAsync(owner,quotedRole,fixture);
+        if(unitReviews)
+        {
+            // Synthetic disposable runtime only. Production role provisioning remains
+            // a separately reviewed owner-operated manifest, never this tool.
+            await Sql(owner,$"GRANT SELECT,INSERT ON core_document.use_sets,core_document.use_pins TO {quotedRole}");
+        }
         await AssertDeniedAsync(runtime, fixture, matching, rfq, sourcingPolicies, receiving);
         if(matchingDocuments) await AssertMatchingDocumentWritesDeniedAsync(runtime,fixture);
     }
@@ -197,6 +210,21 @@ internal static partial class RuntimePrivileges
             forbidden.Add($"DELETE FROM {Table(entity)} WHERE FALSE");
         }
         await using var connection = new NpgsqlConnection(runtime); await connection.OpenAsync();
+        if (matching)
+        {
+            foreach (var type in new[] { typeof(FinanceInvoiceHandoff), typeof(FinancePaymentStatusRef), typeof(SupplierCreditNoteRef) })
+            {
+                var entity = procurement.Model.FindEntityType(type)!;
+                var store = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
+                var key = Quote(entity.FindProperty("Id")!.GetColumnName(store)!);
+                await using var read = new NpgsqlCommand($"SELECT EXISTS(SELECT 1 FROM {Table(entity)})", connection);
+                _ = await read.ExecuteScalarAsync(); // Actual finite login, not an owner privilege projection.
+                forbidden.Add($"INSERT INTO {Table(entity)} ({key}) SELECT '10000000-0000-0000-0000-000000000001'::uuid WHERE FALSE");
+                forbidden.Add($"UPDATE {Table(entity)} SET {key}={key} WHERE FALSE");
+                forbidden.Add($"DELETE FROM {Table(entity)} WHERE FALSE");
+                forbidden.Add($"TRUNCATE {Table(entity)}");
+            }
+        }
         foreach (var statement in forbidden)
         {
             await using var transaction = await connection.BeginTransactionAsync();

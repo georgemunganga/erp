@@ -30,18 +30,21 @@ var connection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_P
     ?? throw new InvalidOperationException("A private disposable PostgreSQL connection is required.");
 if (!(new NpgsqlConnectionStringBuilder(connection).Database?.StartsWith("proc_approval_http_", StringComparison.Ordinal) ?? false))
     throw new InvalidOperationException("Only databases named proc_approval_http_<unique> are allowed. Production is forbidden.");
-if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--rfq" or "--sourcing-policies"))
+if (args.Any(x => x is not ("--serve" or "--orders" or "--settings" or "--receiving" or "--matching" or "--rfq" or "--sourcing-policies" or "--unit-reviews"))
     || args.Distinct(StringComparer.Ordinal).Count() != args.Length
-    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--settings", StringComparer.Ordinal) || args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal) || args.Contains("--rfq", StringComparer.Ordinal) || args.Contains("--sourcing-policies", StringComparer.Ordinal)))))
-    throw new ArgumentException("Use --sourcing-policies, --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --settings, --orders, --receiving, --matching, --rfq or --sourcing-policies.");
+    || (args.Length > 1 && !(args.Length == 2 && args.Contains("--serve", StringComparer.Ordinal) && (args.Contains("--settings", StringComparer.Ordinal) || args.Contains("--orders", StringComparer.Ordinal) || args.Contains("--receiving", StringComparer.Ordinal) || args.Contains("--matching", StringComparer.Ordinal) || args.Contains("--rfq", StringComparer.Ordinal) || args.Contains("--sourcing-policies", StringComparer.Ordinal) || args.Contains("--unit-reviews", StringComparer.Ordinal)))))
+    throw new ArgumentException("Use --unit-reviews, --serve --unit-reviews (guarded Unix only), --sourcing-policies, --rfq, --serve, --orders, --settings, --receiving, --matching, or --serve with exactly one of --settings, --orders, --receiving, --matching, --rfq or --sourcing-policies.");
 var serve = args.Contains("--serve", StringComparer.Ordinal);
 var authoritySettings = serve && args.Contains("--settings", StringComparer.Ordinal);
 var sourcingPolicies = args.Contains("--sourcing-policies", StringComparer.Ordinal);
-var matching = args.Contains("--matching", StringComparer.Ordinal);
+var unitReviews = args.Contains("--unit-reviews", StringComparer.Ordinal);
+var matching = args.Contains("--matching", StringComparer.Ordinal) || unitReviews;
 var receiving = args.Contains("--receiving", StringComparer.Ordinal) || matching;
 var rfq = args.Contains("--rfq", StringComparer.Ordinal);
 var orders = args.Contains("--orders", StringComparer.Ordinal) || receiving || rfq;
-PrivateBrowserTransport.Validate(serve, receiving, matching, rfq);
+PrivateBrowserTransport.Validate(serve, receiving, matching, rfq, unitReviews);
+if (serve && unitReviews && !PrivateBrowserTransport.Enabled) throw new ArgumentException("Original-unit review browser mode requires the fixed private Unix transport.");
+if (serve && unitReviews && Environment.GetEnvironmentVariable("PROCUREMENT_UNIT_REVIEW_BROWSER_VERIFY_ON_STOP") != "1") throw new ArgumentException("Original-unit review browser requires owning completion verification on stop.");
 var port = 5197;
 if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_PORT") is string portText
     && (!int.TryParse(portText, out port) || port < 1024 || port > 65535))
@@ -49,7 +52,7 @@ if (serve && Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE
 var bootstrapConnection = Environment.GetEnvironmentVariable("PROCUREMENT_APPROVAL_HTTP_PROBE_BOOTSTRAP_CONNECTION");
 if (bootstrapConnection is not null) RuntimePrivileges.ValidateConnections(connection, bootstrapConnection);
 if ((orders || sourcingPolicies || authoritySettings) && bootstrapConnection is null) throw new InvalidOperationException("This verification requires distinct bootstrap/runtime identities.");
-await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings);
+await using var probe = await Probe.Start(connection, serve, port, bootstrapConnection, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings, unitReviews);
 if (!serve && !sourcingPolicies)
 {
     await probe.VerifyFinanceCheckerReadiness();
@@ -57,11 +60,13 @@ if (!serve && !sourcingPolicies)
 }
 if (serve)
 {
-    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings);
+    var manifest = await probe.PrepareBrowserFixture(port, orders, receiving, matching, rfq, sourcingPolicies, authoritySettings, unitReviews);
     Console.WriteLine(PrivateBrowserTransport.Enabled
         ? $"Private synthetic Procurement Unix-socket sandbox ready. Manifest: {manifest}"
         : $"Private synthetic Procurement sandbox listening on http://127.0.0.1:{port}. Manifest: {manifest}");
     await probe.WaitForShutdown();
+    if (unitReviews && Environment.GetEnvironmentVariable("PROCUREMENT_UNIT_REVIEW_BROWSER_VERIFY_ON_STOP") == "1")
+        await probe.VerifyUnitReviewBrowserCompletion();
     if (authoritySettings && Environment.GetEnvironmentVariable("PROCUREMENT_SOURCING_AUTHORITY_BROWSER_VERIFY_ON_STOP") == "1")
         await probe.VerifySourcingAuthorityBrowserCompletion();
     if (sourcingPolicies && Environment.GetEnvironmentVariable("PROCUREMENT_SOURCING_POLICY_BROWSER_VERIFY_ON_STOP") == "1")
@@ -86,6 +91,11 @@ else if (rfq)
 {
     await probe.VerifyGovernedRfq();
     Console.WriteLine("PASS: actual restricted governed internal RFQ draft holds/cancellation/history; no publication, bid, award or Finance completeness claimed.");
+}
+else if (unitReviews)
+{
+    await probe.VerifyInvoiceUnitReviews();
+    Console.WriteLine("PASS: actual scoped original-document unit-review workflow; Finance history unavailable, comparison blocked, no AP authority.");
 }
 else if (matching)
 {
@@ -135,8 +145,9 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     private Guid OrderManager2 => manager2;
     private bool OrderDistinctRuntime => distinctRuntime;
 
-    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false)
+    public static async Task<Probe> Start(string connection, bool serve = false, int port = 5197, string? bootstrapConnection = null, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false, bool unitReviews = false)
     {
+        var documentFixture = serve && matching || unitReviews;
         var ownerConnection = bootstrapConnection ?? connection;
         // Deliberately separate from the app provider: fixture DDL/writes never use runtime grants.
         var fixtureCollection = new ServiceCollection();
@@ -149,7 +160,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             n => n.MigrationsHistoryTable("__procurement_migrations", "procurement")));
         fixtureCollection.AddDbContext<ApprovalDbContext>(o => o.UseNpgsql(ownerConnection,
             n => n.MigrationsHistoryTable("__EFMigrationsHistory", "core_approval")));
-        if(serve && matching)
+        if(documentFixture)
         {
             fixtureCollection.AddScoped<Mightyfin.Erp.Core.Documents.Domain.IDocumentScope>(sp=>sp.GetRequiredService<ProcurementRequestScope>());
             fixtureCollection.AddDbContext<Mightyfin.Erp.Core.Documents.Infrastructure.DocumentDbContext>(o=>o.UseNpgsql(ownerConnection,
@@ -172,9 +183,9 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         builder.Services.AddDbContext<HrmDbContext>(o => o.UseNpgsql(connection));
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             { ["ConnectionStrings:ProcurementApprovalExecution"] = connection });
-        var matchingDocumentsDirectory=serve && matching ? ConfigureMatchingBrowserDocuments(builder,connection) : null;
+        var matchingDocumentsDirectory=documentFixture ? ConfigureMatchingBrowserDocuments(builder,connection) : null;
         ProcurementHostIntegration.AddServices(builder.Services, connection, builder.Configuration);
-        if(serve && matching) RegisterMatchingBrowserScanner(builder.Services);
+        if(documentFixture) RegisterMatchingBrowserScanner(builder.Services);
         // Explicit isolated fixture override is not evidence of production least privilege.
         var feature = new ProcurementApprovalExecutionOptions { Enabled = !authoritySettings, ExecutionDatabaseConfigured = true };
         builder.Services.AddSingleton(feature);
@@ -184,31 +195,18 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = rfq, ExecutionDatabaseConfigured = true });
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions { DraftsEnabled = receiving, PositiveExecutionEnabled = receiving, ExecutionDatabaseConfigured = true });
         builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions { Enabled = matching, ExecutionDatabaseConfigured = true });
+        builder.Services.AddSingleton(new ProcurementInvoiceUnitReviewOptions { Enabled = unitReviews, ExecutionDatabaseConfigured = true });
         builder.Services.AddAuthentication("probe").AddScheme<AuthenticationSchemeOptions, ProbeAuthentication>("probe", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         var app = builder.Build();
         app.UseRouting(); app.UseAuthentication(); app.UseMiddleware<ProcurementCorePrincipalRefreshMiddleware>(); app.UseAuthorization(); app.UseMiddleware<ProcurementScopeMiddleware>();
-        if (serve) ProcurementHostIntegration.MapRoutes(app);
-        else
-        {
-            ProcurementOrderDraftRoutes.MapRoutes(app); ProcurementOrderExecutionRoutes.MapRoutes(app);
-            ProcurementSpendingAuthorityRoutes.MapRoutes(app); ProcurementRequestRoutes.Map(app);
-            if (receiving) { ProcurementReceivingRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
-            if (rfq) { ProcurementSourcingExecutionRoutes.MapRoutes(app); ProcurementPolicyDraftRoutes.MapRoutes(app); }
-            if (sourcingPolicies) { ProcurementPolicyDraftRoutes.MapRoutes(app); ProcurementContextRoutes.MapRoutes(app); }
-            if (matching)
-            {
-                // Exercise the actual shared context endpoint used by the purpose-scoped
-                // selector assertions; do not manufacture a fixture permission response.
-                ProcurementContextRoutes.MapRoutes(app);
-                ProcurementInvoiceIntakeRoutes.MapRoutes(app); ProcurementInvoiceMatchingRoutes.MapRoutes(app);
-            }
-            ProcurementBudgetRoutes.Map(app); ProcurementApprovalReadinessRoutes.Map(app); ProcurementApprovalExecutionRoutes.MapRoutes(app);
-        }
+        // Exercise the production module route graph in both actual HTTP hosts.
+        // Feature options and current Core permissions still control every action.
+        ProcurementHostIntegration.MapRoutes(app);
         var company = new LegalEntity { Code = "HTTP-PROBE", RegisteredName = "Synthetic probe company", Currency = "ZMW" };
         var branch = new WorkLocation { Code = "HTTP-BRANCH", Name = "Synthetic branch", LegalEntityId = company.Id };
         var people = new Dictionary<string, (Worker Worker, LocalUser User)>();
-        foreach (var (name, role) in new[] { ("requester", "employee"), ("buyer", "erp_admin"),
+        foreach (var (name, role) in new[] { ("requester", "employee"), ("buyer", FixtureBuyerRole),
             ("finance", "finance_approver"), ("manager1", "procurement_manager"), ("manager2", "procurement_manager") })
         {
             var worker = new Worker { EmployeeNo = "HTTP-" + name, FirstName = name, LastName = "Fixture", Status = "active", LocationId = branch.Id };
@@ -224,6 +222,8 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             core.LegalEntities.Add(company); core.WorkLocations.Add(branch);
             foreach (var person in people.Values) { core.Workers.Add(person.Worker); core.LocalUsers.Add(person.User); }
             core.TenantRoleAssignments.AddRange(
+                new TenantRoleAssignment { RoleKey = FixtureBuyerRole, RoleName = "Synthetic finite upstream buyer", Active = true,
+                    PermissionsCsv = string.Join(',', FixtureBuyerActions(orders, receiving, matching, rfq)) },
                 new TenantRoleAssignment { RoleKey = "employee", RoleName = "Employee", Active = true,
                     PermissionsCsv = "procurement-access,procurement-request-read,procurement-request-create,procurement-request-edit,procurement-request-submit" },
                 new TenantRoleAssignment { RoleKey = "procurement_manager", RoleName = "Procurement manager", Active = true,
@@ -248,6 +248,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             await core.SaveChangesAsync();
             var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
             scope.Set("probe", company.Id, people["buyer"].User.Id.ToString("D"), null, null, false, "probe-seed");
+            scope.AssignPrincipal(people["buyer"].User.Id, people["buyer"].User.WorkerId);
             var procurement = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             var workflow = services.ServiceProvider.GetRequiredService<ApprovalDbContext>();
             {
@@ -258,7 +259,7 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
                     throw new InvalidOperationException("HTTP sandbox requires committed migrations matching both Procurement and Core approval models.");
                 await procurement.Database.MigrateAsync();
                 await workflow.Database.MigrateAsync();
-                if(serve && matching)
+                if(documentFixture)
                 {
                     var documents=services.ServiceProvider.GetRequiredService<Mightyfin.Erp.Core.Documents.Infrastructure.DocumentDbContext>();
                     if(documents.Database.HasPendingModelChanges()) throw new InvalidOperationException("Core document migrations must match their owned model.");
@@ -286,8 +287,8 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
         feature.ManualFinancePolicies = [new() { LegalEntityId = company.Id, Enabled = true,
             ApprovedPolicyReference = "SYNTHETIC-APPROVED-MANUAL-POLICY", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1), EvidenceMaximumAgeMinutes = 60 }];
         if (bootstrapConnection is not null)
-            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:serve && matching, rfq:rfq, sourcingPolicies:sourcingPolicies);
-        if(serve && matching) await VerifyMatchingScannerBoundary();
+            await RuntimePrivileges.ProvisionAndVerifyAsync(ownerConnection, connection, fixtureServices, true, orders, receiving, matching, matchingDocuments:documentFixture, rfq:rfq, sourcingPolicies:sourcingPolicies, unitReviews:unitReviews);
+        if(documentFixture) await VerifyMatchingScannerBoundary();
         await app.StartAsync();
         if (PrivateBrowserTransport.Enabled) File.SetUnixFileMode(PrivateBrowserTransport.SocketPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         return new(app, ownerConnection, company.Id, branch.Id, people["requester"].User.Id,
@@ -295,8 +296,9 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
             serve ? PrivateBrowserTransport.Client(port) : app.GetTestClient(), fixtureServices, connection, bootstrapConnection is not null) { matchingDocumentDirectory=matchingDocumentsDirectory };
     }
 
-    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false)
+    public async Task<string> PrepareBrowserFixture(int port, bool orders = false, bool receiving = false, bool matching = false, bool rfq = false, bool sourcingPolicies = false, bool authoritySettings = false, bool unitReviews = false)
     {
+        if (unitReviews) return await PrepareUnitReviewBrowserManifest(port);
         if (authoritySettings) return await PrepareSourcingAuthorityBrowserManifest(port);
         if (sourcingPolicies) return await PrepareSourcingPolicyBrowserManifest(port);
         if (rfq) return await PrepareRfqBrowserManifest(port);
@@ -853,8 +855,19 @@ sealed partial class Probe(WebApplication app, string connection, Guid company, 
     }
     private IServiceScope Scope(Guid actor)
     {
-        var services = fixtureServices.CreateScope(); services.ServiceProvider.GetRequiredService<ProcurementRequestScope>()
-            .Set("probe", company, actor.ToString("D"), null, null, false, "probe-inspect"); return services;
+        var services = fixtureServices.CreateScope();
+        try
+        {
+            // Owning fixture inspection, not HTTP authorization. Retain only the
+            // actual scoped Core account ID/link; never derive grants from it.
+            var account = services.ServiceProvider.GetRequiredService<HrmDbContext>().LocalUsers.AsNoTracking()
+                .Where(x => x.TenantId == "probe" && x.Id == actor).Select(x => new { x.Id, x.WorkerId }).Single();
+            var scope = services.ServiceProvider.GetRequiredService<ProcurementRequestScope>();
+            scope.Set("probe", company, account.Id.ToString("D"), null, null, false, "probe-inspect");
+            scope.AssignPrincipal(account.Id, account.WorkerId);
+            return services;
+        }
+        catch { services.Dispose(); throw; }
     }
     private static JsonElement ActiveAssignment(JsonElement detail, Guid actor) => detail.GetProperty("stages").EnumerateArray()
         .Where(s => s.GetProperty("state").GetString() == "Active").SelectMany(s => s.GetProperty("assignments").EnumerateArray())

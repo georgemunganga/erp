@@ -15,7 +15,7 @@ sealed partial class Probe
         {
             var db=services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
             var result=await db.InvoiceMatchResults.AsNoTracking().SingleAsync(x=>x.Id==resultId && x.SupplierInvoiceId==invoiceId);
-            Require(result.ExecutionVersion==1 && result.Outcome=="Blocked" && result.InvoiceOriginalSha256 is not null && result.InputFingerprint is not null
+            Require(result.ExecutionVersion==2 && result.Outcome=="Blocked" && result.InvoiceOriginalSha256 is not null && result.InputFingerprint is not null
                 && result.EvidenceSha256 is not null && result.PolicyRulesSha256 is not null && result.EvidenceJson is not null && result.SourceWatermarksJson is not null,
                 "CHECK probe requires an otherwise complete actual persisted current comparison.");
             exposureId=await db.InvoiceMatchExposureStates.Where(x=>x.PurchaseOrderId==result.PurchaseOrderId && x.IssuedVersionId==result.IssuedVersionId).Select(x=>x.Id).SingleAsync();

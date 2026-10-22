@@ -14,29 +14,20 @@ internal static class ProcurementOperationalPolicyWorkerIdentity
     internal const string ConfigurePermission = "procurement-configuration-edit";
     internal const string ReviewPermission = "procurement-configuration-approve";
     internal sealed record AuthorProof(OperationalPolicyWorkerIdentityEvidence Created,
-        ProcurementAuthorityIdentity.CanonicalAccount Actor);
+        ProcurementPrincipalPeople.Person Actor);
     internal sealed record ReviewProof(OperationalPolicyWorkerIdentityEvidence Created,
-        OperationalPolicyWorkerIdentityEvidence Submitted, ProcurementAuthorityIdentity.CanonicalAccount Actor);
+        OperationalPolicyWorkerIdentityEvidence Submitted, ProcurementPrincipalPeople.Person Actor);
     internal sealed record PublicationProof(OperationalPolicyWorkerIdentityEvidence Created,
         OperationalPolicyWorkerIdentityEvidence Submitted, OperationalPolicyWorkerIdentityEvidence Published);
 
-    internal static async Task<ProcurementAuthorityIdentity.CanonicalAccount> CurrentActorAsync(HrmDbContext core,
+    internal static async Task<ProcurementPrincipalPeople.Person> CurrentActorAsync(HrmDbContext core,
         ProcurementRequestScope scope, string permission, CancellationToken ct)
     {
         if (permission is not (ConfigurePermission or ReviewPermission))
             throw new InvalidOperationException("OperationalPolicyConfigurationPermissionUnsupported");
-        var actor = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
-            scope.LegalEntityId, scope.SubjectId, ct);
-        if (actor is null || actor.WorkerId == Guid.Empty || scope.WorkerId != actor.WorkerId)
-            throw new InvalidOperationException("OperationalPolicyCurrentActorIdentityChanged");
-        var unique = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,
-            scope.TenantId, scope.LegalEntityId, actor.WorkerId, ct);
-        if (unique is null || unique.PrincipalId != actor.PrincipalId || unique.WorkerId != actor.WorkerId)
-            throw new InvalidOperationException("OperationalPolicyCanonicalActorRequired");
-        var roles = LocalIdentityRoutes.ParseRoles(actor.RolesCsv);
-        var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, actor.RolesCsv, ct);
-        if (!roles.Contains("erp_admin", StringComparer.OrdinalIgnoreCase)
-            && (!actions.Contains("procurement-access", StringComparer.Ordinal) || !actions.Contains(permission, StringComparer.Ordinal)))
+        var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
+        if (actor is null || scope.PrincipalId is not { } principal || actor.PrincipalId != principal.ToString("D")
+            || !actor.Permissions.Contains(permission))
             throw new InvalidOperationException("OperationalPolicyConfigurationAccessDenied");
         return actor;
     }
@@ -56,7 +47,7 @@ internal static class ProcurementOperationalPolicyWorkerIdentity
             throw new InvalidOperationException("OperationalPolicyConfigurationPermissionUnsupported");
         var actor = await CurrentActorAsync(core, scope, configurePermission, ct);
         var created = await LoadCreatedAsync(db, scope, policy, ct);
-        OperationalPolicyWorkerIdentity.RequireAuthor(policy, created, actor.PrincipalId, actor.WorkerId);
+        OperationalPolicyWorkerIdentity.RequireAuthor(policy, created, actor.PrincipalId, actor.EvidenceWorker(created.SchemaVersion));
         return new(created, actor);
     }
 
@@ -68,7 +59,10 @@ internal static class ProcurementOperationalPolicyWorkerIdentity
         var actor = await CurrentActorAsync(core, scope, reviewPermission, ct);
         var created = await LoadCreatedAsync(db, scope, policy, ct);
         var submitted = await One(db, scope, policy, "Submitted", policy.Version, ct);
-        OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, actor.PrincipalId, actor.WorkerId);
+        OperationalPolicyWorkerIdentity.RequireIndependent(policy, created, submitted, actor.PrincipalId, actor.EvidenceWorker(created.SchemaVersion));
+        if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, created.ActorPrincipalId, created.ActorWorkerId, actor.PrincipalId, actor.WorkerId, ct)
+            || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, submitted.ActorPrincipalId, submitted.ActorWorkerId, actor.PrincipalId, actor.WorkerId, ct))
+            throw new InvalidOperationException("OperationalPolicyIndependentReviewerRequired");
         return new(created, submitted, actor);
     }
 
@@ -93,7 +87,7 @@ internal static class ProcurementOperationalPolicyWorkerIdentity
         ProcurementRequestScope scope, PolicyVersion policy)
     {
         if (policy.TenantId != scope.TenantId || policy.LegalEntityId != scope.LegalEntityId
-            || policy.Id == Guid.Empty || policy.PolicyKey is not ("RECEIVING" or "INVOICE_MATCHING")
+            || policy.Id == Guid.Empty || policy.PolicyKey is not ("RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW")
             || policy.PolicyVersionNumber <= 0)
             throw new InvalidOperationException("OperationalPolicyIdentityScopeMismatch");
         // Never accept ChangeTracker.Local or caller-attached evidence as retained provenance.

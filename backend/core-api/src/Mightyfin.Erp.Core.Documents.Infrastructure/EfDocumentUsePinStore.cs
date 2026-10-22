@@ -107,6 +107,25 @@ public sealed class EfDocumentUsePinStore : IDocumentUsePinStore
         await RequireAsync(owner,true,cancellationToken);
     }
 
+    /// <summary>Read only immutable already-retained evidence on the caller's enlisted
+    /// owner context. This creates no use and asserts no current availability or lifecycle
+    /// permission. Current module purpose is authorized before lookup and on the exact set.
+    /// New acquisition/retirement still requires the pre-BEGIN lifecycle fence APIs above.</summary>
+    public static async Task<IReadOnlyList<DocumentUsePin>> ReadRetainedAsync(DocumentDbContext ownerContext,
+        IDocumentScope scope, IDocumentUseAccess access, DocumentOwner owner, DocumentUseReference source,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ownerContext); ArgumentNullException.ThrowIfNull(access);
+        ownerContext.RequireDocumentUseScope(scope); RequireReference(source);
+        if (!ownerContext.Database.IsNpgsql() || ownerContext.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("The caller's actual owning transaction is required.");
+        await access.RequireAsync(owner, source, DocumentUseOperation.Read, Array.Empty<Guid>(), ct);
+        var stored = await new DocumentUseRepository(ownerContext, scope).FindAsync(owner, source, ct);
+        var pins = stored is null ? Array.Empty<DocumentUsePin>() : Restore(stored);
+        await access.RequireAsync(owner, source, DocumentUseOperation.Read, pins.Select(x => x.VersionId).Order().ToArray(), ct);
+        return pins;
+    }
+
     private static void RequireReference(DocumentUseReference source)
     {
         ArgumentNullException.ThrowIfNull(source);

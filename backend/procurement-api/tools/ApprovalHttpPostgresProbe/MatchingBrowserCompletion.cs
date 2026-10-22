@@ -52,7 +52,7 @@ sealed partial class Probe
                 && link.DocumentVersionId==version.Id && link.DocumentLineReference=="Page 1 line 1"
                 && link.InvoiceUnitCode==(await db.PurchaseOrderLines.AsNoTracking().Where(x=>x.Id==source.Line).Select(x=>x.UnitCode).SingleAsync()),
                 "Persisted mapping lost original/source/document identity or falsely verified units.");
-            var result=await db.InvoiceMatchResults.AsNoTracking().SingleAsync(x=>x.SupplierInvoiceId==invoice.Id && x.ExecutionVersion==1);
+            var result=await db.InvoiceMatchResults.AsNoTracking().SingleAsync(x=>x.SupplierInvoiceId==invoice.Id && x.ExecutionVersion==2);
             var policy=await db.PolicyVersions.AsNoTracking().SingleAsync(x=>x.Id==result.PolicyVersionId);
             var summary=InvoiceMatchReadProjection.Summary(result,original.Select(x=>x.Id).ToHashSet());
             Require(await db.InvoiceMatchResults.CountAsync()==1 && result.Outcome=="Blocked" && result.Id==invoice.LastMatchResultId && invoice.MatchRevision==1
@@ -90,7 +90,8 @@ sealed partial class Probe
                 (nameof(InvoiceMatchMappingVersion),mapping.Id,mapper.Principal),(nameof(InvoiceMatchResult),result.Id,matcher.Principal) })
                 Require(await db.AuditEvents.AnyAsync(x=>x.RecordType==type && x.RecordId==id && x.Action=="create" && x.ActorSubjectId==actor.ToString("D")),"Actual invoice evidence lacks independent durable creation audit.");
             foreach(var error in errors) Require(await db.AuditEvents.AnyAsync(x=>x.RecordType==nameof(InvoiceException) && x.RecordId==error.Id && x.ActorSubjectId==matcher.Principal.ToString("D")),"Invoice exception audit missing.");
-            var events=await db.OutboxEvents.AsNoTracking().Where(x=>x.AggregateId==invoice.Id && x.EventType=="supplier_invoice.compared.v1").ToArrayAsync();
+            var expectedEvent=result.ExecutionVersion==2 ? "supplier_invoice.compared.v2" : "supplier_invoice.compared.v1";
+            var events=await db.OutboxEvents.AsNoTracking().Where(x=>x.AggregateId==invoice.Id && x.EventType==expectedEvent).ToArrayAsync();
             Require(events.Length==1 && result.CommandKey is { } comparisonKey && events[0].IdempotencyKey==comparisonKey.ToString("D"),"Comparison outbox duplicated or lost command correlation.");
             var exposure=await db.InvoiceMatchExposureStates.AsNoTracking().SingleAsync(x=>x.PurchaseOrderId==source.Order && x.IssuedVersionId==source.Issued);
             var expectedAudits=new Dictionary<Guid,(string Type,int Count)>
