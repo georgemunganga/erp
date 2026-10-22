@@ -44,10 +44,11 @@ public sealed class ApprovalSubmissionPersistenceTests
         var company = Guid.NewGuid();
         await using var db = Context(database, company);
         var pin = Evidence(company);
+        await SeedLegacySource(db,pin);
         db.AddScoped(pin);
         await db.SaveChangesAsync();
         Assert.Equal("approval-test-user", pin.CreatedBy);
-        var audit = await db.AuditEvents.SingleAsync();
+        var audit = await db.AuditEvents.SingleAsync(x=>x.RecordType==nameof(PurchaseRequestApprovalSubmission) && x.RecordId==pin.Id);
         Assert.Equal(pin.Id, audit.RecordId);
         Assert.DoesNotContain("restricted-purpose", audit.ChangedFieldsJson ?? "");
         Assert.DoesNotContain("private-finance-reference", audit.ChangedFieldsJson ?? "");
@@ -63,6 +64,7 @@ public sealed class ApprovalSubmissionPersistenceTests
         var company = Guid.NewGuid();
         await using var db = Context(Guid.NewGuid().ToString(), company);
         var pin = Evidence(company);
+        await SeedLegacySource(db,pin);
         db.AddScoped(pin);
         await db.SaveChangesAsync();
         db.Entry(pin).Property(x => x.RequestSnapshotJson).CurrentValue = "{\"rewritten\":true}";
@@ -75,10 +77,34 @@ public sealed class ApprovalSubmissionPersistenceTests
         var company = Guid.NewGuid();
         await using var db = Context(Guid.NewGuid().ToString(), company);
         var pin = Evidence(company);
+        await SeedLegacySource(db,pin);
         db.AddScoped(pin);
         await db.SaveChangesAsync();
         db.ApprovalSubmissions.Remove(pin);
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
+
+    private static async Task SeedLegacySource(ProcurementDbContext db,PurchaseRequestApprovalSubmission pin)
+    {
+        db.AddScoped(new PurchaseRequest {Id=pin.PurchaseRequestId,Number="PR-LEGACY-"+Guid.NewGuid().ToString("N"),
+            RequesterWorkerId=Guid.NewGuid(),Purpose="Synthetic retained legacy source",CurrencyCode=pin.CurrencyCode,
+            Status="Submitted",SubmittedVersion=pin.SubmittedBusinessVersion});
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Missing_owned_source_cannot_create_legacy_evidence_or_audit()
+    {
+        var company=Guid.NewGuid();
+        var database=Guid.NewGuid().ToString();
+        await using var db=Context(database,company);
+        db.AddScoped(Evidence(company));
+        var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
+        Assert.Equal("PrincipalOperationalEvidenceRequired",error.Message);
+        await using var persisted=Context(database,company);
+        Assert.Empty(await persisted.ApprovalSubmissions.ToListAsync());
+        Assert.Empty(await persisted.AuditEvents.ToListAsync());
+        Assert.Empty(await persisted.OutboxEvents.ToListAsync());
     }
 
     [Fact]
