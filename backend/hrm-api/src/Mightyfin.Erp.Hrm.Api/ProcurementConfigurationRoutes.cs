@@ -7,7 +7,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Company-scoped buying references; activation requires an independent review.</summary>
-public static class ProcurementConfigurationRoutes
+public static partial class ProcurementConfigurationRoutes
 {
     public static void MapRoutes(WebApplication app)
     {
@@ -17,6 +17,7 @@ public static class ProcurementConfigurationRoutes
         categories.MapPost("", CreateCategory).RequireAuthorization("procurement-configuration-edit");
         categories.MapPut("/{id:guid}", UpdateCategory).RequireAuthorization("procurement-configuration-edit");
         categories.MapPost("/{id:guid}/activate", ActivateCategory).RequireAuthorization("procurement-configuration-approve");
+        categories.MapPost("/{id:guid}/retire", RetireCategory).RequireAuthorization("procurement-configuration-edit");
 
         var methods = app.MapGroup("/api/procurement/v1/configuration/methods");
         methods.MapGet("", ListMethods).RequireAuthorization("procurement-configuration-read");
@@ -24,6 +25,7 @@ public static class ProcurementConfigurationRoutes
         methods.MapPost("", CreateMethod).RequireAuthorization("procurement-configuration-edit");
         methods.MapPut("/{id:guid}", UpdateMethod).RequireAuthorization("procurement-configuration-edit");
         methods.MapPost("/{id:guid}/activate", ActivateMethod).RequireAuthorization("procurement-configuration-approve");
+        methods.MapPost("/{id:guid}/retire", RetireMethod).RequireAuthorization("procurement-configuration-edit");
     }
 
     private static async Task<IResult> ListCategories(ProcurementDbContext db, string? status,

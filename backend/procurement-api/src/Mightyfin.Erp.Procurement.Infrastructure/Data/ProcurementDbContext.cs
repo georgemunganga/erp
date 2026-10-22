@@ -140,6 +140,7 @@ public sealed class ProcurementDbContext(DbContextOptions<ProcurementDbContext> 
         ConfigureLifecycle<SupplierReturn>(modelBuilder, "supplier_returns");
         ConfigureLifecycle<SupplierInvoice>(modelBuilder, "supplier_invoices");
         ConfigureLifecycle<SupplierInvoiceLine>(modelBuilder, "supplier_invoice_lines");
+        modelBuilder.Entity<SupplierInvoiceLine>().Property(x => x.IsActive).HasDefaultValue(true);
         ConfigureLifecycle<InvoiceMatchResult>(modelBuilder, "invoice_match_results");
         ConfigureLifecycle<InvoiceException>(modelBuilder, "invoice_exceptions");
         ConfigureLifecycle<FinanceInvoiceHandoff>(modelBuilder, "finance_invoice_handoffs");

@@ -23,7 +23,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Tests;
 
 /// <summary>Exercises the mapped HTTP routes with the real Core scope middleware and Procurement query filters.</summary>
-public sealed class ProcurementRequestHttpTests
+public sealed partial class ProcurementRequestHttpTests
 {
     [Fact]
     public async Task Draft_request_persists_and_is_hidden_from_another_employee()
@@ -2175,7 +2175,7 @@ public sealed class ProcurementRequestHttpTests
         return client.SendAsync(request);
     }
 
-    private sealed class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid reviewer, Guid inactive, Guid otherCompany)
+    private sealed partial class Fixture(WebApplication app, Guid company, Guid owner, Guid other, Guid reviewer, Guid inactive, Guid otherCompany)
         : IAsyncDisposable
     {
         public string[] Routes() => ((IEndpointRouteBuilder)app).DataSources

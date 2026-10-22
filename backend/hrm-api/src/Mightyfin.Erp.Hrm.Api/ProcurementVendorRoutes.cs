@@ -163,14 +163,8 @@ public static class ProcurementVendorRoutes
             supplier.Qualifications.Add(NewQualification(supplier.Id, item));
         }
         foreach (var item in input.Attributes ?? [])
-        {
-            if (item.Kind is not ("CustomField" or "ReportingTag") || string.IsNullOrWhiteSpace(item.Key))
-                return BadInput("Each custom field or reporting tag needs a type and name.");
-            if (supplier.Attributes.Any(x => x.Kind == item.Kind && x.FieldKey == item.Key.Trim()))
-                return BadInput("A custom field or reporting tag was entered more than once.");
             supplier.Attributes.Add(new SupplierAttribute { SupplierId = supplier.Id, Kind = item.Kind,
                 FieldKey = item.Key.Trim(), FieldValue = item.Value?.Trim() ?? "" });
-        }
         var similarNameFound = await db.Suppliers.AsNoTracking()
             .Where(x => x.DisplayName.ToLower() == supplier.DisplayName.ToLower()
                 || x.LegalName.ToLower() == supplier.LegalName.ToLower())
@@ -191,7 +185,7 @@ public static class ProcurementVendorRoutes
     private static async Task<IResult> UpdateAsync(Guid id, VendorDraftUpdate input, ProcurementDbContext db,
         ProcurementRequestScope scope, IAuthorizationService authorization, HttpContext http, CancellationToken ct)
     {
-        var supplier = await db.Suppliers.SingleOrDefaultAsync(x => x.Id == id, ct);
+        var supplier = await db.Suppliers.Include(x => x.Attributes).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (supplier is null) return Results.NotFound();
         if (!await CanEditRecord(supplier, scope, authorization, http)) return Results.NotFound();
         if (!CanEdit(supplier)) return Conflict("This vendor is already in review. Ask for it to be returned before editing.");
@@ -222,6 +216,18 @@ public static class ProcurementVendorRoutes
         supplier.Remarks = Clean(input.Draft.Remarks);
         supplier.IsLocal = input.Draft.IsLocal;
         supplier.PortalAccessState = input.Draft.PortalAccessRequested ? "Requested" : null;
+        // Attributes are a keyed patch, never a replacement/deletion of retained rows.
+        // Missing/null/[] preserves existing keys; null/blank value explicitly clears one value.
+        foreach (var item in input.Draft.Attributes ?? [])
+        {
+            var key = item.Key.Trim();
+            var existing = supplier.Attributes.SingleOrDefault(x => x.Kind == item.Kind && x.FieldKey == key);
+            if (existing is not null) existing.FieldValue = item.Value?.Trim() ?? "";
+            else db.AddScoped(new SupplierAttribute { SupplierId = supplier.Id, Kind = item.Kind,
+                FieldKey = key, FieldValue = item.Value?.Trim() ?? "" });
+        }
+        if (input.Draft.Attributes is { Count: > 0 })
+            db.Entry(supplier).Property(x => x.UpdatedAt).IsModified = true; // Child-only edit advances parent CAS.
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Stale(); }
         catch (DbUpdateException) { return Conflict("The company ID conflicts with another vendor."); }
@@ -819,6 +825,15 @@ public static class ProcurementVendorRoutes
         if (x.Remarks is { Length: > 4000 }) return "Remarks are too long.";
         if (x.Contacts?.Count > 50 || x.Sites?.Count > 20 || x.Qualifications?.Count > 50
             || x.Attributes?.Count > 100) return "Too many vendor details were supplied at once.";
+        var attributeKeys = new HashSet<(string Kind, string Key)>();
+        foreach (var attribute in x.Attributes ?? [])
+        {
+            if (attribute is null || attribute.Kind is not ("CustomField" or "ReportingTag")
+                || string.IsNullOrWhiteSpace(attribute.Key) || attribute.Key.Trim().Length > 120)
+                return "Each custom field or reporting tag needs a supported type and a name of up to 120 characters.";
+            if (!attributeKeys.Add((attribute.Kind, attribute.Key.Trim())))
+                return "A custom field or reporting tag was entered more than once.";
+        }
         return null;
     }
 

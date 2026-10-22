@@ -274,6 +274,8 @@ public sealed class SupplierReturn : ProcurementRecord
 
 public sealed class SupplierInvoice : ProcurementRecord
 {
+    /// <summary>Observed Core branch at intake; null legacy rows remain unverified, never backfilled.</summary>
+    public Guid? BranchRef { get; set; }
     public Guid SupplierId { get; set; }
     public Guid? PurchaseOrderId { get; set; }
     public string InvoiceNumber { get; set; } = null!;
@@ -293,6 +295,8 @@ public sealed class SupplierInvoice : ProcurementRecord
 
 public sealed class SupplierInvoiceLine : ProcurementRecord
 {
+    /// <summary>Original lines are retained when removed from an unprocessed manual intake.</summary>
+    public bool IsActive { get; set; } = true;
     public Guid SupplierInvoiceId { get; set; }
     public int LineNumber { get; set; }
     public Guid? PurchaseOrderLineId { get; set; }
