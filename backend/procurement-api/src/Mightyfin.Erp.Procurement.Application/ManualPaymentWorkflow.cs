@@ -2,9 +2,13 @@ using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Application;
 
-/// <summary>Trusted Core account projection. The API adapter must resolve this afresh for every command.</summary>
+/// <summary>
+/// Trusted Core account projection. EffectiveBranchId is the authorized transaction branch
+/// resolved from the explicit form branch; it is separate from the header's read context.
+/// The API adapter must resolve this afresh for every command.
+/// </summary>
 public sealed record ManualPaymentActor(string PrincipalId, string TenantId, Guid LegalEntityId,
-    Guid? SelectedBranchId, IReadOnlySet<Guid> AllowedBranchIds, IReadOnlySet<string> Actions, bool IsActive);
+    Guid? EffectiveBranchId, IReadOnlySet<Guid> AllowedBranchIds, IReadOnlySet<string> Actions, bool IsActive);
 
 /// <summary>Trusted current Core assignment candidate, never a browser-supplied authority assertion.</summary>
 public sealed record ManualPaymentAssignee(string PrincipalId, string TenantId, Guid LegalEntityId,
@@ -35,12 +39,13 @@ public sealed record ManualPaymentChange(ManualPaymentRequest Request, ManualPay
 /// </summary>
 public static class ManualPaymentWorkflow
 {
-    private const string Prefix = "procurement.payment.";
+    private const string Prefix = "procurement-payment-";
 
     public static ManualPaymentChange Create(ManualPaymentDraft draft, ManualPaymentActor actor,
         ManualPaymentAssignee approver, ManualPaymentAssignee recorder, ManualPaymentAssignee confirmer,
         ManualPaymentInvoiceSource source, DateTimeOffset now)
     {
+        if (now == default) Fail("ManualPaymentTimeInvalid");
         Authorize(actor, draft.BranchId, "create");
         ValidateDraft(draft, actor, approver, recorder, confirmer, source);
         CheckCapacity(draft.Amount, source);
@@ -64,7 +69,7 @@ public static class ManualPaymentWorkflow
         ManualPaymentAssignee recorder, ManualPaymentAssignee confirmer,
         ManualPaymentInvoiceSource source, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "edit", "Draft");
+        Check(current, expectedVersion, actor, now, "edit", "Draft");
         if (current.CreatorPrincipalId != actor.PrincipalId) Fail("ManualPaymentNotCreator");
         if (draft.BranchId != current.BranchId || draft.InvoiceId != current.SupplierInvoiceId
             || draft.SupplierId != current.SupplierId || draft.CurrencyCode != current.CurrencyCode)
@@ -87,7 +92,7 @@ public static class ManualPaymentWorkflow
     public static ManualPaymentChange Submit(ManualPaymentRequest current, long expectedVersion,
         ManualPaymentActor actor, ManualPaymentInvoiceSource source, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "submit", "Draft");
+        Check(current, expectedVersion, actor, now, "submit", "Draft");
         if (current.CreatorPrincipalId != actor.PrincipalId) Fail("ManualPaymentNotCreator");
         CheckSource(current, source); CheckCapacity(current.Amount, source);
         return Move(current, actor, now, "Submit", "PendingApproval");
@@ -96,7 +101,7 @@ public static class ManualPaymentWorkflow
     public static ManualPaymentChange Approve(ManualPaymentRequest current, long expectedVersion,
         ManualPaymentActor actor, ManualPaymentInvoiceSource source, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "approve", "PendingApproval");
+        Check(current, expectedVersion, actor, now, "approve", "PendingApproval");
         RequireAssigned(actor, current.ApproverPrincipalId);
         if (actor.PrincipalId == current.CreatorPrincipalId) Fail("ManualPaymentSelfApproval");
         CheckSource(current, source); CheckCapacity(current.Amount, source);
@@ -110,7 +115,7 @@ public static class ManualPaymentWorkflow
     public static ManualPaymentChange Return(ManualPaymentRequest current, long expectedVersion,
         ManualPaymentActor actor, string reason, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "approve", "PendingApproval");
+        Check(current, expectedVersion, actor, now, "approve", "PendingApproval");
         RequireAssigned(actor, current.ApproverPrincipalId);
         return Move(current, actor, now, "Return", "Draft", Required(reason));
     }
@@ -118,7 +123,7 @@ public static class ManualPaymentWorkflow
     public static ManualPaymentChange Reject(ManualPaymentRequest current, long expectedVersion,
         ManualPaymentActor actor, string reason, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "approve", "PendingApproval");
+        Check(current, expectedVersion, actor, now, "approve", "PendingApproval");
         RequireAssigned(actor, current.ApproverPrincipalId);
         return Move(current, actor, now, "Reject", "Rejected", Required(reason));
     }
@@ -127,7 +132,7 @@ public static class ManualPaymentWorkflow
         ManualPaymentActor actor, ManualPaymentInvoiceSource source,
         ManualPaymentRecordedEvidence evidence, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "record", "Approved");
+        Check(current, expectedVersion, actor, now, "record", "Approved");
         RequireAssigned(actor, current.RecorderPrincipalId);
         CheckSource(current, source); CheckCapacity(current.Amount, source);
         if (current.ApprovedAmount != current.Amount || current.ApprovedByPrincipalId is null
@@ -156,11 +161,21 @@ public static class ManualPaymentWorkflow
     public static ManualPaymentChange Confirm(ManualPaymentRequest current, long expectedVersion,
         ManualPaymentActor actor, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "confirm", "PaymentRecorded");
+        Check(current, expectedVersion, actor, now, "confirm", "PaymentRecorded");
         RequireAssigned(actor, current.ConfirmerPrincipalId);
-        if (actor.PrincipalId == current.RecordedByPrincipalId
+        if (!ValidAmount(current.Amount) || !ValidAmount(current.ApprovedAmount ?? 0m)
+            || !ValidAmount(current.RecordedAmount ?? 0m)
+            || current.ApprovedAmount != current.Amount || current.RecordedAmount != current.Amount
+            || !ProcurementPrincipalEvidence.Canonical(current.ApprovedByPrincipalId)
+            || current.ApprovedByPrincipalId != current.ApproverPrincipalId
+            || current.ApprovedByPrincipalId == current.CreatorPrincipalId
+            || current.ApprovedAt is null || current.ApprovedAt < current.CreatedAt
+            || !ProcurementPrincipalEvidence.Canonical(current.RecordedByPrincipalId)
+            || actor.PrincipalId == current.RecordedByPrincipalId
             || current.RecordedByPrincipalId != current.RecorderPrincipalId
-            || current.RecordedAt is null || current.PaidOn is null || current.RecordedAmount != current.ApprovedAmount
+            || current.RecordedAt is null || current.RecordedAt < current.ApprovedAt
+            || current.PaidOn is null || current.PaidOn.Value == default(DateOnly)
+            || current.PaidOn > DateOnly.FromDateTime(now.UtcDateTime)
             || !ValidText(current.ExternalMethod, 100) || !ValidText(current.ExternalReference, 200))
             Fail("ManualPaymentIndependentConfirmationRequired");
         var next = Move(current, actor, now, "Confirm", "ConfirmedManually");
@@ -172,7 +187,7 @@ public static class ManualPaymentWorkflow
     public static ManualPaymentChange Cancel(ManualPaymentRequest current, long expectedVersion,
         ManualPaymentActor actor, string reason, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "cancel", "Draft", "PendingApproval", "Approved");
+        Check(current, expectedVersion, actor, now, "cancel", "Draft", "PendingApproval", "Approved");
         if (actor.PrincipalId != current.CreatorPrincipalId && actor.PrincipalId != current.ApproverPrincipalId)
             Fail("ManualPaymentCancelParticipantRequired");
         return Move(current, actor, now, "Cancel", "Cancelled", Required(reason));
@@ -181,7 +196,7 @@ public static class ManualPaymentWorkflow
     public static ManualPaymentChange Dispute(ManualPaymentRequest current, long expectedVersion,
         ManualPaymentActor actor, string reason, DateTimeOffset now)
     {
-        Check(current, expectedVersion, actor, "confirm", "PaymentRecorded");
+        Check(current, expectedVersion, actor, now, "confirm", "PaymentRecorded");
         RequireAssigned(actor, current.ConfirmerPrincipalId);
         return Move(current, actor, now, "Dispute", "Disputed", Required(reason));
     }
@@ -223,13 +238,19 @@ public static class ManualPaymentWorkflow
     }
 
     private static void Check(ManualPaymentRequest current, long expectedVersion,
-        ManualPaymentActor actor, string action, params string[] states)
+        ManualPaymentActor actor, DateTimeOffset now, string action, params string[] states)
     {
         if (current.Id == Guid.Empty || current.BranchId == Guid.Empty || current.SupplierInvoiceId == Guid.Empty
             || current.SupplierId == Guid.Empty || current.Version <= 0 || current.Version == long.MaxValue
             || current.TenantId != actor.TenantId || current.LegalEntityId != actor.LegalEntityId)
             Fail("ManualPaymentScopeInvalid");
         Authorize(actor, current.BranchId, action);
+        if (now == default || current.CreatedAt == default || now < current.CreatedAt
+            || current.UpdatedAt is { } updated && now < updated
+            || current.ApprovedAt is { } approved && now < approved
+            || current.RecordedAt is { } recorded && now < recorded
+            || current.ConfirmedAt is { } confirmed && now < confirmed)
+            Fail("ManualPaymentTimeInvalid");
         if (current.Version != expectedVersion) Fail("ManualPaymentVersionConflict");
         if (!states.Contains(current.Status, StringComparer.Ordinal)) Fail("ManualPaymentStateInvalid");
     }
@@ -238,7 +259,7 @@ public static class ManualPaymentWorkflow
     {
         if (!actor.IsActive || !ProcurementPrincipalEvidence.Canonical(actor.PrincipalId)
             || string.IsNullOrWhiteSpace(actor.TenantId) || actor.LegalEntityId == Guid.Empty
-            || actor.SelectedBranchId != branch || !actor.AllowedBranchIds.Contains(branch)
+            || actor.EffectiveBranchId != branch || !actor.AllowedBranchIds.Contains(branch)
             || !actor.Actions.Contains(Prefix + action)) Fail("ManualPaymentActionForbidden");
     }
 

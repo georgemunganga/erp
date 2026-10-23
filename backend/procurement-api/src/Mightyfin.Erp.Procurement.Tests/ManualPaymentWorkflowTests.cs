@@ -44,7 +44,7 @@ public sealed class ManualPaymentWorkflowTests
             "tenant" => f.Creator with { TenantId = "other" },
             "company" => f.Creator with { LegalEntityId = Guid.NewGuid() },
             "branch" => f.Creator with { AllowedBranchIds = new HashSet<Guid>() },
-            "selected" => f.Creator with { SelectedBranchId = null },
+            "selected" => f.Creator with { EffectiveBranchId = null },
             "grant" => f.Creator with { Actions = new HashSet<string>() },
             "inactive" => f.Creator with { IsActive = false },
             _ => f.Creator with { PrincipalId = "email@example.com" }
@@ -87,6 +87,53 @@ public sealed class ManualPaymentWorkflowTests
         var recorded = ManualPaymentWorkflow.Record(approved, 3, f.Recorder, f.Source, f.Evidence(), f.Now).Request;
         Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Confirm(recorded, 4,
             f.Recorder with { Actions = f.Confirmer.Actions }, f.Now));
+        Assert.Equal("PaymentRecorded", recorded.Status);
+    }
+
+    [Theory]
+    [InlineData("amount")][InlineData("approvedAmount")][InlineData("recordedAmount")]
+    [InlineData("approvedPrincipal")][InlineData("approvedAt")][InlineData("recordedPrincipal")]
+    [InlineData("recordedAt")][InlineData("paidOn")][InlineData("futurePaidOn")]
+    [InlineData("externalReference")]
+    public void Confirmation_rejects_malformed_recorded_payment_evidence(string changed)
+    {
+        var f = new Fixture(); var recorded = f.Recorded();
+        switch (changed)
+        {
+            case "amount": recorded.Amount = 0m; break;
+            case "approvedAmount": recorded.ApprovedAmount = 0m; break;
+            case "recordedAmount": recorded.RecordedAmount = 0m; break;
+            case "approvedPrincipal": recorded.ApprovedByPrincipalId = "not-a-core-principal"; break;
+            case "approvedAt": recorded.ApprovedAt = null; break;
+            case "recordedPrincipal": recorded.RecordedByPrincipalId = "not-a-core-principal"; break;
+            case "recordedAt": recorded.RecordedAt = null; break;
+            case "paidOn": recorded.PaidOn = default(DateOnly); break;
+            case "futurePaidOn": recorded.PaidOn = DateOnly.FromDateTime(f.Now.UtcDateTime).AddDays(1); break;
+            default: recorded.ExternalReference = " "; break;
+        }
+        var beforeVersion = recorded.Version;
+        Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Confirm(recorded,
+            beforeVersion, f.Confirmer, f.Now));
+        Assert.Equal("PaymentRecorded", recorded.Status);
+        Assert.Equal(beforeVersion, recorded.Version);
+        Assert.Null(recorded.ConfirmedByPrincipalId);
+    }
+
+    [Theory]
+    [InlineData("created")][InlineData("updated")][InlineData("approved")]
+    [InlineData("recorded")]
+    public void A_transition_cannot_use_server_time_before_retained_history(string changed)
+    {
+        var f = new Fixture(); var recorded = f.Recorded();
+        switch (changed)
+        {
+            case "created": recorded.CreatedAt = f.Now.AddSeconds(1); break;
+            case "updated": recorded.UpdatedAt = f.Now.AddSeconds(1); break;
+            case "approved": recorded.ApprovedAt = f.Now.AddSeconds(1); break;
+            default: recorded.RecordedAt = f.Now.AddSeconds(1); break;
+        }
+        Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Confirm(recorded,
+            recorded.Version, f.Confirmer, f.Now));
         Assert.Equal("PaymentRecorded", recorded.Status);
     }
 
@@ -142,7 +189,7 @@ public sealed class ManualPaymentWorkflowTests
     public void Another_editor_in_the_same_branch_cannot_revise_or_reassign_the_creators_draft()
     {
         var f = new Fixture(); var original = f.Create().Request;
-        var otherEditor = f.Approver with { Actions = new HashSet<string> { "procurement.payment.edit" } };
+        var otherEditor = f.Approver with { Actions = new HashSet<string> { "procurement-payment-edit" } };
         var error = Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Revise(
             original, original.Version, f.Draft with { Amount = 30m }, otherEditor,
             f.Assignee(f.Approver.PrincipalId, "approve"), f.Assignee(f.Recorder.PrincipalId, "record"),
@@ -176,7 +223,7 @@ public sealed class ManualPaymentWorkflowTests
         var f = new Fixture(); var recorded = ManualPaymentWorkflow.Record(f.Approved(), 3,
             f.Recorder, f.Source, f.Evidence(), f.Now).Request;
         Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Cancel(recorded, 4,
-            f.Creator with { Actions = new HashSet<string> { "procurement.payment.cancel" } }, "No", f.Now));
+            f.Creator with { Actions = new HashSet<string> { "procurement-payment-cancel" } }, "No", f.Now));
         var disputed = ManualPaymentWorkflow.Dispute(recorded, 4, f.Confirmer, "Reference under review", f.Now);
         Assert.Equal("Disputed", disputed.Request.Status);
         Assert.Equal("EXT-128", disputed.Request.ExternalReference);
@@ -203,10 +250,10 @@ public sealed class ManualPaymentWorkflowTests
             "Bank transfer made outside ERP", "EXT-128", 25.1250m, null);
         public ManualPaymentActor Actor(string principal, params string[] actions) => new(principal,
             "tenant", Company, Branch, new HashSet<Guid> { Branch },
-            actions.Select(x => "procurement.payment." + x).ToHashSet(), true);
+            actions.Select(x => "procurement-payment-" + x).ToHashSet(), true);
         public ManualPaymentAssignee Assignee(string principal, string action) => new(principal,
             "tenant", Company, new HashSet<Guid> { Branch },
-            new HashSet<string> { "procurement.payment." + action }, true);
+            new HashSet<string> { "procurement-payment-" + action }, true);
         public ManualPaymentChange Create(ManualPaymentAssignee? approver = null,
             ManualPaymentAssignee? recorder = null, ManualPaymentAssignee? confirmer = null) =>
             ManualPaymentWorkflow.Create(Draft, Creator,
@@ -218,5 +265,7 @@ public sealed class ManualPaymentWorkflowTests
             var submitted = ManualPaymentWorkflow.Submit(Create().Request, 1, Creator, Source, Now).Request;
             return ManualPaymentWorkflow.Approve(submitted, 2, Approver, Source, Now).Request;
         }
+        public ManualPaymentRequest Recorded() => ManualPaymentWorkflow.Record(Approved(), 3,
+            Recorder, Source, Evidence(), Now).Request;
     }
 }
