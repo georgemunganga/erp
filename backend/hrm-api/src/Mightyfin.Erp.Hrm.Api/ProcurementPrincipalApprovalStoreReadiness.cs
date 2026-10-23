@@ -17,7 +17,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Explicitly enabled scoped provider. Constants were captured from the isolated PostgreSQL17
 /// P25 rehearsal; exact schema and finite-role validation remain mandatory at the point of use.</summary>
-public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope coreScope,HrmDbContext coreIdentity):IProcurementPrincipalApprovalSchemaReadiness
+public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope coreScope,HrmDbContext coreIdentity,
+    IConfiguration? performanceConfiguration=null):IProcurementPrincipalApprovalSchemaReadiness
 {
     // Actual capture: procurement-p25-private-capture-20261022_browser03/result.json
     // SHA256 99990a425f07fc1f3c8135bd1b3f116ded9e6e8e3f140a366a149777408737fd.
@@ -82,7 +83,9 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
         var opened=false;
         try
         {
-            if(owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
+            if(ProcurementModelParityDiagnostics.HasPendingModelChanges(owner,performanceConfiguration,"principal-approval.model-parity")
+                || await ProcurementModelParityDiagnostics.MeasureAsync(performanceConfiguration,"principal-approval.applied-migrations",
+                    async ()=>(await owner.Database.GetPendingMigrationsAsync(ct)).Any())
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId,StringComparer.Ordinal))return false;
             if(owner.Database.GetDbConnection().State!=ConnectionState.Open){await owner.Database.OpenConnectionAsync(ct);opened=true;}
             await using var command=owner.Database.GetDbConnection().CreateCommand();

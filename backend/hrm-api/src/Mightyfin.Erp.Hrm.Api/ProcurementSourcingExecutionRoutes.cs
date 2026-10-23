@@ -44,16 +44,20 @@ public static partial class ProcurementSourcingExecutionRoutes
         try
         {
             var options = http.RequestServices.GetRequiredService<ProcurementSourcingDraftExecutionOptions>();
+            var performance = http.RequestServices.GetService<IConfiguration>();
             if (!options.Enabled || !options.ExecutionDatabaseConfigured
-                || !await http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct))
+                || !await ProcurementModelParityDiagnostics.MeasureAsync(performance, "sourcing.configured-readiness",
+                    () => http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct)))
                 throw new Problem("SourcingDraftExecutionUnavailable", 503);
             if (scope.OrgUnitId is not null) throw new Problem("RfqDepartmentScopeUnsupported", 503);
             var result = await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async (db, cases, token) =>
             {
-                if (!await http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>()
-                        .IsReadyAsync(db, !HttpMethods.IsGet(http.Request.Method), token))
+                if (!await ProcurementModelParityDiagnostics.MeasureAsync(performance, "sourcing.owner-readiness",
+                    () => http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>()
+                        .IsReadyAsync(db, !HttpMethods.IsGet(http.Request.Method), token)))
                     throw new Problem("SourcingDraftExecutionUnavailable", 503);
-                if(!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db,http.RequestServices,false,token))
+                if(!await ProcurementModelParityDiagnostics.MeasureAsync(performance,"sourcing.finance-readiness",
+                    () => ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db,http.RequestServices,false,token)))
                     throw new Problem("SourcingFinanceCheckerSchemaUnavailable",503);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 return await command(db, cases, core, http.RequestServices.GetRequiredService<IAuthorizationService>(), token);

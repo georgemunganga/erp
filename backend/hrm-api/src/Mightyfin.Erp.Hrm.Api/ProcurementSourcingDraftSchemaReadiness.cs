@@ -49,7 +49,9 @@ public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration confi
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
+            if (ProcurementModelParityDiagnostics.HasPendingModelChanges(owner, configuration, "sourcing.model-parity")
+                || await ProcurementModelParityDiagnostics.MeasureAsync(configuration, "sourcing.applied-migrations",
+                    async () => (await owner.Database.GetPendingMigrationsAsync(ct)).Any())
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(RequiredMigrationId, StringComparer.Ordinal)
                 || !(await finance.IsReadyAsync(owner,false,ct)
                     || p25PhysicalStore is not null && await p25PhysicalStore.IsReadyAsync(owner,ct))) return false;
