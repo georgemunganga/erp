@@ -73,7 +73,7 @@ public sealed partial class ProcurementDbContext
         decision.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CoreDecisionId}).IsUnique();
         Link<PrincipalOrderDecisionEvidence,PrincipalOrderSubmission>(model,nameof(PrincipalOrderDecisionEvidence.SubmissionId));
         decision.ToTable(t=>t.HasCheckConstraint("ck_principal_order_decision",
-            "schema_version=2 AND action IN ('Approve','Return','Reject') AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND (action='Approve' OR length(btrim(reason))>0)"));
+            "schema_version=2 AND action IN ('Approve','Return','Reject') AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND (action='Approve' OR (reason IS NOT NULL AND length(btrim(reason))>0))"));
         var issued=model.Entity<PrincipalOrderIssuedVersion>();
         issued.Property(x=>x.CommercialSnapshotJson).HasColumnType("text");
         issued.Property(x=>x.CommercialSnapshotSha256).HasMaxLength(64);
