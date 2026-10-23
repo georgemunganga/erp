@@ -173,7 +173,7 @@ internal sealed class PrivatePaymentHost(string runtime, string execution, strin
     {
         ["HRM:DefaultTenantId"] = tenant,
         ["ConnectionStrings:Hrm"] = runtime,
-        ["ConnectionStrings:Procurement"] = runtime,
+        ["ConnectionStrings:Procurement"] = execution,
         ["ConnectionStrings:ProcurementApprovalExecution"] = execution,
         ["ERP:AuthMode"] = "local", ["HRM:AuthMode"] = "local",
         ["Procurement:Approvals:Enabled"] = "false", ["Procurement:Orders:Enabled"] = "false",
