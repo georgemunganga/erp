@@ -72,7 +72,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     {
         var paging=ProcurementSourcingDiscoveryQueries.Paging(page,pageSize,q);
         if(state is not (null or "Draft" or "Cancelled" or "PendingApproval" or "Approved"
-            or "Returned" or "Rejected" or "IssuePending" or "Issued" or "Disputed"))
+            or "Returned" or "Rejected" or "IssuePending" or "Issued" or "Disputed"
+            or "ReleasePending"))
             throw new Problem("OrderStateInvalid",422);
         var actor=await Actor(core,scope,http,auth,"procurement-po-read",null,false,token);
         var branches=await ProcurementExecutionRecordScope.Branches(core,scope,null,false,token);
@@ -90,6 +91,42 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             executionMode="PrincipalOrderV2",manualFundingOnly=true,supplierSendPerformed=false},Json));
     },ct);
 
+    private static Task<IResult> FinanceWork(int? page,int? pageSize,string? q,HttpContext http,
+        ProcurementRequestScope scope,CancellationToken ct)=>Run(http,scope,async(db,cases,core,auth,token)=>
+    {
+        var paging=ProcurementSourcingDiscoveryQueries.Paging(page,pageSize,q);
+        var actor=await Actor(core,scope,http,auth,"procurement-po-finance-confirm",null,false,token);
+        var branches=await ProcurementExecutionRecordScope.Branches(core,scope,null,false,token);
+        var query=db.PurchaseOrders.AsNoTracking().Where(x=>x.PrincipalDraftSchemaVersion==2
+            &&(x.Status=="ReleasePending" || x.Status=="Draft"
+                &&!db.PrincipalOrderFundingEvidence.Any(f=>f.PurchaseOrderId==x.Id)));
+        if(scope.WorkLocationId is { } selected)query=query.Where(x=>x.BranchRef==selected);
+        if(!actor.OrganisationWide)
+            query=query.Where(x=>x.BranchRef!=null&&branches.Contains(x.BranchRef.Value));
+        if(paging.Search.Length>0)query=query.Where(x=>EF.Functions.ILike(x.Number,paging.Pattern,"\\"));
+        var total=await query.CountAsync(token);
+        var orders=await query.OrderBy(x=>x.CreatedAt).ThenBy(x=>x.Id)
+            .Skip(paging.Offset).Take(paging.Size).ToArrayAsync(token);
+        var items=new List<object>();
+        foreach(var order in orders)
+        {
+            var lines=await db.PurchaseOrderLines.AsNoTracking().Where(x=>x.PurchaseOrderId==order.Id&&x.IsActive)
+                .ToArrayAsync(token);
+            var request=order.Status=="ReleasePending"?await db.PrincipalOrderReleaseRequests.AsNoTracking()
+                .SingleOrDefaultAsync(x=>x.PurchaseOrderId==order.Id,token):null;
+            if(lines.Length==0 || order.Status=="ReleasePending"&&request is null)
+                throw new Problem("OrderFinanceWorkChanged",409);
+            var gross=PurchaseOrderCommercialWorkflow.Totals(lines).Gross;
+            items.Add(new{order.Id,order.Number,order.SupplierId,order.BranchRef,order.CurrencyCode,
+                order.Status,order.Version,grossAmountExact=ProcurementEvidenceEncoding.Decimal(gross),
+                releaseRequestId=request?.Id,releaseRequestedAt=request?.RequestedAt,
+                task=order.Status=="ReleasePending"?"Confirm external release":"Record external commitment",
+                externalFinanceEvidenceRequired=true,previewOnly=true});
+        }
+        return new Reply(JsonSerializer.Serialize(new{items,total,page=paging.Number,pageSize=paging.Size,
+            manualExternalEvidenceOnly=true,financeLedgerChanged=false},Json));
+    },ct);
+
     private static Task<IResult> Detail(Guid id,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
@@ -100,6 +137,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             PrincipalOrderDraftPins.Verify(order,lines,bindings);
             var ids=bindings.Select(x=>x.AllocationId).ToArray();
             var allocations=await db.PurchaseRequestAllocations.AsNoTracking().Where(x=>ids.Contains(x.Id)).ToArrayAsync(token);
+            var release=await db.PrincipalOrderReleaseRequests.AsNoTracking()
+                .SingleOrDefaultAsync(x=>x.PurchaseOrderId==id,token);
+            var confirmation=release is null?null:await db.PrincipalOrderReleaseConfirmations.AsNoTracking()
+                .SingleOrDefaultAsync(x=>x.ReleaseRequestId==release.Id,token);
             if(allocations.Length!=bindings.Length || bindings.Any(x=>
                 allocations.Count(a=>a.Id==x.AllocationId&&a.TargetType=="PurchaseOrder"&&a.TargetId==id
                     &&a.Quantity==x.Quantity&&a.EstimatedValue==x.EstimatedValue
@@ -110,6 +151,13 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 order.CurrencyCode,order.BranchRef,order.Status,order.Version,order.CreatedAt,
                 order.ShipToRef,order.BillToRef,order.PaymentTermRef,order.ExpectedDeliveryOn,
                 order.ClosureReason,order.OriginalDirectSourceSha256,
+                release=release is null?null:new{release.Id,release.OriginalStatus,release.Reason,
+                    release.RequestedByPrincipalId,release.RequestedAt,
+                    state=confirmation is null?"WaitingForExternalConfirmation":"ExternallyConfirmed"},
+                releaseConfirmation=confirmation is null?null:new{confirmation.Id,
+                    confirmation.ExternalReleaseEvidenceReference,confirmation.ApprovedManualPolicyReference,
+                    releasedGrossAmountExact=ProcurementEvidenceEncoding.Decimal(confirmation.ReleasedGrossAmount),
+                    confirmation.CurrencyCode,confirmation.ConfirmedByPrincipalId,confirmation.ConfirmedAt},
                 lines=lines.Select(line=>new{line.Id,line.LineNumber,line.Description,line.UnitCode,
                     quantity=ProcurementEvidenceEncoding.Decimal(line.Quantity),
                     unitPrice=ProcurementEvidenceEncoding.Decimal(line.UnitPrice),
@@ -183,6 +231,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             "Decide"=>"procurement-po-approve",
             "Issue"=>"procurement-po-issue",
             "Ack"=>"procurement-po-dispatch-confirm",
+            "ReleaseRequest"=>"procurement-po-edit",
+            "ReleaseConfirm"=>"procurement-po-finance-confirm",
             _=>throw new Problem("OrderReceiptNotFound",404)
         };
         _=await Actor(core,scope,http,auth,action,null,false,token);

@@ -81,5 +81,29 @@ public sealed class PrincipalOrderGovernancePersistenceTests
             funding.CurrencyCode="USD";
             await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
         }
+        await using(var db=new ProcurementDbContext(options,new Scope(tenant,company,buyer)))
+        {
+            var order=await db.PurchaseOrders.SingleAsync(x=>x.Id==orderId);
+            var funding=await db.PrincipalOrderFundingEvidence.SingleAsync();
+            db.AddScoped(new PrincipalOrderReleaseRequest{PurchaseOrderId=orderId,
+                FundingEvidenceId=funding.Id,OriginalStatus="Draft",CommercialRevision=0,
+                RequestedOrderVersion=order.Version,
+                OriginalDirectSourceSha256=order.OriginalDirectSourceSha256!,
+                Reason="External funding must be released",RequestedByPrincipalId=buyer,
+                RequestedAt=DateTimeOffset.UtcNow});
+            order.Status="ReleasePending";
+            db.AddScoped(new PrincipalOrderDraftReceipt{PurchaseOrderId=orderId,Operation="ReleaseRequest",
+                CommandKey=Guid.NewGuid(),ActorPrincipalId=buyer,CommandSha256=new string('b',64),
+                ResponseJson="{}",ResponseSha256=ProcurementEvidenceEncoding.Digest("{}"),
+                ResponseStatus=200,ResultVersion=checked(order.Version+1),CompletedAt=DateTimeOffset.UtcNow});
+            await db.SaveChangesAsync();
+        }
+        await using(var db=new ProcurementDbContext(options,new Scope(tenant,company,recorder)))
+        {
+            var order=await db.PurchaseOrders.SingleAsync(x=>x.Id==orderId);
+            order.Status="Cancelled";order.ClosureReason="External release unconfirmed";
+            order.ClosedAt=DateTimeOffset.UtcNow;
+            await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
+        }
     }
 }

@@ -108,3 +108,39 @@ public sealed class PrincipalOrderAcknowledgment : ProcurementRecord
     public Guid? RecordedByWorkerAliasId { get; init; }
     public DateTimeOffset ObservedAt { get; init; }
 }
+
+/// <summary>A durable hold. Requesting release never changes external Finance
+/// state or frees the PR allocation. The original commitment remains unresolved.</summary>
+public sealed class PrincipalOrderReleaseRequest : ProcurementRecord
+{
+    public int SchemaVersion { get; init; } = 2;
+    public Guid PurchaseOrderId { get; init; }
+    public Guid FundingEvidenceId { get; init; }
+    public string OriginalStatus { get; init; } = null!;
+    public int CommercialRevision { get; init; }
+    public long RequestedOrderVersion { get; init; }
+    public string OriginalDirectSourceSha256 { get; init; } = null!;
+    public string Reason { get; init; } = null!;
+    public string RequestedByPrincipalId { get; init; } = null!;
+    public Guid? RequestedByWorkerAliasId { get; init; }
+    public DateTimeOffset RequestedAt { get; init; }
+}
+
+/// <summary>Independent witness of an externally completed release, never a
+/// Finance ledger posting. Quantity release occurs only with this same save.</summary>
+public sealed class PrincipalOrderReleaseConfirmation : ProcurementRecord
+{
+    public int SchemaVersion { get; init; } = 2;
+    public Guid PurchaseOrderId { get; init; }
+    public Guid ReleaseRequestId { get; init; }
+    public Guid FundingEvidenceId { get; init; }
+    public string ManualCommitmentReference { get; init; } = null!;
+    public string ExternalReleaseEvidenceReference { get; init; } = null!;
+    public string ApprovedManualPolicyReference { get; init; } = null!;
+    public string RestoredSourceReservationsJson { get; init; } = null!;
+    public decimal ReleasedGrossAmount { get; init; }
+    public string CurrencyCode { get; init; } = null!;
+    public string ConfirmedByPrincipalId { get; init; } = null!;
+    public Guid? ConfirmedByWorkerAliasId { get; init; }
+    public DateTimeOffset ConfirmedAt { get; init; }
+}
