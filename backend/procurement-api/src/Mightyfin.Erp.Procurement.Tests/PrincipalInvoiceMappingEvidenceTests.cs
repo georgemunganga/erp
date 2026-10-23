@@ -96,6 +96,100 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
     }
 
     [Fact]
+    public void Historical_four_decimal_claim_keeps_its_frozen_precision_when_current_policy_is_two_decimals()
+    {
+        var (invoice, original, baseIssued, input) = Fixture();
+        var issued = baseIssued with { Lines = [baseIssued.Lines[0] with { Quantity = 2 }] };
+        var now = DateTimeOffset.UtcNow;
+        var mapping = PrincipalInvoiceMappingEvidence.Create(invoice, [original], issued, [],
+            new Dictionary<Guid, Guid>(), [input], 1, Guid.NewGuid().ToString("D"), null, now);
+        var snapshot = PrincipalInvoiceMappingEvidence.Verify(mapping, invoice, [original], issued,
+            [], new Dictionary<Guid, Guid>(), [Row(mapping, input)]);
+        var state = new PrincipalInvoiceState { TenantId = invoice.TenantId,
+            LegalEntityId = invoice.LegalEntityId, SupplierInvoiceId = invoice.Id,
+            BranchId = invoice.BranchRef!.Value, SupplierId = invoice.SupplierId,
+            CurrencyCode = invoice.CurrencyCode, InvoiceVersion = invoice.Version,
+            MappingRevision = 1, CurrentMappingId = mapping.Id, State = "Reviewed" };
+        var zero = new InvoiceFieldTolerance(0, 0, InvoiceToleranceCombination.AllLimits);
+        var policy = new InvoiceMatchingPolicy(Guid.NewGuid(), 2, invoice.TenantId,
+            invoice.LegalEntityId, invoice.BranchRef, "Published", "reviewed policy",
+            now.AddDays(-1), now.AddDays(1), 2, InvoiceMoneyRounding.ToEven,
+            [new InvoiceCategoryMatchRule("GOODS", "ZMW", InvoiceMatchingMethod.TwoWay,
+                null, zero, zero, zero, zero)]);
+        var context = new InvoiceExposureReadContext(invoice.TenantId, invoice.LegalEntityId,
+            invoice.BranchRef, issued.Id, issued.RevisionId, invoice.SupplierId,
+            invoice.CurrencyCode, new string('a', 64), now);
+        var prior = new InvoiceMatchConsumption(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            invoice.TenantId, invoice.LegalEntityId, invoice.BranchRef, invoice.SupplierId,
+            issued.Id, issued.RevisionId, issued.Lines[0].Id, null, invoice.CurrencyCode,
+            InvoiceConsumptionKind.Debit, null, .0001m, .0001m, 0,
+            "frozen-four-decimal-comparison");
+        var until = now.AddHours(1);
+        var envelope = new InvoiceOwnerExposureEnvelope(1, invoice.TenantId, invoice.LegalEntityId,
+            invoice.BranchRef, issued.Id, issued.RevisionId, invoice.SupplierId,
+            invoice.CurrencyCode, context.PolicyRulesSha256, "frozen-owner", "owner-watermark",
+            until, InvoiceMatchExecutionEvidence.AllocationsDigest([prior]));
+        var json = System.Text.Json.JsonSerializer.Serialize(envelope,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var owner = new InvoiceHistoricalExposure(true, "Verified", "frozen-owner",
+            "owner-watermark", json, ProcurementEvidenceEncoding.PolicyJsonDigest(json),
+            context.PolicyRulesSha256, until, [prior]);
+        var exposure = new PrincipalInvoiceExposureState { TenantId = invoice.TenantId,
+            LegalEntityId = invoice.LegalEntityId, BranchId = invoice.BranchRef.Value,
+            PurchaseOrderId = issued.Id, PrincipalIssuedVersionId = issued.RevisionId,
+            SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode, Sequence = 1 };
+        var history = PrincipalInvoiceExposureEvidence.CompleteHistory(owner, context, exposure, []);
+        var duplicates = new InvoiceDuplicateEvidence("current", true,
+            [new InvoiceDuplicateIdentity(invoice.Id, invoice.TenantId, invoice.LegalEntityId,
+                invoice.SupplierId, invoice.NormalizedInvoiceNumber, invoice.CurrencyCode)]);
+        var comparable = PrincipalInvoiceComparisonRules.Evaluate(invoice, [original], state,
+            mapping, snapshot, issued, [], new Dictionary<Guid, Guid>(),
+            new Dictionary<Guid, string> { [original.Id] = "EACH" }, policy, owner,
+            context, history, duplicates, now);
+        Assert.True(comparable.CanClaim);
+        Assert.Empty(comparable.Blockers);
+
+        // P31's current owner can prove frozen debits, but has no typed credit
+        // policy pin. An externally supplied credit cannot borrow today's
+        // rounding to restore capacity.
+        var credit = prior with { Id = Guid.NewGuid(), InvoiceId = Guid.NewGuid(),
+            InvoiceLineId = Guid.NewGuid(), Kind = InvoiceConsumptionKind.Credit,
+            OriginalDebitId = prior.Id };
+        var creditEnvelope = envelope with
+        {
+            AllocationsSha256 = InvoiceMatchExecutionEvidence.AllocationsDigest([prior, credit])
+        };
+        var creditJson = System.Text.Json.JsonSerializer.Serialize(creditEnvelope,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var creditOwner = owner with { EvidenceJson = creditJson,
+            EvidenceSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(creditJson),
+            Allocations = [prior, credit] };
+        var creditHistory = PrincipalInvoiceExposureEvidence.CompleteHistory(creditOwner, context, exposure, []);
+        var deniedCredit = PrincipalInvoiceComparisonRules.Evaluate(invoice, [original], state,
+            mapping, snapshot, issued, [], new Dictionary<Guid, Guid>(),
+            new Dictionary<Guid, string> { [original.Id] = "EACH" }, policy, creditOwner,
+            context, creditHistory, duplicates, now);
+        Assert.False(deniedCredit.CanClaim);
+        Assert.Contains(deniedCredit.Blockers, x => x.Code == "HistoricalCreditOwnershipUnavailable");
+
+        // Current input is still governed by the current two-decimal rule.
+        invoice.NetAmount = .0001m;
+        invoice.GrossAmount = .0001m;
+        original.Quantity = .0001m;
+        var tinyMapping = PrincipalInvoiceMappingEvidence.Create(invoice, [original], issued, [],
+            new Dictionary<Guid, Guid>(), [input], 1, Guid.NewGuid().ToString("D"), null, now);
+        var tinySnapshot = PrincipalInvoiceMappingEvidence.Verify(tinyMapping, invoice, [original], issued,
+            [], new Dictionary<Guid, Guid>(), [Row(tinyMapping, input)]);
+        state.CurrentMappingId = tinyMapping.Id;
+        var denied = PrincipalInvoiceComparisonRules.Evaluate(invoice, [original], state,
+            tinyMapping, tinySnapshot, issued, [], new Dictionary<Guid, Guid>(),
+            new Dictionary<Guid, string> { [original.Id] = "EACH" }, policy, owner,
+            context, history, duplicates, now);
+        Assert.False(denied.CanClaim);
+        Assert.Contains(denied.Blockers, x => x.Code == "InvoiceHeaderAmountInvalid");
+    }
+
+    [Fact]
     public void Retained_claim_amount_must_match_frozen_comparison_and_original_invoice()
     {
         var (invoice, original, issued, input) = Fixture();

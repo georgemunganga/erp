@@ -169,43 +169,24 @@ public static class PrincipalInvoiceComparisonRules
                 || x.AcceptanceId is { } priorFact && !facts.ContainsKey(priorFact)
                 || !Enum.IsDefined(x.Kind) || string.IsNullOrWhiteSpace(x.ValidationReference)
                 || !InvoiceMatchExact.Input(x.Quantity)
-                || !InvoiceMatchExact.MoneyInput(x.NetAmount, policy)
-                || !InvoiceMatchExact.MoneyInput(x.TaxAmount, policy)
+                // Retained claims were authorized under their frozen policy.
+                // Reconstruct has already bound each debit to that policy and
+                // original invoice. Only the invoice being compared must meet
+                // the policy in force today.
+                || !InvoiceMatchExact.Input(x.NetAmount)
+                || !InvoiceMatchExact.Input(x.TaxAmount)
                 || x.Kind == InvoiceConsumptionKind.Debit && (x.Quantity <= 0 || x.OriginalDebitId is not null)
                 || x.Kind == InvoiceConsumptionKind.Credit && (x.OriginalDebitId is null
                     || x.Quantity == 0 && x.NetAmount == 0 && x.TaxAmount == 0)))
             Block("HistoricalConsumptionInvalid");
         if (errors.Count != 0) return Preview(work, errors, history.Watermark);
-        var debitById = prior.Where(x => x.Kind == InvoiceConsumptionKind.Debit).ToDictionary(x => x.Id);
-        foreach (var credits in prior.Where(x => x.Kind == InvoiceConsumptionKind.Credit)
-            .GroupBy(x => x.OriginalDebitId!.Value))
-        {
-            var creditedQuantity = credits.Aggregate(BigInteger.Zero, (v, x) => v + InvoiceMatchExact.Units(x.Quantity));
-            var creditedNet = credits.Aggregate(BigInteger.Zero, (v, x) => v + InvoiceMatchExact.Units(x.NetAmount));
-            var creditedTax = credits.Aggregate(BigInteger.Zero, (v, x) => v + InvoiceMatchExact.Units(x.TaxAmount));
-            if (!debitById.TryGetValue(credits.Key, out var debit)
-                || credits.Any(x => x.PurchaseOrderLineId != debit.PurchaseOrderLineId
-                    || x.AcceptanceId != debit.AcceptanceId || x.InvoiceId == debit.InvoiceId)
-                || creditedQuantity > InvoiceMatchExact.Units(debit.Quantity)
-                || creditedNet > InvoiceMatchExact.Units(debit.NetAmount)
-                || creditedTax > InvoiceMatchExact.Units(debit.TaxAmount)
-                || credits.Any(x => x.Quantity > 0 && (InvoiceMatchExact.Units(x.NetAmount)
-                        != InvoiceMatchExact.RatioMoney(InvoiceMatchExact.Units(debit.NetAmount),
-                            InvoiceMatchExact.Units(x.Quantity), InvoiceMatchExact.Units(debit.Quantity), policy)
-                    || InvoiceMatchExact.Units(x.TaxAmount)
-                        != InvoiceMatchExact.RatioMoney(InvoiceMatchExact.Units(debit.TaxAmount),
-                            InvoiceMatchExact.Units(x.Quantity), InvoiceMatchExact.Units(debit.Quantity), policy))))
-                Block("HistoricalCreditDoesNotRestoreCapacity");
-            else if (creditedQuantity > 0 && (creditedNet < InvoiceMatchExact.RatioMoney(
-                    InvoiceMatchExact.Units(debit.NetAmount), creditedQuantity,
-                    InvoiceMatchExact.Units(debit.Quantity), policy)
-                || creditedTax < InvoiceMatchExact.RatioMoney(
-                    InvoiceMatchExact.Units(debit.TaxAmount), creditedQuantity,
-                    InvoiceMatchExact.Units(debit.Quantity), policy)))
-                Block("HistoricalCreditFragmentsIncomplete");
-        }
+        // P31's authenticated owner currently reconstructs debit claims only.
+        // A future typed credit owner must attest its original policy and
+        // proportional amounts before credits may restore capacity. Applying
+        // today's rounding policy to an older credit would invent that proof.
+        if (prior.Any(x => x.Kind == InvoiceConsumptionKind.Credit))
+            Block("HistoricalCreditOwnershipUnavailable");
         if (errors.Count != 0) return Preview(work, errors, history.Watermark);
-
         BigInteger Sum(IEnumerable<InvoiceMatchConsumption> rows, Func<InvoiceMatchConsumption, decimal> amount)
             => rows.Aggregate(BigInteger.Zero, (sum, x) => sum
                 + InvoiceMatchExact.Units(amount(x)) * (x.Kind == InvoiceConsumptionKind.Debit ? 1 : -1));
@@ -214,19 +195,37 @@ public static class PrincipalInvoiceComparisonRules
             var order = group.First().Order;
             var rule = group.First().Rule;
             var historyLine = prior.Where(x => x.PurchaseOrderLineId == order.Id).ToArray();
-            var quantity = Sum(historyLine, x => x.Quantity) + group.Aggregate(BigInteger.Zero, (v, x) => v + x.Quantity);
-            var net = Sum(historyLine, x => x.NetAmount) + group.Aggregate(BigInteger.Zero, (v, x) => v + x.Net);
-            var tax = Sum(historyLine, x => x.TaxAmount) + group.Aggregate(BigInteger.Zero, (v, x) => v + x.Tax);
+            var currentQuantity = group.Aggregate(BigInteger.Zero, (v, x) => v + x.Quantity);
+            var currentNet = group.Aggregate(BigInteger.Zero, (v, x) => v + x.Net);
+            var currentTax = group.Aggregate(BigInteger.Zero, (v, x) => v + x.Tax);
+            var quantity = Sum(historyLine, x => x.Quantity) + currentQuantity;
+            var net = Sum(historyLine, x => x.NetAmount) + currentNet;
+            var tax = Sum(historyLine, x => x.TaxAmount) + currentTax;
             var ordered = InvoiceMatchExact.Units(order.Quantity);
             if (quantity > ordered && !InvoiceMatchExact.Within(quantity - ordered, ordered, rule.Quantity))
                 Block("CumulativeOrderQuantityOutsideTolerance", group.First().Original.Id);
+            // The current policy checks this invoice's rounded amounts only.
+            // The owner has already verified each retained debit against its
+            // own frozen published policy; re-rounding all historic quantity
+            // under today's scale changes valid historical commercial facts.
             var expectedTax = InvoiceMatchExact.RatioMoney(InvoiceMatchExact.Units(order.TaxAmount),
-                quantity, ordered, policy);
-            if (!InvoiceMatchExact.Within(tax - expectedTax, expectedTax, rule.Tax))
-                Block("CumulativeTaxOutsideTolerance", group.First().Original.Id);
-            var expectedGross = InvoiceMatchExact.ProductMoney(quantity,
+                currentQuantity, ordered, policy);
+            if (!InvoiceMatchExact.Within(currentTax - expectedTax, expectedTax, rule.Tax))
+                Block("CurrentInvoiceTaxOutsideTolerance", group.First().Original.Id);
+            var expectedGross = InvoiceMatchExact.ProductMoney(currentQuantity,
                 InvoiceMatchExact.Units(order.UnitPrice), policy) + expectedTax;
-            if (!InvoiceMatchExact.Within(net + tax - expectedGross, expectedGross, rule.Total))
+            if (!InvoiceMatchExact.Within(currentNet + currentTax - expectedGross, expectedGross, rule.Total))
+                Block("CurrentInvoiceTotalOutsideTolerance", group.First().Original.Id);
+            // A separate source ceiling still prevents today's claim from
+            // consuming more value than the issued order. Its reference uses
+            // the fixed four-decimal source precision, not today's invoice
+            // rounding policy or a revaluation of old claims.
+            var orderTax = InvoiceMatchExact.Units(order.TaxAmount);
+            var orderGross = InvoiceMatchExact.ProductMoney(ordered,
+                InvoiceMatchExact.Units(order.UnitPrice), policy with { MoneyScale = 4 }) + orderTax;
+            if (tax > orderTax && !InvoiceMatchExact.Within(tax - orderTax, orderTax, rule.Tax))
+                Block("CumulativeTaxOutsideTolerance", group.First().Original.Id);
+            if (net + tax > orderGross && !InvoiceMatchExact.Within(net + tax - orderGross, orderGross, rule.Total))
                 Block("CumulativeTotalOutsideTolerance", group.First().Original.Id);
             foreach (var factGroup in group.Where(x => x.Link.PrincipalAcceptanceFactId is not null)
                 .GroupBy(x => x.Link.PrincipalAcceptanceFactId!.Value))
