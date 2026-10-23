@@ -139,6 +139,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var allocations=await db.PurchaseRequestAllocations.AsNoTracking().Where(x=>ids.Contains(x.Id)).ToArrayAsync(token);
             var release=await db.PrincipalOrderReleaseRequests.AsNoTracking()
                 .SingleOrDefaultAsync(x=>x.PurchaseOrderId==id,token);
+            var fundingRecorded=await db.PrincipalOrderFundingEvidence.AsNoTracking()
+                .AnyAsync(x=>x.PurchaseOrderId==id&&x.CommercialRevision==1
+                    &&x.OriginalDirectSourceSha256==order.OriginalDirectSourceSha256,token);
             var confirmation=release is null?null:await db.PrincipalOrderReleaseConfirmations.AsNoTracking()
                 .SingleOrDefaultAsync(x=>x.ReleaseRequestId==release.Id,token);
             if(allocations.Length!=bindings.Length || bindings.Any(x=>
@@ -167,6 +170,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     purchaseRequestId=bindings.Single(x=>x.PurchaseOrderLineId==line.Id).PurchaseRequestId,
                     allocationStatus=allocations.Single(x=>x.Id==bindings.Single(b=>b.PurchaseOrderLineId==line.Id).AllocationId).Status}).ToArray(),
                 executionMode="PrincipalOrderV2",manualFundingOnly=true,
+                fundingRecorded,
                 financeReservationChanged=false,supplierSendPerformed=false},Json));
         },ct);
 

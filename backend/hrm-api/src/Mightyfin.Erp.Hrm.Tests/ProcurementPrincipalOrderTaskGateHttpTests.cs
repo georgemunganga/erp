@@ -24,7 +24,8 @@ public sealed class ProcurementPrincipalOrderTaskGateHttpTests
     public async Task New_task_reads_remain_unavailable_before_P30_activation()
     {
         await using var app=await App();using var client=app.GetTestClient();
-        foreach(var path in new[]{"/api/procurement/v1/orders/principal-assigned-reviews",
+        foreach(var path in new[]{"/api/procurement/v1/orders/principal-direct-suppliers?page=1&pageSize=25",
+            "/api/procurement/v1/orders/principal-assigned-reviews",
             $"/api/procurement/v1/orders/{Guid.NewGuid()}/principal-finance-detail",
             "/api/procurement/v1/orders/principal-fulfilment-work?view=issue",
             $"/api/procurement/v1/orders/{Guid.NewGuid()}/principal-fulfilment-detail?view=ack"})
@@ -41,7 +42,8 @@ public sealed class ProcurementPrincipalOrderTaskGateHttpTests
     {
         await using var app=await App();using var client=app.GetTestClient();
         client.DefaultRequestHeaders.Add("X-Test-Role","employee");
-        foreach(var path in new[]{"/api/procurement/v1/orders/principal-assigned-reviews",
+        foreach(var path in new[]{"/api/procurement/v1/orders/principal-direct-suppliers?page=1&pageSize=25",
+            "/api/procurement/v1/orders/principal-assigned-reviews",
             $"/api/procurement/v1/orders/{Guid.NewGuid()}/principal-finance-detail",
             "/api/procurement/v1/orders/principal-fulfilment-work?view=issue",
             $"/api/procurement/v1/orders/{Guid.NewGuid()}/principal-fulfilment-detail?view=ack"})
