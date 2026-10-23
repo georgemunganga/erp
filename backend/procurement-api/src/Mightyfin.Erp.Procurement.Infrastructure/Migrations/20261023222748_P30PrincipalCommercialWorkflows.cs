@@ -1841,7 +1841,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     OR EXISTS (SELECT 1 FROM procurement.sourcing_events WHERE execution_version = 2 AND status NOT IN ('Draft','Cancelled'))
                     OR EXISTS (SELECT 1 FROM procurement.supplier_bids WHERE draft_revision <> 0)
                     OR EXISTS (SELECT 1 FROM procurement.sourcing_policy_identity_evidence WHERE schema_version <> 1 OR actor_worker_id IS NULL)
-                    OR EXISTS (SELECT 1 FROM procurement.policy_versions WHERE policy_key IN ('RECEIVING','SOURCING') AND CASE WHEN pg_input_is_valid(rules_json, 'jsonb') THEN rules_json::jsonb->>'schemaVersion' = '2' ELSE false END) THEN
+                    OR EXISTS (SELECT 1 FROM procurement.policy_versions WHERE policy_key IN ('RECEIVING','SOURCING') AND rules_json->>'schemaVersion' = '2') THEN
                     RAISE EXCEPTION 'P30 principal commercial evidence prevents downgrade' USING ERRCODE = '55000';
                   END IF;
                 END $$;
