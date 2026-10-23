@@ -3803,6 +3803,14 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("tenant_id");
 
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValue("UTC")
+                        .HasColumnName("time_zone_id");
+
                     b.Property<string>("Tpin")
                         .HasColumnType("text")
                         .HasColumnName("tpin");
