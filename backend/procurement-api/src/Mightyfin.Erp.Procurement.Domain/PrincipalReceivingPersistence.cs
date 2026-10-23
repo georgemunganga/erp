@@ -13,6 +13,13 @@ public sealed class PrincipalReceivingSourceState : ProcurementRecord
     public Guid FundingEvidenceId { get; init; }
     public Guid AcknowledgmentId { get; init; }
     public Guid PurchaseRequestLineId { get; init; }
+    public Guid SourceBindingId { get; init; }
+    public string OriginalSourceSha256 { get; init; } = null!;
+    public string IssuedSnapshotSha256 { get; init; } = null!;
+    public string CategoryCode { get; init; } = null!;
+    public string PurchaseType { get; init; } = null!;
+    public string Kind { get; init; } = null!;
+    public string CurrencyCode { get; init; } = null!;
     public string SourceJson { get; init; } = null!;
     public string SourceSha256 { get; init; } = null!;
     public long Sequence { get; set; }
@@ -26,6 +33,7 @@ public sealed class PrincipalReceivingFact : ProcurementRecord
 {
     public int SchemaVersion { get; init; } = 2;
     public Guid SourceStateId { get; init; }
+    public Guid DraftLineBindingId { get; init; }
     public Guid DraftId { get; init; }
     public Guid BranchId { get; init; }
     public string Kind { get; init; } = null!;
@@ -81,4 +89,21 @@ public sealed class PrincipalReceivingCommandReceipt : ProcurementRecord
     public string ResponseSha256 { get; init; } = null!;
     public int ResponseStatus { get; init; }
     public long ResultRevision { get; init; }
+}
+
+/// <summary>Append-only normalized membership for one immutable revision. The logical
+/// line survives revisions; EF relationships use the stable row UUID, never the CAS revision.</summary>
+public sealed class PrincipalReceivingDraftLineBinding : ProcurementRecord
+{
+    public int SchemaVersion { get; init; } = 2;
+    public Guid DraftId { get; init; }
+    public Guid DraftRevisionId { get; init; }
+    public Guid LineId { get; init; }
+    public Guid SourceStateId { get; init; }
+    public Guid BranchId { get; init; }
+    public Guid PurchaseOrderId { get; init; }
+    public Guid IssuedVersionId { get; init; }
+    public Guid PurchaseOrderLineId { get; init; }
+    public decimal Quantity { get; init; }
+    public decimal RejectedQuantity { get; init; }
 }

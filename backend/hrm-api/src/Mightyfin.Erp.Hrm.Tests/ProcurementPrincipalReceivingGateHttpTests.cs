@@ -27,7 +27,10 @@ public sealed class ProcurementPrincipalReceivingGateHttpTests
         using var read=await client.GetAsync($"/api/procurement/v1/receipts/{id}/principal-draft");
         using var cancel=await client.PostAsJsonAsync($"/api/procurement/v1/receipts/{id}/principal-cancel",new{version=1,reason="Explicit cancellation"});
         using var recover=await client.GetAsync($"/api/procurement/v1/receiving/principal-command-receipts/Record/{Guid.NewGuid()}");
-        foreach(var response in new[]{read,cancel,recover})
+        using var inspection=await client.GetAsync("/api/procurement/v1/receiving/principal-inspection-tasks");
+        using var service=await client.GetAsync($"/api/procurement/v1/service-acceptances/{id}/principal-certification-task");
+        using var directory=await client.GetAsync("/api/procurement/v1/receiving/principal-worklist");
+        foreach(var response in new[]{read,cancel,recover,inspection,service,directory})
         {
             Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);
             Assert.Contains("PrincipalReceivingUnavailable",await response.Content.ReadAsStringAsync());

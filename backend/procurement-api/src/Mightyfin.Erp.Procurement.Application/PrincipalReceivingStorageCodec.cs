@@ -45,7 +45,10 @@ public static class PrincipalReceivingStorageCodec
             || state.BranchId!=pin.BranchId || state.PurchaseOrderId!=pin.PurchaseOrderId
             || state.PurchaseOrderLineId!=pin.PurchaseOrderLineId || state.PurchaseRequestLineId!=pin.PurchaseRequestLineId
             || state.IssuedVersionId!=pin.IssuedVersionId || state.SubmissionId!=source.SubmissionId
-            || state.FundingEvidenceId!=source.FundingEvidenceId || state.AcknowledgmentId!=source.SupplierAcknowledgmentId)
+            || state.FundingEvidenceId!=source.FundingEvidenceId || state.AcknowledgmentId!=source.SupplierAcknowledgmentId
+            || state.SourceBindingId!=source.SourceBindingId || state.OriginalSourceSha256!=source.OriginalDirectSourceSha256
+            || state.IssuedSnapshotSha256!=pin.IssuedSnapshotSha256 || state.CategoryCode!=pin.CategoryCode
+            || state.PurchaseType!=pin.PurchaseType || state.Kind!=pin.Kind.ToString() || state.CurrencyCode!=pin.CurrencyCode)
             throw new InvalidOperationException("PrincipalReceivingSourceBindingInvalid");
         return source;
     }

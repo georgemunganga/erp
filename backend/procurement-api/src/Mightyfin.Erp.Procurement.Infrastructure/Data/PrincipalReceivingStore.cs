@@ -29,7 +29,7 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
             || ack.ObservedAt!=source.SupplierAcknowledgedAt || submission.BuyerPrincipalId!=source.Buyer.PrincipalId
             || submission.BuyerWorkerAliasId!=source.Buyer.WorkerAliasId)
             throw new InvalidOperationException("PrincipalReceivingOwnedSourceRequired");
-        await db.PrincipalOrderSourceBindings.Where(x=>x.PurchaseOrderId==pin.PurchaseOrderId&&x.PurchaseOrderLineId==pin.PurchaseOrderLineId).LoadAsync(ct);
+        await db.PrincipalOrderSourceBindings.Where(x=>x.Id==source.SourceBindingId&&x.PurchaseOrderId==pin.PurchaseOrderId&&x.PurchaseOrderLineId==pin.PurchaseOrderLineId).LoadAsync(ct);
         await db.PurchaseRequestLines.Where(x=>x.Id==pin.PurchaseRequestLineId).LoadAsync(ct);
         await db.PurchaseOrderLines.Where(x=>x.Id==pin.PurchaseOrderLineId&&x.PurchaseOrderId==pin.PurchaseOrderId).LoadAsync(ct);
         var existing=await db.PrincipalReceivingSourceStates.SingleOrDefaultAsync(x=>x.IssuedVersionId==pin.IssuedVersionId&&x.PurchaseOrderLineId==pin.PurchaseOrderLineId,ct);
@@ -48,6 +48,8 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
             BranchId=pin.BranchId!.Value,PurchaseOrderId=pin.PurchaseOrderId,PurchaseOrderLineId=pin.PurchaseOrderLineId,
             PurchaseRequestLineId=pin.PurchaseRequestLineId,IssuedVersionId=pin.IssuedVersionId,SubmissionId=source.SubmissionId,
             FundingEvidenceId=source.FundingEvidenceId,AcknowledgmentId=source.SupplierAcknowledgmentId,
+            SourceBindingId=source.SourceBindingId,OriginalSourceSha256=source.OriginalDirectSourceSha256,IssuedSnapshotSha256=pin.IssuedSnapshotSha256,
+            CategoryCode=pin.CategoryCode,PurchaseType=pin.PurchaseType,Kind=pin.Kind.ToString(),CurrencyCode=pin.CurrencyCode,
             SourceJson=json,SourceSha256=ProcurementEvidenceEncoding.Digest(json)};
         db.AddScoped(state);return state;
     }
@@ -65,6 +67,8 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
     {
         Enlisted();var head=await db.PrincipalReceivingDraftHeads.SingleAsync(x=>x.Id==id,ct);
         await db.PrincipalReceivingDraftRevisions.Where(x=>x.DraftId==id&&x.Revision==head.Revision).LoadAsync(ct);
+        var revision=db.PrincipalReceivingDraftRevisions.Local.Single(x=>x.DraftId==id&&x.Revision==head.Revision);
+        await db.PrincipalReceivingDraftLineBindings.Where(x=>x.DraftRevisionId==revision.Id).LoadAsync(ct);
         return head;
     }
     public PrincipalReceivingDraftHead Stage(PrincipalGoodsDraft draft,Guid key,string actor)
@@ -94,7 +98,19 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
         }
         var row=new PrincipalReceivingDraftRevision{TenantId=tenant,LegalEntityId=company,DraftId=id,Revision=revision,
             CommandKey=key,ActorPrincipalId=actor,SnapshotJson=json,SnapshotSha256=hash};
-        PrincipalReceivingDraftSnapshot.Validate(head,row);db.AddScoped(row);return head;
+        var sources=PrincipalReceivingDraftSnapshot.Validate(head,row);db.AddScoped(row);
+        foreach(var source in sources)
+        {
+            var sourceState=db.PrincipalReceivingSourceStates.Local.Single(x=>PrincipalReceivingStorageCodec.Source(x)==source);
+            var goods=kind=="Goods"?PrincipalReceivingDraftSnapshot.Goods(row):null;
+            var goodsLine=goods?.Lines.Single(x=>x.Source==source);
+            var service=kind=="Service"?PrincipalReceivingDraftSnapshot.Service(row):null;
+            db.AddScoped(new PrincipalReceivingDraftLineBinding{TenantId=tenant,LegalEntityId=company,DraftId=id,DraftRevisionId=row.Id,
+                LineId=goodsLine?.Id??id,SourceStateId=sourceState.Id,BranchId=branch,PurchaseOrderId=order,IssuedVersionId=issued,
+                PurchaseOrderLineId=source.Commercial.PurchaseOrderLineId,Quantity=goodsLine?.Quantity??service!.Quantity,
+                RejectedQuantity=goodsLine?.RejectedQuantity??0});
+        }
+        return head;
     }
     public void Append(PrincipalReceivingSourceState state,PrincipalGoodsObservation fact)
         =>Append(state,fact.Id,fact.ReceiptId,"Observation",fact.Sequence,fact.CommandKey,fact.Receiver,fact.PolicyVersionId,fact.ReceivedQuantity,0,PrincipalReceivingStorageCodec.Encode(fact));
@@ -106,7 +122,10 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
         PrincipalReceivingPerson actor,Guid policy,decimal quantity,decimal amount,string json)
     {
         Enlisted();if(sequence!=state.Sequence+1)throw new InvalidOperationException("PrincipalReceivingSourceVersionChanged");
-        var row=new PrincipalReceivingFact{Id=id,TenantId=state.TenantId,LegalEntityId=state.LegalEntityId,SourceStateId=state.Id,
+        var head=db.PrincipalReceivingDraftHeads.Local.Single(x=>x.Id==draft);
+        var revision=db.PrincipalReceivingDraftRevisions.Local.Single(x=>x.DraftId==draft&&x.Revision==head.Revision);
+        var lineBinding=db.PrincipalReceivingDraftLineBindings.Local.Single(x=>x.DraftRevisionId==revision.Id&&x.SourceStateId==state.Id);
+        var row=new PrincipalReceivingFact{Id=id,DraftLineBindingId=lineBinding.Id,TenantId=state.TenantId,LegalEntityId=state.LegalEntityId,SourceStateId=state.Id,
             DraftId=draft,BranchId=state.BranchId,Kind=kind,Sequence=sequence,CommandKey=key,ActorPrincipalId=actor.PrincipalId,
             ActorWorkerAliasId=actor.WorkerAliasId,PolicyVersionId=policy,Quantity=quantity,NetAmount=amount,PayloadJson=json,
             PayloadSha256=ProcurementEvidenceEncoding.Digest(json)};

@@ -9,7 +9,7 @@ public sealed record PrincipalReceivingSource(
     int SchemaVersion,ReceivingSourcePin Commercial,Guid SubmissionId,Guid FundingEvidenceId,
     Guid CoreApprovalCaseId,Guid SupplierAcknowledgmentId,string OriginalDirectSourceSha256,
     PrincipalReceivingPerson Buyer,PrincipalReceivingPerson Requester,
-    DateTimeOffset IssuedAuthorizedAt,DateTimeOffset SupplierAcknowledgedAt);
+    DateTimeOffset IssuedAuthorizedAt,DateTimeOffset SupplierAcknowledgedAt,Guid SourceBindingId);
 
 /// <summary>Actual physical fact. It records excess truthfully; no acceptance or stock/Finance effect follows implicitly.</summary>
 public sealed record PrincipalGoodsObservation(

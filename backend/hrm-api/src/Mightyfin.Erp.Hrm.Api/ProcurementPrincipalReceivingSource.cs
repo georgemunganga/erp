@@ -37,6 +37,6 @@ internal static class ProcurementPrincipalReceivingSource
             retained.Acknowledgment.Id,retained.Issued.OriginalDirectSourceSha256,
             new(retained.Submission.BuyerPrincipalId,retained.Submission.BuyerWorkerAliasId),
             new(pin.RequesterPrincipalId.ToString("D"),pin.RequesterWorkerAliasId),retained.Issued.AuthorizedAt,
-            retained.Acknowledgment.ObservedAt);
+            retained.Acknowledgment.ObservedAt,pin.Id);
     }
 }
