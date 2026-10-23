@@ -208,21 +208,25 @@ public static class PrincipalInvoiceComparisonRules
             // The owner has already verified each retained debit against its
             // own frozen published policy; re-rounding all historic quantity
             // under today's scale changes valid historical commercial facts.
-            var expectedTax = InvoiceMatchExact.RatioMoney(InvoiceMatchExact.Units(order.TaxAmount),
-                currentQuantity, ordered, policy);
+            var orderTax = InvoiceMatchExact.Units(order.TaxAmount);
+            var expectedTax = group.Aggregate(BigInteger.Zero, (sum, line) => sum
+                + InvoiceMatchExact.RatioMoney(orderTax, line.Quantity, ordered, policy));
             if (!InvoiceMatchExact.Within(currentTax - expectedTax, expectedTax, rule.Tax))
                 Block("CurrentInvoiceTaxOutsideTolerance", group.First().Original.Id);
-            var expectedGross = InvoiceMatchExact.ProductMoney(currentQuantity,
-                InvoiceMatchExact.Units(order.UnitPrice), policy) + expectedTax;
+            // Each original invoice line has its own rounded amount. Summing
+            // their exact saved results avoids re-rounding a combined quantity.
+            var expectedGross = group.Aggregate(BigInteger.Zero, (sum, line) => sum + line.Net) + expectedTax;
             if (!InvoiceMatchExact.Within(currentNet + currentTax - expectedGross, expectedGross, rule.Total))
                 Block("CurrentInvoiceTotalOutsideTolerance", group.First().Original.Id);
             // A separate source ceiling still prevents today's claim from
             // consuming more value than the issued order. Its reference uses
-            // the fixed four-decimal source precision, not today's invoice
-            // rounding policy or a revaluation of old claims.
-            var orderTax = InvoiceMatchExact.Units(order.TaxAmount);
-            var orderGross = InvoiceMatchExact.ProductMoney(ordered,
-                InvoiceMatchExact.Units(order.UnitPrice), policy with { MoneyScale = 4 }) + orderTax;
+            // the unrounded eight-decimal product of issued 4dp quantity and
+            // rate, independent of any later invoice rounding mode.
+            var orderNet = BigInteger.DivRem(ordered * InvoiceMatchExact.Units(order.UnitPrice),
+                new BigInteger(100_000_000), out var fractional);
+            if (fractional != BigInteger.Zero)
+                Block("PrincipalInvoiceLineBindingInvalid", group.First().Original.Id);
+            var orderGross = orderNet + orderTax;
             if (tax > orderTax && !InvoiceMatchExact.Within(tax - orderTax, orderTax, rule.Tax))
                 Block("CumulativeTaxOutsideTolerance", group.First().Original.Id);
             if (net + tax > orderGross && !InvoiceMatchExact.Within(net + tax - orderGross, orderGross, rule.Total))

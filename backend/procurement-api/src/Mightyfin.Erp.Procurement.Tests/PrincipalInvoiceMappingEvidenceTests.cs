@@ -96,6 +96,93 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
     }
 
     [Fact]
+    public void Split_original_lines_use_each_lines_current_rounding_and_tax_share()
+    {
+        var (invoice, first, baseIssued, firstLink) = Fixture();
+        first.Quantity = .5m; first.UnitPrice = .03m;
+        var second = new SupplierInvoiceLine { TenantId = invoice.TenantId,
+            LegalEntityId = invoice.LegalEntityId, SupplierInvoiceId = invoice.Id,
+            LineNumber = 2, Description = "Second half", Quantity = .5m, UnitPrice = .03m };
+        var secondLink = firstLink with { InvoiceLineId = second.Id,
+            DocumentVersionId = Guid.NewGuid(), DocumentLineReference = "line 2" };
+        invoice.NetAmount = .04m; invoice.TaxAmount = 0; invoice.GrossAmount = .04m;
+        var issued = baseIssued with { Lines = [baseIssued.Lines[0] with
+            { Quantity = 2, UnitPrice = .03m, TaxAmount = .02m }] };
+        var zero = new InvoiceFieldTolerance(0, 0, InvoiceToleranceCombination.AllLimits);
+        var policy = new InvoiceMatchingPolicy(Guid.NewGuid(), 2, invoice.TenantId,
+            invoice.LegalEntityId, invoice.BranchRef, "Published", "reviewed policy",
+            DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1), 2,
+            InvoiceMoneyRounding.ToEven,
+            [new InvoiceCategoryMatchRule("GOODS", "ZMW", InvoiceMatchingMethod.TwoWay,
+                null, zero, zero, zero, zero)]);
+        var result = CompareWithEmptyOwner(invoice, [first, second], issued,
+            [firstLink, secondLink], policy);
+        Assert.True(result.CanClaim);
+        Assert.Empty(result.Blockers);
+        Assert.Equal(["0.02", "0.02"], result.Lines.Select(x => x.NetExact).Order().ToArray());
+    }
+
+    [Fact]
+    public void Issued_value_ceiling_uses_exact_eight_decimal_product_not_current_rounding()
+    {
+        var (invoice, original, baseIssued, input) = Fixture();
+        original.Quantity = .0001m; original.UnitPrice = .9999m;
+        invoice.NetAmount = .0001m; invoice.GrossAmount = .0001m;
+        var issued = baseIssued with { Lines = [baseIssued.Lines[0] with
+            { Quantity = .0001m, UnitPrice = .9999m }] };
+        var zero = new InvoiceFieldTolerance(0, 0, InvoiceToleranceCombination.AllLimits);
+        var policy = new InvoiceMatchingPolicy(Guid.NewGuid(), 4, invoice.TenantId,
+            invoice.LegalEntityId, invoice.BranchRef, "Published", "reviewed policy",
+            DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1), 4,
+            InvoiceMoneyRounding.AwayFromZero,
+            [new InvoiceCategoryMatchRule("GOODS", "ZMW", InvoiceMatchingMethod.TwoWay,
+                null, zero, zero, zero, zero)]);
+        var result = CompareWithEmptyOwner(invoice, [original], issued, [input], policy);
+        Assert.False(result.CanClaim);
+        Assert.Contains(result.Blockers, x => x.Code == "CumulativeTotalOutsideTolerance");
+    }
+
+    private static PrincipalInvoiceComparisonPreview CompareWithEmptyOwner(SupplierInvoice invoice,
+        IReadOnlyList<SupplierInvoiceLine> originals, InvoiceIssuedOrder issued,
+        IReadOnlyList<PrincipalInvoiceMappingInputLine> inputs, InvoiceMatchingPolicy policy)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var mapping = PrincipalInvoiceMappingEvidence.Create(invoice, originals, issued, [],
+            new Dictionary<Guid, Guid>(), inputs, 1, Guid.NewGuid().ToString("D"), null, now);
+        var snapshot = PrincipalInvoiceMappingEvidence.Verify(mapping, invoice, originals, issued,
+            [], new Dictionary<Guid, Guid>(), inputs.Select(x => Row(mapping, x)).ToArray());
+        var state = new PrincipalInvoiceState { TenantId = invoice.TenantId,
+            LegalEntityId = invoice.LegalEntityId, SupplierInvoiceId = invoice.Id,
+            BranchId = invoice.BranchRef!.Value, SupplierId = invoice.SupplierId,
+            CurrencyCode = invoice.CurrencyCode, InvoiceVersion = invoice.Version,
+            MappingRevision = 1, CurrentMappingId = mapping.Id, State = "Reviewed" };
+        var context = new InvoiceExposureReadContext(invoice.TenantId, invoice.LegalEntityId,
+            invoice.BranchRef, issued.Id, issued.RevisionId, invoice.SupplierId,
+            invoice.CurrencyCode, new string('a', 64), now);
+        var until = now.AddHours(1);
+        var envelope = new InvoiceOwnerExposureEnvelope(1, invoice.TenantId, invoice.LegalEntityId,
+            invoice.BranchRef, issued.Id, issued.RevisionId, invoice.SupplierId,
+            invoice.CurrencyCode, context.PolicyRulesSha256, "empty-owner", "owner-watermark",
+            until, InvoiceMatchExecutionEvidence.AllocationsDigest([]));
+        var json = System.Text.Json.JsonSerializer.Serialize(envelope,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var owner = new InvoiceHistoricalExposure(true, "Verified", "empty-owner", "owner-watermark",
+            json, ProcurementEvidenceEncoding.PolicyJsonDigest(json), context.PolicyRulesSha256, until, []);
+        var exposure = new PrincipalInvoiceExposureState { TenantId = invoice.TenantId,
+            LegalEntityId = invoice.LegalEntityId, BranchId = invoice.BranchRef.Value,
+            PurchaseOrderId = issued.Id, PrincipalIssuedVersionId = issued.RevisionId,
+            SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode };
+        var history = PrincipalInvoiceExposureEvidence.CompleteHistory(owner, context, exposure, []);
+        var duplicates = new InvoiceDuplicateEvidence("current", true,
+            [new InvoiceDuplicateIdentity(invoice.Id, invoice.TenantId, invoice.LegalEntityId,
+                invoice.SupplierId, invoice.NormalizedInvoiceNumber, invoice.CurrencyCode)]);
+        return PrincipalInvoiceComparisonRules.Evaluate(invoice, originals, state, mapping,
+            snapshot, issued, [], new Dictionary<Guid, Guid>(),
+            originals.ToDictionary(x => x.Id, _ => "EACH"), policy, owner,
+            context, history, duplicates, now);
+    }
+
+    [Fact]
     public void Historical_four_decimal_claim_keeps_its_frozen_precision_when_current_policy_is_two_decimals()
     {
         var (invoice, original, baseIssued, input) = Fixture();
