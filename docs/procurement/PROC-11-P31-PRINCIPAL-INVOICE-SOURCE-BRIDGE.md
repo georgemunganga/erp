@@ -116,7 +116,7 @@ Bound selector rows and complete retained ledger loads. Enforce pre-count scope,
 
 ## 23. Postconditions
 
-Successful comparison stores only a validated Procurement match/result/claim tied to original invoice and genuine source evidence. Blocked comparison stores a reason/history without AP, stock or payment side effects.
+Successful comparison stores only a validated Procurement match/result/claim tied to original invoice and genuine source evidence. The current held P31 command denies a blocked comparison without a claim; a durable typed exception/history workflow is a separate required follow-up before full invoice UX acceptance. No AP, stock or payment side effect is inferred.
 
 ## 24. Failure and Recovery
 
@@ -132,7 +132,7 @@ Author typed projection/precision and mixed-ID denial tests; mapped source-befor
 
 ## 27. Ownership / Dependencies
 
-P30 PO and P31 receiving source contracts must be reviewed and actually activated first. Invoice team owns only the versioned bridge/mapping and match; Core document/case services retain their authority. Finance owner coverage may remain unavailable, which correctly holds qualified claims. Parent owns generated migration and release gates.
+P30 PO and P31 receiving source contracts must be reviewed and actually activated first. Invoice team owns only the versioned bridge/mapping and match; Core document/case services retain their authority. Procurement must prove complete typed commercial exposure itself; Finance owns AP/posting/payment. Parent owns generated migration and release gates.
 
 ## 28. Open Decisions / Assumptions
 
@@ -195,3 +195,28 @@ owner contracts are provided. It must not call the legacy `InvoiceEvidence` or
 write `InvoiceMatchAllocation` using principal fact UUIDs. Keep the new matching
 capability false and the old P22/legacy read paths intact until a genuine
 same-transaction PostgreSQL/finite-role/HTTP/browser proof passes.
+
+### Held P31 command checkpoint
+
+Separate unregistered schema-2 routes now cover mapping, Core original-unit
+review opening/assigned decision/actor-owned recovery, and a PO2 commercial
+comparison. An approved review stores one explicit attestation per Core vote
+and advances the invoice's typed state to Reviewed. Return/Reject are retained
+terminal outcomes without a verified-unit claim. A comparison rereads the
+exact issued and receiving graph, current original documents, Core decision
+history, duplicates, published policy and Procurement-owned complete typed
+exposure under a serializable transaction and source PO lock. It creates
+typed line claims and one actor-owned command receipt atomically, with
+`canPostToFinance=false` and no legacy match, AP, bank or stock write.
+
+The exposure starts Unknown/sequence zero only in the same transaction as
+an exact principal mapping. A comparison may advance it to Verified only
+with a same-save compared claim and receipt. Retained claims must rebind to
+the frozen comparison lines and original invoice arithmetic; altered
+positive amounts cannot mint a new clean exposure watermark. Genuine P31
+migration, deferred SQL immutability/effect constraints, finite roles,
+readiness, actual PostgreSQL and normal HTTP proof have **not** run. The
+source is not mapped in the normal host and must stay unavailable until
+those gates pass. Controlled mapping revision after Return/Reject, supplier
+credit/reversal history and AP handoff remain separate unfinished workflows;
+the current owner blocks unknown or mixed credit/legacy history.

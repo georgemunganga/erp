@@ -19,6 +19,8 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
     {
         app.MapPost("/api/procurement/v1/invoices/{id:guid}/principal-matching/comparisons", Compare)
             .RequireAuthorization("procurement-invoice-read", "procurement-invoice-match");
+        app.MapGet("/api/procurement/v1/invoices/{id:guid}/principal-matching/comparisons/commands/{key:guid}", Recover)
+            .RequireAuthorization("procurement-invoice-read", "procurement-invoice-match");
     }
 
     private static async Task<IResult> Compare(Guid id, CompareInput? input, HttpContext http,
@@ -206,4 +208,47 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
 
     private static decimal Exact(string value) => decimal.Parse(value,
         NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+
+    private static async Task<IResult> Recover(Guid id, Guid key, HttpContext http,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
+        http.Response.Headers.CacheControl = "private, no-store";
+        if (key == Guid.Empty || http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>()
+                is not { Enabled: true }
+            || http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is not { } ready
+            || !await ready.IsReadyAsync(ct))
+            return Results.Json(new { code = "PrincipalInvoiceComparisonUnavailable" }, statusCode: 503);
+        return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
+        {
+            if (!await ready.IsReadyAsync(db, token)) throw new InvalidOperationException("PrincipalInvoiceComparisonSchemaUnavailable");
+            var (invoice, branches) = await ProcurementPrincipalInvoiceSourceRoutes.Current(
+                db, core, scope, http, auth, id, token);
+            var receipt = await db.PrincipalInvoiceCommandReceipts.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Operation == "Compare" && x.CommandKey == key
+                    && x.SupplierInvoiceId == id, token) ?? throw new KeyNotFoundException();
+            if (receipt.ActorPrincipalId != scope.SubjectId
+                || receipt.ActorWorkerAliasId != scope.CoreLinkedWorkerId
+                || receipt.BranchId != invoice.BranchRef || receipt.RequestSha256 is not { Length: 64 }
+                || receipt.ResponseSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.ResponseJson))
+                throw new KeyNotFoundException();
+            var comparison = await db.PrincipalInvoiceComparisons.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.SupplierInvoiceId == id && x.CommandKey == key, token)
+                ?? throw new InvalidOperationException("PrincipalInvoiceComparisonReceiptWithoutEffect");
+            using var parsed = JsonDocument.Parse(receipt.ResponseJson);
+            var response = parsed.RootElement;
+            if (comparison.ActorPrincipalId != scope.SubjectId
+                || comparison.ActorWorkerAliasId != scope.CoreLinkedWorkerId
+                || comparison.Outcome != "Compared"
+                || !await ProcurementPrincipalInvoiceSourceBridge.QueryBound(db, scope, branches, invoice)
+                    .AnyAsync(x => x.Id == comparison.PurchaseOrderId, token)
+                || response.GetProperty("invoiceId").GetGuid() != id
+                || response.GetProperty("comparisonId").GetGuid() != comparison.Id
+                || response.GetProperty("mappingVersionId").GetGuid() != comparison.MappingVersionId
+                || response.GetProperty("commandKey").GetGuid() != key
+                || response.GetProperty("sourceSchemaVersion").GetInt32() != 2
+                || response.GetProperty("canPostToFinance").GetBoolean())
+                throw new InvalidOperationException("PrincipalInvoiceComparisonReceiptChanged");
+            return JsonSerializer.Deserialize<JsonElement>(receipt.ResponseJson, Json);
+        }, ct);
+    }
 }

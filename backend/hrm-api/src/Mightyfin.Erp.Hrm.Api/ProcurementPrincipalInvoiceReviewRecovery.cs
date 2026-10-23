@@ -63,6 +63,12 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
                         && x.ActorSubjectId == scope.SubjectId, token);
                 if (decision is null || response.GetProperty("coreCaseId").GetGuid() != source.CoreCaseId)
                     throw new InvalidOperationException("PrincipalInvoiceReviewDecisionReceiptChanged");
+                var terminalId = response.GetProperty("outcomeId");
+                if (terminalId.ValueKind != JsonValueKind.Null
+                    && !await db.PrincipalInvoiceUnitReviewOutcomes.AsNoTracking().AnyAsync(x =>
+                        x.Id == terminalId.GetGuid() && x.ReviewSourceId == source.Id
+                            && x.FinalDecisionId == decisionId, token))
+                    throw new InvalidOperationException("PrincipalInvoiceReviewOutcomeReceiptChanged");
             }
             return JsonSerializer.Deserialize<JsonElement>(row.ResponseJson, Json);
         }, ct);
