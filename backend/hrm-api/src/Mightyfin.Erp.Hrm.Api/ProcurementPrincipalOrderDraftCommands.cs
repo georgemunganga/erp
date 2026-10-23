@@ -127,7 +127,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var order=await Owned(db,core,scope,http,auth,"procurement-po-edit",id,token);
             if(order.Status!="Draft" || order.Version!=input.ExpectedOrderVersion
                 || order.OriginalDirectSourceSha256!=input.OriginalDirectSourceSha256
-                || order.FinanceCommitmentRef is not null)throw new Problem("OrderDraftChanged",409);
+                || order.FinanceCommitmentRef is not null
+                || await db.PrincipalOrderFundingEvidence.AnyAsync(x=>x.PurchaseOrderId==id,token))
+                throw new Problem("OrderDraftChanged",409);
             var lines=await db.PurchaseOrderLines.Where(x=>x.PurchaseOrderId==id&&x.IsActive).ToArrayAsync(token);
             var bindings=await db.PrincipalOrderSourceBindings.Where(x=>x.PurchaseOrderId==id).ToArrayAsync(token);
             if(lines.Length!=bindings.Length || bindings.Length is <1 or >100

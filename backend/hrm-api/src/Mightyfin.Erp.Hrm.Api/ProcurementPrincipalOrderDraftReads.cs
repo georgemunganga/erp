@@ -71,7 +71,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         ProcurementRequestScope scope,CancellationToken ct)=>Run(http,scope,async(db,cases,core,auth,token)=>
     {
         var paging=ProcurementSourcingDiscoveryQueries.Paging(page,pageSize,q);
-        if(state is not (null or "Draft" or "Cancelled"))throw new Problem("OrderStateInvalid",422);
+        if(state is not (null or "Draft" or "Cancelled" or "PendingApproval" or "Approved"
+            or "Returned" or "Rejected" or "IssuePending" or "Issued" or "Disputed"))
+            throw new Problem("OrderStateInvalid",422);
         var actor=await Actor(core,scope,http,auth,"procurement-po-read",null,false,token);
         var branches=await ProcurementExecutionRecordScope.Branches(core,scope,null,false,token);
         var query=db.PurchaseOrders.AsNoTracking().Where(x=>x.PrincipalDraftSchemaVersion==2
@@ -85,7 +87,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             .Skip(paging.Offset).Take(paging.Size).Select(x=>new{x.Id,x.Number,x.SupplierId,x.BranchRef,x.CurrencyCode,
                 x.Status,x.Version,x.CreatedAt,x.OriginalDirectSourceSha256}).ToArrayAsync(token);
         return new Reply(JsonSerializer.Serialize(new{items=rows,total,page=paging.Number,pageSize=paging.Size,
-            canSubmit=false,canIssue=false},Json));
+            executionMode="PrincipalOrderV2",manualFundingOnly=true,supplierSendPerformed=false},Json));
     },ct);
 
     private static Task<IResult> Detail(Guid id,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
@@ -101,7 +103,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             if(allocations.Length!=bindings.Length || bindings.Any(x=>
                 allocations.Count(a=>a.Id==x.AllocationId&&a.TargetType=="PurchaseOrder"&&a.TargetId==id
                     &&a.Quantity==x.Quantity&&a.EstimatedValue==x.EstimatedValue
-                    &&a.Status==(order.Status=="Draft"?"Reserved":"Released"))!=1))
+                    &&a.Status==(order.Status=="Cancelled"?"Released"
+                        :order.Status is "IssuePending" or "Issued" or "Disputed"?"Ordered":"Reserved"))!=1))
                 throw new Problem("OrderOriginalSourceUnavailable",409);
             return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.SupplierId,
                 order.CurrencyCode,order.BranchRef,order.Status,order.Version,order.CreatedAt,
@@ -115,19 +118,75 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     line.PurchaseRequestLineId,
                     purchaseRequestId=bindings.Single(x=>x.PurchaseOrderLineId==line.Id).PurchaseRequestId,
                     allocationStatus=allocations.Single(x=>x.Id==bindings.Single(b=>b.PurchaseOrderLineId==line.Id).AllocationId).Status}).ToArray(),
-                canSubmit=false,canIssue=false,financeReservationChanged=false},Json));
+                executionMode="PrincipalOrderV2",manualFundingOnly=true,
+                financeReservationChanged=false,supplierSendPerformed=false},Json));
         },ct);
+
+    private static Task<IResult> Review(Guid id,Guid assignmentId,HttpContext http,
+        ProcurementRequestScope scope,CancellationToken ct)=>Run(http,scope,async(db,cases,core,auth,token)=>
+    {
+        var pin=await db.PrincipalOrderAssignmentEvidence.AsNoTracking()
+            .SingleOrDefaultAsync(x=>x.CoreAssignmentId==assignmentId&&x.PrincipalId==scope.SubjectId,token)
+            ??throw new Problem("OrderAssignmentNotFound",404);
+        var submission=await db.PrincipalOrderSubmissions.AsNoTracking()
+            .SingleOrDefaultAsync(x=>x.Id==pin.SubmissionId&&x.PurchaseOrderId==id,token)
+            ??throw new Problem("OrderAssignmentNotFound",404);
+        var order=await db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==id
+            &&x.PrincipalDraftSchemaVersion==2,token)??throw new Problem("OrderNotFound",404);
+        _=await Actor(core,scope,http,auth,"procurement-po-approve",order.BranchRef,true,token);
+        var task=await cases.Assignments.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==assignmentId
+            &&x.CaseId==submission.CoreApprovalCaseId&&x.StageId==pin.CoreStageId
+            &&x.AssigneeSubjectId==scope.SubjectId&&x.PermissionKey=="procurement-po-approve"
+            &&x.DelegatedFromSubjectId==null,token)??throw new Problem("OrderAssignmentNotFound",404);
+        var workflow=await cases.Cases.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==submission.CoreApprovalCaseId
+            &&x.SourceModule=="procurement"&&x.SourceType=="purchase_order"
+            &&x.SourceId==id&&x.SourceVersion==1,token)??throw new Problem("OrderApprovalCaseNotFound",409);
+        var funding=await db.PrincipalOrderFundingEvidence.AsNoTracking()
+            .SingleOrDefaultAsync(x=>x.Id==submission.FundingEvidenceId&&x.PurchaseOrderId==id,token)
+            ??throw new Problem("OrderFundingEvidenceMissing",409);
+        var lines=await db.PurchaseOrderLines.AsNoTracking().Where(x=>x.PurchaseOrderId==id&&x.IsActive)
+            .OrderBy(x=>x.LineNumber).ToArrayAsync(token);
+        var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking().Where(x=>x.PurchaseOrderId==id)
+            .ToArrayAsync(token);
+        PrincipalOrderDraftPins.Verify(order,lines,bindings);
+        if(submission.CommercialSnapshotSha256!=ProcurementEvidenceEncoding.Digest(submission.CommercialSnapshotJson)
+            || submission.CommercialSnapshotJson!=funding.CommercialSnapshotJson
+            || submission.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
+            || pin.CoreApprovalCaseId!=workflow.Id || pin.PrincipalId!=task.AssigneeSubjectId)
+            throw new Problem("OrderApprovalEvidenceChanged",409);
+        return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.Status,order.Version,
+            order.CurrencyCode,order.SupplierId,order.BranchRef,submissionId=submission.Id,
+            submission.CommercialRevision,submission.CommercialSnapshotJson,
+            lineBaseAmountExact=ProcurementEvidenceEncoding.Decimal(submission.LineBaseAmount),
+            grossAmountExact=ProcurementEvidenceEncoding.Decimal(submission.GrossAmount),
+            funding.ManualCommitmentReference,funding.ExternalEvidenceReference,
+            funding.ApprovedManualPolicyReference,
+            coreCaseId=workflow.Id,caseState=workflow.State,caseVersion=workflow.Version,
+            assignmentId=task.Id,assignmentState=task.State,assignmentVersion=task.Version,
+            canDecide=order.Status=="PendingApproval"&&workflow.State=="Pending"&&task.State=="Pending",
+            financePostingCreated=false,supplierSendPerformed=false},Json));
+    },ct);
 
     private static Task<IResult> Recover(string operation,Guid key,HttpContext http,
         ProcurementRequestScope scope,CancellationToken ct)=>Run(http,scope,async(db,cases,core,auth,token)=>
     {
-        if(operation is not ("Create" or "Cancel") || key==Guid.Empty)throw new Problem("OrderReceiptNotFound",404);
-        var action=operation=="Create"?"procurement-po-convert":"procurement-po-edit";
+        if(key==Guid.Empty)throw new Problem("OrderReceiptNotFound",404);
+        var action=operation switch
+        {
+            "Create"=>"procurement-po-convert",
+            "Cancel"=>"procurement-po-edit",
+            "Funding"=>"procurement-po-finance-confirm",
+            "Submit"=>"procurement-po-submit",
+            "Decide"=>"procurement-po-approve",
+            "Issue"=>"procurement-po-issue",
+            "Ack"=>"procurement-po-dispatch-confirm",
+            _=>throw new Problem("OrderReceiptNotFound",404)
+        };
         _=await Actor(core,scope,http,auth,action,null,false,token);
         var receipt=await Replay(db,core,scope,http,auth,action,operation,key,null,null,token)
             ??throw new Problem("OrderReceiptNotFound",404);
         return new Reply(JsonSerializer.Serialize(new{operation,commandKey=key,
             originalStatusCode=receipt.Status,responseJson=receipt.Body,recordedHistoricalResult=true,
-            canSubmit=false,canIssue=false},Json));
+            historicalOnly=true,financeReservationChanged=false,supplierSendPerformed=false},Json));
     },ct);
 }

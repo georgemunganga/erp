@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
@@ -20,6 +21,15 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     private sealed record Reply(string Body,int Status=200);
     public sealed record CreateInput(OrderDraftInput Draft,IReadOnlyList<OrderSourceSelection> Sources);
     public sealed record CancelInput(long ExpectedOrderVersion,string OriginalDirectSourceSha256,string Reason);
+    public sealed record FundingInput(long ExpectedOrderVersion,string ManualCommitmentReference,
+        string ExternalEvidenceReference,string CurrencyCode,
+        [property:JsonConverter(typeof(CommercialGrossDecimalJsonConverter))] decimal AttestedGrossAmount,
+        IReadOnlyList<string> SourceReservationReferences,DateTimeOffset ObservedAt);
+    public sealed record DecisionInput(string Action,string? Reason,long ExpectedOrderVersion,
+        long ExpectedCaseVersion,long ExpectedAssignmentVersion);
+    public sealed record VersionInput(long ExpectedOrderVersion);
+    public sealed record AcknowledgmentInput(long ExpectedOrderVersion,Guid IssuedVersionId,
+        string Outcome,string Channel,string SupplierReference,string EvidenceReference,DateTimeOffset ObservedAt);
 
     public static void MapRoutes(WebApplication app)
     {
@@ -28,8 +38,15 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         group.MapPost("/from-approved-principal-direct-sources",Create).RequireAuthorization("procurement-po-convert");
         group.MapGet("/principal-direct-drafts",List).RequireAuthorization("procurement-po-read");
         group.MapGet("/{id:guid}/principal-direct-draft",Detail).RequireAuthorization("procurement-po-read");
+        group.MapGet("/{id:guid}/principal-review/{assignmentId:guid}",Review)
+            .RequireAuthorization("procurement-po-approve");
         group.MapPost("/{id:guid}/principal-direct-cancel",Cancel).RequireAuthorization("procurement-po-edit");
         group.MapGet("/principal-direct-command-receipts/{operation}/{key:guid}",Recover).RequireAuthorization("procurement-po-read");
+        group.MapPost("/{id:guid}/principal-funding",Funding).RequireAuthorization("procurement-po-finance-confirm");
+        group.MapPost("/{id:guid}/principal-submit",Submit).RequireAuthorization("procurement-po-submit");
+        group.MapPost("/{id:guid}/principal-decisions/{assignmentId:guid}",Decide).RequireAuthorization("procurement-po-approve");
+        group.MapPost("/{id:guid}/principal-issue",Issue).RequireAuthorization("procurement-po-issue");
+        group.MapPost("/{id:guid}/principal-acknowledgment",Acknowledgment).RequireAuthorization("procurement-po-dispatch-confirm");
     }
     private static async Task<IResult> Run(HttpContext http,ProcurementRequestScope scope,
         Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<Reply>> operation,
@@ -103,7 +120,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         if(scope.PrincipalId?.ToString("D")!=scope.SubjectId || scope.OrgUnitId is not null)
             throw new Problem("OrderActionDenied",403);
         var person=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,scope.SubjectId,ct);
-        if(person is null || !person.Permissions.Contains(action)
+        if(person is null || person.CoreLinkedWorkerId!=scope.CoreLinkedWorkerId
+            || !person.Permissions.Contains(action)
             || !(await auth.AuthorizeAsync(http.User,action)).Succeeded)throw new Problem("OrderActionDenied",403);
         try{_=await ProcurementExecutionRecordScope.Branches(core,scope,branch,target,ct);}
         catch(KeyNotFoundException){throw new Problem("OrderNotFound",404);}
@@ -124,9 +142,13 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         if(receipt is null)return null;
         if(receipt.ActorPrincipalId!=scope.SubjectId || target is { } id && receipt.PurchaseOrderId!=id)
             throw new Problem("OrderReceiptNotFound",404);
-        _=await Owned(db,core,scope,http,auth,action,receipt.PurchaseOrderId,ct);
+        var order=await db.PurchaseOrders.SingleOrDefaultAsync(x=>x.Id==receipt.PurchaseOrderId
+            &&x.PrincipalDraftSchemaVersion==2,ct)??throw new Problem("OrderReceiptNotFound",404);
+        if(operation is "Create" or "Cancel" && order.BuyerSubjectId!=scope.SubjectId)
+            throw new Problem("OrderReceiptNotFound",404);
+        _=await Actor(core,scope,http,auth,action,order.BranchRef,true,ct);
         if(fingerprint is not null && receipt.CommandSha256!=fingerprint)throw new Problem("OrderCommandKeyConflict",409);
-        if(receipt.SchemaVersion!=2 || receipt.ResponseStatus!=(operation=="Create"?201:200)
+        if(receipt.SchemaVersion!=2 || receipt.ResponseStatus!=ResponseStatus(operation)
             || receipt.ResponseSha256!=ProcurementEvidenceEncoding.Digest(receipt.ResponseJson))
             throw new Problem("OrderReceiptNeedsReview",409);
         return new(receipt.ResponseJson,receipt.ResponseStatus);
@@ -136,16 +158,19 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     {
         // Create and Cancel share one physical transaction with their receipt. A rollback
         // removes both; an unknown network result is recovered by actor-owned GET.
-        var version=operation=="Create"?1:checked(order.Version+1);
+        db.ChangeTracker.DetectChanges();
+        var version=db.Entry(order).State==EntityState.Modified?checked(order.Version+1):order.Version;
         var body=JsonSerializer.Serialize(new{orderId=order.Id,order.Number,status=order.Status,version,
             originalDirectSourceSha256=order.OriginalDirectSourceSha256,commandKey=key,
-            recordedHistoricalResult=true,canSubmit=false,canIssue=false,financeReservationChanged=false},Json);
+            recordedHistoricalResult=true,manualFundingOnly=true,financeReservationChanged=false,
+            supplierSendPerformed=false},Json);
         db.AddScoped(new PrincipalOrderDraftReceipt{PurchaseOrderId=order.Id,Operation=operation,CommandKey=key,
             ActorPrincipalId=scope.SubjectId,CommandSha256=fingerprint,ResponseJson=body,
-            ResponseSha256=ProcurementEvidenceEncoding.Digest(body),ResponseStatus=operation=="Create"?201:200,
+            ResponseSha256=ProcurementEvidenceEncoding.Digest(body),ResponseStatus=ResponseStatus(operation),
             ResultVersion=version,CompletedAt=DateTimeOffset.UtcNow});
-        return Task.FromResult(new Reply(body,operation=="Create"?201:200));
+        return Task.FromResult(new Reply(body,ResponseStatus(operation)));
     }
+    private static int ResponseStatus(string operation)=>operation is "Create" or "Submit" or "Issue"?201:200;
     private static void Record(ProcurementDbContext db,ProcurementRequestScope scope,PurchaseOrder order,
         string operation,Guid key,object detail)
     {
@@ -153,10 +178,17 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             ActorSubjectId=scope.SubjectId,CorrelationId=scope.CorrelationId,
             ChangedFieldsJson=JsonSerializer.Serialize(new{schemaVersion=2,commandKey=key,detail},Json)});
         db.AddScoped(new OutboxEvent{AggregateType="PurchaseOrder",AggregateId=order.Id,
-            EventType=operation=="Create"?"purchase_order.internal_draft_reserved.v2":"purchase_order.internal_draft_cancelled.v2",
+            EventType=operation switch {"Create"=>"purchase_order.internal_draft_reserved.v2",
+                "Cancel"=>"purchase_order.internal_draft_cancelled.v2",
+                "Funding"=>"purchase_order.manual_commitment_recorded.v2",
+                "Submit"=>"purchase_order.approval_opened.v2",
+                "Decide"=>"purchase_order.approval_decided.v2",
+                "Issue"=>"purchase_order.internal_version_authorized.v2",
+                "Ack"=>"purchase_order.supplier_response_observed.v2",_=>throw new InvalidOperationException("OrderEventInvalid")},
             IdempotencyKey=$"po.principal.{operation}.{key:N}.v2",
             PayloadJson=JsonSerializer.Serialize(new{orderId=order.Id,commandKey=key,
-                internallyIssued=false,financeReservationChanged=false},Json)});
+                internalVersionAuthorized=operation=="Issue",supplierSendPerformed=false,
+                financeReservationChanged=false},Json)});
     }
 }
 
