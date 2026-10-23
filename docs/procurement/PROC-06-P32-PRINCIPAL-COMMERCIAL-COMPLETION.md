@@ -154,8 +154,8 @@ eligible or independent. `IsPublicationAuthority` is always false; no module
 provider, API, configuration lifecycle, EF model, migration, feature metadata or
 runtime service registration consumes the definition in this slice.
 
-Fourteen pure cases are authored in
-`PrincipalRfqEvaluationPlanDefinitionTests` (10 facts and a four-case theory):
+Thirteen pure cases are authored in
+`PrincipalRfqEvaluationPlanDefinitionTests` (9 facts and a four-case theory):
 explicit values/false/null; collection mutation denial; explicit normalization;
 raw excess precision/overflow/zero/negative; numeric rounding; duplicates and
 old/unknown/missing fields; named-assignment identity/emptiness; pass/fail
