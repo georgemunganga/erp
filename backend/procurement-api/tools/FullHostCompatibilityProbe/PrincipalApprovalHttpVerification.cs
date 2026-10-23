@@ -118,7 +118,9 @@ internal static partial class PrincipalApprovalHttpVerification
                 Need(scope.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>() is UnavailableProcurementPrincipalApprovalSchemaReadiness,"Negative provider control unexpectedly enabled.");
                 var baseline=await PrincipalFootprintAsync(ownerConnection);
                 var meta=await Send(client,HttpMethod.Get,"/api/procurement/v1/meta",fixture.Maker);Need(!meta.GetProperty("capabilities").GetProperty("principalApprovals").GetBoolean(),"Negative unavailable provider advertised approval.");
-                await Send(client,HttpMethod.Post,$"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-cases",fixture.Maker,new{expectedRequestVersion=1L},HttpStatusCode.ServiceUnavailable);
+                // Physical legacy availability permits the scoped lookup. An absent
+                // record remains 404; the real principal-row control follows below.
+                await Send(client,HttpMethod.Post,$"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-cases",fixture.Maker,new{expectedRequestVersion=1L},HttpStatusCode.NotFound);
                 await ReadAcknowledgementWithoutEffectsAsync(ownerConnection,client,Send,
                     $"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-commands/Open/{Guid.NewGuid()}",fixture.Maker,HttpStatusCode.ServiceUnavailable);
                 result["negativeProviderGetAcknowledgementVerified"]=true;
@@ -153,6 +155,9 @@ internal static partial class PrincipalApprovalHttpVerification
                 await VerifyRequestRawStorageAsync(ownerConnection,id,PrincipalApprovalFixture.Tenant,fixture.Company,
                     submitted.GetProperty("version").GetInt64());
                 result["originalRequestRawStorage"]=PrincipalRawStorageVerification;
+                Advance("UnavailableProviderExistingPrincipalControl");
+                await VerifyUnavailableExistingPrincipalAsync(fixture,owner,roles,ownerConnection,id,
+                    submitted.GetProperty("version").GetInt64(),result,Send);
                 Advance("FundingUnavailableNoEffects");var before=await PrincipalFootprintAsync(ownerConnection);
                 var readiness=await Send(client,HttpMethod.Get,path+"/approval-readiness",fixture.Maker);
                 Need(!readiness.GetProperty("canOpenCase").GetBoolean()&&readiness.GetProperty("blockers").EnumerateArray().Any(x=>x.GetString()=="PrincipalFinanceCheckerEvidenceRequired"),"Missing Finance/checker evidence must block actual readiness.");
