@@ -115,6 +115,13 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 if(!await ProcurementPrincipalPeople.IndependentNow(core,scope.TenantId,original.Item1,original.Item2,
                     recorder.PrincipalId,recorder.CoreLinkedWorkerId,token))
                     throw new Problem("OrderSupplierResponseSegregationRequired",403);
+            var decisions=await db.PrincipalOrderDecisions.AsNoTracking()
+                .Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
+            foreach(var decision in decisions)
+                if(!await ProcurementPrincipalPeople.IndependentNow(core,scope.TenantId,
+                    decision.ActorPrincipalId,decision.ActorWorkerAliasId,
+                    recorder.PrincipalId,recorder.CoreLinkedWorkerId,token))
+                    throw new Problem("OrderSupplierResponseSegregationRequired",403);
             db.AddScoped(new PrincipalOrderAcknowledgment{IssuedVersionId=issued.Id,PurchaseOrderId=id,
                 Outcome=input.Outcome,Channel=channel!,SupplierReference=reference,EvidenceReference=evidence,
                 RecordedByPrincipalId=recorder.PrincipalId,RecordedByWorkerAliasId=recorder.CoreLinkedWorkerId,

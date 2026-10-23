@@ -212,15 +212,17 @@ above. It does not activate endpoints or reinterpret PR approval as PO approval.
 6. **Entry:** only a verified P30 draft; no unlinked, RFQ or worker-era PO is
    promoted by a principal command.
 7. **Preconditions:** current company/branch/actions, source allocation and
-   commercial snapshot, active supplier, one published PO policy and a
-   separately approved/effective manual commitment policy. No configured
-   approval authority means no submission.
+   commercial snapshot, active supplier, one independently reviewed published
+   PO policy and one effective manual commitment configuration with an external
+   approval reference. The reference is an attestation of approval outside the
+   app, not in-app proof that Finance approved it. Governance must validate its
+   owner before activation. No configured PO-specific authority means no submission.
 8. **Workflow:** draft → independent commitment evidence → policy route and
    Core case → current assigned decisions → approved → issue freeze → manually
    observed supplier outcome. Each command locks the PO and source/case rows.
 9. **States:** `Draft → PendingApproval → Approved → IssuePending → Issued`.
-   `Returned`, `Rejected` and `AcknowledgmentFailed/Unknown` are explicit
-   outcomes requiring separately specified resolution; they confer no edit.
+   `Returned`, `Rejected` and `Disputed` are explicit outcomes requiring
+   separately specified resolution; they confer no edit.
 10. **Permissions/scope:** `procurement-po-finance-confirm`, `-submit`,
     `-approve`, `-issue`, `-dispatch-confirm`, and `-read` stay separate. A role
     grant is never a monetary limit; Core company/branch and exact assignment
@@ -267,6 +269,7 @@ above. It does not activate endpoints or reinterpret PR approval as PO approval.
     migration/finite-role PostgreSQL proof, normal-cookie HTTP and UI proof.
 27. **Ownership/dependencies:** Procurement and Core approval owners implement
     the route; Finance confirms whether each external reference is valid.
-28. **Open:** explicit launch policy and Finance reference owner, release on
-    Return/Reject, revision rules and supplier channel controls remain product
-    decisions. They cannot be inferred from the worker implementation.
+28. **Open:** Finance owner must verify the external approval reference and
+    manual commitment procedure before activation. Funded draft cancellation,
+    release on Return/Reject, revision rules and supplier channel controls
+    remain product decisions. They cannot be inferred from the worker path.

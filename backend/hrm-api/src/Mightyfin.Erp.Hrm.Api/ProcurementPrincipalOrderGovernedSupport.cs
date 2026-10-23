@@ -91,7 +91,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var policies=options.ManualCommitmentPolicies.Where(x=>x.Enabled&&x.LegalEntityId==company
             &&x.EffectiveFrom!=default&&x.EffectiveFrom<=now&&(x.EffectiveUntil is null||now<x.EffectiveUntil)
             &&!string.IsNullOrWhiteSpace(x.ApprovedPolicyReference)
-            &&x.EvidenceMaximumAgeMinutes is null or >0).ToArray();
+            &&(x.EvidenceMaximumAgeMinutes is null or >0)).ToArray();
         return policies.Length==1?policies[0]:throw new Problem("OrderApprovedFinancePolicyRequired",409);
     }
     private static async Task<PrincipalOrderFundingEvidence> CurrentFunding(ProcurementDbContext db,

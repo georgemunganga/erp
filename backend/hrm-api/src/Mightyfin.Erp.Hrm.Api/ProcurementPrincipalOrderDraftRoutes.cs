@@ -41,7 +41,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         group.MapGet("/{id:guid}/principal-review/{assignmentId:guid}",Review)
             .RequireAuthorization("procurement-po-approve");
         group.MapPost("/{id:guid}/principal-direct-cancel",Cancel).RequireAuthorization("procurement-po-edit");
-        group.MapGet("/principal-direct-command-receipts/{operation}/{key:guid}",Recover).RequireAuthorization("procurement-po-read");
+        // Recovery is scoped by the original command action inside Replay. A
+        // Finance recorder or assigned reviewer need not hold broad PO read.
+        group.MapGet("/principal-direct-command-receipts/{operation}/{key:guid}",Recover).RequireAuthorization("procurement-access");
         group.MapPost("/{id:guid}/principal-funding",Funding).RequireAuthorization("procurement-po-finance-confirm");
         group.MapPost("/{id:guid}/principal-submit",Submit).RequireAuthorization("procurement-po-submit");
         group.MapPost("/{id:guid}/principal-decisions/{assignmentId:guid}",Decide).RequireAuthorization("procurement-po-approve");
@@ -174,7 +176,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     private static void Record(ProcurementDbContext db,ProcurementRequestScope scope,PurchaseOrder order,
         string operation,Guid key,object detail)
     {
-        db.AddScoped(new AuditEvent{RecordType="PurchaseOrder",RecordId=order.Id,Action="PrincipalDraft"+operation,
+        db.AddScoped(new AuditEvent{RecordType="PurchaseOrder",RecordId=order.Id,Action="PrincipalOrder"+operation,
             ActorSubjectId=scope.SubjectId,CorrelationId=scope.CorrelationId,
             ChangedFieldsJson=JsonSerializer.Serialize(new{schemaVersion=2,commandKey=key,detail},Json)});
         db.AddScoped(new OutboxEvent{AggregateType="PurchaseOrder",AggregateId=order.Id,

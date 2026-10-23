@@ -141,6 +141,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var workflow=await cases.Cases.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==submission.CoreApprovalCaseId
             &&x.SourceModule=="procurement"&&x.SourceType=="purchase_order"
             &&x.SourceId==id&&x.SourceVersion==1,token)??throw new Problem("OrderApprovalCaseNotFound",409);
+        var stage=await cases.Stages.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==task.StageId
+            &&x.CaseId==workflow.Id,token)??throw new Problem("OrderAssignmentNotFound",404);
         var funding=await db.PrincipalOrderFundingEvidence.AsNoTracking()
             .SingleOrDefaultAsync(x=>x.Id==submission.FundingEvidenceId&&x.PurchaseOrderId==id,token)
             ??throw new Problem("OrderFundingEvidenceMissing",409);
@@ -163,7 +165,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             funding.ApprovedManualPolicyReference,
             coreCaseId=workflow.Id,caseState=workflow.State,caseVersion=workflow.Version,
             assignmentId=task.Id,assignmentState=task.State,assignmentVersion=task.Version,
-            canDecide=order.Status=="PendingApproval"&&workflow.State=="Pending"&&task.State=="Pending",
+            canDecide=order.Status=="PendingApproval"&&workflow.State=="Pending"
+                &&stage.State=="Active"&&task.State=="Pending",
             financePostingCreated=false,supplierSendPerformed=false},Json));
     },ct);
 
