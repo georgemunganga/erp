@@ -45,21 +45,63 @@
       "sourceUnchanged": true,
       "exitCode": 0,
       "oomKilled": false
+    },
+    {
+      "source": "b03583b1a797c9f5d670922b7bc12e90b6a01dc4",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-http-build-20261023_run14",
+      "hostTestsPassed": 40,
+      "hostTestsFailed": 0,
+      "sourceUnchanged": true,
+      "apiAndHttpProbePublished": true,
+      "exitCode": 0,
+      "oomKilled": false
+    },
+    {
+      "source": "b03583b1a797c9f5d670922b7bc12e90b6a01dc4",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-governance-native-upgrade-20261023_run02/http-run04",
+      "result": "PASS_PRIVATE_CLONE_ONLY",
+      "actualProgram": true,
+      "normalLocalCookieLogin": true,
+      "resultSha256": "1db4df117c48e877c691246734d26e88e79f9db5dbc080ac260fabce302be2e6",
+      "ownerReconciliationSha256": "8e3e68298e766b4ed7be5ac387e271644382fb05378bf0c73e929101cfd030ac",
+      "checks": [
+        "Core accounts without employee links",
+        "real independently published payment review policy",
+        "actor-owned lost Create acknowledgement recovery",
+        "current branch scope and action denials",
+        "exact amount, self-assignment, reused key and stale CAS denials",
+        "independent approve, Record and Confirm",
+        "return and cancellation"
+      ],
+      "ownerCounts": {
+        "users": 7,
+        "receipts": 10,
+        "requests": 2,
+        "versions": 10,
+        "coreLinks": 3,
+        "decisions": 10,
+        "employees": 0,
+        "outboxEvents": 10,
+        "requestAudits": 10,
+        "linkedEmployees": 0,
+        "dateObservations": 2,
+        "coreDecisionLinks": 3,
+        "financePaymentRows": 0
+      }
     }
   ],
   "remaining": [
-    "Verify latest branch lookup/source bill changes",
-    "Normal local-cookie actual Program/finite-role PostgreSQL HTTP journey",
-    "Original UI binding, frontend checks and normal-cookie API/PostgreSQL Playwright journey",
-    "Independent review and production release gates"
+    "Original UI latest settings and accessibility fixes: frozen frontend checks, mocked and normal-cookie actual API/PostgreSQL Playwright",
+    "Explicit new payment cross-company/cross-tenant positive-host negatives before production activation",
+    "Independent final review, owning production migration/runtime roles, release/rollback and UAT gates"
   ],
   "productionMigrationApplied": false,
   "productionDeployed": false,
-  "paymentHttpAccepted": false,
+  "paymentHttpAccepted": true,
   "paymentPlaywrightAccepted": false,
   "hostedCi": "BLOCKED_GITHUB_ACCOUNT_BILLING",
   "issues": "DISABLED_IN_REPOSITORY",
-  "checkpointSource": "9b1562f",
+  "checkpointSource": "b03583b1a797c9f5d670922b7bc12e90b6a01dc4",
   "retainedFailedAttempts": [
     {
       "evidence": "procurement-payment-governance-postgres-20261023_run01",
@@ -72,7 +114,12 @@
     {
       "evidence": "procurement-payment-governance-native-upgrade-20261023_run02/http-run01",
       "reason": "Actual production startup attempted migration DDL with finite runtime; failed before fixture writes. Core startup now defaults to verify-only outside Development."
+    },
+    {
+      "evidence": "procurement-payment-governance-native-upgrade-20261023_run02/http-run03",
+      "reason": "Outsider fixture initial context incorrectly used another branch; API correctly denied. Probe fixed to use its assigned branch, with scope denials preserved."
     }
   ],
-  "inProgress": "Actual Program/finite-role HTTP run02; result not yet available"
+  "inProgress": "Private actual Kestrel host healthy; frontend source e48a1a2 staged verification running; UI draft PR62",
+  "paymentHttpAcceptanceScope": "PRIVATE_CLONE_ONLY_NOT_PRODUCTION_OR_BROWSER"
 }
