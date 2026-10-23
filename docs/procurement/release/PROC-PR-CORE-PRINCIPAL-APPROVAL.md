@@ -1,13 +1,18 @@
 # Core-principal purchase-request approval successor
 
-**Current checkpoint:** genuine migration/recovery checks, the first finite-role
-HTTP slice, and a private manual-evidence approval graph have passed; see section
-26. The latter passed 31 HTTP requests, six exact replay/current-permission checks
-and 35 raw storage denials, followed by an independent read-only review. The new
-GET command acknowledgement has compiled and passed 43 new mapped cases within
-a 67-case focused suite; its actual PostgreSQL/HTTP gate remains pending. P25 remains default-off and is not deployed. Finance/AP and
-payments belong to the future Finance module. No external funding or payment
-authority, real identity-provider acceptance or whole-module completion is claimed.
+**Current checkpoint (23 October 2026):** the real normal local-session cookie
+journey now passes create → submit/automatic policy check → independent exact
+funding evidence → Open → independent approval → reload, with a separate read-only
+PostgreSQL owner verifier. Ordinary host registration selects the concrete captured
+P25 readiness provider only when `PrincipalExecutionEnabled` is true; its default
+remains false. Five natural dependency-shaped downgrade checkpoints passed; these
+are not isolated SQL OR-arm proofs. Physical-P25 compatibility for retained worker
+workflows is still undergoing private mapped-API verification. The latest focused
+compatibility build passed 38 host tests. See
+[P25 compatibility evidence](P25-PAYMENT-COMPATIBILITY-20261023.json) for exact source
+versions, retained failed attempts, evidence hashes and remaining release gates.
+No production activation, external Finance authority, native identity-provider
+acceptance or whole-module completion is claimed.
 
 ## 1. Status and provenance
 
@@ -29,7 +34,7 @@ Core owns accounts, current grants, organisation and approval cases. Procurement
 
 ## 5. Bounded delivery
 
-Source checkpoints add explicit successor contracts/model guards, current Core actor bridges, new-only request provenance and funding capture, and version-dispatched authority/approval commands and hints. Production registration is still Unavailable; PrincipalExecutionEnabled defaults false. Existing manual CRUD remains usable without operational provenance when unavailable. The private host explicitly composes the actual captured provider for acceptance, as recorded in section 26; this does not change production registration.
+Source checkpoints add explicit successor contracts/model guards, current Core actor bridges, new-only request provenance and funding capture, and version-dispatched authority/approval commands and hints. The original checkpoint registered Unavailable. The current normal registration selects the concrete P25 provider only when PrincipalExecutionEnabled is true and otherwise retains Unavailable. Existing manual CRUD remains usable without operational provenance when unavailable. The accepted normal-cookie run uses ordinary Program registration; older private-provider proofs remain historical evidence, not a substitute for that run.
 
 ## 6. Original request attribution
 
