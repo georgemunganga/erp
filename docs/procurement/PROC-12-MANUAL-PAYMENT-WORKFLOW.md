@@ -23,7 +23,7 @@ Draft, PendingApproval, Approved, PaymentRecorded, ConfirmedManually, Rejected, 
 ## 10. Permissions & Data Scope
 Core actions `procurement-payment-read/create/edit/submit/approve/record/confirm/cancel` (each suffix forms a separate hyphenated action ID). Company and allowed branch constraints apply to list/detail/mutation/search/export and every assignment. Header All branches is a read context, not permission. Transaction branch is required. Initial branch defaults from authorized Core settings; never manufacture access.
 ## 11. Business Rules
-Exact positive amount, at most four fractional places, same supplier/invoice/currency, one approved amount per request. Creator cannot approve own request; assigned recorder cannot confirm own payment. A creator cannot be assigned as approver and recorder cannot be assigned as confirmer. Approval alone creates no payment. Record must equal approved amount; smaller installments use separate requests. Current server date bounds payment date. Every mutation requires current CAS version; denied actions produce no payment mutation.
+Exact positive amount, at most four fractional places, same supplier/invoice/currency, one approved amount per request. Creator cannot approve own request; assigned recorder cannot confirm own payment. A creator cannot be assigned as approver and recorder cannot be assigned as confirmer. Approval alone creates no payment. Record must equal approved amount; smaller installments use separate requests. The current Core company business date bounds the entered payment date; UTC server timestamps record approval and recording actions. Every mutation requires current CAS version; denied actions produce no payment mutation.
 ## 12. Data Fields & Ownership
 Procurement owns request ID, tenant/company/branch, invoice/supplier refs, currency/amount, creator and assigned Core principals, status/version, approval decision, actual recorded date/method/reference, confirmation/dispute reason and audit. Core owns account/grants/branch. Finance owns posting, bank reconciliation and imported outcomes. No raw banking credentials.
 ## 13. Screens & Data Views
@@ -43,7 +43,7 @@ Append-only decisions and original values; server principal/time/scope, delegati
 ## 20. Reports / Dashboards / Metrics
 Requested/approved/recorded/confirmed totals by branch, supplier, currency and period; pending tasks and age; manual and Finance totals must not double count matched outcomes. No estimated ledger balance.
 ## 21. Configuration & Localization
-Core company currency/default branch; module-specific manual-payment enablement and assignment rules. ISO dates/exact decimal storage, localized display. No hard-coded Lusaka ID, currency or spend threshold.
+Core company currency/default branch and trusted company business date; module-specific manual-payment enablement and assignment rules. ISO dates/exact decimal storage, localized display. No hard-coded Lusaka ID, time zone, currency or spend threshold.
 ## 22. Non-Functional Requirements
 Atomic transitions, concurrency control, scoped pagination, actionable errors, accessible shared controls and retained recovery receipts. Never rely on frontend permission hiding.
 ## 23. Postconditions

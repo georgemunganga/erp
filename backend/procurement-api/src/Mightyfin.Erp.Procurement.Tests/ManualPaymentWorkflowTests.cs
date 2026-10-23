@@ -21,8 +21,8 @@ public sealed class ManualPaymentWorkflowTests
         Assert.Equal(approved.Request.Amount, approved.Request.ApprovedAmount);
         Assert.Null(approved.Request.PaidOn); // An approval is not a payment.
         var recorded = ManualPaymentWorkflow.Record(approved.Request, 3, f.Recorder, f.Source,
-            new(DateOnly.FromDateTime(f.Now.UtcDateTime), "Bank transfer made outside ERP", "EXT-128", 25.1250m, null), f.Now);
-        var confirmed = ManualPaymentWorkflow.Confirm(recorded.Request, 4, f.Confirmer, f.Now);
+            f.Evidence(), f.BusinessDate, f.Now);
+        var confirmed = ManualPaymentWorkflow.Confirm(recorded.Request, 4, f.Confirmer, f.BusinessDate, f.Now);
         Assert.Equal("ConfirmedManually", confirmed.Request.Status);
         Assert.Equal(5, confirmed.Request.Version);
         Assert.Equal("PaymentRecorded", confirmed.Decision.FromStatus);
@@ -83,10 +83,11 @@ public sealed class ManualPaymentWorkflowTests
             f.Creator with { Actions = f.Approver.Actions }, f.Source, f.Now));
         var approved = ManualPaymentWorkflow.Approve(submitted, 2, f.Approver, f.Source, f.Now).Request;
         Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Record(approved, 2,
-            f.Recorder, f.Source, f.Evidence(), f.Now));
-        var recorded = ManualPaymentWorkflow.Record(approved, 3, f.Recorder, f.Source, f.Evidence(), f.Now).Request;
+            f.Recorder, f.Source, f.Evidence(), f.BusinessDate, f.Now));
+        var recorded = ManualPaymentWorkflow.Record(approved, 3, f.Recorder, f.Source,
+            f.Evidence(), f.BusinessDate, f.Now).Request;
         Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Confirm(recorded, 4,
-            f.Recorder with { Actions = f.Confirmer.Actions }, f.Now));
+            f.Recorder with { Actions = f.Confirmer.Actions }, f.BusinessDate, f.Now));
         Assert.Equal("PaymentRecorded", recorded.Status);
     }
 
@@ -108,12 +109,12 @@ public sealed class ManualPaymentWorkflowTests
             case "recordedPrincipal": recorded.RecordedByPrincipalId = "not-a-core-principal"; break;
             case "recordedAt": recorded.RecordedAt = null; break;
             case "paidOn": recorded.PaidOn = default(DateOnly); break;
-            case "futurePaidOn": recorded.PaidOn = DateOnly.FromDateTime(f.Now.UtcDateTime).AddDays(1); break;
+            case "futurePaidOn": recorded.PaidOn = f.BusinessDate.AddDays(1); break;
             default: recorded.ExternalReference = " "; break;
         }
         var beforeVersion = recorded.Version;
         Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Confirm(recorded,
-            beforeVersion, f.Confirmer, f.Now));
+            beforeVersion, f.Confirmer, f.BusinessDate, f.Now));
         Assert.Equal("PaymentRecorded", recorded.Status);
         Assert.Equal(beforeVersion, recorded.Version);
         Assert.Null(recorded.ConfirmedByPrincipalId);
@@ -133,7 +134,7 @@ public sealed class ManualPaymentWorkflowTests
             default: recorded.RecordedAt = f.Now.AddSeconds(1); break;
         }
         Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Confirm(recorded,
-            recorded.Version, f.Confirmer, f.Now));
+            recorded.Version, f.Confirmer, f.BusinessDate, f.Now));
         Assert.Equal("PaymentRecorded", recorded.Status);
     }
 
@@ -167,11 +168,50 @@ public sealed class ManualPaymentWorkflowTests
         {
             f.Evidence() with { Amount = 24m },
             f.Evidence() with { ExternalReference = " " },
-            f.Evidence() with { PaidOn = DateOnly.FromDateTime(f.Now.UtcDateTime).AddDays(1) }
+            f.Evidence() with { PaidOn = f.BusinessDate.AddDays(1) }
         })
             Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Record(approved, 3,
-                f.Recorder, f.Source, evidence, f.Now));
+                f.Recorder, f.Source, evidence, f.BusinessDate, f.Now));
         Assert.Equal("Approved", approved.Status);
+    }
+
+    [Fact]
+    public void Company_business_date_can_be_next_day_when_UTC_is_still_previous_day()
+    {
+        var utc = new DateTimeOffset(2026, 10, 23, 22, 30, 0, TimeSpan.Zero);
+        var companyDate = new DateOnly(2026, 10, 24); // Supplied by trusted Core company settings.
+        var f = new Fixture(utc, companyDate);
+        var recorded = ManualPaymentWorkflow.Record(f.Approved(), 3, f.Recorder,
+            f.Source, f.Evidence(), f.BusinessDate, f.Now);
+        Assert.Equal(companyDate, recorded.Request.PaidOn);
+        Assert.Equal(utc, recorded.Request.RecordedAt);
+        var confirmed = ManualPaymentWorkflow.Confirm(recorded.Request, 4,
+            f.Confirmer, f.BusinessDate, f.Now);
+        Assert.Equal("ConfirmedManually", confirmed.Request.Status);
+        Assert.Equal(utc, confirmed.Request.ConfirmedAt);
+    }
+
+    [Fact]
+    public void Exact_eight_place_outstanding_can_cover_four_place_payment_without_rounding()
+    {
+        var f = new Fixture();
+        var source = f.Source with { RemainingExcludingThisRequest = 25.12500001m };
+        var created = ManualPaymentWorkflow.Create(f.Draft, f.Creator,
+            f.Assignee(f.Approver.PrincipalId, "approve"), f.Assignee(f.Recorder.PrincipalId, "record"),
+            f.Assignee(f.Confirmer.PrincipalId, "confirm"), source, f.Now);
+        Assert.Equal(25.1250m, created.Request.Amount);
+        Assert.Equal(25.12500001m, source.RemainingExcludingThisRequest);
+        foreach (var invalid in new[]
+        {
+            f.Source with { RemainingExcludingThisRequest = 25.12499999m },
+            f.Source with { RemainingExcludingThisRequest = -0.00000001m },
+            f.Source with { RemainingExcludingThisRequest = 100.00000001m },
+            f.Source with { RemainingExcludingThisRequest = 25.125000001m },
+            f.Source with { InvoiceGrossAmount = 100.00001m }
+        })
+            Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Create(f.Draft, f.Creator,
+                f.Assignee(f.Approver.PrincipalId, "approve"), f.Assignee(f.Recorder.PrincipalId, "record"),
+                f.Assignee(f.Confirmer.PrincipalId, "confirm"), invalid, f.Now));
     }
 
     [Fact]
@@ -179,7 +219,7 @@ public sealed class ManualPaymentWorkflowTests
     {
         var f = new Fixture();
         var recorded = ManualPaymentWorkflow.Record(f.Approved(), 3, f.Recorder, f.Source,
-            f.Evidence() with { PaidOn = f.Source.InvoiceDate.AddDays(-1) }, f.Now);
+            f.Evidence() with { PaidOn = f.Source.InvoiceDate.AddDays(-1) }, f.BusinessDate, f.Now);
         Assert.Equal(f.Source.InvoiceDate.AddDays(-1), recorded.Request.PaidOn);
         Assert.Equal(f.Now, recorded.Request.RecordedAt);
         Assert.Equal(f.Now, recorded.Request.ApprovedAt);
@@ -221,7 +261,7 @@ public sealed class ManualPaymentWorkflowTests
     public void An_executed_payment_cannot_be_cancelled_and_dispute_never_removes_recorded_evidence()
     {
         var f = new Fixture(); var recorded = ManualPaymentWorkflow.Record(f.Approved(), 3,
-            f.Recorder, f.Source, f.Evidence(), f.Now).Request;
+            f.Recorder, f.Source, f.Evidence(), f.BusinessDate, f.Now).Request;
         Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Cancel(recorded, 4,
             f.Creator with { Actions = new HashSet<string> { "procurement-payment-cancel" } }, "No", f.Now));
         var disputed = ManualPaymentWorkflow.Dispute(recorded, 4, f.Confirmer, "Reference under review", f.Now);
@@ -233,7 +273,13 @@ public sealed class ManualPaymentWorkflowTests
 
     private sealed class Fixture
     {
-        public DateTimeOffset Now { get; } = new(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
+        public Fixture(DateTimeOffset? now = null, DateOnly? businessDate = null)
+        {
+            Now = now ?? new DateTimeOffset(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
+            BusinessDate = businessDate ?? DateOnly.FromDateTime(Now.UtcDateTime);
+        }
+        public DateTimeOffset Now { get; }
+        public DateOnly BusinessDate { get; }
         public Guid Company { get; } = Guid.NewGuid();
         public Guid Branch { get; } = Guid.NewGuid();
         public Guid Invoice { get; } = Guid.NewGuid();
@@ -245,8 +291,8 @@ public sealed class ManualPaymentWorkflowTests
         public ManualPaymentDraft Draft => new(Branch, Invoice, Supplier, "USD", 25.1250m,
             Approver.PrincipalId, Recorder.PrincipalId, Confirmer.PrincipalId, "Invoice settlement");
         public ManualPaymentInvoiceSource Source => new(Invoice, "tenant", Company, Branch, Supplier,
-            "USD", new DateOnly(2026, 10, 1), 100m, true);
-        public ManualPaymentRecordedEvidence Evidence() => new(DateOnly.FromDateTime(Now.UtcDateTime),
+            "USD", new DateOnly(2026, 10, 1), 100m, 100m, true);
+        public ManualPaymentRecordedEvidence Evidence() => new(BusinessDate,
             "Bank transfer made outside ERP", "EXT-128", 25.1250m, null);
         public ManualPaymentActor Actor(string principal, params string[] actions) => new(principal,
             "tenant", Company, Branch, new HashSet<Guid> { Branch },
@@ -266,6 +312,6 @@ public sealed class ManualPaymentWorkflowTests
             return ManualPaymentWorkflow.Approve(submitted, 2, Approver, Source, Now).Request;
         }
         public ManualPaymentRequest Recorded() => ManualPaymentWorkflow.Record(Approved(), 3,
-            Recorder, Source, Evidence(), Now).Request;
+            Recorder, Source, Evidence(), BusinessDate, Now).Request;
     }
 }

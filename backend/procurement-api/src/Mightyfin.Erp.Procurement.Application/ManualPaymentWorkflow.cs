@@ -18,10 +18,14 @@ public sealed record ManualPaymentAssignee(string PrincipalId, string TenantId, 
 /// Locked owning-store invoice/capacity read. RemainingExcludingThisRequest includes all other
 /// reserved manual requests and imported Finance settlements. The caller must lock all relevant
 /// rows in a consistent order; this value alone is not authorization or concurrency protection.
+/// InvoiceGrossAmount is the exact numeric(18,4) invoice header amount. Remaining may have up
+/// to eight fractional places from exact adjustment evidence; neither value is rounded.
+/// IsEligible means a real, scoped, noncancelled invoice can enter assigned manual review.
+/// It does not require Finance posting, scanned documents or an attachment.
 /// </summary>
 public sealed record ManualPaymentInvoiceSource(Guid InvoiceId, string TenantId, Guid LegalEntityId,
     Guid BranchId, Guid SupplierId, string CurrencyCode, DateOnly InvoiceDate,
-    decimal RemainingExcludingThisRequest, bool IsEligible);
+    decimal InvoiceGrossAmount, decimal RemainingExcludingThisRequest, bool IsEligible);
 
 public sealed record ManualPaymentDraft(Guid BranchId, Guid InvoiceId, Guid SupplierId,
     string CurrencyCode, decimal Amount, string ApproverPrincipalId, string RecorderPrincipalId,
@@ -128,17 +132,18 @@ public static class ManualPaymentWorkflow
         return Move(current, actor, now, "Reject", "Rejected", Required(reason));
     }
 
+    /// <summary>companyBusinessDate comes from Core company settings, never HTTP JSON.</summary>
     public static ManualPaymentChange Record(ManualPaymentRequest current, long expectedVersion,
         ManualPaymentActor actor, ManualPaymentInvoiceSource source,
-        ManualPaymentRecordedEvidence evidence, DateTimeOffset now)
+        ManualPaymentRecordedEvidence evidence, DateOnly companyBusinessDate, DateTimeOffset now)
     {
         Check(current, expectedVersion, actor, now, "record", "Approved");
         RequireAssigned(actor, current.RecorderPrincipalId);
         CheckSource(current, source); CheckCapacity(current.Amount, source);
         if (current.ApprovedAmount != current.Amount || current.ApprovedByPrincipalId is null
             || current.ApprovedAt is null || evidence.Amount != current.Amount
-            || evidence.PaidOn == default
-            || evidence.PaidOn > DateOnly.FromDateTime(now.UtcDateTime)
+            || companyBusinessDate == default || evidence.PaidOn == default
+            || evidence.PaidOn > companyBusinessDate
             || !ValidText(evidence.ExternalMethod, 100) || !ValidText(evidence.ExternalReference, 200)
             || evidence.EvidenceDocumentRefId == Guid.Empty)
             Fail("ManualPaymentRecordingInvalid");
@@ -158,8 +163,9 @@ public static class ManualPaymentWorkflow
         return next;
     }
 
+    /// <summary>companyBusinessDate comes from Core company settings, never HTTP JSON.</summary>
     public static ManualPaymentChange Confirm(ManualPaymentRequest current, long expectedVersion,
-        ManualPaymentActor actor, DateTimeOffset now)
+        ManualPaymentActor actor, DateOnly companyBusinessDate, DateTimeOffset now)
     {
         Check(current, expectedVersion, actor, now, "confirm", "PaymentRecorded");
         RequireAssigned(actor, current.ConfirmerPrincipalId);
@@ -174,8 +180,8 @@ public static class ManualPaymentWorkflow
             || actor.PrincipalId == current.RecordedByPrincipalId
             || current.RecordedByPrincipalId != current.RecorderPrincipalId
             || current.RecordedAt is null || current.RecordedAt < current.ApprovedAt
-            || current.PaidOn is null || current.PaidOn.Value == default(DateOnly)
-            || current.PaidOn > DateOnly.FromDateTime(now.UtcDateTime)
+            || companyBusinessDate == default || current.PaidOn is null
+            || current.PaidOn.Value == default(DateOnly) || current.PaidOn > companyBusinessDate
             || !ValidText(current.ExternalMethod, 100) || !ValidText(current.ExternalReference, 200))
             Fail("ManualPaymentIndependentConfirmationRequired");
         var next = Move(current, actor, now, "Confirm", "ConfirmedManually");
@@ -232,7 +238,10 @@ public static class ManualPaymentWorkflow
 
     private static void CheckCapacity(decimal amount, ManualPaymentInvoiceSource source)
     {
-        if (!ValidAmount(amount) || !ValidAmount(source.RemainingExcludingThisRequest)
+        if (!ValidAmount(amount) || !ValidAmount(source.InvoiceGrossAmount)
+            || source.RemainingExcludingThisRequest < 0
+            || !ExactDecimalJsonCodec.IsRepresentable(source.RemainingExcludingThisRequest, 38, 8)
+            || source.RemainingExcludingThisRequest > source.InvoiceGrossAmount
             || amount > source.RemainingExcludingThisRequest)
             Fail("ManualPaymentInsufficientOutstanding");
     }
