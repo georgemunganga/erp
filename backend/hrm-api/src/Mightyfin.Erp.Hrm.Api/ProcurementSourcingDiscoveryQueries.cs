@@ -60,16 +60,19 @@ internal static class ProcurementSourcingDiscoveryQueries
                         AND decision."CaseId"=workflow."Id" AND decision."Action"='Approve'
                     JOIN procurement.policy_evaluations evaluation ON evaluation.id=pin.policy_evaluation_id
                         AND evaluation.tenant_id=pin.tenant_id AND evaluation.legal_entity_id=pin.legal_entity_id
+                    CROSS JOIN LATERAL (SELECT CASE WHEN pin.snapshot_schema_version=3
+                        THEN pin.request_snapshot_json::jsonb->'legacyBusiness'
+                        ELSE pin.request_snapshot_json::jsonb END AS request_json) snapshot
                     WHERE pin.tenant_id=request.tenant_id AND pin.legal_entity_id=request.legal_entity_id
                         AND pin.purchase_request_id=request.id AND request.approval_instance_ref=pin.core_approval_case_id::text
                         AND request.submitted_version=pin.submitted_business_version
-                        AND pin.request_snapshot_json::jsonb->>'TenantId'=request.tenant_id
-                        AND pin.request_snapshot_json::jsonb->>'LegalEntityId'=request.legal_entity_id::text
-                        AND pin.request_snapshot_json::jsonb->>'Id'=request.id::text
-                        AND pin.request_snapshot_json::jsonb->>'Number'=request.number
-                        AND pin.request_snapshot_json::jsonb->>'CurrencyCode'=request.currency_code
-                        AND (pin.request_snapshot_json::jsonb ? 'BranchRef')
-                        AND (pin.request_snapshot_json::jsonb->>'BranchRef') IS NOT DISTINCT FROM request.branch_ref::text
+                        AND snapshot.request_json->>'TenantId'=request.tenant_id
+                        AND snapshot.request_json->>'LegalEntityId'=request.legal_entity_id::text
+                        AND snapshot.request_json->>'Id'=request.id::text
+                        AND snapshot.request_json->>'Number'=request.number
+                        AND snapshot.request_json->>'CurrencyCode'=request.currency_code
+                        AND (snapshot.request_json ? 'BranchRef')
+                        AND (snapshot.request_json->>'BranchRef') IS NOT DISTINCT FROM request.branch_ref::text
                         AND pin.maker_subject_id=request.created_by AND workflow."MakerSubjectId"=pin.maker_subject_id
                         AND workflow."SourceModule"='procurement' AND workflow."SourceType"='purchase_request'
                         AND workflow."SourceId"=request.id AND workflow."SourceVersion"=pin.submitted_business_version
@@ -77,8 +80,8 @@ internal static class ProcurementSourcingDiscoveryQueries
                         AND workflow."State"='Approved' AND workflow."CompletedAt" IS NOT NULL
                         AND workflow."CompletionKey"=decision."IdempotencyKey" AND outcome.decision_command_key=decision."IdempotencyKey"
                         AND EXISTS (SELECT 1 FROM jsonb_array_elements(
-                            CASE WHEN jsonb_typeof(pin.request_snapshot_json::jsonb->'lines')='array'
-                                THEN pin.request_snapshot_json::jsonb->'lines' ELSE '[]'::jsonb END) original
+                            CASE WHEN jsonb_typeof(snapshot.request_json->'lines')='array'
+                                THEN snapshot.request_json->'lines' ELSE '[]'::jsonb END) original
                             WHERE original->>'Id'=line.id::text AND original->>'PurchaseRequestId'=request.id::text
                                 AND original->>'Description'=line.description AND original->>'UnitCode'=line.unit_code)
                         AND EXISTS (SELECT 1 FROM jsonb_array_elements(

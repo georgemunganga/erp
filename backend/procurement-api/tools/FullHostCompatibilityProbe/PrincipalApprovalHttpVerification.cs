@@ -18,7 +18,8 @@ internal static partial class PrincipalApprovalHttpVerification
     {
         var owner=Environment.GetEnvironmentVariable("P25_HTTP_OWNER_CONNECTION")??throw new InvalidOperationException("Explicit private owner connection required.");
         var connection=new NpgsqlConnectionStringBuilder(owner);
-        Need(connection.Host=="/authority-identity-private-socket" && connection.Database is {} database
+        var database=connection.Database ?? string.Empty;
+        Need(connection.Host=="/authority-identity-private-socket"
             && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$") && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
         var resultPath=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??throw new InvalidOperationException("New protected result required.");
         Need(Path.IsPathFullyQualified(resultPath)&&!File.Exists(resultPath)&&Directory.Exists(Path.GetDirectoryName(resultPath)),"New result in existing protected directory required.");
@@ -33,6 +34,18 @@ internal static partial class PrincipalApprovalHttpVerification
         var downFamily=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_ROW_FAMILY_DOWN");
         var exactBudgetFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_EXACT_BUDGET_WIRE");
         var legacyWorkerFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_LEGACY_WORKER_BRIDGE");
+        var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
+        var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
+        Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
+        Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p29CookieFlag is null || principalRfqFlag=="1",
+            "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
+        Need(principalRfqFlag is null || database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
+            && matrixFlag is null && schemaFlag is null && accountFlag is null && aliasFlag is null
+            && localCookieFlag is null && downFamily is null && exactBudgetFlag is null && legacyWorkerFlag is null
+            && Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is null
+            && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
+            "Principal RFQ needs its own new private database and no other optional cohort.");
         Need(legacyWorkerFlag is null or "1","Private legacy worker bridge opt-in must be exactly1 or absent.");
         Need(legacyWorkerFlag is null || matrixFlag is null && schemaFlag is null && accountFlag is null
             && aliasFlag is null && localCookieFlag is null && downFamily is null && exactBudgetFlag is null
@@ -64,7 +77,7 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Normal local-cookie serve requires the original genuine base graph without other optional cohorts.");
         result["browserBuyerFixtureProfile"]=localCookieFlag=="1"?"PRIVATE_CONFIG_MAKER_POLICY_EVALUATION":"DISABLED";
-        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1");var stage="Bootstrap";var requests=0;
+        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1");var stage="Bootstrap";var requests=0;
         try
         {
             Advance("Bootstrap");
@@ -105,7 +118,9 @@ internal static partial class PrincipalApprovalHttpVerification
                 Need(scope.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>() is UnavailableProcurementPrincipalApprovalSchemaReadiness,"Negative provider control unexpectedly enabled.");
                 var baseline=await PrincipalFootprintAsync(ownerConnection);
                 var meta=await Send(client,HttpMethod.Get,"/api/procurement/v1/meta",fixture.Maker);Need(!meta.GetProperty("capabilities").GetProperty("principalApprovals").GetBoolean(),"Negative unavailable provider advertised approval.");
-                await Send(client,HttpMethod.Post,$"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-cases",fixture.Maker,new{expectedRequestVersion=1L},HttpStatusCode.ServiceUnavailable);
+                // Physical legacy availability permits the scoped lookup. An absent
+                // record remains 404; the real principal-row control follows below.
+                await Send(client,HttpMethod.Post,$"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-cases",fixture.Maker,new{expectedRequestVersion=1L},HttpStatusCode.NotFound);
                 await ReadAcknowledgementWithoutEffectsAsync(ownerConnection,client,Send,
                     $"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-commands/Open/{Guid.NewGuid()}",fixture.Maker,HttpStatusCode.ServiceUnavailable);
                 result["negativeProviderGetAcknowledgementVerified"]=true;
@@ -140,6 +155,9 @@ internal static partial class PrincipalApprovalHttpVerification
                 await VerifyRequestRawStorageAsync(ownerConnection,id,PrincipalApprovalFixture.Tenant,fixture.Company,
                     submitted.GetProperty("version").GetInt64());
                 result["originalRequestRawStorage"]=PrincipalRawStorageVerification;
+                Advance("UnavailableProviderExistingPrincipalControl");
+                await VerifyUnavailableExistingPrincipalAsync(fixture,owner,roles,ownerConnection,id,
+                    submitted.GetProperty("version").GetInt64(),result,Send);
                 Advance("FundingUnavailableNoEffects");var before=await PrincipalFootprintAsync(ownerConnection);
                 var readiness=await Send(client,HttpMethod.Get,path+"/approval-readiness",fixture.Maker);
                 Need(!readiness.GetProperty("canOpenCase").GetBoolean()&&readiness.GetProperty("blockers").EnumerateArray().Any(x=>x.GetString()=="PrincipalFinanceCheckerEvidenceRequired"),"Missing Finance/checker evidence must block actual readiness.");
@@ -158,10 +176,18 @@ internal static partial class PrincipalApprovalHttpVerification
             result["status"]="PASS_PRIVATE_P25_CREATE_SUBMIT_FUNDING_UNAVAILABLE_ONLY";result["finiteRecordAndExecutionLoginsVerified"]=true;
             result["currentCoreWorkerlessSourceVerified"]=true;result["negativeProviderControlVerified"]=true;result["fundingUnavailableNoEffectsVerified"]=true;
             result["positiveApprovalGraph"]=false;result["checker2Authority2Submission3Assignment2Acceptance"]="NOT_RUN_NEXT_CHECKPOINT";
-            if(Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is {} positive)
+            var positive=Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE");
+            if(positive is not null || principalRfqFlag=="1")
             {
-                Need(positive=="1","Private manual evidence opt-in must be exactly1.");
-                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily);
+                Need(positive is null or "1","Private manual evidence opt-in must be exactly1.");
+                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily,principalRfqFlag=="1");
+                if(principalRfqFlag=="1")
+                {
+                    var p29=await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
+                    if(p29CookieFlag=="1")
+                        await ServeP29NormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            p29.RequestId,p29.LineId,p29.EventId,result,Advance);
+                }
                 if(exactBudgetFlag=="1")
                 {
                     Need(result.TryGetValue("positiveApprovalGraph",out var graphAccepted) && graphAccepted is true,

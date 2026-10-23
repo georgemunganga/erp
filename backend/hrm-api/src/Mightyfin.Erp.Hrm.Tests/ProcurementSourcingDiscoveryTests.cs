@@ -83,6 +83,17 @@ public sealed class ProcurementSourcingDiscoveryTests
         Assert.False(ProcurementSourcingExecutionRoutes.IsDiscoveryEvidenceFailure(new AggregateException(new InvalidOperationException("Business"), store)));
     }
 
+    [Fact]
+    public void Principal_cancel_matches_the_locked_request_set_without_assuming_uuid_sort_order()
+    {
+        var low=Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var high=Guid.Parse("80000000-0000-0000-0000-000000000002");
+        Assert.True(ProcurementSourcingExecutionRoutes.SameRequestSet([low,high],[high,low,high]));
+        Assert.False(ProcurementSourcingExecutionRoutes.SameRequestSet([low,high],[high]));
+        Assert.False(ProcurementSourcingExecutionRoutes.SameRequestSet([low,high],[high,Guid.NewGuid()]));
+        Assert.False(ProcurementSourcingExecutionRoutes.SameRequestSet([low,low],[low]));
+    }
+
     private static RfqCurrentActor Actor(Guid? selected, bool organisationWide, Guid[] branches)
         => new("person", Guid.NewGuid(), "tenant", Guid.NewGuid(), selected, branches.ToHashSet(), organisationWide,
             new HashSet<string> { "procurement-sourcing-convert" }, true, new HashSet<Guid>());

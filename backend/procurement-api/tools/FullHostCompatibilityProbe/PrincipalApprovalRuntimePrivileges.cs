@@ -49,6 +49,21 @@ internal static class PrincipalApprovalRuntimePrivileges
             await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(record));
         foreach(var table in new[]{"purchase_requests","purchase_request_lines"})await Run("GRANT UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
         foreach(var table in new[]{"purchase_request_approval_submissions","assignment_authority_evidence","purchase_request_approval_outcomes","purchase_request_finance_release_requests","purchase_request_finance_release_confirmations","approval_command_receipts","audit_events","outbox_events"})await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+        if(fixture.PrincipalRfqProfile)
+        {
+            // Separate P29-only finite manifest. The record role configures a
+            // genuine buying method; only the execution role can hold/release
+            // approved demand. Neither role owns schema, Core identity or Finance.
+            await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q("procurement_methods")+" TO "+Q(record));
+            foreach(var table in new[]{"sourcing_events","sourcing_lines","sourcing_draft_evidence","sourcing_demand_bindings",
+                "sourcing_command_receipts","purchase_request_allocations","procurement_methods","purchase_orders",
+                "purchase_order_lines","catalog_items","catalog_entries","suppliers"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"sourcing_events","sourcing_lines","purchase_request_allocations"})
+                await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"sourcing_draft_evidence","sourcing_demand_bindings","sourcing_command_receipts"})
+                await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
         await using var core=fixture.Core();var coreModel=core.GetService<IDesignTimeModel>().Model;
         // Explicit bounded read manifest for actual current-account/grant/branch/optional-manager queries.
         var reads=new Dictionary<Type,string[]> {

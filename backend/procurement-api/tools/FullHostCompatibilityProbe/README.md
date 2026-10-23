@@ -354,3 +354,30 @@ exact 2 × 5.1234, and no AP/payment facts. The helper's
 `P25-LEGACY-WORKER-BRIDGE.md` gives the precise boundaries. This code has not
 yet been compiled or run; no external Finance or production workflow is
 claimed.
+
+### P29 principal RFQ source — source-only private HTTP cohort
+
+`P29_HTTP_VERIFY_PRINCIPAL_RFQ=1` is exclusive of other optional HTTP
+cohorts. The root runner must provide a newly created empty private PostgreSQL
+database named `proc_p25_http_p29_<unique>` on the existing allowlisted private
+socket, plus the existing new protected `P25_HTTP_RESULT` path. It does not
+create or reset a database. Run the existing `--principal-approvals` mode under
+the private container and finite role controls; do not attach a live tenant or
+production connection. The result contains synthetic IDs and bounded proof
+flags, never login secrets or connection strings.
+
+The profile adds one workerless Core Buyer and only the finite sourcing
+read/hold/release grants required by the actual routes. It uses real APIs to
+activate a competitive buying method before independently publishing the PR
+rule, then creates an approved principal request through the existing P25
+manual-evidence route sequence. The isolated P29 continuation checks current
+approved-source discovery, distinct actor and unassigned-branch denials,
+Create/Read/same-key replay/actor-owned receipt, Cancel/replay/recovery, and
+independent owner reload of the released exact allocation. It asserts no
+supplier invitation, bid, award, order, AP or payment facts.
+
+This source cannot produce a positive result until the genuine P29 migration
+and exact PostgreSQL17 sourcing readiness manifest are generated and captured.
+No test provider is substituted. The existing P25 non-P29 cohorts keep their
+previous roles, settings and purchase policy. No SDK/database run is claimed
+by this source commit.

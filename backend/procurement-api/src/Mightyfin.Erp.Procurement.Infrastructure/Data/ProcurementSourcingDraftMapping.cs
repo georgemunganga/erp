@@ -20,17 +20,18 @@ public sealed partial class ProcurementDbContext
         ev.Property(x => x.SourceEvidenceId).ValueGeneratedNever();
         ev.Property(x => x.OriginalDraftFingerprint).HasMaxLength(64);
         Link<SourcingEvent, ProcurementMethod>(model, nameof(SourcingEvent.MethodId));
-        ev.ToTable(t => t.HasCheckConstraint("ck_sourcing_owned_draft", "execution_version IN (0,1) AND ((execution_version=0 AND source_evidence_id IS NULL AND maker_worker_id IS NULL AND method_id IS NULL AND method_revision IS NULL AND original_draft_fingerprint IS NULL AND branch_ref IS NULL) OR (execution_version=1 AND source_evidence_id IS NOT NULL AND maker_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled')))"));
+        ev.ToTable(t => t.HasCheckConstraint("ck_sourcing_owned_draft", "execution_version IN (0,1,2) AND ((execution_version=0 AND source_evidence_id IS NULL AND maker_worker_id IS NULL AND method_id IS NULL AND method_revision IS NULL AND original_draft_fingerprint IS NULL AND branch_ref IS NULL) OR (execution_version=1 AND source_evidence_id IS NOT NULL AND maker_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled')) OR (execution_version=2 AND source_evidence_id IS NOT NULL AND (maker_worker_id IS NULL OR maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled')))"));
         var evidence = model.Entity<SourcingDraftEvidence>();
         evidence.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_rfq_evidence_scope");
         evidence.Property(x => x.PayloadJson).HasColumnType("text");
         evidence.Property(x => x.PayloadSha256).HasMaxLength(64); evidence.Property(x => x.OriginalDraftFingerprint).HasMaxLength(64);
         evidence.Property(x => x.MakerSubjectId).HasMaxLength(200);
+        evidence.Property(x => x.MakerPrincipalId).HasMaxLength(36);
         evidence.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId }).IsUnique().HasDatabaseName("ux_rfq_evidence_event");
         evidence.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourcingEventId }).IsUnique().HasDatabaseName("ux_rfq_evidence_exact_event");
         evidence.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CreateCommandKey }).IsUnique().HasDatabaseName("ux_rfq_evidence_create_key");
         Link<SourcingDraftEvidence, SourcingEvent>(model, nameof(SourcingDraftEvidence.SourcingEventId));
-        evidence.ToTable(t => t.HasCheckConstraint("ck_rfq_original_envelope", "schema_version=1 AND payload_sha256 ~ '^[0-9a-f]{64}$' AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND create_command_key <> '00000000-0000-0000-0000-000000000000'::uuid"));
+        evidence.ToTable(t => t.HasCheckConstraint("ck_rfq_original_envelope", "schema_version IN (1,2) AND payload_sha256 ~ '^[0-9a-f]{64}$' AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND create_command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND ((schema_version=1 AND maker_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND maker_principal_id IS NULL) OR (schema_version=2 AND maker_principal_id IS NOT NULL AND maker_principal_id <> '00000000-0000-0000-0000-000000000000' AND maker_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND (maker_worker_id IS NULL OR maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)))"));
         var binding = model.Entity<SourcingDemandBinding>();
         binding.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_rfq_binding_scope");
         binding.Property(x => x.Quantity).HasPrecision(18, 4); binding.Property(x => x.UnitEstimate).HasPrecision(18, 4);
@@ -39,6 +40,9 @@ public sealed partial class ProcurementDbContext
         binding.Property(x => x.PolicyRulesSha).HasMaxLength(64); binding.Property(x => x.FinanceSha).HasMaxLength(64);
         binding.Property(x => x.TargetType).HasMaxLength(30); binding.Property(x => x.MethodCode).HasMaxLength(40);
         binding.Property(x => x.UnitCode).HasMaxLength(30); binding.Property(x => x.CategoryCode).HasMaxLength(60);
+        binding.Property(x => x.IdentitySchemaVersion).HasDefaultValue(1);
+        binding.Property(x => x.MakerPrincipalId).HasMaxLength(36); binding.Property(x => x.RequesterPrincipalId).HasMaxLength(36);
+        binding.Property(x => x.PrincipalIdentitySha256).HasMaxLength(64);
         binding.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId, x.PurchaseRequestLineId }).IsUnique().HasDatabaseName("ux_rfq_binding_source");
         binding.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingLineId }).IsUnique().HasDatabaseName("ux_rfq_binding_line");
         binding.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.AllocationId }).IsUnique().HasDatabaseName("ux_rfq_binding_allocation");
@@ -52,7 +56,7 @@ public sealed partial class ProcurementDbContext
         Link<SourcingDemandBinding, ProcurementMethod>(model, nameof(SourcingDemandBinding.MethodId));
         binding.HasOne<PurchaseRequestLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.PurchaseRequestLineId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId, x.Id }).OnDelete(DeleteBehavior.Restrict);
-        binding.ToTable(t => t.HasCheckConstraint("ck_rfq_binding_value", "target_type='SourcingEvent' AND quantity>0 AND unit_estimate>=0 AND estimated_value=quantity*unit_estimate AND request_version>=submitted_version AND submitted_version>0 AND method_revision>0 AND minimum_quote_count BETWEEN 0 AND 20 AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid"));
+        binding.ToTable(t => t.HasCheckConstraint("ck_rfq_binding_value", "target_type='SourcingEvent' AND quantity>0 AND unit_estimate>=0 AND estimated_value=quantity*unit_estimate AND request_version>=submitted_version AND submitted_version>0 AND method_revision>0 AND minimum_quote_count BETWEEN 0 AND 20 AND ((identity_schema_version=1 AND maker_worker_id IS NOT NULL AND requester_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND maker_principal_id IS NULL AND requester_principal_id IS NULL AND principal_identity_sha256 IS NULL) OR (identity_schema_version=2 AND maker_principal_id IS NOT NULL AND maker_principal_id <> '00000000-0000-0000-0000-000000000000' AND maker_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND requester_principal_id IS NOT NULL AND requester_principal_id <> '00000000-0000-0000-0000-000000000000' AND requester_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND principal_identity_sha256 IS NOT NULL AND principal_identity_sha256 ~ '^[a-f0-9]{64}$' AND (maker_worker_id IS NULL OR maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (requester_worker_id IS NULL OR requester_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)))"));
         var receipt = model.Entity<SourcingCommandReceipt>();
         receipt.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_rfq_receipt_scope");
         receipt.Property(x => x.Operation).HasMaxLength(20); receipt.Property(x => x.ActorPrincipalId).HasMaxLength(200);
@@ -60,7 +64,7 @@ public sealed partial class ProcurementDbContext
         receipt.Property(x => x.ResponseJson).HasColumnType("text");
         receipt.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Operation, x.CommandKey }).IsUnique().HasDatabaseName("ux_rfq_receipt_command");
         Link<SourcingCommandReceipt, SourcingEvent>(model, nameof(SourcingCommandReceipt.SourcingEventId));
-        receipt.ToTable(t => t.HasCheckConstraint("ck_rfq_receipt_identity", "operation IN ('Create','Cancel') AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND response_schema_version=1 AND result_version>0 AND command_fingerprint ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' AND ((operation='Create' AND response_status_code=201) OR (operation='Cancel' AND response_status_code=200))"));
+        receipt.ToTable(t => t.HasCheckConstraint("ck_rfq_receipt_identity", "operation IN ('Create','Cancel') AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND ((response_schema_version=1 AND actor_worker_id IS NOT NULL AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (response_schema_version=2 AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid))) AND result_version>0 AND command_fingerprint ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' AND ((operation='Create' AND response_status_code=201) OR (operation='Cancel' AND response_status_code=200))"));
         // Ordinary unique indexes for frozen manual exact overlays; mutable binding fields never become EF keys.
         model.Entity<SourcingLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourcingEventId, x.PurchaseRequestLineId })
             .IsUnique().HasDatabaseName("ux_rfq_line_exact_source");
@@ -76,7 +80,7 @@ public sealed partial class ProcurementDbContext
         foreach (var value in ChangeTracker.Entries<SourcingDraftEvidence>().Where(x => x.State == EntityState.Added).Select(x => x.Entity))
         {
             var owner = RfqRow<SourcingEvent>(value.SourcingEventId);
-            if (owner is null || Entry(owner).State != EntityState.Added || owner.ExecutionVersion != 1
+            if (owner is null || Entry(owner).State != EntityState.Added || owner.ExecutionVersion != value.SchemaVersion
                 || owner.SourceEvidenceId != value.Id || value.MakerSubjectId != scope.SubjectId)
                 throw new InvalidOperationException("RfqOriginalEvidenceOwnerRequired");
         }
@@ -91,12 +95,14 @@ public sealed partial class ProcurementDbContext
                     throw new InvalidOperationException("RfqLegacyAuthorityCannotBeInferred");
                 continue;
             }
-            if (ev.ExecutionVersion != 1 || ev.SourceEvidenceId is null || ev.MakerWorkerId is null || ev.MakerWorkerId == Guid.Empty
+            if (ev.ExecutionVersion is not (1 or 2) || ev.SourceEvidenceId is null
+                || ev.ExecutionVersion == 1 && (ev.MakerWorkerId is null || ev.MakerWorkerId == Guid.Empty)
+                || ev.ExecutionVersion == 2 && (ev.MakerWorkerId == Guid.Empty || !ProcurementPrincipalEvidence.Canonical(ev.OwnerSubjectId))
                 || ev.MethodId is null || ev.MethodRevision is not > 0 || !RfqDigest(ev.OriginalDraftFingerprint)
                 || ev.OwnerSubjectId != scope.SubjectId || scope.OrgUnitId is not null
                 || scope.WorkLocationId is { } selected && selected != ev.BranchRef || ev.Status is not ("Draft" or "Cancelled")) throw new InvalidOperationException("RfqOwnedDraftInvalid");
             if (entry.State == EntityState.Added && ev.Status != "Draft") throw new InvalidOperationException("RfqOwnedDraftInvalid");
-            if (entry.State == EntityState.Modified && (entry.OriginalValues.GetValue<int>(nameof(SourcingEvent.ExecutionVersion)) != 1
+            if (entry.State == EntityState.Modified && (entry.OriginalValues.GetValue<int>(nameof(SourcingEvent.ExecutionVersion)) != ev.ExecutionVersion
                 || entry.OriginalValues.GetValue<string>(nameof(SourcingEvent.Status)) != "Draft" || ev.Status != "Cancelled"
                 || string.IsNullOrWhiteSpace(ev.CancellationReason) || ev.CancellationReason.Length > 2000
                 || entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not
@@ -104,18 +110,21 @@ public sealed partial class ProcurementDbContext
                     or nameof(ProcurementRecord.UpdatedBy) or nameof(ProcurementRecord.Version))))) throw new InvalidOperationException("RfqMaterialEvidenceLocked");
             var evidence = RfqRow<SourcingDraftEvidence>(ev.SourceEvidenceId.Value) ?? throw new InvalidOperationException("RfqOriginalEvidenceRequired");
             var bindings = RfqRows(SourcingDemandBindings.Local, SourcingDemandBindings.Where(x => x.SourcingEventId == ev.Id), x => x.SourcingEventId == ev.Id);
-            if (evidence.SourcingEventId != ev.Id || evidence.MakerSubjectId != scope.SubjectId || evidence.MakerWorkerId != ev.MakerWorkerId
+            if (evidence.SourcingEventId != ev.Id || evidence.SchemaVersion != ev.ExecutionVersion
+                || evidence.MakerSubjectId != scope.SubjectId || evidence.MakerWorkerId != ev.MakerWorkerId
                 || evidence.BranchRef != ev.BranchRef || bindings.Count is < 1 or > 200) throw new InvalidOperationException("RfqOriginalEvidenceRequired");
-            GovernedRfqRestoration.VerifyEnvelopeAndPins(SourcingDraftPersistenceProjection.Evidence(evidence), ev,
-                bindings.Select(SourcingDraftPersistenceProjection.Pin).ToArray());
+            if(ev.ExecutionVersion==1)
+                GovernedRfqRestoration.VerifyEnvelopeAndPins(SourcingDraftPersistenceProjection.Evidence(evidence), ev,
+                    bindings.Select(SourcingDraftPersistenceProjection.Pin).ToArray());
+            else GovernedPrincipalRfqRestoration.RestoreVerified(evidence,ev,bindings);
         }
         foreach (var binding in ChangeTracker.Entries<SourcingDemandBinding>().Where(x => x.State == EntityState.Added).Select(x => x.Entity))
             GuardRfqBinding(binding);
         foreach (var receipt in ChangeTracker.Entries<SourcingCommandReceipt>().Where(x => x.State == EntityState.Added).Select(x => x.Entity))
         {
             var ev = RfqRow<SourcingEvent>(receipt.SourcingEventId);
-            if (ev is null || ev.ExecutionVersion != 1 || ev.OwnerSubjectId != scope.SubjectId || receipt.ActorPrincipalId != scope.SubjectId
-                || receipt.ActorWorkerId != ev.MakerWorkerId || receipt.CommandKey == Guid.Empty || receipt.ResponseSchemaVersion != 1
+            if (ev is null || ev.ExecutionVersion is not (1 or 2) || ev.OwnerSubjectId != scope.SubjectId || receipt.ActorPrincipalId != scope.SubjectId
+                || receipt.ActorWorkerId != ev.MakerWorkerId || receipt.CommandKey == Guid.Empty || receipt.ResponseSchemaVersion != ev.ExecutionVersion
                 || receipt.Operation is not ("Create" or "Cancel") || receipt.ResponseStatusCode != (receipt.Operation == "Create" ? 201 : 200)
                 || receipt.CompletedAt == default || receipt.ResultVersion != ev.Version
                 || (receipt.Operation == "Create" ? ev.Status != "Draft" : ev.Status != "Cancelled") || !RfqDigest(receipt.CommandFingerprint)
@@ -125,7 +134,7 @@ public sealed partial class ProcurementDbContext
         foreach (var entry in ChangeTracker.Entries<SourcingLine>().Where(x => x.State is EntityState.Modified or EntityState.Added))
         {
             var ev = RfqRow<SourcingEvent>(entry.Entity.SourcingEventId);
-            if (ev?.ExecutionVersion != 1) continue;
+            if (ev?.ExecutionVersion is not (1 or 2)) continue;
             if (entry.State == EntityState.Modified && (ev.Status != "Cancelled"
                 || entry.Entity.Status != "Cancelled" || entry.OriginalValues.GetValue<string>(nameof(SourcingLine.Status)) != "Active"
                 || entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not (nameof(SourcingLine.Status) or nameof(SourcingLine.StatusReason)
@@ -141,7 +150,9 @@ public sealed partial class ProcurementDbContext
         var allocation = RfqRow<PurchaseRequestAllocation>(binding.AllocationId); var evidence = RfqRow<SourcingDraftEvidence>(binding.SourceEvidenceId);
         var submission = RfqRow<PurchaseRequestApprovalSubmission>(binding.SubmissionId); var outcome = RfqRow<PurchaseRequestApprovalOutcome>(binding.ApprovalOutcomeId);
         if (ev is null || line is null || allocation is null || evidence is null || submission is null || outcome is null
-            || Entry(ev).State != EntityState.Added || ev.ExecutionVersion != 1 || ev.Status != "Draft" || ev.SourceEvidenceId != evidence.Id || evidence.SourcingEventId != ev.Id
+            || Entry(ev).State != EntityState.Added || ev.ExecutionVersion is not (1 or 2) || ev.Status != "Draft"
+            || evidence.SchemaVersion != ev.ExecutionVersion || binding.IdentitySchemaVersion != ev.ExecutionVersion
+            || ev.SourceEvidenceId != evidence.Id || evidence.SourcingEventId != ev.Id
             || ev.MethodId != binding.MethodId || ev.MethodRevision != binding.MethodRevision || ev.Method != binding.MethodCode
             || line.SourcingEventId != ev.Id || line.PurchaseRequestLineId != binding.PurchaseRequestLineId || line.Quantity != binding.Quantity
             || line.UnitCode != binding.UnitCode || line.CategoryCode != binding.CategoryCode || line.Status != "Active"
@@ -154,12 +165,25 @@ public sealed partial class ProcurementDbContext
             || binding.EstimatedValue != ExactDecimalArithmetic.Multiply(binding.Quantity, binding.UnitEstimate)
             || !RfqDigest(binding.RequestSha) || !RfqDigest(binding.PolicyDecisionSha) || !RfqDigest(binding.PolicyRulesSha) || !RfqDigest(binding.FinanceSha)
             || binding.MinimumQuoteCount is < 0 or > 20 || binding.SubmittedVersion < 1 || binding.RequestVersion < binding.SubmittedVersion
-            || binding.MakerWorkerId == Guid.Empty || binding.RequesterWorkerId == Guid.Empty
+            || (ev.ExecutionVersion==1 && (binding.IdentitySchemaVersion!=1
+                || binding.MakerWorkerId is null || binding.MakerWorkerId == Guid.Empty
+                || binding.RequesterWorkerId is null || binding.RequesterWorkerId == Guid.Empty
+                || binding.MakerPrincipalId is not null || binding.RequesterPrincipalId is not null))
+            || (ev.ExecutionVersion==2 && (binding.IdentitySchemaVersion!=2
+                || !ProcurementPrincipalEvidence.Canonical(binding.MakerPrincipalId)
+                || !ProcurementPrincipalEvidence.Canonical(binding.RequesterPrincipalId)
+                || !ProcurementPrincipalEvidence.OptionalWorker(binding.MakerWorkerId)
+                || !ProcurementPrincipalEvidence.OptionalWorker(binding.RequesterWorkerId)
+                || !RfqDigest(binding.PrincipalIdentitySha256)))
             || submission.PurchaseRequestId != binding.PurchaseRequestId || submission.CoreApprovalCaseId != binding.CoreApprovalCaseId
             || submission.SubmittedBusinessVersion != binding.SubmittedVersion || submission.RequestSnapshotSha256 != binding.RequestSha
             || submission.PolicyDecisionSha256 != binding.PolicyDecisionSha || submission.PolicyRulesSha256 != binding.PolicyRulesSha
             || submission.FinanceSnapshotId != binding.FinanceSnapshotId || submission.FinanceSnapshotSha256 != binding.FinanceSha
             || submission.MakerWorkerId != binding.MakerWorkerId || submission.RequesterWorkerId != binding.RequesterWorkerId
+            || (ev.ExecutionVersion==2 && (!PurchaseRequestApprovalPinning.HasRetainedPrincipalIdentity(submission)
+                || submission.MakerSubjectId!=binding.MakerPrincipalId
+                || submission.RequesterPrincipalId?.ToString("D")!=binding.RequesterPrincipalId
+                || submission.PrincipalIdentitySha256!=binding.PrincipalIdentitySha256))
             || outcome.SubmissionId != submission.Id || outcome.PurchaseRequestId != binding.PurchaseRequestId
             || outcome.CoreApprovalCaseId != binding.CoreApprovalCaseId || outcome.CoreDecisionId != binding.CoreDecisionId || outcome.Outcome != "Approved")
             throw new InvalidOperationException("RfqBindingInvalid");
@@ -177,7 +201,7 @@ public sealed partial class ProcurementDbContext
             if (row.TargetType != "SourcingEvent" || row.TargetId is null) throw new InvalidOperationException("RfqAllocationRetargetDenied");
             var ev = RfqRow<SourcingEvent>(row.TargetId.Value);
             var binding = RfqRows(SourcingDemandBindings.Local, SourcingDemandBindings.Where(x => x.AllocationId == row.Id), x => x.AllocationId == row.Id).SingleOrDefault();
-            if (ev?.ExecutionVersion != 1 || binding is null || binding.SourcingEventId != ev.Id
+            if (ev?.ExecutionVersion is not (1 or 2) || binding is null || binding.SourcingEventId != ev.Id
                 || binding.PurchaseRequestId != row.PurchaseRequestId || binding.PurchaseRequestLineId != row.PurchaseRequestLineId
                 || binding.Quantity != row.Quantity || binding.EstimatedValue != row.EstimatedValue)
                 throw new InvalidOperationException("RfqAllocationBindingRequired");
@@ -207,7 +231,8 @@ public sealed partial class ProcurementDbContext
                 || line.AllocatedQuantity != ExactDecimalArithmetic.Add(Entry(line).OriginalValues.GetValue<decimal>(nameof(PurchaseRequestLine.AllocatedQuantity)), delta.Value))
                 throw new InvalidOperationException("RfqTrackedRequestCounterRequired");
         }
-        foreach (var entry in ChangeTracker.Entries<SourcingEvent>().Where(x => x.State == EntityState.Modified && x.Entity.ExecutionVersion == 1 && x.Entity.Status == "Cancelled"))
+        foreach (var entry in ChangeTracker.Entries<SourcingEvent>().Where(x => x.State == EntityState.Modified
+            && (x.Entity.ExecutionVersion is 1 or 2) && x.Entity.Status == "Cancelled"))
         {
             var bindings = RfqRows(SourcingDemandBindings.Local, SourcingDemandBindings.Where(x => x.SourcingEventId == entry.Entity.Id), x => x.SourcingEventId == entry.Entity.Id);
             if (bindings.Count == 0 || bindings.Any(binding => !effects.Any(x => x.Entity.Id == binding.AllocationId && x.State == EntityState.Modified && x.Entity.Status == "Released")))

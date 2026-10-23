@@ -5,6 +5,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 public sealed class ProcurementSourcingDraftExecutionOptions
 {
     public bool Enabled { get; set; }
+    // Separate P29 authority. Defaults off until generated migration and finite-role acceptance.
+    public bool PrincipalSourceEnabled { get; set; }
     public bool ExecutionDatabaseConfigured { get; set; }
 }
 

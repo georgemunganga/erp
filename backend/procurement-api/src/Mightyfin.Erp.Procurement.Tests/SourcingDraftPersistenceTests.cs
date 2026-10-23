@@ -28,7 +28,16 @@ public sealed class SourcingDraftPersistenceTests
         var ownedCheck = header.GetCheckConstraints().Single(x => x.Name == "ck_sourcing_owned_draft").Sql;
         Assert.Contains("method_revision IS NOT NULL AND method_revision>0", ownedCheck);
         Assert.Contains("original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~", ownedCheck);
+        Assert.Contains("execution_version=2 AND source_evidence_id IS NOT NULL", ownedCheck);
+        Assert.Contains("method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL", ownedCheck);
+        var envelopeCheck = model.FindEntityType(typeof(SourcingDraftEvidence))!.GetCheckConstraints()
+            .Single(x => x.Name == "ck_rfq_original_envelope").Sql;
+        Assert.Contains("schema_version=2 AND maker_principal_id IS NOT NULL AND maker_principal_id <> '00000000-0000-0000-0000-000000000000' AND maker_principal_id ~", envelopeCheck);
         var binding = model.FindEntityType(typeof(SourcingDemandBinding))!;
+        var bindingCheck = binding.GetCheckConstraints().Single(x => x.Name == "ck_rfq_binding_value").Sql;
+        Assert.Contains("identity_schema_version=2 AND maker_principal_id IS NOT NULL AND maker_principal_id <> '00000000-0000-0000-0000-000000000000' AND maker_principal_id ~", bindingCheck);
+        Assert.Contains("requester_principal_id IS NOT NULL AND requester_principal_id <> '00000000-0000-0000-0000-000000000000' AND requester_principal_id ~", bindingCheck);
+        Assert.Contains("principal_identity_sha256 IS NOT NULL AND principal_identity_sha256 ~", bindingCheck);
         Assert.Equal(38, binding.FindProperty(nameof(SourcingDemandBinding.EstimatedValue))!.GetPrecision());
         Assert.Equal(8, binding.FindProperty(nameof(SourcingDemandBinding.EstimatedValue))!.GetScale());
         Assert.Equal(38, model.FindEntityType(typeof(PurchaseRequestAllocation))!.FindProperty(nameof(PurchaseRequestAllocation.EstimatedValue))!.GetPrecision());
@@ -42,6 +51,8 @@ public sealed class SourcingDraftPersistenceTests
         Assert.Contains(binding.GetForeignKeys(), x => x.PrincipalEntityType.ClrType == typeof(PurchaseRequestAllocation)
             && x.Properties.Select(p => p.Name).SequenceEqual(new[] { "TenantId", "LegalEntityId", "AllocationId" }));
         var receipt = model.FindEntityType(typeof(SourcingCommandReceipt))!;
+        var receiptCheck = receipt.GetCheckConstraints().Single(x => x.Name == "ck_rfq_receipt_identity").Sql;
+        Assert.Contains("response_schema_version=2 AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id ~", receiptCheck);
         Assert.DoesNotContain(receipt.GetProperties(), x => x.Name.Contains("PurchaseOrder") || x.Name.Contains("CoreApprovalCase"));
         Assert.Contains(receipt.GetForeignKeys(), x => x.PrincipalEntityType.ClrType == typeof(SourcingEvent));
         var allocation = model.FindEntityType(typeof(PurchaseRequestAllocation))!;
@@ -50,6 +61,28 @@ public sealed class SourcingDraftPersistenceTests
         var line = model.FindEntityType(typeof(SourcingLine))!;
         Assert.False(line.FindProperty(nameof(SourcingLine.PurchaseRequestLineId))!.IsKey());
         Assert.Contains(line.GetIndexes(), x => x.GetDatabaseName() == "ux_rfq_line_exact_source" && x.IsUnique);
+    }
+
+    [Fact]
+    public void Every_principal_uuid_check_accepts_canonical_identifiers_and_rejects_malformed_identifiers()
+    {
+        using var db = Db(true);
+        var model = db.GetService<IDesignTimeModel>().Model;
+        var checkedColumns = 0;
+        foreach (var type in new[] { typeof(SourcingDraftEvidence), typeof(SourcingDemandBinding), typeof(SourcingCommandReceipt) })
+        foreach (var check in model.FindEntityType(type)!.GetCheckConstraints())
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+            check.Sql, @"\b[a-z_]+_principal_id ~ '([^']+)'"))
+        {
+            var pattern = match.Groups[1].Value;
+            Assert.Matches(pattern, "12345678-1234-4abc-8def-123456789abc");
+            Assert.Matches(pattern, "abcdef01-abcd-4abc-8def-abcdef012345");
+            Assert.DoesNotMatch(pattern, "ABCDEF01-abcd-4abc-8def-abcdef012345");
+            Assert.DoesNotMatch(pattern, "12345678-1234-4abc-8def-1234-123456789abc");
+            Assert.DoesNotMatch(pattern, "1234567812344abc8def123456789abc");
+            checkedColumns++;
+        }
+        Assert.Equal(4, checkedColumns);
     }
 
     [Fact]
