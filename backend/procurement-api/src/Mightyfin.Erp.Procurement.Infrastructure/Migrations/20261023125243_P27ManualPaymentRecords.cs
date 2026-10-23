@@ -257,6 +257,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     AND jsonb_typeof(response_json::jsonb -> 'status') = 'string'
                     AND (response_json::jsonb ->> 'id')::uuid = manual_payment_request_id
                     AND (response_json::jsonb ->> 'version')::bigint = result_version);
+                ALTER TABLE procurement.manual_payment_receipts ADD CONSTRAINT uq_manual_payment_receipt_version
+                    UNIQUE (tenant_id, legal_entity_id, manual_payment_request_id, result_version);
                 CREATE FUNCTION procurement.reject_manual_payment_evidence_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
                 BEGIN RAISE EXCEPTION 'Manual payment history and receipts are append-only' USING ERRCODE = '23514'; END; $$;
                 CREATE TRIGGER manual_payment_decision_append_only BEFORE UPDATE OR DELETE ON procurement.manual_payment_decisions
@@ -296,7 +298,16 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                 CREATE TRIGGER manual_payment_request_immutable BEFORE UPDATE OR DELETE ON procurement.manual_payment_requests
                     FOR EACH ROW EXECUTE FUNCTION procurement.guard_manual_payment_request();
                 CREATE FUNCTION procurement.require_manual_payment_command_bundle() RETURNS trigger LANGUAGE plpgsql AS $$
+                DECLARE previous_state text; previous_version bigint; command_actor text; previous_amount numeric;
                 BEGIN
+                    IF TG_OP = 'INSERT' THEN
+                        previous_state := 'None'; previous_version := 0; command_actor := NEW.created_by;
+                        IF NEW.created_by IS DISTINCT FROM NEW.creator_principal_id THEN
+                            RAISE EXCEPTION 'Manual payment creation actor must be its creator' USING ERRCODE = '23514';
+                        END IF;
+                    ELSE
+                        previous_state := OLD.status; previous_version := OLD.version; command_actor := NEW.updated_by; previous_amount := OLD.amount;
+                    END IF;
                     IF NOT EXISTS (SELECT 1 FROM procurement.manual_payment_decisions d
                         JOIN procurement.manual_payment_receipts r ON r.tenant_id = d.tenant_id AND r.legal_entity_id = d.legal_entity_id
                             AND r.manual_payment_request_id = d.manual_payment_request_id AND r.result_version = d.to_version
@@ -304,6 +315,15 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         WHERE d.tenant_id = NEW.tenant_id AND d.legal_entity_id = NEW.legal_entity_id
                             AND d.manual_payment_request_id = NEW.id AND d.branch_id = NEW.branch_id
                             AND d.to_version = NEW.version AND d.to_status = NEW.status
+                            AND d.from_status = previous_state AND d.from_version = previous_version
+                            AND d.actor_principal_id = command_actor
+                            AND ((d.action IN ('Create','Revise','Submit') AND d.actor_principal_id = NEW.creator_principal_id)
+                                OR (d.action IN ('Approve','Return','Reject') AND d.actor_principal_id = NEW.approver_principal_id)
+                                OR (d.action = 'Record' AND d.actor_principal_id = NEW.recorder_principal_id)
+                                OR (d.action IN ('Confirm','Dispute') AND d.actor_principal_id = NEW.confirmer_principal_id)
+                                OR (d.action = 'Cancel' AND d.actor_principal_id IN (NEW.creator_principal_id, NEW.approver_principal_id)))
+                            AND (d.action NOT IN ('Create','Revise') OR (d.new_amount = NEW.amount
+                                AND (d.action <> 'Revise' OR d.previous_amount = previous_amount)))
                             AND r.response_json::jsonb ->> 'status' = d.to_status) THEN
                         RAISE EXCEPTION 'A manual payment transition and exact command receipt must commit together' USING ERRCODE = '23514';
                     END IF;
@@ -311,6 +331,27 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                 END; $$;
                 CREATE CONSTRAINT TRIGGER manual_payment_command_bundle AFTER INSERT OR UPDATE ON procurement.manual_payment_requests
                     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION procurement.require_manual_payment_command_bundle();
+                CREATE FUNCTION procurement.require_manual_payment_evidence_bundle() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM procurement.manual_payment_requests p
+                        JOIN procurement.manual_payment_decisions d ON d.tenant_id = p.tenant_id AND d.legal_entity_id = p.legal_entity_id
+                            AND d.manual_payment_request_id = p.id AND d.branch_id = p.branch_id
+                        JOIN procurement.manual_payment_receipts r ON r.tenant_id = d.tenant_id AND r.legal_entity_id = d.legal_entity_id
+                            AND r.manual_payment_request_id = d.manual_payment_request_id AND r.branch_id = d.branch_id
+                            AND r.result_version = d.to_version AND r.actor_principal_id = d.actor_principal_id AND r.action = d.action
+                        WHERE p.tenant_id = NEW.tenant_id AND p.legal_entity_id = NEW.legal_entity_id
+                            AND p.id = NEW.manual_payment_request_id AND p.version >= d.to_version
+                            AND ((TG_TABLE_NAME = 'manual_payment_decisions' AND d.id = NEW.id)
+                                OR (TG_TABLE_NAME = 'manual_payment_receipts' AND r.id = NEW.id))
+                            AND r.response_json::jsonb ->> 'status' = d.to_status) THEN
+                        RAISE EXCEPTION 'Unmatched manual payment history or receipt is forbidden' USING ERRCODE = '23514';
+                    END IF;
+                    RETURN NULL;
+                END; $$;
+                CREATE CONSTRAINT TRIGGER manual_payment_history_bundle AFTER INSERT ON procurement.manual_payment_decisions
+                    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION procurement.require_manual_payment_evidence_bundle();
+                CREATE CONSTRAINT TRIGGER manual_payment_receipt_bundle AFTER INSERT ON procurement.manual_payment_receipts
+                    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION procurement.require_manual_payment_evidence_bundle();
                 """);
         }
 
@@ -324,10 +365,13 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         OR EXISTS (SELECT 1 FROM procurement.manual_payment_receipts)
                         OR EXISTS (SELECT 1 FROM procurement.audit_events WHERE record_type IN
                             ('ManualPaymentRequest','ManualPaymentDecision','ManualPaymentCommandReceipt')
-                            OR changed_fields_json::text LIKE '%"principalEvidenceKind":"ManualPayment"%') THEN
+                            OR changed_fields_json ->> 'principalEvidenceKind' = 'ManualPayment') THEN
                         RAISE EXCEPTION 'Manual payment evidence is retained; downgrade is unsafe' USING ERRCODE = '23514';
                     END IF;
                 END; $$;
+                DROP TRIGGER manual_payment_history_bundle ON procurement.manual_payment_decisions;
+                DROP TRIGGER manual_payment_receipt_bundle ON procurement.manual_payment_receipts;
+                DROP FUNCTION procurement.require_manual_payment_evidence_bundle();
                 DROP TRIGGER manual_payment_command_bundle ON procurement.manual_payment_requests;
                 DROP TRIGGER manual_payment_request_immutable ON procurement.manual_payment_requests;
                 DROP TRIGGER manual_payment_receipt_append_only ON procurement.manual_payment_receipts;
