@@ -114,6 +114,8 @@ Failed publication remains Pending, not Open. Unknown bid upload outcome is chec
 
 P29 uses one owning transaction and sorted PR locks. A stale source version, reduced allocation balance, changed current authority, changed scope, or mismatched retained digest blocks before a new hold or release. On an uncertain response the client checks its actor-owned receipt before another POST. Cancel keeps the original source evidence and releases each exact allocation once.
 
+P29 downgrade must first lock and inspect every sourcing event, draft evidence, demand binding and command receipt across all tenants. Any principal version 2 row vetoes Down with SQLSTATE `55000`, including a cancelled draft and its retained evidence. The guard runs before worker-only constraints or columns are restored; an operator must not delete history to force a downgrade.
+
 ## 25. Acceptance Criteria
 
 Given unpublished criteria, bid submission is unavailable. Given a sealed bid, evaluator cannot read it before authorized opening. Given surrogate entry, original source and times are mandatory. Given unresolved conflict, score/award blocks. Given approved award, quantities cannot exceed PR allocation.
@@ -123,6 +125,8 @@ Given unpublished criteria, bid submission is unavailable. Given a sealed bid, e
 Test RFQ/RFP/tender/direct/sole-source routes, no/one/many bids, late/offline/surrogate submission, sealed access, independent scoring, currency normalization, conflict, supplier suspension, duplicate event replay and deadline boundary.
 
 P29 acceptance additionally requires real workerless Core buyer/requester/checker accounts; wrong company/branch/current role; schema 1/2 identity downgrade and known-alias conflict; edited source digest; mixed currency or method; partial quantity and competing holds; stale version; unknown Create/Cancel response recovery; exact zero remaining balance; and proof that no supplier invitation, Finance posting or publication is created. Generated migration, exact PostgreSQL 17 constraint capture and finite record/execution role checks are release gates.
+
+For the genuine P29 migration rehearsal, create a principal version 2 source draft in a private PostgreSQL database, cancel it, then attempt P29 Down. Assert SQLSTATE `55000`, unchanged migration version and retained event/evidence/binding/receipt rows. Repeat with each version 2 table populated independently where the schema permits, and verify a worker-only database can migrate Down. These are database acceptance checks, not source-string assertions.
 
 ## 27. Ownership and Dependencies
 
