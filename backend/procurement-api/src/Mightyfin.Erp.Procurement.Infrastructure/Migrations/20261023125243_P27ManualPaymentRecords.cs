@@ -298,7 +298,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                 CREATE TRIGGER manual_payment_request_immutable BEFORE UPDATE OR DELETE ON procurement.manual_payment_requests
                     FOR EACH ROW EXECUTE FUNCTION procurement.guard_manual_payment_request();
                 CREATE FUNCTION procurement.require_manual_payment_command_bundle() RETURNS trigger LANGUAGE plpgsql AS $$
-                DECLARE previous_state text; previous_version bigint; command_actor text; previous_amount numeric;
+                DECLARE previous_state text; previous_version bigint; command_actor text; v_previous_amount numeric;
                 BEGIN
                     IF TG_OP = 'INSERT' THEN
                         previous_state := 'None'; previous_version := 0; command_actor := NEW.created_by;
@@ -306,7 +306,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                             RAISE EXCEPTION 'Manual payment creation actor must be its creator' USING ERRCODE = '23514';
                         END IF;
                     ELSE
-                        previous_state := OLD.status; previous_version := OLD.version; command_actor := NEW.updated_by; previous_amount := OLD.amount;
+                        previous_state := OLD.status; previous_version := OLD.version; command_actor := NEW.updated_by; v_previous_amount := OLD.amount;
                     END IF;
                     IF NOT EXISTS (SELECT 1 FROM procurement.manual_payment_decisions d
                         JOIN procurement.manual_payment_receipts r ON r.tenant_id = d.tenant_id AND r.legal_entity_id = d.legal_entity_id
@@ -323,7 +323,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                                 OR (d.action IN ('Confirm','Dispute') AND d.actor_principal_id = NEW.confirmer_principal_id)
                                 OR (d.action = 'Cancel' AND d.actor_principal_id IN (NEW.creator_principal_id, NEW.approver_principal_id)))
                             AND (d.action NOT IN ('Create','Revise') OR (d.new_amount = NEW.amount
-                                AND (d.action <> 'Revise' OR d.previous_amount = previous_amount)))
+                                AND (d.action <> 'Revise' OR d.previous_amount = v_previous_amount)))
                             AND r.response_json::jsonb ->> 'status' = d.to_status) THEN
                         RAISE EXCEPTION 'A manual payment transition and exact command receipt must commit together' USING ERRCODE = '23514';
                     END IF;
