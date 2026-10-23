@@ -85,8 +85,13 @@ public sealed partial class SpendingAuthorityIdentityTests
             var rehashed=wrong with {EvidenceSha256=SpendingAuthorityIdentity.Digest(wrong)};
             Assert.Equal("AuthorityIdentityEvidenceInvalid",Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.Verify(rehashed)).Message);
         }
-        grant.AmountBasis="EstimatedLineBase";
-        Assert.Equal("AuthorityIdentityEvidenceScopeMismatch",Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.VerifyOrigin(grant,created)).Message);
+        var wrongBasis=SpendingAuthorityConfiguration.CreateDraft("AUTH-WRONG-BASIS",Recipient,
+            new("ZMW","EstimatedLineBase",100,Now.AddDays(-1),Now.AddDays(1),AllBranches:true,AllDepartments:true,AllCategories:true),
+            Actor(Maker,SpendingAuthorityConfiguration.ConfigurePermission),Now,[],action);
+        SpendingAuthorityIdentity.CaptureCreation(wrongBasis,null,null,2); // incomplete drafts remain editable
+        Assert.Equal("AuthorityFinancialTermsInvalid",Assert.Throws<InvalidOperationException>(()=>
+            SpendingAuthorityConfiguration.Submit(wrongBasis,wrongBasis.Version,
+                Actor(Maker,SpendingAuthorityConfiguration.ConfigurePermission),Subject(),Now.AddMinutes(3))).Message);
     }
 
     [Fact]

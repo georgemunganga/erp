@@ -207,7 +207,6 @@ public static class SpendingAuthorityIdentity
         Require(row.TenantId == grant.TenantId && row.LegalEntityId == grant.LegalEntityId && row.GrantId == grant.Id
             && row.AuthorityReference == grant.AuthorityReference && row.AuthorityVersion == grant.AuthorityVersion
             && row.Permission == grant.Permission && row.Action == grant.Action
-            && (row.SchemaVersion == 1 || ProcurementSpendingActions.Matches(grant.Action, grant.Permission, grant.AmountBasis))
             && row.ConfigurationOwnerPrincipalId == grant.ConfigurationOwnerPrincipalId
             && row.RecipientPrincipalId == grant.PrincipalId, "AuthorityIdentityEvidenceScopeMismatch");
     }
