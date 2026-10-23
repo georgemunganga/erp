@@ -18,7 +18,7 @@ PaymentProbe? probe = null;
 try {
     probe = new PaymentProbe(connection); await probe.Run();
     Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS_MANUAL_PAYMENT_POSTGRES_STORAGE", checks = probe.Checks,
-        synthetic = true, httpVerified = false, financeOrBankExecution = false }));
+        synthetic = true, httpVerified = false, financeOrBankExecution = false, syntheticFinanceProjectionFixture = true }));
 } catch (Exception error) {
     Console.WriteLine(JsonSerializer.Serialize(new { status = "FAIL_MANUAL_PAYMENT_POSTGRES_STORAGE", errorType = error.GetType().Name, phase = probe?.Phase,
         sqlState = (error as PostgresException ?? error.InnerException as PostgresException)?.SqlState }));
@@ -77,7 +77,9 @@ sealed class PaymentProbe(string connection)
             var applied = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
             Check(applied.Last().EndsWith("P27ManualPaymentRecords", StringComparison.Ordinal));
             var previous = applied.Single(x => x.EndsWith("P24CorePrincipalRecurringPurchasePlanning", StringComparison.Ordinal));
-            await db.GetService<IMigrator>().MigrateAsync(previous); await db.Database.MigrateAsync();
+            await db.GetService<IMigrator>().MigrateAsync(previous);
+            Phase = "p24-credit-invoice-store-compatibility"; await LegacyP24Compatibility();
+            Phase = "owning-migration-empty-down-up"; await db.Database.MigrateAsync();
             Check((await db.Database.GetAppliedMigrationsAsync()).Last().EndsWith("P27ManualPaymentRecords", StringComparison.Ordinal));
         }
         Phase = "audit-only-downgrade-veto"; await AuditOnlyDowngradeVeto();
@@ -114,13 +116,14 @@ sealed class PaymentProbe(string connection)
         await using (var db = Db()) {
             Check(await db.ManualPaymentDecisions.CountAsync(x => x.ManualPaymentRequestId == id) == 6);
             Check(await db.ManualPaymentReceipts.CountAsync(x => x.ManualPaymentRequestId == id) == 6);
-            Check(await db.FinancePaymentStatusRefs.CountAsync() == 0 && (await db.SupplierInvoices.SingleAsync()).FinancePostingRef is null);
+            Check(await db.FinancePaymentStatusRefs.CountAsync() == 0 && (await db.SupplierInvoices.SingleAsync(x => x.Id == invoice.Id)).FinancePostingRef is null);
         }
         await using (var foreign = Db(selectedBranch: Guid.NewGuid())) Check(!await foreign.ManualPaymentRequests.AnyAsync());
         var draft = ManualPaymentWorkflow.Create(Draft(), Actor(creator), Assignee(approver, "approve"), Assignee(recorder, "record"), Assignee(confirmer, "confirm"), Source(), DateTimeOffset.UtcNow);
         await Save(draft, creator, true);
         Phase = "negative-postgres-sql"; await NegativeSql(draft.Request.Id);
         Phase = "locked-invoice-capacity"; await CapacityConcurrency();
+        Phase = "finance-only-credit-capacity"; await FinanceOnlyCreditVeto();
         Phase = "retained-downgrade-veto";
         await using (var db = Db()) {
             var before = await Counts(); var rejected = false;
@@ -211,6 +214,48 @@ sealed class PaymentProbe(string connection)
             Check(denied); db.ChangeTracker.Clear(); original = await db.SupplierInvoices.SingleAsync(x => x.Id == invoice.Id);
             Check(original.GrossAmount == 100m && original.Version == version);
         }
+    }
+    private async Task LegacyP24Compatibility()
+    {
+        await using var db = Db();
+        var supplier = new Supplier { Number = "SYN-P24-PAY", LegalName = "Synthetic P24 compatibility", DisplayName = "Synthetic P24 compatibility", CountryCode = "ZM" };
+        db.AddScoped(supplier);
+        var header = new SupplierInvoice { SupplierId = supplier.Id, BranchRef = branch, CurrencyCode = "ZMW",
+            InvoiceNumber = "SYN-P24-PAY", NormalizedInvoiceNumber = "SYN-P24-PAY", IntakeChannel = "Manual",
+            InvoiceDate = new(2026,10,22), NetAmount = 100m, GrossAmount = 100m };
+        var line = new SupplierInvoiceLine { SupplierInvoiceId = header.Id, LineNumber = 1, Description = "Original P24 line", Quantity = 1m, UnitPrice = 100m };
+        db.AddScoped(header); db.AddScoped(line); await db.SaveChangesAsync();
+        Check(await db.ManualInvoiceDrafts().AnyAsync(x => x.Id == header.Id));
+        header.NetAmount = header.GrossAmount = 99m; line.UnitPrice = 99m; await db.SaveChangesAsync();
+        Check(header.Version == 2 && header.GrossAmount == 99m);
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.supplier_invoices WHERE id={header.Id} AND tenant_id={Tenant} AND legal_entity_id={company} FOR UPDATE");
+        await ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, header, null, 10m);
+        var credit = new SupplierCreditNoteRef { SupplierId = supplier.Id, SupplierInvoiceId = header.Id,
+            CreditNumber = "SYN-P24-CREDIT", CurrencyCode = "ZMW", Amount = 10m, Status = "Draft", Reason = "Synthetic P24 commercial claim" };
+        db.AddScoped(credit); await db.SaveChangesAsync(); await tx.CommitAsync();
+        Check(await db.SupplierCreditNoteRefs.AnyAsync(x => x.Id == credit.Id && x.Amount == 10m));
+        Check(!await db.ManualInvoiceDrafts().AnyAsync(x => x.Id == header.Id));
+    }
+    private async Task FinanceOnlyCreditVeto()
+    {
+        await using var db = Db();
+        var header = new SupplierInvoice { SupplierId = invoice.SupplierId, BranchRef = branch, CurrencyCode = "ZMW",
+            InvoiceNumber = "SYN-FINANCE-ONLY", NormalizedInvoiceNumber = "SYN-FINANCE-ONLY", IntakeChannel = "Manual",
+            InvoiceDate = new(2026,10,22), NetAmount = 100m, GrossAmount = 100m };
+        db.AddScoped(header);
+        // Explicit synthetic imported-outcome fixture only; no real Finance adapter,
+        // AP posting, account grant, external callback or payment rail executes here.
+        db.AddScoped(new FinancePaymentStatusRef { SupplierInvoiceId = header.Id, CurrencyCode = "ZMW",
+            FinancePaymentRef = "SYN-FINANCE-ONLY", Status = "Paid", PaidAmount = 100m, SyncedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.supplier_invoices WHERE id={header.Id} AND tenant_id={Tenant} AND legal_entity_id={company} FOR UPDATE");
+        var denied = false;
+        try { await ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, header, null, 1m); }
+        catch (InvalidOperationException e) when (e.Message == "ManualPaymentRegisteredAmountExceedsInvoice") { denied = true; }
+        Check(denied && !await db.SupplierCreditNoteRefs.AnyAsync(x => x.SupplierInvoiceId == header.Id));
+        await tx.RollbackAsync();
     }
     private async Task CreditAgainstManualRace(Scope scope, IReadOnlySet<Guid> allowed)
     {

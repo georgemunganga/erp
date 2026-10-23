@@ -75,7 +75,9 @@ public static class ManualPaymentCapacityReader
         if (!await ProcurementManualPaymentSchema.InstalledAsync(db, ct)) return;
         var requests = await db.ManualPaymentRequests.IgnoreQueryFilters().AsNoTracking().Where(x =>
             x.TenantId == invoice.TenantId && x.LegalEntityId == invoice.LegalEntityId && x.SupplierInvoiceId == invoice.Id).ToArrayAsync(ct);
-        if (requests.Length == 0) return; // Existing credit-only ceiling remains the owner of this path.
+        var settlements = await db.FinancePaymentStatusRefs.IgnoreQueryFilters().AsNoTracking().Where(x =>
+            x.TenantId == invoice.TenantId && x.LegalEntityId == invoice.LegalEntityId && x.SupplierInvoiceId == invoice.Id).ToArrayAsync(ct);
+        if (requests.Length == 0 && settlements.Length == 0) return; // Existing credit-only ceiling owns this path.
         if (db.Database.IsRelational() && (db.Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL"
             || db.Database.CurrentTransaction is not { } transaction
             || transaction.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable))
@@ -87,8 +89,6 @@ public static class ManualPaymentCapacityReader
         credits.Add(new SupplierCreditNoteRef { TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,
             SupplierInvoiceId = invoice.Id, SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode,
             Amount = amount, Status = "Draft" });
-        var settlements = await db.FinancePaymentStatusRefs.IgnoreQueryFilters().AsNoTracking().Where(x =>
-            x.TenantId == invoice.TenantId && x.LegalEntityId == invoice.LegalEntityId && x.SupplierInvoiceId == invoice.Id).ToArrayAsync(ct);
         _ = ManualPaymentCapacity.Calculate(invoice, requests, credits, settlements);
     }
 }

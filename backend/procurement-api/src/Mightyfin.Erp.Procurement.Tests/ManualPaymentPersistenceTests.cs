@@ -189,6 +189,43 @@ public sealed class ManualPaymentPersistenceTests
         Assert.Empty(await db.SupplierCreditNoteRefs.ToArrayAsync()); // Guard does not post a credit.
     }
 
+    [Theory]
+    [InlineData("Cancelled")][InlineData("Rejected")]
+    public async Task Closed_manual_requests_release_capacity_but_do_not_unfreeze_original_invoice_history(string outcome)
+    {
+        var scope = Owner(); var options = Options(); await using var db = new ProcurementDbContext(options, scope);
+        var invoice = await SeedInvoice(db, scope); var made = Create(scope, invoice); Bundle(db, made, scope); await db.SaveChangesAsync();
+        var stored = await db.ManualPaymentRequests.SingleAsync();
+        ManualPaymentChange changed;
+        if (outcome == "Cancelled") changed = ManualPaymentWorkflow.Cancel(stored, 1,
+            Actor(scope) with { Actions = new HashSet<string> { "procurement-payment-cancel" } }, "Withdrawn", DateTimeOffset.UtcNow);
+        else {
+            var submitted = ManualPaymentWorkflow.Submit(stored, 1, Actor(scope) with { Actions = new HashSet<string> { "procurement-payment-submit" } }, Source(scope, invoice), DateTimeOffset.UtcNow);
+            db.Entry(stored).CurrentValues.SetValues(submitted.Request); Bundle(db, submitted, scope, false); await db.SaveChangesAsync();
+            var approverScope = scope with { SubjectId = Approver };
+            await using var checker = new ProcurementDbContext(options, approverScope);
+            var current = await checker.ManualPaymentRequests.SingleAsync();
+            changed = ManualPaymentWorkflow.Reject(current, 2,
+                Actor(approverScope) with { Actions = new HashSet<string> { "procurement-payment-approve" } }, "Not proceeding", DateTimeOffset.UtcNow);
+            checker.Entry(current).CurrentValues.SetValues(changed.Request); Bundle(checker, changed, approverScope, false); await checker.SaveChangesAsync();
+            db.ChangeTracker.Clear(); stored = await db.ManualPaymentRequests.SingleAsync();
+        }
+        if (outcome == "Cancelled") { db.Entry(stored).CurrentValues.SetValues(changed.Request); Bundle(db, changed, scope, false); await db.SaveChangesAsync(); }
+        Assert.False(await db.ManualInvoiceDrafts().AnyAsync(x => x.Id == invoice.Id));
+        Assert.Equal(100m, ManualPaymentCapacity.Calculate(invoice, await db.ManualPaymentRequests.ToArrayAsync(), [], []).RemainingExcludingThisRequest);
+    }
+
+    [Fact]
+    public async Task Finance_only_settlements_are_checked_before_accepting_a_credit_claim()
+    {
+        var scope = Owner(); await using var db = new ProcurementDbContext(Options(), scope); var invoice = await SeedInvoice(db, scope);
+        db.AddScoped(new FinancePaymentStatusRef { SupplierInvoiceId = invoice.Id, CurrencyCode = invoice.CurrencyCode,
+            FinancePaymentRef = "SYN-FINANCE-ONLY", Status = "Paid", PaidAmount = 100m, SyncedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+        Assert.Equal("ManualPaymentRegisteredAmountExceedsInvoice", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, invoice, null, 1m))).Message);
+    }
+
     private static ManualPaymentActor Actor(Scope s) => new(s.SubjectId, s.TenantId, s.LegalEntityId, s.Branch,
         new HashSet<Guid> { s.Branch }, new HashSet<string> { "procurement-payment-create", "procurement-payment-edit" }, true)
         { CoreLinkedWorkerId = s.CoreLinkedWorkerId };

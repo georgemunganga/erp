@@ -27,8 +27,7 @@ public sealed partial class ProcurementDbContext
         && !FinancePaymentStatusRefs.Any(row => row.SupplierInvoiceId == invoice.Id)
         && !SupplierCreditNoteRefs.Any(row => row.SupplierInvoiceId == invoice.Id));
         return ProcurementManualPaymentSchema.Installed(this)
-            ? query.Where(invoice => !ManualPaymentRequests.Any(row => row.SupplierInvoiceId == invoice.Id
-                && row.Status != "Cancelled" && row.Status != "Rejected")) : query;
+            ? query.Where(invoice => !ManualPaymentRequests.Any(row => row.SupplierInvoiceId == invoice.Id)) : query;
     }
 
     private bool MayMaintainManualInvoice(Guid id)
@@ -39,7 +38,7 @@ public sealed partial class ProcurementDbContext
         if (original is null) return false;
         if (ProcurementManualPaymentSchema.Installed(this) && ManualPaymentRequests.IgnoreQueryFilters().Any(row =>
             row.TenantId == original.TenantId && row.LegalEntityId == original.LegalEntityId
-            && row.SupplierInvoiceId == id && row.Status != "Cancelled" && row.Status != "Rejected")) return false;
+            && row.SupplierInvoiceId == id)) return false;
         var parent = ChangeTracker.Entries<SupplierInvoice>().SingleOrDefault(row => row.Entity.Id == id);
         // A line-only save could race a first mapping under implicit ReadCommitted. Every
         // correction must participate in the owning invoice's real optimistic CAS write:
@@ -66,7 +65,7 @@ public sealed partial class ProcurementDbContext
             FinanceInvoiceHandoff row => row.SupplierInvoiceId == id,
             FinancePaymentStatusRef row => row.SupplierInvoiceId == id,
             SupplierCreditNoteRef row => row.SupplierInvoiceId == id,
-            ManualPaymentRequest row => row.SupplierInvoiceId == id && row.Status != "Cancelled" && row.Status != "Rejected",
+            ManualPaymentRequest row => row.SupplierInvoiceId == id,
             ProcurementAttachmentRef row => row.OwnerId == id,
             SupplierInvoiceLine row => row.SupplierInvoiceId == id
                 && (row.PurchaseOrderLineId != null || row.GoodsReceiptLineId != null || row.ServiceAcceptanceId != null),

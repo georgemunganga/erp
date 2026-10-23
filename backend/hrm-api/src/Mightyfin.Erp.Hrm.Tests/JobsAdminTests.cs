@@ -113,9 +113,12 @@ public sealed class JobsAdminTests
         Assert.DoesNotContain("procurement-sourcing-convert", updated.Permissions);
         var read = Assert.Single((await service.ListRolesAsync(default)).Where(x => x.RoleKey == "source_operator"));
         Assert.Equal(updated.Permissions, read.Permissions);
+        var publication = await service.UpdateRoleAsync("source_operator",
+            new RoleUpdateRequest(Permissions: ["procurement-access", "procurement-sourcing-publish"]), default);
+        Assert.Contains("procurement-sourcing-publish", publication.Permissions); // Existing catalog action; no endpoint activation implied.
         var error = await Assert.ThrowsAsync<DomainException>(() => service.UpdateRoleAsync("source_operator",
-            new RoleUpdateRequest(Permissions: ["procurement-access", "procurement-sourcing-publish"]), default));
-        Assert.Equal("invalid-permissions", error.Code); // No publication action is introduced by this slice.
+            new RoleUpdateRequest(Permissions: ["procurement-access", "procurement-sourcing-unregistered"]), default));
+        Assert.Equal("invalid-permissions", error.Code);
     }
 
     [Fact]
