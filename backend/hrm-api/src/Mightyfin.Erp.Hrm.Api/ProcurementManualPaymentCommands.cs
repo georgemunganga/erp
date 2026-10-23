@@ -225,6 +225,12 @@ public static partial class ProcurementManualPaymentCommandRoutes
                 || !await ProcurementManualPaymentPeople.IndependentConfirmationNow(core, request, person.PrincipalId, ct))
                 throw new PaymentProblem("payment-independent-confirmer-required", 403);
         }
+        else if (action == "Cancel" && request.ApproverPrincipalId == person.PrincipalId)
+        {
+            if (request.ApproverCoreLinkedWorkerId != person.CoreLinkedWorkerId
+                || !await ProcurementManualPaymentPeople.IndependentApprovalNow(core, request, person.PrincipalId, ct))
+                throw new PaymentProblem("payment-independent-approver-required", 403);
+        }
     }
 
     private static async Task<PolicyVersion> CurrentPolicy(ProcurementDbContext db, ProcurementRequestScope scope,
