@@ -6,7 +6,7 @@ using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Application;
 
-/// <param name="MaximumByCurrency">Null means no configured monetary limit; a present map requires currency coverage.</param>
+/// <param name="MaximumByCurrency">Null is allowed only in an unfinished draft.</param>
 public sealed record ManualPaymentReviewPolicyDocument(int SchemaVersion, int IdentitySchemaVersion,
     string ApprovalType, bool IndependentCreatorApprover, bool IndependentRecorderConfirmer,
     IReadOnlyDictionary<string, decimal>? MaximumByCurrency);
@@ -24,8 +24,8 @@ public static class ManualPaymentReviewPolicyRules
     private static readonly Regex AmountSyntax = new(@"\A(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?\z",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 
-    public static ManualPaymentReviewPolicyDocument Parse(string? json) => ParseCore(json);
-    public static ManualPaymentReviewPolicyDocument ParseDraft(string? json) => ParseCore(json);
+    public static ManualPaymentReviewPolicyDocument Parse(string? json) => ParseCore(json, draft: false);
+    public static ManualPaymentReviewPolicyDocument ParseDraft(string? json) => ParseCore(json, draft: true);
 
     public static IReadOnlyList<PolicyRuleIssue> Validate(string? json, bool draft = false)
     {
@@ -65,7 +65,7 @@ public static class ManualPaymentReviewPolicyRules
             ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson), tenantId, legalEntityId, rules);
     }
 
-    /// <summary>An absent currency limit is not an amount approval. The host must still check Core actions and assignees.</summary>
+    /// <summary>No limit or currency coverage grants no payment authority; the host also checks Core actions and assignees.</summary>
     public static bool WithinConfiguredMaximum(ManualPaymentReviewPolicyDocument rules, string currencyCode, decimal amount)
         => rules is not null && rules.SchemaVersion == 1 && rules.IdentitySchemaVersion == 2
             && rules.ApprovalType == "SingleApprover"
@@ -73,12 +73,12 @@ public static class ManualPaymentReviewPolicyRules
             && currencyCode is { Length: 3 }
             && currencyCode.All(c => c is >= 'A' and <= 'Z')
             && amount > 0 && ExactDecimalJsonCodec.IsRepresentable(amount, 18, 4)
-            && (rules.MaximumByCurrency is null
-                || rules.MaximumByCurrency.TryGetValue(currencyCode, out var limit)
-                    && limit > 0 && ExactDecimalJsonCodec.IsRepresentable(limit, 18, 4)
-                    && amount <= limit);
+            && rules.MaximumByCurrency is not null
+            && rules.MaximumByCurrency.TryGetValue(currencyCode, out var limit)
+            && limit > 0 && ExactDecimalJsonCodec.IsRepresentable(limit, 18, 4)
+            && amount <= limit;
 
-    private static ManualPaymentReviewPolicyDocument ParseCore(string? json)
+    private static ManualPaymentReviewPolicyDocument ParseCore(string? json, bool draft)
     {
         try
         {
@@ -113,6 +113,7 @@ public static class ManualPaymentReviewPolicyRules
                 }
                 limits = new ReadOnlyDictionary<string, decimal>(entries);
             }
+            Need(draft || limits is not null);
             return new(1, 2, "SingleApprover", true, true, limits);
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException

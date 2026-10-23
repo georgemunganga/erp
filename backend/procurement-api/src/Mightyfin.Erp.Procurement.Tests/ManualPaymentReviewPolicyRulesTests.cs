@@ -6,30 +6,35 @@ namespace Mightyfin.Erp.Procurement.Tests;
 
 public sealed class ManualPaymentReviewPolicyRulesTests
 {
-    private const string Base = """
+    private const string DraftBase = """
         {"schemaVersion":1,"identitySchemaVersion":2,"policyKey":"MANUAL_PAYMENT_REVIEW",
          "transactionType":"ManualPaymentReview","approvalType":"SingleApprover",
          "independentCreatorApprover":true,"independentRecorderConfirmer":true}
         """;
 
-    private static string WithMaximum(string entries) => Base.Replace(
+    private static readonly string Base = WithMaximum("\"ZMW\":\"50000.0000\"");
+
+    private static string WithMaximum(string entries) => DraftBase.Replace(
         "\"independentRecorderConfirmer\":true}",
         "\"independentRecorderConfirmer\":true,\"maximumByCurrency\":{" + entries + "}}");
 
     [Fact]
-    public void Valid_core_account_policy_has_no_implicit_amount_threshold()
+    public void Unfinished_core_account_draft_cannot_be_published_or_authorize_an_amount()
     {
-        Assert.True(Rules.IsDocument(Base));
-        Assert.Empty(Rules.Validate(Base));
-        Assert.Empty(Rules.Validate(Base, draft: true));
-        var parsed = Rules.ParseDraft(Base);
+        Assert.True(Rules.IsDocument(DraftBase));
+        Assert.Empty(Rules.Validate(DraftBase, draft: true));
+        Assert.Single(Rules.Validate(DraftBase));
+        Assert.Equal("ManualPaymentReviewPolicyUnavailable",
+            Assert.Throws<InvalidOperationException>(() => Rules.Parse(DraftBase)).Message);
+        var parsed = Rules.ParseDraft(DraftBase);
         Assert.Equal(2, parsed.IdentitySchemaVersion);
         Assert.Equal("SingleApprover", parsed.ApprovalType);
         Assert.True(parsed.IndependentCreatorApprover && parsed.IndependentRecorderConfirmer);
         Assert.Null(parsed.MaximumByCurrency);
-        Assert.True(Rules.WithinConfiguredMaximum(parsed, "ZMW", 99999999999999.9999m));
+        Assert.False(Rules.WithinConfiguredMaximum(parsed, "ZMW", 1m));
         Assert.False(Rules.WithinConfiguredMaximum(parsed, "ZMW", 0));
         Assert.False(Rules.WithinConfiguredMaximum(parsed, "ZMW", 0.00001m));
+        Assert.Empty(Rules.Validate(Base));
     }
 
     [Fact]
@@ -127,6 +132,9 @@ public sealed class ManualPaymentReviewPolicyRulesTests
         var projection = Rules.ResolveEffective(policy, "tenant-a", company, now);
         Assert.Equal(policy.Id, projection.PolicyId);
         Assert.Equal(ProcurementEvidenceEncoding.PolicyJsonDigest(Base), projection.RulesSha256);
+        policy.RulesJson = DraftBase;
+        Assert.Throws<InvalidOperationException>(() => Rules.ResolveEffective(policy, "tenant-a", company, now));
+        policy.RulesJson = Base;
         Assert.Throws<InvalidOperationException>(() => Rules.ResolveEffective(policy, "tenant-b", company, now));
         Assert.Throws<InvalidOperationException>(() => Rules.ResolveEffective(policy, "tenant-a", Guid.NewGuid(), now));
         policy.State = "Draft";
