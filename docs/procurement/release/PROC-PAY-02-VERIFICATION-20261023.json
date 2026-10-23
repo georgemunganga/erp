@@ -88,12 +88,56 @@
         "coreDecisionLinks": 3,
         "financePaymentRows": 0
       }
+    },
+    {
+      "source": "44f034c3e13e30789172224696e7021e70ee834c",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-http-build-20261023_run16",
+      "procurementTestsPassed": 1361,
+      "procurementTestsSkipped": 0,
+      "overallBuild": "FAILED_FOUR_NEW_CORE_SQLITE_ROUTE_TESTS",
+      "procurementCodeUnchangedInCurrentCandidate": true
+    },
+    {
+      "source": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-http-build-20261023_run17",
+      "hostTestsPassed": 54,
+      "hostTestsFailed": 0,
+      "hostTestsSkipped": 0,
+      "sourceUnchanged": true,
+      "apiAndHttpProbePublished": true,
+      "exitCode": 0,
+      "oomKilled": false
+    },
+    {
+      "source": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-governance-native-upgrade-20261023_run02/http-run06",
+      "result": "PASS_PRIVATE_CLONE_ONLY",
+      "actualProgram": true,
+      "normalLocalCookieLogin": true,
+      "resultSha256": "84043dd22c7159a544254bef52703af35ce052614b6edcc3e9661af9a84a00bb",
+      "checks": [
+        "normal Core cookie auth, optional employee identity and scoped workspace choices",
+        "real independent payment policy lifecycle",
+        "actor-owned lost Create response recovery",
+        "explicit All branches preserves current Core branch intersection for payment reads and commands",
+        "current Core branch scope before read and recovery",
+        "valid second company and assigned branch cannot read original payment",
+        "exact amount, self-assignment, key reuse and CAS denials",
+        "independent approve, actual external Record and independent Confirm",
+        "return and cancellation with retained history",
+        "current original-tenant account cannot read other-tenant request or list it"
+      ],
+      "secondTenantChecks": [
+        "normal Core cookie auth, optional employee identity and scoped workspace choices",
+        "second tenant created one real draft without published payment policy"
+      ],
+      "productionChanged": false
     }
   ],
   "remaining": [
-    "Original UI latest settings and accessibility fixes: frozen frontend checks, mocked and normal-cookie actual API/PostgreSQL Playwright",
-    "Explicit new payment cross-company/cross-tenant positive-host negatives before production activation",
-    "Independent final review, owning production migration/runtime roles, release/rollback and UAT gates"
+    "Final frozen UI normal-cookie actual API/PostgreSQL Playwright payment and policy journeys",
+    "Final combined independent review and source merge",
+    "Owning production migrations/finite roles, backup/rollback, deployment and UAT release gates"
   ],
   "productionMigrationApplied": false,
   "productionDeployed": false,
@@ -101,7 +145,7 @@
   "paymentPlaywrightAccepted": false,
   "hostedCi": "BLOCKED_GITHUB_ACCOUNT_BILLING",
   "issues": "DISABLED_IN_REPOSITORY",
-  "checkpointSource": "b03583b1a797c9f5d670922b7bc12e90b6a01dc4",
+  "checkpointSource": "d83fa712e073f35730182f05a10bbe37e6b88b08",
   "retainedFailedAttempts": [
     {
       "evidence": "procurement-payment-governance-postgres-20261023_run01",
@@ -118,8 +162,16 @@
     {
       "evidence": "procurement-payment-governance-native-upgrade-20261023_run02/http-run03",
       "reason": "Outsider fixture initial context incorrectly used another branch; API correctly denied. Probe fixed to use its assigned branch, with scope denials preserved."
+    },
+    {
+      "evidence": "procurement-payment-governance-native-upgrade-20261023_run02/http-run05",
+      "reason": "Explicit All was validated at HTTP but not carried into the persistence scope. Capacity/write/query guards correctly refused it; interface/coordinator propagation and guarded manual filters corrected, then actual HTTP run06 passed."
+    },
+    {
+      "evidence": "procurement-payment-http-build-20261023_run16",
+      "reason": "Four new mapped Core choice tests returned 500 with provider date comparison. Scoped account projection and C# lock-time check corrected; subsequent run17 passed54."
     }
   ],
-  "inProgress": "Private actual Kestrel host healthy; frontend source e48a1a2 staged verification running; UI draft PR62",
+  "inProgress": "UI9982b67 final browser run; previous d764486445unit tests/build passed,36of37 mocked cases passed, corrected storage error wording awaiting rerun",
   "paymentHttpAcceptanceScope": "PRIVATE_CLONE_ONLY_NOT_PRODUCTION_OR_BROWSER"
 }
