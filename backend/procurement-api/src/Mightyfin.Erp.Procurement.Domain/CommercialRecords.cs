@@ -56,6 +56,8 @@ public sealed class SupplierBid : ProcurementRecord
     public Guid SupplierId { get; set; }
     public Guid? InvitationId { get; set; }
     public int SubmissionVersion { get; set; } = 1;
+    // Internal editable Draft revision only; never presented as a supplier submission.
+    public int DraftRevision { get; set; }
     public string Status { get; set; } = "Draft";
     public string SourceChannel { get; set; } = "Portal";
     public string CurrencyCode { get; set; } = null!;

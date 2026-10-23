@@ -46,16 +46,24 @@ public static partial class ProcurementPolicyDraftRoutes
             .Distinct(StringComparer.Ordinal).ToArray();
         if (principalIds.Length > 100)
             return Problem("sourcing-reviewer-bound", "Use at most 100 distinct named reviewers in a policy version.", 422);
-        var accounts = new Dictionary<string, ProcurementAuthorityIdentity.CanonicalAccount>(StringComparer.Ordinal);
+        var retainedSchema = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
+            .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && x.PolicyVersionId == policy.Id && x.Stage == "Created")
+            .Select(x => (int?)x.SchemaVersion).SingleOrDefaultAsync(ct);
+        var accounts = new Dictionary<string, ProcurementPrincipalPeople.Person>(StringComparer.Ordinal);
         foreach (var id in principalIds)
         {
-            var account = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, id, ct);
-            if (account is null || await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
-                    scope.LegalEntityId, account.WorkerId, ct) is not { } unique || unique.PrincipalId != id)
-                return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs one active canonical account in this company.", 422);
+            var account = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, id, ct);
+            if (account is null || !account.Permissions.Contains("procurement-sourcing-publish"))
+                return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs a current authorized Core account in this company.", 422);
+            if (retainedSchema == 1 && (account.WorkerId is not { } currentWorker
+                || (await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
+                    scope.LegalEntityId, id, ct))?.WorkerId != currentWorker))
+                return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs an active canonical worker for this retained policy.", 422);
             accounts.Add(id, account);
         }
-        if (accounts.Values.Select(x => x.WorkerId).Distinct().Count() != accounts.Count)
+        var knownWorkers = accounts.Values.Select(x => x.CoreLinkedWorkerId).Where(x => x is not null).ToArray();
+        if (knownWorkers.Distinct().Count() != knownWorkers.Length)
             return Problem("sourcing-reviewer-unavailable", "Choose distinct current people, without account aliases.", 422);
         var userIds = principalIds.Select(Guid.Parse).Append(Guid.Parse(scope.SubjectId)).Distinct().ToArray();
         var assignments = await core.UserBranchAssignments.AsNoTracking().Where(x => userIds.Contains(x.UserId) && !x.IsArchived)

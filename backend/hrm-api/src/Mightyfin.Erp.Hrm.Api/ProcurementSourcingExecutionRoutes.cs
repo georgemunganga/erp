@@ -12,8 +12,9 @@ using Npgsql;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Governed internal draft holds only. Production schema readiness remains Unavailable.
-/// No publication, Core case, supplier dispatch, bid, award or Finance reservation is created.</summary>
+/// <summary>Governed sourcing execution. Principal publication and buyer-entered
+/// quotation Drafts have separate default-off readiness until owning schema is captured.
+/// No supplier dispatch, submitted bid, award or Finance reservation is created.</summary>
 public static partial class ProcurementSourcingExecutionRoutes
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -34,6 +35,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         group.MapGet("/{id:guid}/source-draft", Read).RequireAuthorization("procurement-access");
         group.MapGet("/command-receipts/{operation}/{key:guid}", Recover).RequireAuthorization("procurement-access");
         MapPrincipalSourceRoutes(group);
+        MapPrincipalPublicationRoutes(group);
     }
     private static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
         Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<Reply>> command, CancellationToken ct)

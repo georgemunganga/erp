@@ -25,6 +25,84 @@ public sealed class SourcingPolicyIdentityTests
         return (policy, origin, submitted);
     }
     [Fact]
+    public void Workerless_core_accounts_can_author_and_independently_publish_schema_two_policy()
+    {
+        var at = new DateTimeOffset(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
+        var policy = Policy();
+        var origin = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId,
+            "Created", Maker, null, 1, at, schemaVersion: 2);
+        SourcingPolicyIdentity.RequireAuthor(policy, origin, Maker, null);
+        policy.Version = 2; policy.State = "PendingReview";
+        policy.ReviewRequestedBy = Maker; policy.ReviewRequestedAt = at;
+        var submitted = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId,
+            "Submitted", Maker, null, 2, at, origin, schemaVersion: 2);
+        SourcingPolicyIdentity.VerifySubmission(policy, origin, submitted);
+        SourcingPolicyIdentity.RequireIndependent(policy, origin, submitted, Reviewer, null);
+        Assert.Throws<InvalidOperationException>(() => SourcingPolicyIdentity.RequireIndependent(policy,
+            origin, submitted, Maker, null));
+        policy.Version = 3; policy.State = "Published";
+        policy.PublishedBy = Reviewer; policy.PublishedAt = at;
+        var published = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId,
+            "Published", Reviewer, null, 3, at, origin, submitted, 2);
+        SourcingPolicyIdentity.VerifyPublication(policy, origin, submitted, published);
+        Assert.Equal(2, published.SchemaVersion); Assert.Null(published.ActorWorkerId);
+        Assert.Throws<InvalidOperationException>(() => SourcingPolicyIdentity.Capture(policy,
+            Owner.TenantId, Owner.LegalEntityId, "Published", Reviewer, Guid.Empty, 3,
+            at, origin, submitted, 2));
+    }
+    [Fact]
+    public void Schema_one_still_requires_a_retained_worker_and_cannot_mix_evidence_versions()
+    {
+        var policy = Policy(); var at = DateTimeOffset.UtcNow;
+        Assert.Throws<InvalidOperationException>(() => SourcingPolicyIdentity.Capture(policy,
+            Owner.TenantId, Owner.LegalEntityId, "Created", Maker, null, 1, at));
+        var created = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId,
+            "Created", Maker, MakerWorker, 1, at);
+        policy.Version = 2; policy.State = "PendingReview";
+        policy.ReviewRequestedBy = Maker; policy.ReviewRequestedAt = at;
+        var mixed = SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId,
+            "Submitted", Maker, null, 2, at, created, schemaVersion: 2);
+        Assert.Throws<InvalidOperationException>(() => SourcingPolicyIdentity.VerifySubmission(policy, created, mixed));
+    }
+    [Fact]
+    public async Task Owning_change_tracker_keeps_workerless_schema_two_policy_lineage_append_only()
+    {
+        var options = new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        var at = new DateTimeOffset(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
+        Guid policyId;
+        await using (var db = new ProcurementDbContext(options, Owner))
+        {
+            var policy = Policy(); policyId = policy.Id;
+            db.AddScoped(policy);
+            db.AddScoped(SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId,
+                "Created", Maker, null, 1, at, schemaVersion: 2));
+            await db.SaveChangesAsync();
+            var origin = await db.SourcingPolicyIdentityEvidenceRecords.SingleAsync();
+            policy.State = "PendingReview"; policy.ReviewRequestedBy = Maker;
+            policy.ReviewRequestedAt = at; policy.ReviewReason = "Independent review";
+            db.AddScoped(SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId,
+                "Submitted", Maker, null, 2, at, origin, schemaVersion: 2));
+            await db.SaveChangesAsync();
+        }
+        await using (var db = new ProcurementDbContext(options, Owner with { SubjectId = Reviewer }))
+        {
+            var policy = await db.PolicyVersions.SingleAsync(x => x.Id == policyId);
+            var rows = await db.SourcingPolicyIdentityEvidenceRecords.ToArrayAsync();
+            var origin = rows.Single(x => x.Stage == "Created");
+            var submitted = rows.Single(x => x.Stage == "Submitted");
+            policy.State = "Published"; policy.PublishedBy = Reviewer;
+            policy.PublishedAt = at; policy.PublicationReason = "Independent decision";
+            db.AddScoped(SourcingPolicyIdentity.Capture(policy, Owner.TenantId, Owner.LegalEntityId,
+                "Published", Reviewer, null, 3, at, origin, submitted, 2));
+            await db.SaveChangesAsync();
+            Assert.Equal(3, await db.SourcingPolicyIdentityEvidenceRecords.CountAsync());
+            var published = await db.SourcingPolicyIdentityEvidenceRecords.SingleAsync(x => x.Stage == "Published");
+            published.EvidenceSha256 = new string('0', 64);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        }
+    }
+    [Fact]
     public void Original_worker_not_current_historical_account_mapping_controls_review_and_edits()
     {
         var (policy, origin, submitted) = Pending();
@@ -212,5 +290,7 @@ public sealed class SourcingPolicyIdentityTests
             evidence.GetForeignKeys().Select(x => x.GetConstraintName()).OrderBy(x => x, StringComparer.Ordinal));
         var check = Assert.Single(evidence.GetCheckConstraints()); Assert.Contains("created_evidence_stage IS NOT NULL", check.Sql);
         Assert.Contains("rules_sha256 IS NOT NULL", check.Sql); Assert.Contains("evidence_sha256 IS NOT NULL", check.Sql);
+        Assert.Contains("schema_version IN (1,2)", check.Sql);
+        Assert.True(evidence.FindProperty(nameof(SourcingPolicyIdentityEvidence.ActorWorkerId))!.IsNullable);
     }
 }
