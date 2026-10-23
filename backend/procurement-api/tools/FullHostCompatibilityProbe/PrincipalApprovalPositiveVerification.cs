@@ -13,7 +13,7 @@ internal static partial class PrincipalApprovalHttpVerification
     private static async Task VerifyPrivateManualApprovalAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,NpgsqlConnection ownerConnection,Dictionary<string,object?> result,
         Action<string> stage,PrincipalSend send,Action countExtraHttp,bool verifyAccountScopeAuthority,bool verifyRetainedAlias,
-        string? downFamily)
+        string? downFamily,bool competitiveSource=false)
     {
         // Separate opt-in phase AFTER the unavailable-provider negative control and Finance-unavailable denials.
         // Only existing manual-evidence configuration is enabled; no Finance owner is substituted.
@@ -61,14 +61,35 @@ internal static partial class PrincipalApprovalHttpVerification
             return;
         }
 
+        if(competitiveSource)
+        {
+            // Policy review resolves named active methods. Establish this
+            // independent reference through its real draft/activation routes
+            // before submitting the competitive PR rule for review.
+            const string methodRoot="/api/procurement/v1/configuration/methods";
+            var method=await send(client,HttpMethod.Post,methodRoot,fixture.ConfigMaker,new {
+                code="COMPETITIVE",name="Private competitive buying",description="Synthetic internal RFQ source only",
+                policyVersionId=(Guid?)null,executionRoute="CompetitiveSourcing"},HttpStatusCode.Created);
+            var activeMethod=await send(client,HttpMethod.Post,methodRoot+"/"+method.GetProperty("id").GetGuid()+"/activate",
+                fixture.ConfigReviewer,new {version=method.GetProperty("version").GetInt64(),reason="Independent private competitive method review"});
+            Need(activeMethod.GetProperty("status").GetString()=="Active","Actual competitive method activation failed.");
+        }
+
         stage("ActualPolicyCreateSubmitPublish");
         const string policyRoot="/api/procurement/v1/configuration/policies";
-        const string rules="""
+        const string directRules="""
             {"schemaVersion":1,"transactionType":"PurchaseRequest","currencyCode":"ZMW","amountBasis":"EstimatedLineBase",
             "rules":[{"code":"PRIVATE_CORE_PR","priority":0,"when":{"minimumAmountInclusive":null,"maximumAmountExclusive":null,
             "categoryCodes":[],"purchaseTypes":[],"branchIds":[]},"result":{"budgetReservation":"Required","sourcingMethodCode":null,
             "minimumQuoteCount":null,"approvalStages":[{"code":"CUSTOM_CORE_REVIEW","assignee":"ProcurementManager","mode":"One"}]}}]}
             """;
+        const string competitiveRules="""
+            {"schemaVersion":1,"transactionType":"PurchaseRequest","currencyCode":"ZMW","amountBasis":"EstimatedLineBase",
+            "rules":[{"code":"PRIVATE_CORE_RFQ","priority":0,"when":{"minimumAmountInclusive":null,"maximumAmountExclusive":null,
+            "categoryCodes":[],"purchaseTypes":[],"branchIds":[]},"result":{"budgetReservation":"Required","sourcingMethodCode":"COMPETITIVE",
+            "minimumQuoteCount":2,"approvalStages":[{"code":"CUSTOM_CORE_REVIEW","assignee":"ProcurementManager","mode":"One"}]}}]}
+            """;
+        var rules=competitiveSource?competitiveRules:directRules;
         // Production publication requires a future start. Wait for that actual instant;
         // never rewrite a published policy or fabricate submission/evaluation timestamps.
         var effectiveFrom=DateTimeOffset.UtcNow.AddSeconds(30);

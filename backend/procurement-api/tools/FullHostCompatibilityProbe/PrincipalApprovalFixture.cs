@@ -22,12 +22,15 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
-internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false)
+internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false,
+    bool principalRfqProfile=false)
 {
+    internal bool PrincipalRfqProfile=>principalRfqProfile;
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
-    internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid();
-    internal Guid[] Subjects=>[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted];
+    internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid(),Buyer=Guid.NewGuid();
+    internal Guid[] Subjects=>principalRfqProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer]
+        :[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted];
     internal PrincipalScope Scope=>new(Company,Branch,Maker);
     internal HrmDbContext Core()=>new(new DbContextOptionsBuilder<HrmDbContext>().UseNpgsql(owner,n=>n.MigrationsHistoryTable("__hrm_migrations","hrm")).Options,new PrincipalTenant());
     internal ProcurementDbContext Procurement(string? connection=null)=>new(new DbContextOptionsBuilder<ProcurementDbContext>().UseNpgsql(connection??owner,n=>n.MigrationsHistoryTable("__procurement_migrations","procurement")).Options,Scope);
@@ -56,7 +59,9 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                 (ConfigMaker,"p25_config_maker","procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-authority-read,procurement-authority-configure"
                     + (browserBuyerProfile ? ",procurement-policy-evaluate,procurement-request-read" : "")),
                 (ConfigReviewer,"p25_config_reviewer","procurement-access,procurement-configuration-read,procurement-configuration-approve,procurement-authority-read,procurement-authority-review"),
-                (Ungranted,"p25_ungranted","")};
+                (Ungranted,"p25_ungranted","")}.Concat(principalRfqProfile
+                ?new[]{(Buyer,"p29_rfq_buyer","procurement-access,procurement-sourcing-convert,procurement-sourcing-cancel")}
+                :Array.Empty<(Guid,string,string)>());
             foreach(var (id,role,actions) in people)
             {
                 core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey=role,RoleName="Private "+role,Category="system",PermissionsCsv=actions,Active=true});
@@ -88,6 +93,11 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
         var settings=OfflineHost.Settings(owner,PrincipalApprovalFixture.Tenant);
         settings["ConnectionStrings:Procurement"]=record;settings["ConnectionStrings:ProcurementApprovalExecution"]=execution;
         settings["Procurement:Approvals:Enabled"]="true";settings["Procurement:Approvals:PrincipalExecutionEnabled"]=principalExecutionEnabled?"true":"false";
+        if(fixture.PrincipalRfqProfile)
+        {
+            settings["Procurement:SourcingDrafts:Enabled"]="true";
+            settings["Procurement:SourcingDrafts:PrincipalSourceEnabled"]="true";
+        }
         return settings;
     }
     internal void PrepareEntryPointEnvironment()
