@@ -47,6 +47,18 @@ public sealed class ProcurementApprovalTransaction
     public async Task<TResult> ExecuteAsync<TResult>(
         Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> command,
         CancellationToken cancellationToken = default)
+        => await ExecuteCommandAsync(command, manualPayments: false, cancellationToken);
+
+    /// <summary>Same Core transaction/fences/retry semantics, with mandatory manual
+    /// payment workflow and company-date companions. Does not enable an HTTP route.</summary>
+    public async Task<TResult> ExecuteManualPaymentAsync<TResult>(
+        Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> command,
+        CancellationToken cancellationToken = default)
+        => await ExecuteCommandAsync(command, manualPayments: true, cancellationToken);
+
+    private async Task<TResult> ExecuteCommandAsync<TResult>(
+        Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> command,
+        bool manualPayments, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
         for (var attempt = 1; ; attempt++)
@@ -54,7 +66,7 @@ public sealed class ProcurementApprovalTransaction
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                return await ExecuteAttemptAsync((db, cases, documents, fence, token) => command(db, cases, token), null, false, cancellationToken);
+                return await ExecuteAttemptAsync((db, cases, documents, fence, token) => command(db, cases, token), null, false, cancellationToken, manualPayments);
             }
             catch (Exception exception) when (attempt < 3 && IsConfirmedTransactionAbort(exception))
             {
@@ -88,7 +100,7 @@ public sealed class ProcurementApprovalTransaction
 
     private async Task<TResult> ExecuteAttemptAsync<TResult>(
         Func<ProcurementDbContext, ApprovalDbContext, DocumentDbContext?, DocumentOwnerLifecycleFence?, CancellationToken, Task<TResult>> command,
-        DocumentOwner? documentOwner, bool exclusiveDocuments, CancellationToken ct)
+        DocumentOwner? documentOwner, bool exclusiveDocuments, CancellationToken ct, bool manualPayments = false)
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(ct);
@@ -115,7 +127,8 @@ public sealed class ProcurementApprovalTransaction
         await using var approvals = new ApprovalDbContext(approvalOptions, scope);
         await procurement.Database.UseTransactionAsync(transaction, ct);
         await approvals.Database.UseTransactionAsync(transaction, ct);
-        procurement.BindInvoiceUnitReviewCoreContext(approvals);
+        procurement.BindSharedCoreApprovalContext(approvals);
+        if (manualPayments) procurement.RequireManualPaymentGovernance();
 
         var outcome = await command(procurement, approvals, documents, documentFence, ct);
         if (documents is not null) await documents.SaveChangesAsync(ct);

@@ -87,7 +87,7 @@ internal static class ProcurementOperationalPolicyWorkerIdentity
         ProcurementRequestScope scope, PolicyVersion policy)
     {
         if (policy.TenantId != scope.TenantId || policy.LegalEntityId != scope.LegalEntityId
-            || policy.Id == Guid.Empty || policy.PolicyKey is not ("RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW")
+            || policy.Id == Guid.Empty || policy.PolicyKey is not ("RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "MANUAL_PAYMENT_REVIEW")
             || policy.PolicyVersionNumber <= 0)
             throw new InvalidOperationException("OperationalPolicyIdentityScopeMismatch");
         // Never accept ChangeTracker.Local or caller-attached evidence as retained provenance.

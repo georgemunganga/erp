@@ -37,6 +37,7 @@ public sealed record ManualPaymentInvoiceSource(Guid InvoiceId, string TenantId,
 {
     /// <summary>Trusted capacity exclusion, bound to the actual update target; never valid for Create.</summary>
     public Guid? ExcludingManualPaymentRequestId { get; init; }
+    public long InvoiceVersion { get; init; }
 }
 
 public sealed record ManualPaymentDraft(Guid BranchId, Guid InvoiceId, Guid SupplierId,

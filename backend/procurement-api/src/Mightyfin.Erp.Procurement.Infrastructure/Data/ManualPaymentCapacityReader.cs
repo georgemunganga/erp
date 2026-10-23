@@ -42,7 +42,7 @@ public static class ManualPaymentCapacityReader
             && x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId && x.BranchRef == transactionBranchId)
             .Select(x => new SupplierInvoice { Id = x.Id, TenantId = x.TenantId, LegalEntityId = x.LegalEntityId,
                 SupplierId = x.SupplierId, BranchRef = x.BranchRef, CurrencyCode = x.CurrencyCode, InvoiceDate = x.InvoiceDate,
-                GrossAmount = x.GrossAmount, Status = x.Status, FinancePostingRef = x.FinancePostingRef })
+                GrossAmount = x.GrossAmount, Status = x.Status, FinancePostingRef = x.FinancePostingRef, Version = x.Version })
             .SingleOrDefaultAsync(ct) ?? throw new InvalidOperationException("ManualPaymentInvoiceNotFound");
         if (excludingRequestId is { } excluded && !await db.ManualPaymentRequests.AsNoTracking().AnyAsync(x => x.Id == excluded
             && x.SupplierInvoiceId == invoiceId && x.BranchId == transactionBranchId, ct))
@@ -63,7 +63,8 @@ public static class ManualPaymentCapacityReader
             && await db.Suppliers.AsNoTracking().AnyAsync(x => x.Id == invoice.SupplierId, ct);
         return new(new(invoice.Id, invoice.TenantId, invoice.LegalEntityId, transactionBranchId,
             invoice.SupplierId, invoice.CurrencyCode, invoice.InvoiceDate, invoice.GrossAmount,
-            capacity.RemainingExcludingThisRequest, eligible) { ExcludingManualPaymentRequestId = excludingRequestId }, capacity);
+            capacity.RemainingExcludingThisRequest, eligible)
+            { ExcludingManualPaymentRequestId = excludingRequestId, InvoiceVersion = invoice.Version }, capacity);
     }
 
     /// <summary>Existing credit capture/correction participates in the same registered capacity.

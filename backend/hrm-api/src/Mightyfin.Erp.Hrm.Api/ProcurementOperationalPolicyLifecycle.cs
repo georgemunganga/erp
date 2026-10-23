@@ -30,7 +30,7 @@ public static partial class ProcurementPolicyDraftRoutes
         => RunOperationalPolicyMutation(null, id, db, organizationDb, scope, http, ct,
             core => ReturnForChangesPolicy(id, input, db, core, scope, http, ct));
 
-    private static bool IsOperationalIdentityPolicy(string? key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW";
+    private static bool IsOperationalIdentityPolicy(string? key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "MANUAL_PAYMENT_REVIEW";
 
     private static async Task<IResult> RunOperationalPolicyMutation(string? createKey, Guid? id,
         ProcurementDbContext db, HrmDbContext originalCore, ProcurementRequestScope scope, HttpContext http,
@@ -47,6 +47,10 @@ public static partial class ProcurementPolicyDraftRoutes
         catch (Exception error) when (error is not OperationCanceledException)
         { return Problem("policy-storage-unavailable", "Policy storage is unavailable. No change was saved.", 503); }
         if (!IsOperationalIdentityPolicy(key)) return await next(originalCore);
+        if (key == ManualPaymentReviewPolicyRules.PolicyKey
+            && (http.RequestServices.GetService<IProcurementManualPaymentGovernanceReadiness>() is not { } payments
+                || !await payments.IsReadyAsync(ct)))
+            return Problem("payment-review-unavailable", "Payment review settings are not ready in this workspace yet. No change was saved.", 503);
         try
         {
             if (!db.Database.IsNpgsql()) return OperationalIdentityUnavailable();

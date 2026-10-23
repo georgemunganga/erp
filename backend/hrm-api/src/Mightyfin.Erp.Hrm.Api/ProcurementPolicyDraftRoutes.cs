@@ -45,6 +45,11 @@ public static partial class ProcurementPolicyDraftRoutes
 
     private static IResult ValidateRules(PolicyValidationRequest input)
     {
+        if (ManualPaymentReviewPolicyRules.IsDocument(input.RulesJson))
+        {
+            var issues = ManualPaymentReviewPolicyRules.Validate(input.RulesJson, draft: true);
+            return Results.Ok(new { isValid = issues.Count == 0, issues, reviewReady = issues.Count == 0 });
+        }
         if (SourcingPublicationPolicyRules.IsSourcingDocument(input.RulesJson))
         {
             var syntax = SourcingPublicationPolicyRules.ValidateDraft(input.RulesJson);
@@ -87,7 +92,7 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HttpContext http, CancellationToken ct)
     {
         var normalized = key?.Trim().ToUpperInvariant();
-        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING"))
+        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING" or "MANUAL_PAYMENT_REVIEW"))
             return Problem("validation-failed", "Choose purchase requests, purchase orders, receiving, invoice matching or sourcing.", 422);
         var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
         if (normalized == SourcingPublicationPolicyRules.PolicyKey)
@@ -106,6 +111,10 @@ public static partial class ProcurementPolicyDraftRoutes
 
         if (IsOperationalIdentityPolicy(normalized))
         {
+            if (normalized == ManualPaymentReviewPolicyRules.PolicyKey
+                && (http.RequestServices.GetService<IProcurementManualPaymentGovernanceReadiness>() is not { } payments
+                    || !await payments.IsReadyAsync(ct)))
+                return Problem("payment-review-unavailable", "Payment review settings are not ready in this workspace yet.", 503);
             await RequireOperationalIdentitySchema(http, db, false, ct);
             if (normalized == InvoiceRetainedUnitReview.ReviewPolicyKey) await RequireUnitReviewPolicySchema(http, db, ct);
             var policies = await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == normalized && x.State == "Published"
@@ -523,6 +532,15 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
         CancellationToken ct, string receivingPermission = "procurement-configuration-edit")
     {
+        if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey)
+        {
+            var issues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson, draft: true);
+            if (issues.Count > 0) return Results.Json(new { code = "invalid-rules", message = "Check the payment review rules before continuing.", issues }, statusCode: 422);
+            if (!await organizationDb.LegalEntities.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
+                    && x.Id == scope.LegalEntityId && !x.IsArchived, ct))
+                return Problem("company-unavailable", "The selected ERP company is unavailable.", 409);
+            return null;
+        }
         if (policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey) return await CheckUnitReviewCompanyRules(policy, organizationDb, scope, receivingPermission, ct);
         if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey) return await CheckSourcingCompanyRules(policy, db, organizationDb, scope, receivingPermission, ct);
         if (policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey) return await CheckInvoiceMatchingCompanyRules(policy, db, organizationDb, scope, receivingPermission, ct);

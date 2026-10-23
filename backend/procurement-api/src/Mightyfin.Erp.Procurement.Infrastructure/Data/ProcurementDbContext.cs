@@ -79,7 +79,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         // as belonging to another company when attaching it to this context.
         if ((record is OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
-                or ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt) &&
+                or ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt
+                or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation) &&
             (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
             throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
         record.TenantId = scope.TenantId;
@@ -513,6 +514,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
         ConfigureManualPayments(modelBuilder);
+        ConfigureManualPaymentGovernance(modelBuilder);
         ConfigureReceivingExecution(modelBuilder);
         ConfigureInvoiceMatchingExecution(modelBuilder);
         ConfigureFinanceCheckerIdentity(modelBuilder);
@@ -693,6 +695,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardPurchaseRequestIdentity();
         GuardRecurringPurchaseIdentity();
         GuardManualPayments();
+        GuardManualPaymentGovernance();
         GuardFinanceCheckerIdentity();
         GuardSpendingAuthorityChanges();
         GuardSpendingAuthorityIdentity();
@@ -716,7 +719,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
                 or ProcurementComment or ProcurementSetupAssessment or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
-                or ManualPaymentDecision or ManualPaymentCommandReceipt)
+                or ManualPaymentDecision or ManualPaymentCommandReceipt
+                or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation)
                 throw new InvalidOperationException("Decision, evaluation, budget and audit records are append-only.");
             if (entry.State == EntityState.Added)
             {
