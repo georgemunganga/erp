@@ -130,6 +130,10 @@ internal static class ProcurementPrincipalInvoiceExposureReader
             if (comparison.MatchingPolicyId != matching.Id
                 || comparison.PolicyRulesSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(matching.RulesJson))
                 throw new InvalidOperationException("PrincipalInvoiceHistoricalComparisonPolicyChanged");
+            _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope,
+                matching, ct, OperationalPolicyPublicationMode.RetainedHistorical);
+            _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope,
+                reviewPolicy, ct, OperationalPolicyPublicationMode.RetainedHistorical);
             var opening = PrincipalInvoiceUnitReviewTransitions.Verify(review, mapping, caseRow, pins);
             var hashes = await CurrentDocumentHashes(db, scope, services, invoice.Id,
                 opening.Lines.Select(x => x.DocumentVersionId).Distinct().ToArray(), ct);

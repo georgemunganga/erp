@@ -21,7 +21,7 @@ public static class PrincipalInvoiceUnitReviewTerminal
         IReadOnlyList<PrincipalInvoiceUnitReviewAttestation> attestations,
         IReadOnlyList<ApprovalDecision> decisions, PolicyVersion matchingPolicy,
         PolicyVersion reviewPolicy, IReadOnlyDictionary<Guid, string> currentDocumentHashes,
-        DateTimeOffset now)
+        DateTimeOffset now, bool retainedHistorical = false)
     {
         var opening = PrincipalInvoiceUnitReviewTransitions.Verify(source, mapping, workflow, assignments);
         if (source.MatchingPolicyId != matchingPolicy.Id || source.ReviewPolicyId != reviewPolicy.Id
@@ -31,7 +31,10 @@ public static class PrincipalInvoiceUnitReviewTerminal
             || reviewPolicy.TenantId != source.TenantId || reviewPolicy.LegalEntityId != source.LegalEntityId
             || opening.MatchingPolicySha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(matchingPolicy.RulesJson)
             || opening.ReviewPolicySha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(reviewPolicy.RulesJson)
-            || matchingPolicy.State != "Published" || reviewPolicy.State != "Published"
+            || (retainedHistorical
+                ? matchingPolicy.State is not ("Published" or "Superseded")
+                    || reviewPolicy.State is not ("Published" or "Superseded")
+                : matchingPolicy.State != "Published" || reviewPolicy.State != "Published")
             || matchingPolicy.PublishedAt is null || reviewPolicy.PublishedAt is null
             || matchingPolicy.PublishedAt > source.OpenedAt || reviewPolicy.PublishedAt > source.OpenedAt
             || matchingPolicy.EffectiveFrom > source.OpenedAt || reviewPolicy.EffectiveFrom > source.OpenedAt
@@ -132,7 +135,7 @@ public static class PrincipalInvoiceUnitReviewTerminal
         DateTimeOffset now)
     {
         var rebuilt = Seal(source, mapping, workflow, assignments, attestations, decisions,
-            matchingPolicy, reviewPolicy, currentDocumentHashes, now);
+            matchingPolicy, reviewPolicy, currentDocumentHashes, now, retainedHistorical: true);
         if (retained.State != "Verified" || retained.ReviewSourceId != source.Id
             || retained.CoreCaseId != workflow.Id || retained.FinalDecisionId != rebuilt.FinalDecisionId
             || retained.ReviewerPrincipalId != rebuilt.ReviewerPrincipalId

@@ -102,6 +102,10 @@ public static class PrincipalInvoiceExposureEvidence
                 || frozen.IssuedVersionId != context.IssuedVersionId
                 || frozen.PolicyId != row.MatchingPolicy.Id
                 || frozen.PolicySha256 != compare.PolicyRulesSha256
+                || row.MatchingPolicy.PolicyKey != InvoiceMatchingPolicyRules.PolicyKey
+                || row.MatchingPolicy.State is not ("Published" or "Superseded")
+                || row.MatchingPolicy.PublishedAt is null
+                || compare.PolicyRulesSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(row.MatchingPolicy.RulesJson)
                 || frozen.OwnerReference != compare.OwnerReference
                 || frozen.OwnerWatermark != compare.OwnerWatermark
                 || frozen.OwnerEvidenceSha256 is not { Length: 64 }
@@ -121,12 +125,18 @@ public static class PrincipalInvoiceExposureEvidence
                 || !row.Claims.Select(x => x.SupplierInvoiceLineId).Order()
                     .SequenceEqual(row.OriginalLines.Select(x => x.Id).Order()))
                 throw new InvalidOperationException("PrincipalInvoiceRetainedClaimGraphChanged");
+            var historicalRules = InvoiceMatchingPolicyRules.Parse(row.MatchingPolicy.RulesJson);
+            var policy = new InvoiceMatchingPolicy(row.MatchingPolicy.Id,
+                row.MatchingPolicy.PolicyVersionNumber, row.MatchingPolicy.TenantId,
+                row.MatchingPolicy.LegalEntityId, null, "Published",
+                $"INVOICE_MATCHING:{row.MatchingPolicy.Id:D}:{row.MatchingPolicy.PolicyVersionNumber}",
+                row.MatchingPolicy.EffectiveFrom, row.MatchingPolicy.EffectiveTo,
+                historicalRules.MoneyScale, historicalRules.Rounding, historicalRules.Rules);
             foreach (var claim in row.Claims)
             {
                 var binding = row.MappingLines.Single(x => x.SupplierInvoiceLineId == claim.SupplierInvoiceLineId);
                 var line = frozen.Lines.Single(x => x.InvoiceLineId == claim.SupplierInvoiceLineId);
                 var original = row.OriginalLines.Single(x => x.Id == claim.SupplierInvoiceLineId);
-                var policy = InvoiceMatchingPolicyRules.Project(row.MatchingPolicy);
                 var calculatedNet = InvoiceMatchExact.ProductMoney(InvoiceMatchExact.Units(original.Quantity),
                     InvoiceMatchExact.Units(original.UnitPrice), policy);
                 if (claim.ComparisonId != compare.Id || claim.ExposureStateId != exposure.Id
