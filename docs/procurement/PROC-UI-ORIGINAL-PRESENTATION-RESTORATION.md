@@ -4,7 +4,7 @@ Date: 23 October 2026. User correction: keep imported Greenwebb presentation and
 
 ## Reviewed source
 
-Original repository: https://github.com/Greenwebb/zoho-procurement-ui, actual fetched HEAD `6f0c305d96edeed6b3a062dbfdbb9521f8d1eebd`. Published integration baseline: module-connect main `30e17e9aad1bf86d3c94086b42fca590c9b0f05f`. Source comparison is not a claim that public production pixels were checked in this audit.
+Original repository: https://github.com/Greenwebb/zoho-procurement-ui, actual fetched HEAD `6f0c305d96edeed6b3a062dbfdbb9521f8d1eebd`. ERP-adapted layout reference: `d104f596183e7a012a04578a679aac795e1489d4` (shared ERP controls and shell). Restoration began from module-connect main `30e17e9aad1bf86d3c94086b42fca590c9b0f05f`; reviewed PR #57 is now merged in published main `5af64676a2ce2ef64c6e874521f442841fdc130d`. The raw Greenwebb theme is a comparison reference, not the branding target. Source comparison is not a claim that public production pixels were checked in this audit.
 
 ## Confirmed regression
 
@@ -34,4 +34,10 @@ Original repository: https://github.com/Greenwebb/zoho-procurement-ui, actual fe
 
 ## Current execution
 
-Bills list restoration is assigned to an isolated UI task based on published main. Remaining pages are not yet claimed restored. Manual payment specification remains in a separate branch and does not authorize replacing original Payments UI.
+UI [PR #57](https://github.com/georgemunganga/module-connect/pull/57) merged normally at `5af64676a2ce2ef64c6e874521f442841fdc130d`, with reviewed head `416b8ad516ffd77526fd51379da23254efc386e7`. Bills list, editor, detail and Inbox retain the ERP-adapted original structures and existing API adapters. The list scope is explicitly the current loaded page; unsupported actions remain visible with reasons. Document state survives detail tabs and refresh. Unknown write responses retain recovery locks.
+
+Tested application/config source: `ff0c3483d293f82d9dc1f66b141778f2c6310dc4`. TypeScript/live production build and two focused units passed. All 23 controlled Playwright cases passed against the staged production bundle with one worker, zero retries, failures, skips or flaky results. Cases cover the retained form/detail/list structure, permissions, unknown responses, upload recovery, discard protection and desktop/phone overflow. Final source/assets remained unchanged during verification. Private result SHA256: `a6199da230ba9fd705cfa9a15707df60c39f3af1f796209a348a418a7069fb36` in `/home/amizo/erp-backups/procurement-imported-ui-restoration-20261023_run06/result.json`. Earlier failed/interrupted runs remain retained.
+
+These HTTP-fixture browser tests verify client behavior and presentation, not fresh real API/PostgreSQL persistence or public deployment. No production deployment is claimed for PR #57. Other pages still need individual layout parity and integration acceptance.
+
+Manual payment documentation/source foundation remains separate and unregistered. The future Finance module's absence must not remove Payments or Batch Payments presentation: implement assigned approval, recording of a real external payment, independent confirmation and future Finance reconciliation behind the original screens. Do not manufacture bank execution, AP posting, synced payment facts or local-only Paid state. Terms/notes capture, pre-save files, Inbox file/email/portal intake, related records/comments/history and full-dataset operations remain integration gaps where unavailable.
