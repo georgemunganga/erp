@@ -50,14 +50,14 @@ public sealed partial class PrincipalControlledReceivingTests
         var draft=Guid.NewGuid();var fact=PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),draft,Guid.NewGuid(),0,0.0001m,"Exact small completed deliverable",new(2026,10,22),new(2026,10,22),"REC:exact",At);
         var state=State(source,1,0.0001m,0.00000001m);var json=PrincipalReceivingStorageCodec.Encode(fact);
         var row=new PrincipalReceivingFact{Id=fact.Id,TenantId=state.TenantId,LegalEntityId=state.LegalEntityId,
-            SourceStateId=state.Id,DraftId=draft,BranchId=state.BranchId,Kind="Acceptance",Sequence=1,CommandKey=fact.CommandKey,
+            SourceStateId=state.Id,DraftId=draft,BranchId=state.BranchId,Kind="Acceptance",Operation="Certify",Sequence=1,CommandKey=fact.CommandKey,
             ActorPrincipalId=fact.Actor.PrincipalId,PolicyVersionId=policy.Id,Quantity=fact.Quantity,NetAmount=fact.NetAmount,
             PayloadJson=json,PayloadSha256=ProcurementEvidenceEncoding.Digest(json)};
         var recovered=PrincipalReceivingStorageCodec.Ledger(state,[row],[policy]);
         Assert.Equal(0.00000001m,recovered.Acceptances.Single().NetAmount);Assert.Null(recovered.Acceptances.Single().Actor.WorkerAliasId);
         // Even correct typed evidence cannot be attached under a different normalized draft.
         var forged=new PrincipalReceivingFact{Id=row.Id,TenantId=row.TenantId,LegalEntityId=row.LegalEntityId,
-            SourceStateId=row.SourceStateId,DraftId=Guid.NewGuid(),BranchId=row.BranchId,Kind=row.Kind,Sequence=row.Sequence,
+            SourceStateId=row.SourceStateId,DraftId=Guid.NewGuid(),BranchId=row.BranchId,Kind=row.Kind,Operation=row.Operation,Sequence=row.Sequence,
             CommandKey=row.CommandKey,ActorPrincipalId=row.ActorPrincipalId,PolicyVersionId=row.PolicyVersionId,
             Quantity=row.Quantity,NetAmount=row.NetAmount,PayloadJson=row.PayloadJson,PayloadSha256=row.PayloadSha256};
         Assert.Throws<InvalidOperationException>(()=>PrincipalReceivingStorageCodec.Ledger(state,[forged],[policy]));
@@ -113,7 +113,7 @@ public sealed partial class PrincipalControlledReceivingTests
         var state=State(source,2,accepted.Quantity,accepted.NetAmount);
         PrincipalReceivingFact Row(Guid id,string kind,object fact,long sequence,Guid key,string principal,Guid draft,decimal quantity,decimal net)
         {var json=System.Text.Json.JsonSerializer.Serialize(fact,fact.GetType());return new(){Id=id,TenantId=state.TenantId,LegalEntityId=state.LegalEntityId,
-            SourceStateId=state.Id,DraftId=draft,BranchId=state.BranchId,Kind=kind,Sequence=sequence,CommandKey=key,ActorPrincipalId=principal,
+            SourceStateId=state.Id,DraftId=draft,BranchId=state.BranchId,Kind=kind,Operation=kind=="Observation"?"Record":kind=="Inspection"?"Inspect":source.Commercial.Kind==ReceivingKind.Service?"Certify":"Accept",Sequence=sequence,CommandKey=key,ActorPrincipalId=principal,
             PolicyVersionId=policy.Id,Quantity=quantity,NetAmount=net,PayloadJson=json,PayloadSha256=ProcurementEvidenceEncoding.Digest(json)};}
         var observedRow=Row(observation.Id,"Observation",observation,1,observation.CommandKey,observation.Receiver.PrincipalId,observation.ReceiptId,observation.ReceivedQuantity,0);
         var acceptedRow=Row(accepted.Id,"Acceptance",accepted,2,accepted.CommandKey,accepted.Actor.PrincipalId,observation.ReceiptId,accepted.Quantity,accepted.NetAmount);
@@ -167,7 +167,7 @@ public sealed partial class PrincipalReceivingPersistenceModelTests
         using var db=Context();var model=db.GetService<IDesignTimeModel>().Model;
         var matches=System.Text.RegularExpressions.Regex.Matches(PrincipalReceivingOwnershipConstraintSql.Install,
             @"ALTER TABLE procurement\.(\w+) ADD CONSTRAINT (\w+)\s+FOREIGN KEY \(([^)]+)\)\s+REFERENCES procurement\.(\w+) \(([^)]+)\)");
-        Assert.Equal(10,matches.Count);
+        Assert.Equal(11,matches.Count);
         foreach(System.Text.RegularExpressions.Match match in matches)
         {
             var child=model.GetEntityTypes().Single(x=>x.GetTableName()==match.Groups[1].Value&&x.GetSchema()=="procurement");
@@ -180,7 +180,7 @@ public sealed partial class PrincipalReceivingPersistenceModelTests
             Assert.True(match.Groups[2].Value.Length<=63);
         }
         Assert.DoesNotContain("CASCADE",PrincipalReceivingOwnershipConstraintSql.Install);
-        Assert.Equal(10,System.Text.RegularExpressions.Regex.Matches(PrincipalReceivingOwnershipConstraintSql.Install,"ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED").Count);
+        Assert.Equal(11,System.Text.RegularExpressions.Regex.Matches(PrincipalReceivingOwnershipConstraintSql.Install,"ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED").Count);
         var line=model.FindEntityType(typeof(PurchaseOrderLine))!;
         Assert.DoesNotContain(line.GetKeys().SelectMany(x=>x.Properties),p=>p.Name is nameof(PurchaseOrderLine.AcceptedQuantity) or nameof(PurchaseOrderLine.Quantity));
     }

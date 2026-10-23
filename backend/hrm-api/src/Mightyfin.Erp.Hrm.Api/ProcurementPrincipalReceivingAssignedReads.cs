@@ -115,7 +115,9 @@ public static partial class ProcurementPrincipalReceivingRoutes
                     catch(UnauthorizedAccessException){blockers.Add("IndependentActorRequired");}
                     projection=new{observed.ObservedAt,observed.DeliveryNoteReference,physicalQuantity=Exact(observed.ReceivedQuantity),
                         initiallyRejectedQuantity=Exact(observed.InitiallyRejectedQuantity),qualifiedQuantity=inspected is null?null:Exact(inspected.QualifiedQuantity),
-                        acceptedQuantity=Exact(accepted),unacceptedPhysicalQuantity=Exact(available),inspectionOutcome=inspected?.Outcome.ToString()};
+                        acceptedQuantity=Exact(accepted),unacceptedPhysicalQuantity=Exact(available),inspectionOutcome=inspected?.Outcome.ToString(),
+                        inspectionRejectedQuantity=inspected is null?null:Exact(ExactDecimalArithmetic.Subtract(inspected.InspectedQuantity,inspected.QualifiedQuantity)),
+                        checklistReference=selected.Rule.ChecklistReference};
                     if(blockers.Count==0)actions.Add(task=="Inspection"?"Inspect":"Accept");
                 }
                 // Purpose projection omits notes, maker identity, prices, commercial

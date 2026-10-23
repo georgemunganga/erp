@@ -116,6 +116,27 @@ public static partial class ProcurementPrincipalReceivingRoutes
     private static async Task<(PrincipalReceivingSourceState State,PrincipalReceivingLedger Ledger)> StoredSource(ProcurementDbContext db,
         ApprovalDbContext cases,ProcurementRequestScope scope,PrincipalReceivingActor actor,PrincipalReceivingSource source,bool locks,CancellationToken ct)
     {
+        var result=await SourceHistory(db,cases,scope,actor,source,locks,ct);
+        await ReconcileRequest(db,cases,scope,actor,source.Commercial.PurchaseRequestLineId,ct);
+        return result;
+    }
+    private static async Task ReconcileRequest(ProcurementDbContext db,ApprovalDbContext cases,ProcurementRequestScope scope,
+        PrincipalReceivingActor actor,Guid requestLineId,CancellationToken ct)
+    {
+        var states=await db.PrincipalReceivingSourceStates.AsNoTracking().Where(x=>x.PurchaseRequestLineId==requestLineId).ToArrayAsync(ct);
+        foreach(var state in states)
+        {
+            // Historical immutable proof only: never acquire upstream request/PO
+            // locks here after the target's lock sequence. Mutating callers already
+            // hold the shared original request lock; SERIALIZABLE protects reads.
+            var source=PrincipalReceivingStorageCodec.Source(state);
+            _=await SourceHistory(db,cases,scope,actor,source,false,ct);
+        }
+        await new PrincipalReceivingStore(db).ReconcileCountersAsync(requestLineId,ct);
+    }
+    private static async Task<(PrincipalReceivingSourceState State,PrincipalReceivingLedger Ledger)> SourceHistory(ProcurementDbContext db,
+        ApprovalDbContext cases,ProcurementRequestScope scope,PrincipalReceivingActor actor,PrincipalReceivingSource source,bool locks,CancellationToken ct)
+    {
         var retained=await ProcurementPrincipalOrderRetainedIssued.LoadAsync(db,cases,scope,actor.AllowedBranches,
             source.Commercial.PurchaseOrderId,source.Commercial.IssuedVersionId,source.Commercial.PurchaseOrderLineId,locks,ct);
         // Reconstruct original pins using retained classification/kind, without current
@@ -148,18 +169,6 @@ public static partial class ProcurementPrincipalReceivingRoutes
             IdempotencyKey=$"receiving.principal.{key:N}.v2",PayloadJson=JsonSerializer.Serialize(new{head.Id,operation,commandKey=key,
                 revision=head.Revision,financePostingPerformed=false,stockPostingPerformed=false},Json)});
         return new(status,body);
-    }
-    private static object View(ProcurementDbContext db,PrincipalReceivingDraftHead head)
-    {
-        var revision=Revision(db,head);
-        var sources=PrincipalReceivingDraftSnapshot.Sources(head.Kind,revision);
-        return new{id=head.Id,version=head.Revision,executionVersion=2,status=head.State,kind=head.Kind,
-            purchaseOrderId=head.PurchaseOrderId,issuedVersionId=head.IssuedVersionId,siteId=head.BranchId,
-            draft=DraftView(head,revision),
-            sources=sources.Select(source=>new{purchaseOrderLineId=source.Commercial.PurchaseOrderLineId,
-                sourceVersion=db.PrincipalReceivingSourceStates.Local.SingleOrDefault(x=>x.IssuedVersionId==source.Commercial.IssuedVersionId&&x.PurchaseOrderLineId==source.Commercial.PurchaseOrderLineId)?.Sequence,
-                authorizedQuantity=Exact(source.Commercial.AuthorizedQuantity),netUnitPrice=Exact(source.Commercial.NetUnitPrice)}),
-            matchingAuthorityAvailable=false,correctionsAvailable=false};
     }
     private static object DraftView(PrincipalReceivingDraftHead head,PrincipalReceivingDraftRevision revision)
     {

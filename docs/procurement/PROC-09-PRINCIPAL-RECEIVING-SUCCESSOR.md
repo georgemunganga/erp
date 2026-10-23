@@ -300,3 +300,68 @@ full-save, scope/privacy/concurrency/replay/rollback and PostgreSQL constraints
 remain acceptance gates. All successor capabilities/provider activation remain
 closed. Return/correction negative ledger effects remain unavailable pending real
 consumption-owner contracts.
+
+### Counter and original-command integrity correction (source only)
+
+Distinct review identified missing checks against owning accepted-quantity
+counters and each fact's original command receipt. The correction normalizes
+fact operation and adds `fk_prcv_exact_fact_receipt`, making eleven exact manual
+overlays. It binds tenant/company, original command key, receiving draft, actor,
+branch and exact operation to the immutable receipt's unique tuple. Retained
+loads verify every fact's matching receipt, response digest, result target,
+PO/issued IDs, kind/status and original result revision. Missing/wrong receipts
+and duplicate/malformed result JSON never become complete history. Same-save
+new facts defer receipt verification only until the final mandatory Save guard;
+this is actual EF Added state, not a caller-supplied verification flag. A deferred
+FK enforces the same relationship at commit after central migration installation.
+
+Every quantity-bearing read/new-effect path reconciles full successor history to
+all owning PO lines, including inactive rows, and the PR accepted aggregate.
+Correct deltas over a previously corrupted counter are insufficient. Append now
+performs asynchronous reconciliation before adding a fact or changing a cursor
+or counter. The API also verifies each related source's original retained
+commercial/Core/publication proof. Target writes retain the original request→PO
+lock order. Related immutable proof inspection does not acquire new upstream
+locks after the target PO; mutations already hold the original shared request
+lock, and reads use the owning SERIALIZABLE snapshot. Current actor authorization
+and expected source cursor remain mandatory.
+
+Mixed legacy receiving or unexplained counters remain explicitly unavailable;
+this successor does not adopt them or invent a historical zero. This bounded
+correction verifies successor histories; supporting an independently reconciled
+legacy/successor aggregate requires its existing owner evidence contract rather
+than assuming legacy counters trustworthy. Historical original-key recovery
+remains original-result inspection, not a new effect or fresh balance claim.
+
+Four additional unrun integrity tests cover two-source aggregate conservation,
+joint/partial PO/PR counter tampering, exact receipt crossbinding/missing receipt,
+recomputed wrong-target and duplicate JSON, and an Append negative proving no new
+facts/receipts/cursor/audit changes on a diverged counter. The deliberately
+incomplete InMemory negative seed is labelled as such and claims no valid
+PR/PO producer, authorization, relational or PostgreSQL acceptance. Actual used
+DDL/raw FK/counter tamper/concurrent transaction tests remain central gates.
+
+### Existing UI projection alignment (source only)
+
+Full goods/service detail now adds existing-layout-compatible `receipt`/`service`
+projections alongside the retained editable `draft`, without exposing raw source
+or maker identity. Server current canonical actor/ownership/state/publication and
+independence determine action candidates; a withdrawn/unavailable current policy
+suppresses new-effect hints without erasing verified historical facts. Edit/cancel
+hints require the exact draft owner and current edit action, not an employee.
+Commands still fully revalidate; a candidate is never authority.
+
+Complete verified source histories and reconciled counters provide actual
+observation/inspection/acceptance quantities, source cursors and exact values.
+No observation exists merely because a draft has entered quantity. Nonfinancial
+physical/inspection history has nullable value, never a fabricated zero financial
+posting. Acceptance history has its exact recorded net value. Purpose-only task
+surfaces remain separate and omit notes, prices, maker identities and broad
+history. The full view carries no inventory/asset/Finance posting or invoice
+matching authority. The existing source selector now includes the actual retained
+line description for the original editor, not a made-up catalogue label.
+
+Frontend composition will require the explicit new `principalReceiving` metadata
+capability, absent/unknown=false; permissions or worker presence cannot imply
+support. No host metadata/provider/route activation is introduced by these source
+projections. Existing legacy v1 DTOs/routes stay intact.

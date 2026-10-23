@@ -37,6 +37,7 @@ public sealed class PrincipalReceivingFact : ProcurementRecord
     public Guid DraftId { get; init; }
     public Guid BranchId { get; init; }
     public string Kind { get; init; } = null!;
+    public string Operation { get; init; } = null!;
     public long Sequence { get; init; }
     public Guid CommandKey { get; init; }
     public string ActorPrincipalId { get; init; } = null!;

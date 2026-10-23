@@ -104,6 +104,7 @@ public sealed partial class ProcurementDbContext
                 || row.ActorPrincipalId!=scope.SubjectId || !addedReceipts.Any(x=>x.DraftId==row.DraftId&&x.CommandKey==row.CommandKey
                     && x.Operation==(row.Kind=="Observation"?"Record":row.Kind=="Inspection"?"Inspect":PrincipalReceivingStorageCodec.Source(source).Commercial.Kind==ReceivingKind.Service?"Certify":"Accept")))
                 throw new InvalidOperationException("PrincipalReceivingFactCommandRequired");
+            PrincipalReceivingStoredReceipt.Verify(row,addedReceipts.SingleOrDefault(x=>x.CommandKey==row.CommandKey),PrincipalReceivingStorageCodec.Source(source));
             if(row.Kind=="Observation")
             {
                 var observed=PrincipalReceivingStorageCodec.Decode<PrincipalGoodsObservation>(row.PayloadJson,row.PayloadSha256);

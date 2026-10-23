@@ -61,6 +61,17 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
         var rows=db.PrincipalReceivingFacts.Local.Where(x=>x.SourceStateId==state.Id).ToArray();
         var ids=rows.Select(x=>x.PolicyVersionId).Distinct().ToArray();
         await db.PolicyVersions.Where(x=>ids.Contains(x.Id)).LoadAsync(ct);
+        var keys=rows.Select(x=>x.CommandKey).Distinct().ToArray();
+        var receipts=await db.PrincipalReceivingCommandReceipts.AsNoTracking().Where(x=>keys.Contains(x.CommandKey)).ToArrayAsync(ct);
+        foreach(var fact in rows)
+        {
+            // Newly added facts are not historical: their same-save receipt is
+            // mandatory at the final Save guard. Never waive a persisted fact.
+            var receipt=receipts.SingleOrDefault(x=>x.CommandKey==fact.CommandKey)
+                ??db.PrincipalReceivingCommandReceipts.Local.SingleOrDefault(x=>x.CommandKey==fact.CommandKey);
+            if(receipt is null&&db.Entry(fact).State==EntityState.Added)continue;
+            PrincipalReceivingStoredReceipt.Verify(fact,receipt,PrincipalReceivingStorageCodec.Source(state));
+        }
         return PrincipalReceivingStorageCodec.Ledger(state,rows,db.PolicyVersions.Local.Where(x=>ids.Contains(x.Id)).ToArray());
     }
     public async Task<PrincipalReceivingDraftHead> HeadAsync(Guid id,CancellationToken ct)
@@ -112,21 +123,21 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
         }
         return head;
     }
-    public void Append(PrincipalReceivingSourceState state,PrincipalGoodsObservation fact)
-        =>Append(state,fact.Id,fact.ReceiptId,"Observation",fact.Sequence,fact.CommandKey,fact.Receiver,fact.PolicyVersionId,fact.ReceivedQuantity,0,PrincipalReceivingStorageCodec.Encode(fact));
-    public void Append(PrincipalReceivingSourceState state,Guid draftId,PrincipalGoodsInspection fact)
-        =>Append(state,fact.Id,draftId,"Inspection",fact.Sequence,fact.CommandKey,fact.Inspector,fact.PolicyVersionId,fact.QualifiedQuantity,0,PrincipalReceivingStorageCodec.Encode(fact));
-    public void Append(PrincipalReceivingSourceState state,Guid draftId,PrincipalReceivingAcceptance fact)
-        =>Append(state,fact.Id,draftId,"Acceptance",fact.Sequence,fact.CommandKey,fact.Actor,fact.PolicyVersionId,fact.Quantity,fact.NetAmount,PrincipalReceivingStorageCodec.Encode(fact));
-    private void Append(PrincipalReceivingSourceState state,Guid id,Guid draft,string kind,long sequence,Guid key,
-        PrincipalReceivingPerson actor,Guid policy,decimal quantity,decimal amount,string json)
+    public Task AppendAsync(PrincipalReceivingSourceState state,PrincipalGoodsObservation fact,CancellationToken ct)
+        =>AppendAsync(state,fact.Id,fact.ReceiptId,"Observation",fact.Sequence,fact.CommandKey,fact.Receiver,fact.PolicyVersionId,fact.ReceivedQuantity,0,PrincipalReceivingStorageCodec.Encode(fact),ct);
+    public Task AppendAsync(PrincipalReceivingSourceState state,Guid draftId,PrincipalGoodsInspection fact,CancellationToken ct)
+        =>AppendAsync(state,fact.Id,draftId,"Inspection",fact.Sequence,fact.CommandKey,fact.Inspector,fact.PolicyVersionId,fact.QualifiedQuantity,0,PrincipalReceivingStorageCodec.Encode(fact),ct);
+    public Task AppendAsync(PrincipalReceivingSourceState state,Guid draftId,PrincipalReceivingAcceptance fact,CancellationToken ct)
+        =>AppendAsync(state,fact.Id,draftId,"Acceptance",fact.Sequence,fact.CommandKey,fact.Actor,fact.PolicyVersionId,fact.Quantity,fact.NetAmount,PrincipalReceivingStorageCodec.Encode(fact),ct);
+    private async Task AppendAsync(PrincipalReceivingSourceState state,Guid id,Guid draft,string kind,long sequence,Guid key,
+        PrincipalReceivingPerson actor,Guid policy,decimal quantity,decimal amount,string json,CancellationToken ct)
     {
-        Enlisted();if(sequence!=state.Sequence+1)throw new InvalidOperationException("PrincipalReceivingSourceVersionChanged");
+        Enlisted();await ReconcileCountersAsync(state.PurchaseRequestLineId,ct);if(sequence!=state.Sequence+1)throw new InvalidOperationException("PrincipalReceivingSourceVersionChanged");
         var head=db.PrincipalReceivingDraftHeads.Local.Single(x=>x.Id==draft);
         var revision=db.PrincipalReceivingDraftRevisions.Local.Single(x=>x.DraftId==draft&&x.Revision==head.Revision);
         var lineBinding=db.PrincipalReceivingDraftLineBindings.Local.Single(x=>x.DraftRevisionId==revision.Id&&x.SourceStateId==state.Id);
         var row=new PrincipalReceivingFact{Id=id,DraftLineBindingId=lineBinding.Id,TenantId=state.TenantId,LegalEntityId=state.LegalEntityId,SourceStateId=state.Id,
-            DraftId=draft,BranchId=state.BranchId,Kind=kind,Sequence=sequence,CommandKey=key,ActorPrincipalId=actor.PrincipalId,
+            DraftId=draft,BranchId=state.BranchId,Kind=kind,Operation=kind=="Observation"?"Record":kind=="Inspection"?"Inspect":state.Kind=="Service"?"Certify":"Accept",Sequence=sequence,CommandKey=key,ActorPrincipalId=actor.PrincipalId,
             ActorWorkerAliasId=actor.WorkerAliasId,PolicyVersionId=policy,Quantity=quantity,NetAmount=amount,PayloadJson=json,
             PayloadSha256=ProcurementEvidenceEncoding.Digest(json)};
         db.AddScoped(row);state.Sequence=sequence;
@@ -162,6 +173,26 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
             || receipt.ResponseSha256!=ProcurementEvidenceEncoding.Digest(receipt.ResponseJson))
             throw new InvalidOperationException("PrincipalReceivingCommandKeyReused");
         return receipt;
+    }
+    /// <summary>Complete successor aggregation. Mixed/unexplained legacy rows are
+    /// unavailable, never adopted as zero; owner reconciliation is a separate contract.</summary>
+    public async Task ReconcileCountersAsync(Guid requestLineId,CancellationToken ct)
+    {
+        Enlisted();
+        var request=await db.PurchaseRequestLines.SingleAsync(x=>x.Id==requestLineId,ct);
+        var lines=await db.PurchaseOrderLines.Where(x=>x.PurchaseRequestLineId==requestLineId).ToArrayAsync(ct);
+        await db.PrincipalReceivingSourceStates.Where(x=>x.PurchaseRequestLineId==requestLineId).LoadAsync(ct);
+        var states=db.PrincipalReceivingSourceStates.Local.Where(x=>x.PurchaseRequestLineId==requestLineId).ToArray();
+        var ledgers=new List<PrincipalReceivingLedger>();
+        foreach(var state in states)
+        {
+            if(!lines.Any(line=>line.Id==state.PurchaseOrderLineId&&line.PurchaseOrderId==state.PurchaseOrderId))
+                throw new InvalidOperationException("PrincipalReceivingAggregateSourceUnknown");
+            ledgers.Add(await LedgerAsync(state,ct));
+        }
+        foreach(var line in lines)
+            if(await HasLegacyHistoryAsync(line.Id,ct))throw new InvalidOperationException("PrincipalReceivingEarlierHistoryUnknown");
+        PrincipalReceivingCounterReconciliation.Verify(request,lines,ledgers);
     }
     public async Task<bool> HasLegacyHistoryAsync(Guid lineId,CancellationToken ct)
         =>await db.ReceivingSourceStates.AnyAsync(x=>x.PurchaseOrderLineId==lineId,ct)
