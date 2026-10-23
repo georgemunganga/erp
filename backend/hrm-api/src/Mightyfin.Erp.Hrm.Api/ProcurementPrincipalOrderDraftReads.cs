@@ -134,7 +134,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var lines=await db.PurchaseOrderLines.AsNoTracking().Where(x=>x.PurchaseOrderId==id&&x.IsActive)
                 .OrderBy(x=>x.LineNumber).ToArrayAsync(token);
             var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking().Where(x=>x.PurchaseOrderId==id).ToArrayAsync(token);
-            PrincipalOrderDraftPins.Verify(order,lines,bindings);
+            var effective=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,token);
             var ids=bindings.Select(x=>x.AllocationId).ToArray();
             var allocations=await db.PurchaseRequestAllocations.AsNoTracking().Where(x=>ids.Contains(x.Id)).ToArrayAsync(token);
             var release=await db.PrincipalOrderReleaseRequests.AsNoTracking()
@@ -147,7 +147,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 .SingleOrDefaultAsync(x=>x.ReleaseRequestId==release.Id,token);
             if(allocations.Length!=bindings.Length || bindings.Any(x=>
                 allocations.Count(a=>a.Id==x.AllocationId&&a.TargetType=="PurchaseOrder"&&a.TargetId==id
-                    &&a.Quantity==x.Quantity&&a.EstimatedValue==x.EstimatedValue
+                    &&effective.TryGetValue(x.Id,out var current)
+                    &&a.Quantity==current.Quantity&&a.EstimatedValue==current.EstimatedValue
                     &&a.Status==(order.Status=="Cancelled"?"Released"
                         :order.Status is "IssuePending" or "Issued" or "Disputed"?"Ordered":"Reserved"))!=1))
                 throw new Problem("OrderOriginalSourceUnavailable",409);
@@ -204,7 +205,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             .OrderBy(x=>x.LineNumber).ToArrayAsync(token);
         var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking().Where(x=>x.PurchaseOrderId==id)
             .ToArrayAsync(token);
-        PrincipalOrderDraftPins.Verify(order,lines,bindings);
+        _=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,ct);
         if(submission.CommercialSnapshotSha256!=ProcurementEvidenceEncoding.Digest(submission.CommercialSnapshotJson)
             || submission.CommercialSnapshotJson!=funding.CommercialSnapshotJson
             || submission.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
@@ -237,6 +238,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var action=operation switch
         {
             "Create"=>"procurement-po-convert",
+            "Edit"=>"procurement-po-edit",
             "Cancel"=>"procurement-po-edit",
             "Funding"=>"procurement-po-finance-confirm",
             "Submit"=>"procurement-po-submit",

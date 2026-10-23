@@ -21,6 +21,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     private sealed record Reply(string Body,int Status=200);
     public sealed record CreateInput(OrderDraftInput Draft,IReadOnlyList<OrderSourceSelection> Sources);
     public sealed record CancelInput(long ExpectedOrderVersion,string OriginalDirectSourceSha256,string Reason);
+    public sealed record EditInput(long ExpectedOrderVersion,string OriginalDirectSourceSha256,
+        string Reason,OrderDraftInput Draft);
     public sealed record FundingInput(long ExpectedOrderVersion,string ManualCommitmentReference,
         string ExternalEvidenceReference,string CurrencyCode,
         [property:JsonConverter(typeof(CommercialGrossDecimalJsonConverter))] decimal AttestedGrossAmount,
@@ -57,6 +59,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         group.MapGet("/{id:guid}/principal-fulfilment-detail",FulfilmentDetail)
             .RequireAuthorization("procurement-access");
         group.MapPost("/{id:guid}/principal-direct-cancel",Cancel).RequireAuthorization("procurement-po-edit");
+        group.MapPost("/{id:guid}/principal-direct-edit",Edit).RequireAuthorization("procurement-po-edit");
         // Recovery is scoped by the original command action inside Replay. A
         // Finance recorder or assigned reviewer need not hold broad PO read.
         group.MapGet("/principal-direct-command-receipts/{operation}/{key:guid}",Recover).RequireAuthorization("procurement-access");
@@ -170,7 +173,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             throw new Problem("OrderReceiptNotFound",404);
         var order=await db.PurchaseOrders.SingleOrDefaultAsync(x=>x.Id==receipt.PurchaseOrderId
             &&x.PrincipalDraftSchemaVersion==2,ct)??throw new Problem("OrderReceiptNotFound",404);
-        if(operation is "Create" or "Cancel" && order.BuyerSubjectId!=scope.SubjectId)
+        if(operation is "Create" or "Cancel" or "Edit" && order.BuyerSubjectId!=scope.SubjectId)
             throw new Problem("OrderReceiptNotFound",404);
         _=await Actor(core,scope,http,auth,action,order.BranchRef,true,ct);
         if(fingerprint is not null && receipt.CommandSha256!=fingerprint)throw new Problem("OrderCommandKeyConflict",409);
@@ -206,6 +209,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         db.AddScoped(new OutboxEvent{AggregateType="PurchaseOrder",AggregateId=order.Id,
             EventType=operation switch {"Create"=>"purchase_order.internal_draft_reserved.v2",
                 "Cancel"=>"purchase_order.internal_draft_cancelled.v2",
+                "Edit"=>"purchase_order.internal_unfunded_draft_revised.v2",
                 "Funding"=>"purchase_order.manual_commitment_recorded.v2",
                 "Submit"=>"purchase_order.approval_opened.v2",
                 "Decide"=>"purchase_order.approval_decided.v2",

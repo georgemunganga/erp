@@ -535,6 +535,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureApprovalExecution(modelBuilder);
         ConfigurePurchaseOrderExecution(modelBuilder);
         ConfigurePrincipalOrderDraft(modelBuilder);
+        ConfigurePrincipalOrderRevision(modelBuilder);
         ConfigurePrincipalOrderGovernance(modelBuilder);
         ConfigurePrincipalReceiving(modelBuilder);
         ConfigureSourcingDraftExecution(modelBuilder);
@@ -733,6 +734,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardApprovalExecution();
         GuardPurchaseOrderExecution();
         GuardPrincipalOrderDraft();
+        GuardPrincipalOrderRevision();
         GuardPrincipalOrderGovernance();
         GuardPrincipalReceiving();
         GuardReceivingExecution();
