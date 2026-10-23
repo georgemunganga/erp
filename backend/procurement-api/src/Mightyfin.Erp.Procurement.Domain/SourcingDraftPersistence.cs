@@ -7,7 +7,9 @@ public sealed class SourcingDraftEvidence : ProcurementRecord
     public Guid SourcingEventId { get; init; }
     public Guid? BranchRef { get; init; }
     public string MakerSubjectId { get; init; } = null!;
-    public Guid MakerWorkerId { get; init; }
+    public Guid? MakerWorkerId { get; init; }
+    // Schema 2 preserves a Core principal even when no employee exists.
+    public string? MakerPrincipalId { get; init; }
     public Guid CreateCommandKey { get; init; }
     public string OriginalDraftFingerprint { get; init; } = null!;
     public string PayloadJson { get; init; } = null!;
@@ -37,8 +39,12 @@ public sealed class SourcingDemandBinding : ProcurementRecord
     public long MethodRevision { get; init; }
     public string MethodCode { get; init; } = null!;
     public int MinimumQuoteCount { get; init; }
-    public Guid MakerWorkerId { get; init; }
-    public Guid RequesterWorkerId { get; init; }
+    public int IdentitySchemaVersion { get; init; } = 1;
+    public Guid? MakerWorkerId { get; init; }
+    public Guid? RequesterWorkerId { get; init; }
+    public string? MakerPrincipalId { get; init; }
+    public string? RequesterPrincipalId { get; init; }
+    public string? PrincipalIdentitySha256 { get; init; }
     public Guid AllocationId { get; init; }
     public string TargetType { get; init; } = "SourcingEvent";
     public decimal Quantity { get; init; }
@@ -56,7 +62,7 @@ public sealed class SourcingCommandReceipt : ProcurementRecord
     public string Operation { get; init; } = null!;
     public Guid CommandKey { get; init; }
     public string ActorPrincipalId { get; init; } = null!;
-    public Guid ActorWorkerId { get; init; }
+    public Guid? ActorWorkerId { get; init; }
     public int ResponseSchemaVersion { get; init; } = 1;
     public int ResponseStatusCode { get; init; }
     public long ResultVersion { get; init; }

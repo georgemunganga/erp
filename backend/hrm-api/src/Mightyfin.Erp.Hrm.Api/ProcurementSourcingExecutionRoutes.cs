@@ -33,6 +33,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         group.MapPost("/{id:guid}/source-cancel", Cancel).RequireAuthorization("procurement-sourcing-cancel");
         group.MapGet("/{id:guid}/source-draft", Read).RequireAuthorization("procurement-access");
         group.MapGet("/command-receipts/{operation}/{key:guid}", Recover).RequireAuthorization("procurement-access");
+        MapPrincipalSourceRoutes(group);
     }
     private static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
         Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<Reply>> command, CancellationToken ct)
@@ -50,7 +51,8 @@ public static partial class ProcurementSourcingExecutionRoutes
                 if (!await http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>()
                         .IsReadyAsync(db, !HttpMethods.IsGet(http.Request.Method), token))
                     throw new Problem("SourcingDraftExecutionUnavailable", 503);
-                await RequireFinanceSchema(db, http.RequestServices.GetRequiredService<IProcurementFinanceCheckerSchemaReadiness>(), token);
+                if(!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db,http.RequestServices,false,token))
+                    throw new Problem("SourcingFinanceCheckerSchemaUnavailable",503);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 return await command(db, cases, core, http.RequestServices.GetRequiredService<IAuthorizationService>(), token);
             }, ct);

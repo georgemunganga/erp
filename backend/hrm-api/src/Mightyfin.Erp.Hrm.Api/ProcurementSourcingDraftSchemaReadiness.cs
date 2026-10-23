@@ -13,7 +13,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// <summary>Read-only RFQ store discovery. No DDL, role changes, policy/identity authority or
 /// data backfill. CHECK definitions retain exact PostgreSQL17 returned grouping and casts.</summary>
 public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration configuration, IProcurementScope scope,
-    IProcurementFinanceCheckerSchemaReadiness finance) : IProcurementSourcingDraftSchemaReadiness
+    IProcurementFinanceCheckerSchemaReadiness finance,ProcurementPrincipalApprovalStoreReadiness? p25PhysicalStore=null) : IProcurementSourcingDraftSchemaReadiness
 {
     internal static readonly Type[] OwnedTypes = [typeof(SourcingEvent), typeof(SourcingDraftEvidence),
         typeof(SourcingDemandBinding), typeof(SourcingCommandReceipt)];
@@ -48,7 +48,8 @@ public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration confi
         try
         {
             if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
-                || !await finance.IsReadyAsync(owner, false, ct)) return false;
+                || !(await finance.IsReadyAsync(owner,false,ct)
+                    || p25PhysicalStore is not null && await p25PhysicalStore.IsReadyAsync(owner,ct))) return false;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
             await using var command = connection.CreateCommand();
