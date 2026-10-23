@@ -175,6 +175,11 @@ public static partial class ProcurementManualPaymentRoutes
                     : x.ManualAction is "Reject" or "Dispute" ? "Reject" : x.ManualAction == "Return" ? "Return" : "Cancel")))
                 throw new ReadProblem("ManualPaymentCoreHistoryUnavailable", 503);
             var people = await DetailPeople(core, scope, request, decisions, links, linkedDecisions, token);
+            // This is a display hint from the current Core company setting. Record and
+            // Confirm obtain a fresh independent observation in their command transaction.
+            var observedClock = await new CoreCompanyBusinessDateProvider(core,
+                http.RequestServices.GetRequiredService<TimeProvider>())
+                .GetAsync(scope.TenantId, scope.LegalEntityId, token);
             return new
             {
                 request = new { request.Id, request.Version, request.Status, request.Title, request.Purpose,
@@ -201,7 +206,9 @@ public static partial class ProcurementManualPaymentRoutes
                 coreDecisions = linkedDecisions.Select(x => new { x.Id, x.ManualPaymentDecisionId,
                     x.CoreApprovalDecisionId, x.ManualAction, x.ActorPrincipalId, x.DecidedAt,
                     coreAction = coreDecisionById[x.CoreApprovalDecisionId].Action }).ToArray(),
-                people
+                people,
+                companyClock = new { date = observedClock.Date, timeZoneId = observedClock.TimeZoneId,
+                    observedAtUtc = observedClock.ObservedAtUtc }
             };
         }, ct);
 
