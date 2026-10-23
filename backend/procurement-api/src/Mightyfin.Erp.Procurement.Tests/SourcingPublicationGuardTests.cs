@@ -33,7 +33,8 @@ public sealed class SourcingPublicationGuardTests
         };
         db.Attach(ev);
         ev.Status = "Published";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        Assert.Equal("RfqMaterialEvidenceLocked", error.Message);
     }
 
     [Fact]
@@ -55,7 +56,8 @@ public sealed class SourcingPublicationGuardTests
             SourcingEventId = ev.Id, SupplierId = Guid.NewGuid(),
             Status = "ReadyForManualDelivery", SentAt = null,
         });
-        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        Assert.Equal("SourcingInvitationRequiresInternalPublication", error.Message);
     }
 
     [Fact]
@@ -72,7 +74,8 @@ public sealed class SourcingPublicationGuardTests
             SupplierId = Guid.NewGuid(), Status = "ReadyForManualDelivery" };
         db.Attach(ev); db.Attach(invitation);
         invitation.Status = "ManualContactRecorded";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        Assert.Equal("SourcingInvitationContactInvalid", error.Message);
     }
 
     [Fact]
@@ -90,6 +93,7 @@ public sealed class SourcingPublicationGuardTests
         db.Attach(ev); db.Attach(bid);
         bid.Status = "Submitted";
         bid.SubmittedAt = DateTimeOffset.UtcNow;
-        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        Assert.Equal("SourcingManualQuoteVersionRequired", error.Message);
     }
 }
