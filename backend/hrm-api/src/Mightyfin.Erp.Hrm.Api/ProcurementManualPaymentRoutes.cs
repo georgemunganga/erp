@@ -23,6 +23,7 @@ public static partial class ProcurementManualPaymentRoutes
         var group = app.MapGroup("/api/procurement/v1/manual-payments");
         group.MapGet("", List).RequireAuthorization("procurement-payment-read");
         group.MapGet("/lookups/assignees", AssigneeLookup).RequireAuthorization("procurement-payment-read");
+        group.MapGet("/lookups/invoices", InvoiceLookup).RequireAuthorization("procurement-payment-read");
         group.MapGet("/commands/{key:guid}", ReceiptByKey).RequireAuthorization("procurement-payment-read");
         group.MapGet("/{id:guid}", Detail).RequireAuthorization("procurement-payment-read");
         group.MapGet("/{id:guid}/commands/{key:guid}", Receipt).RequireAuthorization("procurement-payment-read");
@@ -99,17 +100,20 @@ public static partial class ProcurementManualPaymentRoutes
         return query;
     }
 
-    private static async Task<IResult> List(string? q, string? status, int? page, int? pageSize,
+    private static async Task<IResult> List(string? q, string? status, Guid? invoiceId, Guid? supplierId, int? page, int? pageSize,
         HttpContext http, ProcurementRequestScope scope, ProcurementApprovalTransaction transaction,
         IAuthorizationService authorization, CancellationToken ct)
         => await Run(http, scope, transaction, authorization, async (db, cases, core, person, branches, token) =>
         {
             var number = page ?? 1; var size = pageSize ?? 25; var search = q?.Trim() ?? "";
             if (number is < 1 or > 100000 || size is < 1 or > 100 || search.Length > 100 || search.Any(char.IsControl)
-                || status is { Length: > 40 } || status is not null && status.Any(char.IsControl))
+                || status is { Length: > 40 } || status is not null && status.Any(char.IsControl)
+                || invoiceId == Guid.Empty || supplierId == Guid.Empty)
                 throw new ArgumentException("ManualPaymentQueryInvalid");
             var query = Visible(db, scope, person, branches);
             if (status is not null) query = query.Where(x => x.Status == status);
+            if (invoiceId is { } invoice) query = query.Where(x => x.SupplierInvoiceId == invoice);
+            if (supplierId is { } supplier) query = query.Where(x => x.SupplierId == supplier);
             if (search.Length > 0)
             {
                 var pattern = "%" + search.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
@@ -119,7 +123,8 @@ public static partial class ProcurementManualPaymentRoutes
             var total = await query.CountAsync(token);
             var rows = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
                 .Skip((number - 1) * size).Take(size).ToArrayAsync(token);
-            return new { items = rows.Select(Summary).ToArray(), total, page = number, pageSize = size };
+            var labels = await PaymentInvoiceLabels(db, scope, rows, token);
+            return new { items = rows.Select(x => Summary(x, labels[x.SupplierInvoiceId])).ToArray(), total, page = number, pageSize = size };
         }, ct);
 
     private static async Task<IResult> Detail(Guid id, HttpContext http, ProcurementRequestScope scope,
@@ -128,6 +133,8 @@ public static partial class ProcurementManualPaymentRoutes
         {
             var request = await Visible(db, scope, person, branches).SingleOrDefaultAsync(x => x.Id == id, token)
                 ?? throw new KeyNotFoundException();
+            var invoiceLabels = await PaymentInvoiceLabels(db, scope, [request], token);
+            var invoiceLabel = invoiceLabels[request.SupplierInvoiceId];
             var decisions = await db.ManualPaymentDecisions.AsNoTracking()
                 .Where(x => x.ManualPaymentRequestId == id && x.BranchId == request.BranchId)
                 .OrderBy(x => x.ToVersion).ToArrayAsync(token);
@@ -171,6 +178,7 @@ public static partial class ProcurementManualPaymentRoutes
             {
                 request = new { request.Id, request.Version, request.Status, request.Title, request.Purpose,
                     request.BranchId, request.SupplierInvoiceId, request.SupplierId, request.CurrencyCode,
+                    invoiceLabel.InvoiceNumber, invoiceLabel.SupplierDisplayName,
                     amountExact = ProcurementEvidenceEncoding.Decimal(request.Amount),
                     approvedAmountExact = Exact(request.ApprovedAmount), recordedAmountExact = Exact(request.RecordedAmount),
                     request.CreatorPrincipalId, request.ApproverPrincipalId, request.RecorderPrincipalId,
@@ -237,10 +245,11 @@ public static partial class ProcurementManualPaymentRoutes
                 action = receipt.Action, commandKey = key };
         }, ct);
 
-    private static object Summary(ManualPaymentRequest x) => new
+    private static object Summary(ManualPaymentRequest x, PaymentInvoiceLabel label) => new
     {
         x.Id, x.Version, x.Status, x.Title, x.BranchId, x.SupplierInvoiceId,
-        x.SupplierId, x.CurrencyCode, amountExact = ProcurementEvidenceEncoding.Decimal(x.Amount),
+        x.SupplierId, label.InvoiceNumber, label.SupplierDisplayName,
+        x.CurrencyCode, amountExact = ProcurementEvidenceEncoding.Decimal(x.Amount),
         x.CreatorPrincipalId, x.ApproverPrincipalId, x.RecorderPrincipalId, x.ConfirmerPrincipalId,
         x.CreatedAt, x.UpdatedAt
     };
