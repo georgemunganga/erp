@@ -1,5 +1,6 @@
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using System.Text.Json.Serialization;
+using System.Globalization;
 using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -55,7 +56,13 @@ public static class ProcurementBudgetRoutes
                 EstimatedAmount = x.Lines.Where(line => line.ApprovalStatus != "Cancelled")
                     .Sum(line => line.RequestedQuantity * line.EstimatedUnitPrice),
             }).ToListAsync(ct);
-        return Results.Ok(new { records, count, limit = take, offset = skip });
+        return Results.Ok(new { records = records.Select(x => new
+        {
+            x.Id, x.Number, x.Purpose, x.CurrencyCode, x.SubmittedAt, x.Version,
+            x.BusinessVersion, x.ApprovalState, x.CreatedBy, x.EstimatedAmount,
+            EstimatedAmountExact = x.EstimatedAmount.ToString("0.############################", CultureInfo.InvariantCulture),
+            MinimumCheckedAmountExact = (decimal.Ceiling(x.EstimatedAmount * 10000m) / 10000m).ToString("0.0000", CultureInfo.InvariantCulture),
+        }), count, limit = take, offset = skip });
     }
 
     private static async Task<IResult> List(Guid id, ProcurementDbContext db,
@@ -71,7 +78,14 @@ public static class ProcurementBudgetRoutes
         x.CheckerIdentitySchemaVersion, x.CheckedByWorkerId,
                 x.EvidenceRef, x.DecisionReason, x.ReservationRef, x.ReservationStatus })
             .ToListAsync(ct);
-        return Results.Ok(new { records });
+        return Results.Ok(new { records = records.Select(x => new
+        {
+            x.Id, x.RequestVersion, x.FinanceCheckRef, x.Status, x.CheckedAmount,
+            CheckedAmountExact = x.CheckedAmount.ToString("0.############################", CultureInfo.InvariantCulture),
+            x.CurrencyCode, x.CheckedAt, x.CheckedBySubjectId,
+            x.CheckerIdentitySchemaVersion, x.CheckedByWorkerId,
+            x.EvidenceRef, x.DecisionReason, x.ReservationRef, x.ReservationStatus,
+        }) });
     }
 
     private static async Task<IResult> OwnStatus(Guid id, ProcurementDbContext db,
@@ -256,7 +270,8 @@ public static class ProcurementBudgetRoutes
     private static object ToResult(BudgetCheckSnapshot x) => new
     {
         x.Id, x.PurchaseRequestId, x.RequestVersion, x.FinanceCheckRef, x.Status,
-        x.CheckedAmount, x.CurrencyCode, x.CheckedAt, x.CheckedBySubjectId,
+        x.CheckedAmount, CheckedAmountExact = x.CheckedAmount.ToString("0.############################", CultureInfo.InvariantCulture),
+        x.CurrencyCode, x.CheckedAt, x.CheckedBySubjectId,
         x.CheckerIdentitySchemaVersion, x.CheckedByWorkerId,
         x.EvidenceRef, x.DecisionReason, x.ReservationRef, x.ReservationStatus,
     };
