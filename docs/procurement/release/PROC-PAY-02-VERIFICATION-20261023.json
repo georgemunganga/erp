@@ -1,0 +1,38 @@
+{
+  "status": "IMPLEMENTATION_IN_PROGRESS_NOT_RELEASE_ACCEPTANCE",
+  "pr": "https://github.com/georgemunganga/erp/pull/44",
+  "publishedBase": "97ca634fa5b821ff187dac5914363d55f805a744",
+  "uiPublishedBase": "04a2ab96bef4601f25122079a1c3f95d16cef877",
+  "completedVerification": [
+    {
+      "source": "d16f2772502452d7be5eaf8c77c185d8b4bfb72c",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-governance-build-20261023_run05",
+      "receiptSha256": "04acd4ff061418c1347866c6f2958b5a1be8d16260bfb124522a001bcc178e82",
+      "procurementTestsPassed": 1359,
+      "coreApprovalTestsPassed": 30,
+      "hostBuild": "PASS_WITH_17_EXISTING_WARNINGS",
+      "pendingModelChanges": false,
+      "sourceUnchanged": true,
+      "databaseTouched": false
+    }
+  ],
+  "laterChangesRequireVerification": [
+    "Governance CreatedAt preservation and Core Return/Reject semantics",
+    "Scoped unregistered read API and recovery",
+    "Private governance probe and negative checks",
+    "Typed payment policy preview"
+  ],
+  "remaining": [
+    "Real PostgreSQL P28 positive/negative and retained migration rehearsal",
+    "Current-authority/idempotent command API",
+    "P28 rendered manifest and least-privilege runtime checks",
+    "Original UI binding and normal-cookie API/PostgreSQL Playwright journey",
+    "Independent review and production release gates"
+  ],
+  "productionMigrationApplied": false,
+  "productionDeployed": false,
+  "paymentHttpAccepted": false,
+  "paymentPlaywrightAccepted": false,
+  "hostedCi": "BLOCKED_GITHUB_ACCOUNT_BILLING",
+  "issues": "DISABLED_IN_REPOSITORY"
+}
