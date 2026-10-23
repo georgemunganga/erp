@@ -307,3 +307,27 @@ The protected result records `browserBuyerFixtureProfile` as
 retains all existing fixture role actions. This changes no employee, production
 role, route authorization, approval decision or Finance authority. Actual
 browser acceptance remains a separate root-owned gate.
+
+### P25 normal-cookie approval owner verifier — source-only
+
+`verify_p25_cookie_approval_owner.py` is a separate Python standard-library
+read-only check for a **completed** protected browser result. Supply
+`P25_COOKIE_FIXTURE` and `P25_COOKIE_BROWSER_RESULT` as existing real 0600 files,
+then call it with `--expected-database proc_p25_http_<unique>`,
+`--pg-container <complete 64-character private container ID>`, and `--output`
+pointing to a **new** file beside the browser result in its 0700 directory.
+The root runner must bind its frozen API/UI source and publication evidence
+separately before invoking this script. Do not put credentials or connection
+strings in the command, result, logs or repository.
+
+The script inspects the exact isolated PostgreSQL17 container and fixed system
+identifier, runs one repeatable-read read-only SQL transaction, and creates a
+0600 owner summary only after passing. It checks the new approved request,
+2 × 5.1234 exact line, original Core principal digest, independent buying-rule
+evaluation and checker2, submission3/assignment2/policy/grant/Core decision,
+two actor-bound command receipts, three v2 events, and absence of AP/payment
+facts. It hashes the verifier source, fixture and browser result into the new
+summary. It does **not** modify the browser result, prove unchanged older rows
+without a pre-browser baseline, or certify external Finance/native IdP/full
+module completion. Source syntax alone has been checked; no database run is
+claimed by this commit.
