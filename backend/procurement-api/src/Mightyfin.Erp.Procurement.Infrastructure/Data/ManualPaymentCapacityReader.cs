@@ -23,7 +23,7 @@ public static class ManualPaymentCapacityReader
         if (string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty
             || !ProcurementPrincipalEvidence.Canonical(scope.SubjectId) || transactionBranchId == Guid.Empty
             || !currentCoreAllowedBranches.Contains(transactionBranchId) || scope.OrgUnitId is not null
-            || scope.IsConfined && scope.WorkLocationId is null
+            || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches
             || scope.WorkLocationId is { } selected && selected != transactionBranchId)
             throw new UnauthorizedAccessException("ManualPaymentBranchNotAuthorized");
         if (invoiceId == Guid.Empty || excludingRequestId == Guid.Empty)

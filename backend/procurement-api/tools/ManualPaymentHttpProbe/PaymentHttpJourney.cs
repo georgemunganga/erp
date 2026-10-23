@@ -85,7 +85,7 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
         // Simulate a lost Create response: do not parse the POST body. Recover only by
         // actor and key, without knowing the newly allocated request ID.
         using var created = await Send("maker", HttpMethod.Post, Root, draft, createKey, allBranches: true);
-        Require(created.StatusCode == HttpStatusCode.Created, "payment-create");
+        RequireStatus(created, HttpStatusCode.Created, "payment-create");
         using var recovered = await Send("maker", HttpMethod.Get, $"{Root}/commands/{createKey:D}", allBranches: true);
         var recovery = await Read(recovered, HttpStatusCode.OK, "lost-create-recovery");
         var id = recovery.GetProperty("id").GetGuid();

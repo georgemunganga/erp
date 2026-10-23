@@ -152,7 +152,8 @@ public sealed partial class ProcurementDbContext
         if (!ProcurementPrincipalEvidence.Canonical(scope.SubjectId) || branch == Guid.Empty
             || !ProcurementPrincipalEvidence.OptionalWorker(scope.CoreLinkedWorkerId)
             || scope.WorkLocationId is { } selected && selected != branch
-            || scope.IsConfined && scope.WorkLocationId is null || scope.OrgUnitId is not null)
+            || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches
+            || scope.OrgUnitId is not null)
             throw new InvalidOperationException("ManualPaymentWriteScopeInvalid");
     }
 }

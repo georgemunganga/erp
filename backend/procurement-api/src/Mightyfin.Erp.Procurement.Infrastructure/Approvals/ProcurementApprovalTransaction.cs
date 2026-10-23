@@ -30,12 +30,15 @@ public sealed class ProcurementApprovalTransaction
             || procurementScope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(procurementScope.SubjectId)
             || procurementScope.TenantId != approvalScope.TenantId
             || procurementScope.LegalEntityId != approvalScope.LegalEntityId
-            || procurementScope.SubjectId != approvalScope.SubjectId)
+            || procurementScope.SubjectId != approvalScope.SubjectId
+            || procurementScope.IsExplicitAllBranches
+                && (procurementScope.WorkLocationId is not null || procurementScope.OrgUnitId is not null))
             throw new UnauthorizedAccessException("A matching authenticated Procurement and Core scope is required.");
         this.connectionString = connectionString;
         scope = new(procurementScope.TenantId, procurementScope.LegalEntityId, procurementScope.SubjectId,
             procurementScope.WorkLocationId, procurementScope.OrgUnitId, procurementScope.IsConfined,
-            procurementScope.CorrelationId, procurementScope.WorkerId, procurementScope.CoreLinkedWorkerId);
+            procurementScope.CorrelationId, procurementScope.WorkerId, procurementScope.CoreLinkedWorkerId,
+            procurementScope.IsExplicitAllBranches);
     }
 
     /// <summary>
@@ -148,6 +151,7 @@ public sealed class ProcurementApprovalTransaction
             { SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected };
 
     private sealed record TransactionScope(string TenantId, Guid LegalEntityId, string SubjectId,
-        Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId, Guid? WorkerId, Guid? CoreLinkedWorkerId)
+        Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId, Guid? WorkerId,
+        Guid? CoreLinkedWorkerId, bool IsExplicitAllBranches)
         : IProcurementScope, IApprovalScope, IDocumentScope;
 }

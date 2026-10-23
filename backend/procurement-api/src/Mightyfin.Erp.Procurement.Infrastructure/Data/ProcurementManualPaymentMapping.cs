@@ -59,13 +59,13 @@ public sealed partial class ProcurementDbContext
         // must also intersect with current Core branch grants before paging/counting.
         request.HasQueryFilter(x => x.TenantId == CurrentTenantId && x.LegalEntityId == CurrentLegalEntityId
             && (scope.WorkLocationId == null || x.BranchId == scope.WorkLocationId)
-            && (!scope.IsConfined || scope.WorkLocationId != null) && scope.OrgUnitId == null);
+            && (!scope.IsConfined || scope.WorkLocationId != null || scope.IsExplicitAllBranches) && scope.OrgUnitId == null);
         decision.HasQueryFilter(x => x.TenantId == CurrentTenantId && x.LegalEntityId == CurrentLegalEntityId
             && (scope.WorkLocationId == null || x.BranchId == scope.WorkLocationId)
-            && (!scope.IsConfined || scope.WorkLocationId != null) && scope.OrgUnitId == null);
+            && (!scope.IsConfined || scope.WorkLocationId != null || scope.IsExplicitAllBranches) && scope.OrgUnitId == null);
         receipt.HasQueryFilter(x => x.TenantId == CurrentTenantId && x.LegalEntityId == CurrentLegalEntityId
             && (scope.WorkLocationId == null || x.BranchId == scope.WorkLocationId)
-            && (!scope.IsConfined || scope.WorkLocationId != null) && scope.OrgUnitId == null);
+            && (!scope.IsConfined || scope.WorkLocationId != null || scope.IsExplicitAllBranches) && scope.OrgUnitId == null);
         const string nonempty = "'00000000-0000-0000-0000-000000000000'::uuid";
         const string actions = "('Create','Revise','Submit','Approve','Return','Reject','Record','Confirm','Cancel','Dispute')";
         var principals = new[] { "creator_principal_id", "approver_principal_id", "recorder_principal_id", "confirmer_principal_id" };

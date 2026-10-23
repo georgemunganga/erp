@@ -54,13 +54,13 @@ public sealed partial class ProcurementDbContext
         dates.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ManualPaymentDecisionId }).IsUnique();
         cases.HasQueryFilter(x => x.TenantId == CurrentTenantId && x.LegalEntityId == CurrentLegalEntityId
             && (scope.WorkLocationId == null || x.BranchId == scope.WorkLocationId)
-            && (!scope.IsConfined || scope.WorkLocationId != null) && scope.OrgUnitId == null);
+            && (!scope.IsConfined || scope.WorkLocationId != null || scope.IsExplicitAllBranches) && scope.OrgUnitId == null);
         decisions.HasQueryFilter(x => x.TenantId == CurrentTenantId && x.LegalEntityId == CurrentLegalEntityId
             && (scope.WorkLocationId == null || x.BranchId == scope.WorkLocationId)
-            && (!scope.IsConfined || scope.WorkLocationId != null) && scope.OrgUnitId == null);
+            && (!scope.IsConfined || scope.WorkLocationId != null || scope.IsExplicitAllBranches) && scope.OrgUnitId == null);
         dates.HasQueryFilter(x => x.TenantId == CurrentTenantId && x.LegalEntityId == CurrentLegalEntityId
             && (scope.WorkLocationId == null || x.BranchId == scope.WorkLocationId)
-            && (!scope.IsConfined || scope.WorkLocationId != null) && scope.OrgUnitId == null);
+            && (!scope.IsConfined || scope.WorkLocationId != null || scope.IsExplicitAllBranches) && scope.OrgUnitId == null);
         const string notEmpty = "'00000000-0000-0000-0000-000000000000'::uuid";
         cases.ToTable(t => t.HasCheckConstraint("ck_manual_payment_case_source",
             $"id <> {notEmpty} AND branch_id <> {notEmpty} AND version = 1 AND purpose IN ('Approval','Confirmation') AND opened_request_version > 0 AND invoice_version_at_opening > 0 AND invoice_gross_amount_at_opening > 0 AND invoice_gross_amount_at_opening <> 'NaN'::numeric "
