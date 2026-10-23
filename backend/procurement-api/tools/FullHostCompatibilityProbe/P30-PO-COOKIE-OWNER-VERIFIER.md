@@ -33,8 +33,13 @@ python3 verify_p30_po_cookie_owner.py verify \
   --database "$P30_PO_COOKIE_EXPECTED_DATABASE"
 ```
 
-The verifier hashes every Procurement and Core Approval business row and
-compares the before/after sets. It permits only the browser-created internal
+The verifier hashes every Procurement and Core Approval business row and the
+Core identity account, branch assignment, role assignment, location and
+legal-entity rows. Only the operational account login timestamp, failed-login
+count, lock timestamp, update timestamp and version are excluded from the
+account hash; role/scope and credential fields remain pinned. No PII or
+credential values are written to the evidence file. It compares the
+before/after sets and permits only the browser-created internal
 PO, one PO line, one immutable source binding, its released reservation,
 Create/Cancel receipts, linked audit and outbox rows, and the source request
 and line version changes. It requires the three native orders and other
@@ -46,6 +51,9 @@ and token hashes are never placed in the evidence file.
 The verifier does not execute business commands, send supplier messages,
 post to Finance, or claim that a challenged completion file proves the UI.
 It refuses to overwrite any retained result. Failed evidence remains in the
-private directory for investigation. Browser request body bytes are not in
-the current sanitized result; the verifier checks the persisted command SHA
-shape and exact stored response SHA, and binds command keys to audit/outbox.
+private directory for investigation. The updated browser result retains only
+the two PO command request bodies. The verifier hydrates their typed DTOs,
+reconstructs the backend v2 canonical Create and Cancel fingerprints with
+exact decimal values, and compares them to persisted command SHA values. It
+fails closed on strings outside the reviewed simple ASCII subset rather than
+guessing System.Text.Json escaping.

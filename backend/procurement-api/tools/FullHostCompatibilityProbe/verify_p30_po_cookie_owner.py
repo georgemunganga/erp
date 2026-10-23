@@ -111,7 +111,9 @@ SELECT jsonb_build_object('database',current_database(),
  'tables',(SELECT jsonb_agg(jsonb_build_object('schema',schemaname,'name',tablename)
    ORDER BY schemaname,tablename) FROM pg_tables
    WHERE (schemaname IN ('procurement','core_approval')
-      OR (schemaname='hrm' AND tablename='local_sessions'))
+      OR (schemaname='hrm' AND tablename IN ('local_sessions','local_users',
+        'hr_user_branch_assignments','tenant_role_assignments',
+        'work_locations','legal_entities')))
       AND tablename !~ '^__'));
 ROLLBACK;""")
     require(len(head) == 1, "OwnerHeaderCount")
@@ -128,7 +130,9 @@ ROLLBACK;""")
             and {("procurement", x) for x in ("purchase_orders", "purchase_order_lines",
                 "principal_order_source_bindings", "principal_order_draft_receipts",
                 "purchase_request_lines", "purchase_request_allocations", "audit_events", "outbox_events")}.issubset(names)
-            and ("hrm", "local_sessions") in names, "OwningTableCatalogChanged")
+            and {("hrm", x) for x in ("local_sessions", "local_users",
+                "hr_user_branch_assignments", "tenant_role_assignments",
+                "work_locations", "legal_entities")}.issubset(names), "OwningTableCatalogChanged")
     # All source and successor business rows are read in one repeatable-read
     # transaction. The protected baseline retains row digests, not supplier or
     # authentication data. Selected business rows below retain only needed facts.
@@ -166,7 +170,12 @@ ROLLBACK;""")
     buyer_sessions = [x for x in rows["hrm.local_sessions"] if x.get("local_user_id") == buyer]
     # Full row hashes for every Procurement and Core Approval table establish
     # unchanged legacy and pre-existing principal business history.
-    hashes = {name: {x.get("id", x.get("Id")): digest(x) for x in group} for name, group in rows.items()
+    login_fields = {"last_login_at", "failed_login_count", "locked_until", "updated_at", "version"}
+    def stable(name, row):
+        # Real login may update these operational fields. Its role, tenant,
+        # branch, active flag, credential and other identity data remain pinned.
+        return {k: v for k, v in row.items() if k not in login_fields} if name == "hrm.local_users" else row
+    hashes = {name: {x.get("id", x.get("Id")): digest(stable(name, x)) for x in group} for name, group in rows.items()
         if name != "hrm.local_sessions"}
     require(all(len(value) == len(rows[name]) for name, value in hashes.items()), "DuplicateBusinessRowId")
     return {"schemaVersion": 3, "database": database, "system": SYSTEM,
@@ -207,6 +216,89 @@ def exact(value):
         return decimal.Decimal(str(value))
     except (decimal.InvalidOperation, TypeError, ValueError):
         raise Failed("ExactQuantityInvalid") from None
+
+
+def canonical_json(value):
+    """The bounded System.Text.Json/PolicyJsonDigest v2 command subset.
+
+    Numeric spellings are normalized as exact decimal coefficients/exponents.
+    The browser PO form uses simple ASCII labels. Other strings fail closed
+    because its serializer escape rules must be reviewed before adding them.
+    """
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, (decimal.Decimal, int)) and not isinstance(value, bool):
+        number = decimal.Decimal(value)
+        require(number.is_finite(), "CommandNumberInvalid")
+        if number == 0:
+            return "0"
+        digits = "".join(str(d) for d in number.as_tuple().digits).lstrip("0")
+        exponent = number.as_tuple().exponent
+        while digits.endswith("0"):
+            digits = digits[:-1]
+            exponent += 1
+        return ("-" if number.is_signed() else "") + digits + "e" + str(exponent)
+    if isinstance(value, str):
+        require(all(32 <= ord(c) <= 126 and c not in "<>&'\\\"" for c in value),
+                "CommandStringCanonicalizationUnsupported")
+        return json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+    if isinstance(value, list):
+        return "[" + ",".join(canonical_json(x) for x in value) + "]"
+    require(isinstance(value, dict) and all(isinstance(k, str) for k in value), "CommandShapeInvalid")
+    return "{" + ",".join(canonical_json(k) + ":" + canonical_json(value[k])
+        for k in sorted(value)) + "}"
+
+
+def command_fingerprints(browser, fixture, order, pin):
+    try:
+        create = json.loads(browser["createRequestBody"], parse_float=decimal.Decimal,
+                            parse_int=decimal.Decimal)
+        cancel = json.loads(browser["cancelRequestBody"], parse_float=decimal.Decimal,
+                            parse_int=decimal.Decimal)
+    except (ValueError, TypeError, KeyError):
+        raise Failed("CapturedCommandBodiesMissing") from None
+    require(isinstance(create, dict) and set(create) == {"draft", "sources"}
+            and isinstance(cancel, dict) and set(cancel) == {
+                "expectedOrderVersion", "originalDirectSourceSha256", "reason"},
+            "CapturedCommandBodyShape")
+    draft = create["draft"]
+    sources = create["sources"]
+    require(isinstance(draft, dict) and isinstance(sources, list) and len(sources) == 1
+            and isinstance(draft.get("lines"), list) and len(draft["lines"]) == 1
+            and draft.get("supplierId") == fixture["supplierId"]
+            and sources[0].get("purchaseRequestId") == fixture["approvedRequestId"]
+            and sources[0].get("purchaseRequestLineId") == fixture["approvedRequestLineId"]
+            and sources[0].get("draftLineIndex") == 0
+            and exact(sources[0].get("expectedRequestVersion")) == exact(pin["request_version"]),
+            "CapturedCreateSourceMismatch")
+    draft_keys = ("supplierId", "currencyCode", "shipToRef", "billToRef", "paymentTermRef",
+                  "expectedDeliveryOn", "lines")
+    line_keys = ("id", "description", "unitCode", "quantity", "unitPrice", "taxAmount",
+                 "costCenterRef", "projectRef", "expectedDeliveryOn")
+    source_keys = ("draftLineIndex", "purchaseRequestId", "purchaseRequestLineId", "expectedRequestVersion")
+    require(set(draft).issubset(draft_keys) and set(draft["lines"][0]).issubset(line_keys)
+            and set(sources[0]) == set(source_keys), "CapturedCreateFieldsUnexpected")
+    hydrated = {k: draft.get(k) for k in draft_keys if k != "lines"}
+    hydrated["lines"] = [{k: item.get(k, decimal.Decimal(0) if k in (
+        "quantity", "unitPrice", "taxAmount") else None) for k in line_keys}
+        for item in draft["lines"]]
+    create_value = {"schemaVersion": 2, "operation": "Create",
+        "actor": fixture["buyerPrincipalId"], "draft": hydrated,
+        "sources": [{k: sources[0][k] for k in source_keys}]}
+    require(exact(cancel["expectedOrderVersion"]) == exact(browser["createdVersion"])
+            and cancel["originalDirectSourceSha256"] == order["original_direct_source_sha256"]
+            and isinstance(cancel["reason"], str) and cancel["reason"].strip()
+            and cancel["reason"].strip() == cancel["reason"], "CapturedCancelCASMismatch")
+    cancel_value = {"schemaVersion": 2, "operation": "Cancel", "id": browser["orderId"],
+        "expectedOrderVersion": cancel["expectedOrderVersion"],
+        "originalDirectSourceSha256": cancel["originalDirectSourceSha256"],
+        "reason": cancel["reason"]}
+    return {"Create": hashlib.sha256(canonical_json(create_value).encode()).hexdigest(),
+            "Cancel": hashlib.sha256(canonical_json(cancel_value).encode()).hexdigest()}
 
 
 def final_check(fixture, baseline, final, browser, fixture_sha):
@@ -313,6 +405,7 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
         if row_id != fixture["approvedRequestId"]:
             require(after["procurement.purchase_requests"].get(row_id) == row_hash, "OtherRequestChanged")
     receipts = [x for x in final["selectedRows"]["procurement.principal_order_draft_receipts"] if x.get("purchase_order_id") == po]
+    fingerprints = command_fingerprints(browser, fixture, order, pin)
     require(len(receipts) == 2 and {x.get("operation") for x in receipts} == {"Create", "Cancel"}
             and {x.get("command_key") for x in receipts} == {create_key, cancel_key}
             and set(after["procurement.principal_order_draft_receipts"]) - set(before["procurement.principal_order_draft_receipts"]) == {x["id"] for x in receipts},
@@ -326,7 +419,7 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
                 and receipt.get("tenant_id") == TENANT and receipt.get("legal_entity_id") == fixture["companyId"]
                 and receipt.get("response_status") == expected_status
                 and receipt.get("result_version") == expected_version
-                and HEX.fullmatch(receipt.get("command_sha256", ""))
+                and receipt.get("command_sha256") == fingerprints[receipt["operation"]]
                 and receipt.get("response_sha256") == hashlib.sha256(receipt["response_json"].encode()).hexdigest(),
                 "PersistedCommandReceiptMismatch")
         response = json.loads(receipt["response_json"])
@@ -359,7 +452,8 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
         "database": fixture["database"], "system": SYSTEM,
         "fixtureSha256": fixture_sha, "orderId": po,
         "sourceAllocationRestored": True, "originalThreeOrdersUnchanged": True,
-        "exactCreateCancelReceipts": True, "auditOutboxBound": True,
+        "exactCreateCancelReceipts": True, "exactCommandFingerprintsVerified": True,
+        "auditOutboxBound": True,
         "realLocalSessionsRevoked": True, "productionTouched": False}
 
 
