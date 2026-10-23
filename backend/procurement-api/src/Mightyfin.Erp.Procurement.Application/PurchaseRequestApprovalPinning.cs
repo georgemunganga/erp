@@ -26,12 +26,29 @@ public static class PurchaseRequestApprovalPinning
         string tenantId, Guid legalEntityId, Guid coreCaseId, Guid openingCommandKey,
         string financeEvidenceMode, string? manualEvidenceAuthorityRef, DateTimeOffset pinnedAt,
         Guid makerWorkerId, Guid? requesterWorkerId)
+        => PinCore(request,evaluation,policy,finance,tenantId,legalEntityId,coreCaseId,openingCommandKey,
+            financeEvidenceMode,manualEvidenceAuthorityRef,pinnedAt,makerWorkerId,requesterWorkerId,2);
+
+    public static PurchaseRequestApprovalSubmission PinPrincipal(PurchaseRequest request,
+        PolicyEvaluation evaluation, PolicyVersion policy, BudgetCheckSnapshot finance,
+        string tenantId, Guid legalEntityId, Guid coreCaseId, Guid openingCommandKey,
+        string financeEvidenceMode, string? manualEvidenceAuthorityRef, DateTimeOffset pinnedAt,
+        Guid? currentMakerCoreAlias)
+        => PinCore(request,evaluation,policy,finance,tenantId,legalEntityId,coreCaseId,openingCommandKey,
+            financeEvidenceMode,manualEvidenceAuthorityRef,pinnedAt,currentMakerCoreAlias,request.RequesterCoreWorkerId,3);
+
+    private static PurchaseRequestApprovalSubmission PinCore(PurchaseRequest request,
+        PolicyEvaluation evaluation, PolicyVersion policy, BudgetCheckSnapshot finance,
+        string tenantId, Guid legalEntityId, Guid coreCaseId, Guid openingCommandKey,
+        string financeEvidenceMode, string? manualEvidenceAuthorityRef, DateTimeOffset pinnedAt,
+        Guid? makerWorkerId, Guid? requesterWorkerId, int schema)
     {
-        var issues = ValidateInputs(request, evaluation, policy, finance, tenantId, legalEntityId);
+        var issues = ValidateInputs(request, evaluation, policy, finance, tenantId, legalEntityId, principal: schema==3);
         if (request.Version != request.SubmittedVersion || request.ApprovalInstanceRef is not null)
             issues.Add("SourceAlreadyChangedOrLinked");
-        if (makerWorkerId == Guid.Empty || requesterWorkerId is null || requesterWorkerId == Guid.Empty || requesterWorkerId != request.RequesterWorkerId)
-            issues.Add("OpeningWorkerIdentityRequired");
+        if (schema==2 ? makerWorkerId is null || makerWorkerId == Guid.Empty || requesterWorkerId is null || requesterWorkerId == Guid.Empty || requesterWorkerId != request.RequesterWorkerId
+            : !PurchaseRequestPrincipalIdentity.Valid(request) || !ProcurementPrincipalEvidence.OptionalWorker(makerWorkerId) || requesterWorkerId != request.RequesterCoreWorkerId)
+            issues.Add(schema==2 ? "OpeningWorkerIdentityRequired" : "OpeningPrincipalIdentityRequired");
         if (coreCaseId == Guid.Empty || openingCommandKey == Guid.Empty)
             issues.Add("OpeningIdentityRequired");
         if (financeEvidenceMode is not (AutomatedFinance or ApprovedManualEvidence)
@@ -42,17 +59,21 @@ public static class PurchaseRequestApprovalPinning
             || finance.CheckedAt > pinnedAt)
             issues.Add("PinTimeInvalid");
         if (issues.Count != 0) throw new ArgumentException(string.Join(",", issues.Distinct()));
-        var snapshot = RequestSnapshot(request);
+        var snapshot = schema==3 ? PrincipalRequestSnapshot(request) : RequestSnapshot(request);
         var financeSnapshot = FinanceSnapshotCodec.Encode(finance, finance.CheckerIdentitySchemaVersion);
         return new PurchaseRequestApprovalSubmission
         {
             TenantId = tenantId, LegalEntityId = legalEntityId,
             PurchaseRequestId = request.Id, SubmittedBusinessVersion = request.SubmittedVersion!.Value,
             CoreApprovalCaseId = coreCaseId, OpeningCommandKey = openingCommandKey,
-            SnapshotSchemaVersion = 2, MakerSubjectId = request.CreatedBy,
+            SnapshotSchemaVersion = schema, MakerSubjectId = request.CreatedBy,
+            RequesterPrincipalId = schema==3 ? request.RequesterPrincipalId : null,
+            RequesterIdentitySha256 = schema==3 ? request.RequesterIdentitySha256 : null,
+            PrincipalIdentitySha256 = schema==3 ? PrincipalIdentityDigest(tenantId,legalEntityId,request.Id,request.SubmittedVersion.Value,
+                coreCaseId,request.CreatedBy,request.RequesterPrincipalId!.Value,makerWorkerId,requesterWorkerId,request.RequesterIdentitySha256!) : null,
             MakerWorkerId = makerWorkerId, RequesterWorkerId = requesterWorkerId,
-            WorkerIdentitySha256 = WorkerIdentityDigest(tenantId, legalEntityId, request.Id,
-                request.SubmittedVersion.Value, coreCaseId, request.CreatedBy, makerWorkerId, requesterWorkerId),
+            WorkerIdentitySha256 = schema==2 ? WorkerIdentityDigest(tenantId, legalEntityId, request.Id,
+                request.SubmittedVersion.Value, coreCaseId, request.CreatedBy, makerWorkerId!.Value, requesterWorkerId) : null,
             RequestSnapshotJson = snapshot, RequestSnapshotSha256 = Digest(snapshot),
             PolicyEvaluationId = evaluation.Id, PolicyVersionId = policy.Id,
             PolicyVersionNumber = policy.PolicyVersionNumber,
@@ -77,6 +98,20 @@ public static class PurchaseRequestApprovalPinning
         }));
     }
 
+    public static string PrincipalIdentityDigest(string tenant,Guid company,Guid request,long businessVersion,Guid caseId,
+        string maker,Guid requester,Guid? makerAlias,Guid? requesterAlias,string originalIdentitySha) => Digest(JsonSerializer.Serialize(new
+        { schemaVersion=3,tenant,company,request,businessVersion,caseId,maker,requester,makerAlias,requesterAlias,originalIdentitySha }));
+    public static bool HasRetainedPrincipalIdentity(PurchaseRequestApprovalSubmission pin) => pin.SnapshotSchemaVersion==3
+        && ProcurementPrincipalEvidence.Canonical(pin.MakerSubjectId) && pin.RequesterPrincipalId is { } principal && principal!=Guid.Empty
+        && pin.MakerSubjectId==principal.ToString("D") && ProcurementPrincipalEvidence.OptionalWorker(pin.MakerWorkerId)
+        && ProcurementPrincipalEvidence.OptionalWorker(pin.RequesterWorkerId) && pin.WorkerIdentitySha256 is null
+        && pin.RequesterIdentitySha256 is { Length:64 } original && original.All(Uri.IsHexDigit)
+        && pin.PrincipalIdentitySha256==PrincipalIdentityDigest(pin.TenantId,pin.LegalEntityId,pin.PurchaseRequestId,
+            pin.SubmittedBusinessVersion,pin.CoreApprovalCaseId,pin.MakerSubjectId,principal,pin.MakerWorkerId,pin.RequesterWorkerId,original);
+    private static string PrincipalRequestSnapshot(PurchaseRequest request) => JsonSerializer.Serialize(new
+    { schemaVersion=3,legacyBusiness=JsonSerializer.Deserialize<JsonElement>(RequestSnapshot(request)),
+        request.RequesterPrincipalId,request.RequesterCoreWorkerId,request.RequesterIdentitySha256 });
+
     public static bool HasRetainedWorkerIdentity(PurchaseRequestApprovalSubmission pin) => pin.SnapshotSchemaVersion == 2
         && pin.MakerWorkerId is { } maker && maker != Guid.Empty
         && pin.RequesterWorkerId is { } requester && requester != Guid.Empty
@@ -99,14 +134,19 @@ public static class PurchaseRequestApprovalPinning
         PurchaseRequest request, PolicyEvaluation evaluation, PolicyVersion policy,
         BudgetCheckSnapshot currentFinance, string tenantId, Guid legalEntityId, bool requirePendingState)
     {
-        var issues = ValidateInputs(request, evaluation, policy, currentFinance, tenantId, legalEntityId, requirePendingState);
+        var principal = pin.SnapshotSchemaVersion==3;
+        var issues = ValidateInputs(request, evaluation, policy, currentFinance, tenantId, legalEntityId, requirePendingState, principal);
         if (!InScope(pin, tenantId, legalEntityId)) issues.Add("PinnedScopeMismatch");
         if (pin.OpeningCommandKey == Guid.Empty || pin.CoreApprovalCaseId == Guid.Empty || pin.PinnedAt == default
             || pin.PinnedAt < request.SubmittedAt || currentFinance.CheckedAt > pin.PinnedAt)
             issues.Add("PinnedMetadataInvalid");
-        if (!HasRetainedWorkerIdentity(pin) || pin.RequesterWorkerId != request.RequesterWorkerId)
-            issues.Add("PinnedWorkerIdentityMissingOrInvalid");
-        if (pin.SnapshotSchemaVersion != 2 || pin.PurchaseRequestId != request.Id
+        if (principal ? !HasRetainedPrincipalIdentity(pin) || !PurchaseRequestPrincipalIdentity.Valid(request)
+                || pin.RequesterPrincipalId!=request.RequesterPrincipalId || pin.RequesterWorkerId!=request.RequesterCoreWorkerId
+                || pin.RequesterIdentitySha256!=request.RequesterIdentitySha256
+            : !HasRetainedWorkerIdentity(pin) || pin.RequesterWorkerId != request.RequesterWorkerId
+                || pin.RequesterPrincipalId is not null || pin.PrincipalIdentitySha256 is not null || pin.RequesterIdentitySha256 is not null)
+            issues.Add(principal ? "PinnedPrincipalIdentityMissingOrInvalid" : "PinnedWorkerIdentityMissingOrInvalid");
+        if (pin.SnapshotSchemaVersion is not (2 or 3) || pin.PurchaseRequestId != request.Id
             || pin.SubmittedBusinessVersion != request.SubmittedVersion
             || pin.MakerSubjectId != request.CreatedBy)
             issues.Add("PinnedSourceMismatch");
@@ -131,7 +171,7 @@ public static class PurchaseRequestApprovalPinning
         // Invalid inputs already block execution; do not build a misleading snapshot from them.
         if (!issues.Contains("InvalidLines") && !issues.Contains("InvalidSource"))
         {
-            var snapshot = RequestSnapshot(request);
+            var snapshot = principal ? PrincipalRequestSnapshot(request) : RequestSnapshot(request);
             if (pin.RequestSnapshotSha256 != Digest(pin.RequestSnapshotJson)
                 || pin.RequestSnapshotJson != snapshot)
                 issues.Add("SubmittedBusinessInputsChanged");
@@ -142,12 +182,13 @@ public static class PurchaseRequestApprovalPinning
     }
 
     private static List<string> ValidateInputs(PurchaseRequest request, PolicyEvaluation evaluation,
-        PolicyVersion policy, BudgetCheckSnapshot finance, string tenantId, Guid legalEntityId, bool requirePendingState = true)
+        PolicyVersion policy, BudgetCheckSnapshot finance, string tenantId, Guid legalEntityId, bool requirePendingState = true, bool principal = false)
     {
         var issues = new List<string>();
         // A genuine worker path remains compatible when immutable principal metadata
         // exactly denotes CreatedBy, which is already bound by the retained snapshot.
-        if (request.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request))
+        if (principal ? !PurchaseRequestPrincipalIdentity.Valid(request)
+            : request.RequesterIdentitySchemaVersion!=0 || request.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request))
             issues.Add("PrincipalApprovalEvidenceRequired");
         if (string.IsNullOrWhiteSpace(tenantId) || legalEntityId == Guid.Empty
             || new ProcurementRecord[] { request, evaluation, policy, finance }.Any(x => !InScope(x, tenantId, legalEntityId)))
@@ -155,8 +196,11 @@ public static class PurchaseRequestApprovalPinning
         if (request.Id == Guid.Empty || request.SubmittedVersion is not > 0
             || request.Version < request.SubmittedVersion || requirePendingState && request.Status != "Submitted"
             || request.SubmittedAt is null || string.IsNullOrWhiteSpace(request.CreatedBy)
-            || request.RequesterWorkerId is null || request.RequesterWorkerId == Guid.Empty || string.IsNullOrWhiteSpace(request.CurrencyCode))
+            || (!principal && (request.RequesterWorkerId is null || request.RequesterWorkerId == Guid.Empty)) || string.IsNullOrWhiteSpace(request.CurrencyCode))
             issues.Add("InvalidSource");
+        if (principal ? finance.CheckerIdentitySchemaVersion!=FinanceCheckerIdentityEvidence.PrincipalVersion
+            : finance.CheckerIdentitySchemaVersion==FinanceCheckerIdentityEvidence.PrincipalVersion)
+            issues.Add("FinanceIdentitySchemaMismatch");
         var lines = request.Lines.Where(x => x.ApprovalStatus != "Cancelled").ToArray();
         if (lines.Length == 0 || lines.Any(x => !InScope(x, tenantId, legalEntityId)
                 || x.PurchaseRequestId != request.Id || x.Id == Guid.Empty || x.LineNumber < 1

@@ -10,7 +10,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Procurement.Tests;
 
 /// <summary>SaveChanges and PostgreSQL design-model source contracts, not real PostgreSQL execution proof.</summary>
-public sealed class FinanceCheckerIdentityPersistenceTests
+public sealed partial class FinanceCheckerIdentityPersistenceTests
 {
     private sealed class Scope(Guid company) : IProcurementScope
     {
@@ -47,7 +47,7 @@ public sealed class FinanceCheckerIdentityPersistenceTests
         Assert.Equal(18, finance.FindProperty(nameof(BudgetCheckSnapshot.CheckedAmount))!.GetPrecision());
         Assert.Equal(4, finance.FindProperty(nameof(BudgetCheckSnapshot.CheckedAmount))!.GetScale());
         Assert.Equal(0, pin.FindProperty(nameof(PurchaseRequestApprovalSubmission.FinanceIdentitySchemaVersion))!.GetDefaultValue());
-        Assert.Contains("finance_identity_schema_version = 0 OR (finance_identity_schema_version = 1 AND snapshot_schema_version = 2)",
+        Assert.Contains("(finance_identity_schema_version = 0 AND snapshot_schema_version IN (1,2)) OR (finance_identity_schema_version = 1 AND snapshot_schema_version = 2) OR (finance_identity_schema_version=2 AND snapshot_schema_version=3)",
             pin.GetCheckConstraints().Single(x => x.Name == "ck_pr_finance_identity_version").Sql);
         Assert.DoesNotContain(finance.GetKeys().SelectMany(x => x.Properties), x =>
             x.Name is "CheckerIdentitySchemaVersion" or "CheckedByWorkerId" or "CheckerIdentitySha256");
@@ -64,14 +64,15 @@ public sealed class FinanceCheckerIdentityPersistenceTests
     {
         var database = Guid.NewGuid().ToString(); var company = Guid.NewGuid();
         await using var db = Context(database, company);
-        var finance = Snapshot(company); Bind(finance); db.AddScoped(finance); await db.SaveChangesAsync();
+        var finance = Snapshot(company); await SeedLegacySource(db, finance); Bind(finance); db.AddScoped(finance); await db.SaveChangesAsync();
         var pin = Pin(finance); db.AddScoped(pin); await db.SaveChangesAsync();
         await using var fresh = Context(database, company);
         var stored = await fresh.BudgetCheckSnapshots.SingleAsync();
         Assert.True(FinanceCheckerIdentityEvidence.HasValidBinding(stored));
         Assert.Equal(finance.CheckedByWorkerId, stored.CheckedByWorkerId);
         Assert.Equal(1, (await fresh.ApprovalSubmissions.SingleAsync()).FinanceIdentitySchemaVersion);
-        var audits = await fresh.AuditEvents.ToListAsync();
+        var audits = await fresh.AuditEvents.Where(x => x.RecordType == nameof(BudgetCheckSnapshot)
+            || x.RecordType == nameof(PurchaseRequestApprovalSubmission)).ToListAsync();
         Assert.Equal(2, audits.Count);
         Assert.All(audits, x => Assert.DoesNotContain(finance.EvidenceRef!, x.ChangedFieldsJson ?? ""));
         Assert.Contains(audits, x => x.RecordType == nameof(BudgetCheckSnapshot)
@@ -91,7 +92,7 @@ public sealed class FinanceCheckerIdentityPersistenceTests
     {
         var company = Guid.NewGuid();
         await using var db = Context(Guid.NewGuid().ToString(), company);
-        var finance = Snapshot(company);
+        var finance = Snapshot(company); await SeedLegacySource(db, finance);
         if (kind == "wrong-actor") finance.CheckedBySubjectId = "another-account";
         Bind(finance);
         switch (kind)
@@ -107,7 +108,7 @@ public sealed class FinanceCheckerIdentityPersistenceTests
         }
         db.AddScoped(finance);
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
-        Assert.Empty(await db.BudgetCheckSnapshots.ToListAsync()); Assert.Empty(await db.AuditEvents.ToListAsync());
+        Assert.Empty(await db.BudgetCheckSnapshots.ToListAsync()); Assert.Single(await db.AuditEvents.ToListAsync());
     }
 
     [Theory]
@@ -121,7 +122,7 @@ public sealed class FinanceCheckerIdentityPersistenceTests
     {
         var company = Guid.NewGuid();
         await using var db = Context(Guid.NewGuid().ToString(), company);
-        var finance = Snapshot(company); Bind(finance); db.AddScoped(finance); await db.SaveChangesAsync();
+        var finance = Snapshot(company); await SeedLegacySource(db, finance); Bind(finance); db.AddScoped(finance); await db.SaveChangesAsync();
         var json = JsonNode.Parse(JsonSerializer.Serialize(Pin(finance)))!;
         switch (kind)
         {
@@ -134,7 +135,7 @@ public sealed class FinanceCheckerIdentityPersistenceTests
         }
         db.AddScoped(JsonSerializer.Deserialize<PurchaseRequestApprovalSubmission>(json.ToJsonString())!);
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
-        Assert.Empty(await db.ApprovalSubmissions.ToListAsync()); Assert.Single(await db.AuditEvents.ToListAsync());
+        Assert.Empty(await db.ApprovalSubmissions.ToListAsync()); Assert.Equal(2, await db.AuditEvents.CountAsync());
     }
 
     [Theory]
@@ -144,12 +145,12 @@ public sealed class FinanceCheckerIdentityPersistenceTests
     {
         var database = Guid.NewGuid().ToString(); var company = Guid.NewGuid();
         await using var db = Context(database, company);
-        var finance = Snapshot(company); Bind(finance); db.AddScoped(finance); await db.SaveChangesAsync();
+        var finance = Snapshot(company); await SeedLegacySource(db, finance); Bind(finance); db.AddScoped(finance); await db.SaveChangesAsync();
         if (delete) db.Remove(finance); else finance.CheckedByWorkerId = Guid.NewGuid();
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
         await using var fresh = Context(database, company);
         var stored = await fresh.BudgetCheckSnapshots.SingleAsync();
-        Assert.True(FinanceCheckerIdentityEvidence.HasValidBinding(stored)); Assert.Equal(1, await fresh.AuditEvents.CountAsync());
+        Assert.True(FinanceCheckerIdentityEvidence.HasValidBinding(stored)); Assert.Equal(2, await fresh.AuditEvents.CountAsync());
     }
 
     [Fact]
@@ -157,11 +158,21 @@ public sealed class FinanceCheckerIdentityPersistenceTests
     {
         var company = Guid.NewGuid();
         await using var db = Context(Guid.NewGuid().ToString(), company);
-        var finance = Snapshot(company); db.AddScoped(finance); await db.SaveChangesAsync();
+        var finance = Snapshot(company); await SeedLegacySource(db, finance); db.AddScoped(finance); await db.SaveChangesAsync();
         Assert.Equal(0, finance.CheckerIdentitySchemaVersion); Assert.Null(finance.CheckedByWorkerId);
         Assert.Null(finance.CheckerIdentitySha256); Assert.False(FinanceCheckerIdentityEvidence.HasValidBinding(finance));
         finance.CheckedByWorkerId = Guid.NewGuid();
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
+
+    // Explicit synthetic legacy-owned source: this test proves persistence guards,
+    // not a request workflow, Core authentication or Finance authority.
+    private static async Task SeedLegacySource(ProcurementDbContext db, BudgetCheckSnapshot finance)
+    {
+        var request = new PurchaseRequest { Id = finance.PurchaseRequestId, Number = "PR-LEGACY-" + Guid.NewGuid().ToString("N"),
+            RequesterWorkerId = Guid.NewGuid(), Purpose = "Synthetic retained legacy source", CurrencyCode = finance.CurrencyCode,
+            Status = "Submitted", SubmittedVersion = finance.RequestVersion };
+        db.AddScoped(request); await db.SaveChangesAsync();
     }
 
     private static BudgetCheckSnapshot Snapshot(Guid company) => new()

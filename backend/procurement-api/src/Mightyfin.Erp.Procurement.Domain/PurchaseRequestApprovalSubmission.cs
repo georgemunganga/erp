@@ -19,6 +19,9 @@ public sealed class PurchaseRequestApprovalSubmission : ProcurementRecord
     public Guid? RequesterWorkerId { get; init; }
     public string? WorkerIdentitySha256 { get; init; }
     public string MakerSubjectId { get; init; } = null!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? RequesterPrincipalId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? RequesterIdentitySha256 { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PrincipalIdentitySha256 { get; init; }
     public string RequestSnapshotJson { get; init; } = null!;
     public string RequestSnapshotSha256 { get; init; } = null!;
     public Guid PolicyEvaluationId { get; init; }

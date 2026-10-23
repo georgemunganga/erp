@@ -98,10 +98,10 @@ public static class PurchaseRequestApprovalOutcomes
         }
         var events = new List<OutboxEvent>
         {
-            Event(request, effectKey, $"purchase_request.{approvalCase.State.ToLowerInvariant()}.v1", new
+            Event(request, pin, effectKey, $"purchase_request.{approvalCase.State.ToLowerInvariant()}.v1", new
             { request.Id, pin.SubmittedBusinessVersion, caseId = approvalCase.Id, outcomeId = outcome.Id, request.Status }),
         };
-        if (release is not null) events.Add(Event(request, release.EffectKey, "procurement.finance_release.requested.v1",
+        if (release is not null) events.Add(Event(request, pin, release.EffectKey, "procurement.finance_release.requested.v1",
             new { releaseRequestId = release.Id, request.Id, pin.SubmittedBusinessVersion }));
         return new(outcome, release, events, false);
     }
@@ -154,7 +154,7 @@ public static class PurchaseRequestApprovalOutcomes
             request.ReturnedBySubjectId = decision.ActorSubjectId;
             request.ReturnReason = decision.Reason;
         }
-        return new(confirmation, [Event(request, key, "procurement.finance_release.confirmed.v1",
+        return new(confirmation, [Event(request, pin, key, "procurement.finance_release.confirmed.v1",
             new { request.Id, releaseRequestId = release.Id, confirmationId = confirmation.Id, request.Status })], false);
     }
 
@@ -199,10 +199,16 @@ public static class PurchaseRequestApprovalOutcomes
             || release.EffectKey != $"procurement.pr.release.{pin.Id:N}.v1")
             throw new InvalidOperationException("Finance release request does not match the pinned reservation/outcome.");
     }
-    private static OutboxEvent Event(PurchaseRequest request, string key, string type, object payload) => new()
+    private static OutboxEvent Event(PurchaseRequest request, PurchaseRequestApprovalSubmission pin, string key, string type, object payload) => new()
     {
-        TenantId = request.TenantId, LegalEntityId = request.LegalEntityId, EventType = type,
+        TenantId = request.TenantId, LegalEntityId = request.LegalEntityId,
+        // The canonical effect/replay keys stay unchanged. Only the explicitly new
+        // principal contract emits v2, retaining a downgrade marker in the outbox.
+        EventType = pin.SnapshotSchemaVersion == 3 ? type[..^1] + "2" : type,
+        EventVersion = pin.SnapshotSchemaVersion == 3 ? 2 : 1,
         AggregateType = "purchase_request", AggregateId = request.Id, IdempotencyKey = key,
-        PayloadJson = JsonSerializer.Serialize(payload),
+        PayloadJson = JsonSerializer.Serialize(pin.SnapshotSchemaVersion == 3
+            ? (object)new { principalApprovalSchemaVersion = 1, submissionId = pin.Id, submissionSchemaVersion = 3, details = payload }
+            : payload),
     };
 }

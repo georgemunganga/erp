@@ -1,6 +1,7 @@
 # Procurement live implementation roadmap
 
 **Status:** Active engineering roadmap, updated 23 October 2026. Individual releases have recorded acceptance; outstanding business policies and workflow activation gates remain open.
+**P25 private source checkpoint (22 October):** Corrected normal-cookie Playwright draft create/edit/reload/withdraw, ungranted 403 and both logout 200 passed; independent review confirmed both sessions revoked and original Procurement rows preserved. The earlier failed run remains retained in [the P25 acceptance record](release/PROC-PR-CORE-PRINCIPAL-APPROVAL.md). Source integration with M2 requires fresh and retained P28 migration rehearsal, five retained-row downgrade checks, EF model compatibility and current Core authorization before activation. No full approval UI, external IdP, Finance or production acceptance is claimed.
 **Standard:** [GW-ENG-STD-001](../engineering/GW-ENG-STD-001.md), Tier 3; every child uses the 28-section feature specification.
 **UI contract:** Existing Procurement workspace and `docs/procurement-ui-contract-register.md` in the Procurement UI repository; do not create a second UI.
 

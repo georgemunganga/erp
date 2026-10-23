@@ -64,7 +64,7 @@ public static class ProcurementRequestRoutes
     }
 
     private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, HrmDbContext core,
-        ProcurementRequestScope scope, CancellationToken ct)
+        ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
         var parsed=ProcurementOriginalValueInput.Read<NewRequest>(body);
         if(parsed.Error is not null) return parsed.Error;
@@ -104,6 +104,15 @@ public static class ProcurementRequestRoutes
         };
         for (var i = 0; i < input.Lines!.Count; i++)
             request.Lines.Add(NewLine(request.Id, i + 1, input.Lines[i], request.CurrencyCode, catalogVersions, catalogItems));
+        // Basic CRUD remains usable when operational approval is unavailable. Only the
+        // actual successor schema may capture NEW original provenance; never adopt old rows.
+        var approvalOptions=http.RequestServices.GetService<ProcurementApprovalExecutionOptions>();
+        if(approvalOptions is { PrincipalExecutionEnabled:true }
+            && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,false,ct))
+        {
+            request.TenantId=scope.TenantId;request.LegalEntityId=scope.LegalEntityId;request.CreatedBy=scope.SubjectId;
+            PurchaseRequestPrincipalIdentity.CaptureNew(request,scope.SubjectId,scope.CoreLinkedWorkerId);
+        }
         db.AddScoped(request);
         await db.SaveChangesAsync(ct);
         return Results.Created($"/api/procurement/v1/requests/{request.Id}", ToDetail(request));

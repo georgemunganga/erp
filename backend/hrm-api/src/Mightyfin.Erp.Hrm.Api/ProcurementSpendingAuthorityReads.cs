@@ -28,13 +28,24 @@ public static partial class ProcurementSpendingAuthorityRoutes
     }
 
     private static async Task<object> ReadView(ProcurementSpendingAuthorityGrant grant, ProcurementDbContext db,
-        HrmDbContext core, ProcurementRequestScope scope, HashSet<string> permissions, bool identityReady, CancellationToken ct)
+        HrmDbContext core, ProcurementRequestScope scope, HashSet<string> permissions, bool identityReady, HttpContext http, CancellationToken ct)
     {
         var actions = new List<string>();
         var blockers = new List<object>();
         Guid? previousId = null; long? previousVersion = null;
         var actor = new SpendingAuthorityConfigurationActor(scope.TenantId, scope.LegalEntityId, scope.SubjectId, true, permissions);
-        var subject = await ProcurementAuthorityIdentity.SubjectAsync(core, scope, grant.PrincipalId, ct);
+        SpendingAuthoritySubject? subject=null;
+        if(identityReady)
+        {
+            try
+            {
+                var principal=await RetainedPrincipalIdentity(http,db,scope,grant,ct);
+                subject=principal?await PrincipalSubject(core,scope,grant.PrincipalId,ct)
+                    :await ProcurementAuthorityIdentity.SubjectAsync(core,scope,grant.PrincipalId,ct);
+            }
+            catch(InvalidOperationException error) when(error.InnerException is null && error.Message.StartsWith("Authority",StringComparison.Ordinal))
+            { blockers.Add(new {action="Submit",code=error.Message}); }
+        }
         var now = DateTimeOffset.UtcNow;
         bool Eligible(string action, Action validate)
         {
@@ -54,7 +65,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
             try
             {
                 if (!identityReady) throw new InvalidOperationException("AuthorityIdentityStoreUnavailable");
-                await ProcurementSpendingAuthorityWorkerIdentity.RequireAuthorAsync(core, db, scope, grant, ct);
+                await IdentityAuthorAsync(http,core,db,scope,grant,ct);
                 actions.Add("Edit");
                 if (await References("Submit") && Eligible("Submit", () => SpendingAuthorityConfiguration.AssertCanSubmit(
                     grant, grant.Version, actor, subject!, now))) actions.Add("Submit");
@@ -70,7 +81,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
             try
             {
                 if (!identityReady) throw new InvalidOperationException("AuthorityIdentityStoreUnavailable");
-                await ProcurementSpendingAuthorityWorkerIdentity.RequireReviewerAsync(core, db, scope, grant, ct);
+                await IdentityReviewerAsync(http,core,db,scope,grant,ct);
                 if (Eligible("Return", () => SpendingAuthorityConfiguration.AssertCanReturn(grant, grant.Version, actor))) actions.Add("Return");
                 // A complete internal family is required even when a predecessor is outside
                 // caller scope. Never publish from a filtered family or expose hidden IDs.
@@ -119,21 +130,40 @@ public static partial class ProcurementSpendingAuthorityRoutes
             if (kind == "people")
             {
                 var now = DateTimeOffset.UtcNow;
-                // All Core boundaries are applied before pagination. A second active login for
-                // one worker is excluded, matching execution's canonical identity requirement.
-                var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, now)
-                    .Where(u => text == "" || u.DisplayName.ToLower().Contains(text));
-                var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)
-                    .Select(x => new { x.Id, x.DisplayName, x.WorkerId, x.RolesCsv }).ToArrayAsync(ct);
-                scanned = candidates.Length;
-                foreach (var candidate in candidates)
+                if (contract.Action==SpendingAuthorityConfiguration.ApprovalAction && PrincipalOption(http)
+                    && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,false,ct))
                 {
-                    var roles = LocalIdentityRoutes.ParseRoles(candidate.RolesCsv);
-                    var permissions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, candidate.RolesCsv, ct);
-                    if (!roles.Contains("erp_admin", StringComparer.OrdinalIgnoreCase)
-                        && (!permissions.Contains("procurement-access") || !permissions.Contains(contract.Permission))) continue;
-                    if (await ProcurementAuthorityIdentity.NamedAccountAsync(core, scope, candidate.Id.ToString("D"), ct) is null) continue;
-                    items.Add(new { principalId = candidate.Id.ToString("D"), candidate.DisplayName, candidate.WorkerId });
+                    var candidates=await ProcurementPrincipalPeople.Candidates(core,scope,now)
+                        .Where(u=>text=="" || u.DisplayName.ToLower().Contains(text))
+                        .OrderBy(u=>u.DisplayName).ThenBy(u=>u.Id).Skip(skip).Take(take)
+                        .Select(u=>new {u.Id,u.DisplayName}).ToArrayAsync(ct);
+                    scanned=candidates.Length;
+                    foreach(var candidate in candidates)
+                    {
+                        var person=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,
+                            candidate.Id.ToString("D"),ct);
+                        if(person is null || !person.Permissions.Contains(contract.Permission))continue;
+                        items.Add(new {principalId=person.PrincipalId,candidate.DisplayName,workerId=person.CoreLinkedWorkerId});
+                    }
+                }
+                else
+                {
+                    // All Core boundaries are applied before pagination. A second active login for
+                    // one worker is excluded, matching execution's canonical identity requirement.
+                    var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, now)
+                        .Where(u => text == "" || u.DisplayName.ToLower().Contains(text));
+                    var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)
+                        .Select(x => new { x.Id, x.DisplayName, x.WorkerId, x.RolesCsv }).ToArrayAsync(ct);
+                    scanned = candidates.Length;
+                    foreach (var candidate in candidates)
+                    {
+                        var roles = LocalIdentityRoutes.ParseRoles(candidate.RolesCsv);
+                        var permissions = await ProcurementPermissions.ResolveConfiguredActionsAsync(core, candidate.RolesCsv, ct);
+                        if (!roles.Contains("erp_admin", StringComparer.OrdinalIgnoreCase)
+                            && (!permissions.Contains("procurement-access") || !permissions.Contains(contract.Permission))) continue;
+                        if (await ProcurementAuthorityIdentity.NamedAccountAsync(core, scope, candidate.Id.ToString("D"), ct) is null) continue;
+                        items.Add(new { principalId = candidate.Id.ToString("D"), candidate.DisplayName, candidate.WorkerId });
+                    }
                 }
             }
             else if (kind == "branches")
