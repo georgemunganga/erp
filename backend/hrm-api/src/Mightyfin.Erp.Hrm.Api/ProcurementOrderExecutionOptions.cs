@@ -4,6 +4,9 @@ namespace Mightyfin.Erp.Hrm.Api;
 public sealed class ProcurementOrderExecutionOptions
 {
     public bool Enabled { get; set; }
+    // Separate successor authority/transition opt-in; worker PO execution does
+    // not grant principal PO spending limits or activate schema-2 evidence.
+    public bool PrincipalExecutionEnabled { get; set; }
     public bool ExecutionDatabaseConfigured { get; set; }
     public ProcurementManualFinancePolicy[] ManualCommitmentPolicies { get; set; } = [];
     public string ApprovedManualDispatchPolicyReference { get; set; } = "";

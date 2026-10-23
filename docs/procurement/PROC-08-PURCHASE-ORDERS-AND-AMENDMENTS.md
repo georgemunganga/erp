@@ -189,3 +189,84 @@ belongs here in `PROC-08`.
     supplier owner prerequisites. Root owns generated migration and release.
 28. **Open:** whether line-level edit and later principal PO approval/Finance
     successor are authorized. They are excluded until separately specified.
+
+## P30 governed successor delta — Core-principal PO authority through manual acknowledgment
+
+This is a source specification for the successor after the internal draft slice
+above. It does not activate endpoints or reinterpret PR approval as PO approval.
+
+1. **Identification:** `PROC-08/O2/P30`, commercial approval and issue for an
+   original schema-2 direct PO draft. Worker-era commercial evidence stays schema 1.
+2. **Outcome:** current independent Core people can attest external commitment,
+   approve the PO under its own published policy and spending grant, freeze an
+   issued version, and record a witnessed supplier acknowledgment.
+3. **Scope:** Finance-reference recording, submit, assigned decisions, issue,
+   manual acknowledgment and actor-owned recovery. Payment, AP, bank posting,
+   supplier messaging and dispatch automation are outside this increment.
+4. **Relations:** P30 direct-source bindings, current PR Finance checker2,
+   `PURCHASE_ORDER` policy, PO-specific `PurchaseOrder.Approve` grants, shared
+   Core approval case/stage/assignment/decision and Procurement outbox/audit.
+5. **Actors:** original Core buyer, independent Finance recorder, explicitly
+   assigned independent PO approver, authorized issue actor, independent
+   acknowledgment recorder. HR worker links are optional denial-only aliases.
+6. **Entry:** only a verified P30 draft; no unlinked, RFQ or worker-era PO is
+   promoted by a principal command.
+7. **Preconditions:** current company/branch/actions, source allocation and
+   commercial snapshot, active supplier, one published PO policy and a
+   separately approved/effective manual commitment policy. No configured
+   approval authority means no submission.
+8. **Workflow:** draft → independent commitment evidence → policy route and
+   Core case → current assigned decisions → approved → issue freeze → manually
+   observed supplier outcome. Each command locks the PO and source/case rows.
+9. **States:** `Draft → PendingApproval → Approved → IssuePending → Issued`.
+   `Returned`, `Rejected` and `AcknowledgmentFailed/Unknown` are explicit
+   outcomes requiring separately specified resolution; they confer no edit.
+10. **Permissions/scope:** `procurement-po-finance-confirm`, `-submit`,
+    `-approve`, `-issue`, `-dispatch-confirm`, and `-read` stay separate. A role
+    grant is never a monetary limit; Core company/branch and exact assignment
+    scope are rechecked at every transition and receipt recovery.
+11. **Rules:** Finance evidence describes a human-verified external reference,
+    not a Finance ledger entry. PO policy and PO-specific spending authority
+    determine approvers. Buyer/PR requester/Finance recorder and approver
+    independence includes current and retained Core worker aliases.
+12. **Data/owner:** Procurement owns immutable commercial, Finance-reference,
+    authority, issue and acknowledgment evidence with version/hash pins; Core
+    owns case execution; Finance owns real commitment balances and payments.
+13. **Views:** current order details, recorded commitment (clearly manual),
+    assigned tasks, decision history, frozen version and observation history.
+14. **UX:** each step states what is recorded and what remains unconfirmed;
+    issue authorization never displays a delivered badge.
+15. **Notifications:** Core task notification can follow the recorded case;
+    no automatic supplier notification in this increment.
+16. **Documents:** issued snapshot hash is retained. A manual acknowledgment
+    needs channel, observed date, external reference and evidence reference.
+17. **Exceptions:** changed policy, authority, account alias, supplier, source,
+    Finance reference, amount, branch or case state blocks progress. Unknown
+    outcome requires GET of the exact command receipt.
+18. **API/events:** distinct principal commands and schema-2 facts. Internal
+    issue event cannot be interpreted as a successful outbound delivery.
+19. **Audit/security:** same-key replay is actor/current-action scoped; old
+    worker encoders and receipt rows remain byte-stable. Append-only evidence
+    and no raw bank, personal or supplier portal credential exposure.
+20. **Reports:** pending PO approvals and issued versions may be counted;
+    manual references are not a payment or finance-ledger balance.
+21. **Configuration:** no default amount, approver or manual commitment
+    authority. Effective-dated published PO policy and explicit approved
+    Finance policy are mandatory.
+22. **Non-functional:** exact decimals, sorted locks, serializable transaction,
+    immutable snapshots, idempotent command receipts and finite-role readiness.
+23. **Postconditions:** Core decisions plus independently pinned Procurement
+    outcomes reconstruct who authorized the commercial version and what was
+    actually observed of supplier acknowledgment.
+24. **Recovery:** receipt-only GET after uncertain write; no resubmission under
+    a new key until the prior outcome has been reconciled.
+25. **Acceptance:** workerless buyer/approver with valid PO grant can complete
+    internal approval; self/alias approval, borrowed PR grant, missing Finance
+    policy and suspended supplier fail closed; issue is not delivery.
+26. **Tests:** pure invariants, mapped transaction/guard cases, exact P30
+    migration/finite-role PostgreSQL proof, normal-cookie HTTP and UI proof.
+27. **Ownership/dependencies:** Procurement and Core approval owners implement
+    the route; Finance confirms whether each external reference is valid.
+28. **Open:** explicit launch policy and Finance reference owner, release on
+    Return/Reject, revision rules and supplier channel controls remain product
+    decisions. They cannot be inferred from the worker implementation.
