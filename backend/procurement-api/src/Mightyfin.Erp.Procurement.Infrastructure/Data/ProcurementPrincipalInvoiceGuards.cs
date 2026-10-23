@@ -109,6 +109,10 @@ public sealed partial class ProcurementDbContext
         foreach (var review in added.OfType<PrincipalInvoiceUnitReviewSource>())
         {
             var mapping = Mapping(review.MappingVersionId);
+            var pins = added.OfType<PrincipalInvoiceUnitReviewAssignment>()
+                .Where(x => x.ReviewSourceId == review.Id).ToArray();
+            var coreCase = sharedApprovalCore.Cases.Local.Single(x => x.Id == review.CoreCaseId);
+            _ = PrincipalInvoiceUnitReviewTransitions.Verify(review, mapping, coreCase, pins);
             if (review.MakerPrincipalId != scope.SubjectId || review.MakerWorkerAliasId != scope.CoreLinkedWorkerId
                 || review.SupplierInvoiceId != mapping.SupplierInvoiceId
                 || review.PrincipalIssuedVersionId != mapping.PrincipalIssuedVersionId
@@ -116,7 +120,7 @@ public sealed partial class ProcurementDbContext
                 || review.OriginalInvoiceSha256 != mapping.OriginalInvoiceSha256
                 || review.OriginalUnitsSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(review.OriginalUnitsJson)
                 || State(review.SupplierInvoiceId).CurrentMappingId != mapping.Id
-                || added.OfType<PrincipalInvoiceUnitReviewAssignment>().Count(x => x.ReviewSourceId == review.Id) == 0
+                || pins.Length == 0
                 || Receipt(review.SupplierInvoiceId, "OpenReview").ActorPrincipalId != scope.SubjectId)
                 throw new InvalidOperationException("PrincipalInvoiceReviewOpeningRequired");
         }
