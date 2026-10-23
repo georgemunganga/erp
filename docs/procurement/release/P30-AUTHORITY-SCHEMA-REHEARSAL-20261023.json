@@ -1,0 +1,38 @@
+{
+  "status": "PASS_PRIVATE_AUTHORITY_PURPOSE_DDL_ROUNDTRIP_AND_NEGATIVES",
+  "database": "proc_p30_http_po_20261023_01",
+  "businessTablesPreserved": 216,
+  "businessRowsUnchanged": true,
+  "downRestoredPreviousConstraintsAndHistory": true,
+  "repeatUpUnchanged": true,
+  "negativeCheckCases": [
+    "PoWithPrPermission",
+    "PrWithPoPermission",
+    "SourcingWithPoPermission",
+    "UnknownPurpose",
+    "ZeroActorAlias",
+    "ZeroRecipientAlias",
+    "WorkerlessLegacyIdentity"
+  ],
+  "positiveAuthoritySeeded": false,
+  "populatedNonPrDownVetoPending": true,
+  "productionTouched": false,
+  "sqlSha256": {
+    "authority-up.sql": "9e30cf2f49cf7797e62f67dd0c2e0f143a40764af79622a8a237be9e2fe76fc5",
+    "authority-down.sql": "34b0123c76d1e05f562df1fd1c0125c22b3cb44ade7b0797dfcbe28d5e4b2de9"
+  },
+  "schemaMigration": "20261023234712_P30PrincipalCommercialAuthorityActions",
+  "domainTests": {
+    "passed": 1465,
+    "failed": 0,
+    "evidence": "/home/amizo/erp-backups/procurement-p30-authority-schema-20261023_run02/tests/procurement.trx"
+  },
+  "focusedFilenameFilterMatchedNoTests": true,
+  "remaining": [
+    "Run corrected class-name focused filter",
+    "Fresh actual PO HTTP workflow",
+    "Populated non-PR downgrade veto",
+    "Browser persistence and owner reconciliation",
+    "Production release"
+  ]
+}
