@@ -1,0 +1,42 @@
+# Manual payment actual-host HTTP probe (source candidate)
+
+This isolated tool runs the **real ERP Program** in TestServer and uses its local `/api/hrm/auth/login` session cookies. It never replaces authentication, payment readiness, approval decisions, or route handlers. Its primary synthetic fixture has Core accounts without employee links, two companies (the maker has a real branch assignment in each), two branches in the first company, one branch in the second, and a structured Received invoice inside a new private clone. Payment policy creation, independent review and publication happen through the normal HTTP endpoints.
+
+The tool refuses to start unless all three connections name the same new `proc_payment_http_YYYYMMDD_<nonce>` database over one private PostgreSQL Unix socket, with distinct owner, HRM runtime and execution identities. HRM uses the finite runtime role so normal login can update sessions; Procurement and ProcurementApprovalExecution use the separate finite business role, which must have Core identity read access and **no HRM writes**. It requires P27/P28 applied, no pending HRM/Procurement model changes, an explicitly enabled private payment option, **real registered** governance readiness, and mapped payment routes. It neither creates a database nor installs migrations or grants. A separate reviewed runner must create the clone and finite database roles before invoking it. Both roles must receive only the columns/commands needed by the actual host; the tool does not elevate them.
+
+Required private environment variables are `PROCUREMENT_PAYMENT_HTTP_OWNER_CONNECTION`, `PROCUREMENT_PAYMENT_HTTP_RUNTIME_CONNECTION`, `PROCUREMENT_PAYMENT_HTTP_EXECUTION_CONNECTION`, `PROCUREMENT_PAYMENT_HTTP_RESULT`, and `PROCUREMENT_PAYMENT_HTTP_EXPLICIT_TEST_OPTIONS=enabled-in-private-clone`. The result path must be new under an owner-private directory. No connection, password, cookie, invoice details, or user identity is printed or written to the result. A failure records only a phase and exception type. The parent release runner owns clone creation, role grants, cleanup, and retained evidence.
+
+For a later browser acceptance run, the runner may additionally set `PROCUREMENT_PAYMENT_HTTP_BROWSER_FIXTURE` to a **new `.json` path in the same owner-private (0700) result directory**. This is off by default. Only after the entire real HTTP journey and owner evidence check pass, the probe writes this separate file with mode 0600. It contains the synthetic `payment-http-…` tenant, company, branches, invoice and role-labelled Core account IDs, emails and passwords generated for this disposable clone. The normal `result.json` never contains these values. Treat the browser handoff as an ephemeral secret: never commit, log, attach to a PR, publish or reuse it against production. Remove it with the disposable clone after browser acceptance. The probe does not replace authentication or readiness for the browser.
+
+When the actual host is composed and P28 readiness passes, the probe exercises real login → scoped Create → actor-owned lost-response recovery → Revise → Submit → independent Approve → Record external evidence → independent Confirm. It also checks returned/cancelled paths, denied action and branch, self-assignment, exact decimal and stale-version rejection, changed-payload idempotency conflict, and no Finance-paid claim. Its `PASS` is an HTTP/workflow check in a disposable clone, never evidence of bank transfer, AP posting, production configuration, or public deployment.
+
+The added scope cohort first proves that the original maker's **second company and
+assigned branch are valid** through the real context endpoint. Under that valid
+context, detail for the first company's request must return 404 and the payment
+list must be empty. A second, independently synthetic tenant is then seeded in
+the same private clone. Its separate real Program host and normal maker cookie
+create and reload one genuine Draft against that tenant's Received invoice; no
+published policy, payment decision or fake receipt is inserted for it. The
+original host's context is rechecked after the second host closes, then the
+original tenant's normal cookie must receive 404 for the second tenant's direct
+request ID and an empty invoice-filtered list. A host configuration leak fails
+the run. The second host's process settings are restored in `finally`.
+
+The maker also has current Core assignments to both branches of the original
+company. An explicit `X-Shell-Branch-Scope: all` with that company is exercised
+only on Procurement context and manual-payment endpoints. Context returns no
+selected branch while retaining confinement; branch choices are exactly the
+two active assigned branches in that company. Payment list, invoice and assignee
+lookups, Create with an explicit transaction branch, and actor-owned command
+recovery are checked under that selection. The second-company branch and an
+outsider's unrelated branch remain hidden. Unknown markers and markers on other
+Procurement routes are denied. Omission of the marker retains the existing
+single-branch fallback; this is not an organization-wide grant.
+
+The existing seven-person browser handoff remains the **original tenant only**;
+its JSON fields and private credential controls are unchanged. The result file
+records only fixed check labels, not second-tenant identities or credentials.
+All new checks are source-only until the parent's serialized SDK/private-HTTP
+rehearsal; prior passing receipts do not cover them.
+
+**Current status:** source-only and intentionally unavailable until the owning readiness implementation and route composition are reviewed. Do not inject a fake readiness service to make this probe pass.

@@ -1,0 +1,11 @@
+# Private PostgreSQL manual payment governance probe
+
+This probe exercises the **P28 owning persistence path** with the real shared `ProcurementApprovalTransaction.ExecuteManualPaymentAsync` coordinator and real `ApprovalDbContext`. It is separate from the P27 storage probe. It creates a synthetic supplier and invoice, publishes a `MANUAL_PAYMENT_REVIEW` policy through Created, Submitted and Published evidence (identity schema 2), then exercises Draft → Submit → Core Approve → Record → Core Confirm. A second request exercises Return → resubmit → maker Cancel. It also checks that a direct payment write outside the coordinator is denied. It checks retained source links, Core decisions, company-date observations, command receipts, audit entries and the absence of a Finance payment status.
+
+The executable refuses any database containing non-system tables. It also refuses connections outside the `/private-pg` Unix socket or a uniquely new database named `proc_payment_governance_20261023_*`. The Core Approvals owning migration runs before Procurement migrations, and the probe requires `P28ManualPaymentGovernance` as the last Procurement migration. **Do not supply production credentials or a retained database.**
+
+The actors, current Core permissions and allowed branch are private synthetic projections; no HTTP authentication, Core directory lookup or HR employee is claimed. The date observation uses the probe's trusted UTC clock and an explicit synthetic `UTC` company zone. This tests database governance evidence, not the host's company settings adapter. It does not execute a bank transfer, post AP or mark a Finance invoice paid.
+
+An authorized private runner may set `MANUAL_PAYMENT_GOVERNANCE_PROBE_CONNECTION` to a new throwaway PostgreSQL database matching the allowlist and run this project. Source changes alone do not constitute a passing PostgreSQL run.
+
+The extended probe verifies genuine empty P28 downgrade/upgrade, SQL/C# typed-policy digest agreement and invalid limits, raw SQL missing-Core-companion rollback, submitted-title immutability, UPDATE/DELETE denial on every new evidence table, and a retained-evidence downgrade veto. A refused downgrade must leave migration history and row counts unchanged. Synthetic direct SQL is deliberately a negative invariant test; it is not an authorized application mutation path.

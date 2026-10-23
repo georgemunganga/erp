@@ -7,6 +7,24 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class ManualPaymentWorkflowTests
 {
     [Fact]
+    public void Existing_editor_title_is_retained_on_omitted_edits_and_can_be_explicitly_cleared_in_draft()
+    {
+        var f = new Fixture();
+        var draft = ManualPaymentWorkflow.Create(f.Draft with { Title = "Vendor settlement" }, f.Creator,
+            f.Assignee(f.Approver.PrincipalId, "approve"), f.Assignee(f.Recorder.PrincipalId, "record"),
+            f.Assignee(f.Confirmer.PrincipalId, "confirm"), f.Source, f.Now);
+        var revised = ManualPaymentWorkflow.Revise(draft.Request, 1, f.Draft, f.Creator,
+            f.Assignee(f.Approver.PrincipalId, "approve"), f.Assignee(f.Recorder.PrincipalId, "record"),
+            f.Assignee(f.Confirmer.PrincipalId, "confirm"), f.Source, f.Now);
+        Assert.Equal("Vendor settlement", revised.Request.Title);
+        var submitted = ManualPaymentWorkflow.Submit(revised.Request, 2, f.Creator, f.Source, f.Now);
+        Assert.Equal("Vendor settlement", submitted.Request.Title);
+        var cleared = ManualPaymentWorkflow.Revise(revised.Request, 2, f.Draft with { Title = "" }, f.Creator,
+            f.Assignee(f.Approver.PrincipalId, "approve"), f.Assignee(f.Recorder.PrincipalId, "record"),
+            f.Assignee(f.Confirmer.PrincipalId, "confirm"), f.Source, f.Now);
+        Assert.Null(cleared.Request.Title);
+    }
+    [Fact]
     public void Capacity_exclusion_cannot_be_reused_to_create_a_second_request_or_update_another()
     {
         var f = new Fixture(); var own = f.Create().Request;

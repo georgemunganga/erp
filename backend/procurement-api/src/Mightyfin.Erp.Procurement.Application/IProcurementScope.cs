@@ -8,6 +8,9 @@ public interface IProcurementScope
     Guid? WorkLocationId { get; }
     Guid? OrgUnitId { get; }
     bool IsConfined { get; }
+    // An authenticated host may explicitly validate All branches for a named
+    // workflow. Missing scope and all other implementations remain fail-closed.
+    bool IsExplicitAllBranches => false;
     string SubjectId { get; }
     // Identity comes from Core, never inferred from SubjectId or a role. Older/read-only
     // scopes may omit it; new worker-bound evidence requires a concrete current worker.

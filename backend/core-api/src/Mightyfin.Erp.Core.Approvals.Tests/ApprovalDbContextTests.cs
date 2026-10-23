@@ -156,6 +156,58 @@ public sealed class ApprovalDbContextTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => db.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task Maker_cancellation_persists_only_with_its_cancelled_case_and_assignment()
+    {
+        var entity = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<ApprovalDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using (var seed = new ApprovalDbContext(options, new TestScope("tenant-a", entity, "maker")))
+        { seed.AddCase(CreateCase("tenant-a", entity)); await seed.SaveChangesAsync(); }
+
+        await using var db = new ApprovalDbContext(options, new TestScope("tenant-a", entity, "maker"));
+        var approvalCase = await LoadCase(db);
+        var assignment = approvalCase.Stages.Single().Assignments.Single();
+        var decisions = new List<ApprovalDecision>();
+        var result = ApprovalEngine.Cancel(approvalCase, assignment,
+            new ApprovalActor("maker", "tenant-a", entity, new HashSet<string> { "source-cancel" }),
+            "source-cancel", "maker-cancel-key", "No longer needed", decisions, DateTimeOffset.UtcNow);
+        Assert.True(result.Recorded);
+        db.Decisions.Add(Assert.Single(decisions));
+        await db.SaveChangesAsync();
+        Assert.Equal("Cancelled", approvalCase.State);
+        Assert.Equal("Cancelled", assignment.State);
+        Assert.Equal("maker", (await db.Decisions.SingleAsync()).ActorSubjectId);
+    }
+
+    [Theory]
+    [InlineData("wrong-action")]
+    [InlineData("stranger")]
+    public async Task Non_assignee_decision_cannot_use_maker_cancellation_exception(string attempt)
+    {
+        var entity = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<ApprovalDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using (var seed = new ApprovalDbContext(options, new TestScope("tenant-a", entity, "maker")))
+        { seed.AddCase(CreateCase("tenant-a", entity)); await seed.SaveChangesAsync(); }
+
+        var actor = attempt == "stranger" ? "stranger" : "maker";
+        await using var db = new ApprovalDbContext(options, new TestScope("tenant-a", entity, actor));
+        var approvalCase = await LoadCase(db);
+        var stage = approvalCase.Stages.Single();
+        var assignment = stage.Assignments.Single();
+        approvalCase.State = "Cancelled"; approvalCase.CompletedAt = DateTimeOffset.UtcNow;
+        approvalCase.CompletionKey = "forged-key"; stage.State = "Cancelled"; assignment.State = "Cancelled";
+        db.Decisions.Add(new ApprovalDecision
+        {
+            TenantId = "tenant-a", LegalEntityId = entity, CaseId = approvalCase.Id,
+            StageId = stage.Id, AssignmentId = assignment.Id, ActorSubjectId = actor,
+            Action = attempt == "wrong-action" ? "Approve" : "Cancel",
+            IdempotencyKey = "forged-key", Reason = "Attempted forgery",
+        });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

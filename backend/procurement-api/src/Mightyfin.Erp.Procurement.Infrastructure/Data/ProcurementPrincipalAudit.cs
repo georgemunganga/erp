@@ -13,7 +13,8 @@ public sealed partial class ProcurementDbContext
             OperationalPolicyIdentityRecord { SchemaVersion: 2 } => "OperationalPolicyIdentity",
             InvoiceMatchMappingVersion { IdentitySchemaVersion: 2 } => "InvoiceMappingIdentity",
             InvoiceMatchResult { ExecutionVersion: 2 } => "InvoiceMatchExecution",
-            ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt => "ManualPayment",
+            ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt
+                or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation => "ManualPayment",
             _ => null,
         };
         return kind is null ? JsonSerializer.Serialize(fields) : JsonSerializer.Serialize(new

@@ -60,7 +60,7 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("ManualPaymentApprovalEvidenceImmutable");
             if (stored.Status is "ConfirmedManually" or "Rejected" or "Cancelled" or "Disputed")
                 throw new InvalidOperationException("ManualPaymentTerminalImmutable");
-            if (stored.Status != "Draft" && (stored.Amount != row.Amount || stored.Purpose != row.Purpose
+            if (stored.Status != "Draft" && (stored.Amount != row.Amount || stored.Purpose != row.Purpose || stored.Title != row.Title
                 || stored.ApproverPrincipalId != row.ApproverPrincipalId || stored.ApproverCoreLinkedWorkerId != row.ApproverCoreLinkedWorkerId
                 || stored.RecorderPrincipalId != row.RecorderPrincipalId || stored.RecorderCoreLinkedWorkerId != row.RecorderCoreLinkedWorkerId
                 || stored.ConfirmerPrincipalId != row.ConfirmerPrincipalId || stored.ConfirmerCoreLinkedWorkerId != row.ConfirmerCoreLinkedWorkerId))
@@ -152,7 +152,8 @@ public sealed partial class ProcurementDbContext
         if (!ProcurementPrincipalEvidence.Canonical(scope.SubjectId) || branch == Guid.Empty
             || !ProcurementPrincipalEvidence.OptionalWorker(scope.CoreLinkedWorkerId)
             || scope.WorkLocationId is { } selected && selected != branch
-            || scope.IsConfined && scope.WorkLocationId is null || scope.OrgUnitId is not null)
+            || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches
+            || scope.OrgUnitId is not null)
             throw new InvalidOperationException("ManualPaymentWriteScopeInvalid");
     }
 }

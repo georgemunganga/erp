@@ -1,5 +1,13 @@
 # Actual Program compatibility smoke — source candidate
 
+## P28 governance owner upgrade — separate source candidate
+
+`--rehearse-payment-governance-upgrade` is a distinct private owner migration profile. It admits only a new `proc_payment_http_20261023_<nonce>` clone over a local PostgreSQL Unix socket, requires Core company time zone and P27 already applied, zero pending HRM migrations, and exactly P28 pending for Procurement with both current owner models matching. It applies **only** the Procurement owner migration. This does not relax or alter `--rehearse-payment-owner-upgrade` and never starts the ERP Program.
+
+Before migration, it fingerprints every preexisting row, column, constraint, index, user trigger and Procurement function. The comparison excludes only P28's three new tables, the nullable `manual_payment_requests.title` column, the new manual decision governance unique key/index, the expanded operational-policy check, the two new triggers on existing manual tables, six new governance functions, and the P28 migration-history row. It separately checks those expected additions and that the new tables are empty. A complete post-migration fingerprint must remain identical after a second `MigrateAsync`. Sequence state and role grants are outside this profile; the separate finite-role HTTP probe owns them. No runtime readiness, authentication or payment claim follows from an owner migration pass.
+
+The profile writes only a fixed-type result to a new owner-private evidence path; it never prints retained rows, SQL, connection strings or exception messages. A reviewed runner must create the clone and supply its connection privately. This is source-only until compiled and executed on that clone.
+
 ## Payment owner-upgrade extension — 23 October 2026
 
 `--rehearse-payment-owner-upgrade` admits only a NEW bounded Core-principal clone of the exact retained `proc_release_backup_20261022_smoke_p24_native01` source. It requires precisely the Core company-timezone and P27 payment migrations to be pending, a matching real owner model, and retained companies. The owning EF engines apply both changes and repeat them; all old business rows/history and unrelated columns/constraints/indexes must remain identical. The only normalized additions are the new company timezone column, three payment tables and their two known migration-history rows. A complete post-upgrade fingerprint also verifies repeatability. The real Core date provider is tested in the company's actual tenant context; retained company configuration must veto a destructive Core downgrade. Program never starts in this preparation mode.

@@ -55,6 +55,12 @@ public static class ProcurementHostIntegration
         var unitReviewOptions = configuration.GetSection("Procurement:InvoiceUnitReview").Get<ProcurementInvoiceUnitReviewOptions>() ?? new();
         unitReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(unitReviewOptions);
+        var paymentOptions = configuration.GetSection("Procurement:ManualPayments").Get<ProcurementManualPaymentOptions>() ?? new();
+        paymentOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(paymentOptions);
+        services.AddScoped<IProcurementManualPaymentGovernanceReadiness>(sp => new ProcurementManualPaymentGovernanceReadiness(
+            executionConnection ?? "", sp.GetRequiredService<ProcurementRequestScope>(),
+            sp.GetRequiredService<ILogger<ProcurementManualPaymentGovernanceReadiness>>()));
         services.AddSingleton<IProcurementInvoiceUnitReviewSchemaReadiness, ProcurementInvoiceUnitReviewSchemaReadiness>();
         services.AddScoped<IInvoiceHistoricalExposureOwner, UnavailableInvoiceHistoricalExposureOwner>();
         services.AddScoped<IInvoiceMappingEvidenceReviewer, UnavailableInvoiceMappingEvidenceReviewer>();
@@ -89,6 +95,8 @@ public static class ProcurementHostIntegration
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
         ProcurementRecurringPurchaseRoutes.MapRoutes(app);
+        ProcurementManualPaymentRoutes.MapReadRoutes(app);
+        ProcurementManualPaymentCommandRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
         ProcurementSourcingExecutionRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
@@ -191,6 +199,10 @@ public static class ProcurementHostIntegration
                         receivingCorrections = false,
                         invoiceIntake = !pending,
                         vendorCreditDraft = !pending,
+                        manualPaymentWorkflow = !pending
+                            && services.GetRequiredService<ProcurementManualPaymentOptions>().Enabled
+                            && services.GetRequiredService<ProcurementManualPaymentOptions>().ExecutionDatabaseConfigured
+                            && await services.GetRequiredService<IProcurementManualPaymentGovernanceReadiness>().IsReadyAsync(ct),
                         invoiceDocuments = !pending && app.Services.GetRequiredService<CoreDocumentFeature>().Enabled
                             && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct),
                         invoiceComparison = !pending
@@ -234,18 +246,25 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
     // Retained response compatibility only. System users are never narrowed by HR linkage.
     public bool AdminViewOnly => false;
     public bool IsConfined { get; private set; }
+    // Set only by middleware after validating an explicit company and current Core
+    // branch assignments. A missing branch header alone never selects this scope.
+    public bool IsExplicitAllBranches { get; private set; }
     public string? CorrelationId { get; private set; }
 
-    public void Set(string tenant, Guid entity, string subject, Guid? location, Guid? orgUnit, bool confined, string correlation)
+    public void Set(string tenant, Guid entity, string subject, Guid? location, Guid? orgUnit, bool confined, string correlation,
+        bool explicitAllBranches = false)
     {
         if (resolved || string.IsNullOrWhiteSpace(tenant) || entity == Guid.Empty || string.IsNullOrWhiteSpace(subject))
             throw new InvalidOperationException("A valid Procurement scope may be set only once.");
+        if (explicitAllBranches && (location is not null || orgUnit is not null))
+            throw new InvalidOperationException("All branches cannot also select a branch or unit.");
         tenantId = tenant;
         legalEntityId = entity;
         subjectId = subject;
         WorkLocationId = location;
         OrgUnitId = orgUnit;
         IsConfined = confined;
+        IsExplicitAllBranches = explicitAllBranches;
         CorrelationId = correlation;
         resolved = true;
     }
@@ -321,6 +340,17 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
 
         var requestedEntityText = http.Request.Headers["X-Shell-Entity"].FirstOrDefault()?.Trim();
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
+        var branchScope = http.Request.Headers["X-Shell-Branch-Scope"].ToString().Trim();
+        var explicitAllBranches = branchScope.Equals("all", StringComparison.OrdinalIgnoreCase);
+        if (http.Request.Headers.ContainsKey("X-Shell-Branch-Scope") && (!explicitAllBranches
+            || !(string.Equals(http.Request.Path.Value, "/api/procurement/v1/context", StringComparison.OrdinalIgnoreCase)
+                || http.Request.Path.StartsWithSegments("/api/procurement/v1/manual-payments"))
+            || string.IsNullOrWhiteSpace(requestedEntityText)
+            || http.Request.Headers.ContainsKey("X-Shell-Location")))
+        {
+            await Deny(http, StatusCodes.Status400BadRequest, "Choose one valid company scope and branch selection.");
+            return;
+        }
         Guid? requestedEntity = null;
         Guid? requestedLocation = null;
         if (!string.IsNullOrEmpty(requestedEntityText))
@@ -417,7 +447,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
                 await Deny(http, StatusCodes.Status403Forbidden, "You cannot use that company.");
                 return;
             }
-            effectiveLocation = first.Id;
+            if (!explicitAllBranches) effectiveLocation = first.Id;
             entityFromLocation = first.LegalEntityId;
         }
 
@@ -447,7 +477,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             return;
         }
         scope.Set(tenant, selectedEntity, principal.Id.ToString("D"), effectiveLocation, effectiveOrgUnit, confined,
-            http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier);
+            http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier, explicitAllBranches);
         scope.AssignPrincipal(principal.Id, principal.WorkerId);
         // Optional projection for existing worker-pinned operational consumers.
         // No mapping, inactive HR profile or another-company home never grants or

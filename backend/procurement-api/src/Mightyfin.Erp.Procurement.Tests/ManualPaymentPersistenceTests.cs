@@ -1,9 +1,12 @@
 using System.Text.Json;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Procurement.Tests;
@@ -11,10 +14,11 @@ namespace Mightyfin.Erp.Procurement.Tests;
 // Mapped owning-context evidence. PostgreSQL constraints/API/receipt races need their own gate.
 public sealed class ManualPaymentPersistenceTests
 {
-    private sealed record Scope(string TenantId, Guid LegalEntityId, Guid Branch, string SubjectId) : IProcurementScope
+    private sealed record Scope(string TenantId, Guid LegalEntityId, Guid Branch, string SubjectId) : IProcurementScope, IApprovalScope
     {
         public Guid? WorkLocationId { get; init; } = Branch;
         public bool IsConfined { get; init; }
+        public bool IsExplicitAllBranches { get; init; }
         public Guid? OrgUnitId { get; init; }
         public Guid? CoreLinkedWorkerId { get; init; }
         public string? CorrelationId => "manual-payment-test";
@@ -98,6 +102,69 @@ public sealed class ManualPaymentPersistenceTests
         await using var read = new ProcurementDbContext(options, scope);
         Assert.Empty(await read.ManualPaymentRequests.ToArrayAsync()); Assert.Empty(await read.ManualPaymentDecisions.ToArrayAsync());
         Assert.Empty(await read.ManualPaymentReceipts.ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Explicit_all_scope_preserves_company_and_branch_history_and_allows_a_named_manual_payment_bundle()
+    {
+        var owner = Owner(); var secondId = Guid.NewGuid();
+        var secondBranch = owner with { Branch = secondId, WorkLocationId = secondId };
+        var options = Options(); SupplierInvoice firstInvoice;
+        await using (var first = new ProcurementDbContext(options, owner))
+        {
+            firstInvoice = await SeedInvoice(first, owner); Bundle(first, Create(owner, firstInvoice), owner);
+            await first.SaveChangesAsync();
+        }
+        await using (var second = new ProcurementDbContext(options, secondBranch))
+        {
+            var invoice = await SeedInvoice(second, secondBranch); Bundle(second, Create(secondBranch, invoice), secondBranch);
+            await second.SaveChangesAsync();
+        }
+        var blocked = owner with { WorkLocationId = null, IsConfined = true };
+        await using (var denied = new ProcurementDbContext(options, blocked))
+        {
+            Assert.Empty(await denied.ManualPaymentRequests.ToArrayAsync());
+            Assert.Empty(await denied.ManualPaymentDecisions.ToArrayAsync());
+            Assert.Empty(await denied.ManualPaymentReceipts.ToArrayAsync());
+            Bundle(denied, Create(blocked, firstInvoice), blocked);
+            Assert.Equal("ManualPaymentWriteScopeInvalid", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                denied.SaveChangesAsync())).Message);
+        }
+        var all = blocked with { IsExplicitAllBranches = true };
+        await using (var read = new ProcurementDbContext(options, all))
+        {
+            Assert.Equal(2, await read.ManualPaymentRequests.CountAsync());
+            Assert.Equal(2, await read.ManualPaymentDecisions.CountAsync());
+            Assert.Equal(2, await read.ManualPaymentReceipts.CountAsync());
+            var invoice = await SeedInvoice(read, all);
+            Bundle(read, Create(all, invoice), all);
+            await read.SaveChangesAsync();
+            Assert.Equal(3, await read.ManualPaymentRequests.CountAsync());
+        }
+        await using var otherCompany = new ProcurementDbContext(options, all with { LegalEntityId = Guid.NewGuid() });
+        Assert.Empty(await otherCompany.ManualPaymentRequests.ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Capacity_and_transaction_scope_require_both_explicit_all_and_the_current_allowed_branch()
+    {
+        var owner = Owner(); var confined = owner with { WorkLocationId = null, IsConfined = true };
+        var all = confined with { IsExplicitAllBranches = true };
+        await using var db = new ProcurementDbContext(Options(), all);
+        var invoice = Guid.NewGuid();
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => ManualPaymentCapacityReader.ReadLockedAsync(
+            db, confined, invoice, owner.Branch, new HashSet<Guid> { owner.Branch }));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => ManualPaymentCapacityReader.ReadLockedAsync(
+            db, all, invoice, owner.Branch, new HashSet<Guid>()));
+        Assert.Equal("ManualPaymentSerializableTransactionRequired", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ManualPaymentCapacityReader.ReadLockedAsync(db, all, invoice, owner.Branch,
+                new HashSet<Guid> { owner.Branch }))).Message);
+        var coordinator = new ProcurementApprovalTransaction("Host=localhost;Database=unused", all, all);
+        var captured = Assert.IsAssignableFrom<IProcurementScope>(typeof(ProcurementApprovalTransaction)
+            .GetField("scope", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(coordinator));
+        Assert.True(captured.IsConfined);
+        Assert.Null(captured.WorkLocationId);
+        Assert.True(captured.IsExplicitAllBranches);
     }
 
     [Theory]

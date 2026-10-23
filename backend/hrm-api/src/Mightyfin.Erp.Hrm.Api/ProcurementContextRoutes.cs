@@ -39,7 +39,11 @@ public static class ProcurementContextRoutes
         var assignments = await db.UserBranchAssignments.AsNoTracking()
             .Where(x => x.TenantId == scope.TenantId && x.UserId == principal.Id && !x.IsArchived)
             .Select(x => x.LocationId).Distinct().ToArrayAsync(ct);
-        if (assignments.Length > 0 && (scope.WorkLocationId is not Guid selected || !assignments.Contains(selected))) return null;
+        if (assignments.Length > 0 && !scope.IsExplicitAllBranches
+            && (scope.WorkLocationId is not Guid selected || !assignments.Contains(selected))) return null;
+        if (scope.IsExplicitAllBranches && (scope.WorkLocationId is not null || scope.OrgUnitId is not null
+            || assignments.Length > 0 && !await db.WorkLocations.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
+                && x.LegalEntityId == company.Id && !x.IsArchived && assignments.Contains(x.Id), ct))) return null;
         ProcurementLocation? branch = null;
         if (scope.WorkLocationId is Guid branchId)
         {

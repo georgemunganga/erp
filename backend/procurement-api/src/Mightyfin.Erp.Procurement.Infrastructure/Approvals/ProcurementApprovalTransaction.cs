@@ -30,12 +30,15 @@ public sealed class ProcurementApprovalTransaction
             || procurementScope.LegalEntityId == Guid.Empty || string.IsNullOrWhiteSpace(procurementScope.SubjectId)
             || procurementScope.TenantId != approvalScope.TenantId
             || procurementScope.LegalEntityId != approvalScope.LegalEntityId
-            || procurementScope.SubjectId != approvalScope.SubjectId)
+            || procurementScope.SubjectId != approvalScope.SubjectId
+            || procurementScope.IsExplicitAllBranches
+                && (procurementScope.WorkLocationId is not null || procurementScope.OrgUnitId is not null))
             throw new UnauthorizedAccessException("A matching authenticated Procurement and Core scope is required.");
         this.connectionString = connectionString;
         scope = new(procurementScope.TenantId, procurementScope.LegalEntityId, procurementScope.SubjectId,
             procurementScope.WorkLocationId, procurementScope.OrgUnitId, procurementScope.IsConfined,
-            procurementScope.CorrelationId, procurementScope.WorkerId, procurementScope.CoreLinkedWorkerId);
+            procurementScope.CorrelationId, procurementScope.WorkerId, procurementScope.CoreLinkedWorkerId,
+            procurementScope.IsExplicitAllBranches);
     }
 
     /// <summary>
@@ -47,6 +50,18 @@ public sealed class ProcurementApprovalTransaction
     public async Task<TResult> ExecuteAsync<TResult>(
         Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> command,
         CancellationToken cancellationToken = default)
+        => await ExecuteCommandAsync(command, manualPayments: false, cancellationToken);
+
+    /// <summary>Same Core transaction/fences/retry semantics, with mandatory manual
+    /// payment workflow and company-date companions. Does not enable an HTTP route.</summary>
+    public async Task<TResult> ExecuteManualPaymentAsync<TResult>(
+        Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> command,
+        CancellationToken cancellationToken = default)
+        => await ExecuteCommandAsync(command, manualPayments: true, cancellationToken);
+
+    private async Task<TResult> ExecuteCommandAsync<TResult>(
+        Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> command,
+        bool manualPayments, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
         for (var attempt = 1; ; attempt++)
@@ -54,7 +69,7 @@ public sealed class ProcurementApprovalTransaction
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                return await ExecuteAttemptAsync((db, cases, documents, fence, token) => command(db, cases, token), null, false, cancellationToken);
+                return await ExecuteAttemptAsync((db, cases, documents, fence, token) => command(db, cases, token), null, false, cancellationToken, manualPayments);
             }
             catch (Exception exception) when (attempt < 3 && IsConfirmedTransactionAbort(exception))
             {
@@ -88,7 +103,7 @@ public sealed class ProcurementApprovalTransaction
 
     private async Task<TResult> ExecuteAttemptAsync<TResult>(
         Func<ProcurementDbContext, ApprovalDbContext, DocumentDbContext?, DocumentOwnerLifecycleFence?, CancellationToken, Task<TResult>> command,
-        DocumentOwner? documentOwner, bool exclusiveDocuments, CancellationToken ct)
+        DocumentOwner? documentOwner, bool exclusiveDocuments, CancellationToken ct, bool manualPayments = false)
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(ct);
@@ -115,12 +130,16 @@ public sealed class ProcurementApprovalTransaction
         await using var approvals = new ApprovalDbContext(approvalOptions, scope);
         await procurement.Database.UseTransactionAsync(transaction, ct);
         await approvals.Database.UseTransactionAsync(transaction, ct);
-        procurement.BindInvoiceUnitReviewCoreContext(approvals);
+        procurement.BindSharedCoreApprovalContext(approvals);
+        if (manualPayments) procurement.RequireManualPaymentGovernance();
 
         var outcome = await command(procurement, approvals, documents, documentFence, ct);
         if (documents is not null) await documents.SaveChangesAsync(ct);
+        // Payment provenance requires actual Core inserts observed in this transaction,
+        // so the coordinator owns the safe order instead of relying on every callback.
+        if (manualPayments) await approvals.SaveChangesAsync(ct);
         await procurement.SaveChangesAsync(ct);
-        await approvals.SaveChangesAsync(ct);
+        if (!manualPayments) await approvals.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return outcome;
     }
@@ -132,6 +151,7 @@ public sealed class ProcurementApprovalTransaction
             { SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected };
 
     private sealed record TransactionScope(string TenantId, Guid LegalEntityId, string SubjectId,
-        Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId, Guid? WorkerId, Guid? CoreLinkedWorkerId)
+        Guid? WorkLocationId, Guid? OrgUnitId, bool IsConfined, string? CorrelationId, Guid? WorkerId,
+        Guid? CoreLinkedWorkerId, bool IsExplicitAllBranches)
         : IProcurementScope, IApprovalScope, IDocumentScope;
 }

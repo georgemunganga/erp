@@ -45,6 +45,13 @@ public static partial class ProcurementPolicyDraftRoutes
 
     private static IResult ValidateRules(PolicyValidationRequest input)
     {
+        if (ManualPaymentReviewPolicyRules.IsDocument(input.RulesJson))
+        {
+            var draftIssues = ManualPaymentReviewPolicyRules.Validate(input.RulesJson, draft: true);
+            var paymentReviewIssues = ManualPaymentReviewPolicyRules.Validate(input.RulesJson);
+            return Results.Ok(new { isValid = draftIssues.Count == 0, issues = draftIssues,
+                reviewReady = paymentReviewIssues.Count == 0, reviewIssues = paymentReviewIssues });
+        }
         if (SourcingPublicationPolicyRules.IsSourcingDocument(input.RulesJson))
         {
             var syntax = SourcingPublicationPolicyRules.ValidateDraft(input.RulesJson);
@@ -62,11 +69,24 @@ public static partial class ProcurementPolicyDraftRoutes
         return Results.Ok(new { isValid = issues.Count == 0, issues });
     }
 
+    internal static IReadOnlyList<PolicyRuleIssue> PublicationIssues(PolicyVersion policy) => policy.PolicyKey switch
+    {
+        ManualPaymentReviewPolicyRules.PolicyKey => ManualPaymentReviewPolicyRules.Validate(policy.RulesJson),
+        InvoiceRetainedUnitReview.ReviewPolicyKey => InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson)
+            .Select(message => new PolicyRuleIssue("stages", message)).ToArray(),
+        SourcingPublicationPolicyRules.PolicyKey => SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson),
+        InvoiceMatchingPolicyRules.PolicyKey => InvoiceMatchingPolicyRules.Validate(policy.RulesJson),
+        "RECEIVING" => ReceivingPolicyRules.Validate(policy.RulesJson),
+        _ => PolicyRulePreview.AnalyzeCoverage(policy.RulesJson),
+    };
+
     private static async Task<IResult> Preview(Guid id, PolicyScenario scenario,
         ProcurementDbContext db, CancellationToken ct)
     {
         var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
+            status = "PaymentReviewRequiresInvoiceAndIndependentCase", issues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
             status = "InvoiceUnitReviewRequiresOriginalDocumentAndNamedIndependentCase", issues = InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == "RECEIVING") return Results.Ok(new { policyId = policy.Id, isAuthority = false,
@@ -87,7 +107,7 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HttpContext http, CancellationToken ct)
     {
         var normalized = key?.Trim().ToUpperInvariant();
-        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING"))
+        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING" or "MANUAL_PAYMENT_REVIEW"))
             return Problem("validation-failed", "Choose purchase requests, purchase orders, receiving, invoice matching or sourcing.", 422);
         var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
         if (normalized == SourcingPublicationPolicyRules.PolicyKey)
@@ -106,6 +126,10 @@ public static partial class ProcurementPolicyDraftRoutes
 
         if (IsOperationalIdentityPolicy(normalized))
         {
+            if (normalized == ManualPaymentReviewPolicyRules.PolicyKey
+                && (http.RequestServices.GetService<IProcurementManualPaymentGovernanceReadiness>() is not { } payments
+                    || !await payments.IsReadyAsync(ct)))
+                return Problem("payment-review-unavailable", "Payment review settings are not ready in this workspace yet.", 503);
             await RequireOperationalIdentitySchema(http, db, false, ct);
             if (normalized == InvoiceRetainedUnitReview.ReviewPolicyKey) await RequireUnitReviewPolicySchema(http, db, ct);
             var policies = await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == normalized && x.State == "Published"
@@ -436,7 +460,7 @@ public static partial class ProcurementPolicyDraftRoutes
             if (IsOperationalIdentityPolicy(policy.PolicyKey))
                 operationalReviewer = await ProcurementOperationalPolicyWorkerIdentity.RequireReviewerAsync(organizationDb, db, scope, policy,
                     ProcurementOperationalPolicyWorkerIdentity.ReviewPermission, ct);
-            var coverage = policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey ? InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson).Select(message => new PolicyRuleIssue("stages", message)).ToArray() : policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey ? SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson) : policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey ? InvoiceMatchingPolicyRules.Validate(policy.RulesJson) : policy.PolicyKey == "RECEIVING" ? ReceivingPolicyRules.Validate(policy.RulesJson) : PolicyRulePreview.AnalyzeCoverage(policy.RulesJson);
+            var coverage = PublicationIssues(policy);
             if (coverage.Count != 0)
                 return Results.Json(new { code = "coverage-failed",
                     message = "Resolve rule coverage and overlaps before publication.", issues = coverage },
@@ -523,6 +547,15 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
         CancellationToken ct, string receivingPermission = "procurement-configuration-edit")
     {
+        if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey)
+        {
+            var paymentIssues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson);
+            if (paymentIssues.Count > 0) return Results.Json(new { code = "invalid-rules", message = "Set the payment review limits before continuing.", issues = paymentIssues }, statusCode: 422);
+            if (!await organizationDb.LegalEntities.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
+                    && x.Id == scope.LegalEntityId && !x.IsArchived, ct))
+                return Problem("company-unavailable", "The selected ERP company is unavailable.", 409);
+            return null;
+        }
         if (policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey) return await CheckUnitReviewCompanyRules(policy, organizationDb, scope, receivingPermission, ct);
         if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey) return await CheckSourcingCompanyRules(policy, db, organizationDb, scope, receivingPermission, ct);
         if (policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey) return await CheckInvoiceMatchingCompanyRules(policy, db, organizationDb, scope, receivingPermission, ct);

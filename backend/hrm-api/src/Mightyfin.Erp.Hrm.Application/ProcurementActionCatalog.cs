@@ -62,6 +62,16 @@ public static class ProcurementActionCatalog
             // Explicit configured grant only; catalog registration adds no publication endpoint or limit.
             ["procurement-sourcing-publish"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
+            // Payment recording/review is controlled by explicit Core grants. Registering
+            // these actions neither activates a route nor grants ordinary roles authority.
+            ["procurement-payment-read"] = [],
+            ["procurement-payment-create"] = [],
+            ["procurement-payment-edit"] = [],
+            ["procurement-payment-submit"] = [],
+            ["procurement-payment-approve"] = [],
+            ["procurement-payment-record"] = [],
+            ["procurement-payment-confirm"] = [],
+            ["procurement-payment-cancel"] = [],
             ["procurement-invoice-document-retire"] = [], // Explicit configured grant only; upload/read is not retirement authority.
             ["procurement-invoice-capture"] = ["ap_processor"],
             ["procurement-invoice-match"] = [],

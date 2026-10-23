@@ -93,7 +93,10 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
                 if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
             }
             command.CommandText = CheckSql(StoreObjectIdentifier.Table("operational_policy_identity_evidence", "procurement"), "ck_operational_policy_identity");
-            if (await command.ExecuteScalarAsync(ct) is not string operational || operational != OperationalCheckDefinition) return false;
+            var paymentInstalled = (await owner.Database.GetAppliedMigrationsAsync(ct))
+                .Contains(ProcurementManualPaymentGovernanceReadiness.MigrationId, StringComparer.Ordinal);
+            var expectedOperational = paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition : OperationalCheckDefinition;
+            if (await command.ExecuteScalarAsync(ct) is not string operational || operational != expectedOperational) return false;
             if (!await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql)
                 || !await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
                 || !await True(CoreReadBoundarySql)) return false;

@@ -22,22 +22,30 @@ var connection = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_CONNECTION")
     ?? throw new InvalidOperationException("Private new-clone connection required.");
 var freshHrmOnly = args.SequenceEqual(new[] { "--rehearse-fresh-hrm" });
 var ownerUpgradeOnly = args.SequenceEqual(new[] { "--rehearse-payment-owner-upgrade" });
+var governanceUpgradeOnly = args.SequenceEqual(new[] { "--rehearse-payment-governance-upgrade" });
 var parsed = new NpgsqlConnectionStringBuilder(connection);
 if (parsed.Database is not { } name || !(freshHrmOnly
         ? System.Text.RegularExpressions.Regex.IsMatch(name, "^hrm_model_reconcile_20261022_[a-z0-9_]{1,24}$")
+        : governanceUpgradeOnly
+            ? System.Text.RegularExpressions.Regex.IsMatch(name, "^proc_payment_http_20261023_[a-z0-9]{6,20}$")
         : ownerUpgradeOnly
             ? System.Text.RegularExpressions.Regex.IsMatch(name, "^proc_release_backup_20261022_core_principal_[a-z0-9_]{1,16}$")
             : name.StartsWith("proc_release_backup_20261022_smoke_", StringComparison.Ordinal))
     || parsed.Host is not { } host || !host.StartsWith("/", StringComparison.Ordinal) || host.Contains(','))
     throw new InvalidOperationException("Only a new bounded smoke clone over a local Unix socket is supported.");
 var diagnosticOnly = args.SequenceEqual(new[] { "--diagnose-hrm-model" });
-if (args.Length != 0 && !diagnosticOnly && !freshHrmOnly && !ownerUpgradeOnly) throw new InvalidOperationException("Only explicit diagnostic or owning migration rehearsal flags are supported; no publisher arguments.");
+if (args.Length != 0 && !diagnosticOnly && !freshHrmOnly && !ownerUpgradeOnly && !governanceUpgradeOnly) throw new InvalidOperationException("Only explicit diagnostic or owning migration rehearsal flags are supported; no publisher arguments.");
 var evidence = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_RESULT")
     ?? throw new InvalidOperationException("Private result path required.");
 if (File.Exists(evidence)) throw new InvalidOperationException("Do not reuse evidence paths.");
 if (ownerUpgradeOnly)
 {
     await PaymentOwnerUpgradeRehearsal.RunAsync(connection, evidence);
+    return;
+}
+if (governanceUpgradeOnly)
+{
+    await PaymentGovernanceUpgradeRehearsal.RunAsync(connection, evidence);
     return;
 }
 if (freshHrmOnly)

@@ -19,17 +19,21 @@ internal static class ProcurementPrincipalPeople
     // home department is metadata, not a grant. No assignments means tenant-wide,
     // matching the existing current-account Core scope contract.
     internal static IQueryable<Mightyfin.Erp.Hrm.Domain.Entities.LocalUser> Candidates(
-        HrmDbContext core, ProcurementRequestScope scope, DateTimeOffset now)
+        HrmDbContext core, ProcurementRequestScope scope, DateTimeOffset now, Guid? targetBranch = null)
     {
+        // The assignee picker supplies its already validated transaction branch.
+        // Under an explicit All selection, filter before paging rather than scan
+        // every account in the company and discard other-branch names afterward.
+        var candidateBranch = targetBranch ?? scope.WorkLocationId;
         var query = core.LocalUsers.AsNoTracking().Where(u => u.TenantId == scope.TenantId
             && u.IsActive && !u.IsArchived && (u.LockedUntil == null || u.LockedUntil <= now)
             && (!core.UserBranchAssignments.Any(a => a.TenantId == scope.TenantId && a.UserId == u.Id && !a.IsArchived)
                 || core.UserBranchAssignments.Any(a => a.TenantId == scope.TenantId && a.UserId == u.Id && !a.IsArchived
                     && core.WorkLocations.Any(b => b.TenantId == scope.TenantId && b.Id == a.LocationId
                         && b.LegalEntityId == scope.LegalEntityId && !b.IsArchived
-                        && (scope.WorkLocationId == null || b.Id == scope.WorkLocationId)))));
+                        && (candidateBranch == null || b.Id == candidateBranch)))));
         // No Core department-grant contract exists: do not infer one from HR.
-        if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null)
+        if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
             query = query.Where(_ => false);
         return query;
     }
