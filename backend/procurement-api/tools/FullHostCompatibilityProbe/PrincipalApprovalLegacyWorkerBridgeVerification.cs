@@ -54,10 +54,14 @@ internal static partial class PrincipalApprovalHttpVerification
             }
             var metadata=await send(client,HttpMethod.Get,"/api/procurement/v1/meta",fixture.Maker);
             var capabilities=metadata.GetProperty("capabilities");
-            Need(!capabilities.GetProperty("principalApprovals").GetBoolean()
-                &&capabilities.GetProperty("budgetRecording").GetBoolean()
-                &&capabilities.GetProperty("approvals").GetBoolean(),
-                "False principal option must expose only the genuinely ready retained worker workflow.");
+            Need(!capabilities.GetProperty("principalApprovals").GetBoolean(),
+                "False principal option advertised the separate principal workflow.");
+            Need(capabilities.GetProperty("budgetRecording").GetBoolean(),
+                "Physical P25 finite role did not enable retained worker funding recording.");
+            // This availability is based on the configured manual evidence policy and
+            // finite Core/Procurement schema, not the PR policy published below.
+            Need(capabilities.GetProperty("approvals").GetBoolean(),
+                "Finite execution role did not enable retained worker approval readiness.");
             const string authorityRoot="/api/procurement/v1/configuration/spending-authorities";
             var authority=await send(client,HttpMethod.Post,authorityRoot,fixture.Maker,new {
                 authorityReference="PRIVATE_P25_LEGACY_WORKER_APPROVER",principalId=fixture.Approver.ToString("D"),

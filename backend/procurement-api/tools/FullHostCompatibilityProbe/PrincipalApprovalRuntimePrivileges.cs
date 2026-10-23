@@ -81,6 +81,9 @@ internal static class PrincipalApprovalRuntimePrivileges
             await Run("GRANT SELECT ("+columns+") ON "+Q(table.Schema!)+"."+Q(table.Name)+" TO "+Q(record)+","+Q(execution));
         }
         foreach(var table in new[]{"cases","stages","assignments","decisions"})await Run("GRANT SELECT ON core_approval."+Q(table)+" TO "+Q(record)+","+Q(execution));
+        // The retained-worker approval readiness probe reads this Core table;
+        // the execution role needs SELECT only, while the record role stays unchanged.
+        await Run("GRANT SELECT ON core_approval."+Q("delegations")+" TO "+Q(execution));
         await Run("GRANT SELECT ON core_approval.\"__EFMigrationsHistory\" TO "+Q(record)+","+Q(execution));
         foreach(var table in new[]{"cases","stages","assignments"})await Run("GRANT INSERT,UPDATE ON core_approval."+Q(table)+" TO "+Q(execution));
         await Run("GRANT INSERT ON core_approval.decisions TO "+Q(execution));

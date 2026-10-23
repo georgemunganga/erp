@@ -97,6 +97,22 @@ public sealed class JobsAdminTests
     }
 
     [Fact]
+    public async Task Archived_admin_role_cannot_satisfy_last_admin_guard()
+    {
+        using var db = CreateContext();
+        db.TenantRoleAssignments.AddRange(
+            new TenantRoleAssignment { RoleKey = "hr_admin", RoleName = "Archived admin",
+                PermissionsCsv = "hr_admin", Active = true, IsArchived = true },
+            new TenantRoleAssignment { RoleKey = "manager", RoleName = "Manager",
+                PermissionsCsv = "manager", Active = true });
+        await db.SaveChangesAsync();
+
+        var failure = await Assert.ThrowsAsync<DomainException>(() =>
+            CreateService(db).UpdateRoleAsync("manager", new RoleUpdateRequest(false), CancellationToken.None));
+        Assert.Equal("last-admin-role", failure.Code);
+    }
+
+    [Fact]
     public async Task Existing_Core_role_CRUD_roundtrips_explicit_governed_sourcing_actions()
     {
         using var db = CreateContext(); var service = CreateService(db);
