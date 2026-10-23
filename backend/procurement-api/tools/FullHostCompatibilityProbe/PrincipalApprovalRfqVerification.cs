@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Procurement.Domain;
@@ -82,6 +83,14 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(recovery.GetProperty("responseJson").GetString()==created.GetRawText(),
             "Actor-owned Create recovery did not return the original recorded bytes.");
         await send(client,HttpMethod.Get,root+"/principal-command-receipts/Create/"+createKey,fixture.Maker,null,HttpStatusCode.Forbidden);
+
+        stage("P29OwnerOnlyConstraintNegatives");
+        await using(var ownerConnection=new NpgsqlConnection(owner))
+        {
+            await ownerConnection.OpenAsync();
+            result["principalRfqStorage"]=await VerifyPrincipalRfqRawStorageAsync(
+                ownerConnection,fixture,eventId,createKey);
+        }
 
         stage("P29PrincipalDraftCancelAndOwnerReload");
         var cancelKey=Guid.NewGuid();var cancelBody=new{expectedEventVersion=read.GetProperty("version").GetInt64(),
