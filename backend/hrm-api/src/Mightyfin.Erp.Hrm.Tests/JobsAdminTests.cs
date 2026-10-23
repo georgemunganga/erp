@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
+using System.Security.Claims;
+using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Domain.Entities;
@@ -97,6 +100,101 @@ public sealed class JobsAdminTests
     }
 
     [Fact]
+    public async Task Missing_Core_role_setup_rejects_custom_role_without_changing_login_or_procurement_grants()
+    {
+        using var db = CreateContext();
+        db.LocalUsers.Add(new LocalUser { Email = "legacy@example.invalid", NormalizedEmail = "LEGACY@EXAMPLE.INVALID",
+            DisplayName = "Legacy admin", PasswordHash = "test-only", RolesCsv = "erp_admin", IsActive = true });
+        await db.SaveChangesAsync();
+        var before = await LocalIdentityRoutes.ResolveGrantedRolesAsync(db, "erp_admin", default);
+        Assert.Equal(["erp_admin"], before);
+        var procurementBefore = await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "erp_admin", default, TenantId);
+        Assert.Empty(procurementBefore);
+        var configuredClaims = new[] { new Claim(ProcurementPermissions.ConfiguredClaim, "true"),
+            new Claim(ClaimTypes.Role, "erp_admin"), new Claim("tenant", TenantId) };
+        Assert.False(ProcurementPermissions.Allows("procurement-access", configuredClaims));
+        Assert.Empty(await db.TenantRoleAssignments.ToArrayAsync());
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => CreateService(db).CreateRoleAsync(
+            new RoleCreateRequest("source_operator", "Source operator", "procurement",
+                ["procurement-access", "procurement-sourcing-convert"]), default));
+        Assert.Equal("role-setup-required", error.Code);
+        Assert.Contains("Core role setup", error.Message);
+        Assert.Empty(await db.TenantRoleAssignments.ToArrayAsync());
+        Assert.Equal(before, await LocalIdentityRoutes.ResolveGrantedRolesAsync(db, "erp_admin", default));
+        Assert.True(await LocalIdentityRoutes.ActiveAdminUserRemainsAsync(db, default));
+        Assert.Equal(procurementBefore,
+            await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "erp_admin", default, TenantId));
+        Assert.False(ProcurementPermissions.Allows("procurement-access", configuredClaims));
+        // Owner setup is a separate controlled operation. Once a real master
+        // exists, ordinary CRUD may create a custom role without resurrecting it.
+        db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "erp_admin", RoleName = "ERP admin",
+            Category = "system", PermissionsCsv = "erp_admin", Active = false });
+        await db.SaveChangesAsync();
+        Assert.Empty(await LocalIdentityRoutes.ResolveGrantedRolesAsync(db, "erp_admin", default));
+        Assert.Empty(await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "erp_admin", default, TenantId));
+        Assert.False(await LocalIdentityRoutes.ActiveAdminUserRemainsAsync(db, default));
+        await CreateService(db).CreateRoleAsync(new RoleCreateRequest("second_custom", "Second custom",
+            "hrm", ["manager"]), default);
+        Assert.False((await db.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "erp_admin")).Active);
+        Assert.Equal(2, await db.TenantRoleAssignments.CountAsync());
+    }
+
+    [Fact]
+    public async Task Missing_setup_rejects_attempt_to_replace_legacy_token_with_new_permissions()
+    {
+        using var db = CreateContext();
+        var error = await Assert.ThrowsAsync<DomainException>(() => CreateService(db).CreateRoleAsync(
+            new RoleCreateRequest("manager", "New manager", "hrm", ["hr_admin"]), default));
+        Assert.Equal("role-setup-required", error.Code);
+        Assert.Empty(await db.TenantRoleAssignments.ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Existing_archived_configuration_never_triggers_legacy_role_seeding()
+    {
+        using var db = CreateContext();
+        db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "erp_admin", RoleName = "Retired admin",
+            Category = "system", PermissionsCsv = "erp_admin", Active = true, IsArchived = true });
+        await db.SaveChangesAsync();
+        await CreateService(db).CreateRoleAsync(new RoleCreateRequest("separate_role", "Separate role",
+            "hrm", ["manager"]), default);
+        Assert.Equal(2, await db.TenantRoleAssignments.CountAsync());
+        Assert.Empty(await LocalIdentityRoutes.ResolveGrantedRolesAsync(db, "erp_admin", default));
+        Assert.True((await db.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "erp_admin")).IsArchived);
+    }
+
+    [Fact]
+    public async Task Missing_setup_guard_is_tenant_scoped_and_does_not_reuse_other_tenant_roles()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var tenant = new MutableTenantAccessor("first-tenant");
+        var options = new DbContextOptionsBuilder<HrmDbContext>().UseSqlite(connection).Options;
+        using var db = new HrmDbContext(options, tenant);
+        await db.Database.EnsureCreatedAsync();
+        db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "hr_admin", RoleName = "First tenant admin",
+            PermissionsCsv = "hr_admin", Active = true });
+        await db.SaveChangesAsync();
+        await CreateService(db).CreateRoleAsync(new RoleCreateRequest("one_custom", "One custom", "hrm", ["manager"]), default);
+        var firstCount = await db.TenantRoleAssignments.CountAsync();
+        Assert.Equal(2, firstCount);
+
+        tenant.TenantId = "second-tenant";
+        Assert.Empty(await db.TenantRoleAssignments.AsNoTracking().ToArrayAsync());
+        Assert.Equal(["erp_admin"], await LocalIdentityRoutes.ResolveGrantedRolesAsync(db, "erp_admin", default));
+        var denied = await Assert.ThrowsAsync<DomainException>(() => CreateService(db).CreateRoleAsync(
+            new RoleCreateRequest("two_custom", "Two custom", "hrm", ["manager"]), default));
+        Assert.Equal("role-setup-required", denied.Code);
+        Assert.Empty(await db.TenantRoleAssignments.ToArrayAsync());
+        Assert.DoesNotContain(await db.TenantRoleAssignments.ToArrayAsync(), x => x.RoleKey == "one_custom");
+
+        tenant.TenantId = "first-tenant";
+        Assert.Equal(firstCount, await db.TenantRoleAssignments.CountAsync());
+        Assert.DoesNotContain(await db.TenantRoleAssignments.ToArrayAsync(), x => x.RoleKey == "two_custom");
+    }
+
+    [Fact]
     public async Task Archived_admin_role_cannot_satisfy_last_admin_guard()
     {
         using var db = CreateContext();
@@ -192,5 +290,10 @@ public sealed class JobsAdminTests
     private sealed class FixedTenantAccessor(string tenantId) : ITenantAccessor
     {
         public string GetTenantId() => tenantId;
+    }
+    private sealed class MutableTenantAccessor(string tenantId) : ITenantAccessor
+    {
+        public string TenantId { get; set; } = tenantId;
+        public string GetTenantId() => TenantId;
     }
 }
