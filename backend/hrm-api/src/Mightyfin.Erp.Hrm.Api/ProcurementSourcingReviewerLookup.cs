@@ -36,9 +36,9 @@ public static partial class ProcurementPolicyDraftRoutes
                     return Problem("sourcing-reviewer-selection-invalid", "Choose up to 25 distinct saved reviewers without a name search or another page.", 422);
                 selected = values.Select(Guid.Parse).ToArray();
             }
-            // Unlike spending-authority people lookup, there is no financial-action eligibility
-            // filter. Every identity/data boundary is in SQL before BOTH count and pagination.
-            var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, DateTimeOffset.UtcNow)
+            // Current Core people and company/branch scope are filtered in SQL before count
+            // and paging; final permission and known-alias checks repeat on policy save.
+            var query = ProcurementPrincipalPeople.Candidates(core, scope, DateTimeOffset.UtcNow)
                 .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
             if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
             var total = await query.CountAsync(ct);
