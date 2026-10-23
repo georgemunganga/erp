@@ -74,6 +74,8 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
+            status = "PaymentReviewRequiresInvoiceAndIndependentCase", issues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
             status = "InvoiceUnitReviewRequiresOriginalDocumentAndNamedIndependentCase", issues = InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == "RECEIVING") return Results.Ok(new { policyId = policy.Id, isAuthority = false,
