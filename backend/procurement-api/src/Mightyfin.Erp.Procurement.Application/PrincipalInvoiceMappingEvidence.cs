@@ -4,7 +4,7 @@ using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Application;
 
-public sealed record PrincipalInvoiceMappingLine(Guid InvoiceLineId, Guid PurchaseOrderLineId,
+public sealed record PrincipalInvoiceMappingInputLine(Guid InvoiceLineId, Guid PurchaseOrderLineId,
     Guid? PrincipalReceivingSourceStateId, Guid? PrincipalAcceptanceFactId,
     long? AcceptanceSequence, string InvoiceUnitCode,
     Guid DocumentVersionId, string DocumentLineReference);
@@ -13,7 +13,7 @@ public sealed record PrincipalInvoiceMappingSnapshot(int SchemaVersion, Guid Inv
     Guid PurchaseOrderId, Guid PrincipalIssuedVersionId, int Revision,
     string OriginalInvoiceSha256, string IssuedSnapshotSha256,
     string MakerPrincipalId, Guid? MakerWorkerAliasId,
-    IReadOnlyList<PrincipalInvoiceMappingLine> Lines);
+    IReadOnlyList<PrincipalInvoiceMappingInputLine> Lines);
 
 /// <summary>Complete typed mapping proposal. It proves identity and source
 /// membership only; the original-unit reviewer and authenticated exposure
@@ -28,7 +28,7 @@ public static class PrincipalInvoiceMappingEvidence
     };
 
     public static void VerifyRows(PrincipalInvoiceMappingVersion mapping,
-        IReadOnlyList<PrincipalInvoiceMappingLine> rows)
+        IReadOnlyList<Mightyfin.Erp.Procurement.Domain.PrincipalInvoiceMappingLine> rows)
     {
         if (mapping.MappingSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(mapping.MappingJson))
             throw new InvalidOperationException("PrincipalInvoiceMappingDigestChanged");
@@ -70,7 +70,7 @@ public static class PrincipalInvoiceMappingEvidence
         IReadOnlyList<SupplierInvoiceLine> originalLines, InvoiceIssuedOrder issued,
         IReadOnlyList<InvoiceAcceptedFulfilment> accepted,
         IReadOnlyDictionary<Guid, Guid> acceptanceSourceStates,
-        IReadOnlyList<PrincipalInvoiceMappingLine> lines, int revision,
+        IReadOnlyList<PrincipalInvoiceMappingInputLine> lines, int revision,
         string maker, Guid? workerAlias, DateTimeOffset at)
     {
         Validate(invoice, originalLines, issued, accepted, acceptanceSourceStates, lines, revision, maker, workerAlias);
@@ -97,7 +97,7 @@ public static class PrincipalInvoiceMappingEvidence
         SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originalLines,
         InvoiceIssuedOrder issued, IReadOnlyList<InvoiceAcceptedFulfilment> accepted,
         IReadOnlyDictionary<Guid, Guid> acceptanceSourceStates,
-        IReadOnlyList<PrincipalInvoiceMappingLine> normalizedRows)
+        IReadOnlyList<Mightyfin.Erp.Procurement.Domain.PrincipalInvoiceMappingLine> normalizedRows)
     {
         VerifyRows(row, normalizedRows);
         if (row.MappingSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(row.MappingJson))
@@ -131,7 +131,7 @@ public static class PrincipalInvoiceMappingEvidence
         IReadOnlyList<SupplierInvoiceLine> originalLines, InvoiceIssuedOrder issued,
         IReadOnlyList<InvoiceAcceptedFulfilment> accepted,
         IReadOnlyDictionary<Guid, Guid> acceptanceSourceStates,
-        IReadOnlyList<PrincipalInvoiceMappingLine> lines, int revision,
+        IReadOnlyList<PrincipalInvoiceMappingInputLine> lines, int revision,
         string maker, Guid? workerAlias)
     {
         if (invoice.Id == Guid.Empty || invoice.Version < 1 || invoice.BranchRef is null

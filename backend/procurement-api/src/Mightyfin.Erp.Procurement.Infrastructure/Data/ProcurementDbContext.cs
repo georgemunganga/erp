@@ -79,6 +79,9 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         // as belonging to another company when attaching it to this context.
         if ((record is PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
                 or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt
+                or PrincipalInvoiceState or PrincipalInvoiceMappingVersion or PrincipalInvoiceMappingLine
+                or PrincipalInvoiceUnitReviewSource or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewOutcome
+                or PrincipalInvoiceComparison or PrincipalInvoiceExposureState or PrincipalInvoiceClaim or PrincipalInvoiceCommandReceipt
                 or OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
                 or ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt

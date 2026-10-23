@@ -28,7 +28,7 @@ public static class ProcurementPrincipalInvoiceSourceRoutes
             .RequireAuthorization("procurement-invoice-read", "procurement-invoice-match");
     }
 
-    private static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
+    internal static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
         Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<object>> read,
         CancellationToken ct)
     {
@@ -68,7 +68,7 @@ public static class ProcurementPrincipalInvoiceSourceRoutes
         }
     }
 
-    private static async Task<(SupplierInvoice Invoice, HashSet<Guid> Branches)> Current(
+    internal static async Task<(SupplierInvoice Invoice, HashSet<Guid> Branches)> Current(
         ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope,
         HttpContext http, IAuthorizationService auth, Guid invoiceId, CancellationToken ct)
     {
