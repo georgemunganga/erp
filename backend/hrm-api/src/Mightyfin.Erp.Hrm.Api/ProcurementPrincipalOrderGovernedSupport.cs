@@ -100,6 +100,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     internal static bool RecorderCanActInBranch(ProcurementPrincipalPeople.Person recorder,Guid? branch)
         => branch is { } id && id!=Guid.Empty
             && (recorder.OrganisationWide || recorder.AllowedBranches.Contains(id));
+    internal static bool RecorderRetainsFundingScope(ProcurementPrincipalPeople.Person recorder,
+        Guid? branch,bool recordedOrganisationWide)
+        => (recordedOrganisationWide || !recorder.OrganisationWide)
+            && RecorderCanActInBranch(recorder,branch);
     private static async Task<PrincipalOrderFundingEvidence> CurrentFunding(ProcurementDbContext db,
         HrmDbContext core,ProcurementRequestScope scope,HttpContext http,GovernedOrder load,int revision,
         DateTimeOffset now,CancellationToken ct)
@@ -114,7 +118,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var expected=load.Sources.Select(x=>x.Source.Finance.ReservationRef).Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal).ToArray();
         if(recorder is null || !recorder.Permissions.Contains("procurement-po-finance-confirm")
-            || !RecorderCanActInBranch(recorder,load.Order.BranchRef)
+            || !RecorderRetainsFundingScope(recorder,load.Order.BranchRef,funding.RecordedByOrganisationWide)
             || recorder.CoreLinkedWorkerId!=funding.RecordedByWorkerAliasId
             || funding.ApprovedManualPolicyReference!=policy.ApprovedPolicyReference
             || funding.CurrencyCode!=load.Order.CurrencyCode || funding.AttestedGrossAmount!=totals.Gross

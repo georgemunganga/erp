@@ -18,6 +18,8 @@ public sealed class PrincipalOrderFundingEvidence : ProcurementRecord
     public Guid? BuyerWorkerAliasId { get; init; }
     public string RecordedByPrincipalId { get; init; } = null!;
     public Guid? RecordedByWorkerAliasId { get; init; }
+    /// <summary>Observed Core scope at capture; a later implicit wide scope cannot revive confined evidence.</summary>
+    public bool RecordedByOrganisationWide { get; init; }
     public DateTimeOffset ObservedAt { get; init; }
 }
 

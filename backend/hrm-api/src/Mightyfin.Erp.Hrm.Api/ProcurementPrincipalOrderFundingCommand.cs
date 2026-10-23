@@ -68,6 +68,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 SourceReservationsJson=JsonSerializer.Serialize(expected),AttestedGrossAmount=totals.Gross,
                 CurrencyCode=order.CurrencyCode,RecordedByPrincipalId=recorder.PrincipalId,
                 RecordedByWorkerAliasId=recorder.CoreLinkedWorkerId,
+                RecordedByOrganisationWide=recorder.OrganisationWide,
                 BuyerWorkerAliasId=load.Bindings[0].BuyerWorkerAliasId,
                 ObservedAt=ProcurementEvidenceEncoding.DatabaseTimestamp(input.ObservedAt)!.Value});
             Record(db,scope,order,"Funding",key,new{manualEvidence=true,commitmentReference=commitment});
