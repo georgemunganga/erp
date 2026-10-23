@@ -15,7 +15,7 @@ internal static partial class PrincipalApprovalHttpVerification
         Action<string> stage,PrincipalSend send,Action countExtraHttp,bool verifyAccountScopeAuthority,bool verifyRetainedAlias,
         string? downFamily)
     {
-        // Separate opt-in phase AFTER the real default-off and Finance-unavailable denials.
+        // Separate opt-in phase AFTER the unavailable-provider negative control and Finance-unavailable denials.
         // Only existing manual-evidence configuration is enabled; no Finance owner is substituted.
         var negativeRequestId=(Guid)result["requestId"]!;
         result["negativeOnlyRequestId"]=negativeRequestId;
@@ -30,6 +30,10 @@ internal static partial class PrincipalApprovalHttpVerification
         stage("PrivateManualEvidenceHost");
         await using var host=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,true,true);
         host.PrepareEntryPointEnvironment();using var client=host.CreateClient(new(){AllowAutoRedirect=false});
+        using(var registration=host.Services.CreateScope())
+            Need(registration.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>()
+                is ProcurementPrincipalApprovalStoreReadiness,
+                "Positive host must resolve the real provider from normal Program registration.");
         var options=host.Services.GetRequiredService<ProcurementApprovalExecutionOptions>();
         Need(options.ManualFinancePolicies.Length==1&&options.HasCurrentManualEvidencePolicy(fixture.Company,DateTimeOffset.UtcNow)
             &&options.ManualFinancePolicies.Single().ApprovedPolicyReference==PrivateManualPolicyReference,"Explicit private manual evidence policy missing.");

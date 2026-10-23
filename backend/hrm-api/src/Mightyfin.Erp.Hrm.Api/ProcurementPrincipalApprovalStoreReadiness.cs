@@ -15,7 +15,7 @@ using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Unregistered source candidate. Constants were captured from the isolated PostgreSQL17
+/// <summary>Explicitly enabled scoped provider. Constants were captured from the isolated PostgreSQL17
 /// P25 rehearsal; exact schema and finite-role validation remain mandatory at the point of use.</summary>
 public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope coreScope,HrmDbContext coreIdentity):IProcurementPrincipalApprovalSchemaReadiness
 {

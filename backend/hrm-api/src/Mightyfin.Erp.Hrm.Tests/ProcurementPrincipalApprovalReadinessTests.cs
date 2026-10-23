@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Hrm.Api;
@@ -22,6 +24,67 @@ public sealed class ProcurementPrincipalApprovalReadinessTests
         public Guid? OrgUnitId=>null;
         public bool IsConfined=>false;
         public string? CorrelationId=>"no-captured-manifest";
+    }
+
+    [Fact]
+    public void Host_default_registration_keeps_principal_provider_unavailable()
+    {
+        var services=new ServiceCollection();
+        ProcurementHostIntegration.AddServices(services,"Host=never-used.invalid;Database=not-opened",
+            new ConfigurationBuilder().Build());
+        using var provider=services.BuildServiceProvider();
+        using var scope=provider.CreateScope();
+        Assert.IsType<UnavailableProcurementPrincipalApprovalSchemaReadiness>(
+            scope.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>());
+        Assert.False(scope.ServiceProvider.GetRequiredService<ProcurementApprovalExecutionOptions>().PrincipalExecutionEnabled);
+    }
+
+    [Fact]
+    public void Host_approval_enabled_without_principal_option_still_uses_unavailable_provider()
+    {
+        var services=new ServiceCollection();
+        var configuration=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
+        {
+            ["Procurement:Approvals:Enabled"]="true",
+            ["Procurement:Approvals:PrincipalExecutionEnabled"]="false",
+            ["ConnectionStrings:ProcurementApprovalExecution"]="Host=never-used.invalid;Database=not-opened"
+        }).Build();
+        ProcurementHostIntegration.AddServices(services,"Host=never-used.invalid;Database=not-opened",configuration);
+        using var provider=services.BuildServiceProvider();
+        using var scope=provider.CreateScope();
+        Assert.IsType<UnavailableProcurementPrincipalApprovalSchemaReadiness>(
+            scope.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>());
+    }
+
+    [Fact]
+    public async Task Host_explicit_principal_option_resolves_scoped_real_provider_but_not_ready_on_invalid_store()
+    {
+        var connection="Host=never-used.invalid;Database=not-opened";
+        var configuration=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
+        {
+            ["Procurement:Approvals:Enabled"]="true",
+            ["Procurement:Approvals:PrincipalExecutionEnabled"]="true",
+            ["ConnectionStrings:ProcurementApprovalExecution"]=connection
+        }).Build();
+        var services=new ServiceCollection();
+        ProcurementHostIntegration.AddServices(services,connection,configuration);
+        services.AddScoped<IApprovalScope>(_=>new Scope());
+        services.AddScoped<HrmDbContext>(_=>new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,new FixedTenantAccessor("readiness-only")));
+        await using var provider=services.BuildServiceProvider(new ServiceProviderOptions {ValidateScopes=true});
+        await using var first=provider.CreateAsyncScope();
+        await using var second=provider.CreateAsyncScope();
+        var firstProvider=first.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>();
+        Assert.IsType<ProcurementPrincipalApprovalStoreReadiness>(firstProvider);
+        Assert.Same(firstProvider,first.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>());
+        Assert.NotSame(firstProvider,second.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>());
+        Assert.True(first.ServiceProvider.GetRequiredService<ProcurementApprovalExecutionOptions>().ExecutionDatabaseConfigured);
+        var scope=new Scope();
+        await using var invalidOwner=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,scope);
+        Assert.False(await firstProvider.IsReadyAsync(invalidOwner,default));
+        Assert.False(await firstProvider.CanRecordAsync(invalidOwner,default));
+        Assert.False(await firstProvider.CanExecuteAsync(invalidOwner,default));
     }
 
     [Fact]

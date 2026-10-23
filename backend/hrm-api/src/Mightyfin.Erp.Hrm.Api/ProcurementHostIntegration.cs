@@ -29,7 +29,13 @@ public static class ProcurementHostIntegration
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(approvalOptions);
-        services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness,UnavailableProcurementPrincipalApprovalSchemaReadiness>();
+        // The successor remains default-off. When explicitly selected, its real
+        // scoped provider still verifies P25, exact schema and finite SQL roles
+        // for every read/record/execute decision; a setting alone grants nothing.
+        if (approvalOptions.PrincipalExecutionEnabled)
+            services.AddScoped<IProcurementPrincipalApprovalSchemaReadiness,ProcurementPrincipalApprovalStoreReadiness>();
+        else
+            services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness,UnavailableProcurementPrincipalApprovalSchemaReadiness>();
         var orderOptions = configuration.GetSection("Procurement:Orders").Get<ProcurementOrderExecutionOptions>()
             ?? new ProcurementOrderExecutionOptions();
         orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);

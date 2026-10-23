@@ -13,8 +13,9 @@ public interface IProcurementPrincipalApprovalSchemaReadiness
     Task<bool> CanExecuteAsync(ProcurementDbContext owner,CancellationToken ct);
 }
 
-// Deliberately unavailable until the later owned migration and finite-role acceptance.
-// No setting, caller body, model presence or synthetic status can establish readiness.
+// Default-off provider; enabling the successor selects a separate scoped
+// checker whose actual migration, schema and finite-role tests still decide.
+// No setting, caller body, model presence or synthetic status alone establishes readiness.
 public sealed class UnavailableProcurementPrincipalApprovalSchemaReadiness : IProcurementPrincipalApprovalSchemaReadiness
 {
     public Task<bool> IsReadyAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(false);

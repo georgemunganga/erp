@@ -116,8 +116,9 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
                 services.AddAuthentication(o=>{o.DefaultAuthenticateScheme="private-p25-subject";o.DefaultChallengeScheme="private-p25-subject";})
                     .AddScheme<AuthenticationSchemeOptions,PrincipalSubjectAuthentication>("private-p25-subject",_=>{});
             }
-            // This is the ACTUAL captured owning-store provider, never a boolean test stub.
-            if(actualSchema) {services.RemoveAll<IProcurementPrincipalApprovalSchemaReadiness>();services.AddScoped<IProcurementPrincipalApprovalSchemaReadiness,ProcurementPrincipalApprovalStoreReadiness>();}
+            // Positive runs use ordinary Program registration. This explicit
+            // negative control alone substitutes the unavailable provider.
+            if(!actualSchema) {services.RemoveAll<IProcurementPrincipalApprovalSchemaReadiness>();services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness,UnavailableProcurementPrincipalApprovalSchemaReadiness>();}
         });
     }
 }

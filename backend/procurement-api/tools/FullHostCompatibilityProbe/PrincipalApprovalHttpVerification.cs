@@ -83,19 +83,20 @@ internal static partial class PrincipalApprovalHttpVerification
                 Need(!await real.CanRecordAsync(execute,default),"Execution role must not satisfy record-only no-Core-DML boundary.");
                 Need(!await real.IsReadyAsync(privileged,default),"Owning bootstrap role must never be accepted as finite readiness.");
             }
-            // First actual Program host retains normal Unavailable registration.
-            Advance("UnavailableDefaultRegistration");
+            // First host explicitly substitutes an unavailable provider as a
+            // negative control; positive hosts use ordinary Program registration.
+            Advance("UnavailableProviderNegativeControl");
             await using(var disabled=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,false))
             {
                 disabled.PrepareEntryPointEnvironment();using var client=disabled.CreateClient(new(){AllowAutoRedirect=false});
                 using var scope=disabled.Services.CreateScope();
-                Need(scope.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>() is UnavailableProcurementPrincipalApprovalSchemaReadiness,"Default registration unexpectedly enabled.");
+                Need(scope.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>() is UnavailableProcurementPrincipalApprovalSchemaReadiness,"Negative provider control unexpectedly enabled.");
                 var baseline=await PrincipalFootprintAsync(ownerConnection);
-                var meta=await Send(client,HttpMethod.Get,"/api/procurement/v1/meta",fixture.Maker);Need(!meta.GetProperty("capabilities").GetProperty("principalApprovals").GetBoolean(),"Default unavailable provider advertised approval.");
+                var meta=await Send(client,HttpMethod.Get,"/api/procurement/v1/meta",fixture.Maker);Need(!meta.GetProperty("capabilities").GetProperty("principalApprovals").GetBoolean(),"Negative unavailable provider advertised approval.");
                 await Send(client,HttpMethod.Post,$"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-cases",fixture.Maker,new{expectedRequestVersion=1L},HttpStatusCode.ServiceUnavailable);
                 await ReadAcknowledgementWithoutEffectsAsync(ownerConnection,client,Send,
                     $"/api/procurement/v1/requests/{Guid.NewGuid()}/approval-commands/Open/{Guid.NewGuid()}",fixture.Maker,HttpStatusCode.ServiceUnavailable);
-                result["defaultUnavailableGetAcknowledgementVerified"]=true;
+                result["negativeProviderGetAcknowledgementVerified"]=true;
                 Need(await PrincipalFootprintAsync(ownerConnection)==baseline,"Unavailable host calls wrote business evidence.");
             }
             Advance("ActualProgramFiniteCreateSubmit");
@@ -143,7 +144,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 result["recordRole"]=roles.RecordRole;result["executionRole"]=roles.ExecutionRole;
             }
             result["status"]="PASS_PRIVATE_P25_CREATE_SUBMIT_FUNDING_UNAVAILABLE_ONLY";result["finiteRecordAndExecutionLoginsVerified"]=true;
-            result["currentCoreWorkerlessSourceVerified"]=true;result["defaultUnavailableRegistrationVerified"]=true;result["fundingUnavailableNoEffectsVerified"]=true;
+            result["currentCoreWorkerlessSourceVerified"]=true;result["negativeProviderControlVerified"]=true;result["fundingUnavailableNoEffectsVerified"]=true;
             result["positiveApprovalGraph"]=false;result["checker2Authority2Submission3Assignment2Acceptance"]="NOT_RUN_NEXT_CHECKPOINT";
             if(Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is {} positive)
             {

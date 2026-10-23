@@ -81,12 +81,12 @@ internal static partial class PrincipalApprovalHttpVerification
             Need(ReferenceEquals(options.ManualFinancePolicies,policies)&&options.ExecutionDatabaseConfigured==executionConfigured,
                 "Original private host options were not restored exactly.");
         }
-        Need(result.GetValueOrDefault("defaultUnavailableGetAcknowledgementVerified") is true,"Default unavailable GET phase was not verified.");
+        Need(result.GetValueOrDefault("negativeProviderGetAcknowledgementVerified") is true,"Unavailable negative-control GET phase was not verified.");
         result["principalApprovalGetAcknowledgementVerification"]=new {
             status="PASS_PRIVATE_ACTOR_OWNED_GET_ACKNOWLEDGEMENTS_ONLY",actualGets=12,
             originalOpenBeforeAndAfterTerminalExact=true,originalDecideElevenFieldsExact=true,actualReceiptActorScopeKeyBound=true,
             missingKeyAndWrongRequest404NoEffects=true,absenceProvesNonCommit=false,
-            currentOperationGrantRevocation403Restoration=true,defaultUnavailable503=true,fullFootprintUnchangedEveryGet=true,noStoreEveryGet=true,
+            currentOperationGrantRevocation403Restoration=true,negativeProvider503=true,fullFootprintUnchangedEveryGet=true,noStoreEveryGet=true,
             noManualPolicyOrExecutionConfiguredOptionRequired=true,privateHostOptionsOnly=true,actualExecutionConnectionRemoved=false,
             exactTwoReceiptsOneDecisionThreeSuccessorEventsStillRequired=true,
             nativeIdentityProviderVerified=false,externalFinanceAuthority=false,legacyApprovalExecutionVerified=false,wholeProcurementVerified=false};

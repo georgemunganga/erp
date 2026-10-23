@@ -161,9 +161,9 @@ separate gates and are not inferred from these owner checks.
 
 `--principal-approvals` is a separate explicit opt-in. Existing smoke/HRM modes are unchanged. It requires a root-provided **fresh empty existing** `proc_p25_http_<unique>` database over `/authority-identity-private-socket`, `P25_HTTP_OWNER_CONNECTION`, and a NEW `P25_HTTP_RESULT` inside a protected directory. No production connection or database reset/resume/cleanup is supported. Future execution must use a complete separately published tool, pinned runtime image, networknone and the private socket, after source/compile review. No SDK, HTTP or database acceptance is claimed for these new files.
 
-This checkpoint uses genuine Hrm/CoreApproval/Procurement migrations, real Core companies/branch memberships/custom action roles and six explicitly synthetic workerless accounts. It creates two unique finite LOGIN roles (record and execution) without owner membership, identity DML or broad sensitive HRM column SELECT. Owner Core projection/bootstrap is separate. The actual captured `ProcurementPrincipalApprovalStoreReadiness` is privately composed in the real API `Program` WAF; the normal host's Unavailable registration is independently retained/tested first. No boolean-ready provider, copied route graph, employee substitution or approval engine exists in this tool. Test authentication supplies only an allowlisted subject+fixed synthetic tenant; actual Program Core refresh/current grants/scope/route authorization remain authoritative. This is not real identity-provider authentication.
+This checkpoint uses genuine Hrm/CoreApproval/Procurement migrations, real Core companies/branch memberships/custom action roles and six explicitly synthetic workerless accounts. It creates two unique finite LOGIN roles (record and execution) without owner membership, identity DML or broad sensitive HRM column SELECT. Owner Core projection/bootstrap is separate. The positive host resolves the actual captured `ProcurementPrincipalApprovalStoreReadiness` through normal API `Program` registration. A separate first host explicitly substitutes `UnavailableProcurementPrincipalApprovalSchemaReadiness` as a negative control. No boolean-ready provider, copied route graph, employee substitution or approval engine exists in this tool. Test authentication supplies only an allowlisted subject+fixed synthetic tenant; actual Program Core refresh/current grants/scope/route authorization remain authoritative. This is not real identity-provider authentication.
 
-The first checkpoint verifies actual role login identity; record read/record readiness positive and execution negative; execution readiness positive and record-only boundary negative; owner readiness negative; default-Unavailable HTTP denial; real workerless request create→submit with original identity1 and exact values; missing checker/Finance evidence and absent manual policy keep metadata/approval unavailable; unauthorized user and blocked open leave complete table/catalog/sequence/privilege footprint unchanged. Owning reload requires zero checker snapshots, submission pins, assignments and Core cases, and no Finance handoff/payment references. It does not call this a completed approval or an installed Finance integration.
+The first checkpoint verifies actual role login identity; record read/record readiness positive and execution negative; execution readiness positive and record-only boundary negative; owner readiness negative; unavailable-provider negative-control HTTP denial; real workerless request create→submit with original identity1 and exact values; missing checker/Finance evidence and absent manual policy keep metadata/approval unavailable; unauthorized user and blocked open leave complete table/catalog/sequence/privilege footprint unchanged. Owning reload requires zero checker snapshots, submission pins, assignments and Core cases, and no Finance handoff/payment references. It does not call this a completed approval or an installed Finance integration.
 
 The readiness-preview assertion intentionally requires the separately reviewed configured-execution-store fix `9744dbc` when this tool is integrated: normal record role has no Core DML and must not be mistaken for the configured execution role. Parent must merge that application source before a positive runtime claim. Production provider registration/default flags stay unchanged. The source checkpoint base is `b871caf`; root owns successor application/readiness changes.
 
@@ -274,6 +274,25 @@ no Finance AP/payment facts, and an unchanged hash of the accepted base
 request/Core approval graph. Each extra request/check remains in the private
 clone as declared evidence. No SDK build or PostgreSQL run has occurred for
 this cohort; the parent owns its future publication and actual provider test.
+
+### P25 production readiness registration — source-only
+
+The normal host registers the unavailable P25 provider while
+`Procurement:Approvals:PrincipalExecutionEnabled` is false (the default). When
+that option is explicitly true, it registers the **scoped real captured-store
+provider**. All endpoints still require the separate approval Enabled option,
+the explicit execution connection, current Core action and branch authority,
+genuine P25 migration/schema/role checks, and an approved Finance evidence
+route. The setting alone cannot make a database ready or grant approval.
+
+In the private HTTP probe, `actualSchema=true` now leaves Program registration
+untouched and asserts the real provider type. Only the explicit
+`actualSchema=false` host substitutes an unavailable provider to prove 503,
+false capability metadata and no effects. New results call this the
+`negativeProviderControl`; older retained receipts describe their historical
+test composition and are not rewritten. Focused DI source tests cover default,
+explicit false and explicit true registration plus non-PostgreSQL fail closed.
+This new registration has not yet passed the root-owned SDK or browser gates.
 
 ### P25 private browser buyer fixture profile — source-only
 
