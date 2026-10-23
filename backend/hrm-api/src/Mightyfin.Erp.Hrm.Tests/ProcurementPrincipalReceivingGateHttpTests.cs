@@ -44,6 +44,13 @@ public sealed class ProcurementPrincipalReceivingGateHttpTests
             new{version=1,sourceVersion=1,quantity="1",evidenceReference="Observed evidence"});
         Assert.Equal(HttpStatusCode.Forbidden,read.StatusCode);Assert.Equal(HttpStatusCode.Forbidden,inspect.StatusCode);
     }
+    [Fact]
+    public async Task Unknown_recovery_operation_returns_404_without_constructing_a_transaction()
+    {
+        await using var app=await App(false);using var client=app.GetTestClient();
+        using var response=await client.GetAsync($"/api/procurement/v1/receiving/principal-command-receipts/Unknown/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound,response.StatusCode);
+    }
     private static async Task<WebApplication> App(bool register)
     {
         var scope=new ProcurementRequestScope();scope.Set("receiving-principal-gate",Guid.NewGuid(),Guid.NewGuid().ToString("D"),null,null,false,"fixture");

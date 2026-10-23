@@ -167,7 +167,12 @@ public static partial class ProcurementPrincipalReceivingRoutes
             service.DeliverableReference,service.PeriodFrom,service.PeriodTo,quantity=Exact(service.Quantity),service.Notes,service.CancellationReason};
     }
     private static Task<IResult> Recover(string operation,Guid key,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,Action(operation),async(db,_,_,actor,token)=>await Replay(db,actor,operation,key,null,token)??throw new Problem("ReceivingCommandNotFound",404),ct);
+    {
+        string action;
+        try{action=Action(operation);}
+        catch(Problem){return Task.FromResult(Error("ReceivingCommandNotFound",404));}
+        return Run(http,scope,action,async(db,_,_,actor,token)=>await Replay(db,actor,operation,key,null,token)??throw new Problem("ReceivingCommandNotFound",404),ct);
+    }
 }
 
 public sealed class ProcurementPrincipalReceivingOptions
