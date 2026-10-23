@@ -29,11 +29,16 @@ public static class ProcurementHostIntegration
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(approvalOptions);
+        // The concrete P25 inspector is also available to established worker
+        // workflows on a P25 database. The principal interface remains off
+        // unless the explicit successor option is enabled.
+        services.AddScoped<ProcurementPrincipalApprovalStoreReadiness>();
         // The successor remains default-off. When explicitly selected, its real
         // scoped provider still verifies P25, exact schema and finite SQL roles
         // for every read/record/execute decision; a setting alone grants nothing.
         if (approvalOptions.PrincipalExecutionEnabled)
-            services.AddScoped<IProcurementPrincipalApprovalSchemaReadiness,ProcurementPrincipalApprovalStoreReadiness>();
+            services.AddScoped<IProcurementPrincipalApprovalSchemaReadiness>(sp =>
+                sp.GetRequiredService<ProcurementPrincipalApprovalStoreReadiness>());
         else
             services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness,UnavailableProcurementPrincipalApprovalSchemaReadiness>();
         var orderOptions = configuration.GetSection("Procurement:Orders").Get<ProcurementOrderExecutionOptions>()

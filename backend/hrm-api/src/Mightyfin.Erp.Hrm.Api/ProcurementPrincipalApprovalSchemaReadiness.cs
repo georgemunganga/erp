@@ -37,3 +37,17 @@ internal static class ProcurementPrincipalApprovalSchemaGuard
         return provider is not null && (write ? await provider.CanRecordAsync(owner,ct) : await provider.IsReadyAsync(owner,ct));
     }
 }
+
+/// <summary>The physical P25 schema is a strict, finite-role-checked superset
+/// of the retained worker evidence. This does not opt a request into principal1,
+/// nor does it replace the old exact P21 check on a pre-P25 database.</summary>
+internal static class ProcurementLegacyP25SchemaGuard
+{
+    internal static async Task<bool> ReadyAsync(ProcurementDbContext owner,IServiceProvider services,
+        bool write,CancellationToken ct)
+    {
+        var actual=services.GetService<ProcurementPrincipalApprovalStoreReadiness>();
+        return actual is not null && (write ? await actual.CanRecordAsync(owner,ct)
+            : await actual.IsReadyAsync(owner,ct));
+    }
+}

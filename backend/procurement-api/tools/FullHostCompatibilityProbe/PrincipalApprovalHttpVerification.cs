@@ -32,6 +32,13 @@ internal static partial class PrincipalApprovalHttpVerification
         var localCookieFlag=Environment.GetEnvironmentVariable("P25_HTTP_SERVE_LOCAL_COOKIE_BROWSER");
         var downFamily=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_ROW_FAMILY_DOWN");
         var exactBudgetFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_EXACT_BUDGET_WIRE");
+        var legacyWorkerFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_LEGACY_WORKER_BRIDGE");
+        Need(legacyWorkerFlag is null or "1","Private legacy worker bridge opt-in must be exactly1 or absent.");
+        Need(legacyWorkerFlag is null || matrixFlag is null && schemaFlag is null && accountFlag is null
+            && aliasFlag is null && localCookieFlag is null && downFamily is null && exactBudgetFlag is null
+            && Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is null
+            && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
+            "Legacy worker bridge requires a separate fresh private cohort without other optional phases.");
         Need(exactBudgetFlag is null or "1","Private exact-budget wire opt-in must be exactly1 or absent.");
         Need(exactBudgetFlag is null || Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE")=="1"
             && downFamily is null && matrixFlag is null && schemaFlag is null && accountFlag is null
@@ -57,7 +64,7 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Normal local-cookie serve requires the original genuine base graph without other optional cohorts.");
         result["browserBuyerFixtureProfile"]=localCookieFlag=="1"?"PRIVATE_CONFIG_MAKER_POLICY_EVALUATION":"DISABLED";
-        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1");var stage="Bootstrap";var requests=0;
+        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1");var stage="Bootstrap";var requests=0;
         try
         {
             Advance("Bootstrap");
@@ -69,6 +76,11 @@ internal static partial class PrincipalApprovalHttpVerification
                 await using var runtime=new NpgsqlConnection(text);await runtime.OpenAsync();
                 await using var command=new NpgsqlCommand("SELECT current_user=session_user AND current_user=@expected AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",runtime);
                 command.Parameters.AddWithValue("expected",expected);Need(await command.ExecuteScalarAsync() is true,"Finite test role is not an actual distinct restricted LOGIN.");
+            }
+            if(legacyWorkerFlag=="1")
+            {
+                await VerifyLegacyWorkerBridgeAsync(fixture,owner,roles,result,Advance,Send);
+                return;
             }
             if(matrixFlag=="1")await VerifyPrivilegeMatrixAsync(fixture,roles,ownerConnection,result,Advance);
             if(schemaFlag=="1")await VerifySchemaNegativesAsync(fixture,roles,ownerConnection,result,Advance);

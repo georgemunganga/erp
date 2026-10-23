@@ -340,7 +340,8 @@ public static partial class ProcurementSpendingAuthorityRoutes
             && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,write,ct))return true;
         var readiness = http?.RequestServices.GetService<IProcurementSpendingAuthorityIdentitySchemaReadiness>()
             ?? new ProcurementSpendingAuthorityIdentitySchemaReadiness();
-        return write ? await readiness.CanRecordAsync(db, ct) : await readiness.IsReadyAsync(db, ct);
+        if(write ? await readiness.CanRecordAsync(db, ct) : await readiness.IsReadyAsync(db, ct))return true;
+        return http is not null && await ProcurementLegacyP25SchemaGuard.ReadyAsync(db,http.RequestServices,write,ct);
     }
     private static IResult IdentityUnavailable() => Results.Problem(statusCode: 503,
         title: "Spending authority identity checks are not available yet.",

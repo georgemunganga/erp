@@ -331,3 +331,26 @@ summary. It does **not** modify the browser result, prove unchanged older rows
 without a pre-browser baseline, or certify external Finance/native IdP/full
 module completion. Source syntax alone has been checked; no database run is
 claimed by this commit.
+
+### P25 original worker bridge — source-only
+
+`P25_HTTP_VERIFY_LEGACY_WORKER_BRIDGE=1` uses its **own fresh private P25
+database** and cannot be combined with positive principal, exact budget,
+row-family Down, raw graph, privilege, alias, schema or local-cookie cohorts.
+The normal API still resolves the principal readiness interface to Unavailable
+when `PrincipalExecutionEnabled=false`. Its separately registered concrete P25
+inspector allows established worker evidence to pass the exact finite-role
+physical P25 checks after the old strict P21 check rejects widened CHECKs.
+That is a genuine schema compatibility path, not an enabled principal action.
+
+The private cohort creates exactly three synthetic active worker/account links
+for separate Maker, Checker and Approver identities. Actual mapped routes
+create/activate worker1 authority, publish rules/category, and create/submit
+the original worker request with the principal option **false**. A later host
+with the option still **false** records checker1, opens submission2/assignment1 and
+records an independent Core approval. Owning reload requires original schema0
+unchanged, worker1 authority lineage, checker1, submission2/assignment1,
+exact 2 × 5.1234, and no AP/payment facts. The helper's
+`P25-LEGACY-WORKER-BRIDGE.md` gives the precise boundaries. This code has not
+yet been compiled or run; no external Finance or production workflow is
+claimed.

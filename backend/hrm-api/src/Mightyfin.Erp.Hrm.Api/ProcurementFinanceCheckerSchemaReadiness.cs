@@ -115,9 +115,13 @@ public sealed class ProcurementFinanceCheckerSchemaReadiness : IProcurementFinan
 
 internal static class ProcurementFinanceCheckerSchemaGuard
 {
-    internal static Task<bool> ReadyAsync(ProcurementDbContext owner, IServiceProvider services,
-        bool capture, CancellationToken ct) => (services.GetService<IProcurementFinanceCheckerSchemaReadiness>()
-            ?? new ProcurementFinanceCheckerSchemaReadiness()).IsReadyAsync(owner, capture, ct);
+    internal static async Task<bool> ReadyAsync(ProcurementDbContext owner, IServiceProvider services,
+        bool capture, CancellationToken ct)
+    {
+        if(await (services.GetService<IProcurementFinanceCheckerSchemaReadiness>()
+            ?? new ProcurementFinanceCheckerSchemaReadiness()).IsReadyAsync(owner,capture,ct))return true;
+        return await ProcurementLegacyP25SchemaGuard.ReadyAsync(owner,services,capture,ct);
+    }
 
     internal static IResult Unavailable() => Results.Problem(statusCode: 503,
         title: "Funding evidence is temporarily unavailable. Contact your administrator to complete the database setup.",

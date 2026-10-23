@@ -22,7 +22,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
-internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile)
+internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false)
 {
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
@@ -48,8 +48,10 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
             await core.Database.MigrateAsync();
             core.LegalEntities.Add(new LegalEntity {Id=Company,Code="P25_HTTP",RegisteredName="Private P25 company",Currency="ZMW",IsDefault=true});
             core.WorkLocations.Add(new WorkLocation {Id=Branch,Code="P25_MAIN",Name="Private P25 branch",LegalEntityId=Company});
-            var people=new[]{(Maker,"p25_request_maker","procurement-access,procurement-request-read,procurement-request-create,procurement-request-edit,procurement-request-submit,procurement-request-return,procurement-approval-open"),
-                (Checker,"p25_checker","procurement-access,procurement-request-read,procurement-budget-check"),
+            var people=new[]{(Maker,"p25_request_maker","procurement-access,procurement-request-read,procurement-request-create,procurement-request-edit,procurement-request-submit,procurement-request-return,procurement-approval-open"
+                    +(legacyWorkerProfile?",procurement-authority-read,procurement-authority-configure":"")),
+                (Checker,"p25_checker","procurement-access,procurement-request-read,procurement-budget-check"
+                    +(legacyWorkerProfile?",procurement-authority-read,procurement-authority-review":"")),
                 (Approver,"p25_custom_approver","procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide"),
                 (ConfigMaker,"p25_config_maker","procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-authority-read,procurement-authority-configure"
                     + (browserBuyerProfile ? ",procurement-policy-evaluate,procurement-request-read" : "")),
@@ -61,6 +63,9 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                 core.LocalUsers.Add(new LocalUser {Id=id,WorkerId=null,Email=role+"@example.test",NormalizedEmail=role.ToUpperInvariant()+"@EXAMPLE.TEST",DisplayName=role,PasswordHash="private-no-real-login",RolesCsv=role,IsActive=true});
                 core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=id,LocationId=Branch});
             }
+            if(legacyWorkerProfile)
+                core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey="procurement_manager",
+                    RoleName="Private legacy manager category",Category="system",PermissionsCsv="procurement-access",Active=true});
             await core.SaveChangesAsync();
             PrincipalApprovalHttpVerification.Need(!await core.Workers.AnyAsync(),"This milestone must require no employee fixture.");
         }
@@ -76,13 +81,13 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
     }
 }
 
-internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false,bool normalLocalAuthentication=false):WebApplicationFactory<MonthlyLeaveAccrualWorker>
+internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false,bool normalLocalAuthentication=false,bool principalExecutionEnabled=true):WebApplicationFactory<MonthlyLeaveAccrualWorker>
 {
     internal Dictionary<string,string?> Settings()
     {
         var settings=OfflineHost.Settings(owner,PrincipalApprovalFixture.Tenant);
         settings["ConnectionStrings:Procurement"]=record;settings["ConnectionStrings:ProcurementApprovalExecution"]=execution;
-        settings["Procurement:Approvals:Enabled"]="true";settings["Procurement:Approvals:PrincipalExecutionEnabled"]="true";
+        settings["Procurement:Approvals:Enabled"]="true";settings["Procurement:Approvals:PrincipalExecutionEnabled"]=principalExecutionEnabled?"true":"false";
         return settings;
     }
     internal void PrepareEntryPointEnvironment()

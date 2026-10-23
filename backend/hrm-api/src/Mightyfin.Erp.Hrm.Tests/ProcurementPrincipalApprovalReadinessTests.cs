@@ -57,6 +57,38 @@ public sealed class ProcurementPrincipalApprovalReadinessTests
     }
 
     [Fact]
+    public async Task False_principal_option_retains_independent_scoped_physical_P25_inspector_without_granting_principal_identity()
+    {
+        var connection="Host=never-used.invalid;Database=not-opened";
+        var services=new ServiceCollection();
+        var configuration=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
+        {
+            ["Procurement:Approvals:Enabled"]="true",
+            ["Procurement:Approvals:PrincipalExecutionEnabled"]="false",
+            ["ConnectionStrings:ProcurementApprovalExecution"]=connection
+        }).Build();
+        ProcurementHostIntegration.AddServices(services,connection,configuration);
+        services.AddScoped<IApprovalScope>(_=>new Scope());
+        services.AddScoped<HrmDbContext>(_=>new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,new FixedTenantAccessor("readiness-only")));
+        await using var provider=services.BuildServiceProvider(new ServiceProviderOptions {ValidateScopes=true});
+        await using var first=provider.CreateAsyncScope();
+        await using var second=provider.CreateAsyncScope();
+        Assert.IsType<UnavailableProcurementPrincipalApprovalSchemaReadiness>(
+            first.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>());
+        var physical=first.ServiceProvider.GetRequiredService<ProcurementPrincipalApprovalStoreReadiness>();
+        Assert.NotSame(physical,second.ServiceProvider.GetRequiredService<ProcurementPrincipalApprovalStoreReadiness>());
+        var scope=new Scope();
+        await using var nonPg=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,scope);
+        Assert.False(await ProcurementLegacyP25SchemaGuard.ReadyAsync(nonPg,first.ServiceProvider,false,default));
+        Assert.False(await ProcurementLegacyP25SchemaGuard.ReadyAsync(nonPg,first.ServiceProvider,true,default));
+        Assert.False(await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(nonPg,first.ServiceProvider,false,default));
+        Assert.False(await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(nonPg,first.ServiceProvider,true,default));
+        Assert.False(await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(nonPg,first.ServiceProvider,false,default));
+    }
+
+    [Fact]
     public async Task Host_explicit_principal_option_resolves_scoped_real_provider_but_not_ready_on_invalid_store()
     {
         var connection="Host=never-used.invalid;Database=not-opened";
