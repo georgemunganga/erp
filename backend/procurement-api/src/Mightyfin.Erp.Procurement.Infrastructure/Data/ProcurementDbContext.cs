@@ -82,6 +82,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 or PrincipalInvoiceState or PrincipalInvoiceMappingVersion or PrincipalInvoiceMappingLine
                 or PrincipalInvoiceUnitReviewSource or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewAttestation or PrincipalInvoiceUnitReviewOutcome
                 or PrincipalInvoiceComparison or PrincipalInvoiceExposureState or PrincipalInvoiceClaim or PrincipalInvoiceCommandReceipt
+                or PrincipalInvoiceDiscrepancy or PrincipalInvoiceDiscrepancyAction
                 or OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
                 or ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt

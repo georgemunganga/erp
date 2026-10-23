@@ -16,7 +16,8 @@ public sealed partial class ProcurementDbContext
                 or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewAttestation
                 or PrincipalInvoiceUnitReviewOutcome
                 or PrincipalInvoiceComparison or PrincipalInvoiceExposureState
-                or PrincipalInvoiceClaim or PrincipalInvoiceCommandReceipt)
+                or PrincipalInvoiceClaim or PrincipalInvoiceCommandReceipt
+                or PrincipalInvoiceDiscrepancy or PrincipalInvoiceDiscrepancyAction)
             .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToArray();
         if (records.Length == 0) return;
         if (!Database.IsNpgsql() || Database.CurrentTransaction is null
@@ -34,7 +35,7 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("PrincipalInvoiceScopeOrDeletionInvalid");
             if (entry.State == EntityState.Added && entry.Entity.Version != 1)
                 throw new InvalidOperationException("PrincipalInvoiceInitialVersionInvalid");
-            if (entry.State == EntityState.Modified && entry.Entity is not (PrincipalInvoiceState or PrincipalInvoiceExposureState))
+            if (entry.State == EntityState.Modified && entry.Entity is not (PrincipalInvoiceState or PrincipalInvoiceExposureState or PrincipalInvoiceDiscrepancy))
                 throw new InvalidOperationException("PrincipalInvoiceEvidenceAppendOnly");
         }
         foreach (var entry in ChangeTracker.Entries<PrincipalInvoiceState>().Where(x => x.State == EntityState.Modified))
@@ -47,6 +48,21 @@ public sealed partial class ProcurementDbContext
                 ("Sequence" or "CoverageState" or "OwnerReference" or "OwnerWatermark"
                     or "OwnerEvidenceSha256" or "OwnerValidUntil" or "Version" or "UpdatedAt" or "UpdatedBy")))
                 throw new InvalidOperationException("PrincipalInvoiceExposureSourceImmutable");
+
+        foreach (var entry in ChangeTracker.Entries<PrincipalInvoiceDiscrepancy>()
+            .Where(x => x.State == EntityState.Modified))
+        {
+            var issue = entry.Entity;
+            if (entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not
+                ("OwnerPrincipalId" or "OwnerWorkerAliasId" or "State" or "DueAt"
+                    or "ResolutionReference" or "ResolvedAt" or "Version" or "UpdatedAt" or "UpdatedBy"))
+                || !ChangeTracker.Entries<PrincipalInvoiceDiscrepancyAction>()
+                    .Any(x => x.State == EntityState.Added && x.Entity.DiscrepancyId == issue.Id
+                        && x.Entity.SupplierInvoiceId == issue.SupplierInvoiceId
+                        && x.Entity.MappingVersionId == issue.MappingVersionId
+                        && x.Entity.ActorPrincipalId == scope.SubjectId))
+                throw new InvalidOperationException("PrincipalInvoiceDiscrepancyActionRequired");
+        }
 
         var added = records.Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
         foreach (var item in ChangeTracker.Entries<PrincipalInvoiceExposureState>()

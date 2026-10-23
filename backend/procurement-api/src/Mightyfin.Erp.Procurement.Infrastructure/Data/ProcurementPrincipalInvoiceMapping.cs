@@ -17,6 +17,8 @@ public sealed partial class ProcurementDbContext
     public DbSet<PrincipalInvoiceExposureState> PrincipalInvoiceExposureStates => Set<PrincipalInvoiceExposureState>();
     public DbSet<PrincipalInvoiceClaim> PrincipalInvoiceClaims => Set<PrincipalInvoiceClaim>();
     public DbSet<PrincipalInvoiceCommandReceipt> PrincipalInvoiceCommandReceipts => Set<PrincipalInvoiceCommandReceipt>();
+    public DbSet<PrincipalInvoiceDiscrepancy> PrincipalInvoiceDiscrepancies => Set<PrincipalInvoiceDiscrepancy>();
+    public DbSet<PrincipalInvoiceDiscrepancyAction> PrincipalInvoiceDiscrepancyActions => Set<PrincipalInvoiceDiscrepancyAction>();
 
     private void ConfigurePrincipalInvoiceMatching(ModelBuilder model)
     {
@@ -31,6 +33,7 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<PrincipalInvoiceExposureState>(model, "principal_invoice_exposure_states");
         ConfigureBase<PrincipalInvoiceClaim>(model, "principal_invoice_claims");
         ConfigureBase<PrincipalInvoiceCommandReceipt>(model, "principal_invoice_receipts");
+        ConfigurePrincipalInvoiceDiscrepancies(model);
 
         const string uuid = "'00000000-0000-0000-0000-000000000000'::uuid";
         const string principal = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
