@@ -299,3 +299,58 @@ transaction's actual same-store pre-BEGIN document fence only for freeze/uses.
 A missing document service or publication policy must not prevent ordinary
 empty Draft CRUD; workflow freeze remains unavailable until those actual owners
 are proven. No detached readiness or synthetic document pin can enable it.
+
+### Fourth bounded slice — unregistered owner repository and real adapters
+
+`PrincipalRfqCommercialDraftStore` now stages actual tracked Draft/revision/
+original receipt/audit/outbox rows on an already active owning Npgsql transaction.
+It does not Save/Commit or authorize a caller projection. Current module action/
+owner/Core branch validation must precede its reads; it additionally confines
+selected-branch queries and denies unsupported department/missing confined
+scope. GET recovery validates the original immutable revision and receipt,
+without current policy/document/catalog eligibility; changed key body/operation
+conflicts and wrong original actor/target is hidden. Draft revision checks logical
+CAS before mutation. Schema and finite-role acceptance are still unverified.
+
+Unmapped `CommercialSave` and `LoadCommercialSource` in the existing RFQ route
+partial reuse actual current Core `PrincipalActor`/`PrincipalOwnedEvent`, original
+sorted PR locks → event lock, `ApprovedDemandSourceLoader.LoadRetainedAsync`,
+complete allocation owners/history and original source verification. There is
+no new copied query/evaluator engine, no current publication-policy lookup in
+Draft Save and no change to source holds/counters. Current action/site/owner is
+verified before original receipt lookup; a replay never re-runs today's new-use
+eligibility. All methods are private/unmapped. Missing options or actual-owning
+P32 schema provider fails unavailable; only an unavailable implementation exists,
+with no registration or capability. Existing P30 handlers remain unchanged.
+
+Preparation's actual Core evaluator resolver loads aliases for ALL original
+makers/requesters and named evaluators in one bounded owning query (including
+archived historical makers with explicit tenant confinement). It resolves each
+current evaluator's live account/action/site separately, caps the unique set100,
+and reuses the same factored denial-only Core alias rule as `IndependentNow`.
+Historical null links cannot bypass newly linked same-worker accounts. Three
+additional pure alias-denial tests are authored, unrun; actual Core/HTTP/PG
+interleavings remain required acceptance. Existing `IndependentNow` lookup and
+authorization behavior is preserved; only its shared pure predicate is factored.
+
+`ProcurementApprovalTransaction.ExecuteWithSourcingDocumentsAsync` reuses its
+existing physical-session branch/catalog → exact Core document owner fence →
+SERIALIZABLE transaction machinery. It fixes owner type `sourcing_event` and
+never invents an invoice owner. The new narrow `CommercialDocumentUseAccess`
+reauthorizes actual Core actor/owner/site on every operation and permits only
+Acquire of the exact version set for a **same-save Added** owned revision plus
+its verified Added original receipt. It denies history/download/publication and
+unowned/detached revisions. `StageCommercialRequirementsForReview` uses the real
+`EfDocumentUsePinStore` and flushes Core evidence on the same physical connection/
+transaction; subsequent owner failure rolls everything back. It is not called by
+ordinary Draft Save, so pending scans/integration do not block empty Draft CRUD.
+An empty optional selection does not require a document store.
+
+This does NOT activate a Prepare endpoint: final preparation must persist the
+candidate/published-commercial-policy binding as owned immutable workflow evidence
+and acknowledge it atomically before any publication consumption. That successor
+workflow storage/composition, genuine P32 schema/readiness/provider, catalog
+registration with empty bootstrap, finite grants, original-key GET endpoints,
+actual Core/document alias/race/rollback proofs and existing UI binding remain
+open gates. No boolean projection/clean scan/current helper or retained use itself
+is approval. No code here submits/seals/opens a bid, evaluates a score or awards.

@@ -101,6 +101,24 @@ public sealed class ProcurementApprovalTransaction
         }
     }
 
+    /// <summary>Exact RFQ document owner on the existing physical session and
+    /// pre-BEGIN lifecycle fence; no route, authority or provider registration.</summary>
+    public async Task<TResult> ExecuteWithSourcingDocumentsAsync<TResult>(Guid eventId,
+        Func<ProcurementDbContext,ApprovalDbContext,DocumentDbContext,DocumentOwnerLifecycleFence,CancellationToken,Task<TResult>> command,
+        CancellationToken cancellationToken=default)
+    {
+        if(eventId==Guid.Empty)throw new ArgumentException("An exact RFQ owner is required.",nameof(eventId));
+        ArgumentNullException.ThrowIfNull(command);
+        for(var attempt=1;;attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try{return await ExecuteAttemptAsync((db,cases,documents,fence,token)=>command(db,cases,documents!,fence!,token),
+                new("procurement","sourcing_event",eventId),false,cancellationToken);}
+            catch(Exception error) when(attempt<3&&IsConfirmedTransactionAbort(error))
+            {await Task.Delay(TimeSpan.FromMilliseconds(40*attempt),cancellationToken);}
+        }
+    }
+
     private async Task<TResult> ExecuteAttemptAsync<TResult>(
         Func<ProcurementDbContext, ApprovalDbContext, DocumentDbContext?, DocumentOwnerLifecycleFence?, CancellationToken, Task<TResult>> command,
         DocumentOwner? documentOwner, bool exclusiveDocuments, CancellationToken ct, bool manualPayments = false)
