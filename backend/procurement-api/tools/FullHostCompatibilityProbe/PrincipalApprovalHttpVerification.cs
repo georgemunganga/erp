@@ -34,7 +34,11 @@ internal static partial class PrincipalApprovalHttpVerification
         var exactBudgetFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_EXACT_BUDGET_WIRE");
         var legacyWorkerFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_LEGACY_WORKER_BRIDGE");
         var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
+        var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
+        Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p29CookieFlag is null || principalRfqFlag=="1",
+            "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
         Need(principalRfqFlag is null || database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
             && matrixFlag is null && schemaFlag is null && accountFlag is null && aliasFlag is null
             && localCookieFlag is null && downFamily is null && exactBudgetFlag is null && legacyWorkerFlag is null
@@ -172,7 +176,12 @@ internal static partial class PrincipalApprovalHttpVerification
                 Need(positive is null or "1","Private manual evidence opt-in must be exactly1.");
                 await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily,principalRfqFlag=="1");
                 if(principalRfqFlag=="1")
-                    await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
+                {
+                    var p29=await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
+                    if(p29CookieFlag=="1")
+                        await ServeP29NormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            p29.RequestId,p29.LineId,p29.EventId,result,Advance);
+                }
                 if(exactBudgetFlag=="1")
                 {
                     Need(result.TryGetValue("positiveApprovalGraph",out var graphAccepted) && graphAccepted is true,
