@@ -16,7 +16,8 @@ public static class PrincipalInvoiceUnitReviewTransitions
         string OriginalInvoiceSha256, string MappingSha256, Guid PurchaseOrderId,
         Guid PrincipalIssuedVersionId, string IssuedSnapshotSha256, Guid MatchingPolicyId,
         string MatchingPolicySha256, Guid ReviewPolicyId, string ReviewPolicySha256,
-        string MakerPrincipalId, Guid? MakerWorkerAliasId, IReadOnlyList<PinnedUnit> Lines);
+        string MakerPrincipalId, Guid? MakerWorkerAliasId, Rules.Projection ReviewProjection,
+        IReadOnlyList<PinnedUnit> Lines);
     public sealed record Plan(PrincipalInvoiceUnitReviewSource Source, ApprovalCase Case,
         IReadOnlyList<PrincipalInvoiceUnitReviewAssignment> Pins);
 
@@ -60,7 +61,7 @@ public static class PrincipalInvoiceUnitReviewTransitions
             mapping.PrincipalIssuedVersionId, mapping.IssuedSnapshotSha256, matching.Id,
             ProcurementEvidenceEncoding.PolicyJsonDigest(matching.RulesJson), review.Id,
             ProcurementEvidenceEncoding.PolicyJsonDigest(review.RulesJson),
-            maker.PrincipalId, maker.WorkerId, pins);
+            maker.PrincipalId, maker.WorkerId, projection, pins);
         var json = JsonSerializer.Serialize(evidence);
         var source = new PrincipalInvoiceUnitReviewSource
         {
@@ -118,7 +119,7 @@ public static class PrincipalInvoiceUnitReviewTransitions
         ApprovalEngine.ValidateNewCase(coreCase);
         Rules.VerifyCaseGraph(projection, coreCase, assignments.Select(x =>
             new InvoiceUnitReviewAssignmentWorker(x.CoreAssignmentId, x.ReviewerPrincipalId,
-                x.ReviewerWorkerAliasId)).ToArray());
+                x.ReviewerWorkerAliasId)).ToArray(), SourceType);
         return new(source, coreCase, assignments);
     }
 
@@ -158,12 +159,20 @@ public static class PrincipalInvoiceUnitReviewTransitions
             && evidence.ReviewPolicyId == source.ReviewPolicyId
             && evidence.MakerPrincipalId == source.MakerPrincipalId
             && evidence.MakerWorkerAliasId == source.MakerWorkerAliasId
+            && evidence.ReviewProjection is not null
+            && evidence.ReviewProjection.PolicyId == source.ReviewPolicyId
+            && evidence.ReviewProjection.RulesSha256 == evidence.ReviewPolicySha256
+            && evidence.ReviewProjection.MakerPrincipalId == source.MakerPrincipalId
+            && evidence.ReviewProjection.MakerWorkerId == source.MakerWorkerAliasId
             && evidence.Lines.Count is > 0 and <= 200
             && evidence.Lines.Select(x => x.InvoiceLineId).Distinct().Count() == evidence.Lines.Count
             && evidence.Lines.All(x => x.InvoiceLineId != Guid.Empty
                 && x.DocumentVersionId != Guid.Empty && Sha(x.DocumentSha256)
                 && !string.IsNullOrWhiteSpace(x.DocumentLineReference)
                 && !string.IsNullOrWhiteSpace(x.UnitCode)));
+        Rules.VerifyCaseGraph(evidence.ReviewProjection, coreCase, assignments.Select(x =>
+            new InvoiceUnitReviewAssignmentWorker(x.CoreAssignmentId, x.ReviewerPrincipalId,
+                x.ReviewerWorkerAliasId)).ToArray(), SourceType);
         return evidence;
     }
 
