@@ -111,7 +111,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     }
 
     private static Task<IResult> PrincipalManualQuoteCreate(Guid id,
-        PrincipalManualQuoteCreateInput input, HttpContext http, ProcurementRequestScope scope,
+        PrincipalManualQuoteCreateInput? input, HttpContext http, ProcurementRequestScope scope,
         CancellationToken ct)
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
@@ -121,7 +121,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
             await LockPrincipalSourcingCommandKey(db, key, token);
-            if (id == Guid.Empty || input.InvitationId == Guid.Empty)
+            if (input is null || id == Guid.Empty || input.InvitationId == Guid.Empty)
                 throw new Problem("SourcingManualQuoteInputInvalid", 422);
             QuoteLinesValid(input.Lines);
             var actor = await PrincipalActor(core, scope, http, auth,
@@ -278,13 +278,13 @@ public static partial class ProcurementSourcingExecutionRoutes
     }
 
     private static Task<IResult> PrincipalManualQuoteRevise(Guid id, Guid bidId,
-        PrincipalManualQuoteReviseInput input, HttpContext http, ProcurementRequestScope scope,
-        CancellationToken ct) => PrincipalManualQuoteWrite(id, bidId, input.ExpectedBidVersion,
-            "Revise", input.Lines, http, scope, ct);
+        PrincipalManualQuoteReviseInput? input, HttpContext http, ProcurementRequestScope scope,
+        CancellationToken ct) => PrincipalManualQuoteWrite(id, bidId, input?.ExpectedBidVersion ?? 0,
+            "Revise", input?.Lines, http, scope, ct);
 
     private static Task<IResult> PrincipalManualQuoteCancel(Guid id, Guid bidId,
-        PrincipalManualQuoteCancelInput input, HttpContext http, ProcurementRequestScope scope,
-        CancellationToken ct) => PrincipalManualQuoteWrite(id, bidId, input.ExpectedBidVersion,
+        PrincipalManualQuoteCancelInput? input, HttpContext http, ProcurementRequestScope scope,
+        CancellationToken ct) => PrincipalManualQuoteWrite(id, bidId, input?.ExpectedBidVersion ?? 0,
             "Cancel", null, http, scope, ct);
 
     private static Task<IResult> PrincipalManualQuoteWrite(Guid id, Guid bidId, long expectedBidVersion,
