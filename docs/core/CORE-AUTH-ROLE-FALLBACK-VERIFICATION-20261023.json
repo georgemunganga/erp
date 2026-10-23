@@ -1,0 +1,28 @@
+{
+  "status": "PASS_TARGETED_COMBINED_CORE_ROLE_REGRESSION",
+  "source": "3b4a7cbee779e67c8aca7c3582d3a493b15965c5",
+  "corePatchSource": "9244b963835b3b880e9e8a85ede9df28fe8cdcba",
+  "trx": "/home/amizo/erp-backups/procurement-p25-payment-combined-build-20261023_run06/tests/core-role-combined.trx",
+  "trxSha256": "d1a05f739ef7e2c116c5cc5a563579379807b3756f9279e7db92fe5a95d2c523",
+  "counts": {
+    "total": "12",
+    "executed": "12",
+    "passed": "12",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "buildResultSha256": "f365a5bb96ecf87cbc1c4274896aaa739d6104438725853307fc6881a7ba3582",
+  "failedEnvironmentAttempt": "/home/amizo/erp-backups/core-role-fallback-20261023_run01/result.json",
+  "productionChanged": false
+}
