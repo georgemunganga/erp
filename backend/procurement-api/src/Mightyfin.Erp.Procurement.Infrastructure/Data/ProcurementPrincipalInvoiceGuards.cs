@@ -53,14 +53,32 @@ public sealed partial class ProcurementDbContext
             .Where(x => x.State == EntityState.Modified))
         {
             var issue = entry.Entity;
+            var priorState = entry.OriginalValues.GetValue<string>(nameof(PrincipalInvoiceDiscrepancy.State));
+            var priorOwner = entry.OriginalValues.GetValue<string>(nameof(PrincipalInvoiceDiscrepancy.OwnerPrincipalId));
+            var actions = ChangeTracker.Entries<PrincipalInvoiceDiscrepancyAction>()
+                .Where(x => x.State == EntityState.Added && x.Entity.DiscrepancyId == issue.Id
+                    && x.Entity.SupplierInvoiceId == issue.SupplierInvoiceId
+                    && x.Entity.MappingVersionId == issue.MappingVersionId
+                    && x.Entity.ActorPrincipalId == scope.SubjectId)
+                .Select(x => x.Entity).ToArray();
             if (entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not
                 ("OwnerPrincipalId" or "OwnerWorkerAliasId" or "State" or "DueAt"
                     or "ResolutionReference" or "ResolvedAt" or "Version" or "UpdatedAt" or "UpdatedBy"))
-                || !ChangeTracker.Entries<PrincipalInvoiceDiscrepancyAction>()
-                    .Any(x => x.State == EntityState.Added && x.Entity.DiscrepancyId == issue.Id
-                        && x.Entity.SupplierInvoiceId == issue.SupplierInvoiceId
-                        && x.Entity.MappingVersionId == issue.MappingVersionId
-                        && x.Entity.ActorPrincipalId == scope.SubjectId))
+                || priorState is "Resolved" or "CancelledWithReason" || actions.Length != 1
+                || !((actions[0].Action == "Assigned" && issue.State == "InReview"
+                        && issue.OwnerPrincipalId != priorOwner && issue.ResolvedAt is null)
+                    || (actions[0].Action == "CorrectionRequested"
+                        && issue.State == "AwaitingCorrection" && issue.OwnerPrincipalId == priorOwner
+                        && issue.ResolvedAt is null)
+                    || (actions[0].Action == "ReadyToRetry"
+                        && issue.State == "ReadyToRetry" && issue.OwnerPrincipalId == priorOwner
+                        && issue.ResolvedAt is null)
+                    || (actions[0].Action == "Resolved" && issue.State == "Resolved"
+                        && issue.ResolvedAt == actions[0].At
+                        && issue.ResolutionReference == actions[0].ResolvingComparisonId?.ToString("D"))
+                    || (actions[0].Action == "CancelledWithReason"
+                        && issue.State == "CancelledWithReason" && issue.ResolvedAt == actions[0].At
+                        && issue.ResolutionReference == actions[0].EvidenceReference)))
                 throw new InvalidOperationException("PrincipalInvoiceDiscrepancyActionRequired");
         }
 
@@ -107,6 +125,48 @@ public sealed partial class ProcurementDbContext
         PrincipalInvoiceCommandReceipt Receipt(Guid invoiceId, string operation)
             => added.OfType<PrincipalInvoiceCommandReceipt>().Single(x => x.SupplierInvoiceId == invoiceId && x.Operation == operation);
 
+        foreach (var issue in added.OfType<PrincipalInvoiceDiscrepancy>())
+        {
+            var mapping = Mapping(issue.MappingVersionId);
+            var state = State(issue.SupplierInvoiceId);
+            var receipt = Receipt(issue.SupplierInvoiceId, "Compare");
+            if (mapping.SupplierInvoiceId != issue.SupplierInvoiceId
+                || mapping.PurchaseOrderId != issue.PurchaseOrderId
+                || mapping.PrincipalIssuedVersionId != issue.PrincipalIssuedVersionId
+                || mapping.BranchId != issue.BranchId
+                || mapping.OriginalInvoiceSha256 != issue.OriginalInvoiceSha256
+                || state.CurrentMappingId != mapping.Id || state.State != "ComparisonBlocked"
+                || issue.CommandKey != receipt.CommandKey
+                || issue.OwnerPrincipalId != scope.SubjectId
+                || issue.OwnerWorkerAliasId != scope.CoreLinkedWorkerId
+                || !added.OfType<PrincipalInvoiceDiscrepancyAction>().Any(x =>
+                    x.DiscrepancyId == issue.Id && x.SupplierInvoiceId == issue.SupplierInvoiceId
+                    && x.MappingVersionId == mapping.Id && x.Action == "Opened"
+                    && x.CommandKey == issue.CommandKey && x.ActorPrincipalId == scope.SubjectId))
+                throw new InvalidOperationException("PrincipalInvoiceBlockedIssueSourceChanged");
+        }
+        foreach (var action in added.OfType<PrincipalInvoiceDiscrepancyAction>())
+        {
+            var issue = added.OfType<PrincipalInvoiceDiscrepancy>()
+                .SingleOrDefault(x => x.Id == action.DiscrepancyId)
+                ?? PrincipalInvoiceDiscrepancies.Single(x => x.Id == action.DiscrepancyId);
+            if (action.SupplierInvoiceId != issue.SupplierInvoiceId
+                || action.MappingVersionId != issue.MappingVersionId
+                || action.ActorPrincipalId != scope.SubjectId
+                || action.ActorWorkerAliasId != scope.CoreLinkedWorkerId
+                || action.At == default || string.IsNullOrWhiteSpace(action.Reason)
+                || action.Action is ("Assigned" or "Commented" or "CorrectionRequested" or "ReadyToRetry")
+                    && issue.State is ("Resolved" or "CancelledWithReason")
+                || action.Action == "Opened" && (issue.CommandKey != action.CommandKey
+                    || !added.Contains(issue))
+                || action.Action == "Resolved" && (action.ResolvingComparisonId is not { } resultId
+                    || !added.OfType<PrincipalInvoiceComparison>().Any(x => x.Id == resultId
+                        && x.SupplierInvoiceId == issue.SupplierInvoiceId)
+                    || issue.State != "Resolved")
+                || action.Action == "CancelledWithReason" && issue.State != "CancelledWithReason")
+                throw new InvalidOperationException("PrincipalInvoiceDiscrepancyActionChanged");
+        }
+
         foreach (var item in ChangeTracker.Entries<PrincipalInvoiceState>()
             .Where(x => x.State == EntityState.Modified))
         {
@@ -128,10 +188,21 @@ public sealed partial class ProcurementDbContext
             {
                 var compare = added.OfType<PrincipalInvoiceComparison>()
                     .SingleOrDefault(x => x.SupplierInvoiceId == state.SupplierInvoiceId);
-                if (originalState != "Reviewed" || compare is null
+                if (originalState is not ("Reviewed" or "ComparisonBlocked") || compare is null
                     || state.LastComparisonId != compare.Id || state.ActiveClaimComparisonId != compare.Id
                     || Receipt(state.SupplierInvoiceId, "Compare").CommandKey != compare.CommandKey)
                     throw new InvalidOperationException("PrincipalInvoiceComparedStateRequiresClaim");
+            }
+            else if (state.State == "ComparisonBlocked")
+            {
+                var issues = added.OfType<PrincipalInvoiceDiscrepancy>()
+                    .Where(x => x.SupplierInvoiceId == state.SupplierInvoiceId
+                        && x.MappingVersionId == state.CurrentMappingId).ToArray();
+                if (originalState is not ("Reviewed" or "ComparisonBlocked")
+                    || issues.Length == 0 || state.LastComparisonId is not null
+                    || state.ActiveClaimComparisonId is not null
+                    || issues.Any(x => x.CommandKey != Receipt(state.SupplierInvoiceId, "Compare").CommandKey))
+                    throw new InvalidOperationException("PrincipalInvoiceBlockedStateRequiresOwnedIssue");
             }
             else if (state.State == "Mapped")
             {
@@ -144,7 +215,20 @@ public sealed partial class ProcurementDbContext
                         && (x.State == "Returned" || x.State == "Rejected")) : null;
                 var mapping = added.OfType<PrincipalInvoiceMappingVersion>()
                     .SingleOrDefault(x => x.SupplierInvoiceId == state.SupplierInvoiceId);
-                if (originalState != "Mapped" || oldReview is null || oldOutcome is null
+                var oldBlocked = originalState == "ComparisonBlocked"
+                    && oldMap is { } blockedMapping
+                    && PrincipalInvoiceDiscrepancies.Any(x => x.SupplierInvoiceId == state.SupplierInvoiceId
+                        && x.MappingVersionId == blockedMapping && x.State != "Resolved")
+                    && oldReview is not null
+                    && PrincipalInvoiceUnitReviewOutcomes.Any(x => x.ReviewSourceId == oldReview.Id
+                        && x.State == "Verified")
+                    && added.OfType<PrincipalInvoiceDiscrepancyAction>().Any(x =>
+                        x.SupplierInvoiceId == state.SupplierInvoiceId
+                        && x.MappingVersionId == blockedMapping
+                        && x.Action == "CancelledWithReason"
+                        && x.CommandKey == Receipt(state.SupplierInvoiceId, "Map").CommandKey);
+                if (originalState != "Mapped" && !oldBlocked
+                    || originalState == "Mapped" && (oldReview is null || oldOutcome is null)
                     || mapping is null || state.CurrentMappingId != mapping.Id
                     || state.MappingRevision != checked(previous.GetValue<int>(nameof(PrincipalInvoiceState.MappingRevision)) + 1)
                     || state.LastComparisonId is not null || state.ActiveClaimComparisonId is not null
@@ -324,7 +408,11 @@ public sealed partial class ProcurementDbContext
                         && PrincipalInvoiceUnitReviewSources.Any(review => review.Id == attestation.ReviewSourceId && review.SupplierInvoiceId == invoice.Id)
                         || x is PrincipalInvoiceUnitReviewOutcome outcome
                         && PrincipalInvoiceUnitReviewSources.Any(review => review.Id == outcome.ReviewSourceId && review.SupplierInvoiceId == invoice.Id),
-                    "Compare" => x is PrincipalInvoiceComparison result && result.SupplierInvoiceId == invoice.Id,
+                    "Compare" => x is PrincipalInvoiceComparison result && result.SupplierInvoiceId == invoice.Id
+                        || x is PrincipalInvoiceDiscrepancy issue && issue.SupplierInvoiceId == invoice.Id
+                            && issue.CommandKey == receipt.CommandKey,
+                    "IssueAction" => x is PrincipalInvoiceDiscrepancyAction action
+                        && action.SupplierInvoiceId == invoice.Id && action.CommandKey == receipt.CommandKey,
                     _ => false,
                 }))
                 throw new InvalidOperationException("PrincipalInvoiceCommandReceiptEffectRequired");
@@ -371,13 +459,41 @@ public sealed partial class ProcurementDbContext
             else if (receipt.Operation == "Compare")
             {
                 var comparison = added.OfType<PrincipalInvoiceComparison>()
-                    .Single(x => x.SupplierInvoiceId == invoice.Id);
-                if (response.GetProperty("comparisonId").GetGuid() != comparison.Id
-                    || response.GetProperty("mappingVersionId").GetGuid() != comparison.MappingVersionId
-                    || response.GetProperty("invoiceVersion").GetInt64() != comparison.InvoiceVersion
-                    || receipt.CommandKey != comparison.CommandKey
-                    || receipt.CompletedAt != comparison.ComparedAt)
-                    throw new InvalidOperationException("PrincipalInvoiceComparisonReceiptChanged");
+                    .SingleOrDefault(x => x.SupplierInvoiceId == invoice.Id);
+                if (comparison is not null)
+                {
+                    if (response.GetProperty("comparisonId").GetGuid() != comparison.Id
+                        || response.GetProperty("mappingVersionId").GetGuid() != comparison.MappingVersionId
+                        || response.GetProperty("invoiceVersion").GetInt64() != comparison.InvoiceVersion
+                        || receipt.CommandKey != comparison.CommandKey
+                        || receipt.CompletedAt != comparison.ComparedAt)
+                        throw new InvalidOperationException("PrincipalInvoiceComparisonReceiptChanged");
+                }
+                else
+                {
+                    var issues = added.OfType<PrincipalInvoiceDiscrepancy>()
+                        .Where(x => x.SupplierInvoiceId == invoice.Id && x.CommandKey == receipt.CommandKey)
+                        .ToArray();
+                    var recorded = response.GetProperty("issues").EnumerateArray()
+                        .Select(x => x.GetProperty("issueId").GetGuid()).ToArray();
+                    if (issues.Length == 0 || issues.Length != recorded.Length
+                        || !issues.Select(x => x.Id).Order().SequenceEqual(recorded.Order())
+                        || response.GetProperty("state").GetString() != "ComparisonBlocked"
+                        || response.GetProperty("commercialClaimRecorded").GetBoolean()
+                        || response.GetProperty("comparisonId").ValueKind != JsonValueKind.Null)
+                        throw new InvalidOperationException("PrincipalInvoiceBlockedReceiptChanged");
+                }
+            }
+            else if (receipt.Operation == "IssueAction")
+            {
+                var action = added.OfType<PrincipalInvoiceDiscrepancyAction>()
+                    .Single(x => x.SupplierInvoiceId == invoice.Id && x.CommandKey == receipt.CommandKey);
+                if (response.GetProperty("invoiceId").GetGuid() != invoice.Id
+                    || response.GetProperty("issueId").GetGuid() != action.DiscrepancyId
+                    || response.GetProperty("actionId").GetGuid() != action.Id
+                    || response.GetProperty("commandKey").GetGuid() != action.CommandKey
+                    || receipt.CompletedAt != action.At)
+                    throw new InvalidOperationException("PrincipalInvoiceDiscrepancyReceiptChanged");
             }
         }
     }

@@ -62,7 +62,7 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
                 ?? throw new InvalidOperationException("PrincipalInvoiceMappingChanged");
             if (invoice.Version != input.InvoiceVersion || state.InvoiceVersion != invoice.Version
                 || state.CurrentMappingId != mapping.Id || state.MappingRevision != mapping.MappingRevision
-                || state.State != "Reviewed"
+                || state.State is not ("Reviewed" or "ComparisonBlocked")
                 || state.ActiveClaimComparisonId is not null || invoice.ActiveMatchClaimResultId is not null
                 || invoice.CurrentMappingVersionId is not null || invoice.FinancePostingRef is not null)
                 throw new InvalidOperationException("PrincipalInvoiceOriginalOrClaimChanged");
@@ -133,7 +133,82 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
                 ownerContext, owned.Consumption,
                 new(duplicateWatermark, true, duplicates), now);
             if (!preview.CanClaim || preview.Lines.Count != original.Length)
-                throw new InvalidOperationException("PrincipalInvoiceComparisonNeedsResolution");
+            {
+                var blockers = preview.Blockers
+                    .DistinctBy(x => (x.InvoiceLineId, x.Code)).ToArray();
+                if (blockers.Length == 0 || blockers.Length > 200)
+                    throw new InvalidOperationException("PrincipalInvoiceComparisonNeedsResolution");
+                var issues = new List<object>();
+                foreach (var blocker in blockers)
+                {
+                    var issueKey = ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new
+                    {
+                        invoiceId = id, mappingVersionId = mapping.Id,
+                        blocker.InvoiceLineId, blocker.Code
+                    }, Json));
+                    var issue = new PrincipalInvoiceDiscrepancy
+                    {
+                        TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                        SupplierInvoiceId = id, MappingVersionId = mapping.Id,
+                        PurchaseOrderId = mapping.PurchaseOrderId,
+                        PrincipalIssuedVersionId = mapping.PrincipalIssuedVersionId,
+                        BranchId = invoice.BranchRef!.Value,
+                        SupplierInvoiceLineId = blocker.InvoiceLineId,
+                        CommandKey = key, OriginalInvoiceSha256 = mapping.OriginalInvoiceSha256,
+                        Code = blocker.Code, IssueKeySha256 = issueKey,
+                        OwnerPrincipalId = scope.SubjectId,
+                        OwnerWorkerAliasId = scope.CoreLinkedWorkerId,
+                        State = "Open", OpenedAt = now
+                    };
+                    db.AddScoped(issue);
+                    db.AddScoped(new PrincipalInvoiceDiscrepancyAction
+                    {
+                        TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                        DiscrepancyId = issue.Id, SupplierInvoiceId = id,
+                        MappingVersionId = mapping.Id, Action = "Opened",
+                        ActorPrincipalId = scope.SubjectId,
+                        ActorWorkerAliasId = scope.CoreLinkedWorkerId,
+                        Reason = "Review the original bill and retained purchasing evidence.",
+                        CommandKey = key, At = now
+                    });
+                    issues.Add(new { issueId = issue.Id, blocker.InvoiceLineId,
+                        blocker.Code, ownerPrincipalId = scope.SubjectId, state = "Open" });
+                }
+                state.State = "ComparisonBlocked";
+                var blocked = JsonSerializer.Serialize(new
+                {
+                    invoiceId = id, invoiceVersion = invoice.Version,
+                    mappingVersionId = mapping.Id, comparisonId = (Guid?)null,
+                    commandKey = key, state = "ComparisonBlocked",
+                    sourceSchemaVersion = 2, issues,
+                    commercialClaimRecorded = false,
+                    canPostToFinance = false, financePostingId = (Guid?)null
+                }, Json);
+                db.AddScoped(new PrincipalInvoiceCommandReceipt
+                {
+                    TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                    SupplierInvoiceId = id, Operation = "Compare", CommandKey = key,
+                    ActorPrincipalId = scope.SubjectId,
+                    ActorWorkerAliasId = scope.CoreLinkedWorkerId,
+                    BranchId = invoice.BranchRef.Value, RequestSha256 = requestSha,
+                    ResponseJson = blocked,
+                    ResponseSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(blocked),
+                    ResponseStatus = 200, CompletedAt = now
+                });
+                db.AddScoped(new AuditEvent
+                {
+                    RecordType = nameof(PrincipalInvoiceDiscrepancy), RecordId = id,
+                    ActorSubjectId = scope.SubjectId, Action = "PrincipalInvoiceComparisonBlocked",
+                    ChangedFieldsJson = JsonSerializer.Serialize(new
+                    {
+                        invoiceId = id, mappingVersionId = mapping.Id,
+                        commandKey = key, issueCount = blockers.Length,
+                        canPostToFinance = false
+                    }, Json)
+                });
+                await db.SaveChangesAsync(token);
+                return JsonSerializer.Deserialize<JsonElement>(blocked, Json);
+            }
             var evidence = JsonSerializer.Serialize(new { schemaVersion = 2, invoiceId = id,
                 mappingVersionId = mapping.Id, outcomeId = outcome.Id, issuedVersionId = mapping.PrincipalIssuedVersionId,
                 policyId = policy.Id, policySha256 = policySha, ownerReference = owned.Owner.OwnerReference,
@@ -156,6 +231,25 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
                 CommandKey = key, ComparedAt = now
             };
             db.AddScoped(comparison);
+            var resolvedIssues = await db.PrincipalInvoiceDiscrepancies
+                .Where(x => x.SupplierInvoiceId == id && x.MappingVersionId == mapping.Id
+                    && x.State != "Resolved" && x.State != "CancelledWithReason")
+                .ToArrayAsync(token);
+            foreach (var issue in resolvedIssues)
+            {
+                issue.State = "Resolved"; issue.ResolvedAt = now;
+                issue.ResolutionReference = comparison.Id.ToString("D");
+                db.AddScoped(new PrincipalInvoiceDiscrepancyAction
+                {
+                    TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                    DiscrepancyId = issue.Id, SupplierInvoiceId = id,
+                    MappingVersionId = mapping.Id, Action = "Resolved",
+                    ActorPrincipalId = scope.SubjectId,
+                    ActorWorkerAliasId = scope.CoreLinkedWorkerId,
+                    Reason = "The new complete comparison resolved this recorded discrepancy.",
+                    ResolvingComparisonId = comparison.Id, CommandKey = key, At = now
+                });
+            }
             foreach (var line in preview.Lines)
             {
                 var binding = mapped.Single(x => x.SupplierInvoiceLineId == line.InvoiceLineId);
@@ -242,10 +336,30 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
                 || receipt.ResponseSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.ResponseJson))
                 throw new KeyNotFoundException();
             var comparison = await db.PrincipalInvoiceComparisons.AsNoTracking()
-                .SingleOrDefaultAsync(x => x.SupplierInvoiceId == id && x.CommandKey == key, token)
-                ?? throw new InvalidOperationException("PrincipalInvoiceComparisonReceiptWithoutEffect");
+                .SingleOrDefaultAsync(x => x.SupplierInvoiceId == id && x.CommandKey == key, token);
             using var parsed = JsonDocument.Parse(receipt.ResponseJson);
             var response = parsed.RootElement;
+            if (comparison is null)
+            {
+                var issues = await db.PrincipalInvoiceDiscrepancies.AsNoTracking()
+                    .Where(x => x.SupplierInvoiceId == id && x.CommandKey == key
+                        && x.BranchId == invoice.BranchRef)
+                    .ToArrayAsync(token);
+                var recorded = response.GetProperty("issues").EnumerateArray()
+                    .Select(x => x.GetProperty("issueId").GetGuid()).ToArray();
+                if (issues.Length == 0 || issues.Length != recorded.Length
+                    || issues.Any(x => x.OwnerPrincipalId != scope.SubjectId
+                        || x.OwnerWorkerAliasId != scope.CoreLinkedWorkerId)
+                    || !issues.Select(x => x.Id).Order().SequenceEqual(recorded.Order())
+                    || response.GetProperty("invoiceId").GetGuid() != id
+                    || response.GetProperty("commandKey").GetGuid() != key
+                    || response.GetProperty("sourceSchemaVersion").GetInt32() != 2
+                    || response.GetProperty("state").GetString() != "ComparisonBlocked"
+                    || response.GetProperty("commercialClaimRecorded").GetBoolean()
+                    || response.GetProperty("canPostToFinance").GetBoolean())
+                    throw new InvalidOperationException("PrincipalInvoiceBlockedReceiptChanged");
+                return JsonSerializer.Deserialize<JsonElement>(receipt.ResponseJson, Json);
+            }
             if (comparison.ActorPrincipalId != scope.SubjectId
                 || comparison.ActorWorkerAliasId != scope.CoreLinkedWorkerId
                 || comparison.Outcome != "Compared"

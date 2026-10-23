@@ -58,5 +58,13 @@ public sealed class PrincipalInvoiceOwnershipModelTests
             "SupplierInvoiceId", "PurchaseOrderId", "PrincipalIssuedVersionId");
         Has<PrincipalInvoiceClaim, PrincipalReceivingFact>("TenantId", "LegalEntityId",
             "PrincipalAcceptanceFactId", "PrincipalReceivingSourceStateId", "AcceptanceSequence");
+        Has<PrincipalInvoiceDiscrepancy, PrincipalInvoiceMappingVersion>("TenantId", "LegalEntityId",
+            "MappingVersionId", "SupplierInvoiceId", "PurchaseOrderId", "PrincipalIssuedVersionId");
+        Has<PrincipalInvoiceDiscrepancy, SupplierInvoiceLine>("TenantId", "LegalEntityId",
+            "SupplierInvoiceLineId", "SupplierInvoiceId");
+        Has<PrincipalInvoiceDiscrepancyAction, PrincipalInvoiceDiscrepancy>("TenantId", "LegalEntityId",
+            "DiscrepancyId", "SupplierInvoiceId", "MappingVersionId");
+        Has<PrincipalInvoiceDiscrepancyAction, PrincipalInvoiceComparison>("TenantId", "LegalEntityId",
+            "ResolvingComparisonId", "SupplierInvoiceId", "MappingVersionId");
     }
 }

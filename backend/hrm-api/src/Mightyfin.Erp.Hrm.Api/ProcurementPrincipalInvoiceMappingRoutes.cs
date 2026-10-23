@@ -85,7 +85,7 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
             {
                 if (state.Version != input.ExpectedStateVersion
                     || state.MappingRevision != input.ExpectedMappingRevision
-                    || state.State != "Mapped" || state.LastComparisonId is not null
+                    || state.State is not ("Mapped" or "ComparisonBlocked") || state.LastComparisonId is not null
                     || state.ActiveClaimComparisonId is not null
                     || state.InvoiceVersion != invoice.Version
                     || state.BranchId != invoice.BranchRef || state.SupplierId != invoice.SupplierId
@@ -97,14 +97,20 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
                     ?? throw new InvalidOperationException("PrincipalInvoicePreviousReviewRequired");
                 var oldOutcome = await db.PrincipalInvoiceUnitReviewOutcomes.SingleOrDefaultAsync(x =>
                     x.ReviewSourceId == oldReview.Id
-                        && (x.State == "Returned" || x.State == "Rejected"), token)
-                    ?? throw new InvalidOperationException("PrincipalInvoiceReturnedReviewRequired");
+                        && (state.State == "ComparisonBlocked" ? x.State == "Verified"
+                            : x.State == "Returned" || x.State == "Rejected"), token)
+                    ?? throw new InvalidOperationException("PrincipalInvoicePreviousReviewOutcomeRequired");
                 var coreCase = await cases.Cases.SingleOrDefaultAsync(x => x.Id == oldReview.CoreCaseId
                     && x.SourceId == oldReview.Id
                     && x.SourceType == PrincipalInvoiceUnitReviewTransitions.SourceType, token);
                 if (coreCase is null || coreCase.State != oldOutcome.State
                     || coreCase.CompletedAt != oldOutcome.CompletedAt)
                     throw new InvalidOperationException("PrincipalInvoicePreviousCoreDecisionChanged");
+                if (state.State == "ComparisonBlocked"
+                    && !await db.PrincipalInvoiceDiscrepancies.AnyAsync(x =>
+                        x.SupplierInvoiceId == id && x.MappingVersionId == oldMapId
+                            && x.State != "Resolved" && x.State != "CancelledWithReason", token))
+                    throw new InvalidOperationException("PrincipalInvoiceRecordedDiscrepancyRequired");
             }
             var source = await ProcurementPrincipalInvoiceSourceBridge.LoadAsync(db, cases, scope,
                 branches, invoice, input.PurchaseOrderId, input.PrincipalIssuedVersionId, token);
@@ -153,6 +159,29 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
             {
                 state.MappingRevision = nextRevision;
                 state.CurrentMappingId = mapping.Id;
+                if (state.State == "ComparisonBlocked")
+                {
+                    var oldIssues = await db.PrincipalInvoiceDiscrepancies.Where(x =>
+                        x.SupplierInvoiceId == id && x.MappingVersionId != mapping.Id
+                            && x.State != "Resolved" && x.State != "CancelledWithReason")
+                        .ToArrayAsync(token);
+                    foreach (var issue in oldIssues)
+                    {
+                        issue.State = "CancelledWithReason"; issue.ResolvedAt = now;
+                        issue.ResolutionReference = mapping.Id.ToString("D");
+                        db.AddScoped(new PrincipalInvoiceDiscrepancyAction
+                        {
+                            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                            DiscrepancyId = issue.Id, SupplierInvoiceId = id,
+                            MappingVersionId = issue.MappingVersionId,
+                            Action = "CancelledWithReason", ActorPrincipalId = scope.SubjectId,
+                            ActorWorkerAliasId = scope.CoreLinkedWorkerId,
+                            Reason = "Superseded by a new corrected invoice line mapping.",
+                            EvidenceReference = mapping.Id.ToString("D"), CommandKey = key, At = now
+                        });
+                    }
+                }
+                state.State = "Mapped";
             }
             db.AddScoped(mapping);
             foreach (var line in input.Lines)

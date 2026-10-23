@@ -45,7 +45,7 @@ public sealed partial class ProcurementDbContext
         action.Property(x => x.ActorPrincipalId).HasMaxLength(36);
         action.Property(x => x.Reason).HasMaxLength(2000);
         action.Property(x => x.EvidenceReference).HasMaxLength(200);
-        action.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique()
+        action.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.DiscrepancyId, x.CommandKey }).IsUnique()
             .HasDatabaseName("ux_pi_discrepancy_action_command");
         action.HasOne<PrincipalInvoiceDiscrepancy>().WithMany()
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.DiscrepancyId,

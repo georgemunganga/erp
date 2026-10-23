@@ -2,6 +2,8 @@
 
 **Status:** held source design, 23 October 2026. It does not enable comparison, AP posting or payment. This is an additive schema-2 workflow; existing worker-era `InvoiceException` rows and keys remain unchanged.
 
+**Source checkpoint:** Typed discrepancy/action records, exact owner FKs, a known-blocker Compare path with no claim, scoped list/action/recovery routes and correction remap/retry are authored on an isolated branch. They are not registered. The genuine additive EF migration, database deferred guards, finite privileges, mapped tests and actual PostgreSQL/normal-cookie proof remain required. An unavailable owner or a failed source read still returns unavailable and does not fabricate a discrepancy or zero capacity.
+
 ## 1. Feature Identification
 Principal invoice discrepancy from a typed issued PO2/original bill comparison.
 ## 2. Purpose and Business Outcome

@@ -230,6 +230,6 @@ public sealed partial class ProcurementDbContext
         receipt.Property(x => x.ResponseJson).HasColumnType("text");
         receipt.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Operation, x.CommandKey }).IsUnique().HasDatabaseName("ux_pi_receipt_command");
         Link<PrincipalInvoiceCommandReceipt, SupplierInvoice>(model, nameof(PrincipalInvoiceCommandReceipt.SupplierInvoiceId));
-        receipt.ToTable(t => t.HasCheckConstraint("ck_pi_receipt", $"supplier_invoice_id <> {uuid} AND branch_id <> {uuid} AND operation IN ('Map','OpenReview','DecideReview','Compare') AND command_key <> {uuid} AND actor_principal_id ~ '{principal}' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id <> {uuid}) AND request_sha256 ~ '{sha}' AND response_sha256 ~ '{sha}' AND response_status BETWEEN 200 AND 299 AND octet_length(response_json) BETWEEN 1 AND 262144 AND isfinite(completed_at)"));
+        receipt.ToTable(t => t.HasCheckConstraint("ck_pi_receipt", $"supplier_invoice_id <> {uuid} AND branch_id <> {uuid} AND operation IN ('Map','OpenReview','DecideReview','Compare','IssueAction') AND command_key <> {uuid} AND actor_principal_id ~ '{principal}' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id <> {uuid}) AND request_sha256 ~ '{sha}' AND response_sha256 ~ '{sha}' AND response_status BETWEEN 200 AND 299 AND octet_length(response_json) BETWEEN 1 AND 262144 AND isfinite(completed_at)"));
     }
 }

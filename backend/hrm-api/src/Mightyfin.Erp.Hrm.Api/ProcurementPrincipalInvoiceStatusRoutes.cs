@@ -64,7 +64,7 @@ public static class ProcurementPrincipalInvoiceStatusRoutes
             if (exposure.BranchId != state.BranchId || exposure.SupplierId != state.SupplierId
                 || exposure.CurrencyCode != state.CurrencyCode)
                 throw new InvalidOperationException("PrincipalInvoiceExposureSourceChanged");
-            if (state.State == "Reviewed" && outcome?.State != "Verified"
+            if (state.State is ("Reviewed" or "ComparisonBlocked") && outcome?.State != "Verified"
                 || state.State == "Compared" && state.ActiveClaimComparisonId is null)
                 throw new InvalidOperationException("PrincipalInvoiceStateOutcomeChanged");
             return new { invoiceId = id, invoiceVersion = invoice.Version,
