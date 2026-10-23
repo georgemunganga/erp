@@ -78,7 +78,8 @@ public sealed class PrincipalOrderGovernancePersistenceTests
         await using(var db=new ProcurementDbContext(options,new Scope(tenant,company,recorder)))
         {
             var funding=await db.PrincipalOrderFundingEvidence.SingleAsync();
-            funding.CurrencyCode="USD";
+            // Simulate a persistence-layer overwrite of an immutable public field.
+            db.Entry(funding).Property(x=>x.CurrencyCode).CurrentValue="USD";
             await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
         }
         await using(var db=new ProcurementDbContext(options,new Scope(tenant,company,buyer)))
