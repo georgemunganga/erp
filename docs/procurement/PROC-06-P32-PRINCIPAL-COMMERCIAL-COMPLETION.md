@@ -245,3 +245,57 @@ evaluators under the actual Core fence; it must run the existing current-alias
 independence checks in addition to retained aliases. Historical null worker IDs
 cannot excuse two newly linked accounts for one worker. No test fixture or pure
 candidate establishes that runtime guarantee.
+
+### Third bounded slice — Draft-only typed persistence proposal
+
+Commercial Draft creation/revision has no publication-policy, mandatory-pack,
+scanner, Finance or scoring prerequisite. `PrincipalRfqCommercialDraft` permits
+an empty explicit input (unconfigured evaluation/window/comparison and zero
+selected requirements). Present complete evaluation definitions remain strict;
+foreign FX/tax assumptions and malformed selections are not invented or silently
+coerced. It checks current supplied owner/action/site and the retained original
+RFQ envelope/bindings. Invalid/stale revise validates completely before mutating
+the header. Original revisions remain immutable; historical restoration also
+verifies the same-command original receipt and response-bound snapshot SHA.
+No quotation is submitted, source quantity changed, supplier contacted or award
+made. The proposed distinct configure action is still unregistered/ungranted.
+
+Additive proposed tables: `rfq_commercial_drafts` (one per scoped event; mutable
+logical revision/SHA only), `rfq_commercial_revisions` (immutable typed snapshot
+and original actor/key), `rfq_commercial_receipts` (immutable original key/body
+fingerprint/response and revision). They reference genuine scoped original RFQ
+source rows, never a placeholder PO. No existing column/precision/backfill is
+changed. New entity keys use stable scoped IDs with explicit short physical
+names. An ordinary unique index on original immutable source tuple preserves
+nullable legacy branch semantics; it is **not** a new EF alternate key.
+
+`RfqCommercialDraftOwnershipConstraintSql.Install` proposes four exact deferred
+NO ACTION bindings: header→original schema2 source/event/branch/fingerprint/
+envelope SHA; revision→same header/event/source/site/owner; receipt→same immutable
+revision/event/source/site/command/actor/snapshot SHA; header current revision/
+SHA→the matching immutable revision. Mutable head revision is never an EF key.
+The source-helper is not an executed migration or readiness check. Parent must
+generate/freeze genuine DDL and exact PG17 physical manifests centrally; these
+pending models intentionally cause drift until that separate reviewed step.
+Down must lock new Draft/evidence/receipt tables plus inspected original event/
+source/audit/outbox in a documented order, veto ANY retained new record/evidence
+before dropping anything, and preserve unknown legacy values/history.
+
+Same-context Save guards deny cross-scope/orphan evidence, wrong actor/command,
+missing same-save revision+receipt, rewritten original source pins, evidence
+UPDATE/DELETE and mutations beyond head revision/SHA. They recheck tracked
+owned original source and exact typed snapshot. They do **not** provide SQL
+privileges, race fencing or authorization by themselves. New model/negative
+checks use the Npgsql model without opening a connection; InMemory negatives
+only exercise managed scope/append-only code and do not claim physical FK proof.
+Four pure Draft transition/recovery cases and three model/guard cases are
+additionally authored, all unrun.
+
+This slice supplies no registered repository/handler/loader. The next bounded
+adapter must resolve real current Core participants/aliases, use existing sorted
+request→event locks/complete source loader, perform current owned action/scope
+checks, stage exact snapshots/receipt/audit together, and use the existing
+transaction's actual same-store pre-BEGIN document fence only for freeze/uses.
+A missing document service or publication policy must not prevent ordinary
+empty Draft CRUD; workflow freeze remains unavailable until those actual owners
+are proven. No detached readiness or synthetic document pin can enable it.

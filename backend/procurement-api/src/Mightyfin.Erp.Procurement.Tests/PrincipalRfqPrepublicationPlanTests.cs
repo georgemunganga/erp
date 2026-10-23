@@ -187,4 +187,57 @@ public sealed class PrincipalRfqPrepublicationPlanTests
             f.Event.Version,1,f.Use,f.At,f.At.AddDays(1),f.At,"ZMW","SameCurrencyOnly","OriginalSeparateComponents"));
         Assert.Throws<InvalidOperationException>(()=>Prepare(f with{At=f.At.AddTicks(1)}));
     }
+    private static RfqPrincipalActor CommercialActor(Fixture f)=>f.Evaluator with{PrincipalId=f.Event.OwnerSubjectId,
+        LinkedWorkerId=f.Event.MakerWorkerId,Permissions=new HashSet<string>{PrincipalRfqCommercialDraft.Permission}};
+    private static PrincipalRfqCommercialDraftInput EmptyDraft()=>new(null,null,null,null,null,null,[]);
+    private static PrincipalRfqCommercialDraftReceipt DraftReceipt(PrincipalRfqCommercialDraftHead head,PrincipalRfqCommercialDraftRevision row)
+    {
+        var body=PrincipalRfqCommercialDraft.Response(head,row.CommandKey);
+        return new(){TenantId=head.TenantId,LegalEntityId=head.LegalEntityId,DraftId=head.Id,DraftRevisionId=row.Id,
+            SourcingEventId=head.SourcingEventId,SourceEvidenceId=head.SourceEvidenceId,BranchId=head.BranchId,
+            Operation=row.Revision==1?"Create":"Revise",CommandKey=row.CommandKey,ActorPrincipalId=row.ActorPrincipalId,
+            RequestSha256=new string('a',64),SnapshotSha256=row.SnapshotSha256,ResponseJson=body,
+            ResponseSha256=ProcurementEvidenceEncoding.Digest(body),ResponseStatus=row.Revision==1?201:200,ResultRevision=row.Revision};
+    }
+    [Fact]
+    public void Commercial_empty_draft_needs_no_publishing_policy_or_pack_input()
+    {
+        var f=Original(packRequired:true);
+        var(head,row)=PrincipalRfqCommercialDraft.Create(CommercialActor(f),Guid.NewGuid(),Guid.NewGuid(),f.Event,f.Evidence,[f.Binding],EmptyDraft());
+        var restored=PrincipalRfqCommercialDraft.Restore(head,row);
+        Assert.Null(restored.EvaluationDefinitionJson);Assert.Null(restored.OpensAt);Assert.Empty(restored.Requirements);
+        Assert.Contains("\"canPublish\":false",PrincipalRfqCommercialDraft.Response(head,row.CommandKey));
+        Assert.Equal(f.Event.OriginalDraftFingerprint,head.OriginalFingerprint);
+    }
+    [Fact]
+    public void Invalid_or_stale_draft_revision_has_no_partial_header_effect()
+    {
+        var f=Original();var actor=CommercialActor(f);
+        var(head,row)=PrincipalRfqCommercialDraft.Create(actor,Guid.NewGuid(),Guid.NewGuid(),f.Event,f.Evidence,[f.Binding],EmptyDraft());
+        var hash=head.SnapshotSha256;
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCommercialDraft.Revise(actor,head,row,1,Guid.NewGuid(),f.Event,f.Evidence,[f.Binding],EmptyDraft() with{ComparisonCurrency="USD"}));
+        Assert.Equal(1,head.Revision);Assert.Equal(hash,head.SnapshotSha256);
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCommercialDraft.Revise(actor,head,row,2,Guid.NewGuid(),f.Event,f.Evidence,[f.Binding],EmptyDraft()));
+        Assert.Equal(1,head.Revision);Assert.Equal(hash,head.SnapshotSha256);
+    }
+    [Fact]
+    public void Draft_revision_retains_original_source_and_historical_original_receipt()
+    {
+        var f=Original();var actor=CommercialActor(f);
+        var(head,first)=PrincipalRfqCommercialDraft.Create(actor,Guid.NewGuid(),Guid.NewGuid(),f.Event,f.Evidence,[f.Binding],EmptyDraft());
+        var receipt=DraftReceipt(head,first);var original=first.SnapshotJson;
+        var next=PrincipalRfqCommercialDraft.Revise(actor,head,first,1,Guid.NewGuid(),f.Event,f.Evidence,[f.Binding],EmptyDraft() with{ComparisonCurrency="ZMW"});
+        Assert.Equal(2,head.Revision);Assert.Equal(original,first.SnapshotJson);
+        Assert.Equal("ZMW",PrincipalRfqCommercialDraft.Restore(head,next).ComparisonCurrency);
+        Assert.Null(PrincipalRfqCommercialDraft.RestoreHistorical(head,first,receipt).ComparisonCurrency);
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCommercialDraft.RestoreHistorical(head,first,Changed(receipt,json=>json["ResponseSha256"]=new string('b',64))));
+    }
+    [Fact]
+    public void Draft_current_owner_action_and_branch_still_required_without_policy()
+    {
+        var f=Original();var actor=CommercialActor(f);
+        foreach(var denied in new[]{actor with{Permissions=new HashSet<string>()},actor with{PrincipalId=Guid.NewGuid().ToString("D")},actor with{Branches=new HashSet<Guid>()}})
+            Assert.Throws<UnauthorizedAccessException>(()=>PrincipalRfqCommercialDraft.Create(denied,Guid.NewGuid(),Guid.NewGuid(),f.Event,f.Evidence,[f.Binding],EmptyDraft()));
+    }
+
 }
