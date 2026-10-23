@@ -109,9 +109,12 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
                 || exposure.SupplierId != invoice.SupplierId || exposure.CurrencyCode != invoice.CurrencyCode)
                 throw new InvalidOperationException("PrincipalInvoiceExposureChanged");
             var policySha = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson);
+            // Credit capture, original correction and the schema-2 mapping command
+            // take this invoice lock before touching source-wide exposure. Keep
+            // the same order before reading any capacity/credit history.
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.supplier_invoices WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} AND branch_ref={invoice.BranchRef} FOR UPDATE", token);
             var owned = await ProcurementPrincipalInvoiceExposureReader.ReadLockedAsync(db, cases, scope,
                 branches, invoice, exposure, policySha, http.RequestServices, now, token);
-            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.supplier_invoices WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} AND branch_ref={invoice.BranchRef} FOR UPDATE", token);
             var duplicates = await db.SupplierInvoices.IgnoreQueryFilters().AsNoTracking().Where(x =>
                 x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
                     && x.SupplierId == invoice.SupplierId
