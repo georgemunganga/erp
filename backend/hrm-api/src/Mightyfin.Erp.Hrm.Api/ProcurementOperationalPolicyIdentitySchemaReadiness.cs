@@ -80,8 +80,10 @@ public sealed class ProcurementOperationalPolicyIdentitySchemaReadiness : IProcu
             command.CommandText = CheckSql(table, checks[0].Name!);
             if (await command.ExecuteScalarAsync(ct) is not string actual) return false;
             var unitInstalled = unitMigration.Length > 0 && applied.Contains(unitMigration, StringComparer.Ordinal);
-            if (unitInstalled ? !ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured || actual != ProcurementInvoiceUnitReviewSchemaReadiness.OperationalCheckDefinition
-                : actual != CheckDefinition) return false;
+            var paymentInstalled = applied.Contains(ProcurementManualPaymentGovernanceReadiness.MigrationId, StringComparer.Ordinal);
+            var expectedCheck = paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition
+                : unitInstalled ? ProcurementInvoiceUnitReviewSchemaReadiness.OperationalCheckDefinition : CheckDefinition;
+            if (unitInstalled && !ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured || actual != expectedCheck) return false;
             var foreigns = identity.GetForeignKeys().ToArray();
             if (foreigns.Length != ForeignNames.Count || !foreigns.Select(x => x.GetConstraintName()!).ToHashSet(StringComparer.Ordinal).SetEquals(ForeignNames)) return false;
             foreach (var foreign in foreigns)

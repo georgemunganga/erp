@@ -55,6 +55,12 @@ public static class ProcurementHostIntegration
         var unitReviewOptions = configuration.GetSection("Procurement:InvoiceUnitReview").Get<ProcurementInvoiceUnitReviewOptions>() ?? new();
         unitReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(unitReviewOptions);
+        var paymentOptions = configuration.GetSection("Procurement:ManualPayments").Get<ProcurementManualPaymentOptions>() ?? new();
+        paymentOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(paymentOptions);
+        services.AddScoped<IProcurementManualPaymentGovernanceReadiness>(sp => new ProcurementManualPaymentGovernanceReadiness(
+            executionConnection ?? "", sp.GetRequiredService<ProcurementRequestScope>(),
+            sp.GetRequiredService<ILogger<ProcurementManualPaymentGovernanceReadiness>>()));
         services.AddSingleton<IProcurementInvoiceUnitReviewSchemaReadiness, ProcurementInvoiceUnitReviewSchemaReadiness>();
         services.AddScoped<IInvoiceHistoricalExposureOwner, UnavailableInvoiceHistoricalExposureOwner>();
         services.AddScoped<IInvoiceMappingEvidenceReviewer, UnavailableInvoiceMappingEvidenceReviewer>();
@@ -89,6 +95,8 @@ public static class ProcurementHostIntegration
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
         ProcurementRecurringPurchaseRoutes.MapRoutes(app);
+        ProcurementManualPaymentRoutes.MapReadRoutes(app);
+        ProcurementManualPaymentCommandRoutes.MapRoutes(app);
         ProcurementSourcingDraftRoutes.MapRoutes(app);
         ProcurementSourcingExecutionRoutes.MapRoutes(app);
         ProcurementInvoiceIntakeRoutes.MapRoutes(app);
@@ -191,6 +199,10 @@ public static class ProcurementHostIntegration
                         receivingCorrections = false,
                         invoiceIntake = !pending,
                         vendorCreditDraft = !pending,
+                        manualPaymentWorkflow = !pending
+                            && services.GetRequiredService<ProcurementManualPaymentOptions>().Enabled
+                            && services.GetRequiredService<ProcurementManualPaymentOptions>().ExecutionDatabaseConfigured
+                            && await services.GetRequiredService<IProcurementManualPaymentGovernanceReadiness>().IsReadyAsync(ct),
                         invoiceDocuments = !pending && app.Services.GetRequiredService<CoreDocumentFeature>().Enabled
                             && await services.GetRequiredService<IDocumentSchemaReadiness>().IsReadyAsync(ct),
                         invoiceComparison = !pending
