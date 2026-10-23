@@ -71,6 +71,37 @@ try
     await journey.Verify();
     phase = "owner-evidence-check";
     await PaymentFixtureStore.VerifyOwnerEvidence(owner, fixture);
+    // A second tenant uses the same private clone and owning Core/Procurement
+    // schema, but a distinct actual Program host/default tenant and ordinary
+    // login. Its only mutation is one genuine Draft; no policy/approval/Finance
+    // fixture is invented for this scoped-read negative.
+    phase = "second-tenant-fixture";
+    var secondTenant = "payment-http-" + Guid.NewGuid().ToString("N")[..16];
+    var foreignFixture = await PaymentFixtureStore.Seed(owner, secondTenant);
+    var secondSettings = PrivatePaymentHost.Settings(runtime, execution, secondTenant);
+    var previousSettings = secondSettings.Keys.ToDictionary(key => key.Replace(":", "__", StringComparison.Ordinal),
+        key => Environment.GetEnvironmentVariable(key.Replace(":", "__", StringComparison.Ordinal)), StringComparer.Ordinal);
+    Guid foreignRequestId;
+    IReadOnlyList<string> secondChecks;
+    try
+    {
+        foreach (var (key, value) in secondSettings)
+            Environment.SetEnvironmentVariable(key.Replace(":", "__", StringComparison.Ordinal), value);
+        phase = "second-tenant-normal-host";
+        await using var secondHost = new PrivatePaymentHost(runtime, execution, secondTenant);
+        var secondJourney = new PaymentHttpJourney(secondHost, foreignFixture);
+        await secondJourney.LoginAccounts(["maker"]);
+        foreignRequestId = await secondJourney.CreateDraftWithoutPolicy();
+        secondChecks = secondJourney.Checks.ToArray();
+    }
+    finally
+    {
+        foreach (var (key, value) in previousSettings)
+            Environment.SetEnvironmentVariable(key, value);
+    }
+    phase = "cross-tenant-current-context";
+    await journey.VerifyForeignTenantHidden(foreignRequestId, foreignFixture.Invoice);
+    result["secondTenantChecks"] = secondChecks;
     if (browserFixturePath is not null)
     {
         phase = "private-browser-handoff";

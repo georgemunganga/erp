@@ -10,7 +10,13 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 internal sealed record PaymentPerson(Guid Id, string Email, string Password);
 internal sealed record PaymentFixture(string Tenant, Guid Company, Guid Branch, Guid OtherBranch,
-    Guid Invoice, Guid Supplier, IReadOnlyDictionary<string, PaymentPerson> People);
+    Guid Invoice, Guid Supplier, IReadOnlyDictionary<string, PaymentPerson> People)
+{
+    // Scoped negative only; the original seven-person browser handoff keeps its
+    // existing company/branch/invoice schema and never exposes this extra context.
+    internal Guid ForeignCompany { get; init; }
+    internal Guid ForeignCompanyBranch { get; init; }
+}
 
 internal static class PaymentFixtureStore
 {
@@ -25,6 +31,11 @@ internal static class PaymentFixtureStore
             Code = "PAY-A", Name = "Synthetic purchase branch", CreatedAt = DateTimeOffset.UtcNow };
         var other = new WorkLocation { TenantId = tenant, LegalEntityId = company.Id,
             Code = "PAY-B", Name = "Synthetic other branch", CreatedAt = DateTimeOffset.UtcNow };
+        var foreignCompany = new LegalEntity { TenantId = tenant, Code = "PAY-FOR-" + tenant[^8..],
+            RegisteredName = "Synthetic second payment company", Currency = "ZMW", TimeZoneId = "UTC",
+            IsDefault = false, CreatedAt = DateTimeOffset.UtcNow };
+        var foreignBranch = new WorkLocation { TenantId = tenant, LegalEntityId = foreignCompany.Id,
+            Code = "PAY-C", Name = "Synthetic second-company branch", CreatedAt = DateTimeOffset.UtcNow };
         var roles = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["maker"] = "procurement-access,procurement-payment-read,procurement-payment-create,procurement-payment-edit,procurement-payment-submit,procurement-payment-cancel,procurement-payment-approve",
@@ -39,7 +50,7 @@ internal static class PaymentFixtureStore
         await using (var db = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>().UseNpgsql(owner,
             x => x.MigrationsHistoryTable("__hrm_migrations", "hrm")).Options, new ProbeTenant(tenant)))
         {
-            db.LegalEntities.Add(company); db.WorkLocations.AddRange(branch, other);
+            db.LegalEntities.AddRange(company, foreignCompany); db.WorkLocations.AddRange(branch, other, foreignBranch);
             foreach (var (name, actions) in roles)
             {
                 var role = "payment_http_" + name;
@@ -54,6 +65,9 @@ internal static class PaymentFixtureStore
                     PermissionsCsv = actions, CreatedAt = DateTimeOffset.UtcNow });
                 db.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = tenant,
                     UserId = person.Id, UserEmail = email, LocationId = name == "outsider" ? other.Id : branch.Id,
+                    CreatedAt = DateTimeOffset.UtcNow });
+                if (name == "maker") db.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = tenant,
+                    UserId = person.Id, UserEmail = email, LocationId = foreignBranch.Id,
                     CreatedAt = DateTimeOffset.UtcNow });
                 people.Add(name, new(person.Id, email, password));
             }
@@ -80,7 +94,8 @@ internal static class PaymentFixtureStore
                 CreatedBy = maker.ToString("D"), CreatedAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync();
         }
-        return new(tenant, company.Id, branch.Id, other.Id, invoice.Id, supplier.Id, people);
+        return new PaymentFixture(tenant, company.Id, branch.Id, other.Id, invoice.Id, supplier.Id, people)
+        { ForeignCompany = foreignCompany.Id, ForeignCompanyBranch = foreignBranch.Id };
     }
 
     internal static async Task VerifyOwnerEvidence(string owner, PaymentFixture fixture)

@@ -12,28 +12,11 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
     private readonly Dictionary<string, UserSession> sessions = new(StringComparer.Ordinal);
     private readonly List<string> checks = [];
     internal IReadOnlyList<string> Checks => checks;
+    internal Guid PrimaryRequestId { get; private set; }
 
     internal async Task LoginAndPublishPolicy()
     {
-        foreach (var (role, person) in fixture.People)
-        {
-            var client = host.CreateClient(new WebApplicationFactoryClientOptions
-                { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
-            using var login = await client.PostAsJsonAsync("/api/hrm/auth/login", new { person.Email, person.Password });
-            RequireStatus(login, HttpStatusCode.OK, "real-local-login");
-            var cookie = login.Headers.TryGetValues("Set-Cookie", out var values)
-                ? values.FirstOrDefault(x => x.StartsWith("hrm_session=", StringComparison.Ordinal))?.Split(';')[0] : null;
-            Require(!string.IsNullOrWhiteSpace(cookie), "real-local-cookie");
-            sessions.Add(role, new(client, cookie!));
-            using var context = await Send(role, HttpMethod.Get, "/api/procurement/v1/context",
-                branch: role == "outsider" ? fixture.OtherBranch : fixture.Branch);
-            RequireStatus(context, HttpStatusCode.OK, "scoped-Core-context");
-            using var contextJson = await JsonDocument.ParseAsync(await context.Content.ReadAsStreamAsync());
-            Require(contextJson.RootElement.GetProperty("workerId").ValueKind == JsonValueKind.Null,
-                "Core-account-without-employee");
-        }
-        checks.Add("normal Core cookie auth and optional employee identity");
-
+        await LoginAccounts(fixture.People.Keys);
         // Real policy lifecycle: maker and publisher have separate finite configuration
         // actions. The database is not seeded with a fabricated Published row.
         var effective = DateTimeOffset.UtcNow.AddSeconds(30);
@@ -62,6 +45,33 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
         checks.Add("real independent payment policy lifecycle");
     }
 
+    // A second synthetic tenant needs only a genuine draft, not an invented
+    // published policy or a duplicate payment approval workflow.
+    internal async Task LoginAccounts(IEnumerable<string> names)
+    {
+        foreach (var role in names)
+        {
+            if (!fixture.People.TryGetValue(role, out var person)) throw new PaymentProbeAssertion("known-synthetic-account");
+            var client = host.CreateClient(new WebApplicationFactoryClientOptions
+                { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+            using var login = await client.PostAsJsonAsync("/api/hrm/auth/login", new { person.Email, person.Password });
+            RequireStatus(login, HttpStatusCode.OK, "real-local-login");
+            var cookie = login.Headers.TryGetValues("Set-Cookie", out var values)
+                ? values.FirstOrDefault(x => x.StartsWith("hrm_session=", StringComparison.Ordinal))?.Split(';')[0] : null;
+            Require(!string.IsNullOrWhiteSpace(cookie), "real-local-cookie");
+            sessions.Add(role, new(client, cookie!));
+            using var context = await Send(role, HttpMethod.Get, "/api/procurement/v1/context",
+                branch: role == "outsider" ? fixture.OtherBranch : fixture.Branch);
+            RequireStatus(context, HttpStatusCode.OK, "scoped-Core-context");
+            using var contextJson = await JsonDocument.ParseAsync(await context.Content.ReadAsStreamAsync());
+            Require(contextJson.RootElement.GetProperty("workerId").ValueKind == JsonValueKind.Null
+                && contextJson.RootElement.GetProperty("tenantId").GetString() == fixture.Tenant
+                && contextJson.RootElement.GetProperty("legalEntityId").GetGuid() == fixture.Company,
+                "Core-account-without-employee");
+        }
+        checks.Add("normal Core cookie auth and optional employee identity");
+    }
+
     internal async Task Verify()
     {
         var maker = fixture.People["maker"].Id;
@@ -79,6 +89,7 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
         using var recovered = await Send("maker", HttpMethod.Get, $"{Root}/commands/{createKey:D}");
         var recovery = await Read(recovered, HttpStatusCode.OK, "lost-create-recovery");
         var id = recovery.GetProperty("id").GetGuid();
+        PrimaryRequestId = id;
         Require(recovery.GetProperty("version").GetInt64() == 1
             && recovery.GetProperty("status").GetString() == "Draft", "recorded-create-result");
         checks.Add("actor-owned lost Create response recovery");
@@ -91,6 +102,7 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
             Require(outsiderRead.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
                 "other-branch-record-denied");
         checks.Add("current Core branch scope before read and recovery");
+        await VerifyValidForeignCompanyScope(id);
 
         using (var changedKey = await Send("maker", HttpMethod.Post, Root,
             new { draft.branchId, draft.invoiceId, amount = "100.2500", draft.approverPrincipalId,
@@ -155,6 +167,75 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
         checks.Add("return and cancellation with retained history");
     }
 
+    private async Task VerifyValidForeignCompanyScope(Guid originalRequestId)
+    {
+        Require(fixture.ForeignCompany != Guid.Empty && fixture.ForeignCompanyBranch != Guid.Empty,
+            "second-company-fixture-required");
+        using (var context = await Send("maker", HttpMethod.Get, "/api/procurement/v1/context",
+            branch: fixture.ForeignCompanyBranch, company: fixture.ForeignCompany))
+        {
+            var body = await Read(context, HttpStatusCode.OK, "valid-second-company-context");
+            Require(body.GetProperty("tenantId").GetString() == fixture.Tenant
+                && body.GetProperty("legalEntityId").GetGuid() == fixture.ForeignCompany
+                && body.GetProperty("branch").GetProperty("id").GetGuid() == fixture.ForeignCompanyBranch,
+                "second-company-current-Core-branch");
+        }
+        using (var detail = await Send("maker", HttpMethod.Get, $"{Root}/{originalRequestId:D}",
+            branch: fixture.ForeignCompanyBranch, company: fixture.ForeignCompany))
+            RequireStatus(detail, HttpStatusCode.NotFound, "valid-second-company-object-hidden");
+        using (var list = await Send("maker", HttpMethod.Get, Root,
+            branch: fixture.ForeignCompanyBranch, company: fixture.ForeignCompany))
+        {
+            var body = await Read(list, HttpStatusCode.OK, "valid-second-company-list");
+            Require(body.GetProperty("total").GetInt32() == 0 && body.GetProperty("items").GetArrayLength() == 0,
+                "valid-second-company-list-empty");
+        }
+        checks.Add("valid second company and assigned branch cannot read original payment");
+    }
+
+    internal async Task<Guid> CreateDraftWithoutPolicy()
+    {
+        var draft = new { branchId = fixture.Branch, invoiceId = fixture.Invoice, amount = "1.2500",
+            approverPrincipalId = fixture.People["approver"].Id.ToString("D"),
+            recorderPrincipalId = fixture.People["recorder"].Id.ToString("D"),
+            confirmerPrincipalId = fixture.People["confirmer"].Id.ToString("D"),
+            purpose = "Separate synthetic tenant draft", title = "Cross-tenant scope probe" };
+        using var created = await Send("maker", HttpMethod.Post, Root, draft, Guid.NewGuid());
+        var response = await Read(created, HttpStatusCode.Created, "second-tenant-real-draft-create");
+        var id = response.GetProperty("id").GetGuid();
+        using var detail = await Send("maker", HttpMethod.Get, $"{Root}/{id:D}");
+        var current = await Read(detail, HttpStatusCode.OK, "second-tenant-own-draft-read");
+        Require(current.GetProperty("request").GetProperty("id").GetGuid() == id
+            && current.GetProperty("request").GetProperty("status").GetString() == "Draft"
+            && current.GetProperty("request").GetProperty("creatorPrincipalId").GetGuid() == fixture.People["maker"].Id,
+            "second-tenant-real-draft-owned");
+        checks.Add("second tenant created one real draft without published payment policy");
+        return id;
+    }
+
+    internal async Task VerifyForeignTenantHidden(Guid foreignRequestId, Guid foreignInvoiceId)
+    {
+        Require(foreignRequestId != Guid.Empty && foreignInvoiceId != Guid.Empty
+            && foreignRequestId != PrimaryRequestId, "distinct-second-tenant-source-required");
+        using (var context = await Send("maker", HttpMethod.Get, "/api/procurement/v1/context"))
+        {
+            var body = await Read(context, HttpStatusCode.OK, "original-context-after-second-host");
+            Require(body.GetProperty("tenantId").GetString() == fixture.Tenant
+                && body.GetProperty("legalEntityId").GetGuid() == fixture.Company
+                && body.GetProperty("branch").GetProperty("id").GetGuid() == fixture.Branch,
+                "original-host-context-not-cross-contaminated");
+        }
+        using (var detail = await Send("maker", HttpMethod.Get, $"{Root}/{foreignRequestId:D}"))
+            RequireStatus(detail, HttpStatusCode.NotFound, "other-tenant-direct-object-hidden");
+        using (var list = await Send("maker", HttpMethod.Get, $"{Root}?invoiceId={foreignInvoiceId:D}"))
+        {
+            var body = await Read(list, HttpStatusCode.OK, "other-tenant-filtered-list");
+            Require(body.GetProperty("total").GetInt32() == 0 && body.GetProperty("items").GetArrayLength() == 0,
+                "other-tenant-list-excludes-foreign-source");
+        }
+        checks.Add("current original-tenant account cannot read other-tenant request or list it");
+    }
+
     private async Task<long> Move(string role, Guid id, string action, long version, string status, string? reason = null)
     {
         using var result = await Send(role, HttpMethod.Post, $"{Root}/{id:D}/{action}",
@@ -165,12 +246,12 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
     }
 
     private async Task<HttpResponseMessage> Send(string role, HttpMethod method, string path,
-        object? body = null, Guid? key = null, Guid? branch = null)
+        object? body = null, Guid? key = null, Guid? branch = null, Guid? company = null)
     {
         var session = sessions[role];
         using var request = new HttpRequestMessage(method, path);
         request.Headers.Add("Cookie", session.Cookie);
-        request.Headers.Add("X-Shell-Entity", fixture.Company.ToString("D"));
+        request.Headers.Add("X-Shell-Entity", (company ?? fixture.Company).ToString("D"));
         request.Headers.Add("X-Shell-Location", (branch ?? fixture.Branch).ToString("D"));
         if (key is { } commandKey) request.Headers.Add("Idempotency-Key", commandKey.ToString("D"));
         if (body is not null) request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
