@@ -201,11 +201,11 @@ public static partial class ProcurementManualPaymentRoutes
         {
             if (key == Guid.Empty) throw new ArgumentException("ManualPaymentCommandKeyInvalid");
             var visible = Visible(db, scope, person, branches);
-            var found = await (from receipt in db.ManualPaymentReceipts.AsNoTracking()
-                join request in visible on receipt.ManualPaymentRequestId equals request.Id
-                where receipt.CommandKey == key && receipt.ActorPrincipalId == scope.SubjectId
-                    && receipt.BranchId == request.BranchId && (id == null || request.Id == id)
-                select new { receipt, request }).SingleOrDefaultAsync(token) ?? throw new KeyNotFoundException();
+            var found = await (from candidateReceipt in db.ManualPaymentReceipts.AsNoTracking()
+                join candidateRequest in visible on candidateReceipt.ManualPaymentRequestId equals candidateRequest.Id
+                where candidateReceipt.CommandKey == key && candidateReceipt.ActorPrincipalId == scope.SubjectId
+                    && candidateReceipt.BranchId == candidateRequest.BranchId && (id == null || candidateRequest.Id == id)
+                select new { receipt = candidateReceipt, request = candidateRequest }).SingleOrDefaultAsync(token) ?? throw new KeyNotFoundException();
             var receipt = found.receipt;
             var request = found.request;
             var action = CommandAction(receipt.Action);

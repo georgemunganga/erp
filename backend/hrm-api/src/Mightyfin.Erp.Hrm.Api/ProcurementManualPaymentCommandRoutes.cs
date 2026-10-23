@@ -142,6 +142,11 @@ public static partial class ProcurementManualPaymentCommandRoutes
             || scope.CoreLinkedWorkerId != person.CoreLinkedWorkerId || !person.Permissions.Contains(permission)
             || !(await authorization.AuthorizeAsync(http.User, null, permission)).Succeeded)
             throw new UnauthorizedAccessException();
+        // All-branches is a read context. The explicit transaction branch must still
+        // be a current active branch of this company, including for organisation-wide users.
+        if (branch == Guid.Empty || !await core.WorkLocations.AsNoTracking().AnyAsync(x =>
+            x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId && x.Id == branch && !x.IsArchived, ct))
+            throw new KeyNotFoundException();
         _ = await ProcurementExecutionRecordScope.Branches(core, scope, branch, true, ct);
         if (!person.OrganisationWide && !person.AllowedBranches.Contains(branch)) throw new KeyNotFoundException();
         return person;
