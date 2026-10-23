@@ -8,7 +8,7 @@ using Mightyfin.Erp.Procurement.Domain;
 
 internal static partial class PrincipalApprovalHttpVerification
 {
-    private static async Task VerifyPrincipalRfqAsync(PrincipalApprovalFixture fixture,string owner,
+    private static async Task<(Guid RequestId,Guid LineId,Guid EventId)> VerifyPrincipalRfqAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,Dictionary<string,object?> result,
         Action<string> stage,PrincipalSend send,Action countRequest)
     {
@@ -141,5 +141,6 @@ internal static partial class PrincipalApprovalHttpVerification
             originalPrincipalApproval=true,allocationRestored=true,actorOwnedRecovery=true,
             supplierPublished=false,externalFinanceAuthority=false};
         result["status"]="PASS_PRIVATE_P29_INTERNAL_DRAFT_ONLY";
+        return (requestId,lineId,eventId);
     }
 }
