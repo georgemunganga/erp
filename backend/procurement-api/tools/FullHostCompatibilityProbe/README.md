@@ -196,3 +196,33 @@ The existing footprint helper adds an opt-in rows-only return solely to verify d
 
 Additional P25 private acceptance opt-ins (source only until separately executed):
 `P25_HTTP_VERIFY_SCHEMA_NEGATIVES=1` invokes five owning-schema/readiness defects after the privilege matrix and before HTTP. `P25_HTTP_VERIFY_ACCOUNT_SCOPE_AUTHORITY=1` requires the explicit private positive manual-evidence mode and invokes six pending-decision account/scope denials before terminal approval, then a second genuine pending graph and actual authority revocation after the original owner/GET/raw acceptance. It adds16 actual HTTP calls (59 total); two explicit foreign-header calls increment the root counter exactly once each. The second graph and revoked authority remain retained; original two-receipt/three-event assertions describe the first scoped graph/cohort, not a false final global count. Original12-GET acceptance remains a cohort; revocation adds one further historical GET. Neither flag changes ordinary absent-flag runs, production registration, business guards or Finance ownership. See the two new hook notes for exact restoration and physical-OID limits.
+
+### P25 used row-family Down checkpoints — source-only
+
+Run `--principal-approvals` **five separate times**, each against a newly created,
+empty private `proc_p25_http_<unique>` PostgreSQL clone and a new protected result
+path. Set `P25_HTTP_VERIFY_ROW_FAMILY_DOWN` to one of `RequestProvenance`,
+`Authority2`, `Checker2`, `Submission3`, `Assignment2`. For the last four, also
+set `P25_HTTP_POSITIVE_MANUAL_EVIDENCE=1`. Keep the existing private owner
+connection, finite-role fixture and `ERP_PRINCIPAL_P25_DOWN_SQL` read-only file
+requirements. The latter must be the exact generated P25 Down with SHA-256
+`1b298d0a0fb8ccd42ab1f0b93260ef02d89896c1a21b3209728286e75492ba1c`.
+All other P25 optional cohort flags must be absent.
+
+The tool stops at a **genuine route-produced** lifecycle checkpoint, counts all
+five retained P25 row families, verifies the selected row/case/grant and executes
+the **unmodified** owning Down, including its original COMMIT. It requires
+SQLSTATE `55000`, the exact owning message and equality of the complete
+data/schema/history/ACL/role/sequence footprint before and after on that clone.
+An unexpectedly successful Down may destructively change **that disposable
+clone** and fails the probe; the source and earlier retained databases are never
+connected by this mode. Retain every failed clone/result for diagnosis.
+
+The later checkpoints deliberately retain genuine upstream dependencies.
+`Submission3` and `Assignment2` are created atomically by the same real Open
+command, so their two runs have the same dependency shape. Each run reports
+all five family counts and `independentlyIsolatedOrPredicate=false`; five
+successful runs establish five natural-checkpoint refusals, **not** five
+individually isolated SQL OR-arm proofs. No evidence is deleted/demoted, no
+legacy rows are rewritten, and no authority, Finance service or policy success
+is fabricated. This source has not been built or executed yet.

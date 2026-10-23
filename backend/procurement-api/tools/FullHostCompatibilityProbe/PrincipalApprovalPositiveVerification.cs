@@ -12,7 +12,8 @@ internal static partial class PrincipalApprovalHttpVerification
     internal const string PrivateManualPolicyReference="PRIVATE-P25-MANUAL-EVIDENCE-NOT-EXTERNAL-FINANCE";
     private static async Task VerifyPrivateManualApprovalAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,NpgsqlConnection ownerConnection,Dictionary<string,object?> result,
-        Action<string> stage,PrincipalSend send,Action countExtraHttp,bool verifyAccountScopeAuthority,bool verifyRetainedAlias)
+        Action<string> stage,PrincipalSend send,Action countExtraHttp,bool verifyAccountScopeAuthority,bool verifyRetainedAlias,
+        string? downFamily)
     {
         // Separate opt-in phase AFTER the real default-off and Finance-unavailable denials.
         // Only existing manual-evidence configuration is enabled; no Finance owner is substituted.
@@ -48,6 +49,13 @@ internal static partial class PrincipalApprovalHttpVerification
         var activated=await send(client,HttpMethod.Post,authorityPath+"/activate",fixture.ConfigReviewer,
             new {version=submittedAuthority.GetProperty("version").GetInt64(),reason="Private independent finite Core authority review"},HttpStatusCode.OK);
         Need(activated.GetProperty("state").GetString()=="Active"&&activated.GetProperty("principalId").GetString()==fixture.Approver.ToString("D"),"Actual independent authority activation failed.");
+        if(downFamily=="Authority2")
+        {
+            stage("Authority2DownVeto");
+            result["rowFamilyDown"]=await VerifyRowFamilyDownAsync(ownerConnection,downFamily,fixture.Company,negativeRequestId,grantId:grantId);
+            result["status"]="PASS_PRIVATE_P25_DEPENDENCY_SHAPED_DOWN_VETO_ONLY";
+            return;
+        }
 
         stage("ActualPolicyCreateSubmitPublish");
         const string policyRoot="/api/procurement/v1/configuration/policies";
@@ -98,6 +106,13 @@ internal static partial class PrincipalApprovalHttpVerification
         var checkerId=checker.GetProperty("id").GetGuid();
         Need(checker.GetProperty("checkerIdentitySchemaVersion").GetInt32()==2&&checker.GetProperty("checkedByWorkerId").ValueKind==JsonValueKind.Null,
             "Actual checker2 must retain named workerless Core identity.");
+        if(downFamily=="Checker2")
+        {
+            stage("Checker2DownVeto");
+            result["rowFamilyDown"]=await VerifyRowFamilyDownAsync(ownerConnection,downFamily,fixture.Company,requestId,grantId,checkerId);
+            result["status"]="PASS_PRIVATE_P25_DEPENDENCY_SHAPED_DOWN_VETO_ONLY";
+            return;
+        }
         var readiness=await send(client,HttpMethod.Get,path+"/approval-readiness",fixture.Maker,null,HttpStatusCode.OK);
         result["positiveReadinessBlockers"]=readiness.GetProperty("blockers").EnumerateArray()
             .Select(x=>x.ValueKind==JsonValueKind.String?x.GetString():null)
@@ -111,6 +126,13 @@ internal static partial class PrincipalApprovalHttpVerification
         var openBody=new {expectedRequestVersion=openVersion};
         var opened=await send(client,HttpMethod.Post,path+"/approval-cases",fixture.Maker,openBody,HttpStatusCode.Created,openKey);
         var caseId=opened.GetProperty("caseId").GetGuid();
+        if(downFamily is "Submission3" or "Assignment2")
+        {
+            stage(downFamily+"DownVeto");
+            result["rowFamilyDown"]=await VerifyRowFamilyDownAsync(ownerConnection,downFamily,fixture.Company,requestId,grantId,checkerId,caseId);
+            result["status"]="PASS_PRIVATE_P25_DEPENDENCY_SHAPED_DOWN_VETO_ONLY";
+            return;
+        }
         stage("ActualOpenGetAcknowledgementBeforeDecision");
         await VerifyActualAcknowledgementAsync(fixture,ownerConnection,client,send,requestId,"Open",openKey,fixture.Maker,opened);
         stage("OpenExactReplayConflictAndCurrentGrantDenial");

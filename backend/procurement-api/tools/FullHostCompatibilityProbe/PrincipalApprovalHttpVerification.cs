@@ -30,6 +30,14 @@ internal static partial class PrincipalApprovalHttpVerification
         var accountFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_ACCOUNT_SCOPE_AUTHORITY");
         var aliasFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RETAINED_ALIAS");
         var localCookieFlag=Environment.GetEnvironmentVariable("P25_HTTP_SERVE_LOCAL_COOKIE_BROWSER");
+        var downFamily=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_ROW_FAMILY_DOWN");
+        Need(downFamily is null or "RequestProvenance" or "Authority2" or "Checker2" or "Submission3" or "Assignment2",
+            "Unknown private P25 row-family checkpoint.");
+        Need(downFamily is null || matrixFlag is null && schemaFlag is null && accountFlag is null
+            && aliasFlag is null && localCookieFlag is null && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
+            "Row-family Down checkpoint cannot share a different optional cohort.");
+        Need(downFamily is null or "RequestProvenance" || Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE")=="1",
+            "Dependent row-family checkpoint requires the genuine positive manual-evidence route fixture.");
         Need(schemaFlag is null or "1","Private schema negatives opt-in must be exactly1 or absent.");
         Need(accountFlag is null or "1","Private account/authority opt-in must be exactly1 or absent.");
         Need(accountFlag is null || Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE")=="1",
@@ -91,6 +99,14 @@ internal static partial class PrincipalApprovalHttpVerification
                 Need(options.Enabled&&options.PrincipalExecutionEnabled&&options.ExecutionDatabaseConfigured&&options.ManualFinancePolicies.Length==0,"Private host must retain missing manual Finance policy.");
                 var created=await Send(client,HttpMethod.Post,"/api/procurement/v1/requests",fixture.Maker,new {purpose="Private P25 current Core-only request",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",lines=new[]{new{description="No employee prerequisite",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234"}}},HttpStatusCode.Created);
                 var id=created.GetProperty("id").GetGuid();var path="/api/procurement/v1/requests/"+id;
+                if(downFamily=="RequestProvenance")
+                {
+                    Advance("DraftRequestProvenanceDownVeto");
+                    result["requestId"]=id;
+                    result["rowFamilyDown"]=await VerifyRowFamilyDownAsync(ownerConnection,downFamily,fixture.Company,id);
+                    result["status"]="PASS_PRIVATE_P25_DEPENDENCY_SHAPED_DOWN_VETO_ONLY";
+                    return;
+                }
                 var submitted=await Send(client,HttpMethod.Post,path+"/submit",fixture.Maker,new {version=created.GetProperty("version").GetInt64()});
                 await using(var db=fixture.Procurement())
                 {
@@ -125,7 +141,7 @@ internal static partial class PrincipalApprovalHttpVerification
             if(Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is {} positive)
             {
                 Need(positive=="1","Private manual evidence opt-in must be exactly1.");
-                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1");
+                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily);
                 if(localCookieFlag=="1")
                     await ServeNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,result,Advance);
             }
