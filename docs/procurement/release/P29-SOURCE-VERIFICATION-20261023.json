@@ -1,5 +1,5 @@
 {
-  "status": "GENUINE_MIGRATION_AND_PRIVATE_OWNER_DDL_ACCEPTED_RUNTIME_PENDING",
+  "status": "PRIVATE_OWNER_AND_UNIT_BUILD_ACCEPTED_REAL_HTTP_BROWSER_PENDING",
   "migration": "20261023204131_P29CorePrincipalSourcingDrafts",
   "ownerEvidence": "/home/amizo/erp-backups/procurement-p29-owner-ddl-20261023_run01/result.json",
   "ownerEvidenceSha256": "3a4b835225a6b9f49bf40bbb28362cbc7184e1c0b77e53bb5273d5edba7e4045",
@@ -14,5 +14,88 @@
     "P29 principal-row Down veto",
     "Real normal-cookie browser and independent owner proof",
     "Review, source merge and production release"
+  ],
+  "pr": "https://github.com/georgemunganga/erp/pull/48",
+  "runtimeProbeSource": "58e990f",
+  "tests": {
+    "sourcing-host.trx": {
+      "source": "23d8a99",
+      "path": "/home/amizo/erp-backups/procurement-p29-combined-build-20261023_run01/tests/sourcing-host.trx",
+      "sha256": "ca8500da9d805c408367fa8d68c24692b68f25f0a071e94e637689cfc46ed94f",
+      "counters": {
+        "total": "48",
+        "executed": "48",
+        "passed": "48",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      }
+    },
+    "procurement.trx": {
+      "source": "23d8a99",
+      "path": "/home/amizo/erp-backups/procurement-p29-combined-build-20261023_run01/tests/procurement.trx",
+      "sha256": "3dafe544bd2d701029f850563cd8cfac7b8eb59603d6133a2d86376884d6dd3a",
+      "counters": {
+        "total": "1413",
+        "executed": "1413",
+        "passed": "1413",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      }
+    }
+  },
+  "compiledProbeEvidence": [
+    {
+      "path": "/home/amizo/erp-backups/procurement-p29-combined-build-20261023_run02/result.json",
+      "sha256": "aa9b9f621dbc15c7d2c96c4caaa979651f1a5260429d5de5ada9a9f4ccfb0df9",
+      "result": {
+        "source": "fbc99de71d34cfec613e81111744a93c16bcefc2",
+        "sourceUnchanged": true,
+        "exitCode": 0,
+        "oomKilled": false,
+        "publicationFiles": 477,
+        "productionTouched": false,
+        "scope": "Probe tools compilation correction only; domain1413/host48 tests unchanged and retain run01 source"
+      }
+    },
+    {
+      "path": "/home/amizo/erp-backups/procurement-p29-combined-build-20261023_run03/result.json",
+      "sha256": "3728ecd53c05857cc4530ed8690b21a6c9a3eb166d03ee66a1108b0cc07b8184",
+      "result": {
+        "source": "58e990f5843e0e3f7039741de78ee7f303571e40",
+        "sourceUnchanged": true,
+        "exitCode": 0,
+        "oomKilled": false,
+        "publicationFiles": 477,
+        "productionTouched": false,
+        "scope": "Updated missing-resource/existing-principal negative control, no application changes since 1413/48 tests"
+      }
+    }
+  ],
+  "retainedFailures": [
+    "Schema compile attempt01 rejected three nonconstant Guid.Empty patterns; no migration generated; corrected before genuine generation",
+    "Combined build01 passed1413 domain and48 host tests, then test-tool compilation failed on imports/local declarations; tool-only correction published separately",
+    "Native run01 expected503 for missing request where legacy-compatible lookup correctly returned404; updated to404 and added existing-principal503/no-effects control; rerun pending"
   ]
 }
