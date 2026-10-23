@@ -24,7 +24,7 @@ public sealed class PrincipalRfqPublicationCoreWorkflowTests
         {
             TenantId = tenant, LegalEntityId = company, CreatedBy = maker,
             PolicyKey = "SOURCING", PolicyVersionNumber = 1,
-            EffectiveFrom = now.AddDays(-1), RulesJson = $$"""
+            EffectiveFrom = now.AddDays(-1), RulesJson = $$$"""
             {"schemaVersion":1,"policyKey":"SOURCING","transactionType":"SourcingPublication",
              "action":"SourcingEvent.Publish","permission":"procurement-sourcing-publish",
              "currencyCode":"ZMW","amountBasis":"ApprovedLineBase","rules":[
@@ -33,7 +33,7 @@ public sealed class PrincipalRfqPublicationCoreWorkflowTests
                "result":{"publication":{"minimumQuoteCount":1,"minimumInvitedSuppliers":1,
                 "requirementsPackRequired":false,"evaluationCriteriaRequired":false,"closingDateRequired":false},
                 "approvalStages":[{"code":"PROCUREMENT","assignee":"ProcurementManager","mode":"One",
-                  "principalIds":["{{reviewerId}}"]}]}}]}
+                  "principalIds":["{{{reviewerId}}}"]}]}}]}
             """,
         };
         var created = SourcingPolicyIdentity.Capture(policy, tenant, company, "Created", maker, null, 1,
