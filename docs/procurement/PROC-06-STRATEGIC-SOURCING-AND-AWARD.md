@@ -253,3 +253,13 @@ Procurement product owns policy choices and supplier-contact practice; Procureme
 ### 28. Open Decisions and Assumptions
 
 Business must set minimum quotes, approved shortlist rules, required documents, close-period rules, allowed offline channels, whether an internal publication may precede any actual supplier delivery, and amendment/withdrawal authority. Engineering must confirm document owner-access API and exact Core case source/version contract. No answer is inferred from the original local demo wizard.
+
+### P32 commercial completion source audit
+
+The next bounded principal quotation submission/closing/evaluation/award contract
+is [PROC-06-P32](PROC-06-P32-PRINCIPAL-COMMERCIAL-COMPLETION.md). It records the
+actual P30 gap: required pack/criteria/closing controls are still rejected by
+publication, and the real quotation path creates internal Drafts only. Existing
+published P30 events cannot silently acquire frozen criteria/deadline authority.
+P32 remains source-only/default-off until its independently reviewed controls,
+owner integrations, genuine migration and finite runtime acceptance are complete.

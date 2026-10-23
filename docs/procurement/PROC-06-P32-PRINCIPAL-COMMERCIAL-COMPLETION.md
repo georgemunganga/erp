@@ -1,0 +1,133 @@
+# PROC-06 P32 — Principal quotation submission, evaluation and award
+
+**Status:** Source audit and implementation contract; not runtime-ready. **Version:** 0.1.
+**Owner:** Procurement Engineering; business adoption decisions remain with Procurement governance.
+**Source baseline:** ERP `f249dd374807591b4c543bc74fbd80dd82e0895c`.
+**UI inspected:** module-connect `d548f57`, existing RFQ wizard/detail and principal publication adapters.
+**Parent:** [PROC-06](PROC-06-STRATEGIC-SOURCING-AND-AWARD.md), including its P30 child delta.
+No SDK, database, migration generation, browser or production changes establish acceptance for this document.
+
+## 1. Feature Identification
+
+`PROC-06-P32`: extend the principal-owned competitive sourcing lifecycle after the P30 manual quotation Draft. Operations: prepare immutable commercial controls before publication; record a supplier quotation submission; close/open a sealed round; independently evaluate; recommend line awards; obtain shared Core approval; emit an owned approved-award handoff. A manual quotation Draft alone does none of these.
+
+## 2. Purpose and Business Outcome
+
+Preserve original supplier offers and an independently governed, reproducible comparison leading to an approved line award or an explicit no-award outcome. Reuse existing Core users, approvals, documents and original PR allocation; do not create parallel employee, supplier, workflow, stock or Finance masters.
+
+## 3. Scope and Exclusions
+
+Initial execution scope is an explicitly configured, same-company/site/currency, invited, manually recorded sealed RFQ round. Original document evidence and reported supplier receipt time differ from server entry/submission time. Portal submission, external transmission, tender legal compliance, currency conversion, stock, payment and automatic PO/contract creation are separate owner integrations. No fallback to an unsealed round or estimated scores is permitted.
+
+## 4. Parent and Related Features
+
+Reuse P29 principal source pins and the authoritative `PurchaseRequestAllocation` ledger, P30 publication/quotation evidence, Core Documents use retention and Core ApprovalEngine. PR approval is demand authority; RFQ publication approval is audience/requirements authority; neither substitutes for an award approval. Existing direct-PO conversion remains DirectPurchase-only and must not accept an RFQ draft/quotation as a direct source.
+
+## 5. Actors and Participants
+
+Current Core buyer, manual-offer recorder, assigned opening officer, named technical/commercial evaluators, independent award maker/checker and authorized historical reader. Employee link is optional historical alias evidence, denial-only. Same-worker aliases may not bypass separation. Supplier ownership/delegation is not inferred from an internal buyer login. A future supplier portal needs its own actual identity contract.
+
+## 6. Entry Points and Triggers
+
+Extend existing `/rfqs/{id}` requirements/schedule/documents/related/activity surfaces and existing quotation editor/table action positions. Add purpose-scoped assigned tasks to the existing RFQ list view. Server-only contract paths are planned below; they are not registered by this audit. Imported wizard local previews cannot create a governed record or be treated as persisted controls.
+
+## 7. Preconditions
+
+A genuine source-verified principal draft and held quantities; an explicit commercial policy/configuration; exact requirements-document versions; immutable criteria/weights and named independent evaluators; explicit opening/closing instants and opening authority; eligible approved audience; current scoped actor; an actual enlisted owning transaction and supported document-retention fence. Missing owners, policy, finite authority or schemas return unavailable. No guessed reviewer, score threshold, bid count, deadline, calendar or monetary limit.
+
+## 8. Workflow
+
+Prepare controls while Draft → independently approve/publish the same source/pack/control digest → capture a manually obtained quotation Draft → submit an exact immutable offer/document version while within the configured window → close round by trusted server time and explicit close command → independently open sealed content → record assigned individual evaluations → freeze a recommendation → open actual Core award approval → persist approved/rejected/returned source outcome and owned handoff. Each step has its own original UUID/key/body recovery.
+
+## 9. Status and State Transitions
+
+Keep P30 `Draft/Cancelled` quotation snapshots byte-compatible. New submission, close/open, evaluation and award states live in versioned owned evidence; do not teach the P30 snapshot encoder to treat Draft as Submitted. A new commercial round can progress Prepared → Published/Accepting → Closed → Opened → Evaluating → RecommendationPending → AwardApproved/NoAward; cancelled/reopened rounds retain every old record and need explicit successor round identity. Past content never becomes editable after return/cancel.
+
+## 10. Permissions and Data Scope
+
+Current catalog only registers sourcing read/create/edit/convert/cancel/publish. New explicit actions are required for quotation submission, round close/open, evaluation, award recommendation and award decision, with empty bootstrap grants and role-management tests. Do not reuse `procurement-sourcing-publish` as all commercial authority. Actor/company/current Core branches and named assignment constrain SQL count/page before any content projection. Only own submitted quotation may be acknowledged to its authorized recorder; competitors/evaluators see nothing before verified opening. Historical recovery checks current original actor/action/scope but does not re-run today's commercial policy to rewrite an old response.
+
+## 11. Business Rules
+
+A configuration version freezes all criteria, normalized weights, scoring basis, maxima, mandatory pass/fail conditions and stage order before publication. Missing explicit scoring configuration blocks. Weights are exact bounded decimal values and normalization is validated without silently correcting input; normalization basis is a technical schema choice, not an adopted business score threshold. No price-score formula, tie-break, rounding, automatic disqualification or minimum passing score is assumed. Manual submission requires exact original quote/document/source version and trusted entry time; reported receipt time cannot backdate eligibility. Submitted correction is a successor version governed by the configured round rule. Closing does not reveal content; opening authority and stored opening proof are separate. Awards conserve source quantity/value and never release another consumer's holds.
+
+## 12. Data Fields and Ownership
+
+Proposed append-only evidence: commercial control revision (event/source/publication-policy pin; explicit round times; criteria; evaluator principal/optional alias pins; pack use references); offer submission (event/invitation/supplier, exact P30 original quote revision/hash, received/entered times, frozen content and document use set); close/open records (round, expected version, sealed submission-set watermark and actor); evaluation submission (opening, original offer, criterion plan, assigned principal/alias, score/pass/conflict facts); award recommendation/lines (evaluation-set hash, original source/allocation pins and exact quantity/38,8 product); Core-case opening/assignment/decision/source-outcome pins; owned command receipts. Reuse `SupplierBid`, `BidEvaluation`, `SourcingAward` IDs as named owning projections only when exact parent bindings and append-only evidence are verified. No client-supplied reviewed/verified/approved boolean.
+
+## 13. Screens and Data Views
+
+Preserve imported `RfqWizard` panels/step arrangement and existing `TransactionDetailFrame` RFQ detail tabs, `RecordTable`, ERP Select/Input/Modal and toolbar. `PrincipalPublication` already embeds shortlist/manual contact/quotation Draft editing; extend these existing controls, not a second sourcing application. Named lookup labels are scoped, paged and nonauthoritative. Existing source estimates are not supplier submitted prices. Missing operations stay honestly unavailable rather than executing browser-local demo mutations.
+
+## 14. User Experience and Human Behaviour
+
+Use plain labels: Draft quotation, supplier response recorded, sealed, closed, opened, your evaluation, recommendation and award approval. Distinguish current server action candidates from final authority. Preserve entered values on known 422; stale 409 refreshes/reconciles; unknown mutation disables resubmission and uses original GET receipt. A different actor/company/site unmounts the editor and ignores late callbacks. Hide competitors' amounts, counts and document names until the relevant purpose is authorized.
+
+## 15. Notifications and Communications
+
+Only owned outbox declarations after commit. Internal task notification may reference scoped IDs; no sealed prices/documents in events. Supplier delivery remains the existing explicit external/manual contact record unless a real sending owner acknowledges it. Approved award handoff is not a sent award notice or PO. Event versions distinguish submission/close/open/evaluation/recommendation/approved award.
+
+## 16. Documents and Attachments
+
+Reuse Core uploader/scanner/version/owner-access and durable use pins. Submission pins exact clean scan, content hash, original document/version and actor-authorized owner scope. Opening/evaluator downloads prevalidate the exact pinned version; owner-wide access alone is insufficient. Shared physical store/enlisted transaction and pre-snapshot write fence are required for first composition. Managed retirement must respect committed uses; interfaces alone do not establish race safety. Requirements pack and supplier offer uses are distinct, even when bytes match. Missing document owner/lease fails closed; a free-text reference is not scanned evidence.
+
+## 17. Exceptions and Edge Cases
+
+Zero/one/many offers, no award, partial/split line award, withdrawn/suspended supplier, late offer, changed manual Draft, conflicting evidence, offboarded evaluator, same-worker account alias, reopened round, quantity consumed by another target, missing sealed original, malformed policy, unknown legacy evaluation and store outage. Preserve completed historical signer facts; currently acting/future assignees must reauthorize. Explicit current policy expiry can block new effects without making historical receipts unreadable. No fabricated zero allocations or acceptance.
+
+## 18. Integrations, APIs, Events and Sandbox
+
+Planned routes reuse `/sourcing/{eventId}`: commercial-control Draft/revision; own quotation submission/history; close/open round; purpose evaluation tasks/detail/submit; award recommendation/open/Core decision/history; actor-owned command receipt. Every mutation carries expected event/target/round versions and UUID key; exact wire fingerprint and response persisted atomically. List/selectors apply bound source/site/assignment filters before count/page. No GET writes. Actual names/DTOs freeze only with the implementing slice and client contract; no speculative UI requests. Core executes One/All/quorum decisions; Procurement owns source effects and event/outbox declaration.
+
+## 19. Audit, Security and Privacy
+
+Retain original actor principal and optional alias on every stage, including policy maker/submitter/reviewer and intended evaluation/award recipients. Current account rebinding must not transfer original award authority. Append-only evidence, stable scoped parent IDs, exact normalized same-parent ownership constraints and hash verification are mandatory. No mutable CAS field as EF key. Deny UPDATE/DELETE/TRUNCATE on evidence under finite runtime roles and check column grants. Sealed content is not returned in broad event/quote history or logged as errors. Generic legacy bid routes remain denied for execution2 parents.
+
+## 20. Reports, Dashboards and Metrics
+
+Expose scoped round progress and assigned work only from real records. Participation, disqualification, awarded amount and cycle time need completed original evidence. No simulated score/rank/savings, no partially evaluated recommendation as approved, no Finance commitment/available balance inferred from awarded value.
+
+## 21. Configuration and Localization
+
+Existing SOURCING publication schema1 includes count/pack/criteria/deadline flags and publication approval stages only; it has no actual weighted criteria, named evaluator plan, seal/open authority or award approval policy. A new versioned explicit configuration/publication projection is necessary. Unknown fields/versions remain read-only; no default thresholds or automatic reuse of publication approvers as award approvers. Core organisation currency defaults the input, exact source currency remains pinned. Dates use trusted UTC instants with clear local presentation; business calendar exceptions require an owning configured policy.
+
+## 22. Non-Functional Requirements
+
+Bound all schemas/lists/documents/criteria and strict JSON duplicate/depth/size checks using existing evidence helpers. Maintain exact numeric18,4 inputs and checked38,8 products/sums; no Number/string rounding or DB coercion. Use sorted original PR locks → event/round → Core-case/document coupling according to one declared transaction order. Same physical-store constraints, retry/failure classification and unknown-commit receipt recovery must be tested with real Npgsql. No detached authority/readiness boolean.
+
+## 23. Postconditions
+
+Submitted offers are immutable and sealed; opening fixes an exact complete submission set; evaluations/recommendation reference that set and frozen criteria. Only an owned final approved Core proof yields an approved award, with line quantities within original reserved demand and exact value. PR holds are not duplicated or silently released. PO/contract handoff remains blocked until its separate consumer accepts an exact owned award source. No Finance, dispatch or stock effect occurs implicitly.
+
+## 24. Failure and Recovery
+
+Atomic source records/evidence/counters/receipts/audit/outbox share the existing `ProcurementApprovalTransaction`. Original key recovery returns stored bytes under current original actor/scope/action. Changed payload/target/actor conflicts or denies. Never automatically POST after uncertain submission/create. Retained source restoration uses immutable original evidence; do not require today's catalog or supplier eligibility just to read old facts. New award effects do require the adopted current eligibility/authority rules. Unsupported legacy or mixed allocation evidence stays unavailable. Used-evidence Down first locks every affected source/evidence/receipt/audit/outbox table and vetoes retained history; no backfill, history deletion, rounded downgrade or CASCADE.
+
+## 25. Acceptance Criteria
+
+No employee exists in the positive fixture. Before opening, even a named evaluator cannot read sealed content through detail/list/document/export/error paths. Changed quote/document/criterion/publication/assignment/actor/site/version pins deny with zero effects. After genuine opening, only the assigned purpose projection is readable. Independent exact evaluations plus configured Core approval are required for an approved award. Concurrent line awards and other held consumers cannot overallocate. Historical read and original key recovery remain available after supported policy/supplier/account changes. Default-off and unavailable owning schema remain closed.
+
+## 26. Test Scenarios
+
+Pure tests: strict explicit configuration, duplicate/unknown fields, zero/false preservation, exact weighted arithmetic, frozen plan/hash, scope/alias/SoD, exact original quote version and evidence, deadline boundaries, no opening before close, no evaluation before opening, incomplete/conflicted evaluations, partial quantity conservation, authentic Core One/All/reject/return proof. HTTP tests: actual Program finite roles/default-off/schema gate, all own/foreign purpose reads and counts, stable keys/stale CAS/rollback. PG17 tests: genuine migrations and captured exact CHECK/FK manifests, JSONNULL/ownership/append-only/column permissions, concurrent awards/closing/submission and unknown response recovery, fresh owner reconciliation, fresh/used/DownUp plus used-evidence veto. Existing imported UI gets focused mocked and actual API browser paths; no business responses mocked in actual acceptance.
+
+## 27. Ownership and Dependencies
+
+Procurement owns commercial plan, round, submission, evaluation, award and PR allocation decisions. Core owns canonical current accounts/scopes, workflow execution, document storage/scan/use and audit transport. Existing Finance policy evidence authorizes source funding only as documented, never supplier payment. Dependencies: accepted P29/P30 baseline; explicit commercial configuration adoption; actual Core document use composition; finite award action/authority registration; central additive model/migration/readiness generation. Current work is isolated source, not a merge/activation instruction.
+
+## 28. Open Decisions and Assumptions
+
+Business: scoring basis/formulas/normalization and pass criteria, price/tax/delivery comparison, tie-break/no-award rules, conflicts/independence, opening authority, late/correction/reopen policy, deadline/calendar, award limit and approval stages, split awards and supplier eligibility instant. No answers are invented. Technical implementation can proceed on explicit typed inputs with unsupported/missing choices blocked. Initial reviewable code slice is pure immutable plan/submission/round contracts and meaningful negative/conservation tests; no provider/routes/models activated by that slice. Persistence proposals follow exact validated contracts; central owner alone generates genuine migrations/snapshots.
+
+### Observed source gap and reuse register
+
+| Surface | Actual source | Current capability / required delta |
+|---|---|---|
+| P30 internal publication | `PrincipalRfqPublicationCoreWorkflow.Open`, lines66–69 | Explicitly rejects required pack/criteria/closing controls. Existing Published records cannot be adopted as P32 authority; new pre-publication control snapshot/proof required. |
+| Manual quotation | `ProcurementPrincipalSourcingManualQuoteRoutes`, `PrincipalManualQuotationDraft`, `PrincipalManualQuotationSnapshot` | Real Draft/create/revise/cancel/history only; no submitted original, seal, deadline or evaluation authority. Preserve encoder bytes and existing routes. |
+| Existing commercial tables | `CommercialRecords.cs`, `ProcurementDbContext.Configure` | Bid/evaluation/award rows and ordinary scoped links exist, but no frozen criteria/assignment/opening/award evidence. These tables alone prove no governed milestone. |
+| Original allocation | `CompetitiveSourcingSource`, `GovernedRfqDraft`, `ProcurementApprovedDemandLoader` | Reuse one existing PR ledger and exact P24 value schema; no second award-reservation balance. |
+| Shared workflow | Core `ApprovalEngine`, P30 `PrincipalRfqPublicationCoreWorkflow` | Reuse real One/All/decision/CAS machinery with a distinct award source type and pinned authority; no new engine. |
+| Shared documents | Core `EfDocumentUsePinStore`, `IDocumentUseAccess`, `ProcurementInvoiceUnitReviewDocumentUses` | Reuse actual fenced owning adapter and exact version-purpose access, not a copied uploader or owner-wide download. Procurement RFQ composition still required. |
+| Existing RFQ UI | `RfqWizard`, `RfqPresentation`, `PrincipalPublication` at UI d548f57 | Preserve layout/components. Imported Wizard local Draft is not an executable commercial plan; principal detail currently says no supplier bid/award and owns only manual Draft editor. |
+| Permissions | `ProcurementActionCatalog` | New actions/finite authority contract absent; empty bootstrap, actual Core role picker/tests, no reuse of generic edit/publish as award authority. |
