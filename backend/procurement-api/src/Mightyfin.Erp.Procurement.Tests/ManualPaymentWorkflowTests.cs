@@ -120,12 +120,38 @@ public sealed class ManualPaymentWorkflowTests
         {
             f.Evidence() with { Amount = 24m },
             f.Evidence() with { ExternalReference = " " },
-            f.Evidence() with { PaidOn = DateOnly.FromDateTime(f.Now.UtcDateTime).AddDays(1) },
-            f.Evidence() with { PaidOn = f.Source.InvoiceDate.AddDays(-1) }
+            f.Evidence() with { PaidOn = DateOnly.FromDateTime(f.Now.UtcDateTime).AddDays(1) }
         })
             Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Record(approved, 3,
                 f.Recorder, f.Source, evidence, f.Now));
         Assert.Equal("Approved", approved.Status);
+    }
+
+    [Fact]
+    public void An_actual_past_payment_date_can_precede_the_invoice_date_without_backdating_approval()
+    {
+        var f = new Fixture();
+        var recorded = ManualPaymentWorkflow.Record(f.Approved(), 3, f.Recorder, f.Source,
+            f.Evidence() with { PaidOn = f.Source.InvoiceDate.AddDays(-1) }, f.Now);
+        Assert.Equal(f.Source.InvoiceDate.AddDays(-1), recorded.Request.PaidOn);
+        Assert.Equal(f.Now, recorded.Request.RecordedAt);
+        Assert.Equal(f.Now, recorded.Request.ApprovedAt);
+    }
+
+    [Fact]
+    public void Another_editor_in_the_same_branch_cannot_revise_or_reassign_the_creators_draft()
+    {
+        var f = new Fixture(); var original = f.Create().Request;
+        var otherEditor = f.Approver with { Actions = new HashSet<string> { "procurement.payment.edit" } };
+        var error = Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Revise(
+            original, original.Version, f.Draft with { Amount = 30m }, otherEditor,
+            f.Assignee(f.Approver.PrincipalId, "approve"), f.Assignee(f.Recorder.PrincipalId, "record"),
+            f.Assignee(f.Confirmer.PrincipalId, "confirm"), f.Source, f.Now));
+        Assert.Equal("ManualPaymentNotCreator", error.Message);
+        Assert.Equal(25.1250m, original.Amount);
+        Assert.Equal(f.Approver.PrincipalId, original.ApproverPrincipalId);
+        Assert.Equal(1, original.Version);
+        Assert.Equal("Draft", original.Status);
     }
 
     [Fact]

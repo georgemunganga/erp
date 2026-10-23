@@ -65,6 +65,7 @@ public static class ManualPaymentWorkflow
         ManualPaymentInvoiceSource source, DateTimeOffset now)
     {
         Check(current, expectedVersion, actor, "edit", "Draft");
+        if (current.CreatorPrincipalId != actor.PrincipalId) Fail("ManualPaymentNotCreator");
         if (draft.BranchId != current.BranchId || draft.InvoiceId != current.SupplierInvoiceId
             || draft.SupplierId != current.SupplierId || draft.CurrencyCode != current.CurrencyCode)
             Fail("ManualPaymentSourceImmutable");
@@ -131,7 +132,7 @@ public static class ManualPaymentWorkflow
         CheckSource(current, source); CheckCapacity(current.Amount, source);
         if (current.ApprovedAmount != current.Amount || current.ApprovedByPrincipalId is null
             || current.ApprovedAt is null || evidence.Amount != current.Amount
-            || evidence.PaidOn == default || evidence.PaidOn < source.InvoiceDate
+            || evidence.PaidOn == default
             || evidence.PaidOn > DateOnly.FromDateTime(now.UtcDateTime)
             || !ValidText(evidence.ExternalMethod, 100) || !ValidText(evidence.ExternalReference, 200)
             || evidence.EvidenceDocumentRefId == Guid.Empty)
