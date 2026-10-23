@@ -542,6 +542,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureSourcingPublication(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
+        ConfigurePrincipalInvoiceMatching(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
         ConfigureManualPayments(modelBuilder);
         ConfigureManualPaymentGovernance(modelBuilder);
@@ -742,6 +743,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardSourcingPublicationEvidence();
         GuardOperationalPolicyIdentity();
         GuardInvoiceUnitReview();
+        GuardPrincipalInvoiceMatching();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();

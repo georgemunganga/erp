@@ -1,0 +1,190 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
+
+namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
+
+public sealed partial class ProcurementDbContext
+{
+    private void GuardPrincipalInvoiceMatching()
+    {
+        var records = ChangeTracker.Entries<ProcurementRecord>()
+            .Where(x => x.Entity is PrincipalInvoiceState or PrincipalInvoiceMappingVersion
+                or PrincipalInvoiceMappingLine or PrincipalInvoiceUnitReviewSource
+                or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewOutcome
+                or PrincipalInvoiceComparison or PrincipalInvoiceExposureState
+                or PrincipalInvoiceClaim or PrincipalInvoiceCommandReceipt)
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToArray();
+        if (records.Length == 0) return;
+        if (!Database.IsNpgsql() || Database.CurrentTransaction is null
+            || sharedApprovalCore?.Database.CurrentTransaction is null || sharedApprovalTransaction is null
+            || !ReferenceEquals(sharedApprovalTransaction, Database.CurrentTransaction.GetDbTransaction())
+            || !ReferenceEquals(sharedApprovalTransaction, sharedApprovalCore.Database.CurrentTransaction.GetDbTransaction())
+            || sharedApprovalTransaction.IsolationLevel != System.Data.IsolationLevel.Serializable
+            || !ProcurementPrincipalEvidence.Canonical(scope.SubjectId)
+            || !ProcurementPrincipalEvidence.OptionalWorker(scope.CoreLinkedWorkerId))
+            throw new InvalidOperationException("PrincipalInvoiceOwningTransactionRequired");
+        foreach (var entry in records)
+        {
+            if (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId
+                || entry.State == EntityState.Deleted)
+                throw new InvalidOperationException("PrincipalInvoiceScopeOrDeletionInvalid");
+            if (entry.State == EntityState.Added && entry.Entity.Version != 1)
+                throw new InvalidOperationException("PrincipalInvoiceInitialVersionInvalid");
+            if (entry.State == EntityState.Modified && entry.Entity is not (PrincipalInvoiceState or PrincipalInvoiceExposureState))
+                throw new InvalidOperationException("PrincipalInvoiceEvidenceAppendOnly");
+        }
+        foreach (var entry in ChangeTracker.Entries<PrincipalInvoiceState>().Where(x => x.State == EntityState.Modified))
+            if (entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not
+                ("InvoiceVersion" or "MappingRevision" or "CurrentMappingId" or "LastComparisonId"
+                    or "ActiveClaimComparisonId" or "State" or "Version" or "UpdatedAt" or "UpdatedBy")))
+                throw new InvalidOperationException("PrincipalInvoiceStateSourceImmutable");
+        foreach (var entry in ChangeTracker.Entries<PrincipalInvoiceExposureState>().Where(x => x.State == EntityState.Modified))
+            if (entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not
+                ("Sequence" or "CoverageState" or "OwnerReference" or "OwnerWatermark"
+                    or "OwnerEvidenceSha256" or "OwnerValidUntil" or "Version" or "UpdatedAt" or "UpdatedBy")))
+                throw new InvalidOperationException("PrincipalInvoiceExposureSourceImmutable");
+
+        var added = records.Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
+        PrincipalInvoiceState State(Guid invoiceId) => PrincipalInvoiceStates.Local.SingleOrDefault(x => x.SupplierInvoiceId == invoiceId)
+            ?? PrincipalInvoiceStates.Single(x => x.SupplierInvoiceId == invoiceId);
+        SupplierInvoice Invoice(Guid id) => SupplierInvoices.Local.SingleOrDefault(x => x.Id == id)
+            ?? SupplierInvoices.Single(x => x.Id == id);
+        PrincipalInvoiceMappingVersion Mapping(Guid id) => PrincipalInvoiceMappingVersions.Local.SingleOrDefault(x => x.Id == id)
+            ?? PrincipalInvoiceMappingVersions.Single(x => x.Id == id);
+        PrincipalInvoiceCommandReceipt Receipt(Guid invoiceId, string operation)
+            => added.OfType<PrincipalInvoiceCommandReceipt>().Single(x => x.SupplierInvoiceId == invoiceId && x.Operation == operation);
+
+        foreach (var state in added.OfType<PrincipalInvoiceState>())
+        {
+            var invoice = Invoice(state.SupplierInvoiceId);
+            var firstMapping = added.OfType<PrincipalInvoiceMappingVersion>()
+                .SingleOrDefault(x => x.SupplierInvoiceId == invoice.Id);
+            if (state.BranchId != invoice.BranchRef || state.SupplierId != invoice.SupplierId
+                || state.CurrencyCode != invoice.CurrencyCode || state.InvoiceVersion != invoice.Version
+                || (firstMapping is null
+                    ? state.MappingRevision != 0 || state.CurrentMappingId is not null || state.State != "Unmapped"
+                    : state.MappingRevision != 1 || state.CurrentMappingId != firstMapping.Id || state.State != "Mapped")
+                || state.LastComparisonId is not null || state.ActiveClaimComparisonId is not null
+                )
+                throw new InvalidOperationException("PrincipalInvoiceStateOriginalRequired");
+        }
+        foreach (var mapping in added.OfType<PrincipalInvoiceMappingVersion>())
+        {
+            var invoice = Invoice(mapping.SupplierInvoiceId);
+            var state = State(invoice.Id);
+            var rows = added.OfType<PrincipalInvoiceMappingLine>().Where(x => x.MappingVersionId == mapping.Id).ToArray();
+            var originals = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive)
+                .OrderBy(x => x.LineNumber).ToArray();
+            var issued = PrincipalOrderIssuedVersions.Single(x => x.Id == mapping.PrincipalIssuedVersionId);
+            var lines = PurchaseOrderLines.Where(x => x.PurchaseOrderId == mapping.PurchaseOrderId && x.IsActive)
+                .OrderBy(x => x.LineNumber).ToArray();
+            PrincipalInvoiceMappingEvidence.VerifyRows(mapping, rows);
+            if (mapping.MakerPrincipalId != scope.SubjectId || mapping.MakerWorkerAliasId != scope.CoreLinkedWorkerId
+                || mapping.InvoiceVersion != invoice.Version || mapping.MappingRevision != state.MappingRevision
+                || state.CurrentMappingId != mapping.Id || mapping.OriginalInvoiceSha256 != InvoiceMappingEvidence.OriginalDigest(invoice, originals)
+                || mapping.MappingSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(mapping.MappingJson)
+                || mapping.PurchaseOrderId != issued.PurchaseOrderId || mapping.IssuedSnapshotSha256 != issued.CommercialSnapshotSha256
+                || rows.Length != originals.Length || rows.Length is < 1 or > 200
+                || rows.Select(x => x.SupplierInvoiceLineId).Distinct().Count() != rows.Length
+                || !rows.Select(x => x.SupplierInvoiceLineId).Order().SequenceEqual(originals.Select(x => x.Id).Order())
+                || rows.Any(x => x.SupplierInvoiceId != invoice.Id || x.PurchaseOrderId != mapping.PurchaseOrderId
+                    || x.PrincipalIssuedVersionId != mapping.PrincipalIssuedVersionId
+                    || !lines.Any(line => line.Id == x.PurchaseOrderLineId))
+                || Receipt(invoice.Id, "Map").ActorPrincipalId != scope.SubjectId)
+                throw new InvalidOperationException("PrincipalInvoiceMappingSameSaveRequired");
+        }
+        foreach (var line in added.OfType<PrincipalInvoiceMappingLine>())
+            if (!added.OfType<PrincipalInvoiceMappingVersion>().Any(x => x.Id == line.MappingVersionId)
+                || line.PrincipalAcceptanceFactId.HasValue != line.PrincipalReceivingSourceStateId.HasValue
+                || line.PrincipalAcceptanceFactId.HasValue != line.AcceptanceSequence.HasValue
+                || line.PrincipalAcceptanceFactId is { } factId &&
+                    !PrincipalReceivingFacts.Any(x => x.Id == factId
+                        && x.SourceStateId == line.PrincipalReceivingSourceStateId
+                        && x.Sequence == line.AcceptanceSequence && x.Kind == "Acceptance"
+                        && (x.Operation == "Accept" || x.Operation == "Certify")))
+                throw new InvalidOperationException("PrincipalInvoiceMappingLineRequiresHeader");
+
+        foreach (var review in added.OfType<PrincipalInvoiceUnitReviewSource>())
+        {
+            var mapping = Mapping(review.MappingVersionId);
+            if (review.MakerPrincipalId != scope.SubjectId || review.MakerWorkerAliasId != scope.CoreLinkedWorkerId
+                || review.SupplierInvoiceId != mapping.SupplierInvoiceId
+                || review.PrincipalIssuedVersionId != mapping.PrincipalIssuedVersionId
+                || review.MappingSha256 != mapping.MappingSha256
+                || review.OriginalInvoiceSha256 != mapping.OriginalInvoiceSha256
+                || review.OriginalUnitsSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(review.OriginalUnitsJson)
+                || State(review.SupplierInvoiceId).CurrentMappingId != mapping.Id
+                || added.OfType<PrincipalInvoiceUnitReviewAssignment>().Count(x => x.ReviewSourceId == review.Id) == 0
+                || Receipt(review.SupplierInvoiceId, "OpenReview").ActorPrincipalId != scope.SubjectId)
+                throw new InvalidOperationException("PrincipalInvoiceReviewOpeningRequired");
+        }
+        foreach (var assignment in added.OfType<PrincipalInvoiceUnitReviewAssignment>())
+            if (!added.OfType<PrincipalInvoiceUnitReviewSource>().Any(x => x.Id == assignment.ReviewSourceId && x.CoreCaseId == assignment.CoreCaseId))
+                throw new InvalidOperationException("PrincipalInvoiceReviewAssignmentOwnerRequired");
+        foreach (var outcome in added.OfType<PrincipalInvoiceUnitReviewOutcome>())
+        {
+            var review = PrincipalInvoiceUnitReviewSources.Single(x => x.Id == outcome.ReviewSourceId);
+            if (outcome.CoreCaseId != review.CoreCaseId || outcome.ReviewerPrincipalId != scope.SubjectId
+                || outcome.ReviewerWorkerAliasId != scope.CoreLinkedWorkerId
+                || outcome.EvidenceSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(outcome.EvidenceJson)
+                || outcome.CompletedAt < review.OpenedAt
+                || Receipt(review.SupplierInvoiceId, "DecideReview").ActorPrincipalId != scope.SubjectId)
+                throw new InvalidOperationException("PrincipalInvoiceReviewDecisionRequired");
+        }
+        foreach (var comparison in added.OfType<PrincipalInvoiceComparison>())
+        {
+            var mapping = Mapping(comparison.MappingVersionId);
+            var review = PrincipalInvoiceUnitReviewOutcomes.Single(x => x.Id == comparison.ReviewOutcomeId);
+            var exposure = PrincipalInvoiceExposureStates.Local.SingleOrDefault(x => x.Id == comparison.ExposureStateId)
+                ?? PrincipalInvoiceExposureStates.Single(x => x.Id == comparison.ExposureStateId);
+            var state = State(comparison.SupplierInvoiceId);
+            if (comparison.ActorPrincipalId != scope.SubjectId || comparison.ActorWorkerAliasId != scope.CoreLinkedWorkerId
+                || comparison.SupplierInvoiceId != mapping.SupplierInvoiceId
+                || comparison.PurchaseOrderId != mapping.PurchaseOrderId
+                || comparison.PrincipalIssuedVersionId != mapping.PrincipalIssuedVersionId
+                || comparison.InvoiceVersion != mapping.InvoiceVersion
+                || comparison.OriginalInvoiceSha256 != mapping.OriginalInvoiceSha256
+                || comparison.EvidenceSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(comparison.EvidenceJson)
+                || review.State != "Verified" || state.LastComparisonId != comparison.Id
+                || exposure.PurchaseOrderId != comparison.PurchaseOrderId
+                || exposure.PrincipalIssuedVersionId != comparison.PrincipalIssuedVersionId
+                || comparison.OwnerWatermark != exposure.OwnerWatermark
+                || comparison.Outcome != "Compared" || (state.ActiveClaimComparisonId != comparison.Id
+                    || exposure.CoverageState != "Verified" || exposure.OwnerValidUntil <= comparison.ComparedAt
+                    || !added.OfType<PrincipalInvoiceClaim>().Any(x => x.ComparisonId == comparison.Id))
+                || Receipt(comparison.SupplierInvoiceId, "Compare").ActorPrincipalId != scope.SubjectId)
+                throw new InvalidOperationException("PrincipalInvoiceComparisonOwnerRequired");
+        }
+        foreach (var claim in added.OfType<PrincipalInvoiceClaim>())
+        {
+            var comparison = added.OfType<PrincipalInvoiceComparison>().SingleOrDefault(x => x.Id == claim.ComparisonId);
+            if (comparison is null || comparison.Outcome != "Compared"
+                || claim.SupplierInvoiceId != comparison.SupplierInvoiceId
+                || claim.PurchaseOrderId != comparison.PurchaseOrderId
+                || claim.PrincipalIssuedVersionId != comparison.PrincipalIssuedVersionId
+                || claim.PrincipalAcceptanceFactId.HasValue != claim.PrincipalReceivingSourceStateId.HasValue
+                || claim.PrincipalAcceptanceFactId.HasValue != claim.AcceptanceSequence.HasValue
+                || claim.Quantity <= 0 || claim.NetAmount < 0 || claim.TaxAmount < 0)
+                throw new InvalidOperationException("PrincipalInvoiceClaimAuthorityRequired");
+        }
+        foreach (var receipt in added.OfType<PrincipalInvoiceCommandReceipt>())
+        {
+            var invoice = Invoice(receipt.SupplierInvoiceId);
+            if (receipt.ActorPrincipalId != scope.SubjectId || receipt.ActorWorkerAliasId != scope.CoreLinkedWorkerId
+                || receipt.BranchId != invoice.BranchRef || receipt.CommandKey == Guid.Empty
+                || receipt.ResponseSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.ResponseJson)
+                || !added.Any(x => receipt.Operation switch
+                {
+                    "Map" => x is PrincipalInvoiceMappingVersion map && map.SupplierInvoiceId == invoice.Id,
+                    "OpenReview" => x is PrincipalInvoiceUnitReviewSource review && review.SupplierInvoiceId == invoice.Id,
+                    "DecideReview" => x is PrincipalInvoiceUnitReviewOutcome outcome
+                        && PrincipalInvoiceUnitReviewSources.Any(review => review.Id == outcome.ReviewSourceId && review.SupplierInvoiceId == invoice.Id),
+                    "Compare" => x is PrincipalInvoiceComparison result && result.SupplierInvoiceId == invoice.Id,
+                    _ => false,
+                }))
+                throw new InvalidOperationException("PrincipalInvoiceCommandReceiptEffectRequired");
+        }
+    }
+}
