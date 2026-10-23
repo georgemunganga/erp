@@ -156,6 +156,13 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var orderIdsPage=submissions.Select(x=>x.PurchaseOrderId).ToArray();
             var orders=await db.PurchaseOrders.AsNoTracking().Where(x=>orderIdsPage.Contains(x.Id))
                 .ToArrayAsync(token);
+            var lines=await db.PurchaseOrderLines.AsNoTracking().Where(x=>orderIdsPage.Contains(x.PurchaseOrderId)
+                &&x.IsActive).ToArrayAsync(token);
+            var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking()
+                .Where(x=>orderIdsPage.Contains(x.PurchaseOrderId)).ToArrayAsync(token);
+            var fundingIds=submissions.Select(x=>x.FundingEvidenceId).ToArray();
+            var fundings=await db.PrincipalOrderFundingEvidence.AsNoTracking()
+                .Where(x=>fundingIds.Contains(x.Id)).ToArrayAsync(token);
             var caseIdsPage=assignments.Select(x=>x.CaseId).ToArray();
             var workflows=await cases.Cases.AsNoTracking().Where(x=>caseIdsPage.Contains(x.Id)).ToArrayAsync(token);
             var items=new List<object>(assignments.Length);
@@ -165,14 +172,20 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     &&x.PrincipalId==principal);
                 var submission=pin is null?null:submissions.SingleOrDefault(x=>x.Id==pin.SubmissionId);
                 var order=submission is null?null:orders.SingleOrDefault(x=>x.Id==submission.PurchaseOrderId);
+                var funding=submission is null?null:fundings.SingleOrDefault(x=>x.Id==submission.FundingEvidenceId);
                 var workflow=workflows.SingleOrDefault(x=>x.Id==task.CaseId);
-                if(pin is null || submission is null || order is null || workflow is null
+                if(pin is null || submission is null || order is null || funding is null || workflow is null
                     || order.BranchRef is null || !active.Contains(order.BranchRef.Value)
                     || order.Status!="PendingApproval" || workflow.State!="Pending"
                     || submission.CommercialSnapshotSha256!=ProcurementEvidenceEncoding.Digest(submission.CommercialSnapshotJson)
+                    || funding.CommercialSnapshotJson!=submission.CommercialSnapshotJson
+                    || funding.CommercialSnapshotSha256!=submission.CommercialSnapshotSha256
                     || submission.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
+                    || funding.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
                     || workflow.SourceId!=order.Id || workflow.PolicyVersionId!=submission.PolicyVersionId)
                     throw new Problem("OrderApprovalEvidenceChanged",409);
+                PrincipalOrderDraftPins.Verify(order,lines.Where(x=>x.PurchaseOrderId==order.Id).ToArray(),
+                    bindings.Where(x=>x.PurchaseOrderId==order.Id).ToArray());
                 items.Add(new{orderId=order.Id,order.Number,order.Status,order.Version,order.BranchRef,
                     order.SupplierId,order.CurrencyCode,assignmentId=task.Id,assignmentVersion=task.Version,
                     caseId=workflow.Id,caseVersion=workflow.Version,workflow.OpenedAt,
