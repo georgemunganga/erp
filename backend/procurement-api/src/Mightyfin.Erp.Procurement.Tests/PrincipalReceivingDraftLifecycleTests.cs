@@ -61,4 +61,13 @@ public sealed partial class PrincipalControlledReceivingTests
         Assert.Throws<InvalidOperationException>(()=>PrincipalReceivingDraftLifecycle.RecordGoods(draft,actor,1,ledgers,policies,new Dictionary<Guid,long>{{source.Commercial.PurchaseOrderLineId,1}},Guid.NewGuid(),"REC:stale",At));
         Assert.Empty(ledgers.Single().Value.Observations);Assert.Equal("Draft",draft.State);Assert.Equal(1,draft.Version);
     }
+    [Fact]
+    public void Schema_two_discriminator_is_bounded_and_does_not_accept_unknown_or_nonobject_JSON()
+    {
+        Assert.True(PrincipalReceivingPolicyRules.IsDocument(Policy(Source()).RulesJson));
+        Assert.False(PrincipalReceivingPolicyRules.IsDocument("[]"));
+        Assert.False(PrincipalReceivingPolicyRules.IsDocument("{\"schemaVersion\":3,\"transactionType\":\"Receiving\"}"));
+        Assert.False(PrincipalReceivingPolicyRules.IsDocument("{\"schemaVersion\":2,\"transactionType\":\"Receiving\",\"padding\":\""+new string('x',65536)+"\"}"));
+    }
+
 }
