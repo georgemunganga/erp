@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
@@ -33,7 +34,7 @@ catch (Exception error)
     Environment.ExitCode = 1;
 }
 
-sealed class GovernanceProbe(string connection)
+sealed partial class GovernanceProbe(string connection)
 {
     private const string Tenant = "synthetic-payment-governance";
     private const string Rules = """
@@ -93,6 +94,11 @@ sealed class GovernanceProbe(string connection)
             Check(!procurement.Database.HasPendingModelChanges());
             await procurement.Database.MigrateAsync();
             Check((await procurement.Database.GetAppliedMigrationsAsync()).Last().EndsWith("P28ManualPaymentGovernance", StringComparison.Ordinal));
+            // Genuine empty downgrade/upgrade; no retained data is removed.
+            await procurement.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>()
+                .MigrateAsync("20261023125243_P27ManualPaymentRecords");
+            await procurement.Database.MigrateAsync();
+            Check(!procurement.Database.HasPendingModelChanges());
         }
         Phase = "synthetic-invoice-and-supplier";
         await using (var db = Procurement(creator))
@@ -166,6 +172,7 @@ sealed class GovernanceProbe(string connection)
         Check(await verify.FinancePaymentStatusRefs.CountAsync() == 0
             && (await verify.SupplierInvoices.SingleAsync(x => x.Id == invoiceId)).FinancePostingRef is null);
         Check(await verify.AuditEvents.CountAsync(x => x.RecordType == nameof(ManualPaymentRequest)) >= 2);
+        await NegativeChecksAsync(first);
     }
 
     private async Task PublishPolicyAsync()
