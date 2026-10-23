@@ -68,7 +68,7 @@ public sealed class PrincipalOrderGovernancePersistenceTests
                 OriginalDirectSourceSha256=order.OriginalDirectSourceSha256!,CommercialSnapshotJson=snapshot,
                 CommercialSnapshotSha256=ProcurementEvidenceEncoding.Digest(snapshot),
                 ManualCommitmentReference="EXT-1",ExternalEvidenceReference="DOC-1",
-                ApprovedManualPolicyReference="POL-1",CurrencyCode="ZMW",AttestedGrossAmount=1m,
+                ApprovedManualPolicyReference="POL-1",SourceReservationsJson="[]",CurrencyCode="ZMW",AttestedGrossAmount=1m,
                 RecordedByPrincipalId=recorder,ObservedAt=DateTimeOffset.UtcNow});
             await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
         }
@@ -79,7 +79,7 @@ public sealed class PrincipalOrderGovernancePersistenceTests
                 OriginalDirectSourceSha256=order.OriginalDirectSourceSha256!,CommercialSnapshotJson=snapshot,
                 CommercialSnapshotSha256=ProcurementEvidenceEncoding.Digest(snapshot),
                 ManualCommitmentReference="EXT-1",ExternalEvidenceReference="DOC-1",
-                ApprovedManualPolicyReference="POL-1",CurrencyCode="ZMW",AttestedGrossAmount=1m,
+                ApprovedManualPolicyReference="POL-1",SourceReservationsJson="[]",CurrencyCode="ZMW",AttestedGrossAmount=1m,
                 RecordedByPrincipalId=recorder,ObservedAt=DateTimeOffset.UtcNow});
             await db.SaveChangesAsync();
         }
