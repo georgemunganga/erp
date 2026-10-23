@@ -21,7 +21,7 @@ public static class ManualPaymentReviewPolicyRules
     public const string PolicyKey = "MANUAL_PAYMENT_REVIEW";
     public const string TransactionType = "ManualPaymentReview";
     private const string Invalid = "ManualPaymentReviewPolicyUnavailable";
-    private static readonly Regex AmountSyntax = new(@"^(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?$",
+    private static readonly Regex AmountSyntax = new(@"\A(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?\z",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 
     public static ManualPaymentReviewPolicyDocument Parse(string? json) => ParseCore(json);
@@ -56,8 +56,9 @@ public static class ManualPaymentReviewPolicyRules
             && policy.State == "Published" && now != default
             && policy.EffectiveFrom != default && policy.EffectiveFrom <= now
             && (policy.EffectiveTo is null || now < policy.EffectiveTo)
-            && policy.PublishedAt is { } published && published <= now
-            && !string.IsNullOrWhiteSpace(policy.CreatedBy) && !string.IsNullOrWhiteSpace(policy.PublishedBy)
+            && policy.PublishedAt is { } published && published != default && published <= now
+            && ProcurementPrincipalEvidence.Canonical(policy.CreatedBy)
+            && ProcurementPrincipalEvidence.Canonical(policy.PublishedBy)
             && policy.CreatedBy != policy.PublishedBy && !string.IsNullOrWhiteSpace(policy.PublicationReason));
         var rules = Parse(policy.RulesJson);
         return new(policy.Id, policy.PolicyVersionNumber,
@@ -73,7 +74,9 @@ public static class ManualPaymentReviewPolicyRules
             && currencyCode.All(c => c is >= 'A' and <= 'Z')
             && amount > 0 && ExactDecimalJsonCodec.IsRepresentable(amount, 18, 4)
             && (rules.MaximumByCurrency is null
-                || rules.MaximumByCurrency.TryGetValue(currencyCode, out var limit) && amount <= limit);
+                || rules.MaximumByCurrency.TryGetValue(currencyCode, out var limit)
+                    && limit > 0 && ExactDecimalJsonCodec.IsRepresentable(limit, 18, 4)
+                    && amount <= limit);
 
     private static ManualPaymentReviewPolicyDocument ParseCore(string? json)
     {

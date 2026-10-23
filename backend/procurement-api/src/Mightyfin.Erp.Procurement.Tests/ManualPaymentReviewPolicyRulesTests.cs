@@ -43,6 +43,16 @@ public sealed class ManualPaymentReviewPolicyRulesTests
         Assert.False(Rules.WithinConfiguredMaximum(rules, "ZMW", 50000.0001m));
         Assert.False(Rules.WithinConfiguredMaximum(rules, "EUR", 1m));
         Assert.False(Rules.WithinConfiguredMaximum(rules, "zmw", 1m));
+        var invalidTypedLimit = rules with
+        {
+            MaximumByCurrency = new Dictionary<string, decimal> { ["ZMW"] = 0.00001m }
+        };
+        Assert.False(Rules.WithinConfiguredMaximum(invalidTypedLimit, "ZMW", 0.0001m));
+        invalidTypedLimit = rules with
+        {
+            MaximumByCurrency = new Dictionary<string, decimal> { ["ZMW"] = -1m }
+        };
+        Assert.False(Rules.WithinConfiguredMaximum(invalidTypedLimit, "ZMW", 0.0001m));
     }
 
     [Theory]
@@ -51,6 +61,7 @@ public sealed class ManualPaymentReviewPolicyRulesTests
     [InlineData("\"USD\":\"0.00001\"")]
     [InlineData("\"USD\":\"100000000000000\"")]
     [InlineData("\"USD\":\"1e2\"")]
+    [InlineData("\"USD\":\"1.00\\n\"")]
     [InlineData("\"USD\":100")]
     [InlineData("\"usd\":\"1\"")]
     [InlineData("\"USDD\":\"1\"")]
@@ -127,6 +138,12 @@ public sealed class ManualPaymentReviewPolicyRulesTests
         policy.PublishedBy = Guid.NewGuid().ToString("D"); policy.PolicyVersionNumber = 0;
         Assert.Throws<InvalidOperationException>(() => Rules.ResolveEffective(policy, "tenant-a", company, now));
         policy.PolicyVersionNumber = 1; policy.PolicyKey = "INVOICE_UNIT_REVIEW";
+        Assert.Throws<InvalidOperationException>(() => Rules.ResolveEffective(policy, "tenant-a", company, now));
+        policy.PolicyKey = Rules.PolicyKey; policy.PublishedBy = "not-a-core-principal";
+        Assert.Throws<InvalidOperationException>(() => Rules.ResolveEffective(policy, "tenant-a", company, now));
+        policy.PublishedBy = Guid.NewGuid().ToString("D"); policy.PublishedAt = DateTimeOffset.MinValue;
+        Assert.Throws<InvalidOperationException>(() => Rules.ResolveEffective(policy, "tenant-a", company, now));
+        policy.PublishedAt = now.AddHours(-1); policy.CreatedBy = "not-a-core-principal";
         Assert.Throws<InvalidOperationException>(() => Rules.ResolveEffective(policy, "tenant-a", company, now));
     }
 }
