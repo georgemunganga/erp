@@ -24,4 +24,11 @@ public static class ProcurementSpendingActions
         (action == PurchaseRequest.Action && permission == PurchaseRequest.Permission && basis == PurchaseRequest.AmountBasis)
         || (action == PurchaseOrder.Action && permission == PurchaseOrder.Permission && basis == PurchaseOrder.AmountBasis)
         || (action == SourcingPublication.Action && permission == SourcingPublication.Permission && basis == SourcingPublication.AmountBasis);
+
+    // Identity evidence does not repeat AmountBasis; its owning grant binds that field.
+    // Keep this finite list aligned with Matches, never infer an action from a role token.
+    public static bool MatchesIdentity(string action, string permission) =>
+        (action == PurchaseRequest.Action && permission == PurchaseRequest.Permission)
+        || (action == PurchaseOrder.Action && permission == PurchaseOrder.Permission)
+        || (action == SourcingPublication.Action && permission == SourcingPublication.Permission);
 }
