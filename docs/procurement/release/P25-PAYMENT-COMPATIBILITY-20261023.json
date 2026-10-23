@@ -1,0 +1,200 @@
+{
+  "status": "PRIVATE_COMPATIBILITY_PASSED_BROWSER_WORKFLOW_PENDING",
+  "pr": "https://github.com/georgemunganga/erp/pull/45",
+  "publishedErpBase": "9693296432a698c06b4bfc724ff394405b75cfaf",
+  "publishedUiBase": "ef568a614d33e904504873aa54c63d907749e343",
+  "codeSource": "889135d4067ff4965a72e73279c1b49909752aa3",
+  "evidence": [
+    {
+      "evidencePath": "/home/amizo/erp-backups/procurement-p25-payment-combined-build-20261023_run01/result.json",
+      "sha256": "6d32c68f640da845bf815ccfa75df7e5708e23414b52edf0f69dc4e12e4d906d",
+      "result": {
+        "sourceHead": "08e3f469258b4c638129109b0a3195d3e3fe247c",
+        "sourceUnchanged": true,
+        "exitCode": 1,
+        "oomKilled": false,
+        "pendingModelChanges": false,
+        "tests": {
+          "procurement.trx": {
+            "total": "1408",
+            "executed": "1408",
+            "passed": "1408",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0",
+            "failedNames": []
+          },
+          "host.trx": {
+            "total": "454",
+            "executed": "454",
+            "passed": "442",
+            "failed": "12",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0",
+            "failedNames": [
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"future-policy\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"other-company\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"disabled\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"expired-policy\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"missing-connection\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"configured\", expected: True)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"schema-not-ready\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"duplicate-policy\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"absent-policy\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"disabled-policy\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"finance-checker-schema-not-ready\", expected: False)",
+              "Mightyfin.Erp.Hrm.Tests.ProcurementApprovalCapabilityHttpTests.Mapped_metadata_exposes_only_configured_current_available_approvals(scenario: \"unapproved-policy\", expected: False)"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "evidencePath": "/home/amizo/erp-backups/procurement-p25-payment-combined-build-20261023_run02/result.json",
+      "sha256": "dbf75393e5894fab8da25d64397df4f5b75544d6295fbf70fcf7031a6bcff21c",
+      "result": {
+        "sourceHead": "889135d4067ff4965a72e73279c1b49909752aa3",
+        "sourceUnchanged": true,
+        "exitCode": 0,
+        "oomKilled": false,
+        "tests": {
+          "corrected-host.trx": {
+            "total": "43",
+            "executed": "43",
+            "passed": "43",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+          }
+        }
+      }
+    },
+    {
+      "evidencePath": "/home/amizo/erp-backups/procurement-p25-p28-retained-fixture-20261023_run01/result.json",
+      "sha256": "6eab409ad6811548635cb114d9b31b9b5e461662bb8b42665b6c80a5bfa0ba69",
+      "result": {
+        "status": "PASS",
+        "apiSource": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+        "normalCookieLogin": true,
+        "actualCreateStatus": 201,
+        "actualOwnReadStatus": 200,
+        "draftCount": 1,
+        "lineCount": 1,
+        "p25ColumnsAbsentBeforeUpgrade": true,
+        "paymentFootprintsUnchanged": {
+          "manual_payment_requests": "7:22bf98450d8a3d60ac9b539e6ba688817259cc4983ad86ff121bd931284b0d11",
+          "manual_payment_decisions": "28:35540e8804cc22b355e5aee6d97e0e56f98fd3ba0ffa2eb20e80e6db82f03245",
+          "manual_payment_receipts": "28:df4307338942e3bb560e1e00886e759b62185722613ffdaac9852547c5666964",
+          "manual_payment_workflow_cases": "8:f74818488a8c4e03fbaee7f0eb9f5380df7638e33f3b31a3f8536ae5cafbd74e",
+          "manual_payment_core_decisions": "8:183fe7aec643cf68a526d96df25e2aebf48afda1d39e24d1b040ee8f244bb9b1",
+          "manual_payment_date_observations": "6:ebcf7708c87c50987844f573901d1ee9d6673ca6925e68fb0afc7e8eb9c5f56c"
+        },
+        "temporaryCloneGrantRestored": true,
+        "employeeLinkRequired": false,
+        "productionChanged": false
+      }
+    },
+    {
+      "evidencePath": "/home/amizo/erp-backups/procurement-p25-payment-owner-compatibility-20261023_run01/retained-result.json",
+      "sha256": "248ced4e782a87154adc1ec96ab38594a0010edc8732b571aab1651d8997f8b2",
+      "result": {
+        "status": "PASS_PRIVATE_OWNER_ONLY",
+        "mode": "retained-p28-to-p25",
+        "productionChanged": false,
+        "actualProgramStarted": false,
+        "dataPrinted": false,
+        "limits": "New private target only; no runtime-role, HTTP, downgrade, or production acceptance.",
+        "retainedNormalizedRowsBeforeSha256": "64D6C2F34E530100760471B335FC6DD38536DA7B1E6FC2EDD12CE3B60F23002D",
+        "retainedNormalizedShapeBeforeSha256": "540FAD3FF59ABD1F9940DB3ABCEE5A596B885A0DF5FC45F25FAECA3B4ED34FCA",
+        "retainedNormalizedRowsAfterSha256": "64D6C2F34E530100760471B335FC6DD38536DA7B1E6FC2EDD12CE3B60F23002D",
+        "retainedNormalizedShapeAfterSha256": "540FAD3FF59ABD1F9940DB3ABCEE5A596B885A0DF5FC45F25FAECA3B4ED34FCA",
+        "retainedFullRowsBeforeRepeatSha256": "ADB4434B0A400AD447CB5EA6ECCF92E549A53BEECB490F5F09D4DC46719478C0",
+        "retainedFullShapeBeforeRepeatSha256": "95B818253B839A927879A2FCD99EDF224581D082989C7141CEE6CA7187776EEA",
+        "retainedFullRowsAfterRepeatSha256": "ADB4434B0A400AD447CB5EA6ECCF92E549A53BEECB490F5F09D4DC46719478C0",
+        "retainedFullShapeAfterRepeatSha256": "95B818253B839A927879A2FCD99EDF224581D082989C7141CEE6CA7187776EEA",
+        "retainedNormalizedRowsAfterRepeatSha256": "64D6C2F34E530100760471B335FC6DD38536DA7B1E6FC2EDD12CE3B60F23002D",
+        "retainedNormalizedShapeAfterRepeatSha256": "540FAD3FF59ABD1F9940DB3ABCEE5A596B885A0DF5FC45F25FAECA3B4ED34FCA",
+        "retainedRowsAndUnrelatedShapeUnchanged": true,
+        "repeatMigrationNoFootprintChange": true,
+        "procurementMigrationIds": [
+          "20261022161353_P25CorePrincipalRequestApproval",
+          "20261023125243_P27ManualPaymentRecords",
+          "20261023153226_P28ManualPaymentGovernance"
+        ]
+      }
+    },
+    {
+      "evidencePath": "/home/amizo/erp-backups/procurement-p25-payment-owner-compatibility-20261023_run01/fresh-result.json",
+      "sha256": "ed571aa5c44e0dea99e311bb0224fca3c073f4292662d4f650173c64a9c8763b",
+      "result": {
+        "status": "PASS_PRIVATE_OWNER_ONLY",
+        "mode": "fresh-owner-chain",
+        "productionChanged": false,
+        "actualProgramStarted": false,
+        "dataPrinted": false,
+        "limits": "New private target only; no runtime-role, HTTP, downgrade, or production acceptance.",
+        "freshFullRowsBeforeRepeatSha256": "B2ED48BDC297DF93B2001A86034A4EFEA695C480E123BCA1311BD71206EB256D",
+        "freshFullShapeBeforeRepeatSha256": "1416EE6C2E331B987FC572D40AB837C1F74685CF9D24FCD30988DFE4B5CF0434",
+        "freshFullRowsAfterRepeatSha256": "B2ED48BDC297DF93B2001A86034A4EFEA695C480E123BCA1311BD71206EB256D",
+        "freshFullShapeAfterRepeatSha256": "1416EE6C2E331B987FC572D40AB837C1F74685CF9D24FCD30988DFE4B5CF0434",
+        "freshChainAndRepeatUnchanged": true,
+        "procurementMigrationIds": [
+          "20261022161353_P25CorePrincipalRequestApproval",
+          "20261023125243_P27ManualPaymentRecords",
+          "20261023153226_P28ManualPaymentGovernance"
+        ]
+      }
+    },
+    {
+      "evidencePath": "/home/amizo/erp-backups/procurement-p25-payment-owner-compatibility-20261023_run01/payment-schema-after-p25.json",
+      "sha256": "d7efd1d76a218c5f9fed075a28ddbfb83a11426b045715ab523f4a7b914888ec",
+      "result": {
+        "status": "PASS",
+        "p28SchemaFingerprintUnchanged": true,
+        "fingerprint": "a5e05163346be79ccaee5aa11093e377a9d0a5f86046311759698ca72435e29b",
+        "productionChanged": false
+      }
+    }
+  ],
+  "acceptanceScope": "Owner migration compatibility and recorded focused tests only; original failed fixture run retained, not relabelled passed",
+  "remaining": [
+    "Actual PostgreSQL exact budget queue/capture/history wire contract",
+    "Current UI build and browser budget checks",
+    "Full current normal-cookie approval browser and owner reconciliation",
+    "Five genuine row-family downgrade checkpoints and remaining legacy bridge gates",
+    "Independent review, source merge and production release checks"
+  ],
+  "productionMigrated": false,
+  "productionDeployed": false,
+  "principalApprovalsEnabledInProduction": false
+}
