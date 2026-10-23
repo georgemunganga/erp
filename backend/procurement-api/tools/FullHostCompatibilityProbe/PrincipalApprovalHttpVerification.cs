@@ -31,6 +31,12 @@ internal static partial class PrincipalApprovalHttpVerification
         var aliasFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RETAINED_ALIAS");
         var localCookieFlag=Environment.GetEnvironmentVariable("P25_HTTP_SERVE_LOCAL_COOKIE_BROWSER");
         var downFamily=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_ROW_FAMILY_DOWN");
+        var exactBudgetFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_EXACT_BUDGET_WIRE");
+        Need(exactBudgetFlag is null or "1","Private exact-budget wire opt-in must be exactly1 or absent.");
+        Need(exactBudgetFlag is null || Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE")=="1"
+            && downFamily is null && matrixFlag is null && schemaFlag is null && accountFlag is null
+            && aliasFlag is null && localCookieFlag is null && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
+            "Exact-budget wire cohort requires only the successful base positive graph.");
         Need(downFamily is null or "RequestProvenance" or "Authority2" or "Checker2" or "Submission3" or "Assignment2",
             "Unknown private P25 row-family checkpoint.");
         Need(downFamily is null || matrixFlag is null && schemaFlag is null && accountFlag is null
@@ -142,6 +148,12 @@ internal static partial class PrincipalApprovalHttpVerification
             {
                 Need(positive=="1","Private manual evidence opt-in must be exactly1.");
                 await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily);
+                if(exactBudgetFlag=="1")
+                {
+                    Need(result.TryGetValue("positiveApprovalGraph",out var graphAccepted) && graphAccepted is true,
+                        "The base genuine principal approval graph must pass before exact-budget wire checks.");
+                    await VerifyExactBudgetWireAsync(fixture,owner,roles,ownerConnection,result,Advance,Send);
+                }
                 if(localCookieFlag=="1")
                     await ServeNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,result,Advance);
             }

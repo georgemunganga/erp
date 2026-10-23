@@ -252,3 +252,25 @@ successful runs establish five natural-checkpoint refusals, **not** five
 individually isolated SQL OR-arm proofs. No evidence is deleted/demoted, no
 legacy rows are rewritten, and no authority, Finance service or policy success
 is fabricated. This source has not been built or executed yet.
+
+### P25 exact budget wire cohort — source-only
+
+On a separate fresh private `proc_p25_http_<unique>` clone, set
+`P25_HTTP_POSITIVE_MANUAL_EVIDENCE=1` and
+`P25_HTTP_VERIFY_EXACT_BUDGET_WIRE=1` with the existing owner connection and
+new protected result path. Leave every other optional P25 cohort/serve/Down
+flag unset. The cohort starts only after the actual public route and owner
+reload have accepted the unchanged workerless principal approval graph.
+
+Three additional workerless Core maker requests are created and submitted
+through HTTP. The independent checker reads the real PostgreSQL-backed Finance
+queue and records an **Insufficient** funding result through the mapped route;
+no budget reservation or approval is asserted. Queue estimate, four-place
+minimum, response and retained history must preserve `1.0001 × 1.0001 =
+1.00020001` with minimum `1.0003`, `0.0001 × 0.0001 = 0.00000001` with
+minimum `0.0001`, and the maximum four-place amount
+`99999999999999.9999`. Owner reload checks checker2 evidence, no approval,
+no Finance AP/payment facts, and an unchanged hash of the accepted base
+request/Core approval graph. Each extra request/check remains in the private
+clone as declared evidence. No SDK build or PostgreSQL run has occurred for
+this cohort; the parent owns its future publication and actual provider test.
