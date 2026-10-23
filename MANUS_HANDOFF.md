@@ -1,6 +1,6 @@
 # Manus ERP collaboration handoff
 
-**Updated:** 22 October 2026 (UTC)
+**Updated:** 23 October 2026 (UTC)
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-CORE-BUILD-03` — repair the shared ERP frontend TypeScript/build gate; vendor milestone accepted
 **Owner:** Manus / `Greenwebb`; primary agent reviews and releases
@@ -12,8 +12,8 @@ New assignments start from published `origin/main` in both existing repositories
 
 | Responsibility | Repository and source | Baseline |
 | --- | --- | --- |
-| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `4c4c9ad702ff218b175d218716d5915925b6f6ea` or a published main descendant; includes the P23/P24 live release acceptance in PR #32 and current roadmap in PR #34. Exact deployed application/schema/public assets and scoped real-account acceptance are recorded in the release receipt below. |
-| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `30e17e9aad1bf86d3c94086b42fca590c9b0f05f` or a published main descendant; includes P24 PR #54, P25 compatibility/retry PR #55 and scoped approval recovery PR #56. The unchanged application at `f7c064c` passed98 units and staged typecheck/build; test-only `7fa2f1c` passed37 controlled browser cases with zero skipped/flaky results. PRs #55/#56 are source preparation, not production deployment; the accepted P24 bundle remains public. |
+| ERP, backend contracts, schemas, standards and task coordination | `georgemunganga/erp`, `main` | Merged main `1917405282cbefb773386eeadc930349f478ef0c` or a published main descendant; includes the P23/P24 live release acceptance in PR #32 and current roadmap in PR #34. Exact deployed application/schema/public assets and scoped real-account acceptance are recorded in the release receipt below. |
+| Existing Procurement UI and API clients | `georgemunganga/module-connect`, `main`; `reference-ui/` and its existing `src/platform/` clients | Merged main `5af64676a2ce2ef64c6e874521f442841fdc130d` or a published main descendant; includes original-layout restoration PR #57 and its subsequent frontend-only public deployment; includes P24 PR #54, P25 compatibility/retry PR #55 and scoped approval recovery PR #56. The unchanged application at `f7c064c` passed98 units and staged typecheck/build; test-only `7fa2f1c` passed37 controlled browser cases with zero skipped/flaky results. PRs #55/#56 are source preparation, not production deployment; the accepted P24 bundle remains public. |
 | Design reference | `Greenwebb/zoho-procurement-ui`, reference `6f0c305` | Existing vendor layout/editor; reuse the imported implementation already in the UI repository |
 
 The ERP already serves this Procurement UI. Its source remains in the existing UI repository. ERP's `modules/hrm/frontend/module-connect/` is a tracked HRM snapshot, not the Procurement source or a Git submodule. Do not duplicate the UI there, re-import the reference project, or create another frontend. Coordination and backend work belong in ERP; a fork-based UI PR is acceptable when upstream UI access is read-only.
@@ -101,3 +101,9 @@ UI PR #47 merged normally at `5f88d54917525c6642d05e94409068f37212b5fa`; reviewe
 Manus owns [MANUS-CORE-BUILD-03](docs/collaboration/manus/MANUS-CORE-BUILD-03.md), a complete repair/verification milestone for inherited shared ERP frontend TypeScript failures. Start from the latest merged ERP main with the minimum baseline above, not the coordinator’s unmerged branches. Procurement implementation continues independently; the existing vendor and settings assignments must not be duplicated.
 
 **Finance integration boundary:** The user confirmed AP and payments belong to the future Finance module, which is not built. Procurement may validate its commercial invoice records and prepare versioned hand-off contracts. No fake posting/payment success or substitute ledger is authorized. P25 private tests use explicitly synthetic manual evidence and do not establish external Finance authority.
+
+## 23 October public UI release and source preservation
+
+Bills list/editor/detail and Inbox restoration PR #57 is deployed. See [the release evidence](docs/procurement/release/PROC-UI-RESTORATION-DEPLOYMENT-20261023.md) and [original-layout integration register](docs/procurement/PROC-UI-ORIGINAL-PRESENTATION-RESTORATION.md). All 23 deployed-asset browser cases passed with mocked business HTTP; this is not actual database acceptance for every workflow. Backend/schema/flags are unchanged. Use the ERP-adapted imported layout reference `d104f596183e7a012a04578a679aac795e1489d4` and keep current shared branding, shell, API and recovery behavior. No reduced parallel forms or local demo mutations.
+
+Thirteen fully merged remote UI branches were deleted after exact-tip/main-ancestry/open-PR checks, along with three unattached local branches. Fetch published main for new work. Unmerged and advanced branches, checked-out worktrees, evidence and backups remain. Manus retains `MANUS-CORE-BUILD-03`; the coordinator owns remaining Procurement integrations, including manual payments behind retained original screens. Finance absence must not remove Payments UI, but no bank execution, AP posting or fake Finance status is authorized.
