@@ -28,4 +28,19 @@ public static class PrincipalOrderCommercialSnapshot
     }
     public static string Digest(PurchaseOrder order,IReadOnlyCollection<PurchaseOrderLine> lines,
         Supplier supplier,int revision)=>ProcurementEvidenceEncoding.Digest(Capture(order,lines,supplier,revision));
+
+    /// <summary>Verify retained commercial facts after a supplier changes its
+    /// display name. The old supplier names are evidence, not current eligibility.</summary>
+    public static bool RetainedMatches(PurchaseOrder order,IReadOnlyCollection<PurchaseOrderLine> lines,
+        string recorded,int revision)
+    {
+        using var document=JsonDocument.Parse(recorded);
+        var original=document.RootElement;
+        var supplier=new Supplier{Id=order.SupplierId,TenantId=order.TenantId,
+            LegalEntityId=order.LegalEntityId,
+            LegalName=original.GetProperty("LegalName").GetString()!,
+            DisplayName=original.GetProperty("DisplayName").GetString()!,
+            CountryCode=original.GetProperty("CountryCode").GetString()!};
+        return recorded==Capture(order,lines,supplier,revision);
+    }
 }

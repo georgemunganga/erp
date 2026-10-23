@@ -30,6 +30,11 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     public sealed record VersionInput(long ExpectedOrderVersion);
     public sealed record AcknowledgmentInput(long ExpectedOrderVersion,Guid IssuedVersionId,
         string Outcome,string Channel,string SupplierReference,string EvidenceReference,DateTimeOffset ObservedAt);
+    public sealed record ReleaseRequestInput(long ExpectedOrderVersion,string OriginalDirectSourceSha256,string Reason);
+    public sealed record ReleaseConfirmationInput(long ExpectedOrderVersion,Guid ReleaseRequestId,
+        string ExternalReleaseEvidenceReference,string CurrencyCode,
+        [property:JsonConverter(typeof(CommercialGrossDecimalJsonConverter))] decimal ReleasedGrossAmount,
+        IReadOnlyList<string> RestoredSourceReservationReferences,DateTimeOffset ConfirmedAt);
 
     public static void MapRoutes(WebApplication app)
     {
@@ -40,6 +45,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         group.MapGet("/{id:guid}/principal-direct-draft",Detail).RequireAuthorization("procurement-po-read");
         group.MapGet("/{id:guid}/principal-review/{assignmentId:guid}",Review)
             .RequireAuthorization("procurement-po-approve");
+        group.MapGet("/principal-finance-work",FinanceWork)
+            .RequireAuthorization("procurement-po-finance-confirm");
         group.MapPost("/{id:guid}/principal-direct-cancel",Cancel).RequireAuthorization("procurement-po-edit");
         // Recovery is scoped by the original command action inside Replay. A
         // Finance recorder or assigned reviewer need not hold broad PO read.
@@ -49,6 +56,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         group.MapPost("/{id:guid}/principal-decisions/{assignmentId:guid}",Decide).RequireAuthorization("procurement-po-approve");
         group.MapPost("/{id:guid}/principal-issue",Issue).RequireAuthorization("procurement-po-issue");
         group.MapPost("/{id:guid}/principal-acknowledgment",Acknowledgment).RequireAuthorization("procurement-po-dispatch-confirm");
+        group.MapPost("/{id:guid}/principal-release-request",RequestRelease).RequireAuthorization("procurement-po-edit");
+        group.MapPost("/{id:guid}/principal-release-confirmation",ConfirmRelease).RequireAuthorization("procurement-po-finance-confirm");
     }
     private static async Task<IResult> Run(HttpContext http,ProcurementRequestScope scope,
         Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<Reply>> operation,
@@ -186,7 +195,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 "Submit"=>"purchase_order.approval_opened.v2",
                 "Decide"=>"purchase_order.approval_decided.v2",
                 "Issue"=>"purchase_order.internal_version_authorized.v2",
-                "Ack"=>"purchase_order.supplier_response_observed.v2",_=>throw new InvalidOperationException("OrderEventInvalid")},
+                "Ack"=>"purchase_order.supplier_response_observed.v2",
+                "ReleaseRequest"=>"purchase_order.external_release_requested.v2",
+                "ReleaseConfirm"=>"purchase_order.external_release_attested.v2",
+                _=>throw new InvalidOperationException("OrderEventInvalid")},
             IdempotencyKey=$"po.principal.{operation}.{key:N}.v2",
             PayloadJson=JsonSerializer.Serialize(new{orderId=order.Id,commandKey=key,
                 internalVersionAuthorized=operation=="Issue",supplierSendPerformed=false,

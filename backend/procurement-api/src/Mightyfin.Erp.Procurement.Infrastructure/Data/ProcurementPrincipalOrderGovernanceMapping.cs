@@ -12,6 +12,8 @@ public sealed partial class ProcurementDbContext
     public DbSet<PrincipalOrderDecisionEvidence> PrincipalOrderDecisions => Set<PrincipalOrderDecisionEvidence>();
     public DbSet<PrincipalOrderIssuedVersion> PrincipalOrderIssuedVersions => Set<PrincipalOrderIssuedVersion>();
     public DbSet<PrincipalOrderAcknowledgment> PrincipalOrderAcknowledgments => Set<PrincipalOrderAcknowledgment>();
+    public DbSet<PrincipalOrderReleaseRequest> PrincipalOrderReleaseRequests => Set<PrincipalOrderReleaseRequest>();
+    public DbSet<PrincipalOrderReleaseConfirmation> PrincipalOrderReleaseConfirmations => Set<PrincipalOrderReleaseConfirmation>();
 
     private void ConfigurePrincipalOrderGovernance(ModelBuilder model)
     {
@@ -21,6 +23,9 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<PrincipalOrderDecisionEvidence>(model,"principal_order_decisions");
         ConfigureBase<PrincipalOrderIssuedVersion>(model,"principal_order_issued_versions");
         ConfigureBase<PrincipalOrderAcknowledgment>(model,"principal_order_acknowledgments");
+        ConfigureBase<PrincipalOrderReleaseRequest>(model,"principal_order_release_requests");
+        ConfigureBase<PrincipalOrderReleaseConfirmation>(model,"principal_order_release_confirmations");
+        ConfigurePrincipalOrderRelease(model);
         var funding=model.Entity<PrincipalOrderFundingEvidence>();
         funding.Property(x=>x.OriginalDirectSourceSha256).HasMaxLength(64);
         funding.Property(x=>x.CommercialSnapshotSha256).HasMaxLength(64);
@@ -94,11 +99,40 @@ public sealed partial class ProcurementDbContext
             "schema_version=2 AND outcome IN ('Accepted','Rejected','Unknown') AND length(btrim(channel))>0 AND length(btrim(supplier_reference))>0 AND length(btrim(evidence_reference))>0 AND recorded_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
     }
 
+    private void ConfigurePrincipalOrderRelease(ModelBuilder model)
+    {
+        var request=model.Entity<PrincipalOrderReleaseRequest>();
+        request.Property(x=>x.OriginalStatus).HasMaxLength(20);
+        request.Property(x=>x.OriginalDirectSourceSha256).HasMaxLength(64);
+        request.Property(x=>x.Reason).HasMaxLength(2000);
+        request.Property(x=>x.RequestedByPrincipalId).HasMaxLength(36);
+        request.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId}).IsUnique();
+        Link<PrincipalOrderReleaseRequest,PurchaseOrder>(model,nameof(PrincipalOrderReleaseRequest.PurchaseOrderId));
+        Link<PrincipalOrderReleaseRequest,PrincipalOrderFundingEvidence>(model,nameof(PrincipalOrderReleaseRequest.FundingEvidenceId));
+        request.ToTable(t=>t.HasCheckConstraint("ck_principal_order_release_request",
+            "schema_version=2 AND ((original_status='Draft' AND commercial_revision=0) OR (original_status IN ('Returned','Rejected') AND commercial_revision=1)) AND requested_order_version>0 AND length(btrim(reason))>0 AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND requested_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+        var confirmation=model.Entity<PrincipalOrderReleaseConfirmation>();
+        confirmation.Property(x=>x.ManualCommitmentReference).HasMaxLength(200);
+        confirmation.Property(x=>x.ExternalReleaseEvidenceReference).HasMaxLength(500);
+        confirmation.Property(x=>x.ApprovedManualPolicyReference).HasMaxLength(500);
+        confirmation.Property(x=>x.RestoredSourceReservationsJson).HasColumnType("text");
+        confirmation.Property(x=>x.ReleasedGrossAmount).HasPrecision(38,8);
+        confirmation.Property(x=>x.CurrencyCode).HasMaxLength(3);
+        confirmation.Property(x=>x.ConfirmedByPrincipalId).HasMaxLength(36);
+        confirmation.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.ReleaseRequestId}).IsUnique();
+        Link<PrincipalOrderReleaseConfirmation,PurchaseOrder>(model,nameof(PrincipalOrderReleaseConfirmation.PurchaseOrderId));
+        Link<PrincipalOrderReleaseConfirmation,PrincipalOrderReleaseRequest>(model,nameof(PrincipalOrderReleaseConfirmation.ReleaseRequestId));
+        Link<PrincipalOrderReleaseConfirmation,PrincipalOrderFundingEvidence>(model,nameof(PrincipalOrderReleaseConfirmation.FundingEvidenceId));
+        confirmation.ToTable(t=>t.HasCheckConstraint("ck_principal_order_release_confirmation",
+            "schema_version=2 AND released_gross_amount>=0 AND currency_code ~ '^[A-Z]{3}$' AND length(btrim(manual_commitment_reference))>0 AND length(btrim(external_release_evidence_reference))>0 AND length(btrim(approved_manual_policy_reference))>0 AND confirmed_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+    }
+
     private void GuardPrincipalOrderGovernance()
     {
         foreach(var entry in ChangeTracker.Entries<ProcurementRecord>().Where(x=>x.Entity is
             PrincipalOrderFundingEvidence or PrincipalOrderSubmission or PrincipalOrderAssignmentEvidence
-            or PrincipalOrderDecisionEvidence or PrincipalOrderIssuedVersion or PrincipalOrderAcknowledgment))
+            or PrincipalOrderDecisionEvidence or PrincipalOrderIssuedVersion or PrincipalOrderAcknowledgment
+            or PrincipalOrderReleaseRequest or PrincipalOrderReleaseConfirmation))
             if(entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new InvalidOperationException("PrincipalOrderGovernanceAppendOnly");
         foreach(var funding in ChangeTracker.Entries<PrincipalOrderFundingEvidence>().Where(x=>x.State==EntityState.Added).Select(x=>x.Entity))
@@ -148,5 +182,24 @@ public sealed partial class ProcurementDbContext
                 || !PrincipalOrderIssuedVersions.Local.Any(x=>x.Id==acknowledgment.IssuedVersionId
                     &&x.PurchaseOrderId==acknowledgment.PurchaseOrderId))
                 throw new InvalidOperationException("PrincipalOrderAcknowledgmentPinInvalid");
+        foreach(var request in ChangeTracker.Entries<PrincipalOrderReleaseRequest>().Where(x=>x.State==EntityState.Added).Select(x=>x.Entity))
+        {
+            var order=PurchaseOrders.Local.SingleOrDefault(x=>x.Id==request.PurchaseOrderId);
+            if(order is null || order.PrincipalDraftSchemaVersion!=2 || order.Status!="ReleasePending"
+                || order.BuyerSubjectId!=scope.SubjectId || request.RequestedByPrincipalId!=scope.SubjectId
+                || request.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
+                || !PrincipalOrderFundingEvidence.Local.Any(x=>x.Id==request.FundingEvidenceId&&x.PurchaseOrderId==order.Id))
+                throw new InvalidOperationException("PrincipalOrderReleaseRequestPinInvalid");
+        }
+        foreach(var release in ChangeTracker.Entries<PrincipalOrderReleaseConfirmation>().Where(x=>x.State==EntityState.Added).Select(x=>x.Entity))
+        {
+            var order=PurchaseOrders.Local.SingleOrDefault(x=>x.Id==release.PurchaseOrderId);
+            if(order is null || order.Status!="Cancelled" || release.ConfirmedByPrincipalId!=scope.SubjectId
+                || !PrincipalOrderReleaseRequests.Local.Any(x=>x.Id==release.ReleaseRequestId&&x.PurchaseOrderId==order.Id
+                    &&x.FundingEvidenceId==release.FundingEvidenceId)
+                || !PrincipalOrderFundingEvidence.Local.Any(x=>x.Id==release.FundingEvidenceId
+                    &&x.ManualCommitmentReference==release.ManualCommitmentReference))
+                throw new InvalidOperationException("PrincipalOrderReleaseConfirmationPinInvalid");
+        }
     }
 }

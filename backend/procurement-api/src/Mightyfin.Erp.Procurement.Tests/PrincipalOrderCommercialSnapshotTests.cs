@@ -21,11 +21,14 @@ public sealed class PrincipalOrderCommercialSnapshotTests
         Assert.Contains("5.1234",captured);
         order.Status="Approved";
         Assert.Equal(captured,PrincipalOrderCommercialSnapshot.Capture(order,[line],supplier,1));
+        Assert.True(PrincipalOrderCommercialSnapshot.RetainedMatches(order,[line],captured,1));
         line.UnitPrice=5.1235m;
         Assert.NotEqual(captured,PrincipalOrderCommercialSnapshot.Capture(order,[line],supplier,1));
+        Assert.False(PrincipalOrderCommercialSnapshot.RetainedMatches(order,[line],captured,1));
         line.UnitPrice=5.1234m;
         supplier.LegalName="Renamed";
         Assert.NotEqual(captured,PrincipalOrderCommercialSnapshot.Capture(order,[line],supplier,1));
+        Assert.True(PrincipalOrderCommercialSnapshot.RetainedMatches(order,[line],captured,1));
         Assert.Throws<InvalidOperationException>(()=>PrincipalOrderCommercialSnapshot.Capture(order,[line],supplier,2));
     }
 }

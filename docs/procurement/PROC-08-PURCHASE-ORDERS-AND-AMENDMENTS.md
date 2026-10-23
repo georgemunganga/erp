@@ -201,8 +201,9 @@ above. It does not activate endpoints or reinterpret PR approval as PO approval.
    approve the PO under its own published policy and spending grant, freeze an
    issued version, and record a witnessed supplier acknowledgment.
 3. **Scope:** Finance-reference recording, submit, assigned decisions, issue,
-   manual acknowledgment and actor-owned recovery. Payment, AP, bank posting,
-   supplier messaging and dispatch automation are outside this increment.
+   manual acknowledgment, funded-release request/independent confirmation and
+   actor-owned recovery. Payment, AP, bank posting, supplier messaging and
+   dispatch automation are outside this increment.
 4. **Relations:** P30 direct-source bindings, current PR Finance checker2,
    `PURCHASE_ORDER` policy, PO-specific `PurchaseOrder.Approve` grants, shared
    Core approval case/stage/assignment/decision and Procurement outbox/audit.
@@ -219,10 +220,15 @@ above. It does not activate endpoints or reinterpret PR approval as PO approval.
    owner before activation. No configured PO-specific authority means no submission.
 8. **Workflow:** draft → independent commitment evidence → policy route and
    Core case → current assigned decisions → approved → issue freeze → manually
-   observed supplier outcome. Each command locks the PO and source/case rows.
+   observed supplier outcome. A funded draft or a returned/rejected case may
+   request external release, which holds source allocations in `ReleasePending`.
+   Only independent confirmation of the actual external release frees those
+   quantities and cancels this PO. Each command locks PO and source/case rows.
 9. **States:** `Draft → PendingApproval → Approved → IssuePending → Issued`.
-   `Returned`, `Rejected` and `Disputed` are explicit outcomes requiring
-   separately specified resolution; they confer no edit.
+   `Returned` and `Rejected` remain terminal Core outcomes for this case;
+   `Draft`, `Returned` and `Rejected` with recorded funding can move to
+   `ReleasePending → Cancelled` after external release confirmation. Supplier
+   rejection yields `Disputed` and never silently cancels the commercial order.
 10. **Permissions/scope:** `procurement-po-finance-confirm`, `-submit`,
     `-approve`, `-issue`, `-dispatch-confirm`, and `-read` stay separate. A role
     grant is never a monetary limit; Core company/branch and exact assignment
@@ -235,7 +241,8 @@ above. It does not activate endpoints or reinterpret PR approval as PO approval.
     authority, issue and acknowledgment evidence with version/hash pins; Core
     owns case execution; Finance owns real commitment balances and payments.
 13. **Views:** current order details, recorded commitment (clearly manual),
-    assigned tasks, decision history, frozen version and observation history.
+    assigned review detail, decision history, frozen version, observation and
+    pending/confirmed external release history.
 14. **UX:** each step states what is recorded and what remains unconfirmed;
     issue authorization never displays a delivered badge.
 15. **Notifications:** Core task notification can follow the recorded case;
@@ -259,17 +266,23 @@ above. It does not activate endpoints or reinterpret PR approval as PO approval.
     immutable snapshots, idempotent command receipts and finite-role readiness.
 23. **Postconditions:** Core decisions plus independently pinned Procurement
     outcomes reconstruct who authorized the commercial version and what was
-    actually observed of supplier acknowledgment.
+    actually observed of supplier acknowledgment. Release request has no
+    allocation effect; release confirmation and allocation update share one
+    transaction and retain the original case/funding history.
 24. **Recovery:** receipt-only GET after uncertain write; no resubmission under
     a new key until the prior outcome has been reconciled.
 25. **Acceptance:** workerless buyer/approver with valid PO grant can complete
     internal approval; self/alias approval, borrowed PR grant, missing Finance
-    policy and suspended supplier fail closed; issue is not delivery.
+    policy and suspended supplier fail closed; issue is not delivery. Funded
+    cancellation without a durable independent release confirmation cannot free
+    source demand, including when Core returns/rejects or supplier is suspended.
 26. **Tests:** pure invariants, mapped transaction/guard cases, exact P30
     migration/finite-role PostgreSQL proof, normal-cookie HTTP and UI proof.
 27. **Ownership/dependencies:** Procurement and Core approval owners implement
     the route; Finance confirms whether each external reference is valid.
 28. **Open:** Finance owner must verify the external approval reference and
-    manual commitment procedure before activation. Funded draft cancellation,
-    release on Return/Reject, revision rules and supplier channel controls
-    remain product decisions. They cannot be inferred from the worker path.
+    manual commitment/release procedure before activation. In-place revision
+    and resubmission are deliberately unsupported for schema 2: after release
+    confirmation the buyer may start a new PO from re-available approved demand,
+    preserving this rejected/returned PO unchanged. Supplier dispute resolution,
+    channel controls and actual Finance release integration remain decisions.
