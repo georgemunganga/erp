@@ -56,6 +56,7 @@ public partial class P28ManualPaymentGovernance
 
         -- This encoder covers only the fixed ASCII v1 payment policy schema. The application
         -- owns generic canonical JSON; this database check cannot canonicalize other policies.
+        -- Its exact base-10 numeric normalization encodes 1 and 2 as 1e0 and 2e0.
         CREATE FUNCTION procurement.manual_payment_policy_digest(doc jsonb) RETURNS text LANGUAGE plpgsql IMMUTABLE AS $$
         DECLARE item record; entries text; canonical text;
         BEGIN
@@ -69,7 +70,7 @@ public partial class P28ManualPaymentGovernance
           IF (item.value#>>'{}')::numeric<=0 THEN RETURN NULL; END IF;
          END LOOP;
          SELECT string_agg(to_jsonb(key)::text||':'||value::text,',' ORDER BY key COLLATE "C") INTO entries FROM jsonb_each(doc->'maximumByCurrency');
-         canonical:='{"approvalType":"SingleApprover","identitySchemaVersion":2,"independentCreatorApprover":true,"independentRecorderConfirmer":true,"maximumByCurrency":{'||entries||'},"policyKey":"MANUAL_PAYMENT_REVIEW","schemaVersion":1,"transactionType":"ManualPaymentReview"}';
+         canonical:='{"approvalType":"SingleApprover","identitySchemaVersion":2e0,"independentCreatorApprover":true,"independentRecorderConfirmer":true,"maximumByCurrency":{'||entries||'},"policyKey":"MANUAL_PAYMENT_REVIEW","schemaVersion":1e0,"transactionType":"ManualPaymentReview"}';
          RETURN encode(sha256(convert_to(canonical,'UTF8')),'hex');
         END; $$;
 

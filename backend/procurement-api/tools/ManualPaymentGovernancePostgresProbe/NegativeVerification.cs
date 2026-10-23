@@ -42,7 +42,7 @@ sealed partial class GovernanceProbe
         Check(denied); Check(await CountsAsync() == before);
     }
 
-    private async Task NegativeChecksAsync(Guid confirmedRequest)
+    private async Task VerifySqlPolicyDigestAsync()
     {
         Phase = "typed-sql-policy-digest-and-invalid-limits";
         await using (var c = new NpgsqlConnection(connection))
@@ -61,6 +61,10 @@ sealed partial class GovernanceProbe
                     : digest is null or DBNull);
             }
         }
+    }
+
+    private async Task NegativeChecksAsync(Guid confirmedRequest)
+    {
         Phase = "raw-sql-governance-companion-rollback";
         var draft = await CreateAsync(1m);
         await DenySqlAsync("""

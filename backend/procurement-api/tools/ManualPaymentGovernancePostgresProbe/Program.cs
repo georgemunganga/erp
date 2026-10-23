@@ -28,7 +28,7 @@ try
 catch (Exception error)
 {
     Console.WriteLine(JsonSerializer.Serialize(new { status = "FAIL_MANUAL_PAYMENT_GOVERNANCE_POSTGRES",
-        phase = probe?.Phase, errorType = error.GetType().Name,
+        phase = probe?.Phase, completedChecks = probe?.Checks, errorType = error.GetType().Name,
         sqlState = (error as PostgresException ?? error.GetBaseException() as PostgresException)?.SqlState,
         errorCode = Regex.IsMatch(error.Message, @"\A(?:ManualPayment|OperationalPolicy)[A-Za-z0-9]+\z") ? error.Message : null }));
     Environment.ExitCode = 1;
@@ -114,13 +114,14 @@ sealed partial class GovernanceProbe(string connection)
             await db.SaveChangesAsync();
         }
         await PublishPolicyAsync();
+        await VerifySqlPolicyDigestAsync();
 
-        Phase = "complete-shared-governance-journey";
+        Phase = "shared-create";
         var first = await CreateAsync(25.1250m);
-        await SubmitAsync(first);
-        await ApproveAsync(first);
-        await RecordAsync(first);
-        await ConfirmAsync(first);
+        Phase = "shared-submit"; await SubmitAsync(first);
+        Phase = "shared-approve"; await ApproveAsync(first);
+        Phase = "shared-record"; await RecordAsync(first);
+        Phase = "shared-confirm"; await ConfirmAsync(first);
 
         Phase = "return-resubmit-maker-cancel";
         var second = await CreateAsync(10m);
