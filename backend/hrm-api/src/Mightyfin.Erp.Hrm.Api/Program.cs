@@ -114,7 +114,8 @@ builder.Services.AddScoped<IWorkerResolver, WorkerResolver>();
 builder.Services.AddScoped<IWorkerLifecycleService, WorkerLifecycleServiceImpl>();
 builder.Services.AddScoped<ITimeRepository, TimeRepository>();
 builder.Services.AddScoped<ITimeService, TimeServiceImpl>();
-if (!args.Contains("--apply-migrations-only") && !args.Contains("--run-outbox-publisher"))
+if (!args.Contains("--apply-migrations-only") && !args.Contains("--run-outbox-publisher")
+    && builder.Configuration.GetValue<bool>("HRM:MonthlyLeaveAccrualEnabled", true))
     builder.Services.AddHostedService<MonthlyLeaveAccrualWorker>();
 builder.Services.AddScoped<IWorkflowRepository, WorkflowRepository>();
 builder.Services.AddSingleton<ILetterTemplates, LetterTemplatesImpl>();

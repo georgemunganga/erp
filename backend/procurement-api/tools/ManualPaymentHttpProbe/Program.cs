@@ -199,6 +199,7 @@ internal sealed class PrivatePaymentHost(string runtime, string execution, strin
         ["Procurement:InvoiceUnitReview:Enabled"] = "false",
         ["Procurement:ManualPayments:Enabled"] = "true",
         ["HRM:LocalAdminEmail"] = "", ["HRM:LocalAdminPassword"] = "",
+        ["HRM:MonthlyLeaveAccrualEnabled"] = "false",
         ["CoreDocuments:Enabled"] = "false",
     };
     protected override void ConfigureWebHost(IWebHostBuilder builder)
