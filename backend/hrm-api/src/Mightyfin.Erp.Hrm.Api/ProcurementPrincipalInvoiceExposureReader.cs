@@ -143,7 +143,7 @@ internal static class ProcurementPrincipalInvoiceExposureReader
             checked(goods + services), now);
     }
 
-    private static async Task<IReadOnlyDictionary<Guid, string>> CurrentDocumentHashes(
+    internal static async Task<IReadOnlyDictionary<Guid, string>> CurrentDocumentHashes(
         ProcurementDbContext db, ProcurementRequestScope scope, IServiceProvider services,
         Guid invoiceId, Guid[] ids, CancellationToken ct)
     {
