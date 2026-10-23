@@ -81,6 +81,9 @@ internal static class ProcurementPrincipalOrderRetainedIssued
             .SingleOrDefaultAsync(x=>x.Id==issuedVersionId&&x.PurchaseOrderId==orderId,ct)??throw Invalid();
         var submission=await db.PrincipalOrderSubmissions.AsNoTracking()
             .SingleOrDefaultAsync(x=>x.Id==issued.SubmissionId&&x.PurchaseOrderId==orderId,ct)??throw Invalid();
+        var policy=await db.PolicyVersions.AsNoTracking()
+            .SingleOrDefaultAsync(x=>x.Id==submission.PolicyVersionId&&x.PolicyKey=="PURCHASE_ORDER",ct)
+            ??throw Invalid();
         var funding=await db.PrincipalOrderFundingEvidence.AsNoTracking()
             .SingleOrDefaultAsync(x=>x.Id==issued.FundingEvidenceId&&x.PurchaseOrderId==orderId,ct)??throw Invalid();
         var acknowledgment=await db.PrincipalOrderAcknowledgments.AsNoTracking()
@@ -101,6 +104,8 @@ internal static class ProcurementPrincipalOrderRetainedIssued
             || issued.ManualCommitmentReference!=funding.ManualCommitmentReference
             || submission.BuyerPrincipalId!=order.BuyerSubjectId
             || submission.BuyerWorkerAliasId!=funding.BuyerWorkerAliasId
+            || submission.PolicyVersionNumber!=policy.PolicyVersionNumber
+            || submission.PolicyRulesSha256!=ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)
             || funding.CurrencyCode!=order.CurrencyCode || submission.CurrencyCode!=order.CurrencyCode
             || acknowledgment.ObservedAt<issued.AuthorizedAt
             || order.IssuedAt!=acknowledgment.ObservedAt
@@ -167,6 +172,10 @@ internal static class ProcurementPrincipalOrderRetainedIssued
                 || original.Finance.Id!=binding.FinanceSnapshotId
                 || original.Submission.RequestSnapshotSha256!=ProcurementEvidenceEncoding.Digest(
                     original.Submission.RequestSnapshotJson)
+                || original.Submission.PolicyDecisionSha256!=ProcurementEvidenceEncoding.Digest(
+                    original.Evaluation.DecisionJson)
+                || original.Submission.PolicyRulesSha256!=ProcurementEvidenceEncoding.PolicyJsonDigest(
+                    original.Policy.RulesJson)
                 || !PurchaseRequestApprovalPinning.HasRetainedPrincipalIdentity(original.Submission)
                 || !FinanceSnapshotCodec.Matches(original.Finance,
                     original.Submission.FinanceIdentitySchemaVersion,
