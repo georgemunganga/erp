@@ -20,7 +20,9 @@ internal static partial class PrincipalApprovalHttpVerification
         var connection=new NpgsqlConnectionStringBuilder(owner);
         var database=connection.Database ?? string.Empty;
         Need(connection.Host=="/authority-identity-private-socket"
-            && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$") && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
+            && (System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$")
+                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$"))
+            && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
         var resultPath=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??throw new InvalidOperationException("New protected result required.");
         Need(Path.IsPathFullyQualified(resultPath)&&!File.Exists(resultPath)&&Directory.Exists(Path.GetDirectoryName(resultPath)),"New result in existing protected directory required.");
         var result=new Dictionary<string,object?> { ["status"]="NOT_STARTED",["stage"]="Bootstrap",["productionTouched"]=false,["testAuthenticationOnly"]=true,
@@ -35,8 +37,18 @@ internal static partial class PrincipalApprovalHttpVerification
         var exactBudgetFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_EXACT_BUDGET_WIRE");
         var legacyWorkerFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_LEGACY_WORKER_BRIDGE");
         var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
+        var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
         var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
+        Need(principalPoFlag is null or "1","Private P30 principal PO opt-in must be exactly1 or absent.");
+        Need(!database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal) || principalPoFlag=="1",
+            "P30 private database is exclusive to its explicit PO profile.");
+        Need(principalPoFlag is null || database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && principalRfqFlag is null && matrixFlag is null && schemaFlag is null && accountFlag is null
+            && aliasFlag is null && localCookieFlag is null && downFamily is null && exactBudgetFlag is null
+            && legacyWorkerFlag is null && p29CookieFlag is null
+            && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
+            "Principal PO needs its own new private database and no other optional cohort.");
         Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
         Need(p29CookieFlag is null || principalRfqFlag=="1",
             "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
@@ -77,7 +89,7 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Normal local-cookie serve requires the original genuine base graph without other optional cohorts.");
         result["browserBuyerFixtureProfile"]=localCookieFlag=="1"?"PRIVATE_CONFIG_MAKER_POLICY_EVALUATION":"DISABLED";
-        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1");var stage="Bootstrap";var requests=0;
+        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1",principalPoFlag=="1");var stage="Bootstrap";var requests=0;
         try
         {
             Advance("Bootstrap");
@@ -177,10 +189,12 @@ internal static partial class PrincipalApprovalHttpVerification
             result["currentCoreWorkerlessSourceVerified"]=true;result["negativeProviderControlVerified"]=true;result["fundingUnavailableNoEffectsVerified"]=true;
             result["positiveApprovalGraph"]=false;result["checker2Authority2Submission3Assignment2Acceptance"]="NOT_RUN_NEXT_CHECKPOINT";
             var positive=Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE");
-            if(positive is not null || principalRfqFlag=="1")
+            if(positive is not null || principalRfqFlag=="1" || principalPoFlag=="1")
             {
                 Need(positive is null or "1","Private manual evidence opt-in must be exactly1.");
-                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily,principalRfqFlag=="1");
+                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily,principalRfqFlag=="1",principalPoFlag=="1");
+                if(principalPoFlag=="1")
+                    await VerifyPrincipalOrderAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
                 if(principalRfqFlag=="1")
                 {
                     var p29=await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
