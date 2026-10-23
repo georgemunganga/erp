@@ -9,7 +9,7 @@ public sealed partial class ProcurementRequestHttpTests
     private const string SourcingReviewerLookupPath = "/api/procurement/v1/configuration/policies/lookups/sourcing-reviewers";
 
     [Fact]
-    public async Task Sourcing_saved_reviewer_names_resolve_exact_targets_without_exposing_unavailable_people()
+    public async Task Sourcing_saved_reviewer_names_resolve_exact_current_core_targets_without_exposing_unavailable_people()
     {
         await using var fixture = await Fixture.Start();
         await fixture.ConfigureSourcingPolicyActors();
@@ -18,9 +18,10 @@ public sealed partial class ProcurementRequestHttpTests
         var hidden = new[] {
             await fixture.SeedSourcingLookupPerson("Private foreign name", "foreign-company"),
             await fixture.SeedSourcingLookupPerson("Private inactive name", "inactive"),
-            await fixture.SeedSourcingLookupPerson("Private alias name", "alias"), Guid.NewGuid() };
+            Guid.NewGuid() };
+        var currentAlias = await fixture.SeedSourcingLookupPerson("Current alias account", "alias");
         var before = await fixture.SourcingConfigurationFootprint();
-        var ids = string.Join(',', hidden.Append(selected).Select(x => x.ToString("D")));
+        var ids = string.Join(',', hidden.Append(selected).Append(currentAlias).Select(x => x.ToString("D")));
         var response = await Send(fixture.Client, HttpMethod.Get,
             SourcingReviewerLookupPath + "?principalIds=" + Uri.EscapeDataString(ids), fixture.Other, role: "procurement_manager");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -28,8 +29,9 @@ public sealed partial class ProcurementRequestHttpTests
         var body = await response.Content.ReadAsStringAsync();
         using var document = JsonDocument.Parse(body);
         var page = document.RootElement;
-        Assert.Equal(1, page.GetProperty("total").GetInt32());
-        Assert.Equal(selected, Assert.Single(page.GetProperty("items").EnumerateArray()).GetProperty("principalId").GetGuid());
+        Assert.Equal(2, page.GetProperty("total").GetInt32());
+        Assert.Equal(new[] { currentAlias, selected }.OrderBy(x => x).ToArray(),
+            page.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("principalId").GetGuid()).OrderBy(x => x).ToArray());
         Assert.Equal(JsonValueKind.Null, page.GetProperty("nextOffset").ValueKind);
         Assert.False(page.GetProperty("isAuthority").GetBoolean());
         Assert.DoesNotContain("Private", body, StringComparison.Ordinal);
