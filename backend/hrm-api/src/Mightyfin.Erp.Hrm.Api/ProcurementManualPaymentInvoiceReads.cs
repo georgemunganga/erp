@@ -68,7 +68,7 @@ public static partial class ProcurementManualPaymentRoutes
                 { canDraft = true; break; }
             if (!canDraft || scope.CoreLinkedWorkerId != actor.CoreLinkedWorkerId)
                 throw new UnauthorizedAccessException("ManualPaymentDraftActionRequired");
-            if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null)
+        if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
                 throw new UnauthorizedAccessException("ManualPaymentCurrentScopeRequired");
             if (!await core.WorkLocations.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
                 && x.LegalEntityId == scope.LegalEntityId && x.Id == branch && !x.IsArchived, token))

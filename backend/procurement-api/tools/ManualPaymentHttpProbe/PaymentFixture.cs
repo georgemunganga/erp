@@ -66,9 +66,15 @@ internal static class PaymentFixtureStore
                 db.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = tenant,
                     UserId = person.Id, UserEmail = email, LocationId = name == "outsider" ? other.Id : branch.Id,
                     CreatedAt = DateTimeOffset.UtcNow });
-                if (name == "maker") db.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = tenant,
-                    UserId = person.Id, UserEmail = email, LocationId = foreignBranch.Id,
-                    CreatedAt = DateTimeOffset.UtcNow });
+                if (name == "maker")
+                {
+                    db.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = tenant,
+                        UserId = person.Id, UserEmail = email, LocationId = other.Id,
+                        CreatedAt = DateTimeOffset.UtcNow });
+                    db.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = tenant,
+                        UserId = person.Id, UserEmail = email, LocationId = foreignBranch.Id,
+                        CreatedAt = DateTimeOffset.UtcNow });
+                }
                 people.Add(name, new(person.Id, email, password));
             }
             await db.SaveChangesAsync();

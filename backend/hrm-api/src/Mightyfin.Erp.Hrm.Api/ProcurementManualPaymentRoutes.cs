@@ -48,6 +48,8 @@ public static partial class ProcurementManualPaymentRoutes
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 var person = await Actor(core, scope, http, authorization, "procurement-payment-read", token);
                 var branches = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
+                if (scope.IsConfined && person.OrganisationWide)
+                    throw new UnauthorizedAccessException("ManualPaymentCurrentScopeRequired");
                 return await read(db, cases, core, person, branches, token);
             }, ct);
             return Results.Ok(result);
@@ -85,7 +87,7 @@ public static partial class ProcurementManualPaymentRoutes
     private static IQueryable<ManualPaymentRequest> Visible(ProcurementDbContext db, ProcurementRequestScope scope,
         ProcurementPrincipalPeople.Person person, Guid[] branches)
     {
-        if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null)
+        if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
             throw new UnauthorizedAccessException("ManualPaymentCurrentScopeRequired");
         var query = db.ManualPaymentRequests.AsNoTracking();
         if (scope.WorkLocationId is { } selected) query = query.Where(x => x.BranchId == selected);

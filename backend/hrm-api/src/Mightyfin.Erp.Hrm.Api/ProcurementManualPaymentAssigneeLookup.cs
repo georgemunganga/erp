@@ -60,7 +60,7 @@ public static partial class ProcurementManualPaymentRoutes
             };
             var search = q?.Trim() ?? "";
             var now = http.RequestServices.GetRequiredService<TimeProvider>().GetUtcNow();
-            var query = ProcurementPrincipalPeople.Candidates(core, scope, now);
+            var query = ProcurementPrincipalPeople.Candidates(core, scope, now, branch);
             if (search.Length > 0)
             {
                 var pattern = "%" + search.Replace("\\", "\\\\").Replace("%", "\\%")

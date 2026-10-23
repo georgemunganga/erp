@@ -84,15 +84,16 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
         var createKey = Guid.NewGuid();
         // Simulate a lost Create response: do not parse the POST body. Recover only by
         // actor and key, without knowing the newly allocated request ID.
-        using var created = await Send("maker", HttpMethod.Post, Root, draft, createKey);
+        using var created = await Send("maker", HttpMethod.Post, Root, draft, createKey, allBranches: true);
         Require(created.StatusCode == HttpStatusCode.Created, "payment-create");
-        using var recovered = await Send("maker", HttpMethod.Get, $"{Root}/commands/{createKey:D}");
+        using var recovered = await Send("maker", HttpMethod.Get, $"{Root}/commands/{createKey:D}", allBranches: true);
         var recovery = await Read(recovered, HttpStatusCode.OK, "lost-create-recovery");
         var id = recovery.GetProperty("id").GetGuid();
         PrimaryRequestId = id;
         Require(recovery.GetProperty("version").GetInt64() == 1
             && recovery.GetProperty("status").GetString() == "Draft", "recorded-create-result");
         checks.Add("actor-owned lost Create response recovery");
+        await VerifyExplicitAllBranches(id, createKey);
 
         using (var outsiderRecovery = await Send("outsider", HttpMethod.Get, $"{Root}/commands/{createKey:D}",
             branch: fixture.OtherBranch))
@@ -193,6 +194,74 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
         checks.Add("valid second company and assigned branch cannot read original payment");
     }
 
+    private async Task VerifyExplicitAllBranches(Guid originalRequestId, Guid createKey)
+    {
+        using (var context = await Send("maker", HttpMethod.Get, "/api/procurement/v1/context", allBranches: true))
+        {
+            var body = await Read(context, HttpStatusCode.OK, "explicit-all-context");
+            Require(body.GetProperty("legalEntityId").GetGuid() == fixture.Company
+                && body.GetProperty("branch").ValueKind == JsonValueKind.Null
+                && body.GetProperty("confined").GetBoolean(), "all-context-retains-current-branch-confinement");
+        }
+        using (var omitted = await Send("maker", HttpMethod.Get, "/api/procurement/v1/context",
+            omitBranch: true))
+        {
+            var body = await Read(omitted, HttpStatusCode.OK, "omitted-branch-legacy-context");
+            Require(body.GetProperty("branch").ValueKind == JsonValueKind.Object
+                && new[] { fixture.Branch, fixture.OtherBranch }.Contains(body.GetProperty("branch").GetProperty("id").GetGuid()),
+                "omitted-marker-does-not-select-all");
+        }
+        using (var branches = await Send("maker", HttpMethod.Get, $"{Root}/lookups/branches", allBranches: true))
+        {
+            var body = await Read(branches, HttpStatusCode.OK, "explicit-all-branch-lookup");
+            var ids = body.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("id").GetGuid()).ToHashSet();
+            Require(ids.SetEquals(new[] { fixture.Branch, fixture.OtherBranch })
+                && !ids.Contains(fixture.ForeignCompanyBranch), "all-branch-lookup-current-company-intersection");
+        }
+        using (var list = await Send("maker", HttpMethod.Get, Root, allBranches: true))
+        {
+            var body = await Read(list, HttpStatusCode.OK, "explicit-all-list");
+            Require(body.GetProperty("total").GetInt32() == 1
+                && body.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("id").GetGuid() == originalRequestId),
+                "all-list-current-company-and-allowed-branches");
+        }
+        using (var invoices = await Send("maker", HttpMethod.Get,
+            $"{Root}/lookups/invoices?branchId={fixture.Branch:D}", allBranches: true))
+        {
+            var body = await Read(invoices, HttpStatusCode.OK, "explicit-all-invoice-lookup");
+            Require(body.GetProperty("previewOnly").GetBoolean()
+                && body.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("invoiceId").GetGuid() == fixture.Invoice),
+                "all-invoices-require-explicit-authorized-branch");
+        }
+        using (var people = await Send("maker", HttpMethod.Get,
+            $"{Root}/lookups/assignees?role=approve&branchId={fixture.Branch:D}", allBranches: true))
+        {
+            var body = await Read(people, HttpStatusCode.OK, "explicit-all-assignees");
+            Require(body.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("principalId").GetGuid()
+                == fixture.People["approver"].Id), "all-assignees-explicit-branch-and-independent-person");
+        }
+        using (var recovered = await Send("maker", HttpMethod.Get, $"{Root}/commands/{createKey:D}", allBranches: true))
+        {
+            var body = await Read(recovered, HttpStatusCode.OK, "explicit-all-create-recovery");
+            Require(body.GetProperty("id").GetGuid() == originalRequestId, "all-recovery-retains-actor-and-branch");
+        }
+        using (var outsider = await Send("outsider", HttpMethod.Get, Root, allBranches: true))
+        {
+            var body = await Read(outsider, HttpStatusCode.OK, "outsider-explicit-all-list");
+            Require(body.GetProperty("total").GetInt32() == 0, "outsider-all-cannot-read-maker-branch");
+        }
+        using (var outsiderInvoice = await Send("outsider", HttpMethod.Get,
+            $"{Root}/lookups/invoices?branchId={fixture.Branch:D}", allBranches: true))
+            Require(outsiderInvoice.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                "outsider-all-cannot-select-maker-branch");
+        using (var unknown = await Send("maker", HttpMethod.Get, "/api/procurement/v1/context",
+            allBranches: true, scopeMarker: "unknown"))
+            RequireStatus(unknown, HttpStatusCode.BadRequest, "unknown-branch-scope-denied");
+        using (var unrelated = await Send("policy_author", HttpMethod.Get, Policies, allBranches: true))
+            RequireStatus(unrelated, HttpStatusCode.BadRequest, "unrelated-procurement-all-scope-denied");
+        checks.Add("explicit All branches preserves current Core branch intersection for payment reads and commands");
+    }
+
     internal async Task<Guid> CreateDraftWithoutPolicy()
     {
         var draft = new { branchId = fixture.Branch, invoiceId = fixture.Invoice, amount = "1.2500",
@@ -246,13 +315,15 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
     }
 
     private async Task<HttpResponseMessage> Send(string role, HttpMethod method, string path,
-        object? body = null, Guid? key = null, Guid? branch = null, Guid? company = null)
+        object? body = null, Guid? key = null, Guid? branch = null, Guid? company = null,
+        bool allBranches = false, string? scopeMarker = null, bool omitBranch = false)
     {
         var session = sessions[role];
         using var request = new HttpRequestMessage(method, path);
         request.Headers.Add("Cookie", session.Cookie);
         request.Headers.Add("X-Shell-Entity", (company ?? fixture.Company).ToString("D"));
-        request.Headers.Add("X-Shell-Location", (branch ?? fixture.Branch).ToString("D"));
+        if (allBranches) request.Headers.Add("X-Shell-Branch-Scope", scopeMarker ?? "all");
+        else if (!omitBranch) request.Headers.Add("X-Shell-Location", (branch ?? fixture.Branch).ToString("D"));
         if (key is { } commandKey) request.Headers.Add("Idempotency-Key", commandKey.ToString("D"));
         if (body is not null) request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
         return await session.Client.SendAsync(request);

@@ -22,6 +22,17 @@ original tenant's normal cookie must receive 404 for the second tenant's direct
 request ID and an empty invoice-filtered list. A host configuration leak fails
 the run. The second host's process settings are restored in `finally`.
 
+The maker also has current Core assignments to both branches of the original
+company. An explicit `X-Shell-Branch-Scope: all` with that company is exercised
+only on Procurement context and manual-payment endpoints. Context returns no
+selected branch while retaining confinement; branch choices are exactly the
+two active assigned branches in that company. Payment list, invoice and assignee
+lookups, Create with an explicit transaction branch, and actor-owned command
+recovery are checked under that selection. The second-company branch and an
+outsider's unrelated branch remain hidden. Unknown markers and markers on other
+Procurement routes are denied. Omission of the marker retains the existing
+single-branch fallback; this is not an organization-wide grant.
+
 The existing seven-person browser handoff remains the **original tenant only**;
 its JSON fields and private credential controls are unchanged. The result file
 records only fixed check labels, not second-tenant identities or credentials.

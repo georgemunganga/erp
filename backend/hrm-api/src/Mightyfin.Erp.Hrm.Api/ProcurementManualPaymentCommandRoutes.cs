@@ -138,7 +138,8 @@ public static partial class ProcurementManualPaymentCommandRoutes
     {
         var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
         var permission = Permission(action);
-        if (person is null || scope.PrincipalId?.ToString("D") != person.PrincipalId
+        if (person is null || scope.IsConfined && person.OrganisationWide
+            || scope.PrincipalId?.ToString("D") != person.PrincipalId
             || scope.CoreLinkedWorkerId != person.CoreLinkedWorkerId || !person.Permissions.Contains(permission)
             || !(await authorization.AuthorizeAsync(http.User, null, permission)).Succeeded)
             throw new UnauthorizedAccessException();
@@ -207,7 +208,7 @@ public static partial class ProcurementManualPaymentCommandRoutes
                 && x.Id == receipt.ManualPaymentRequestId, ct)
             ?? throw new KeyNotFoundException();
         if (scope.WorkLocationId is { } selected && original.BranchId != selected
-            || scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null)
+            || scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
             throw new PaymentProblem("payment-command-key-conflict", 409);
         _ = await Actor(core, scope, http, authorization, original.BranchId, action, ct);
         if (target is { } requested && original.Id != requested || receipt.Action != action
