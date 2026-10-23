@@ -78,7 +78,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
         if ((record is OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
-                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation) &&
+                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
+                or ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt) &&
             (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
             throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
         record.TenantId = scope.TenantId;
@@ -511,6 +512,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
+        ConfigureManualPayments(modelBuilder);
         ConfigureReceivingExecution(modelBuilder);
         ConfigureInvoiceMatchingExecution(modelBuilder);
         ConfigureFinanceCheckerIdentity(modelBuilder);
@@ -690,6 +692,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             throw new InvalidOperationException("An authenticated tenant, legal entity and actor are required to write Procurement data.");
         GuardPurchaseRequestIdentity();
         GuardRecurringPurchaseIdentity();
+        GuardManualPayments();
         GuardFinanceCheckerIdentity();
         GuardSpendingAuthorityChanges();
         GuardSpendingAuthorityIdentity();
@@ -712,7 +715,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot or PurchaseRequestApprovalSubmission
                 or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
                 or ProcurementComment or ProcurementSetupAssessment or PurchaseRequestApprovalOutcome
-                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation)
+                or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
+                or ManualPaymentDecision or ManualPaymentCommandReceipt)
                 throw new InvalidOperationException("Decision, evaluation, budget and audit records are append-only.");
             if (entry.State == EntityState.Added)
             {
