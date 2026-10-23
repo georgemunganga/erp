@@ -26,8 +26,10 @@ public static class CoreWorkspaceContextRoutes
             || !Guid.TryParse(http.User.FindFirstValue(ClaimTypes.NameIdentifier), out var principal))
             return Results.Forbid();
         var now = clock.GetUtcNow();
-        if (!await core.LocalUsers.AsNoTracking().AnyAsync(x => x.TenantId == tenant && x.Id == principal
-            && x.IsActive && !x.IsArchived && (x.LockedUntil == null || x.LockedUntil <= now), ct))
+        var account = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == tenant && x.Id == principal
+                && x.IsActive && !x.IsArchived)
+            .Select(x => new { x.LockedUntil }).SingleOrDefaultAsync(ct);
+        if (account is null || account.LockedUntil is { } until && until > now)
             return Results.Forbid();
 
         // Retain declared assignments even if their branch has become inactive:

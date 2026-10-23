@@ -105,7 +105,12 @@ public sealed class CoreWorkspaceContextHttpTests
             using var request = new HttpRequestMessage(HttpMethod.Get, Route);
             if (user is { } id) request.Headers.Add("X-Test-User", id.ToString("D"));
             if (tenant is not null) request.Headers.Add("X-Test-Tenant", tenant);
-            return await client.SendAsync(request);
+            var response = await client.SendAsync(request);
+            // This fixture contains synthetic records only. Preserve mapped-route
+            // diagnostics so a provider/DI failure cannot hide behind a bare 500.
+            Assert.True(response.StatusCode != HttpStatusCode.InternalServerError,
+                await response.Content.ReadAsStringAsync());
+            return response;
         }
 
         internal static async Task<Fixture> Start()
