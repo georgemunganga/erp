@@ -30,9 +30,13 @@ var connection = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_CONNECTION")
 var freshHrmOnly = args.SequenceEqual(new[] { "--rehearse-fresh-hrm" });
 var ownerUpgradeOnly = args.SequenceEqual(new[] { "--rehearse-payment-owner-upgrade" });
 var governanceUpgradeOnly = args.SequenceEqual(new[] { "--rehearse-payment-governance-upgrade" });
+var p25OverP28Only = args.SequenceEqual(new[] { "--rehearse-p25-over-p28" });
+var p25FreshOnly = args.SequenceEqual(new[] { "--rehearse-p25-fresh-owner" });
 var parsed = new NpgsqlConnectionStringBuilder(connection);
 if (parsed.Database is not { } name || !(freshHrmOnly
         ? System.Text.RegularExpressions.Regex.IsMatch(name, "^hrm_model_reconcile_20261022_[a-z0-9_]{1,24}$")
+        : p25OverP28Only || p25FreshOnly
+            ? System.Text.RegularExpressions.Regex.IsMatch(name, "^proc_p25_compat_20261023_[a-z0-9]{6,20}$")
         : governanceUpgradeOnly
             ? System.Text.RegularExpressions.Regex.IsMatch(name, "^proc_payment_http_20261023_[a-z0-9]{6,20}$")
         : ownerUpgradeOnly
@@ -41,10 +45,16 @@ if (parsed.Database is not { } name || !(freshHrmOnly
     || parsed.Host is not { } host || !host.StartsWith("/", StringComparison.Ordinal) || host.Contains(','))
     throw new InvalidOperationException("Only a new bounded smoke clone over a local Unix socket is supported.");
 var diagnosticOnly = args.SequenceEqual(new[] { "--diagnose-hrm-model" });
-if (args.Length != 0 && !diagnosticOnly && !freshHrmOnly && !ownerUpgradeOnly && !governanceUpgradeOnly) throw new InvalidOperationException("Only explicit diagnostic or owning migration rehearsal flags are supported; no publisher arguments.");
+if (args.Length != 0 && !diagnosticOnly && !freshHrmOnly && !ownerUpgradeOnly && !governanceUpgradeOnly
+    && !p25OverP28Only && !p25FreshOnly) throw new InvalidOperationException("Only explicit diagnostic or owning migration rehearsal flags are supported; no publisher arguments.");
 var evidence = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_RESULT")
     ?? throw new InvalidOperationException("Private result path required.");
 if (File.Exists(evidence)) throw new InvalidOperationException("Do not reuse evidence paths.");
+if (p25OverP28Only || p25FreshOnly)
+{
+    await P25PaymentOwnerCompatibilityRehearsal.RunAsync(connection, evidence, p25FreshOnly);
+    return;
+}
 if (ownerUpgradeOnly)
 {
     await PaymentOwnerUpgradeRehearsal.RunAsync(connection, evidence);

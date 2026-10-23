@@ -1,5 +1,13 @@
 # Actual Program compatibility smoke — source candidate
 
+## P25/P28 owning compatibility — source-only profile
+
+Use exactly one flag, `--rehearse-p25-over-p28` or `--rehearse-p25-fresh-owner`, with `ERP_HOST_SMOKE_CONNECTION` pointing to a **new** private target named `proc_p25_compat_20261023_<6–20 lowercase alphanumeric nonce>` over one local Unix socket. Set `ERP_HOST_SMOKE_RESULT` to a new `.json` path in an existing owner-private `0700` directory. The launcher creates the target; this tool does not create, clone, reset, drop or select a source database. Never point it at production, the protected template, or a previously failed target. Run the two flags on separate newly created targets and retain their protected receipts.
+
+The retained mode requires a genuine private P28 clone with Core company clock and Core approval already migrated, P27/P28 applied, exactly P25 pending, and at least one retained manual-payment request and purchase request. It runs the compiled P25 EF owning migration, checks every preexisting table's normalized row digest and all unrelated columns, constraints, indexes, triggers and functions, verifies P25's seven columns/eight checks and two reviewed nullable worker columns, then requires a second owning migrate to leave the full footprint unchanged. The normalized comparison excludes only P25's new columns/history row and changed checks/nullability; it does not edit or copy business rows.
+
+The fresh mode requires a truly empty `template0` target. It uses the actual HRM, Core approval and Procurement EF migrations in owner order, requires P25/P27/P28 present and zero pending migrations/model changes, then requires a second migrate to leave full data/schema/history unchanged. Neither mode starts Program, installs a runtime role, enables Procurement, tests P25 downgrade with retained evidence, or establishes authenticated workflow acceptance. Compile, private clone admission and actual PostgreSQL results remain pending for this source-only profile.
+
 ## P28 governance owner upgrade — separate source candidate
 
 `--rehearse-payment-governance-upgrade` is a distinct private owner migration profile. It admits only a new `proc_payment_http_20261023_<nonce>` clone over a local PostgreSQL Unix socket, requires Core company time zone and P27 already applied, zero pending HRM migrations, and exactly P28 pending for Procurement with both current owner models matching. It applies **only** the Procurement owner migration. This does not relax or alter `--rehearse-payment-owner-upgrade` and never starts the ERP Program.
