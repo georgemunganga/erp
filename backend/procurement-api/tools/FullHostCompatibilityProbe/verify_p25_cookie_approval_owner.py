@@ -298,10 +298,9 @@ def verify(fixture, browser, facts, expected_database):
          and {x.get("type") for x in events} == expected_events
          and all(x.get("version") == 2 for x in events), "ApprovedV2Events")
     for event in events:
-        try:
-            payload = json.loads(event["payload"])
-        except (TypeError, ValueError):
-            raise VerificationFailure("V2EventPayloadMalformed") from None
+        # jsonb_build_object preserves the JSONB payload as a nested object.
+        payload = event["payload"]
+        need(isinstance(payload, dict), "V2EventPayloadMalformed")
         need(payload.get("submissionId") == pin["id"]
              and payload.get("submissionSchemaVersion") == 3
              and payload.get("principalApprovalSchemaVersion") == 1, "V2EventBinding")
