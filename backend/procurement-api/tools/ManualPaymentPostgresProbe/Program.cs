@@ -188,8 +188,66 @@ sealed class PaymentProbe(string connection)
             Check(locked.Source.IsEligible && locked.Capacity.OtherManualCommitments == 72.3456m
                 && locked.Capacity.RemainingExcludingThisRequest == 27.6544m);
             Check(await db.ManualPaymentRequests.CountAsync(x => x.Status == "PendingApproval") == 1);
+            var denied = false;
+            try { await ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, invoice, null, 30m); }
+            catch (InvalidOperationException e) when (e.Message == "ManualPaymentRegisteredAmountExceedsInvoice") { denied = true; }
+            Check(denied); // Sequential credit-after-payment cannot overcommit the invoice.
+            var reserved = await db.ManualPaymentRequests.AsNoTracking().FirstAsync(x => x.Status == "PendingApproval");
+            var excluding = await ManualPaymentCapacityReader.ReadLockedAsync(db, scope, invoice.Id, branch, allowed, reserved.Id);
+            denied = false;
+            try { _ = ManualPaymentWorkflow.Create(Draft(), Actor(creator), Assignee(approver, "approve"),
+                Assignee(recorder, "record"), Assignee(confirmer, "confirm"), excluding.Source, DateTimeOffset.UtcNow); }
+            catch (InvalidOperationException e) when (e.Message == "ManualPaymentCapacityExclusionInvalid") { denied = true; }
+            Check(denied);
             await tx.RollbackAsync();
         }
+        await CreditAgainstManualRace(scope, allowed);
+        await using (var db = Db()) {
+            var original = await db.SupplierInvoices.SingleAsync(x => x.Id == invoice.Id); var version = original.Version;
+            Check(!await db.ManualInvoiceDrafts().AnyAsync(x => x.Id == invoice.Id));
+            original.GrossAmount = original.NetAmount = 101m; var denied = false;
+            try { await db.SaveChangesAsync(); }
+            catch (InvalidOperationException e) when (e.Message == "OriginalInvoiceImmutable") { denied = true; }
+            Check(denied); db.ChangeTracker.Clear(); original = await db.SupplierInvoices.SingleAsync(x => x.Id == invoice.Id);
+            Check(original.GrossAmount == 100m && original.Version == version);
+        }
+    }
+    private async Task CreditAgainstManualRace(Scope scope, IReadOnlySet<Guid> allowed)
+    {
+        var reached = 0; var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<string> Compete(bool credit)
+        {
+            await using var db = Db(); await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            _ = await db.SupplierInvoices.AsNoTracking().Where(x => x.Id == invoice.Id).Select(x => x.Id).SingleAsync();
+            if (Interlocked.Increment(ref reached) == 2) ready.SetResult();
+            await ready.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            try {
+                if (credit) {
+                    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.supplier_invoices WHERE id={invoice.Id} AND tenant_id={Tenant} AND legal_entity_id={company} FOR UPDATE");
+                    await ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, invoice, null, 20m);
+                    db.AddScoped(new SupplierCreditNoteRef { SupplierId = invoice.SupplierId, SupplierInvoiceId = invoice.Id,
+                        CreditNumber = "SYN-CREDIT-RACE", CurrencyCode = "ZMW", Amount = 20m, Status = "Draft", Reason = "Synthetic commercial claim" });
+                    await db.SaveChangesAsync();
+                } else {
+                    var locked = await ManualPaymentCapacityReader.ReadLockedAsync(db, scope, invoice.Id, branch, allowed);
+                    var made = ManualPaymentWorkflow.Create(Draft() with { Amount = 20m }, Actor(creator), Assignee(approver, "approve"),
+                        Assignee(recorder, "record"), Assignee(confirmer, "confirm"), locked.Source, DateTimeOffset.UtcNow);
+                    await Persist(db, made, creator, true);
+                    await Persist(db, ManualPaymentWorkflow.Submit(made.Request, 1, Actor(creator), locked.Source, DateTimeOffset.UtcNow), creator);
+                }
+                await tx.CommitAsync(); return "Committed";
+            }
+            catch (Exception e) when (e.GetBaseException() is PostgresException { SqlState: "40001" }) { return "ConfirmedRollback"; }
+            catch (InvalidOperationException e) when (e.Message is "ManualPaymentInsufficientOutstanding" or "ManualPaymentRegisteredAmountExceedsInvoice") { return "CapacityDenied"; }
+        }
+        var outcomes = await Task.WhenAll(Compete(true), Compete(false));
+        Check(reached == 2 && outcomes.Count(x => x == "Committed") == 1);
+        Check(outcomes.Count(x => x is "ConfirmedRollback" or "CapacityDenied") == 1);
+        await using var read = Db(); await using var readTx = await read.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var actual = await ManualPaymentCapacityReader.ReadLockedAsync(read, scope, invoice.Id, branch, allowed);
+        Check(actual.Capacity.OtherManualCommitments + actual.Capacity.RegisteredCredits == 92.3456m
+            && actual.Capacity.RemainingExcludingThisRequest == 7.6544m);
+        await readTx.RollbackAsync();
     }
     private async Task AuditOnlyDowngradeVeto()
     {

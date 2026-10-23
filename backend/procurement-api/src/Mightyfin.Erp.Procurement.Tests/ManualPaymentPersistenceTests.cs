@@ -168,6 +168,27 @@ public sealed class ManualPaymentPersistenceTests
         Assert.Contains(request.GetCheckConstraints(), c => c.Name == "ck_manual_payment_state_evidence");
     }
 
+    [Fact]
+    public async Task A_real_manual_payment_draft_freezes_invoice_correction_and_registered_credit_capacity()
+    {
+        var scope = Owner(); await using var db = new ProcurementDbContext(Options(), scope);
+        var invoice = await SeedInvoice(db, scope); Assert.True(await db.ManualInvoiceDrafts().AnyAsync(x => x.Id == invoice.Id));
+        var made = Create(scope, invoice); Bundle(db, made, scope); await db.SaveChangesAsync();
+        Assert.False(await db.ManualInvoiceDrafts().AnyAsync(x => x.Id == invoice.Id));
+        // A Draft does not reserve the amount. It still anchors the original invoice.
+        invoice.GrossAmount = invoice.NetAmount = 50m;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        db.ChangeTracker.Clear(); invoice = await db.SupplierInvoices.SingleAsync(x => x.Id == invoice.Id);
+        var stored = await db.ManualPaymentRequests.SingleAsync();
+        var actor = Actor(scope) with { Actions = new HashSet<string> { "procurement-payment-submit" } };
+        var submitted = ManualPaymentWorkflow.Submit(stored, 1, actor, Source(scope, invoice), DateTimeOffset.UtcNow);
+        db.Entry(stored).CurrentValues.SetValues(submitted.Request); Bundle(db, submitted, scope, false); await db.SaveChangesAsync();
+        Assert.Equal("ManualPaymentRegisteredAmountExceedsInvoice", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, invoice, null, 80m))).Message);
+        await ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, invoice, null, 74.875m);
+        Assert.Empty(await db.SupplierCreditNoteRefs.ToArrayAsync()); // Guard does not post a credit.
+    }
+
     private static ManualPaymentActor Actor(Scope s) => new(s.SubjectId, s.TenantId, s.LegalEntityId, s.Branch,
         new HashSet<Guid> { s.Branch }, new HashSet<string> { "procurement-payment-create", "procurement-payment-edit" }, true)
         { CoreLinkedWorkerId = s.CoreLinkedWorkerId };

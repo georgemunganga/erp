@@ -63,6 +63,32 @@ public static class ManualPaymentCapacityReader
             && await db.Suppliers.AsNoTracking().AnyAsync(x => x.Id == invoice.SupplierId, ct);
         return new(new(invoice.Id, invoice.TenantId, invoice.LegalEntityId, transactionBranchId,
             invoice.SupplierId, invoice.CurrencyCode, invoice.InvoiceDate, invoice.GrossAmount,
-            capacity.RemainingExcludingThisRequest, eligible), capacity);
+            capacity.RemainingExcludingThisRequest, eligible) { ExcludingManualPaymentRequestId = excludingRequestId }, capacity);
+    }
+
+    /// <summary>Existing credit capture/correction participates in the same registered capacity.
+    /// The caller already holds the source invoice lock. Absence of the additive P27 tables
+    /// preserves pre-payment CRUD; partial installation fails closed.</summary>
+    public static async Task ValidateCreditClaimLockedAsync(ProcurementDbContext db, SupplierInvoice invoice,
+        Guid? editingCreditId, decimal amount, CancellationToken ct = default)
+    {
+        if (!await ProcurementManualPaymentSchema.InstalledAsync(db, ct)) return;
+        var requests = await db.ManualPaymentRequests.IgnoreQueryFilters().AsNoTracking().Where(x =>
+            x.TenantId == invoice.TenantId && x.LegalEntityId == invoice.LegalEntityId && x.SupplierInvoiceId == invoice.Id).ToArrayAsync(ct);
+        if (requests.Length == 0) return; // Existing credit-only ceiling remains the owner of this path.
+        if (db.Database.IsRelational() && (db.Database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL"
+            || db.Database.CurrentTransaction is not { } transaction
+            || transaction.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable))
+            throw new InvalidOperationException("ManualPaymentSerializableTransactionRequired");
+        var credits = await db.SupplierCreditNoteRefs.IgnoreQueryFilters().AsNoTracking().Where(x =>
+            x.TenantId == invoice.TenantId && x.LegalEntityId == invoice.LegalEntityId && x.SupplierInvoiceId == invoice.Id).ToListAsync(ct);
+        if (editingCreditId is { } id && credits.RemoveAll(x => x.Id == id) != 1)
+            throw new InvalidOperationException("ManualPaymentCreditHistoryNeedsReview");
+        credits.Add(new SupplierCreditNoteRef { TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,
+            SupplierInvoiceId = invoice.Id, SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode,
+            Amount = amount, Status = "Draft" });
+        var settlements = await db.FinancePaymentStatusRefs.IgnoreQueryFilters().AsNoTracking().Where(x =>
+            x.TenantId == invoice.TenantId && x.LegalEntityId == invoice.LegalEntityId && x.SupplierInvoiceId == invoice.Id).ToArrayAsync(ct);
+        _ = ManualPaymentCapacity.Calculate(invoice, requests, credits, settlements);
     }
 }
