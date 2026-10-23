@@ -14,19 +14,43 @@
       "pendingModelChanges": false,
       "sourceUnchanged": true,
       "databaseTouched": false
+    },
+    {
+      "source": "b92d96f",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-governance-postgres-20261023_run02",
+      "checksPassed": 45,
+      "result": "PASS_PRIVATE_POSTGRES_ONLY",
+      "coverage": [
+        "real Core policy/case/decision links",
+        "atomic workflow and retained evidence guards",
+        "empty P28 down/up and retained downgrade veto"
+      ],
+      "normalHttpAuthenticationTested": false
+    },
+    {
+      "source": "b5db9c7",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-governance-native-upgrade-20261023_run02",
+      "result": "PASS_PRIVATE_P27_TO_P28_OWNER_UPGRADE",
+      "legacyRowsPreserved": true,
+      "legacySchemaPreservedExceptReviewedAdditions": true,
+      "repeatApplyUnchanged": true
+    },
+    {
+      "source": "6be8a4993f5d4d2074c7c1f90ce35d829f36cb1a",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-http-build-20261023_run12",
+      "hostTestsPassed": 33,
+      "hostTestsFailed": 0,
+      "apiPublished": true,
+      "httpProbePublished": true,
+      "sourceUnchanged": true,
+      "exitCode": 0,
+      "oomKilled": false
     }
   ],
-  "laterChangesRequireVerification": [
-    "Governance CreatedAt preservation and Core Return/Reject semantics",
-    "Scoped unregistered read API and recovery",
-    "Private governance probe and negative checks",
-    "Typed payment policy preview"
-  ],
   "remaining": [
-    "Real PostgreSQL P28 positive/negative and retained migration rehearsal",
-    "Current-authority/idempotent command API",
-    "P28 rendered manifest and least-privilege runtime checks",
-    "Original UI binding and normal-cookie API/PostgreSQL Playwright journey",
+    "Verify latest branch lookup/source bill changes",
+    "Normal local-cookie actual Program/finite-role PostgreSQL HTTP journey",
+    "Original UI binding, frontend checks and normal-cookie API/PostgreSQL Playwright journey",
     "Independent review and production release gates"
   ],
   "productionMigrationApplied": false,
@@ -34,5 +58,21 @@
   "paymentHttpAccepted": false,
   "paymentPlaywrightAccepted": false,
   "hostedCi": "BLOCKED_GITHUB_ACCOUNT_BILLING",
-  "issues": "DISABLED_IN_REPOSITORY"
+  "issues": "DISABLED_IN_REPOSITORY",
+  "checkpointSource": "9b1562f",
+  "retainedFailedAttempts": [
+    {
+      "evidence": "procurement-payment-governance-postgres-20261023_run01",
+      "reason": "SQL policy digest mismatch; corrected and rerun separately"
+    },
+    {
+      "evidence": "procurement-payment-governance-native-upgrade-20261023_run01",
+      "reason": "Verifier omitted explicitly added constraint trigger; retained, corrected and rerun separately"
+    },
+    {
+      "evidence": "procurement-payment-governance-native-upgrade-20261023_run02/http-run01",
+      "reason": "Actual production startup attempted migration DDL with finite runtime; failed before fixture writes. Core startup now defaults to verify-only outside Development."
+    }
+  ],
+  "inProgress": "Actual Program/finite-role HTTP run02; result not yet available"
 }
