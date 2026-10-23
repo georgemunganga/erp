@@ -32,11 +32,11 @@ public sealed class SourcingDraftPersistenceTests
         Assert.Contains("method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL", ownedCheck);
         var envelopeCheck = model.FindEntityType(typeof(SourcingDraftEvidence))!.GetCheckConstraints()
             .Single(x => x.Name == "ck_rfq_original_envelope").Sql;
-        Assert.Contains("schema_version=2 AND maker_principal_id IS NOT NULL AND maker_principal_id ~", envelopeCheck);
+        Assert.Contains("schema_version=2 AND maker_principal_id IS NOT NULL AND maker_principal_id <> '00000000-0000-0000-0000-000000000000' AND maker_principal_id ~", envelopeCheck);
         var binding = model.FindEntityType(typeof(SourcingDemandBinding))!;
         var bindingCheck = binding.GetCheckConstraints().Single(x => x.Name == "ck_rfq_binding_value").Sql;
-        Assert.Contains("identity_schema_version=2 AND maker_principal_id IS NOT NULL AND maker_principal_id ~", bindingCheck);
-        Assert.Contains("requester_principal_id IS NOT NULL AND requester_principal_id ~", bindingCheck);
+        Assert.Contains("identity_schema_version=2 AND maker_principal_id IS NOT NULL AND maker_principal_id <> '00000000-0000-0000-0000-000000000000' AND maker_principal_id ~", bindingCheck);
+        Assert.Contains("requester_principal_id IS NOT NULL AND requester_principal_id <> '00000000-0000-0000-0000-000000000000' AND requester_principal_id ~", bindingCheck);
         Assert.Contains("principal_identity_sha256 IS NOT NULL AND principal_identity_sha256 ~", bindingCheck);
         Assert.Equal(38, binding.FindProperty(nameof(SourcingDemandBinding.EstimatedValue))!.GetPrecision());
         Assert.Equal(8, binding.FindProperty(nameof(SourcingDemandBinding.EstimatedValue))!.GetScale());
@@ -52,7 +52,7 @@ public sealed class SourcingDraftPersistenceTests
             && x.Properties.Select(p => p.Name).SequenceEqual(new[] { "TenantId", "LegalEntityId", "AllocationId" }));
         var receipt = model.FindEntityType(typeof(SourcingCommandReceipt))!;
         var receiptCheck = receipt.GetCheckConstraints().Single(x => x.Name == "ck_rfq_receipt_identity").Sql;
-        Assert.Contains("response_schema_version=2 AND actor_principal_id IS NOT NULL AND actor_principal_id ~", receiptCheck);
+        Assert.Contains("response_schema_version=2 AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id ~", receiptCheck);
         Assert.DoesNotContain(receipt.GetProperties(), x => x.Name.Contains("PurchaseOrder") || x.Name.Contains("CoreApprovalCase"));
         Assert.Contains(receipt.GetForeignKeys(), x => x.PrincipalEntityType.ClrType == typeof(SourcingEvent));
         var allocation = model.FindEntityType(typeof(PurchaseRequestAllocation))!;
