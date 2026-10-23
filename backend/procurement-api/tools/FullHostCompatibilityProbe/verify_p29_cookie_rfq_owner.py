@@ -142,7 +142,10 @@ SELECT jsonb_build_object(
     'financeReleaseRequests',(SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY x.id),'[]'::jsonb)
        FROM procurement.purchase_request_finance_release_requests x WHERE x.purchase_request_id='{request}'::uuid),
     'financeReleaseConfirmations',(SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY x.id),'[]'::jsonb)
-       FROM procurement.purchase_request_finance_release_confirmations x WHERE x.purchase_request_id='{request}'::uuid)),
+       FROM procurement.purchase_request_finance_release_confirmations x
+       JOIN procurement.purchase_request_finance_release_requests r
+         ON r.id=x.release_request_id AND r.tenant_id=x.tenant_id AND r.legal_entity_id=x.legal_entity_id
+       WHERE r.purchase_request_id='{request}'::uuid)),
  'sourceGraphs',(SELECT coalesce(jsonb_agg(jsonb_build_object(
     'event',to_jsonb(ev),
     'evidence',(SELECT to_jsonb(x) FROM procurement.sourcing_draft_evidence x WHERE x.sourcing_event_id=ev.id),
