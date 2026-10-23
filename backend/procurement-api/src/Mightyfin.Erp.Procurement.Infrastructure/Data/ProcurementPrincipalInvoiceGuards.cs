@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Procurement.Application;
@@ -278,6 +279,8 @@ public sealed partial class ProcurementDbContext
             var invoice = Invoice(receipt.SupplierInvoiceId);
             if (receipt.ActorPrincipalId != scope.SubjectId || receipt.ActorWorkerAliasId != scope.CoreLinkedWorkerId
                 || receipt.BranchId != invoice.BranchRef || receipt.CommandKey == Guid.Empty
+                || receipt.RequestSha256 is not { Length: 64 } || receipt.ResponseStatus != 200
+                || receipt.CompletedAt == default
                 || receipt.ResponseSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.ResponseJson)
                 || !added.Any(x => receipt.Operation switch
                 {
@@ -291,6 +294,51 @@ public sealed partial class ProcurementDbContext
                     _ => false,
                 }))
                 throw new InvalidOperationException("PrincipalInvoiceCommandReceiptEffectRequired");
+            using var parsed = JsonDocument.Parse(receipt.ResponseJson);
+            var response = parsed.RootElement;
+            if (response.GetProperty("invoiceId").GetGuid() != invoice.Id
+                || response.GetProperty("commandKey").GetGuid() != receipt.CommandKey
+                || response.GetProperty("sourceSchemaVersion").GetInt32() != 2
+                || response.GetProperty("canPostToFinance").GetBoolean())
+                throw new InvalidOperationException("PrincipalInvoiceCommandReceiptResponseChanged");
+            if (receipt.Operation == "Map")
+            {
+                var map = added.OfType<PrincipalInvoiceMappingVersion>()
+                    .Single(x => x.SupplierInvoiceId == invoice.Id);
+                if (response.GetProperty("mappingVersionId").GetGuid() != map.Id
+                    || receipt.CompletedAt != map.MappedAt)
+                    throw new InvalidOperationException("PrincipalInvoiceMappingReceiptChanged");
+            }
+            else if (receipt.Operation == "OpenReview")
+            {
+                var review = added.OfType<PrincipalInvoiceUnitReviewSource>()
+                    .Single(x => x.SupplierInvoiceId == invoice.Id);
+                if (response.GetProperty("reviewId").GetGuid() != review.Id
+                    || response.GetProperty("coreCaseId").GetGuid() != review.CoreCaseId
+                    || receipt.CompletedAt != review.OpenedAt)
+                    throw new InvalidOperationException("PrincipalInvoiceOpeningReceiptChanged");
+            }
+            else if (receipt.Operation == "DecideReview")
+            {
+                var reviewId = response.GetProperty("reviewId").GetGuid();
+                var voteId = response.GetProperty("decisionId").GetGuid();
+                var vote = sharedApprovalCore.Decisions.Local.SingleOrDefault(x => x.Id == voteId)
+                    ?? sharedApprovalCore.Decisions.Single(x => x.Id == voteId);
+                if (!PrincipalInvoiceUnitReviewSources.Any(x => x.Id == reviewId
+                        && x.SupplierInvoiceId == invoice.Id && x.CoreCaseId == vote.CaseId)
+                    || vote.ActorSubjectId != scope.SubjectId || receipt.CompletedAt != vote.DecidedAt)
+                    throw new InvalidOperationException("PrincipalInvoiceDecisionReceiptChanged");
+            }
+            else if (receipt.Operation == "Compare")
+            {
+                var comparison = added.OfType<PrincipalInvoiceComparison>()
+                    .Single(x => x.SupplierInvoiceId == invoice.Id);
+                if (response.GetProperty("comparisonId").GetGuid() != comparison.Id
+                    || response.GetProperty("mappingVersionId").GetGuid() != comparison.MappingVersionId
+                    || receipt.CommandKey != comparison.CommandKey
+                    || receipt.CompletedAt != comparison.ComparedAt)
+                    throw new InvalidOperationException("PrincipalInvoiceComparisonReceiptChanged");
+            }
         }
     }
 }

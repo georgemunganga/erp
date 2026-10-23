@@ -206,8 +206,13 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
         }, ct);
     }
 
-    private static decimal Exact(string value) => decimal.Parse(value,
-        NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+    private static decimal Exact(string value)
+    {
+        if (!decimal.TryParse(value, NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign,
+            CultureInfo.InvariantCulture, out var result))
+            throw new InvalidOperationException("PrincipalInvoiceExactComparisonAmountInvalid");
+        return result;
+    }
 
     private static async Task<IResult> Recover(Guid id, Guid key, HttpContext http,
         ProcurementRequestScope scope, CancellationToken ct)
