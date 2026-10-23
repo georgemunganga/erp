@@ -40,11 +40,11 @@ internal static partial class PrincipalApprovalHttpVerification
         var lineId=source.GetProperty("purchaseRequestLineId").GetGuid();
         await send(client,HttpMethod.Get,root+"/approved-principal-sources",fixture.Maker,null,HttpStatusCode.Forbidden);
         Guid foreignBranch=Guid.NewGuid();
-        await using(var core=fixture.Core())
+        await using(var branchOwner=fixture.Core())
         {
-            core.WorkLocations.Add(new WorkLocation{Id=foreignBranch,Code="P29_OTHER",Name="Private unassigned branch",
+            branchOwner.WorkLocations.Add(new WorkLocation{Id=foreignBranch,Code="P29_OTHER",Name="Private unassigned branch",
                 LegalEntityId=fixture.Company});
-            await core.SaveChangesAsync();
+            await branchOwner.SaveChangesAsync();
         }
         using(var wrongScope=new HttpRequestMessage(HttpMethod.Get,root+"/approved-principal-sources"))
         {

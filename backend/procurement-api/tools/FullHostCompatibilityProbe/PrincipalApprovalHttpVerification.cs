@@ -18,7 +18,8 @@ internal static partial class PrincipalApprovalHttpVerification
     {
         var owner=Environment.GetEnvironmentVariable("P25_HTTP_OWNER_CONNECTION")??throw new InvalidOperationException("Explicit private owner connection required.");
         var connection=new NpgsqlConnectionStringBuilder(owner);
-        Need(connection.Host=="/authority-identity-private-socket" && connection.Database is {} database
+        var database=connection.Database ?? string.Empty;
+        Need(connection.Host=="/authority-identity-private-socket"
             && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$") && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
         var resultPath=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??throw new InvalidOperationException("New protected result required.");
         Need(Path.IsPathFullyQualified(resultPath)&&!File.Exists(resultPath)&&Directory.Exists(Path.GetDirectoryName(resultPath)),"New result in existing protected directory required.");
