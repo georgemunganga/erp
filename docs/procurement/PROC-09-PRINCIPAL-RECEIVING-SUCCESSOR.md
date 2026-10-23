@@ -119,3 +119,45 @@ The bounded positive workflow is technically authorized for source implementatio
 `ab1210f` defines this delta; ordinary merges retain PO release/issued proof through `d0db773`. `26ec8e1` adds typed version2 source/facts, optional-worker current Core projection, strict principal-named schema2 policy and pure positive decisions. The next source slice adds multi-line goods/service owned draft revisions, explicit Record versus Accept separation and cancellation reason retained separately from notes. Create ignores supplied draft line IDs and generates server IDs (existing create semantics); revise preserves stored line/source identity, never chooses by a display name. Changes to a known source pin cannot be disguised by omitting its line ID.
 
 Current source has no EF tables, migration, registered routes, provider or capability activation for this successor. Pure policy projection is NOT independent publication proof; actual current Core publication lineage and alias revalidation must precede future new effects. Complete retained policy/history projection is required for balance reconstruction; old superseded publication may explain an old fact without authorizing a new one. Tests authored in these slices are synthetic pure evidence, not executed/HTTP/PostgreSQL acceptance. Durable receipts, persistence guard/mapping, real policy lifecycle/lookups, source-query fence, actual versioned endpoints/recovery and handoff plumbing remain explicit next increments before this workflow can run.
+
+### Owned persistence source checkpoint (not schema/runtime acceptance)
+
+The successor now defines five additive owned tables: `principal_receiving_sources`,
+`principal_receiving_drafts`, `principal_receiving_revisions`,
+`principal_receiving_facts`, and `principal_receiving_receipts`. No existing receiving
+record or legacy issued/version envelope is widened or rewritten. Stable scoped
+IDs are EF keys; source sequence, draft revision, current status and exact balance
+fields are concurrency-controlled values, never alternate keys. Explicit short
+names avoid PostgreSQL identifier truncation. Text snapshots retain exact original
+bytes; normalization binds every source/fact/header column to typed evidence.
+
+`PrincipalReceivingStore` is an unregistered enlisted persistence primitive. It
+requires the actual owning relational transaction, complete retained history,
+loaded owning commercial parents and current Core/source authorization supplied
+by the API coordinator. It cannot confer authority. A first source refuses legacy
+receiving history or nonzero PO accepted counters instead of adopting unknown
+history as zero. Positive facts require same-save durable command receipts and
+advance the source cursor. Positive acceptance updates the existing PR/PO counters
+with exact deltas; the old counter guard accepts only the validated successor
+facts in addition to its existing legacy effects. It does not create stock,
+asset, Finance or credit entries. Missing full history fails closed.
+
+Each draft revision is immutable. The small head must advance exactly once with
+its matching revision and receipt. Terminal revision snapshots cannot rewrite
+original notes, quantities, commercial pins or physical references. Fact and
+receipt rows are append-only; foreign-scope objects are rejected before scope
+stamping. Inspection and acceptance leave the original physical fact unchanged.
+Exact recovery returns original stored receipt bytes after the caller's current
+actor/action/retained-record access check, without today's policy or supplier
+eligibility being substituted for historical authority.
+
+Six additional source tests cover normalized source/fact crossbinding, duplicate
+and unknown JSON, exact eight-place acceptance recovery, unknown empty histories,
+terminal snapshot immutability, scoped model keys/precision/names and pre-stamping
+foreign-scope rejection. They have not been executed. Earlier fourteen pure tests
+also remain unexecuted. No generated migration, snapshot/designer edit, provider
+registration, endpoint activation, database probe or UI claim accompanies this
+checkpoint. Before central generation the exact source/draft/fact ownership
+indexes and any manual deferred ownership overlay must be reviewed, followed by
+actual PostgreSQL constraint/round-trip/concurrency/recovery tests. Existing
+capabilities remain unchanged; successor readiness remains unavailable.
