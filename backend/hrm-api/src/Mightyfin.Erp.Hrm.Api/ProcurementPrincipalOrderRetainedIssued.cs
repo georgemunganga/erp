@@ -63,6 +63,15 @@ internal static class ProcurementPrincipalOrderRetainedIssued
               AND po.status='Issued' AND po.current_revision=1
               AND po.submitted_business_version=1 AND po.issued_at IS NOT NULL
               AND po.original_direct_source_sha256 IS NOT NULL
+              AND EXISTS (SELECT 1 FROM procurement.principal_order_source_bindings binding
+                WHERE binding.purchase_order_id=po.id AND binding.tenant_id=po.tenant_id
+                  AND binding.legal_entity_id=po.legal_entity_id AND binding.branch_id=po.branch_ref
+                  AND binding.original_direct_source_sha256=po.original_direct_source_sha256)
+              AND NOT EXISTS (SELECT 1 FROM procurement.principal_order_source_bindings binding
+                WHERE binding.purchase_order_id=po.id AND binding.tenant_id=po.tenant_id
+                  AND binding.legal_entity_id=po.legal_entity_id
+                  AND (binding.branch_id IS DISTINCT FROM po.branch_ref
+                    OR binding.original_direct_source_sha256 IS DISTINCT FROM po.original_direct_source_sha256))
               AND EXISTS (
                 SELECT 1 FROM procurement.principal_order_issued_versions issued
                 JOIN procurement.principal_order_submissions submission

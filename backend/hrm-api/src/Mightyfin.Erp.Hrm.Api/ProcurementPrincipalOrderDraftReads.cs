@@ -92,7 +92,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     },ct);
 
     private static Task<IResult> FinanceWork(int? page,int? pageSize,string? q,HttpContext http,
-        ProcurementRequestScope scope,CancellationToken ct)=>Run(http,scope,async(db,cases,core,auth,token)=>
+        ProcurementRequestScope scope,CancellationToken ct)=>GovernedRead(http,scope,async(db,cases,core,auth,token)=>
     {
         var paging=ProcurementSourcingDiscoveryQueries.Paging(page,pageSize,q);
         var actor=await Actor(core,scope,http,auth,"procurement-po-finance-confirm",null,false,token);
@@ -171,7 +171,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         },ct);
 
     private static Task<IResult> Review(Guid id,Guid assignmentId,HttpContext http,
-        ProcurementRequestScope scope,CancellationToken ct)=>Run(http,scope,async(db,cases,core,auth,token)=>
+        ProcurementRequestScope scope,CancellationToken ct)=>GovernedRead(http,scope,async(db,cases,core,auth,token)=>
     {
         var pin=await db.PrincipalOrderAssignmentEvidence.AsNoTracking()
             .SingleOrDefaultAsync(x=>x.CoreAssignmentId==assignmentId&&x.PrincipalId==scope.SubjectId,token)
