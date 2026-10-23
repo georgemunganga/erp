@@ -26,6 +26,16 @@ public sealed partial class ProcurementDbContext
             if (entry.State != EntityState.Added) continue;
             if (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId || entry.Entity.Version != 1)
                 throw new InvalidOperationException("ManualPaymentGovernanceScopeRequired");
+            // Evidence time is part of the Core/source decision pin. Preserve it through
+            // generic creation stamping only after proving its actor and normalized instant.
+            var evidenceAt = entry.Entity switch {
+                ManualPaymentWorkflowCaseLink row => row.OpenedAt,
+                ManualPaymentCoreDecisionLink row => row.DecidedAt,
+                ManualPaymentBusinessDateObservation row => row.ObservedAtUtc,
+                _ => default };
+            if (evidenceAt == default || evidenceAt != ProcurementEvidenceEncoding.DatabaseTimestamp(evidenceAt)
+                || entry.Entity.CreatedAt != evidenceAt || entry.Entity.CreatedBy != scope.SubjectId)
+                throw new InvalidOperationException("ManualPaymentGovernanceCreationEvidenceInvalid");
             ManualPaymentWriteScope(entry.Entity switch {
                 ManualPaymentWorkflowCaseLink row => row.BranchId,
                 ManualPaymentCoreDecisionLink row => row.BranchId,

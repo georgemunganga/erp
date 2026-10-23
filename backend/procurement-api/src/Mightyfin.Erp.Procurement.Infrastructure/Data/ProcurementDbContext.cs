@@ -727,7 +727,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 if (entry.Entity.TenantId != scope.TenantId || entry.Entity.LegalEntityId != scope.LegalEntityId)
                     throw new InvalidOperationException("A new record must be stamped with the authenticated scope before tracking.");
                 if (!PreserveAuthorityCreationMetadata(entry.Entity)
-                    && !PreserveOperationalPolicyCreationMetadata(entry.Entity))
+                    && !PreserveOperationalPolicyCreationMetadata(entry.Entity)
+                    && entry.Entity is not (ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation))
                 {
                     entry.Entity.CreatedAt = now;
                     entry.Entity.CreatedBy = scope.SubjectId;

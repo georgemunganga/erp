@@ -188,7 +188,7 @@ public partial class P28ManualPaymentGovernance
            AND (d.action IN ('Approve','Confirm') OR c."Reason" IS NOT DISTINCT FROM d.reason)
            AND (NEW.actor_principal_id=link.assignee_principal_id OR d.action='Cancel' AND NEW.actor_principal_id=link.maker_principal_id)
            AND parent."State"=expected_state AND stage."State"=expected_state AND assignment."State"=expected_state
-           AND parent."CompletedAt"=NEW.decided_at AND parent."CompletionKey"=c."IdempotencyKey"
+           AND parent."CompletedAt"=NEW.decided_at
            AND stage."CaseId"=parent."Id" AND assignment."CaseId"=parent."Id" AND assignment."StageId"=stage."Id"
          ) THEN
           RAISE EXCEPTION 'Manual payment requires the exact same Core decision' USING ERRCODE='23514';
