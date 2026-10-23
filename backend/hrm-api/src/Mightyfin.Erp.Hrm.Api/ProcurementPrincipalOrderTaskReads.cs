@@ -18,6 +18,23 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         return Run(http,scope,operation,ct);
     }
 
+    private static async Task<Guid[]> CurrentTaskBranches(HrmDbContext core,ProcurementRequestScope scope,
+        CancellationToken ct)
+    {
+        var assigned=await ProcurementExecutionRecordScope.Branches(core,scope,null,false,ct);
+        var candidates=assigned.Length>0?assigned:
+            await core.WorkLocations.AsNoTracking().Where(x=>x.LegalEntityId==scope.LegalEntityId&&!x.IsArchived)
+                .Select(x=>x.Id).ToArrayAsync(ct);
+        if(scope.WorkLocationId is { } selected)
+            candidates=candidates.Contains(selected)?[selected]:[];
+        if(candidates.Length==0 || scope.IsConfined && scope.WorkLocationId is null
+            && !scope.IsExplicitAllBranches)throw new Problem("OrderActionDenied",403);
+        var active=await core.WorkLocations.AsNoTracking().Where(x=>x.LegalEntityId==scope.LegalEntityId
+            &&!x.IsArchived&&candidates.Contains(x.Id)).Select(x=>x.Id).ToArrayAsync(ct);
+        if(active.Length==0)throw new Problem("OrderActionDenied",403);
+        return active;
+    }
+
     // Purpose-only Finance read. In particular, the Finance actor need not
     // hold buyer-wide PO/PR read, and a list row is not sufficient evidence for
     // a manual external commitment or release.
@@ -82,19 +99,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         {
             var paging=ProcurementSourcingDiscoveryQueries.Paging(page,pageSize,q);
             var actor=await Actor(core,scope,http,auth,"procurement-po-approve",null,false,token);
-            var assigned=await ProcurementExecutionRecordScope.Branches(core,scope,null,false,token);
-            var branchIds=assigned.Length>0?assigned:
-                await core.WorkLocations.AsNoTracking().Where(x=>x.LegalEntityId==scope.LegalEntityId&&!x.IsArchived)
-                    .Select(x=>x.Id).ToArrayAsync(token);
-            if(scope.WorkLocationId is { } selected)
-                branchIds=branchIds.Contains(selected)?[selected]:[];
-            if(branchIds.Length==0 || scope.IsConfined && scope.WorkLocationId is null
-                && !scope.IsExplicitAllBranches)throw new Problem("OrderActionDenied",403);
-            // Even organization-wide actors can only see CURRENT active Core
-            // branches. The target branch is later rechecked by Review/Decide.
-            var active=await core.WorkLocations.AsNoTracking().Where(x=>x.LegalEntityId==scope.LegalEntityId
-                &&!x.IsArchived&&branchIds.Contains(x.Id)).Select(x=>x.Id).ToArrayAsync(token);
-            if(active.Length==0)throw new Problem("OrderActionDenied",403);
+            var active=await CurrentTaskBranches(core,scope,token);
             var principal=actor.PrincipalId;
             var hasSearch=paging.Search.Length>0;
             var pattern=paging.Pattern;
