@@ -91,9 +91,15 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     || issued.SubmissionId!=submission.Id||issued.FundingEvidenceId!=funding.Id))
                 throw new Problem("OrderWorkEvidenceChanged",409);
             var policy=http.RequestServices.GetRequiredService<ProcurementOrderExecutionOptions>();
+            var labels=await Labels(db,core,order,scope,token);
             return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.Status,order.Version,
-                order.SupplierId,order.BranchRef,order.CurrencyCode,order.OriginalDirectSourceSha256,
+                order.SupplierId,order.BranchRef,labels.SupplierDisplayName,labels.BranchDisplayName,
+                order.CurrencyCode,order.OriginalDirectSourceSha256,
                 grossAmountExact=ProcurementEvidenceEncoding.Decimal(submission.GrossAmount),
+                lines=load.Lines.OrderBy(x=>x.LineNumber).Select(line=>new{line.Id,line.LineNumber,
+                    line.Description,line.UnitCode,quantity=ProcurementEvidenceEncoding.Decimal(line.Quantity),
+                    unitPrice=ProcurementEvidenceEncoding.Decimal(line.UnitPrice),
+                    taxAmount=ProcurementEvidenceEncoding.Decimal(line.TaxAmount)}).ToArray(),
                 funding.ManualCommitmentReference,funding.ExternalEvidenceReference,
                 funding.ApprovedManualPolicyReference,submissionId=submission.Id,
                 issuedVersionId=issued?.Id,issuedAuthorizedAt=issued?.AuthorizedAt,

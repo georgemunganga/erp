@@ -142,6 +142,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var fundingRecorded=await db.PrincipalOrderFundingEvidence.AsNoTracking()
                 .AnyAsync(x=>x.PurchaseOrderId==id&&x.CommercialRevision==1
                     &&x.OriginalDirectSourceSha256==order.OriginalDirectSourceSha256,token);
+            var labels=await Labels(db,core,order,scope,token);
             var confirmation=release is null?null:await db.PrincipalOrderReleaseConfirmations.AsNoTracking()
                 .SingleOrDefaultAsync(x=>x.ReleaseRequestId==release.Id,token);
             if(allocations.Length!=bindings.Length || bindings.Any(x=>
@@ -151,6 +152,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                         :order.Status is "IssuePending" or "Issued" or "Disputed"?"Ordered":"Reserved"))!=1))
                 throw new Problem("OrderOriginalSourceUnavailable",409);
             return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.SupplierId,
+                labels.SupplierDisplayName,labels.BranchDisplayName,
                 order.CurrencyCode,order.BranchRef,order.Status,order.Version,order.CreatedAt,
                 order.ShipToRef,order.BillToRef,order.PaymentTermRef,order.ExpectedDeliveryOn,
                 order.ClosureReason,order.OriginalDirectSourceSha256,
@@ -208,11 +210,17 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             || submission.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
             || pin.CoreApprovalCaseId!=workflow.Id || pin.PrincipalId!=task.AssigneeSubjectId)
             throw new Problem("OrderApprovalEvidenceChanged",409);
+        var labels=await Labels(db,core,order,scope,token);
         return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.Status,order.Version,
-            order.CurrencyCode,order.SupplierId,order.BranchRef,submissionId=submission.Id,
+            order.CurrencyCode,order.SupplierId,order.BranchRef,labels.SupplierDisplayName,labels.BranchDisplayName,
+            submissionId=submission.Id,
             submission.CommercialRevision,submission.CommercialSnapshotJson,
             lineBaseAmountExact=ProcurementEvidenceEncoding.Decimal(submission.LineBaseAmount),
             grossAmountExact=ProcurementEvidenceEncoding.Decimal(submission.GrossAmount),
+            lines=lines.Select(line=>new{line.Id,line.LineNumber,line.Description,line.UnitCode,
+                quantity=ProcurementEvidenceEncoding.Decimal(line.Quantity),
+                unitPrice=ProcurementEvidenceEncoding.Decimal(line.UnitPrice),
+                taxAmount=ProcurementEvidenceEncoding.Decimal(line.TaxAmount)}).ToArray(),
             funding.ManualCommitmentReference,funding.ExternalEvidenceReference,
             funding.ApprovedManualPolicyReference,
             coreCaseId=workflow.Id,caseState=workflow.State,caseVersion=workflow.Version,

@@ -75,10 +75,16 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     throw new Problem("OrderFinanceEvidenceChanged",409);
             }
             var totals=PurchaseOrderCommercialWorkflow.Totals(load.Lines);
+            var labels=await Labels(db,core,order,scope,token);
             return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.Status,order.Version,
-                order.SupplierId,order.BranchRef,order.CurrencyCode,order.OriginalDirectSourceSha256,
+                order.SupplierId,order.BranchRef,labels.SupplierDisplayName,labels.BranchDisplayName,
+                order.CurrencyCode,order.OriginalDirectSourceSha256,
                 grossAmountExact=ProcurementEvidenceEncoding.Decimal(totals.Gross),
                 sourceReservationReferences=reservations,
+                lines=load.Lines.OrderBy(x=>x.LineNumber).Select(line=>new{line.Id,line.LineNumber,
+                    line.Description,line.UnitCode,quantity=ProcurementEvidenceEncoding.Decimal(line.Quantity),
+                    unitPrice=ProcurementEvidenceEncoding.Decimal(line.UnitPrice),
+                    taxAmount=ProcurementEvidenceEncoding.Decimal(line.TaxAmount)}).ToArray(),
                 funding=funding is null?null:new{funding.Id,funding.ManualCommitmentReference,
                     funding.ExternalEvidenceReference,funding.ApprovedManualPolicyReference,
                     funding.ObservedAt,attestedGrossAmountExact=ProcurementEvidenceEncoding.Decimal(funding.AttestedGrossAmount)},
