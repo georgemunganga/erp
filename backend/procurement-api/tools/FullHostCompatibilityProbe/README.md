@@ -274,3 +274,17 @@ no Finance AP/payment facts, and an unchanged hash of the accepted base
 request/Core approval graph. Each extra request/check remains in the private
 clone as declared evidence. No SDK build or PostgreSQL run has occurred for
 this cohort; the parent owns its future publication and actual provider test.
+
+### P25 private browser buyer fixture profile — source-only
+
+Only when the validated `P25_HTTP_SERVE_LOCAL_COOKIE_BROWSER=1` mode is used,
+the synthetic configuration maker's stored Core role gains
+`procurement-policy-evaluate` and `procurement-request-read`. This allows an
+independent buyer to run the mapped **Check buying rules** step before a newly
+submitted request appears in the approval queue. The flag still requires the
+genuine positive manual-evidence graph and excludes the other optional cohorts.
+The protected result records `browserBuyerFixtureProfile` as
+`PRIVATE_CONFIG_MAKER_POLICY_EVALUATION`; absent flag records `DISABLED` and
+retains all existing fixture role actions. This changes no employee, production
+role, route authorization, approval decision or Finance authority. Actual
+browser acceptance remains a separate root-owned gate.

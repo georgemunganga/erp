@@ -22,7 +22,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
-internal sealed class PrincipalApprovalFixture(string owner)
+internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile)
 {
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
@@ -51,7 +51,8 @@ internal sealed class PrincipalApprovalFixture(string owner)
             var people=new[]{(Maker,"p25_request_maker","procurement-access,procurement-request-read,procurement-request-create,procurement-request-edit,procurement-request-submit,procurement-request-return,procurement-approval-open"),
                 (Checker,"p25_checker","procurement-access,procurement-request-read,procurement-budget-check"),
                 (Approver,"p25_custom_approver","procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide"),
-                (ConfigMaker,"p25_config_maker","procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-authority-read,procurement-authority-configure"),
+                (ConfigMaker,"p25_config_maker","procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-authority-read,procurement-authority-configure"
+                    + (browserBuyerProfile ? ",procurement-policy-evaluate,procurement-request-read" : "")),
                 (ConfigReviewer,"p25_config_reviewer","procurement-access,procurement-configuration-read,procurement-configuration-approve,procurement-authority-read,procurement-authority-review"),
                 (Ungranted,"p25_ungranted","")};
             foreach(var (id,role,actions) in people)

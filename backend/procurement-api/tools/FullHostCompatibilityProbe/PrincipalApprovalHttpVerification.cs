@@ -56,7 +56,8 @@ internal static partial class PrincipalApprovalHttpVerification
             && matrixFlag is null && schemaFlag is null && accountFlag is null && aliasFlag is null
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Normal local-cookie serve requires the original genuine base graph without other optional cohorts.");
-        var fixture=new PrincipalApprovalFixture(owner);var stage="Bootstrap";var requests=0;
+        result["browserBuyerFixtureProfile"]=localCookieFlag=="1"?"PRIVATE_CONFIG_MAKER_POLICY_EVALUATION":"DISABLED";
+        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1");var stage="Bootstrap";var requests=0;
         try
         {
             Advance("Bootstrap");
