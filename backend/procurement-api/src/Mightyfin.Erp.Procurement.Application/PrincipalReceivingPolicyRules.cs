@@ -19,6 +19,7 @@ public static class PrincipalReceivingPolicyRules
 {
     public static bool IsDocument(string? json)
     {
+        if(string.IsNullOrWhiteSpace(json)||json.Length>65536||Encoding.UTF8.GetByteCount(json)>65536)return false;
         try{using var document=JsonDocument.Parse(json??"");return document.RootElement.TryGetProperty("schemaVersion",out var version)
             &&version.ValueKind==JsonValueKind.Number&&version.TryGetInt32(out var schema)&&schema==2
             &&document.RootElement.TryGetProperty("transactionType",out var type)&&type.ValueKind==JsonValueKind.String&&type.GetString()=="Receiving";}
