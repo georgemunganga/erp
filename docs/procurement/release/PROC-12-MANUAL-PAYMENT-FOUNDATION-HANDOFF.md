@@ -7,7 +7,7 @@ Status: source-only foundation. No route, mapping, migration, UI activation, pay
 - A Procurement-owned manual request, append-only transition record and actor-scoped command-receipt shape, separate from `FinancePaymentStatusRef`.
 - Pure transitions for create, revise, submit, assigned approval/return/rejection, external payment recording, independent confirmation, cancellation and dispute.
 - Current Core principal/action/company/branch checks, current assignment checks at assignment and action time, exact amount and invoice/currency bindings, optimistic version checks and mandatory external reference/date/method.
-- Pure rule tests for the successful system-only account path and critical denials. These tests have **not been run** in this source-only preparation.
+- Pure rule tests for the successful system-only account path and critical denials. At frozen source `0ed4438f5e83eed73e10c1882c8737737a4ea838`, all **38 focused rule cases passed**, with zero failed/skipped, using the cached pinned SDK offline. Tracked source stayed unchanged. This does not prove persistence, HTTP or runtime activation.
 
 ## Required before API or runtime activation
 
@@ -19,3 +19,11 @@ Status: source-only foundation. No route, mapping, migration, UI activation, pay
 6. Add mapped PostgreSQL/API concurrency, scope, receipt and migration tests, plus browser tests against the existing Payments presentation. Keep the manual label distinct from Finance-synced outcomes. Publish only after the release gates pass.
 
 No bank rail, supplier ledger, AP posting, imported Finance status, refund or reconciliation is implied by `ConfirmedManually`.
+
+## Actual focused verification — 23 October
+
+Private receipt: `/home/amizo/erp-backups/procurement-manual-payment-focused-20261023_run01/result.json`, SHA256 `44e1b0c1ed2ab8c30d1db8b773fd828cbefc486fd704d8e4f3091443342cc201`. Actual Docker exit 0, no OOM; 38/38 passed, no skipped. Compilation retained two existing nullable warnings in GovernedRfqDraft.cs; no warnings were suppressed or unrelated rules changed.
+
+## Additional mandatory runtime identity gate
+
+The current foundation stores principal IDs but not retained optional Core-linked worker evidence. Before persistence/runtime activation, pin genuine optional creator/recorder links in owned records/history and reuse `ProcurementPrincipalPeople.Resolve` plus `IndependentNow` (backend/hrm-api) for creator/approver and recorder/confirmer at assignment and decision. This checks retained and current Core links without requiring employment. Use `CoreLinkedWorkerId`, including inactive-HR linkage as veto evidence; never client worker IDs. These checks are not implemented by the current pure foundation and its 38 passing tests do not establish them. Current/retained checks do not prove full historical-link coverage; stricter lifetime policy needs immutable Core link history.
