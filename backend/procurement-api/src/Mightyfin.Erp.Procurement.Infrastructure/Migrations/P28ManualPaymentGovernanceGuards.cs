@@ -22,7 +22,7 @@ public partial class P28ManualPaymentGovernance
         END; $$;
         CREATE TRIGGER manual_payment_title_immutable BEFORE UPDATE ON procurement.manual_payment_requests
          FOR EACH ROW EXECUTE FUNCTION procurement.guard_manual_payment_title();
-        
+
         CREATE FUNCTION procurement.require_manual_payment_governance_companions() RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
          IF NEW.action IN ('Submit','Record') AND NOT EXISTS (
@@ -53,7 +53,7 @@ public partial class P28ManualPaymentGovernance
         END; $$;
         CREATE CONSTRAINT TRIGGER manual_payment_governance_bundle AFTER INSERT ON procurement.manual_payment_decisions
          DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION procurement.require_manual_payment_governance_companions();
-        
+
         -- This encoder covers only the fixed ASCII v1 payment policy schema. The application
         -- owns generic canonical JSON; this database check cannot canonicalize other policies.
         CREATE FUNCTION procurement.manual_payment_policy_digest(doc jsonb) RETURNS text LANGUAGE plpgsql IMMUTABLE AS $$
@@ -72,7 +72,7 @@ public partial class P28ManualPaymentGovernance
          canonical:='{"approvalType":"SingleApprover","identitySchemaVersion":2,"independentCreatorApprover":true,"independentRecorderConfirmer":true,"maximumByCurrency":{'||entries||'},"policyKey":"MANUAL_PAYMENT_REVIEW","schemaVersion":1,"transactionType":"ManualPaymentReview"}';
          RETURN encode(sha256(convert_to(canonical,'UTF8')),'hex');
         END; $$;
-        
+
         CREATE FUNCTION procurement.require_manual_payment_core_case() RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
          IF NOT EXISTS (
@@ -158,7 +158,7 @@ public partial class P28ManualPaymentGovernance
         END; $$;
         CREATE CONSTRAINT TRIGGER manual_payment_core_case_bundle AFTER INSERT ON procurement.manual_payment_workflow_cases
          DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION procurement.require_manual_payment_core_case();
-        
+
         CREATE FUNCTION procurement.require_manual_payment_core_decision() RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE expected_action text; expected_state text;
         BEGIN
@@ -197,7 +197,7 @@ public partial class P28ManualPaymentGovernance
         END; $$;
         CREATE CONSTRAINT TRIGGER manual_payment_core_decision_bundle AFTER INSERT ON procurement.manual_payment_core_decisions
          DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION procurement.require_manual_payment_core_decision();
-        
+
         CREATE FUNCTION procurement.require_manual_payment_company_date() RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
          IF NOT EXISTS (
