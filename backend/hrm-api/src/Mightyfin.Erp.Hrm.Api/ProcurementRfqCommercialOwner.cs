@@ -57,10 +57,11 @@ public static partial class ProcurementSourcingExecutionRoutes
         var evidence=await db.SourcingDraftEvidenceRecords.SingleAsync(x=>x.Id==ev.SourceEvidenceId,ct);
         var bindings=await db.SourcingDemandBindings.Where(x=>x.SourcingEventId==id).OrderBy(x=>x.SourcingLineId).ToArrayAsync(ct);
         var original=GovernedPrincipalRfqRestoration.RestoreVerified(evidence,ev,bindings);
+        var targetScope=PrincipalRfqTargetBranchScope.Bind(scope,actor,ev.BranchRef!.Value);
         var sources=new List<ApprovedPurchaseSource>();
         foreach(var pin in original.Lines.OrderBy(x=>x.RequestId).ThenBy(x=>x.LineId))
         {
-            var source=await ApprovedDemandSourceLoader.LoadRetainedAsync(db,cases,scope,pin.RequestId,pin.LineId,new(pin.SubmissionId,pin.OutcomeId,pin.MethodId),ct);
+            var source=await ApprovedDemandSourceLoader.LoadRetainedAsync(db,cases,targetScope,pin.RequestId,pin.LineId,new(pin.SubmissionId,pin.OutcomeId,pin.MethodId),ct);
             _=await PrincipalActor(core,scope,http,auth,PrincipalRfqCommercialDraft.Permission,source.Request.BranchRef,true,ct);
             _=PurchaseDemandAllocationBalance.Evaluate(source.Request,source.Line,source.Allocations,source.AllocationOwners??[],scope.TenantId,scope.LegalEntityId);
             var hold=source.Allocations.SingleOrDefault(x=>x.Id==pin.AllocationId&&x.TargetType=="SourcingEvent"&&x.TargetId==id);

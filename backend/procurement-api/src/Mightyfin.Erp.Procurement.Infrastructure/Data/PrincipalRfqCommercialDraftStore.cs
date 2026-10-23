@@ -11,7 +11,7 @@ public sealed class PrincipalRfqCommercialDraftStore(ProcurementDbContext db,IPr
 {
     private void Enlisted()
     {if(!db.Database.IsNpgsql()||db.Database.CurrentTransaction is null)throw new InvalidOperationException("RfqCommercialDraftOwnerTransactionRequired");
-        if(scope.OrgUnitId is not null||scope.IsConfined&&scope.WorkLocationId is null)throw new UnauthorizedAccessException("RfqCommercialDraftExplicitScopeRequired");}
+        if(scope.OrgUnitId is not null||scope.IsConfined&&scope.WorkLocationId is null&&!scope.IsExplicitAllBranches)throw new UnauthorizedAccessException("RfqCommercialDraftExplicitScopeRequired");}
     public async Task<(PrincipalRfqCommercialDraftHead Head,PrincipalRfqCommercialDraftRevision Revision)> LoadAsync(Guid eventId,CancellationToken ct)
     {
         Enlisted();
