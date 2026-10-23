@@ -5,7 +5,7 @@ using Mightyfin.Erp.Procurement.Domain;
 namespace Mightyfin.Erp.Procurement.Tests;
 
 /// <summary>Pure synthetic projections only; not current Core, publication, relational or HTTP acceptance evidence.</summary>
-public sealed class PrincipalControlledReceivingTests
+public sealed partial class PrincipalControlledReceivingTests
 {
     private static readonly DateTimeOffset At=DateTimeOffset.Parse("2026-10-23T12:00:00Z");
     private static readonly string Buyer=Guid.NewGuid().ToString("D"),Requester=Guid.NewGuid().ToString("D"),Receiver=Guid.NewGuid().ToString("D"),Inspector=Guid.NewGuid().ToString("D");
@@ -15,7 +15,7 @@ public sealed class PrincipalControlledReceivingTests
         var hash=new string('a',64);var commercial=new ReceivingSourcePin("tenant-a",Company,Branch,Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),1,hash,hash,"retained-principal-po2",hash,kind,"SITE",kind==ReceivingKind.Service?"SERVICES":"GOODS","ZMW","each",quantity,price,ControlledReceiving.NetPriceBasis);
         return new(2,commercial,Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),hash,new(Buyer,null),new(Requester,null),At.AddDays(-2),At.AddDays(-1));
     }
-    private static PrincipalReceivingActor Actor(string who,Guid? alias=null)=>new(who,alias,"tenant-a",Company,new HashSet<Guid>{Branch},new HashSet<string>{ControlledReceiving.RecordPermission,ControlledReceiving.InspectPermission,ControlledReceiving.AcceptPermission,ControlledReceiving.CertifyPermission});
+    private static PrincipalReceivingActor Actor(string who,Guid? alias=null)=>new(who,alias,"tenant-a",Company,new HashSet<Guid>{Branch},new HashSet<string>{"procurement-receipt-create","procurement-receipt-edit",ControlledReceiving.RecordPermission,ControlledReceiving.InspectPermission,ControlledReceiving.AcceptPermission,ControlledReceiving.CertifyPermission});
     private static PolicyVersion Policy(PrincipalReceivingSource source,bool inspection=true)
     {
         var service=source.Commercial.Kind==ReceivingKind.Service;
