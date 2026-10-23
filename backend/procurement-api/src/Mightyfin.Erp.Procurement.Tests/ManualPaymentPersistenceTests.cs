@@ -92,8 +92,11 @@ public sealed class ManualPaymentPersistenceTests
         await using var db = new ProcurementDbContext(options, owner);
         var invoice = await SeedInvoice(db, owner); Bundle(db, Create(owner, invoice), owner); await db.SaveChangesAsync();
         var auditCount = await db.AuditEvents.CountAsync();
+        db.ChangeTracker.Clear();
         object record = kind == "decision" ? await db.ManualPaymentDecisions.SingleAsync() : await db.ManualPaymentReceipts.SingleAsync();
-        db.Entry(record).State = delete ? EntityState.Deleted : EntityState.Modified;
+        if (delete) db.Entry(record).State = EntityState.Deleted;
+        else if (record is ManualPaymentDecision decision) decision.Reason = "Attempted rewrite";
+        else ((ManualPaymentCommandReceipt)record).ResponseJson = "{\"rewritten\":true}";
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
         await using var read = new ProcurementDbContext(options, owner);
         Assert.Single(await read.ManualPaymentDecisions.ToArrayAsync()); Assert.Single(await read.ManualPaymentReceipts.ToArrayAsync());
