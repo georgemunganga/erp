@@ -24,9 +24,11 @@ var owner = Required("PROCUREMENT_PAYMENT_HTTP_OWNER_CONNECTION");
 var runtime = Required("PROCUREMENT_PAYMENT_HTTP_RUNTIME_CONNECTION");
 var execution = Required("PROCUREMENT_PAYMENT_HTTP_EXECUTION_CONNECTION");
 var resultPath = Required("PROCUREMENT_PAYMENT_HTTP_RESULT");
+var browserFixturePath = Environment.GetEnvironmentVariable("PROCUREMENT_PAYMENT_HTTP_BROWSER_FIXTURE");
 if (Environment.GetEnvironmentVariable("PROCUREMENT_PAYMENT_HTTP_EXPLICIT_TEST_OPTIONS") != "enabled-in-private-clone")
     throw new InvalidOperationException("Explicit private payment test options are required.");
 ProbeBoundary.Validate(owner, runtime, execution, resultPath);
+if (browserFixturePath is not null) PrivateBrowserFixture.Validate(browserFixturePath, resultPath);
 var tenant = "payment-http-" + Guid.NewGuid().ToString("N")[..16];
 var result = new Dictionary<string, object?> { ["status"] = "NOT_STARTED", ["actualProgram"] = false,
     ["normalLocalLogin"] = false, ["paymentRoutesEnabledInProduction"] = false, ["financePostingClaimed"] = false };
@@ -69,6 +71,11 @@ try
     await journey.Verify();
     phase = "owner-evidence-check";
     await PaymentFixtureStore.VerifyOwnerEvidence(owner, fixture);
+    if (browserFixturePath is not null)
+    {
+        phase = "private-browser-handoff";
+        await PrivateBrowserFixture.Write(browserFixturePath, fixture);
+    }
     result["status"] = "PASS_PRIVATE_CLONE_ONLY";
     result["checks"] = journey.Checks;
     result["manualPaymentStatus"] = "ConfirmedManually";
