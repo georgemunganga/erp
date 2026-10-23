@@ -119,6 +119,11 @@ public static class ProcurementPrincipalInvoiceDiscrepancyRoutes
                 if (issue.Version != input.ExpectedVersion
                     || issue.State is "Resolved" or "CancelledWithReason")
                     throw new InvalidOperationException("PrincipalInvoiceExceptionChanged");
+                // Reassignment is an action on the currently assigned issue, too.
+                // A general matcher may inspect the invoice but cannot take over
+                // another owner's correction queue.
+                if (issue.OwnerPrincipalId != scope.SubjectId)
+                    throw new UnauthorizedAccessException();
                 var target = issue.OwnerPrincipalId;
                 if (input.Action == "Assign")
                 {
@@ -136,8 +141,6 @@ public static class ProcurementPrincipalInvoiceDiscrepancyRoutes
                 }
                 else
                 {
-                    if (issue.OwnerPrincipalId != scope.SubjectId)
-                        throw new UnauthorizedAccessException();
                     if (input.Action == "CorrectionRequested")
                     {
                         if (issue.State == "AwaitingCorrection")
