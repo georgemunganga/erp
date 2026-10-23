@@ -9,7 +9,7 @@ internal static partial class PrincipalApprovalHttpVerification
 {
     private static async Task VerifyPrincipalRfqAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,Dictionary<string,object?> result,
-        Action<string> stage,PrincipalSend send)
+        Action<string> stage,PrincipalSend send,Action countRequest)
     {
         Need(fixture.PrincipalRfqProfile && result.TryGetValue("positiveApprovalGraph",out var accepted)
             && accepted is true && result["positiveApprovalRequestId"] is Guid,
@@ -50,6 +50,7 @@ internal static partial class PrincipalApprovalHttpVerification
             wrongScope.Headers.Add("X-Private-P25-Subject",fixture.Buyer.ToString("D"));
             wrongScope.Headers.Add("X-Shell-Entity",fixture.Company.ToString("D"));
             wrongScope.Headers.Add("X-Shell-Location",foreignBranch.ToString("D"));
+            countRequest();
             using var denied=await client.SendAsync(wrongScope);
             Need(denied.StatusCode==HttpStatusCode.Forbidden,
                 "Unassigned current Core branch must not expose principal RFQ sources.");

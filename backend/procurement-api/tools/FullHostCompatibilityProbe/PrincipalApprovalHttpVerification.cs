@@ -172,7 +172,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 Need(positive is null or "1","Private manual evidence opt-in must be exactly1.");
                 await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily,principalRfqFlag=="1");
                 if(principalRfqFlag=="1")
-                    await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send);
+                    await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
                 if(exactBudgetFlag=="1")
                 {
                     Need(result.TryGetValue("positiveApprovalGraph",out var graphAccepted) && graphAccepted is true,
