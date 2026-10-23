@@ -29,6 +29,18 @@ public static class ProcurementHostIntegration
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(approvalOptions);
+        // The concrete P25 inspector is also available to established worker
+        // workflows on a P25 database. The principal interface remains off
+        // unless the explicit successor option is enabled.
+        services.AddScoped<ProcurementPrincipalApprovalStoreReadiness>();
+        // The successor remains default-off. When explicitly selected, its real
+        // scoped provider still verifies P25, exact schema and finite SQL roles
+        // for every read/record/execute decision; a setting alone grants nothing.
+        if (approvalOptions.PrincipalExecutionEnabled)
+            services.AddScoped<IProcurementPrincipalApprovalSchemaReadiness>(sp =>
+                sp.GetRequiredService<ProcurementPrincipalApprovalStoreReadiness>());
+        else
+            services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness,UnavailableProcurementPrincipalApprovalSchemaReadiness>();
         var orderOptions = configuration.GetSection("Procurement:Orders").Get<ProcurementOrderExecutionOptions>()
             ?? new ProcurementOrderExecutionOptions();
         orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
@@ -175,6 +187,9 @@ public static class ProcurementHostIntegration
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,
                         budgetRecording = financeCheckerCapture,
+                        // Separate successor contract; existing worker-based clients do not
+                        // infer compatibility merely from general approval availability.
+                        principalApprovals = !pending && await ProcurementPrincipalApprovalCapability.ReadyAsync(services,scope.LegalEntityId,ct),
                         approvals = !pending && financeCheckerReads
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>().ExecutionDatabaseConfigured

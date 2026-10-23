@@ -88,6 +88,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
         builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions());
         builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness { Ready = scenario != "finance-checker-schema-not-ready" });
         builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementManualPaymentOptions()); // Explicitly off in this metadata-only fixture.
         builder.Services.AddSingleton(new CoreDocumentFeature(false));
         builder.Services.AddAuthentication("capability-test")
             .AddScheme<AuthenticationSchemeOptions, Authentication>("capability-test", _ => { });
@@ -120,6 +121,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(expected, body.GetProperty("capabilities").GetProperty("orders").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("manualPaymentWorkflow").GetBoolean());
         Assert.Equal(scenario is not ("pending-procurement-schema" or "pending-model"), body.GetProperty("schemaReady").GetBoolean());
         Assert.Equal(expected || scenario == "schema-not-ready" ? 1 : 0, readiness.Calls);
     }

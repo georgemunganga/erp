@@ -192,6 +192,11 @@ public sealed class PurchaseRequest : ProcurementRecord
     // Core account identity owns the request. Null is retained for pre-principal history;
     // CreatedBy is historical attribution and is never rewritten as a guessed backfill.
     public Guid? RequesterPrincipalId { get; set; }
+    // Versioned original attribution for new principal-based operational approvals.
+    // Optional known Core link is denial-only alias evidence, never active employment.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int RequesterIdentitySchemaVersion { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Guid? RequesterCoreWorkerId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? RequesterIdentitySha256 { get; set; }
     // Optional genuine HRMS link, never a substitute for the Core principal.
     public Guid? RequesterWorkerId { get; set; }
     public Guid? DepartmentRef { get; set; }

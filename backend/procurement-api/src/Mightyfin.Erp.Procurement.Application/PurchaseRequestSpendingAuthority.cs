@@ -21,13 +21,57 @@ public static class PurchaseRequestAssignmentIdentity
 {
     public static PurchaseRequestAssignmentIdentityEvidence? ReadVerified(PurchaseRequestAssignmentAuthorityEvidence value)
     {
-        if (value.AssigneeWorkerId is not { } worker || worker == Guid.Empty || string.IsNullOrWhiteSpace(value.EvidenceJson)
+        if (value.IdentitySchemaVersion != 1 || value.AssigneeWorkerId is not { } worker || worker == Guid.Empty || string.IsNullOrWhiteSpace(value.EvidenceJson)
             || value.EvidenceSha256 != Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value.EvidenceJson)))) return null;
         PurchaseRequestAssignmentIdentityEvidence? retained;
         try { retained = JsonSerializer.Deserialize<PurchaseRequestAssignmentIdentityEvidence>(value.EvidenceJson); }
         catch (JsonException) { return null; }
         var authority = retained?.Authority;
         if (retained is null || authority is null || retained.AssigneeWorkerId != worker
+            || authority.TenantId != value.TenantId || authority.LegalEntityId != value.LegalEntityId
+            || authority.PrincipalId != value.PrincipalId || authority.GrantId != value.GrantId
+            || authority.GrantRevision != value.GrantRevision || authority.AuthorityVersion != value.AuthorityVersion) return null;
+        return retained;
+    }
+}
+
+/// <summary>Successor evidence binds the assignment to its Core principal and optional known alias.</summary>
+public sealed record PurchaseRequestPrincipalAssignmentEvidence(int SchemaVersion, string TenantId,
+    Guid LegalEntityId, Guid SubmissionId, Guid CoreApprovalCaseId, Guid CoreStageId, Guid CoreAssignmentId,
+    string PrincipalId, Guid? KnownCoreWorkerId, string AssigneeKind, PurchaseRequestAuthorityEvidence Authority);
+
+public static class PurchaseRequestPrincipalAssignmentIdentity
+{
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        PropertyNameCaseInsensitive = false,
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.Strict,
+        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
+        MaxDepth = 12
+    };
+
+    public static PurchaseRequestPrincipalAssignmentEvidence? ReadVerified(PurchaseRequestAssignmentAuthorityEvidence value)
+    {
+        if (value.IdentitySchemaVersion != 2 || value.EvidenceJson is not { Length: > 0 and <= 32768 }
+            || value.AssigneeWorkerId == Guid.Empty
+            || value.EvidenceSha256 != ProcurementEvidenceEncoding.Digest(value.EvidenceJson)) return null;
+        PurchaseRequestPrincipalAssignmentEvidence? retained;
+        try
+        {
+            // Existing canonical JSON reader rejects duplicate properties recursively.
+            if (ProcurementEvidenceEncoding.PolicyJsonDigest(value.EvidenceJson).Length != 64) return null;
+            retained = JsonSerializer.Deserialize<PurchaseRequestPrincipalAssignmentEvidence>(value.EvidenceJson, Options);
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException) { return null; }
+        var authority=retained?.Authority;
+        if (retained is null || authority is null || retained.SchemaVersion != 2
+            || !Guid.TryParseExact(value.PrincipalId,"D",out var principal) || principal==Guid.Empty
+            || value.PrincipalId != principal.ToString("D")
+            || retained.TenantId != value.TenantId || retained.LegalEntityId != value.LegalEntityId
+            || retained.SubmissionId != value.SubmissionId || retained.CoreApprovalCaseId != value.CoreApprovalCaseId
+            || retained.CoreStageId != value.CoreStageId || retained.CoreAssignmentId != value.CoreAssignmentId
+            || retained.PrincipalId != value.PrincipalId || retained.KnownCoreWorkerId != value.AssigneeWorkerId
+            || retained.AssigneeKind != value.AssigneeKind
             || authority.TenantId != value.TenantId || authority.LegalEntityId != value.LegalEntityId
             || authority.PrincipalId != value.PrincipalId || authority.GrantId != value.GrantId
             || authority.GrantRevision != value.GrantRevision || authority.AuthorityVersion != value.AuthorityVersion) return null;

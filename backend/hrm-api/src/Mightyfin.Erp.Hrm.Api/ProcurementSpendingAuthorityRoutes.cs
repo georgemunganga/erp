@@ -69,7 +69,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
             // Inspect the actual store once per request, not once per listed grant.
             var identityReady = await IdentityStoreReady(http, db, true, ct);
             var items = new List<object>();
-            foreach (var grant in records) items.Add(await ReadView(grant, db, core, scope, permissions, identityReady, ct));
+            foreach (var grant in records) items.Add(await ReadView(grant, db, core, scope, permissions, identityReady, http, ct));
             return Results.Ok(new { items, total, page = number, pageSize = size,
                 currentActorPrincipalId = scope.SubjectId, canCreate = permissions.Contains(SpendingAuthorityConfiguration.ConfigurePermission)
                     && identityReady,
@@ -88,7 +88,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
             var grant = await Scoped(db, scope).AsNoTracking().Include(x => x.Categories)
                 .SingleOrDefaultAsync(x => x.Id == id, ct);
             return grant is null ? Missing() : Results.Ok(await ReadView(grant, db, core, scope,
-                await ReadActions(core, scope, http, auth, ct), await IdentityStoreReady(http, db, true, ct), ct));
+                await ReadActions(core, scope, http, auth, ct), await IdentityStoreReady(http, db, true, ct), http, ct));
         }
         catch (Exception ex) when (Handled(ex)) { return Failure(ex); }
     }
@@ -102,9 +102,11 @@ public static partial class ProcurementSpendingAuthorityRoutes
             if (actor is null) return AccessDenied();
             if (string.IsNullOrWhiteSpace(input.AuthorityReference) || string.IsNullOrWhiteSpace(input.PrincipalId)
                 || input.Draft is null) return Invalid("AuthorityDraftRequired");
-            if (await ProcurementAuthorityIdentity.SubjectAsync(core, scope, input.PrincipalId, ct) is null)
-                return Invalid("AuthoritySubjectUnavailable");
             var contract = ProcurementSpendingActions.Resolve(input.Action ?? SpendingAuthorityConfiguration.ApprovalAction);
+            var principal=await NewPrincipalIdentity(http,db,contract.Action,ct);
+            if ((principal?await PrincipalSubject(core,scope,input.PrincipalId,ct)
+                :await ProcurementAuthorityIdentity.SubjectAsync(core, scope, input.PrincipalId, ct)) is null)
+                return Invalid("AuthoritySubjectUnavailable");
             var draft = await Defaults(input.Draft, core, scope, ct, contract.Action);
             if (!ProcurementAuthorityIdentity.InputInScope(draft, scope)) return Missing();
             var issue = await ProcurementAuthorityIdentity.ReferenceIssueAsync(core, db, scope, draft, false, ct);
@@ -116,7 +118,9 @@ public static partial class ProcurementSpendingAuthorityRoutes
             core = transactionCore;
             actor = await Actor(core, scope, http, auth, SpendingAuthorityConfiguration.ConfigurePermission, ct);
             if (actor is null) return AccessDenied();
-            if (await ProcurementAuthorityIdentity.SubjectAsync(core, scope, input.PrincipalId, ct) is null)
+            principal=await NewPrincipalIdentity(http,db,contract.Action,ct);
+            if ((principal?await PrincipalSubject(core,scope,input.PrincipalId,ct)
+                :await ProcurementAuthorityIdentity.SubjectAsync(core, scope, input.PrincipalId, ct)) is null)
                 return Invalid("AuthoritySubjectUnavailable");
             draft = await Defaults(input.Draft, core, scope, ct, contract.Action);
             issue = await ProcurementAuthorityIdentity.ReferenceIssueAsync(core, db, scope, draft, false, ct);
@@ -127,11 +131,18 @@ public static partial class ProcurementSpendingAuthorityRoutes
             if (!await IdentityStoreReady(http, db, true, ct)) return IdentityUnavailable();
             var grant = SpendingAuthorityConfiguration.CreateDraft(input.AuthorityReference, input.PrincipalId,
                 draft, actor, ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value, family, contract.Action);
-            var identities = await ProcurementSpendingAuthorityWorkerIdentity.ResolveCreationActorsAsync(
-                core, scope, grant.PrincipalId, ct);
-            db.AddScoped(grant);
-            db.AddScoped(SpendingAuthorityIdentityStorage.ToRecord(SpendingAuthorityIdentity.CaptureCreation(
-                grant, identities.Actor.WorkerId, identities.Recipient.WorkerId)));
+            SpendingAuthorityIdentityEvidence created;
+            if(principal)
+            {
+                var identities=await ProcurementSpendingAuthorityPrincipalIdentity.ResolveCreationActorsAsync(core,scope,grant.PrincipalId,ct);
+                created=SpendingAuthorityIdentity.CaptureCreation(grant,identities.Actor.CoreLinkedWorkerId,identities.Recipient.CoreLinkedWorkerId,2);
+            }
+            else
+            {
+                var identities=await ProcurementSpendingAuthorityWorkerIdentity.ResolveCreationActorsAsync(core,scope,grant.PrincipalId,ct);
+                created=SpendingAuthorityIdentity.CaptureCreation(grant,identities.Actor.WorkerId,identities.Recipient.WorkerId);
+            }
+            db.AddScoped(grant);db.AddScoped(SpendingAuthorityIdentityStorage.ToRecord(created));
             ProcurementDraftAudit.Add(db, scope, nameof(ProcurementSpendingAuthorityGrant), grant.Id,
                 "authority.draft_created", null, View(grant));
             await db.SaveChangesAsync(ct);
@@ -164,7 +175,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
             var issue = await ProcurementAuthorityIdentity.ReferenceIssueAsync(core, db, scope, draft, false, ct);
             if (issue is not null) return Invalid(issue);
             if (!await IdentityStoreReady(http, db, true, ct)) return IdentityUnavailable();
-            await ProcurementSpendingAuthorityWorkerIdentity.RequireAuthorAsync(core, db, scope, grant, ct);
+            await IdentityAuthorAsync(http,core,db,scope,grant,ct);
             var before = View(grant);
             db.SpendingAuthorityCategories.RemoveRange(grant.Categories);
             SpendingAuthorityConfiguration.EditDraft(grant, input.Version, draft, actor, DateTimeOffset.UtcNow);
@@ -204,21 +215,23 @@ public static partial class ProcurementSpendingAuthorityRoutes
             if (operation != "revoke" && !await IdentityStoreReady(http, db, true, ct)) return IdentityUnavailable();
             var before = View(grant);
             var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
-            ProcurementSpendingAuthorityWorkerIdentity.AuthorProof? authorIdentity = null;
-            ProcurementSpendingAuthorityWorkerIdentity.ReviewProof? reviewIdentity = null;
+            IdentityAuthor? authorIdentity = null;
+            IdentityReview? reviewIdentity = null;
             SpendingAuthoritySubject? subject = null;
             if (operation is "submit" or "activate" or "supersede")
             {
-                subject = await ProcurementAuthorityIdentity.SubjectAsync(core, scope, grant.PrincipalId, ct);
+                var principal=await RetainedPrincipalIdentity(http,db,scope,grant,ct);
+                subject = principal?await PrincipalSubject(core,scope,grant.PrincipalId,ct)
+                    :await ProcurementAuthorityIdentity.SubjectAsync(core, scope, grant.PrincipalId, ct);
                 if (subject is null) return Invalid("AuthoritySubjectUnavailable");
                 var issue = await ProcurementAuthorityIdentity.ReferenceIssueAsync(core, db, scope,
                     ProcurementAuthorityIdentity.Draft(grant), true, ct);
                 if (issue is not null) return Invalid(issue);
             }
             if (operation == "submit")
-                authorIdentity = await ProcurementSpendingAuthorityWorkerIdentity.RequireAuthorAsync(core, db, scope, grant, ct);
+                authorIdentity = await IdentityAuthorAsync(http,core,db,scope,grant,ct);
             if (operation is "activate" or "supersede" or "return")
-                reviewIdentity = await ProcurementSpendingAuthorityWorkerIdentity.RequireReviewerAsync(core, db, scope, grant, ct);
+                reviewIdentity = await IdentityReviewerAsync(http,core,db,scope,grant,ct);
             switch (operation)
             {
                 case "submit": SpendingAuthorityConfiguration.Submit(grant, version, actor, subject!, now); break;
@@ -274,9 +287,15 @@ public static partial class ProcurementSpendingAuthorityRoutes
         catch { await core.DisposeAsync(); throw; }
     }
 
-    private static Task<SpendingAuthorityConfigurationActor?> Actor(HrmDbContext core,
-        ProcurementRequestScope scope, HttpContext http, IAuthorizationService auth, string permission, CancellationToken ct)
-        => ProcurementAuthorityIdentity.ActorAsync(core, scope, http.User, auth, permission, ct);
+    private static async Task<SpendingAuthorityConfigurationActor?> Actor(HrmDbContext core,
+        ProcurementRequestScope scope,HttpContext http,IAuthorizationService auth,string permission,CancellationToken ct)
+    {
+        if(!PrincipalOption(http))return await ProcurementAuthorityIdentity.ActorAsync(core,scope,http.User,auth,permission,ct);
+        var person=await ProcurementPrincipalPeople.Resolve(core,scope.TenantId,scope.LegalEntityId,scope.SubjectId,ct);
+        if(person is null || scope.PrincipalId?.ToString("D")!=person.PrincipalId || !person.Permissions.Contains(permission)
+            || !(await auth.AuthorizeAsync(http.User,permission)).Succeeded)return null;
+        return new(scope.TenantId,scope.LegalEntityId,person.PrincipalId,true,new HashSet<string>([permission],StringComparer.Ordinal));
+    }
     private static IQueryable<ProcurementSpendingAuthorityGrant> Scoped(ProcurementDbContext db, ProcurementRequestScope scope)
         => ProcurementAuthorityIdentity.InScope(db.SpendingAuthorityGrants, scope);
     private static bool InScope(ProcurementSpendingAuthorityGrant grant, ProcurementRequestScope scope)
@@ -315,11 +334,14 @@ public static partial class ProcurementSpendingAuthorityRoutes
         principalDisplayName, allowedActions = allowedActions ?? [], previousGrantId, previousVersion,
         blockingReasons = blockingReasons ?? [],
     };
-    private static Task<bool> IdentityStoreReady(HttpContext? http, ProcurementDbContext db, bool write, CancellationToken ct)
+    private static async Task<bool> IdentityStoreReady(HttpContext? http, ProcurementDbContext db, bool write, CancellationToken ct)
     {
+        if(http is not null && (!write || PrincipalOption(http))
+            && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,write,ct))return true;
         var readiness = http?.RequestServices.GetService<IProcurementSpendingAuthorityIdentitySchemaReadiness>()
             ?? new ProcurementSpendingAuthorityIdentitySchemaReadiness();
-        return write ? readiness.CanRecordAsync(db, ct) : readiness.IsReadyAsync(db, ct);
+        if(write ? await readiness.CanRecordAsync(db, ct) : await readiness.IsReadyAsync(db, ct))return true;
+        return http is not null && await ProcurementLegacyP25SchemaGuard.ReadyAsync(db,http.RequestServices,write,ct);
     }
     private static IResult IdentityUnavailable() => Results.Problem(statusCode: 503,
         title: "Spending authority identity checks are not available yet.",

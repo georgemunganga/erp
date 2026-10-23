@@ -49,11 +49,12 @@ public sealed partial class ProcurementDbContext
         b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.GrantId }, "ux_authority_identity_activation")
             .IsUnique().HasDatabaseName("ux_authority_identity_activation").HasFilter("stage = 'Activated'");
         b.ToTable(t => t.HasCheckConstraint("ck_authority_identity_evidence", """
-            schema_version=1 AND id <> '00000000-0000-0000-0000-000000000000'::uuid
+            schema_version IN (1,2) AND (schema_version=2 OR (actor_worker_id IS NOT NULL AND recipient_worker_id IS NOT NULL)) AND id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND grant_id <> '00000000-0000-0000-0000-000000000000'::uuid
+            AND (schema_version=1 OR (action='PurchaseRequest.Approve' AND permission='procurement-approval-decide'))
             AND authority_version>0 AND grant_record_version_at_action>0
-            AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid
-            AND recipient_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid
+            AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)
+            AND (recipient_worker_id IS NULL OR recipient_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)
             AND length(btrim(authority_reference))>0 AND length(btrim(permission))>0 AND length(btrim(action))>0
             AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
             AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'
@@ -88,8 +89,9 @@ public sealed partial class ProcurementDbContext
             if (entry.State != EntityState.Added) continue;
             var row = SpendingAuthorityIdentityStorage.Read(entry.Entity);
             if (row.TenantId != scope.TenantId || row.LegalEntityId != scope.LegalEntityId
-                || row.ActorPrincipalId != scope.SubjectId || scope.WorkerId is null
-                || scope.WorkerId == Guid.Empty || row.ActorWorkerId != scope.WorkerId)
+                || row.ActorPrincipalId != scope.SubjectId
+                || (row.SchemaVersion==1 ? scope.WorkerId is null || scope.WorkerId==Guid.Empty || row.ActorWorkerId!=scope.WorkerId
+                    : row.ActorWorkerId!=scope.CoreLinkedWorkerId))
                 throw new InvalidOperationException("AuthorityIdentityActorMismatch");
             if (entries.Count(x => x.State == EntityState.Added && x.Entity.GrantId == row.GrantId) != 1)
                 throw new InvalidOperationException("AuthorityIdentityOneActionPerSaveRequired");

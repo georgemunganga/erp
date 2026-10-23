@@ -263,6 +263,44 @@ public sealed class ProcurementSpendingAuthorityHttpTests
         await fixture.AssertStaleActorDenied();
     }
 
+    [Theory]
+    [InlineData(false,false,0)]
+    [InlineData(true,false,0)]
+    [InlineData(false,true,0)]
+    [InlineData(true,true,1)]
+    public async Task Principal_request_authority_lookup_requires_activation_schema_current_action_and_branch(
+        bool enabled,bool ready,int expected)
+    {
+        await using var fixture=await Fixture.Start(enabled,ready);
+        var principal=await fixture.AddWorkerlessLookupCandidate();
+        var response=await fixture.Send(HttpMethod.Get,Path+"/lookups/people?search=Workerless", "erp_admin",branch:fixture.Branch);
+        Assert.Equal(HttpStatusCode.OK,response.StatusCode);
+        var body=await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(expected,body.GetProperty("items").GetArrayLength());
+        if(expected==1)
+        {
+            var candidate=Assert.Single(body.GetProperty("items").EnumerateArray());
+            Assert.Equal(principal.ToString("D"),candidate.GetProperty("principalId").GetString());
+            Assert.Equal(JsonValueKind.Null,candidate.GetProperty("workerId").ValueKind);
+            Assert.Equal(new[]{"displayName","principalId","workerId"},candidate.EnumerateObject().Select(x=>x.Name).Order().ToArray());
+        }
+        response=await fixture.Send(HttpMethod.Get,Path+"/lookups/people?search=Workerless", "erp_admin",branch:fixture.OtherBranch);
+        body=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Empty(body.GetProperty("items").EnumerateArray());
+        response=await fixture.Send(HttpMethod.Get,Path+"/lookups/people?search=Workerless&action=PurchaseOrder.Approve", "erp_admin",branch:fixture.Branch);
+        body=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Empty(body.GetProperty("items").EnumerateArray());
+        await fixture.RevokeLookupApprovalAction();
+        response=await fixture.Send(HttpMethod.Get,Path+"/lookups/people?search=Workerless", "erp_admin",branch:fixture.Branch);
+        body=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Empty(body.GetProperty("items").EnumerateArray());
+    }
+
+    // Synthetic mapped-route schema only, never a PostgreSQL privilege/readiness proof.
+    private sealed class PrincipalLookupSchema(bool ready):IProcurementPrincipalApprovalSchemaReadiness
+    {
+        public Task<bool> IsReadyAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
+        public Task<bool> CanRecordAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
+        public Task<bool> CanExecuteAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
+    }
+
     private sealed class Fixture(WebApplication app, Guid company, Guid user, Guid branch, Guid otherBranch, Guid grant) : IAsyncDisposable
     {
         public Guid User => user;
@@ -302,6 +340,23 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             core.Workers.Add(replacement); account.WorkerId = replacement.Id; await core.SaveChangesAsync();
             Assert.Null(await ProcurementAuthorityIdentity.ActorAsync(core, scope, principal, authorization,
                 SpendingAuthorityConfiguration.ConfigurePermission, CancellationToken.None));
+        }
+        public async Task<Guid> AddWorkerlessLookupCandidate()
+        {
+            using var services=app.Services.CreateScope();var core=services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var candidate=new LocalUser {Email="workerless-authority@example.test",NormalizedEmail="WORKERLESS-AUTHORITY@EXAMPLE.TEST",
+                DisplayName="Workerless authority candidate",PasswordHash="test-placeholder-only",RolesCsv="custom_request_reviewer",WorkerId=null};
+            core.LocalUsers.Add(candidate);
+            core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=candidate.Id,LocationId=branch});
+            core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey="custom_request_reviewer",RoleName="Explicit request reviewer",
+                Active=true,PermissionsCsv="procurement-access,procurement-approval-decide"});
+            await core.SaveChangesAsync();return candidate.Id;
+        }
+        public async Task RevokeLookupApprovalAction()
+        {
+            using var services=app.Services.CreateScope();var core=services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            (await core.TenantRoleAssignments.SingleAsync(x=>x.RoleKey=="custom_request_reviewer")).PermissionsCsv="procurement-access";
+            await core.SaveChangesAsync();
         }
         public async Task SetRoles(string roles)
         {
@@ -433,7 +488,7 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             var requestPerson = Person("PR", "pr_lookup"); var orderPerson = Person("PO", "po_lookup"); var sourcingPerson = Person("RFQ", "rfq_lookup");
             await core.SaveChangesAsync(); return (requestPerson.Id, orderPerson.Id, sourcingPerson.Id);
         }
-        public static async Task<Fixture> Start()
+        public static async Task<Fixture> Start(bool principalEnabled=false,bool principalReady=false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
@@ -443,6 +498,8 @@ public sealed class ProcurementSpendingAuthorityHttpTests
             builder.Services.AddScoped<ProcurementRequestScope>();
             builder.Services.AddScoped<IProcurementScope>(s => s.GetRequiredService<ProcurementRequestScope>());
             builder.Services.AddDbContext<ProcurementDbContext>(o => o.UseInMemoryDatabase("authority-proc-" + database));
+            builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions {PrincipalExecutionEnabled=principalEnabled});
+            builder.Services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness>(new PrincipalLookupSchema(principalReady));
             builder.Services.AddAuthentication("test").AddScheme<AuthenticationSchemeOptions,
                 ProcurementRequestHttpTests.TestAuthenticationHandler>("test", _ => { });
             builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);

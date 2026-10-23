@@ -6,7 +6,7 @@ using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Tests;
 
-public sealed class PurchaseRequestApprovalPinningTests
+public sealed partial class PurchaseRequestApprovalPinningTests
 {
     [Theory]
     [InlineData("MakerWorkerId")]

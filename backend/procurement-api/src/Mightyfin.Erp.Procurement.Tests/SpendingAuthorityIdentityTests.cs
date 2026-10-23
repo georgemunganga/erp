@@ -3,7 +3,7 @@ using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Tests;
 
-public sealed class SpendingAuthorityIdentityTests
+public sealed partial class SpendingAuthorityIdentityTests
 {
     private const string Maker = "11111111-1111-4111-8111-111111111111";
     private const string Recipient = "22222222-2222-4222-8222-222222222222";

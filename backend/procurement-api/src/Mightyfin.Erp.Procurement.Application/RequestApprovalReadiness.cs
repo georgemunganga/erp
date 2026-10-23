@@ -9,13 +9,28 @@ public sealed record ApprovalReadiness(bool PrerequisitesMet, long RequestVersio
 public static class RequestApprovalReadiness
 {
     public static ApprovalReadiness Check(PurchaseRequest request, PolicyEvaluation? evaluation,
-        PolicyVersion? policy, BudgetCheckSnapshot? finance)
+        PolicyVersion? policy, BudgetCheckSnapshot? finance)=>CheckCore(request,evaluation,policy,finance,false);
+
+    public static ApprovalReadiness CheckPrincipal(PurchaseRequest request,PolicyEvaluation? evaluation,
+        PolicyVersion? policy,BudgetCheckSnapshot? finance)=>CheckCore(request,evaluation,policy,finance,true);
+
+    private static ApprovalReadiness CheckCore(PurchaseRequest request,PolicyEvaluation? evaluation,
+        PolicyVersion? policy,BudgetCheckSnapshot? finance,bool principal)
     {
         var blockers = new List<string>();
-        if (request.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request))
-            blockers.Add("PrincipalApprovalEvidenceRequired");
-        if (request.RequesterWorkerId is null || request.RequesterWorkerId == Guid.Empty)
-            blockers.Add("LegacyWorkerApprovalIdentityUnavailable");
+        if(principal)
+        {
+            if(!PurchaseRequestPrincipalIdentity.Valid(request))blockers.Add("PrincipalApprovalOriginalIdentityRequired");
+            if(finance is null || finance.CheckerIdentitySchemaVersion!=2 || !FinanceCheckerIdentityEvidence.HasValidBinding(finance))
+                blockers.Add("PrincipalFinanceCheckerEvidenceRequired");
+        }
+        else
+        {
+            if (request.RequesterIdentitySchemaVersion!=0 || request.RequesterPrincipalId is not null && !PurchaseRequestOwnership.HasLegacyWorkerEvidenceIdentity(request))
+                blockers.Add("PrincipalApprovalEvidenceRequired");
+            if (request.RequesterWorkerId is null || request.RequesterWorkerId == Guid.Empty)
+                blockers.Add("LegacyWorkerApprovalIdentityUnavailable");
+        }
         var version = request.SubmittedVersion ?? request.Version;
         if (request.Status != "Submitted" || request.Version != version)
             blockers.Add("RequestNotCurrent");

@@ -15,6 +15,11 @@ public sealed partial class ProcurementDbContext
             InvoiceMatchResult { ExecutionVersion: 2 } => "InvoiceMatchExecution",
             ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt
                 or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation => "ManualPayment",
+            PurchaseRequest { RequesterIdentitySchemaVersion: 1 } => "PurchaseRequestOriginalIdentity",
+            BudgetCheckSnapshot { CheckerIdentitySchemaVersion: 2 } => "FinanceCheckerIdentity",
+            SpendingAuthorityIdentityRecord { SchemaVersion: 2 } => "SpendingAuthorityIdentity",
+            PurchaseRequestApprovalSubmission { SnapshotSchemaVersion: 3 } => "PurchaseRequestApprovalSubmission",
+            PurchaseRequestAssignmentAuthorityEvidence { IdentitySchemaVersion: 2 } => "PurchaseRequestAssignmentAuthority",
             _ => null,
         };
         return kind is null ? JsonSerializer.Serialize(fields) : JsonSerializer.Serialize(new

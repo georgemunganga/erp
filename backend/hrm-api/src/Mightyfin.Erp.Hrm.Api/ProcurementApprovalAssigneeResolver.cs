@@ -11,7 +11,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 internal sealed record ProcurementResolvedApprovalStage(PolicyPreviewStage Route,
     IReadOnlyList<ProcurementResolvedApprovalAssignee> Assignees);
-internal sealed record ProcurementResolvedApprovalAssignee(string PrincipalId, Guid WorkerId,
+internal sealed record ProcurementResolvedApprovalAssignee(string PrincipalId, Guid? WorkerId,
     PurchaseRequestAuthorityEvidence Authority);
 
 internal static class ProcurementApprovalAssigneeResolver
@@ -34,19 +34,22 @@ internal static class ProcurementApprovalAssigneeResolver
         var requester = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
             scope.LegalEntityId, requesterWorker, ct);
         if (maker is null || requester is null) throw new InvalidOperationException("ApprovalMakerIdentityUnavailable");
-        var requesterManagerId = await core.Workers.AsNoTracking().Where(x => x.Id == request.RequesterWorkerId)
-            .Select(x => x.ManagerId).SingleAsync(ct);
         var output = new List<ProcurementResolvedApprovalStage>();
         foreach (var stage in stages)
         {
             if (stage.Mode is not ("One" or "All")) throw new InvalidOperationException("ApprovalModeUnsupported");
             var accounts = new List<ProcurementAuthorityIdentity.CanonicalAccount>();
             if (stage.Assignee == "BudgetOwner") throw new InvalidOperationException("BudgetOwnerMappingRequired");
-            if (stage.Assignee == "LineManager" && requesterManagerId is { } managerId)
+            if (stage.Assignee == "LineManager")
             {
-                var account = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,
-                    scope.TenantId, scope.LegalEntityId, managerId, ct);
-                if (account is not null) accounts.Add(account);
+                var managerId = await core.Workers.AsNoTracking().Where(x => x.TenantId == scope.TenantId && x.Id == request.RequesterWorkerId)
+                    .Select(x => x.ManagerId).SingleAsync(ct);
+                if (managerId is { } manager)
+                {
+                    var account = await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core,
+                        scope.TenantId, scope.LegalEntityId, manager, ct);
+                    if (account is not null) accounts.Add(account);
+                }
             }
             else if (stage.Assignee == "ProcurementManager")
             {
@@ -136,7 +139,7 @@ internal static class ProcurementApprovalAssigneeResolver
         // Evaluate the complete family first: invalid identity must never hide overlap
         // or cause selection of a different, apparently usable authority.
         var selected = grants.Single(x => x.Id == result.Evidence.GrantId);
-        if (!await new ProcurementSpendingAuthorityIdentitySchemaReadiness().IsReadyAsync(db, ct))
+        if (!await ProcurementWorkerAuthoritySchemaGuard.ReadyAsync(db, scope, core, ct))
             throw new InvalidOperationException("AuthorityIdentityStoreUnavailable");
         await ProcurementSpendingAuthorityWorkerIdentity.RequireEligibleRecipientAsync(
             core, db, scope, selected, account.PrincipalId, account.WorkerId, ct);
