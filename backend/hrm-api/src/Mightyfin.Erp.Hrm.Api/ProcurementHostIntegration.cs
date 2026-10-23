@@ -143,9 +143,14 @@ public static class ProcurementHostIntegration
             {
                 if (!await db.Database.CanConnectAsync(ct))
                     return Results.Problem(statusCode: 503, title: "Procurement database unavailable.");
-                var pending = db.Database.HasPendingModelChanges() || (await db.Database.GetPendingMigrationsAsync(ct)).Any();
-                var financeCheckerReads = !pending && await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, false, ct);
-                var financeCheckerCapture = financeCheckerReads && await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, true, ct);
+                var performance = services.GetService<IConfiguration>();
+                var pending = ProcurementModelParityDiagnostics.HasPendingModelChanges(db, performance, "meta.model-parity")
+                    || await ProcurementModelParityDiagnostics.MeasureAsync(performance, "meta.applied-migrations",
+                        async () => (await db.Database.GetPendingMigrationsAsync(ct)).Any());
+                var financeCheckerReads = !pending && await ProcurementModelParityDiagnostics.MeasureAsync(
+                    performance, "meta.finance-read", () => ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, false, ct));
+                var financeCheckerCapture = financeCheckerReads && await ProcurementModelParityDiagnostics.MeasureAsync(
+                    performance, "meta.finance-capture", () => ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db, services, true, ct));
                 var receivingOptions = services.GetRequiredService<ProcurementReceivingExecutionOptions>();
                 var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
                     && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
@@ -166,14 +171,17 @@ public static class ProcurementHostIntegration
                     }
                     catch (InvalidOperationException) { receivingPositive = false; }
                 }
-                var principalApprovals = !pending && await ProcurementPrincipalApprovalCapability.ReadyAsync(
-                    services, scope.LegalEntityId, ct);
+                var principalApprovals = !pending && await ProcurementModelParityDiagnostics.MeasureAsync(
+                    performance, "meta.principal-approvals", () => ProcurementPrincipalApprovalCapability.ReadyAsync(
+                        services, scope.LegalEntityId, ct));
                 var sourcingOptions = services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>();
                 var sourcingSourceDrafts = !pending && sourcingOptions.Enabled
                     && sourcingOptions.ExecutionDatabaseConfigured
-                    && await services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct);
-                var principalSourcingSourceDrafts = await ProcurementPrincipalSourcingCapability.ReadyAsync(
-                    services, scope, pending, sourcingSourceDrafts, ct);
+                    && await ProcurementModelParityDiagnostics.MeasureAsync(performance, "meta.sourcing-schema",
+                        () => services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct));
+                var principalSourcingSourceDrafts = await ProcurementModelParityDiagnostics.MeasureAsync(
+                    performance, "meta.principal-sourcing", () => ProcurementPrincipalSourcingCapability.ReadyAsync(
+                        services, scope, pending, sourcingSourceDrafts, ct));
                 var publicationOptions = services.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>();
                 var principalSourcingPublication = sourcingSourceDrafts && publicationOptions.Enabled
                     && services.GetRequiredService<ProcurementApprovalExecutionOptions>() is
