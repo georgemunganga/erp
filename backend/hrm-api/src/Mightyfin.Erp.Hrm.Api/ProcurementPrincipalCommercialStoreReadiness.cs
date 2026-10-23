@@ -44,7 +44,7 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         // replace current actor, branch, policy, funding or SOD checks in commands.
         if (!(write && kind != PrincipalCommercialStore.Receiving
             ? await principalStore.CanExecuteAsync(owner, ct)
-            : await principalStore.IsReadyAsync(owner, ct))) return false;
+            : await principalStore.CanReadWorkflowAsync(owner, ct))) return false;
         var model = owner.Model;
         string Table(Type type)
         {
@@ -54,7 +54,11 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         var inspected = kind == PrincipalCommercialStore.Receiving
             ? types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray() : types;
         var owned = types.Select(Table).Distinct(StringComparer.Ordinal).ToArray();
-        var reads = Dependencies.Concat(inspected).Select(Table).Distinct(StringComparer.Ordinal).ToArray();
+        // Unknown/mixed receipt history is deliberately denied by receiving commands.
+        // The physical contract must include those reads before advertising availability.
+        Type[] historyReads = kind == PrincipalCommercialStore.Receiving
+            ? [typeof(ReceivingSourceState), typeof(GoodsReceiptLine), typeof(ServiceAcceptance)] : [];
+        var reads = Dependencies.Concat(inspected).Concat(historyReads).Select(Table).Distinct(StringComparer.Ordinal).ToArray();
         var mutable = (kind switch
         {
             PrincipalCommercialStore.Orders => new[] { "purchase_orders", "purchase_order_lines" },
@@ -71,7 +75,12 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         foreach (var table in mutable)
             clauses.Add("NOT has_table_privilege(current_user," + Literal(table) + ",'DELETE,TRUNCATE')");
         foreach (var table in append)
-            clauses.Add("NOT has_table_privilege(current_user," + Literal(table) + ",'UPDATE,DELETE,TRUNCATE')");
+        {
+            // Table privilege checks omit column-only UPDATE grants. Evidence must be
+            // append-only even when a role inherits a grant on one individual field.
+            clauses.Add("NOT has_any_column_privilege(current_user," + Literal(table) + ",'UPDATE')");
+            clauses.Add("NOT has_table_privilege(current_user," + Literal(table) + ",'DELETE,TRUNCATE')");
+        }
         if (write)
         {
             foreach (var table in append) clauses.Add("has_table_privilege(current_user," + Literal(table) + ",'INSERT')");

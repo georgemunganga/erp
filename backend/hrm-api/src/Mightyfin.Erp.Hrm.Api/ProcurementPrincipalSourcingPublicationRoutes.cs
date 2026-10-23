@@ -47,7 +47,8 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
             || !PrincipalSourceAvailable(http)
-            || !await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(http.RequestServices, ct)
+            || !HttpMethods.IsGet(http.Request.Method)
+                && !await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(http.RequestServices, ct)
             || !await http.RequestServices.GetRequiredService<IProcurementPrincipalSourcingPublicationReadiness>()
                 .IsReadyAsync(db, !HttpMethods.IsGet(http.Request.Method), ct))
             throw new Problem("PrincipalSourcingPublicationUnavailable", 503);

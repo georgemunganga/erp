@@ -76,6 +76,9 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
     public Task<bool> IsReadyAsync(ProcurementDbContext owner,CancellationToken ct)=>Check(owner,0,ct);
     public Task<bool> CanRecordAsync(ProcurementDbContext owner,CancellationToken ct)=>Check(owner,1,ct);
     public Task<bool> CanExecuteAsync(ProcurementDbContext owner,CancellationToken ct)=>Check(owner,2,ct);
+    // Physical Core workflow read contract for commercial histories/receiving;
+    // does not require Core INSERT/UPDATE or confer any business authority.
+    internal Task<bool> CanReadWorkflowAsync(ProcurementDbContext owner,CancellationToken ct)=>Check(owner,3,ct);
 
     private async Task<bool> Check(ProcurementDbContext owner,int mode,CancellationToken ct)
     {
@@ -134,7 +137,7 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
                 foreach(var table in new[]{"budget_check_snapshots","spending_authority_identity_evidence","audit_events","outbox_events"})
                     if(!await True(AppendSql(table,true)))return false;
             }
-            if(mode==2)
+            if(mode is 2 or 3)
             {
                 // Use the real shared Core model solely as metadata. All catalog commands
                 // remain on the original owner's connection/current transaction.
@@ -147,6 +150,12 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
                     if(entity is null || entity.GetSchema()!="core_approval" || !await Inspect(entity,false))return false;
                 }
                 if(!await True("SELECT EXISTS(SELECT 1 FROM core_approval.\"__EFMigrationsHistory\" WHERE \"MigrationId\"='20261019183218_P01CoreApprovalFoundation')"))return false;
+                if(mode==3)
+                {
+                    foreach(var table in new[]{"cases","stages","assignments","decisions"})
+                        if(!await True(RequiredSql("core_approval."+table,"SELECT")))return false;
+                    return true;
+                }
                 foreach(var table in new[]{"cases","stages","assignments"})
                     if(!await True(RequiredSql("core_approval."+table,"SELECT","INSERT","UPDATE")
                         +" AND NOT has_table_privilege(current_user,"+Literal("core_approval."+table)+",'DELETE,TRUNCATE')"))return false;

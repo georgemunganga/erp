@@ -80,7 +80,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var readiness=http.RequestServices.GetRequiredService<IProcurementPrincipalOrderDraftReadiness>();
             if(!options.Enabled || !options.ExecutionDatabaseConfigured || !approvals.Enabled
                 || !approvals.PrincipalExecutionEnabled || !approvals.ExecutionDatabaseConfigured
-                || !await readiness.IsReadyAsync(ct))throw new Problem("PrincipalOrderDraftUnavailable",503);
+                || !HttpMethods.IsGet(http.Request.Method) && !await readiness.IsReadyAsync(ct))throw new Problem("PrincipalOrderDraftUnavailable",503);
             if(scope.OrgUnitId is not null)throw new Problem("OrderDepartmentScopeUnsupported",503);
             var result=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async(db,cases,token)=>
             {
