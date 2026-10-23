@@ -176,6 +176,11 @@ public static class ProcurementHostIntegration
                         .IsReadyAsync(db, ct)
                     && await ProcurementPrincipalPeople.Resolve(services.GetRequiredService<HrmDbContext>(),
                         scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct) is { } publicationPerson
+                    && (scope.WorkLocationId is { } selectedPublicationBranch
+                        ? publicationPerson.OrganisationWide
+                            || publicationPerson.AllowedBranches.Contains(selectedPublicationBranch)
+                        : publicationPerson.OrganisationWide
+                            || publicationPerson.AllowedBranches.Count > 0)
                     && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
                         || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
                 return Results.Ok(new

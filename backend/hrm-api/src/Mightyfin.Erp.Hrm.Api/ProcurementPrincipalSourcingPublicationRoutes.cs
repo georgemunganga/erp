@@ -30,6 +30,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization("procurement-access");
         group.MapPost("/{id:guid}/principal-invitations/{invitationId:guid}/manual-contact",
             PrincipalManualContact).RequireAuthorization("procurement-sourcing-submit");
+        group.MapGet("/principal-manual-contact-commands/{key:guid}", PrincipalManualContactRecover)
+            .RequireAuthorization("procurement-access");
         MapPrincipalManualQuoteRoutes(group);
     }
 

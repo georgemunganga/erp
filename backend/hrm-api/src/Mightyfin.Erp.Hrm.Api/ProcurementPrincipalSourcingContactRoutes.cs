@@ -92,4 +92,29 @@ public static partial class ProcurementSourcingExecutionRoutes
             return new Reply(body, 201);
         }, ct);
     }
+
+    private static Task<IResult> PrincipalManualContactRecover(Guid key, HttpContext http,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
+        if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
+            return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
+        return Run(http, scope, async (db, _, core, auth, token) =>
+        {
+            await RequirePrincipalPublication(http, db, token);
+            if (key == Guid.Empty) throw new Problem("SourcingCommandKeyRequired", 400);
+            var contact = await db.SourcingManualContacts.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.CommandKey == key, token)
+                ?? throw new Problem("SourcingContactNotFound", 404);
+            if (contact.ActorPrincipalId != scope.SubjectId
+                || contact.ActorCoreLinkedWorkerId != scope.CoreLinkedWorkerId)
+                throw new Problem("SourcingContactNotFound", 404);
+            var actor = await PrincipalActor(core, scope, http, auth,
+                "procurement-sourcing-submit", null, false, token);
+            _ = await PrincipalOwnedEvent(db, core, scope, http, auth, actor,
+                "procurement-sourcing-submit", contact.SourcingEventId, token);
+            if (contact.ResponseSha256 != ProcurementEvidenceEncoding.Digest(contact.ResponseJson))
+                throw new Problem("SourcingContactNeedsReview", 409);
+            return new Reply(contact.ResponseJson, 201);
+        }, ct);
+    }
 }

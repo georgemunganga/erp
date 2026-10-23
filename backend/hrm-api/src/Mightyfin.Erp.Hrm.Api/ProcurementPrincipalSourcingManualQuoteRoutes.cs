@@ -34,6 +34,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization("procurement-sourcing-submit");
         group.MapGet("/{id:guid}/principal-manual-quotes/{bidId:guid}", PrincipalManualQuoteRead)
             .RequireAuthorization("procurement-sourcing-submit");
+        group.MapGet("/{id:guid}/principal-manual-quotes/{bidId:guid}/versions/{revision:int}",
+            PrincipalManualQuoteVersionRead).RequireAuthorization("procurement-sourcing-submit");
         group.MapPut("/{id:guid}/principal-manual-quotes/{bidId:guid}", PrincipalManualQuoteRevise)
             .RequireAuthorization("procurement-sourcing-submit");
         group.MapPost("/{id:guid}/principal-manual-quotes/{bidId:guid}/cancel", PrincipalManualQuoteCancel)
@@ -67,12 +69,16 @@ public static partial class ProcurementSourcingExecutionRoutes
         IReadOnlyList<SupplierBidLine> lines, Guid commandKey)
     {
         static string Exact(decimal value) => value.ToString(CultureInfo.InvariantCulture);
+        var total = ExactDecimalArithmetic.Sum(lines.Select(x => ExactDecimalArithmetic.Add(
+            ExactDecimalArithmetic.Add(ExactDecimalArithmetic.Multiply(x.Quantity, x.UnitPrice),
+                x.TaxAmount), x.DeliveryAmount)));
         return JsonSerializer.Serialize(new
         {
             eventId = bid.SourcingEventId, bidId = bid.Id, supplierId = bid.SupplierId,
             invitationId = bid.InvitationId, status = bid.Status,
             bidVersion = version.BidVersion, draftRevision = version.Revision,
             sourceChannel = "Manual", supplierSubmitted = false,
+            totalExact = Exact(total),
             lines = lines.OrderBy(x => x.SourcingLineId).Select(x => new
             {
                 x.SourcingLineId, quantityExact = Exact(x.Quantity),
@@ -240,6 +246,34 @@ public static partial class ProcurementSourcingExecutionRoutes
                 hasMore = rows.Length > take,
             }, Json);
             return new Reply(body);
+        }, ct);
+    }
+
+    private static Task<IResult> PrincipalManualQuoteVersionRead(Guid id, Guid bidId, int revision,
+        HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
+            return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
+        return Run(http, scope, async (db, _, core, auth, token) =>
+        {
+            await RequirePrincipalPublication(http, db, token);
+            if (revision < 1) throw new Problem("SourcingQuoteRevisionInvalid", 422);
+            var (actor, _) = await PrincipalQuoteEvent(db, core, scope, http, auth, id, token);
+            var bid = await db.SupplierBids.AsNoTracking().SingleOrDefaultAsync(x => x.Id == bidId
+                && x.SourcingEventId == id && x.SourceChannel == "Manual"
+                && x.SurrogateEnteredBy == actor.PrincipalId
+                && (x.Status == "Draft" || x.Status == "Cancelled"), token)
+                ?? throw new Problem("SourcingQuoteNotFound", 404);
+            var retained = await db.SourcingManualQuoteVersions.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.SupplierBidId == bid.Id && x.Revision == revision, token)
+                ?? throw new Problem("SourcingQuoteRevisionNotFound", 404);
+            if (retained.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(retained.SnapshotJson)
+                || retained.ResponseSha256 != ProcurementEvidenceEncoding.Digest(retained.ResponseJson))
+                throw new Problem("SourcingQuoteEvidenceChanged", 409);
+            return new Reply(JsonSerializer.Serialize(new { bidId, retained.Revision,
+                retained.BidVersion, retained.Operation, retained.RecordedAt,
+                retained.ActorPrincipalId,
+                retained.SnapshotSha256, snapshot = JsonSerializer.Deserialize<JsonElement>(retained.SnapshotJson) }, Json));
         }, ct);
     }
 
