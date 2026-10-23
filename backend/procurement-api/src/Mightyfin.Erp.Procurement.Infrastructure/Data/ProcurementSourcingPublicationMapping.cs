@@ -174,7 +174,10 @@ public sealed partial class ProcurementDbContext
             .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
             var bid = bidEntry.Entity;
-            var ev = SourcingEvents.SingleOrDefault(x => x.Id == bid.SourcingEventId);
+            // Stored state remains authoritative. A tracked v2 parent can additionally
+            // require the negative mutation guard; it never grants publication authority.
+            var ev = SourcingEvents.SingleOrDefault(x => x.Id == bid.SourcingEventId)
+                ?? SourcingEvents.Local.SingleOrDefault(x => x.Id == bid.SourcingEventId);
             if (ev?.ExecutionVersion != 2) continue;
             if (bidEntry.State == EntityState.Deleted || !SourcingManualQuoteVersions.Local.Any(x => x.SupplierBidId == bid.Id))
                 throw new InvalidOperationException("SourcingManualQuoteVersionRequired");
@@ -193,7 +196,8 @@ public sealed partial class ProcurementDbContext
             var line = lineEntry.Entity;
             var bid = SupplierBids.Local.SingleOrDefault(x => x.Id == line.SupplierBidId)
                 ?? SupplierBids.SingleOrDefault(x => x.Id == line.SupplierBidId);
-            var ev = bid is null ? null : SourcingEvents.SingleOrDefault(x => x.Id == bid.SourcingEventId);
+            var ev = bid is null ? null : SourcingEvents.SingleOrDefault(x => x.Id == bid.SourcingEventId)
+                ?? SourcingEvents.Local.SingleOrDefault(x => x.Id == bid.SourcingEventId);
             if (ev?.ExecutionVersion != 2) continue;
             var revision = SourcingManualQuoteVersions.Local.SingleOrDefault(x => x.SupplierBidId == bid!.Id);
             if (revision is null || lineEntry.State == EntityState.Deleted
