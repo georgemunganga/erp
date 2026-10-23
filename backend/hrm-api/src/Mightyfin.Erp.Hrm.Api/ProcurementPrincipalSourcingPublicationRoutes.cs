@@ -28,6 +28,10 @@ public static partial class ProcurementSourcingExecutionRoutes
             PrincipalPublicationDecide).RequireAuthorization("procurement-sourcing-publish");
         group.MapGet("/principal-publication-commands/{key:guid}", PrincipalPublicationRecover)
             .RequireAuthorization("procurement-access");
+        group.MapGet("/principal-publications", PrincipalPublicationList)
+            .RequireAuthorization("procurement-access");
+        group.MapGet("/{id:guid}/principal-publication", PrincipalPublicationRead)
+            .RequireAuthorization("procurement-access");
         group.MapPost("/{id:guid}/principal-invitations/{invitationId:guid}/manual-contact",
             PrincipalManualContact).RequireAuthorization("procurement-sourcing-submit");
         group.MapGet("/principal-manual-contact-commands/{key:guid}", PrincipalManualContactRecover)
