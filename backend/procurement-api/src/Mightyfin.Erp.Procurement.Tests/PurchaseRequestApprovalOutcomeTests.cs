@@ -5,7 +5,7 @@ using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Tests;
 
-public sealed class PurchaseRequestApprovalOutcomeTests
+public sealed partial class PurchaseRequestApprovalOutcomeTests
 {
     [Fact]
     public void Approval_makes_only_active_lines_orderable_and_replay_preserves_later_counters()

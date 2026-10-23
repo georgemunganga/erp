@@ -229,6 +229,7 @@ builder.Services.AddAuthorization(options =>
         .RequireAuthenticatedUser()
         .RequireAssertion(context => HrmStaffAccess.IsStaff(context.User.Claims))
         .Build();
+    Mightyfin.Erp.Hrm.Api.SharedSessionAuthorization.AddPolicy(options);
     options.AddPolicy("hrm-admin", policy => policy.RequireAuthenticatedUser()
         .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole("hr_admin", "erp_admin")));
     Mightyfin.Erp.Hrm.Api.ProcurementPermissions.AddPolicies(options);

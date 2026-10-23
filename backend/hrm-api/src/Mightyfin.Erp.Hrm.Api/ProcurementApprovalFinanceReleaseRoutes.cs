@@ -62,9 +62,6 @@ public static partial class ProcurementApprovalExecutionRoutes
                 await RecordScope(core, scope, request, token);
                 if (scope.SubjectId == request.CreatedBy) throw new ApprovalHttpError(403,
                     "IndependentFinanceVerifierRequired", "Another Finance officer must verify this release.");
-                var verifier = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,
-                    scope.TenantId, scope.LegalEntityId, scope.SubjectId, token)
-                    ?? throw new ApprovalHttpError(403, "IndependentFinanceVerifierRequired", "An active Finance officer is required.");
                 var prior = await Receipt(db, "Release", key, scope.SubjectId, fingerprint, id, null, token);
                 if (prior is null && request.Version != input.ExpectedRequestVersion) throw Conflict("ApprovalSourceChanged");
                 var caseId = prior?.CoreApprovalCaseId ?? (Guid.TryParse(request.ApprovalInstanceRef, out var currentCase)
@@ -75,17 +72,34 @@ public static partial class ProcurementApprovalExecutionRoutes
                 var outcome = await db.ApprovalOutcomes.SingleOrDefaultAsync(x => x.SubmissionId == pin.Id, token)
                     ?? throw Conflict("ApprovalOutcomeMissing");
                 var decision = await workflow.Decisions.SingleAsync(x => x.Id == outcome.CoreDecisionId, token);
-                if (!PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(pin)
-                    || pin.RequesterWorkerId != request.RequesterWorkerId)
-                    throw Conflict("ApprovalHistoricalWorkerEvidenceMissing");
                 var terminalIdentity = await db.AssignmentAuthorityEvidence.AsNoTracking().SingleOrDefaultAsync(x =>
                     x.SubmissionId == pin.Id && x.CoreApprovalCaseId == caseId && x.CoreAssignmentId == decision.AssignmentId, token);
-                var retainedTerminal = terminalIdentity is null ? null : PurchaseRequestAssignmentIdentity.ReadVerified(terminalIdentity);
-                if (terminalIdentity is null || retainedTerminal is null || terminalIdentity.PrincipalId != decision.ActorSubjectId)
-                    throw Conflict("ApprovalHistoricalWorkerEvidenceMissing");
-                if (decision.ActorSubjectId == scope.SubjectId || verifier.WorkerId == pin.MakerWorkerId
-                    || verifier.WorkerId == pin.RequesterWorkerId || verifier.WorkerId == retainedTerminal.AssigneeWorkerId)
-                    throw new ApprovalHttpError(403, "IndependentFinanceVerifierRequired", "Another Finance officer must verify this release.");
+                if(pin.SnapshotSchemaVersion==3)
+                {
+                    await RequirePrincipalSchema(db,http,options,token);
+                    var verifier=await ProcurementPrincipalFinanceChecker.RequireAsync(request,scope.SubjectId,null,core,db,scope,token);
+                    var retained=terminalIdentity is null?null:PurchaseRequestPrincipalAssignmentIdentity.ReadVerified(terminalIdentity);
+                    if(!PurchaseRequestApprovalPinning.HasRetainedPrincipalIdentity(pin) || retained is null
+                        || terminalIdentity!.PrincipalId!=decision.ActorSubjectId)
+                        throw Conflict("ApprovalHistoricalPrincipalEvidenceMissing");
+                    if(!await ProcurementPrincipalPeople.IndependentNow(core,scope.TenantId,decision.ActorSubjectId,
+                        retained.KnownCoreWorkerId,verifier.PrincipalId,verifier.CoreLinkedWorkerId,token))
+                        throw new ApprovalHttpError(403,"IndependentFinanceVerifierRequired","Another Finance officer must verify this release.");
+                }
+                else
+                {
+                    var verifier=await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,scope.TenantId,
+                        scope.LegalEntityId,scope.SubjectId,token)
+                        ?? throw new ApprovalHttpError(403,"IndependentFinanceVerifierRequired","An active Finance officer is required.");
+                    if(!PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(pin) || pin.RequesterWorkerId!=request.RequesterWorkerId)
+                        throw Conflict("ApprovalHistoricalWorkerEvidenceMissing");
+                    var retained=terminalIdentity is null?null:PurchaseRequestAssignmentIdentity.ReadVerified(terminalIdentity);
+                    if(retained is null || terminalIdentity!.PrincipalId!=decision.ActorSubjectId)
+                        throw Conflict("ApprovalHistoricalWorkerEvidenceMissing");
+                    if(decision.ActorSubjectId==scope.SubjectId || verifier.WorkerId==pin.MakerWorkerId
+                        || verifier.WorkerId==pin.RequesterWorkerId || verifier.WorkerId==retained.AssigneeWorkerId)
+                        throw new ApprovalHttpError(403,"IndependentFinanceVerifierRequired","Another Finance officer must verify this release.");
+                }
                 if (prior is not null) return new Reply(200, prior.ResponseJson);
                 var release = await db.FinanceReleaseRequests.SingleOrDefaultAsync(x => x.ApprovalOutcomeId == outcome.Id, token)
                     ?? throw Conflict("FinanceReleaseRequestMissing");
@@ -115,12 +129,12 @@ public static partial class ProcurementApprovalExecutionRoutes
                 {
                     db.AddScoped(effects.Confirmation);
                     foreach (var message in effects.Events) db.AddScoped(message);
-                    Audit(db, scope, id, "FinanceReleaseEvidenceRecorded", new
+                    Audit(db, scope, id, "FinanceReleaseEvidenceRecorded", ApprovalIdentityPayload(pin,new
                     {
                         releaseRequestId = release.Id, confirmationId = effects.Confirmation.Id,
                         mode = PurchaseRequestApprovalPinning.ApprovedManualEvidence,
                         policyReference = policies[0].ApprovedPolicyReference, reason,
-                    });
+                    }));
                 }
                 await db.SaveChangesAsync(token);
                 var response = JsonSerializer.Serialize(new

@@ -17,6 +17,9 @@ public sealed class ProcurementApprovalCommandReceipt : ProcurementRecord
 /// <summary>Procurement-owned purchasing eligibility pinned to a Core assignment, not a second task ledger.</summary>
 public sealed class PurchaseRequestAssignmentAuthorityEvidence : ProcurementRecord
 {
+    // Internal discriminator: legacy audit representations remain byte-compatible.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int IdentitySchemaVersion { get; init; } = 1;
     public Guid SubmissionId { get; init; }
     public Guid CoreApprovalCaseId { get; init; }
     public Guid CoreStageId { get; init; }

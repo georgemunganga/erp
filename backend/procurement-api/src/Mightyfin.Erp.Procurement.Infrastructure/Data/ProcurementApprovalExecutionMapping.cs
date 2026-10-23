@@ -24,6 +24,7 @@ public sealed partial class ProcurementDbContext
         receipt.HasOne<PurchaseRequest>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.PurchaseRequestId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         var evidence = model.Entity<PurchaseRequestAssignmentAuthorityEvidence>();
+        evidence.Property(x => x.IdentitySchemaVersion).HasDefaultValue(1);
         evidence.Property(x => x.PrincipalId).HasMaxLength(200);
         evidence.Property(x => x.AssigneeKind).HasMaxLength(50);
         evidence.Property(x => x.EvidenceJson).HasColumnType("text");
@@ -36,7 +37,10 @@ public sealed partial class ProcurementDbContext
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GrantId, x.PrincipalId, x.AuthorityVersion })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PrincipalId, x.AuthorityVersion }).OnDelete(DeleteBehavior.Restrict);
         evidence.ToTable(t => t.HasCheckConstraint("ck_pr_assignment_authority_identity",
-            "core_stage_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
+            "identity_schema_version IN (1,2) " +
+            "AND (identity_schema_version=1 OR (principal_id IS NOT NULL AND principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' " +
+            "AND principal_id <> '00000000-0000-0000-0000-000000000000')) " +
+            "AND core_stage_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
             "AND core_assignment_id <> '00000000-0000-0000-0000-000000000000'::uuid " +
             "AND grant_revision > 0 AND authority_version > 0 AND length(btrim(principal_id)) > 0 " +
             "AND assignee_kind IN ('LineManager','ProcurementManager') AND evidence_sha256 ~ '^[a-f0-9]{64}$' " +
@@ -58,14 +62,24 @@ public sealed partial class ProcurementDbContext
                 ?? (pin is null ? null : PurchaseRequests.Include(x => x.Lines).SingleOrDefault(x => x.Id == pin.PurchaseRequestId));
             var grant = SpendingAuthorityGrants.Local.SingleOrDefault(x => x.Id == value.GrantId)
                 ?? SpendingAuthorityGrants.Include(x => x.Categories).SingleOrDefault(x => x.Id == value.GrantId);
-            var retained = PurchaseRequestAssignmentIdentity.ReadVerified(value);
-            var supplied = retained?.Authority;
-            if (pin is null || !PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(pin)
-                || request is null || pin.RequesterWorkerId != request.RequesterWorkerId || pin.MakerSubjectId != request.CreatedBy || grant is null || supplied is null
+            var principal = value.IdentitySchemaVersion == 2;
+            var retained = principal ? null : PurchaseRequestAssignmentIdentity.ReadVerified(value);
+            var supplied = principal ? PurchaseRequestPrincipalAssignmentIdentity.ReadVerified(value)?.Authority : retained?.Authority;
+            var sourceValid = pin is not null && request is not null && (principal
+                ? PurchaseRequestApprovalPinning.HasRetainedPrincipalIdentity(pin)
+                    && PurchaseRequestPrincipalIdentity.Valid(request)
+                    && pin.RequesterPrincipalId==request.RequesterPrincipalId
+                    && pin.RequesterWorkerId==request.RequesterCoreWorkerId
+                    && pin.RequesterIdentitySha256==request.RequesterIdentitySha256
+                    && ProcurementPrincipalEvidence.Independent(value.PrincipalId,value.AssigneeWorkerId,pin.MakerSubjectId,pin.MakerWorkerId)
+                    && ProcurementPrincipalEvidence.Independent(value.PrincipalId,value.AssigneeWorkerId,pin.RequesterPrincipalId!.Value.ToString("D"),pin.RequesterWorkerId)
+                : PurchaseRequestApprovalPinning.HasRetainedWorkerIdentity(pin)
+                    && pin.RequesterWorkerId==request.RequesterWorkerId
+                    && value.AssigneeWorkerId!=pin.MakerWorkerId && value.AssigneeWorkerId!=pin.RequesterWorkerId);
+            if (!sourceValid || pin is null || request is null || pin.MakerSubjectId != request.CreatedBy || grant is null || supplied is null
                 || value.TenantId != scope.TenantId || value.LegalEntityId != scope.LegalEntityId
                 || pin.CoreApprovalCaseId != value.CoreApprovalCaseId || value.CoreStageId == Guid.Empty
                 || value.CoreAssignmentId == Guid.Empty || value.AssigneeKind is not ("LineManager" or "ProcurementManager")
-                || value.AssigneeWorkerId == pin.MakerWorkerId || value.AssigneeWorkerId == pin.RequesterWorkerId
                 || grant.PrincipalId != value.PrincipalId || grant.Version != value.GrantRevision
                 || grant.AuthorityVersion != value.AuthorityVersion || supplied.EvaluatedAt != pin.PinnedAt
                 || value.EvidenceSha256 != Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value.EvidenceJson))))

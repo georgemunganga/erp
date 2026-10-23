@@ -1,5 +1,7 @@
 # Manus ERP collaboration handoff
 
+**P25 private source checkpoint (22 October):** Corrected normal-cookie Playwright draft create/edit/reload/withdraw, ungranted 403 and both logout 200 passed; independent review confirmed both sessions revoked and original Procurement rows preserved. The earlier failed run remains retained in [the P25 acceptance record](docs/procurement/release/PROC-PR-CORE-PRINCIPAL-APPROVAL.md). P25 is now being reconciled with the separate M2 candidate in an isolated source branch. Its P25/P27/P28 migration order, retained-row downgrade cases, EF model and live authorization still need independent validation. This checkpoint does not enable P25 or establish full approval UI, external IdP, Finance or production acceptance.
+
 **Updated:** 23 October 2026 (UTC)
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-CORE-BUILD-03` — repair the shared ERP frontend TypeScript/build gate; vendor milestone accepted
