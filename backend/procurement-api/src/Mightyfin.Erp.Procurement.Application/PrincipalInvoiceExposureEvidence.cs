@@ -7,10 +7,15 @@ public sealed record PrincipalInvoiceActiveLocalClaim(PrincipalInvoiceClaim Clai
     SupplierInvoice Invoice, PrincipalInvoiceState State);
 public sealed record PrincipalInvoiceOwnedComparison(PrincipalInvoiceComparison Comparison,
     PrincipalInvoiceMappingVersion Mapping, PrincipalInvoiceUnitReviewOutcome Review,
-    SupplierInvoice Invoice, PrincipalInvoiceState State,
+    SupplierInvoice Invoice, PrincipalInvoiceState State, PolicyVersion MatchingPolicy,
     IReadOnlyList<SupplierInvoiceLine> OriginalLines,
     IReadOnlyList<PrincipalInvoiceMappingLine> MappingLines,
     IReadOnlyList<PrincipalInvoiceClaim> Claims);
+public sealed record PrincipalInvoiceFrozenComparison(int SchemaVersion, Guid InvoiceId,
+    Guid MappingVersionId, Guid OutcomeId, Guid IssuedVersionId, Guid PolicyId,
+    string PolicySha256, string OwnerReference, string OwnerWatermark,
+    string ConsumptionWatermark, string DuplicatesWatermark,
+    IReadOnlyList<PrincipalInvoiceComparisonLine> Lines, string? Reason);
 public sealed record PrincipalInvoiceOwnedHistory(InvoiceHistoricalExposure Owner,
     InvoiceConsumptionEvidence Consumption);
 
@@ -55,6 +60,11 @@ public static class PrincipalInvoiceExposureEvidence
         {
             var compare = row.Comparison; var invoice = row.Invoice;
             var mapping = row.Mapping; var review = row.Review; var state = row.State;
+            PrincipalInvoiceFrozenComparison frozen;
+            try { frozen = JsonSerializer.Deserialize<PrincipalInvoiceFrozenComparison>(compare.EvidenceJson,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                ?? throw new InvalidOperationException("PrincipalInvoiceFrozenComparisonMissing"); }
+            catch (JsonException error) { throw new InvalidOperationException("PrincipalInvoiceFrozenComparisonMalformed", error); }
             if (compare.Outcome != "Compared" || compare.SupplierInvoiceId != invoice.Id
                 || compare.MappingVersionId != mapping.Id || compare.ReviewOutcomeId != review.Id
                 || compare.ReviewSourceId != review.ReviewSourceId
@@ -64,6 +74,15 @@ public static class PrincipalInvoiceExposureEvidence
                 || compare.OriginalInvoiceSha256 != InvoiceMappingEvidence.OriginalDigest(invoice, row.OriginalLines)
                 || compare.OriginalInvoiceSha256 != mapping.OriginalInvoiceSha256
                 || compare.EvidenceSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(compare.EvidenceJson)
+                || frozen.SchemaVersion != 2 || frozen.InvoiceId != invoice.Id
+                || frozen.MappingVersionId != mapping.Id || frozen.OutcomeId != review.Id
+                || frozen.IssuedVersionId != context.IssuedVersionId
+                || frozen.PolicyId != row.MatchingPolicy.Id
+                || frozen.PolicySha256 != compare.PolicyRulesSha256
+                || frozen.OwnerReference != compare.OwnerReference
+                || frozen.OwnerWatermark != compare.OwnerWatermark
+                || frozen.Lines is null || frozen.Lines.Count != row.Claims.Count
+                || frozen.Lines.Select(x => x.InvoiceLineId).Distinct().Count() != frozen.Lines.Count
                 || string.IsNullOrWhiteSpace(compare.OwnerReference)
                 || compare.OwnerWatermark is not { Length: 64 }
                 || review.State != "Verified" || state.SupplierInvoiceId != invoice.Id
@@ -81,6 +100,11 @@ public static class PrincipalInvoiceExposureEvidence
             foreach (var claim in row.Claims)
             {
                 var binding = row.MappingLines.Single(x => x.SupplierInvoiceLineId == claim.SupplierInvoiceLineId);
+                var line = frozen.Lines.Single(x => x.InvoiceLineId == claim.SupplierInvoiceLineId);
+                var original = row.OriginalLines.Single(x => x.Id == claim.SupplierInvoiceLineId);
+                var policy = InvoiceMatchingPolicyRules.Project(row.MatchingPolicy);
+                var calculatedNet = InvoiceMatchExact.ProductMoney(InvoiceMatchExact.Units(original.Quantity),
+                    InvoiceMatchExact.Units(original.UnitPrice), policy);
                 if (claim.ComparisonId != compare.Id || claim.ExposureStateId != exposure.Id
                     || claim.MappingVersionId != mapping.Id
                     || claim.SupplierInvoiceId != invoice.Id
@@ -95,6 +119,14 @@ public static class PrincipalInvoiceExposureEvidence
                     || claim.PrincipalReceivingSourceStateId != binding.PrincipalReceivingSourceStateId
                     || claim.AcceptanceSequence != binding.AcceptanceSequence
                     || claim.UnitCode != binding.InvoiceUnitCode
+                    || claim.Quantity != original.Quantity
+                    || InvoiceMatchExact.Units(claim.NetAmount) != calculatedNet
+                    || claim.TaxAmount != original.TaxAmount
+                    || line.PurchaseOrderLineId != claim.PurchaseOrderLineId
+                    || line.PrincipalAcceptanceFactId != claim.PrincipalAcceptanceFactId
+                    || line.QuantityExact != InvoiceMatchExact.Text(InvoiceMatchExact.Units(claim.Quantity))
+                    || line.NetExact != InvoiceMatchExact.Text(InvoiceMatchExact.Units(claim.NetAmount))
+                    || line.TaxExact != InvoiceMatchExact.Text(InvoiceMatchExact.Units(claim.TaxAmount))
                     || claim.Quantity <= 0 || claim.NetAmount < 0 || claim.TaxAmount < 0
                     || !InvoiceMatchExact.Input(claim.Quantity, true)
                     || !InvoiceMatchExact.AcceptedNetInput(claim.NetAmount)

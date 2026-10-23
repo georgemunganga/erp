@@ -140,6 +140,7 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
                         .Single(x => x.Entity.CoreDecisionId == vote.Id).Entity);
                 terminal = PrincipalInvoiceUnitReviewTerminal.Seal(source, mapping, workflow,
                     pins, retained, previous, matching, policy, hashes, now);
+                state.State = "Reviewed";
             }
             else if (workflow.State is "Returned" or "Rejected")
             {

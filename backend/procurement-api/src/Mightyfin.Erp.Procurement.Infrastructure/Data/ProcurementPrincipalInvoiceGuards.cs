@@ -48,6 +48,39 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("PrincipalInvoiceExposureSourceImmutable");
 
         var added = records.Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
+        foreach (var item in ChangeTracker.Entries<PrincipalInvoiceExposureState>()
+            .Where(x => x.State == EntityState.Added))
+        {
+            var exposure = item.Entity;
+            var order = PurchaseOrders.Single(x => x.Id == exposure.PurchaseOrderId);
+            var issued = PrincipalOrderIssuedVersions.Single(x => x.Id == exposure.PrincipalIssuedVersionId);
+            if (exposure.Sequence != 0 || exposure.CoverageState != "Unknown"
+                || exposure.OwnerReference is not null || exposure.OwnerWatermark is not null
+                || exposure.OwnerEvidenceSha256 is not null || exposure.OwnerValidUntil is not null
+                || issued.PurchaseOrderId != order.Id || order.BranchRef != exposure.BranchId
+                || order.SupplierId != exposure.SupplierId || order.CurrencyCode != exposure.CurrencyCode
+                || !added.OfType<PrincipalInvoiceMappingVersion>().Any(x =>
+                    x.PurchaseOrderId == order.Id && x.PrincipalIssuedVersionId == issued.Id
+                    && x.SupplierId == exposure.SupplierId && x.BranchId == exposure.BranchId
+                    && x.CurrencyCode == exposure.CurrencyCode))
+                throw new InvalidOperationException("PrincipalInvoiceExposureMustStartUnknownWithMapping");
+        }
+        foreach (var item in ChangeTracker.Entries<PrincipalInvoiceExposureState>()
+            .Where(x => x.State == EntityState.Modified))
+        {
+            var exposure = item.Entity;
+            var prior = item.OriginalValues.GetValue<long>(nameof(PrincipalInvoiceExposureState.Sequence));
+            var comparison = added.OfType<PrincipalInvoiceComparison>()
+                .SingleOrDefault(x => x.ExposureStateId == exposure.Id);
+            if (comparison is null || exposure.Sequence != checked(prior + 1)
+                || exposure.CoverageState != "Verified"
+                || exposure.OwnerReference != comparison.OwnerReference
+                || exposure.OwnerWatermark != comparison.OwnerWatermark
+                || exposure.OwnerEvidenceSha256 is not { Length: 64 }
+                || exposure.OwnerValidUntil <= comparison.ComparedAt
+                || Receipt(comparison.SupplierInvoiceId, "Compare").CommandKey != comparison.CommandKey)
+                throw new InvalidOperationException("PrincipalInvoiceExposureAdvanceRequiresComparedClaim");
+        }
         PrincipalInvoiceState State(Guid invoiceId) => PrincipalInvoiceStates.Local.SingleOrDefault(x => x.SupplierInvoiceId == invoiceId)
             ?? PrincipalInvoiceStates.Single(x => x.SupplierInvoiceId == invoiceId);
         SupplierInvoice Invoice(Guid id) => SupplierInvoices.Local.SingleOrDefault(x => x.Id == id)
@@ -56,6 +89,39 @@ public sealed partial class ProcurementDbContext
             ?? PrincipalInvoiceMappingVersions.Single(x => x.Id == id);
         PrincipalInvoiceCommandReceipt Receipt(Guid invoiceId, string operation)
             => added.OfType<PrincipalInvoiceCommandReceipt>().Single(x => x.SupplierInvoiceId == invoiceId && x.Operation == operation);
+
+        foreach (var item in ChangeTracker.Entries<PrincipalInvoiceState>()
+            .Where(x => x.State == EntityState.Modified))
+        {
+            var state = item.Entity;
+            var previous = item.OriginalValues;
+            var originalState = previous.GetValue<string>(nameof(PrincipalInvoiceState.State));
+            if (state.State == "Reviewed")
+            {
+                var outcome = added.OfType<PrincipalInvoiceUnitReviewOutcome>()
+                    .SingleOrDefault(x => x.State == "Verified" &&
+                        PrincipalInvoiceUnitReviewSources.Any(r => r.Id == x.ReviewSourceId
+                            && r.SupplierInvoiceId == state.SupplierInvoiceId));
+                if (originalState != "Mapped" || outcome is null
+                    || Receipt(state.SupplierInvoiceId, "DecideReview").ActorPrincipalId != scope.SubjectId
+                    || state.LastComparisonId is not null || state.ActiveClaimComparisonId is not null)
+                    throw new InvalidOperationException("PrincipalInvoiceReviewedStateRequiresCoreOutcome");
+            }
+            else if (state.State == "Compared")
+            {
+                var compare = added.OfType<PrincipalInvoiceComparison>()
+                    .SingleOrDefault(x => x.SupplierInvoiceId == state.SupplierInvoiceId);
+                if (originalState != "Reviewed" || compare is null
+                    || state.LastComparisonId != compare.Id || state.ActiveClaimComparisonId != compare.Id
+                    || Receipt(state.SupplierInvoiceId, "Compare").CommandKey != compare.CommandKey)
+                    throw new InvalidOperationException("PrincipalInvoiceComparedStateRequiresClaim");
+            }
+            else throw new InvalidOperationException("PrincipalInvoiceStateTransitionUnsupported");
+            if (state.InvoiceVersion != previous.GetValue<long>(nameof(PrincipalInvoiceState.InvoiceVersion))
+                || state.MappingRevision != previous.GetValue<int>(nameof(PrincipalInvoiceState.MappingRevision))
+                || state.CurrentMappingId != previous.GetValue<Guid?>(nameof(PrincipalInvoiceState.CurrentMappingId)))
+                throw new InvalidOperationException("PrincipalInvoiceStateOwnerChanged");
+        }
 
         foreach (var state in added.OfType<PrincipalInvoiceState>())
         {

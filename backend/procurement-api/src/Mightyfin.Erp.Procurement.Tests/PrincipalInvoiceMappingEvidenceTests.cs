@@ -95,6 +95,73 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
         Assert.Single(comparable.Lines);
     }
 
+    [Fact]
+    public void Retained_claim_amount_must_match_frozen_comparison_and_original_invoice()
+    {
+        var (invoice, original, issued, input) = Fixture();
+        var now = DateTimeOffset.UtcNow;
+        var mapping = PrincipalInvoiceMappingEvidence.Create(invoice, [original], issued, [],
+            new Dictionary<Guid, Guid>(), [input], 1, Guid.NewGuid().ToString("D"), null, now);
+        var row = Row(mapping, input);
+        var policy = new PolicyVersion { TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,
+            PolicyKey = InvoiceMatchingPolicyRules.PolicyKey, PolicyVersionNumber = 1,
+            State = "Published", CreatedBy = Guid.NewGuid().ToString("D"),
+            PublishedBy = Guid.NewGuid().ToString("D"), PublicationReason = "test",
+            PublishedAt = now.AddDays(-1), EffectiveFrom = now.AddDays(-1),
+            RulesJson = "{\"schemaVersion\":1,\"transactionType\":\"InvoiceMatching\",\"currencyCode\":\"ZMW\",\"moneyScale\":2,\"rounding\":\"ToEven\",\"rules\":[{\"categoryCode\":\"GOODS\",\"method\":\"TwoWay\",\"acceptanceKind\":null,\"quantity\":{\"absolute\":\"0\",\"percent\":\"0\",\"combination\":\"AllLimits\"},\"unitPrice\":{\"absolute\":\"0\",\"percent\":\"0\",\"combination\":\"AllLimits\"},\"tax\":{\"absolute\":\"0\",\"percent\":\"0\",\"combination\":\"AllLimits\"},\"total\":{\"absolute\":\"0\",\"percent\":\"0\",\"combination\":\"AllLimits\"}}]}",
+        };
+        var exposure = new PrincipalInvoiceExposureState { TenantId = invoice.TenantId,
+            LegalEntityId = invoice.LegalEntityId, BranchId = invoice.BranchRef!.Value,
+            PurchaseOrderId = issued.Id, PrincipalIssuedVersionId = issued.RevisionId,
+            SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode, Sequence = 1 };
+        var reviewSourceId = Guid.NewGuid();
+        var outcome = new PrincipalInvoiceUnitReviewOutcome { ReviewSourceId = reviewSourceId,
+            State = "Verified" };
+        var frozen = new PrincipalInvoiceFrozenComparison(2, invoice.Id, mapping.Id, outcome.Id,
+            issued.RevisionId, policy.Id, ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
+            "prior-owner", new string('a', 64), "prior-consumption", "duplicates",
+            [new(original.Id, issued.Lines[0].Id, null, InvoiceMatchingMethod.TwoWay, "1", "1", "0")], null);
+        var evidence = System.Text.Json.JsonSerializer.Serialize(frozen,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var comparison = new PrincipalInvoiceComparison { TenantId = invoice.TenantId,
+            LegalEntityId = invoice.LegalEntityId, SupplierInvoiceId = invoice.Id,
+            MappingVersionId = mapping.Id, PurchaseOrderId = issued.Id,
+            PrincipalIssuedVersionId = issued.RevisionId, ReviewSourceId = reviewSourceId,
+            ReviewOutcomeId = outcome.Id, MatchingPolicyId = policy.Id, ExposureStateId = exposure.Id,
+            InvoiceVersion = invoice.Version, OriginalInvoiceSha256 = mapping.OriginalInvoiceSha256,
+            PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
+            Outcome = "Compared", EvidenceJson = evidence,
+            EvidenceSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(evidence),
+            OwnerReference = "prior-owner", OwnerWatermark = new string('a', 64) };
+        var state = new PrincipalInvoiceState { TenantId = invoice.TenantId,
+            LegalEntityId = invoice.LegalEntityId, SupplierInvoiceId = invoice.Id,
+            BranchId = invoice.BranchRef.Value, SupplierId = invoice.SupplierId,
+            CurrencyCode = invoice.CurrencyCode, CurrentMappingId = mapping.Id,
+            LastComparisonId = comparison.Id, ActiveClaimComparisonId = comparison.Id,
+            State = "Compared" };
+        PrincipalInvoiceClaim Claim(decimal quantity, decimal net) => new()
+        {
+            TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,
+            SupplierInvoiceId = invoice.Id, SupplierInvoiceLineId = original.Id,
+            MappingVersionId = mapping.Id, ComparisonId = comparison.Id,
+            ExposureStateId = exposure.Id, PurchaseOrderId = issued.Id,
+            PrincipalIssuedVersionId = issued.RevisionId,
+            PurchaseOrderLineId = issued.Lines[0].Id, SupplierId = invoice.SupplierId,
+            CurrencyCode = invoice.CurrencyCode, UnitCode = "EACH",
+            Quantity = quantity, NetAmount = net, ExposureSequence = 1,
+            OwnerCoverageReference = "prior-owner"
+        };
+        var context = new InvoiceExposureReadContext(invoice.TenantId, invoice.LegalEntityId,
+            invoice.BranchRef, issued.Id, issued.RevisionId, invoice.SupplierId,
+            invoice.CurrencyCode, new string('b', 64), now);
+        PrincipalInvoiceOwnedComparison Owned(PrincipalInvoiceClaim claim) => new(comparison,
+            mapping, outcome, invoice, state, policy, [original], [row], [claim]);
+        Assert.True(PrincipalInvoiceExposureEvidence.Reconstruct(context, exposure,
+            [Owned(Claim(1, 1))], 1, 0, 0, 0, 0, now).Owner.Complete);
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceExposureEvidence.Reconstruct(
+            context, exposure, [Owned(Claim(.5m, .5m))], 1, 0, 0, 0, 0, now));
+    }
+
     private static (SupplierInvoice Invoice, SupplierInvoiceLine Line, InvoiceIssuedOrder Issued,
         PrincipalInvoiceMappingInputLine Input) Fixture()
     {

@@ -135,7 +135,7 @@ internal static class ProcurementPrincipalInvoiceExposureReader
                 opening.Lines.Select(x => x.DocumentVersionId).Distinct().ToArray(), ct);
             _ = PrincipalInvoiceUnitReviewTerminal.Verify(reviewOutcome, review, mapping,
                 caseRow, pins, attestations, decisions, matching, reviewPolicy, hashes, now);
-            owned.Add(new(comparison, mapping, reviewOutcome, invoice, state, original, normalized,
+            owned.Add(new(comparison, mapping, reviewOutcome, invoice, state, matching, original, normalized,
                 claims.Where(x => x.ComparisonId == comparison.Id).ToArray()));
         }
         return PrincipalInvoiceExposureEvidence.Reconstruct(context, exposure, owned,
