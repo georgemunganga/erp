@@ -1,5 +1,13 @@
 # Actual Program compatibility smoke — source candidate
 
+## Payment owner-upgrade extension — 23 October 2026
+
+`--rehearse-payment-owner-upgrade` admits only a NEW bounded Core-principal clone of the exact retained `proc_release_backup_20261022_smoke_p24_native01` source. It requires precisely the Core company-timezone and P27 payment migrations to be pending, a matching real owner model, and retained companies. The owning EF engines apply both changes and repeat them; all old business rows/history and unrelated columns/constraints/indexes must remain identical. The only normalized additions are the new company timezone column, three payment tables and their two known migration-history rows. A complete post-upgrade fingerprint also verifies repeatability. The real Core date provider is tested in the company's actual tenant context; retained company configuration must veto a destructive Core downgrade. Program never starts in this preparation mode.
+
+The prepared private clone can then be the read-only catalog source for `--rehearse-fresh-hrm`, or the template for a separate actual Program smoke. Every execution creates a new target and checks its retained source before/after; never migrate the original template or reuse a failed target. Fingerprints do not claim sequence-state, role/grant, trigger/function or external-integration equality. Runtime role authorization and full payment API/browser workflows remain separate gates.
+
+The first executed owner upgrade, fresh owner engine and actual Program gates passed against source `a6c7a40`, with source preservation and zero pending owner migrations/models. Final candidate verification and exact protected receipt references belong in the Procurement release record; source-only text below describes the earlier tool development history.
+
 This is an offline verification tool, not a new host or production configuration. It references the existing HRM API entry assembly through `WebApplicationFactory<MonthlyLeaveAccrualWorker>` and executes its actual `Program` with TestServer. It copies no routes, identity authorizer or migration engine.
 
 Before starting Program it reads **actual** HRM and Procurement migration/model differences on the new clone. Any pending migration, model difference or unavailable check blocks startup. In particular, the existing HRM Program suppresses its pending-model warning; this tool reports that inherited gap rather than claiming compatibility through the suppression. No migration/worker/publisher command is passed. Program’s own migration call is reached only after that no-pending preflight.

@@ -1,6 +1,6 @@
 # Procurement live implementation roadmap
 
-**Status:** Active engineering roadmap, updated 22 October 2026. Individual releases have recorded acceptance; outstanding business policies and workflow activation gates remain open.
+**Status:** Active engineering roadmap, updated 23 October 2026. Individual releases have recorded acceptance; outstanding business policies and workflow activation gates remain open.
 **Standard:** [GW-ENG-STD-001](../engineering/GW-ENG-STD-001.md), Tier 3; every child uses the 28-section feature specification.
 **UI contract:** Existing Procurement workspace and `docs/procurement-ui-contract-register.md` in the Procurement UI repository; do not create a second UI.
 
@@ -14,6 +14,8 @@ The P23/P24 application and schema are deployed. The [live release acceptance](r
 P25 is the next source milestone: Core-principal purchase requests, authority evidence and approval contracts. It remains a draft, default-off change under [PR 33](https://github.com/georgemunganga/erp/pull/33). Its source suites passed 1,253 domain and 586 host tests; isolated migration and subsequent runtime/workflow acceptance are separate gates. P25 has not been deployed. Existing worker-based sourcing, ordering and receiving consumers require an explicitly tested bridge before using the new principal contracts.
 
 **Finance ownership confirmed:** AP, accounting and payments belong to the future ERP Finance module, which has not been built. Procurement can store and validate its own records and prepare integration contracts. It must not manufacture budget reservations, posting IDs, payment status or a substitute finance ledger. Financial transitions remain unavailable until their owning service and acceptance evidence exist.
+
+**Authorized manual-payment exception:** absence of Finance does not remove Payments or prevent a separately controlled record of an externally made payment. [PROC-PAY-01](PROC-12-MANUAL-PAYMENT-WORKFLOW.md) defines draft request → assigned approval → external-payment recording → independent manual confirmation, using Core users/permissions without an employee prerequisite or mandatory attachment. Domain/storage/Core-clock work is in ERP PR #43; live payment policies, Core workflow links, endpoints, UI binding and actual browser acceptance remain subsequent gates. Confirmed Manually never means Finance Posted/Paid or bank execution.
 
 **Next sequence:** finish P25 database preservation/constraint/downgrade checks; verify current Core grants and record scopes with finite runtime roles and real API/browser journeys; then implement and verify the sourcing → order → receipt bridges in dependency order. Keep invoice evidence/scanning, approval activation and all external hand-offs subject to their recorded prerequisites. Manus retains its focused task in [MANUS_HANDOFF.md](../../MANUS_HANDOFF.md).
 

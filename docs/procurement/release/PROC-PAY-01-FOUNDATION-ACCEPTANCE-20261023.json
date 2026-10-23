@@ -1,0 +1,85 @@
+{
+  "milestone": "PROC-PAY-01 storage, capacity and Core company date foundation",
+  "dateUtc": "2026-10-23",
+  "status": "VERIFIED_SOURCE_FOUNDATION_NOT_DEPLOYED",
+  "runtimeSource": "259ad67409550f8b0a4de8b418a68b60a1d1f07d",
+  "standard": "GW-ENG-STD-001 Tier 3 plus existing 28-section feature specification",
+  "counts": {
+    "procurementTests": {
+      "passed": 1319,
+      "failed": 0,
+      "skipped": 0
+    },
+    "targetedHostTests": {
+      "passed": 321,
+      "failed": 0,
+      "skipped": 0,
+      "source": "90cc0ae; Core/API code unchanged by the subsequent private payment timestamp comparison fix"
+    },
+    "syntheticPostgresChecks": 59
+  },
+  "verified": [
+    "Real EF P27 up/repeat/empty down/up and retained/audit-only downgrade vetoes",
+    "Old P24 schema accepts structured invoice correction and credit capture with the new compatibility guards",
+    "Mapped payment lifecycle and exact receipt/history atomicity",
+    "Overlapping manual/manual and manual/credit capacity races; exactly one competing reservation commits",
+    "Sequential excessive credit, Finance-only settlement capacity and source exclusion misuse denied",
+    "Original invoice frozen after retained manual request; terminal requests release capacity without erasing source history",
+    "Core timezone owning migration preserves existing data; fresh migration catalog agrees with prepared retained owner",
+    "Actual ERP Program returns root/readiness HTTP200, zero pending owner migrations/models, and unchanged private clone"
+  ],
+  "limits": {
+    "productionChanged": false,
+    "frontendChanged": false,
+    "paymentRoutesRegistered": false,
+    "paymentHttpWorkflowVerified": false,
+    "paymentPlaywrightWorkflowVerified": false,
+    "finiteRuntimeRoleVerified": false,
+    "financePostingOrBankExecution": false,
+    "postgresFixtureIncludesSyntheticFinanceProjection": true,
+    "wholeModuleComplete": false,
+    "hostedCiClaimed": false
+  },
+  "proof": {
+    "procurementRegression": {
+      "privatePath": "/home/amizo/erp-backups/procurement-payment-precision-build-20261023_run05/result.json",
+      "sha256": "657ba3b7452f2ed00eb6a31d7ab9c24d043d3380159f00691e5f48a14445d564"
+    },
+    "coreAndProcurementHttpRegression": {
+      "privatePath": "/home/amizo/erp-backups/procurement-payment-capacity-build-20261023_run03/result.json",
+      "sha256": "2d940dd12fb0ddc6bb807b8ddc61e6e536e0a497c79ed5a07177c58d60540e86"
+    },
+    "postgresStorageAndConcurrency": {
+      "privatePath": "/home/amizo/erp-backups/procurement-manual-payment-postgres-20261023_run04/result.json",
+      "sha256": "93942c7b2553f631dd5909dece84ac0cb623ebdda83cab13331034ca84bb8bfe"
+    },
+    "retainedOwnerUpgrade": {
+      "privatePath": "/home/amizo/erp-backups/procurement-payment-owner-upgrade-20261023_run01/result.json",
+      "sha256": "8f97c1c0e8b1bc2a70fdeecfef707f36b48cbd64335cf242b29f8967e28f820a"
+    },
+    "freshCoreOwnerMigrations": {
+      "privatePath": "/home/amizo/erp-backups/procurement-payment-fresh-owner-20261023_run01/result.json",
+      "sha256": "1a13a931433754abaf05f27988e14e04398c8ac4015e9ca20d47df5f72d3179a"
+    },
+    "actualProgramCompatibility": {
+      "privatePath": "/home/amizo/erp-backups/procurement-payment-actual-host-20261023_run02/result.json",
+      "sha256": "0f0bd71c5d7ee0de8fd9683d1b285d3b8c9acb6452c2ef07e27d28e6b8cb2dcd"
+    },
+    "actualProgramTemplatePreservation": {
+      "privatePath": "/home/amizo/erp-backups/procurement-payment-actual-host-20261023_run02/source-preservation.json",
+      "sha256": "571aa98e90e33878c0eda8ad27dcbfad81fba912beb5a77414a36e9d526e97ec"
+    }
+  },
+  "preservedFailures": [
+    "PG runs02/03: same-context create/submit exposed real PostgreSQL timestamp precision mismatch; fixed with existing shared microsecond encoding and positive/negative regressions",
+    "Broad host run02 stopped after stale pre-existing JobsAdmin assertion; preserved failed output. Corrected known/unknown permission test passed in targeted321-case run03. No broad-host-pass claim."
+  ],
+  "nextMilestone": [
+    "Register current Core payment actions and publishable typed review policy",
+    "Persist exact Core approval case/policy/assignment/decision links and trusted company date observation",
+    "Implement scoped current-authority/idempotent payment commands, acknowledgements and audit/outbox transaction",
+    "Bind restored existing Payments/Bills UI; actual API/PostgreSQL/normal-cookie Playwright journeys",
+    "Finite runtime privileges, migration/backup/release smoke and product verification before activation"
+  ],
+  "rolloutAndRollback": "Upgrade all invoice/credit writers and drain pre-P27 transactions before first payment activation. After manual data exists retain compatible guarded code or disable affected writes; do not return an old P24 binary to write traffic."
+}
