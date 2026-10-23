@@ -9,9 +9,9 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class PrincipalRfqPrepublicationPlanTests
 {
     private sealed record Fixture(SourcingEvent Event,SourcingDraftEvidence Evidence,SourcingDemandBinding Binding,
-        PrincipalRfqEvaluationPlanDefinition Definition,RfqPrincipalActor Evaluator,DocumentUseReference Use,
+        PrincipalRfqEvaluationPlanDefinition Definition,PrincipalRfqPublishedPlanPolicy Policy,RfqPrincipalActor Evaluator,DocumentUseReference Use,
         DocumentUsePin Pin,DateTimeOffset At);
-    private static Fixture Original(Guid? buyerAlias=null)
+    private static Fixture Original(Guid? buyerAlias=null,bool packRequired=false)
     {
         var at=new DateTimeOffset(2026,10,24,10,0,0,TimeSpan.Zero);var company=Guid.NewGuid();var branch=Guid.NewGuid();
         var buyer=Guid.NewGuid().ToString("D");var maker=Guid.NewGuid().ToString("D");var reviewer=Guid.NewGuid().ToString("D");
@@ -47,12 +47,31 @@ public sealed class PrincipalRfqPrepublicationPlanTests
         var document=DocumentUsePin.Restore(Guid.NewGuid(),"tenant",company,use,
             new("procurement",PrincipalRfqPrepublicationPlan.DocumentOwnerType,draft.Id,Guid.NewGuid(),version,1,1,hash),1,
             "requirements.pdf","application/pdf",100,scan,buyer,at);
-        return new(ev,evidence,binding,definition,actor,use,document,at);
+        var publishedPolicy=PublishedPolicy(draft,reviewer,at,packRequired);
+        return new(ev,evidence,binding,definition,publishedPolicy,actor,use,document,at);
+    }
+    private static PrincipalRfqPublishedPlanPolicy PublishedPolicy(RfqPrincipalDraft draft,string reviewer,DateTimeOffset at,bool packRequired)
+    {
+        var rules=System.Text.Json.JsonSerializer.Serialize(new{schemaVersion=1,policyKey="SOURCING",transactionType="SourcingPublication",
+            action="SourcingEvent.Publish",permission="procurement-sourcing-publish",currencyCode="ZMW",amountBasis="ApprovedLineBase",
+            rules=new[]{new{code="ALL",priority=0,when=new{minimumAmountInclusive=(decimal?)null,maximumAmountExclusive=(decimal?)null,
+                categoryCodes=Array.Empty<string>(),purchaseTypes=Array.Empty<string>(),branchIds=Array.Empty<Guid>()},
+                result=new{publication=new{minimumQuoteCount=0,minimumInvitedSuppliers=0,requirementsPackRequired=packRequired,
+                    evaluationCriteriaRequired=false,closingDateRequired=false},approvalStages=new[]{new{code="PUBLICATION",assignee="ProcurementManager",mode="One",principalIds=new[]{reviewer}}}}}}});
+        var policy=new PolicyVersion{TenantId=draft.TenantId,LegalEntityId=draft.CompanyId,CreatedBy=draft.MakerPrincipalId,
+            PolicyKey="SOURCING",PolicyVersionNumber=1,EffectiveFrom=at.AddDays(-1),RulesJson=rules};
+        var created=SourcingPolicyIdentity.Capture(policy,draft.TenantId,draft.CompanyId,"Created",draft.MakerPrincipalId,null,1,at.AddHours(-3),schemaVersion:2);
+        policy.Version=2;policy.State="PendingReview";policy.ReviewRequestedBy=draft.MakerPrincipalId;policy.ReviewRequestedAt=at.AddHours(-2);
+        var submitted=SourcingPolicyIdentity.Capture(policy,draft.TenantId,draft.CompanyId,"Submitted",draft.MakerPrincipalId,null,2,policy.ReviewRequestedAt.Value,created,schemaVersion:2);
+        policy.Version=3;policy.State="Published";policy.PublishedBy=reviewer;policy.PublishedAt=at.AddHours(-1);policy.PublicationReason="Explicit synthetic policy controls";
+        var published=SourcingPolicyIdentity.Capture(policy,draft.TenantId,draft.CompanyId,"Published",reviewer,null,3,policy.PublishedAt.Value,created,submitted,2);
+        return PrincipalRfqPublishedPlanPolicy.Select(policy,created,submitted,published,draft,
+            draft.Lines.OrderBy(x=>x.EventLineId).Select(x=>new PolicyScenario(draft.CurrencyCode,x.EstimatedValue,x.CategoryCode,"GOODS",draft.BranchId)).ToArray(),at);
     }
     private static T Changed<T>(T value,Action<System.Text.Json.Nodes.JsonObject> change)
     {var root=System.Text.Json.JsonSerializer.SerializeToNode(value)!.AsObject();change(root);return System.Text.Json.JsonSerializer.Deserialize<T>(root.ToJsonString())!;}
     private static PrincipalRfqPrepublicationPlan Prepare(Fixture f,string currency="ZMW",string currencyMode="SameCurrencyOnly",string taxMode="OriginalSeparateComponents")
-        =>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,[f.Evaluator],[f.Pin],
+        =>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,f.Policy,[f.Evaluator],[f.Pin],
             f.Event.Version,1,f.Use,f.At.AddDays(1),f.At.AddDays(2),f.At,currency,currencyMode,taxMode);
     private static DocumentUsePin ChangePin(Fixture f,string? tenant=null,Guid? company=null,DocumentUseReference? use=null,string? actor=null)
         =>DocumentUsePin.Restore(f.Pin.Id,tenant??f.Pin.TenantId,company??f.Pin.LegalEntityId,use??f.Pin.Source,
@@ -82,7 +101,7 @@ public sealed class PrincipalRfqPrepublicationPlanTests
     [Fact]
     public void Event_CAS_state_source_envelope_and_normalized_binding_are_exact()
     {
-        var f=Original();Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,[f.Evaluator],[f.Pin],
+        var f=Original();Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,f.Policy,[f.Evaluator],[f.Pin],
             f.Event.Version+1,1,f.Use,f.At.AddDays(1),f.At.AddDays(2),f.At,"ZMW","SameCurrencyOnly","OriginalSeparateComponents"));
         f.Event.Status="Published";Assert.Throws<InvalidOperationException>(()=>Prepare(f));
         f=Original();f=f with{Binding=Changed(f.Binding,root=>root["Quantity"]=1m)};Assert.Throws<InvalidOperationException>(()=>Prepare(f));
@@ -115,7 +134,7 @@ public sealed class PrincipalRfqPrepublicationPlanTests
             criteria=new[]{new{code="TECH",phase="Technical",kind="Scored",mandatory=true,maximumScore="10",weight="1",
                 evaluatorPrincipalIds=new[]{first.PrincipalId,second.PrincipalId}}}});
         var definition=PrincipalRfqEvaluationPlanDefinition.Parse(rules);
-        var failure=Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],definition,[first,second],[f.Pin],
+        var failure=Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],definition,f.Policy,[first,second],[f.Pin],
             f.Event.Version,1,f.Use,f.At.AddDays(1),f.At.AddDays(2),f.At,"ZMW","SameCurrencyOnly","OriginalSeparateComponents"));
         Assert.Equal("RfqPrepublicationEvaluatorAliasConflict",failure.Message);
     }
@@ -134,12 +153,25 @@ public sealed class PrincipalRfqPrepublicationPlanTests
     public void Exact_pack_and_named_assignment_sets_cannot_be_missing_duplicated_or_padded()
     {
         var f=Original();
-        foreach(var pins in new IReadOnlyList<DocumentUsePin>[]{[],[f.Pin,f.Pin]})
-            Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,[f.Evaluator],pins,
+        foreach(var pins in new IReadOnlyList<DocumentUsePin>[]{[f.Pin,f.Pin]})
+            Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,f.Policy,[f.Evaluator],pins,
                 f.Event.Version,1,f.Use,f.At.AddDays(1),f.At.AddDays(2),f.At,"ZMW","SameCurrencyOnly","OriginalSeparateComponents"));
         foreach(var people in new IReadOnlyList<RfqPrincipalActor>[]{[],[f.Evaluator,f.Evaluator]})
-            Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,people,[f.Pin],
+            Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,f.Policy,people,[f.Pin],
                 f.Event.Version,1,f.Use,f.At.AddDays(1),f.At.AddDays(2),f.At,"ZMW","SameCurrencyOnly","OriginalSeparateComponents"));
+    }
+    [Fact]
+    public void Published_pack_control_permits_empty_optional_pack_but_denies_missing_required_pack()
+    {
+        var optional=Original();
+        var candidate=PrincipalRfqPrepublicationPlan.Prepare(optional.Event,optional.Evidence,[optional.Binding],optional.Definition,optional.Policy,[optional.Evaluator],[],
+            optional.Event.Version,1,optional.Use,optional.At.AddDays(1),optional.At.AddDays(2),optional.At,"ZMW","SameCurrencyOnly","OriginalSeparateComponents");
+        Assert.False(candidate.CanPublish);Assert.Contains("\"RequirementsPackRequired\":false",candidate.SnapshotJson);
+        var required=Original(packRequired:true);
+        var failure=Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(required.Event,required.Evidence,[required.Binding],required.Definition,required.Policy,[required.Evaluator],[],
+            required.Event.Version,1,required.Use,required.At.AddDays(1),required.At.AddDays(2),required.At,"ZMW","SameCurrencyOnly","OriginalSeparateComponents"));
+        Assert.Equal("RfqPrepublicationExactPackRequired",failure.Message);
+        Assert.False(Prepare(required).CanPublish);
     }
     [Theory]
     [InlineData("USD","SameCurrencyOnly","OriginalSeparateComponents")]
@@ -151,7 +183,7 @@ public sealed class PrincipalRfqPrepublicationPlanTests
     public void Explicit_future_window_and_database_timestamp_precision_are_required()
     {
         var f=Original();
-        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,[f.Evaluator],[f.Pin],
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqPrepublicationPlan.Prepare(f.Event,f.Evidence,[f.Binding],f.Definition,f.Policy,[f.Evaluator],[f.Pin],
             f.Event.Version,1,f.Use,f.At,f.At.AddDays(1),f.At,"ZMW","SameCurrencyOnly","OriginalSeparateComponents"));
         Assert.Throws<InvalidOperationException>(()=>Prepare(f with{At=f.At.AddTicks(1)}));
     }

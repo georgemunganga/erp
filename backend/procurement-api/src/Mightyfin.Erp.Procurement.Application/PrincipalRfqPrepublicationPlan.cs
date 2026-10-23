@@ -40,19 +40,21 @@ public sealed class PrincipalRfqPrepublicationPlan
     /// inside its enlisted transaction. No false owner-ready/verified input exists.</summary>
     public static PrincipalRfqPrepublicationPlan Prepare(SourcingEvent ev,SourcingDraftEvidence evidence,
         IReadOnlyList<SourcingDemandBinding> bindings,PrincipalRfqEvaluationPlanDefinition definition,
+        PrincipalRfqPublishedPlanPolicy policy,
         IReadOnlyList<RfqPrincipalActor> currentEvaluators,IReadOnlyList<DocumentUsePin> requirements,
         long expectedEventVersion,long revision,DocumentUseReference reviewUse,
         DateTimeOffset opensAt,DateTimeOffset closesAt,DateTimeOffset at,
         string comparisonCurrency,string currencyMode,string taxMode)
     {
         ArgumentNullException.ThrowIfNull(ev);ArgumentNullException.ThrowIfNull(evidence);ArgumentNullException.ThrowIfNull(bindings);
-        ArgumentNullException.ThrowIfNull(definition);ArgumentNullException.ThrowIfNull(currentEvaluators);
+        ArgumentNullException.ThrowIfNull(definition);ArgumentNullException.ThrowIfNull(policy);ArgumentNullException.ThrowIfNull(currentEvaluators);
         ArgumentNullException.ThrowIfNull(requirements);ArgumentNullException.ThrowIfNull(reviewUse);
         Need(ev.Status=="Draft"&&ev.Version==expectedEventVersion&&expectedEventVersion>0&&revision>0
             &&ev.BranchRef is {} branch&&branch!=Guid.Empty&&ev.SourceEvidenceId==evidence.Id,
             "RfqPrepublicationDraftRequired");
         Need(bindings.Count is >=1 and <=200&&bindings.All(x=>x is not null),"RfqPrepublicationSourceBindingsRequired");
         var draft=GovernedPrincipalRfqRestoration.RestoreVerified(evidence,ev,bindings);
+        Need(policy.OriginalFingerprint==draft.OriginalFingerprint&&policy.ObservedAt==at,"RfqPrepublicationPolicySourceChanged");
         Need(Instant(at)&&Instant(opensAt)&&Instant(closesAt)&&at<opensAt&&opensAt<closesAt,
             "RfqPrepublicationExplicitWindowRequired");
         // Same-currency original components are deliberately the ONLY initial mode.
@@ -62,7 +64,7 @@ public sealed class PrincipalRfqPrepublicationPlan
         Need(reviewUse.Key!=Guid.Empty&&reviewUse.Module=="procurement"&&reviewUse.RecordType==DocumentSourceType
             &&reviewUse.RecordId==draft.Id&&reviewUse.Revision==revision&&reviewUse.Kind==DocumentUseKind.Review,
             "RfqPrepublicationDocumentUseMismatch");
-        Need(requirements.Count is >=1 and <=100&&requirements.All(x=>x is not null)
+        Need(requirements.Count<=100&&(!policy.RequirementsPackRequired||requirements.Count>0)&&requirements.All(x=>x is not null)
             &&requirements.Select(x=>x.VersionId).Distinct().Count()==requirements.Count,
             "RfqPrepublicationExactPackRequired");
         foreach(var pin in requirements)
@@ -107,6 +109,8 @@ public sealed class PrincipalRfqPrepublicationPlan
             originalFingerprint=draft.OriginalFingerprint,sourceEvidenceId=evidence.Id,sourceEnvelopeSha256=evidence.PayloadSha256,
             draft.MakerPrincipalId,draft.MakerWorkerAlias,preparedAt=at,opensAt,closesAt,
             comparisonCurrency,currencyMode,taxMode,
+            publishedPolicy=new{policy.PolicyId,policy.PolicyVersionNumber,policy.PolicyRecordVersion,policy.PublishedIdentityId,
+                policy.PublishedIdentitySha256,policy.RulesSha256,policy.RequirementsPackRequired},
             evaluation=new{rulesSha256=definition.RulesSha256,normalizationTotal=Exact(definition.NormalizationTotal),
                 criteria=definition.Criteria.Select(x=>new{x.Code,x.Phase,x.Kind,x.Mandatory,
                     maximumScore=x.MaximumScore is {} max?Exact(max):null,weight=x.Weight is {} weight?Exact(weight):null})},

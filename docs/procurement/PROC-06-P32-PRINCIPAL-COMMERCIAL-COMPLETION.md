@@ -184,8 +184,9 @@ evaluators. These pure checks do not prove active account retrieval, current
 maker-account aliases or transactional authorization; the future owning adapter
 must use the existing live Core resolver/fence and `IndependentNow` guards.
 
-The requirements pack is an exact nonempty version set of Core `DocumentUsePin`
-evidence. It must belong to this event/tenant/company, original maker and one
+The requirements pack, when present, is an exact version set of Core `DocumentUsePin`
+evidence. An empty set is permitted only when the selected published policy does
+not require a pack. It must belong to this event/tenant/company, original maker and one
 Review use keyed to this candidate revision (`sourcing_commercial_plan` /
 `sourcing_event` owner). Core's existing Restore validator checks retained
 scan/version/hash consistency; the candidate is not a blob/read-availability
@@ -214,10 +215,33 @@ new publication/Core proof; scoped purpose reads. None has a boolean-ready
 fallback, interface-only lock claim, DI registration, route or EF model in this
 slice. Existing P30 Published records remain ineligible for automatic adoption.
 
-Twelve additional pure synthetic cases are authored (9 facts plus3 normalization
+Thirteen additional pure synthetic cases are authored (10 facts plus3 normalization
 theory cases). They cover workerless exact evidence; copied bytes/read-only
 assignments; CAS/state/source/binding mutation; current scoped action; retained
 maker alias and duplicate-worker accounts; exact document actor/scope/reference
 and use purpose; exact nonempty sets; FX/tax rejection; and explicit trusted-time
 precision. These are **unrun source tests**, not genuine document-owner/source
 provenance, durable-hold or current Core authorization acceptance.
+
+### Published pack requirement correction and current-alias owner contract
+
+`PrincipalRfqPublishedPlanPolicy.Select` derives the required-pack flag from the
+actual independently published SOURCING policy plus original Created/Submitted/
+Published identity lineage, selected against every exact source classification.
+It pins policy ID/number/CAS, rules SHA and published-identity ID/SHA in the
+candidate. A caller cannot pass a detached `required=true/false`. Different source
+fingerprint, observation instant, mixed controls or missing published matching
+policy blocks preparation. Empty documents are accepted when that actual
+matched flag is false; supplied documents always retain their strict exact-set
+scope/scan/content checks. This remains structural owned-input verification,
+not proof of live database selection or a commercial policy adoption.
+
+This policy prerequisite applies to workflow freeze, **not ordinary commercial
+Draft CRUD**. Draft persistence will keep incomplete configuration/optional pack
+selection without inventing a publication policy, and disclose missing controls
+honestly. A later owning freeze must resolve CURRENT canonical accounts and
+worker aliases for the RFQ maker, every original demand maker/requester and all
+evaluators under the actual Core fence; it must run the existing current-alias
+independence checks in addition to retained aliases. Historical null worker IDs
+cannot excuse two newly linked accounts for one worker. No test fixture or pure
+candidate establishes that runtime guarantee.
