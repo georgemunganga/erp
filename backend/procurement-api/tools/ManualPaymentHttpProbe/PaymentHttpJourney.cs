@@ -35,7 +35,7 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
 
         // Real policy lifecycle: maker and publisher have separate finite configuration
         // actions. The database is not seeded with a fabricated Published row.
-        var effective = DateTimeOffset.UtcNow.AddSeconds(12);
+        var effective = DateTimeOffset.UtcNow.AddSeconds(30);
         const string rules = """
             {"approvalType":"SingleApprover","identitySchemaVersion":2,
              "independentCreatorApprover":true,"independentRecorderConfirmer":true,
