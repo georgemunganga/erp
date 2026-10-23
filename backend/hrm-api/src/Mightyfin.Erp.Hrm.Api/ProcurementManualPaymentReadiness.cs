@@ -6,3 +6,10 @@ public interface IProcurementManualPaymentGovernanceReadiness
 {
     Task<bool> IsReadyAsync(CancellationToken ct);
 }
+
+/// <summary>Explicit host opt-in. Schema availability never enables a payment command.</summary>
+public sealed class ProcurementManualPaymentOptions
+{
+    public bool Enabled { get; set; }
+    public bool ExecutionDatabaseConfigured { get; set; }
+}

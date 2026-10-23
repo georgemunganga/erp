@@ -7,6 +7,15 @@ public sealed class ProcurementManualPaymentCommandTransportTests
 {
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
 
+    [Fact]
+    public void Manual_payment_command_activation_defaults_off()
+    {
+        var options = new ProcurementManualPaymentOptions();
+        Assert.False(options.Enabled);
+        Assert.False(options.ExecutionDatabaseConfigured);
+    }
+
+
     [Theory]
     [InlineData("0.0001", "0.0001")]
     [InlineData("\"99999999999999.9999\"", "99999999999999.9999")]

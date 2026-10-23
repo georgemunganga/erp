@@ -72,7 +72,9 @@ public static partial class ProcurementManualPaymentCommandRoutes
         {
             var readiness = http.RequestServices.GetService<IProcurementManualPaymentGovernanceReadiness>();
             var coordinator = http.RequestServices.GetService<ProcurementApprovalTransaction>();
-            if (readiness is null || coordinator is null || !await readiness.IsReadyAsync(ct))
+            var options = http.RequestServices.GetService<ProcurementManualPaymentOptions>();
+            if (options is not { Enabled: true, ExecutionDatabaseConfigured: true }
+                || readiness is null || coordinator is null || !await readiness.IsReadyAsync(ct))
                 throw new PaymentProblem("payment-review-unavailable", 503);
             var result = await coordinator.ExecuteManualPaymentAsync(async (db, cases, token) =>
             {
@@ -96,7 +98,9 @@ public static partial class ProcurementManualPaymentCommandRoutes
             var code = error is PaymentProblem known ? known.Message : status == 503
                 ? "payment-outcome-unavailable" : status == 403 ? "payment-access-denied"
                     : status == 404 ? "payment-not-found" : "payment-state-changed";
-            var message = status == 503
+            var message = error is PaymentProblem { Message: "payment-review-unavailable" }
+                ? "Manual payments are not ready in this workspace yet."
+                : status == 503
                 ? "The payment outcome could not be confirmed. Refresh this payment or recover it using the command key."
                 : status == 400 ? "Provide one valid Idempotency-Key UUID for this payment command."
                 : status == 422 ? "Enter valid payment details and exact amounts before trying again."
