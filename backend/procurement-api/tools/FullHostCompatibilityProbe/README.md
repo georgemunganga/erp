@@ -381,3 +381,52 @@ and exact PostgreSQL17 sourcing readiness manifest are generated and captured.
 No test provider is substituted. The existing P25 non-P29 cohorts keep their
 previous roles, settings and purchase policy. No SDK/database run is claimed
 by this source commit.
+
+## P30 principal receiving private HTTP cohort — authored, not executed
+
+Opt in to the existing `--principal-approvals` command with **both**
+`P30_HTTP_VERIFY_PRINCIPAL_PO=1` and `P30_HTTP_VERIFY_PRINCIPAL_RECEIVING=1`.
+Use the existing private owner/result environment contract and a NEW empty
+`proc_p30_http_po_<unique>` database in the exact bounded PG17 Unix-socket
+cluster. The runner rejects other optional cohorts, reset/resume and production
+connections. Parent owns complete tool publication, runtime execution and the
+protected result path; no connection string belongs in shell history or docs.
+No SDK/HTTP/PostgreSQL execution has been performed for this new cohort.
+
+The cohort first runs the unchanged genuine principal PR/PO lifecycle, then
+publishes an explicit schema2 RECEIVING policy through independent real API
+review. All receiving actors are real active Core accounts with finite current
+actions and branch membership, **without employees**. Purpose-only inspectors,
+acceptors and service owners have no broad receipt read permission. Another
+branch actor must receive an empty count/page and 404 for the retained receipt;
+a principal not admitted to that selected branch receives 403.
+
+Goods are physically observed as 2 against issued quantity 1, independently
+qualified as 1.5, and accepted as 0.0001 plus 0.9999. The first positive product
+must persist as 0.00051234. A separate service request is created, independently
+funded under the existing explicitly labelled private manual-evidence policy,
+Core-approved, converted to a genuinely funded/Core-approved/issued PO and
+manually acknowledged. Two service certificates of 0.5 each use the current
+shared source cursor and retain 0.00005 each. Supplier Accepted acknowledgment
+is never treated as evidence of delivery. No stock, asset, AP, payment or
+external Finance posting is claimed or introduced.
+
+Assertions include exact command replay, original GET-only command recovery,
+stale draft CAS, other-actor command/draft ownership, independent inspection,
+physical/capacity separation, purpose privacy, full fresh owner ledger/counter
+reconciliation and exact same-command fact→receipt physical FK. Negative-only
+owner tests temporarily corrupt existing accepted counters and original receipt
+hashes, require read/write rejection without effects, restore exact originals
+in `finally`, and compare the complete Procurement footprint. The FK negative
+uses the genuine positive receipt inside a rolled-back owner transaction; no
+positive business row is fabricated and no constraint is disabled.
+
+Expected final owner graph: 2 source ledgers, 4 draft headers, 9 immutable
+revisions/line memberships, 6 facts, 12 unique command receipts and 12 explicit
+Procurement-only outbox declarations. Replays/rejections must add none. The
+private execution-role grants are limited to actual owned receiving writes,
+append-only evidence insertion and legacy history SELECT for completeness;
+this is runtime-role proof only when executed. Synthetic private header
+authentication is retained, so normal-cookie/OIDC integration and browser UI
+coverage remain separate gates. Managed commercial returns/reversal and stock
+or Finance owner handoff remain outside this positive-acceptance cohort.

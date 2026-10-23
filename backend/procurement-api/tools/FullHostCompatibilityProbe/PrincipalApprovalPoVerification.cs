@@ -11,7 +11,8 @@ using Npgsql;
 internal static partial class PrincipalApprovalHttpVerification
 {
     private const string PoRoot="/api/procurement/v1/orders";
-    private static async Task VerifyPrincipalOrderAsync(PrincipalApprovalFixture fixture,string owner,
+    private sealed record PrincipalIssuedFixture(Guid RequestId,Guid RequestLineId,Guid OrderId,Guid IssuedId,Guid OrderLineId,Guid SupplierId);
+    private static async Task<PrincipalIssuedFixture> VerifyPrincipalOrderAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,Dictionary<string,object?> result,
         Action<string> stage,PrincipalSend send,Action countRequest)
     {
@@ -262,5 +263,7 @@ internal static partial class PrincipalApprovalHttpVerification
             currentRecorderScopeRevocationDenied=true,actorOwnedCreateRecovery=true,
             externalFinancePosting=false,supplierSendPerformed=false,paymentExecuted=false};
         result["status"]="PASS_PRIVATE_P30_PRINCIPAL_PO_INTERNAL_AND_MANUAL_EVIDENCE_ONLY";
+        var issuedLine=await db.PurchaseOrderLines.SingleAsync(x=>x.PurchaseOrderId==orderId);
+        return new(requestId,lineId,orderId,issuedId,issuedLine.Id,supplierId);
     }
 }
