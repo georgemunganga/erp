@@ -1,5 +1,5 @@
 {
-  "status": "IMPLEMENTATION_IN_PROGRESS_NOT_RELEASE_ACCEPTANCE",
+  "status": "PRIVATE_INTEGRATION_ACCEPTED_PRODUCTION_RELEASE_PENDING",
   "pr": "https://github.com/georgemunganga/erp/pull/44",
   "publishedBase": "97ca634fa5b821ff187dac5914363d55f805a744",
   "uiPublishedBase": "04a2ab96bef4601f25122079a1c3f95d16cef877",
@@ -88,20 +88,139 @@
         "coreDecisionLinks": 3,
         "financePaymentRows": 0
       }
+    },
+    {
+      "source": "44f034c3e13e30789172224696e7021e70ee834c",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-http-build-20261023_run16",
+      "procurementTestsPassed": 1361,
+      "procurementTestsSkipped": 0,
+      "overallBuild": "FAILED_FOUR_NEW_CORE_SQLITE_ROUTE_TESTS",
+      "procurementCodeUnchangedInCurrentCandidate": true
+    },
+    {
+      "source": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-http-build-20261023_run17",
+      "hostTestsPassed": 54,
+      "hostTestsFailed": 0,
+      "hostTestsSkipped": 0,
+      "sourceUnchanged": true,
+      "apiAndHttpProbePublished": true,
+      "exitCode": 0,
+      "oomKilled": false
+    },
+    {
+      "source": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-governance-native-upgrade-20261023_run02/http-run06",
+      "result": "PASS_PRIVATE_CLONE_ONLY",
+      "actualProgram": true,
+      "normalLocalCookieLogin": true,
+      "resultSha256": "84043dd22c7159a544254bef52703af35ce052614b6edcc3e9661af9a84a00bb",
+      "checks": [
+        "normal Core cookie auth, optional employee identity and scoped workspace choices",
+        "real independent payment policy lifecycle",
+        "actor-owned lost Create response recovery",
+        "explicit All branches preserves current Core branch intersection for payment reads and commands",
+        "current Core branch scope before read and recovery",
+        "valid second company and assigned branch cannot read original payment",
+        "exact amount, self-assignment, key reuse and CAS denials",
+        "independent approve, actual external Record and independent Confirm",
+        "return and cancellation with retained history",
+        "current original-tenant account cannot read other-tenant request or list it"
+      ],
+      "secondTenantChecks": [
+        "normal Core cookie auth, optional employee identity and scoped workspace choices",
+        "second tenant created one real draft without published payment policy"
+      ],
+      "productionChanged": false
+    },
+    {
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-ui-20261023_run08",
+      "result": {
+        "harnessSource": "bf1e51b6ed2b1a9cbeb07710c97e22a2eabf6b4c",
+        "applicationSource": "9982b67",
+        "apiSource": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+        "sourceUnchanged": true,
+        "actualBrowserPassed": 1,
+        "actualBrowserFailed": 1,
+        "paymentJourney": "PASS_REAL_COOKIE_UI_API_POSTGRES",
+        "policyJourney": "FAILED_HELPER_LOOKED_FOR_WORKSPACE_SWITCHER_IN_SEPARATE_SETTINGS_HEADER",
+        "productionChanged": false
+      },
+      "resultSha256": "15f73bae2c81932bb61bf23bb8a2ff1427ea70d66ded7969a4a93ac836662c12"
+    },
+    {
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-ui-20261023_run09",
+      "result": {
+        "harnessSource": "adfd160bd19ae259502420adb18d24db03ad39a9",
+        "applicationSource": "9982b67",
+        "apiSource": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+        "sourceUnchanged": true,
+        "actualBrowserPassed": 1,
+        "actualBrowserFailed": 0,
+        "policyJourney": "PASS_REAL_COOKIE_UI_API_POSTGRES",
+        "paymentJourneyEvidence": "procurement-payment-ui-20261023_run08/result.json",
+        "ownerReconciliation": "PASS",
+        "productionChanged": false
+      },
+      "resultSha256": "9056b54e2fba239fa675f9dbb0be238729f8fcce8db731f3a354c322adc6f685"
+    },
+    {
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-ui-20261023_run07",
+      "applicationSource": "9982b67",
+      "typescript": "PASS",
+      "stagedBuild": "PASS",
+      "mockedBrowserPassed": 37
+    },
+    {
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-ui-20261023_run09",
+      "ownerReconciliation": {
+        "status": "PASS",
+        "observed": {
+          "requests": 3,
+          "versions": 16,
+          "decisions": 16,
+          "receipts": 16,
+          "coreLinks": 5,
+          "coreDecisionLinks": 5,
+          "dateObservations": 4,
+          "users": 7,
+          "linkedEmployees": 0,
+          "employees": 0,
+          "financePaymentRows": 0,
+          "requestAudits": 16,
+          "outboxEvents": 16
+        },
+        "expected": {
+          "requests": 3,
+          "versions": 16,
+          "decisions": 16,
+          "receipts": 16,
+          "coreLinks": 5,
+          "coreDecisionLinks": 5,
+          "dateObservations": 4,
+          "users": 7,
+          "linkedEmployees": 0,
+          "employees": 0,
+          "financePaymentRows": 0,
+          "requestAudits": 16,
+          "outboxEvents": 16
+        },
+        "productionChanged": false
+      },
+      "receiptSha256": "ac0dd7e4463ae61b38f9d17bd391ac2dd70be77c680cd9c44f99a341b755fc39"
     }
   ],
   "remaining": [
-    "Original UI latest settings and accessibility fixes: frozen frontend checks, mocked and normal-cookie actual API/PostgreSQL Playwright",
-    "Explicit new payment cross-company/cross-tenant positive-host negatives before production activation",
-    "Independent final review, owning production migration/runtime roles, release/rollback and UAT gates"
+    "Final combined independent review and source merge",
+    "Owning production migrations/finite roles, backup/rollback, deployment and UAT release gates"
   ],
   "productionMigrationApplied": false,
   "productionDeployed": false,
   "paymentHttpAccepted": true,
-  "paymentPlaywrightAccepted": false,
+  "paymentPlaywrightAccepted": true,
   "hostedCi": "BLOCKED_GITHUB_ACCOUNT_BILLING",
   "issues": "DISABLED_IN_REPOSITORY",
-  "checkpointSource": "b03583b1a797c9f5d670922b7bc12e90b6a01dc4",
+  "checkpointSource": "d83fa712e073f35730182f05a10bbe37e6b88b08",
   "retainedFailedAttempts": [
     {
       "evidence": "procurement-payment-governance-postgres-20261023_run01",
@@ -118,8 +237,17 @@
     {
       "evidence": "procurement-payment-governance-native-upgrade-20261023_run02/http-run03",
       "reason": "Outsider fixture initial context incorrectly used another branch; API correctly denied. Probe fixed to use its assigned branch, with scope denials preserved."
+    },
+    {
+      "evidence": "procurement-payment-governance-native-upgrade-20261023_run02/http-run05",
+      "reason": "Explicit All was validated at HTTP but not carried into the persistence scope. Capacity/write/query guards correctly refused it; interface/coordinator propagation and guarded manual filters corrected, then actual HTTP run06 passed."
+    },
+    {
+      "evidence": "procurement-payment-http-build-20261023_run16",
+      "reason": "Four new mapped Core choice tests returned 500 with provider date comparison. Scoped account projection and C# lock-time check corrected; subsequent run17 passed54."
     }
   ],
-  "inProgress": "Private actual Kestrel host healthy; frontend source e48a1a2 staged verification running; UI draft PR62",
-  "paymentHttpAcceptanceScope": "PRIVATE_CLONE_ONLY_NOT_PRODUCTION_OR_BROWSER"
+  "inProgress": "Independent source review and source publication; production migration/deployment/UAT remain separate release gates",
+  "paymentHttpAcceptanceScope": "PRIVATE_CLONE_ONLY_NOT_PRODUCTION_OR_BROWSER",
+  "paymentPlaywrightAcceptanceScope": "PRIVATE_NORMAL_COOKIE_REAL_API_POSTGRES_NOT_PRODUCTION"
 }
