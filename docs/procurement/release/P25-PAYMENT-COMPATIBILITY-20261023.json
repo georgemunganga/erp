@@ -249,6 +249,12 @@
       "path": "/home/amizo/erp-backups/procurement-p25-payment-combined-build-20261023_run06/result.json",
       "sha256": "f365a5bb96ecf87cbc1c4274896aaa739d6104438725853307fc6881a7ba3582",
       "scope": "12 Core role/JobsAdmin tests passed; publication and tracked-source preservation passed; private legacy HTTP pending"
+    },
+    {
+      "name": "retainedLegacyRun04Failure",
+      "path": "/home/amizo/erp-backups/procurement-p25-legacy-worker-20261023_run04/result.json",
+      "sha256": "8dad682b8725cf806cf8404e92d354505a66f0b8d87edb5d8d09f2148d2b69e5",
+      "scope": "Retained failure; not acceptance"
     }
   ],
   "normalCookieApprovalBrowserPassed": true,
@@ -277,6 +283,13 @@
       "attempt": "run03",
       "stage": "LegacyFalseOptionAuthorityAndOriginalSource",
       "cause": "Private finite execution role lacked SELECT on Core delegations required by existing legacy readiness. Added read only; no production grants or readiness bypass. Earlier policy-timing diagnosis was incorrect."
+    },
+    {
+      "attempt": "run04",
+      "stage": "LegacyP25FiniteChecker1AndWorkerApproval",
+      "actualHttpRequests": 13,
+      "observed": "Worker authority activation, policy publication, request submission and checker1 capture completed; readiness canOpenCase false",
+      "sourceDiagnosis": "Worker approval authority resolver directly constructs old P21 exact schema inspector, bypassing the P25 physical-store fallback. Shared worker resolver fix pending verification. The old result did not record the response blockers, so this diagnosis is based on source inspection."
     }
   ],
   "latestCombinedVerificationSource": "3b4a7cbee779e67c8aca7c3582d3a493b15965c5",
