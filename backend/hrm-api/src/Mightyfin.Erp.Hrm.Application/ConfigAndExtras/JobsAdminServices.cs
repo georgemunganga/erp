@@ -188,7 +188,7 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
 
     private static void EnsureAdminAccessRemains(IEnumerable<TenantRoleAssignment> rows)
     {
-        if (!rows.Any(r => r.Active && ParseCsv(r.PermissionsCsv).DefaultIfEmpty(r.RoleKey).Any(p => p.Equals("hr_admin", StringComparison.OrdinalIgnoreCase))))
+        if (!rows.Any(r => r.Active && !r.IsArchived && ParseCsv(r.PermissionsCsv).DefaultIfEmpty(r.RoleKey).Any(p => p.Equals("hr_admin", StringComparison.OrdinalIgnoreCase))))
             throw new DomainException("last-admin-role", "At least one active role must grant HRMS administration.");
     }
 

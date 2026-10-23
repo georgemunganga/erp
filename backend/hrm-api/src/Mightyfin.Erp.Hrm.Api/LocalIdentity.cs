@@ -154,13 +154,16 @@ internal static class LocalIdentityRoutes
     {
         var assigned = ParseRoles(csv);
         if (assigned.Length == 0) return [];
-        var configured = await db.TenantRoleAssignments.Where(r => r.Active).ToListAsync(ct);
+        // Legacy CSV roles are valid only before this tenant has any role master.
+        // An inactive or archived configured role must never revive CSV authority.
+        var configured = await db.TenantRoleAssignments.AsNoTracking().ToListAsync(ct);
         if (configured.Count == 0)
             return assigned.Where(r => HrmStaffAccess.Roles.Contains(r, StringComparer.OrdinalIgnoreCase)).ToArray();
         var grants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var role in assigned)
         {
-            var row = configured.FirstOrDefault(r => r.RoleKey.Equals(role, StringComparison.OrdinalIgnoreCase));
+            var row = configured.FirstOrDefault(r => r.Active && !r.IsArchived
+                && r.RoleKey.Equals(role, StringComparison.OrdinalIgnoreCase));
             if (row is null) continue;
             grants.Add(row.RoleKey);
             var permissions = ParseRoles(row.PermissionsCsv);
@@ -174,11 +177,13 @@ internal static class LocalIdentityRoutes
     private static bool IsValidRoleKey(string key) =>
         key.Length > 0 && key.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
 
-    private static async Task<string[]> RequireAssignableRolesAsync(HrmDbContext db, IEnumerable<string>? requestedRoles, CancellationToken ct)
+    internal static async Task<string[]> RequireAssignableRolesAsync(HrmDbContext db, IEnumerable<string>? requestedRoles, CancellationToken ct)
     {
         var roles = ParseRoles(string.Join(',', requestedRoles ?? ["employee"]));
-        var active = await db.TenantRoleAssignments.Where(r => r.Active).Select(r => r.RoleKey).ToListAsync(ct);
-        var valid = active.Count == 0
+        var configured = await db.TenantRoleAssignments.AsNoTracking()
+            .Select(r => new { r.RoleKey, r.Active, r.IsArchived }).ToListAsync(ct);
+        var active = configured.Where(r => r.Active && !r.IsArchived).Select(r => r.RoleKey).ToArray();
+        var valid = configured.Count == 0
             ? roles.Where(r => HrmStaffAccess.Roles.Contains(r, StringComparer.OrdinalIgnoreCase)).ToArray()
             : roles.Where(r => active.Contains(r, StringComparer.OrdinalIgnoreCase)).ToArray();
         return valid.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
@@ -476,14 +481,16 @@ internal static class LocalIdentityRoutes
         return Guid.TryParse(raw, out var id) ? await db.LocalUsers.FirstOrDefaultAsync(x => x.Id == id && x.IsActive, ct) : null;
     }
 
-    private static async Task<bool> ActiveAdminUserRemainsAsync(HrmDbContext db, CancellationToken ct)
+    internal static async Task<bool> ActiveAdminUserRemainsAsync(HrmDbContext db, CancellationToken ct)
     {
-        var roleRows = await db.TenantRoleAssignments.Where(r => r.Active).ToListAsync(ct);
+        // Keep all tenant definitions so an intentionally disabled configuration
+        // cannot be mistaken for an unconfigured legacy tenant.
+        var roleRows = await db.TenantRoleAssignments.AsNoTracking().ToListAsync(ct);
         var activeUsers = await db.LocalUsers.Where(u => u.IsActive && !u.IsArchived).ToListAsync(ct);
         return activeUsers.Any(u => UserGrantsAdmin(u, roleRows));
     }
 
-    private static bool UserGrantsAdmin(LocalUser user, IReadOnlyCollection<TenantRoleAssignment> roleRows)
+    internal static bool UserGrantsAdmin(LocalUser user, IReadOnlyCollection<TenantRoleAssignment> roleRows)
     {
         var assigned = ParseRoles(user.RolesCsv);
         if (assigned.Length == 0) return false;
@@ -491,7 +498,8 @@ internal static class LocalIdentityRoutes
             return assigned.Any(role => role is "hr_admin" or "erp_admin");
         return assigned.Any(role =>
         {
-            var row = roleRows.FirstOrDefault(r => r.RoleKey.Equals(role, StringComparison.OrdinalIgnoreCase));
+            var row = roleRows.FirstOrDefault(r => r.Active && !r.IsArchived
+                && r.RoleKey.Equals(role, StringComparison.OrdinalIgnoreCase));
             if (row is null) return false;
             return ParseRoles(row.PermissionsCsv).DefaultIfEmpty(row.RoleKey)
                 .Any(permission => permission is "hr_admin" or "erp_admin");
