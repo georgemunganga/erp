@@ -65,7 +65,7 @@ public static partial class ProcurementPolicyDraftRoutes
             return Results.Ok(new { isValid = InvoiceUnitReviewPolicyRules.Validate(input.RulesJson, true).Count == 0,
                 issues = InvoiceUnitReviewPolicyRules.Validate(input.RulesJson, true), reviewIssues = InvoiceUnitReviewPolicyRules.Validate(input.RulesJson),
                 reviewConfigurationComplete = InvoiceUnitReviewPolicyRules.Validate(input.RulesJson).Count == 0, canPublish = false, isAuthority = false });
-        var issues = InvoiceMatchingPolicyRules.IsMatchingDocument(input.RulesJson) ? InvoiceMatchingPolicyRules.Validate(input.RulesJson) : ReceivingPolicyRules.IsReceivingDocument(input.RulesJson) ? ReceivingPolicyRules.Validate(input.RulesJson) : PolicyRuleValidator.Validate(input.RulesJson);
+        var issues = InvoiceMatchingPolicyRules.IsMatchingDocument(input.RulesJson) ? InvoiceMatchingPolicyRules.Validate(input.RulesJson) : ReceivingPolicyRules.IsReceivingDocument(input.RulesJson) ? (PrincipalReceivingPolicyRules.IsDocument(input.RulesJson)?PrincipalReceivingPolicyRules.Validate(input.RulesJson):ReceivingPolicyRules.Validate(input.RulesJson)) : PolicyRuleValidator.Validate(input.RulesJson);
         return Results.Ok(new { isValid = issues.Count == 0, issues });
     }
 
@@ -76,7 +76,7 @@ public static partial class ProcurementPolicyDraftRoutes
             .Select(message => new PolicyRuleIssue("stages", message)).ToArray(),
         SourcingPublicationPolicyRules.PolicyKey => SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson),
         InvoiceMatchingPolicyRules.PolicyKey => InvoiceMatchingPolicyRules.Validate(policy.RulesJson),
-        "RECEIVING" => ReceivingPolicyRules.Validate(policy.RulesJson),
+        "RECEIVING" => (PrincipalReceivingPolicyRules.IsDocument(policy.RulesJson)?PrincipalReceivingPolicyRules.Validate(policy.RulesJson):ReceivingPolicyRules.Validate(policy.RulesJson)),
         _ => PolicyRulePreview.AnalyzeCoverage(policy.RulesJson),
     };
 
@@ -90,7 +90,7 @@ public static partial class ProcurementPolicyDraftRoutes
         if (policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
             status = "InvoiceUnitReviewRequiresOriginalDocumentAndNamedIndependentCase", issues = InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == "RECEIVING") return Results.Ok(new { policyId = policy.Id, isAuthority = false,
-            status = "ReceivingPreviewRequiresSealedSource", issues = ReceivingPolicyRules.Validate(policy.RulesJson) });
+            status = "ReceivingPreviewRequiresSealedSource", issues = (PrincipalReceivingPolicyRules.IsDocument(policy.RulesJson)?PrincipalReceivingPolicyRules.Validate(policy.RulesJson):ReceivingPolicyRules.Validate(policy.RulesJson)) });
         if (policy.PolicyKey == InvoiceMatchingPolicyRules.PolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
             status = "InvoiceMatchingPreviewRequiresSourceAndOwnerEvidence", issues = InvoiceMatchingPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)

@@ -75,7 +75,10 @@ public static class PrincipalReceivingStorageCodec
                     inspections.Add(inspected);break;
                 case "Acceptance":
                     var accepted=Decode<PrincipalReceivingAcceptance>(row.PayloadJson,row.PayloadSha256);
-                    Bind(row,accepted.Id,accepted.AcceptanceRecordId,accepted.Source,accepted.Sequence,accepted.CommandKey,accepted.Actor,accepted.PolicyVersionId,accepted.Quantity,accepted.NetAmount,source);
+                    var acceptedDraft=accepted.ObservationId is {} observedId
+                        ?observations.SingleOrDefault(x=>x.Id==observedId)?.ReceiptId??throw new InvalidOperationException("PrincipalReceivingObservationRequired")
+                        :accepted.AcceptanceRecordId;
+                    Bind(row,accepted.Id,acceptedDraft,accepted.Source,accepted.Sequence,accepted.CommandKey,accepted.Actor,accepted.PolicyVersionId,accepted.Quantity,accepted.NetAmount,source);
                     acceptances.Add(accepted);break;
                 default:throw new InvalidOperationException("PrincipalReceivingFactKindInvalid");
             }

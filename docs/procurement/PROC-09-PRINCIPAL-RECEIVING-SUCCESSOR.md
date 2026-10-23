@@ -118,7 +118,7 @@ The bounded positive workflow is technically authorized for source implementatio
 
 `ab1210f` defines this delta; ordinary merges retain PO release/issued proof through `d0db773`. `26ec8e1` adds typed version2 source/facts, optional-worker current Core projection, strict principal-named schema2 policy and pure positive decisions. The next source slice adds multi-line goods/service owned draft revisions, explicit Record versus Accept separation and cancellation reason retained separately from notes. Create ignores supplied draft line IDs and generates server IDs (existing create semantics); revise preserves stored line/source identity, never chooses by a display name. Changes to a known source pin cannot be disguised by omitting its line ID.
 
-Current source has no EF tables, migration, registered routes, provider or capability activation for this successor. Pure policy projection is NOT independent publication proof; actual current Core publication lineage and alias revalidation must precede future new effects. Complete retained policy/history projection is required for balance reconstruction; old superseded publication may explain an old fact without authorizing a new one. Tests authored in these slices are synthetic pure evidence, not executed/HTTP/PostgreSQL acceptance. Durable receipts, persistence guard/mapping, real policy lifecycle/lookups, source-query fence, actual versioned endpoints/recovery and handoff plumbing remain explicit next increments before this workflow can run.
+At the initial pure-source checkpoint there were no EF tables, migration, registered routes, provider or capability activation for this successor. Later source checkpoints below supersede that implementation inventory; no runtime activation is implied. Pure policy projection is NOT independent publication proof; actual current Core publication lineage and alias revalidation must precede future new effects. Complete retained policy/history projection is required for balance reconstruction; old superseded publication may explain an old fact without authorizing a new one. Tests authored in these slices are synthetic pure evidence, not executed/HTTP/PostgreSQL acceptance. Durable receipts, persistence guard/mapping, real policy lifecycle/lookups, source-query fence, actual versioned endpoints/recovery and handoff plumbing remain explicit next increments before this workflow can run.
 
 ### Owned persistence source checkpoint (not schema/runtime acceptance)
 
@@ -161,3 +161,60 @@ checkpoint. Before central generation the exact source/draft/fact ownership
 indexes and any manual deferred ownership overlay must be reviewed, followed by
 actual PostgreSQL constraint/round-trip/concurrency/recovery tests. Existing
 capabilities remain unchanged; successor readiness remains unavailable.
+
+
+### Guarded application adapter checkpoint (source only)
+
+The successor now authors concrete handlers reusing the existing goods/service
+request DTOs under explicit versioned successor paths:
+
+- `POST /receipts/principal-drafts`, `PUT/GET /receipts/{id}/principal-draft`,
+  `POST /receipts/{id}/principal-cancel`, `POST /receipts/{id}/principal-record`.
+- `POST /receipts/{id}/lines/{lineId}/principal-inspect` and
+  `POST /receipts/{id}/lines/{lineId}/principal-accept`.
+- `POST /service-acceptances/principal-drafts`,
+  `PUT/GET /service-acceptances/{id}/principal-draft`,
+  `POST /service-acceptances/{id}/principal-cancel` and `principal-certify`.
+- `GET /receiving/principal-command-receipts/{operation}/{key}`.
+
+All paths are relative to `/api/procurement/v1`. They are authorable adapters,
+**not registered host endpoints**. `ProcurementPrincipalReceivingOptions.Enabled`
+and `ExecutionDatabaseConfigured` default false. The only supplied readiness
+implementation always returns false; missing DI never creates a provider or
+assumes readiness. Genuine owner-context schema and finite role proof must be
+implemented and centrally accepted before host registration or a capability.
+
+New effects run inside the existing `ProcurementApprovalTransaction` and enlisted
+Core context. Core remains the current account/role/site authority; no HR employee
+is required. The shared retained-issued2 loader locks original requests before the
+PO and rechecks the exact retained commercial graph. Supplier manual acknowledgment
+is only a response witness. Goods recording still requires actual observed date,
+physical quantity, delivery-note reference and approved evidence reference.
+Current policy selection requires an effective published RECEIVING policy and the
+actual owned publication lineage. Named assignments are explicit Core principals.
+Denial-only worker aliases and current rebind checks supplement principal-based
+maker/checker separation. Replaying a stored command reauthorizes its original
+actor/action/branch before returning original bytes, ahead of current business
+eligibility. GET recovery performs no source creation or eligibility mutation.
+
+The existing policy configuration lifecycle now recognizes strict schema2
+Receiving documents alongside unchanged schema1 documents. Its company checks
+use Core currency, current sites and canonical named accounts; no employee master,
+new policy engine or default inspection/acceptance authority is created. Parser,
+validation and preview remain non-authoritative; publication still uses the
+existing independent owned policy lifecycle. The successor current selector never
+falls back to an older/unproven policy when the current policy fails verification.
+Historical stored facts use retained publication evidence and original event-time
+rules, without requiring former signers' present employment or permissions.
+
+All exposed amounts use exact plain-decimal strings. Goods acceptance targets the
+original receipt **line** while its relational fact/receipt owner is the real
+receipt **head**; these identities are separately checked. The storage regression
+covers this distinction. Three additional mapped closed-gate cases prove missing
+or default configuration prevents entry into a transaction and ordinary employee
+sessions acquire no receiving/inspection action. These are authored, unrun tests;
+they do not substitute for positive mapped/PG/CAS/recovery/constraint acceptance.
+Discovery/worklists, purpose-limited assigned views, manual exact relational
+ownership overlays, full-save positive fixtures and actual schema readiness remain
+explicit next gates. No new UI, inventory, assets, Finance ledger, invoice matching
+eligibility, returns or negative correction effects are activated.

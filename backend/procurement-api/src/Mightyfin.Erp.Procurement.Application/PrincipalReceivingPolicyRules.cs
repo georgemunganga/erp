@@ -17,6 +17,19 @@ public sealed record PrincipalReceivingPolicy(PolicyVersion Record,PrincipalRece
 /// the owned publication lineage before creating new effects. No legacy worker-ID conversion.</summary>
 public static class PrincipalReceivingPolicyRules
 {
+    public static bool IsDocument(string? json)
+    {
+        try{using var document=JsonDocument.Parse(json??"");return document.RootElement.TryGetProperty("schemaVersion",out var version)
+            &&version.ValueKind==JsonValueKind.Number&&version.TryGetInt32(out var schema)&&schema==2
+            &&document.RootElement.TryGetProperty("transactionType",out var type)&&type.ValueKind==JsonValueKind.String&&type.GetString()=="Receiving";}
+        catch(Exception error) when(error is JsonException or InvalidOperationException){return false;}
+    }
+    public static IReadOnlyList<PolicyRuleIssue> Validate(string? json)
+    {
+        try{_=Parse(json!);return [];}
+        catch(Exception error) when(error is InvalidOperationException or JsonException or KeyNotFoundException or FormatException or OverflowException)
+        {return [new("$","Choose explicit sites, named Core accounts and receiving controls. "+error.Message)];}
+    }
     public static PrincipalReceivingPolicyDocument Parse(string json)
     {
         Need(!string.IsNullOrWhiteSpace(json)&&Encoding.UTF8.GetByteCount(json)<=65536,"PrincipalReceivingRulesRequired");

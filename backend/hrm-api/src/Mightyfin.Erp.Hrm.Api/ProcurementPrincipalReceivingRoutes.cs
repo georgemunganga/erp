@@ -1,0 +1,185 @@
+using System.Globalization;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Core.Approvals.Infrastructure;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
+
+namespace Mightyfin.Erp.Hrm.Api;
+
+/// <summary>Successor adapters over imported receiving DTOs. Not registered by the
+/// production host: owned schema/readiness and real finite-runtime proof are pending.</summary>
+public static partial class ProcurementPrincipalReceivingRoutes
+{
+    private static readonly JsonSerializerOptions Json=new(JsonSerializerDefaults.Web);
+    private sealed record Reply(int Status,string Body);
+    private sealed class Problem(string code,int status):Exception(code){internal int Status=>status;}
+    public static void MapRoutes(WebApplication app)
+    {
+        var group=app.MapGroup("/api/procurement/v1");
+        group.MapPost("/receipts/principal-drafts",CreateGoods).RequireAuthorization("procurement-receipt-create");
+        group.MapPut("/receipts/{id:guid}/principal-draft",ReviseGoods).RequireAuthorization("procurement-receipt-edit");
+        group.MapGet("/receipts/{id:guid}/principal-draft",GoodsDetail).RequireAuthorization("procurement-receipt-view");
+        group.MapPost("/receipts/{id:guid}/principal-cancel",CancelGoods).RequireAuthorization("procurement-receipt-edit");
+        group.MapPost("/receipts/{id:guid}/principal-record",Record).RequireAuthorization(ControlledReceiving.RecordPermission);
+        group.MapPost("/receipts/{id:guid}/lines/{lineId:guid}/principal-inspect",Inspect).RequireAuthorization(ControlledReceiving.InspectPermission);
+        group.MapPost("/receipts/{id:guid}/lines/{lineId:guid}/principal-accept",Accept).RequireAuthorization(ControlledReceiving.AcceptPermission);
+        group.MapPost("/service-acceptances/principal-drafts",CreateService).RequireAuthorization("procurement-receipt-create");
+        group.MapPut("/service-acceptances/{id:guid}/principal-draft",ReviseService).RequireAuthorization("procurement-receipt-edit");
+        group.MapGet("/service-acceptances/{id:guid}/principal-draft",ServiceDetail).RequireAuthorization("procurement-receipt-view");
+        group.MapPost("/service-acceptances/{id:guid}/principal-cancel",CancelService).RequireAuthorization("procurement-receipt-edit");
+        group.MapPost("/service-acceptances/{id:guid}/principal-certify",Certify).RequireAuthorization(ControlledReceiving.CertifyPermission);
+        group.MapGet("/receiving/principal-command-receipts/{operation}/{key:guid}",Recover).RequireAuthorization("procurement-access");
+    }
+    private static async Task<IResult> Run(HttpContext http,ProcurementRequestScope scope,string action,
+        Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,PrincipalReceivingActor,CancellationToken,Task<Reply>> operation,CancellationToken ct)
+    {
+        http.Response.Headers.CacheControl="private, no-store";
+        try
+        {
+            var options=http.RequestServices.GetService<ProcurementPrincipalReceivingOptions>();
+            var ready=http.RequestServices.GetService<IProcurementPrincipalReceivingReadiness>();
+            if(options is not{Enabled:true,ExecutionDatabaseConfigured:true} || ready is null)
+                throw new Problem("PrincipalReceivingUnavailable",503);
+            var result=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async(db,cases,token)=>
+            {
+                if(!await ready.IsReadyAsync(db,!HttpMethods.IsGet(http.Request.Method),token))throw new Problem("PrincipalReceivingUnavailable",503);
+                await using var core=await ProcurementApprovalExecutionLocks.CoreAsync(db,scope,token);
+                var actor=await ProcurementPrincipalReceivingActor.CurrentAsync(core,scope,http,
+                    http.RequestServices.GetRequiredService<IAuthorizationService>(),action,token);
+                return await operation(db,cases,core,actor,token);
+            },ct);
+            return Results.Content(result.Body,"application/json",statusCode:result.Status);
+        }
+        catch(OperationalPolicyPublicationProblem error){return Error(error.Code,error.Status);}
+        catch(Exception error) when(error is Problem or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException
+            or ArgumentException or JsonException or DbUpdateException or OverflowException || ProcurementPostgresFailures.IsStoreFailure(error))
+        {
+            var status=error is Problem problem?problem.Status:ProcurementPostgresFailures.IsConcurrency(error)?409:
+                ProcurementPostgresFailures.IsStoreFailure(error)?503:error is UnauthorizedAccessException?403:409;
+            return Error(error is Problem?error.Message:status==503?"PrincipalReceivingSaveUnconfirmed":"PrincipalReceivingNeedsReview",status);
+        }
+    }
+    private static IResult Error(string code,int status)=>Results.Json(new{code,message=status==503?
+        "Receiving is unavailable or this save could not be confirmed. Keep the command reference and check again.":
+        "Refresh this record and check your access, source versions and remaining quantities."},statusCode:status);
+    private static Guid Key(HttpContext http)=>Guid.TryParse(http.Request.Headers["Idempotency-Key"],out var key)&&key!=Guid.Empty?key:throw new Problem("ReceivingCommandKeyRequired",400);
+    private static string Fingerprint(object value)=>ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(value,Json));
+    private static string Exact(decimal value)=>value.ToString("0.############################",CultureInfo.InvariantCulture);
+    private static decimal Quantity(string value)
+    {
+        try{var parsed=ExactDecimalJsonCodec.Parse(value,18,4,"ReceivingQuantity");return parsed>=0?parsed:throw new Problem("ReceivingQuantityInvalid",422);}
+        catch(JsonException){throw new Problem("ReceivingQuantityInvalid",422);}
+    }
+    private static void Version(PrincipalReceivingDraftHead head,long expected){if(head.Revision!=expected)throw new Problem("PrincipalReceivingDraftChanged",409);}
+    private static string Action(string operation)=>operation switch
+    {"Create"=>"procurement-receipt-create","Revise" or "Cancel"=>"procurement-receipt-edit","Record"=>ControlledReceiving.RecordPermission,
+        "Inspect"=>ControlledReceiving.InspectPermission,"Accept"=>ControlledReceiving.AcceptPermission,"Certify"=>ControlledReceiving.CertifyPermission,
+        _=>throw new Problem("ReceivingCommandNotFound",404)};
+    private static async Task<PrincipalReceivingDraftHead> Head(ProcurementDbContext db,PrincipalReceivingActor actor,Guid id,string kind,bool owner,CancellationToken ct)
+    {
+        var branches=actor.AllowedBranches.ToArray();
+        var head=await db.PrincipalReceivingDraftHeads.SingleOrDefaultAsync(x=>x.Id==id&&x.Kind==kind&&branches.Contains(x.BranchId),ct)
+            ??throw new Problem("ReceivingNotFound",404);
+        if(owner&&head.CreatorPrincipalId!=actor.PrincipalId)throw new Problem("ReceivingNotFound",404);
+        await db.PrincipalReceivingDraftRevisions.Where(x=>x.DraftId==id&&x.Revision==head.Revision).LoadAsync(ct);
+        var revision=db.PrincipalReceivingDraftRevisions.Local.Single(x=>x.DraftId==id&&x.Revision==head.Revision);
+        _=PrincipalReceivingDraftSnapshot.Validate(head,revision);return head;
+    }
+    private static PrincipalReceivingDraftRevision Revision(ProcurementDbContext db,PrincipalReceivingDraftHead head)
+        =>db.PrincipalReceivingDraftRevisions.Local.Single(x=>x.DraftId==head.Id&&x.Revision==head.Revision);
+    private static async Task<Reply?> Replay(ProcurementDbContext db,PrincipalReceivingActor actor,string operation,Guid key,string? fingerprint,CancellationToken ct)
+    {
+        var receipt=await new PrincipalReceivingStore(db).RecoverAsync(key,actor.PrincipalId,operation,fingerprint,ct);
+        if(receipt is null)return null;
+        var branches=actor.AllowedBranches.ToArray();
+        var head=await db.PrincipalReceivingDraftHeads.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==receipt.DraftId
+            &&branches.Contains(x.BranchId)&&x.BranchId==receipt.BranchId,ct)??throw new Problem("ReceivingCommandNotFound",404);
+        if(operation is "Create" or "Revise" or "Cancel" or "Record"&&head.CreatorPrincipalId!=actor.PrincipalId)
+            throw new Problem("ReceivingCommandNotFound",404);
+        return new(receipt.ResponseStatus,receipt.ResponseJson);
+    }
+    private static async Task<(PrincipalReceivingSourceState State,PrincipalReceivingLedger Ledger)> StoredSource(ProcurementDbContext db,
+        ApprovalDbContext cases,ProcurementRequestScope scope,PrincipalReceivingActor actor,PrincipalReceivingSource source,bool locks,CancellationToken ct)
+    {
+        var retained=await ProcurementPrincipalOrderRetainedIssued.LoadAsync(db,cases,scope,actor.AllowedBranches,
+            source.Commercial.PurchaseOrderId,source.Commercial.IssuedVersionId,source.Commercial.PurchaseOrderLineId,locks,ct);
+        // Reconstruct original pins using retained classification/kind, without current
+        // policy/catalog lookup. The full owning verifier already proves issued history.
+        if(ProcurementPrincipalReceivingSource.ProjectRetained(retained,source.Commercial.Kind)!=source)throw new Problem("PrincipalReceivingOriginalSourceChanged",409);
+        if(!await db.PrincipalReceivingSourceStates.AnyAsync(x=>x.IssuedVersionId==source.Commercial.IssuedVersionId
+            &&x.PurchaseOrderLineId==source.Commercial.PurchaseOrderLineId,ct))throw new Problem("PrincipalReceivingHistoryUnknown",409);
+        var store=new PrincipalReceivingStore(db);var state=await store.SourceAsync(source,ct);var ledger=await store.LedgerAsync(state,ct);
+        foreach(var policy in ledger.RetainedPolicies)
+            _=await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,scope,policy,ct,OperationalPolicyPublicationMode.RetainedHistorical);
+        return(state,ledger);
+    }
+    private static async Task<PrincipalReceivingSource> NewSource(ProcurementDbContext db,ApprovalDbContext cases,
+        ProcurementRequestScope scope,HttpContext http,PrincipalReceivingActor actor,Guid order,Guid issued,Guid line,CancellationToken ct)
+    {
+        var retained=await ProcurementPrincipalOrderRetainedIssued.LoadAsync(db,cases,scope,actor.AllowedBranches,order,issued,line,true,ct);
+        var selected=retained.SelectedLine??throw new Problem("PrincipalReceivingLineRequired",422);
+        var rule=await ProcurementPrincipalReceivingPolicy.RuleForNewSourceAsync(db,scope,http.RequestServices,
+            selected.OriginalCategoryCode??"",selected.OriginalPurchaseType??"",retained.Order.BranchRef!.Value,ct);
+        var source=ProcurementPrincipalReceivingSource.Project(retained,rule);
+        _=await ProcurementPrincipalReceivingPolicy.CurrentAsync(db,scope,http.RequestServices,source,ct);
+        return source;
+    }
+    private static Reply Complete(ProcurementDbContext db,PrincipalReceivingDraftHead head,string operation,Guid key,string actor,string hash,int status=200)
+    {
+        var body=JsonSerializer.Serialize(View(db,head),Json);new PrincipalReceivingStore(db).Complete(head,operation,key,actor,hash,body,status);
+        // Every handoff is explicitly Procurement-owned. No ledger, stock or Finance posting.
+        db.AddScoped(new OutboxEvent{AggregateType="PrincipalReceiving",AggregateId=head.Id,
+            EventType=operation is "Accept" or "Certify"?"procurement.fulfilment.accepted.v2":"procurement.receiving.changed.v2",
+            IdempotencyKey=$"receiving.principal.{key:N}.v2",PayloadJson=JsonSerializer.Serialize(new{head.Id,operation,commandKey=key,
+                revision=head.Revision,financePostingPerformed=false,stockPostingPerformed=false},Json)});
+        return new(status,body);
+    }
+    private static object View(ProcurementDbContext db,PrincipalReceivingDraftHead head)
+    {
+        var revision=Revision(db,head);
+        var sources=PrincipalReceivingDraftSnapshot.Sources(head.Kind,revision);
+        return new{id=head.Id,version=head.Revision,executionVersion=2,status=head.State,kind=head.Kind,
+            purchaseOrderId=head.PurchaseOrderId,issuedVersionId=head.IssuedVersionId,siteId=head.BranchId,
+            draft=DraftView(head,revision),
+            sources=sources.Select(source=>new{purchaseOrderLineId=source.Commercial.PurchaseOrderLineId,
+                sourceVersion=db.PrincipalReceivingSourceStates.Local.SingleOrDefault(x=>x.IssuedVersionId==source.Commercial.IssuedVersionId&&x.PurchaseOrderLineId==source.Commercial.PurchaseOrderLineId)?.Sequence,
+                authorizedQuantity=Exact(source.Commercial.AuthorizedQuantity),netUnitPrice=Exact(source.Commercial.NetUnitPrice)}),
+            matchingAuthorityAvailable=false,correctionsAvailable=false};
+    }
+    private static object DraftView(PrincipalReceivingDraftHead head,PrincipalReceivingDraftRevision revision)
+    {
+        if(head.Kind=="Goods")
+        {
+            var draft=PrincipalReceivingDraftSnapshot.Goods(revision);
+            return new{draft.Id,version=draft.Version,status=draft.State,draft.PurchaseOrderId,draft.IssuedVersionId,draft.SiteId,
+                receivedAt=draft.ObservedAt,deliveryNoteRef=draft.DeliveryNoteReference,draft.Notes,draft.CancellationReason,
+                lines=draft.Lines.Select(line=>new{line.Id,purchaseOrderLineId=line.Source.Commercial.PurchaseOrderLineId,
+                    receivedQuantity=Exact(line.Quantity),rejectedQuantity=Exact(line.RejectedQuantity)})};
+        }
+        var service=PrincipalReceivingDraftSnapshot.Service(revision);
+        return new{service.Id,version=service.Version,status=service.State,purchaseOrderId=service.Source.Commercial.PurchaseOrderId,
+            issuedVersionId=service.Source.Commercial.IssuedVersionId,purchaseOrderLineId=service.Source.Commercial.PurchaseOrderLineId,
+            service.DeliverableReference,service.PeriodFrom,service.PeriodTo,quantity=Exact(service.Quantity),service.Notes,service.CancellationReason};
+    }
+    private static Task<IResult> Recover(string operation,Guid key,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
+        =>Run(http,scope,Action(operation),async(db,_,_,actor,token)=>await Replay(db,actor,operation,key,null,token)??throw new Problem("ReceivingCommandNotFound",404),ct);
+}
+
+public sealed class ProcurementPrincipalReceivingOptions
+{
+    public bool Enabled{get;set;}
+    public bool ExecutionDatabaseConfigured{get;set;}
+}
+public interface IProcurementPrincipalReceivingReadiness
+{
+    Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct);
+}
+public sealed class UnavailableProcurementPrincipalReceivingReadiness:IProcurementPrincipalReceivingReadiness
+{
+    public Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct)=>Task.FromResult(false);
+}

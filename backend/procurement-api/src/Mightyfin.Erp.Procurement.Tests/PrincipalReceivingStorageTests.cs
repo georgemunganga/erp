@@ -100,3 +100,22 @@ public sealed class PrincipalReceivingPersistenceModelTests
         Assert.Throws<InvalidOperationException>(()=>db.AddScoped(source));Assert.Empty(db.ChangeTracker.Entries<PrincipalReceivingSourceState>());
     }
 }
+
+public sealed partial class PrincipalControlledReceivingTests
+{
+    [Fact]
+    public void Goods_acceptance_binds_its_receipt_head_while_retaining_the_original_line_target()
+    {
+        var source=Source();var policy=Policy(source,false);var ledger=Recorded(source,policy);
+        var observation=ledger.Observations.Single();var accepted=PrincipalControlledReceiving.AcceptGoods(ledger,policy,Actor(Inspector),observation.Id,Guid.NewGuid(),1,0.0001m,"REC:exact-line",At);
+        var state=State(source,2,accepted.Quantity,accepted.NetAmount);
+        PrincipalReceivingFact Row(Guid id,string kind,object fact,long sequence,Guid key,string principal,Guid draft,decimal quantity,decimal net)
+        {var json=System.Text.Json.JsonSerializer.Serialize(fact,fact.GetType());return new(){Id=id,TenantId=state.TenantId,LegalEntityId=state.LegalEntityId,
+            SourceStateId=state.Id,DraftId=draft,BranchId=state.BranchId,Kind=kind,Sequence=sequence,CommandKey=key,ActorPrincipalId=principal,
+            PolicyVersionId=policy.Id,Quantity=quantity,NetAmount=net,PayloadJson=json,PayloadSha256=ProcurementEvidenceEncoding.Digest(json)};}
+        var observedRow=Row(observation.Id,"Observation",observation,1,observation.CommandKey,observation.Receiver.PrincipalId,observation.ReceiptId,observation.ReceivedQuantity,0);
+        var acceptedRow=Row(accepted.Id,"Acceptance",accepted,2,accepted.CommandKey,accepted.Actor.PrincipalId,observation.ReceiptId,accepted.Quantity,accepted.NetAmount);
+        var recovered=PrincipalReceivingStorageCodec.Ledger(state,[observedRow,acceptedRow],[policy]);
+        Assert.Equal(observation.ReceiptLineId,recovered.Acceptances.Single().AcceptanceRecordId);Assert.NotEqual(observation.ReceiptId,accepted.AcceptanceRecordId);
+    }
+}

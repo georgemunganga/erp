@@ -98,8 +98,8 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
         =>Append(state,fact.Id,fact.ReceiptId,"Observation",fact.Sequence,fact.CommandKey,fact.Receiver,fact.PolicyVersionId,fact.ReceivedQuantity,0,PrincipalReceivingStorageCodec.Encode(fact));
     public void Append(PrincipalReceivingSourceState state,Guid draftId,PrincipalGoodsInspection fact)
         =>Append(state,fact.Id,draftId,"Inspection",fact.Sequence,fact.CommandKey,fact.Inspector,fact.PolicyVersionId,fact.QualifiedQuantity,0,PrincipalReceivingStorageCodec.Encode(fact));
-    public void Append(PrincipalReceivingSourceState state,PrincipalReceivingAcceptance fact)
-        =>Append(state,fact.Id,fact.AcceptanceRecordId,"Acceptance",fact.Sequence,fact.CommandKey,fact.Actor,fact.PolicyVersionId,fact.Quantity,fact.NetAmount,PrincipalReceivingStorageCodec.Encode(fact));
+    public void Append(PrincipalReceivingSourceState state,Guid draftId,PrincipalReceivingAcceptance fact)
+        =>Append(state,fact.Id,draftId,"Acceptance",fact.Sequence,fact.CommandKey,fact.Actor,fact.PolicyVersionId,fact.Quantity,fact.NetAmount,PrincipalReceivingStorageCodec.Encode(fact));
     private void Append(PrincipalReceivingSourceState state,Guid id,Guid draft,string kind,long sequence,Guid key,
         PrincipalReceivingPerson actor,Guid policy,decimal quantity,decimal amount,string json)
     {

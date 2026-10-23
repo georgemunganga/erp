@@ -95,7 +95,7 @@ public sealed partial class ProcurementDbContext
             var added=addedFacts.Where(x=>x.SourceStateId==state.Id).ToArray();
             if(state.Sequence!=checked(previous+added.Length) || entry.State==EntityState.Modified&&added.Length==0)
                 throw new InvalidOperationException("PrincipalReceivingSourceAdvanceRequiresFacts");
-            if(entry.State==EntityState.Added && !ChangeTracker.Entries<PrincipalReceivingDraftHead>().Any(x=>x.State==EntityState.Added
+            if(entry.State==EntityState.Added && !ChangeTracker.Entries<PrincipalReceivingDraftHead>().Any(x=>x.State is EntityState.Added or EntityState.Modified
                 &&x.Entity.PurchaseOrderId==state.PurchaseOrderId&&x.Entity.IssuedVersionId==state.IssuedVersionId))
                 throw new InvalidOperationException("PrincipalReceivingNewSourceDraftRequired");
             // API verifies full retained Core/source evidence; normalized parents must
