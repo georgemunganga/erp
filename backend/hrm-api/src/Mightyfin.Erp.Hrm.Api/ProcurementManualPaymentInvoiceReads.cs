@@ -12,7 +12,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementManualPaymentRoutes
 {
     private sealed record PaymentInvoiceLabel(Guid InvoiceId, Guid SupplierId, Guid? BranchId,
-        string InvoiceNumber, string SupplierDisplayName);
+        string InvoiceNumber, string SupplierDisplayName, string CurrencyCode,
+        decimal GrossAmount, DateOnly InvoiceDate);
 
     // A small, purpose-specific label. Payment readers do not need the wider supplier
     // profile or invoice detail permissions to understand their own payment records.
@@ -30,10 +31,12 @@ public static partial class ProcurementManualPaymentRoutes
                 && supplier.TenantId == scope.TenantId && supplier.LegalEntityId == scope.LegalEntityId
                 && ids.Contains(invoice.Id)
             select new PaymentInvoiceLabel(invoice.Id, supplier.Id, invoice.BranchRef,
-                invoice.InvoiceNumber, supplier.DisplayName)).ToArrayAsync(ct);
+                invoice.InvoiceNumber, supplier.DisplayName, invoice.CurrencyCode,
+                invoice.GrossAmount, invoice.InvoiceDate)).ToArrayAsync(ct);
         var byId = labels.ToDictionary(x => x.InvoiceId);
         if (byId.Count != ids.Length || requests.Any(x => !byId.TryGetValue(x.SupplierInvoiceId, out var label)
-            || label.BranchId != x.BranchId || label.SupplierId != x.SupplierId))
+            || label.BranchId != x.BranchId || label.SupplierId != x.SupplierId
+            || label.CurrencyCode != x.CurrencyCode))
             throw new ReadProblem("ManualPaymentInvoiceLabelUnavailable", 503);
         return byId;
     }

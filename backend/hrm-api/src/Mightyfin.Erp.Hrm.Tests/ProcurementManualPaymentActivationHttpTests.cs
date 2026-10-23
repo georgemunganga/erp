@@ -63,6 +63,7 @@ public sealed class ProcurementManualPaymentActivationHttpTests
             (HttpMethod.Get, $"/api/procurement/v1/manual-payments/commands/{key}"),
             (HttpMethod.Get, $"/api/procurement/v1/manual-payments/lookups/assignees?role=approve&branchId={id}"),
             (HttpMethod.Get, $"/api/procurement/v1/manual-payments/lookups/invoices?branchId={id}"),
+            (HttpMethod.Get, "/api/procurement/v1/manual-payments/lookups/branches"),
             (HttpMethod.Post, "/api/procurement/v1/manual-payments"),
             (HttpMethod.Put, $"/api/procurement/v1/manual-payments/{id}"),
             (HttpMethod.Post, $"/api/procurement/v1/manual-payments/{id}/submit") })

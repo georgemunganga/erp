@@ -24,6 +24,7 @@ public static partial class ProcurementManualPaymentRoutes
         group.MapGet("", List).RequireAuthorization("procurement-payment-read");
         group.MapGet("/lookups/assignees", AssigneeLookup).RequireAuthorization("procurement-payment-read");
         group.MapGet("/lookups/invoices", InvoiceLookup).RequireAuthorization("procurement-payment-read");
+        group.MapGet("/lookups/branches", BranchLookup).RequireAuthorization("procurement-payment-read");
         group.MapGet("/commands/{key:guid}", ReceiptByKey).RequireAuthorization("procurement-payment-read");
         group.MapGet("/{id:guid}", Detail).RequireAuthorization("procurement-payment-read");
         group.MapGet("/{id:guid}/commands/{key:guid}", Receipt).RequireAuthorization("procurement-payment-read");
@@ -208,7 +209,11 @@ public static partial class ProcurementManualPaymentRoutes
                     coreAction = coreDecisionById[x.CoreApprovalDecisionId].Action }).ToArray(),
                 people,
                 companyClock = new { date = observedClock.Date, timeZoneId = observedClock.TimeZoneId,
-                    observedAtUtc = observedClock.ObservedAtUtc }
+                    observedAtUtc = observedClock.ObservedAtUtc },
+                sourceInvoice = new { invoiceId = invoiceLabel.InvoiceId, invoiceLabel.InvoiceNumber,
+                    invoiceLabel.SupplierId, displayName = invoiceLabel.SupplierDisplayName,
+                    invoiceLabel.CurrencyCode, grossExact = ProcurementEvidenceEncoding.Decimal(invoiceLabel.GrossAmount),
+                    invoiceLabel.InvoiceDate, branchId = request.BranchId }
             };
         }, ct);
 
