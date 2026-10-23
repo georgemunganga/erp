@@ -7,7 +7,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementPrincipalReceivingRoutes
 {
     private static Task<IResult> CreateService(ProcurementReceivingRoutes.ServiceDraft input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,"procurement-receipt-create",async(db,cases,_,actor,token)=>
+        =>Run(http,scope,"procurement-receipt-create",async(db,cases,unusedCore,actor,token)=>
         {
             if(input is null)throw new Problem("ReceivingInputRequired",422);
             var key=Key(http);var hash=Fingerprint(new{operation="Create",kind="Service",input});
@@ -19,7 +19,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var head=store.Stage(draft,key,actor.PrincipalId);return Complete(db,head,"Create",key,actor.PrincipalId,hash,201);
         },ct);
     private static Task<IResult> ReviseService(Guid id,ProcurementReceivingRoutes.VersionedService input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,"procurement-receipt-edit",async(db,cases,_,actor,token)=>
+        =>Run(http,scope,"procurement-receipt-edit",async(db,cases,unusedCore,actor,token)=>
         {
             if(input is null)throw new Problem("ReceivingInputRequired",422);
             var key=Key(http);var hash=Fingerprint(new{operation="Revise",id,input});
@@ -33,7 +33,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             new PrincipalReceivingStore(db).Stage(revised,key,actor.PrincipalId);return Complete(db,head,"Revise",key,actor.PrincipalId,hash);
         },ct);
     private static Task<IResult> CancelService(Guid id,ProcurementReceivingRoutes.CancelDraft input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,"procurement-receipt-edit",async(db,cases,_,actor,token)=>
+        =>Run(http,scope,"procurement-receipt-edit",async(db,cases,unusedCore,actor,token)=>
         {
             if(input is null)throw new Problem("ReceivingInputRequired",422);
             var key=Key(http);var hash=Fingerprint(new{operation="Cancel",id,input});
