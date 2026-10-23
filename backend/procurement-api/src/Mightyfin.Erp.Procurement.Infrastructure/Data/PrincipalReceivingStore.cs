@@ -41,7 +41,7 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
         // Never adopt pre-existing receiving/accepted counters as a fabricated empty
         // ledger. Reconciliation must be explicit before a first successor use.
         var line=await db.PurchaseOrderLines.SingleAsync(x=>x.Id==pin.PurchaseOrderLineId&&x.PurchaseOrderId==pin.PurchaseOrderId,ct);
-        if(line.AcceptedQuantity!=0 || await db.ReceivingSourceStates.AnyAsync(x=>x.PurchaseOrderLineId==line.Id,ct))
+        if(line.AcceptedQuantity!=0 || await HasLegacyHistoryAsync(line.Id,ct))
             throw new InvalidOperationException("PrincipalReceivingEarlierHistoryUnknown");
         var json=PrincipalReceivingStorageCodec.Encode(source);
         var state=new PrincipalReceivingSourceState{TenantId=pin.TenantId,LegalEntityId=pin.LegalEntityId,
@@ -53,7 +53,9 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
     }
     public async Task<PrincipalReceivingLedger> LedgerAsync(PrincipalReceivingSourceState state,CancellationToken ct)
     {
-        Enlisted();await db.PrincipalReceivingFacts.Where(x=>x.SourceStateId==state.Id).LoadAsync(ct);
+        Enlisted();
+        if(await HasLegacyHistoryAsync(state.PurchaseOrderLineId,ct))throw new InvalidOperationException("PrincipalReceivingEarlierHistoryUnknown");
+        await db.PrincipalReceivingFacts.Where(x=>x.SourceStateId==state.Id).LoadAsync(ct);
         var rows=db.PrincipalReceivingFacts.Local.Where(x=>x.SourceStateId==state.Id).ToArray();
         var ids=rows.Select(x=>x.PolicyVersionId).Distinct().ToArray();
         await db.PolicyVersions.Where(x=>ids.Contains(x.Id)).LoadAsync(ct);
@@ -142,6 +144,10 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
             throw new InvalidOperationException("PrincipalReceivingCommandKeyReused");
         return receipt;
     }
+    public async Task<bool> HasLegacyHistoryAsync(Guid lineId,CancellationToken ct)
+        =>await db.ReceivingSourceStates.AnyAsync(x=>x.PurchaseOrderLineId==lineId,ct)
+            ||await db.GoodsReceiptLines.AnyAsync(x=>x.PurchaseOrderLineId==lineId,ct)
+            ||await db.ServiceAcceptances.AnyAsync(x=>x.PurchaseOrderLineId==lineId,ct);
     private void Enlisted()
     {
         if(db.Database.IsRelational()&&db.Database.CurrentTransaction is null)

@@ -21,6 +21,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
     public static void MapRoutes(WebApplication app)
     {
         var group=app.MapGroup("/api/procurement/v1");
+        group.MapGet("/receiving/principal-sources",Sources).RequireAuthorization("procurement-receipt-create");
         group.MapPost("/receipts/principal-drafts",CreateGoods).RequireAuthorization("procurement-receipt-create");
         group.MapPut("/receipts/{id:guid}/principal-draft",ReviseGoods).RequireAuthorization("procurement-receipt-edit");
         group.MapGet("/receipts/{id:guid}/principal-draft",GoodsDetail).RequireAuthorization("procurement-receipt-view");
@@ -119,9 +120,9 @@ public static partial class ProcurementPrincipalReceivingRoutes
         return(state,ledger);
     }
     private static async Task<PrincipalReceivingSource> NewSource(ProcurementDbContext db,ApprovalDbContext cases,
-        ProcurementRequestScope scope,HttpContext http,PrincipalReceivingActor actor,Guid order,Guid issued,Guid line,CancellationToken ct)
+        ProcurementRequestScope scope,HttpContext http,PrincipalReceivingActor actor,Guid order,Guid issued,Guid line,CancellationToken ct,bool lockSources=true)
     {
-        var retained=await ProcurementPrincipalOrderRetainedIssued.LoadAsync(db,cases,scope,actor.AllowedBranches,order,issued,line,true,ct);
+        var retained=await ProcurementPrincipalOrderRetainedIssued.LoadAsync(db,cases,scope,actor.AllowedBranches,order,issued,line,lockSources,ct);
         var selected=retained.SelectedLine??throw new Problem("PrincipalReceivingLineRequired",422);
         var rule=await ProcurementPrincipalReceivingPolicy.RuleForNewSourceAsync(db,scope,http.RequestServices,
             selected.OriginalCategoryCode??"",selected.OriginalPurchaseType??"",retained.Order.BranchRef!.Value,ct);

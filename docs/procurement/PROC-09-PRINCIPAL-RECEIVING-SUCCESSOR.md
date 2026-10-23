@@ -218,3 +218,24 @@ Discovery/worklists, purpose-limited assigned views, manual exact relational
 ownership overlays, full-save positive fixtures and actual schema readiness remain
 explicit next gates. No new UI, inventory, assets, Finance ledger, invoice matching
 eligibility, returns or negative correction effects are activated.
+
+### Scoped source discovery checkpoint (source only)
+
+`GET /receiving/principal-sources` is an authored receipt-create-authorized
+selector, capped at 25 candidates per page. The shared P30 retained-issued query
+fences current tenant/company/explicit Core branches and retained binding branch
+agreement **before** search/count/page. Publication proof/readiness precede counts.
+Each bounded result then passes the full owning retained-issued verifier and
+explicit schema2 receiving classification; failures abort instead of returning
+unverified commercial metadata. The count is labelled scoped commercial-source
+candidates, never a promise of operational capacity. Exact original source facts
+remain hints requiring full command validation.
+
+GET never creates a source state. An absent successor state returns nullable
+balance/cursor values and a truthful history classification. Any legacy goods or
+service row (including inactive or incomplete legacy records), legacy source state
+or unexplained nonzero PO accepted counter prevents adoption as a zero ledger.
+A synthetic negative query test covers an old accepted line with no source state;
+it does not claim valid legacy business creation or PostgreSQL FK proof. Existing
+successor ledgers also reject newly encountered mixed legacy history. No provider,
+route registration, flag or database changes are part of this discovery source.

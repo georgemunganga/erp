@@ -119,3 +119,23 @@ public sealed partial class PrincipalControlledReceivingTests
         Assert.Equal(observation.ReceiptLineId,recovered.Acceptances.Single().AcceptanceRecordId);Assert.NotEqual(observation.ReceiptId,accepted.AcceptanceRecordId);
     }
 }
+
+public sealed partial class PrincipalControlledReceivingTests
+{
+    private sealed record ReceivingStoreScope(string TenantId,Guid LegalEntityId,string SubjectId):IProcurementScope
+    {public Guid? WorkLocationId=>null;public Guid? OrgUnitId=>null;public bool IsConfined=>false;public string? CorrelationId=>null;}
+    [Fact]
+    public async Task Legacy_line_without_a_source_state_is_unknown_history_never_empty_zero_capacity()
+    {
+        var source=Source();var scope=new ReceivingStoreScope(source.Commercial.TenantId,source.Commercial.LegalEntityId,Receiver);
+        await using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,scope);
+        // Deliberately incomplete legacy history. InMemory does not prove its FKs;
+        // this negative fixture checks the read boundary refuses adoption at all.
+        db.AddScoped(new GoodsReceiptLine{GoodsReceiptId=Guid.NewGuid(),PurchaseOrderLineId=source.Commercial.PurchaseOrderLineId,
+            ExecutionVersion=0,ReceivedQuantity=1,AcceptedQuantity=1});await db.SaveChangesAsync();
+        var store=new PrincipalReceivingStore(db);Assert.True(await store.HasLegacyHistoryAsync(source.Commercial.PurchaseOrderLineId,default));
+        var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>store.LedgerAsync(State(source),default));
+        Assert.Equal("PrincipalReceivingEarlierHistoryUnknown",error.Message);
+        Assert.Empty(await db.PrincipalReceivingSourceStates.ToArrayAsync());Assert.Empty(await db.PrincipalReceivingFacts.ToArrayAsync());
+    }
+}
