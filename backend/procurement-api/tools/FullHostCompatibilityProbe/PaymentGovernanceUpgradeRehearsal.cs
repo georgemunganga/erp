@@ -57,7 +57,15 @@ internal static class PaymentGovernanceUpgradeRehearsal
             phase = "ApplyProcurementP28Only";
             await procurement.Database.MigrateAsync();
             var after = await Capture(sql, existingOnly: true);
-            Require(before == after); // All previous rows/columns/checks/indexes/triggers/functions except reviewed P28 changes.
+            result["legacyRowsBeforeSha256"] = before.Rows; result["legacyRowsAfterSha256"] = after.Rows;
+            result["legacyShapeBeforeSha256"] = before.Shape; result["legacyShapeAfterSha256"] = after.Shape;
+            phase = "CompareRetainedRows"; Require(before.Rows == after.Rows);
+            phase = "CompareRetainedSchema"; Require(before.Shape == after.Shape);
+            phase = "VerifyApprovedP28Additions";
+            Require(await Scalar<long>(sql, """
+                SELECT count(*) FROM pg_constraint WHERE conrelid='procurement.manual_payment_decisions'::regclass
+                  AND conname='manual_payment_governance_bundle' AND contype='t' AND condeferrable AND condeferred
+                """) == 1);
             Require(await Scalar<long>(sql, "SELECT count(*) FROM pg_tables WHERE schemaname='procurement' AND tablename=ANY(@names)",
                 ("names", NewTables)) == 3);
             foreach (var name in NewTables)
@@ -150,7 +158,7 @@ internal static class PaymentGovernanceUpgradeRehearsal
                 AND (NOT @existing OR NOT(n.nspname='procurement' AND c.relname=ANY(@new_tables)))
                 AND (NOT @existing OR NOT(n.nspname='procurement' AND
                   (c.relname='operational_policy_identity_evidence' AND k.conname='ck_operational_policy_identity'
-                   OR c.relname='manual_payment_decisions' AND k.conname='ak_manual_payment_decision_governance')))
+                   OR c.relname='manual_payment_decisions' AND k.conname IN ('ak_manual_payment_decision_governance','manual_payment_governance_bundle'))))
               UNION ALL SELECT schemaname||'.'||tablename||':I:'||indexname||':'||indexdef
               FROM pg_indexes WHERE schemaname NOT LIKE 'pg_%' AND schemaname<>'information_schema'
                 AND (NOT @existing OR NOT(schemaname='procurement' AND tablename=ANY(@new_tables)))
