@@ -188,7 +188,6 @@
   ],
   "acceptanceScope": "Owner migration compatibility and recorded focused tests only; original failed fixture run retained, not relabelled passed",
   "remaining": [
-    "Complete five natural-checkpoint downgrade cases (not isolated SQL OR-arm proofs)",
     "Verify physical-P25 legacy worker workflow compatibility with principal mode disabled",
     "Independent final review and source merge",
     "Production owning migration/finite roles/configuration, coordinated deployment and UAT"
@@ -232,6 +231,18 @@
       "path": "/home/amizo/erp-backups/procurement-budget-ui-20261023_run01/asset-manifest-correction.json",
       "sha256": "b29f74587293967fb3575171248ca204bff7d532c5a5ac7cbb5dee5a8a910baa",
       "scope": "correctedUiAssetManifest"
+    },
+    {
+      "name": "fiveNaturalDowngradeCheckpoints",
+      "path": "/home/amizo/erp-backups/procurement-p25-row-family-downgrade-20261023_run01/summary.json",
+      "sha256": "53a3cc774359c3bc8ba8ff19c92e0477aa47697f4aaf1701e6fae5bf235af8d7",
+      "scope": "Five natural dependency checkpoints; not isolated SQL OR-arm proofs"
+    },
+    {
+      "name": "legacyCompatibilityBuild",
+      "path": "/home/amizo/erp-backups/procurement-p25-payment-combined-build-20261023_run05/result.json",
+      "sha256": "7817b3214e5b6f817e154fe4d4707237e17000d2e296b141c1f580ec03d91c3d",
+      "scope": "38 targeted host tests passed; private mapped-API compatibility remains pending"
     }
   ],
   "normalCookieApprovalBrowserPassed": true,
@@ -243,5 +254,18 @@
     "Attempt01 wrongly searched manual review queue for a request already automatically evaluated on submission",
     "Attempt02 repeated that queue assumption and introduced an incorrect CAS expectation; source/database checks corrected the diagnosis",
     "First owner verifier treated nested PostgreSQL JSONB event payload as serialized text; read-only verifier corrected, separate run passed"
+  ],
+  "latestCompatibilitySource": "1bcb0a745dde7de264d9323a1fba8b969f052c8f",
+  "retainedLegacyProbeFailures": [
+    {
+      "attempt": "run01",
+      "stage": "Pre-bootstrap guard",
+      "cause": "Mutually exclusive probe flags supplied; no migration or HTTP execution"
+    },
+    {
+      "attempt": "run02",
+      "stage": "Bootstrap",
+      "cause": "Fresh target database not created before runner start; SQLSTATE 3D000, zero HTTP requests"
+    }
   ]
 }
