@@ -56,7 +56,7 @@ def protected_json(path):
     return value, sha(data)
 
 
-def owner_query(container, database, request_id, case_id):
+def owner_query(container, database, identifiers):
     need(HEX64.fullmatch(container), "PrivateContainerIdRequired")
     try:
         meta = json.loads(subprocess.run(["docker", "inspect", container], check=True,
@@ -114,7 +114,7 @@ SELECT jsonb_build_object('database',current_database(),
               AND NOT EXISTS(SELECT 1 FROM procurement.finance_payment_status_refs)
               AND NOT EXISTS(SELECT 1 FROM procurement.purchase_request_finance_release_requests)
               AND NOT EXISTS(SELECT 1 FROM procurement.purchase_request_finance_release_confirmations))::text;
-ROLLBACK;""".format(**request_id)
+ROLLBACK;""".format(**identifiers)
     try:
         run = subprocess.run(["docker", "exec", "-i", "-e",
             "PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=15000 -c lock_timeout=3000",
