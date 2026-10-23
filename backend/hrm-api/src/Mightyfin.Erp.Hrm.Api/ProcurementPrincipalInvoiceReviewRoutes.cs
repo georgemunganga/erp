@@ -29,6 +29,10 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
             .RequireAuthorization(InvoiceRetainedUnitReview.ReviewPermission);
         app.MapGet("/api/procurement/v1/principal-unit-reviews/{id:guid}", Detail)
             .RequireAuthorization(InvoiceRetainedUnitReview.ReviewPermission);
+        app.MapGet("/api/procurement/v1/principal-unit-reviews/{id:guid}/documents", Documents)
+            .RequireAuthorization(InvoiceRetainedUnitReview.ReviewPermission);
+        app.MapGet("/api/procurement/v1/principal-unit-reviews/{id:guid}/documents/{versionId:guid}/download", Download)
+            .RequireAuthorization(InvoiceRetainedUnitReview.ReviewPermission);
     }
 
     private static async Task<IResult> Open(Guid id, OpenInput? input, HttpContext http,

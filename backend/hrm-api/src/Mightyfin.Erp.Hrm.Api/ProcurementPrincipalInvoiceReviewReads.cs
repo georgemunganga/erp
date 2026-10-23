@@ -13,7 +13,8 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
     private static async Task<Guid[]> ReviewerBranches(HrmDbContext core, ProcurementRequestScope scope,
         HttpContext http, IAuthorizationService auth, CancellationToken ct)
     {
-        if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null
+        if (scope.PrincipalId?.ToString("D") != scope.SubjectId
+            || scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null
                 && !scope.IsExplicitAllBranches)
             throw new UnauthorizedAccessException();
         var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
