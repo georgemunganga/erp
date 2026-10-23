@@ -130,7 +130,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
             if (kind == "people")
             {
                 var now = DateTimeOffset.UtcNow;
-                if (contract.Action==SpendingAuthorityConfiguration.ApprovalAction && PrincipalOption(http)
+                if (PrincipalActionOption(http,contract.Action)
                     && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,false,ct))
                 {
                     var candidates=await ProcurementPrincipalPeople.Candidates(core,scope,now)

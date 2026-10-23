@@ -25,7 +25,8 @@ public static class ProcurementOrderDraftRoutes
     {
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
-        var own = db.PurchaseOrders.AsNoTracking().Where(x => x.BuyerSubjectId == scope.SubjectId);
+        var own = db.PurchaseOrders.AsNoTracking().Where(x => x.BuyerSubjectId == scope.SubjectId
+            && x.PrincipalDraftSchemaVersion != 2);
         if (scope.IsConfined)
             own = own.Where(x => x.BranchRef == scope.WorkLocationId);
         var total = await own.CountAsync(ct);
@@ -43,6 +44,7 @@ public static class ProcurementOrderDraftRoutes
     {
         var order = await db.PurchaseOrders.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId
+                && x.PrincipalDraftSchemaVersion != 2
                 && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
         if (order is null) return Problem("not-found", "Purchase order not found.", 404);
         var lines = await db.PurchaseOrderLines.AsNoTracking()
@@ -91,6 +93,7 @@ public static class ProcurementOrderDraftRoutes
             .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId
                 && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
         if (order is null) return Problem("not-found", "Purchase order not found.", 404);
+        if (order.PrincipalDraftSchemaVersion == 2) return Problem("source-controlled-order", "Use the governed draft workflow.", 409);
         if (order.Status != "Draft") return Problem("order-locked", "Only a draft order can be changed.", 409);
         if (order.Version != input.Version) return Problem("version-conflict", "Refresh this order before saving.", 409);
         if (input.Draft is null) return Problem("validation-failed", "Enter order details.", 422);
@@ -148,6 +151,7 @@ public static class ProcurementOrderDraftRoutes
             .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId
                 && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
         if (order is null) return Problem("not-found", "Purchase order not found.", 404);
+        if (order.PrincipalDraftSchemaVersion == 2) return Problem("source-controlled-order", "Use the governed draft workflow.", 409);
         if (order.Status != "Draft") return Problem("order-locked", "Only a draft order can be cancelled.", 409);
         if (order.Version != input.Version) return Problem("version-conflict", "Refresh this order before cancelling.", 409);
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)

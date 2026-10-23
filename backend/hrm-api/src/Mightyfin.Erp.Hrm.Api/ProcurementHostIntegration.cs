@@ -45,6 +45,12 @@ public static class ProcurementHostIntegration
             ?? new ProcurementOrderExecutionOptions();
         orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(orderOptions);
+        var principalOrderOptions = configuration.GetSection("Procurement:PrincipalDirectOrderDrafts")
+            .Get<ProcurementPrincipalOrderDraftOptions>() ?? new ProcurementPrincipalOrderDraftOptions();
+        principalOrderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(principalOrderOptions);
+        // P30 owner migration, finite privileges and actual readiness capture have not run.
+        services.AddScoped<IProcurementPrincipalOrderDraftReadiness, UnavailableProcurementPrincipalOrderDraftReadiness>();
         var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
@@ -121,6 +127,7 @@ public static class ProcurementHostIntegration
         ProcurementInvoiceUnitReviewRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
+        ProcurementPrincipalOrderDraftRoutes.MapRoutes(app);
         ProcurementOrderExecutionRoutes.MapRoutes(app);
         ProcurementReceivingRoutes.MapRoutes(app);
         MapMetadataRoute(app);
@@ -233,6 +240,7 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().HasApprovedDeliveryPolicy
                             && await services.GetRequiredService<IProcurementOrderSchemaReadiness>().IsReadyAsync(ct),
                         orderDraft = !pending,
+                        principalDirectOrderDrafts = false, // P30 schema/finite-role readiness is not yet published.
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),

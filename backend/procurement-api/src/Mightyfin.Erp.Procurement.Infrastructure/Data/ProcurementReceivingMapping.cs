@@ -167,14 +167,16 @@ public sealed partial class ProcurementDbContext
         foreach (var entry in ChangeTracker.Entries<PurchaseOrderLine>())
             if (entry.State == EntityState.Modified && entry.Property(x => x.AcceptedQuantity).IsModified)
             {
-                var deltas = ChangeTracker.Entries<ReceivingAcceptanceEffect>().Where(x => x.State == EntityState.Added && x.Entity.Source.PurchaseOrderLineId == entry.Entity.Id).Select(x => x.Entity.QuantityDelta).ToArray();
+                var deltas = ChangeTracker.Entries<ReceivingAcceptanceEffect>().Where(x => x.State == EntityState.Added && x.Entity.Source.PurchaseOrderLineId == entry.Entity.Id).Select(x => x.Entity.QuantityDelta)
+                    .Concat(PrincipalReceivingAcceptanceDeltas(entry.Entity.Id, false)).ToArray();
                 if (deltas.Length == 0 || entry.Entity.AcceptedQuantity != ExactDecimalArithmetic.Add(entry.OriginalValues.GetValue<decimal>(nameof(PurchaseOrderLine.AcceptedQuantity)), ExactDecimalArithmetic.Sum(deltas)))
                     throw new InvalidOperationException("ReceivingCounterEffectRequired");
             }
         foreach (var entry in ChangeTracker.Entries<PurchaseRequestLine>())
             if (entry.State == EntityState.Modified && entry.Property(x => x.AcceptedQuantity).IsModified)
             {
-                var deltas = ChangeTracker.Entries<ReceivingAcceptanceEffect>().Where(x => x.State == EntityState.Added && x.Entity.Source.PurchaseRequestLineId == entry.Entity.Id).Select(x => x.Entity.QuantityDelta).ToArray();
+                var deltas = ChangeTracker.Entries<ReceivingAcceptanceEffect>().Where(x => x.State == EntityState.Added && x.Entity.Source.PurchaseRequestLineId == entry.Entity.Id).Select(x => x.Entity.QuantityDelta)
+                    .Concat(PrincipalReceivingAcceptanceDeltas(entry.Entity.Id, true)).ToArray();
                 if (deltas.Length == 0 || entry.Entity.AcceptedQuantity != ExactDecimalArithmetic.Add(entry.OriginalValues.GetValue<decimal>(nameof(PurchaseRequestLine.AcceptedQuantity)), ExactDecimalArithmetic.Sum(deltas)))
                     throw new InvalidOperationException("ReceivingCounterEffectRequired");
             }

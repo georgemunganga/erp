@@ -61,6 +61,7 @@ public static partial class ProcurementOrderExecutionRoutes
         await LockOrder(db, scope, id, ct);
         var order = await db.PurchaseOrders.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (order is null) Missing();
+        if (order!.PrincipalDraftSchemaVersion == 2) Conflict("PrincipalOrderDraftSuccessorUnavailable");
         Scope(order!, scope, own);
         var lines = await db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == id && x.IsActive).OrderBy(x => x.LineNumber).ToArrayAsync(ct);
         if (lines.Any(x => x.PurchaseRequestLineId is null)) Conflict("OrderApprovedSourcesRequired");
