@@ -1,4 +1,5 @@
 using Mightyfin.Erp.Hrm.Api.Routing;
+using Mightyfin.Erp.Hrm.Api;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.AspNetCore.RateLimiting;
@@ -73,6 +74,8 @@ builder.Services.AddDbContext<HrmDbContext>((services, options) =>
     options.UseNpgsql(connStr, npgsql => npgsql.MigrationsHistoryTable("__hrm_migrations", "hrm"));
     options.AddInterceptors(services.GetRequiredService<AuditInterceptor>());
 });
+// Company business date belongs to Core organisation and is available even without Procurement.
+builder.Services.AddCoreCompanyBusinessDate();
 // Procurement is a bounded module in this ERP host. Its schema still has an
 // independent migration command and credential; normal HRM startup never migrates it.
 var procurementConnStr = builder.Configuration.GetConnectionString("Procurement");

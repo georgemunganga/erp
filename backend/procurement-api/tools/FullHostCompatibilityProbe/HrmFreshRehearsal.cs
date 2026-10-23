@@ -40,8 +40,13 @@ internal static class HrmFreshRehearsal
             }
             if ((await db.Database.GetAppliedMigrationsAsync()).Any())
                 throw new InvalidOperationException("Fresh rehearsal refuses existing migration history.");
-            var source = new NpgsqlConnectionStringBuilder(connection)
-                { Database = "proc_release_backup_20261022_canonical_0619" }.ConnectionString;
+            var catalogSource = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_CATALOG_SOURCE")
+                ?? "proc_release_backup_20261022_canonical_0619";
+            if (catalogSource != "proc_release_backup_20261022_canonical_0619"
+                && !System.Text.RegularExpressions.Regex.IsMatch(catalogSource,
+                    "^proc_release_backup_20261022_core_principal_[a-z0-9_]{1,16}$"))
+                throw new InvalidOperationException("Only the retained canonical or prepared private owner clone is a catalog source.");
+            var source = new NpgsqlConnectionStringBuilder(connection) { Database = catalogSource }.ConnectionString;
             phase = "RetainedReadOnlyCatalog";
             var retainedBefore = await CatalogAsync(source);
             var retainedDataBefore = await DataDigestAsync(source);

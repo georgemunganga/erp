@@ -9,7 +9,9 @@ public sealed partial class ProcurementDbContext
     /// <summary>One owning-store predicate for correction of structured manual intake before
     /// any document, matching or downstream evidence. It is not a Finance eligibility check.
     /// Callers must separately enforce current permissions, maker/manager, branch scope and CAS.</summary>
-    public IQueryable<SupplierInvoice> ManualInvoiceDrafts() => SupplierInvoices.AsNoTracking().Where(invoice =>
+    public IQueryable<SupplierInvoice> ManualInvoiceDrafts()
+    {
+        var query = SupplierInvoices.AsNoTracking().Where(invoice =>
         invoice.Status == "Received" && invoice.IntakeChannel == "Manual"
         && invoice.FinancePostingRef == null && invoice.EvidenceDocumentRefId == null && invoice.CreditForInvoiceRef == null
         && invoice.MappingRevision == 0 && invoice.CurrentMappingVersionId == null && invoice.LastMatchResultId == null
@@ -24,6 +26,9 @@ public sealed partial class ProcurementDbContext
         && !FinanceInvoiceHandoffs.Any(row => row.SupplierInvoiceId == invoice.Id)
         && !FinancePaymentStatusRefs.Any(row => row.SupplierInvoiceId == invoice.Id)
         && !SupplierCreditNoteRefs.Any(row => row.SupplierInvoiceId == invoice.Id));
+        return ProcurementManualPaymentSchema.Installed(this)
+            ? query.Where(invoice => !ManualPaymentRequests.Any(row => row.SupplierInvoiceId == invoice.Id)) : query;
+    }
 
     private bool MayMaintainManualInvoice(Guid id)
     {
@@ -31,6 +36,9 @@ public sealed partial class ProcurementDbContext
         // navigation/pointer as proof that an original was not already sealed.
         var original = ManualInvoiceDrafts().SingleOrDefault(row => row.Id == id);
         if (original is null) return false;
+        if (ProcurementManualPaymentSchema.Installed(this) && ManualPaymentRequests.IgnoreQueryFilters().Any(row =>
+            row.TenantId == original.TenantId && row.LegalEntityId == original.LegalEntityId
+            && row.SupplierInvoiceId == id)) return false;
         var parent = ChangeTracker.Entries<SupplierInvoice>().SingleOrDefault(row => row.Entity.Id == id);
         // A line-only save could race a first mapping under implicit ReadCommitted. Every
         // correction must participate in the owning invoice's real optimistic CAS write:
@@ -57,6 +65,7 @@ public sealed partial class ProcurementDbContext
             FinanceInvoiceHandoff row => row.SupplierInvoiceId == id,
             FinancePaymentStatusRef row => row.SupplierInvoiceId == id,
             SupplierCreditNoteRef row => row.SupplierInvoiceId == id,
+            ManualPaymentRequest row => row.SupplierInvoiceId == id,
             ProcurementAttachmentRef row => row.OwnerId == id,
             SupplierInvoiceLine row => row.SupplierInvoiceId == id
                 && (row.PurchaseOrderLineId != null || row.GoodsReceiptLineId != null || row.ServiceAcceptanceId != null),

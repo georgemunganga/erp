@@ -310,15 +310,18 @@ public sealed record LegalEntityCreateRequest(
     string Code, string RegisteredName, string? TradingName = null,
     string? PacraNumber = null, string? Tpin = null, string? NapsaEmployerRef = null,
     string? NhimaEmployerRef = null, string? WcfcbEmployerRef = null,
-    string Currency = "ZMW", string CountryCode = "ZM", bool IsDefault = false);
+    string Currency = "ZMW", string CountryCode = "ZM", bool IsDefault = false,
+    string TimeZoneId = "UTC");
 public sealed record LegalEntityUpdateRequest(
     string? RegisteredName = null, string? TradingName = null, string? PacraNumber = null,
     string? Tpin = null, string? NapsaEmployerRef = null, string? NhimaEmployerRef = null,
-    string? WcfcbEmployerRef = null, string? Currency = null, bool? IsDefault = null);
+    string? WcfcbEmployerRef = null, string? Currency = null, bool? IsDefault = null,
+    string? TimeZoneId = null);
 public sealed record LegalEntityDtoFull(
     Guid Id, string Code, string RegisteredName, string? TradingName, string? PacraNumber,
     string? Tpin, string? NapsaEmployerRef, string? NhimaEmployerRef, string? WcfcbEmployerRef,
-    string Currency, string CountryCode, bool IsDefault, DateTimeOffset CreatedAt);
+    string Currency, string CountryCode, bool IsDefault, DateTimeOffset CreatedAt,
+    string TimeZoneId);
 
 // ---------- Work locations ----------
 /// <summary>M45: assign a platform user (Keycloak subject) to a branch so the

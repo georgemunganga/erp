@@ -1,9 +1,11 @@
-# PROC-12 — Manual payment workflow
+# PROC-PAY-01 — Manual payment workflow
 
 Status: implementation in progress; not deployed. Supersedes the earlier assumption that absence of Finance blocks all payment recording. Standard: GW-ENG-STD-001, Tier 3. Module → Payables → Manual Payment → operation. No new bank execution, ledger or authentication service.
 
+The historical filename is retained for existing links. The canonical feature ID is `PROC-PAY-01`; `PROC-12` remains the supplier-portal feature in the module map. Domain/storage/Core-clock implementation does not mean a live payment API or completed UI integration.
+
 ## 1. Feature Identification
-PROC-12; Procurement manual payment requests, assigned review and external-payment recording.
+PROC-PAY-01; Procurement manual payment requests, assigned review and external-payment recording.
 ## 2. Purpose & Business Outcome
 An authorized Core user can request payment; assigned users approve, record an actual payment made outside the ERP, and independently confirm the record before Finance integration exists.
 ## 3. Scope & Exclusions
@@ -24,6 +26,10 @@ Draft, PendingApproval, Approved, PaymentRecorded, ConfirmedManually, Rejected, 
 Core actions `procurement-payment-read/create/edit/submit/approve/record/confirm/cancel` (each suffix forms a separate hyphenated action ID). Company and allowed branch constraints apply to list/detail/mutation/search/export and every assignment. Header All branches is a read context, not permission. Transaction branch is required. Initial branch defaults from authorized Core settings; never manufacture access.
 ## 11. Business Rules
 Exact positive amount, at most four fractional places, same supplier/invoice/currency, one approved amount per request. Creator cannot approve own request; assigned recorder cannot confirm own payment. A creator cannot be assigned as approver and recorder cannot be assigned as confirmer. Approval alone creates no payment. Record must equal approved amount; smaller installments use separate requests. The current Core company business date bounds the entered payment date; UTC server timestamps record approval and recording actions. Every mutation requires current CAS version; denied actions produce no payment mutation.
+
+Registered capacity reserves submitted, approved, recorded, confirmed and disputed manual requests. Draft, rejected and cancelled requests do not reserve money. Noncancelled captured credit claims conservatively reserve capacity without claiming that Finance posted/applied a credit. Imported settlements are included; mixed manual execution and imported outcomes require explicit reconciliation until their owning link exists. Never clamp an inconsistent negative balance to zero, round away a discrepancy or assume an empty Finance projection proves no external payment.
+
+Capacity exclusions are bound to the exact updated payment request and are forbidden for creation. Credit capture/correction uses the same calculation under the same invoice lock and serializable transaction. Any retained manual request seals the original invoice against correction/cancellation, including cancelled/rejected payment history; releasing capacity does not erase historical source facts. PostgreSQL microsecond normalization applies to immutable timestamp comparisons, while a real microsecond change remains forbidden.
 ## 12. Data Fields & Ownership
 Procurement owns request ID, tenant/company/branch, invoice/supplier refs, currency/amount, creator and assigned Core principals, status/version, approval decision, actual recorded date/method/reference, confirmation/dispute reason and audit. Core owns account/grants/branch. Finance owns posting, bank reconciliation and imported outcomes. No raw banking credentials.
 ## 13. Screens & Data Views
@@ -50,6 +56,8 @@ Atomic transitions, concurrency control, scoped pagination, actionable errors, a
 Accepted transition advances version once and retains original history. A manual confirmation remains labelled manual. Invoice Finance-paid/posting fields are not changed.
 ## 24. Failure & Recovery
 Rollback all business effects on validation/transaction failure. Unknown response is reconciled by receipt GET; no new payment/key or automatic POST. Migration Down veto must preserve any retained payment/audit/receipt evidence. No deletion of existing rehearsals or original migration artifacts.
+
+Once manual-payment data exists, application rollback must retain the payment-aware credit/invoice guards or disable affected writes. An old P24 binary must not receive write traffic over retained payment records. Before first activation, upgrade every writer and drain transactions begun before P27; table availability alone is not workflow readiness.
 ## 25. Acceptance Criteria
 A system-only user completes a properly assigned manual request through independent confirmation; absent Finance and attachments do not block it. Self-approval, self-confirmation, unauthorized branch/account/action, stale version and overpayment are denied. Reload reproduces actual persisted values and history. No AP, payment rail or Finance-synced row is fabricated.
 ## 26. Test Scenarios
@@ -58,3 +66,5 @@ Actual domain rule tests; mapped authorization/API and owning-store tests; genui
 Procurement owns manual business decisions; Core provides real identity/access/workflow/audit infrastructure. Future Finance adapter owns reconciliation. Preserve P24 published baseline; no P25 dependency is required for this slice.
 ## 28. Open Decisions / Assumptions
 User authorizes manual recording without Finance integration or mandatory file evidence. Current implementation must keep incomplete capabilities explicit; no claim of complete module or deployed workflow until schema/API/UI/browser gates pass. Assignment UI must consume current Core user capabilities; no hard-coded identities. Initial payment rail remains external/manual.
+
+Next implementation milestone: register the payment action catalogue, add a publishable typed payment-review policy through existing policy administration, retain exact links between manual transitions and shared Core cases/assignments/decisions, retain the trusted Core date observation, and implement scoped/idempotent APIs. Then bind the existing restored Payments/Bills presentation and verify normal-cookie API/PostgreSQL/Playwright journeys. No arbitrary policy ID, reused purchase-request policy, employee requirement, replacement frontend or fabricated Finance outcome is permitted. UUIDs are truthful initial record references; transaction numbering must reuse the ERP numbering capability when provided. Multi-invoice allocations, advances, refunds and batch execution need their own controlled contracts before their existing UI actions become live.

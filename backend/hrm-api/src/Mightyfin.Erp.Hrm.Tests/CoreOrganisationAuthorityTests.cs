@@ -61,6 +61,7 @@ public sealed class CoreOrganisationAuthorityTests
         var employee = Service(db, "employee");
         await Assert.ThrowsAsync<DomainException>(() => employee.CreateLegalEntityAsync(new("BAD", "Denied"), default));
         await Assert.ThrowsAsync<DomainException>(() => employee.UpdateLegalEntityAsync(entity.Id, new(Currency: "USD"), default));
+        await Assert.ThrowsAsync<DomainException>(() => employee.UpdateLegalEntityAsync(entity.Id, new(TimeZoneId: "Pacific/Auckland"), default));
         await Assert.ThrowsAsync<DomainException>(() => employee.CreateLocationAsync(new("BAD", "Denied", entity.Id), default));
         await Assert.ThrowsAsync<DomainException>(() => employee.UpdateLocationAsync(location.Id, new(Name: "Denied"), default));
         await Assert.ThrowsAsync<DomainException>(() => employee.CreateOrgUnitAsync(new("BAD", "Denied", entity.Id), default));
@@ -70,6 +71,7 @@ public sealed class CoreOrganisationAuthorityTests
         Assert.Single(await employee.ListOrgUnitsAsync(default));
         Assert.Single(await db.LegalEntities.ToListAsync());
         Assert.Equal("ZMW", (await db.LegalEntities.SingleAsync()).Currency);
+        Assert.Equal("UTC", (await db.LegalEntities.SingleAsync()).TimeZoneId);
         Assert.Equal("Headquarters", (await db.WorkLocations.SingleAsync()).Name);
         Assert.Equal("Operations", (await db.OrgUnits.SingleAsync()).Name);
         Assert.Null((await db.OrgUnits.SingleAsync()).EffectiveTo);

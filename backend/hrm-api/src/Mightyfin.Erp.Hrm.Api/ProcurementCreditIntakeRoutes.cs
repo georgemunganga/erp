@@ -209,6 +209,12 @@ public static partial class ProcurementInvoiceIntakeRoutes
         catch (InvalidOperationException)
         { throw new IntakeProblem("credit-history-needs-review", "The registered credit total cannot be represented exactly.", 409); }
         if (total > invoice.GrossAmount) throw new IntakeProblem("credit-captured-total-exceeded", "Registered credit references would exceed this bill's captured gross amount. This is not a Finance balance.", 422);
+        try { await ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, invoice, currentId, amount, ct); }
+        catch (InvalidOperationException error) when (error.Message.StartsWith("ManualPayment", StringComparison.Ordinal))
+        {
+            throw new IntakeProblem("credit-payment-capacity-review", "This credit conflicts with registered payment commitments or needs payment history review. No amount was changed.",
+                error.Message == "ManualPaymentRegisteredAmountExceedsInvoice" ? 422 : 409);
+        }
     }
     private static IResult CreditMissing() => Results.NotFound(new { code = "not-found", message = "Credit reference not found." });
     private static IResult CreditStale() => Results.Conflict(new { code = "stale-credit", message = "This reference changed. Refresh it before trying again." });

@@ -7,6 +7,19 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class ManualPaymentWorkflowTests
 {
     [Fact]
+    public void Capacity_exclusion_cannot_be_reused_to_create_a_second_request_or_update_another()
+    {
+        var f = new Fixture(); var own = f.Create().Request;
+        var source = f.Source with { ExcludingManualPaymentRequestId = own.Id };
+        Assert.Equal("ManualPaymentCapacityExclusionInvalid", Assert.Throws<InvalidOperationException>(() =>
+            ManualPaymentWorkflow.Create(f.Draft, f.Creator, f.Assignee(f.Approver.PrincipalId, "approve"),
+                f.Assignee(f.Recorder.PrincipalId, "record"), f.Assignee(f.Confirmer.PrincipalId, "confirm"), source, f.Now)).Message);
+        Assert.Equal("ManualPaymentCapacityExclusionInvalid", Assert.Throws<InvalidOperationException>(() =>
+            ManualPaymentWorkflow.Submit(own, 1, f.Creator,
+                source with { ExcludingManualPaymentRequestId = Guid.NewGuid() }, f.Now)).Message);
+        Assert.Equal("PendingApproval", ManualPaymentWorkflow.Submit(own, 1, f.Creator, source, f.Now).Request.Status);
+    }
+    [Fact]
     public void System_only_Core_account_can_request_and_independently_confirm_an_external_payment()
     {
         var f = new Fixture();

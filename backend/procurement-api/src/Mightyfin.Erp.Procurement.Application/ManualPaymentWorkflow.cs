@@ -33,7 +33,11 @@ public sealed record ManualPaymentAssignee(string PrincipalId, string TenantId, 
 /// </summary>
 public sealed record ManualPaymentInvoiceSource(Guid InvoiceId, string TenantId, Guid LegalEntityId,
     Guid BranchId, Guid SupplierId, string CurrencyCode, DateOnly InvoiceDate,
-    decimal InvoiceGrossAmount, decimal RemainingExcludingThisRequest, bool IsEligible);
+    decimal InvoiceGrossAmount, decimal RemainingExcludingThisRequest, bool IsEligible)
+{
+    /// <summary>Trusted capacity exclusion, bound to the actual update target; never valid for Create.</summary>
+    public Guid? ExcludingManualPaymentRequestId { get; init; }
+}
 
 public sealed record ManualPaymentDraft(Guid BranchId, Guid InvoiceId, Guid SupplierId,
     string CurrencyCode, decimal Amount, string ApproverPrincipalId, string RecorderPrincipalId,
@@ -59,6 +63,7 @@ public static class ManualPaymentWorkflow
     {
         if (now == default) Fail("ManualPaymentTimeInvalid");
         Authorize(actor, draft.BranchId, "create");
+        if (source.ExcludingManualPaymentRequestId is not null) Fail("ManualPaymentCapacityExclusionInvalid");
         ValidateDraft(draft, actor, approver, recorder, confirmer, source);
         CheckCapacity(draft.Amount, source);
         var request = new ManualPaymentRequest
@@ -89,6 +94,7 @@ public static class ManualPaymentWorkflow
             || draft.SupplierId != current.SupplierId || draft.CurrencyCode != current.CurrencyCode)
             Fail("ManualPaymentSourceImmutable");
         ValidateDraft(draft, actor, approver, recorder, confirmer, source);
+        CheckSource(current, source);
         CheckCapacity(draft.Amount, source);
         Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, approver.PrincipalId, approver.CoreLinkedWorkerId);
         var next = Copy(current, actor, now);
@@ -267,6 +273,8 @@ public static class ManualPaymentWorkflow
 
     private static void CheckSource(ManualPaymentRequest request, ManualPaymentInvoiceSource source)
     {
+        if (source.ExcludingManualPaymentRequestId is { } excluded && excluded != request.Id)
+            Fail("ManualPaymentCapacityExclusionInvalid");
         if (source.InvoiceId != request.SupplierInvoiceId || source.SupplierId != request.SupplierId
             || source.BranchId != request.BranchId || source.CurrencyCode != request.CurrencyCode
             || source.TenantId != request.TenantId || source.LegalEntityId != request.LegalEntityId

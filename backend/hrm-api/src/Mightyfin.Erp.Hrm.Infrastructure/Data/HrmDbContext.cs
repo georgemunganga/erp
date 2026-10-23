@@ -181,7 +181,11 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             modelBuilder.Entity(et.ClrType).HasQueryFilter(filter);
         }
 
-        ConfigureEntity<LegalEntity>(modelBuilder, "legal_entities", e => e.HasKey(x => x.Id));
+        ConfigureEntity<LegalEntity>(modelBuilder, "legal_entities", e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.TimeZoneId).HasMaxLength(100).HasDefaultValue("UTC");
+        });
         ConfigureEntity<WorkLocation>(modelBuilder, "work_locations");
         ConfigureEntity<OrgUnit>(modelBuilder, "org_units");
         ConfigureEntity<WorkCalendar>(modelBuilder, "work_calendars");
