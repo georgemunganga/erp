@@ -105,6 +105,8 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
         {
             settings["Procurement:SourcingDrafts:Enabled"]="true";
             settings["Procurement:SourcingDrafts:PrincipalSourceEnabled"]="true";
+            if(Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION")=="1")
+                settings["Procurement:SourcingPublication:Enabled"]="true";
         }
         if(fixture.PrincipalPoProfile)
         {

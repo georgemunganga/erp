@@ -2,11 +2,12 @@ using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-// Closed until replaced by the genuine migration ID and unmodified PG17 owner capture.
+// Genuine migration is generated; empty capture dictionaries keep availability closed
+// until the unmodified PG17 owner schema capture has been independently verified.
 // These are physical contracts, not business permissions or approval policy defaults.
 internal static class ProcurementPrincipalCommercialSchemaCapture
 {
-    internal const string MigrationId = "P30_PENDING_GENUINE_OWNER_MIGRATION";
+    internal const string MigrationId = "20261023222748_P30PrincipalCommercialWorkflows";
     internal static readonly IReadOnlyDictionary<string,string> Checks = new Dictionary<string,string>();
     internal static readonly IReadOnlyDictionary<string,string> OwnershipConstraints = new Dictionary<string,string>();
     internal static readonly Type[] Orders = [typeof(PurchaseOrder), typeof(PurchaseOrderLine), typeof(PrincipalOrderSourceBinding), typeof(PrincipalOrderDraftReceipt), typeof(PrincipalOrderFundingEvidence), typeof(PrincipalOrderSubmission), typeof(PrincipalOrderAssignmentEvidence), typeof(PrincipalOrderDecisionEvidence), typeof(PrincipalOrderIssuedVersion), typeof(PrincipalOrderAcknowledgment), typeof(PrincipalOrderReleaseRequest), typeof(PrincipalOrderReleaseConfirmation)];

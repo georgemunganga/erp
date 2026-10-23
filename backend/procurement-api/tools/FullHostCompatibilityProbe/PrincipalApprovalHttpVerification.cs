@@ -14,6 +14,18 @@ internal static partial class PrincipalApprovalHttpVerification
     internal delegate Task<JsonElement> PrincipalSend(HttpClient client,HttpMethod method,string path,Guid actor,
         object? body=null,HttpStatusCode expected=HttpStatusCode.OK,Guid? commandKey=null);
     internal static void Need(bool condition,string controlledMessage) {if(!condition)throw new PrivatePrincipalProbeFailure(controlledMessage);}
+    private static bool PrivateCommercialDatabase(string database)
+    {
+        var po=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
+        var publication=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
+        return po=="1" && publication is null
+                && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$")
+            || publication=="1" && po is null
+                && Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ")=="1"
+                && Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE") is null
+                && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$");
+    }
+
     internal static async Task RunAsync()
     {
         var owner=Environment.GetEnvironmentVariable("P25_HTTP_OWNER_CONNECTION")??throw new InvalidOperationException("Explicit private owner connection required.");
@@ -21,7 +33,8 @@ internal static partial class PrincipalApprovalHttpVerification
         var database=connection.Database ?? string.Empty;
         Need(connection.Host=="/authority-identity-private-socket"
             && (System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$")
-                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$"))
+                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$")
+                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$"))
             && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
         var resultPath=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??throw new InvalidOperationException("New protected result required.");
         Need(Path.IsPathFullyQualified(resultPath)&&!File.Exists(resultPath)&&Directory.Exists(Path.GetDirectoryName(resultPath)),"New result in existing protected directory required.");
@@ -38,21 +51,30 @@ internal static partial class PrincipalApprovalHttpVerification
         var legacyWorkerFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_LEGACY_WORKER_BRIDGE");
         var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
         var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
+        var publicationFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
         var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
         Need(principalPoFlag is null or "1","Private P30 principal PO opt-in must be exactly1 or absent.");
+        Need(publicationFlag is null or "1","Private P30 RFQ publication opt-in must be exactly1 or absent.");
+        Need(!database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal) || publicationFlag=="1",
+            "P30 RFQ database requires its explicit publication profile.");
+        Need(publicationFlag is null || database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+            && principalRfqFlag=="1" && principalPoFlag is null && p29CookieFlag is null,
+            "P30 RFQ publication cannot combine with PO or cookie profiles.");
         Need(!database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal) || principalPoFlag=="1",
             "P30 private database is exclusive to its explicit PO profile.");
         Need(principalPoFlag is null || database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
-            && principalRfqFlag is null && matrixFlag is null && schemaFlag is null && accountFlag is null
+            && principalRfqFlag is null && publicationFlag is null && matrixFlag is null && schemaFlag is null && accountFlag is null
             && aliasFlag is null && localCookieFlag is null && downFamily is null && exactBudgetFlag is null
             && legacyWorkerFlag is null && p29CookieFlag is null
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Principal PO needs its own new private database and no other optional cohort.");
         Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
-        Need(p29CookieFlag is null || principalRfqFlag=="1",
+        Need(p29CookieFlag is null || principalRfqFlag=="1" && publicationFlag is null,
             "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
-        Need(principalRfqFlag is null || database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
+        Need(principalRfqFlag is null || (database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
+                && publicationFlag is null || database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+                && publicationFlag=="1") && principalPoFlag is null
             && matrixFlag is null && schemaFlag is null && accountFlag is null && aliasFlag is null
             && localCookieFlag is null && downFamily is null && exactBudgetFlag is null && legacyWorkerFlag is null
             && Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is null
@@ -198,6 +220,8 @@ internal static partial class PrincipalApprovalHttpVerification
                 if(principalRfqFlag=="1")
                 {
                     var p29=await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
+                    if(publicationFlag=="1")
+                        await VerifyP30RfqPublicationAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
                     if(p29CookieFlag=="1")
                         await ServeP29NormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
                             p29.RequestId,p29.LineId,p29.EventId,result,Advance);

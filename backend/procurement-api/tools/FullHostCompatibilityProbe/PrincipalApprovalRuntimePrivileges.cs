@@ -64,12 +64,27 @@ internal static class PrincipalApprovalRuntimePrivileges
             foreach(var table in new[]{"sourcing_draft_evidence","sourcing_demand_bindings","sourcing_command_receipts"})
                 await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
         }
+        if(fixture.PrincipalRfqProfile && Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION")=="1")
+        {
+            foreach(var table in new[]{"suppliers","supplier_contacts","supplier_qualifications"})
+                await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            foreach(var table in new[]{"supplier_decisions","sourcing_policy_identity_evidence"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(record));
+            foreach(var table in new[]{"sourcing_publication_openings","sourcing_publication_decisions",
+                "sourcing_publication_receipts","sourcing_manual_contacts","sourcing_manual_quote_versions",
+                "sourcing_policy_identity_evidence"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"sourcing_invitations","supplier_bids","supplier_bid_lines"})
+                await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            await Run("GRANT SELECT ON procurement.supplier_qualifications TO "+Q(execution));
+        }
         if(fixture.PrincipalPoProfile)
         {
             // P30 profile alone: vendor master setup uses the record role; the
             // execution role may write only owned PO/source/receipt evidence.
-            foreach(var table in new[]{"suppliers","supplier_contacts","supplier_qualifications","supplier_decisions","procurement_methods"})
+            foreach(var table in new[]{"suppliers","supplier_contacts","supplier_qualifications","procurement_methods"})
                 await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            await Run("GRANT SELECT,INSERT ON procurement.supplier_decisions TO "+Q(record));
             foreach(var table in new[]{"suppliers","supplier_qualifications","procurement_methods","catalog_items","catalog_entries",
                 "purchase_orders","purchase_order_lines","principal_order_source_bindings","principal_order_draft_receipts",
                 "principal_order_funding_evidence","principal_order_submissions","principal_order_assignments",

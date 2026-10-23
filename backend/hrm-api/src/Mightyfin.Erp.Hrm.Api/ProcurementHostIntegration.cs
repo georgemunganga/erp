@@ -49,16 +49,16 @@ public static class ProcurementHostIntegration
             .Get<ProcurementPrincipalOrderDraftOptions>() ?? new ProcurementPrincipalOrderDraftOptions();
         principalOrderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(principalOrderOptions);
-        // P30 owner migration, finite privileges and actual readiness capture have not run.
-        services.AddScoped<IProcurementPrincipalOrderDraftReadiness, UnavailableProcurementPrincipalOrderDraftReadiness>();
+        // The actual provider stays closed until the owning migration, captured constraints and finite privileges match.
+        services.AddScoped<IProcurementPrincipalOrderDraftReadiness, ProcurementPrincipalOrderDraftReadiness>();
         var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
         services.AddScoped<IProcurementSourcingDraftSchemaReadiness, ProcurementSourcingDraftSchemaReadiness>();
         services.AddSingleton(configuration.GetSection("Procurement:SourcingPublication")
             .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
-        services.AddSingleton<IProcurementPrincipalSourcingPublicationReadiness,
-            UnavailablePrincipalSourcingPublicationReadiness>();
+        services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
+            ProcurementPrincipalSourcingPublicationReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
@@ -70,6 +70,11 @@ public static class ProcurementHostIntegration
         receivingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(receivingOptions);
         services.AddScoped<IProcurementReceivingSchemaReadiness, ProcurementReceivingSchemaReadiness>();
+        var principalReceivingOptions = configuration.GetSection("Procurement:PrincipalReceiving")
+            .Get<ProcurementPrincipalReceivingOptions>() ?? new();
+        principalReceivingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(principalReceivingOptions);
+        services.AddScoped<IProcurementPrincipalReceivingReadiness, ProcurementPrincipalReceivingReadiness>();
         var matchingOptions = configuration.GetSection("Procurement:InvoiceMatching").Get<ProcurementInvoiceMatchingExecutionOptions>() ?? new();
         matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(matchingOptions);
@@ -130,6 +135,7 @@ public static class ProcurementHostIntegration
         ProcurementPrincipalOrderDraftRoutes.MapRoutes(app);
         ProcurementOrderExecutionRoutes.MapRoutes(app);
         ProcurementReceivingRoutes.MapRoutes(app);
+        ProcurementPrincipalReceivingRoutes.MapRoutes(app);
         MapMetadataRoute(app);
     }
 
@@ -182,13 +188,24 @@ public static class ProcurementHostIntegration
                 var principalSourcingSourceDrafts = await ProcurementModelParityDiagnostics.MeasureAsync(
                     performance, "meta.principal-sourcing", () => ProcurementPrincipalSourcingCapability.ReadyAsync(
                         services, scope, pending, sourcingSourceDrafts, ct));
+                var directOrderOptions = services.GetRequiredService<ProcurementPrincipalOrderDraftOptions>();
+                var principalDirectOrderDrafts = !pending && directOrderOptions.Enabled
+                    && directOrderOptions.ExecutionDatabaseConfigured
+                    && await services.GetRequiredService<IProcurementPrincipalOrderDraftReadiness>().IsReadyAsync(ct);
+                var principalOrderGovernance = principalDirectOrderDrafts
+                    && services.GetRequiredService<ProcurementOrderExecutionOptions>() is
+                        { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true };
+                var principalReceivingOptions = services.GetRequiredService<ProcurementPrincipalReceivingOptions>();
+                var principalReceiving = !pending && principalReceivingOptions.Enabled
+                    && principalReceivingOptions.ExecutionDatabaseConfigured
+                    && await services.GetRequiredService<IProcurementPrincipalReceivingReadiness>().IsReadyAsync(ct);
                 var publicationOptions = services.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>();
                 var principalSourcingPublication = sourcingSourceDrafts && publicationOptions.Enabled
                     && services.GetRequiredService<ProcurementApprovalExecutionOptions>() is
                         { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }
                     && await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct)
                     && await services.GetRequiredService<IProcurementPrincipalSourcingPublicationReadiness>()
-                        .IsReadyAsync(db, ct)
+                        .IsReadyAsync(ct)
                     && await ProcurementPrincipalPeople.Resolve(services.GetRequiredService<HrmDbContext>(),
                         scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct) is { } publicationPerson
                     && (scope.WorkLocationId is { } selectedPublicationBranch
@@ -248,7 +265,9 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().HasApprovedDeliveryPolicy
                             && await services.GetRequiredService<IProcurementOrderSchemaReadiness>().IsReadyAsync(ct),
                         orderDraft = !pending,
-                        principalDirectOrderDrafts = false, // P30 schema/finite-role readiness is not yet published.
+                        principalDirectOrderDrafts,
+                        principalOrderGovernance,
+                        principalReceiving,
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
