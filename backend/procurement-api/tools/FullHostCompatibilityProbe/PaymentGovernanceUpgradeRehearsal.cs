@@ -169,9 +169,9 @@ internal static class PaymentGovernanceUpgradeRehearsal
         shape.Parameters.AddWithValue("existing", existingOnly);
         shape.Parameters.AddWithValue("new_tables", NewTables);
         shape.Parameters.AddWithValue("new_functions", NewFunctions);
-        var schema = (string)(await shape.ExecuteScalarAsync())!;
+        var schemaText = (string)(await shape.ExecuteScalarAsync())!;
         await tx.RollbackAsync();
-        return new(Hash(string.Join('\n', rows)), Hash(schema));
+        return new(Hash(string.Join('\n', rows)), Hash(schemaText));
     }
 
     private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
