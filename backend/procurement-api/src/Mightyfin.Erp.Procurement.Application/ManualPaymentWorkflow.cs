@@ -407,7 +407,7 @@ public static class ManualPaymentWorkflow
         && value.Trim().Length <= max;
     private static string Required(string? value) => ValidText(value, 1000)
         ? value!.Trim() : throw new InvalidOperationException("ManualPaymentReasonRequired");
-    private static string? CleanOptional(string? value, int max) => value is null ? null
+    private static string? CleanOptional(string? value, int max) => string.IsNullOrWhiteSpace(value) ? null
         : value.Trim().Length <= max ? value.Trim() : throw new InvalidOperationException("ManualPaymentTextTooLong");
     private static void Fail(string code) => throw new InvalidOperationException(code);
 }
