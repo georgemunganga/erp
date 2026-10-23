@@ -51,3 +51,17 @@ internal static class ProcurementLegacyP25SchemaGuard
             : await actual.IsReadyAsync(owner,ct));
     }
 }
+
+/// <summary>Retained worker authority on P21 or the exact physical P25
+/// superset. The principal interface/feature flag is never consulted here;
+/// worker account, grant and SOD checks remain with the caller.</summary>
+internal static class ProcurementWorkerAuthoritySchemaGuard
+{
+    internal static async Task<bool> ReadyAsync(ProcurementDbContext owner,
+        ProcurementRequestScope scope,Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext core,CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if(await new ProcurementSpendingAuthorityIdentitySchemaReadiness().IsReadyAsync(owner,ct))return true;
+        return await new ProcurementPrincipalApprovalStoreReadiness(scope,core).IsReadyAsync(owner,ct);
+    }
+}
