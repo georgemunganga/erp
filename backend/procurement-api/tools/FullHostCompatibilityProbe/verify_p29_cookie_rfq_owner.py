@@ -382,7 +382,10 @@ def verify(fixture, fixture_hash, baseline, browser, facts, expected_database, c
          and binding.get("sourcing_line_id") == line.get("id")
          and binding.get("allocation_id") == allocation.get("id")
          and binding.get("identity_schema_version") == 2
-         and binding.get("maker_principal_id") == buyer
+         # The binding retains the original PR maker; the RFQ evidence/receipts
+         # above/below retain the purchasing Buyer. These are distinct identities.
+         and uuid(facts["approval"]["submissions"][0].get("maker_subject_id"))
+         and binding.get("maker_principal_id") == facts["approval"]["submissions"][0]["maker_subject_id"]
          and binding.get("requester_principal_id") == request.get("requester_principal_id")
          and binding.get("maker_worker_id") is None
          and binding.get("requester_worker_id") is None
