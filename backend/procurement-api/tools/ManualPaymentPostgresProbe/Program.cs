@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -119,6 +120,7 @@ sealed class PaymentProbe(string connection)
         var draft = ManualPaymentWorkflow.Create(Draft(), Actor(creator), Assignee(approver, "approve"), Assignee(recorder, "record"), Assignee(confirmer, "confirm"), Source(), DateTimeOffset.UtcNow);
         await Save(draft, creator, true);
         Phase = "negative-postgres-sql"; await NegativeSql(draft.Request.Id);
+        Phase = "locked-invoice-capacity"; await CapacityConcurrency();
         Phase = "retained-downgrade-veto";
         await using (var db = Db()) {
             var before = await Counts(); var rejected = false;
@@ -136,13 +138,58 @@ sealed class PaymentProbe(string connection)
     private async Task Save(ManualPaymentChange change, string actor, bool create = false)
     {
         await using var db = Db(actor);
+        await Persist(db, change, actor, create); Checks++;
+    }
+    private async Task Persist(ProcurementDbContext db, ManualPaymentChange change, string actor, bool create = false)
+    {
         if (create) db.AddScoped(change.Request);
         else { var stored = await db.ManualPaymentRequests.SingleAsync(x => x.Id == change.Request.Id); db.Entry(stored).CurrentValues.SetValues(change.Request); }
         db.AddScoped(change.Decision);
         db.AddScoped(new ManualPaymentCommandReceipt { TenantId = Tenant, LegalEntityId = company, BranchId = branch, ManualPaymentRequestId = change.Request.Id,
             ActorPrincipalId = actor, CommandKey = Guid.NewGuid(), Action = change.Decision.Action, RequestSha256 = new string('a', 64), ResultVersion = change.Decision.ToVersion,
             ResponseJson = JsonSerializer.Serialize(new { id = change.Request.Id, version = change.Decision.ToVersion, status = change.Request.Status }) });
-        await db.SaveChangesAsync(); Checks++;
+        await db.SaveChangesAsync();
+    }
+    private async Task CapacityConcurrency()
+    {
+        var scope = new Scope(Tenant, company, branch, creator); var allowed = new HashSet<Guid> { branch };
+        await using (var db = Db()) {
+            var refused = false;
+            try { await ManualPaymentCapacityReader.ReadLockedAsync(db, scope, invoice.Id, branch, allowed); }
+            catch (InvalidOperationException e) when (e.Message == "ManualPaymentSerializableTransactionRequired") { refused = true; }
+            Check(refused);
+        }
+        var reached = 0; var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<string> Compete()
+        {
+            await using var db = Db(); await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            // Establish both snapshots before either can reserve capacity. This is a real
+            // overlapping PostgreSQL race, not two sequential reads dressed as concurrency.
+            _ = await db.SupplierInvoices.AsNoTracking().Where(x => x.Id == invoice.Id).Select(x => x.Id).SingleAsync();
+            if (Interlocked.Increment(ref reached) == 2) ready.SetResult();
+            await ready.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            try {
+                var locked = await ManualPaymentCapacityReader.ReadLockedAsync(db, scope, invoice.Id, branch, allowed);
+                var made = ManualPaymentWorkflow.Create(Draft() with { Amount = 60m }, Actor(creator),
+                    Assignee(approver, "approve"), Assignee(recorder, "record"), Assignee(confirmer, "confirm"), locked.Source, DateTimeOffset.UtcNow);
+                await Persist(db, made, creator, true);
+                await Persist(db, ManualPaymentWorkflow.Submit(made.Request, 1, Actor(creator), locked.Source, DateTimeOffset.UtcNow), creator);
+                await tx.CommitAsync(); return "Committed";
+            }
+            catch (Exception e) when (e.GetBaseException() is PostgresException { SqlState: "40001" }) { return "ConfirmedRollback"; }
+            catch (InvalidOperationException e) when (e.Message == "ManualPaymentInsufficientOutstanding") { return "CapacityDenied"; }
+        }
+        var outcomes = await Task.WhenAll(Compete(), Compete());
+        Check(reached == 2 && outcomes.Count(x => x == "Committed") == 1);
+        Check(outcomes.Count(x => x is "ConfirmedRollback" or "CapacityDenied") == 1);
+        await using (var db = Db()) {
+            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var locked = await ManualPaymentCapacityReader.ReadLockedAsync(db, scope, invoice.Id, branch, allowed);
+            Check(locked.Source.IsEligible && locked.Capacity.OtherManualCommitments == 72.3456m
+                && locked.Capacity.RemainingExcludingThisRequest == 27.6544m);
+            Check(await db.ManualPaymentRequests.CountAsync(x => x.Status == "PendingApproval") == 1);
+            await tx.RollbackAsync();
+        }
     }
     private async Task AuditOnlyDowngradeVeto()
     {
