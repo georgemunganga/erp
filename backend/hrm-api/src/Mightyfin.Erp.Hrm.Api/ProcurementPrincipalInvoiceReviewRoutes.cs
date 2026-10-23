@@ -9,16 +9,20 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Held schema-2 Core original-unit review. Deliberately not mapped by
 /// Program or the module host until P31 DDL, documents and finite roles pass.</summary>
-public static class ProcurementPrincipalInvoiceReviewRoutes
+public static partial class ProcurementPrincipalInvoiceReviewRoutes
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public sealed record OpenInput(long InvoiceVersion, int MappingRevision, string? Reason);
+    public sealed record DecisionInput(long InvoiceVersion, long CaseVersion,
+        long AssignmentVersion, string Action, string? Reason, string? Attestation);
 
     public static void MapRoutes(WebApplication app)
     {
         app.MapPost("/api/procurement/v1/invoices/{id:guid}/principal-unit-reviews", Open)
             .RequireAuthorization("procurement-invoice-read", "procurement-invoice-match",
                 InvoiceUnitReviewTransitions.RequestPermission);
+        app.MapPost("/api/procurement/v1/principal-unit-reviews/{id:guid}/assignments/{assignmentId:guid}/decisions", Decide)
+            .RequireAuthorization(InvoiceRetainedUnitReview.ReviewPermission);
     }
 
     private static async Task<IResult> Open(Guid id, OpenInput? input, HttpContext http,
