@@ -135,7 +135,11 @@ public sealed class ApprovalDbContext(DbContextOptions<ApprovalDbContext> option
             var stage = parent.Entity.Stages.SingleOrDefault(x => x.Id == decision.StageId);
             if (stage is null || stage.CaseId != parent.Entity.Id
                 || !stage.Assignments.Any(x => x.Id == decision.AssignmentId && x.CaseId == parent.Entity.Id
-                    && x.StageId == stage.Id && x.AssigneeSubjectId == decision.ActorSubjectId))
+                    && x.StageId == stage.Id && (x.AssigneeSubjectId == decision.ActorSubjectId
+                        || decision.Action == "Cancel" && decision.ActorSubjectId == parent.Entity.MakerSubjectId
+                            && parent.Entity.State == "Cancelled" && stage.State == "Cancelled"
+                            && x.State == "Cancelled" && parent.Entity.CompletionKey == decision.IdempotencyKey
+                            && parent.Entity.CompletedAt is not null && !string.IsNullOrWhiteSpace(decision.Reason))))
                 throw new InvalidOperationException("The decision must belong to the tracked approval case and assigned actor.");
             parent.Property(x => x.UpdatedAt).IsModified = true;
         }
