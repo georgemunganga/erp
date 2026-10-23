@@ -114,7 +114,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
                     try{await ProcurementPrincipalReceivingActor.RequireIndependentAsync(core,actor,independent,token);}
                     catch(UnauthorizedAccessException){blockers.Add("IndependentActorRequired");}
                     projection=new{observed.ObservedAt,observed.DeliveryNoteReference,physicalQuantity=Exact(observed.ReceivedQuantity),
-                        initiallyRejectedQuantity=Exact(observed.InitiallyRejectedQuantity),qualifiedQuantity=inspected is null?null:Exact(inspected.QualifiedQuantity),
+                        initiallyRejectedQuantity=Exact(observed.InitiallyRejectedQuantity),
+                        rejectedQuantity=Exact(inspected is null?observed.InitiallyRejectedQuantity:ExactDecimalArithmetic.Add(observed.InitiallyRejectedQuantity,ExactDecimalArithmetic.Subtract(inspected.InspectedQuantity,inspected.QualifiedQuantity))),qualifiedQuantity=inspected is null?null:Exact(inspected.QualifiedQuantity),
                         acceptedQuantity=Exact(accepted),unacceptedPhysicalQuantity=Exact(available),inspectionOutcome=inspected?.Outcome.ToString(),
                         inspectionRejectedQuantity=inspected is null?null:Exact(ExactDecimalArithmetic.Subtract(inspected.InspectedQuantity,inspected.QualifiedQuantity)),
                         checklistReference=selected.Rule.ChecklistReference};
@@ -123,7 +124,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 // Purpose projection omits notes, maker identity, prices, commercial
                 // snapshots and unrestricted document history. Commands revalidate.
                 records.Add(new{id=head.Id,lineId=candidate.Line.LineId,version=head.Revision,sourceVersion=loaded.State.Sequence,
-                    taskKind=task,status=head.State,purchaseOrderId=head.PurchaseOrderId,issuedVersionId=head.IssuedVersionId,
+                    taskKind=task,status=head.State,purchaseOrderLineId=source.Commercial.PurchaseOrderLineId,purchaseOrderId=head.PurchaseOrderId,issuedVersionId=head.IssuedVersionId,
                     siteId=head.BranchId,projection,actionCandidates=actions,blockers,isAuthority=false});
             }
             return new Reply(200,System.Text.Json.JsonSerializer.Serialize(new{records,total,offset=start,limit=size,purposeOnly=true,executionVersion=2,isAuthority=false},Json));
