@@ -14,7 +14,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
             var key=Key(http);
-            if(input.Draft is null || input.Sources is null || input.Draft.Lines is null
+            if(input is null || input.Draft is null || input.Sources is null || input.Draft.Lines is null
                 || input.Sources.Count!=input.Draft.Lines.Count || input.Sources.Count is <1 or >100
                 || input.Sources.Select(x=>x.DraftLineIndex).Distinct().Count()!=input.Sources.Count
                 || input.Sources.Any(x=>x.DraftLineIndex<0||x.DraftLineIndex>=input.Draft.Lines.Count
@@ -107,7 +107,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     private static Task<IResult> Cancel(Guid id,CancelInput input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
-            var key=Key(http);var reason=Clean(input.Reason);
+            var key=Key(http);
+            if(input is null)throw new Problem("OrderCancellationInvalid",422);
+            var reason=Clean(input.Reason);
             if(input.ExpectedOrderVersion<1 || input.OriginalDirectSourceSha256 is not {Length:64}
                 || reason is null || reason.Length>1000)throw new Problem("OrderCancellationInvalid",422);
             _=await Actor(core,scope,http,auth,"procurement-po-edit",null,false,token);
