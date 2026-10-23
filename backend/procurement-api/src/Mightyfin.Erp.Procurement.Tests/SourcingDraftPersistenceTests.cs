@@ -64,6 +64,28 @@ public sealed class SourcingDraftPersistenceTests
     }
 
     [Fact]
+    public void Every_principal_uuid_check_accepts_canonical_identifiers_and_rejects_malformed_identifiers()
+    {
+        using var db = Db(true);
+        var model = db.GetService<IDesignTimeModel>().Model;
+        var checkedColumns = 0;
+        foreach (var type in new[] { typeof(SourcingDraftEvidence), typeof(SourcingDemandBinding), typeof(SourcingCommandReceipt) })
+        foreach (var check in model.FindEntityType(type)!.GetCheckConstraints())
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+            check.Sql, @"\b[a-z_]+_principal_id ~ '([^']+)'"))
+        {
+            var pattern = match.Groups[1].Value;
+            Assert.Matches(pattern, "12345678-1234-4abc-8def-123456789abc");
+            Assert.Matches(pattern, "abcdef01-abcd-4abc-8def-abcdef012345");
+            Assert.DoesNotMatch(pattern, "ABCDEF01-abcd-4abc-8def-abcdef012345");
+            Assert.DoesNotMatch(pattern, "12345678-1234-4abc-8def-1234-123456789abc");
+            Assert.DoesNotMatch(pattern, "1234567812344abc8def123456789abc");
+            checkedColumns++;
+        }
+        Assert.Equal(4, checkedColumns);
+    }
+
+    [Fact]
     public async Task Legacy_draft_stays_usable_but_cannot_be_upgraded_or_claim_governed_ownership()
     {
         await using var db = Db(); var draft = new SourcingEvent { Number = "RF-1", Title = "Legacy",
