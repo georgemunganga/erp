@@ -1,5 +1,5 @@
 {
-  "status": "IMPLEMENTATION_IN_PROGRESS_NOT_RELEASE_ACCEPTANCE",
+  "status": "PRIVATE_INTEGRATION_ACCEPTED_PRODUCTION_RELEASE_PENDING",
   "pr": "https://github.com/georgemunganga/erp/pull/44",
   "publishedBase": "97ca634fa5b821ff187dac5914363d55f805a744",
   "uiPublishedBase": "04a2ab96bef4601f25122079a1c3f95d16cef877",
@@ -132,17 +132,92 @@
         "second tenant created one real draft without published payment policy"
       ],
       "productionChanged": false
+    },
+    {
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-ui-20261023_run08",
+      "result": {
+        "harnessSource": "bf1e51b6ed2b1a9cbeb07710c97e22a2eabf6b4c",
+        "applicationSource": "9982b67",
+        "apiSource": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+        "sourceUnchanged": true,
+        "actualBrowserPassed": 1,
+        "actualBrowserFailed": 1,
+        "paymentJourney": "PASS_REAL_COOKIE_UI_API_POSTGRES",
+        "policyJourney": "FAILED_HELPER_LOOKED_FOR_WORKSPACE_SWITCHER_IN_SEPARATE_SETTINGS_HEADER",
+        "productionChanged": false
+      },
+      "resultSha256": "15f73bae2c81932bb61bf23bb8a2ff1427ea70d66ded7969a4a93ac836662c12"
+    },
+    {
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-ui-20261023_run09",
+      "result": {
+        "harnessSource": "adfd160bd19ae259502420adb18d24db03ad39a9",
+        "applicationSource": "9982b67",
+        "apiSource": "d83fa712e073f35730182f05a10bbe37e6b88b08",
+        "sourceUnchanged": true,
+        "actualBrowserPassed": 1,
+        "actualBrowserFailed": 0,
+        "policyJourney": "PASS_REAL_COOKIE_UI_API_POSTGRES",
+        "paymentJourneyEvidence": "procurement-payment-ui-20261023_run08/result.json",
+        "ownerReconciliation": "PASS",
+        "productionChanged": false
+      },
+      "resultSha256": "9056b54e2fba239fa675f9dbb0be238729f8fcce8db731f3a354c322adc6f685"
+    },
+    {
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-ui-20261023_run07",
+      "applicationSource": "9982b67",
+      "typescript": "PASS",
+      "stagedBuild": "PASS",
+      "mockedBrowserPassed": 37
+    },
+    {
+      "evidenceDirectory": "/home/amizo/erp-backups/procurement-payment-ui-20261023_run09",
+      "ownerReconciliation": {
+        "status": "PASS",
+        "observed": {
+          "requests": 3,
+          "versions": 16,
+          "decisions": 16,
+          "receipts": 16,
+          "coreLinks": 5,
+          "coreDecisionLinks": 5,
+          "dateObservations": 4,
+          "users": 7,
+          "linkedEmployees": 0,
+          "employees": 0,
+          "financePaymentRows": 0,
+          "requestAudits": 16,
+          "outboxEvents": 16
+        },
+        "expected": {
+          "requests": 3,
+          "versions": 16,
+          "decisions": 16,
+          "receipts": 16,
+          "coreLinks": 5,
+          "coreDecisionLinks": 5,
+          "dateObservations": 4,
+          "users": 7,
+          "linkedEmployees": 0,
+          "employees": 0,
+          "financePaymentRows": 0,
+          "requestAudits": 16,
+          "outboxEvents": 16
+        },
+        "productionChanged": false
+      },
+      "receiptSha256": "ac0dd7e4463ae61b38f9d17bd391ac2dd70be77c680cd9c44f99a341b755fc39"
     }
   ],
   "remaining": [
-    "Final frozen UI normal-cookie actual API/PostgreSQL Playwright payment and policy journeys",
     "Final combined independent review and source merge",
     "Owning production migrations/finite roles, backup/rollback, deployment and UAT release gates"
   ],
   "productionMigrationApplied": false,
   "productionDeployed": false,
   "paymentHttpAccepted": true,
-  "paymentPlaywrightAccepted": false,
+  "paymentPlaywrightAccepted": true,
   "hostedCi": "BLOCKED_GITHUB_ACCOUNT_BILLING",
   "issues": "DISABLED_IN_REPOSITORY",
   "checkpointSource": "d83fa712e073f35730182f05a10bbe37e6b88b08",
@@ -172,6 +247,7 @@
       "reason": "Four new mapped Core choice tests returned 500 with provider date comparison. Scoped account projection and C# lock-time check corrected; subsequent run17 passed54."
     }
   ],
-  "inProgress": "UI9982b67 final browser run; previous d764486445unit tests/build passed,36of37 mocked cases passed, corrected storage error wording awaiting rerun",
-  "paymentHttpAcceptanceScope": "PRIVATE_CLONE_ONLY_NOT_PRODUCTION_OR_BROWSER"
+  "inProgress": "Independent source review and source publication; production migration/deployment/UAT remain separate release gates",
+  "paymentHttpAcceptanceScope": "PRIVATE_CLONE_ONLY_NOT_PRODUCTION_OR_BROWSER",
+  "paymentPlaywrightAcceptanceScope": "PRIVATE_NORMAL_COOKIE_REAL_API_POSTGRES_NOT_PRODUCTION"
 }
