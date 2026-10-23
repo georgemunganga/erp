@@ -77,3 +77,24 @@ public sealed class SourcingManualContact : ProcurementRecord
     public string ResponseJson { get; set; } = null!;
     public string ResponseSha256 { get; set; } = null!;
 }
+
+/// <summary>Append-only exact state of an internally entered quotation Draft.
+/// The original SupplierBid/Line rows may change only alongside a new version.</summary>
+public sealed class SourcingManualQuoteVersion : ProcurementRecord
+{
+    public int SchemaVersion { get; set; } = 2;
+    public Guid SourcingEventId { get; set; }
+    public Guid SupplierBidId { get; set; }
+    public int Revision { get; set; }
+    public long BidVersion { get; set; }
+    public string Operation { get; set; } = null!;
+    public string ActorPrincipalId { get; set; } = null!;
+    public Guid? ActorCoreLinkedWorkerId { get; set; }
+    public string SnapshotJson { get; set; } = null!;
+    public string SnapshotSha256 { get; set; } = null!;
+    public Guid CommandKey { get; set; }
+    public string CommandSha256 { get; set; } = null!;
+    public string ResponseJson { get; set; } = null!;
+    public string ResponseSha256 { get; set; } = null!;
+    public DateTimeOffset RecordedAt { get; set; }
+}

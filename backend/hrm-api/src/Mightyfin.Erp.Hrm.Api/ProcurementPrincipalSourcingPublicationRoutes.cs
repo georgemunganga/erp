@@ -30,6 +30,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization("procurement-access");
         group.MapPost("/{id:guid}/principal-invitations/{invitationId:guid}/manual-contact",
             PrincipalManualContact).RequireAuthorization("procurement-sourcing-submit");
+        MapPrincipalManualQuoteRoutes(group);
     }
 
     private static async Task RequirePrincipalPublication(HttpContext http, ProcurementDbContext db, CancellationToken ct)
@@ -51,6 +52,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         {
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
+            await LockPrincipalSourcingCommandKey(db, key, token);
             if (id == Guid.Empty || input.ExpectedEventVersion < 1
                 || input.OriginalDraftFingerprint is not { Length: 64 }
                 || input.SupplierIds is not { Length: > 0 and <= 100 }
@@ -64,6 +66,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (await PrincipalPublicationReplay(db, core, scope, http, auth, actor,
                     "procurement-sourcing-submit", key, fingerprint, id, token) is { } replay)
                 return replay;
+            await RequirePrincipalSourcingKeyUnused(db, key, token);
             var requestIds = await db.SourcingDemandBindings.AsNoTracking().Where(x => x.SourcingEventId == id)
                 .Select(x => x.PurchaseRequestId).Distinct().OrderBy(x => x).ToArrayAsync(token);
             if (requestIds.Length is < 1 or > 200) throw new Problem("SourcingOriginalEvidenceUnavailable", 409);
@@ -255,6 +258,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         {
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http); var reason = Normalize(input.Reason);
+            await LockPrincipalSourcingCommandKey(db, key, token);
             if (id == Guid.Empty || caseId == Guid.Empty || assignmentId == Guid.Empty
                 || input.ExpectedEventVersion < 1 || input.ExpectedCaseVersion < 1
                 || input.ExpectedAssignmentVersion < 1 || input.Action is not ("Approve" or "Return" or "Reject")
@@ -285,6 +289,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     throw new Problem("SourcingReceiptNeedsReview", 409);
                 return new Reply(previous.ResponseJson, 200);
             }
+            await RequirePrincipalSourcingKeyUnused(db, key, token);
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.sourcing_events WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE", token);
             await cases.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM core_approval.cases WHERE \"TenantId\"={scope.TenantId} AND \"LegalEntityId\"={scope.LegalEntityId} AND \"Id\"={caseId} FOR UPDATE", token);
             var ev = await db.SourcingEvents.SingleOrDefaultAsync(x => x.Id == id && x.ExecutionVersion == 2, token)

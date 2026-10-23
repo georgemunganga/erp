@@ -10,6 +10,7 @@ public sealed partial class ProcurementDbContext
     public DbSet<SourcingPublicationDecision> SourcingPublicationDecisions => Set<SourcingPublicationDecision>();
     public DbSet<SourcingPublicationReceipt> SourcingPublicationReceipts => Set<SourcingPublicationReceipt>();
     public DbSet<SourcingManualContact> SourcingManualContacts => Set<SourcingManualContact>();
+    public DbSet<SourcingManualQuoteVersion> SourcingManualQuoteVersions => Set<SourcingManualQuoteVersion>();
 
     private void ConfigureSourcingPublication(ModelBuilder model)
     {
@@ -17,10 +18,12 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<SourcingPublicationDecision>(model, "sourcing_publication_decisions");
         ConfigureBase<SourcingPublicationReceipt>(model, "sourcing_publication_receipts");
         ConfigureBase<SourcingManualContact>(model, "sourcing_manual_contacts");
+        ConfigureBase<SourcingManualQuoteVersion>(model, "sourcing_manual_quote_versions");
         var opening = model.Entity<SourcingPublicationOpening>();
         var decision = model.Entity<SourcingPublicationDecision>();
         var receipt = model.Entity<SourcingPublicationReceipt>();
         var contact = model.Entity<SourcingManualContact>();
+        var quote = model.Entity<SourcingManualQuoteVersion>();
         opening.Property(x => x.PolicyRulesSha256).HasMaxLength(64);
         opening.Property(x => x.MakerPrincipalId).HasMaxLength(36);
         opening.Property(x => x.OriginalDraftFingerprint).HasMaxLength(64);
@@ -40,6 +43,14 @@ public sealed partial class ProcurementDbContext
         contact.Property(x => x.CommandSha256).HasMaxLength(64);
         contact.Property(x => x.ResponseJson).HasColumnType("text");
         contact.Property(x => x.ResponseSha256).HasMaxLength(64);
+        quote.Property(x => x.Operation).HasMaxLength(20);
+        quote.Property(x => x.ActorPrincipalId).HasMaxLength(36);
+        quote.Property(x => x.SnapshotJson).HasColumnType("text");
+        quote.Property(x => x.SnapshotSha256).HasMaxLength(64);
+        quote.Property(x => x.CommandSha256).HasMaxLength(64);
+        quote.Property(x => x.ResponseJson).HasColumnType("text");
+        quote.Property(x => x.ResponseSha256).HasMaxLength(64);
+        model.Entity<SupplierBid>().Property(x => x.DraftRevision).HasDefaultValue(0);
         Link<SourcingPublicationOpening, SourcingEvent>(model, nameof(SourcingPublicationOpening.SourcingEventId));
         Link<SourcingPublicationOpening, PolicyVersion>(model, nameof(SourcingPublicationOpening.PolicyVersionId));
         Link<SourcingPublicationOpening, SourcingPolicyIdentityEvidence>(model, nameof(SourcingPublicationOpening.PublishedPolicyEvidenceId));
@@ -51,6 +62,8 @@ public sealed partial class ProcurementDbContext
         Link<SourcingManualContact, SourcingEvent>(model, nameof(SourcingManualContact.SourcingEventId));
         Link<SourcingManualContact, SourcingInvitation>(model, nameof(SourcingManualContact.InvitationId));
         Link<SourcingManualContact, Supplier>(model, nameof(SourcingManualContact.SupplierId));
+        Link<SourcingManualQuoteVersion, SourcingEvent>(model, nameof(SourcingManualQuoteVersion.SourcingEventId));
+        Link<SourcingManualQuoteVersion, SupplierBid>(model, nameof(SourcingManualQuoteVersion.SupplierBidId));
         opening.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreApprovalCaseId }).IsUnique();
         opening.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId, x.EventVersionAtOpening }).IsUnique();
         decision.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreApprovalDecisionId }).IsUnique();
@@ -58,6 +71,8 @@ public sealed partial class ProcurementDbContext
         receipt.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique();
         contact.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.InvitationId }).IsUnique();
         contact.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique();
+        quote.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierBidId, x.Revision }).IsUnique();
+        quote.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique();
         const string canonical = " ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'";
         opening.ToTable(t => t.HasCheckConstraint("ck_sourcing_publication_opening_v2",
             "schema_version=2 AND event_version_at_opening>0 AND policy_version_number>0"
@@ -91,10 +106,100 @@ public sealed partial class ProcurementDbContext
             + " AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid"
             + " AND command_sha256 ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$'"
             + " AND isfinite(reported_contact_at) AND isfinite(recorded_at) AND reported_contact_at <= recorded_at"));
+        quote.ToTable(t => t.HasCheckConstraint("ck_sourcing_manual_quote_version_v2",
+            "schema_version=2 AND operation IN ('Create','Revise','Cancel') AND revision>0 AND bid_version>0"
+            + " AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id" + canonical
+            + " AND (actor_core_linked_worker_id IS NULL OR actor_core_linked_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)"
+            + " AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid"
+            + " AND command_sha256 ~ '^[0-9a-f]{64}$' AND snapshot_sha256 ~ '^[0-9a-f]{64}$'"
+            + " AND response_sha256 ~ '^[0-9a-f]{64}$' AND isfinite(recorded_at)"));
     }
 
     private void GuardSourcingPublicationEvidence()
     {
+        foreach (var entry in ChangeTracker.Entries<SourcingManualQuoteVersion>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new InvalidOperationException("SourcingManualQuoteEvidenceAppendOnly");
+            if (entry.State != EntityState.Added) continue;
+            var row = entry.Entity;
+            var bid = SupplierBids.Local.SingleOrDefault(x => x.Id == row.SupplierBidId)
+                ?? SupplierBids.SingleOrDefault(x => x.Id == row.SupplierBidId);
+            var invitation = bid?.InvitationId is { } invitationId
+                ? SourcingInvitations.SingleOrDefault(x => x.Id == invitationId) : null;
+            var ev = bid is null ? null : SourcingEvents.SingleOrDefault(x => x.Id == bid.SourcingEventId);
+            if (bid is null || ev is null || invitation is null || ev.ExecutionVersion != 2
+                || ev.Status != "Published" || invitation.Status != "ManualContactRecorded"
+                || row.SchemaVersion != 2 || row.TenantId != scope.TenantId || row.LegalEntityId != scope.LegalEntityId
+                || row.SourcingEventId != ev.Id || row.ActorPrincipalId != scope.SubjectId
+                || row.ActorCoreLinkedWorkerId != scope.CoreLinkedWorkerId
+                || bid.SurrogateEnteredBy != row.ActorPrincipalId || bid.SourceChannel != "Manual"
+                || bid.SubmissionVersion != 1 || bid.SubmittedAt is not null
+                || row.CommandKey == Guid.Empty || row.CommandSha256 is not { Length: 64 }
+                || row.ResponseSha256 != ProcurementEvidenceEncoding.Digest(row.ResponseJson)
+                || row.RecordedAt == default)
+                throw new InvalidOperationException("SourcingManualQuoteEvidenceInvalid");
+            var bidEntry = Entry(bid);
+            var expectedVersion = bidEntry.State == EntityState.Added ? 1
+                : bidEntry.State == EntityState.Modified
+                    ? checked(bidEntry.OriginalValues.GetValue<long>(nameof(SupplierBid.Version)) + 1) : -1;
+            var prior = SourcingManualQuoteVersions.AsNoTracking().Where(x => x.SupplierBidId == bid.Id)
+                .OrderByDescending(x => x.Revision).FirstOrDefault();
+            if (row.BidVersion != expectedVersion || row.Revision != (prior?.Revision ?? 0) + 1
+                || bid.DraftRevision != row.Revision
+                || row.Operation == "Create" && (prior is not null || bidEntry.State != EntityState.Added || bid.Status != "Draft")
+                || row.Operation == "Revise" && (prior is null || bidEntry.State != EntityState.Modified || bid.Status != "Draft")
+                || row.Operation == "Cancel" && (prior is null || bidEntry.State != EntityState.Modified || bid.Status != "Cancelled")
+                || row.Operation is not ("Create" or "Revise" or "Cancel"))
+                throw new InvalidOperationException("SourcingManualQuoteRevisionInvalid");
+            var lines = SupplierBidLines.Where(x => x.SupplierBidId == bid.Id).ToList();
+            foreach (var local in SupplierBidLines.Local.Where(x => x.SupplierBidId == bid.Id))
+            {
+                lines.RemoveAll(x => x.Id == local.Id);
+                lines.Add(local);
+            }
+            if (lines.Count is < 1 or > 200 || lines.Any(x => Entry(x).State == EntityState.Deleted)
+                || row.Operation == "Create" && lines.Any(x => Entry(x).State != EntityState.Added)
+                || row.Operation == "Cancel" && lines.Any(x => Entry(x).State != EntityState.Unchanged)
+                || row.SnapshotJson != PrincipalManualQuotationSnapshot.Build(bid, lines)
+                || row.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(row.SnapshotJson))
+                throw new InvalidOperationException("SourcingManualQuoteSnapshotInvalid");
+            if (row.Operation != "Cancel")
+            {
+                var sources = SourcingLines.Where(x => x.SourcingEventId == ev.Id).ToArray();
+                PrincipalManualQuotationDraft.Validate(ev, invitation, bid, sources, lines, row.ActorPrincipalId);
+            }
+        }
+        foreach (var bidEntry in ChangeTracker.Entries<SupplierBid>()
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        {
+            var bid = bidEntry.Entity;
+            var ev = SourcingEvents.SingleOrDefault(x => x.Id == bid.SourcingEventId);
+            if (ev?.ExecutionVersion != 2) continue;
+            if (bidEntry.State == EntityState.Deleted || !SourcingManualQuoteVersions.Local.Any(x => x.SupplierBidId == bid.Id))
+                throw new InvalidOperationException("SourcingManualQuoteVersionRequired");
+            if (bidEntry.State == EntityState.Modified)
+            {
+                var changed = bidEntry.Properties.Where(x => x.IsModified).Select(x => x.Metadata.Name).ToHashSet();
+                if (!changed.IsSubsetOf([nameof(SupplierBid.Status), nameof(SupplierBid.DraftRevision), nameof(ProcurementRecord.Version),
+                    nameof(ProcurementRecord.UpdatedAt), nameof(ProcurementRecord.UpdatedBy)])
+                    || bidEntry.OriginalValues.GetValue<string>(nameof(SupplierBid.Status)) != "Draft")
+                    throw new InvalidOperationException("SourcingManualQuoteMaterialLocked");
+            }
+        }
+        foreach (var lineEntry in ChangeTracker.Entries<SupplierBidLine>()
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        {
+            var line = lineEntry.Entity;
+            var bid = SupplierBids.Local.SingleOrDefault(x => x.Id == line.SupplierBidId)
+                ?? SupplierBids.SingleOrDefault(x => x.Id == line.SupplierBidId);
+            var ev = bid is null ? null : SourcingEvents.SingleOrDefault(x => x.Id == bid.SourcingEventId);
+            if (ev?.ExecutionVersion != 2) continue;
+            var revision = SourcingManualQuoteVersions.Local.SingleOrDefault(x => x.SupplierBidId == bid!.Id);
+            if (revision is null || lineEntry.State == EntityState.Deleted
+                || revision.Operation == "Cancel" || revision.Operation == "Create" && lineEntry.State != EntityState.Added)
+                throw new InvalidOperationException("SourcingManualQuoteLineVersionRequired");
+        }
         foreach (var entry in ChangeTracker.Entries<SourcingManualContact>())
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)

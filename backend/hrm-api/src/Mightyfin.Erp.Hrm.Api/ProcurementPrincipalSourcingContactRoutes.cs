@@ -21,6 +21,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         {
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
+            await LockPrincipalSourcingCommandKey(db, key, token);
             var reference = Normalize(input.Reference);
             if (id == Guid.Empty || invitationId == Guid.Empty || reference.Length is < 1 or > 200
                 || input.Channel is not ("EmailOutsideSystem" or "Physical" or "Telephone" or "Other")
@@ -46,6 +47,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     throw new Problem("SourcingContactNeedsReview", 409);
                 return new Reply(previous.ResponseJson, 201);
             }
+            await RequirePrincipalSourcingKeyUnused(db, key, token);
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.sourcing_invitations WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={invitationId} FOR UPDATE", token);
             var ev = await PrincipalOwnedEvent(db, core, scope, http, auth, actor,
                 "procurement-sourcing-submit", id, token);

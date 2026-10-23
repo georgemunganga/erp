@@ -57,4 +57,39 @@ public sealed class SourcingPublicationGuardTests
         });
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
     }
+
+    [Fact]
+    public async Task Manual_supplier_contact_cannot_be_claimed_without_append_only_contact_evidence()
+    {
+        var scope = new Scope("tenant", Guid.NewGuid(), Guid.NewGuid().ToString("D"));
+        var options = new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var db = new ProcurementDbContext(options, scope);
+        var ev = new SourcingEvent { TenantId = scope.TenantId,
+            LegalEntityId = scope.LegalEntityId, ExecutionVersion = 2, Status = "Published" };
+        var invitation = new SourcingInvitation { TenantId = scope.TenantId,
+            LegalEntityId = scope.LegalEntityId, SourcingEventId = ev.Id,
+            SupplierId = Guid.NewGuid(), Status = "ReadyForManualDelivery" };
+        db.Attach(ev); db.Attach(invitation);
+        invitation.Status = "ManualContactRecorded";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task Principal_manual_quote_cannot_be_submitted_or_mutated_without_draft_revision()
+    {
+        var scope = new Scope("tenant", Guid.NewGuid(), Guid.NewGuid().ToString("D"));
+        var options = new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var db = new ProcurementDbContext(options, scope);
+        var ev = new SourcingEvent { TenantId = scope.TenantId,
+            LegalEntityId = scope.LegalEntityId, ExecutionVersion = 2, Status = "Published" };
+        var bid = new SupplierBid { TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            SourcingEventId = ev.Id, SupplierId = Guid.NewGuid(), SourceChannel = "Manual",
+            Status = "Draft", SurrogateEnteredBy = scope.SubjectId, DraftRevision = 1 };
+        db.Attach(ev); db.Attach(bid);
+        bid.Status = "Submitted";
+        bid.SubmittedAt = DateTimeOffset.UtcNow;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
 }

@@ -70,12 +70,18 @@ public sealed class PrincipalRfqPublicationPreparationTests
             SupplierBidId = bid.Id, SourcingLineId = source.Id, Quantity = 1.0001m,
             UnitPrice = 1.0001m, TaxAmount = 0m, DeliveryAmount = 0m };
         PrincipalManualQuotationDraft.Validate(sourcing, invitation, bid, [source], [quote], actor);
+        var snapshot = PrincipalManualQuotationSnapshot.Build(bid, [quote]);
+        Assert.Contains("1.0001", snapshot);
+        Assert.DoesNotContain("SubmittedAt", snapshot);
         quote.Quantity = 1.0002m;
         Assert.Throws<InvalidOperationException>(() => PrincipalManualQuotationDraft.Validate(sourcing, invitation, bid, [source], [quote], actor));
         quote.Quantity = 1.0001m;
         quote.SourcingLineId = Guid.NewGuid();
         Assert.Throws<InvalidOperationException>(() => PrincipalManualQuotationDraft.Validate(sourcing, invitation, bid, [source], [quote], actor));
         quote.SourcingLineId = source.Id;
+        quote.UnitPrice = 0.00001m;
+        Assert.Throws<InvalidOperationException>(() => PrincipalManualQuotationDraft.Validate(sourcing, invitation, bid, [source], [quote], actor));
+        quote.UnitPrice = 1.0001m;
         bid.SubmittedAt = DateTimeOffset.UtcNow;
         Assert.Throws<InvalidOperationException>(() => PrincipalManualQuotationDraft.Validate(sourcing, invitation, bid, [source], [quote], actor));
     }
