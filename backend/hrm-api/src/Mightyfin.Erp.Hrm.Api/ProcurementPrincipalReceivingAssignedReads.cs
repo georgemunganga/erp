@@ -60,7 +60,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var start=Math.Clamp(offset??0,0,100_000);var size=Math.Clamp(limit??25,1,25);
             var policy=await ProcurementPrincipalReceivingPolicy.CurrentRecordAsync(db,scope,http.RequestServices,token);
             var document=PrincipalReceivingPolicyRules.Parse(policy.RulesJson);
-            var query=BoundDraftLines(db,scope,actor).Where(AssignedRulePredicate(document.Rules,actor.PrincipalId,task));
+            var query=BoundDraftLines(db,scope,actor).Where(x=>x.Source.CurrencyCode==document.CurrencyCode)
+                .Where(AssignedRulePredicate(document.Rules,actor.PrincipalId,task));
             query=task=="Service"?query.Where(x=>x.Head.Kind=="Service"&&x.Head.State=="Draft")
                 :query.Where(x=>x.Head.Kind=="Goods"&&x.Head.State=="Recorded");
             if(id is {} target)query=query.Where(x=>x.Head.Id==target);
