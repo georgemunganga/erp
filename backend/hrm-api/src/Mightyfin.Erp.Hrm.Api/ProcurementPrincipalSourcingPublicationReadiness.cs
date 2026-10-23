@@ -12,6 +12,7 @@ public sealed class ProcurementPrincipalSourcingPublicationOptions
 public interface IProcurementPrincipalSourcingPublicationReadiness
 {
     Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct);
+    Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(false);
 }
 
 public sealed class UnavailablePrincipalSourcingPublicationReadiness : IProcurementPrincipalSourcingPublicationReadiness

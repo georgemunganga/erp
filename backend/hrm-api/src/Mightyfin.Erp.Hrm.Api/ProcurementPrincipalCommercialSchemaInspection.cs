@@ -1,0 +1,85 @@
+using System.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
+
+namespace Mightyfin.Erp.Hrm.Api;
+
+/// <summary>Shared physical inspection for the three new commercial capabilities.
+/// Each caller supplies its own owned entities and finite privilege contract.
+/// Does not grant record access, run DDL or substitute for current Core authorization.</summary>
+internal static class ProcurementPrincipalCommercialSchemaInspection
+{
+    internal static async Task<bool> CheckAsync(ProcurementDbContext owner, Type[] types,
+        string privilegeSql, IReadOnlySet<string> requiredOwnershipConstraints, CancellationToken ct, string? ownershipManifestSql = null)
+    {
+        if (!owner.Database.IsNpgsql()) return false;
+        var opened = false;
+        try
+        {
+            if (owner.Database.HasPendingModelChanges()
+                || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
+                || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(
+                    ProcurementPrincipalCommercialSchemaCapture.MigrationId, StringComparer.Ordinal)) return false;
+            var connection = owner.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
+            await using var command = connection.CreateCommand();
+            command.Transaction = owner.Database.CurrentTransaction?.GetDbTransaction();
+            command.CommandTimeout = 10;
+            async Task<bool> True(string sql)
+            {
+                command.CommandText = sql;
+                return await command.ExecuteScalarAsync(ct) is true;
+            }
+            if (!await True(privilegeSql)) return false;
+            var model = owner.GetService<IDesignTimeModel>().Model;
+            foreach (var type in types)
+            {
+                var entity = model.FindEntityType(type);
+                if (entity is null) return false;
+                var table = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
+                command.CommandText = SelectAllColumnsSql(entity, table);
+                await using (var reader = await command.ExecuteReaderAsync(ct)) { }
+                if (!await True(ColumnsSql(entity, table))) return false;
+                foreach (var key in entity.GetKeys())
+                    if (!await True(KeySql(table, key.Properties.Select(x => x.GetColumnName(table)!).ToArray(),
+                        key.GetName()!, key.IsPrimaryKey()))) return false;
+                foreach (var check in entity.GetCheckConstraints())
+                {
+                    if (!ProcurementPrincipalCommercialSchemaCapture.Checks.TryGetValue(
+                        table.Schema + "." + table.Name + "." + check.Name, out var expected)) return false;
+                    command.CommandText = CheckSql(table, check.Name);
+                    if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
+                }
+                foreach (var foreign in entity.GetForeignKeys())
+                {
+                    var parent = StoreObjectIdentifier.Table(foreign.PrincipalEntityType.GetTableName()!,
+                        foreign.PrincipalEntityType.GetSchema());
+                    if (!await True(ForeignKeySql(table, parent,
+                        foreign.Properties.Select(x => x.GetColumnName(table)!).ToArray(),
+                        foreign.PrincipalKey.Properties.Select(x => x.GetColumnName(parent)!).ToArray(),
+                        foreign.GetConstraintName()))) return false;
+                }
+                foreach (var index in entity.GetIndexes().Where(x => x.IsUnique))
+                    if (!await True(UniqueIndexSql(table, index.Properties.Select(x => x.GetColumnName(table)!).ToArray(),
+                        index.GetDatabaseName(), index.GetFilter()))) return false;
+            }
+            foreach (var fullName in requiredOwnershipConstraints)
+            {
+                var parts = fullName.Split('.');
+                if (parts.Length != 3 || !ProcurementPrincipalCommercialSchemaCapture.OwnershipConstraints
+                    .TryGetValue(fullName, out var expected)) return false;
+                command.CommandText = "SELECT pg_get_constraintdef(oid,false) FROM pg_constraint WHERE conrelid="
+                    + Literal(parts[0] + "." + parts[1]) + "::regclass AND conname=" + Literal(parts[2])
+                    + " AND contype='f' AND convalidated AND conislocal";
+                if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
+            }
+            return ownershipManifestSql is null || await True(ownershipManifestSql);
+        }
+        catch (Exception error) when (error is not OperationCanceledException) { return false; }
+        finally { if (opened) await owner.Database.CloseConnectionAsync(); }
+    }
+}

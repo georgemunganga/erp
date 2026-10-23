@@ -202,6 +202,7 @@ public sealed class ProcurementPrincipalReceivingOptions
 public interface IProcurementPrincipalReceivingReadiness
 {
     Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct);
+    Task<bool> IsReadyAsync(CancellationToken ct)=>Task.FromResult(false);
 }
 public sealed class UnavailableProcurementPrincipalReceivingReadiness:IProcurementPrincipalReceivingReadiness
 {
