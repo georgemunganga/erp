@@ -38,6 +38,88 @@ internal static class ProcurementPrincipalOrderRetainedIssued
     }
     private static InvalidOperationException Invalid()=>new("PrincipalOrderRetainedIssueUnavailable");
 
+    /// <summary>Composable current-scope discovery fence. Apply search, count
+    /// and paging ONLY after this projection; then run LoadAsync on each bounded
+    /// result for full retained source/hash verification. This query is a
+    /// necessary retained-issued filter, never a substitute for full proof.</summary>
+    internal static IQueryable<PurchaseOrder> QueryBoundIssued(ProcurementDbContext db,
+        ProcurementRequestScope scope,IReadOnlySet<Guid> currentCoreAllowedBranches)
+    {
+        if(scope.OrgUnitId is not null || scope.PrincipalId?.ToString("D")!=scope.SubjectId
+            || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches
+            || currentCoreAllowedBranches.Count==0)throw Invalid();
+        var allowed=scope.WorkLocationId is { } selected
+            ? currentCoreAllowedBranches.Contains(selected)?new[]{selected}:throw Invalid()
+            : currentCoreAllowedBranches.Where(x=>x!=Guid.Empty).Distinct().Order().ToArray();
+        if(allowed.Length==0)throw Invalid();
+        // Same physical Core approval store as the P25/P30 transaction. A
+        // status column alone cannot admit an issued order into receiving.
+        return db.PurchaseOrders.FromSqlInterpolated($"""
+            SELECT po.* FROM procurement.purchase_orders po
+            WHERE po.tenant_id={scope.TenantId}
+              AND po.legal_entity_id={scope.LegalEntityId}
+              AND po.branch_ref = ANY({allowed})
+              AND po.principal_draft_schema_version=2
+              AND po.status='Issued' AND po.current_revision=1
+              AND po.submitted_business_version=1 AND po.issued_at IS NOT NULL
+              AND po.original_direct_source_sha256 IS NOT NULL
+              AND EXISTS (
+                SELECT 1 FROM procurement.principal_order_issued_versions issued
+                JOIN procurement.principal_order_submissions submission
+                  ON submission.id=issued.submission_id
+                 AND submission.tenant_id=po.tenant_id
+                 AND submission.legal_entity_id=po.legal_entity_id
+                JOIN procurement.principal_order_funding_evidence funding
+                  ON funding.id=issued.funding_evidence_id
+                 AND funding.id=submission.funding_evidence_id
+                 AND funding.tenant_id=po.tenant_id
+                 AND funding.legal_entity_id=po.legal_entity_id
+                JOIN procurement.principal_order_acknowledgments ack
+                  ON ack.issued_version_id=issued.id
+                 AND ack.tenant_id=po.tenant_id
+                 AND ack.legal_entity_id=po.legal_entity_id
+                 AND ack.outcome='Accepted'
+                JOIN core_approval.cases approval
+                  ON approval."Id"=issued.core_approval_case_id
+                 AND approval."TenantId"=po.tenant_id
+                 AND approval."LegalEntityId"=po.legal_entity_id
+                WHERE issued.purchase_order_id=po.id
+                  AND issued.tenant_id=po.tenant_id
+                  AND issued.legal_entity_id=po.legal_entity_id
+                  AND issued.commercial_revision=1
+                  AND issued.original_direct_source_sha256=po.original_direct_source_sha256
+                  AND issued.commercial_snapshot_sha256=submission.commercial_snapshot_sha256
+                  AND issued.commercial_snapshot_sha256=funding.commercial_snapshot_sha256
+                  AND submission.purchase_order_id=po.id
+                  AND submission.commercial_revision=1
+                  AND submission.buyer_principal_id=po.buyer_subject_id
+                  AND submission.original_direct_source_sha256=po.original_direct_source_sha256
+                  AND funding.purchase_order_id=po.id
+                  AND funding.original_direct_source_sha256=po.original_direct_source_sha256
+                  AND funding.currency_code=po.currency_code
+                  AND funding.attested_gross_amount=submission.gross_amount
+                  AND ack.purchase_order_id=po.id
+                  AND ack.observed_at=po.issued_at
+                  AND approval."State"='Approved'
+                  AND approval."SourceModule"='procurement'
+                  AND approval."SourceType"='purchase_order'
+                  AND approval."SourceId"=po.id
+                  AND approval."SourceVersion"=1
+                  AND approval."PolicyVersionId"=submission.policy_version_id
+                  AND approval."PolicyVersionNumber"=submission.policy_version_number
+                  AND approval."MakerSubjectId"=po.buyer_subject_id
+                  AND approval."CompletionKey" IS NOT NULL
+                  AND EXISTS (
+                    SELECT 1 FROM core_approval.decisions final
+                    WHERE final."CaseId"=approval."Id"
+                      AND final."TenantId"=po.tenant_id
+                      AND final."LegalEntityId"=po.legal_entity_id
+                      AND final."Action"='Approve'
+                      AND final."IdempotencyKey"=approval."CompletionKey")
+              )
+            """);
+    }
+
     internal static async Task<Result> LoadAsync(ProcurementDbContext db,ApprovalDbContext cases,
         ProcurementRequestScope scope,IReadOnlySet<Guid> currentCoreAllowedBranches,
         Guid orderId,Guid issuedVersionId,Guid? selectedLineId,bool lockSources,CancellationToken ct)
