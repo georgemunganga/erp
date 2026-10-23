@@ -62,12 +62,12 @@ public static partial class ProcurementPrincipalReceivingRoutes
             return Complete(db,head,"Cancel",key,actor.PrincipalId,hash);
         },ct);
     private static Task<IResult> GoodsDetail(Guid id,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,"procurement-receipt-view",async(db,cases,_,actor,token)=>
+        =>Run(http,scope,"procurement-receipt-view",async(db,cases,core,actor,token)=>
         {
             var head=await Head(db,actor,id,"Goods",false,token);
             foreach(var line in PrincipalReceivingDraftSnapshot.Goods(Revision(db,head)).Lines)
                 _=await StoredSource(db,cases,scope,actor,line.Source,false,token);
-            return new Reply(200,System.Text.Json.JsonSerializer.Serialize(View(db,head),Json));
+            return new Reply(200,System.Text.Json.JsonSerializer.Serialize(await DetailView(db,core,scope,http,head,actor,token),Json));
         },ct);
     private static Task<IResult> Record(Guid id,ProcurementReceivingRoutes.RecordReceipt input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         =>Run(http,scope,ControlledReceiving.RecordPermission,async(db,cases,_,actor,token)=>

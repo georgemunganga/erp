@@ -58,7 +58,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
                     history=legacy?"RequiresReconciliation":"NoSuccessorHistory";
                 }
                 records.Add(new{purchaseOrderId=pin.PurchaseOrderId,purchaseOrderNumber=row.OrderNumber,issuedVersionId=pin.IssuedVersionId,
-                    purchaseOrderLineId=pin.PurchaseOrderLineId,lineNumber=row.LineNumber,kind=pin.Kind.ToString(),siteId=pin.BranchId,
+                    purchaseOrderLineId=pin.PurchaseOrderLineId,lineNumber=row.LineNumber,description=db.PurchaseOrderLines.Local.Single(x=>x.Id==pin.PurchaseOrderLineId).Description,
+                    kind=pin.Kind.ToString(),siteId=pin.BranchId,
                     pin.CategoryCode,pin.PurchaseType,pin.CurrencyCode,pin.UnitCode,authorizedQuantity=Exact(pin.AuthorizedQuantity),netUnitPrice=Exact(pin.NetUnitPrice),
                     historyState=history,sourceVersion=sequence,currentAcceptedQuantity=accepted,currentAcceptedNetAmount=net,remainingQuantity=remaining,
                     supplierAcknowledgmentIsDelivery=false,actionCandidatesAreAuthority=false});

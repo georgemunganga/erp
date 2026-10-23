@@ -340,3 +340,28 @@ facts/receipts/cursor/audit changes on a diverged counter. The deliberately
 incomplete InMemory negative seed is labelled as such and claims no valid
 PR/PO producer, authorization, relational or PostgreSQL acceptance. Actual used
 DDL/raw FK/counter tamper/concurrent transaction tests remain central gates.
+
+### Existing UI projection alignment (source only)
+
+Full goods/service detail now adds existing-layout-compatible `receipt`/`service`
+projections alongside the retained editable `draft`, without exposing raw source
+or maker identity. Server current canonical actor/ownership/state/publication and
+independence determine action candidates; a withdrawn/unavailable current policy
+suppresses new-effect hints without erasing verified historical facts. Edit/cancel
+hints require the exact draft owner and current edit action, not an employee.
+Commands still fully revalidate; a candidate is never authority.
+
+Complete verified source histories and reconciled counters provide actual
+observation/inspection/acceptance quantities, source cursors and exact values.
+No observation exists merely because a draft has entered quantity. Nonfinancial
+physical/inspection history has nullable value, never a fabricated zero financial
+posting. Acceptance history has its exact recorded net value. Purpose-only task
+surfaces remain separate and omit notes, prices, maker identities and broad
+history. The full view carries no inventory/asset/Finance posting or invoice
+matching authority. The existing source selector now includes the actual retained
+line description for the original editor, not a made-up catalogue label.
+
+Frontend composition will require the explicit new `principalReceiving` metadata
+capability, absent/unknown=false; permissions or worker presence cannot imply
+support. No host metadata/provider/route activation is introduced by these source
+projections. Existing legacy v1 DTOs/routes stay intact.

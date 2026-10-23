@@ -44,11 +44,11 @@ public static partial class ProcurementPrincipalReceivingRoutes
             return Complete(db,head,"Cancel",key,actor.PrincipalId,hash);
         },ct);
     private static Task<IResult> ServiceDetail(Guid id,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,"procurement-receipt-view",async(db,cases,_,actor,token)=>
+        =>Run(http,scope,"procurement-receipt-view",async(db,cases,core,actor,token)=>
         {
             var head=await Head(db,actor,id,"Service",false,token);
             _=await StoredSource(db,cases,scope,actor,PrincipalReceivingDraftSnapshot.Service(Revision(db,head)).Source,false,token);
-            return new Reply(200,System.Text.Json.JsonSerializer.Serialize(View(db,head),Json));
+            return new Reply(200,System.Text.Json.JsonSerializer.Serialize(await DetailView(db,core,scope,http,head,actor,token),Json));
         },ct);
     private static Task<IResult> Certify(Guid id,ProcurementReceivingRoutes.ReceivingAction input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         =>Run(http,scope,ControlledReceiving.CertifyPermission,async(db,cases,core,actor,token)=>

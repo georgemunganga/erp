@@ -170,18 +170,6 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 revision=head.Revision,financePostingPerformed=false,stockPostingPerformed=false},Json)});
         return new(status,body);
     }
-    private static object View(ProcurementDbContext db,PrincipalReceivingDraftHead head)
-    {
-        var revision=Revision(db,head);
-        var sources=PrincipalReceivingDraftSnapshot.Sources(head.Kind,revision);
-        return new{id=head.Id,version=head.Revision,executionVersion=2,status=head.State,kind=head.Kind,
-            purchaseOrderId=head.PurchaseOrderId,issuedVersionId=head.IssuedVersionId,siteId=head.BranchId,
-            draft=DraftView(head,revision),
-            sources=sources.Select(source=>new{purchaseOrderLineId=source.Commercial.PurchaseOrderLineId,
-                sourceVersion=db.PrincipalReceivingSourceStates.Local.SingleOrDefault(x=>x.IssuedVersionId==source.Commercial.IssuedVersionId&&x.PurchaseOrderLineId==source.Commercial.PurchaseOrderLineId)?.Sequence,
-                authorizedQuantity=Exact(source.Commercial.AuthorizedQuantity),netUnitPrice=Exact(source.Commercial.NetUnitPrice)}),
-            matchingAuthorityAvailable=false,correctionsAvailable=false};
-    }
     private static object DraftView(PrincipalReceivingDraftHead head,PrincipalReceivingDraftRevision revision)
     {
         if(head.Kind=="Goods")
