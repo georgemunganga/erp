@@ -195,12 +195,20 @@ public static partial class ProcurementManualPaymentCommandRoutes
         ProcurementRequestScope scope, IAuthorizationService authorization, HttpContext http,
         Guid key, string action, string fingerprint, Guid? target, CancellationToken ct)
     {
-        var receipt = await db.ManualPaymentReceipts.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.ActorPrincipalId == scope.SubjectId && x.CommandKey == key, ct);
+        // The command key is unique across an actor's company, even if the current
+        // UI has selected another branch. See an actor-owned key conflict before a
+        // second write reaches the unique index; do not disclose the other record.
+        var receipt = await db.ManualPaymentReceipts.IgnoreQueryFilters().AsNoTracking()
+            .SingleOrDefaultAsync(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && x.ActorPrincipalId == scope.SubjectId && x.CommandKey == key, ct);
         if (receipt is null) return null;
-        var original = await db.ManualPaymentRequests.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == receipt.ManualPaymentRequestId, ct)
+        var original = await db.ManualPaymentRequests.IgnoreQueryFilters().AsNoTracking()
+            .SingleOrDefaultAsync(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && x.Id == receipt.ManualPaymentRequestId, ct)
             ?? throw new KeyNotFoundException();
+        if (scope.WorkLocationId is { } selected && original.BranchId != selected
+            || scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null)
+            throw new PaymentProblem("payment-command-key-conflict", 409);
         _ = await Actor(core, scope, http, authorization, original.BranchId, action, ct);
         if (target is { } requested && original.Id != requested || receipt.Action != action
             || receipt.BranchId != original.BranchId || receipt.RequestSha256 != fingerprint)
