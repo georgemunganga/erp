@@ -21,7 +21,11 @@ try {
         synthetic = true, httpVerified = false, financeOrBankExecution = false, syntheticFinanceProjectionFixture = true }));
 } catch (Exception error) {
     Console.WriteLine(JsonSerializer.Serialize(new { status = "FAIL_MANUAL_PAYMENT_POSTGRES_STORAGE", errorType = error.GetType().Name, phase = probe?.Phase,
-        sqlState = (error as PostgresException ?? error.InnerException as PostgresException)?.SqlState }));
+        sqlState = (error as PostgresException ?? error.InnerException as PostgresException)?.SqlState,
+        completedChecks = probe?.Checks,
+        errorCode = Regex.IsMatch(error.Message, "\\A(?:ManualPayment|OriginalInvoice)[A-Za-z0-9]+\\z") ? error.Message : null,
+        failureMethods = new System.Diagnostics.StackTrace(error, false).GetFrames().Take(12)
+            .Select(x => x.GetMethod()?.DeclaringType?.FullName + "." + x.GetMethod()?.Name).ToArray() }));
     Environment.ExitCode = 1;
 }
 
