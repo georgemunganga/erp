@@ -1,7 +1,7 @@
 {
   "status": "NORMAL_COOKIE_APPROVAL_PRIVATE_ACCEPTED_COMPATIBILITY_AND_RELEASE_PENDING",
   "pr": "https://github.com/georgemunganga/erp/pull/45",
-  "publishedErpBase": "9693296432a698c06b4bfc724ff394405b75cfaf",
+  "publishedErpBase": "1b1f24986d5eb5035e46a82a98834c4c4b4af3cf",
   "publishedUiBase": "ef568a614d33e904504873aa54c63d907749e343",
   "codeSource": "889135d4067ff4965a72e73279c1b49909752aa3",
   "evidence": [
@@ -243,6 +243,12 @@
       "path": "/home/amizo/erp-backups/procurement-p25-payment-combined-build-20261023_run05/result.json",
       "sha256": "7817b3214e5b6f817e154fe4d4707237e17000d2e296b141c1f580ec03d91c3d",
       "scope": "38 targeted host tests passed; private mapped-API compatibility remains pending"
+    },
+    {
+      "name": "coreRegressionAndProbePublication",
+      "path": "/home/amizo/erp-backups/procurement-p25-payment-combined-build-20261023_run06/result.json",
+      "sha256": "f365a5bb96ecf87cbc1c4274896aaa739d6104438725853307fc6881a7ba3582",
+      "scope": "12 Core role/JobsAdmin tests passed; publication and tracked-source preservation passed; private legacy HTTP pending"
     }
   ],
   "normalCookieApprovalBrowserPassed": true,
@@ -266,6 +272,13 @@
       "attempt": "run02",
       "stage": "Bootstrap",
       "cause": "Fresh target database not created before runner start; SQLSTATE 3D000, zero HTTP requests"
+    },
+    {
+      "attempt": "run03",
+      "stage": "LegacyFalseOptionAuthorityAndOriginalSource",
+      "cause": "Private finite execution role lacked SELECT on Core delegations required by existing legacy readiness. Added read only; no production grants or readiness bypass. Earlier policy-timing diagnosis was incorrect."
     }
-  ]
+  ],
+  "latestCombinedVerificationSource": "3b4a7cbee779e67c8aca7c3582d3a493b15965c5",
+  "coreRoleFallbackPr": "https://github.com/georgemunganga/erp/pull/46"
 }
