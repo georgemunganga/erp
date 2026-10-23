@@ -122,6 +122,8 @@ internal static partial class PrincipalApprovalHttpVerification
               'case',(SELECT to_jsonb(c) FROM core_approval.cases c WHERE c."Id"=@case),
               'stages',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY s."Id"),'[]'::jsonb)
                         FROM core_approval.stages s WHERE s."CaseId"=@case),
+              'assignments',(SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY a."Id"),'[]'::jsonb)
+                             FROM core_approval.assignments a WHERE a."CaseId"=@case),
               'decisions',(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d."Id"),'[]'::jsonb)
                            FROM core_approval.decisions d WHERE d."CaseId"=@case)
             )::text,'UTF8')),'hex')
