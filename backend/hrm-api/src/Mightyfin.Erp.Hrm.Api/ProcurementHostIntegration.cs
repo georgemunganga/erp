@@ -155,6 +155,10 @@ public static class ProcurementHostIntegration
                     }
                     catch (InvalidOperationException) { receivingPositive = false; }
                 }
+                var principalApprovals = !pending && await ProcurementPrincipalApprovalCapability.ReadyAsync(
+                    services, scope.LegalEntityId, ct);
+                var principalSourcingSourceDrafts = await ProcurementPrincipalSourcingCapability.ReadyAsync(
+                    services, scope, pending, principalApprovals, ct);
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -183,13 +187,14 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().ExecutionDatabaseConfigured
                             && await services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct),
+                        principalSourcingSourceDrafts,
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,
                         budgetRecording = financeCheckerCapture,
                         // Separate successor contract; existing worker-based clients do not
                         // infer compatibility merely from general approval availability.
-                        principalApprovals = !pending && await ProcurementPrincipalApprovalCapability.ReadyAsync(services,scope.LegalEntityId,ct),
+                        principalApprovals,
                         approvals = !pending && financeCheckerReads
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementApprovalExecutionOptions>().ExecutionDatabaseConfigured

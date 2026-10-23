@@ -27,6 +27,7 @@ public sealed class ProcurementSourcingCapabilityHttpTests
     public async Task Production_readiness_and_options_cannot_advertise_an_absent_RFQ_adapter()
     {
         Assert.False(new ProcurementSourcingDraftExecutionOptions().Enabled);
+        Assert.False(new ProcurementSourcingDraftExecutionOptions().PrincipalSourceEnabled);
         Assert.False(new ProcurementSourcingDraftExecutionOptions().ExecutionDatabaseConfigured);
         Assert.False(await new UnavailableProcurementSourcingDraftSchemaReadiness().IsReadyAsync(default));
     }
@@ -46,7 +47,8 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
         builder.Services.AddSingleton(scope); builder.Services.AddSingleton<IProcurementScope>(scope);
         builder.Services.AddDbContext<ProcurementDbContext>(o => { o.UseSqlite(connection); SyntheticProcurementMetadataModel.Configure(o, "synthetic-history-only"); });
-        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = enabled, ExecutionDatabaseConfigured = configured });
+        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = enabled,
+            PrincipalSourceEnabled = true, ExecutionDatabaseConfigured = configured });
         var readiness = new Readiness(ready);
         builder.Services.AddSingleton<IProcurementSourcingDraftSchemaReadiness>(readiness);
         builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions());
@@ -73,11 +75,35 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         using var response = await client.GetAsync("/api/procurement/v1/meta"); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(); var capabilities = body.GetProperty("capabilities");
         Assert.Equal(expected, capabilities.GetProperty("sourcingSourceDrafts").GetBoolean());
+        // The mapped metadata route cannot turn a configured principal flag into
+        // availability when the actual P25 authority and current Core actor are absent.
+        Assert.False(capabilities.GetProperty("principalSourcingSourceDrafts").GetBoolean());
         Assert.Equal(!pending, capabilities.GetProperty("sourcingDraft").GetBoolean());
         Assert.False(capabilities.GetProperty("sourcing").GetBoolean());
         Assert.False(capabilities.GetProperty("orders").GetBoolean());
         Assert.False(capabilities.GetProperty("manualPaymentWorkflow").GetBoolean());
         Assert.Equal(calls, readiness.Calls);
+    }
+
+    [Theory]
+    [InlineData(false, true, true, true, true, true, true, false)]
+    [InlineData(true, false, true, true, true, true, true, false)]
+    [InlineData(true, true, false, true, true, true, true, false)]
+    [InlineData(true, true, true, false, true, true, true, false)]
+    [InlineData(true, true, true, true, false, true, true, false)]
+    [InlineData(true, true, true, true, true, false, true, false)]
+    [InlineData(true, true, true, true, true, true, false, false)]
+    [InlineData(true, true, true, true, true, true, true, true)]
+    public void Principal_source_capability_requires_all_explicit_execution_dependencies(
+        bool sourceEnabled, bool principalEnabled, bool sourceConfigured, bool approvalEnabled,
+        bool approvalPrincipalEnabled, bool approvalConfigured, bool p25Available, bool expected)
+    {
+        var sourcing = new ProcurementSourcingDraftExecutionOptions { Enabled = sourceEnabled,
+            PrincipalSourceEnabled = principalEnabled, ExecutionDatabaseConfigured = sourceConfigured };
+        var approvals = new ProcurementApprovalExecutionOptions { Enabled = approvalEnabled,
+            PrincipalExecutionEnabled = approvalPrincipalEnabled, ExecutionDatabaseConfigured = approvalConfigured };
+        Assert.Equal(expected, ProcurementPrincipalSourcingCapability.Prerequisites(false,sourcing,approvals,p25Available));
+        Assert.False(ProcurementPrincipalSourcingCapability.Prerequisites(true,sourcing,approvals,p25Available));
     }
 
     private sealed class Readiness(bool ready) : IProcurementSourcingDraftSchemaReadiness
