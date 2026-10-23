@@ -37,7 +37,9 @@ public static partial class ProcurementManualPaymentRoutes
         try
         {
             var readiness = http.RequestServices.GetService<IProcurementManualPaymentGovernanceReadiness>();
-            if (readiness is null || !await readiness.IsReadyAsync(ct))
+            var options = http.RequestServices.GetService<ProcurementManualPaymentOptions>();
+            if (options is not { Enabled: true, ExecutionDatabaseConfigured: true }
+                || readiness is null || !await readiness.IsReadyAsync(ct))
                 throw new ReadProblem("ManualPaymentGovernanceUnavailable", 503);
             var result = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
@@ -57,7 +59,12 @@ public static partial class ProcurementManualPaymentRoutes
                 : error is UnauthorizedAccessException ? 403 : error is KeyNotFoundException ? 404
                 : error is ArgumentException ? 400 : ProcurementPostgresFailures.IsConcurrency(error) ? 409 : 503;
             return Results.Json(new { code = error is ReadProblem ? error.Message : "ManualPaymentReadUnavailable",
-                message = status == 404 ? "Payment request not found." : "Payment information is unavailable. Check your access and try again." }, statusCode: status);
+                message = error.Message switch {
+                    "ManualPaymentAssigneeLookupTooLarge" => "Enter a name to narrow the list of people.",
+                    "ManualPaymentAssigneeCursorChanged" => "The list of people changed. Search again.",
+                    "ManualPaymentGovernanceUnavailable" => "Manual payments are not ready in this workspace yet.",
+                    _ => status == 404 ? "Payment request not found." : "Payment information is unavailable. Check your access and try again."
+                } }, statusCode: status);
         }
     }
 
