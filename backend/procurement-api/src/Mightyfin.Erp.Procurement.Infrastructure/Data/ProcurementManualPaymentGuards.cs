@@ -48,12 +48,14 @@ public sealed partial class ProcurementDbContext
             if (stored.CreatorPrincipalId != row.CreatorPrincipalId || stored.CreatorCoreLinkedWorkerId != row.CreatorCoreLinkedWorkerId
                 || stored.BranchId != row.BranchId || stored.SupplierId != row.SupplierId
                 || stored.SupplierInvoiceId != row.SupplierInvoiceId || stored.CurrencyCode != row.CurrencyCode
-                || stored.CreatedAt != row.CreatedAt || stored.CreatedBy != row.CreatedBy)
+                || ProcurementEvidenceEncoding.DatabaseTimestamp(stored.CreatedAt) != ProcurementEvidenceEncoding.DatabaseTimestamp(row.CreatedAt)
+                || stored.CreatedBy != row.CreatedBy)
                 throw new InvalidOperationException("ManualPaymentSourceEvidenceImmutable");
             RequireManualPaymentTransitionActor(stored, row);
             RequireManualPaymentBundle(row, stored.Status, stored.Version);
             if (stored.ApprovedAt is not null && (stored.ApprovedAmount != row.ApprovedAmount
-                || stored.ApprovedByPrincipalId != row.ApprovedByPrincipalId || stored.ApprovedAt != row.ApprovedAt
+                || stored.ApprovedByPrincipalId != row.ApprovedByPrincipalId
+                || ProcurementEvidenceEncoding.DatabaseTimestamp(stored.ApprovedAt) != ProcurementEvidenceEncoding.DatabaseTimestamp(row.ApprovedAt)
                 || stored.ApprovedByCoreLinkedWorkerId != row.ApprovedByCoreLinkedWorkerId))
                 throw new InvalidOperationException("ManualPaymentApprovalEvidenceImmutable");
             if (stored.Status is "ConfirmedManually" or "Rejected" or "Cancelled" or "Disputed")
@@ -65,7 +67,8 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("ManualPaymentSubmittedTermsImmutable");
             if (stored.Status == "PaymentRecorded" && (stored.RecordedByPrincipalId != row.RecordedByPrincipalId
                 || stored.RecordedByCoreLinkedWorkerId != row.RecordedByCoreLinkedWorkerId || stored.RecordedAmount != row.RecordedAmount
-                || stored.RecordedAt != row.RecordedAt || stored.PaidOn != row.PaidOn
+                || ProcurementEvidenceEncoding.DatabaseTimestamp(stored.RecordedAt) != ProcurementEvidenceEncoding.DatabaseTimestamp(row.RecordedAt)
+                || stored.PaidOn != row.PaidOn
                 || stored.ExternalMethod != row.ExternalMethod || stored.ExternalReference != row.ExternalReference
                 || stored.EvidenceDocumentRefId != row.EvidenceDocumentRefId))
                 throw new InvalidOperationException("ManualPaymentRecordedEvidenceImmutable");

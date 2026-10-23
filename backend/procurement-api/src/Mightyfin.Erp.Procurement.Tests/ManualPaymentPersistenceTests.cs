@@ -226,6 +226,22 @@ public sealed class ManualPaymentPersistenceTests
             ManualPaymentCapacityReader.ValidateCreditClaimLockedAsync(db, invoice, null, 1m))).Message);
     }
 
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task Database_timestamp_quantization_is_allowed_but_a_real_microsecond_source_change_is_not(bool materialChange)
+    {
+        var scope = Owner(); await using var db = new ProcurementDbContext(Options(), scope); var invoice = await SeedInvoice(db, scope);
+        var made = Create(scope, invoice, new DateTimeOffset(2026,10,23,12,0,0,TimeSpan.Zero).AddTicks(7));
+        Bundle(db, made, scope); await db.SaveChangesAsync();
+        var draft = Draft(scope, invoice) with { Amount = 20m };
+        var revised = ManualPaymentWorkflow.Revise(made.Request, 1, draft, Actor(scope), Assignee(scope, Approver, "approve"),
+            Assignee(scope, Recorder, "record"), Assignee(scope, Confirmer, "confirm"), Source(scope, invoice), DateTimeOffset.UtcNow);
+        revised.Request.CreatedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(made.Request.CreatedAt)!.Value.AddTicks(materialChange ? 10 : 0);
+        db.Entry(made.Request).CurrentValues.SetValues(revised.Request); Bundle(db, revised, scope, false);
+        if (materialChange) Assert.Equal("ManualPaymentSourceEvidenceImmutable", (await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync())).Message);
+        else { await db.SaveChangesAsync(); Assert.Equal(2, made.Request.Version); }
+    }
+
     private static ManualPaymentActor Actor(Scope s) => new(s.SubjectId, s.TenantId, s.LegalEntityId, s.Branch,
         new HashSet<Guid> { s.Branch }, new HashSet<string> { "procurement-payment-create", "procurement-payment-edit" }, true)
         { CoreLinkedWorkerId = s.CoreLinkedWorkerId };
@@ -236,8 +252,8 @@ public sealed class ManualPaymentPersistenceTests
         new HashSet<Guid> { s.Branch }, new HashSet<string> { "procurement-payment-" + action }, true);
     private static ManualPaymentInvoiceSource Source(Scope s, SupplierInvoice i) => new(i.Id, s.TenantId, s.LegalEntityId,
         s.Branch, i.SupplierId, i.CurrencyCode, i.InvoiceDate, i.GrossAmount, i.GrossAmount, true);
-    private static ManualPaymentChange Create(Scope s, SupplierInvoice i) => ManualPaymentWorkflow.Create(Draft(s, i), Actor(s),
-        Assignee(s, Approver, "approve"), Assignee(s, Recorder, "record"), Assignee(s, Confirmer, "confirm"), Source(s, i), DateTimeOffset.UtcNow);
+    private static ManualPaymentChange Create(Scope s, SupplierInvoice i, DateTimeOffset? at = null) => ManualPaymentWorkflow.Create(Draft(s, i), Actor(s),
+        Assignee(s, Approver, "approve"), Assignee(s, Recorder, "record"), Assignee(s, Confirmer, "confirm"), Source(s, i), at ?? DateTimeOffset.UtcNow);
     private static ManualPaymentCommandReceipt Bundle(ProcurementDbContext db, ManualPaymentChange change, Scope s, bool includeRequest = true)
     {
         if (includeRequest) db.AddScoped(change.Request); db.AddScoped(change.Decision);
