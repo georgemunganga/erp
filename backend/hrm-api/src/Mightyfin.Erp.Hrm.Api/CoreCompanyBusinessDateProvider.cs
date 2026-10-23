@@ -1,8 +1,20 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
+
+/// <summary>Core organisation services composed regardless of optional ERP modules.</summary>
+public static class CoreCompanyBusinessDateServices
+{
+    public static IServiceCollection AddCoreCompanyBusinessDate(this IServiceCollection services)
+    {
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddScoped<ICoreCompanyBusinessDateProvider, CoreCompanyBusinessDateProvider>();
+        return services;
+    }
+}
 
 /// <summary>A trusted Core date observation for a tenant and legal entity selected by the host.</summary>
 public sealed record CoreCompanyBusinessDate(DateOnly Date, string TimeZoneId, DateTimeOffset ObservedAtUtc);

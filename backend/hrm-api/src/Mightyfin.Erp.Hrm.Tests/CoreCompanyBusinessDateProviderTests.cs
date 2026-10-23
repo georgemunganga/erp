@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -10,6 +11,26 @@ public sealed class CoreCompanyBusinessDateProviderTests
     private sealed class FixedClock(DateTimeOffset instant) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => instant;
+    }
+
+    [Fact]
+    public async Task CoreRegistrationResolvesWithoutProcurementAndPreservesHostClock()
+    {
+        await using var db = TestDbContextFactory.Create("core-only-date");
+        var company = new LegalEntity { Code = "CORE", RegisteredName = "Core only" };
+        db.LegalEntities.Add(company);
+        await db.SaveChangesAsync();
+        var clock = new FixedClock(new DateTimeOffset(2026, 10, 23, 23, 30, 0, TimeSpan.Zero));
+        var services = new ServiceCollection();
+        services.AddSingleton<TimeProvider>(clock);
+        services.AddScoped<HrmDbContext>(_ => db);
+        services.AddCoreCompanyBusinessDate();
+        using var host = services.BuildServiceProvider();
+        using var scope = host.CreateScope();
+        Assert.Same(clock, scope.ServiceProvider.GetRequiredService<TimeProvider>());
+        var provider = scope.ServiceProvider.GetRequiredService<ICoreCompanyBusinessDateProvider>();
+        Assert.Equal(new DateOnly(2026, 10, 23),
+            (await provider.GetAsync("core-only-date", company.Id, default)).Date);
     }
 
     [Fact]
