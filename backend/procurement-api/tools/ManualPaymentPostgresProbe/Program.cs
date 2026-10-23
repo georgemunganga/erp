@@ -13,12 +13,13 @@ var connection = Environment.GetEnvironmentVariable("MANUAL_PAYMENT_PROBE_CONNEC
 var builder = new NpgsqlConnectionStringBuilder(connection);
 if (builder.Host != "/private-pg" || !Regex.IsMatch(builder.Database ?? "", @"\Aproc_manual_payment_20261023_[a-z0-9_]{1,24}\z"))
     throw new InvalidOperationException("Only the private Unix socket and named synthetic database are allowed.");
+PaymentProbe? probe = null;
 try {
-    var probe = new PaymentProbe(connection); await probe.Run();
+    probe = new PaymentProbe(connection); await probe.Run();
     Console.WriteLine(JsonSerializer.Serialize(new { status = "PASS_MANUAL_PAYMENT_POSTGRES_STORAGE", checks = probe.Checks,
         synthetic = true, httpVerified = false, financeOrBankExecution = false }));
 } catch (Exception error) {
-    Console.WriteLine(JsonSerializer.Serialize(new { status = "FAIL_MANUAL_PAYMENT_POSTGRES_STORAGE", errorType = error.GetType().Name,
+    Console.WriteLine(JsonSerializer.Serialize(new { status = "FAIL_MANUAL_PAYMENT_POSTGRES_STORAGE", errorType = error.GetType().Name, phase = probe?.Phase,
         sqlState = (error as PostgresException ?? error.InnerException as PostgresException)?.SqlState }));
     Environment.ExitCode = 1;
 }
@@ -31,6 +32,7 @@ sealed class PaymentProbe(string connection)
     private SupplierInvoice invoice = null!;
     private const string Tenant = "synthetic-manual-payment";
     public int Checks { get; private set; }
+    public string Phase { get; private set; } = "empty-admission";
     private sealed record Scope(string TenantId, Guid LegalEntityId, Guid? WorkLocationId, string SubjectId) : IProcurementScope
     { public Guid? OrgUnitId => null; public bool IsConfined => false; public string? CorrelationId => "synthetic-pg-payment"; }
     private ProcurementDbContext Db(string? actor = null, Guid? selectedBranch = null) => new(
@@ -68,6 +70,7 @@ sealed class PaymentProbe(string connection)
             await c.OpenAsync(); await using var cmd = new NpgsqlCommand("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')", c);
             Check((long)(await cmd.ExecuteScalarAsync())! == 0); // Refuse retained/nonempty inputs.
         }
+        Phase = "owning-migration-empty-down-up";
         await using (var db = Db()) {
             Check(!db.Database.HasPendingModelChanges()); await db.Database.MigrateAsync(); await db.Database.MigrateAsync();
             var applied = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
@@ -76,7 +79,8 @@ sealed class PaymentProbe(string connection)
             await db.GetService<IMigrator>().MigrateAsync(previous); await db.Database.MigrateAsync();
             Check((await db.Database.GetAppliedMigrationsAsync()).Last().EndsWith("P27ManualPaymentRecords", StringComparison.Ordinal));
         }
-        await AuditOnlyDowngradeVeto();
+        Phase = "audit-only-downgrade-veto"; await AuditOnlyDowngradeVeto();
+        Phase = "synthetic-supplier-invoice-seed";
         await using (var db = Db()) {
             var supplier = new Supplier { Number = "SYN-PAY-1", LegalName = "Synthetic supplier", DisplayName = "Synthetic supplier", CountryCode = "ZM" };
             db.AddScoped(supplier);
@@ -84,20 +88,26 @@ sealed class PaymentProbe(string connection)
                 NormalizedInvoiceNumber = "SYN-PAY-INV-1", IntakeChannel = "Manual", InvoiceDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1), NetAmount = 100m, GrossAmount = 100m };
             db.AddScoped(invoice); await db.SaveChangesAsync();
         }
+        Phase = "mapped-create";
         var made = ManualPaymentWorkflow.Create(Draft(), Actor(creator), Assignee(approver, "approve"), Assignee(recorder, "record"), Assignee(confirmer, "confirm"), Source(), DateTimeOffset.UtcNow);
         await Save(made, creator, true);
         var id = made.Request.Id;
         var current = await Read(id, creator);
+        Phase = "mapped-revise";
         await Save(ManualPaymentWorkflow.Revise(current, 1, Draft() with { Amount = 12.3456m }, Actor(creator), Assignee(approver, "approve"),
             Assignee(recorder, "record"), Assignee(confirmer, "confirm"), Source(), DateTimeOffset.UtcNow), creator);
         current = await Read(id, creator); Check(current.Amount == 12.3456m && current.Version == 2);
+        Phase = "mapped-submit";
         await Save(ManualPaymentWorkflow.Submit(current, 2, Actor(creator), Source(), DateTimeOffset.UtcNow), creator);
         current = await Read(id, approver);
+        Phase = "mapped-approve";
         await Save(ManualPaymentWorkflow.Approve(current, 3, Actor(approver), Source(), DateTimeOffset.UtcNow), approver);
         current = await Read(id, recorder);
         var date = DateOnly.FromDateTime(DateTime.UtcNow); // Explicit synthetic clock, not production company-date evidence.
+        Phase = "mapped-record";
         await Save(ManualPaymentWorkflow.Record(current, 4, Actor(recorder), Source(), new(date, "External transfer", "SYN-EXTERNAL-1", 12.3456m, null), date, DateTimeOffset.UtcNow), recorder);
         current = await Read(id, confirmer);
+        Phase = "mapped-confirm";
         await Save(ManualPaymentWorkflow.Confirm(current, 5, Actor(confirmer), date, DateTimeOffset.UtcNow), confirmer);
         current = await Read(id, creator); Check(current.Status == "ConfirmedManually" && current.Version == 6 && current.RecordedAmount == 12.3456m);
         await using (var db = Db()) {
@@ -108,7 +118,8 @@ sealed class PaymentProbe(string connection)
         await using (var foreign = Db(selectedBranch: Guid.NewGuid())) Check(!await foreign.ManualPaymentRequests.AnyAsync());
         var draft = ManualPaymentWorkflow.Create(Draft(), Actor(creator), Assignee(approver, "approve"), Assignee(recorder, "record"), Assignee(confirmer, "confirm"), Source(), DateTimeOffset.UtcNow);
         await Save(draft, creator, true);
-        await NegativeSql(draft.Request.Id);
+        Phase = "negative-postgres-sql"; await NegativeSql(draft.Request.Id);
+        Phase = "retained-downgrade-veto";
         await using (var db = Db()) {
             var before = await Counts(); var rejected = false;
             try { await db.GetService<IMigrator>().MigrateAsync("20261022144102_P24CorePrincipalRecurringPurchasePlanning"); }
