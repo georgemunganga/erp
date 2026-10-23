@@ -531,6 +531,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureApprovalOutcomes(modelBuilder);
         ConfigureApprovalExecution(modelBuilder);
         ConfigurePurchaseOrderExecution(modelBuilder);
+        ConfigurePrincipalOrderDraft(modelBuilder);
         ConfigureSourcingDraftExecution(modelBuilder);
         ConfigureSourcingPolicyIdentity(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
@@ -725,6 +726,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardApprovalOutcomeChanges();
         GuardApprovalExecution();
         GuardPurchaseOrderExecution();
+        GuardPrincipalOrderDraft();
         GuardReceivingExecution();
         GuardInvoiceMatchingExecution();
         GuardSourcingDraftExecution();

@@ -35,6 +35,8 @@ public static partial class ProcurementOrderExecutionRoutes
                     try
                     {
                         var source = await Source(db, cases, scope, candidate.RequestId, candidate.LineId, token);
+                        if (source.Submission.FinanceIdentitySchemaVersion != 1)
+                            throw new OrderProblem("OrderSourceFinanceCheckerNeedsReview", 409);
                         await CatalogClassification(db, [source.Line], token);
                         var availability = PurchaseOrderSourceAllocation.Check(source, scope.TenantId, scope.LegalEntityId, DateTimeOffset.UtcNow);
                         rows.Add(new { requestId = source.Request.Id, requestNumber = source.Request.Number,
@@ -117,6 +119,7 @@ public static partial class ProcurementOrderExecutionRoutes
             {
                 var order = await db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, token)
                     ?? throw new OrderProblem("OrderNotFound", 404);
+                if (order.PrincipalDraftSchemaVersion == 2) Missing();
                 Scope(order, scope, false);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 await Actor(core, scope, http, auth, "procurement-po-read", token, order.BranchRef, true);
