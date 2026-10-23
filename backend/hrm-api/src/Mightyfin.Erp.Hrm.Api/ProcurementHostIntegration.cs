@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -20,6 +21,8 @@ public static class ProcurementHostIntegration
 
     public static void AddServices(IServiceCollection services, string connection, IConfiguration configuration)
     {
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddScoped<ICoreCompanyBusinessDateProvider, CoreCompanyBusinessDateProvider>();
         services.AddScoped<ProcurementRequestScope>();
         services.AddSingleton<IProcurementSpendingAuthorityIdentitySchemaReadiness, ProcurementSpendingAuthorityIdentitySchemaReadiness>();
         services.AddSingleton<IProcurementOperationalPolicyIdentitySchemaReadiness, ProcurementOperationalPolicyIdentitySchemaReadiness>();

@@ -32,12 +32,31 @@ public class ConfigAdminServiceTests
         Assert.Equal("ZML", created.Code);
         Assert.Equal("ZMW", created.Currency);
         Assert.Equal("ZM", created.CountryCode);
+        Assert.Equal("UTC", created.TimeZoneId);
 
         var repo2 = new ConfigRepository(ctx);
         var svc2 = new ConfigAdminServiceImpl(repo2, new PermissiveAuthz());
         var list = await svc2.ListLegalEntitiesAsync(default);
         Assert.Single(list.Items);
         Assert.Equal("ZML", list.Items[0].Code);
+    }
+
+    [Fact]
+    public async Task CompanyTimeZone_ValidatesAndPreservesOmittedPatch()
+    {
+        var (svc, ctx) = Build();
+        var created = await svc.CreateLegalEntityAsync(new("ZONE", "Zoned company", TimeZoneId: "Pacific/Auckland"), default);
+        Assert.Equal("Pacific/Auckland", created.TimeZoneId);
+        var unchanged = await svc.UpdateLegalEntityAsync(created.Id, new(RegisteredName: "Renamed"), default);
+        Assert.Equal("Pacific/Auckland", unchanged.TimeZoneId);
+        await Assert.ThrowsAsync<DomainException>(() => svc.UpdateLegalEntityAsync(created.Id,
+            new(TimeZoneId: "Not/A_Real_Zone"), default));
+        Assert.Equal("Pacific/Auckland", (await ctx.LegalEntities.SingleAsync()).TimeZoneId);
+        var updated = await svc.UpdateLegalEntityAsync(created.Id, new(TimeZoneId: "UTC"), default);
+        Assert.Equal("UTC", updated.TimeZoneId);
+        await Assert.ThrowsAsync<DomainException>(() => svc.CreateLegalEntityAsync(
+            new("BAD", "Invalid", TimeZoneId: ""), default));
+        Assert.Single(await ctx.LegalEntities.ToListAsync());
     }
 
     [Fact]

@@ -14,6 +14,8 @@ public class LegalEntity : Entity
     public string? WcfcbEmployerRef { get; set; }
     public string Currency { get; set; } = "ZMW";
     public string CountryCode { get; set; } = "ZM";
+    /// <summary>IANA company time zone for business dates; UTC is the explicit platform default.</summary>
+    public string TimeZoneId { get; set; } = "UTC";
     public bool IsDefault { get; set; }
 }
 

@@ -31,6 +31,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         RequireNonEmpty(request.RegisteredName, "registeredName");
         var currency = NormalizeReferenceCode(request.Currency, 3, "currency");
         var country = NormalizeReferenceCode(request.CountryCode, 2, "country");
+        var timeZoneId = CompanyTimeZone.Validate(request.TimeZoneId);
         var existing = (await repo.ListLegalEntitiesAsync(ct)).FirstOrDefault(e => e.Code.Equals(request.Code.Trim(), StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
             throw new DomainException("legal-entity-code-taken", $"Code '{request.Code}' is already in use.");
@@ -40,7 +41,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
             PacraNumber = request.PacraNumber?.Trim(), Tpin = request.Tpin?.Trim(),
             NapsaEmployerRef = request.NapsaEmployerRef?.Trim(), NhimaEmployerRef = request.NhimaEmployerRef?.Trim(),
             WcfcbEmployerRef = request.WcfcbEmployerRef?.Trim(), Currency = currency,
-            CountryCode = country, IsDefault = request.IsDefault,
+            CountryCode = country, IsDefault = request.IsDefault, TimeZoneId = timeZoneId,
         };
         return ToLegalEntityDto(await repo.CreateLegalEntityAsync(entity, ct));
     }
@@ -51,6 +52,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         // Validate the entire supported change before touching a tracked company.
         if (request.RegisteredName is not null) RequireNonEmpty(request.RegisteredName, "registeredName");
         var currency = request.Currency is null ? null : NormalizeReferenceCode(request.Currency, 3, "currency");
+        var timeZoneId = request.TimeZoneId is null ? null : CompanyTimeZone.Validate(request.TimeZoneId);
         var entity = await repo.GetLegalEntityAsync(id, ct)
             ?? throw new DomainException("legal-entity-not-found", $"Legal entity {id} does not exist.");
         if (request.RegisteredName is not null) entity.RegisteredName = request.RegisteredName.Trim();
@@ -62,6 +64,7 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
         if (request.WcfcbEmployerRef is not null) entity.WcfcbEmployerRef = request.WcfcbEmployerRef.Trim();
         if (currency is not null) entity.Currency = currency;
         if (request.IsDefault.HasValue) entity.IsDefault = request.IsDefault.Value;
+        if (timeZoneId is not null) entity.TimeZoneId = timeZoneId;
         return ToLegalEntityDto(await repo.UpdateLegalEntityAsync(entity, ct));
     }
 
@@ -532,7 +535,8 @@ public sealed class ConfigAdminServiceImpl(IConfigRepository repo, IAuthzService
 
     private static LegalEntityDtoFull ToLegalEntityDto(LegalEntity e) => new(
         e.Id, e.Code, e.RegisteredName, e.TradingName, e.PacraNumber, e.Tpin, e.NapsaEmployerRef,
-        e.NhimaEmployerRef, e.WcfcbEmployerRef, e.Currency, e.CountryCode, e.IsDefault, e.CreatedAt);
+        e.NhimaEmployerRef, e.WcfcbEmployerRef, e.Currency, e.CountryCode, e.IsDefault, e.CreatedAt,
+        e.TimeZoneId);
 
     private static WorkLocationDtoFull ToLocationDto(WorkLocation l, List<LegalEntity> entities, List<WorkCalendar> calendars) => new(
         l.Id, l.Code, l.Name, l.LegalEntityId, entities.FirstOrDefault(e => e.Id == l.LegalEntityId)?.RegisteredName,
