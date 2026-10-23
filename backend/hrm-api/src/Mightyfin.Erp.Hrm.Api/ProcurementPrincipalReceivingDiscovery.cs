@@ -50,6 +50,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 }
                 else
                 {
+                    await ReconcileRequest(db,cases,scope,actor,pin.PurchaseRequestLineId,token);
                     // Existing legacy receiving or counters require owner reconciliation;
                     // they cannot disappear behind an empty new-ledger query.
                     var legacy=await new Mightyfin.Erp.Procurement.Infrastructure.Data.PrincipalReceivingStore(db).HasLegacyHistoryAsync(pin.PurchaseOrderLineId,token)

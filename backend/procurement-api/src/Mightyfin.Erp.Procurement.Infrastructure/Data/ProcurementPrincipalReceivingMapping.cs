@@ -59,7 +59,7 @@ public sealed partial class ProcurementDbContext
         line.ToTable(t=>t.HasCheckConstraint("ck_prcv_line","schema_version=2 AND quantity>0 AND rejected_quantity>=0 AND rejected_quantity<=quantity AND line_id<>'00000000-0000-0000-0000-000000000000'::uuid"));
         var fact=model.Entity<PrincipalReceivingFact>();
         PrincipalReceivingLink<PrincipalReceivingFact,PrincipalReceivingDraftLineBinding>(model,nameof(PrincipalReceivingFact.DraftLineBindingId),"fk_prcv_fact_line");
-        fact.Property(x=>x.Kind).HasMaxLength(12);fact.Property(x=>x.ActorPrincipalId).HasMaxLength(36);
+        fact.Property(x=>x.Operation).HasMaxLength(20);fact.Property(x=>x.Kind).HasMaxLength(12);fact.Property(x=>x.ActorPrincipalId).HasMaxLength(36);
         fact.Property(x=>x.PayloadJson).HasColumnType("text");fact.Property(x=>x.PayloadSha256).HasMaxLength(64);
         fact.Property(x=>x.Quantity).HasPrecision(18,4);fact.Property(x=>x.NetAmount).HasPrecision(38,8);
         fact.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.SourceStateId,x.Sequence}).IsUnique().HasDatabaseName("ux_prcv_fact_sequence");
@@ -67,7 +67,7 @@ public sealed partial class ProcurementDbContext
         PrincipalReceivingLink<PrincipalReceivingFact,PrincipalReceivingSourceState>(model,nameof(PrincipalReceivingFact.SourceStateId),"fk_prcv_fact_source");
         PrincipalReceivingLink<PrincipalReceivingFact,PrincipalReceivingDraftHead>(model,nameof(PrincipalReceivingFact.DraftId),"fk_prcv_fact_draft");
         PrincipalReceivingLink<PrincipalReceivingFact,PolicyVersion>(model,nameof(PrincipalReceivingFact.PolicyVersionId),"fk_prcv_fact_policy");
-        fact.ToTable(t=>t.HasCheckConstraint("ck_prcv_fact",$"schema_version=2 AND sequence>0 AND kind IN ('Observation','Inspection','Acceptance') AND quantity>=0 AND net_amount>=0 AND (kind='Inspection' OR quantity>0) AND (kind='Acceptance' OR net_amount=0) AND payload_sha256 ~ '^[0-9a-f]{{64}}$' AND actor_principal_id ~ {PrincipalReceivingUuid} AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid"));
+        fact.ToTable(t=>t.HasCheckConstraint("ck_prcv_fact",$"schema_version=2 AND sequence>0 AND kind IN ('Observation','Inspection','Acceptance') AND ((kind='Observation' AND operation='Record') OR (kind='Inspection' AND operation='Inspect') OR (kind='Acceptance' AND operation IN ('Accept','Certify'))) AND quantity>=0 AND net_amount>=0 AND (kind='Inspection' OR quantity>0) AND (kind='Acceptance' OR net_amount=0) AND payload_sha256 ~ '^[0-9a-f]{{64}}$' AND actor_principal_id ~ {PrincipalReceivingUuid} AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid"));
         var receipt=model.Entity<PrincipalReceivingCommandReceipt>();
         receipt.Property(x=>x.Operation).HasMaxLength(20);receipt.Property(x=>x.ActorPrincipalId).HasMaxLength(36);
         receipt.Property(x=>x.RequestSha256).HasMaxLength(64);receipt.Property(x=>x.ResponseSha256).HasMaxLength(64);receipt.Property(x=>x.ResponseJson).HasColumnType("text");
@@ -88,6 +88,7 @@ public sealed partial class ProcurementDbContext
         model.Entity<PrincipalReceivingSourceState>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.BranchId,x.PurchaseOrderId,x.IssuedVersionId,x.PurchaseOrderLineId}).IsUnique().HasDatabaseName("ux_prcv_source_parent");
         model.Entity<PrincipalReceivingDraftRevision>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.DraftId}).IsUnique().HasDatabaseName("ux_prcv_revision_parent");
         model.Entity<PrincipalReceivingDraftLineBinding>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.SourceStateId,x.DraftId,x.BranchId}).IsUnique().HasDatabaseName("ux_prcv_line_parent");
+        model.Entity<PrincipalReceivingCommandReceipt>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CommandKey,x.DraftId,x.ActorPrincipalId,x.BranchId,x.Operation}).IsUnique().HasDatabaseName("ux_prcv_receipt_fact_parent");
         model.Entity<PrincipalReceivingDraftHead>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.BranchId}).IsUnique().HasDatabaseName("ux_prcv_draft_branch");
         model.Entity<PrincipalReceivingDraftHead>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.BranchId,x.PurchaseOrderId,x.IssuedVersionId}).IsUnique().HasDatabaseName("ux_prcv_draft_parent");
     }

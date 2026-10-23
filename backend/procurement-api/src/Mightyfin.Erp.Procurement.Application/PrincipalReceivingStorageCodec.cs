@@ -97,7 +97,8 @@ public static class PrincipalReceivingStorageCodec
     {
         if(row.Id!=id || row.DraftId!=draft || source!=expected || row.Sequence!=sequence || row.CommandKey!=key
             || row.ActorPrincipalId!=actor.PrincipalId || row.ActorWorkerAliasId!=actor.WorkerAliasId
-            || row.PolicyVersionId!=policy || row.Quantity!=quantity || row.NetAmount!=amount)
+            || row.PolicyVersionId!=policy || row.Quantity!=quantity || row.NetAmount!=amount
+            || row.Operation!=(row.Kind=="Observation"?"Record":row.Kind=="Inspection"?"Inspect":source.Commercial.Kind==ReceivingKind.Service?"Certify":"Accept"))
             throw new InvalidOperationException("PrincipalReceivingFactBindingInvalid");
     }
 }

@@ -7,6 +7,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 public static class PrincipalReceivingOwnershipConstraintSql
 {
     public const string Install = """
+        ALTER TABLE procurement.principal_receiving_facts ADD CONSTRAINT fk_prcv_exact_fact_receipt
+          FOREIGN KEY (tenant_id,legal_entity_id,command_key,draft_id,actor_principal_id,branch_id,operation)
+          REFERENCES procurement.principal_receiving_receipts (tenant_id,legal_entity_id,command_key,draft_id,actor_principal_id,branch_id,operation)
+          ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED;
         ALTER TABLE procurement.principal_receiving_sources ADD CONSTRAINT fk_prcv_exact_issued
           FOREIGN KEY (tenant_id,legal_entity_id,issued_version_id,purchase_order_id,submission_id,funding_evidence_id,issued_snapshot_sha256,original_source_sha256)
           REFERENCES procurement.principal_order_issued_versions (tenant_id,legal_entity_id,id,purchase_order_id,submission_id,funding_evidence_id,commercial_snapshot_sha256,original_direct_source_sha256)
@@ -51,6 +55,7 @@ public static class PrincipalReceivingOwnershipConstraintSql
     // Central Down must first lock and veto retained usage; this constant does
     // not authorize evidence deletion or bypass a rollback guard.
     public const string Remove = """
+        ALTER TABLE procurement.principal_receiving_facts DROP CONSTRAINT fk_prcv_exact_fact_receipt;
         ALTER TABLE procurement.principal_receiving_line_bindings DROP CONSTRAINT fk_prcv_exact_line_draft;
         ALTER TABLE procurement.principal_receiving_receipts DROP CONSTRAINT fk_prcv_exact_receipt_draft;
         ALTER TABLE procurement.principal_receiving_facts DROP CONSTRAINT fk_prcv_exact_fact_line;
@@ -64,6 +69,8 @@ public static class PrincipalReceivingOwnershipConstraintSql
         """;
     public const string ManifestQuery = """
         WITH expected(name, child, parent, childcols, parentcols) AS (VALUES
+          ('fk_prcv_exact_fact_receipt','procurement.principal_receiving_facts','procurement.principal_receiving_receipts',
+           ARRAY['tenant_id','legal_entity_id','command_key','draft_id','actor_principal_id','branch_id','operation'],ARRAY['tenant_id','legal_entity_id','command_key','draft_id','actor_principal_id','branch_id','operation']),
           ('fk_prcv_exact_issued','procurement.principal_receiving_sources','procurement.principal_order_issued_versions',
            ARRAY['tenant_id','legal_entity_id','issued_version_id','purchase_order_id','submission_id','funding_evidence_id','issued_snapshot_sha256','original_source_sha256'],ARRAY['tenant_id','legal_entity_id','id','purchase_order_id','submission_id','funding_evidence_id','commercial_snapshot_sha256','original_direct_source_sha256']),
           ('fk_prcv_exact_ack','procurement.principal_receiving_sources','procurement.principal_order_acknowledgments',
@@ -84,7 +91,7 @@ public static class PrincipalReceivingOwnershipConstraintSql
            ARRAY['tenant_id','legal_entity_id','draft_id','branch_id'],ARRAY['tenant_id','legal_entity_id','id','branch_id']),
           ('fk_prcv_exact_line_draft','procurement.principal_receiving_line_bindings','procurement.principal_receiving_drafts',
            ARRAY['tenant_id','legal_entity_id','draft_id','branch_id','purchase_order_id','issued_version_id'],ARRAY['tenant_id','legal_entity_id','id','branch_id','purchase_order_id','issued_version_id']))
-        SELECT count(*)=10 AND coalesce(bool_and(
+        SELECT count(*)=11 AND coalesce(bool_and(
           c.oid IS NOT NULL AND c.contype='f' AND c.convalidated AND c.condeferrable AND c.condeferred
           AND c.confdeltype='a' AND c.confupdtype='a' AND c.confmatchtype='s'
           AND i.indisunique AND i.indisvalid AND i.indimmediate

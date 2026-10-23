@@ -14,6 +14,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             if(await Replay(db,actor,"Create",key,hash,token) is {} replay)return replay;
             var source=await NewSource(db,cases,scope,http,actor,input.PurchaseOrderId,input.IssuedVersionId,input.PurchaseOrderLineId,token);
             var store=new PrincipalReceivingStore(db);_=await store.SourceAsync(source,token);
+            await ReconcileRequest(db,cases,scope,actor,source.Commercial.PurchaseRequestLineId,token);
             var draft=PrincipalReceivingDraftLifecycle.CreateService(actor,source,input.DeliverableReference,input.PeriodFrom,input.PeriodTo,Quantity(input.Quantity),input.Notes);
             var head=store.Stage(draft,key,actor.PrincipalId);return Complete(db,head,"Create",key,actor.PrincipalId,hash,201);
         },ct);
@@ -64,7 +65,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             if(!policy.Rule.AllowRequesterCertification)denied.Add(draft.Source.Requester);
             await ProcurementPrincipalReceivingActor.RequireIndependentAsync(core,actor,denied,token);
             var result=PrincipalReceivingDraftLifecycle.CertifyService(draft,actor,input.Version,loaded.Ledger,policy.Record,input.SourceVersion,key,input.EvidenceReference,DateTimeOffset.UtcNow);
-            var store=new PrincipalReceivingStore(db);store.Stage(result.Draft,key,actor.PrincipalId);store.Append(loaded.State,id,result.Acceptance);
+            var store=new PrincipalReceivingStore(db);store.Stage(result.Draft,key,actor.PrincipalId);await store.AppendAsync(loaded.State,id,result.Acceptance,token);
             return Complete(db,head,"Certify",key,actor.PrincipalId,hash);
         },ct);
 }

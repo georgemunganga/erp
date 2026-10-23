@@ -19,6 +19,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 if(line is null)throw new Problem("ReceivingLineRequired",422);
                 var source=await NewSource(db,cases,scope,http,actor,input.PurchaseOrderId,input.IssuedVersionId,line.PurchaseOrderLineId,token);
                 _=await store.SourceAsync(source,token);
+                await ReconcileRequest(db,cases,scope,actor,source.Commercial.PurchaseRequestLineId,token);
                 lines.Add(new(null,source,Quantity(line.ReceivedQuantity),Quantity(line.RejectedQuantity)));
             }
             var draft=PrincipalReceivingDraftLifecycle.CreateGoods(actor,lines,input.ReceivedAt,input.DeliveryNoteRef,input.Notes);
@@ -42,7 +43,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 var retained=previous.Lines.SingleOrDefault(x=>x.Source.Commercial.PurchaseOrderLineId==line.PurchaseOrderLineId);
                 PrincipalReceivingSource source;
                 if(retained is not null){source=retained.Source;_=await StoredSource(db,cases,scope,actor,source,true,token);}
-                else{source=await NewSource(db,cases,scope,http,actor,draft.PurchaseOrderId,draft.IssuedVersionId,line.PurchaseOrderLineId,token);_=await store.SourceAsync(source,token);}
+                else{source=await NewSource(db,cases,scope,http,actor,draft.PurchaseOrderId,draft.IssuedVersionId,line.PurchaseOrderLineId,token);_=await store.SourceAsync(source,token);await ReconcileRequest(db,cases,scope,actor,source.Commercial.PurchaseRequestLineId,token);}
                 lines.Add(new(line.Id,source,Quantity(line.ReceivedQuantity),Quantity(line.RejectedQuantity)));
             }
             var revised=PrincipalReceivingDraftLifecycle.ReviseGoods(previous,actor,input.Version,lines,draft.ReceivedAt,draft.DeliveryNoteRef,draft.Notes);
@@ -86,7 +87,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var result=PrincipalReceivingDraftLifecycle.RecordGoods(draft,actor,input.Version,ledgers,policies,
                 ledgers.ToDictionary(x=>x.Key,x=>x.Value.Sequence),key,input.EvidenceReference,DateTimeOffset.UtcNow);
             var store=new PrincipalReceivingStore(db);store.Stage(result.Draft,key,actor.PrincipalId);
-            foreach(var fact in result.Observations)store.Append(states[fact.Source.Commercial.PurchaseOrderLineId],fact);
+            foreach(var fact in result.Observations)await store.AppendAsync(states[fact.Source.Commercial.PurchaseOrderLineId],fact,token);
             return Complete(db,head,"Record",key,actor.PrincipalId,hash);
         },ct);
     private static Task<IResult> Inspect(Guid id,Guid lineId,ProcurementReceivingRoutes.ReceivingAction input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
@@ -103,7 +104,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var policy=await ProcurementPrincipalReceivingPolicy.CurrentAsync(db,scope,http.RequestServices,line.Source,token);
             if(policy.Rule.RequireIndependentInspector)await ProcurementPrincipalReceivingActor.RequireIndependentAsync(core,actor,[observed.Receiver],token);
             var fact=PrincipalControlledReceiving.Inspect(loaded.Ledger,policy.Record,actor,observed.Id,key,input.SourceVersion,Quantity(input.Quantity),input.EvidenceReference,DateTimeOffset.UtcNow);
-            new PrincipalReceivingStore(db).Append(loaded.State,id,fact);return Complete(db,head,"Inspect",key,actor.PrincipalId,hash);
+            await new PrincipalReceivingStore(db).AppendAsync(loaded.State,id,fact,token);return Complete(db,head,"Inspect",key,actor.PrincipalId,hash);
         },ct);
     private static Task<IResult> Accept(Guid id,Guid lineId,ProcurementReceivingRoutes.ReceivingAction input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         =>Run(http,scope,ControlledReceiving.AcceptPermission,async(db,cases,core,actor,token)=>
@@ -121,6 +122,6 @@ public static partial class ProcurementPrincipalReceivingRoutes
             if(!policy.Rule.AllowRequesterCertification)denied.Add(line.Source.Requester);if(!policy.Rule.AllowReceiverCertification)denied.Add(observed.Receiver);
             await ProcurementPrincipalReceivingActor.RequireIndependentAsync(core,actor,denied,token);
             var fact=PrincipalControlledReceiving.AcceptGoods(loaded.Ledger,policy.Record,actor,observed.Id,key,input.SourceVersion,Quantity(input.Quantity),input.EvidenceReference,DateTimeOffset.UtcNow);
-            new PrincipalReceivingStore(db).Append(loaded.State,id,fact);return Complete(db,head,"Accept",key,actor.PrincipalId,hash);
+            await new PrincipalReceivingStore(db).AppendAsync(loaded.State,id,fact,token);return Complete(db,head,"Accept",key,actor.PrincipalId,hash);
         },ct);
 }
