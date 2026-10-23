@@ -1,0 +1,78 @@
+{
+  "status": "ACCEPTED_PRIVATE_P29_PRINCIPAL_RFQ_DRAFT_MILESTONE",
+  "dateUtc": "2026-10-23",
+  "productionTouched": false,
+  "applicationSource": "174e2951",
+  "finalOwnerVerifierSource": "bb05f652",
+  "uiApplicationBuildSource": "08015a9",
+  "uiBrowserSource": "1cf87ec",
+  "api": {
+    "actualHttpRequests": 65,
+    "evidence": {
+      "path": "/home/amizo/erp-backups/procurement-p29-normal-cookie-20261023_run05/result.json",
+      "sha256": "2ff78c71d33ef9f191445bd287ee8d1bebd9addbbbe604b878abc96b6e48b4ad"
+    },
+    "finiteRuntimeAndWorkerlessCurrentCore": true,
+    "rawConstraintCases": 11
+  },
+  "browser": {
+    "realNormalCookie": true,
+    "playwrightPassed": 1,
+    "retries": 0,
+    "evidence": {
+      "path": "/home/amizo/erp-backups/procurement-p29-normal-cookie-20261023_run05/p29-browser-result.private.json",
+      "sha256": "88374e59d0d12e85a00bbbbe355d9be5e980f606b64e7b190528a9cc2d0060a3"
+    },
+    "applicationLayoutPreserved": true
+  },
+  "independentOwner": {
+    "evidence": {
+      "path": "/home/amizo/erp-backups/procurement-p29-normal-cookie-20261023_run05/p29-owner-after-browser.private.json",
+      "sha256": "07b82268b6ad75c5cda24b22e9756a9e86c321c6e9095954e551c5f9a0365b97"
+    },
+    "baselineUnmodified": true,
+    "browserResultUnmodified": true,
+    "originalRequestMakerDistinctFromRfqBuyer": true,
+    "reviewedCaptureCompatibility": {
+      "baselineVerifierSha256": "7ec81283ab9a5ecfb4ce2e00a90fc5d483b70746085f1a53f19820f29b05b417",
+      "finalVerifierSha256": "7d0990facffcd576efaf7d569a77ef1fe56f645c7ec100fd5d3cda2e14a16925",
+      "captureContractSha256": "fcff773cb98f74a3c0aa374395bc463190cd5c5792b48cc492e12fee2f2f0358",
+      "distinctSourceReview": "pr_crud reviewed f4e35d6c and bb05f652; no blocker"
+    }
+  },
+  "downgrade": {
+    "evidence": {
+      "path": "/home/amizo/erp-backups/procurement-p29-normal-cookie-20261023_run05/down-veto-result.json",
+      "sha256": "d556e09b4159bbce76468906f95e1fb72e4e3474fdca95bf67b84a2ab3c7f0d2"
+    },
+    "bothGenuineScriptsRejectedWith55000": true,
+    "all196BusinessTablesUnchanged": true,
+    "procurementCoreApprovalPublicCatalogUnchanged": true
+  },
+  "earlierValidation": {
+    "procurementTestsPassed": 1414,
+    "sourcingHostTestsPassed": 48,
+    "uiUnitTestsPassed": 461,
+    "typescriptAndStagedBuildPassed": true,
+    "efNoModelDrift": true,
+    "correctiveLegacyOwnerRoundTripPassed": true
+  },
+  "privateSingleCpuLatency": {
+    "maximumMetaResponseMs": 10675,
+    "maximumApiResponseMs": 13156,
+    "productionPerformanceCertified": false
+  },
+  "retainedFailures": [
+    "Native01 wrong missing-resource negative expectation; corrected to404 plus existing-principal503 no-effects test",
+    "Native02 exposed malformed SQL UUID patterns; retained failure and genuine corrective migration",
+    "Native03 saved and cancelled browser RFQ but failed final UI readback; retained as failed",
+    "Native04 first reload assertion timed out before readiness metadata; retained as failed",
+    "Owner baseline query join corrected before Native03 browser. Native05 former-maker comparison corrected without modifying baseline/browser/database; exact audited predecessor capture compatibility additionally enforced by AST contract."
+  ],
+  "exclusions": [
+    "Supplier publication, quotation submission/evaluation/award and purchase orders",
+    "Production migration, role grants/configuration and deployment",
+    "Whole Procurement module completion",
+    "Production identity-provider acceptance; proof uses normal local cookies in isolated environment"
+  ]
+}
