@@ -23,6 +23,8 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
                 InvoiceUnitReviewTransitions.RequestPermission);
         app.MapPost("/api/procurement/v1/principal-unit-reviews/{id:guid}/assignments/{assignmentId:guid}/decisions", Decide)
             .RequireAuthorization(InvoiceRetainedUnitReview.ReviewPermission);
+        app.MapGet("/api/procurement/v1/principal-unit-reviews/{id:guid}/commands/{key:guid}", Recover)
+            .RequireAuthorization("procurement-access");
     }
 
     private static async Task<IResult> Open(Guid id, OpenInput? input, HttpContext http,
