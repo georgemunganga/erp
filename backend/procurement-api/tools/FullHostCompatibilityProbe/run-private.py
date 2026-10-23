@@ -33,6 +33,8 @@ def main():
         p.error('Source and target must be distinct; never run against the retained source')
     if a.rehearse_payment_owner_upgrade and a.source_db != PAYMENT_UPGRADE_SOURCE:
         p.error('Payment owner upgrade requires the exact retained P24 actual-Program clone')
+    if a.source_db == PAYMENT_UPGRADE_SOURCE and not a.rehearse_payment_owner_upgrade:
+        p.error('The retained P24 source is admitted only for the explicit owner-upgrade rehearsal')
     target_pattern = (r'hrm_model_reconcile_20261022_[a-z0-9_]{1,24}' if a.rehearse_fresh_hrm else
         r'proc_release_backup_20261022_core_principal_[a-z0-9_]{1,16}' if a.rehearse_payment_owner_upgrade else
         r'proc_release_backup_20261022_smoke_[a-z0-9_]{1,28}')

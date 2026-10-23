@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -45,9 +47,11 @@ internal static class PaymentOwnerUpgradeRehearsal
             Require(await Scalar<long>(sql, "SELECT count(*) FROM pg_tables WHERE schemaname='procurement' AND tablename=ANY(@tables)", ("tables", PaymentTables)) == 3);
             foreach (var name in PaymentTables)
                 Require(await Scalar<long>(sql, $"SELECT count(*) FROM procurement.{name}") == 0);
+            var completeFirst = await ExistingFootprint(sql, includeAdditions: true);
             phase = "SecondMigrationIdempotency";
             await core.Database.MigrateAsync(); await procurement.Database.MigrateAsync();
             Require(first == await ExistingFootprint(sql));
+            Require(completeFirst == await ExistingFootprint(sql, includeAdditions: true));
             Require(!(await core.Database.GetPendingMigrationsAsync()).Any() && !(await procurement.Database.GetPendingMigrationsAsync()).Any());
             Require(!core.Database.HasPendingModelChanges() && !procurement.Database.HasPendingModelChanges());
             phase = "PersistedCompanyDateProvider";
@@ -56,12 +60,21 @@ internal static class PaymentOwnerUpgradeRehearsal
             await using (var rows = await cmd.ExecuteReaderAsync())
             { Require(await rows.ReadAsync()); tenant = rows.GetString(0); company = rows.GetGuid(1); }
             var instant = new DateTimeOffset(2026, 10, 23, 23, 30, 0, TimeSpan.Zero);
-            var observation = await new CoreCompanyBusinessDateProvider(core, new FixedClock(instant)).GetAsync(tenant, company, default);
+            await using var companyCore = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>().UseNpgsql(connection,
+                n => n.MigrationsHistoryTable("__hrm_migrations", "hrm")).Options, new CompanyTenant(tenant));
+            var observation = await new CoreCompanyBusinessDateProvider(companyCore, new FixedClock(instant)).GetAsync(tenant, company, default);
             Require(observation.Date == new DateOnly(2026, 10, 23) && observation.TimeZoneId == "UTC" && observation.ObservedAtUtc == instant);
             Require(first == await ExistingFootprint(sql));
+            phase = "RetainedCoreDowngradeVeto";
+            var previous = (await core.Database.GetAppliedMigrationsAsync()).Where(x => x != CoreMigration).Last();
+            var vetoed = false;
+            try { await core.GetService<IMigrator>().MigrateAsync(previous); }
+            catch (PostgresException pg) when (pg.SqlState == "23514") { vetoed = true; }
+            Require(vetoed && completeFirst == await ExistingFootprint(sql, includeAdditions: true));
             result["existingRowsAndUnrelatedSchemaUnchanged"] = true;
             result["secondMigrationSchemaHistoryAndDataUnchanged"] = true;
             result["coreCompanyDateReadFromPersistedSetting"] = true;
+            result["retainedCoreDowngradeVetoedWithoutChanges"] = true;
             result["coreMigration"] = CoreMigration; result["procurementMigration"] = PaymentMigration;
             result["status"] = "PASS";
         }
@@ -85,8 +98,9 @@ internal static class PaymentOwnerUpgradeRehearsal
 
     // Excludes only the explicitly reviewed additions, not existing business records or old history.
     // All existing tables, including imported archives, remain in this digest. No row data is output.
-    private static async Task<string> ExistingFootprint(NpgsqlConnection db)
+    private static async Task<string> ExistingFootprint(NpgsqlConnection db, bool includeAdditions = false)
     {
+        var excludedTables = includeAdditions ? Array.Empty<string>() : PaymentTables;
         await using var tx = await db.BeginTransactionAsync();
         await using (var setup = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL TIME ZONE 'UTC'; SET LOCAL DateStyle='ISO,YMD'", db, tx))
             await setup.ExecuteNonQueryAsync();
@@ -96,7 +110,7 @@ internal static class PaymentOwnerUpgradeRehearsal
             AND NOT (schemaname='procurement' AND tablename=ANY(@tables)) ORDER BY 1,2
             """, db, tx))
         {
-            command.Parameters.AddWithValue("tables", PaymentTables);
+            command.Parameters.AddWithValue("tables", excludedTables);
             await using var rows = await command.ExecuteReaderAsync();
             while (await rows.ReadAsync()) tables.Add((rows.GetString(0), rows.GetString(1)));
         }
@@ -104,9 +118,9 @@ internal static class PaymentOwnerUpgradeRehearsal
         foreach (var table in tables)
         {
             static string Quote(string name) => '"' + name.Replace("\"", "\"\"") + '"';
-            var projection = table == ("hrm", "legal_entities") ? "to_jsonb(r)-'time_zone_id'" : "to_jsonb(r)";
-            var predicate = table == ("hrm", "__hrm_migrations") ? "WHERE \"MigrationId\"<>@core" :
-                table == ("procurement", "__procurement_migrations") ? "WHERE \"MigrationId\"<>@payment" : "";
+            var projection = !includeAdditions && table == ("hrm", "legal_entities") ? "to_jsonb(r)-'time_zone_id'" : "to_jsonb(r)";
+            var predicate = !includeAdditions && table == ("hrm", "__hrm_migrations") ? "WHERE \"MigrationId\"<>@core" :
+                !includeAdditions && table == ("procurement", "__procurement_migrations") ? "WHERE \"MigrationId\"<>@payment" : "";
             await using var command = new NpgsqlCommand($"SELECT count(*)::text||':'||encode(sha256(convert_to(coalesce(string_agg(h,'' ORDER BY h),''),'UTF8')),'hex') FROM (SELECT encode(sha256(convert_to(({projection})::text,'UTF8')),'hex') h FROM {Quote(table.Schema)}.{Quote(table.Table)} r {predicate}) q", db, tx);
             command.Parameters.AddWithValue("core", CoreMigration); command.Parameters.AddWithValue("payment", PaymentMigration);
             parts.Add(table.Schema + '.' + table.Table + ':' + (string)(await command.ExecuteScalarAsync())!);
@@ -119,7 +133,7 @@ internal static class PaymentOwnerUpgradeRehearsal
               LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum
               WHERE c.relkind IN ('r','p') AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
               AND NOT(n.nspname='procurement' AND c.relname=ANY(@tables))
-              AND NOT(n.nspname='hrm' AND c.relname='legal_entities' AND a.attname='time_zone_id')
+              AND (@include_additions OR NOT(n.nspname='hrm' AND c.relname='legal_entities' AND a.attname='time_zone_id'))
               UNION ALL SELECT n.nspname||'.'||c.relname||':'||k.conname||':'||pg_get_constraintdef(k.oid)
               FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
               WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND NOT(n.nspname='procurement' AND c.relname=ANY(@tables))
@@ -128,12 +142,14 @@ internal static class PaymentOwnerUpgradeRehearsal
             ) q
             """, db, tx))
         {
-            command.Parameters.AddWithValue("tables", PaymentTables);
+            command.Parameters.AddWithValue("tables", excludedTables);
+            command.Parameters.AddWithValue("include_additions", includeAdditions);
             parts.Add((string)(await command.ExecuteScalarAsync())!);
         }
         await tx.RollbackAsync();
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', parts))));
     }
     private sealed class OwnerTenant : ITenantAccessor { public string GetTenantId() => "offline-owner-upgrade"; }
+    private sealed class CompanyTenant(string tenant) : ITenantAccessor { public string GetTenantId() => tenant; }
     private sealed class FixedClock(DateTimeOffset instant) : TimeProvider { public override DateTimeOffset GetUtcNow() => instant; }
 }
