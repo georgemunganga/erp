@@ -135,7 +135,7 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
     {
         http.Response.Headers.CacheControl = "private, no-store";
         if (!Available(http)) return Task.FromResult<IResult>(Results.Json(new { code = "PrincipalInvoiceMatchingUnavailable" }, statusCode: 503));
-        return ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, _, core, auth, token) =>
+        return ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             var (invoice, _) = await ProcurementPrincipalInvoiceSourceRoutes.Current(db, core, scope, http, auth, id, token);
             if (!await http.RequestServices.GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadyAsync(db, token))
