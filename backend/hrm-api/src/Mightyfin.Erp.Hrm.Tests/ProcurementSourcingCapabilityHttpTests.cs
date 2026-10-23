@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
@@ -42,7 +43,9 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         bool enabled, bool configured, bool ready, bool pending, bool expected, int calls)
     {
         var scope = new ProcurementRequestScope();
-        scope.Set("capability-test", Guid.NewGuid(), Guid.NewGuid().ToString("D"), null, null, false, "test");
+        var principal = Guid.NewGuid();
+        scope.Set("capability-test", Guid.NewGuid(), principal.ToString("D"), null, null, false, "test");
+        scope.AssignPrincipal(principal);
         await using var connection = new SqliteConnection("Data Source=:memory:"); await connection.OpenAsync();
         var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
         builder.Services.AddSingleton(scope); builder.Services.AddSingleton<IProcurementScope>(scope);
@@ -51,7 +54,10 @@ public sealed class ProcurementSourcingCapabilityHttpTests
             PrincipalSourceEnabled = true, ExecutionDatabaseConfigured = configured });
         var readiness = new Readiness(ready);
         builder.Services.AddSingleton<IProcurementSourcingDraftSchemaReadiness>(readiness);
-        builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions { Enabled = true,
+            PrincipalExecutionEnabled = true, ExecutionDatabaseConfigured = true });
+        builder.Services.AddScoped(_ => new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseSqlite(connection).Options, new TestTenant()));
         builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
         builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions());
@@ -75,14 +81,28 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         using var response = await client.GetAsync("/api/procurement/v1/meta"); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(); var capabilities = body.GetProperty("capabilities");
         Assert.Equal(expected, capabilities.GetProperty("sourcingSourceDrafts").GetBoolean());
-        // The mapped metadata route cannot turn a configured principal flag into
-        // availability when the actual P25 authority and current Core actor are absent.
+        // An explicit principal flag and an available RFQ fake cannot replace the
+        // absent actual P25 owning-store inspector. No Core account is inferred.
         Assert.False(capabilities.GetProperty("principalSourcingSourceDrafts").GetBoolean());
         Assert.Equal(!pending, capabilities.GetProperty("sourcingDraft").GetBoolean());
         Assert.False(capabilities.GetProperty("sourcing").GetBoolean());
         Assert.False(capabilities.GetProperty("orders").GetBoolean());
         Assert.False(capabilities.GetProperty("manualPaymentWorkflow").GetBoolean());
         Assert.Equal(calls, readiness.Calls);
+    }
+
+    [Fact]
+    public void Expired_or_missing_manual_finance_policy_does_not_hide_retained_principal_RFQ_drafts()
+    {
+        var sourcing = new ProcurementSourcingDraftExecutionOptions { Enabled = true,
+            PrincipalSourceEnabled = true, ExecutionDatabaseConfigured = true };
+        var approvals = new ProcurementApprovalExecutionOptions { Enabled = true,
+            PrincipalExecutionEnabled = true, ExecutionDatabaseConfigured = true };
+        Assert.False(approvals.HasCurrentManualEvidencePolicy(Guid.NewGuid(), DateTimeOffset.UtcNow));
+        // The true argument represents separately established actual P25 physical
+        // readiness. New Create still rechecks its original/current Finance proof.
+        Assert.True(ProcurementPrincipalSourcingCapability.Prerequisites(false,sourcing,approvals,true));
+        Assert.False(ProcurementPrincipalSourcingCapability.Prerequisites(false,sourcing,approvals,false));
     }
 
     [Theory]
@@ -110,6 +130,11 @@ public sealed class ProcurementSourcingCapabilityHttpTests
     {
         public int Calls { get; private set; }
         public Task<bool> IsReadyAsync(CancellationToken ct) { Calls++; return Task.FromResult(ready); }
+    }
+
+    private sealed class TestTenant : ITenantAccessor
+    {
+        public string GetTenantId() => "capability-test";
     }
 
     private sealed class Authentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,

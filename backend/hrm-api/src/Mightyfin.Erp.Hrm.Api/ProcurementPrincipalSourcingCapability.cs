@@ -13,15 +13,18 @@ internal static class ProcurementPrincipalSourcingCapability
             && approvals is { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true };
 
     internal static async Task<bool> ReadyAsync(IServiceProvider services, ProcurementRequestScope scope,
-        bool pending, bool p25Available, CancellationToken ct)
+        bool pending, bool sourcingStoreReady, CancellationToken ct)
     {
-        if (!Prerequisites(pending, services.GetService<ProcurementSourcingDraftExecutionOptions>(),
-            services.GetService<ProcurementApprovalExecutionOptions>(), p25Available)
+        if (!sourcingStoreReady || !Prerequisites(pending, services.GetService<ProcurementSourcingDraftExecutionOptions>(),
+            services.GetService<ProcurementApprovalExecutionOptions>(), true)
             || scope.OrgUnitId is not null || scope.PrincipalId?.ToString("D") != scope.SubjectId)
             return false;
-        var sourcingStore = services.GetService<IProcurementSourcingDraftSchemaReadiness>();
         var core = services.GetService<HrmDbContext>();
-        if (sourcingStore is null || core is null || !await sourcingStore.IsReadyAsync(ct)) return false;
+        if (core is null) return false;
+        // Retained drafts must remain readable/cancellable when a manual Finance
+        // evidence policy expires. P25's actual owning-store readiness is still
+        // mandatory; new Create independently checks current Finance evidence.
+        if (!await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct)) return false;
         var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId,
             scope.SubjectId, ct);
         if (person is null || !person.Permissions.Contains("procurement-sourcing-convert")
