@@ -47,7 +47,8 @@ public static partial class ProcurementPolicyDraftRoutes
         if (principalIds.Length > 100)
             return Problem("sourcing-reviewer-bound", "Use at most 100 distinct named reviewers in a policy version.", 422);
         var retainedSchema = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
-            .Where(x => x.PolicyVersionId == policy.Id && x.Stage == "Created")
+            .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && x.PolicyVersionId == policy.Id && x.Stage == "Created")
             .Select(x => (int?)x.SchemaVersion).SingleOrDefaultAsync(ct);
         var accounts = new Dictionary<string, ProcurementPrincipalPeople.Person>(StringComparer.Ordinal);
         foreach (var id in principalIds)
