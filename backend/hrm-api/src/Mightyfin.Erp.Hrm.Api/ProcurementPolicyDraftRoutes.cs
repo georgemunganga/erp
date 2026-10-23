@@ -47,8 +47,10 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         if (ManualPaymentReviewPolicyRules.IsDocument(input.RulesJson))
         {
-            var issues = ManualPaymentReviewPolicyRules.Validate(input.RulesJson, draft: true);
-            return Results.Ok(new { isValid = issues.Count == 0, issues, reviewReady = issues.Count == 0 });
+            var draftIssues = ManualPaymentReviewPolicyRules.Validate(input.RulesJson, draft: true);
+            var paymentReviewIssues = ManualPaymentReviewPolicyRules.Validate(input.RulesJson);
+            return Results.Ok(new { isValid = draftIssues.Count == 0, issues = draftIssues,
+                reviewReady = paymentReviewIssues.Count == 0, reviewIssues = paymentReviewIssues });
         }
         if (SourcingPublicationPolicyRules.IsSourcingDocument(input.RulesJson))
         {
@@ -534,8 +536,8 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey)
         {
-            var issues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson, draft: true);
-            if (issues.Count > 0) return Results.Json(new { code = "invalid-rules", message = "Check the payment review rules before continuing.", issues }, statusCode: 422);
+            var paymentIssues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson);
+            if (paymentIssues.Count > 0) return Results.Json(new { code = "invalid-rules", message = "Set the payment review limits before continuing.", issues = paymentIssues }, statusCode: 422);
             if (!await organizationDb.LegalEntities.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
                     && x.Id == scope.LegalEntityId && !x.IsArchived, ct))
                 return Problem("company-unavailable", "The selected ERP company is unavailable.", 409);

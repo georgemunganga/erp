@@ -60,7 +60,9 @@ public static class ManualPaymentCoreWorkflow
             maker = request.RecordedByPrincipalId!; makerAlias = request.RecordedByCoreLinkedWorkerId;
             assignee = request.ConfirmerPrincipalId; assigneeAlias = request.ConfirmerCoreLinkedWorkerId;
         }
-        Need(ManualPaymentReviewPolicyRules.WithinConfiguredMaximum(rules, request.CurrencyCode, request.Amount),
+        // Review authority uses the captured whole bill, so splitting it into smaller
+        // payment requests cannot evade the approved ceiling.
+        Need(ManualPaymentReviewPolicyRules.WithinConfiguredMaximum(rules, request.CurrencyCode, invoice.InvoiceGrossAmount),
             "ManualPaymentPolicyAmountNotCovered");
         Need(ProcurementPrincipalEvidence.Independent(maker, makerAlias, assignee, assigneeAlias),
             "ManualPaymentCoreIndependentAssigneeRequired");

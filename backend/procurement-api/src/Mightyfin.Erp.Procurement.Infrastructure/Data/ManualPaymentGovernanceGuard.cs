@@ -32,7 +32,10 @@ public sealed partial class ProcurementDbContext
                 ManualPaymentBusinessDateObservation row => row.BranchId,
                 _ => Guid.Empty });
         }
-        if (!manualPaymentGovernanceRequired && !entries.Any(x => x.State == EntityState.Added)) return;
+        var hasManualChanges = added.OfType<ManualPaymentDecision>().Any()
+            || ChangeTracker.Entries<ManualPaymentRequest>().Any(x => x.State is EntityState.Added or EntityState.Modified);
+        var enforce = manualPaymentGovernanceRequired || hasManualChanges && ProcurementManualPaymentSchema.GovernanceInstalled(this);
+        if (!enforce && !entries.Any(x => x.State == EntityState.Added)) return;
         if (!Database.IsNpgsql() || Database.CurrentTransaction is null || sharedApprovalCore?.Database.CurrentTransaction is null
             || sharedApprovalTransaction is null || sharedApprovalTransaction.IsolationLevel != IsolationLevel.Serializable
             || !ReferenceEquals(sharedApprovalTransaction, Database.CurrentTransaction.GetDbTransaction())
@@ -64,7 +67,7 @@ public sealed partial class ProcurementDbContext
             VerifyPublishedOperationalPolicyIdentity(policy, link.Purpose == ManualPaymentCoreWorkflow.Confirmation);
             if (policy.PolicyKey != ManualPaymentReviewPolicyRules.PolicyKey || policy.PolicyVersionNumber != link.PolicyVersionNumber
                 || ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) != link.PolicyRulesSha256
-                || !ManualPaymentReviewPolicyRules.WithinConfiguredMaximum(ManualPaymentReviewPolicyRules.Parse(policy.RulesJson), parent.CurrencyCode, parent.Amount))
+                || !ManualPaymentReviewPolicyRules.WithinConfiguredMaximum(ManualPaymentReviewPolicyRules.Parse(policy.RulesJson), parent.CurrencyCode, link.InvoiceGrossAmountAtOpening))
                 throw new InvalidOperationException("ManualPaymentCorePolicyPinRequired");
             if (link.Purpose == ManualPaymentCoreWorkflow.Approval)
                 _ = ManualPaymentReviewPolicyRules.ResolveEffective(policy, scope.TenantId, scope.LegalEntityId, link.OpenedAt);
@@ -74,7 +77,11 @@ public sealed partial class ProcurementDbContext
                     && x.Purpose == ManualPaymentCoreWorkflow.Approval && x.OpenedRequestVersion == transition.FromVersion - 1
                     && x.PolicyVersionId == link.PolicyVersionId);
                 var approvedCase = ReadCase(core, approval.CoreApprovalCaseId);
-                if (approvedCase.State != "Approved") throw new InvalidOperationException("ManualPaymentOriginalApprovalRequired");
+                if (approvedCase.State != "Approved" || !ManualPaymentCoreDecisions.AsNoTracking().Any(x =>
+                    x.WorkflowCaseLinkId == approval.Id && x.ManualPaymentRequestId == parent.Id
+                    && x.ManualAction == "Approve" && x.ToRequestVersion == transition.FromVersion
+                    && x.ActorPrincipalId == parent.ApprovedByPrincipalId))
+                    throw new InvalidOperationException("ManualPaymentOriginalApprovalRequired");
                 ManualPaymentCoreWorkflow.VerifyCurrentCase(parent, approval, approvedCase);
             }
         }
@@ -106,7 +113,7 @@ public sealed partial class ProcurementDbContext
                 || observation.Action != expected.Action || observation.CreatedBy != scope.SubjectId)
                 throw new InvalidOperationException("ManualPaymentCompanyDateObservationInvalid");
         }
-        if (!manualPaymentGovernanceRequired) return;
+        if (!enforce) return;
         foreach (var transition in added.OfType<ManualPaymentDecision>())
         {
             var caseRequired = transition.Action is "Submit" or "Record";

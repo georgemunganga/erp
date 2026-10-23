@@ -46,6 +46,51 @@ public static class ApprovalEngine
         return normalized.Length == 0 ? null : normalized;
     }
 
+    /// <summary>Cancel an unfinished source-owned process. The source module must
+    /// first validate its own cancellation permission/state and current Core scope.
+    /// A maker may withdraw their own process; this never records an approval.</summary>
+    public static ApprovalActionResult Cancel(ApprovalCase approvalCase, ApprovalAssignment assignment,
+        ApprovalActor actor, string cancellationPermission, string idempotencyKey, string reason,
+        ICollection<ApprovalDecision> decisions, DateTimeOffset now)
+    {
+        idempotencyKey = idempotencyKey?.Trim() ?? string.Empty;
+        var normalized = NormalizeReason(reason);
+        if (idempotencyKey.Length is < 1 or > 150 || normalized is null || normalized.Length > 2000 || now == default)
+            throw new ArgumentException("Cancellation requires a valid key, reason and time.");
+        if (string.IsNullOrWhiteSpace(actor.SubjectId) || string.IsNullOrWhiteSpace(cancellationPermission)
+            || !actor.Permissions.Contains(cancellationPermission)
+            || approvalCase.TenantId != actor.TenantId || approvalCase.LegalEntityId != actor.LegalEntityId
+            || assignment.TenantId != actor.TenantId || assignment.LegalEntityId != actor.LegalEntityId
+            || assignment.CaseId != approvalCase.Id
+            || actor.SubjectId != approvalCase.MakerSubjectId && actor.SubjectId != assignment.AssigneeSubjectId)
+            throw new UnauthorizedAccessException("The actor cannot cancel this process.");
+        var previous = decisions.SingleOrDefault(x => x.CaseId == approvalCase.Id && x.IdempotencyKey == idempotencyKey);
+        if (previous is not null)
+        {
+            if (previous.ActorSubjectId != actor.SubjectId || previous.AssignmentId != assignment.Id
+                || previous.Action != "Cancel" || NormalizeReason(previous.Reason) != normalized)
+                throw new InvalidOperationException("The decision key was already used for another action.");
+            return new(false, false, approvalCase.State);
+        }
+        var stage = approvalCase.Stages.SingleOrDefault(x => x.Id == assignment.StageId);
+        if (stage is not null && (stage.CaseId != approvalCase.Id || stage.TenantId != actor.TenantId || stage.LegalEntityId != actor.LegalEntityId))
+            throw new UnauthorizedAccessException("The active stage is outside the actor's scope.");
+        if (approvalCase.State != "Pending" || assignment.State != "Pending" || stage?.State != "Active"
+            || stage.Assignments.All(x => x.Id != assignment.Id))
+            throw new InvalidOperationException("Only an active unfinished process can be cancelled.");
+        decisions.Add(new ApprovalDecision { TenantId = actor.TenantId, LegalEntityId = actor.LegalEntityId,
+            CaseId = approvalCase.Id, StageId = stage.Id, AssignmentId = assignment.Id, ActorSubjectId = actor.SubjectId,
+            Action = "Cancel", Reason = normalized, IdempotencyKey = idempotencyKey, DecidedAt = now,
+            CreatedAt = now, UpdatedAt = now });
+        foreach (var remaining in approvalCase.Stages.Where(x => x.State is "Active" or "Waiting"))
+        {
+            remaining.State = "Cancelled";
+            foreach (var task in remaining.Assignments.Where(x => x.State == "Pending")) task.State = "Cancelled";
+        }
+        approvalCase.State = "Cancelled"; approvalCase.CompletedAt = now; approvalCase.CompletionKey = idempotencyKey;
+        return new(true, false, approvalCase.State);
+    }
+
     public static ApprovalActionResult Decide(ApprovalCase approvalCase, ApprovalAssignment assignment,
         ApprovalActor actor, string action, string idempotencyKey, string? reason,
         ICollection<ApprovalDecision> decisions, DateTimeOffset now)

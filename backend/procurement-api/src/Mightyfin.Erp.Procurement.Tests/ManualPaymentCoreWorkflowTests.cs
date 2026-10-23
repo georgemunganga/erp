@@ -7,6 +7,41 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class ManualPaymentCoreWorkflowTests
 {
     [Fact]
+    public void A_maker_cancellation_is_an_exact_Core_cancellation_not_self_approval()
+    {
+        var f = new Fixture(); var submitted = f.Submit(); var open = ManualPaymentCoreWorkflow.Open(submitted, f.Policy, f.Source, f.Now);
+        var coreDecisions = new List<ApprovalDecision>();
+        var result = ApprovalEngine.Cancel(open.Case, open.Case.Stages.Single().Assignments.Single(),
+            new(f.Creator, "payment-governance", f.Company, new HashSet<string> { "procurement-payment-cancel" }),
+            "procurement-payment-cancel", "synthetic-cancel", "Withdrawn", coreDecisions, f.Now);
+        var manual = ManualPaymentWorkflow.Cancel(submitted.Request, 2, f.Actor(f.Creator), "Withdrawn", f.Now);
+        Assert.True(result.Recorded);
+        var link = ManualPaymentCoreWorkflow.LinkDecision(manual, open.Link, open.Case, Assert.Single(coreDecisions));
+        Assert.Equal("Cancel", link.ManualAction); Assert.Equal(f.Creator, link.ActorPrincipalId);
+        Assert.Equal("Cancelled", manual.Request.Status);
+    }
+
+    [Fact]
+    public void Splitting_a_bill_into_small_requests_cannot_evade_the_whole_bill_review_ceiling()
+    {
+        var f = new Fixture(); f.Policy.RulesJson = f.Policy.RulesJson.Replace("100.0000", "50.0000", StringComparison.Ordinal);
+        Assert.Equal("ManualPaymentPolicyAmountNotCovered", Assert.Throws<InvalidOperationException>(() =>
+            ManualPaymentCoreWorkflow.Open(f.Submit(), f.Policy, f.Source, f.Now)).Message);
+    }
+
+    [Fact]
+    public void An_old_returned_Core_case_does_not_authorize_a_later_resubmission()
+    {
+        var f = new Fixture(); var first = f.Submit(); var old = ManualPaymentCoreWorkflow.Open(first, f.Policy, f.Source, f.Now);
+        var oldDecision = Decide(old, f, f.Approver, "Return", "Review again");
+        var returned = ManualPaymentWorkflow.Return(first.Request, 2, f.Actor(f.Approver), "Review again", f.Now);
+        var resubmitted = ManualPaymentWorkflow.Submit(returned.Request, 3, f.Actor(f.Creator), f.Source, f.Now);
+        var current = ManualPaymentCoreWorkflow.Open(resubmitted, f.Policy, f.Source, f.Now);
+        Assert.NotEqual(old.Case.Id, current.Case.Id); Assert.Equal(4, current.Case.SourceVersion);
+        var approved = ManualPaymentWorkflow.Approve(resubmitted.Request, 4, f.Actor(f.Approver), f.Source, f.Now);
+        Assert.Throws<InvalidOperationException>(() => ManualPaymentCoreWorkflow.LinkDecision(approved, old.Link, old.Case, oldDecision));
+    }
+    [Fact]
     public void Shared_Core_cases_bind_independent_approval_and_confirmation_without_employee_records()
     {
         var f = new Fixture(); var submitted = f.Submit();
@@ -115,7 +150,7 @@ public sealed class ManualPaymentCoreWorkflowTests
             PolicyKey = ManualPaymentReviewPolicyRules.PolicyKey, PolicyVersionNumber = 1, State = "Published",
             EffectiveFrom = Now.AddDays(-1), PublishedAt = Now.AddHours(-1), CreatedBy = Guid.NewGuid().ToString("D"),
             PublishedBy = Guid.NewGuid().ToString("D"), PublicationReason = "Synthetic policy review",
-            RulesJson = """{"schemaVersion":1,"identitySchemaVersion":2,"policyKey":"MANUAL_PAYMENT_REVIEW","transactionType":"ManualPaymentReview","approvalType":"SingleApprover","independentCreatorApprover":true,"independentRecorderConfirmer":true}""" };
+            RulesJson = """{"schemaVersion":1,"identitySchemaVersion":2,"policyKey":"MANUAL_PAYMENT_REVIEW","transactionType":"ManualPaymentReview","approvalType":"SingleApprover","independentCreatorApprover":true,"independentRecorderConfirmer":true,"maximumByCurrency":{"ZMW":"100.0000"}}""" };
         internal ManualPaymentActor Actor(string id) => new(id, "payment-governance", Company, Branch, new HashSet<Guid> { Branch },
             new[] { "create", "edit", "submit", "approve", "record", "confirm", "cancel" }.Select(x => "procurement-payment-" + x).ToHashSet(), true);
         private ManualPaymentAssignee Assignee(string id, string action) => new(id, "payment-governance", Company,
