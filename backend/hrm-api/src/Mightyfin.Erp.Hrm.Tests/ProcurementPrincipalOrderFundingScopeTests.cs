@@ -17,5 +17,14 @@ public sealed class ProcurementPrincipalOrderFundingScopeTests
         Assert.False(ProcurementPrincipalOrderDraftRoutes.RecorderCanActInBranch(afterRevocation,null));
         Assert.True(ProcurementPrincipalOrderDraftRoutes.RecorderCanActInBranch(
             recorder with { OrganisationWide=true,AllowedBranches=new HashSet<Guid>() },orderBranch));
+        // Core currently interprets zero active branch assignments as wide scope. Retained
+        // confined funding may not gain authority when its last assignment is archived.
+        var afterLastGrantArchived=recorder with { OrganisationWide=true,AllowedBranches=new HashSet<Guid>() };
+        Assert.False(ProcurementPrincipalOrderDraftRoutes.RecorderRetainsFundingScope(
+            afterLastGrantArchived,orderBranch,recordedOrganisationWide:false));
+        Assert.True(ProcurementPrincipalOrderDraftRoutes.RecorderRetainsFundingScope(
+            recorder,orderBranch,recordedOrganisationWide:false));
+        Assert.True(ProcurementPrincipalOrderDraftRoutes.RecorderRetainsFundingScope(
+            afterLastGrantArchived,orderBranch,recordedOrganisationWide:true));
     }
 }
