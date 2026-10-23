@@ -35,13 +35,13 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
         http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>() is { Enabled: true }
         && http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is not null;
 
-    private static async Task<IResult> Map(Guid id, MapInput input, HttpContext http,
+    private static async Task<IResult> Map(Guid id, MapInput? input, HttpContext http,
         ProcurementRequestScope scope, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "private, no-store";
         if (!Available(http) || !await http.RequestServices.GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceMatchingUnavailable" }, statusCode: 503);
-        if (input.Lines is not { Length: > 0 and <= 200 }
+        if (input is null || input.Lines is not { Length: > 0 and <= 200 }
             || !Guid.TryParse(http.Request.Headers["Idempotency-Key"], out var key) || key == Guid.Empty)
             return Results.Json(new { code = "PrincipalInvoiceMappingInputInvalid" }, statusCode: 422);
         var requestSha = ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new { schemaVersion = 2, id, input }, Json));

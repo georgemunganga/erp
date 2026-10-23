@@ -141,6 +141,7 @@ public sealed partial class ProcurementDbContext
         {
             var mapping = Mapping(comparison.MappingVersionId);
             var review = PrincipalInvoiceUnitReviewOutcomes.Single(x => x.Id == comparison.ReviewOutcomeId);
+            var reviewSource = PrincipalInvoiceUnitReviewSources.Single(x => x.Id == comparison.ReviewSourceId);
             var exposure = PrincipalInvoiceExposureStates.Local.SingleOrDefault(x => x.Id == comparison.ExposureStateId)
                 ?? PrincipalInvoiceExposureStates.Single(x => x.Id == comparison.ExposureStateId);
             var state = State(comparison.SupplierInvoiceId);
@@ -148,12 +149,16 @@ public sealed partial class ProcurementDbContext
                 || comparison.SupplierInvoiceId != mapping.SupplierInvoiceId
                 || comparison.PurchaseOrderId != mapping.PurchaseOrderId
                 || comparison.PrincipalIssuedVersionId != mapping.PrincipalIssuedVersionId
+                || review.ReviewSourceId != reviewSource.Id
+                || reviewSource.MappingVersionId != mapping.Id
+                || reviewSource.SupplierInvoiceId != comparison.SupplierInvoiceId
                 || comparison.InvoiceVersion != mapping.InvoiceVersion
                 || comparison.OriginalInvoiceSha256 != mapping.OriginalInvoiceSha256
                 || comparison.EvidenceSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(comparison.EvidenceJson)
                 || review.State != "Verified" || state.LastComparisonId != comparison.Id
                 || exposure.PurchaseOrderId != comparison.PurchaseOrderId
                 || exposure.PrincipalIssuedVersionId != comparison.PrincipalIssuedVersionId
+                || comparison.OwnerReference != exposure.OwnerReference
                 || comparison.OwnerWatermark != exposure.OwnerWatermark
                 || comparison.Outcome != "Compared" || (state.ActiveClaimComparisonId != comparison.Id
                     || exposure.CoverageState != "Verified" || exposure.OwnerValidUntil <= comparison.ComparedAt
@@ -164,10 +169,18 @@ public sealed partial class ProcurementDbContext
         foreach (var claim in added.OfType<PrincipalInvoiceClaim>())
         {
             var comparison = added.OfType<PrincipalInvoiceComparison>().SingleOrDefault(x => x.Id == claim.ComparisonId);
+            var mappingLine = PrincipalInvoiceMappingLines.SingleOrDefault(x => x.MappingVersionId == claim.MappingVersionId
+                && x.SupplierInvoiceLineId == claim.SupplierInvoiceLineId);
             if (comparison is null || comparison.Outcome != "Compared"
                 || claim.SupplierInvoiceId != comparison.SupplierInvoiceId
+                || claim.MappingVersionId != comparison.MappingVersionId
                 || claim.PurchaseOrderId != comparison.PurchaseOrderId
                 || claim.PrincipalIssuedVersionId != comparison.PrincipalIssuedVersionId
+                || claim.OwnerCoverageReference != comparison.OwnerReference
+                || mappingLine is null || mappingLine.PurchaseOrderLineId != claim.PurchaseOrderLineId
+                || mappingLine.PrincipalReceivingSourceStateId != claim.PrincipalReceivingSourceStateId
+                || mappingLine.PrincipalAcceptanceFactId != claim.PrincipalAcceptanceFactId
+                || mappingLine.AcceptanceSequence != claim.AcceptanceSequence
                 || claim.PrincipalAcceptanceFactId.HasValue != claim.PrincipalReceivingSourceStateId.HasValue
                 || claim.PrincipalAcceptanceFactId.HasValue != claim.AcceptanceSequence.HasValue
                 || claim.Quantity <= 0 || claim.NetAmount < 0 || claim.TaxAmount < 0)

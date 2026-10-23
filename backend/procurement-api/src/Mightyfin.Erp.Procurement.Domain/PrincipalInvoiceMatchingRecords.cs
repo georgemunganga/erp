@@ -107,6 +107,7 @@ public sealed class PrincipalInvoiceComparison : ProcurementRecord
     public Guid MappingVersionId { get; init; }
     public Guid PurchaseOrderId { get; init; }
     public Guid PrincipalIssuedVersionId { get; init; }
+    public Guid ReviewSourceId { get; init; }
     public Guid ReviewOutcomeId { get; init; }
     public Guid MatchingPolicyId { get; init; }
     public Guid ExposureStateId { get; init; }
@@ -116,6 +117,7 @@ public sealed class PrincipalInvoiceComparison : ProcurementRecord
     public string Outcome { get; init; } = null!;
     public string EvidenceJson { get; init; } = null!;
     public string EvidenceSha256 { get; init; } = null!;
+    public string OwnerReference { get; init; } = null!;
     public string OwnerWatermark { get; init; } = null!;
     public string ActorPrincipalId { get; init; } = null!;
     public Guid? ActorWorkerAliasId { get; init; }
@@ -148,6 +150,7 @@ public sealed class PrincipalInvoiceClaim : ProcurementRecord
 {
     public Guid SupplierInvoiceId { get; init; }
     public Guid SupplierInvoiceLineId { get; init; }
+    public Guid MappingVersionId { get; init; }
     public Guid ComparisonId { get; init; }
     public Guid ExposureStateId { get; init; }
     public Guid PurchaseOrderId { get; init; }
