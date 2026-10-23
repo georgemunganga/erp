@@ -188,24 +188,26 @@ public static class ProcurementHostIntegration
                 var principalSourcingSourceDrafts = await ProcurementModelParityDiagnostics.MeasureAsync(
                     performance, "meta.principal-sourcing", () => ProcurementPrincipalSourcingCapability.ReadyAsync(
                         services, scope, pending, sourcingSourceDrafts, ct));
-                var directOrderOptions = services.GetRequiredService<ProcurementPrincipalOrderDraftOptions>();
-                var principalDirectOrderDrafts = !pending && directOrderOptions.Enabled
-                    && directOrderOptions.ExecutionDatabaseConfigured
-                    && await services.GetRequiredService<IProcurementPrincipalOrderDraftReadiness>().IsReadyAsync(ct);
+                var directOrderOptions = services.GetService<ProcurementPrincipalOrderDraftOptions>();
+                var principalDirectOrderDrafts = !pending && directOrderOptions is
+                        { Enabled: true, ExecutionDatabaseConfigured: true }
+                    && services.GetService<IProcurementPrincipalOrderDraftReadiness>() is { } directReadiness
+                    && await directReadiness.IsReadyAsync(ct);
                 var principalOrderGovernance = principalDirectOrderDrafts
                     && services.GetRequiredService<ProcurementOrderExecutionOptions>() is
                         { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true };
-                var principalReceivingOptions = services.GetRequiredService<ProcurementPrincipalReceivingOptions>();
-                var principalReceiving = !pending && principalReceivingOptions.Enabled
-                    && principalReceivingOptions.ExecutionDatabaseConfigured
-                    && await services.GetRequiredService<IProcurementPrincipalReceivingReadiness>().IsReadyAsync(ct);
-                var publicationOptions = services.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>();
-                var principalSourcingPublication = sourcingSourceDrafts && publicationOptions.Enabled
+                var principalReceivingOptions = services.GetService<ProcurementPrincipalReceivingOptions>();
+                var principalReceiving = !pending && principalReceivingOptions is
+                        { Enabled: true, ExecutionDatabaseConfigured: true }
+                    && services.GetService<IProcurementPrincipalReceivingReadiness>() is { } receivingReadiness
+                    && await receivingReadiness.IsReadyAsync(ct);
+                var publicationOptions = services.GetService<ProcurementPrincipalSourcingPublicationOptions>();
+                var principalSourcingPublication = sourcingSourceDrafts && publicationOptions is { Enabled: true }
                     && services.GetRequiredService<ProcurementApprovalExecutionOptions>() is
                         { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }
                     && await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct)
-                    && await services.GetRequiredService<IProcurementPrincipalSourcingPublicationReadiness>()
-                        .IsReadyAsync(ct)
+                    && services.GetService<IProcurementPrincipalSourcingPublicationReadiness>() is { } publicationReadiness
+                    && await publicationReadiness.IsReadyAsync(ct)
                     && await ProcurementPrincipalPeople.Resolve(services.GetRequiredService<HrmDbContext>(),
                         scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct) is { } publicationPerson
                     && (scope.WorkLocationId is { } selectedPublicationBranch

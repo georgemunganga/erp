@@ -19,11 +19,19 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     // Separate purpose directory for independent issuer/supplier-response roles.
     // A buyer-only PO detail would require an unrelated permission and cannot
     // supply the exact retained issued version to an acknowledgment form.
-    private static Task<IResult> FulfilmentWork(string? view,int? page,int? pageSize,string? q,
+    private static async Task<IResult> FulfilmentWork(string? view,int? page,int? pageSize,string? q,
         HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
     {
-        try{GovernedEnabled(http);}catch(Problem p){return Task.FromResult(Error(p.Message,p.Status));}
-        return Run(http,scope,async(db,cases,core,auth,token)=>
+        try
+        {
+            var action = FulfilmentAction(view);
+            if (!(await http.RequestServices.GetRequiredService<IAuthorizationService>()
+                    .AuthorizeAsync(http.User, action)).Succeeded)
+                return Error("OrderActionForbidden", 403);
+            GovernedEnabled(http);
+        }
+        catch(Problem p){return Error(p.Message,p.Status);}
+        return await Run(http,scope,async(db,cases,core,auth,token)=>
         {
             var action=FulfilmentAction(view);
             var paging=ProcurementSourcingDiscoveryQueries.Paging(page,pageSize,q);
@@ -59,11 +67,19 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         },ct);
     }
 
-    private static Task<IResult> FulfilmentDetail(Guid id,string? view,HttpContext http,
+    private static async Task<IResult> FulfilmentDetail(Guid id,string? view,HttpContext http,
         ProcurementRequestScope scope,CancellationToken ct)
     {
-        try{GovernedEnabled(http);}catch(Problem p){return Task.FromResult(Error(p.Message,p.Status));}
-        return Run(http,scope,async(db,cases,core,auth,token)=>
+        try
+        {
+            var action = FulfilmentAction(view);
+            if (!(await http.RequestServices.GetRequiredService<IAuthorizationService>()
+                    .AuthorizeAsync(http.User, action)).Succeeded)
+                return Error("OrderActionForbidden", 403);
+            GovernedEnabled(http);
+        }
+        catch(Problem p){return Error(p.Message,p.Status);}
+        return await Run(http,scope,async(db,cases,core,auth,token)=>
         {
             var action=FulfilmentAction(view);
             var load=await LoadGoverned(db,cases,core,scope,http,auth,action,id,token,lockSources:false);
