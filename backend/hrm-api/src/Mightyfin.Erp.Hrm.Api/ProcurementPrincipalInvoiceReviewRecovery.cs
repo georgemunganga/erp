@@ -19,13 +19,22 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
         return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
         {
             if (!await ready.IsReadyAsync(db, token)) throw new InvalidOperationException("PrincipalInvoiceReviewSchemaUnavailable");
-            var source = await db.PrincipalInvoiceUnitReviewSources.AsNoTracking()
-                .SingleOrDefaultAsync(x => x.Id == id, token) ?? throw new KeyNotFoundException();
             var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
                 scope.LegalEntityId, scope.SubjectId, token) ?? throw new UnauthorizedAccessException();
             if (actor.CoreLinkedWorkerId != scope.CoreLinkedWorkerId
-                || !actor.OrganisationWide && !actor.AllowedBranches.Contains(source.BranchId))
+                || scope.OrgUnitId is not null
+                || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
                 throw new UnauthorizedAccessException();
+            var declared = actor.AllowedBranches.ToArray();
+            var visible = await core.WorkLocations.AsNoTracking().Where(x =>
+                x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId && !x.IsArchived
+                    && (actor.OrganisationWide || declared.Contains(x.Id))
+                    && (scope.WorkLocationId == null || x.Id == scope.WorkLocationId))
+                .Select(x => x.Id).ToArrayAsync(token);
+            if (visible.Length == 0) throw new UnauthorizedAccessException();
+            var source = await db.PrincipalInvoiceUnitReviewSources.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == id && visible.Contains(x.BranchId), token)
+                ?? throw new KeyNotFoundException();
             _ = await ProcurementExecutionRecordScope.Branches(core, scope, source.BranchId, true, token);
             var row = await db.PrincipalInvoiceCommandReceipts.AsNoTracking().SingleOrDefaultAsync(x =>
                 x.SupplierInvoiceId == source.SupplierInvoiceId && x.CommandKey == key
@@ -48,6 +57,10 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
                 || response.GetProperty("commandKey").GetGuid() != key
                 || response.GetProperty("sourceSchemaVersion").GetInt32() != 2)
                 throw new InvalidOperationException("PrincipalInvoiceReviewReceiptChanged");
+            var mapping = await db.PrincipalInvoiceMappingVersions.AsNoTracking().SingleAsync(x =>
+                x.Id == source.MappingVersionId && x.SupplierInvoiceId == source.SupplierInvoiceId, token);
+            if (response.GetProperty("invoiceVersion").GetInt64() != mapping.InvoiceVersion)
+                throw new InvalidOperationException("PrincipalInvoiceReviewReceiptVersionChanged");
             if (row.Operation == "OpenReview")
             {
                 if (source.MakerPrincipalId != scope.SubjectId

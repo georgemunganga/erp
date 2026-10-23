@@ -117,10 +117,28 @@ public sealed partial class ProcurementDbContext
                     || Receipt(state.SupplierInvoiceId, "Compare").CommandKey != compare.CommandKey)
                     throw new InvalidOperationException("PrincipalInvoiceComparedStateRequiresClaim");
             }
+            else if (state.State == "Mapped")
+            {
+                var oldMap = previous.GetValue<Guid?>(nameof(PrincipalInvoiceState.CurrentMappingId));
+                var oldReview = oldMap is { } priorId
+                    ? PrincipalInvoiceUnitReviewSources.SingleOrDefault(x => x.MappingVersionId == priorId
+                        && x.SupplierInvoiceId == state.SupplierInvoiceId) : null;
+                var oldOutcome = oldReview is not null
+                    ? PrincipalInvoiceUnitReviewOutcomes.SingleOrDefault(x => x.ReviewSourceId == oldReview.Id
+                        && (x.State == "Returned" || x.State == "Rejected")) : null;
+                var mapping = added.OfType<PrincipalInvoiceMappingVersion>()
+                    .SingleOrDefault(x => x.SupplierInvoiceId == state.SupplierInvoiceId);
+                if (originalState != "Mapped" || oldReview is null || oldOutcome is null
+                    || mapping is null || state.CurrentMappingId != mapping.Id
+                    || state.MappingRevision != checked(previous.GetValue<int>(nameof(PrincipalInvoiceState.MappingRevision)) + 1)
+                    || state.LastComparisonId is not null || state.ActiveClaimComparisonId is not null
+                    || Receipt(state.SupplierInvoiceId, "Map").ActorPrincipalId != scope.SubjectId)
+                    throw new InvalidOperationException("PrincipalInvoiceRemapRequiresReturnedReview");
+            }
             else throw new InvalidOperationException("PrincipalInvoiceStateTransitionUnsupported");
             if (state.InvoiceVersion != previous.GetValue<long>(nameof(PrincipalInvoiceState.InvoiceVersion))
-                || state.MappingRevision != previous.GetValue<int>(nameof(PrincipalInvoiceState.MappingRevision))
-                || state.CurrentMappingId != previous.GetValue<Guid?>(nameof(PrincipalInvoiceState.CurrentMappingId)))
+                || state.State != "Mapped" && (state.MappingRevision != previous.GetValue<int>(nameof(PrincipalInvoiceState.MappingRevision))
+                    || state.CurrentMappingId != previous.GetValue<Guid?>(nameof(PrincipalInvoiceState.CurrentMappingId))))
                 throw new InvalidOperationException("PrincipalInvoiceStateOwnerChanged");
         }
 
@@ -306,6 +324,7 @@ public sealed partial class ProcurementDbContext
                 var map = added.OfType<PrincipalInvoiceMappingVersion>()
                     .Single(x => x.SupplierInvoiceId == invoice.Id);
                 if (response.GetProperty("mappingVersionId").GetGuid() != map.Id
+                    || response.GetProperty("invoiceVersion").GetInt64() != map.InvoiceVersion
                     || receipt.CompletedAt != map.MappedAt)
                     throw new InvalidOperationException("PrincipalInvoiceMappingReceiptChanged");
             }
@@ -315,6 +334,8 @@ public sealed partial class ProcurementDbContext
                     .Single(x => x.SupplierInvoiceId == invoice.Id);
                 if (response.GetProperty("reviewId").GetGuid() != review.Id
                     || response.GetProperty("coreCaseId").GetGuid() != review.CoreCaseId
+                    || response.GetProperty("invoiceVersion").GetInt64()
+                        != Mapping(review.MappingVersionId).InvoiceVersion
                     || receipt.CompletedAt != review.OpenedAt)
                     throw new InvalidOperationException("PrincipalInvoiceOpeningReceiptChanged");
             }
@@ -326,6 +347,8 @@ public sealed partial class ProcurementDbContext
                     ?? sharedApprovalCore.Decisions.Single(x => x.Id == voteId);
                 if (!PrincipalInvoiceUnitReviewSources.Any(x => x.Id == reviewId
                         && x.SupplierInvoiceId == invoice.Id && x.CoreCaseId == vote.CaseId)
+                    || response.GetProperty("invoiceVersion").GetInt64()
+                        != Mapping(PrincipalInvoiceUnitReviewSources.Single(x => x.Id == reviewId).MappingVersionId).InvoiceVersion
                     || vote.ActorSubjectId != scope.SubjectId || receipt.CompletedAt != vote.DecidedAt)
                     throw new InvalidOperationException("PrincipalInvoiceDecisionReceiptChanged");
             }
@@ -335,6 +358,7 @@ public sealed partial class ProcurementDbContext
                     .Single(x => x.SupplierInvoiceId == invoice.Id);
                 if (response.GetProperty("comparisonId").GetGuid() != comparison.Id
                     || response.GetProperty("mappingVersionId").GetGuid() != comparison.MappingVersionId
+                    || response.GetProperty("invoiceVersion").GetInt64() != comparison.InvoiceVersion
                     || receipt.CommandKey != comparison.CommandKey
                     || receipt.CompletedAt != comparison.ComparedAt)
                     throw new InvalidOperationException("PrincipalInvoiceComparisonReceiptChanged");

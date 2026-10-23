@@ -19,7 +19,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static class ProcurementPrincipalInvoiceMappingRoutes
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    public sealed record MapInput(long InvoiceVersion, Guid PurchaseOrderId, Guid PrincipalIssuedVersionId,
+    public sealed record MapInput(long InvoiceVersion, int ExpectedMappingRevision,
+        long ExpectedStateVersion, Guid PurchaseOrderId, Guid PrincipalIssuedVersionId,
         PrincipalInvoiceMappingInputLine[] Lines);
 
     public static void MapRoutes(WebApplication app)
@@ -42,6 +43,8 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
         if (!Available(http) || !await http.RequestServices.GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceMatchingUnavailable" }, statusCode: 503);
         if (input is null || input.Lines is not { Length: > 0 and <= 200 }
+            || input.InvoiceVersion < 1 || input.ExpectedMappingRevision < 0
+            || input.ExpectedStateVersion < 0
             || !Guid.TryParse(http.Request.Headers["Idempotency-Key"], out var key) || key == Guid.Empty)
             return Results.Json(new { code = "PrincipalInvoiceMappingInputInvalid" }, statusCode: 422);
         var requestSha = ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new { schemaVersion = 2, id, input }, Json));
@@ -72,8 +75,37 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
                 || invoice.ActiveMatchClaimResultId is not null || invoice.LastMatchResultId is not null)
                 throw new InvalidOperationException("PrincipalInvoiceOriginalOrLegacyClaimChanged");
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.supplier_invoices WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE", token);
-            var stateExists = await db.PrincipalInvoiceStates.AnyAsync(x => x.SupplierInvoiceId == id, token);
-            if (stateExists) throw new InvalidOperationException("PrincipalInvoiceMappingRevisionUnsupported");
+            var state = await db.PrincipalInvoiceStates.SingleOrDefaultAsync(x => x.SupplierInvoiceId == id, token);
+            if (state is null)
+            {
+                if (input.ExpectedMappingRevision != 0 || input.ExpectedStateVersion != 0)
+                    throw new InvalidOperationException("PrincipalInvoiceMappingStateChanged");
+            }
+            else
+            {
+                if (state.Version != input.ExpectedStateVersion
+                    || state.MappingRevision != input.ExpectedMappingRevision
+                    || state.State != "Mapped" || state.LastComparisonId is not null
+                    || state.ActiveClaimComparisonId is not null
+                    || state.InvoiceVersion != invoice.Version
+                    || state.BranchId != invoice.BranchRef || state.SupplierId != invoice.SupplierId
+                    || state.CurrencyCode != invoice.CurrencyCode
+                    || state.CurrentMappingId is not { } oldMapId)
+                    throw new InvalidOperationException("PrincipalInvoiceMappingStateChanged");
+                var oldReview = await db.PrincipalInvoiceUnitReviewSources.SingleOrDefaultAsync(x =>
+                    x.MappingVersionId == oldMapId && x.SupplierInvoiceId == id, token)
+                    ?? throw new InvalidOperationException("PrincipalInvoicePreviousReviewRequired");
+                var oldOutcome = await db.PrincipalInvoiceUnitReviewOutcomes.SingleOrDefaultAsync(x =>
+                    x.ReviewSourceId == oldReview.Id
+                        && (x.State == "Returned" || x.State == "Rejected"), token)
+                    ?? throw new InvalidOperationException("PrincipalInvoiceReturnedReviewRequired");
+                var coreCase = await cases.Cases.SingleOrDefaultAsync(x => x.Id == oldReview.CoreCaseId
+                    && x.SourceId == oldReview.Id
+                    && x.SourceType == PrincipalInvoiceUnitReviewTransitions.SourceType, token);
+                if (coreCase is null || coreCase.State != oldOutcome.State
+                    || coreCase.CompletedAt != oldOutcome.CompletedAt)
+                    throw new InvalidOperationException("PrincipalInvoicePreviousCoreDecisionChanged");
+            }
             var source = await ProcurementPrincipalInvoiceSourceBridge.LoadAsync(db, cases, scope,
                 branches, invoice, input.PurchaseOrderId, input.PrincipalIssuedVersionId, token);
             // The exposure owner is one row per immutable issued source, shared by
@@ -101,18 +133,27 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
             var originalLines = await db.SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == id && x.IsActive)
                 .OrderBy(x => x.LineNumber).ToArrayAsync(token);
             var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
+            var nextRevision = checked(input.ExpectedMappingRevision + 1);
             var mapping = PrincipalInvoiceMappingEvidence.Create(invoice, originalLines, source.Order,
-                source.Acceptances, source.AcceptanceSourceStates, input.Lines, 1,
+                source.Acceptances, source.AcceptanceSourceStates, input.Lines, nextRevision,
                 scope.SubjectId, scope.CoreLinkedWorkerId, now);
-            var state = new PrincipalInvoiceState
+            if (state is null)
             {
-                TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
-                SupplierInvoiceId = id, BranchId = invoice.BranchRef!.Value,
-                SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode,
-                InvoiceVersion = invoice.Version, MappingRevision = 1,
-                CurrentMappingId = mapping.Id, State = "Mapped"
-            };
-            db.AddScoped(state);
+                state = new PrincipalInvoiceState
+                {
+                    TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                    SupplierInvoiceId = id, BranchId = invoice.BranchRef!.Value,
+                    SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode,
+                    InvoiceVersion = invoice.Version, MappingRevision = nextRevision,
+                    CurrentMappingId = mapping.Id, State = "Mapped"
+                };
+                db.AddScoped(state);
+            }
+            else
+            {
+                state.MappingRevision = nextRevision;
+                state.CurrentMappingId = mapping.Id;
+            }
             db.AddScoped(mapping);
             foreach (var line in input.Lines)
                 db.AddScoped(new Mightyfin.Erp.Procurement.Domain.PrincipalInvoiceMappingLine
@@ -132,7 +173,8 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
                 });
             var response = JsonSerializer.Serialize(new
             {
-                invoiceId = id, mappingVersionId = mapping.Id, mapping.MappingRevision,
+                invoiceId = id, invoiceVersion = invoice.Version,
+                mappingVersionId = mapping.Id, mapping.MappingRevision,
                 mapping.MappingSha256, commandKey = key, sourceSchemaVersion = 2,
                 state = "Mapped", isUnitVerified = false, matchingAuthorityAvailable = false,
                 canAllocate = false, canPostToFinance = false
@@ -172,6 +214,20 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
             if (actor is null || !actor.Permissions.Contains("procurement-invoice-capture")
                 || !(await auth.AuthorizeAsync(http.User, "procurement-invoice-capture")).Succeeded)
                 throw new UnauthorizedAccessException();
+            using var parsed = JsonDocument.Parse(row.ResponseJson);
+            var response = parsed.RootElement;
+            var mappingId = response.GetProperty("mappingVersionId").GetGuid();
+            var mapping = await db.PrincipalInvoiceMappingVersions.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == mappingId && x.SupplierInvoiceId == id, token)
+                ?? throw new InvalidOperationException("PrincipalInvoiceMappingReceiptWithoutEffect");
+            if (response.GetProperty("invoiceId").GetGuid() != id
+                || response.GetProperty("invoiceVersion").GetInt64() != mapping.InvoiceVersion
+                || response.GetProperty("mappingRevision").GetInt32() != mapping.MappingRevision
+                || response.GetProperty("commandKey").GetGuid() != key
+                || response.GetProperty("sourceSchemaVersion").GetInt32() != 2
+                || !await ProcurementPrincipalInvoiceSourceBridge.QueryBound(db, scope,
+                    new HashSet<Guid> { row.BranchId }, invoice).AnyAsync(x => x.Id == mapping.PurchaseOrderId, token))
+                throw new InvalidOperationException("PrincipalInvoiceMappingReceiptChanged");
             return JsonSerializer.Deserialize<JsonElement>(row.ResponseJson, Json);
         }, ct);
     }

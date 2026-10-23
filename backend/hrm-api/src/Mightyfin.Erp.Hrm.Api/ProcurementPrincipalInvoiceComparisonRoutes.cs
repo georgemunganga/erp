@@ -134,7 +134,8 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
             var evidence = JsonSerializer.Serialize(new { schemaVersion = 2, invoiceId = id,
                 mappingVersionId = mapping.Id, outcomeId = outcome.Id, issuedVersionId = mapping.PrincipalIssuedVersionId,
                 policyId = policy.Id, policySha256 = policySha, ownerReference = owned.Owner.OwnerReference,
-                ownerWatermark = owned.Owner.Watermark, consumptionWatermark = owned.Consumption.Watermark,
+                ownerWatermark = owned.Owner.Watermark, ownerEvidenceSha256 = owned.Owner.EvidenceSha256,
+                consumptionWatermark = owned.Consumption.Watermark,
                 duplicatesWatermark = duplicateWatermark, preview.Lines, reason = input.Reason }, Json);
             var comparison = new PrincipalInvoiceComparison
             {
@@ -181,7 +182,8 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
             exposure.OwnerValidUntil = owned.Owner.ValidUntil;
             state.State = "Compared"; state.LastComparisonId = comparison.Id;
             state.ActiveClaimComparisonId = comparison.Id;
-            var response = JsonSerializer.Serialize(new { invoiceId = id, comparisonId = comparison.Id,
+            var response = JsonSerializer.Serialize(new { invoiceId = id,
+                invoiceVersion = invoice.Version, comparisonId = comparison.Id,
                 mappingVersionId = mapping.Id, commandKey = key, state = "Compared",
                 sourceSchemaVersion = 2, commercialClaimRecorded = true,
                 canPostToFinance = false, financePostingId = (Guid?)null }, Json);
@@ -249,6 +251,7 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
                 || response.GetProperty("invoiceId").GetGuid() != id
                 || response.GetProperty("comparisonId").GetGuid() != comparison.Id
                 || response.GetProperty("mappingVersionId").GetGuid() != comparison.MappingVersionId
+                || response.GetProperty("invoiceVersion").GetInt64() != comparison.InvoiceVersion
                 || response.GetProperty("commandKey").GetGuid() != key
                 || response.GetProperty("sourceSchemaVersion").GetInt32() != 2
                 || response.GetProperty("canPostToFinance").GetBoolean())

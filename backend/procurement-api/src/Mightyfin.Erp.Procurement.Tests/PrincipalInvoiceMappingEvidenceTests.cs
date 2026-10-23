@@ -113,13 +113,16 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
         var exposure = new PrincipalInvoiceExposureState { TenantId = invoice.TenantId,
             LegalEntityId = invoice.LegalEntityId, BranchId = invoice.BranchRef!.Value,
             PurchaseOrderId = issued.Id, PrincipalIssuedVersionId = issued.RevisionId,
-            SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode, Sequence = 1 };
+            SupplierId = invoice.SupplierId, CurrencyCode = invoice.CurrencyCode, Sequence = 1,
+            CoverageState = "Verified", OwnerReference = "prior-owner",
+            OwnerWatermark = new string('a', 64), OwnerEvidenceSha256 = new string('c', 64),
+            OwnerValidUntil = now.AddMinutes(5) };
         var reviewSourceId = Guid.NewGuid();
         var outcome = new PrincipalInvoiceUnitReviewOutcome { ReviewSourceId = reviewSourceId,
             State = "Verified" };
         var frozen = new PrincipalInvoiceFrozenComparison(2, invoice.Id, mapping.Id, outcome.Id,
             issued.RevisionId, policy.Id, ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
-            "prior-owner", new string('a', 64), "prior-consumption", "duplicates",
+            "prior-owner", new string('a', 64), new string('c', 64), "prior-consumption", "duplicates",
             [new(original.Id, issued.Lines[0].Id, null, InvoiceMatchingMethod.TwoWay, "1", "1", "0")], null);
         var evidence = System.Text.Json.JsonSerializer.Serialize(frozen,
             new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
@@ -132,7 +135,8 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
             PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
             Outcome = "Compared", EvidenceJson = evidence,
             EvidenceSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(evidence),
-            OwnerReference = "prior-owner", OwnerWatermark = new string('a', 64) };
+            OwnerReference = "prior-owner", OwnerWatermark = new string('a', 64),
+            ComparedAt = now };
         var state = new PrincipalInvoiceState { TenantId = invoice.TenantId,
             LegalEntityId = invoice.LegalEntityId, SupplierInvoiceId = invoice.Id,
             BranchId = invoice.BranchRef.Value, SupplierId = invoice.SupplierId,
@@ -160,6 +164,9 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
             [Owned(Claim(1, 1))], 1, 0, 0, 0, 0, now).Owner.Complete);
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceExposureEvidence.Reconstruct(
             context, exposure, [Owned(Claim(.5m, .5m))], 1, 0, 0, 0, 0, now));
+        exposure.OwnerWatermark = new string('d', 64);
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceExposureEvidence.Reconstruct(
+            context, exposure, [Owned(Claim(1, 1))], 1, 0, 0, 0, 0, now));
     }
 
     private static (SupplierInvoice Invoice, SupplierInvoiceLine Line, InvoiceIssuedOrder Issued,

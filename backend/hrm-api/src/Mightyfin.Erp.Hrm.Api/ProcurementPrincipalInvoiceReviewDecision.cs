@@ -31,15 +31,23 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
         return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
         {
             if (!await ready.IsReadyAsync(db, token)) throw new InvalidOperationException("PrincipalInvoiceReviewSchemaUnavailable");
-            var source = await db.PrincipalInvoiceUnitReviewSources.SingleOrDefaultAsync(x => x.Id == id, token)
-                ?? throw new KeyNotFoundException();
             var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
                 scope.LegalEntityId, scope.SubjectId, token) ?? throw new UnauthorizedAccessException();
             if (actor.CoreLinkedWorkerId != scope.CoreLinkedWorkerId
                 || !actor.Permissions.Contains(InvoiceRetainedUnitReview.ReviewPermission)
                 || !(await auth.AuthorizeAsync(http.User, InvoiceRetainedUnitReview.ReviewPermission)).Succeeded
-                || !actor.OrganisationWide && !actor.AllowedBranches.Contains(source.BranchId))
+                || scope.OrgUnitId is not null
+                || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
                 throw new UnauthorizedAccessException();
+            var declared = actor.AllowedBranches.ToArray();
+            var visible = await core.WorkLocations.AsNoTracking().Where(x =>
+                x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId && !x.IsArchived
+                    && (actor.OrganisationWide || declared.Contains(x.Id))
+                    && (scope.WorkLocationId == null || x.Id == scope.WorkLocationId))
+                .Select(x => x.Id).ToArrayAsync(token);
+            if (visible.Length == 0) throw new UnauthorizedAccessException();
+            var source = await db.PrincipalInvoiceUnitReviewSources.SingleOrDefaultAsync(x =>
+                x.Id == id && visible.Contains(x.BranchId), token) ?? throw new KeyNotFoundException();
             _ = await ProcurementExecutionRecordScope.Branches(core, scope, source.BranchId, true, token);
             var invoice = await db.SupplierInvoices.SingleOrDefaultAsync(x => x.Id == source.SupplierInvoiceId
                 && x.BranchRef == source.BranchId, token) ?? throw new KeyNotFoundException();
@@ -160,6 +168,7 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
             await cases.SaveChangesAsync(token);
             if (terminal is not null) db.AddScoped(terminal);
             var response = JsonSerializer.Serialize(new { reviewId = id, invoiceId = invoice.Id,
+                invoiceVersion = invoice.Version,
                 coreCaseId = workflow.Id, commandKey = key, decisionId = vote.Id,
                 outcomeId = terminal?.Id, caseVersion = workflow.Version,
                 caseState = workflow.State, reviewState = terminal?.State ?? "Pending",

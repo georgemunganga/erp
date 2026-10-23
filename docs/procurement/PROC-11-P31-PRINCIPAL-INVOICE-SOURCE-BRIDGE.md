@@ -217,6 +217,8 @@ positive amounts cannot mint a new clean exposure watermark. Genuine P31
 migration, deferred SQL immutability/effect constraints, finite roles,
 readiness, actual PostgreSQL and normal HTTP proof have **not** run. The
 source is not mapped in the normal host and must stay unavailable until
-those gates pass. Controlled mapping revision after Return/Reject, supplier
+those gates pass. A returned or rejected Core review can now be followed by
+a new append-only mapping revision with explicit state/revision CAS while the
+old review and its decision history remain retained. Supplier
 credit/reversal history and AP handoff remain separate unfinished workflows;
 the current owner blocks unknown or mixed credit/legacy history.

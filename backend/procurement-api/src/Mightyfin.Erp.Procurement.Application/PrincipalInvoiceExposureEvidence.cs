@@ -14,6 +14,7 @@ public sealed record PrincipalInvoiceOwnedComparison(PrincipalInvoiceComparison 
 public sealed record PrincipalInvoiceFrozenComparison(int SchemaVersion, Guid InvoiceId,
     Guid MappingVersionId, Guid OutcomeId, Guid IssuedVersionId, Guid PolicyId,
     string PolicySha256, string OwnerReference, string OwnerWatermark,
+    string OwnerEvidenceSha256,
     string ConsumptionWatermark, string DuplicatesWatermark,
     IReadOnlyList<PrincipalInvoiceComparisonLine> Lines, string? Reason);
 public sealed record PrincipalInvoiceOwnedHistory(InvoiceHistoricalExposure Owner,
@@ -55,6 +56,28 @@ public static class PrincipalInvoiceExposureEvidence
                 .SequenceEqual(Enumerable.Range(1, rows.Length).Select(x => (long?)x))
             || rows.Length != exposure.Sequence)
             throw new InvalidOperationException("PrincipalInvoiceRetainedComparisonSetChanged");
+        if (rows.Length == 0)
+        {
+            if (exposure.CoverageState != "Unknown" || exposure.OwnerReference is not null
+                || exposure.OwnerWatermark is not null || exposure.OwnerEvidenceSha256 is not null
+                || exposure.OwnerValidUntil is not null)
+                throw new InvalidOperationException("PrincipalInvoiceEmptyExposureCursorChanged");
+        }
+        else
+        {
+            var last = rows.Single(x => x.Claims[0].ExposureSequence == exposure.Sequence);
+            PrincipalInvoiceFrozenComparison lastEvidence;
+            try { lastEvidence = JsonSerializer.Deserialize<PrincipalInvoiceFrozenComparison>(
+                last.Comparison.EvidenceJson, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                ?? throw new InvalidOperationException("PrincipalInvoiceLastComparisonMissing"); }
+            catch (JsonException error) { throw new InvalidOperationException("PrincipalInvoiceLastComparisonMalformed", error); }
+            if (exposure.CoverageState != "Verified"
+                || exposure.OwnerReference != last.Comparison.OwnerReference
+                || exposure.OwnerWatermark != last.Comparison.OwnerWatermark
+                || exposure.OwnerEvidenceSha256 != lastEvidence.OwnerEvidenceSha256
+                || exposure.OwnerValidUntil is not { } until || until <= last.Comparison.ComparedAt)
+                throw new InvalidOperationException("PrincipalInvoiceExposureCursorChanged");
+        }
         var consumption = new List<InvoiceMatchConsumption>();
         foreach (var row in rows)
         {
@@ -81,6 +104,7 @@ public static class PrincipalInvoiceExposureEvidence
                 || frozen.PolicySha256 != compare.PolicyRulesSha256
                 || frozen.OwnerReference != compare.OwnerReference
                 || frozen.OwnerWatermark != compare.OwnerWatermark
+                || frozen.OwnerEvidenceSha256 is not { Length: 64 }
                 || frozen.Lines is null || frozen.Lines.Count != row.Claims.Count
                 || frozen.Lines.Select(x => x.InvoiceLineId).Distinct().Count() != frozen.Lines.Count
                 || string.IsNullOrWhiteSpace(compare.OwnerReference)

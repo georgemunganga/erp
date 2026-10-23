@@ -105,7 +105,8 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
             await cases.SaveChangesAsync(token);
             db.AddScoped(plan.Source);
             foreach (var pin in plan.Pins) db.AddScoped(pin);
-            var response = JsonSerializer.Serialize(new { invoiceId = id, reviewId = plan.Source.Id,
+            var response = JsonSerializer.Serialize(new { invoiceId = id, invoiceVersion = invoice.Version,
+                reviewId = plan.Source.Id,
                 coreCaseId = plan.Case.Id, commandKey = key, state = "Pending", sourceSchemaVersion = 2,
                 isUnitVerified = false, canCompare = false, canPostToFinance = false }, Json);
             db.AddScoped(new PrincipalInvoiceCommandReceipt
