@@ -66,7 +66,6 @@ public static class PrincipalInvoiceExposureEvidence
                 || compare.EvidenceSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(compare.EvidenceJson)
                 || string.IsNullOrWhiteSpace(compare.OwnerReference)
                 || compare.OwnerWatermark is not { Length: 64 }
-                || compare.PolicyRulesSha256 != context.PolicyRulesSha256
                 || review.State != "Verified" || state.SupplierInvoiceId != invoice.Id
                 || state.ActiveClaimComparisonId != compare.Id || state.LastComparisonId != compare.Id
                 || state.CurrentMappingId != mapping.Id || state.State != "Compared"
