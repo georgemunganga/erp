@@ -12,7 +12,8 @@ public sealed partial class ProcurementDbContext
         var records = ChangeTracker.Entries<ProcurementRecord>()
             .Where(x => x.Entity is PrincipalInvoiceState or PrincipalInvoiceMappingVersion
                 or PrincipalInvoiceMappingLine or PrincipalInvoiceUnitReviewSource
-                or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewOutcome
+                or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewAttestation
+                or PrincipalInvoiceUnitReviewOutcome
                 or PrincipalInvoiceComparison or PrincipalInvoiceExposureState
                 or PrincipalInvoiceClaim or PrincipalInvoiceCommandReceipt)
             .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToArray();
@@ -127,6 +128,26 @@ public sealed partial class ProcurementDbContext
         foreach (var assignment in added.OfType<PrincipalInvoiceUnitReviewAssignment>())
             if (!added.OfType<PrincipalInvoiceUnitReviewSource>().Any(x => x.Id == assignment.ReviewSourceId && x.CoreCaseId == assignment.CoreCaseId))
                 throw new InvalidOperationException("PrincipalInvoiceReviewAssignmentOwnerRequired");
+        foreach (var attestation in added.OfType<PrincipalInvoiceUnitReviewAttestation>())
+        {
+            var source = PrincipalInvoiceUnitReviewSources.Single(x => x.Id == attestation.ReviewSourceId);
+            var pin = PrincipalInvoiceUnitReviewAssignments.Single(x => x.ReviewSourceId == source.Id
+                && x.CoreAssignmentId == attestation.CoreAssignmentId);
+            var decision = sharedApprovalCore.Decisions.Local.SingleOrDefault(x => x.Id == attestation.CoreDecisionId)
+                ?? sharedApprovalCore.Decisions.Single(x => x.Id == attestation.CoreDecisionId);
+            if (attestation.CoreCaseId != source.CoreCaseId
+                || attestation.ReviewerPrincipalId != scope.SubjectId
+                || attestation.ReviewerWorkerAliasId != scope.CoreLinkedWorkerId
+                || pin.ReviewerPrincipalId != scope.SubjectId
+                || pin.ReviewerWorkerAliasId != scope.CoreLinkedWorkerId
+                || attestation.OriginalUnitsSha256 != source.OriginalUnitsSha256
+                || attestation.Statement != InvoiceUnitReviewCommands.OriginalUnitAttestation
+                || decision.CaseId != source.CoreCaseId || decision.AssignmentId != pin.CoreAssignmentId
+                || decision.ActorSubjectId != scope.SubjectId || decision.Action != "Approve"
+                || decision.DecidedAt != attestation.AttestedAt
+                || Receipt(source.SupplierInvoiceId, "DecideReview").ActorPrincipalId != scope.SubjectId)
+                throw new InvalidOperationException("PrincipalInvoiceOriginalUnitAttestationRequired");
+        }
         foreach (var outcome in added.OfType<PrincipalInvoiceUnitReviewOutcome>())
         {
             var review = PrincipalInvoiceUnitReviewSources.Single(x => x.Id == outcome.ReviewSourceId);
@@ -196,7 +217,9 @@ public sealed partial class ProcurementDbContext
                 {
                     "Map" => x is PrincipalInvoiceMappingVersion map && map.SupplierInvoiceId == invoice.Id,
                     "OpenReview" => x is PrincipalInvoiceUnitReviewSource review && review.SupplierInvoiceId == invoice.Id,
-                    "DecideReview" => x is PrincipalInvoiceUnitReviewOutcome outcome
+                    "DecideReview" => x is PrincipalInvoiceUnitReviewAttestation attestation
+                        && PrincipalInvoiceUnitReviewSources.Any(review => review.Id == attestation.ReviewSourceId && review.SupplierInvoiceId == invoice.Id)
+                        || x is PrincipalInvoiceUnitReviewOutcome outcome
                         && PrincipalInvoiceUnitReviewSources.Any(review => review.Id == outcome.ReviewSourceId && review.SupplierInvoiceId == invoice.Id),
                     "Compare" => x is PrincipalInvoiceComparison result && result.SupplierInvoiceId == invoice.Id,
                     _ => false,

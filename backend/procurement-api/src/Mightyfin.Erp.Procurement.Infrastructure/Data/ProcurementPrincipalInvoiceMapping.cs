@@ -11,6 +11,7 @@ public sealed partial class ProcurementDbContext
     public DbSet<PrincipalInvoiceMappingLine> PrincipalInvoiceMappingLines => Set<PrincipalInvoiceMappingLine>();
     public DbSet<PrincipalInvoiceUnitReviewSource> PrincipalInvoiceUnitReviewSources => Set<PrincipalInvoiceUnitReviewSource>();
     public DbSet<PrincipalInvoiceUnitReviewAssignment> PrincipalInvoiceUnitReviewAssignments => Set<PrincipalInvoiceUnitReviewAssignment>();
+    public DbSet<PrincipalInvoiceUnitReviewAttestation> PrincipalInvoiceUnitReviewAttestations => Set<PrincipalInvoiceUnitReviewAttestation>();
     public DbSet<PrincipalInvoiceUnitReviewOutcome> PrincipalInvoiceUnitReviewOutcomes => Set<PrincipalInvoiceUnitReviewOutcome>();
     public DbSet<PrincipalInvoiceComparison> PrincipalInvoiceComparisons => Set<PrincipalInvoiceComparison>();
     public DbSet<PrincipalInvoiceExposureState> PrincipalInvoiceExposureStates => Set<PrincipalInvoiceExposureState>();
@@ -24,6 +25,7 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<PrincipalInvoiceMappingLine>(model, "principal_invoice_mapping_lines");
         ConfigureBase<PrincipalInvoiceUnitReviewSource>(model, "principal_invoice_unit_reviews");
         ConfigureBase<PrincipalInvoiceUnitReviewAssignment>(model, "principal_invoice_review_assignments");
+        ConfigureBase<PrincipalInvoiceUnitReviewAttestation>(model, "principal_invoice_review_attestations");
         ConfigureBase<PrincipalInvoiceUnitReviewOutcome>(model, "principal_invoice_review_outcomes");
         ConfigureBase<PrincipalInvoiceComparison>(model, "principal_invoice_comparisons");
         ConfigureBase<PrincipalInvoiceExposureState>(model, "principal_invoice_exposure_states");
@@ -106,6 +108,21 @@ public sealed partial class ProcurementDbContext
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.CoreCaseId })
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pi_review_assignment_exact_case");
         assignment.ToTable(t => t.HasCheckConstraint("ck_pi_assignment", $"review_source_id <> {uuid} AND core_case_id <> {uuid} AND core_assignment_id <> {uuid} AND reviewer_principal_id ~ '{principal}' AND reviewer_principal_id <> '00000000-0000-0000-0000-000000000000' AND (reviewer_worker_alias_id IS NULL OR reviewer_worker_alias_id <> {uuid})"));
+
+        var attestation = model.Entity<PrincipalInvoiceUnitReviewAttestation>();
+        attestation.Property(x => x.ReviewerPrincipalId).HasMaxLength(36);
+        attestation.Property(x => x.OriginalUnitsSha256).HasMaxLength(64);
+        attestation.Property(x => x.Statement).HasMaxLength(80);
+        attestation.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreDecisionId }).IsUnique().HasDatabaseName("ux_pi_review_attestation_decision");
+        attestation.HasOne<PrincipalInvoiceUnitReviewSource>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId, x.CoreCaseId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.CoreCaseId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pi_attestation_exact_case");
+        attestation.HasOne<PrincipalInvoiceUnitReviewAssignment>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.CoreAssignmentId, x.ReviewSourceId, x.CoreCaseId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.CoreAssignmentId, x.ReviewSourceId, x.CoreCaseId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pi_attestation_exact_assignment");
+        attestation.ToTable(t => t.HasCheckConstraint("ck_pi_attestation", $"review_source_id <> {uuid} AND core_case_id <> {uuid} AND core_assignment_id <> {uuid} AND core_decision_id <> {uuid} AND reviewer_principal_id ~ '{principal}' AND reviewer_principal_id <> '00000000-0000-0000-0000-000000000000' AND (reviewer_worker_alias_id IS NULL OR reviewer_worker_alias_id <> {uuid}) AND original_units_sha256 ~ '{sha}' AND statement = 'OriginalDocumentUnitsConfirmed' AND isfinite(attested_at)"));
 
         var outcome = model.Entity<PrincipalInvoiceUnitReviewOutcome>();
         outcome.Property(x => x.State).HasMaxLength(20); outcome.Property(x => x.EvidenceJson).HasColumnType("text");

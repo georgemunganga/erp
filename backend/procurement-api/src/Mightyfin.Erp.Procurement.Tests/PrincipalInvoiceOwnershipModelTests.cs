@@ -42,6 +42,8 @@ public sealed class PrincipalInvoiceOwnershipModelTests
             "MappingVersionId", "SupplierInvoiceId", "PrincipalIssuedVersionId");
         Has<PrincipalInvoiceUnitReviewOutcome, PrincipalInvoiceUnitReviewSource>("TenantId", "LegalEntityId",
             "ReviewSourceId", "CoreCaseId");
+        Has<PrincipalInvoiceUnitReviewAttestation, PrincipalInvoiceUnitReviewAssignment>("TenantId", "LegalEntityId",
+            "CoreAssignmentId", "ReviewSourceId", "CoreCaseId");
         Has<PrincipalInvoiceComparison, PrincipalInvoiceMappingVersion>("TenantId", "LegalEntityId",
             "MappingVersionId", "SupplierInvoiceId", "PurchaseOrderId", "PrincipalIssuedVersionId");
         Has<PrincipalInvoiceComparison, PrincipalInvoiceUnitReviewSource>("TenantId", "LegalEntityId",

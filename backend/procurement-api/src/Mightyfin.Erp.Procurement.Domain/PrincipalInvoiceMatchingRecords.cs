@@ -87,6 +87,22 @@ public sealed class PrincipalInvoiceUnitReviewAssignment : ProcurementRecord
     public Guid? ReviewerWorkerAliasId { get; init; }
 }
 
+/// <summary>One independent Core approval vote's explicit statement that the
+/// reviewer checked the pinned original document units. The statement is not
+/// inferred from an approval comment or the maker's declared unit code.</summary>
+public sealed class PrincipalInvoiceUnitReviewAttestation : ProcurementRecord
+{
+    public Guid ReviewSourceId { get; init; }
+    public Guid CoreCaseId { get; init; }
+    public Guid CoreAssignmentId { get; init; }
+    public Guid CoreDecisionId { get; init; }
+    public string ReviewerPrincipalId { get; init; } = null!;
+    public Guid? ReviewerWorkerAliasId { get; init; }
+    public string OriginalUnitsSha256 { get; init; } = null!;
+    public string Statement { get; init; } = null!;
+    public DateTimeOffset AttestedAt { get; init; }
+}
+
 public sealed class PrincipalInvoiceUnitReviewOutcome : ProcurementRecord
 {
     public Guid ReviewSourceId { get; init; }
