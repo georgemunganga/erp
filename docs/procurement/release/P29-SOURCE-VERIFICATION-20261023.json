@@ -1,0 +1,18 @@
+{
+  "status": "GENUINE_MIGRATION_AND_PRIVATE_OWNER_DDL_ACCEPTED_RUNTIME_PENDING",
+  "migration": "20261023204131_P29CorePrincipalSourcingDrafts",
+  "ownerEvidence": "/home/amizo/erp-backups/procurement-p29-owner-ddl-20261023_run01/result.json",
+  "ownerEvidenceSha256": "3a4b835225a6b9f49bf40bbb28362cbc7184e1c0b77e53bb5273d5edba7e4045",
+  "checkCapture": "/home/amizo/erp-backups/procurement-p29-owner-ddl-20261023_run01/p29-checks.json",
+  "checkCaptureSha256": "221926dd0184e7c9379647b608b183da71906ee0f64126953954b80353db3709",
+  "scope": "Four-table retained worker tuple and SQL shape only; historical rehearsal chain is not a full current-runtime migration acceptance",
+  "designerAndSnapshotHandEdited": false,
+  "productionTouched": false,
+  "remaining": [
+    "Full domain/targeted host tests",
+    "Fresh canonical finite-role API/constraint proof",
+    "P29 principal-row Down veto",
+    "Real normal-cookie browser and independent owner proof",
+    "Review, source merge and production release"
+  ]
+}
