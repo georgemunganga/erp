@@ -22,6 +22,7 @@ public static partial class ProcurementManualPaymentRoutes
     {
         var group = app.MapGroup("/api/procurement/v1/manual-payments");
         group.MapGet("", List).RequireAuthorization("procurement-payment-read");
+        group.MapGet("/lookups/assignees", AssigneeLookup).RequireAuthorization("procurement-payment-read");
         group.MapGet("/commands/{key:guid}", ReceiptByKey).RequireAuthorization("procurement-payment-read");
         group.MapGet("/{id:guid}", Detail).RequireAuthorization("procurement-payment-read");
         group.MapGet("/{id:guid}/commands/{key:guid}", Receipt).RequireAuthorization("procurement-payment-read");
