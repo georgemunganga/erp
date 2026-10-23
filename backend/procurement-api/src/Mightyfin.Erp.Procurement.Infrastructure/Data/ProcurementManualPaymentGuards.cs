@@ -88,14 +88,19 @@ public sealed partial class ProcurementDbContext
             if (entry.State != EntityState.Added) throw new InvalidOperationException("ManualPaymentReceiptAppendOnly");
             var row = entry.Entity; ManualPaymentWriteScope(row.BranchId);
             if (row.ActorPrincipalId != scope.SubjectId || row.CommandKey == Guid.Empty || row.ResultVersion <= 0
-                || !Regex.IsMatch(row.RequestSha256 ?? "", "^[0-9a-f]{64}$"))
+                || row.RequestSha256 is not { Length: 64 } || !Regex.IsMatch(row.RequestSha256, "^[0-9a-f]{64}$"))
                 throw new InvalidOperationException("ManualPaymentCommandReceiptInvalid");
             if (!ChangeTracker.Entries<ManualPaymentDecision>().Any(x => x.State == EntityState.Added
                 && x.Entity.ManualPaymentRequestId == row.ManualPaymentRequestId && x.Entity.BranchId == row.BranchId
                 && x.Entity.ToVersion == row.ResultVersion && x.Entity.Action == row.Action))
                 throw new InvalidOperationException("ManualPaymentReceiptTransitionRequired");
             using var json = JsonDocument.Parse(row.ResponseJson);
-            if (json.RootElement.ValueKind != JsonValueKind.Object)
+            var body = json.RootElement;
+            var parent = ChangeTracker.Entries<ManualPaymentRequest>().Single(x => x.Entity.Id == row.ManualPaymentRequestId).Entity;
+            if (body.ValueKind != JsonValueKind.Object
+                || !body.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.String || !id.TryGetGuid(out var parsed) || parsed != row.ManualPaymentRequestId
+                || !body.TryGetProperty("version", out var version) || version.ValueKind != JsonValueKind.Number || !version.TryGetInt64(out var parsedVersion) || parsedVersion != row.ResultVersion
+                || !body.TryGetProperty("status", out var status) || status.ValueKind != JsonValueKind.String || status.GetString() != parent.Status)
                 throw new InvalidOperationException("ManualPaymentCommandReceiptInvalid");
         }
     }

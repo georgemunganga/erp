@@ -50,6 +50,23 @@ public sealed class ManualPaymentPersistenceTests
     }
 
     [Theory]
+    [InlineData("empty")][InlineData("version")][InlineData("status")][InlineData("hash-newline")]
+    public async Task Receipt_must_acknowledge_the_exact_saved_record_version_and_state(string malformed)
+    {
+        var owner = Owner(); var options = Options();
+        await using var db = new ProcurementDbContext(options, owner);
+        var invoice = await SeedInvoice(db, owner); var audit = await db.AuditEvents.CountAsync();
+        var made = Create(owner, invoice); var receipt = Bundle(db, made, owner);
+        if (malformed == "empty") receipt.ResponseJson = "{}";
+        if (malformed == "version") receipt.ResponseJson = JsonSerializer.Serialize(new { id = made.Request.Id, version = 2, status = "Draft" });
+        if (malformed == "status") receipt.ResponseJson = JsonSerializer.Serialize(new { id = made.Request.Id, version = 1, status = "ConfirmedManually" });
+        if (malformed == "hash-newline") receipt.RequestSha256 += "\n";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        await using var read = new ProcurementDbContext(options, owner);
+        Assert.Empty(await read.ManualPaymentRequests.ToArrayAsync()); Assert.Equal(audit, await read.AuditEvents.CountAsync());
+    }
+
+    [Theory]
     [InlineData("history")][InlineData("receipt")]
     public async Task Incomplete_bundle_cannot_save_a_request_or_its_audit(string missing)
     {

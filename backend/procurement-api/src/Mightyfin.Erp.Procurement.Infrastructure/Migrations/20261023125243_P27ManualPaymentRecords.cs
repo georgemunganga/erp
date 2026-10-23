@@ -250,8 +250,15 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                 ALTER TABLE procurement.manual_payment_requests ADD CONSTRAINT ck_manual_payment_finite_amounts CHECK (
                     amount <> 'NaN'::numeric AND (approved_amount IS NULL OR approved_amount <> 'NaN'::numeric)
                     AND (recorded_amount IS NULL OR recorded_amount <> 'NaN'::numeric));
+                ALTER TABLE procurement.manual_payment_receipts ADD CONSTRAINT ck_manual_payment_ack_reference CHECK (
+                    response_json::jsonb ?& ARRAY['id','version','status']
+                    AND jsonb_typeof(response_json::jsonb -> 'id') = 'string'
+                    AND jsonb_typeof(response_json::jsonb -> 'version') = 'number'
+                    AND jsonb_typeof(response_json::jsonb -> 'status') = 'string'
+                    AND (response_json::jsonb ->> 'id')::uuid = manual_payment_request_id
+                    AND (response_json::jsonb ->> 'version')::bigint = result_version);
                 CREATE FUNCTION procurement.reject_manual_payment_evidence_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
-                BEGIN RAISE EXCEPTION 'Manual payment history and receipts are append-only' USING ERRCODE = '23514'; END $$;
+                BEGIN RAISE EXCEPTION 'Manual payment history and receipts are append-only' USING ERRCODE = '23514'; END; $$;
                 CREATE TRIGGER manual_payment_decision_append_only BEFORE UPDATE OR DELETE ON procurement.manual_payment_decisions
                     FOR EACH ROW EXECUTE FUNCTION procurement.reject_manual_payment_evidence_mutation();
                 CREATE TRIGGER manual_payment_receipt_append_only BEFORE UPDATE OR DELETE ON procurement.manual_payment_receipts
@@ -285,7 +292,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         RAISE EXCEPTION 'Recorded external payment facts are immutable' USING ERRCODE = '23514';
                     END IF;
                     RETURN NEW;
-                END $$;
+                END; $$;
                 CREATE TRIGGER manual_payment_request_immutable BEFORE UPDATE OR DELETE ON procurement.manual_payment_requests
                     FOR EACH ROW EXECUTE FUNCTION procurement.guard_manual_payment_request();
                 CREATE FUNCTION procurement.require_manual_payment_command_bundle() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -296,11 +303,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                             AND r.branch_id = d.branch_id AND r.actor_principal_id = d.actor_principal_id AND r.action = d.action
                         WHERE d.tenant_id = NEW.tenant_id AND d.legal_entity_id = NEW.legal_entity_id
                             AND d.manual_payment_request_id = NEW.id AND d.branch_id = NEW.branch_id
-                            AND d.to_version = NEW.version AND d.to_status = NEW.status) THEN
+                            AND d.to_version = NEW.version AND d.to_status = NEW.status
+                            AND r.response_json::jsonb ->> 'status' = d.to_status) THEN
                         RAISE EXCEPTION 'A manual payment transition and exact command receipt must commit together' USING ERRCODE = '23514';
                     END IF;
                     RETURN NULL;
-                END $$;
+                END; $$;
                 CREATE CONSTRAINT TRIGGER manual_payment_command_bundle AFTER INSERT OR UPDATE ON procurement.manual_payment_requests
                     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION procurement.require_manual_payment_command_bundle();
                 """);
@@ -319,7 +327,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                             OR changed_fields_json::text LIKE '%"principalEvidenceKind":"ManualPayment"%') THEN
                         RAISE EXCEPTION 'Manual payment evidence is retained; downgrade is unsafe' USING ERRCODE = '23514';
                     END IF;
-                END $$;
+                END; $$;
                 DROP TRIGGER manual_payment_command_bundle ON procurement.manual_payment_requests;
                 DROP TRIGGER manual_payment_request_immutable ON procurement.manual_payment_requests;
                 DROP TRIGGER manual_payment_receipt_append_only ON procurement.manual_payment_receipts;
