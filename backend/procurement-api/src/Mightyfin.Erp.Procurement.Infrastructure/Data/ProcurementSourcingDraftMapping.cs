@@ -96,7 +96,7 @@ public sealed partial class ProcurementDbContext
                 continue;
             }
             if (ev.ExecutionVersion is not (1 or 2) || ev.SourceEvidenceId is null
-                || ev.ExecutionVersion == 1 && (ev.MakerWorkerId is null or Guid.Empty)
+                || ev.ExecutionVersion == 1 && (ev.MakerWorkerId is null || ev.MakerWorkerId == Guid.Empty)
                 || ev.ExecutionVersion == 2 && (ev.MakerWorkerId == Guid.Empty || !ProcurementPrincipalEvidence.Canonical(ev.OwnerSubjectId))
                 || ev.MethodId is null || ev.MethodRevision is not > 0 || !RfqDigest(ev.OriginalDraftFingerprint)
                 || ev.OwnerSubjectId != scope.SubjectId || scope.OrgUnitId is not null
@@ -165,8 +165,10 @@ public sealed partial class ProcurementDbContext
             || binding.EstimatedValue != ExactDecimalArithmetic.Multiply(binding.Quantity, binding.UnitEstimate)
             || !RfqDigest(binding.RequestSha) || !RfqDigest(binding.PolicyDecisionSha) || !RfqDigest(binding.PolicyRulesSha) || !RfqDigest(binding.FinanceSha)
             || binding.MinimumQuoteCount is < 0 or > 20 || binding.SubmittedVersion < 1 || binding.RequestVersion < binding.SubmittedVersion
-            || (ev.ExecutionVersion==1 && (binding.IdentitySchemaVersion!=1 || binding.MakerWorkerId is null or Guid.Empty
-                || binding.RequesterWorkerId is null or Guid.Empty || binding.MakerPrincipalId is not null || binding.RequesterPrincipalId is not null))
+            || (ev.ExecutionVersion==1 && (binding.IdentitySchemaVersion!=1
+                || binding.MakerWorkerId is null || binding.MakerWorkerId == Guid.Empty
+                || binding.RequesterWorkerId is null || binding.RequesterWorkerId == Guid.Empty
+                || binding.MakerPrincipalId is not null || binding.RequesterPrincipalId is not null))
             || (ev.ExecutionVersion==2 && (binding.IdentitySchemaVersion!=2
                 || !ProcurementPrincipalEvidence.Canonical(binding.MakerPrincipalId)
                 || !ProcurementPrincipalEvidence.Canonical(binding.RequesterPrincipalId)
