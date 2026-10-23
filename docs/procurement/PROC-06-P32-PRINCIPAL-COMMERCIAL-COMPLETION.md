@@ -164,3 +164,60 @@ are **not run**. Current Core actor/reviewer resolution, retained policy origin,
 pre-publication snapshot/document retention, timed round, immutable supplier
 submission, seal/opening, score calculation and Core award workflow remain
 subsequent implementation and acceptance gates, not claims of this parser.
+
+### Second bounded slice — immutable prepublication candidate
+
+`PrincipalRfqPrepublicationPlan.Prepare` restores the original owned principal
+RFQ envelope with its normalized demand bindings, exact header CAS and original
+fingerprint. It copies a separately versioned snapshot containing the source
+pin digests/exact8-place values, explicit future UTC microsecond window,
+evaluation definition hash/criteria, exact criterion→principal/optional-worker
+assignments and complete Core document-version/clean-scan identity. No P30
+quotation object or bytes are changed or accepted as a submitted bid.
+
+The proposed `procurement-sourcing-evaluate` action is a named pure-contract
+constant only: it is not registered or granted. Exact current server Core
+projections must cover every configured evaluator once; company/site/action,
+retained maker/requester independence and known worker aliases are checked.
+Two principal accounts with one known worker cannot masquerade as independent
+evaluators. These pure checks do not prove active account retrieval, current
+maker-account aliases or transactional authorization; the future owning adapter
+must use the existing live Core resolver/fence and `IndependentNow` guards.
+
+The requirements pack is an exact nonempty version set of Core `DocumentUsePin`
+evidence. It must belong to this event/tenant/company, original maker and one
+Review use keyed to this candidate revision (`sourcing_commercial_plan` /
+`sourcing_event` owner). Core's existing Restore validator checks retained
+scan/version/hash consistency; the candidate is not a blob/read-availability
+check or proof that those use rows were committed. Procurement Application
+references Core Documents **Domain** to reuse that primitive, not another
+uploader or database. Later Publication is a separate durable reference to the
+same version set after actual owned approval. Purpose download must authorize
+only pinned versions, never broad owner history.
+
+Only explicit `SameCurrencyOnly` + `OriginalSeparateComponents` is supported in
+this initial candidate. A different comparison currency, assumed1:1 rate,
+FX conversion, assumed tax-exclusive/inclusive conversion or invented rate is
+rejected. Original tax/delivery components are retained evidence, **not** a
+normalized comparable amount or an approved tax calculation. Core/Finance tax
+configuration and a separately adopted published comparison policy own any
+future normalization; a policy and authoritative rate/effective-date source
+are prerequisites to widening this boundary. No score/formula/award is computed.
+
+`CanPublish` remains false. The following are actual next adapter gates:
+full original PR/Core/Finance/ledger verification using the existing shared
+loader; original-source lock order; published commercial-policy/configuration
+identity binding; canonical current account/branch/action and alias resolution;
+actual pre-snapshot same-store document fence/enlisted acquire/persistence;
+immutable plan persistence and original receipt; binding the new snapshot to a
+new publication/Core proof; scoped purpose reads. None has a boolean-ready
+fallback, interface-only lock claim, DI registration, route or EF model in this
+slice. Existing P30 Published records remain ineligible for automatic adoption.
+
+Twelve additional pure synthetic cases are authored (9 facts plus3 normalization
+theory cases). They cover workerless exact evidence; copied bytes/read-only
+assignments; CAS/state/source/binding mutation; current scoped action; retained
+maker alias and duplicate-worker accounts; exact document actor/scope/reference
+and use purpose; exact nonempty sets; FX/tax rejection; and explicit trusted-time
+precision. These are **unrun source tests**, not genuine document-owner/source
+provenance, durable-hold or current Core authorization acceptance.
