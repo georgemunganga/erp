@@ -260,7 +260,9 @@ public static partial class ProcurementPolicyDraftRoutes
             var identitySchema = sourcingRules.RootElement.GetProperty("schemaVersion").GetInt32();
             if (identitySchema == 1 && (actor.WorkerId is not { } worker
                 || (await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(organizationDb,
-                    scope.TenantId, scope.LegalEntityId, actor.PrincipalId, ct))?.WorkerId != worker))
+                    scope.TenantId, scope.LegalEntityId, actor.PrincipalId, ct))?.WorkerId != worker
+                || !await ProcurementAuthorityIdentity.CanonicalPeopleQuery(organizationDb, scope, DateTimeOffset.UtcNow)
+                    .AnyAsync(person => person.Id == Guid.Parse(actor.PrincipalId), ct)))
                 return Problem("sourcing-policy-original-author-required", "A current canonical worker is required for this retained rules format.", 422);
             db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Created", actor.PrincipalId,
                 actor.EvidenceWorker(identitySchema), 1, DateTimeOffset.UtcNow, schemaVersion: identitySchema));

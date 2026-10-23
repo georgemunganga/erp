@@ -71,7 +71,9 @@ public static partial class ProcurementPolicyDraftRoutes
                 return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs a current authorized Core account in this company.", 422);
             if (identitySchema == 1 && (account.WorkerId is not { } currentWorker
                 || (await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
-                    scope.LegalEntityId, id, ct))?.WorkerId != currentWorker))
+                    scope.LegalEntityId, id, ct))?.WorkerId != currentWorker
+                || !await ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, DateTimeOffset.UtcNow)
+                    .AnyAsync(person => person.Id == Guid.Parse(id), ct)))
                 return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs an active canonical worker for this retained policy.", 422);
             accounts.Add(id, account);
         }
