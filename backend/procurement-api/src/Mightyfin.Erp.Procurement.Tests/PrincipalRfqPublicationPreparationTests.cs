@@ -58,7 +58,7 @@ public sealed class PrincipalRfqPublicationPreparationTests
         var (draft, supplier, _) = Fixture();
         var actor = Guid.NewGuid().ToString("D");
         var sourcing = new SourcingEvent { Id = draft.Id, TenantId = draft.TenantId,
-            LegalEntityId = draft.CompanyId, ExecutionVersion = 2, Status = "Open", CurrencyCode = "ZMW" };
+            LegalEntityId = draft.CompanyId, ExecutionVersion = 2, Status = "Published", CurrencyCode = "ZMW" };
         var invitation = new SourcingInvitation { TenantId = draft.TenantId, LegalEntityId = draft.CompanyId,
             SourcingEventId = draft.Id, SupplierId = supplier.Id, Status = "ManualContactRecorded" };
         var bid = new SupplierBid { TenantId = draft.TenantId, LegalEntityId = draft.CompanyId,

@@ -78,7 +78,7 @@ public static class PrincipalManualQuotationDraft
         IReadOnlyList<SupplierBidLine> quoteLines, string actorPrincipalId)
     {
         if (!ProcurementPrincipalEvidence.Canonical(actorPrincipalId)
-            || sourcing is null || sourcing.ExecutionVersion != 2 || sourcing.Status != "Open"
+            || sourcing is null || sourcing.ExecutionVersion != 2 || sourcing.Status != "Published"
             || invitation is null || invitation.SourcingEventId != sourcing.Id
             || invitation.SupplierId == Guid.Empty || invitation.Status != "ManualContactRecorded"
             || bid is null || bid.Status != "Draft" || bid.SourceChannel != "Manual"

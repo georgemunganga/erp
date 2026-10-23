@@ -57,3 +57,23 @@ public sealed class SourcingPublicationReceipt : ProcurementRecord
     public long ResultVersion { get; set; }
     public DateTimeOffset CompletedAt { get; set; }
 }
+
+/// <summary>An employee-recorded external contact. This is evidence of a reported
+/// manual delivery, never evidence of email or supplier portal dispatch.</summary>
+public sealed class SourcingManualContact : ProcurementRecord
+{
+    public int SchemaVersion { get; set; } = 2;
+    public Guid SourcingEventId { get; set; }
+    public Guid InvitationId { get; set; }
+    public Guid SupplierId { get; set; }
+    public string ActorPrincipalId { get; set; } = null!;
+    public Guid? ActorCoreLinkedWorkerId { get; set; }
+    public string Channel { get; set; } = null!;
+    public string Reference { get; set; } = null!;
+    public DateTimeOffset ReportedContactAt { get; set; }
+    public DateTimeOffset RecordedAt { get; set; }
+    public Guid CommandKey { get; set; }
+    public string CommandSha256 { get; set; } = null!;
+    public string ResponseJson { get; set; } = null!;
+    public string ResponseSha256 { get; set; } = null!;
+}

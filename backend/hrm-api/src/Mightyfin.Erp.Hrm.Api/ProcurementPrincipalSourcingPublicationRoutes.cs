@@ -28,6 +28,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             PrincipalPublicationDecide).RequireAuthorization("procurement-sourcing-publish");
         group.MapGet("/principal-publication-commands/{key:guid}", PrincipalPublicationRecover)
             .RequireAuthorization("procurement-access");
+        group.MapPost("/{id:guid}/principal-invitations/{invitationId:guid}/manual-contact",
+            PrincipalManualContact).RequireAuthorization("procurement-sourcing-submit");
     }
 
     private static async Task RequirePrincipalPublication(HttpContext http, ProcurementDbContext db, CancellationToken ct)

@@ -9,15 +9,18 @@ public sealed partial class ProcurementDbContext
     public DbSet<SourcingPublicationOpening> SourcingPublicationOpenings => Set<SourcingPublicationOpening>();
     public DbSet<SourcingPublicationDecision> SourcingPublicationDecisions => Set<SourcingPublicationDecision>();
     public DbSet<SourcingPublicationReceipt> SourcingPublicationReceipts => Set<SourcingPublicationReceipt>();
+    public DbSet<SourcingManualContact> SourcingManualContacts => Set<SourcingManualContact>();
 
     private void ConfigureSourcingPublication(ModelBuilder model)
     {
         ConfigureBase<SourcingPublicationOpening>(model, "sourcing_publication_openings");
         ConfigureBase<SourcingPublicationDecision>(model, "sourcing_publication_decisions");
         ConfigureBase<SourcingPublicationReceipt>(model, "sourcing_publication_receipts");
+        ConfigureBase<SourcingManualContact>(model, "sourcing_manual_contacts");
         var opening = model.Entity<SourcingPublicationOpening>();
         var decision = model.Entity<SourcingPublicationDecision>();
         var receipt = model.Entity<SourcingPublicationReceipt>();
+        var contact = model.Entity<SourcingManualContact>();
         opening.Property(x => x.PolicyRulesSha256).HasMaxLength(64);
         opening.Property(x => x.MakerPrincipalId).HasMaxLength(36);
         opening.Property(x => x.OriginalDraftFingerprint).HasMaxLength(64);
@@ -31,6 +34,12 @@ public sealed partial class ProcurementDbContext
         receipt.Property(x => x.CommandSha256).HasMaxLength(64);
         receipt.Property(x => x.ResponseJson).HasColumnType("text");
         receipt.Property(x => x.ResponseSha256).HasMaxLength(64);
+        contact.Property(x => x.ActorPrincipalId).HasMaxLength(36);
+        contact.Property(x => x.Channel).HasMaxLength(30);
+        contact.Property(x => x.Reference).HasMaxLength(200);
+        contact.Property(x => x.CommandSha256).HasMaxLength(64);
+        contact.Property(x => x.ResponseJson).HasColumnType("text");
+        contact.Property(x => x.ResponseSha256).HasMaxLength(64);
         Link<SourcingPublicationOpening, SourcingEvent>(model, nameof(SourcingPublicationOpening.SourcingEventId));
         Link<SourcingPublicationOpening, PolicyVersion>(model, nameof(SourcingPublicationOpening.PolicyVersionId));
         Link<SourcingPublicationOpening, SourcingPolicyIdentityEvidence>(model, nameof(SourcingPublicationOpening.PublishedPolicyEvidenceId));
@@ -39,11 +48,16 @@ public sealed partial class ProcurementDbContext
         Link<SourcingPublicationReceipt, SourcingEvent>(model, nameof(SourcingPublicationReceipt.SourcingEventId));
         Link<SourcingPublicationReceipt, SourcingPublicationOpening>(model, nameof(SourcingPublicationReceipt.OpeningId));
         Link<SourcingPublicationReceipt, SourcingPublicationDecision>(model, nameof(SourcingPublicationReceipt.DecisionId));
+        Link<SourcingManualContact, SourcingEvent>(model, nameof(SourcingManualContact.SourcingEventId));
+        Link<SourcingManualContact, SourcingInvitation>(model, nameof(SourcingManualContact.InvitationId));
+        Link<SourcingManualContact, Supplier>(model, nameof(SourcingManualContact.SupplierId));
         opening.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreApprovalCaseId }).IsUnique();
         opening.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SourcingEventId, x.EventVersionAtOpening }).IsUnique();
         decision.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreApprovalDecisionId }).IsUnique();
         decision.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.OpeningId, x.CoreAssignmentId }).IsUnique();
         receipt.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique();
+        contact.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.InvitationId }).IsUnique();
+        contact.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique();
         const string canonical = " ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'";
         opening.ToTable(t => t.HasCheckConstraint("ck_sourcing_publication_opening_v2",
             "schema_version=2 AND event_version_at_opening>0 AND policy_version_number>0"
@@ -69,10 +83,45 @@ public sealed partial class ProcurementDbContext
             + " AND result_version>0 AND isfinite(completed_at)"
             + " AND ((operation='Open' AND decision_id IS NULL AND response_status_code=201)"
             + " OR (operation='Decide' AND decision_id IS NOT NULL AND response_status_code=200))"));
+        contact.ToTable(t => t.HasCheckConstraint("ck_sourcing_manual_contact_v2",
+            "schema_version=2 AND channel IN ('EmailOutsideSystem','Physical','Telephone','Other')"
+            + " AND reference IS NOT NULL AND length(btrim(reference)) BETWEEN 1 AND 200"
+            + " AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id" + canonical
+            + " AND (actor_core_linked_worker_id IS NULL OR actor_core_linked_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)"
+            + " AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid"
+            + " AND command_sha256 ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$'"
+            + " AND isfinite(reported_contact_at) AND isfinite(recorded_at) AND reported_contact_at <= recorded_at"));
     }
 
     private void GuardSourcingPublicationEvidence()
     {
+        foreach (var entry in ChangeTracker.Entries<SourcingManualContact>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new InvalidOperationException("SourcingManualContactAppendOnly");
+            if (entry.State != EntityState.Added) continue;
+            var row = entry.Entity;
+            var ev = SourcingEvents.Local.SingleOrDefault(x => x.Id == row.SourcingEventId)
+                ?? SourcingEvents.SingleOrDefault(x => x.Id == row.SourcingEventId);
+            var invitation = SourcingInvitations.Local.SingleOrDefault(x => x.Id == row.InvitationId)
+                ?? SourcingInvitations.SingleOrDefault(x => x.Id == row.InvitationId);
+            var approved = SourcingPublicationDecisions.AsNoTracking().Where(x => x.SourcingEventId == row.SourcingEventId
+                && x.CaseState == "Approved").OrderByDescending(x => x.DecidedAt).FirstOrDefault();
+            if (ev is null || ev.ExecutionVersion != 2 || ev.Status != "Published"
+                || invitation is null || invitation.SourcingEventId != ev.Id || invitation.SupplierId != row.SupplierId
+                || Entry(invitation).State != EntityState.Modified
+                || invitation.Status != "ManualContactRecorded" || invitation.SentAt is not null
+                || invitation.ViewedAt is not null || invitation.DeliveryRef is not null
+                || row.SchemaVersion != 2 || row.TenantId != scope.TenantId || row.LegalEntityId != scope.LegalEntityId
+                || row.ActorPrincipalId != scope.SubjectId || row.ActorCoreLinkedWorkerId != scope.CoreLinkedWorkerId
+                || row.CommandKey == Guid.Empty || row.CommandSha256 is not { Length: 64 }
+                || row.ResponseSha256 != ProcurementEvidenceEncoding.Digest(row.ResponseJson)
+                || row.ReportedContactAt > row.RecordedAt || row.Reference is null
+                || row.Reference.Trim().Length is < 1 or > 200
+                || row.Channel is not ("EmailOutsideSystem" or "Physical" or "Telephone" or "Other")
+                || approved is null || row.ReportedContactAt < approved.DecidedAt)
+                throw new InvalidOperationException("SourcingManualContactInvalid");
+        }
         foreach (var entry in ChangeTracker.Entries<SourcingPublicationOpening>())
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
@@ -175,6 +224,18 @@ public sealed partial class ProcurementDbContext
             var approval = SourcingPublicationDecisions.Local.SingleOrDefault(x => x.SourcingEventId == ev.Id
                 && x.CoreApprovalCaseId.ToString("D") == ev.ApprovalInstanceRef && x.CaseState == "Approved");
             var supplier = Suppliers.Include(x => x.Qualifications).SingleOrDefault(x => x.Id == invite.SupplierId);
+            var contact = SourcingManualContacts.Local.SingleOrDefault(x => x.InvitationId == invite.Id);
+            if (entry.State == EntityState.Modified)
+            {
+                var changed = entry.Properties.Where(x => x.IsModified).Select(x => x.Metadata.Name).ToHashSet();
+                if (ev.Status != "Published" || invite.Status != "ManualContactRecorded"
+                    || entry.OriginalValues.GetValue<string>(nameof(SourcingInvitation.Status)) != "ReadyForManualDelivery"
+                    || !changed.IsSubsetOf([nameof(SourcingInvitation.Status), nameof(ProcurementRecord.Version),
+                        nameof(ProcurementRecord.UpdatedAt), nameof(ProcurementRecord.UpdatedBy)])
+                    || contact is null || contact.SourcingEventId != ev.Id || contact.SupplierId != invite.SupplierId)
+                    throw new InvalidOperationException("SourcingInvitationContactInvalid");
+                continue;
+            }
             if (entry.State != EntityState.Added || ev.Status != "Published"
                 || invite.TenantId != scope.TenantId || invite.LegalEntityId != scope.LegalEntityId
                 || invite.Status != "ReadyForManualDelivery" || invite.SentAt is not null
