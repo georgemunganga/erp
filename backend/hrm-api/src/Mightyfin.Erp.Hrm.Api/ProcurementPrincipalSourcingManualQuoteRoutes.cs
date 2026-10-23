@@ -196,7 +196,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             var (actor, _) = await PrincipalQuoteEvent(db, core, scope, http, auth, id, token);
             var bid = await db.SupplierBids.AsNoTracking().SingleOrDefaultAsync(x => x.Id == bidId
                 && x.SourcingEventId == id && x.SourceChannel == "Manual"
-                && x.SurrogateEnteredBy == actor.PrincipalId, token)
+                && x.SurrogateEnteredBy == actor.PrincipalId
+                && (x.Status == "Draft" || x.Status == "Cancelled"), token)
                 ?? throw new Problem("SourcingQuoteNotFound", 404);
             var version = await db.SourcingManualQuoteVersions.AsNoTracking()
                 .Where(x => x.SupplierBidId == bid.Id).OrderByDescending(x => x.Revision)
@@ -226,7 +227,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             var take = limit ?? 25;
             var skip = cursor ?? 0;
             var query = db.SupplierBids.AsNoTracking().Where(x => x.SourcingEventId == id
-                && x.SourceChannel == "Manual" && x.SurrogateEnteredBy == actor.PrincipalId);
+                && x.SourceChannel == "Manual" && x.SurrogateEnteredBy == actor.PrincipalId
+                && (x.Status == "Draft" || x.Status == "Cancelled"));
             var rows = await query.OrderBy(x => x.Id).Skip(skip).Take(take + 1).ToArrayAsync(token);
             var page = rows.Take(take).ToArray();
             var body = JsonSerializer.Serialize(new
