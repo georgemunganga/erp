@@ -176,6 +176,12 @@ internal sealed class PrivatePaymentHost(string runtime, string execution, strin
         ["ConnectionStrings:Procurement"] = runtime,
         ["ConnectionStrings:ProcurementApprovalExecution"] = execution,
         ["ERP:AuthMode"] = "local", ["HRM:AuthMode"] = "local",
+        ["Procurement:Approvals:Enabled"] = "false", ["Procurement:Orders:Enabled"] = "false",
+        ["Procurement:SourcingDrafts:Enabled"] = "false",
+        ["Procurement:Receiving:DraftsEnabled"] = "false",
+        ["Procurement:Receiving:PositiveExecutionEnabled"] = "false",
+        ["Procurement:InvoiceMatching:Enabled"] = "false",
+        ["Procurement:InvoiceUnitReview:Enabled"] = "false",
         ["Procurement:ManualPayments:Enabled"] = "true",
         ["HRM:LocalAdminEmail"] = "", ["HRM:LocalAdminPassword"] = "",
         ["CoreDocuments:Enabled"] = "false",
@@ -188,6 +194,9 @@ internal sealed class PrivatePaymentHost(string runtime, string execution, strin
         {
             foreach (var registration in services.Where(x => x.ServiceType == typeof(IHostedService)
                 && x.ImplementationType == typeof(MonthlyLeaveAccrualWorker)).ToArray()) services.Remove(registration);
+            if (services.Any(x => x.ServiceType == typeof(IHostedService)
+                && x.ImplementationType?.Assembly == typeof(MonthlyLeaveAccrualWorker).Assembly))
+                throw new ProbeUnavailable("UnexpectedERPBackgroundWorker");
             services.RemoveAll<ILoggerProvider>();
             // Deliberately no auth, payment readiness, workflow or schema service replacement.
         });
