@@ -107,6 +107,14 @@ public sealed partial class ProcurementDbContext
         if (decisions.Length != 1 || decisions[0].BranchId != row.BranchId || decisions[0].FromStatus != fromState
             || decisions[0].ToStatus != row.Status || decisions[0].FromVersion != fromVersion || decisions[0].ToVersion != fromVersion + 1)
             throw new InvalidOperationException("ManualPaymentAtomicTransitionRequired");
+        var expectedAction = (fromState, row.Status) switch {
+            ("None", "Draft") => "Create", ("Draft", "Draft") => "Revise", ("Draft", "PendingApproval") => "Submit",
+            ("PendingApproval", "Approved") => "Approve", ("PendingApproval", "Draft") => "Return", ("PendingApproval", "Rejected") => "Reject",
+            ("Approved", "PaymentRecorded") => "Record", ("PaymentRecorded", "ConfirmedManually") => "Confirm",
+            ("Draft" or "PendingApproval" or "Approved", "Cancelled") => "Cancel", ("PaymentRecorded", "Disputed") => "Dispute",
+            _ => ""
+        };
+        if (decisions[0].Action != expectedAction) throw new InvalidOperationException("ManualPaymentTransitionActionInvalid");
         var receipts = ChangeTracker.Entries<ManualPaymentCommandReceipt>().Where(x => x.State == EntityState.Added
             && x.Entity.ManualPaymentRequestId == row.Id).Select(x => x.Entity).ToArray();
         if (receipts.Length != 1 || receipts[0].BranchId != row.BranchId || receipts[0].ResultVersion != decisions[0].ToVersion

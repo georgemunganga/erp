@@ -77,7 +77,7 @@ public sealed partial class ProcurementDbContext
             + " AND (recorder_core_linked_worker_id IS NULL OR confirmer_core_linked_worker_id IS NULL OR recorder_core_linked_worker_id <> confirmer_core_linked_worker_id)";
         request.ToTable(t => {
             t.HasCheckConstraint("ck_manual_payment_identity", identity);
-            t.HasCheckConstraint("ck_manual_payment_values", $"branch_id <> {nonempty} AND amount > 0 AND version > 0 AND currency_code ~ '^[A-Z]{{3}}$' "
+            t.HasCheckConstraint("ck_manual_payment_values", $"id <> {nonempty} AND branch_id <> {nonempty} AND amount > 0 AND version > 0 AND currency_code ~ '^[A-Z]{{3}}$' "
                 + "AND status IN ('Draft','PendingApproval','Approved','PaymentRecorded','ConfirmedManually','Rejected','Cancelled','Disputed')");
             t.HasCheckConstraint("ck_manual_payment_approval", "(approved_amount IS NULL AND approved_by_principal_id IS NULL AND approved_at IS NULL AND approved_by_core_linked_worker_id IS NULL) OR "
                 + "(approved_amount IS NOT NULL AND approved_by_principal_id IS NOT NULL AND approved_amount = amount AND approved_by_principal_id = approver_principal_id AND approved_at IS NOT NULL AND approved_at >= created_at)");
@@ -96,6 +96,17 @@ public sealed partial class ProcurementDbContext
         decision.ToTable(t => t.HasCheckConstraint("ck_manual_payment_transition", $"branch_id <> {nonempty} AND version = 1 AND from_version >= 0 AND to_version = from_version + 1 "
             + $"AND action IN {actions} AND {CanonicalPrincipal("actor_principal_id")} "
             + $"AND (actor_core_linked_worker_id IS NULL OR actor_core_linked_worker_id <> {nonempty})"));
+        decision.ToTable(t => t.HasCheckConstraint("ck_manual_payment_action_states",
+            "(action = 'Create' AND from_status = 'None' AND to_status = 'Draft' AND from_version = 0) OR "
+            + "(from_version > 0 AND ((action = 'Revise' AND from_status = 'Draft' AND to_status = 'Draft') OR "
+            + "(action = 'Submit' AND from_status = 'Draft' AND to_status = 'PendingApproval') OR "
+            + "(action = 'Approve' AND from_status = 'PendingApproval' AND to_status = 'Approved') OR "
+            + "(action = 'Return' AND from_status = 'PendingApproval' AND to_status = 'Draft') OR "
+            + "(action = 'Reject' AND from_status = 'PendingApproval' AND to_status = 'Rejected') OR "
+            + "(action = 'Record' AND from_status = 'Approved' AND to_status = 'PaymentRecorded') OR "
+            + "(action = 'Confirm' AND from_status = 'PaymentRecorded' AND to_status = 'ConfirmedManually') OR "
+            + "(action = 'Cancel' AND from_status IN ('Draft','PendingApproval','Approved') AND to_status = 'Cancelled') OR "
+            + "(action = 'Dispute' AND from_status = 'PaymentRecorded' AND to_status = 'Disputed')))"));
         receipt.ToTable(t => t.HasCheckConstraint("ck_manual_payment_receipt", $"branch_id <> {nonempty} AND command_key <> {nonempty} AND version = 1 AND result_version > 0 "
             + $"AND action IN {actions} AND {CanonicalPrincipal("actor_principal_id")} AND request_sha256 ~ '^[0-9a-f]{{64}}$' "
             + "AND jsonb_typeof(response_json::jsonb) = 'object'"));
