@@ -100,6 +100,18 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "principal_order_release_requests","principal_order_release_confirmations"})
                 await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
         }
+        if(fixture.PrincipalReceivingProfile)
+        {
+            await Run("GRANT SELECT,INSERT ON procurement.operational_policy_identity_evidence TO "+Q(record));
+            await Run("GRANT SELECT ON procurement.operational_policy_identity_evidence TO "+Q(execution));
+            foreach(var table in new[]{"principal_receiving_sources","principal_receiving_drafts"})
+                await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"principal_receiving_facts","principal_receiving_revisions","principal_receiving_receipts","principal_receiving_line_bindings"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            // Read-only legacy completeness checks do not authorize legacy writes.
+            foreach(var table in new[]{"receiving_source_states","goods_receipt_lines","service_acceptances"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
         await using var core=fixture.Core();var coreModel=core.GetService<IDesignTimeModel>().Model;
         // Explicit bounded read manifest for actual current-account/grant/branch/optional-manager queries.
         var reads=new Dictionary<Type,string[]> {
