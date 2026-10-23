@@ -25,6 +25,10 @@ public static class PrincipalInvoiceUnitReviewTerminal
     {
         var opening = PrincipalInvoiceUnitReviewTransitions.Verify(source, mapping, workflow, assignments);
         if (source.MatchingPolicyId != matchingPolicy.Id || source.ReviewPolicyId != reviewPolicy.Id
+            || matchingPolicy.PolicyKey != InvoiceMatchingPolicyRules.PolicyKey
+            || reviewPolicy.PolicyKey != InvoiceRetainedUnitReview.ReviewPolicyKey
+            || matchingPolicy.TenantId != source.TenantId || matchingPolicy.LegalEntityId != source.LegalEntityId
+            || reviewPolicy.TenantId != source.TenantId || reviewPolicy.LegalEntityId != source.LegalEntityId
             || opening.MatchingPolicySha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(matchingPolicy.RulesJson)
             || opening.ReviewPolicySha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(reviewPolicy.RulesJson)
             || matchingPolicy.State != "Published" || reviewPolicy.State != "Published"

@@ -71,9 +71,13 @@ internal static class ProcurementPrincipalInvoiceExposureReader
         var legacyMatches = await db.InvoiceMatchResults.IgnoreQueryFilters().AsNoTracking()
             .CountAsync(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
                 && x.PurchaseOrderId == orderId, ct);
-        var credits = await db.SupplierCreditNoteRefs.IgnoreQueryFilters().AsNoTracking()
-            .CountAsync(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
-                && x.SupplierInvoiceId != null && mappedInvoiceIds.Contains(x.SupplierInvoiceId.Value), ct);
+        var credits = await (from credit in db.SupplierCreditNoteRefs.IgnoreQueryFilters().AsNoTracking()
+            join invoice in db.SupplierInvoices.IgnoreQueryFilters().AsNoTracking()
+                on new { credit.TenantId, credit.LegalEntityId, Id = credit.SupplierInvoiceId }
+                equals new { invoice.TenantId, invoice.LegalEntityId, Id = (Guid?)invoice.Id }
+            where credit.TenantId == scope.TenantId && credit.LegalEntityId == scope.LegalEntityId
+                && (invoice.PurchaseOrderId == orderId || mappedInvoiceIds.Contains(invoice.Id))
+            select credit.Id).CountAsync(ct);
         var goods = await db.GoodsReceipts.IgnoreQueryFilters().AsNoTracking()
             .CountAsync(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
                 && x.PurchaseOrderId == orderId, ct);
