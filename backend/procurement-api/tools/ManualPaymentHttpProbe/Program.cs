@@ -86,6 +86,14 @@ catch (ProbeUnavailable unavailable)
     result["gate"] = unavailable.Code;
     Environment.ExitCode = 2;
 }
+catch (PaymentProbeAssertion assertion)
+{
+    result["status"] = "FAIL";
+    result["phase"] = phase;
+    result["check"] = assertion.Check; // Static test labels only; never response bodies or identities.
+    result["httpStatus"] = assertion.StatusCode;
+    Environment.ExitCode = 1;
+}
 catch (Exception error)
 {
     // Do not record exception text, stack traces, SQL, account IDs or HTTP bodies.

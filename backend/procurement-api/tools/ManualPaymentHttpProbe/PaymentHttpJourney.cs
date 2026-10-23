@@ -20,7 +20,7 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
             var client = host.CreateClient(new WebApplicationFactoryClientOptions
                 { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
             using var login = await client.PostAsJsonAsync("/api/hrm/auth/login", new { person.Email, person.Password });
-            Require(login.StatusCode == HttpStatusCode.OK, "real-local-login");
+            RequireStatus(login, HttpStatusCode.OK, "real-local-login");
             var cookie = login.Headers.TryGetValues("Set-Cookie", out var values)
                 ? values.FirstOrDefault(x => x.StartsWith("hrm_session=", StringComparison.Ordinal))?.Split(';')[0] : null;
             Require(!string.IsNullOrWhiteSpace(cookie), "real-local-cookie");
@@ -178,13 +178,22 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
 
     private static async Task<JsonElement> Read(HttpResponseMessage response, HttpStatusCode expected, string name)
     {
-        Require(response.StatusCode == expected, name);
+        RequireStatus(response, expected, name);
         using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
         return document.RootElement.Clone();
     }
 
     private static void Require(bool condition, string check)
-    { if (!condition) throw new InvalidOperationException("Manual payment HTTP check failed: " + check); }
+    { if (!condition) throw new PaymentProbeAssertion(check); }
+
+    private static void RequireStatus(HttpResponseMessage response, HttpStatusCode expected, string check)
+    { if (response.StatusCode != expected) throw new PaymentProbeAssertion(check, (int)response.StatusCode); }
 
     private sealed record UserSession(HttpClient Client, string Cookie);
+}
+
+internal sealed class PaymentProbeAssertion(string check, int? statusCode = null) : Exception
+{
+    internal string Check { get; } = check;
+    internal int? StatusCode { get; } = statusCode;
 }
