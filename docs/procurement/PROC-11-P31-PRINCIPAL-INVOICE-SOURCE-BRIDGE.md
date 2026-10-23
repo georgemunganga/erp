@@ -127,3 +127,61 @@ P30 PO and P31 receiving source contracts must be reviewed and actually activate
 ## 28. Open Decisions / Assumptions
 
 Decide the additive FK/unique/retention design for typed principal acceptance mapping after inspecting actual invoice schema and owner SQL, and whether a published category allows two-way principal services before acceptance. Decide the authenticated historical exposure owner interface for qualified claims. Confirm P30/P31 actual rollout and UI capability names only after real schema/role/HTTP proof. No AP or bank integration is assumed.
+
+### Source checkpoint: read bridge, not match activation
+
+The isolated source slice adds `PrincipalInvoiceSourceProjection` and unregistered
+`ProcurementPrincipalInvoiceSourceBridge` / `ProcurementPrincipalInvoiceSourceRoutes`.
+The bridge composes the P30 retained-issued SQL and current Core branch fence
+before count/page; its bounded detail reader verifies the full retained PO2,
+reconciles complete principal receiving/PR/PO counters, rejects mixed legacy
+histories, verifies fact-to-command receipts and retained publication, and exposes
+only positive acceptance IDs/sequences/exact quantities and amounts. The old
+invoice selector and comparison routes are unchanged. The proposed read routes
+are `/api/procurement/v1/invoices/{id}/principal-matching/sources` and
+`/.../sources/{orderId}/lines/{lineId}/acceptances`; they are not registered in
+the normal host and require an independently enabled option and both actual
+P30/P31 read readiness contracts. Every response declares
+`matchingAuthorityAvailable=false`, `canAllocate=false`, and
+`canPostToFinance=false`. There are no POST routes, new invoice rows, schema
+changes, Finance facts or production capabilities in this slice.
+
+### Next additive owned schema and command contract (requires separate review)
+
+The current `InvoiceMatchMappingVersion`, `InvoiceMatchResult`,
+`InvoiceMatchExposureState`, `InvoiceMatchAllocation` and
+`InvoiceUnitReviewSource` have hard owning FKs to *legacy*
+`PurchaseOrderIssuedVersion` / legacy receiving rows. Their existing SQL
+overlay `InvoiceMatchingOwnershipConstraintSql` binds goods/service IDs to
+legacy receipt/service and source state IDs. A PO2 ID cannot enter those columns
+without violating ownership. The next change therefore needs distinct
+principal source records and command receipts, or carefully reviewed additive
+discriminated FK pairs; it cannot only add an `executionVersion` flag.
+
+Suggested minimum owned records (names to confirm against generated metadata):
+
+| Record | Stable ownership and required pins |
+| --- | --- |
+| `PrincipalInvoiceMappingVersion` | Invoice ID/version/original digest, tenant/company/branch, supplier/currency, principal PO2/issued ID, ordered invoice-line membership, each PO line and optional principal acceptance **fact** ID, source-state ID and sequence, original document version/line reference, actor Core principal/nullable denial-only worker alias, immutable mapping digest/revision. |
+| `PrincipalInvoiceUnitReviewSource` | Exact principal mapping and issued IDs/digests, pinned Core document versions/hashes, current original invoice units, distinct Core review case/assignment/decision and actor-owned command receipts. Reuse P22 review policy and purpose document reader, never its legacy issued FK or worker-only envelope. |
+| `PrincipalInvoiceComparison` | Mapping and original invoice/version, published matching policy/digest, retained issued/acceptance watermarks, review outcome, authenticated exposure-owner watermark/lease, exact result/exception/evidence digest and command receipt. `Compared` is Procurement validation only. |
+| `PrincipalInvoiceExposureState` / `PrincipalInvoiceClaim` | PO2 issued/line and actual positive acceptance fact IDs with a current owner completeness lease, exact claimed quantity/net/tax, invoice/result links, CAS sequence and append-only claims. No local empty-table-as-complete inference. |
+
+Model FKs must include tenant/company and exact parent pairs. A claim acceptance
+FK should bind `(tenant, company, acceptance_fact_id, principal_source_state_id,
+PO_id, issued_id, PO_line_id)` to an immutable unique parent projection or a
+deferred exact owner overlay; its accepted kind/positive quantity must be
+checked against the retained fact and current complete ledger. Two-way rows
+must have **no** acceptance fact and a published category rule permitting that
+method. Three-way rows require one actual positive principal acceptance fact.
+All parent/child names, nullable CHECK logic, append-only guards, indexes,
+owner privilege manifests and Down veto must be generated/rehearsed after the
+P30/P31 migrations are accepted. Existing worker-era rows and literal encoders
+remain byte-for-byte stable.
+
+The principal comparison command can reuse the pure `InvoiceMatchingFoundation`
+only after its typed source, original-unit review and authenticated exposure
+owner contracts are provided. It must not call the legacy `InvoiceEvidence` or
+write `InvoiceMatchAllocation` using principal fact UUIDs. Keep the new matching
+capability false and the old P22/legacy read paths intact until a genuine
+same-transaction PostgreSQL/finite-role/HTTP/browser proof passes.
