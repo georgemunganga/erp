@@ -56,6 +56,7 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(receivingFlag is null||principalPoFlag=="1","Receiving proof requires its fresh genuine principal PO profile.");
         var publicationFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
         var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
+        var p30PoCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE");
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
         Need(principalPoFlag is null or "1","Private P30 principal PO opt-in must be exactly1 or absent.");
         Need(publicationFlag is null or "1","Private P30 RFQ publication opt-in must be exactly1 or absent.");
@@ -73,6 +74,10 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Principal PO needs its own new private database and no other optional cohort.");
         Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30PoCookieFlag is null or "1","P30 PO normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30PoCookieFlag is null || principalPoFlag=="1" && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && p29CookieFlag is null && principalRfqFlag is null && publicationFlag is null && receivingFlag is null,
+            "P30 PO normal-cookie serve requires its exclusive fresh private PO profile.");
         Need(p29CookieFlag is null || principalRfqFlag=="1" && publicationFlag is null,
             "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
         Need(principalRfqFlag is null || (database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
@@ -222,6 +227,9 @@ internal static partial class PrincipalApprovalHttpVerification
                 {
                     var issued=await VerifyPrincipalOrderAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
                     if(receivingFlag=="1")await VerifyPrincipalReceivingAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
+                    if(p30PoCookieFlag=="1")
+                        await ServeP30PoNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            issued.RequestId,issued.RequestLineId,issued.SupplierId,issued.OrderId,result,Advance);
                 }
                 if(principalRfqFlag=="1")
                 {
