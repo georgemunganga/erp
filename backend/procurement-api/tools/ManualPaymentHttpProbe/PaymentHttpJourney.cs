@@ -4,7 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-internal sealed class PaymentHttpJourney(WebApplicationFactory<Mightyfin.Erp.Hrm.Api.MonthlyLeaveAccrualWorker> host,
+internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccrualWorker> host,
     PaymentFixture fixture)
 {
     private const string Root = "/api/procurement/v1/manual-payments";

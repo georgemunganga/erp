@@ -105,7 +105,7 @@ internal static class PaymentFixtureStore
     private static string ProductionHash(string password)
     {
         // Invoke the actual ERP hasher without copying a password codec into this tool.
-        var type = typeof(Mightyfin.Erp.Hrm.Api.MonthlyLeaveAccrualWorker).Assembly.GetType("LocalPasswordHash", true)!;
+        var type = typeof(MonthlyLeaveAccrualWorker).Assembly.GetType("LocalPasswordHash", true)!;
         var method = type.GetMethod("Hash", BindingFlags.Public | BindingFlags.Static)
             ?? throw new ProbeUnavailable("LocalPasswordHasherUnavailable");
         return (string)(method.Invoke(null, [password]) ?? throw new ProbeUnavailable("LocalPasswordHasherUnavailable"));
