@@ -174,6 +174,7 @@ public static partial class ProcurementManualPaymentRoutes
                 || coreDecision.Action != (x.ManualAction is "Approve" or "Confirm" ? "Approve"
                     : x.ManualAction is "Reject" or "Dispute" ? "Reject" : x.ManualAction == "Return" ? "Return" : "Cancel")))
                 throw new ReadProblem("ManualPaymentCoreHistoryUnavailable", 503);
+            var people = await DetailPeople(core, scope, request, decisions, links, linkedDecisions, token);
             return new
             {
                 request = new { request.Id, request.Version, request.Status, request.Title, request.Purpose,
@@ -199,7 +200,8 @@ public static partial class ProcurementManualPaymentRoutes
                     version = workflowById[x.CoreApprovalCaseId].Version }).ToArray(),
                 coreDecisions = linkedDecisions.Select(x => new { x.Id, x.ManualPaymentDecisionId,
                     x.CoreApprovalDecisionId, x.ManualAction, x.ActorPrincipalId, x.DecidedAt,
-                    coreAction = coreDecisionById[x.CoreApprovalDecisionId].Action }).ToArray()
+                    coreAction = coreDecisionById[x.CoreApprovalDecisionId].Action }).ToArray(),
+                people
             };
         }, ct);
 
