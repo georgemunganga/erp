@@ -100,7 +100,7 @@ try
             Environment.SetEnvironmentVariable(key, value);
     }
     phase = "cross-tenant-current-context";
-    await journey.VerifyForeignTenantHidden(foreignRequestId, foreignFixture.Invoice);
+    await journey.VerifyForeignTenantHidden(foreignRequestId, foreignFixture.Invoice, foreignFixture.Company);
     result["secondTenantChecks"] = secondChecks;
     if (browserFixturePath is not null)
     {

@@ -68,8 +68,37 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
                 && contextJson.RootElement.GetProperty("tenantId").GetString() == fixture.Tenant
                 && contextJson.RootElement.GetProperty("legalEntityId").GetGuid() == fixture.Company,
                 "Core-account-without-employee");
+            await VerifyCoreWorkspaceChoices(role);
         }
-        checks.Add("normal Core cookie auth and optional employee identity");
+        checks.Add("normal Core cookie auth, optional employee identity and scoped workspace choices");
+    }
+
+    private async Task VerifyCoreWorkspaceChoices(string role)
+    {
+        using var response = await SendUnscoped(role, "/api/core/v1/workspace-context");
+        var body = await Read(response, HttpStatusCode.OK, "real-Core-workspace-choices");
+        var expectedCompanies = role == "maker"
+            ? new[] { fixture.Company, fixture.ForeignCompany }.ToHashSet()
+            : new[] { fixture.Company }.ToHashSet();
+        var expectedBranches = role == "maker"
+            ? new[] { fixture.Branch, fixture.OtherBranch, fixture.ForeignCompanyBranch }.ToHashSet()
+            : role == "outsider" ? new[] { fixture.OtherBranch }.ToHashSet()
+            : new[] { fixture.Branch }.ToHashSet();
+        Require(body.GetProperty("schemaVersion").GetInt32() == 1
+            && body.GetProperty("tenantId").GetString() == fixture.Tenant
+            && body.GetProperty("principalId").GetGuid() == fixture.People[role].Id
+            && !body.GetProperty("organisationWide").GetBoolean()
+            && body.GetProperty("companies").EnumerateArray()
+                .Select(x => x.GetProperty("id").GetGuid()).ToHashSet().SetEquals(expectedCompanies)
+            && body.GetProperty("branches").EnumerateArray()
+                .Select(x => x.GetProperty("id").GetGuid()).ToHashSet().SetEquals(expectedBranches),
+            "real-Core-choices-current-account-and-assignments");
+        if (role == "maker")
+        {
+            using var administration = await SendUnscoped(role, "/api/hrm/admin/legal-entities");
+            RequireStatus(administration, HttpStatusCode.Forbidden,
+                "custom-payment-role-still-cannot-read-organisation-administration");
+        }
     }
 
     internal async Task Verify()
@@ -282,10 +311,18 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
         return id;
     }
 
-    internal async Task VerifyForeignTenantHidden(Guid foreignRequestId, Guid foreignInvoiceId)
+    internal async Task VerifyForeignTenantHidden(Guid foreignRequestId, Guid foreignInvoiceId, Guid foreignCompanyId)
     {
-        Require(foreignRequestId != Guid.Empty && foreignInvoiceId != Guid.Empty
+        Require(foreignRequestId != Guid.Empty && foreignInvoiceId != Guid.Empty && foreignCompanyId != Guid.Empty
             && foreignRequestId != PrimaryRequestId, "distinct-second-tenant-source-required");
+        using (var choices = await SendUnscoped("maker", "/api/core/v1/workspace-context"))
+        {
+            var body = await Read(choices, HttpStatusCode.OK, "original-tenant-Core-choices-after-second-host");
+            Require(!body.GetProperty("companies").EnumerateArray()
+                .Any(x => x.GetProperty("id").GetGuid() == foreignCompanyId)
+                && body.GetProperty("tenantId").GetString() == fixture.Tenant,
+                "other-tenant-company-not-in-current-Core-choices");
+        }
         using (var context = await Send("maker", HttpMethod.Get, "/api/procurement/v1/context"))
         {
             var body = await Read(context, HttpStatusCode.OK, "original-context-after-second-host");
@@ -326,6 +363,14 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
         else if (!omitBranch) request.Headers.Add("X-Shell-Location", (branch ?? fixture.Branch).ToString("D"));
         if (key is { } commandKey) request.Headers.Add("Idempotency-Key", commandKey.ToString("D"));
         if (body is not null) request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        return await session.Client.SendAsync(request);
+    }
+
+    private async Task<HttpResponseMessage> SendUnscoped(string role, string path)
+    {
+        var session = sessions[role];
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("Cookie", session.Cookie);
         return await session.Client.SendAsync(request);
     }
 
