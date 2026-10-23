@@ -5,6 +5,21 @@ namespace Mightyfin.Erp.Core.Approvals.Tests;
 public sealed class ApprovalCancellationTests
 {
     [Fact]
+    public void Assigned_checker_can_cancel_but_a_reused_key_cannot_claim_another_actor_assignment_or_action()
+    {
+        var (workflow, assignment, maker) = Fixture(); var decisions = new List<ApprovalDecision>();
+        var checker = maker with { SubjectId = "checker", Permissions = new HashSet<string> { "source-cancel", "source-approve" } };
+        Assert.True(ApprovalEngine.Cancel(workflow, assignment, checker, "source-cancel", "key", "Withdrawn", decisions, Now).Recorded);
+        Assert.Throws<InvalidOperationException>(() => ApprovalEngine.Cancel(workflow, assignment, maker,
+            "source-cancel", "key", "Withdrawn", decisions, Now));
+        var other = workflow.Stages.Last().Assignments.Single();
+        Assert.Throws<InvalidOperationException>(() => ApprovalEngine.Cancel(workflow, other, checker,
+            "source-cancel", "key", "Withdrawn", decisions, Now));
+        Assert.Throws<InvalidOperationException>(() => ApprovalEngine.Decide(workflow, assignment, checker,
+            "Approve", "key", "Withdrawn", decisions, Now));
+        Assert.Single(decisions);
+    }
+    [Fact]
     public void Maker_with_explicit_permission_cancels_pending_tasks_without_approving_their_own_case()
     {
         var (workflow, assignment, actor) = Fixture(); var decisions = new List<ApprovalDecision>();

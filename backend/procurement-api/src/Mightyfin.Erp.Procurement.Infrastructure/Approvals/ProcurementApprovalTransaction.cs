@@ -132,8 +132,11 @@ public sealed class ProcurementApprovalTransaction
 
         var outcome = await command(procurement, approvals, documents, documentFence, ct);
         if (documents is not null) await documents.SaveChangesAsync(ct);
+        // Payment provenance requires actual Core inserts observed in this transaction,
+        // so the coordinator owns the safe order instead of relying on every callback.
+        if (manualPayments) await approvals.SaveChangesAsync(ct);
         await procurement.SaveChangesAsync(ct);
-        await approvals.SaveChangesAsync(ct);
+        if (!manualPayments) await approvals.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return outcome;
     }

@@ -42,7 +42,7 @@ public sealed record ManualPaymentInvoiceSource(Guid InvoiceId, string TenantId,
 
 public sealed record ManualPaymentDraft(Guid BranchId, Guid InvoiceId, Guid SupplierId,
     string CurrencyCode, decimal Amount, string ApproverPrincipalId, string RecorderPrincipalId,
-    string ConfirmerPrincipalId, string? Purpose);
+    string ConfirmerPrincipalId, string? Purpose, string? Title = null);
 
 public sealed record ManualPaymentRecordedEvidence(DateOnly PaidOn, string ExternalMethod,
     string ExternalReference, decimal Amount, Guid? EvidenceDocumentRefId);
@@ -76,7 +76,7 @@ public static class ManualPaymentWorkflow
             ApproverPrincipalId = draft.ApproverPrincipalId, ApproverCoreLinkedWorkerId = approver.CoreLinkedWorkerId,
             RecorderPrincipalId = draft.RecorderPrincipalId, RecorderCoreLinkedWorkerId = recorder.CoreLinkedWorkerId,
             ConfirmerPrincipalId = draft.ConfirmerPrincipalId, ConfirmerCoreLinkedWorkerId = confirmer.CoreLinkedWorkerId,
-            Purpose = CleanOptional(draft.Purpose, 1000), CreatedAt = now, CreatedBy = actor.PrincipalId,
+            Purpose = CleanOptional(draft.Purpose, 1000), Title = CleanOptional(draft.Title, 200), CreatedAt = now, CreatedBy = actor.PrincipalId,
             Version = 1
         };
         return new(request, Decision(request, "Create", "None", 0, actor, now, newAmount: draft.Amount,
@@ -100,6 +100,7 @@ public static class ManualPaymentWorkflow
         Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, approver.PrincipalId, approver.CoreLinkedWorkerId);
         var next = Copy(current, actor, now);
         next.Amount = draft.Amount;
+        next.Title = CleanOptional(draft.Title ?? current.Title, 200);
         next.ApproverPrincipalId = draft.ApproverPrincipalId;
         next.ApproverCoreLinkedWorkerId = approver.CoreLinkedWorkerId;
         next.RecorderPrincipalId = draft.RecorderPrincipalId;
@@ -256,7 +257,7 @@ public static class ManualPaymentWorkflow
     {
         if (draft.BranchId == Guid.Empty || draft.InvoiceId == Guid.Empty || draft.SupplierId == Guid.Empty
             || !ValidCurrency(draft.CurrencyCode) || !ValidAmount(draft.Amount)
-            || draft.Purpose?.Length > 1000
+            || draft.Purpose?.Length > 1000 || draft.Title?.Length > 200
             || draft.ApproverPrincipalId == actor.PrincipalId
             || draft.RecorderPrincipalId == draft.ConfirmerPrincipalId)
             Fail("ManualPaymentDraftInvalid");
@@ -357,7 +358,7 @@ public static class ManualPaymentWorkflow
         CurrencyCode = current.CurrencyCode, Amount = current.Amount, Status = current.Status,
         CreatorPrincipalId = current.CreatorPrincipalId, CreatorCoreLinkedWorkerId = current.CreatorCoreLinkedWorkerId, ApproverPrincipalId = current.ApproverPrincipalId, ApproverCoreLinkedWorkerId = current.ApproverCoreLinkedWorkerId,
         RecorderPrincipalId = current.RecorderPrincipalId, RecorderCoreLinkedWorkerId = current.RecorderCoreLinkedWorkerId, ConfirmerPrincipalId = current.ConfirmerPrincipalId, ConfirmerCoreLinkedWorkerId = current.ConfirmerCoreLinkedWorkerId,
-        Purpose = current.Purpose, ApprovedAmount = current.ApprovedAmount,
+        Purpose = current.Purpose, Title = current.Title, ApprovedAmount = current.ApprovedAmount,
         ApprovedByPrincipalId = current.ApprovedByPrincipalId, ApprovedByCoreLinkedWorkerId = current.ApprovedByCoreLinkedWorkerId, ApprovedAt = current.ApprovedAt,
         PaidOn = current.PaidOn, ExternalMethod = current.ExternalMethod,
         ExternalReference = current.ExternalReference, RecordedAmount = current.RecordedAmount,

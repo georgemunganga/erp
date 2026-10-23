@@ -22,6 +22,7 @@ public sealed partial class ProcurementDbContext
             foreach (var property in entity.GetProperties().Where(p => p.Name.EndsWith("PrincipalId", StringComparison.Ordinal)))
                 property.SetMaxLength(36);
         request.Property(x => x.Purpose).HasMaxLength(1000);
+        request.Property(x => x.Title).HasMaxLength(200);
         request.Property(x => x.ClosureReason).HasMaxLength(1000);
         request.Property(x => x.ExternalMethod).HasMaxLength(100);
         request.Property(x => x.ExternalReference).HasMaxLength(200);

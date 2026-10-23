@@ -21,6 +21,7 @@ public sealed class ManualPaymentRequest : ProcurementRecord
     public string ConfirmerPrincipalId { get; set; } = null!;
     public Guid? ConfirmerCoreLinkedWorkerId { get; set; }
     public string? Purpose { get; set; }
+    public string? Title { get; set; }
     public decimal? ApprovedAmount { get; set; }
     public string? ApprovedByPrincipalId { get; set; }
     public Guid? ApprovedByCoreLinkedWorkerId { get; set; }

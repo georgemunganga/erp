@@ -185,7 +185,7 @@ public static class ManualPaymentCoreWorkflow
     private static bool Same(ProcurementRecord left, ProcurementRecord right) => left.TenantId == right.TenantId && left.LegalEntityId == right.LegalEntityId;
     private static string Snapshot(ManualPaymentRequest request, ManualPaymentWorkflowCaseLink link) => JsonSerializer.Serialize(new {
         schemaVersion = 1, request.Id, request.TenantId, request.LegalEntityId, request.BranchId, request.SupplierInvoiceId, request.SupplierId,
-        request.CurrencyCode, amount = ProcurementEvidenceEncoding.Decimal(request.Amount), requestPurpose = request.Purpose,
+        request.CurrencyCode, amount = ProcurementEvidenceEncoding.Decimal(request.Amount), requestPurpose = request.Purpose, request.Title,
         request.CreatorPrincipalId, request.CreatorCoreLinkedWorkerId, request.ApproverPrincipalId, request.ApproverCoreLinkedWorkerId,
         request.RecorderPrincipalId, request.RecorderCoreLinkedWorkerId, request.ConfirmerPrincipalId, request.ConfirmerCoreLinkedWorkerId,
         casePurpose = link.Purpose, link.OpenedRequestVersion, link.InvoiceVersionAtOpening,
