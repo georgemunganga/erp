@@ -290,6 +290,25 @@ def capture(fixture, fixture_hash, facts, expected_database):
             "prebrowserSourceCount": len(graphs), "noDownstream": True}
 
 
+# One reviewed capture-compatible predecessor; no arbitrary legacy verifier is accepted.
+# Its only fix was the original PR maker versus RFQ buyer comparison in verify().
+BASELINE_CAPTURE_COMPATIBLE_SHA256 = "7ec81283ab9a5ecfb4ce2e00a90fc5d483b70746085f1a53f19820f29b05b417"
+BASELINE_CAPTURE_CONTRACT_SHA256 = "fcff773cb98f74a3c0aa374395bc463190cd5c5792b48cc492e12fee2f2f0358"
+
+
+def _capture_contract_sha256():
+    import ast
+    nodes = []
+    for node in ast.parse(Path(__file__).read_bytes()).body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in {"verify", "main", "_capture_contract_sha256"}:
+            continue
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in {
+                "BASELINE_CAPTURE_COMPATIBLE_SHA256", "BASELINE_CAPTURE_CONTRACT_SHA256"} for target in node.targets):
+            continue
+        nodes.append(ast.dump(node, include_attributes=False))
+    return hashlib.sha256("\n".join(nodes).encode()).hexdigest()
+
+
 def verify(fixture, fixture_hash, baseline, browser, facts, expected_database, container):
     graphs = private_boundary(fixture, facts, expected_database)
     need(browser.get("schemaVersion") == 2
@@ -324,7 +343,9 @@ def verify(fixture, fixture_hash, baseline, browser, facts, expected_database, c
          and baseline.get("prebrowserSourceCount") == 1 and baseline.get("noDownstream") is True
          and baseline.get("privatePgSystemIdentifier") == SYSTEM_ID
          and baseline.get("privatePgContainerId") == container
-         and baseline.get("verifierSourceSha256") == hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+         and (baseline.get("verifierSourceSha256") == hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+              or baseline.get("verifierSourceSha256") == BASELINE_CAPTURE_COMPATIBLE_SHA256
+              and _capture_contract_sha256() == BASELINE_CAPTURE_CONTRACT_SHA256)
          and all(isinstance(baseline.get(key), int) and baseline[key] > 0
                  for key in ("requestVersion", "lineVersion"))
          and all(isinstance(baseline.get(key), str) and HEX64.fullmatch(baseline[key])
@@ -506,6 +527,8 @@ def main():
         "browserResultSha256": browser_hash, "proxyReceiptSha256": proxy_hash,
         "completionSha256": completion_hash,
         "verifierSourceSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "baselineVerifierSourceSha256": baseline.get("verifierSourceSha256"),
+        "captureContractSha256": _capture_contract_sha256(),
         "readOnlyConsistentPostgresSnapshot": True, "browserResultUnmodified": True,
         "browserProvedByIndependentOwner": result, "externalFinanceAuthority": False,
         "supplierPublished": False, "nativeIdentityProviderVerified": False})
