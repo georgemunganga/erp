@@ -15,6 +15,14 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
     // Verified equal on fresh down/up and retained native P27→P28 PostgreSQL rehearsals.
     // Physical column ordinals are not a named-column API contract; their attributes are.
     internal const string ExpectedFingerprint = "a5e05163346be79ccaee5aa11093e377a9d0a5f86046311759698ca72435e29b";
+    // These are the owning Core reads used by current principal/action resolution,
+    // optional worker aliases, company date and branch-scoped payment lookups.
+    // A finite execution role must be able to read each one individually.
+    internal static readonly string[] RequiredCoreReadTables =
+    [
+        "hrm.local_users", "hrm.tenant_role_assignments", "hrm.hr_user_branch_assignments",
+        "hrm.legal_entities", "hrm.work_locations", "hrm.workers", "hrm.org_units"
+    ];
     internal const string OperationalCheckDefinition = "CHECK (((schema_version = ANY (ARRAY[1, 2])) AND ((policy_key)::text = ANY ((ARRAY['RECEIVING'::character varying, 'INVOICE_MATCHING'::character varying, 'INVOICE_UNIT_REVIEW'::character varying, 'MANUAL_PAYMENT_REVIEW'::character varying])::text[])) AND (((policy_key)::text <> 'MANUAL_PAYMENT_REVIEW'::text) OR (schema_version = 2)) AND (id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_number > 0) AND (policy_record_version_at_action > 0) AND ((actor_worker_id IS NULL) OR (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((schema_version = 2) OR (actor_worker_id IS NOT NULL)) AND ((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND (rules_sha256 IS NOT NULL) AND ((rules_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (evidence_sha256 IS NOT NULL) AND ((evidence_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND isfinite(action_at) AND (created_at = action_at) AND ((created_by)::text = (actor_principal_id)::text) AND (version = 1) AND (updated_at IS NULL) AND (updated_by IS NULL) AND ((((stage)::text = 'Created'::text) AND (policy_record_version_at_action = 1) AND (created_evidence_id IS NULL) AND (created_evidence_stage IS NULL) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Submitted'::text) AND (policy_record_version_at_action > 1) AND (created_evidence_id IS NOT NULL) AND (created_evidence_id <> id) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Published'::text) AND (policy_record_version_at_action > 2) AND (created_evidence_id IS NOT NULL) AND (created_evidence_id <> id) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NOT NULL) AND (submitted_evidence_id <> id) AND (submitted_evidence_id <> created_evidence_id) AND (submitted_evidence_stage IS NOT NULL) AND ((submitted_evidence_stage)::text = 'Submitted'::text)))))";
 
     public async Task<bool> IsReadyAsync(CancellationToken ct)
@@ -53,6 +61,7 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             "NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",
             "NOT has_schema_privilege(current_user,'procurement','CREATE')",
             "NOT has_schema_privilege(current_user,'core_approval','CREATE')",
+            "has_schema_privilege(current_user,'hrm','USAGE')",
             ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql,
             ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
             "NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('procurement','core_approval') AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))"
@@ -71,6 +80,8 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
         foreach (var table in new[] { "procurement.supplier_invoices", "procurement.supplier_credit_note_refs",
             "procurement.finance_payment_status_refs", "procurement.__procurement_migrations",
             "core_approval.\"__EFMigrationsHistory\"", "hrm.__hrm_migrations" })
+            clauses.Add("has_table_privilege(current_user,'" + table + "','SELECT')");
+        foreach (var table in RequiredCoreReadTables)
             clauses.Add("has_table_privilege(current_user,'" + table + "','SELECT')");
         // PostgreSQL invoice SELECT FOR UPDATE needs UPDATE on at least one column.
         clauses.Add("has_any_column_privilege(current_user,'procurement.supplier_invoices','UPDATE')");
