@@ -76,6 +76,27 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
             if (stateExists) throw new InvalidOperationException("PrincipalInvoiceMappingRevisionUnsupported");
             var source = await ProcurementPrincipalInvoiceSourceBridge.LoadAsync(db, cases, scope,
                 branches, invoice, input.PurchaseOrderId, input.PrincipalIssuedVersionId, token);
+            // The exposure owner is one row per immutable issued source, shared by
+            // every invoice against that source. Serialize its creation on the
+            // owning PO before reading history; an absent row is Unknown, not
+            // evidence of zero prior billing.
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.purchase_orders WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={input.PurchaseOrderId} AND branch_ref={invoice.BranchRef} FOR UPDATE", token);
+            var exposure = await db.PrincipalInvoiceExposureStates.IgnoreQueryFilters()
+                .SingleOrDefaultAsync(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                    && x.PurchaseOrderId == input.PurchaseOrderId
+                    && x.PrincipalIssuedVersionId == input.PrincipalIssuedVersionId, token);
+            if (exposure is null)
+                db.AddScoped(new PrincipalInvoiceExposureState
+                {
+                    TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                    PurchaseOrderId = input.PurchaseOrderId,
+                    PrincipalIssuedVersionId = input.PrincipalIssuedVersionId,
+                    SupplierId = invoice.SupplierId, BranchId = invoice.BranchRef!.Value,
+                    CurrencyCode = invoice.CurrencyCode, Sequence = 0, CoverageState = "Unknown"
+                });
+            else if (exposure.SupplierId != invoice.SupplierId || exposure.BranchId != invoice.BranchRef
+                || exposure.CurrencyCode != invoice.CurrencyCode)
+                throw new InvalidOperationException("PrincipalInvoiceExposureSourceChanged");
             await RequireOriginalDocuments(db, scope, http, id, input.Lines, token);
             var originalLines = await db.SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == id && x.IsActive)
                 .OrderBy(x => x.LineNumber).ToArrayAsync(token);
