@@ -30,6 +30,8 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         group.MapPost("/{id:guid}/principal-manual-quotes", PrincipalManualQuoteCreate)
             .RequireAuthorization("procurement-sourcing-submit");
+        group.MapGet("/{id:guid}/principal-manual-quotes", PrincipalManualQuoteList)
+            .RequireAuthorization("procurement-sourcing-submit");
         group.MapGet("/{id:guid}/principal-manual-quotes/{bidId:guid}", PrincipalManualQuoteRead)
             .RequireAuthorization("procurement-sourcing-submit");
         group.MapPut("/{id:guid}/principal-manual-quotes/{bidId:guid}", PrincipalManualQuoteRevise)
@@ -210,6 +212,35 @@ public static partial class ProcurementSourcingExecutionRoutes
         }, ct);
     }
 
+    private static Task<IResult> PrincipalManualQuoteList(Guid id, int? cursor, int? limit,
+        HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
+    {
+        if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
+            return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
+        return Run(http, scope, async (db, _, core, auth, token) =>
+        {
+            await RequirePrincipalPublication(http, db, token);
+            if (id == Guid.Empty || cursor is < 0 or > 1000000 || limit is < 1 or > 50)
+                throw new Problem("SourcingQuoteListInputInvalid", 422);
+            var (actor, _) = await PrincipalQuoteEvent(db, core, scope, http, auth, id, token);
+            var take = limit ?? 25;
+            var skip = cursor ?? 0;
+            var query = db.SupplierBids.AsNoTracking().Where(x => x.SourcingEventId == id
+                && x.SourceChannel == "Manual" && x.SurrogateEnteredBy == actor.PrincipalId);
+            var rows = await query.OrderBy(x => x.Id).Skip(skip).Take(take + 1).ToArrayAsync(token);
+            var page = rows.Take(take).ToArray();
+            var body = JsonSerializer.Serialize(new
+            {
+                items = page.Select(x => new { bidId = x.Id, x.SupplierId, x.InvitationId,
+                    x.Status, x.CurrencyCode, bidVersion = x.Version, x.DraftRevision,
+                    supplierSubmitted = false }),
+                nextCursor = rows.Length > take ? skip + take : (int?)null,
+                hasMore = rows.Length > take,
+            }, Json);
+            return new Reply(body);
+        }, ct);
+    }
+
     private static Task<IResult> PrincipalManualQuoteRevise(Guid id, Guid bidId,
         PrincipalManualQuoteReviseInput input, HttpContext http, ProcurementRequestScope scope,
         CancellationToken ct) => PrincipalManualQuoteWrite(id, bidId, input.ExpectedBidVersion,
@@ -267,6 +298,10 @@ public static partial class ProcurementSourcingExecutionRoutes
                 throw new Problem("SourcingQuoteEvidenceChanged", 409);
             if (operation == "Revise")
             {
+                var supplier = await db.Suppliers.Include(x => x.Qualifications)
+                    .SingleOrDefaultAsync(x => x.Id == bid.SupplierId, token);
+                if (supplier is null || !SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow))
+                    throw new Problem("SourcingSupplierUnavailable", 409);
                 if (inputLines!.Length != lines.Length
                     || !inputLines.Select(x => x.SourcingLineId).ToHashSet()
                         .SetEquals(lines.Select(x => x.SourcingLineId)))
