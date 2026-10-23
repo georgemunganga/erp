@@ -23,13 +23,15 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
 internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false,
-    bool principalRfqProfile=false)
+    bool principalRfqProfile=false,bool principalPoProfile=false)
 {
     internal bool PrincipalRfqProfile=>principalRfqProfile;
+    internal bool PrincipalPoProfile=>principalPoProfile;
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
-    internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid(),Buyer=Guid.NewGuid();
-    internal Guid[] Subjects=>principalRfqProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer]
+    internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid(),Buyer=Guid.NewGuid(),PoFinance=Guid.NewGuid(),PoApprover=Guid.NewGuid(),PoAck=Guid.NewGuid();
+    internal Guid[] Subjects=>principalPoProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer,PoFinance,PoApprover,PoAck]
+        :principalRfqProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer]
         :[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted];
     internal PrincipalScope Scope=>new(Company,Branch,Maker);
     internal HrmDbContext Core()=>new(new DbContextOptionsBuilder<HrmDbContext>().UseNpgsql(owner,n=>n.MigrationsHistoryTable("__hrm_migrations","hrm")).Options,new PrincipalTenant());
@@ -57,10 +59,16 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                     +(legacyWorkerProfile?",procurement-authority-read,procurement-authority-review":"")),
                 (Approver,"p25_custom_approver","procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide"),
                 (ConfigMaker,"p25_config_maker","procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-authority-read,procurement-authority-configure"
+                    +(principalPoProfile?",procurement-vendor-create,procurement-vendor-edit":"")
                     + (browserBuyerProfile ? ",procurement-policy-evaluate,procurement-request-read" : "")),
-                (ConfigReviewer,"p25_config_reviewer","procurement-access,procurement-configuration-read,procurement-configuration-approve,procurement-authority-read,procurement-authority-review"),
-                (Ungranted,"p25_ungranted","")}.Concat(principalRfqProfile
-                ?new[]{(Buyer,"p29_rfq_buyer","procurement-access,procurement-sourcing-convert,procurement-sourcing-cancel")}
+                (ConfigReviewer,"p25_config_reviewer","procurement-access,procurement-configuration-read,procurement-configuration-approve,procurement-authority-read,procurement-authority-review"
+                    +(principalPoProfile?",procurement-vendor-approve,procurement-po-finance-confirm":"")),
+                (Ungranted,"p25_ungranted","")}.Concat(principalPoProfile
+                ?new[]{(Buyer,"p30_po_buyer","procurement-access,procurement-po-convert,procurement-po-read,procurement-po-edit,procurement-po-submit,procurement-po-issue"),
+                    (PoFinance,"p30_po_finance","procurement-access,procurement-po-finance-confirm"),
+                    (PoApprover,"p30_po_approver","procurement-access,procurement-po-approve"),
+                    (PoAck,"p30_po_ack","procurement-access,procurement-po-dispatch-confirm")}
+                :principalRfqProfile?new[]{(Buyer,"p29_rfq_buyer","procurement-access,procurement-sourcing-convert,procurement-sourcing-cancel")}
                 :Array.Empty<(Guid,string,string)>());
             foreach(var (id,role,actions) in people)
             {
@@ -98,6 +106,12 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:SourcingDrafts:Enabled"]="true";
             settings["Procurement:SourcingDrafts:PrincipalSourceEnabled"]="true";
         }
+        if(fixture.PrincipalPoProfile)
+        {
+            settings["Procurement:PrincipalDirectOrderDrafts:Enabled"]="true";
+            settings["Procurement:Orders:Enabled"]="true";
+            settings["Procurement:Orders:PrincipalExecutionEnabled"]="true";
+        }
         return settings;
     }
     internal void PrepareEntryPointEnvironment()
@@ -122,6 +136,16 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
                     ApprovedPolicyReference=PrincipalApprovalHttpVerification.PrivateManualPolicyReference,
                     EffectiveFrom=DateTimeOffset.UtcNow.AddMinutes(-1),EffectiveUntil=DateTimeOffset.UtcNow.AddHours(1),EvidenceMaximumAgeMinutes=30}]
                 : [];
+            if(fixture.PrincipalPoProfile)
+            {
+                var order=services.Last(x=>x.ServiceType==typeof(ProcurementOrderExecutionOptions)).ImplementationInstance as ProcurementOrderExecutionOptions
+                    ??throw new InvalidOperationException("Expected normal composed order options instance.");
+                order.ManualCommitmentPolicies=[new ProcurementManualFinancePolicy{Enabled=true,LegalEntityId=fixture.Company,
+                    ApprovedPolicyReference="PRIVATE-P30-MANUAL-COMMITMENT-NOT-FINANCE-POSTING",
+                    EffectiveFrom=DateTimeOffset.UtcNow.AddMinutes(-1),EffectiveUntil=DateTimeOffset.UtcNow.AddHours(1),EvidenceMaximumAgeMinutes=30}];
+                order.ApprovedManualDispatchPolicyReference="PRIVATE-P30-OBSERVED-SUPPLIER-RESPONSE";
+                order.AllowedDeliveryChannels=["ManualRecord"];
+            }
 
             // Normal-cookie opt-in keeps Program's real local scheme untouched.
             // Existing callers retain the explicitly private subject substitution.

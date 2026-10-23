@@ -64,6 +64,27 @@ internal static class PrincipalApprovalRuntimePrivileges
             foreach(var table in new[]{"sourcing_draft_evidence","sourcing_demand_bindings","sourcing_command_receipts"})
                 await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
         }
+        if(fixture.PrincipalPoProfile)
+        {
+            // P30 profile alone: vendor master setup uses the record role; the
+            // execution role may write only owned PO/source/receipt evidence.
+            foreach(var table in new[]{"suppliers","supplier_contacts","supplier_qualifications","supplier_decisions","procurement_methods"})
+                await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            foreach(var table in new[]{"suppliers","supplier_qualifications","procurement_methods","catalog_items","catalog_entries",
+                "purchase_orders","purchase_order_lines","principal_order_source_bindings","principal_order_draft_receipts",
+                "principal_order_funding_evidence","principal_order_submissions","principal_order_assignments",
+                "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
+                "principal_order_release_requests","principal_order_release_confirmations","purchase_request_allocations",
+                "purchase_request_approval_submissions","purchase_request_approval_outcomes","budget_check_snapshots"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"purchase_orders","purchase_order_lines","purchase_request_allocations"})
+                await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"principal_order_source_bindings","principal_order_draft_receipts",
+                "principal_order_funding_evidence","principal_order_submissions","principal_order_assignments",
+                "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
+                "principal_order_release_requests","principal_order_release_confirmations"})
+                await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
         await using var core=fixture.Core();var coreModel=core.GetService<IDesignTimeModel>().Model;
         // Explicit bounded read manifest for actual current-account/grant/branch/optional-manager queries.
         var reads=new Dictionary<Type,string[]> {
