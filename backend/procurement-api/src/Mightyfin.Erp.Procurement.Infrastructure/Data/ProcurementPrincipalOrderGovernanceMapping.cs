@@ -40,7 +40,7 @@ public sealed partial class ProcurementDbContext
         funding.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.CommercialRevision}).IsUnique();
         Link<PrincipalOrderFundingEvidence,PurchaseOrder>(model,nameof(PrincipalOrderFundingEvidence.PurchaseOrderId));
         funding.ToTable(t=>t.HasCheckConstraint("ck_principal_order_funding",
-            "schema_version=2 AND commercial_revision=1 AND attested_gross_amount>=0 AND length(btrim(manual_commitment_reference))>0 AND length(btrim(external_evidence_reference))>0 AND length(btrim(approved_manual_policy_reference))>0 AND currency_code ~ '^[A-Z]{3}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND recorded_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+            "schema_version=2 AND commercial_revision=1 AND attested_gross_amount>=0 AND length(btrim(manual_commitment_reference))>0 AND length(btrim(external_evidence_reference))>0 AND length(btrim(approved_manual_policy_reference))>0 AND currency_code ~ '^[A-Z]{3}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND recorded_by_principal_id IS NOT NULL AND recorded_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND recorded_by_principal_id <> '00000000-0000-0000-0000-000000000000' AND (buyer_worker_alias_id IS NULL OR buyer_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (recorded_by_worker_alias_id IS NULL OR recorded_by_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
         var submission=model.Entity<PrincipalOrderSubmission>();
         submission.Property(x=>x.BuyerPrincipalId).HasMaxLength(36);
         submission.Property(x=>x.CurrencyCode).HasMaxLength(3);
@@ -57,7 +57,7 @@ public sealed partial class ProcurementDbContext
         Link<PrincipalOrderSubmission,PrincipalOrderFundingEvidence>(model,nameof(PrincipalOrderSubmission.FundingEvidenceId));
         Link<PrincipalOrderSubmission,PolicyVersion>(model,nameof(PrincipalOrderSubmission.PolicyVersionId));
         submission.ToTable(t=>t.HasCheckConstraint("ck_principal_order_submission",
-            "schema_version=2 AND commercial_revision=1 AND submitted_row_version>1 AND policy_version_number>0 AND line_base_amount>0 AND gross_amount>=line_base_amount AND currency_code ~ '^[A-Z]{3}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 ~ '^[0-9a-f]{64}$' AND buyer_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+            "schema_version=2 AND commercial_revision=1 AND submitted_row_version>1 AND policy_version_number>0 AND line_base_amount>0 AND gross_amount>=line_base_amount AND currency_code ~ '^[A-Z]{3}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 ~ '^[0-9a-f]{64}$' AND buyer_principal_id IS NOT NULL AND buyer_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND buyer_principal_id <> '00000000-0000-0000-0000-000000000000' AND (buyer_worker_alias_id IS NULL OR buyer_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
         var assignment=model.Entity<PrincipalOrderAssignmentEvidence>();
         assignment.Property(x=>x.PrincipalId).HasMaxLength(36);
         assignment.Property(x=>x.AuthorityEvidenceSha256).HasMaxLength(64);
@@ -65,7 +65,7 @@ public sealed partial class ProcurementDbContext
         Link<PrincipalOrderAssignmentEvidence,PrincipalOrderSubmission>(model,nameof(PrincipalOrderAssignmentEvidence.SubmissionId));
         Link<PrincipalOrderAssignmentEvidence,ProcurementSpendingAuthorityGrant>(model,nameof(PrincipalOrderAssignmentEvidence.GrantId));
         assignment.ToTable(t=>t.HasCheckConstraint("ck_principal_order_assignment",
-            "schema_version=2 AND grant_revision>0 AND authority_version>0 AND authority_evidence_sha256 ~ '^[0-9a-f]{64}$' AND principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+            "schema_version=2 AND grant_revision>0 AND authority_version>0 AND authority_evidence_sha256 ~ '^[0-9a-f]{64}$' AND principal_id IS NOT NULL AND principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND principal_id <> '00000000-0000-0000-0000-000000000000' AND (worker_alias_id IS NULL OR worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
         var decision=model.Entity<PrincipalOrderDecisionEvidence>();
         decision.Property(x=>x.ActorPrincipalId).HasMaxLength(36);
         decision.Property(x=>x.Action).HasMaxLength(20);
@@ -73,7 +73,7 @@ public sealed partial class ProcurementDbContext
         decision.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CoreDecisionId}).IsUnique();
         Link<PrincipalOrderDecisionEvidence,PrincipalOrderSubmission>(model,nameof(PrincipalOrderDecisionEvidence.SubmissionId));
         decision.ToTable(t=>t.HasCheckConstraint("ck_principal_order_decision",
-            "schema_version=2 AND action IN ('Approve','Return','Reject') AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND (action='Approve' OR (reason IS NOT NULL AND length(btrim(reason))>0))"));
+            "schema_version=2 AND action IN ('Approve','Return','Reject') AND actor_principal_id IS NOT NULL AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND (action='Approve' OR (reason IS NOT NULL AND length(btrim(reason))>0)) AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
         var issued=model.Entity<PrincipalOrderIssuedVersion>();
         issued.Property(x=>x.CommercialSnapshotJson).HasColumnType("text");
         issued.Property(x=>x.CommercialSnapshotSha256).HasMaxLength(64);
@@ -85,7 +85,7 @@ public sealed partial class ProcurementDbContext
         Link<PrincipalOrderIssuedVersion,PrincipalOrderSubmission>(model,nameof(PrincipalOrderIssuedVersion.SubmissionId));
         Link<PrincipalOrderIssuedVersion,PrincipalOrderFundingEvidence>(model,nameof(PrincipalOrderIssuedVersion.FundingEvidenceId));
         issued.ToTable(t=>t.HasCheckConstraint("ck_principal_order_issued",
-            "schema_version=2 AND commercial_revision=1 AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND length(btrim(manual_commitment_reference))>0 AND authorized_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+            "schema_version=2 AND commercial_revision=1 AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND length(btrim(manual_commitment_reference))>0 AND authorized_by_principal_id IS NOT NULL AND authorized_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND authorized_by_principal_id <> '00000000-0000-0000-0000-000000000000' AND (authorized_by_worker_alias_id IS NULL OR authorized_by_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
         var acknowledgment=model.Entity<PrincipalOrderAcknowledgment>();
         acknowledgment.Property(x=>x.Outcome).HasMaxLength(20);
         acknowledgment.Property(x=>x.Channel).HasMaxLength(80);
@@ -96,7 +96,7 @@ public sealed partial class ProcurementDbContext
         Link<PrincipalOrderAcknowledgment,PrincipalOrderIssuedVersion>(model,nameof(PrincipalOrderAcknowledgment.IssuedVersionId));
         Link<PrincipalOrderAcknowledgment,PurchaseOrder>(model,nameof(PrincipalOrderAcknowledgment.PurchaseOrderId));
         acknowledgment.ToTable(t=>t.HasCheckConstraint("ck_principal_order_acknowledgment",
-            "schema_version=2 AND outcome IN ('Accepted','Rejected','Unknown') AND length(btrim(channel))>0 AND length(btrim(supplier_reference))>0 AND length(btrim(evidence_reference))>0 AND recorded_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+            "schema_version=2 AND outcome IN ('Accepted','Rejected','Unknown') AND length(btrim(channel))>0 AND length(btrim(supplier_reference))>0 AND length(btrim(evidence_reference))>0 AND recorded_by_principal_id IS NOT NULL AND recorded_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND recorded_by_principal_id <> '00000000-0000-0000-0000-000000000000' AND (recorded_by_worker_alias_id IS NULL OR recorded_by_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
     }
 
     private void ConfigurePrincipalOrderRelease(ModelBuilder model)
@@ -110,7 +110,7 @@ public sealed partial class ProcurementDbContext
         Link<PrincipalOrderReleaseRequest,PurchaseOrder>(model,nameof(PrincipalOrderReleaseRequest.PurchaseOrderId));
         Link<PrincipalOrderReleaseRequest,PrincipalOrderFundingEvidence>(model,nameof(PrincipalOrderReleaseRequest.FundingEvidenceId));
         request.ToTable(t=>t.HasCheckConstraint("ck_principal_order_release_request",
-            "schema_version=2 AND ((original_status='Draft' AND commercial_revision=0) OR (original_status IN ('Returned','Rejected') AND commercial_revision=1)) AND requested_order_version>0 AND length(btrim(reason))>0 AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND requested_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+            "schema_version=2 AND ((original_status='Draft' AND commercial_revision=0) OR (original_status IN ('Returned','Rejected') AND commercial_revision=1)) AND requested_order_version>0 AND length(btrim(reason))>0 AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND requested_by_principal_id IS NOT NULL AND requested_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND requested_by_principal_id <> '00000000-0000-0000-0000-000000000000' AND (requested_by_worker_alias_id IS NULL OR requested_by_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
         var confirmation=model.Entity<PrincipalOrderReleaseConfirmation>();
         confirmation.Property(x=>x.ManualCommitmentReference).HasMaxLength(200);
         confirmation.Property(x=>x.ExternalReleaseEvidenceReference).HasMaxLength(500);
@@ -124,7 +124,7 @@ public sealed partial class ProcurementDbContext
         Link<PrincipalOrderReleaseConfirmation,PrincipalOrderReleaseRequest>(model,nameof(PrincipalOrderReleaseConfirmation.ReleaseRequestId));
         Link<PrincipalOrderReleaseConfirmation,PrincipalOrderFundingEvidence>(model,nameof(PrincipalOrderReleaseConfirmation.FundingEvidenceId));
         confirmation.ToTable(t=>t.HasCheckConstraint("ck_principal_order_release_confirmation",
-            "schema_version=2 AND released_gross_amount>=0 AND currency_code ~ '^[A-Z]{3}$' AND length(btrim(manual_commitment_reference))>0 AND length(btrim(external_release_evidence_reference))>0 AND length(btrim(approved_manual_policy_reference))>0 AND confirmed_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
+            "schema_version=2 AND released_gross_amount>=0 AND currency_code ~ '^[A-Z]{3}$' AND length(btrim(manual_commitment_reference))>0 AND length(btrim(external_release_evidence_reference))>0 AND length(btrim(approved_manual_policy_reference))>0 AND confirmed_by_principal_id IS NOT NULL AND confirmed_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND confirmed_by_principal_id <> '00000000-0000-0000-0000-000000000000' AND (confirmed_by_worker_alias_id IS NULL OR confirmed_by_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)"));
     }
 
     private void GuardPrincipalOrderGovernance()
