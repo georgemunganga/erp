@@ -21,14 +21,17 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     || x.PurchaseRequestId==Guid.Empty || x.PurchaseRequestLineId==Guid.Empty || x.ExpectedRequestVersion<1)
                 || input.Sources.Select(x=>x.PurchaseRequestLineId).Distinct().Count()!=input.Sources.Count
                 || input.Draft.Lines.Any(x=>x.Id is not null))throw new Problem("OrderSourceSelectionInvalid",422);
-            var draft=input.Draft with{CurrencyCode=string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
-                ?await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core,scope,token):input.Draft.CurrencyCode};
-            if(ProcurementOrderDraftRoutes.Validate(draft) is not null)throw new Problem("OrderDraftInvalid",422);
             var actor=await Actor(core,scope,http,auth,"procurement-po-convert",null,false,token);
-            var fingerprint=Fingerprint(new{schemaVersion=2,operation="Create",actor=actor.PrincipalId,draft,
+            // The command fingerprint covers the submitted bytes before a mutable Core
+            // company currency default is resolved. A historical same-key result remains
+            // recoverable if that default later changes.
+            var fingerprint=Fingerprint(new{schemaVersion=2,operation="Create",actor=actor.PrincipalId,draft=input.Draft,
                 sources=input.Sources.OrderBy(x=>x.DraftLineIndex).ToArray()});
             if(await Replay(db,core,scope,http,auth,"procurement-po-convert","Create",key,fingerprint,null,token) is { } prior)
                 return prior;
+            var draft=input.Draft with{CurrencyCode=string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
+                ?await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core,scope,token):input.Draft.CurrencyCode};
+            if(ProcurementOrderDraftRoutes.Validate(draft) is not null)throw new Problem("OrderDraftInvalid",422);
             foreach(var requestId in input.Sources.Select(x=>x.PurchaseRequestId).Distinct().Order())
                 await ProcurementApprovalExecutionLocks.LockRequestAsync(db,scope,requestId,token);
             var order=new PurchaseOrder{Number="PO-"+Guid.CreateVersion7().ToString("N"),
