@@ -32,6 +32,133 @@ public sealed class ManualPaymentWorkflowTests
         Assert.Equal("Approved", approved.Request.Status); // Pure transitions do not mutate prior states.
     }
 
+    [Fact]
+    public void Confirmation_checks_both_assigned_and_actual_recorder_evidence_after_a_link_changes()
+    {
+        var f = new Fixture(); var oldRecorder = Guid.NewGuid(); var currentRecorder = Guid.NewGuid();
+        var draft = f.Create(recorder: f.Assignee(f.Recorder.PrincipalId, "record") with { CoreLinkedWorkerId = oldRecorder }).Request;
+        var submitted = ManualPaymentWorkflow.Submit(draft, 1, f.Creator, f.Source, f.Now).Request;
+        var approved = ManualPaymentWorkflow.Approve(submitted, 2, f.Approver, f.Source, f.Now).Request;
+        var recorded = ManualPaymentWorkflow.Record(approved, 3, f.Recorder with { CoreLinkedWorkerId = currentRecorder },
+            f.Source, f.Evidence(), f.BusinessDate, f.Now).Request;
+        Assert.Equal(oldRecorder, recorded.RecorderCoreLinkedWorkerId);
+        Assert.Equal(currentRecorder, recorded.RecordedByCoreLinkedWorkerId);
+        Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Confirm(recorded, 4,
+            f.Confirmer with { CoreLinkedWorkerId = oldRecorder }, f.BusinessDate, f.Now));
+    }
+
+    [Theory]
+    [InlineData("approval")]
+    [InlineData("confirmation")]
+    public void Distinct_accounts_with_the_same_known_Core_person_cannot_be_assigned_as_independent(string pair)
+    {
+        var f = new Fixture(); var worker = Guid.NewGuid();
+        var approver = f.Assignee(f.Approver.PrincipalId, "approve");
+        var recorder = f.Assignee(f.Recorder.PrincipalId, "record");
+        var confirmer = f.Assignee(f.Confirmer.PrincipalId, "confirm");
+        var creator = f.Creator;
+        if (pair == "approval") { creator = creator with { CoreLinkedWorkerId = worker }; approver = approver with { CoreLinkedWorkerId = worker }; }
+        else { recorder = recorder with { CoreLinkedWorkerId = worker }; confirmer = confirmer with { CoreLinkedWorkerId = worker }; }
+        Assert.Throws<InvalidOperationException>(() => f.Create(approver, recorder, confirmer, creator));
+    }
+
+    [Fact]
+    public void Optional_Core_links_are_pinned_without_requiring_active_employment_and_survive_all_transitions()
+    {
+        var f = new Fixture(); var makerLink = Guid.NewGuid(); var approvalLink = Guid.NewGuid();
+        var recordLink = Guid.NewGuid(); var confirmLink = Guid.NewGuid();
+        var maker = f.Creator with { CoreLinkedWorkerId = makerLink };
+        var created = f.Create(f.Assignee(f.Approver.PrincipalId, "approve") with { CoreLinkedWorkerId = approvalLink },
+            f.Assignee(f.Recorder.PrincipalId, "record") with { CoreLinkedWorkerId = recordLink },
+            f.Assignee(f.Confirmer.PrincipalId, "confirm") with { CoreLinkedWorkerId = confirmLink }, maker);
+        Assert.Equal(makerLink, created.Decision.ActorCoreLinkedWorkerId);
+        Assert.Equal(approvalLink, created.Decision.NewApproverCoreLinkedWorkerId);
+        var submitted = ManualPaymentWorkflow.Submit(created.Request, 1, maker, f.Source, f.Now);
+        var approved = ManualPaymentWorkflow.Approve(submitted.Request, 2,
+            f.Approver with { CoreLinkedWorkerId = approvalLink }, f.Source, f.Now);
+        var recorded = ManualPaymentWorkflow.Record(approved.Request, 3,
+            f.Recorder with { CoreLinkedWorkerId = recordLink }, f.Source, f.Evidence(), f.BusinessDate, f.Now);
+        var confirmed = ManualPaymentWorkflow.Confirm(recorded.Request, 4,
+            f.Confirmer with { CoreLinkedWorkerId = confirmLink }, f.BusinessDate, f.Now);
+        Assert.Equal(makerLink, confirmed.Request.CreatorCoreLinkedWorkerId);
+        Assert.Equal(approvalLink, confirmed.Request.ApprovedByCoreLinkedWorkerId);
+        Assert.Equal(recordLink, confirmed.Request.RecordedByCoreLinkedWorkerId);
+        Assert.Equal(confirmLink, confirmed.Request.ConfirmedByCoreLinkedWorkerId);
+        Assert.Equal(confirmLink, confirmed.Decision.ActorCoreLinkedWorkerId);
+        Assert.Equal("Draft", created.Request.Status);
+    }
+
+    [Theory]
+    [InlineData("approve")][InlineData("return")][InlineData("reject")]
+    public void Retained_creator_link_denies_a_newly_colliding_approval_actor(string action)
+    {
+        var f = new Fixture(); var worker = Guid.NewGuid();
+        var draft = f.Create(creator: f.Creator with { CoreLinkedWorkerId = worker }).Request;
+        var submitted = ManualPaymentWorkflow.Submit(draft, 1, f.Creator, f.Source, f.Now).Request;
+        var alias = f.Approver with { CoreLinkedWorkerId = worker };
+        Assert.Throws<InvalidOperationException>(() => action switch {
+            "approve" => ManualPaymentWorkflow.Approve(submitted, 2, alias, f.Source, f.Now),
+            "return" => ManualPaymentWorkflow.Return(submitted, 2, alias, "Correction", f.Now),
+            _ => ManualPaymentWorkflow.Reject(submitted, 2, alias, "Rejected", f.Now)
+        });
+        Assert.Equal("PendingApproval", submitted.Status); Assert.Equal(2, submitted.Version);
+    }
+
+    [Fact]
+    public void Reassigning_a_draft_keeps_original_creator_evidence_and_records_assignment_link_changes()
+    {
+        var f = new Fixture(); var makerLink = Guid.NewGuid(); var oldLink = Guid.NewGuid(); var newLink = Guid.NewGuid();
+        var original = f.Create(approver: f.Assignee(f.Approver.PrincipalId, "approve") with { CoreLinkedWorkerId = oldLink },
+            creator: f.Creator with { CoreLinkedWorkerId = makerLink }).Request;
+        var revised = ManualPaymentWorkflow.Revise(original, 1, f.Draft, f.Creator,
+            f.Assignee(f.Approver.PrincipalId, "approve") with { CoreLinkedWorkerId = newLink },
+            f.Assignee(f.Recorder.PrincipalId, "record"), f.Assignee(f.Confirmer.PrincipalId, "confirm"), f.Source, f.Now);
+        Assert.Equal(makerLink, revised.Request.CreatorCoreLinkedWorkerId);
+        Assert.Equal(oldLink, revised.Decision.PreviousApproverCoreLinkedWorkerId);
+        Assert.Equal(newLink, revised.Decision.NewApproverCoreLinkedWorkerId);
+        Assert.Equal(oldLink, original.ApproverCoreLinkedWorkerId);
+        Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Revise(original, 1, f.Draft, f.Creator,
+            f.Assignee(f.Approver.PrincipalId, "approve") with { CoreLinkedWorkerId = makerLink },
+            f.Assignee(f.Recorder.PrincipalId, "record"), f.Assignee(f.Confirmer.PrincipalId, "confirm"), f.Source, f.Now));
+    }
+
+    [Theory]
+    [InlineData("confirm")][InlineData("dispute")]
+    public void Recorded_person_evidence_blocks_a_different_account_linked_to_the_recorder(string action)
+    {
+        var f = new Fixture(); var worker = Guid.NewGuid();
+        var recorded = ManualPaymentWorkflow.Record(f.Approved(), 3,
+            f.Recorder with { CoreLinkedWorkerId = worker }, f.Source, f.Evidence(), f.BusinessDate, f.Now).Request;
+        var alias = f.Confirmer with { CoreLinkedWorkerId = worker };
+        Assert.Throws<InvalidOperationException>(() => action == "confirm"
+            ? ManualPaymentWorkflow.Confirm(recorded, 4, alias, f.BusinessDate, f.Now)
+            : ManualPaymentWorkflow.Dispute(recorded, 4, alias, "Check reference", f.Now));
+        Assert.Equal(worker, recorded.RecordedByCoreLinkedWorkerId);
+        Assert.Equal("PaymentRecorded", recorded.Status);
+    }
+
+    [Fact]
+    public void Recording_denies_a_person_who_has_become_the_assigned_confirmer_alias()
+    {
+        var f = new Fixture(); var worker = Guid.NewGuid();
+        var draft = f.Create(confirmer: f.Assignee(f.Confirmer.PrincipalId, "confirm") with { CoreLinkedWorkerId = worker }).Request;
+        var submitted = ManualPaymentWorkflow.Submit(draft, 1, f.Creator, f.Source, f.Now).Request;
+        var approved = ManualPaymentWorkflow.Approve(submitted, 2, f.Approver, f.Source, f.Now).Request;
+        Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Record(approved, 3,
+            f.Recorder with { CoreLinkedWorkerId = worker }, f.Source, f.Evidence(), f.BusinessDate, f.Now));
+        Assert.Null(approved.RecordedByPrincipalId);
+    }
+
+    [Fact]
+    public void Empty_optional_Core_link_is_corrupt_evidence_rather_than_an_unlinked_account()
+    {
+        var f = new Fixture();
+        Assert.Throws<InvalidOperationException>(() => f.Create(creator: f.Creator with { CoreLinkedWorkerId = Guid.Empty }));
+        Assert.Throws<InvalidOperationException>(() => f.Create(approver: f.Assignee(f.Approver.PrincipalId, "approve") with { CoreLinkedWorkerId = Guid.Empty }));
+        var draft = f.Create().Request; draft.CreatorCoreLinkedWorkerId = Guid.Empty;
+        Assert.Throws<InvalidOperationException>(() => ManualPaymentWorkflow.Submit(draft, 1, f.Creator, f.Source, f.Now));
+    }
+
     [Theory]
     [InlineData("tenant")][InlineData("company")][InlineData("branch")]
     [InlineData("selected")][InlineData("grant")][InlineData("inactive")]
@@ -301,8 +428,8 @@ public sealed class ManualPaymentWorkflowTests
             "tenant", Company, new HashSet<Guid> { Branch },
             new HashSet<string> { "procurement-payment-" + action }, true);
         public ManualPaymentChange Create(ManualPaymentAssignee? approver = null,
-            ManualPaymentAssignee? recorder = null, ManualPaymentAssignee? confirmer = null) =>
-            ManualPaymentWorkflow.Create(Draft, Creator,
+            ManualPaymentAssignee? recorder = null, ManualPaymentAssignee? confirmer = null, ManualPaymentActor? creator = null) =>
+            ManualPaymentWorkflow.Create(Draft, creator ?? Creator,
                 approver ?? Assignee(Approver.PrincipalId, "approve"),
                 recorder ?? Assignee(Recorder.PrincipalId, "record"),
                 confirmer ?? Assignee(Confirmer.PrincipalId, "confirm"), Source, Now);

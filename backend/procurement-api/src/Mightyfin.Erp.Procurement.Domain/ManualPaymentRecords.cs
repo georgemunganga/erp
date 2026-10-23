@@ -13,20 +13,27 @@ public sealed class ManualPaymentRequest : ProcurementRecord
     public decimal Amount { get; set; }
     public string Status { get; set; } = "Draft";
     public string CreatorPrincipalId { get; set; } = null!;
+    public Guid? CreatorCoreLinkedWorkerId { get; set; }
     public string ApproverPrincipalId { get; set; } = null!;
+    public Guid? ApproverCoreLinkedWorkerId { get; set; }
     public string RecorderPrincipalId { get; set; } = null!;
+    public Guid? RecorderCoreLinkedWorkerId { get; set; }
     public string ConfirmerPrincipalId { get; set; } = null!;
+    public Guid? ConfirmerCoreLinkedWorkerId { get; set; }
     public string? Purpose { get; set; }
     public decimal? ApprovedAmount { get; set; }
     public string? ApprovedByPrincipalId { get; set; }
+    public Guid? ApprovedByCoreLinkedWorkerId { get; set; }
     public DateTimeOffset? ApprovedAt { get; set; }
     public DateOnly? PaidOn { get; set; }
     public string? ExternalMethod { get; set; }
     public string? ExternalReference { get; set; }
     public decimal? RecordedAmount { get; set; }
     public string? RecordedByPrincipalId { get; set; }
+    public Guid? RecordedByCoreLinkedWorkerId { get; set; }
     public DateTimeOffset? RecordedAt { get; set; }
     public string? ConfirmedByPrincipalId { get; set; }
+    public Guid? ConfirmedByCoreLinkedWorkerId { get; set; }
     public DateTimeOffset? ConfirmedAt { get; set; }
     public Guid? EvidenceDocumentRefId { get; set; }
     public string? ClosureReason { get; set; }
@@ -43,6 +50,7 @@ public sealed class ManualPaymentDecision : ProcurementRecord
     public long FromVersion { get; set; }
     public long ToVersion { get; set; }
     public string ActorPrincipalId { get; set; } = null!;
+    public Guid? ActorCoreLinkedWorkerId { get; set; }
     public DateTimeOffset OccurredAt { get; set; }
     public string? Reason { get; set; }
     public decimal? PreviousAmount { get; set; }
@@ -50,10 +58,16 @@ public sealed class ManualPaymentDecision : ProcurementRecord
     public decimal? RecordedAmount { get; set; }
     public string? PreviousApproverPrincipalId { get; set; }
     public string? NewApproverPrincipalId { get; set; }
+    public Guid? PreviousApproverCoreLinkedWorkerId { get; set; }
+    public Guid? NewApproverCoreLinkedWorkerId { get; set; }
     public string? PreviousRecorderPrincipalId { get; set; }
     public string? NewRecorderPrincipalId { get; set; }
+    public Guid? PreviousRecorderCoreLinkedWorkerId { get; set; }
+    public Guid? NewRecorderCoreLinkedWorkerId { get; set; }
     public string? PreviousConfirmerPrincipalId { get; set; }
     public string? NewConfirmerPrincipalId { get; set; }
+    public Guid? PreviousConfirmerCoreLinkedWorkerId { get; set; }
+    public Guid? NewConfirmerCoreLinkedWorkerId { get; set; }
     public DateOnly? PaidOn { get; set; }
     public string? ExternalMethod { get; set; }
     public string? ExternalReference { get; set; }

@@ -8,11 +8,19 @@ namespace Mightyfin.Erp.Procurement.Application;
 /// The API adapter must resolve this afresh for every command.
 /// </summary>
 public sealed record ManualPaymentActor(string PrincipalId, string TenantId, Guid LegalEntityId,
-    Guid? EffectiveBranchId, IReadOnlySet<Guid> AllowedBranchIds, IReadOnlySet<string> Actions, bool IsActive);
+    Guid? EffectiveBranchId, IReadOnlySet<Guid> AllowedBranchIds, IReadOnlySet<string> Actions, bool IsActive)
+{
+    /// <summary>Optional denial-only Core link; never an employment/access requirement.</summary>
+    public Guid? CoreLinkedWorkerId { get; init; }
+}
 
 /// <summary>Trusted current Core assignment candidate, never a browser-supplied authority assertion.</summary>
 public sealed record ManualPaymentAssignee(string PrincipalId, string TenantId, Guid LegalEntityId,
-    IReadOnlySet<Guid> AllowedBranchIds, IReadOnlySet<string> Actions, bool IsActive);
+    IReadOnlySet<Guid> AllowedBranchIds, IReadOnlySet<string> Actions, bool IsActive)
+{
+    /// <summary>Optional denial-only Core link; never an employment/access requirement.</summary>
+    public Guid? CoreLinkedWorkerId { get; init; }
+}
 
 /// <summary>
 /// Locked owning-store invoice/capacity read. RemainingExcludingThisRequest includes all other
@@ -58,8 +66,10 @@ public static class ManualPaymentWorkflow
             TenantId = actor.TenantId, LegalEntityId = actor.LegalEntityId, BranchId = draft.BranchId,
             SupplierInvoiceId = draft.InvoiceId, SupplierId = draft.SupplierId,
             CurrencyCode = draft.CurrencyCode, Amount = draft.Amount, Status = "Draft",
-            CreatorPrincipalId = actor.PrincipalId, ApproverPrincipalId = draft.ApproverPrincipalId,
-            RecorderPrincipalId = draft.RecorderPrincipalId, ConfirmerPrincipalId = draft.ConfirmerPrincipalId,
+            CreatorPrincipalId = actor.PrincipalId, CreatorCoreLinkedWorkerId = actor.CoreLinkedWorkerId,
+            ApproverPrincipalId = draft.ApproverPrincipalId, ApproverCoreLinkedWorkerId = approver.CoreLinkedWorkerId,
+            RecorderPrincipalId = draft.RecorderPrincipalId, RecorderCoreLinkedWorkerId = recorder.CoreLinkedWorkerId,
+            ConfirmerPrincipalId = draft.ConfirmerPrincipalId, ConfirmerCoreLinkedWorkerId = confirmer.CoreLinkedWorkerId,
             Purpose = CleanOptional(draft.Purpose, 1000), CreatedAt = now, CreatedBy = actor.PrincipalId,
             Version = 1
         };
@@ -80,17 +90,25 @@ public static class ManualPaymentWorkflow
             Fail("ManualPaymentSourceImmutable");
         ValidateDraft(draft, actor, approver, recorder, confirmer, source);
         CheckCapacity(draft.Amount, source);
+        Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, approver.PrincipalId, approver.CoreLinkedWorkerId);
         var next = Copy(current, actor, now);
         next.Amount = draft.Amount;
         next.ApproverPrincipalId = draft.ApproverPrincipalId;
+        next.ApproverCoreLinkedWorkerId = approver.CoreLinkedWorkerId;
         next.RecorderPrincipalId = draft.RecorderPrincipalId;
+        next.RecorderCoreLinkedWorkerId = recorder.CoreLinkedWorkerId;
         next.ConfirmerPrincipalId = draft.ConfirmerPrincipalId;
+        next.ConfirmerCoreLinkedWorkerId = confirmer.CoreLinkedWorkerId;
         next.Purpose = CleanOptional(draft.Purpose, 1000);
-        return new(next, Decision(next, "Revise", current.Status, current.Version, actor, now,
+        var decision = Decision(next, "Revise", current.Status, current.Version, actor, now,
             previousAmount: current.Amount, newAmount: next.Amount,
             previousApprover: current.ApproverPrincipalId, newApprover: next.ApproverPrincipalId,
             previousRecorder: current.RecorderPrincipalId, newRecorder: next.RecorderPrincipalId,
-            previousConfirmer: current.ConfirmerPrincipalId, newConfirmer: next.ConfirmerPrincipalId));
+            previousConfirmer: current.ConfirmerPrincipalId, newConfirmer: next.ConfirmerPrincipalId);
+        decision.PreviousApproverCoreLinkedWorkerId = current.ApproverCoreLinkedWorkerId;
+        decision.PreviousRecorderCoreLinkedWorkerId = current.RecorderCoreLinkedWorkerId;
+        decision.PreviousConfirmerCoreLinkedWorkerId = current.ConfirmerCoreLinkedWorkerId;
+        return new(next, decision);
     }
 
     public static ManualPaymentChange Submit(ManualPaymentRequest current, long expectedVersion,
@@ -107,11 +125,14 @@ public static class ManualPaymentWorkflow
     {
         Check(current, expectedVersion, actor, now, "approve", "PendingApproval");
         RequireAssigned(actor, current.ApproverPrincipalId);
+        Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId);
+        Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, actor.PrincipalId, current.ApproverCoreLinkedWorkerId);
         if (actor.PrincipalId == current.CreatorPrincipalId) Fail("ManualPaymentSelfApproval");
         CheckSource(current, source); CheckCapacity(current.Amount, source);
         var next = Move(current, actor, now, "Approve", "Approved");
         next.Request.ApprovedAmount = current.Amount;
         next.Request.ApprovedByPrincipalId = actor.PrincipalId;
+        next.Request.ApprovedByCoreLinkedWorkerId = actor.CoreLinkedWorkerId;
         next.Request.ApprovedAt = now;
         return next;
     }
@@ -121,6 +142,8 @@ public static class ManualPaymentWorkflow
     {
         Check(current, expectedVersion, actor, now, "approve", "PendingApproval");
         RequireAssigned(actor, current.ApproverPrincipalId);
+        Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId);
+        Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, actor.PrincipalId, current.ApproverCoreLinkedWorkerId);
         return Move(current, actor, now, "Return", "Draft", Required(reason));
     }
 
@@ -129,6 +152,8 @@ public static class ManualPaymentWorkflow
     {
         Check(current, expectedVersion, actor, now, "approve", "PendingApproval");
         RequireAssigned(actor, current.ApproverPrincipalId);
+        Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId);
+        Independent(current.CreatorPrincipalId, current.CreatorCoreLinkedWorkerId, actor.PrincipalId, current.ApproverCoreLinkedWorkerId);
         return Move(current, actor, now, "Reject", "Rejected", Required(reason));
     }
 
@@ -139,6 +164,7 @@ public static class ManualPaymentWorkflow
     {
         Check(current, expectedVersion, actor, now, "record", "Approved");
         RequireAssigned(actor, current.RecorderPrincipalId);
+        Independent(actor.PrincipalId, actor.CoreLinkedWorkerId, current.ConfirmerPrincipalId, current.ConfirmerCoreLinkedWorkerId);
         CheckSource(current, source); CheckCapacity(current.Amount, source);
         if (current.ApprovedAmount != current.Amount || current.ApprovedByPrincipalId is null
             || current.ApprovedAt is null || evidence.Amount != current.Amount
@@ -153,6 +179,7 @@ public static class ManualPaymentWorkflow
         next.Request.ExternalMethod = evidence.ExternalMethod.Trim();
         next.Request.ExternalReference = evidence.ExternalReference.Trim();
         next.Request.RecordedByPrincipalId = actor.PrincipalId;
+        next.Request.RecordedByCoreLinkedWorkerId = actor.CoreLinkedWorkerId;
         next.Request.RecordedAt = now;
         next.Request.EvidenceDocumentRefId = evidence.EvidenceDocumentRefId;
         next.Decision.PaidOn = evidence.PaidOn;
@@ -169,6 +196,10 @@ public static class ManualPaymentWorkflow
     {
         Check(current, expectedVersion, actor, now, "confirm", "PaymentRecorded");
         RequireAssigned(actor, current.ConfirmerPrincipalId);
+        Independent(current.RecordedByPrincipalId ?? "", current.RecordedByCoreLinkedWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId);
+        Independent(current.RecordedByPrincipalId ?? "", current.RecordedByCoreLinkedWorkerId, actor.PrincipalId, current.ConfirmerCoreLinkedWorkerId);
+        Independent(current.RecorderPrincipalId, current.RecorderCoreLinkedWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId);
+        Independent(current.RecorderPrincipalId, current.RecorderCoreLinkedWorkerId, actor.PrincipalId, current.ConfirmerCoreLinkedWorkerId);
         if (!ValidAmount(current.Amount) || !ValidAmount(current.ApprovedAmount ?? 0m)
             || !ValidAmount(current.RecordedAmount ?? 0m)
             || current.ApprovedAmount != current.Amount || current.RecordedAmount != current.Amount
@@ -186,6 +217,7 @@ public static class ManualPaymentWorkflow
             Fail("ManualPaymentIndependentConfirmationRequired");
         var next = Move(current, actor, now, "Confirm", "ConfirmedManually");
         next.Request.ConfirmedByPrincipalId = actor.PrincipalId;
+        next.Request.ConfirmedByCoreLinkedWorkerId = actor.CoreLinkedWorkerId;
         next.Request.ConfirmedAt = now;
         return next;
     }
@@ -204,6 +236,10 @@ public static class ManualPaymentWorkflow
     {
         Check(current, expectedVersion, actor, now, "confirm", "PaymentRecorded");
         RequireAssigned(actor, current.ConfirmerPrincipalId);
+        Independent(current.RecordedByPrincipalId ?? "", current.RecordedByCoreLinkedWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId);
+        Independent(current.RecordedByPrincipalId ?? "", current.RecordedByCoreLinkedWorkerId, actor.PrincipalId, current.ConfirmerCoreLinkedWorkerId);
+        Independent(current.RecorderPrincipalId, current.RecorderCoreLinkedWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId);
+        Independent(current.RecorderPrincipalId, current.RecorderCoreLinkedWorkerId, actor.PrincipalId, current.ConfirmerCoreLinkedWorkerId);
         return Move(current, actor, now, "Dispute", "Disputed", Required(reason));
     }
 
@@ -220,6 +256,8 @@ public static class ManualPaymentWorkflow
         CheckAssignee(approver, draft.ApproverPrincipalId, actor, draft.BranchId, "approve");
         CheckAssignee(recorder, draft.RecorderPrincipalId, actor, draft.BranchId, "record");
         CheckAssignee(confirmer, draft.ConfirmerPrincipalId, actor, draft.BranchId, "confirm");
+        Independent(actor.PrincipalId, actor.CoreLinkedWorkerId, approver.PrincipalId, approver.CoreLinkedWorkerId);
+        Independent(recorder.PrincipalId, recorder.CoreLinkedWorkerId, confirmer.PrincipalId, confirmer.CoreLinkedWorkerId);
         if (source.InvoiceId != draft.InvoiceId || source.SupplierId != draft.SupplierId
             || source.BranchId != draft.BranchId || source.CurrencyCode != draft.CurrencyCode
             || source.TenantId != actor.TenantId || source.LegalEntityId != actor.LegalEntityId
@@ -253,6 +291,11 @@ public static class ManualPaymentWorkflow
             || current.SupplierId == Guid.Empty || current.Version <= 0 || current.Version == long.MaxValue
             || current.TenantId != actor.TenantId || current.LegalEntityId != actor.LegalEntityId)
             Fail("ManualPaymentScopeInvalid");
+        if (new[] { current.CreatorCoreLinkedWorkerId, current.ApproverCoreLinkedWorkerId,
+            current.RecorderCoreLinkedWorkerId, current.ConfirmerCoreLinkedWorkerId,
+            current.ApprovedByCoreLinkedWorkerId, current.RecordedByCoreLinkedWorkerId,
+            current.ConfirmedByCoreLinkedWorkerId }.Any(value => !ProcurementPrincipalEvidence.OptionalWorker(value)))
+            Fail("ManualPaymentIdentityEvidenceInvalid");
         Authorize(actor, current.BranchId, action);
         if (now == default || current.CreatedAt == default || now < current.CreatedAt
             || current.UpdatedAt is { } updated && now < updated
@@ -266,7 +309,8 @@ public static class ManualPaymentWorkflow
 
     private static void Authorize(ManualPaymentActor actor, Guid branch, string action)
     {
-        if (!actor.IsActive || !ProcurementPrincipalEvidence.Canonical(actor.PrincipalId)
+        if (!actor.IsActive || !ProcurementPrincipalEvidence.OptionalWorker(actor.CoreLinkedWorkerId)
+            || !ProcurementPrincipalEvidence.Canonical(actor.PrincipalId)
             || string.IsNullOrWhiteSpace(actor.TenantId) || actor.LegalEntityId == Guid.Empty
             || actor.EffectiveBranchId != branch || !actor.AllowedBranchIds.Contains(branch)
             || !actor.Actions.Contains(Prefix + action)) Fail("ManualPaymentActionForbidden");
@@ -275,7 +319,8 @@ public static class ManualPaymentWorkflow
     private static void CheckAssignee(ManualPaymentAssignee candidate, string expected,
         ManualPaymentActor actor, Guid branch, string action)
     {
-        if (!candidate.IsActive || !ProcurementPrincipalEvidence.Canonical(expected)
+        if (!candidate.IsActive || !ProcurementPrincipalEvidence.OptionalWorker(candidate.CoreLinkedWorkerId)
+            || !ProcurementPrincipalEvidence.Canonical(expected)
             || candidate.PrincipalId != expected || candidate.TenantId != actor.TenantId
             || candidate.LegalEntityId != actor.LegalEntityId || !candidate.AllowedBranchIds.Contains(branch)
             || !candidate.Actions.Contains(Prefix + action)) Fail("ManualPaymentAssigneeUnavailable");
@@ -301,14 +346,14 @@ public static class ManualPaymentWorkflow
         Id = current.Id, TenantId = current.TenantId, LegalEntityId = current.LegalEntityId,
         BranchId = current.BranchId, SupplierInvoiceId = current.SupplierInvoiceId, SupplierId = current.SupplierId,
         CurrencyCode = current.CurrencyCode, Amount = current.Amount, Status = current.Status,
-        CreatorPrincipalId = current.CreatorPrincipalId, ApproverPrincipalId = current.ApproverPrincipalId,
-        RecorderPrincipalId = current.RecorderPrincipalId, ConfirmerPrincipalId = current.ConfirmerPrincipalId,
+        CreatorPrincipalId = current.CreatorPrincipalId, CreatorCoreLinkedWorkerId = current.CreatorCoreLinkedWorkerId, ApproverPrincipalId = current.ApproverPrincipalId, ApproverCoreLinkedWorkerId = current.ApproverCoreLinkedWorkerId,
+        RecorderPrincipalId = current.RecorderPrincipalId, RecorderCoreLinkedWorkerId = current.RecorderCoreLinkedWorkerId, ConfirmerPrincipalId = current.ConfirmerPrincipalId, ConfirmerCoreLinkedWorkerId = current.ConfirmerCoreLinkedWorkerId,
         Purpose = current.Purpose, ApprovedAmount = current.ApprovedAmount,
-        ApprovedByPrincipalId = current.ApprovedByPrincipalId, ApprovedAt = current.ApprovedAt,
+        ApprovedByPrincipalId = current.ApprovedByPrincipalId, ApprovedByCoreLinkedWorkerId = current.ApprovedByCoreLinkedWorkerId, ApprovedAt = current.ApprovedAt,
         PaidOn = current.PaidOn, ExternalMethod = current.ExternalMethod,
         ExternalReference = current.ExternalReference, RecordedAmount = current.RecordedAmount,
-        RecordedByPrincipalId = current.RecordedByPrincipalId, RecordedAt = current.RecordedAt,
-        ConfirmedByPrincipalId = current.ConfirmedByPrincipalId, ConfirmedAt = current.ConfirmedAt,
+        RecordedByPrincipalId = current.RecordedByPrincipalId, RecordedByCoreLinkedWorkerId = current.RecordedByCoreLinkedWorkerId, RecordedAt = current.RecordedAt,
+        ConfirmedByPrincipalId = current.ConfirmedByPrincipalId, ConfirmedByCoreLinkedWorkerId = current.ConfirmedByCoreLinkedWorkerId, ConfirmedAt = current.ConfirmedAt,
         EvidenceDocumentRefId = current.EvidenceDocumentRefId, ClosureReason = current.ClosureReason,
         CreatedAt = current.CreatedAt, CreatedBy = current.CreatedBy,
         UpdatedAt = now, UpdatedBy = actor.PrincipalId, Version = current.Version + 1
@@ -325,12 +370,24 @@ public static class ManualPaymentWorkflow
         ManualPaymentRequestId = next.Id, BranchId = next.BranchId,
         Action = action, FromStatus = from, ToStatus = next.Status,
         FromVersion = previousVersion, ToVersion = next.Version, ActorPrincipalId = actor.PrincipalId,
+        ActorCoreLinkedWorkerId = actor.CoreLinkedWorkerId,
         OccurredAt = now, Reason = reason, PreviousAmount = previousAmount, NewAmount = newAmount,
         PreviousApproverPrincipalId = previousApprover, NewApproverPrincipalId = newApprover,
+        NewApproverCoreLinkedWorkerId = next.ApproverCoreLinkedWorkerId,
         PreviousRecorderPrincipalId = previousRecorder, NewRecorderPrincipalId = newRecorder,
+        NewRecorderCoreLinkedWorkerId = next.RecorderCoreLinkedWorkerId,
         PreviousConfirmerPrincipalId = previousConfirmer, NewConfirmerPrincipalId = newConfirmer,
+        NewConfirmerCoreLinkedWorkerId = next.ConfirmerCoreLinkedWorkerId,
         CreatedAt = now, CreatedBy = actor.PrincipalId
     };
+
+    // Retained evidence protects known aliases. The host must additionally query current
+    // Core links via ProcurementPrincipalPeople.IndependentNow before persisting commands.
+    private static void Independent(string first, Guid? firstWorker, string second, Guid? secondWorker)
+    {
+        if (!ProcurementPrincipalEvidence.Independent(first, firstWorker, second, secondWorker))
+            Fail("ManualPaymentIndependentPersonRequired");
+    }
 
     private static bool ValidAmount(decimal value) => value > 0
         && ExactDecimalJsonCodec.IsRepresentable(value, 18, 4);
