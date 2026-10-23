@@ -38,7 +38,7 @@ internal static class P25PaymentOwnerCompatibilityRehearsal
 
     internal static async Task RunAsync(string connection, string evidence, bool fresh)
     {
-        if (!OperatingSystem.IsLinux() || File.Exists(evidence)
+        if (!OperatingSystem.IsLinux() || File.Exists(evidence) || new FileInfo(evidence).LinkTarget is not null
             || Path.GetDirectoryName(Path.GetFullPath(evidence)) is not { } folder || !Directory.Exists(folder)
             || new DirectoryInfo(folder).LinkTarget is not null
             || (File.GetUnixFileMode(folder) & (UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute
@@ -82,10 +82,15 @@ internal static class P25PaymentOwnerCompatibilityRehearsal
                 await procurement.Database.MigrateAsync();
                 await VerifyComplete(hrm, approvals, procurement, sql);
                 var first = await Capture(sql, normalizeP25: false);
+                result["freshFullRowsBeforeRepeatSha256"] = first.Rows;
+                result["freshFullShapeBeforeRepeatSha256"] = first.Shape;
                 phase = "FreshSecondMigrate";
                 await hrm.Database.MigrateAsync(); await approvals.Database.MigrateAsync();
                 await procurement.Database.MigrateAsync();
-                Require(first == await Capture(sql, normalizeP25: false));
+                var repeat = await Capture(sql, normalizeP25: false);
+                result["freshFullRowsAfterRepeatSha256"] = repeat.Rows;
+                result["freshFullShapeAfterRepeatSha256"] = repeat.Shape;
+                Require(first == repeat);
                 result["freshChainAndRepeatUnchanged"] = true;
             }
             else
@@ -101,17 +106,28 @@ internal static class P25PaymentOwnerCompatibilityRehearsal
                     && await Scalar<long>(sql, "SELECT count(*) FROM procurement.purchase_requests") > 0);
                 await VerifyP25Shape(sql, installed: false);
                 var before = await Capture(sql, normalizeP25: true);
+                result["retainedNormalizedRowsBeforeSha256"] = before.Rows;
+                result["retainedNormalizedShapeBeforeSha256"] = before.Shape;
                 phase = "ApplyOlderPendingP25Only";
                 await procurement.Database.MigrateAsync();
                 var after = await Capture(sql, normalizeP25: true);
+                result["retainedNormalizedRowsAfterSha256"] = after.Rows;
+                result["retainedNormalizedShapeAfterSha256"] = after.Shape;
                 Require(before == after);
                 await VerifyP25Shape(sql, installed: true);
                 await VerifyComplete(hrm, approvals, procurement, sql);
                 var complete = await Capture(sql, normalizeP25: false);
+                result["retainedFullRowsBeforeRepeatSha256"] = complete.Rows;
+                result["retainedFullShapeBeforeRepeatSha256"] = complete.Shape;
                 phase = "RetainedSecondMigrate";
                 await procurement.Database.MigrateAsync();
-                Require(complete == await Capture(sql, normalizeP25: false)
-                    && before == await Capture(sql, normalizeP25: true));
+                var completeRepeat = await Capture(sql, normalizeP25: false);
+                var normalizedRepeat = await Capture(sql, normalizeP25: true);
+                result["retainedFullRowsAfterRepeatSha256"] = completeRepeat.Rows;
+                result["retainedFullShapeAfterRepeatSha256"] = completeRepeat.Shape;
+                result["retainedNormalizedRowsAfterRepeatSha256"] = normalizedRepeat.Rows;
+                result["retainedNormalizedShapeAfterRepeatSha256"] = normalizedRepeat.Shape;
+                Require(complete == completeRepeat && before == normalizedRepeat);
                 result["retainedRowsAndUnrelatedShapeUnchanged"] = true;
                 result["repeatMigrationNoFootprintChange"] = true;
             }
@@ -127,8 +143,12 @@ internal static class P25PaymentOwnerCompatibilityRehearsal
         }
         try
         {
-            await File.WriteAllTextAsync(evidence, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
-            File.SetUnixFileMode(evidence, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            await using var stream = new FileStream(evidence, new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None,
+                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+            });
+            await JsonSerializer.SerializeAsync(stream, result, new JsonSerializerOptions { WriteIndented = true });
         }
         catch { Environment.ExitCode = 1; }
         Console.WriteLine("Private P25/P28 owner compatibility rehearsal finished; inspect protected summary only.");

@@ -8,6 +8,8 @@ The retained mode requires a genuine private P28 clone with Core company clock a
 
 The fresh mode requires a truly empty `template0` target. It uses the actual HRM, Core approval and Procurement EF migrations in owner order, requires P25/P27/P28 present and zero pending migrations/model changes, then requires a second migrate to leave full data/schema/history unchanged. Neither mode starts Program, installs a runtime role, enables Procurement, tests P25 downgrade with retained evidence, or establishes authenticated workflow acceptance. Compile, private clone admission and actual PostgreSQL results remain pending for this source-only profile.
 
+The protected JSON result records SHA-256 digests for normalized retained rows/schema before and after P25, and full rows/schema before and after repeat migration. The fresh result records full rows/schema digests across repeat migration. It contains no business row data, credentials or connection string. The writer rejects an existing or symlink result path and creates a new `0600` file exclusively, so a competing path cannot be silently overwritten.
+
 ## P28 governance owner upgrade — separate source candidate
 
 `--rehearse-payment-governance-upgrade` is a distinct private owner migration profile. It admits only a new `proc_payment_http_20261023_<nonce>` clone over a local PostgreSQL Unix socket, requires Core company time zone and P27 already applied, zero pending HRM migrations, and exactly P28 pending for Procurement with both current owner models matching. It applies **only** the Procurement owner migration. This does not relax or alter `--rehearse-payment-owner-upgrade` and never starts the ERP Program.
