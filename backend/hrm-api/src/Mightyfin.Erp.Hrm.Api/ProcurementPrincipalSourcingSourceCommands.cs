@@ -101,7 +101,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 .OrderBy(x=>x.PurchaseRequestLineId).ToArrayAsync(token);
             var lines=await db.SourcingLines.Where(x=>x.SourcingEventId==id).ToArrayAsync(token);
             if(bindings.Length is <1 or >200 || lines.Length!=bindings.Length
-                || !selected.SequenceEqual(bindings.Select(x=>x.PurchaseRequestId).Distinct().Order()))
+                || !SameRequestSet(selected,bindings.Select(x=>x.PurchaseRequestId)))
                 throw new Problem("SourcingSourceSetChanged",409);
             var draft=GovernedPrincipalRfqRestoration.RestoreVerified(evidence,ev,bindings);
             var sources=new List<ApprovedPurchaseSource>();
@@ -148,5 +148,15 @@ public static partial class ProcurementSourcingExecutionRoutes
             IdempotencyKey=$"rfq.{action}.{key:N}.v2",PayloadJson=JsonSerializer.Serialize(new{
                 eventId=ev.Id,commandKey=key,internallyPublished=false,supplierDeliveryConfirmed=false,
                 financeReservationChanged=false},Json)});
+    }
+
+    // PostgreSQL UUID ordering and .NET Guid ordering need not agree. This is
+    // an identity-set check after the request rows have been locked, not an
+    // ordering rule for a multi-request cancellation.
+    internal static bool SameRequestSet(IReadOnlyCollection<Guid> selected,IEnumerable<Guid> boundRequestIds)
+    {
+        var expected=selected.ToHashSet();
+        var actual=boundRequestIds.ToHashSet();
+        return selected.Count==expected.Count && actual.Count==expected.Count && actual.SetEquals(expected);
     }
 }
