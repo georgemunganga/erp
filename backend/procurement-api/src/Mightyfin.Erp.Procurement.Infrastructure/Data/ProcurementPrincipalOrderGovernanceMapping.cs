@@ -38,7 +38,7 @@ public sealed partial class ProcurementDbContext
         funding.Property(x=>x.RecordedByPrincipalId).HasMaxLength(36);
         funding.Property(x=>x.AttestedGrossAmount).HasPrecision(38,8);
         funding.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.CommercialRevision}).IsUnique();
-        Link<PrincipalOrderFundingEvidence,PurchaseOrder>(model,nameof(PrincipalOrderFundingEvidence.PurchaseOrderId));
+        Link<PrincipalOrderFundingEvidence,PurchaseOrder>(model,nameof(Mightyfin.Erp.Procurement.Domain.PrincipalOrderFundingEvidence.PurchaseOrderId));
         funding.ToTable(t=>t.HasCheckConstraint("ck_principal_order_funding",
             "schema_version=2 AND commercial_revision=1 AND attested_gross_amount>=0 AND length(btrim(manual_commitment_reference))>0 AND length(btrim(external_evidence_reference))>0 AND length(btrim(approved_manual_policy_reference))>0 AND currency_code ~ '^[A-Z]{3}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{64}$' AND commercial_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND recorded_by_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"));
         var submission=model.Entity<PrincipalOrderSubmission>();
@@ -130,7 +130,7 @@ public sealed partial class ProcurementDbContext
     private void GuardPrincipalOrderGovernance()
     {
         foreach(var entry in ChangeTracker.Entries<ProcurementRecord>().Where(x=>x.Entity is
-            PrincipalOrderFundingEvidence or PrincipalOrderSubmission or PrincipalOrderAssignmentEvidence
+            Mightyfin.Erp.Procurement.Domain.PrincipalOrderFundingEvidence or PrincipalOrderSubmission or PrincipalOrderAssignmentEvidence
             or PrincipalOrderDecisionEvidence or PrincipalOrderIssuedVersion or PrincipalOrderAcknowledgment
             or PrincipalOrderReleaseRequest or PrincipalOrderReleaseConfirmation))
             if(entry.State is EntityState.Modified or EntityState.Deleted)

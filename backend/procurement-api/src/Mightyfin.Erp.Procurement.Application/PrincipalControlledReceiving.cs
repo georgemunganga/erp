@@ -205,5 +205,5 @@ public static class PrincipalControlledReceiving
     private static bool Sha(string? value)=>value is {Length:64}&&value.All(c=>c is >= '0' and <= '9' or >= 'a' and <= 'f');
     private static DateTimeOffset Time(DateTimeOffset value)=>ProcurementEvidenceEncoding.DatabaseTimestamp(value)!.Value;
     private static long Next(PrincipalReceivingLedger ledger)=>checked(ledger.Sequence+1);
-    private static void Need(bool okay,string code){if(!okay)throw new InvalidOperationException(code);}
+    private static void Need([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool okay,string code){if(!okay)throw new InvalidOperationException(code);}
 }

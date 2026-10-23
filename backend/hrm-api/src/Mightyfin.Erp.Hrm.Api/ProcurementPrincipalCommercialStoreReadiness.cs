@@ -51,8 +51,10 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
             var entity = model.FindEntityType(type) ?? throw new InvalidOperationException("CommercialEntityMissing");
             return entity.GetSchema() + "." + entity.GetTableName();
         }
+        var inspected = kind == PrincipalCommercialStore.Receiving
+            ? types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray() : types;
         var owned = types.Select(Table).Distinct(StringComparer.Ordinal).ToArray();
-        var reads = Dependencies.Select(Table).Concat(owned).Distinct(StringComparer.Ordinal);
+        var reads = Dependencies.Concat(inspected).Select(Table).Distinct(StringComparer.Ordinal).ToArray();
         var mutable = (kind switch
         {
             PrincipalCommercialStore.Orders => new[] { "purchase_orders", "purchase_order_lines" },
@@ -64,6 +66,10 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         var clauses = reads.Select(x => "has_table_privilege(current_user," + Literal(x) + ",'SELECT')").ToList();
         clauses.Add("NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))");
         clauses.Add("NOT has_schema_privilege(current_user,'procurement','CREATE')");
+        clauses.Add("NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=ANY(" + Columns(reads)
+            + "::regclass[]) AND pg_has_role(current_user,c.relowner,'MEMBER'))");
+        foreach (var table in mutable)
+            clauses.Add("NOT has_table_privilege(current_user," + Literal(table) + ",'DELETE,TRUNCATE')");
         foreach (var table in append)
             clauses.Add("NOT has_table_privilege(current_user," + Literal(table) + ",'UPDATE,DELETE,TRUNCATE')");
         if (write)
@@ -84,7 +90,7 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         var overlayNames = kind == PrincipalCommercialStore.Receiving
             ? ProcurementPrincipalCommercialSchemaCapture.ReceivingOwnershipNames
             : new HashSet<string>(StringComparer.Ordinal);
-        return await ProcurementPrincipalCommercialSchemaInspection.CheckAsync(owner, types,
+        return await ProcurementPrincipalCommercialSchemaInspection.CheckAsync(owner, inspected,
             "SELECT " + string.Join(" AND ", clauses), overlayNames, ct,
             kind == PrincipalCommercialStore.Receiving ? PrincipalReceivingOwnershipConstraintSql.ManifestQuery : null);
     }
@@ -106,6 +112,8 @@ public sealed class ProcurementPrincipalSourcingPublicationReadiness(IConfigurat
     public Task<bool> IsReadyAsync(CancellationToken ct) => store.ConfiguredAsync(PrincipalCommercialStore.Publication, ct);
     public Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct) =>
         store.CheckAsync(owner, PrincipalCommercialStore.Publication, true, ct);
+    public Task<bool> IsReadyAsync(ProcurementDbContext owner, bool write, CancellationToken ct) =>
+        store.CheckAsync(owner, PrincipalCommercialStore.Publication, write, ct);
 }
 
 public sealed class ProcurementPrincipalReceivingReadiness(IConfiguration configuration,
