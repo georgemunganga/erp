@@ -96,7 +96,7 @@ internal static class ProcurementOrderAuthorityResolver
         // Evaluate the complete family first: invalid identity must never hide overlap
         // or cause selection of a different, apparently usable authority.
         var selected = grants.Single(x => x.Id == result.Evidence.GrantId);
-        if (!await new ProcurementSpendingAuthorityIdentitySchemaReadiness().IsReadyAsync(db, ct))
+        if (!await ProcurementWorkerAuthoritySchemaGuard.ReadyAsync(db, scope, core, ct))
             throw new InvalidOperationException("AuthorityIdentityStoreUnavailable");
         await ProcurementSpendingAuthorityWorkerIdentity.RequireEligibleRecipientAsync(
             core, db, scope, selected, account.PrincipalId, account.WorkerId, ct);

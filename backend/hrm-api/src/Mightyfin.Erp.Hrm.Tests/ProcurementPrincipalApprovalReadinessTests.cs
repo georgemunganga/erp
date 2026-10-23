@@ -89,6 +89,27 @@ public sealed class ProcurementPrincipalApprovalReadinessTests
     }
 
     [Fact]
+    public async Task Worker_authority_schema_guard_fails_closed_without_real_owner_and_honors_cancellation()
+    {
+        var scope=new ProcurementRequestScope();
+        scope.Set("readiness-only",Guid.NewGuid(),Guid.NewGuid().ToString("D"),null,null,false,"worker-schema-test");
+        await using var core=new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,new FixedTenantAccessor("readiness-only"));
+        await using var nonPg=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,scope);
+        Assert.False(await ProcurementWorkerAuthoritySchemaGuard.ReadyAsync(nonPg,scope,core,default));
+
+        var absentSocket="/tmp/procurement-p25-test-absent-"+Guid.NewGuid().ToString("N");
+        await using var unavailable=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql($"Host={absentSocket};Database=not_opened;Username=unused;Password=unused;Timeout=1")
+            .Options,scope);
+        Assert.False(await ProcurementWorkerAuthoritySchemaGuard.ReadyAsync(unavailable,scope,core,default));
+        using var cancelled=new CancellationTokenSource();cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>
+            ProcurementWorkerAuthoritySchemaGuard.ReadyAsync(unavailable,scope,core,cancelled.Token));
+    }
+
+    [Fact]
     public async Task Host_explicit_principal_option_resolves_scoped_real_provider_but_not_ready_on_invalid_store()
     {
         var connection="Host=never-used.invalid;Database=not-opened";

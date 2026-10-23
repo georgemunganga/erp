@@ -138,6 +138,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 && checkedResult.GetProperty("checkedByWorkerId").GetGuid()==workers[fixture.Checker],
                 "Actual P25 budget route must retain independent worker1 checker evidence.");
             var readiness=await send(client,HttpMethod.Get,path+"/approval-readiness",fixture.Maker);
+            result["legacyApprovalReadiness"]=readiness.Clone();
             Need(readiness.GetProperty("canOpenCase").GetBoolean(),"Real worker readiness blocked after checker1.");
             var current=await send(client,HttpMethod.Get,path,fixture.Maker);
             var opened=await send(client,HttpMethod.Post,path+"/approval-cases",fixture.Maker,
