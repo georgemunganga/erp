@@ -22,6 +22,13 @@ public static partial class ProcurementPrincipalReceivingRoutes
     {
         var group=app.MapGroup("/api/procurement/v1");
         group.MapGet("/receiving/principal-sources",Sources).RequireAuthorization("procurement-receipt-create");
+        group.MapGet("/receiving/principal-worklist",Worklist).RequireAuthorization("procurement-receipt-view");
+        group.MapGet("/receiving/principal-inspection-tasks",InspectionTasks).RequireAuthorization(ControlledReceiving.InspectPermission);
+        group.MapGet("/receiving/principal-acceptance-tasks",AcceptanceTasks).RequireAuthorization(ControlledReceiving.AcceptPermission);
+        group.MapGet("/receiving/principal-service-tasks",ServiceTasks).RequireAuthorization(ControlledReceiving.CertifyPermission);
+        group.MapGet("/receipts/{id:guid}/principal-inspection-task",InspectionTask).RequireAuthorization(ControlledReceiving.InspectPermission);
+        group.MapGet("/receipts/{id:guid}/principal-acceptance-task",AcceptanceTask).RequireAuthorization(ControlledReceiving.AcceptPermission);
+        group.MapGet("/service-acceptances/{id:guid}/principal-certification-task",ServiceTask).RequireAuthorization(ControlledReceiving.CertifyPermission);
         group.MapPost("/receipts/principal-drafts",CreateGoods).RequireAuthorization("procurement-receipt-create");
         group.MapPut("/receipts/{id:guid}/principal-draft",ReviseGoods).RequireAuthorization("procurement-receipt-edit");
         group.MapGet("/receipts/{id:guid}/principal-draft",GoodsDetail).RequireAuthorization("procurement-receipt-view");
@@ -89,7 +96,9 @@ public static partial class ProcurementPrincipalReceivingRoutes
         if(owner&&head.CreatorPrincipalId!=actor.PrincipalId)throw new Problem("ReceivingNotFound",404);
         await db.PrincipalReceivingDraftRevisions.Where(x=>x.DraftId==id&&x.Revision==head.Revision).LoadAsync(ct);
         var revision=db.PrincipalReceivingDraftRevisions.Local.Single(x=>x.DraftId==id&&x.Revision==head.Revision);
-        _=PrincipalReceivingDraftSnapshot.Validate(head,revision);return head;
+        _=PrincipalReceivingDraftSnapshot.Validate(head,revision);
+        await db.PrincipalReceivingDraftLineBindings.Where(x=>x.DraftRevisionId==revision.Id).LoadAsync(ct);
+        return head;
     }
     private static PrincipalReceivingDraftRevision Revision(ProcurementDbContext db,PrincipalReceivingDraftHead head)
         =>db.PrincipalReceivingDraftRevisions.Local.Single(x=>x.DraftId==head.Id&&x.Revision==head.Revision);

@@ -8,14 +8,14 @@ public sealed partial class ProcurementDbContext
 {
     private void GuardPrincipalReceiving()
     {
-        foreach(var entry in ChangeTracker.Entries<ProcurementRecord>().Where(x=>x.Entity is PrincipalReceivingSourceState
+        foreach(var entry in ChangeTracker.Entries<ProcurementRecord>().Where(x=>x.Entity is PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState
             or PrincipalReceivingFact or PrincipalReceivingDraftHead or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt))
         {
             if(entry.State is EntityState.Unchanged or EntityState.Detached)continue;
             if(entry.Entity.TenantId!=scope.TenantId || entry.Entity.LegalEntityId!=scope.LegalEntityId)
                 throw new InvalidOperationException("PrincipalReceivingScopeMismatch");
             if(entry.State==EntityState.Deleted || entry.State==EntityState.Modified && entry.Entity is
-                PrincipalReceivingFact or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt)
+                PrincipalReceivingDraftLineBinding or PrincipalReceivingFact or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt)
                 throw new InvalidOperationException("PrincipalReceivingEvidenceAppendOnly");
             if(entry.State==EntityState.Modified)
             {
@@ -59,9 +59,22 @@ public sealed partial class ProcurementDbContext
                 || !addedReceipts.Any(x=>x.DraftId==head.Id&&x.CommandKey==revisions[0].CommandKey))
                 throw new InvalidOperationException("PrincipalReceivingExactRevisionReceiptRequired");
             var sources=PrincipalReceivingDraftSnapshot.Validate(head,revisions[0]);
+            var memberships=PrincipalReceivingDraftLineBindings.Local.Where(x=>x.DraftRevisionId==revisions[0].Id).ToArray();
+            if(memberships.Length!=sources.Count)throw new InvalidOperationException("PrincipalReceivingExactRevisionLinesRequired");
             foreach(var source in sources)
-                if(!PrincipalReceivingSourceStates.Local.Any(x=>PrincipalReceivingStorageCodec.Source(x)==source))
-                    throw new InvalidOperationException("PrincipalReceivingDraftSourceRequired");
+            {
+                var sourceState=PrincipalReceivingSourceStates.Local.SingleOrDefault(x=>PrincipalReceivingStorageCodec.Source(x)==source)
+                    ??throw new InvalidOperationException("PrincipalReceivingDraftSourceRequired");
+                var member=memberships.SingleOrDefault(x=>x.SourceStateId==sourceState.Id)
+                    ??throw new InvalidOperationException("PrincipalReceivingExactRevisionLinesRequired");
+                var goods=head.Kind=="Goods"?PrincipalReceivingDraftSnapshot.Goods(revisions[0]).Lines.Single(x=>x.Source==source):null;
+                var service=head.Kind=="Service"?PrincipalReceivingDraftSnapshot.Service(revisions[0]):null;
+                if(Entry(member).State!=EntityState.Added || member.SchemaVersion!=2 || member.DraftId!=head.Id
+                    || member.BranchId!=head.BranchId || member.PurchaseOrderId!=head.PurchaseOrderId || member.IssuedVersionId!=head.IssuedVersionId
+                    || member.PurchaseOrderLineId!=source.Commercial.PurchaseOrderLineId || member.LineId!=(goods?.Id??head.Id)
+                    || member.Quantity!=(goods?.Quantity??service!.Quantity) || member.RejectedQuantity!=(goods?.RejectedQuantity??0))
+                    throw new InvalidOperationException("PrincipalReceivingRevisionLineBindingInvalid");
+            }
             if(headEntry.State==EntityState.Modified)
             {
                 var prior=headEntry.OriginalValues.GetValue<long>(nameof(PrincipalReceivingDraftHead.Revision));
@@ -78,13 +91,38 @@ public sealed partial class ProcurementDbContext
         foreach(var row in ChangeTracker.Entries<PrincipalReceivingDraftRevision>().Where(x=>x.State==EntityState.Added).Select(x=>x.Entity))
             if(!ChangeTracker.Entries<PrincipalReceivingDraftHead>().Any(x=>x.Entity.Id==row.DraftId&&x.State is EntityState.Added or EntityState.Modified))
                 throw new InvalidOperationException("PrincipalReceivingRevisionHeadRequired");
+        foreach(var member in ChangeTracker.Entries<PrincipalReceivingDraftLineBinding>().Where(x=>x.State==EntityState.Added).Select(x=>x.Entity))
+            if(!ChangeTracker.Entries<PrincipalReceivingDraftRevision>().Any(x=>x.State==EntityState.Added&&x.Entity.Id==member.DraftRevisionId))
+                throw new InvalidOperationException("PrincipalReceivingLineRequiresNewRevision");
         foreach(var row in addedFacts)
         {
             var source=PrincipalReceivingSourceStates.Local.SingleOrDefault(x=>x.Id==row.SourceStateId);
-            if(source is null || Entry(source).State is not(EntityState.Added or EntityState.Modified)
+            var membership=PrincipalReceivingDraftLineBindings.Local.SingleOrDefault(x=>x.Id==row.DraftLineBindingId);
+            if(source is null || membership is null || membership.SourceStateId!=row.SourceStateId || membership.DraftId!=row.DraftId
+                || membership.BranchId!=row.BranchId || membership.PurchaseOrderLineId!=source.PurchaseOrderLineId
+                || Entry(source).State is not(EntityState.Added or EntityState.Modified)
                 || row.ActorPrincipalId!=scope.SubjectId || !addedReceipts.Any(x=>x.DraftId==row.DraftId&&x.CommandKey==row.CommandKey
                     && x.Operation==(row.Kind=="Observation"?"Record":row.Kind=="Inspection"?"Inspect":PrincipalReceivingStorageCodec.Source(source).Commercial.Kind==ReceivingKind.Service?"Certify":"Accept")))
                 throw new InvalidOperationException("PrincipalReceivingFactCommandRequired");
+            if(row.Kind=="Observation")
+            {
+                var observed=PrincipalReceivingStorageCodec.Decode<PrincipalGoodsObservation>(row.PayloadJson,row.PayloadSha256);
+                if(observed.ReceiptLineId!=membership.LineId || observed.ReceivedQuantity!=membership.Quantity || observed.InitiallyRejectedQuantity!=membership.RejectedQuantity)
+                    throw new InvalidOperationException("PrincipalReceivingPhysicalLineBindingInvalid");
+            }
+            else if(row.Kind=="Inspection")
+            {
+                var inspected=PrincipalReceivingStorageCodec.Decode<PrincipalGoodsInspection>(row.PayloadJson,row.PayloadSha256);
+                var observedRow=PrincipalReceivingFacts.Local.SingleOrDefault(x=>x.Id==inspected.ObservationId&&x.Kind=="Observation")
+                    ??throw new InvalidOperationException("PrincipalReceivingObservationRequired");
+                var observed=PrincipalReceivingStorageCodec.Decode<PrincipalGoodsObservation>(observedRow.PayloadJson,observedRow.PayloadSha256);
+                if(observed.ReceiptLineId!=membership.LineId)throw new InvalidOperationException("PrincipalReceivingInspectionLineBindingInvalid");
+            }
+            else if(row.Kind=="Acceptance")
+            {
+                var accepted=PrincipalReceivingStorageCodec.Decode<PrincipalReceivingAcceptance>(row.PayloadJson,row.PayloadSha256);
+                if(accepted.AcceptanceRecordId!=membership.LineId)throw new InvalidOperationException("PrincipalReceivingAcceptanceLineBindingInvalid");
+            }
         }
         foreach(var entry in ChangeTracker.Entries<PrincipalReceivingSourceState>().Where(x=>x.State is EntityState.Added or EntityState.Modified))
         {
@@ -110,7 +148,7 @@ public sealed partial class ProcurementDbContext
             var submission=PrincipalOrderSubmissions.Local.SingleOrDefault(x=>x.Id==state.SubmissionId);
             var funding=PrincipalOrderFundingEvidence.Local.SingleOrDefault(x=>x.Id==state.FundingEvidenceId);
             var ack=PrincipalOrderAcknowledgments.Local.SingleOrDefault(x=>x.Id==state.AcknowledgmentId);
-            var binding=PrincipalOrderSourceBindings.Local.SingleOrDefault(x=>x.PurchaseOrderId==state.PurchaseOrderId&&x.PurchaseOrderLineId==state.PurchaseOrderLineId);
+            var binding=PrincipalOrderSourceBindings.Local.SingleOrDefault(x=>x.Id==state.SourceBindingId&&x.PurchaseOrderId==state.PurchaseOrderId&&x.PurchaseOrderLineId==state.PurchaseOrderLineId);
             if(issued is null || submission is null || funding is null || ack is null || binding is null
                 || issued.PurchaseOrderId!=order.Id || issued.SubmissionId!=submission.Id || issued.FundingEvidenceId!=funding.Id
                 || submission.PurchaseOrderId!=order.Id || submission.FundingEvidenceId!=funding.Id || funding.PurchaseOrderId!=order.Id

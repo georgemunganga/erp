@@ -86,7 +86,7 @@ public static class PrincipalControlledReceiving
         var p=source.Commercial;
         Need(!string.IsNullOrWhiteSpace(p.TenantId)&&p.LegalEntityId!=Guid.Empty&&p.BranchId is {} branch&&branch!=Guid.Empty
             &&p.PurchaseOrderId!=Guid.Empty&&p.IssuedVersionId!=Guid.Empty&&p.PurchaseOrderLineId!=Guid.Empty&&p.PurchaseRequestLineId!=Guid.Empty
-            &&source.SubmissionId!=Guid.Empty&&source.FundingEvidenceId!=Guid.Empty&&source.CoreApprovalCaseId!=Guid.Empty&&source.SupplierAcknowledgmentId!=Guid.Empty
+            &&source.SourceBindingId!=Guid.Empty&&source.SubmissionId!=Guid.Empty&&source.FundingEvidenceId!=Guid.Empty&&source.CoreApprovalCaseId!=Guid.Empty&&source.SupplierAcknowledgmentId!=Guid.Empty
             &&p.IssuedRevision==1&&Sha(p.IssuedSnapshotSha256)&&Sha(p.ClassificationSha256)&&Sha(source.OriginalDirectSourceSha256)
             &&p.SourceEvidenceSha256==source.OriginalDirectSourceSha256&&!string.IsNullOrWhiteSpace(p.ClassificationReference)
             &&p.Kind is ReceivingKind.Goods or ReceivingKind.Service&&p.CurrencyCode is {Length:3}&&p.CurrencyCode.All(c=>c is >= 'A' and <= 'Z')

@@ -13,7 +13,7 @@ public sealed partial class PrincipalControlledReceivingTests
     private static PrincipalReceivingSource Source(ReceivingKind kind=ReceivingKind.Goods,decimal quantity=1m,decimal price=0.0001m)
     {
         var hash=new string('a',64);var commercial=new ReceivingSourcePin("tenant-a",Company,Branch,Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),1,hash,hash,"retained-principal-po2",hash,kind,"SITE",kind==ReceivingKind.Service?"SERVICES":"GOODS","ZMW","each",quantity,price,ControlledReceiving.NetPriceBasis);
-        return new(2,commercial,Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),hash,new(Buyer,null),new(Requester,null),At.AddDays(-2),At.AddDays(-1));
+        return new(2,commercial,Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),hash,new(Buyer,null),new(Requester,null),At.AddDays(-2),At.AddDays(-1),Guid.NewGuid());
     }
     private static PrincipalReceivingActor Actor(string who,Guid? alias=null)=>new(who,alias,"tenant-a",Company,new HashSet<Guid>{Branch},new HashSet<string>{"procurement-receipt-create","procurement-receipt-edit",ControlledReceiving.RecordPermission,ControlledReceiving.InspectPermission,ControlledReceiving.AcceptPermission,ControlledReceiving.CertifyPermission});
     private static PolicyVersion Policy(PrincipalReceivingSource source,bool inspection=true)

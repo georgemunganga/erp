@@ -239,3 +239,64 @@ A synthetic negative query test covers an old accepted line with no source state
 it does not claim valid legacy business creation or PostgreSQL FK proof. Existing
 successor ledgers also reject newly encountered mixed legacy history. No provider,
 route registration, flag or database changes are part of this discovery source.
+
+### Normalized membership and assigned-purpose source checkpoint
+
+A sixth additive table, `principal_receiving_line_bindings`, now retains exact
+membership of every immutable draft revision. It uses stable revision/source row
+UUIDs, not current revision/sequence values as EF keys. Logical goods line IDs
+survive revision; service logical line ID is the real certificate/draft ID.
+Membership binds the actual head, original PO/issued/source line, original site
+and exact physical/intended/rejected quantities. New memberships require the
+same-save newly added revision, and every revision requires its exact complete
+membership set. Facts reference their true revision membership. Goods observation,
+inspection and acceptance targets must match the original logical line; no orphan
+membership may be adopted. The in-progress, never-deployed schema2 source envelope
+also now pins the exact P30 original binding ID. Legacy v1 envelopes are unchanged.
+
+Source classification/kind/currency and retained original/issued hashes are
+normalized and checked against the original typed source. Ordinary explicitly
+named unique indexes support migration-owned exact same-parent relationships;
+mutable existing PO-line source bindings and all CAS fields remain outside EF
+alternate keys. `PrincipalReceivingOwnershipConstraintSql` authors ten deferred
+NO ACTION FKs binding exact issued/funding/submission/hash, acknowledgment,
+original commercial binding/site/hash, PO/request line, draft/issued, revision,
+source, fact-line and receipt-head tuples. Its structural manifest checks actual
+relations/column order, validation, deferral, update/delete behavior and immediate
+valid unique referenced indexes. These constants are **not installed**. The root
+must freeze them in a genuine centrally generated migration after review and run
+raw PostgreSQL violations/rollback/readiness/tamper probes. Down must lock affected
+owner tables and veto any retained new evidence/receipt/membership/fact/usage
+before removing overlays or generated tables; no CASCADE or backfill is proposed.
+
+The authored GET `/receiving/principal-worklist` uses normalized membership and
+retained issued scope before count/page, capped initially at ten heads. It verifies
+full original commercial proof and preserves historical directory access without
+requiring today's operational policy or old signers' employment. It makes no
+current balance/action/readiness claim. Existing head detail/recovery remain the
+owned history and original-result surfaces.
+
+Purpose-only GET queues are `/receiving/principal-inspection-tasks`,
+`principal-acceptance-tasks`, and `principal-service-tasks`; details are
+`/receipts/{id}/principal-inspection-task`, `principal-acceptance-task`, and
+`/service-acceptances/{id}/principal-certification-task`. They reuse imported
+receiving purposes and actions, not broad receipt-read permission or a new UI.
+Current canonical Core action/branches and the exact current independently
+published schema2 named policy filter before count/page. Page/detail parameters
+are bounded to 25 lines and expose explicit total/offset/limit. Each returned
+record additionally verifies complete owned source/history. Purpose projections
+omit notes, maker identities, commercial prices/snapshots and broad document
+history. Missing inspection, changed pinned policy, exhausted capacity or current
+alias/self-independence produce allowlisted blockers and suppress action hints.
+Hints never authorize a command; actions repeat canonical authorization and CAS.
+An assignment is a name in policy, never a new grant.
+
+Authored tests additionally cover exact named-task/classification/site predicates,
+no employee/inspector fallback for service owners, actual Npgsql SQL generation of
+pre-page joins/fences, and same-save orphan-membership rejection with no saved rows
+or audit. Existing mapped closed-gate tests now include assigned tasks/directory.
+No tests or SDK/DB/Node jobs have run for these source increments; actual runtime,
+full-save, scope/privacy/concurrency/replay/rollback and PostgreSQL constraints
+remain acceptance gates. All successor capabilities/provider activation remain
+closed. Return/correction negative ledger effects remain unavailable pending real
+consumption-owner contracts.

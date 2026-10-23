@@ -11,6 +11,7 @@ public sealed partial class ProcurementDbContext
     public DbSet<PrincipalReceivingDraftHead> PrincipalReceivingDraftHeads => Set<PrincipalReceivingDraftHead>();
     public DbSet<PrincipalReceivingDraftRevision> PrincipalReceivingDraftRevisions => Set<PrincipalReceivingDraftRevision>();
     public DbSet<PrincipalReceivingCommandReceipt> PrincipalReceivingCommandReceipts => Set<PrincipalReceivingCommandReceipt>();
+    public DbSet<PrincipalReceivingDraftLineBinding> PrincipalReceivingDraftLineBindings => Set<PrincipalReceivingDraftLineBinding>();
     private const string PrincipalReceivingUuid = "'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'";
 
     private void ConfigurePrincipalReceiving(ModelBuilder model)
@@ -20,7 +21,12 @@ public sealed partial class ProcurementDbContext
         PrincipalReceivingBase<PrincipalReceivingDraftHead>(model,"principal_receiving_drafts","ak_prcv_draft_scope");
         PrincipalReceivingBase<PrincipalReceivingDraftRevision>(model,"principal_receiving_revisions","ak_prcv_revision_scope");
         PrincipalReceivingBase<PrincipalReceivingCommandReceipt>(model,"principal_receiving_receipts","ak_prcv_receipt_scope");
+        PrincipalReceivingBase<PrincipalReceivingDraftLineBinding>(model,"principal_receiving_line_bindings","ak_prcv_line_scope");
         var source=model.Entity<PrincipalReceivingSourceState>();
+        source.Property(x=>x.OriginalSourceSha256).HasMaxLength(64);source.Property(x=>x.IssuedSnapshotSha256).HasMaxLength(64);
+        source.Property(x=>x.CategoryCode).HasMaxLength(64);source.Property(x=>x.PurchaseType).HasMaxLength(64);
+        source.Property(x=>x.Kind).HasMaxLength(7);source.Property(x=>x.CurrencyCode).HasMaxLength(3);
+        PrincipalReceivingLink<PrincipalReceivingSourceState,PrincipalOrderSourceBinding>(model,nameof(PrincipalReceivingSourceState.SourceBindingId),"fk_prcv_source_original");
         source.Property(x=>x.SourceJson).HasColumnType("text");source.Property(x=>x.SourceSha256).HasMaxLength(64);
         source.Property(x=>x.AcceptedQuantity).HasPrecision(18,4);source.Property(x=>x.AcceptedNetAmount).HasPrecision(38,8);
         source.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.IssuedVersionId,x.PurchaseOrderLineId}).IsUnique().HasDatabaseName("ux_prcv_source_line");
@@ -31,7 +37,7 @@ public sealed partial class ProcurementDbContext
         PrincipalReceivingLink<PrincipalReceivingSourceState,PrincipalOrderFundingEvidence>(model,nameof(PrincipalReceivingSourceState.FundingEvidenceId),"fk_prcv_source_funding");
         PrincipalReceivingLink<PrincipalReceivingSourceState,PrincipalOrderAcknowledgment>(model,nameof(PrincipalReceivingSourceState.AcknowledgmentId),"fk_prcv_source_ack");
         PrincipalReceivingLink<PrincipalReceivingSourceState,PurchaseRequestLine>(model,nameof(PrincipalReceivingSourceState.PurchaseRequestLineId),"fk_prcv_source_request_line");
-        source.ToTable(t=>t.HasCheckConstraint("ck_prcv_source","schema_version=2 AND sequence>=0 AND accepted_quantity>=0 AND accepted_net_amount>=0 AND source_sha256 ~ '^[0-9a-f]{64}$' AND branch_id<>'00000000-0000-0000-0000-000000000000'::uuid"));
+        source.ToTable(t=>t.HasCheckConstraint("ck_prcv_source","schema_version=2 AND kind IN ('Goods','Service') AND length(category_code)>0 AND length(purchase_type)>0 AND currency_code ~ '^[A-Z]{3}$' AND original_source_sha256 ~ '^[0-9a-f]{64}$' AND issued_snapshot_sha256 ~ '^[0-9a-f]{64}$' AND sequence>=0 AND accepted_quantity>=0 AND accepted_net_amount>=0 AND source_sha256 ~ '^[0-9a-f]{64}$' AND branch_id<>'00000000-0000-0000-0000-000000000000'::uuid"));
         var draft=model.Entity<PrincipalReceivingDraftHead>();
         draft.Property(x=>x.Kind).HasMaxLength(12);draft.Property(x=>x.State).HasMaxLength(20);
         draft.Property(x=>x.CreatorPrincipalId).HasMaxLength(36);draft.Property(x=>x.SnapshotSha256).HasMaxLength(64);
@@ -43,7 +49,16 @@ public sealed partial class ProcurementDbContext
         revision.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.DraftId,x.Revision}).IsUnique().HasDatabaseName("ux_prcv_draft_revision");
         PrincipalReceivingLink<PrincipalReceivingDraftRevision,PrincipalReceivingDraftHead>(model,nameof(PrincipalReceivingDraftRevision.DraftId),"fk_prcv_revision_draft");
         revision.ToTable(t=>t.HasCheckConstraint("ck_prcv_revision",$"schema_version=2 AND revision>0 AND snapshot_sha256 ~ '^[0-9a-f]{{64}}$' AND actor_principal_id ~ {PrincipalReceivingUuid} AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid"));
+        var line=model.Entity<PrincipalReceivingDraftLineBinding>();
+        line.Property(x=>x.Quantity).HasPrecision(18,4);line.Property(x=>x.RejectedQuantity).HasPrecision(18,4);
+        line.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.DraftRevisionId,x.LineId}).IsUnique().HasDatabaseName("ux_prcv_revision_line");
+        line.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.DraftRevisionId,x.SourceStateId}).IsUnique().HasDatabaseName("ux_prcv_revision_source");
+        PrincipalReceivingLink<PrincipalReceivingDraftLineBinding,PrincipalReceivingDraftHead>(model,nameof(PrincipalReceivingDraftLineBinding.DraftId),"fk_prcv_line_draft");
+        PrincipalReceivingLink<PrincipalReceivingDraftLineBinding,PrincipalReceivingDraftRevision>(model,nameof(PrincipalReceivingDraftLineBinding.DraftRevisionId),"fk_prcv_line_revision");
+        PrincipalReceivingLink<PrincipalReceivingDraftLineBinding,PrincipalReceivingSourceState>(model,nameof(PrincipalReceivingDraftLineBinding.SourceStateId),"fk_prcv_line_source");
+        line.ToTable(t=>t.HasCheckConstraint("ck_prcv_line","schema_version=2 AND quantity>0 AND rejected_quantity>=0 AND rejected_quantity<=quantity AND line_id<>'00000000-0000-0000-0000-000000000000'::uuid"));
         var fact=model.Entity<PrincipalReceivingFact>();
+        PrincipalReceivingLink<PrincipalReceivingFact,PrincipalReceivingDraftLineBinding>(model,nameof(PrincipalReceivingFact.DraftLineBindingId),"fk_prcv_fact_line");
         fact.Property(x=>x.Kind).HasMaxLength(12);fact.Property(x=>x.ActorPrincipalId).HasMaxLength(36);
         fact.Property(x=>x.PayloadJson).HasColumnType("text");fact.Property(x=>x.PayloadSha256).HasMaxLength(64);
         fact.Property(x=>x.Quantity).HasPrecision(18,4);fact.Property(x=>x.NetAmount).HasPrecision(38,8);
@@ -59,6 +74,22 @@ public sealed partial class ProcurementDbContext
         receipt.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CommandKey}).IsUnique().HasDatabaseName("ux_prcv_receipt_command");
         PrincipalReceivingLink<PrincipalReceivingCommandReceipt,PrincipalReceivingDraftHead>(model,nameof(PrincipalReceivingCommandReceipt.DraftId),"fk_prcv_receipt_draft");
         receipt.ToTable(t=>t.HasCheckConstraint("ck_prcv_receipt",$"schema_version=2 AND operation IN ('Create','Revise','Cancel','Record','Inspect','Accept','Certify') AND response_status IN (200,201) AND result_revision>0 AND request_sha256 ~ '^[0-9a-f]{{64}}$' AND response_sha256 ~ '^[0-9a-f]{{64}}$' AND actor_principal_id ~ {PrincipalReceivingUuid} AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid"));
+        ConfigurePrincipalReceivingOwnershipIndexes(model);
+    }
+    private static void ConfigurePrincipalReceivingOwnershipIndexes(ModelBuilder model)
+    {
+        // Ordinary unique indexes support exact migration-owned deferred FKs. None
+        // of these mutable legacy binding columns become EF alternate keys.
+        model.Entity<PrincipalOrderIssuedVersion>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.PurchaseOrderId,x.SubmissionId,x.FundingEvidenceId,x.CommercialSnapshotSha256,x.OriginalDirectSourceSha256}).IsUnique().HasDatabaseName("ux_prcv_issued_parent");
+        model.Entity<PrincipalOrderIssuedVersion>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.PurchaseOrderId}).IsUnique().HasDatabaseName("ux_prcv_issued_order");
+        model.Entity<PrincipalOrderAcknowledgment>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.IssuedVersionId,x.PurchaseOrderId}).IsUnique().HasDatabaseName("ux_prcv_ack_parent");
+        model.Entity<PrincipalOrderSourceBinding>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.PurchaseOrderId,x.PurchaseOrderLineId,x.PurchaseRequestLineId,x.BranchId,x.OriginalDirectSourceSha256}).IsUnique().HasDatabaseName("ux_prcv_original_parent");
+        model.Entity<PurchaseOrderLine>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.PurchaseOrderId,x.PurchaseRequestLineId}).IsUnique().HasDatabaseName("ux_prcv_po_line_parent");
+        model.Entity<PrincipalReceivingSourceState>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.BranchId,x.PurchaseOrderId,x.IssuedVersionId,x.PurchaseOrderLineId}).IsUnique().HasDatabaseName("ux_prcv_source_parent");
+        model.Entity<PrincipalReceivingDraftRevision>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.DraftId}).IsUnique().HasDatabaseName("ux_prcv_revision_parent");
+        model.Entity<PrincipalReceivingDraftLineBinding>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.SourceStateId,x.DraftId,x.BranchId}).IsUnique().HasDatabaseName("ux_prcv_line_parent");
+        model.Entity<PrincipalReceivingDraftHead>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.BranchId}).IsUnique().HasDatabaseName("ux_prcv_draft_branch");
+        model.Entity<PrincipalReceivingDraftHead>().HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Id,x.BranchId,x.PurchaseOrderId,x.IssuedVersionId}).IsUnique().HasDatabaseName("ux_prcv_draft_parent");
     }
     private void PrincipalReceivingBase<T>(ModelBuilder model,string table,string key) where T:ProcurementRecord
     {

@@ -77,7 +77,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
-        if ((record is PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
+        if ((record is PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
                 or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt
                 or OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation

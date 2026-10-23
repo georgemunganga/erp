@@ -15,7 +15,8 @@ public sealed partial class PrincipalControlledReceivingTests
         return new(){TenantId=pin.TenantId,LegalEntityId=pin.LegalEntityId,BranchId=pin.BranchId!.Value,
             PurchaseOrderId=pin.PurchaseOrderId,PurchaseOrderLineId=pin.PurchaseOrderLineId,PurchaseRequestLineId=pin.PurchaseRequestLineId,
             IssuedVersionId=pin.IssuedVersionId,SubmissionId=source.SubmissionId,FundingEvidenceId=source.FundingEvidenceId,
-            AcknowledgmentId=source.SupplierAcknowledgmentId,SourceJson=json,SourceSha256=ProcurementEvidenceEncoding.Digest(json),
+            AcknowledgmentId=source.SupplierAcknowledgmentId,SourceBindingId=source.SourceBindingId,OriginalSourceSha256=source.OriginalDirectSourceSha256,
+            IssuedSnapshotSha256=pin.IssuedSnapshotSha256,CategoryCode=pin.CategoryCode,PurchaseType=pin.PurchaseType,Kind=pin.Kind.ToString(),CurrencyCode=pin.CurrencyCode,SourceJson=json,SourceSha256=ProcurementEvidenceEncoding.Digest(json),
             Sequence=sequence,AcceptedQuantity=quantity,AcceptedNetAmount=net};
     }
     [Fact]
@@ -26,7 +27,8 @@ public sealed partial class PrincipalControlledReceivingTests
         var bad=new PrincipalReceivingSourceState{TenantId=state.TenantId,LegalEntityId=state.LegalEntityId,BranchId=state.BranchId,
             PurchaseOrderId=state.PurchaseOrderId,PurchaseOrderLineId=state.PurchaseOrderLineId,PurchaseRequestLineId=state.PurchaseRequestLineId,
             IssuedVersionId=state.IssuedVersionId,SubmissionId=state.SubmissionId,FundingEvidenceId=state.FundingEvidenceId,
-            AcknowledgmentId=state.AcknowledgmentId,SourceJson=json,SourceSha256=ProcurementEvidenceEncoding.Digest(json)};
+            AcknowledgmentId=state.AcknowledgmentId,SourceBindingId=state.SourceBindingId,OriginalSourceSha256=state.OriginalSourceSha256,
+            IssuedSnapshotSha256=state.IssuedSnapshotSha256,CategoryCode=state.CategoryCode,PurchaseType=state.PurchaseType,Kind=state.Kind,CurrencyCode=state.CurrencyCode,SourceJson=json,SourceSha256=ProcurementEvidenceEncoding.Digest(json)};
         Assert.Throws<InvalidOperationException>(()=>PrincipalReceivingStorageCodec.Source(bad));
         var duplicate=state.SourceJson.Replace("\"SchemaVersion\":2","\"SchemaVersion\":1,\"SchemaVersion\":2",StringComparison.Ordinal);
         Assert.Throws<InvalidOperationException>(()=>PrincipalReceivingStorageCodec.Decode<PrincipalReceivingSource>(duplicate,ProcurementEvidenceEncoding.Digest(duplicate)));
@@ -71,7 +73,7 @@ public sealed partial class PrincipalControlledReceivingTests
     }
 }
 
-public sealed class PrincipalReceivingPersistenceModelTests
+public sealed partial class PrincipalReceivingPersistenceModelTests
 {
     private sealed record Scope(string TenantId,Guid LegalEntityId,string SubjectId):IProcurementScope
     {public Guid? WorkLocationId=>null;public Guid? OrgUnitId=>null;public bool IsConfined=>false;public string? CorrelationId=>null;}
@@ -80,7 +82,7 @@ public sealed class PrincipalReceivingPersistenceModelTests
     public void Cursor_revision_and_balances_are_never_EF_keys_and_owned_names_are_bounded()
     {
         using var db=Context();var model=db.GetService<IDesignTimeModel>().Model;
-        foreach(var type in new[]{typeof(PrincipalReceivingSourceState),typeof(PrincipalReceivingFact),typeof(PrincipalReceivingDraftHead),typeof(PrincipalReceivingDraftRevision),typeof(PrincipalReceivingCommandReceipt)})
+        foreach(var type in new[]{typeof(PrincipalReceivingDraftLineBinding),typeof(PrincipalReceivingSourceState),typeof(PrincipalReceivingFact),typeof(PrincipalReceivingDraftHead),typeof(PrincipalReceivingDraftRevision),typeof(PrincipalReceivingCommandReceipt)})
         {
             var entity=model.FindEntityType(type)!;Assert.Equal(ValueGenerated.Never,entity.FindProperty("Id")!.ValueGenerated);
             Assert.All(entity.GetKeys(),key=>Assert.True(key.GetName()!.Length<=63));
@@ -137,5 +139,49 @@ public sealed partial class PrincipalControlledReceivingTests
         var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>store.LedgerAsync(State(source),default));
         Assert.Equal("PrincipalReceivingEarlierHistoryUnknown",error.Message);
         Assert.Empty(await db.PrincipalReceivingSourceStates.ToArrayAsync());Assert.Empty(await db.PrincipalReceivingFacts.ToArrayAsync());
+    }
+}
+
+public sealed partial class PrincipalControlledReceivingTests
+{
+    [Fact]
+    public async Task Orphan_normalized_line_cannot_be_adopted_without_a_same_save_owned_revision()
+    {
+        var scope=new ReceivingStoreScope("no-orphan",Guid.NewGuid(),Receiver);
+        await using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,scope);
+        db.AddScoped(new PrincipalReceivingDraftLineBinding{TenantId=scope.TenantId,LegalEntityId=scope.LegalEntityId,
+            DraftId=Guid.NewGuid(),DraftRevisionId=Guid.NewGuid(),LineId=Guid.NewGuid(),SourceStateId=Guid.NewGuid(),
+            BranchId=Branch,PurchaseOrderId=Guid.NewGuid(),IssuedVersionId=Guid.NewGuid(),PurchaseOrderLineId=Guid.NewGuid(),Quantity=1});
+        var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
+        Assert.Equal("PrincipalReceivingLineRequiresNewRevision",error.Message);
+        Assert.Empty(await db.PrincipalReceivingDraftLineBindings.ToArrayAsync());Assert.Empty(await db.AuditEvents.ToArrayAsync());
+    }
+}
+
+
+public sealed partial class PrincipalReceivingPersistenceModelTests
+{
+    [Fact]
+    public void Exact_overlay_references_real_scoped_columns_and_ordinary_unique_indexes_without_keying_mutable_bindings()
+    {
+        using var db=Context();var model=db.GetService<IDesignTimeModel>().Model;
+        var matches=System.Text.RegularExpressions.Regex.Matches(PrincipalReceivingOwnershipConstraintSql.Install,
+            @"ALTER TABLE procurement\.(\w+) ADD CONSTRAINT (\w+)\s+FOREIGN KEY \(([^)]+)\)\s+REFERENCES procurement\.(\w+) \(([^)]+)\)");
+        Assert.Equal(10,matches.Count);
+        foreach(System.Text.RegularExpressions.Match match in matches)
+        {
+            var child=model.GetEntityTypes().Single(x=>x.GetTableName()==match.Groups[1].Value&&x.GetSchema()=="procurement");
+            var parent=model.GetEntityTypes().Single(x=>x.GetTableName()==match.Groups[4].Value&&x.GetSchema()=="procurement");
+            var childStore=StoreObjectIdentifier.Table(child.GetTableName()!,"procurement");var parentStore=StoreObjectIdentifier.Table(parent.GetTableName()!,"procurement");
+            var childColumns=match.Groups[3].Value.Split(',').Select(x=>x.Trim()).ToArray();var parentColumns=match.Groups[5].Value.Split(',').Select(x=>x.Trim()).ToArray();
+            Assert.Equal(childColumns.Length,parentColumns.Length);Assert.Equal(new[]{"tenant_id","legal_entity_id"},childColumns.Take(2));
+            Assert.All(childColumns,column=>Assert.Contains(child.GetProperties(),p=>p.GetColumnName(childStore)==column));
+            Assert.Contains(parent.GetIndexes(),index=>index.IsUnique&&index.Properties.Select(p=>p.GetColumnName(parentStore)).SequenceEqual(parentColumns));
+            Assert.True(match.Groups[2].Value.Length<=63);
+        }
+        Assert.DoesNotContain("CASCADE",PrincipalReceivingOwnershipConstraintSql.Install);
+        Assert.Equal(10,System.Text.RegularExpressions.Regex.Matches(PrincipalReceivingOwnershipConstraintSql.Install,"ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED").Count);
+        var line=model.FindEntityType(typeof(PurchaseOrderLine))!;
+        Assert.DoesNotContain(line.GetKeys().SelectMany(x=>x.Properties),p=>p.Name is nameof(PurchaseOrderLine.AcceptedQuantity) or nameof(PurchaseOrderLine.Quantity));
     }
 }
