@@ -135,3 +135,119 @@ Sourcing lead owns method/evaluation; governance owns award authority; supplier 
 ## 28. Open Decisions and Assumptions
 
 Approve sourcing thresholds, tender legal process, bid seal/opening authority, surrogate channels, scoring model, conflicts policy, savings method, supplier portal timing and retention. Owners: Procurement governance, Legal/Compliance and Finance; resolve before implementation.
+
+## P30 child-feature delta — governed publication and manual supplier quotation
+
+**Status:** Design and source preparation only. **Hierarchy:** Procurement → Strategic Sourcing → RFQ Publication and Manual Supplier Response → Approve Publication / Record Quotation Draft. P29 internal principal drafts must pass their separate private acceptance and be published before this capability is enabled. This delta does not authorize supplier transmission, submitted bids, evaluation, award, PO creation, or payment.
+
+### 1. Feature Identification
+
+`PROC-06-P30`; operations `P30-01` prepare and independently approve a publication, `P30-02` record the internally published RFQ and selected supplier audience, `P30-03` record a manually obtained supplier quotation as Draft, `P30-04` revise/cancel that Draft. Publication and quotation capabilities have distinct default-off readiness checks and evidence versions; old worker RFQ draft evidence remains version 1.
+
+### 2. Purpose and Business Outcome
+
+An approved internal RFQ becomes a fixed, reviewable request for prices, with an approved supplier audience. A buyer can preserve a supplier's offline quotation as an internal Draft against those exact RFQ lines. Neither record by itself claims that a message was delivered or that a supplier formally submitted a bid.
+
+### 3. Scope and Exclusions
+
+This increment covers P29 principal RFQ drafts only; current Core principals may have no HR employee. It includes independent approval, a published snapshot, an approved current supplier shortlist, manual delivery tracking, and draft quotation capture/read/revise/cancel. Supplier portal access, email/WhatsApp sending, bid submission/sealing/opening, comparative evaluation, award and Finance effects are excluded until their own full contracts exist.
+
+### 4. Parent and Related Features
+
+Parent `PROC-06`; source authority is the P29 RFQ's retained P25 approved PR line, Finance check and held allocation. Consume Core identity, branch/action scope and approval cases, Procurement `SOURCING` policy, supplier approval status, and shared document service only when its owner-access contract is available. Later bid submission and evaluation consume the published snapshot and quotation Draft.
+
+### 5. Actors and Participants
+
+The RFQ buyer prepares publication and manually records a supplier quotation; a separately authorized named Core reviewer decides publication. Supplier master owner confirms orderable supplier state. A supplier is an external source of an offline offer, not an authenticated actor in this increment. Auditor reads retained versions. No employee or worker record is mandatory.
+
+### 6. Entry Points and Triggers
+
+An authorized buyer opens a verified P29 Draft and explicitly requests publication review. The reviewer receives a Core assignment. After approval, the buyer records an external delivery attempt or manually obtained quotation using the published RFQ number and an approved shortlisted supplier.
+
+### 7. Preconditions
+
+The P29 Draft remains current, uncancelled and sourced from genuinely approved competitive demand. All selected holds and source digests restore successfully; supplier shortlist members are active, approved and within the selected company. A published/effective `SOURCING` policy has reviewed principal identity evidence, explicit audience and limits, a named reviewer with current Core action/branch authority, and no self-approval. Required criteria, pack, close time and supplier count are checked against the policy; missing rules or evidence block rather than default.
+
+### 8. Workflow
+
+Buyer freezes a candidate snapshot containing the exact RFQ/PR lines, method, terms, criteria, schedule, source digests, supplier shortlist and current policy version. Core opens a named independent review case; return sends it back for a new numbered candidate, rejection ends the attempt. Approval commits a publication fact and immutable snapshot atomically with the Core decision and Procurement audit/outbox. The buyer may then record individual **manual** supplier contact attempts; status distinguishes Attempted, ConfirmedReceived and Failed, with channel, time, actor and evidence. A supplier offer arriving by an allowed channel creates a quotation Draft linked to one shortlisted supplier and the exact published lines; buyer may revise or cancel under CAS until a future controlled Submit workflow exists.
+
+### 9. Status and State Transitions
+
+RFQ: Draft → Publication Pending → Published; Publication Pending → Returned/Rejected; Returned → Publication Pending with a new candidate; Draft/Returned → Cancelled under source-release rules. Published requirements and source references are immutable; further change needs a separately approved amendment. Shortlist delivery is tracked separately from publication: NotAttempted → Attempted → ConfirmedReceived/Failed; a retry is a new attempt. Manual quotation: Draft → Revised Draft → Cancelled; Submitted/Open/Evaluated/Awarded remain unavailable. Core case status is not inferred from the RFQ status field.
+
+### 10. Permissions and Data Scope
+
+Require current `procurement-sourcing-publish` for buyer submission and `procurement-sourcing-publication-approve` for assigned reviewer, with selected company, branch, record, supplier and Core case scope rechecked at decision time. The reviewer must differ from the buyer and from forbidden requester aliases; delegation cannot exceed current authority. A buyer may read only assigned RFQs and their shortlisted supplier's quotation Drafts; supplier users gain no access in this increment. Current scope checks precede receipt replay and pagination.
+
+### 11. Business Rules
+
+`BR-PROC-SRC-P30-001`: No publication from legacy ad hoc, cancelled, altered, unapproved or unverified demand. `002`: No implicit threshold, quote count, reviewer or supplier audience. `003`: A Core approval is distinct from the buyer's preparation and from supplier contact. `004`: `Published` records a fixed internal business fact and does not set `SentAt`, delivery success or supplier acknowledgement. `005`: One manually entered quotation Draft is supplier scoped and uses exact `numeric(18,4)` quantity/price plus exact derived totals; no float conversion or silent rounding. `006`: A quotation line cannot exceed the published line quantity, and all lines reference the same RFQ and currency. `007`: Revision/cancellation preserves prior offer versions and source times; no silent overwrite of the original external evidence.
+
+### 12. Data Fields and Ownership
+
+Procurement owns publication candidate/version, snapshot JSON and digest, P29 source/hold references, Core case/decision links, `SOURCING` policy ID/version/digest, buyer and reviewer principal IDs with optional historical worker aliases, explicit supplier shortlist, manual contact attempt, quotation Draft/line versions, source channel/reference, timestamps, correction reason and command receipts. Core owns current people, roles, branches and approval decisions. Supplier Management owns approval/active status. Shared Documents owns scanned file bytes and access; Procurement stores verified references only. Finance owns funding; no payable or payment field is created here.
+
+### 13. Screens and Data Views
+
+Keep the imported RFQ wizard and detail tabs. Add a publication readiness checklist, named reviewer and supplier shortlist to the existing Terms/Documents/Bidding/Team areas when backed by the API. Detail shows Pending/Returned/Published with Core decision evidence, the fixed requirements version, separate manual delivery attempts and scoped quotation Drafts. Existing unavailable controls remain visible until their server actions are verified.
+
+### 14. User Experience and Human Behaviour
+
+Use separate actions for “Request publication approval”, “Record manual delivery attempt” and “Record quotation Draft”. Explain that internal publication does not contact a supplier. On a returned review, retain the buyer's input but require a new candidate and current policy/source validation. Show the supplier's own currency and an explicit mismatch error rather than a converted total.
+
+### 15. Notifications and Communications
+
+Core may notify the named internal reviewer through the shared notification service after case commit. No external email, SMS, WhatsApp, portal invitation, or supplier acknowledgement is sent or implied. A manually recorded contact attempt is a buyer-attested event with evidence and delivery state, not a notification delivery receipt.
+
+### 16. Documents and Attachments
+
+A publication pack and original offline quotation document are required only when the configured policy says so. References are accepted only after shared document ownership, malware status, supplier/RFQ scope and immutable version are verified server-side; until that contract is integrated, document IDs are rejected rather than treated as proof. Store hash, classification and retention reference in Procurement, not document bytes.
+
+### 17. Exceptions and Edge Cases
+
+Handle changed PR source or Finance evidence, expired policy, inactive buyer/reviewer, reviewer alias conflict, suspended supplier, insufficient shortlist, same supplier twice, changed contract/category, late or unverified manual contact, quote for another RFQ line, duplicate supplier reference, currency mismatch, partial quote, stale CAS and unknown response. A failed external contact never rolls back a published RFQ, and no automatic retry sends a message.
+
+### 18. Integrations, APIs, Events and Sandbox
+
+Reuse the existing Procurement execution transaction and Core case engine; add versioned publication and quotation endpoints only after owning migration and finite readiness. Every mutation requires UUID `Idempotency-Key`, actor-owned GET recovery, exact CAS, scope/permission recheck, append-only audit and outbox. Proposed committed facts are `sourcing.publication_requested.v1`, `sourcing.published_internal.v1`, `sourcing.manual_contact_recorded.v1`, `sourcing.quotation_draft_recorded.v1`, and `sourcing.quotation_draft_cancelled.v1`. Event names become authoritative only with implemented schemas. No `RFQSent`, `SupplierBidSubmitted`, `Awarded` or payment event is emitted.
+
+### 19. Audit, Security and Privacy
+
+Record actor, Core decision, policy version, source/supplier IDs, old/new state, reason, timestamp, immutable snapshot digest and command correlation. Keep buyer/reviewer independence and tenant/company/branch isolation at database and HTTP boundaries. Supplier quotes are commercially confidential; search, export and activity views must follow the same scope. Do not log document contents, personal contacts, quote bodies or credentials.
+
+### 20. Reports, Dashboards and Metrics
+
+Count publication requests, returned/rejected/approved cases, internally published RFQs, manual delivery states and quotation Drafts by entity/category/period. Draft offers do not count as bidder participation or competitive coverage. Publish metrics only with defined denominator, business date, currency basis and owner.
+
+### 21. Configuration and Localization
+
+The effective `SOURCING` policy supplies quote minimum, audience, required pack/criteria, close time, reviewer and authority; no hard-coded value is introduced. Store trusted UTC instants plus company zone for display, exact currency and UOM references, and per-entity numbering. A missing zone uses the documented Core UTC default.
+
+### 22. Non-Functional Requirements
+
+Core approval and Procurement publication must commit atomically across the already shared transaction; if that cannot be proven, capability remains off. Retained snapshots are immutable and bounded. Enforce no-store sensitive reads, bounded paging/attachments, exact decimals, accessible denied/loading/recovery states and finite role/database rights. P29 and this increment retain separate rollout flags.
+
+### 23. Postconditions
+
+Approval produces one internally Published RFQ with pinned source, policy, Core decision and shortlist, while PR holds remain unchanged. A manual quotation Draft is buyer-owned, supplier linked and editable only through revision; it creates no award, PO or Finance handoff. Rejected/returned attempts preserve evidence and do not publish.
+
+### 24. Failure and Recovery
+
+Unknown mutation outcome retains only the original operation/key/record scope for GET recovery; it does not resend POST with a new key. On DB or Core failure, no partial publication or quote should survive. Supplier contact failures are explicit attempts with reason and may be followed by a separate attempt. Historical policy, approval and offer evidence remains readable after an actor is deactivated, subject to auditor scope.
+
+### 25. Acceptance Criteria
+
+A workerless authorized buyer can request review on an approved P29 RFQ; a distinct current Core reviewer can return/approve under a genuinely published `SOURCING` policy. The same person or a stale/unauthorized reviewer cannot approve. Published snapshot, Core decision and audit are linked and exact; no external delivery is claimed. A buyer can record/revise/cancel a scoped manual quotation Draft against an approved shortlisted supplier using exact amounts. Legacy worker evidence and all unavailable later transitions remain unchanged.
+
+### 26. Test Scenarios
+
+Test private PostgreSQL up/down with retained publication/quotation veto; principal no-employee happy path; missing/wrong policy, source, supplier, reviewer, branch, tenant and finite grants; self-approval; duplicate/idempotent request; lost response GET recovery; changed source and stale CAS; exact maximum amounts; denied document reference; no email/portal dispatch and no award/PO/Finance writes. Include normal-cookie browser checks in the imported RFQ presentation after the owning API is accepted.
+
+### 27. Ownership and Dependencies
+
+Procurement product owns policy choices and supplier-contact practice; Procurement engineering owns RFQ/quotation records; Core owns identity, branch and approval case; Supplier Management owns eligibility; Documents owns file validation. Release waits for P29 publication/acceptance, an independently reviewed principal `SOURCING` policy lifecycle, generated migration and private finite-role/normal-cookie proof.
+
+### 28. Open Decisions and Assumptions
+
+Business must set minimum quotes, approved shortlist rules, required documents, close-period rules, allowed offline channels, whether an internal publication may precede any actual supplier delivery, and amendment/withdrawal authority. Engineering must confirm document owner-access API and exact Core case source/version contract. No answer is inferred from the original local demo wizard.
