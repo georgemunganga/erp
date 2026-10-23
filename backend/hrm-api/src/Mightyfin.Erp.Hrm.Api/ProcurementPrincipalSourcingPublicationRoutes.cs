@@ -53,7 +53,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             throw new Problem("PrincipalSourcingPublicationUnavailable", 503);
     }
 
-    private static Task<IResult> PrincipalPublicationOpen(Guid id, PrincipalPublicationOpenInput input,
+    private static Task<IResult> PrincipalPublicationOpen(Guid id, PrincipalPublicationOpenInput? input,
         HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
@@ -63,7 +63,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
             await LockPrincipalSourcingCommandKey(db, key, token);
-            if (id == Guid.Empty || input.ExpectedEventVersion < 1
+            if (input is null || id == Guid.Empty || input.ExpectedEventVersion < 1
                 || input.OriginalDraftFingerprint is not { Length: 64 }
                 || input.SupplierIds is not { Length: > 0 and <= 100 }
                 || input.SupplierIds.Any(x => x == Guid.Empty)
@@ -260,15 +260,17 @@ public static partial class ProcurementSourcingExecutionRoutes
     }
 
     private static Task<IResult> PrincipalPublicationDecide(Guid id, Guid caseId, Guid assignmentId,
-        PrincipalPublicationDecisionInput input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
+        PrincipalPublicationDecisionInput? input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
         return Run(http, scope, async (db, cases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
-            var key = Key(http); var reason = Normalize(input.Reason);
+            var key = Key(http);
             await LockPrincipalSourcingCommandKey(db, key, token);
+            if (input is null) throw new Problem("SourcingPublicationDecisionInvalid", 422);
+            var reason = Normalize(input.Reason);
             if (id == Guid.Empty || caseId == Guid.Empty || assignmentId == Guid.Empty
                 || input.ExpectedEventVersion < 1 || input.ExpectedCaseVersion < 1
                 || input.ExpectedAssignmentVersion < 1 || input.Action is not ("Approve" or "Return" or "Reject")

@@ -12,7 +12,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         DateTimeOffset ReportedContactAt);
 
     private static Task<IResult> PrincipalManualContact(Guid id, Guid invitationId,
-        PrincipalManualContactInput input, HttpContext http, ProcurementRequestScope scope,
+        PrincipalManualContactInput? input, HttpContext http, ProcurementRequestScope scope,
         CancellationToken ct)
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
@@ -22,6 +22,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
             await LockPrincipalSourcingCommandKey(db, key, token);
+            if (input is null) throw new Problem("SourcingManualContactInvalid", 422);
             var reference = Normalize(input.Reference);
             if (id == Guid.Empty || invitationId == Guid.Empty || reference.Length is < 1 or > 200
                 || input.Channel is not ("EmailOutsideSystem" or "Physical" or "Telephone" or "Other")
