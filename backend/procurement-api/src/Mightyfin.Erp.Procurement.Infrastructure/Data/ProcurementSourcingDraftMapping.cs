@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -20,7 +21,7 @@ public sealed partial class ProcurementDbContext
         ev.Property(x => x.SourceEvidenceId).ValueGeneratedNever();
         ev.Property(x => x.OriginalDraftFingerprint).HasMaxLength(64);
         Link<SourcingEvent, ProcurementMethod>(model, nameof(SourcingEvent.MethodId));
-        ev.ToTable(t => t.HasCheckConstraint("ck_sourcing_owned_draft", "execution_version IN (0,1,2) AND ((execution_version=0 AND source_evidence_id IS NULL AND maker_worker_id IS NULL AND method_id IS NULL AND method_revision IS NULL AND original_draft_fingerprint IS NULL AND branch_ref IS NULL) OR (execution_version=1 AND source_evidence_id IS NOT NULL AND maker_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled')) OR (execution_version=2 AND source_evidence_id IS NOT NULL AND (maker_worker_id IS NULL OR maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled')))"));
+        ev.ToTable(t => t.HasCheckConstraint("ck_sourcing_owned_draft", "execution_version IN (0,1,2) AND ((execution_version=0 AND source_evidence_id IS NULL AND maker_worker_id IS NULL AND method_id IS NULL AND method_revision IS NULL AND original_draft_fingerprint IS NULL AND branch_ref IS NULL) OR (execution_version=1 AND source_evidence_id IS NOT NULL AND maker_worker_id IS NOT NULL AND maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','Cancelled')) OR (execution_version=2 AND source_evidence_id IS NOT NULL AND (maker_worker_id IS NULL OR maker_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND method_id IS NOT NULL AND method_revision IS NOT NULL AND method_revision>0 AND original_draft_fingerprint IS NOT NULL AND original_draft_fingerprint ~ '^[0-9a-f]{64}$' AND status IN ('Draft','PublicationReview','Published','Cancelled')))"));
         var evidence = model.Entity<SourcingDraftEvidence>();
         evidence.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_rfq_evidence_scope");
         evidence.Property(x => x.PayloadJson).HasColumnType("text");
@@ -99,19 +100,21 @@ public sealed partial class ProcurementDbContext
                 || ev.ExecutionVersion == 1 && (ev.MakerWorkerId is null || ev.MakerWorkerId == Guid.Empty)
                 || ev.ExecutionVersion == 2 && (ev.MakerWorkerId == Guid.Empty || !ProcurementPrincipalEvidence.Canonical(ev.OwnerSubjectId))
                 || ev.MethodId is null || ev.MethodRevision is not > 0 || !RfqDigest(ev.OriginalDraftFingerprint)
-                || ev.OwnerSubjectId != scope.SubjectId || scope.OrgUnitId is not null
-                || scope.WorkLocationId is { } selected && selected != ev.BranchRef || ev.Status is not ("Draft" or "Cancelled")) throw new InvalidOperationException("RfqOwnedDraftInvalid");
+                || (ev.OwnerSubjectId != scope.SubjectId
+                    && !(ev.ExecutionVersion == 2 && entry.State == EntityState.Modified
+                        && entry.OriginalValues.GetValue<string>(nameof(SourcingEvent.Status)) == "PublicationReview"))
+                || scope.OrgUnitId is not null
+                || scope.WorkLocationId is { } selected && selected != ev.BranchRef
+                || ev.ExecutionVersion == 1 && ev.Status is not ("Draft" or "Cancelled")
+                || ev.ExecutionVersion == 2 && ev.Status is not ("Draft" or "PublicationReview" or "Published" or "Cancelled"))
+                throw new InvalidOperationException("RfqOwnedDraftInvalid");
             if (entry.State == EntityState.Added && ev.Status != "Draft") throw new InvalidOperationException("RfqOwnedDraftInvalid");
             if (entry.State == EntityState.Modified && (entry.OriginalValues.GetValue<int>(nameof(SourcingEvent.ExecutionVersion)) != ev.ExecutionVersion
-                || entry.OriginalValues.GetValue<string>(nameof(SourcingEvent.Status)) != "Draft" || ev.Status != "Cancelled"
-                || string.IsNullOrWhiteSpace(ev.CancellationReason) || ev.CancellationReason.Length > 2000
-                || entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not
-                    (nameof(SourcingEvent.Status) or nameof(SourcingEvent.CancellationReason) or nameof(ProcurementRecord.UpdatedAt)
-                    or nameof(ProcurementRecord.UpdatedBy) or nameof(ProcurementRecord.Version))))) throw new InvalidOperationException("RfqMaterialEvidenceLocked");
+                || !AllowedSourcingTransition(entry))) throw new InvalidOperationException("RfqMaterialEvidenceLocked");
             var evidence = RfqRow<SourcingDraftEvidence>(ev.SourceEvidenceId.Value) ?? throw new InvalidOperationException("RfqOriginalEvidenceRequired");
             var bindings = RfqRows(SourcingDemandBindings.Local, SourcingDemandBindings.Where(x => x.SourcingEventId == ev.Id), x => x.SourcingEventId == ev.Id);
             if (evidence.SourcingEventId != ev.Id || evidence.SchemaVersion != ev.ExecutionVersion
-                || evidence.MakerSubjectId != scope.SubjectId || evidence.MakerWorkerId != ev.MakerWorkerId
+                || evidence.MakerSubjectId != ev.OwnerSubjectId || evidence.MakerWorkerId != ev.MakerWorkerId
                 || evidence.BranchRef != ev.BranchRef || bindings.Count is < 1 or > 200) throw new InvalidOperationException("RfqOriginalEvidenceRequired");
             if(ev.ExecutionVersion==1)
                 GovernedRfqRestoration.VerifyEnvelopeAndPins(SourcingDraftPersistenceProjection.Evidence(evidence), ev,
@@ -244,4 +247,29 @@ public sealed partial class ProcurementDbContext
     private static List<T> RfqRows<T>(IEnumerable<T> local, IQueryable<T> stored, Func<T, bool> filter) where T : ProcurementRecord
         => local.Where(filter).Concat(stored.ToArray()).DistinctBy(x => x.Id).ToList();
     private static bool RfqDigest(string? value) => value is { Length: 64 } && value.All(x => x is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    private bool AllowedSourcingTransition(EntityEntry<SourcingEvent> entry)
+    {
+        var ev = entry.Entity;
+        var before = entry.OriginalValues.GetValue<string>(nameof(SourcingEvent.Status));
+        var modified = entry.Properties.Where(x => x.IsModified).Select(x => x.Metadata.Name).ToHashSet(StringComparer.Ordinal);
+        bool Only(params string[] names) => modified.IsSubsetOf(names.Append(nameof(ProcurementRecord.UpdatedAt))
+            .Append(nameof(ProcurementRecord.UpdatedBy)).Append(nameof(ProcurementRecord.Version)));
+        if (before == "Draft" && ev.Status == "Cancelled")
+            return ev.OwnerSubjectId == scope.SubjectId && !string.IsNullOrWhiteSpace(ev.CancellationReason)
+                && ev.CancellationReason.Length <= 2000 && Only(nameof(SourcingEvent.Status), nameof(SourcingEvent.CancellationReason));
+        if (ev.ExecutionVersion != 2 || ev.ApprovalInstanceRef is null
+            || !Guid.TryParseExact(ev.ApprovalInstanceRef, "D", out var caseId) || caseId == Guid.Empty)
+            return false;
+        if (before == "Draft" && ev.Status == "PublicationReview")
+            return ev.OwnerSubjectId == scope.SubjectId && Only(nameof(SourcingEvent.Status), nameof(SourcingEvent.ApprovalInstanceRef))
+                && SourcingPublicationOpenings.Local.Any(x => x.SourcingEventId == ev.Id && x.CoreApprovalCaseId == caseId);
+        if (before == "PublicationReview" && ev.Status is "Published" or "Draft")
+            return Only(nameof(SourcingEvent.Status), nameof(SourcingEvent.OpensAt))
+                && (ev.Status == "Draft" ? ev.OpensAt is null : ev.OpensAt is not null)
+                && SourcingPublicationDecisions.Local.Any(x => x.SourcingEventId == ev.Id && x.CoreApprovalCaseId == caseId
+                    && x.ActorPrincipalId == scope.SubjectId && (ev.Status == "Published" ? x.CaseState == "Approved"
+                        : x.CaseState is "Returned" or "Rejected"));
+        return false;
+    }
 }

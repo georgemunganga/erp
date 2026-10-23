@@ -34,6 +34,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         group.MapGet("/{id:guid}/source-draft", Read).RequireAuthorization("procurement-access");
         group.MapGet("/command-receipts/{operation}/{key:guid}", Recover).RequireAuthorization("procurement-access");
         MapPrincipalSourceRoutes(group);
+        MapPrincipalPublicationRoutes(group);
     }
     private static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
         Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<Reply>> command, CancellationToken ct)

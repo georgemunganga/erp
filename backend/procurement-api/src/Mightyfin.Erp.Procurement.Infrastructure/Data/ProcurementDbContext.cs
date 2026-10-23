@@ -80,7 +80,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         if ((record is OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
                 or ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt
-                or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation) &&
+                or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation
+                or SourcingPublicationOpening or SourcingPublicationDecision or SourcingPublicationReceipt) &&
             (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
             throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
         record.TenantId = scope.TenantId;
@@ -533,6 +534,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigurePurchaseOrderExecution(modelBuilder);
         ConfigureSourcingDraftExecution(modelBuilder);
         ConfigureSourcingPolicyIdentity(modelBuilder);
+        ConfigureSourcingPublication(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
@@ -729,6 +731,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardInvoiceMatchingExecution();
         GuardSourcingDraftExecution();
         GuardSourcingPolicyIdentity();
+        GuardSourcingPublicationEvidence();
         GuardOperationalPolicyIdentity();
         GuardInvoiceUnitReview();
         var now = DateTimeOffset.UtcNow;
