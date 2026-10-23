@@ -53,6 +53,7 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
         builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementManualPaymentOptions()); // Explicitly off in this metadata-only fixture.
         builder.Services.AddSingleton(new CoreDocumentFeature(false));
         builder.Services.AddAuthentication("capability-test").AddScheme<AuthenticationSchemeOptions, Authentication>("capability-test", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
@@ -75,6 +76,7 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         Assert.Equal(!pending, capabilities.GetProperty("sourcingDraft").GetBoolean());
         Assert.False(capabilities.GetProperty("sourcing").GetBoolean());
         Assert.False(capabilities.GetProperty("orders").GetBoolean());
+        Assert.False(capabilities.GetProperty("manualPaymentWorkflow").GetBoolean());
         Assert.Equal(calls, readiness.Calls);
     }
 
