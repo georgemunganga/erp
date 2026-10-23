@@ -44,7 +44,7 @@ public sealed class ManualPaymentPersistenceTests
         Assert.Equal(2, saved.Version); Assert.Equal(12.3456m, saved.Amount);
         Assert.Equal(2, await db.ManualPaymentDecisions.CountAsync()); Assert.Equal(2, await db.ManualPaymentReceipts.CountAsync());
         Assert.All(await db.AuditEvents.Where(x => x.RecordType.StartsWith("ManualPayment")).ToArrayAsync(), x => {
-            using var json = JsonDocument.Parse(x.ChangedFieldsJson);
+            using var json = JsonDocument.Parse(Assert.IsType<string>(x.ChangedFieldsJson));
             Assert.Equal("ManualPayment", json.RootElement.GetProperty("principalEvidenceKind").GetString());
         });
     }
