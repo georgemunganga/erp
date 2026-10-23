@@ -131,3 +131,36 @@ Business: scoring basis/formulas/normalization and pass criteria, price/tax/deli
 | Shared documents | Core `EfDocumentUsePinStore`, `IDocumentUseAccess`, `ProcurementInvoiceUnitReviewDocumentUses` | Reuse actual fenced owning adapter and exact version-purpose access, not a copied uploader or owner-wide download. Procurement RFQ composition still required. |
 | Existing RFQ UI | `RfqWizard`, `RfqPresentation`, `PrincipalPublication` at UI d548f57 | Preserve layout/components. Imported Wizard local Draft is not an executable commercial plan; principal detail currently says no supplier bid/award and owns only manual Draft editor. |
 | Permissions | `ProcurementActionCatalog` | New actions/finite authority contract absent; empty bootstrap, actual Core role picker/tests, no reuse of generic edit/publish as award authority. |
+
+### First bounded code slice — evaluation definition only
+
+`PrincipalRfqEvaluationPlanDefinition.Parse` is a standalone typed, immutable
+configuration parser. Its separately named `SourcingEvaluationDefinition`
+version1 is not an accepted SOURCING publication schema or an available API.
+Every criterion explicitly supplies code, Technical/Commercial phase,
+Scored/PassFail kind, mandatory true/false, maximumScore, weight and named Core
+principal IDs. For this initial weighted definition, at least one Scored
+criterion is required; scored weights must sum **exactly** to the explicitly
+supplied normalizationTotal. No normalization basis is defaulted: a caller
+choosing1 versus100 receives exactly that representation. PassFail has explicit
+null maximum/weight, never an invented zero score. PassFail-only evaluation is
+unsupported by this initial definition rather than silently reinterpreted.
+
+The parser reuses existing bounded exact numeric18,4 decoding and canonical
+recursive duplicate-property/digest verification, with65,536 UTF8-byte and
+16-depth limits. Collections are copied and read-only. It preserves named IDs,
+false and null fields without claiming that those accounts are currently
+eligible or independent. `IsPublicationAuthority` is always false; no module
+provider, API, configuration lifecycle, EF model, migration, feature metadata or
+runtime service registration consumes the definition in this slice.
+
+Fourteen pure cases are authored in
+`PrincipalRfqEvaluationPlanDefinitionTests` (10 facts and a four-case theory):
+explicit values/false/null; collection mutation denial; explicit normalization;
+raw excess precision/overflow/zero/negative; numeric rounding; duplicates and
+old/unknown/missing fields; named-assignment identity/emptiness; pass/fail
+representation; bounded work; and canonical digest/change binding. These cases
+are **not run**. Current Core actor/reviewer resolution, retained policy origin,
+pre-publication snapshot/document retention, timed round, immutable supplier
+submission, seal/opening, score calculation and Core award workflow remain
+subsequent implementation and acceptance gates, not claims of this parser.
