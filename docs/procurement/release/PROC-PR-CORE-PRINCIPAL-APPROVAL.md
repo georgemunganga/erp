@@ -7,8 +7,11 @@ PostgreSQL owner verifier. Ordinary host registration selects the concrete captu
 P25 readiness provider only when `PrincipalExecutionEnabled` is true; its default
 remains false. Five natural dependency-shaped downgrade checkpoints passed; these
 are not isolated SQL OR-arm proofs. Physical-P25 compatibility for retained worker
-workflows is still undergoing private mapped-API verification. The latest focused
-compatibility build passed 38 host tests. See
+workflows passed 17 mapped HTTP requests and owning-context reload with the
+principal option disabled. The worker authority resolver now uses the same owning
+store for exact P21-first/P25 schema checks; current identity, authority and SOD
+checks remain unchanged. Its latest focused build passed 20 host tests, following
+the earlier 38-case compatibility suite. See
 [P25 compatibility evidence](P25-PAYMENT-COMPATIBILITY-20261023.json) for exact source
 versions, retained failed attempts, evidence hashes and remaining release gates.
 No production activation, external Finance authority, native identity-provider

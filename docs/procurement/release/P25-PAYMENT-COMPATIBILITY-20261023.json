@@ -1,5 +1,5 @@
 {
-  "status": "NORMAL_COOKIE_APPROVAL_PRIVATE_ACCEPTED_COMPATIBILITY_AND_RELEASE_PENDING",
+  "status": "PRIVATE_P25_COMPATIBILITY_ACCEPTED_SOURCE_MERGE_AND_PRODUCTION_RELEASE_PENDING",
   "pr": "https://github.com/georgemunganga/erp/pull/45",
   "publishedErpBase": "1b1f24986d5eb5035e46a82a98834c4c4b4af3cf",
   "publishedUiBase": "ef568a614d33e904504873aa54c63d907749e343",
@@ -186,11 +186,11 @@
       }
     }
   ],
-  "acceptanceScope": "Owner migration compatibility and recorded focused tests only; original failed fixture run retained, not relabelled passed",
+  "acceptanceScope": "Bounded private normal-cookie Core-user approval, exact-budget wire, migration compatibility, natural downgrade checkpoints and retained worker approval; source versions differ per evidence and are recorded explicitly. Not full Procurement, Finance, external IdP or production acceptance.",
   "remaining": [
-    "Verify physical-P25 legacy worker workflow compatibility with principal mode disabled",
-    "Independent final review and source merge",
-    "Production owning migration/finite roles/configuration, coordinated deployment and UAT"
+    "Source merge of accepted approval and paired UI candidates",
+    "Production owning migration/finite roles/configuration, coordinated deployment and UAT",
+    "RFQ/PO/receiving Core-user successor workflows and other held capabilities retain separate gates"
   ],
   "productionMigrated": false,
   "productionDeployed": false,
@@ -255,6 +255,18 @@
       "path": "/home/amizo/erp-backups/procurement-p25-legacy-worker-20261023_run04/result.json",
       "sha256": "8dad682b8725cf806cf8404e92d354505a66f0b8d87edb5d8d09f2148d2b69e5",
       "scope": "Retained failure; not acceptance"
+    },
+    {
+      "name": "workerAuthorityCompatibilityBuild",
+      "path": "/home/amizo/erp-backups/procurement-p25-payment-combined-build-20261023_run07/result.json",
+      "sha256": "da991a550738aa939556922d96666e776feb9e25274553b44fcec087cf87637b",
+      "scope": "20 focused host tests passed; API/probe publication and tracked-source preservation passed"
+    },
+    {
+      "name": "legacyWorkerMappedApiAndOwner",
+      "path": "/home/amizo/erp-backups/procurement-p25-legacy-worker-20261023_run05/result.json",
+      "sha256": "560c01eab68438f7a523786ed56b25af85c37171f66568e3f32d74e39662bb22",
+      "scope": "17 mapped HTTP requests and independent owning-context reload; original worker schema0/checker1/authority1/submission2/assignment1 and Core decision retained; private subject auth only"
     }
   ],
   "normalCookieApprovalBrowserPassed": true,
@@ -267,7 +279,7 @@
     "Attempt02 repeated that queue assumption and introduced an incorrect CAS expectation; source/database checks corrected the diagnosis",
     "First owner verifier treated nested PostgreSQL JSONB event payload as serialized text; read-only verifier corrected, separate run passed"
   ],
-  "latestCompatibilitySource": "1bcb0a745dde7de264d9323a1fba8b969f052c8f",
+  "latestCompatibilitySource": "e58772acb4e062b10fd413b7c9de8bad42605c93",
   "retainedLegacyProbeFailures": [
     {
       "attempt": "run01",
@@ -293,5 +305,11 @@
     }
   ],
   "latestCombinedVerificationSource": "3b4a7cbee779e67c8aca7c3582d3a493b15965c5",
-  "coreRoleFallbackPr": "https://github.com/georgemunganga/erp/pull/46"
+  "coreRoleFallbackPr": "https://github.com/georgemunganga/erp/pull/46",
+  "legacyWorkerApprovalPassed": true,
+  "legacyWorkerApprovalHttpRequests": 17,
+  "principalOptionForLegacyProof": false,
+  "legacyWorkflowTestAuthenticationOnly": true,
+  "independentWorkerResolverSourceReview": "No source blocker; exact same-owner P21-first/P25 fallback with unchanged current worker/authority/SOD checks",
+  "procurementSourceUnchangedSince1408CaseSuite": true
 }
