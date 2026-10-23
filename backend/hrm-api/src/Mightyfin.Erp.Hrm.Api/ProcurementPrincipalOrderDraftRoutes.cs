@@ -47,6 +47,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             .RequireAuthorization("procurement-po-approve");
         group.MapGet("/principal-finance-work",FinanceWork)
             .RequireAuthorization("procurement-po-finance-confirm");
+        group.MapGet("/{id:guid}/principal-finance-detail",FinanceDetail)
+            .RequireAuthorization("procurement-po-finance-confirm");
+        group.MapGet("/principal-assigned-reviews",AssignedReviews)
+            .RequireAuthorization("procurement-po-approve");
         group.MapPost("/{id:guid}/principal-direct-cancel",Cancel).RequireAuthorization("procurement-po-edit");
         // Recovery is scoped by the original command action inside Replay. A
         // Finance recorder or assigned reviewer need not hold broad PO read.

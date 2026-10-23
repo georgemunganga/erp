@@ -20,13 +20,16 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     }
     private static async Task<GovernedOrder> LoadGoverned(ProcurementDbContext db,ApprovalDbContext cases,
         HrmDbContext core,ProcurementRequestScope scope,HttpContext http,IAuthorizationService auth,
-        string action,Guid id,CancellationToken ct)
+        string action,Guid id,CancellationToken ct,bool lockSources=true)
     {
         var requestIds=await db.PrincipalOrderSourceBindings.AsNoTracking().Where(x=>x.PurchaseOrderId==id)
             .Select(x=>x.PurchaseRequestId).Distinct().OrderBy(x=>x).ToArrayAsync(ct);
         if(requestIds.Length is <1 or >100)throw new Problem("OrderOriginalSourceUnavailable",409);
-        foreach(var requestId in requestIds)await ProcurementApprovalExecutionLocks.LockRequestAsync(db,scope,requestId,ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.purchase_orders WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE",ct);
+        if(lockSources)
+        {
+            foreach(var requestId in requestIds)await ProcurementApprovalExecutionLocks.LockRequestAsync(db,scope,requestId,ct);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.purchase_orders WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE",ct);
+        }
         var order=await db.PurchaseOrders.SingleOrDefaultAsync(x=>x.Id==id&&x.PrincipalDraftSchemaVersion==2,ct)
             ??throw new Problem("OrderNotFound",404);
         _=await Actor(core,scope,http,auth,action,order.BranchRef,true,ct);

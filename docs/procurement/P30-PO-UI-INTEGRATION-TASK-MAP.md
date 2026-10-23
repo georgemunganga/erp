@@ -16,9 +16,9 @@ Add a typed, separate `src/platform/procurement-principal-orders-api.ts` and pri
 | `LiveOrderSourceEditor.tsx` layout and source picker | Buyer selects approved P25 direct lines, supplier, quantities, prices, and makes an internal draft; preserve all editor fields and exact decimal strings | `GET /approved-principal-direct-sources`; `POST /from-approved-principal-direct-sources` with `draft` and `sources[{draftLineIndex,purchaseRequestId,purchaseRequestLineId,expectedRequestVersion}]` |
 | `LiveOrders.tsx` detail tabs | Buyer reads source pins, lines, Core approval history, funding and release history; actions follow actual state | `GET /{id}/principal-direct-draft` |
 | Detail action | Buyer cancels an **unfunded** draft; this releases its PR allocation | `POST /{id}/principal-direct-cancel` with expected version, original source digest, reason |
-| Finance queue/detail action | Independent recorder attests an external manual commitment using exact amount/currency, evidence and each source reservation reference. This is not a Finance ledger entry or balance. | `GET /principal-finance-work`; `POST /{id}/principal-funding` |
+| Finance queue/detail action | Independent recorder reads exact retained source reservations and attests an external manual commitment using exact amount/currency and evidence. This is not a Finance ledger entry or balance. | `GET /principal-finance-work`; `GET /{id}/principal-finance-detail`; `POST /{id}/principal-funding` |
 | Detail action | Buyer submits after funding; Core opens an independent PO approval case | `POST /{id}/principal-submit` with expected order version |
-| `LiveOrderApprovalQueue.tsx` and `ApprovalDecisionDialog` | Assigned Core approver reviews the frozen commercial and funding evidence and approves, returns or rejects with exact case, assignment and order versions | `GET /{id}/principal-review/{assignmentId}`; `POST /{id}/principal-decisions/{assignmentId}` |
+| `LiveOrderApprovalQueue.tsx` and `ApprovalDecisionDialog` | Assigned Core approver finds only current assigned tasks, reviews the frozen commercial and funding evidence, then approves, returns or rejects with exact case, assignment and order versions | `GET /principal-assigned-reviews`; `GET /{id}/principal-review/{assignmentId}`; `POST /{id}/principal-decisions/{assignmentId}` |
 | Detail action | Authorized issuer freezes the internal issued version after completed Core approval; **no supplier message is sent** | `POST /{id}/principal-issue` with expected order version |
 | Detail action | Independent operator records the supplier's actual response to that issued version, channel, supplier/evidence reference and observed time | `POST /{id}/principal-acknowledgment` with issuedVersionId and Accepted/Rejected/Unknown |
 | Detail action | Buyer requests cancellation of a funded Draft/Returned/Rejected order; status becomes ReleasePending and allocation remains reserved | `POST /{id}/principal-release-request` |
@@ -27,12 +27,12 @@ Add a typed, separate `src/platform/procurement-principal-orders-api.ts` and pri
 
 P30 command inputs and statuses are defined by `ProcurementPrincipalOrderDraftRoutes.cs`. Command responses and recovery are P30-specific; the worker client `src/platform/procurement-order-execution-api.ts` has different endpoints and receipt shapes. Keep `Idempotency-Key`, server CAS versions, and original evidence digest intact. Do not use JavaScript `Number` for quantities or amounts.
 
-## Two read contracts required before complete UI wiring
+## Purpose-only reads added in source
 
-1. `/principal-finance-work` gives the order/version/status/gross and release request ID but not the exact source reservation references or funding evidence needed by the funding and release-confirmation forms. Add a scoped typed Finance detail read that exposes those retained references after the current `procurement-po-finance-confirm` action check. Never derive them from a worker order or broad PR read.
-2. P30 exposes review by known `assignmentId` but no P30 assigned-review directory. Add a scoped current Core-assignment queue filtered before count/paging, or a verified shared Core task deep link that supplies the exact ID. `LiveOrderApprovalQueue.tsx` currently calls the worker `/assigned-approvals` endpoint and cannot list P30 tasks safely.
+1. `GET /{id}/principal-finance-detail` returns exact retained source reservations, amount, funding reference and release request after current `procurement-po-finance-confirm` and branch checks. The endpoint refuses changed original pins. Never derive these values from a worker order or broad PR read.
+2. `GET /principal-assigned-reviews` joins the current Core assignment, retained P30 assignment/submission and scoped order before count/paging, then checks the bounded rows' retained snapshot hashes. `LiveOrderApprovalQueue.tsx` currently calls the worker `/assigned-approvals` endpoint and needs the principal adapter.
 
-No UI should claim a complete funding or approval task flow until these two reads exist.
+Both reads are source-only and require the same P30 schema, finite-role, real HTTP and browser gates before any UI availability claim.
 
 ## Presentation and verification boundaries
 
