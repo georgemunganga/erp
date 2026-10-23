@@ -25,8 +25,9 @@ internal sealed class PaymentHttpJourney(WebApplicationFactory<MonthlyLeaveAccru
                 ? values.FirstOrDefault(x => x.StartsWith("hrm_session=", StringComparison.Ordinal))?.Split(';')[0] : null;
             Require(!string.IsNullOrWhiteSpace(cookie), "real-local-cookie");
             sessions.Add(role, new(client, cookie!));
-            using var context = await Send(role, HttpMethod.Get, "/api/procurement/v1/context");
-            Require(context.StatusCode == HttpStatusCode.OK, "scoped-Core-context");
+            using var context = await Send(role, HttpMethod.Get, "/api/procurement/v1/context",
+                branch: role == "outsider" ? fixture.OtherBranch : fixture.Branch);
+            RequireStatus(context, HttpStatusCode.OK, "scoped-Core-context");
             using var contextJson = await JsonDocument.ParseAsync(await context.Content.ReadAsStreamAsync());
             Require(contextJson.RootElement.GetProperty("workerId").ValueKind == JsonValueKind.Null,
                 "Core-account-without-employee");
