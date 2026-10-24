@@ -94,6 +94,12 @@ public sealed partial class ProcurementDbContext
             {x.TenantId,x.LegalEntityId,x.OfferId,x.RoundId,x.SourcingEventId,x.BranchId,x.SupplierId,x.OfferSha256})
             .HasPrincipalKey(x=>new {x.TenantId,x.LegalEntityId,x.Id,x.OpeningId,x.SourcingEventId,x.BranchId,x.SupplierId,x.SnapshotSha256})
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p36_rec_line_offer");
+        model.Entity<SourcingLine>().HasAlternateKey(x=>new
+            {x.TenantId,x.LegalEntityId,x.Id,x.SourcingEventId}).HasName("ak_p36_rec_source_line");
+        line.HasOne<SourcingLine>().WithMany().HasForeignKey(x=>new
+            {x.TenantId,x.LegalEntityId,x.SourcingLineId,x.SourcingEventId})
+            .HasPrincipalKey(x=>new {x.TenantId,x.LegalEntityId,x.Id,x.SourcingEventId})
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p36_rec_source_line");
         ack.HasOne<PrincipalRfqRecommendationDraftRevision>().WithMany().HasForeignKey(x=>new
             {x.TenantId,x.LegalEntityId,x.RevisionId,x.DraftId,x.RoundId,x.SourcingEventId,x.BranchId,
                 x.ActorPrincipalId,x.CommandKey,x.RequestSha256})
