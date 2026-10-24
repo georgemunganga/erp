@@ -3,7 +3,8 @@ import hashlib
 import json
 import unittest
 from verify_p30_po_cookie_owner import Failed, canonical_json
-from verify_p30_service_cookie_owner import fingerprints, unique_json
+from verify_p30_service_cookie_owner import (fingerprints, json_object,
+    service_canonical_json, service_line_acceptance, unique_json)
 
 ORDER='11111111-1111-4111-8111-111111111111'
 ISSUED='22222222-2222-4222-8222-222222222222'
@@ -16,6 +17,27 @@ CERTIFY={'version':1,'sourceVersion':0,'quantity':'0.5',
     'evidenceReference':'PRIVATE-REC:browser-service-half'}
 
 class ServiceOwnerEvidence(unittest.TestCase):
+    def test_dotnet_string_escaping_and_jsonb_object_shape(self):
+        value={'at':'2026-10-24T10:00:00+00:00','limit':__import__('decimal').Decimal('0.0001')}
+        self.assertIn(r'\u002B00:00',service_canonical_json(value))
+        self.assertNotEqual(service_canonical_json(value),canonical_json(value))
+        self.assertEqual(json_object({'revision':2},'bad'),{'revision':2})
+        self.assertEqual(json_object('{"revision":2}','bad'),{'revision':2})
+        with self.assertRaises(Failed): json_object(['not-an-object'],'bad')
+
+    def test_half_acceptance_exact_actor_metadata_and_commercial_fields(self):
+        actor='55555555-5555-4555-8555-555555555555'
+        old={'accepted_quantity':'0','version':1,'updated_by':None,'updated_at':None,
+            'created_at':'2026-10-24T10:00:00+00:00','unit_price':'0.0001'}
+        after={**old,'accepted_quantity':'0.5','version':2,'updated_by':actor,
+            'updated_at':'2026-10-24T10:01:00+00:00'}
+        service_line_acceptance(old,after,actor)
+        for changed in ({**after,'updated_by':'other'},{**after,'version':3},
+            {**after,'updated_at':'2026-10-24T09:59:00+00:00'},
+            {**after,'unit_price':'0.0002'},{**after,'accepted_quantity':'1'}):
+            with self.subTest(changed=changed), self.assertRaises(Failed):
+                service_line_acceptance(old,changed,actor)
+
     def browser(self,create=None,certify=None):
         return {'createRequestBody':json.dumps(create if create is not None else CREATE),
             'certifyRequestBody':json.dumps(certify if certify is not None else CERTIFY)}

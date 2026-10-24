@@ -2,6 +2,7 @@
 """Independent read-only P30 service-cookie owner proof. No business writes."""
 import argparse
 from collections import Counter
+from datetime import datetime
 import decimal
 import hashlib
 import json
@@ -11,6 +12,53 @@ import sys
 from urllib.parse import urlparse
 from verify_p30_po_cookie_owner import DB, Failed, GUID, HEX, SYSTEM, TENANT, canonical_json, protected, output_path, write, require
 from verify_p30_receiving_cookie_owner import snapshot as receiving_snapshot, exact, one, RECEIVING, CHANGING
+
+
+def service_canonical_json(value):
+    """PolicyJsonDigest's default System.Text.Json string encoder escapes '+'."""
+    if isinstance(value, str):
+        return canonical_json(value).replace('+', r'\u002B')
+    if isinstance(value, list):
+        return '['+','.join(service_canonical_json(item) for item in value)+']'
+    if isinstance(value, dict):
+        require(all(isinstance(key,str) for key in value), 'ServiceCommandShapeInvalid')
+        return '{'+','.join(service_canonical_json(key)+':'+service_canonical_json(value[key])
+            for key in sorted(value))+'}'
+    return canonical_json(value)
+
+
+def json_object(value, error):
+    if isinstance(value, dict):
+        return value
+    try:
+        parsed = json.loads(value, parse_float=decimal.Decimal, parse_int=decimal.Decimal)
+    except (ValueError,TypeError,decimal.InvalidOperation):
+        raise Failed(error) from None
+    require(isinstance(parsed,dict),error)
+    return parsed
+
+
+def service_line_acceptance(old,new,actor):
+    require(exact(old.get('accepted_quantity')) == 0
+        and exact(new.get('accepted_quantity')) == decimal.Decimal('0.5')
+        and new.get('updated_by') == actor
+        and new.get('version') == old.get('version')+1,
+        'ServiceOriginalLineCounterOrActorChanged')
+    def stamp(value):
+        require(isinstance(value,str),'ServiceLineAuditTimeMissing')
+        try: result=datetime.fromisoformat(value.replace('Z','+00:00'))
+        except ValueError: raise Failed('ServiceLineAuditTimeMalformed') from None
+        require(result.tzinfo is not None and result.utcoffset().total_seconds() == 0,
+            'ServiceLineAuditTimeNotUtc')
+        return result
+    updated=stamp(new.get('updated_at'))
+    require(updated >= stamp(old.get('updated_at') or old.get('created_at')),
+        'ServiceLineAuditTimeReversed')
+    omitted={'accepted_quantity','updated_at','updated_by','version'}
+    require(old.keys() == new.keys() and {k:v for k,v in old.items() if k not in omitted}
+        == {k:v for k,v in new.items() if k not in omitted},
+        'ServiceOriginalLineCommercialFieldsChanged')
+    return updated
 
 
 def boundary(fixture, proxy, sha, database):
@@ -78,8 +126,8 @@ def fingerprints(browser, fixture, service_id):
         'ServiceBrowserCommandValuesChanged')
     create_value = {'operation':'Create','kind':'Service','input':create}
     certify_value = {'operation':'Certify','id':service_id,'input':certify}
-    return (hashlib.sha256(canonical_json(create_value).encode()).hexdigest(),
-        hashlib.sha256(canonical_json(certify_value).encode()).hexdigest(),create,certify)
+    return (hashlib.sha256(service_canonical_json(create_value).encode()).hexdigest(),
+        hashlib.sha256(service_canonical_json(certify_value).encode()).hexdigest(),create,certify)
 
 
 def compare(fixture, before, after, browser, fixture_sha):
@@ -112,16 +160,14 @@ def compare(fixture, before, after, browser, fixture_sha):
     def added(table):
         name='procurement.'+table
         return [row for row in new[name] if row['id'] not in previous[name]]
+    source_times=[]
     for table,id in (('purchase_request_lines',fixture['approvedRequestLineId']),
         ('purchase_order_lines',fixture['issuedOrderLineId'])):
         name='procurement.'+table;old_line=one(old[name],'id',id);new_line=one(new[name],'id',id)
-        require(exact(old_line['accepted_quantity']) == 0
-            and exact(new_line['accepted_quantity']) == decimal.Decimal('0.5'), 'ServiceCountersChanged')
-        excluded={'accepted_quantity','updated_at','version'}
-        require({k:v for k,v in old_line.items() if k not in excluded}
-            == {k:v for k,v in new_line.items() if k not in excluded}
-            and all(current[name][other] == value for other,value in previous[name].items() if other != id),
+        source_times.append(service_line_acceptance(old_line,new_line,fixture['serviceOwnerPrincipalId']))
+        require(all(current[name][other] == value for other,value in previous[name].items() if other != id),
             'ServiceOriginalLineCommercialFieldsChanged')
+    require(source_times[0] == source_times[1],'ServiceSourceLineSaveTimeChanged')
     require({name:len(added(name)) for name in RECEIVING} == {
         'principal_receiving_sources':1,'principal_receiving_drafts':1,
         'principal_receiving_revisions':2,'principal_receiving_line_bindings':2,
@@ -195,6 +241,9 @@ def compare(fixture, before, after, browser, fixture_sha):
             and row.get('request_sha256') == (create_sha if operation == 'Create' else certify_sha)
             and hashlib.sha256(row.get('response_json','').encode()).hexdigest() == row.get('response_sha256')
             for operation,row in receipt_by_operation.items()), 'ServiceCommandReceiptsChanged')
+    require(browser.get('createdVersion') == receipt_by_operation['Create'].get('result_revision') == 1
+        and browser.get('certifiedVersion') == receipt_by_operation['Certify'].get('result_revision') == 2,
+        'ServiceBrowserDurableVersionsChanged')
     require(fact.get('kind') == 'Acceptance' and fact.get('operation') == 'Certify'
         and fact.get('actor_principal_id') == fixture['serviceOwnerPrincipalId']
         and fact.get('actor_worker_alias_id') is None and fact.get('command_key') == keys[1]
@@ -213,9 +262,8 @@ def compare(fixture, before, after, browser, fixture_sha):
     require(policy.get('policy_key') == 'RECEIVING' and policy.get('state') == 'Published'
         and policy.get('published_at') and policy.get('published_by'),
         'IndependentServicePolicyPublicationMissing')
-    try: policy_rules=json.loads(policy['rules_json'],parse_float=decimal.Decimal,parse_int=decimal.Decimal)
-    except (ValueError,TypeError): raise Failed('ServicePolicyRulesMalformed') from None
-    policy_sha=hashlib.sha256(canonical_json(policy_rules).encode()).hexdigest()
+    policy_rules=json_object(policy.get('rules_json'),'ServicePolicyRulesMalformed')
+    policy_sha=hashlib.sha256(service_canonical_json(policy_rules).encode()).hexdigest()
     require(payload.get('Id') == fact['id'] and payload.get('AcceptanceRecordId') == service_id
         and payload.get('ObservationId') is None and payload.get('InspectionId') is None
         and payload.get('DeliverableReference') == create['deliverableReference']
@@ -261,8 +309,7 @@ def compare(fixture, before, after, browser, fixture_sha):
     for row in outbox:
         key=keys[0] if row.get('event_type') == 'procurement.receiving.changed.v2' else keys[1]
         operation='Create' if key == keys[0] else 'Certify'
-        try: value=json.loads(row['payload_json'])
-        except (ValueError,TypeError): raise Failed('ServiceOutboxPayloadMalformed') from None
+        value=json_object(row.get('payload_json'),'ServiceOutboxPayloadMalformed')
         require(value == {'id':service_id,'operation':operation,'commandKey':key,
             'revision':1 if operation == 'Create' else 2,
             'financePostingPerformed':False,'stockPostingPerformed':False}
