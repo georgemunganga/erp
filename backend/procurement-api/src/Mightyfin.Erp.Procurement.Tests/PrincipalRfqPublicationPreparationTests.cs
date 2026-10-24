@@ -5,6 +5,37 @@ namespace Mightyfin.Erp.Procurement.Tests;
 
 public sealed class PrincipalRfqPublicationPreparationTests
 {
+    [Fact]
+    public void Manual_quote_snapshot_survives_database_decimal_scale_restoration()
+    {
+        var bid = new SupplierBid { Status = "Draft", SourceChannel = "Manual", CurrencyCode = "ZMW" };
+        var line = new SupplierBidLine { SupplierBidId = bid.Id, SourcingLineId = Guid.NewGuid(),
+            Quantity = 1m, UnitPrice = 4.9999m, TaxAmount = 0m, DeliveryAmount = 0m };
+        var before = PrincipalManualQuotationSnapshot.Build(bid, [line]);
+        // These are the actual numeric(18,4) representations from the failed
+        // PostgreSQL quotation reload, after the create codec emitted 1/0/0.
+        line.Quantity = 1.0000m; line.TaxAmount = 0.0000m; line.DeliveryAmount = 0.0000m;
+        var after = PrincipalManualQuotationSnapshot.Build(bid, [line]);
+        Assert.Equal(before, after);
+        Assert.Equal(ProcurementEvidenceEncoding.Digest(before), ProcurementEvidenceEncoding.Digest(after));
+        Assert.Contains("4.9999", after);
+    }
+
+    [Fact]
+    public void Canonical_manual_quote_snapshot_preserves_real_value_changes()
+    {
+        var bid = new SupplierBid { Status = "Draft", SourceChannel = "Manual", CurrencyCode = "ZMW" };
+        var line = new SupplierBidLine { SupplierBidId = bid.Id, SourcingLineId = Guid.NewGuid(),
+            Quantity = 1m, UnitPrice = 0.0001m, TaxAmount = 0m, DeliveryAmount = 0m };
+        var before = PrincipalManualQuotationSnapshot.Build(bid, [line]);
+        line.UnitPrice = 0.0002m;
+        var after = PrincipalManualQuotationSnapshot.Build(bid, [line]);
+        Assert.NotEqual(before, after);
+        Assert.NotEqual(ProcurementEvidenceEncoding.Digest(before), ProcurementEvidenceEncoding.Digest(after));
+        Assert.Contains("0.0001", before);
+        Assert.Contains("0.0002", after);
+    }
+
     private static (RfqPrincipalDraft Draft, Supplier Supplier, DateTimeOffset Now) Fixture()
     {
         var now = new DateTimeOffset(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);
