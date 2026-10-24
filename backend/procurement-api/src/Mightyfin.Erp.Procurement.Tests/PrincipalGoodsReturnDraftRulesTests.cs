@@ -1,5 +1,6 @@
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
+using System.Text.Json;
 
 namespace Mightyfin.Erp.Procurement.Tests;
 
@@ -45,5 +46,25 @@ public sealed class PrincipalGoodsReturnDraftRulesTests
         Assert.Contains("\"stockChanged\":false", json);
         Assert.Contains("\"financeChanged\":false", json);
         Assert.DoesNotContain("returnedQuantity", json);
+    }
+
+    [Fact]
+    public void Retained_command_request_must_match_typed_revision_not_just_its_own_hash()
+    {
+        var head = new PrincipalGoodsReturnDraft { AcceptanceFactId = Guid.NewGuid(), AcceptedFactQuantity = 2m };
+        var revision = new PrincipalGoodsReturnRevision { DraftId = head.Id, Quantity = 1m, Reason = "Damaged" };
+        string Body(string quantity) => JsonSerializer.Serialize(new { operation = "Create", input = new
+        { acceptanceFactId = head.AcceptanceFactId, quantity, reason = "Damaged", evidenceReference = (string?)null } });
+        var valid = Body("1");
+        var receipt = new PrincipalGoodsReturnCommandReceipt { Operation = "Create", RequestJson = valid,
+            RequestSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(valid) };
+        Assert.True(PrincipalGoodsReturnRules.MatchesRequest(head, revision, receipt));
+        var changed = Body("1.0001");
+        var forged = new PrincipalGoodsReturnCommandReceipt { Operation = "Create", RequestJson = changed,
+            RequestSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(changed) };
+        Assert.False(PrincipalGoodsReturnRules.MatchesRequest(head, revision, forged));
+        Assert.False(PrincipalGoodsReturnRules.MatchesRequest(head, revision,
+            new PrincipalGoodsReturnCommandReceipt { Operation = "Create", RequestJson = valid,
+                RequestSha256 = new string('0', 64) }));
     }
 }

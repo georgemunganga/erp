@@ -45,6 +45,7 @@ public sealed partial class ProcurementDbContext
         var receipt = model.Entity<PrincipalGoodsReturnCommandReceipt>();
         receipt.Property(x => x.Operation).HasMaxLength(12);
         receipt.Property(x => x.ActorPrincipalId).HasMaxLength(36);
+        receipt.Property(x => x.RequestJson).HasColumnType("text");
         receipt.Property(x => x.RequestSha256).HasMaxLength(64);
         receipt.Property(x => x.ResponseSha256).HasMaxLength(64);
         receipt.Property(x => x.ResponseJson).HasColumnType("text");

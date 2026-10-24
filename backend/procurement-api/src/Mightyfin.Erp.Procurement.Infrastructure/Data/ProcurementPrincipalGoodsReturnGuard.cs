@@ -40,7 +40,9 @@ public sealed partial class ProcurementDbContext
                 revision.Revision != head.Revision || revision.State != head.State ||
                 revision.ActorPrincipalId != scope.SubjectId || receipt.ActorPrincipalId != scope.SubjectId ||
                 revision.CommandKey != receipt.CommandKey || receipt.ResultRevision != head.Revision ||
-                receipt.BranchId != head.BranchId || receipt.RequestSha256 is not { Length: 64 } ||
+                receipt.BranchId != head.BranchId || receipt.RequestSha256 !=
+                    ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.RequestJson) ||
+                !PrincipalGoodsReturnRules.MatchesRequest(head, revision, receipt) ||
                 receipt.ResponseJson != PrincipalGoodsReturnRules.ResponseJson(head, revision) ||
                 receipt.ResponseSha256 != ProcurementEvidenceEncoding.Digest(receipt.ResponseJson) ||
                 revision.Quantity <= 0 || revision.Quantity > head.AcceptedFactQuantity ||

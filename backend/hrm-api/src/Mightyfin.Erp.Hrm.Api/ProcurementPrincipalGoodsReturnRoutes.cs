@@ -103,6 +103,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
         if (receipts.Length != revisions.Length || revisions.Any(x => !receipts.Any(r => r.CommandKey == x.CommandKey &&
             r.ResultRevision == x.Revision && r.ActorPrincipalId == x.ActorPrincipalId &&
             r.BranchId == head.BranchId && r.ResponseSha256 == ProcurementEvidenceEncoding.Digest(r.ResponseJson) &&
+            PrincipalGoodsReturnRules.MatchesRequest(head, x, r) &&
             r.Operation == (x.Revision == 1 ? "Create" : x.State == "Cancelled" ? "Cancel" : "Revise"))))
             throw new Problem("ReturnDraftHistoryInvalid", 409);
         return (head, revisions[^1]);
@@ -119,13 +120,14 @@ public static partial class ProcurementPrincipalReceivingRoutes
     };
 
     private static Reply ReturnComplete(ProcurementDbContext db, PrincipalGoodsReturnDraft head,
-        PrincipalGoodsReturnRevision revision, string operation, Guid key, string actor, string requestSha, int status)
+        PrincipalGoodsReturnRevision revision, string operation, Guid key, string actor, string requestJson, int status)
     {
         var body = PrincipalGoodsReturnRules.ResponseJson(head, revision);
         db.AddScoped(new PrincipalGoodsReturnCommandReceipt
         {
             DraftId = head.Id, BranchId = head.BranchId, CommandKey = key, Operation = operation,
-            ActorPrincipalId = actor, RequestSha256 = requestSha, ResponseJson = body,
+            ActorPrincipalId = actor, RequestJson = requestJson,
+            RequestSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(requestJson), ResponseJson = body,
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(body), ResponseStatus = status, ResultRevision = head.Revision
         });
         db.AddScoped(new OutboxEvent { AggregateType = "PrincipalGoodsReturnDraft", AggregateId = head.Id,
@@ -202,7 +204,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
         => ReturnRun(http, scope, ReturnCreate, async (db, cases, _, actor, token) =>
         {
             if (input is null) throw new Problem("ReturnDraftInputRequired", 422);
-            var key = Key(http); var hash = Fingerprint(new { operation = "Create", input });
+            var key = Key(http); var request = JsonSerializer.Serialize(new { operation = "Create", input }, Json);
+            var hash = ProcurementEvidenceEncoding.PolicyJsonDigest(request);
             if (await ReturnReplay(db, cases, scope, actor, "Create", key, hash, token) is { } replay) return replay;
             var selected = await AcceptedGoods(db, cases, scope, actor, input.AcceptanceFactId, token);
             var quantity = ReturnQuantity(input.Quantity, selected.Acceptance.Quantity);
@@ -221,14 +224,15 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 Quantity = quantity, Reason = reason, EvidenceReference = input.EvidenceReference?.Trim(),
                 ProposalSha256 = PrincipalGoodsReturnRules.Fingerprint(head.Id, 1, quantity, reason, input.EvidenceReference?.Trim(), "Draft") };
             head.CurrentRevisionId = revision.Id; db.AddScoped(head); db.AddScoped(revision);
-            return ReturnComplete(db, head, revision, "Create", key, actor.PrincipalId, hash, 201);
+            return ReturnComplete(db, head, revision, "Create", key, actor.PrincipalId, request, 201);
         }, ct);
 
     private static Task<IResult> ReturnReviseDraft(Guid id, ReturnRevisionInput input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => ReturnRun(http, scope, ReturnEdit, async (db, cases, _, actor, token) =>
         {
             if (input is null) throw new Problem("ReturnDraftInputRequired", 422);
-            var key = Key(http); var hash = Fingerprint(new { operation = "Revise", id, input });
+            var key = Key(http); var request = JsonSerializer.Serialize(new { operation = "Revise", id, input }, Json);
+            var hash = ProcurementEvidenceEncoding.PolicyJsonDigest(request);
             if (await ReturnReplay(db, cases, scope, actor, "Revise", key, hash, token) is { } replay) return replay;
             var (head, _) = await ReturnHead(db, cases, scope, actor, id, true, token);
             if (head.State != "Draft" || head.Revision != input.ExpectedRevision) throw new Problem("ReturnDraftChanged", 409);
@@ -242,14 +246,15 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 Quantity = quantity, Reason = reason, EvidenceReference = input.EvidenceReference?.Trim(),
                 ProposalSha256 = PrincipalGoodsReturnRules.Fingerprint(id, next, quantity, reason, input.EvidenceReference?.Trim(), "Draft") };
             head.Revision = next; head.CurrentRevisionId = revision.Id; db.AddScoped(revision);
-            return ReturnComplete(db, head, revision, "Revise", key, actor.PrincipalId, hash, 200);
+            return ReturnComplete(db, head, revision, "Revise", key, actor.PrincipalId, request, 200);
         }, ct);
 
     private static Task<IResult> ReturnCancelDraft(Guid id, ReturnCancelInput input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => ReturnRun(http, scope, ReturnEdit, async (db, cases, _, actor, token) =>
         {
             if (input is null) throw new Problem("ReturnDraftInputRequired", 422);
-            var key = Key(http); var hash = Fingerprint(new { operation = "Cancel", id, input });
+            var key = Key(http); var request = JsonSerializer.Serialize(new { operation = "Cancel", id, input }, Json);
+            var hash = ProcurementEvidenceEncoding.PolicyJsonDigest(request);
             if (await ReturnReplay(db, cases, scope, actor, "Cancel", key, hash, token) is { } replay) return replay;
             var (head, prior) = await ReturnHead(db, cases, scope, actor, id, true, token);
             if (head.State != "Draft" || head.Revision != input.ExpectedRevision) throw new Problem("ReturnDraftChanged", 409);
@@ -261,7 +266,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 Quantity = prior.Quantity, Reason = reason, EvidenceReference = prior.EvidenceReference, State = "Cancelled",
                 ProposalSha256 = PrincipalGoodsReturnRules.Fingerprint(id, next, prior.Quantity, reason, prior.EvidenceReference, "Cancelled") };
             head.Revision = next; head.CurrentRevisionId = revision.Id; head.State = "Cancelled"; db.AddScoped(revision);
-            return ReturnComplete(db, head, revision, "Cancel", key, actor.PrincipalId, hash, 200);
+            return ReturnComplete(db, head, revision, "Cancel", key, actor.PrincipalId, request, 200);
         }, ct);
 
     private static Task<IResult> ReturnRecover(Guid key, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)

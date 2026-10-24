@@ -45,6 +45,7 @@ public sealed class PrincipalGoodsReturnCommandReceipt : ProcurementRecord
     public Guid CommandKey { get; init; }
     public string Operation { get; init; } = null!;
     public string ActorPrincipalId { get; init; } = null!;
+    public string RequestJson { get; init; } = null!;
     public string RequestSha256 { get; init; } = null!;
     public string ResponseJson { get; init; } = null!;
     public string ResponseSha256 { get; init; } = null!;

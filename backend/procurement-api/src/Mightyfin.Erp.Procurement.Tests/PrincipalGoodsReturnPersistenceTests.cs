@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -35,10 +36,13 @@ public sealed class PrincipalGoodsReturnPersistenceTests
             ProposalSha256 = PrincipalGoodsReturnRules.Fingerprint(head.Id, 1, 1m, "Damaged", null, "Draft") };
         head.CurrentRevisionId = revision.Id;
         var response = PrincipalGoodsReturnRules.ResponseJson(head, revision);
+        var request = JsonSerializer.Serialize(new { operation = "Create", input = new
+        { acceptanceFactId = head.AcceptanceFactId, quantity = "1", reason = "Damaged", evidenceReference = (string?)null } });
         db.AddScoped(head); db.AddScoped(revision);
         db.AddScoped(new PrincipalGoodsReturnCommandReceipt { TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             DraftId = head.Id, BranchId = head.BranchId, CommandKey = key, Operation = "Create",
-            ActorPrincipalId = actor, RequestSha256 = new string('c', 64), ResponseJson = response,
+            ActorPrincipalId = actor, RequestJson = request, RequestSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(request),
+            ResponseJson = response,
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(response), ResponseStatus = 201, ResultRevision = 1 });
         if (addEvent) db.AddScoped(new OutboxEvent { AggregateType = "PrincipalGoodsReturnDraft", AggregateId = head.Id,
             EventType = "procurement.goods_return.draft_create.v1", IdempotencyKey = $"goods-return.draft.{key:N}.v1" });

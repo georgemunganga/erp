@@ -41,4 +41,28 @@ public static class PrincipalGoodsReturnRules
             revision.Reason, revision.EvidenceReference,
             draftOnly = true, stockChanged = false, financeChanged = false, supplierNotified = false
         }, Json);
+
+    public static bool MatchesRequest(PrincipalGoodsReturnDraft head, PrincipalGoodsReturnRevision revision,
+        PrincipalGoodsReturnCommandReceipt receipt)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(receipt.RequestJson);
+            var root = document.RootElement;
+            if (root.GetProperty("operation").GetString() != receipt.Operation ||
+                receipt.RequestSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.RequestJson)) return false;
+            if (receipt.Operation != "Create" && root.GetProperty("id").GetGuid() != head.Id) return false;
+            var input = root.GetProperty("input");
+            if (receipt.Operation == "Create" && input.GetProperty("acceptanceFactId").GetGuid() != head.AcceptanceFactId ||
+                receipt.Operation != "Create" && input.GetProperty("expectedRevision").GetInt64() != revision.Revision - 1)
+                return false;
+            if (input.GetProperty("reason").GetString()?.Trim() != revision.Reason) return false;
+            if (receipt.Operation == "Cancel") return revision.State == "Cancelled";
+            return Quantity(input.GetProperty("quantity").GetString()!, head.AcceptedFactQuantity) == revision.Quantity &&
+                (input.GetProperty("evidenceReference").ValueKind == JsonValueKind.Null ? null :
+                    input.GetProperty("evidenceReference").GetString()?.Trim()) == revision.EvidenceReference;
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException or KeyNotFoundException or
+            ArgumentException or OverflowException) { return false; }
+    }
 }
