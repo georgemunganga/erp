@@ -448,3 +448,15 @@ Model-parity caching remains off; production configuration and readiness
 decisions are unchanged. This private diagnostic timeout is not a production
 latency target or SLA, and the timings do not prove that caching is appropriate
 for production.
+
+The P30 RFQ private fixture uses one unrestricted `SOURCING` fallback rule;
+the production coverage validator rejected the former single branch-limited
+rule in RFQ06. `--preflight-p30-rfq-fixture` runs the actual application policy
+validator and coverage analyzer, including a branch-only negative control,
+before any database setup. The RFQ HTTP profile also writes a bounded
+`P25_HTTP_RESULT.checkpoint.json` in the same owner-only directory. It contains
+only a controlled stage, completed HTTP count, bounded HTTP timing counts and
+readiness phase aggregates. It is updated atomically and remains available if
+the outer process times out before its final result. Neither the preflight nor
+the checkpoint proves the subsequent HTTP journey; RFQ06's failed result is
+retained separately, and RFQ07 requires a fresh private database.
