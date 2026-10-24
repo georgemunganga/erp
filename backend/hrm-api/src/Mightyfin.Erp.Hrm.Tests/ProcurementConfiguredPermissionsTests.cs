@@ -6,6 +6,25 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementConfiguredPermissionsTests
 {
+    [Theory]
+    [InlineData("procurement-return-read")]
+    [InlineData("procurement-return-create")]
+    [InlineData("procurement-return-edit")]
+    public void P37_draft_return_actions_require_explicit_current_Core_grants_even_for_legacy_admin(string action)
+    {
+        var options = new Microsoft.AspNetCore.Authorization.AuthorizationOptions();
+        ProcurementPermissions.AddPolicies(options);
+        Assert.NotNull(options.GetPolicy(action));
+        Assert.Empty(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.BootstrapGrants[action]);
+        Assert.Contains(action, JobsAdminServiceImpl.PermissionKeys);
+        Assert.False(ProcurementPermissions.Allows(action, [new Claim(ClaimTypes.Role, "erp_admin")]));
+        Assert.False(ProcurementPermissions.Allows(action, [new Claim(ClaimTypes.Role, "procurement_manager")]));
+        Assert.True(ProcurementPermissions.Allows(action, [new Claim(ClaimTypes.Role, "erp_admin"),
+            new Claim(ProcurementPermissions.ConfiguredClaim, "true"),
+            new Claim(ProcurementPermissions.ActionClaim, "procurement-access"),
+            new Claim(ProcurementPermissions.ActionClaim, action)]));
+    }
+
     [Fact]
     public void Submission_and_publication_have_distinct_registered_authorization_policies()
     {

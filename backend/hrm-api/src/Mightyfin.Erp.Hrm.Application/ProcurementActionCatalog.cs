@@ -37,6 +37,11 @@ public static class ProcurementActionCatalog
             ["procurement-receipt-inspect"] = [],
             ["procurement-receipt-accept"] = [],
             ["procurement-service-certify"] = [],
+            // P37 Draft intake has separate explicit Core grants; none grants return
+            // approval, supplier dispatch, stock movement or Finance authority.
+            ["procurement-return-read"] = [],
+            ["procurement-return-create"] = [],
+            ["procurement-return-edit"] = [],
             ["procurement-authority-read"] = [],
             ["procurement-authority-configure"] = [],
             ["procurement-authority-review"] = [],
