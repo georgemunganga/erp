@@ -156,6 +156,35 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     &&a.Status==(order.Status=="Cancelled"?"Released"
                         :order.Status is "IssuePending" or "Issued" or "Disputed"?"Ordered":"Reserved"))!=1))
                 throw new Problem("OrderOriginalSourceUnavailable",409);
+            var revisionAvailable=await PrincipalOrderRevisionCapability.ReadyAsync(
+                http.RequestServices,db,false,true,token);
+            var canEditDraft=false;
+            string? editUnavailableReason=revisionAvailable?null:"Draft editing is unavailable.";
+            if(revisionAvailable)
+            {
+                if(!PrincipalOrderRevisionCapability.RetainedDraftEligible(order,
+                    await db.PrincipalOrderFundingEvidence.AsNoTracking().AnyAsync(x=>x.PurchaseOrderId==id,token),
+                    await db.PrincipalOrderSubmissions.AsNoTracking().AnyAsync(x=>x.PurchaseOrderId==id,token),
+                    await db.PrincipalOrderIssuedVersions.AsNoTracking().AnyAsync(x=>x.PurchaseOrderId==id,token),
+                    await db.PrincipalReceivingSourceStates.AsNoTracking().AnyAsync(x=>x.PurchaseOrderId==id,token)))
+                    editUnavailableReason="Only an unfunded internal draft can be edited.";
+                else
+                {
+                    try
+                    {
+                        _=await Actor(core,scope,http,auth,"procurement-po-edit",order.BranchRef,true,token);
+                        var supplier=await db.Suppliers.AsNoTracking().Include(x=>x.Qualifications)
+                            .SingleOrDefaultAsync(x=>x.Id==order.SupplierId,token);
+                        canEditDraft=supplier is not null
+                            &&SupplierEligibility.CanReceiveNewOrders(supplier,DateTimeOffset.UtcNow);
+                        if(!canEditDraft)editUnavailableReason="The supplier is unavailable for a new commitment.";
+                    }
+                    catch(Problem error) when(error.Status is 403 or 404)
+                    {
+                        editUnavailableReason="You cannot edit this order in the selected branch.";
+                    }
+                }
+            }
             return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.SupplierId,
                 labels.SupplierDisplayName,labels.BranchDisplayName,
                 order.CurrencyCode,order.BranchRef,order.Status,order.Version,order.CreatedAt,
@@ -185,6 +214,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     allocationStatus=allocations.Single(x=>x.Id==bindings.Single(b=>b.PurchaseOrderLineId==line.Id).AllocationId).Status}).ToArray(),
                 executionMode="PrincipalOrderV2",manualFundingOnly=true,
                 fundingRecorded,
+                canEditDraft,editUnavailableReason,
                 financeReservationChanged=false,supplierSendPerformed=false},Json));
         },ct);
 

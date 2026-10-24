@@ -196,6 +196,8 @@ public static class ProcurementHostIntegration
                 var principalOrderGovernance = principalDirectOrderDrafts
                     && services.GetRequiredService<ProcurementOrderExecutionOptions>() is
                         { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true };
+                var principalOrderDraftRevision = await PrincipalOrderRevisionCapability.ReadyAsync(
+                    services, db, pending, principalDirectOrderDrafts, ct);
                 var principalReceivingOptions = services.GetService<ProcurementPrincipalReceivingOptions>();
                 var principalReceiving = !pending && principalReceivingOptions is
                         { Enabled: true, ExecutionDatabaseConfigured: true }
@@ -269,6 +271,7 @@ public static class ProcurementHostIntegration
                         orderDraft = !pending,
                         principalDirectOrderDrafts,
                         principalOrderGovernance,
+                        principalOrderDraftRevision,
                         principalReceiving,
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,

@@ -179,3 +179,21 @@ public interface IPrincipalOrderRevisionReadiness
     Task<bool> IsReadyAsync(Mightyfin.Erp.Procurement.Infrastructure.Data.ProcurementDbContext owner,
         CancellationToken ct);
 }
+
+public static class PrincipalOrderRevisionCapability
+{
+    public static bool RetainedDraftEligible(Mightyfin.Erp.Procurement.Domain.PurchaseOrder order,
+        bool hasFunding, bool hasSubmission, bool hasIssuedVersion, bool hasReceiving)
+        => order.PrincipalDraftSchemaVersion==2 && order.Status=="Draft"
+            && order.CurrentRevision==0 && order.FinanceCommitmentRef is null
+            && order.OriginalDirectSourceSha256 is { Length: 64 }
+            && !hasFunding && !hasSubmission && !hasIssuedVersion && !hasReceiving;
+
+    public static async Task<bool> ReadyAsync(IServiceProvider services,
+        Mightyfin.Erp.Procurement.Infrastructure.Data.ProcurementDbContext owner,
+        bool pendingModelOrMigration, bool principalDraftReady, CancellationToken ct)
+        => !pendingModelOrMigration && principalDraftReady
+            && services.GetService<PrincipalOrderRevisionOptions>() is { Enabled: true }
+            && services.GetService<IPrincipalOrderRevisionReadiness>() is { } readiness
+            && await readiness.IsReadyAsync(owner, ct);
+}
