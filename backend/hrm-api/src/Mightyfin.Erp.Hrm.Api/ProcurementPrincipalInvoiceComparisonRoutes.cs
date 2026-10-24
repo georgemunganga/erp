@@ -320,11 +320,11 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
         if (key == Guid.Empty || http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>()
                 is not { Enabled: true }
             || http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is not { } ready
-            || !await ready.IsReadyAsync(ct))
+            || !await ready.IsReadReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceComparisonUnavailable" }, statusCode: 503);
         return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
         {
-            if (!await ready.IsReadyAsync(db, token)) throw new InvalidOperationException("PrincipalInvoiceComparisonSchemaUnavailable");
+            if (!await ready.IsReadReadyAsync(db, token)) throw new InvalidOperationException("PrincipalInvoiceComparisonSchemaUnavailable");
             var (invoice, branches) = await ProcurementPrincipalInvoiceSourceRoutes.Current(
                 db, core, scope, http, auth, id, token);
             var receipt = await db.PrincipalInvoiceCommandReceipts.AsNoTracking()

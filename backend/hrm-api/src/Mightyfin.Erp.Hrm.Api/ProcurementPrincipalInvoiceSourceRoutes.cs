@@ -36,15 +36,18 @@ public static class ProcurementPrincipalInvoiceSourceRoutes
         try
         {
             var option = http.RequestServices.GetService<ProcurementPrincipalInvoiceSourceOptions>();
+            var matching = http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>();
+            var typed = http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>();
             var orders = http.RequestServices.GetService<IProcurementPrincipalOrderDraftReadiness>();
             var receiving = http.RequestServices.GetService<IProcurementPrincipalReceivingReadiness>();
-            if (option is not { Enabled: true } || orders is null || receiving is null
-                || !await orders.IsReadyAsync(ct))
+            if (option is not { Enabled: true } || matching is not { Enabled: true } || typed is null
+                || orders is null || receiving is null || !await typed.IsReadReadyAsync(ct))
                 throw new Problem("PrincipalInvoiceSourceUnavailable", 503);
             var value = await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>()
                 .ExecuteAsync(async (db, cases, token) =>
                 {
-                    if (!await orders.IsReadyAsync(db, false, token)
+                    if (!await typed.IsReadReadyAsync(db, token)
+                        || !await orders.IsReadyAsync(db, false, token)
                         || !await receiving.IsReadyAsync(db, false, token))
                         throw new Problem("PrincipalInvoiceSourceUnavailable", 503);
                     await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);

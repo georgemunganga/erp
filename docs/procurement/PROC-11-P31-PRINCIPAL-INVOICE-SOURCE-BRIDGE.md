@@ -241,3 +241,17 @@ Before P31 migration admission, actual PostgreSQL negative cases must try
 NULL acceptance sequence with a non-NULL acceptance fact in both mapping and
 claim rows, and NULL owner evidence digest while exposure says Verified. Each
 must fail the genuine CHECK, with the prior row footprint unchanged.
+
+The P31 HTTP routes are composed in the shared host behind two explicit,
+default-off options: `Procurement:PrincipalInvoiceSources:Enabled` and
+`Procurement:PrincipalInvoiceMatching:Enabled`. Their readiness provider
+requires the actual P30 order and receiving read contracts, the shared Core
+case/document stores, the complete thirteen-table P31 owner and finite SQL
+role privileges. The P31 migration ID, PostgreSQL CHECK definitions and
+ownership manifest have intentionally empty capture values in source. This
+means `principalInvoiceMatching` remains false and route requests return
+unavailable until the genuine migration is generated, captured, reviewed and
+rehearsed; an operator setting alone cannot make the feature ready. Read-only
+inspection/recovery requires SELECT; mutation additionally checks the owned
+append/mutable writes and Core case decision privileges. The independent
+current actor, branch, policy, source and document guards remain per command.

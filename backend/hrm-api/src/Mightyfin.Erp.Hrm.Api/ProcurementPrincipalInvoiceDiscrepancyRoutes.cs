@@ -31,7 +31,7 @@ public static class ProcurementPrincipalInvoiceDiscrepancyRoutes
     {
         http.Response.Headers.CacheControl = "private, no-store";
         if (!Available(http) || !await http.RequestServices
-                .GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadyAsync(ct))
+                .GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceExceptionsUnavailable" }, statusCode: 503);
         if (page is < 1 or > 100000 || pageSize is < 1 or > 50)
             return Results.Json(new { code = "PrincipalInvoiceExceptionsPageInvalid" }, statusCode: 422);
@@ -39,7 +39,7 @@ public static class ProcurementPrincipalInvoiceDiscrepancyRoutes
             async (db, unusedCases, core, auth, token) =>
             {
                 var ready = http.RequestServices.GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>();
-                if (!await ready.IsReadyAsync(db, token))
+                if (!await ready.IsReadReadyAsync(db, token))
                     throw new InvalidOperationException("PrincipalInvoiceExceptionsUnavailable");
                 var (invoice, _) = await ProcurementPrincipalInvoiceSourceRoutes.Current(
                     db, core, scope, http, auth, id, token);
@@ -208,7 +208,7 @@ public static class ProcurementPrincipalInvoiceDiscrepancyRoutes
     {
         http.Response.Headers.CacheControl = "private, no-store";
         if (!Available(http) || !await http.RequestServices
-                .GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadyAsync(ct))
+                .GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceExceptionsUnavailable" }, statusCode: 503);
         return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope,
             async (db, unusedCases, core, auth, token) =>

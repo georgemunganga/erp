@@ -40,13 +40,13 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
         http.Response.Headers.CacheControl = "private, no-store";
         if (http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>() is not { Enabled: true }
             || http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is not { } ready
-            || !await ready.IsReadyAsync(ct))
+            || !await ready.IsReadReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceReviewUnavailable" }, statusCode: 503);
         if (page is < 1 or > 100000 || pageSize is < 1 or > 50)
             return Results.Json(new { code = "PrincipalInvoiceReviewPageInvalid" }, statusCode: 422);
         return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
         {
-            if (!await ready.IsReadyAsync(db, token))
+            if (!await ready.IsReadReadyAsync(db, token))
                 throw new InvalidOperationException("PrincipalInvoiceReviewSchemaUnavailable");
             var branches = await ReviewerBranches(core, scope, http, auth, token);
             var query = db.PrincipalInvoiceUnitReviewSources.FromSqlInterpolated($"""
@@ -92,11 +92,11 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
         http.Response.Headers.CacheControl = "private, no-store";
         if (http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>() is not { Enabled: true }
             || http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is not { } ready
-            || !await ready.IsReadyAsync(ct))
+            || !await ready.IsReadReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceReviewUnavailable" }, statusCode: 503);
         return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
         {
-            if (!await ready.IsReadyAsync(db, token))
+            if (!await ready.IsReadReadyAsync(db, token))
                 throw new InvalidOperationException("PrincipalInvoiceReviewSchemaUnavailable");
             var branches = await ReviewerBranches(core, scope, http, auth, token);
             var source = await db.PrincipalInvoiceUnitReviewSources.AsNoTracking()

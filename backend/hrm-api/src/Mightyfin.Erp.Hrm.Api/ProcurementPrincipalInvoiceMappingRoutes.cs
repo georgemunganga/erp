@@ -262,7 +262,7 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
         return ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             var (invoice, _) = await ProcurementPrincipalInvoiceSourceRoutes.Current(db, core, scope, http, auth, id, token);
-            if (!await http.RequestServices.GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadyAsync(db, token))
+            if (!await http.RequestServices.GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>().IsReadReadyAsync(db, token))
                 throw new InvalidOperationException("PrincipalInvoiceMatchingSchemaUnavailable");
             var row = await db.PrincipalInvoiceCommandReceipts.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.SupplierInvoiceId == id && x.CommandKey == key, token)
@@ -324,5 +324,7 @@ public sealed class ProcurementPrincipalInvoiceMatchingOptions
 public interface IProcurementPrincipalInvoiceSchemaReadiness
 {
     Task<bool> IsReadyAsync(CancellationToken ct);
+    Task<bool> IsReadReadyAsync(CancellationToken ct);
     Task<bool> IsReadyAsync(ProcurementDbContext db, CancellationToken ct);
+    Task<bool> IsReadReadyAsync(ProcurementDbContext db, CancellationToken ct);
 }

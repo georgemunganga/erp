@@ -17,11 +17,11 @@ public static class ProcurementPrincipalInvoiceStatusRoutes
         http.Response.Headers.CacheControl = "private, no-store";
         if (http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>() is not { Enabled: true }
             || http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is not { } ready
-            || !await ready.IsReadyAsync(ct))
+            || !await ready.IsReadReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceMatchingUnavailable" }, statusCode: 503);
         return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
         {
-            if (!await ready.IsReadyAsync(db, token))
+            if (!await ready.IsReadReadyAsync(db, token))
                 throw new InvalidOperationException("PrincipalInvoiceMatchingSchemaUnavailable");
             var (invoice, branches) = await ProcurementPrincipalInvoiceSourceRoutes.Current(
                 db, core, scope, http, auth, id, token);

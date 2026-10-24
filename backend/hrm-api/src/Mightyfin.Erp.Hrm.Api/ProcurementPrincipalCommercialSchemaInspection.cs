@@ -13,17 +13,30 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// Does not grant record access, run DDL or substitute for current Core authorization.</summary>
 internal static class ProcurementPrincipalCommercialSchemaInspection
 {
-    internal static async Task<bool> CheckAsync(ProcurementDbContext owner, Type[] types,
+    internal sealed record Capture(string MigrationId, IReadOnlyDictionary<string, string> Checks,
+        IReadOnlyDictionary<string, string> OwnershipConstraints);
+
+    private static readonly Capture P30 = new(ProcurementPrincipalCommercialSchemaCapture.MigrationId,
+        ProcurementPrincipalCommercialSchemaCapture.Checks,
+        ProcurementPrincipalCommercialSchemaCapture.OwnershipConstraints);
+
+    internal static Task<bool> CheckAsync(ProcurementDbContext owner, Type[] types,
         string privilegeSql, IReadOnlySet<string> requiredOwnershipConstraints, CancellationToken ct, string? ownershipManifestSql = null)
+        => CheckAsync(owner, types, privilegeSql, requiredOwnershipConstraints, P30, ct, ownershipManifestSql);
+
+    internal static async Task<bool> CheckAsync(ProcurementDbContext owner, Type[] types,
+        string privilegeSql, IReadOnlySet<string> requiredOwnershipConstraints, Capture capture,
+        CancellationToken ct, string? ownershipManifestSql = null)
     {
-        if (!owner.Database.IsNpgsql()) return false;
+        if (!owner.Database.IsNpgsql() || string.IsNullOrWhiteSpace(capture.MigrationId)
+            || capture.Checks.Count == 0) return false;
         var opened = false;
         try
         {
             if (owner.Database.HasPendingModelChanges()
                 || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(
-                    ProcurementPrincipalCommercialSchemaCapture.MigrationId, StringComparer.Ordinal)) return false;
+                    capture.MigrationId, StringComparer.Ordinal)) return false;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
             await using var command = connection.CreateCommand();
@@ -49,7 +62,7 @@ internal static class ProcurementPrincipalCommercialSchemaInspection
                         key.GetName()!, key.IsPrimaryKey()))) return false;
                 foreach (var check in entity.GetCheckConstraints())
                 {
-                    if (!ProcurementPrincipalCommercialSchemaCapture.Checks.TryGetValue(
+                    if (!capture.Checks.TryGetValue(
                         table.Schema + "." + table.Name + "." + check.Name, out var expected)) return false;
                     command.CommandText = CheckSql(table, check.Name);
                     if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
@@ -70,7 +83,7 @@ internal static class ProcurementPrincipalCommercialSchemaInspection
             foreach (var fullName in requiredOwnershipConstraints)
             {
                 var parts = fullName.Split('.');
-                if (parts.Length != 3 || !ProcurementPrincipalCommercialSchemaCapture.OwnershipConstraints
+                if (parts.Length != 3 || !capture.OwnershipConstraints
                     .TryGetValue(fullName, out var expected)) return false;
                 command.CommandText = "SELECT pg_get_constraintdef(oid,false) FROM pg_constraint WHERE conrelid="
                     + Literal(parts[0] + "." + parts[1]) + "::regclass AND conname=" + Literal(parts[2])

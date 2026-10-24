@@ -14,11 +14,11 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
         if (key == Guid.Empty || http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>()
                 is not { Enabled: true }
             || http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is not { } ready
-            || !await ready.IsReadyAsync(ct))
+            || !await ready.IsReadReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceReviewUnavailable" }, statusCode: 503);
         return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
         {
-            if (!await ready.IsReadyAsync(db, token)) throw new InvalidOperationException("PrincipalInvoiceReviewSchemaUnavailable");
+            if (!await ready.IsReadReadyAsync(db, token)) throw new InvalidOperationException("PrincipalInvoiceReviewSchemaUnavailable");
             var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
                 scope.LegalEntityId, scope.SubjectId, token) ?? throw new UnauthorizedAccessException();
             if (actor.CoreLinkedWorkerId != scope.CoreLinkedWorkerId
