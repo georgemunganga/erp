@@ -287,7 +287,14 @@ internal static partial class PrincipalApprovalHttpVerification
                     if(p30ReceivingCookieFlag=="1")
                     {
                         Advance("P30ReceivingGenuineUnconsumedBrowserGoodsSource");
-                        var browserGoods=await CreateActualReceivingCookieGoodsSourceAsync(fixture,client,Send,issued.SupplierId);
+                        PrincipalIssuedFixture browserGoods;
+                        await using (var setupHost=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,
+                            actualSchema:true,privateManualEvidence:true))
+                        {
+                            setupHost.PrepareEntryPointEnvironment();
+                            using var setupClient=setupHost.CreateClient(new(){AllowAutoRedirect=false});
+                            browserGoods=await CreateActualReceivingCookieGoodsSourceAsync(fixture,setupClient,Send,issued.SupplierId);
+                        }
                         await ServeP30ReceivingNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
                             browserGoods,issued,result,Advance);
                     }

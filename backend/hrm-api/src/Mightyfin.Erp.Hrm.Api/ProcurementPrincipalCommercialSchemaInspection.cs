@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
+using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 
@@ -19,6 +20,28 @@ internal static class ProcurementPrincipalCommercialSchemaInspection
     private static readonly Capture P30 = new(ProcurementPrincipalCommercialSchemaCapture.MigrationId,
         ProcurementPrincipalCommercialSchemaCapture.Checks,
         ProcurementPrincipalCommercialSchemaCapture.OwnershipConstraints);
+
+    internal static bool TryResolveIndexPredicate(Type entityType, string? indexName,
+        string? modelPredicate, out string? predicate)
+    {
+        predicate = null;
+        if (entityType == typeof(SourcingPolicyIdentityEvidence) && indexName is not null
+            && ProcurementSourcingPolicyIdentitySchemaReadiness.PartialPredicates.TryGetValue(indexName, out var captured))
+        {
+            var expectedModel = indexName switch
+            {
+                "ux_source_policy_identity_created" => "stage = 'Created'",
+                "ux_source_policy_identity_published" => "stage = 'Published'",
+                _ => null,
+            };
+            if (expectedModel is null || modelPredicate != expectedModel) return false;
+            predicate = captured;
+            return true;
+        }
+        // PostgreSQL's canonical expression is an owning-schema contract.
+        // Unknown filtered indexes need their own reviewed capture.
+        return modelPredicate is null;
+    }
 
     internal static Task<bool> CheckAsync(ProcurementDbContext owner, Type[] types,
         string privilegeSql, IReadOnlySet<string> requiredOwnershipConstraints, CancellationToken ct, string? ownershipManifestSql = null)
@@ -77,8 +100,12 @@ internal static class ProcurementPrincipalCommercialSchemaInspection
                         foreign.GetConstraintName()))) return false;
                 }
                 foreach (var index in entity.GetIndexes().Where(x => x.IsUnique))
+                {
+                    if (!TryResolveIndexPredicate(type, index.GetDatabaseName(), index.GetFilter(), out var predicate))
+                        return false;
                     if (!await True(UniqueIndexSql(table, index.Properties.Select(x => x.GetColumnName(table)!).ToArray(),
-                        index.GetDatabaseName(), index.GetFilter()))) return false;
+                        index.GetDatabaseName(), predicate))) return false;
+                }
             }
             foreach (var fullName in requiredOwnershipConstraints)
             {
