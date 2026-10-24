@@ -18,7 +18,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// <summary>Explicitly enabled scoped provider. Constants were captured from the isolated PostgreSQL17
 /// P25 rehearsal; exact schema and finite-role validation remain mandatory at the point of use.</summary>
 public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope coreScope,HrmDbContext coreIdentity,
-    IConfiguration? performanceConfiguration=null):IProcurementPrincipalApprovalSchemaReadiness
+    IConfiguration? performanceConfiguration=null,
+    ILogger<ProcurementPrincipalApprovalStoreReadiness>? logger=null):IProcurementPrincipalApprovalSchemaReadiness
 {
     // Actual capture: procurement-p25-private-capture-20261022_browser03/result.json
     // SHA256 99990a425f07fc1f3c8135bd1b3f116ded9e6e8e3f140a366a149777408737fd.
@@ -84,12 +85,14 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
     {
         if(!ManifestCaptured || !owner.Database.IsNpgsql())return false;
         var opened=false;
+        var phase="model-and-migrations";
         try
         {
             if(ProcurementModelParityDiagnostics.HasPendingModelChanges(owner,performanceConfiguration,"principal-approval.model-parity")
                 || await ProcurementModelParityDiagnostics.MeasureAsync(performanceConfiguration,"principal-approval.applied-migrations",
                     async ()=>(await owner.Database.GetPendingMigrationsAsync(ct)).Any())
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId,StringComparer.Ordinal))return false;
+            phase="connection";
             if(owner.Database.GetDbConnection().State!=ConnectionState.Open){await owner.Database.OpenConnectionAsync(ct);opened=true;}
             await using var command=owner.Database.GetDbConnection().CreateCommand();
             command.Transaction=owner.Database.CurrentTransaction?.GetDbTransaction();command.CommandTimeout=10;
@@ -101,6 +104,7 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
             var expectedPredicates=entities.SelectMany(x=>x!.GetIndexes().Where(i=>i.IsUnique && i.GetFilter() is not null)
                 .Select(i=>x.GetSchema()+"."+x.GetTableName()+"."+i.GetDatabaseName())).ToHashSet(StringComparer.Ordinal);
             if(!expectedChecks.SetEquals(CheckDefinitions.Keys) || !expectedPredicates.SetEquals(PartialPredicates.Keys))return false;
+            phase="procurement-model";
             foreach(var entity in entities)
             {
                 if(entity!.GetSchema()!="procurement" || !await Inspect(entity,true))return false;
@@ -108,6 +112,7 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
             // Metadata comes from the existing Core owner model; reads/privilege
             // discovery still use ONLY the original Procurement connection/transaction.
             var identityModel=coreIdentity.GetService<IDesignTimeModel>().Model;
+            phase="core-identity-model";
             foreach(var type in CoreIdentityReadProperties.Keys)
             {
                 var entity=identityModel.FindEntityType(type);
@@ -117,10 +122,14 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
                 if(!await True(ColumnsSql(entity,table)))return false;
             }
             var relations=entities.Select(x=>x!.GetTableName()!).Append("__procurement_migrations").Distinct().ToArray();
-            if(!await True("SELECT NOT has_schema_privilege(current_user,'procurement','CREATE')")
-                || !await True("SELECT "+ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql)
-                || !await True("SELECT "+ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
+            phase="procurement-schema-privilege";
+            if(!await True("SELECT NOT has_schema_privilege(current_user,'procurement','CREATE')"))return false;
+            phase="core-identity-write-privilege";
+            if(!await True("SELECT "+ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql))return false;
+            phase="owner-privilege";
+            if(!await True("SELECT "+ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
                 || !await True(NoOwnersSql(relations)) || !await True(CoreOwnershipSql))return false;
+            phase="execution-privilege";
             foreach(var table in AppendTables)if(!await True(AppendSql(table,false)))return false;
             if(!await True("SELECT NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='procurement' AND c.relname::text=ANY("
                 +Columns(relations)+") AND has_table_privilege(current_user,c.oid,'TRUNCATE'))"))return false;
@@ -137,6 +146,7 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
                 foreach(var table in new[]{"budget_check_snapshots","spending_authority_identity_evidence","audit_events","outbox_events"})
                     if(!await True(AppendSql(table,true)))return false;
             }
+            phase="core-workflow";
             if(mode is 2 or 3)
             {
                 // Use the real shared Core model solely as metadata. All catalog commands
@@ -199,7 +209,12 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
                 return true;
             }
         }
-        catch(Exception error) when(error is not OperationCanceledException){return false;}
+        catch(Exception error) when(error is not OperationCanceledException)
+        {
+            if(performanceConfiguration?.GetValue<bool>("Procurement:ReadinessPerformance:DiagnosticsEnabled")==true)
+                logger?.LogWarning("Principal approval readiness unavailable at {Phase}: {ExceptionType}",phase,error.GetType().Name);
+            return false;
+        }
         finally{if(opened)await owner.Database.CloseConnectionAsync();}
     }
 

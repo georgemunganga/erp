@@ -12,7 +12,7 @@ using Npgsql;
 internal static class PrincipalApprovalRuntimePrivileges
 {
     internal sealed record Connections(string Record,string Execution,string RecordRole,string ExecutionRole);
-    internal static async Task<Connections> CreateAsync(string owner,PrincipalApprovalFixture fixture)
+    internal static async Task<Connections> CreateAsync(string owner,PrincipalApprovalFixture fixture,bool productionPooling=false)
     {
         var suffix=Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
         var record="p25_record_"+suffix;var execution="p25_execute_"+suffix;
@@ -170,8 +170,20 @@ internal static class PrincipalApprovalRuntimePrivileges
         await Run("GRANT SELECT ON core_approval.\"__EFMigrationsHistory\" TO "+Q(record)+","+Q(execution));
         foreach(var table in new[]{"cases","stages","assignments"})await Run("GRANT INSERT,UPDATE ON core_approval."+Q(table)+" TO "+Q(execution));
         await Run("GRANT INSERT ON core_approval.decisions TO "+Q(execution));
-        string Connect(string role,string password)=>new NpgsqlConnectionStringBuilder(owner){Username=role,Password=password,Pooling=false,Multiplexing=false}.ConnectionString;
-        return new(Connect(record,recordPassword),Connect(execution,executionPassword),record,execution);
+        return new(RuntimeConnection(owner,record,recordPassword,productionPooling),
+            RuntimeConnection(owner,execution,executionPassword,productionPooling),record,execution);
     }
+    internal static string RuntimeConnection(string owner,string role,string password,bool productionPooling)
+        => new NpgsqlConnectionStringBuilder(owner)
+        {
+            Username=role,Password=password,Pooling=productionPooling,
+            Multiplexing=false,NoResetOnClose=false,
+        }.ConnectionString;
+
+    internal static string CoreRuntimeConnection(string owner)
+        => new NpgsqlConnectionStringBuilder(owner)
+        {
+            Pooling=true,Multiplexing=false,NoResetOnClose=false,
+        }.ConnectionString;
     internal static string Q(string value)=>'"'+value.Replace("\"","\"\"")+ '"';
 }

@@ -1,10 +1,14 @@
 # MANUS-CORE-DOCUMENT-SCANNER-04 — isolated ClamAV scanner verification
 
-**Status:** Queued proposal for review; **not assigned or started**. Do not overlap the active `MANUS-CORE-BUILD-03` assignment. The coordinator decides when to publish and assign this task.
+**Status:** Ready for Manus pickup — independent Core infrastructure milestone, assigned by the coordinator on 24 October 2026. Keep `MANUS-CORE-BUILD-03` and its owned files separate. Use a separate branch/checkout; this scope may proceed independently on adequate non-production hardware. Serialize heavy jobs on any shared host.
 
-**Starting point when assigned:** a fresh checkout of published ERP `main` at `6994de01400a97becc6ed4c5e95cb63a0db082c3` or a later reviewed published descendant. Record the exact checkout SHA and the reviewed image digest. This document is additive; it does not authorize cherry-picking the coordinator's held Procurement/P30 branches or changing `MANUS_HANDOFF.md`.
+**Starting point when assigned:** a fresh checkout of published ERP `main` at `1657398e865245bc03ec39efbdf97766b0b9dd71` or a later reviewed published descendant. Record the exact checkout SHA and the reviewed image digest. This document is additive; it does not authorize cherry-picking the coordinator's held Procurement/P30 branches or changing `MANUS_HANDOFF.md`.
 
 **Outcome:** On separate non-production hardware, demonstrate that the existing `ClamdDocumentScanner` correctly handles a real official ClamAV daemon and current official signature databases through its Unix socket. Produce portable, independently reviewable evidence for a clean synthetic file, the official EICAR test file, failed scans, content integrity, definition freshness and definition changes. This is a Core document scanner adapter milestone. The actual Core Document HTTP/API activation and any Procurement invoice document release remain coordinator-owned follow-up gates.
+
+## Ownership and pickup
+
+Claim this task in a focused draft ERP PR titled `MANUS-CORE-DOCUMENT-SCANNER-04` and record the exact published main SHA. Own the scanner harness, runbook and `docs/collaboration/manus/scanner-04-progress.md`. A focused adapter/protocol fix is allowed when actual results demonstrate a defect; preserve the public `IDocumentScanner` semantics and fail-closed behavior, add the relevant test and explain the change for independent review. Do not edit the current Core frontend assignment or shared handoff/status files. The coordinator reviews and merges; do not deploy or activate uploads.
 
 ## Existing contract and boundaries
 
@@ -46,4 +50,6 @@ Store a protected evidence bundle with: hardware/container inventory, image dige
 
 ## Review and completion gate
 
-Manus may submit a focused draft ERP PR and protected evidence reference after this milestone is assigned and the published baseline is rechecked. A distinct reviewer must verify the official image/signature provenance, Unix-socket isolation, actual direct adapter verdicts, integrity/freshness negatives, resource use, failure recovery and evidence hashes. Report unproven cases explicitly. The coordinator owns any later Core Document API activation and release decision. This task is complete only when the reviewed direct-scanner evidence meets the table above and the original adapter contract remains intact; it does **not** certify production document uploads, permissions, migrations, invoice workflows or deployment.
+Manus should submit a focused draft ERP PR and protected evidence reference after rechecking the published baseline. A distinct reviewer must verify the official image/signature provenance, Unix-socket isolation, actual direct adapter verdicts, integrity/freshness negatives, resource use, failure recovery and evidence hashes. Report unproven cases explicitly. The coordinator owns any later Core Document API activation and release decision. This task is complete only when the reviewed direct-scanner evidence meets the table above and the original adapter contract remains intact; it does **not** certify production document uploads, permissions, migrations, invoice workflows or deployment.
+
+A real reload-race case may remain explicitly unproven if official definitions are already current or the race cannot be reproduced safely. Its deterministic protocol regression remains required. Actual clean/EICAR scans, integrity/freshness failure cases, isolation and recovery evidence are mandatory; do not replace them with simulated verdicts.
