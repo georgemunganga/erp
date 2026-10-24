@@ -165,7 +165,7 @@ internal static class ProcurementPrincipalOrderRetainedIssued
             .OrderBy(x=>x.LineNumber).ToArrayAsync(ct);
         var bindings=await db.PrincipalOrderSourceBindings.Where(x=>x.PurchaseOrderId==orderId)
             .ToArrayAsync(ct);
-        PrincipalOrderDraftPins.Verify(order,lines,bindings);
+        var effective=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,ct);
         if(lines.Length!=bindings.Length || lines.Length is <1 or >100
             || !requestIds.ToHashSet().SetEquals(bindings.Select(x=>x.PurchaseRequestId)))throw Invalid();
         var issued=await db.PrincipalOrderIssuedVersions.AsNoTracking()
@@ -245,9 +245,11 @@ internal static class ProcurementPrincipalOrderRetainedIssued
                 new BoundBranch(scope,binding.BranchId),binding.PurchaseRequestId,binding.PurchaseRequestLineId,
                 new RetainedDemandSourceIdentity(binding.SubmissionId,binding.ApprovalOutcomeId,binding.MethodId),ct);
             var allocation=original.Allocations.SingleOrDefault(x=>x.Id==binding.AllocationId);
-            if(allocation is null || allocation.Status!="Ordered"
+            if(!effective.TryGetValue(binding.Id,out var current)
+                || allocation is null || allocation.Status!="Ordered"
                 || allocation.TargetType!="PurchaseOrder" || allocation.TargetId!=order.Id
-                || allocation.Quantity!=binding.Quantity || allocation.EstimatedValue!=binding.EstimatedValue
+                || allocation.Quantity!=current.Quantity || allocation.EstimatedValue!=current.EstimatedValue
+                || line.Quantity!=current.Quantity || line.UnitPrice!=current.UnitPrice
                 || allocation.CurrencyCode!=binding.CurrencyCode
                 || original.Request.BranchRef!=order.BranchRef
                 || original.Submission.SnapshotSchemaVersion!=3

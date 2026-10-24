@@ -25,6 +25,16 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 return prior;
             var load=await LoadGoverned(db,cases,core,scope,http,auth,"procurement-po-finance-confirm",id,token);
             var order=load.Order;var now=DateTimeOffset.UtcNow;
+            // Funding is the first commercial authority after an internal Draft
+            // edit. LoadGoverned has verified the immutable original and every
+            // effective revision; the attested amount below is the current
+            // revised gross. Issued amendments remain a separate workflow.
+            if(await ProcurementPrincipalOrderDraftHistory.InstalledAsync(db,token)
+                && await db.PrincipalOrderDraftCommercialRevisions.AnyAsync(x=>x.PurchaseOrderId==id,token)
+                && (http.RequestServices.GetService<PrincipalOrderRevisionOptions>() is not { Enabled: true }
+                    || http.RequestServices.GetService<IPrincipalOrderRevisionReadiness>() is not { } revisionReady
+                    || !await revisionReady.IsReadyAsync(db,token)))
+                throw new Problem("OrderDraftRevisionUnavailable",503);
             if(order.Status!="Draft" || order.CurrentRevision!=0 || order.Version!=input.ExpectedOrderVersion
                 || await db.PrincipalOrderFundingEvidence.AnyAsync(x=>x.PurchaseOrderId==id,token))
                 throw new Problem("OrderFundingSourceChanged",409);

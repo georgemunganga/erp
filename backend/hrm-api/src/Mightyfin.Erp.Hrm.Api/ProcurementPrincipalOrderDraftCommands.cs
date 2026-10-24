@@ -100,6 +100,18 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 binding.OriginalDirectSourceSha256=order.OriginalDirectSourceSha256;
                 db.AddScoped(binding);
             }
+            if(http.RequestServices.GetService<PrincipalOrderRevisionOptions>()?.Enabled==true)
+            {
+                if(!await ProcurementPrincipalOrderDraftHistory.InstalledAsync(db,token)
+                    || http.RequestServices.GetService<IPrincipalOrderRevisionReadiness>() is not { } revisionReady
+                    || !await revisionReady.IsReadyAsync(db,token))
+                    throw new Problem("OrderDraftRevisionUnavailable",503);
+                var original=PrincipalOrderCommercialStates.Capture(order,lines);
+                db.AddScoped(new PrincipalOrderCommercialOrigin{PurchaseOrderId=order.Id,
+                    OriginalDirectSourceSha256=order.OriginalDirectSourceSha256,
+                    SnapshotJson=original,SnapshotSha256=PrincipalOrderCommercialStates.Digest(original),
+                    CapturedByPrincipalId=actor.PrincipalId,CapturedAt=now,CaptureMode="Create"});
+            }
             Record(db,scope,order,"Create",key,new{sourceLines=bindings.Select(x=>x.PurchaseRequestLineId).ToArray()});
             return await Save(db,scope,order,"Create",key,fingerprint,token);
         },ct);
@@ -135,7 +147,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             if(lines.Length!=bindings.Length || bindings.Length is <1 or >100
                 || !requestIds.ToHashSet().SetEquals(bindings.Select(x=>x.PurchaseRequestId)))
                 throw new Problem("OrderOriginalSourceUnavailable",409);
-            PrincipalOrderDraftPins.Verify(order,lines,bindings);
+            var effective=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,token);
             var allocations=await db.PurchaseRequestAllocations.Where(x=>x.TargetType=="PurchaseOrder"&&x.TargetId==id).ToArrayAsync(token);
             if(allocations.Length!=bindings.Length)throw new Problem("OrderOriginalSourceUnavailable",409);
             foreach(var binding in bindings)
@@ -149,13 +161,14 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 var submission=retained.Submission;var outcome=retained.Outcome;
                 _=PurchaseDemandAllocationBalance.Evaluate(request,source,retained.Allocations,
                     retained.AllocationOwners??[],scope.TenantId,scope.LegalEntityId);
-                if(allocation is null || retained.Allocations.Count(x=>x.Id==allocation.Id)!=1
+                if(!effective.TryGetValue(binding.Id,out var current)
+                    || allocation is null || retained.Allocations.Count(x=>x.Id==allocation.Id)!=1
                     || allocation.Status!="Reserved" || allocation.TargetId!=id || allocation.PurchaseRequestId!=request.Id
-                    || allocation.PurchaseRequestLineId!=source.Id || allocation.Quantity!=binding.Quantity
-                    || allocation.EstimatedValue!=binding.EstimatedValue || allocation.CurrencyCode!=binding.CurrencyCode
+                    || allocation.PurchaseRequestLineId!=source.Id || allocation.Quantity!=current.Quantity
+                    || allocation.EstimatedValue!=current.EstimatedValue || allocation.CurrencyCode!=binding.CurrencyCode
                     || allocation.Method!=binding.MethodCode
                     || request.BranchRef!=binding.BranchId || request.CurrencyCode!=binding.CurrencyCode
-                    || source.PurchaseRequestId!=request.Id || source.AllocatedQuantity<binding.Quantity
+                    || source.PurchaseRequestId!=request.Id || source.AllocatedQuantity<current.Quantity
                     || submission.PurchaseRequestId!=request.Id || submission.CoreApprovalCaseId!=binding.CoreApprovalCaseId
                     || submission.SnapshotSchemaVersion!=3 || submission.FinanceIdentitySchemaVersion!=2
                     || submission.SubmittedBusinessVersion!=binding.SubmittedBusinessVersion
