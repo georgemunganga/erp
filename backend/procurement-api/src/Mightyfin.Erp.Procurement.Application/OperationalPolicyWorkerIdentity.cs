@@ -83,7 +83,9 @@ public static class OperationalPolicyWorkerIdentity
             && row.LegalEntityId != Guid.Empty && Supported(row.PolicyKey) && row.PolicyVersionId != Guid.Empty
             && row.PolicyVersionNumber > 0 && row.PolicyRecordVersionAtAction > 0
             && Canonical(row.ActorPrincipalId) && ProcurementPrincipalEvidence.OptionalWorker(row.ActorWorkerId)
-            && (row.SchemaVersion == 2 || row.ActorWorkerId is not null) && (row.PolicyKey != "MANUAL_PAYMENT_REVIEW" || row.SchemaVersion == 2) && row.ActionAt != default
+            && (row.SchemaVersion == 2 || row.ActorWorkerId is not null)
+            && (row.PolicyKey is not ("MANUAL_PAYMENT_REVIEW" or ProcurementContractReviewPolicyRules.PolicyKey) || row.SchemaVersion == 2)
+            && row.ActionAt != default
             && row.ActionAt == ProcurementEvidenceEncoding.DatabaseTimestamp(row.ActionAt)
             && Hash(row.RulesSha256) && Hash(row.EvidenceSha256) && row.EvidenceSha256 == Digest(row),
             "OperationalPolicyIdentityInvalid");
@@ -194,7 +196,8 @@ public static class OperationalPolicyWorkerIdentity
             && row.LegalEntityId == policy.LegalEntityId, "OperationalPolicyIdentityScopeMismatch");
     }
 
-    private static bool Supported(string key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "MANUAL_PAYMENT_REVIEW";
+    private static bool Supported(string key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "MANUAL_PAYMENT_REVIEW"
+        or ProcurementContractReviewPolicyRules.PolicyKey;
     private static bool Canonical(string principal) => Guid.TryParseExact(principal, "D", out var id)
         && id != Guid.Empty && principal == id.ToString("D");
     private static bool Hash(string value) => value is { Length: 64 } && value.All(x => x is >= '0' and <= '9' or >= 'a' and <= 'f');

@@ -2,6 +2,8 @@
 
 Status: source design; no route, database migration, capability or signature authority is enabled. Parent: [PROC-07](../PROC-07-CONTRACTS-FRAMEWORKS-AND-RECURRING-COMMITMENTS.md).
 
+Source checkpoint: `contract_review_policy_identity` is an additive owned table proposal for Created/Submitted/Published policy actors. It uses the existing `OperationalPolicyWorkerIdentity` lineage verifier and Core principal identities, while preserving the already captured P31 `operational_policy_identity_evidence` table and its readiness check. The mapped same-save guard requires the exact policy owner transition and original actor; the model is not an installed schema. A genuine P35 EF migration, exact PostgreSQL ownership/finite-role capture, populated Down veto, and mapped/runtime tests are required before the configuration key can be enabled. Contract submission, assignment, decision and command-receipt records are still source work; no policy endpoint may publish this key at this checkpoint.
+
 1. **Feature identification:** internal review of a supplier contract draft and its version-one rate terms.
 2. **Purpose and business outcome:** retain an independent, inspectable decision before any separately governed signature or activation.
 3. **Scope and exclusions:** Submit, named Core review, Return/Reject/Approve and read/recovery. No signature, Active status, PO release, payable or Finance balance.
