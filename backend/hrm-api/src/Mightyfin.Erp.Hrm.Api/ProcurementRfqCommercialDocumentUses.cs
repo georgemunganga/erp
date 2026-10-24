@@ -178,7 +178,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         return (set.Id, set.SelectionDigest, row.version.Sha256);
     }
 
-    private sealed class RetainedOfferUseAccess(ProcurementRequestScope scope,
+    internal sealed class RetainedOfferUseAccess(ProcurementRequestScope scope,
         PrincipalRfqCommercialOfferSubmissionRecord offer, RfqPrincipalActor actor,
         Guid useKey) : IDocumentUseAccess
     {
@@ -198,7 +198,10 @@ public static partial class ProcurementSourcingExecutionRoutes
                     "sourcing_commercial_offer", offer.SupplierBidId,
                     offer.DraftRevision, DocumentUseKind.Publication)
                 || operation != DocumentUseOperation.Read
-                || versionIds.Count != 1 || versionIds[0] != offer.OriginalDocumentVersionId)
+                // Core ReadRetained authorizes the owner/reference before its
+                // lookup with an empty set, then authorizes the restored set.
+                || versionIds.Count != 0 && (versionIds.Count != 1
+                    || versionIds[0] != offer.OriginalDocumentVersionId))
                 throw new UnauthorizedAccessException("RfqCommercialOfferDocumentReadDenied");
             return Task.CompletedTask;
         }
