@@ -579,7 +579,7 @@ function PaymentWorkflow({
   }, [run.id, run.paymentStatus, run.backendStatus]);
   const status = run.paymentStatus;
   const readiness = readinessState.data;
-  const currentSubjectId = user?.id ? String(user.id) : "";
+  const currentSubjectId = user?.subject ?? "";
   const generatedByMe = Boolean(
     currentSubjectId && run.paymentFileGeneratedBySubjectId === currentSubjectId,
   );
@@ -632,7 +632,7 @@ function PaymentWorkflow({
       key: "released",
       label: "Payslips released",
       done: ["released", "closed"].includes(run.backendStatus),
-      actor: run.releasedBy,
+      actor: run.releasedBySubjectId,
       blocked: !["released", "closed"].includes(run.backendStatus),
     },
     {
@@ -1510,6 +1510,7 @@ type OperationalPayRun = PayRun & {
   paymentFileGeneratedBySubjectId?: string;
   paymentApprovedBySubjectId?: string;
   paymentReleasedBySubjectId?: string;
+  releasedBySubjectId?: string;
   reconciliationReference?: string;
 };
 
@@ -1552,6 +1553,7 @@ function adaptRun(raw: unknown, auditRows: unknown[] = []): OperationalPayRun {
     branchId: r.locationId ? String(r.locationId) : undefined,
     preparedBy: String(r.preparedBySubjectId ?? r.preparedBy ?? "Payroll officer"),
     approvedBy: r.approvedBySubjectId ? String(r.approvedBySubjectId) : undefined,
+    releasedBySubjectId: r.releasedBySubjectId ? String(r.releasedBySubjectId) : undefined,
     totals: {
       headcount: Number(r.employeeCount ?? 0),
       gross: Number(r.totalGross ?? 0),
@@ -1899,7 +1901,7 @@ function RunDetail() {
           {(run) => {
             if (!run) return <RestrictedState />;
 
-            const currentSubjectId = user?.id ? String(user.id) : "";
+            const currentSubjectId = user?.subject ?? "";
             const selfApproval = USE_REAL
               ? Boolean(currentSubjectId && run.preparedBy === currentSubjectId)
               : false;

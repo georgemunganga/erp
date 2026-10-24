@@ -1,13 +1,13 @@
 # MANUS-CORE-BUILD-03 — restore the shared ERP frontend verification gate
 
 **Assigned:** 22 October 2026 UTC, during the Procurement24-hour completion window.
-**Owner:** Manus / Greenwebb. Coordinator continues Procurement implementation in parallel.
-**Status:** Ready for pickup from published main; use the refreshed baselines below and in MANUS_HANDOFF.md.
+**Owner:** Coordinator, claimed 24 October 2026 UTC after no external implementation PR was observed. Manus should not start duplicate Core03 work.
+**Status:** Source repair accepted after explicit TypeScript, client/SSR build, role tests and targeted mocked browser verification. Production deployment is pending. See [Core03 coordinator progress](CORE03-COORDINATOR-PROGRESS-20261024.md).
 **Outcome:** The existing shared ERP/Core login frontend passes TypeScript and its production client/SSR build without weakening authorization or changing payroll rules. This unblocks verification of the small canonical-login context notification in coordinator ERP PR17.
 
 ## Start and boundaries
 
-- Primary repository `georgemunganga/erp`, fresh `origin/main`, containing published main `9f77b03c29a7537f97a759fd5d586ceb2879e0b2` or its merged descendant. Record the exact starting SHA.
+- Primary repository `georgemunganga/erp`, published main `ef67a5b3ef6712cdfdb917d43c6142027ec43722` for this claimed branch. Do not use an older local `origin/main` ref as evidence of current GitHub main.
 - Source: existing `modules/hrm/frontend/module-connect/`. Do not copy Procurement UI here or create another app.
 - Procurement UI main baseline is `georgemunganga/module-connect` commit `6fca23d4687668e85445c1c56ca92eefac1ab27c`; it is reference only for this task. No changes in that repository.
 - Read AGENTS.md, GW-ENG-STD-001 and the existing UI standards. Preserve published history and all other work.

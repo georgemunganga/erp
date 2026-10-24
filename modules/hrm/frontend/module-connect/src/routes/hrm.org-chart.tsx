@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Building2, Users } from "lucide-react";
-import { realApi, useApi } from "@/platform/use-api";
+import { realApi, useApi, type OrgChartNode } from "@/platform/use-api";
+import { useAuth } from "@/platform/auth";
+import { canManageHrmStructure } from "@/platform/entry-route";
 import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Async } from "@/platform/components/Async";
@@ -16,21 +18,6 @@ export const Route = createFileRoute("/hrm/org-chart")({
   }),
   component: OrgChartPage,
 });
-
-interface OrgChartNode {
-  id: string;
-  code: string;
-  name: string;
-  unitType: string;
-  status: string;
-  parentId: string | null;
-  managerId: string | null;
-  managerName: string | null;
-  managerJobTitle: string | null;
-  headcount: number;
-  legalEntityName: string | null;
-  children: OrgChartNode[];
-}
 
 interface OrgChart {
   asAt: string;
@@ -98,11 +85,16 @@ function UnitRow({ nodes }: { nodes: OrgChartNode[] }) {
 }
 
 function OrgChartPage() {
+  const { user } = useAuth();
+  const permitted = import.meta.env.VITE_USE_REAL_API !== "true" || canManageHrmStructure(user?.roles ?? []);
+  return <AppShell><AuthGate>{permitted ? <OrgChartContent /> : <p role="alert">Organisation chart access is not assigned.</p>}</AuthGate></AppShell>;
+}
+
+function OrgChartContent() {
   const state = useApi<OrgChart>(() => realApi.orgChart(), []);
 
   return (
-    <AppShell>
-      <AuthGate roles={["hr_ops", "hr_admin"]}>
+    <>
         <PageHeader
           eyebrow="Organisation"
           title="Organization chart"
@@ -136,7 +128,6 @@ function OrgChartPage() {
             </div>
           )}
         </Async>
-      </AuthGate>
-    </AppShell>
+    </>
   );
 }
