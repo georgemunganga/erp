@@ -54,10 +54,16 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         var inspected = kind == PrincipalCommercialStore.Receiving
             ? types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray() : types;
         var owned = types.Select(Table).Distinct(StringComparer.Ordinal).ToArray();
-        // Unknown/mixed receipt history is deliberately denied by receiving commands.
-        // The physical contract must include those reads before advertising availability.
-        Type[] historyReads = kind == PrincipalCommercialStore.Receiving
-            ? [typeof(ReceivingSourceState), typeof(GoodsReceiptLine), typeof(ServiceAcceptance)] : [];
+        // PO cancellation checks retained receiving sources even when the receiving
+        // command capability is off. Require only SELECT here; owning receiving
+        // writes remain governed by the separate Receiving readiness contract.
+        // Unknown/mixed legacy receipt history is denied by receiving commands.
+        Type[] historyReads = kind switch
+        {
+            PrincipalCommercialStore.Orders => [typeof(PrincipalReceivingSourceState)],
+            PrincipalCommercialStore.Receiving => [typeof(ReceivingSourceState), typeof(GoodsReceiptLine), typeof(ServiceAcceptance)],
+            _ => [],
+        };
         var reads = Dependencies.Concat(inspected).Concat(historyReads).Select(Table).Distinct(StringComparer.Ordinal).ToArray();
         var mutable = (kind switch
         {

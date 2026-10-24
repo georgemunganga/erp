@@ -90,7 +90,8 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "principal_order_funding_evidence","principal_order_submissions","principal_order_assignments",
                 "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
                 "principal_order_release_requests","principal_order_release_confirmations","purchase_request_allocations",
-                "purchase_request_approval_submissions","purchase_request_approval_outcomes","budget_check_snapshots"})
+                "purchase_request_approval_submissions","purchase_request_approval_outcomes","budget_check_snapshots",
+                "principal_receiving_sources"})
                 await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
             foreach(var table in new[]{"purchase_orders","purchase_order_lines","purchase_request_allocations"})
                 await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
