@@ -1,0 +1,19 @@
+{
+  "status": "ACCEPTED_SHARED_FRONTEND_BUILD_REPAIR_SOURCE_ONLY",
+  "sourceCommit": "b0e7904f5929b8a68967cee3c3732b661f8a6abc",
+  "beforeRetainedTypeScriptErrors": 28,
+  "beforeDiagnosticSha256": "95df3c5f24e743a8f2f51a9af68a7385ccc17cec3f239dab5932bf6fa15b7194",
+  "explicitTypecheckPassed": true,
+  "productionClientAndSsrBuildPassed": true,
+  "hrmStructureRoleAllowDenyCasesPassed": 11,
+  "targetedMockBrowserCasesPassed": 7,
+  "browserRetries": 0,
+  "browserNetwork": "Isolated new network namespace; loopback-only built SSR; explicit read mocks; unexpected APIs and all writes rejected",
+  "backendOrProductionVerified": false,
+  "productionTouched": false,
+  "lockSha256": "e2a636330c06837bd9bfddb2938974eda2685e91295ba00ede4288f2ddea0743",
+  "buildResultSha256": "638807740b6f61437f044956ddcdec0cf4ff1f66da9a5f4464450bc483f8cf93",
+  "browserResultSha256": "1ab42c1696a9a80b9bf9903538ece263a771f8c2fa5a5c22d606818f71e9fe9a",
+  "earlierFixtureFailuresRetained": true,
+  "review": "Independent source review corrected role case handling; backend DTOs and canonical payroll subject fields reviewed. No auth producer, permission grants, payroll calculations or backend API changes."
+}

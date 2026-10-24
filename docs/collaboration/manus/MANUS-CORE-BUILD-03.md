@@ -2,7 +2,7 @@
 
 **Assigned:** 22 October 2026 UTC, during the Procurement24-hour completion window.
 **Owner:** Coordinator, claimed 24 October 2026 UTC after no external implementation PR was observed. Manus should not start duplicate Core03 work.
-**Status:** Claimed on published ERP main `ef67a5b3ef6712cdfdb917d43c6142027ec43722`; source repair and independent verification are pending. See [Core03 coordinator progress](CORE03-COORDINATOR-PROGRESS-20261024.md).
+**Status:** Source repair accepted after explicit TypeScript, client/SSR build, role tests and targeted mocked browser verification. Production deployment is pending. See [Core03 coordinator progress](CORE03-COORDINATOR-PROGRESS-20261024.md).
 **Outcome:** The existing shared ERP/Core login frontend passes TypeScript and its production client/SSR build without weakening authorization or changing payroll rules. This unblocks verification of the small canonical-login context notification in coordinator ERP PR17.
 
 ## Start and boundaries
