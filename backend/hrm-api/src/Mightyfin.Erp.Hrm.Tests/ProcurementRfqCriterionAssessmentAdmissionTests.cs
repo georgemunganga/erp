@@ -15,4 +15,14 @@ public sealed class ProcurementRfqCriterionAssessmentAdmissionTests
         Assert.False(await provider.IsReadyAsync(null!,false,CancellationToken.None));
         Assert.False(await provider.IsReadyAsync(null!,true,CancellationToken.None));
     }
+
+    [Fact]
+    public async Task Recommendation_draft_is_a_distinct_unavailable_purpose_even_if_opened_offers_exist()
+    {
+        var options=new ProcurementRfqCommercialOptions{Enabled=true,OfferOpeningEnabled=true};
+        Assert.False(options.RecommendationDraftEnabled);
+        var provider=new UnavailableProcurementRfqRecommendationDraftReadiness();
+        Assert.False(await provider.IsReadyAsync(null!,false,CancellationToken.None));
+        Assert.False(await provider.IsReadyAsync(null!,true,CancellationToken.None));
+    }
 }
