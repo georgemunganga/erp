@@ -23,6 +23,12 @@ internal static partial class PrincipalApprovalHttpVerification
         stage("P30RfqSyntheticCoreMasterSetup");
         await using (var core = fixture.Core())
         {
+            Need(!await core.UserBranchAssignments.AnyAsync(x => x.UserId == fixture.ConfigMaker
+                    || x.UserId == fixture.ConfigReviewer)
+                && await core.UserBranchAssignments.CountAsync(x => x.UserId == fixture.Buyer
+                    && x.LocationId == fixture.Branch) == 1
+                && !await core.Workers.AnyAsync(),
+                "Private SOURCING policy actors must be Core companywide, while the workerless buyer remains branch-confined.");
             // Synthetic Core roles are fixture master data. They do not seed a
             // policy, supplier decision, RFQ approval, contact or bid outcome.
             foreach (var (role, actions) in new[]
