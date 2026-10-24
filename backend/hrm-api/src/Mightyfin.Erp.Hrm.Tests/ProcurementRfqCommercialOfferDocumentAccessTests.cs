@@ -48,4 +48,31 @@ public sealed class ProcurementRfqCommercialOfferDocumentAccessTests
             access.RequireAsync(owner, reference, DocumentUseOperation.Acquire,
                 [version], CancellationToken.None));
     }
+    [Theory]
+    [InlineData(PrincipalRfqOfferOpeningControls.OpenAction)]
+    [InlineData(PrincipalRfqOfferOpeningControls.ReadAction)]
+    public async Task New_purposes_need_their_exact_action_and_do_not_borrow_Close(string action)
+    {
+        var principal = Guid.NewGuid(); var company = Guid.NewGuid(); var branch = Guid.NewGuid();
+        var scope = new ProcurementRequestScope();
+        scope.Set("commercial-test", company, principal.ToString("D"), branch, null, true, "purpose");
+        var offer = new PrincipalRfqCommercialOfferSubmissionRecord { TenantId = "commercial-test",
+            LegalEntityId = company, BranchId = branch, SourcingEventId = Guid.NewGuid(),
+            SupplierBidId = Guid.NewGuid(), DraftRevision = 1, OriginalDocumentVersionId = Guid.NewGuid() };
+        var actor = new RfqPrincipalActor(principal.ToString("D"), null, "commercial-test", company,
+            branch, new HashSet<Guid> { branch }, false, new HashSet<string> { action });
+        var key = Guid.NewGuid();
+        var owner = new DocumentOwner("procurement", "sourcing_event", offer.SourcingEventId);
+        var reference = new DocumentUseReference(key, "procurement", "sourcing_commercial_offer",
+            offer.SupplierBidId, 1, DocumentUseKind.Publication);
+        IDocumentUseAccess own = new ProcurementSourcingExecutionRoutes.RetainedOfferUseAccess(scope, offer, actor, key, action);
+        await own.RequireAsync(owner, reference, DocumentUseOperation.Read, [offer.OriginalDocumentVersionId], CancellationToken.None);
+        IDocumentUseAccess close = new ProcurementSourcingExecutionRoutes.RetainedOfferUseAccess(scope, offer, actor, key);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => close.RequireAsync(owner, reference,
+            DocumentUseOperation.Read, [offer.OriginalDocumentVersionId], CancellationToken.None));
+        IDocumentUseAccess arbitrary = new ProcurementSourcingExecutionRoutes.RetainedOfferUseAccess(scope, offer, actor, key, "procurement-sourcing-read");
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => arbitrary.RequireAsync(owner, reference,
+            DocumentUseOperation.Read, [offer.OriginalDocumentVersionId], CancellationToken.None));
+    }
+
 }

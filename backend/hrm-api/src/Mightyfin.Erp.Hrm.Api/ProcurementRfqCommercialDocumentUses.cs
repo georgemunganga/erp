@@ -180,7 +180,7 @@ public static partial class ProcurementSourcingExecutionRoutes
 
     internal sealed class RetainedOfferUseAccess(ProcurementRequestScope scope,
         PrincipalRfqCommercialOfferSubmissionRecord offer, RfqPrincipalActor actor,
-        Guid useKey) : IDocumentUseAccess
+        Guid useKey, string requiredAction = PrincipalRfqSealedManualOffers.CloseAction) : IDocumentUseAccess
     {
         public Task RequireAsync(DocumentOwner owner, DocumentUseReference source,
             DocumentUseOperation operation, IReadOnlyList<Guid> versionIds,
@@ -189,7 +189,9 @@ public static partial class ProcurementSourcingExecutionRoutes
             ct.ThrowIfCancellationRequested();
             if (scope.SubjectId != actor.PrincipalId || scope.TenantId != offer.TenantId
                 || scope.LegalEntityId != offer.LegalEntityId
-                || !actor.Permissions.Contains(PrincipalRfqSealedManualOffers.CloseAction)
+                || requiredAction is not (PrincipalRfqSealedManualOffers.CloseAction
+                    or PrincipalRfqOfferOpeningControls.OpenAction or PrincipalRfqOfferOpeningControls.ReadAction)
+                || !actor.Permissions.Contains(requiredAction)
                 || (actor.SelectedBranchId is { } selected && selected != offer.BranchId)
                 || (!actor.OrganisationWide && !actor.Branches.Contains(offer.BranchId))
                 || owner != new DocumentOwner("procurement", "sourcing_event",
@@ -211,7 +213,8 @@ public static partial class ProcurementSourcingExecutionRoutes
         DocumentDbContext documents, ProcurementRequestScope scope,
         PrincipalRfqCommercialOfferSubmissionRecord offer,
         PrincipalRfqCommercialCommandReceipt originalReceipt,
-        RfqPrincipalActor actor, CancellationToken ct)
+        RfqPrincipalActor actor, CancellationToken ct,
+        string requiredAction = PrincipalRfqSealedManualOffers.CloseAction)
     {
         var owner = new DocumentOwner("procurement", "sourcing_event",
             offer.SourcingEventId);
@@ -231,7 +234,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             || set.CreatedBy != offer.RecorderPrincipalId)
             throw new InvalidOperationException("RfqCommercialOfferOriginalUseChanged");
         var pins = await EfDocumentUsePinStore.ReadRetainedAsync(documents, scope,
-            new RetainedOfferUseAccess(scope, offer, actor, originalReceipt.CommandKey),
+            new RetainedOfferUseAccess(scope, offer, actor, originalReceipt.CommandKey, requiredAction),
             owner, source, ct);
         if (pins.Count != 1 || pins[0].OwnerId != offer.SourcingEventId
             || pins[0].VersionId != offer.OriginalDocumentVersionId

@@ -10,7 +10,11 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Api;
 
 // No MapRoutes, service registration or positive readiness provider in this slice.
-public sealed class ProcurementRfqCommercialOptions{public bool Enabled{get;set;}}
+public sealed class ProcurementRfqCommercialOptions
+{
+    public bool Enabled { get; set; }
+    public bool OfferOpeningEnabled { get; set; }
+}
 public interface IProcurementRfqCommercialReadiness
 {
     Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct);

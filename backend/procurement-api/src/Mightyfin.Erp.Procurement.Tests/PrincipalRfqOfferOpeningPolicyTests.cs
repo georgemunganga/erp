@@ -73,4 +73,11 @@ public sealed class PrincipalRfqOfferOpeningPolicyTests
         Assert.Throws<InvalidOperationException>(() => PrincipalRfqCommercialRoundPolicyRules.Parse(Rules(Closer, Reader, Closer, Reviewer)));
         Assert.Throws<InvalidOperationException>(() => PrincipalRfqCommercialRoundPolicyRules.Parse(Rules(Reviewer, Reader, Closer, Reviewer)));
     }
+    [Fact]
+    public void Named_readers_cannot_be_commercial_reviewers_or_the_closing_officer()
+    {
+        Assert.Throws<InvalidOperationException>(() => PrincipalRfqCommercialRoundPolicyRules.Parse(Rules(Officer, Reviewer, Closer, Reviewer)));
+        Assert.Throws<InvalidOperationException>(() => PrincipalRfqCommercialRoundPolicyRules.Parse(Rules(Officer, Closer, Closer, Reviewer)));
+    }
+
 }

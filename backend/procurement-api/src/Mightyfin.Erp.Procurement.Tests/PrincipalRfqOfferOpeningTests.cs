@@ -9,7 +9,7 @@ namespace Mightyfin.Erp.Procurement.Tests;
 /// document proof and finite PostgreSQL acceptance remain adapter gates.</summary>
 public sealed class PrincipalRfqOfferOpeningTests
 {
-    private sealed class Fixture
+    internal sealed class Fixture
     {
         internal readonly string Officer = Guid.NewGuid().ToString("D"), Reader = Guid.NewGuid().ToString("D"),
             Closer = Guid.NewGuid().ToString("D"), Reviewer = Guid.NewGuid().ToString("D"), Maker = Guid.NewGuid().ToString("D");
@@ -111,4 +111,23 @@ public sealed class PrincipalRfqOfferOpeningTests
             reader with { Permissions = new HashSet<string> { "procurement-sourcing-read" } },
             f.Aliases, PrincipalRfqOfferOpeningControls.ReadAction, false));
     }
+    [Fact]
+    public void Empty_current_alias_is_not_treated_as_an_independent_unknown_person()
+    {
+        var f = new Fixture(); f.Aliases[f.Maker] = Guid.Empty;
+        Assert.Throws<InvalidOperationException>(() => f.Open());
+    }
+
+    [Fact]
+    public void Retained_opener_alias_remains_a_conflict_after_later_account_relink()
+    {
+        var f = new Fixture(); f.Aliases[f.Officer] = Guid.NewGuid();
+        f.Aliases[f.Maker] = f.Worker;
+        Assert.Throws<InvalidOperationException>(() => PrincipalRfqOfferOpening.RequireRetainedIndependence(
+            new(f.Officer, f.Worker), [new(f.Maker, null)], f.Aliases));
+        f.Aliases[f.Maker] = null;
+        PrincipalRfqOfferOpening.RequireRetainedIndependence(new(f.Officer, f.Worker),
+            [new(f.Maker, null)], f.Aliases);
+    }
+
 }

@@ -47,22 +47,39 @@ public static partial class ProcurementPolicyDraftRoutes
         if (reviewers.Contains(rules.ClosingOfficerPrincipalId, StringComparer.Ordinal))
             return Problem("commercial-round-person-conflict",
                 "Choose a closing officer who is separate from the reviewers.", 422);
-        var participants = reviewers.Append(rules.ClosingOfficerPrincipalId).ToArray();
-        var knownWorkers = new HashSet<Guid>();
-        foreach (var id in participants)
-        {
-            var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
-                scope.LegalEntityId, id, ct);
-            var required = id == rules.ClosingOfficerPrincipalId
-                ? PrincipalRfqSealedManualOffers.CloseAction
-                : PrincipalRfqCommercialRoundPolicyRules.ApprovalAction;
-            if (person is null || !person.Permissions.Contains(required))
-                return Problem("commercial-round-person-unavailable",
-                    "Choose current named commercial reviewers and a closing officer for this company.", 422);
-            if (person.CoreLinkedWorkerId is { } worker && !knownWorkers.Add(worker))
-                return Problem("commercial-round-person-conflict",
-                    "Choose separate current accounts for commercial review and closing.", 422);
-        }
+        if (!await CommercialPolicyPeopleAvailable(core, scope, rules, ct))
+            return Problem("commercial-round-person-unavailable",
+                "Choose current independent officers and named readers with the required company access.", 422);
         return null;
     }
+    internal static async Task<bool> CommercialPolicyPeopleAvailable(HrmDbContext core,
+        ProcurementRequestScope scope, PrincipalRfqCommercialRoundPolicy rules, CancellationToken ct)
+    {
+        if (rules.OfferOpening is not null && scope.OrgUnitId is not null) return false;
+        var required = rules.Stages.SelectMany(x => x.PrincipalIds).Select(x =>
+            (Id: x, Action: PrincipalRfqCommercialRoundPolicyRules.ApprovalAction))
+            .Append((rules.ClosingOfficerPrincipalId, PrincipalRfqSealedManualOffers.CloseAction)).ToList();
+        if (rules.OfferOpening is { } opening)
+        {
+            required.Add((opening.OfficerPrincipalId, PrincipalRfqOfferOpeningControls.OpenAction));
+            required.AddRange(opening.ReaderPrincipalIds.Select(x => (x, PrincipalRfqOfferOpeningControls.ReadAction)));
+        }
+        var knownWorkers = new HashSet<Guid>();
+        foreach (var group in required.GroupBy(x => x.Id, StringComparer.Ordinal))
+        {
+            var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                scope.LegalEntityId, group.Key, ct);
+            if (person is null || group.Any(x => !person.Permissions.Contains(x.Action))
+                || rules.OfferOpening is not null && scope.WorkLocationId is { } branch
+                    && !person.OrganisationWide && !person.AllowedBranches.Contains(branch))
+                return false;
+            var principalId = Guid.ParseExact(group.Key, "D");
+            var alias = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == scope.TenantId && x.Id == principalId)
+                .Select(x => x.WorkerId).SingleAsync(ct);
+            if (!ProcurementPrincipalEvidence.OptionalWorker(alias)
+                || alias is { } worker && !knownWorkers.Add(worker)) return false;
+        }
+        return true;
+    }
+
 }

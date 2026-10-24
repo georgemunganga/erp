@@ -12,7 +12,9 @@ internal static class ProcurementRfqCommercialSchema
           'principal_rfq_commercial_round_decisions',
           'principal_rfq_commercial_offer_submissions',
           'principal_rfq_commercial_round_seals',
-          'principal_rfq_commercial_command_receipts')
+          'principal_rfq_commercial_command_receipts',
+          'principal_rfq_commercial_offer_openings',
+          'principal_rfq_commercial_offer_opening_receipts')
         """;
 
     internal static bool Installed(ProcurementDbContext db)
@@ -24,7 +26,7 @@ internal static class ProcurementRfqCommercialSchema
     internal static bool Complete(int count) => count switch
     {
         0 => false, // Existing P30 quotation Drafts remain usable before P32.
-        6 => true,
+        8 => true,
         _ => throw new InvalidOperationException("RfqCommercialSchemaIncomplete"),
     };
 }

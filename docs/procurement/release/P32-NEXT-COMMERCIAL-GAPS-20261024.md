@@ -4,7 +4,7 @@
 
 ## Sources and ownership
 
-- Business contract: [PROC-06 strategic sourcing and award](../PROC-06-STRATEGIC-SOURCING-AND-AWARD.md) and its [P32 28-section successor](../PROC-06-P32-PRINCIPAL-COMMERCIAL-COMPLETION.md), especially sections 5–13, 17–20, 25–28. The latter describes the intended entire lifecycle; its implemented source slices currently stop at a sealed close.
+- Business contract: [PROC-06 strategic sourcing and award](../PROC-06-STRATEGIC-SOURCING-AND-AWARD.md) and its [P32 28-section successor](../PROC-06-P32-PRINCIPAL-COMMERCIAL-COMPLETION.md), especially sections 5–13, 17–20, 25–28. The latter describes the intended entire lifecycle; its initial source slices stopped at a sealed close; the additive held opening source below now exists without runtime acceptance.
 - Restored live UI inspected at module-connect `d4d3bbb`: `reference-ui/src/features/LiveSourcing.tsx`, `PrincipalPublication.tsx`, `RfqPresentation.tsx`, `RfqWizard.tsx`, and `/rfqs` routes in `reference-ui/src/app/App.tsx`. The five-tab RFQ detail frame is Overview, Items, Related, Comments, History.
 - Held backend inspected at P32 `a1cf180a`: `ProcurementRfqCommercialRoundRoutes.cs` and its adjacent handler files. `ProcurementRfqCommercialOptions.Enabled` defaults false; missing physical readiness fails closed. P32 routes below are source contracts, **not live endpoints**.
 - Procurement owns the commercial round, original supplier offer, evaluation, recommendation, award, and RFQ-to-PO handoff. Core owns people, roles/action grants, approval cases, and documents. Procurement's PR allocation is the demand balance. Finance owns budget and AP/payment; Purchasing owns any resulting PO. Supplier contact entered by a buyer is not portal delivery or supplier authentication.
@@ -48,3 +48,16 @@ The **six round-family managed FKs** point from opening to prepared plan/publish
 `SupplierBid.InvitationId` remains nullable for legacy records. The managed P32 model adds the **nonpartial** exact six-column unique index on bid tenant/company/id/event/supplier/invitation. The authored `PrincipalRfqCommercialOfferInvitationOwnershipSql.Install` then adds the six-column FK from a new offer whose invitation is required. It must run only after the genuine index exists. PostgreSQL must demonstrate: a valid invitation-bearing offer saves, a retained legacy NULL-invitation bid remains readable, and a wrong invitation within the same company fails; no legacy bid column is made required. Generated FK/check names and the full owner graph must be captured from actual PostgreSQL, not inferred from this document.
 
 Before calling P32 schema ready, run fresh Up→Down→Up on a private clone and independently retain rows in each of the eleven families and each of the three shared-history categories. Each used Down must raise the exact `55000` guard and leave data, schema, migration history, audit and Core records unchanged. Partial installation, absent finite DML/SELECT grants, and wrong physical capture stay unavailable. No P32 migration, designer, snapshot, readiness capture, or runtime capability is created by this source checkpoint.
+
+### 24 October held opening implementation checkpoint
+
+The additive policy v2 and owning adapter are authored in the existing P32 branch.
+Schema1 still grants no opening authority; explicit `offerOpening` controls are
+frozen by the same Core commercial approval. New immutable opening/receipt families,
+OpenOffers command, GET original-key recovery and named evaluator-purpose offer
+reader remain default off with unavailable physical readiness. See the final two
+addenda in the existing P32 28-section specification for exact fields/routes, thirteen
+family rollback coverage and pending genuine PostgreSQL admission. No imported UI
+was changed; evaluation, award, dispatch, PO and Finance availability remain false.
+This supersedes the earlier inventory's “no unseal route” statement as a source-only
+checkpoint, without claiming an installed endpoint, adopted policy or executed test.

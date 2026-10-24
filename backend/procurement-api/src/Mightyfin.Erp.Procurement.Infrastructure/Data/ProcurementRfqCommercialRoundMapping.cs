@@ -20,6 +20,7 @@ public sealed partial class ProcurementDbContext
 
     private void ConfigureRfqCommercialRound(ModelBuilder model)
     {
+        ConfigureRfqOfferOpening(model);
         ConfigureP32Base<PrincipalRfqCommercialRoundOpeningRecord>(model, "principal_rfq_commercial_round_openings", "round");
         ConfigureP32Base<PrincipalRfqCommercialRoundVoteRecord>(model, "principal_rfq_commercial_round_votes", "vote");
         ConfigureP32Base<PrincipalRfqCommercialRoundDecisionRecord>(model, "principal_rfq_commercial_round_decisions", "decision");
@@ -241,6 +242,7 @@ public sealed partial class ProcurementDbContext
 
     private void GuardRfqCommercialRound()
     {
+        GuardRfqOfferOpening();
         var addedReceipts = ChangeTracker.Entries<PrincipalRfqCommercialCommandReceipt>()
             .Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
         var addedTargets = ChangeTracker.Entries<ProcurementRecord>()

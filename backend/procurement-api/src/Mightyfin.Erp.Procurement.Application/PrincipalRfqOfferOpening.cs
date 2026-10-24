@@ -103,11 +103,36 @@ public static class PrincipalRfqOfferOpening
         {
             Need(ProcurementPrincipalEvidence.Canonical(other.PrincipalId)
                 && ProcurementPrincipalEvidence.OptionalWorker(other.RetainedWorkerAliasId)
-                && currentAliases.ContainsKey(other.PrincipalId), "RfqOfferOpeningAliasesUnavailable");
+                && currentAliases.TryGetValue(other.PrincipalId, out var current)
+                && ProcurementPrincipalEvidence.OptionalWorker(current), "RfqOfferOpeningAliasesUnavailable");
             var known = new[] { other.RetainedWorkerAliasId, currentAliases[other.PrincipalId] };
             Need(other.PrincipalId != actor.PrincipalId
                 && !known.Any(x => x is not null && x == actor.LinkedWorkerId),
                 "RfqOfferOpeningActorConflict");
+        }
+    }
+
+    // Historical opener identity is evidence, not a demand that the old officer
+    // still has today's role. Both retained AND current aliases remain denial-only.
+    public static void RequireRetainedIndependence(RfqCommercialConflictParticipant person,
+        IReadOnlyList<RfqCommercialConflictParticipant> others,
+        IReadOnlyDictionary<string, Guid?> currentAliases)
+    {
+        Need(ProcurementPrincipalEvidence.Canonical(person.PrincipalId)
+            && ProcurementPrincipalEvidence.OptionalWorker(person.RetainedWorkerAliasId)
+            && currentAliases.TryGetValue(person.PrincipalId, out var current)
+            && ProcurementPrincipalEvidence.OptionalWorker(current), "RfqOfferOpeningAliasesUnavailable");
+        var known = new[] { person.RetainedWorkerAliasId, currentAliases[person.PrincipalId] }
+            .Where(x => x is not null).ToHashSet();
+        foreach (var other in others)
+        {
+            Need(ProcurementPrincipalEvidence.Canonical(other.PrincipalId)
+                && ProcurementPrincipalEvidence.OptionalWorker(other.RetainedWorkerAliasId)
+                && currentAliases.TryGetValue(other.PrincipalId, out var alias)
+                && ProcurementPrincipalEvidence.OptionalWorker(alias), "RfqOfferOpeningAliasesUnavailable");
+            Need(person.PrincipalId != other.PrincipalId
+                && !new[] { other.RetainedWorkerAliasId, currentAliases[other.PrincipalId] }
+                    .Any(x => x is not null && known.Contains(x)), "RfqOfferOpeningActorConflict");
         }
     }
 

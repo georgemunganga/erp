@@ -114,7 +114,8 @@ public static class PrincipalRfqCommercialRoundPolicyRules
                 root.GetProperty("offerOpening")) : null;
             if (opening is not null)
                 Need(!allReviewers.Contains(opening.OfficerPrincipalId, StringComparer.Ordinal)
-                    && (opening.AllowClosingOfficer || opening.OfficerPrincipalId != closer),
+                    && (opening.AllowClosingOfficer || opening.OfficerPrincipalId != closer)
+                    && !opening.ReaderPrincipalIds.Any(x => allReviewers.Contains(x, StringComparer.Ordinal) || x == closer),
                     "RfqCommercialRoundOpeningOfficerConflict");
             return new(schema, 2, "ManualSurrogateOnly", true, true, closer,
                 stages.AsReadOnly(), digest) { OfferOpening = opening };

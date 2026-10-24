@@ -93,6 +93,27 @@ public static partial class ProcurementSourcingExecutionRoutes
                 PrincipalRfqSealedManualOffers.CloseAction, token);
             await RequireCommercialCurrentIndependence(core, scope,
                 source.Original, reviewers.Append(closer).ToArray(), token);
+            if (rules.OfferOpening is { } openingControls)
+            {
+                var definition = PrincipalRfqCommercialDraft.Restore(head, revision).EvaluationDefinitionJson;
+                if (definition is null) throw new Problem("RfqCommercialEvaluatorPlanUnavailable", 409);
+                var evaluators = PrincipalRfqEvaluationPlanDefinition.Parse(definition).Criteria
+                    .SelectMany(x => x.EvaluatorPrincipalIds).ToHashSet(StringComparer.Ordinal);
+                if (openingControls.ReaderPrincipalIds.Any(x => !evaluators.Contains(x)))
+                    throw new Problem("RfqOpenedOfferReaderNotAssigned", 409);
+                var officers = reviewers.Append(closer).ToList();
+                officers.Add(await CurrentCommercialParticipant(core, scope, openingControls.OfficerPrincipalId,
+                    prepared.BranchId, PrincipalRfqOfferOpeningControls.OpenAction, token));
+                foreach (var reader in openingControls.ReaderPrincipalIds)
+                    officers.Add(await CurrentCommercialParticipant(core, scope, reader,
+                        prepared.BranchId, PrincipalRfqOfferOpeningControls.ReadAction, token));
+                // Repeated explicit principal (opener=closer only when configured,
+                // or explicit reader=opener) still needs EVERY named action above.
+                await RequireCommercialCurrentIndependence(core, scope, source.Original,
+                    officers.DistinctBy(x => x.PrincipalId).ToArray(), token);
+                if (!await ProcurementPolicyDraftRoutes.CommercialPolicyPeopleAvailable(core, scope, rules, token))
+                    throw new Problem("RfqCommercialOpeningParticipantsUnavailable", 409);
+            }
             var opening = PrincipalRfqCommercialRoundCoreWorkflow.Open(prepared, head,
                 revision, source.Event, source.Original, policy, reviewers, closer,
                 supplierIds, now);

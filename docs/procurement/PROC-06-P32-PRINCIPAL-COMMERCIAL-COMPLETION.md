@@ -724,3 +724,88 @@ historical makers/recorders/reviewers), bind retained document uses and original
 receipts, lock the source/round, persist opening and original-key receipt atomically,
 and require actual finite-role physical readiness. No UI, migration/designer,
 snapshot generation, provider registration or default-on setting is added.
+
+### Held owning opening adapter and purpose reader
+
+The next source increment adds two append-only families:
+`principal_rfq_commercial_offer_openings` and
+`principal_rfq_commercial_offer_opening_receipts`. Stable UUID identities and short
+explicit key/FK names bind the same tenant/company/round/event/branch, exact seal
+count/set SHA, approved policy/lineage/round SHA, and original actor/key/body SHA.
+The seal count is immutable evidence, not a mutable balance/CAS key. No new insert
+cycle exists. The same-save owner guard requires the exact receipt, explicit audit
+and outbox companion, a committed seal/set (no same-save offer/close adoption), and
+Serializable on Npgsql; changes/deletes to either new family are denied.
+
+Held route contracts (under `/api/procurement/v1/sourcing`):
+
+- `POST /commercial-rounds/{id}/open-offers`: UUID command key in the existing
+  header; body `{expectedEventVersion,expectedSealId,expectedOfferSetSha256,reason,reference}`.
+  Current explicit opener action and actual Core branch precede lookup/recovery.
+  New effects lock the existing PR/source/round order, verify full retained Core
+  approval/source holds, exact current-effective pinned policy and lineage, same
+  seal/original receipt/complete offer set and existing Core document uses, then
+  append opening/receipt/audit/outbox atomically. All maker/requester, round maker,
+  retained assignment/vote reviewers and every submitted offer recorder are loaded
+  server-side; all their current Core aliases are resolved in the enlisted store.
+  No request supplies participants, aliases, readiness or a verified flag.
+- `GET /commercial-rounds/{id}/opened-offers?offset&limit`: named policy reader,
+  frozen evaluation-plan membership and separate current read action/branch are
+  checked before offer count/body reads. It revalidates original opening snapshot,
+  receipt, seal, Core/source/policy/doc proofs and both retained/current opener
+  independence after account relinks. Maximum page25 and complete set500. It returns
+  only the actually opened immutable offer version/line exact-string components;
+  evaluation, award and PO availability remain false. Generic sourcing read, buyer,
+  closer or commercial-review permission confers no opened-price access.
+- `GET /commercial-rounds/{id}/opening-commands/{key}`: original actor/current
+  opener action and actual target scope precede stored-ack recovery. Completed
+  history is verified from original immutable records and never reruns a withdrawn
+  current policy. It performs no automatic POST retry.
+
+`OfferOpeningEnabled` is an additional default-false option; existing commercial
+options and actual readiness are still mandatory. Two Core action catalog entries
+have empty bootstrap grants. This source adds no positive provider/host registration,
+UI, migration/designer/snapshot, SQL execution or runtime acceptance. Existing Core
+use-read access permits only the exact stored version for its explicitly selected
+Close/OpenOffers/ReadOpenedOffers purpose; there is no fabricated close grant or
+broad document-owner download/history entitlement. Empty sets cause no document use
+row acquisition or document record mutation; nonempty sets require genuine shared
+Core document physical readiness and same store.
+
+Future generated-P32 admission now covers thirteen owned families, including eight
+round/offer/opening families; zero versus eight installation is exact and partial
+six/seven installations fail closed. Authored Down first locks and vetoes either new
+family, its unique explicit/automatic audit record types and exact
+`sourcing.commercial_offers_opened.v1` outbox history before dropping anything.
+Existing eleven-family and retained policy/Core-case vetoes remain. Actual Npgsql
+DDL must prove required FK columns NOT NULL, key/index names, CHECK semantics,
+positive atomic save/reload, original-key replay/change conflict, all body/receipt/
+seal/alias tamper denials and used audit-only/outbox-only Down vetoes. Source tests
+are authored only; no SDK, PostgreSQL, browser or migration job was run here.
+
+Adoption and discovery follow-up: policy configuration validates actual current
+Core opener/readers and their required actions/company/selected-branch/known-alias
+independence. Before creating a schema2 commercial Core case, RoundOpen also checks
+named readers against the frozen evaluation definition and resolves all target
+current actions/transaction branches and original-maker/peer aliases. Configured
+reviewers/closer cannot be designated price readers; an opener may read only when
+explicitly listed with the separate read grant. No unused closer permission is
+injected to pass Core document-use access.
+
+`GET /commercial-opened-rounds?offset&limit` is a purpose-only metadata directory
+for the new read action. Tenant/company, current selected/allowed branches and
+frozen named-reader membership are SQL predicates before count/page. It returns no
+sealed bodies or offer counts/prices; individual detail must still pass all retained
+proof and alias checks. No generic sourcing-read grant is necessary. Already-opened
+price reads verify the original policy publication lineage and controls historically,
+plus current action/scope/independence; expiry of the pinned policy alone does not
+erase retained reads. New OpenOffers effects still require current-effective,
+currently published policy. Original-key recovery likewise remains historical.
+
+The new Core keys are registered with empty bootstrap grants in the existing
+`ProcurementActionCatalog`; no role is broadened. Authored regressions include a real
+Core ApprovalEngine approval freezing v2 controls, current named target grant/branch/
+alias denials without employees, exact new owner tuples and append-only/same-save
+failures, purpose document-action separation and metadata SQL confinement. All are
+source-only and unrun, with actual migration/physical/readiness/runtime gates still
+pending.

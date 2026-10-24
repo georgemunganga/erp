@@ -64,6 +64,42 @@ public sealed partial class PrincipalRfqPrepublicationPlanTests
     }
 
     [Fact]
+    public void Actual_Core_approval_pins_exact_v2_opening_controls_and_rejects_later_policy_change()
+    {
+        var f = CommercialRoundShape();
+        var document = System.Text.Json.Nodes.JsonNode.Parse(f.Policy.RulesJson)!.AsObject();
+        document["schemaVersion"] = 2;
+        document["offerOpening"] = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(new
+        {
+            officerPrincipalId = Guid.NewGuid().ToString("D"),
+            readerPrincipalIds = new[] { Guid.NewGuid().ToString("D") },
+            allowClosingOfficer = false, delayAfterCloseSeconds = 0,
+            reasonRequired = false, referenceRequired = false,
+        }));
+        f.Policy.RulesJson = document.ToJsonString();
+        var opening = PrincipalRfqCommercialRoundCoreWorkflow.Open(f.Plan,
+            f.Head, f.Revision, f.Event, f.Original, f.Policy,
+            [f.Reviewer], f.Closer, [Guid.NewGuid()], f.At);
+        var rules = PrincipalRfqCommercialRoundPolicyRules.Parse(f.Policy.RulesJson);
+        Assert.True(PrincipalRfqOfferOpeningControls.MatchesRoundSnapshot(opening.SnapshotJson, rules));
+        var assignment = opening.Case.Stages.Single().Assignments.Single();
+        var decisions = new List<ApprovalDecision>();
+        var actor = new ApprovalActor(f.Reviewer.PrincipalId, f.Plan.TenantId,
+            f.Plan.LegalEntityId, f.Reviewer.Permissions);
+        var at = f.At.AddMinutes(1);
+        ApprovalEngine.Decide(opening.Case, assignment, actor, "Approve",
+            Guid.NewGuid().ToString("D"), null, decisions, at);
+        Assert.Equal("Approved", PrincipalRfqCommercialRoundCoreWorkflow.Finish(
+            opening, f.Plan, f.Event, f.Policy, opening.Case,
+            decisions, decisions.Single(), f.Reviewer, at).State);
+        document["offerOpening"]!["reasonRequired"] = true;
+        f.Policy.RulesJson = document.ToJsonString();
+        Assert.Throws<InvalidOperationException>(() => PrincipalRfqCommercialRoundCoreWorkflow.Finish(
+            opening, f.Plan, f.Event, f.Policy, opening.Case,
+            decisions, decisions.Single(), f.Reviewer, at));
+    }
+
+    [Fact]
     public void Distinct_commercial_case_binds_plan_supplier_window_and_independent_core_review()
     {
         var f = CommercialRoundShape();
