@@ -9,8 +9,8 @@
 **Updated:** 24 October 2026 (UTC)
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-CORE-BUILD-03` — repair the shared ERP frontend TypeScript/build gate; vendor milestone accepted
-**Owner:** Manus / `Greenwebb`; primary agent reviews and releases
-**Status:** New independent Core frontend milestone [MANUS-CORE-BUILD-03](docs/collaboration/manus/MANUS-CORE-BUILD-03.md) is ready for pickup after its assignment merge. Vendor fallback accepted and merged in UI PR #47. Do not duplicate the editor. The coordinator is verifying the settings shell and remaining CRUD controls on a separate branch; do not start overlapping settings implementation. Publish any existing work/claim in a PR for reconciliation. No Manus implementation PR has been observed. See the fresh merged source baselines below; they are not a production release.
+**Owner:** Coordinator has claimed Core03 on 24 October 2026; Manus should not duplicate it. Separate scanner work remains independent.
+**Status:** [MANUS-CORE-BUILD-03](docs/collaboration/manus/MANUS-CORE-BUILD-03.md) is claimed from published ERP main `ef67a5b3ef6712cdfdb917d43c6142027ec43722`; [progress](docs/collaboration/manus/CORE03-COORDINATOR-PROGRESS-20261024.md) records source and verification separately. The shared frontend TypeScript/build gate remains unverified. Vendor fallback was accepted and merged in UI PR #47. The coordinator owns settings shell and remaining Procurement CRUD controls separately; do not start overlapping work.
 
 **Payment integration checkpoint:** ERP PR #44 and UI PR #62 are merged. Private payment and policy browser journeys and owner reconciliation passed. Production is still P24; migration, finite roles, feature configuration, deployment and UAT are separate release gates. P25 principal approval source is now merged; the coordinator is implementing the separate P30 publication/PO/receiving successors and production release prerequisites. Do not duplicate it. Existing Manus Core build assignment remains unchanged.
 
