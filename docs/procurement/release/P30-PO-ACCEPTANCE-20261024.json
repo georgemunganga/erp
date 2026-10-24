@@ -17,7 +17,7 @@
     "auditOutboxBound": true,
     "realLocalSessionsRevoked": true
   },
-  "ownerVerifierSourceSha256": "29d1ecae321d6e17a0be09073e7657e26149eee20ed30a84b9ec5d75d11cf5cf",
+  "ownerVerifierSourceSha256": "c4757b9d3a836ae2d92d721aebfb96c9ab28b76cdbf37cf40a97967eaafdb663",
   "ownerNegativeCases": [
     {
       "case": "native order changed",
@@ -30,6 +30,10 @@
     {
       "case": "reserved quantity not restored",
       "rejectedBy": "ApprovedDemandNotRestored"
+    },
+    {
+      "case": "request header version not advanced exactly twice",
+      "rejectedBy": "ApprovedRequestCASProgression"
     },
     {
       "case": "extra unrecognized audit effect",
@@ -55,7 +59,7 @@
     }
   ],
   "privateEvidence": "/home/amizo/erp-backups/procurement-p30-actual-po-20261024_run05",
-  "reviewStatus": "Independent final verifier source review pending",
+  "reviewStatus": "Independent source review accepted; request-header CAS recommendation implemented and raw owner proof rerun",
   "retainedAttempts": [
     "privatePO01 authority identity purpose defect",
     "privatePO02 explicit quote requirement missing in test policy",
@@ -69,10 +73,13 @@
   "bankPaymentExecution": false,
   "supplierSendPerformed": false,
   "remaining": [
-    "Independent final verifier source review",
     "RFQ publication and receiving actual runtime gates",
     "Malformed retained-history cancellation profile",
     "Full protected P24-to-P30 backup/restore, finite-role/migration and API/publisher rehearsal",
     "Production cutover and authenticated UAT"
-  ]
+  ],
+  "requestHeaderAndLineCasAdvance": 2,
+  "ownerFinalEvidence": "p30-po-owner-after-browser.review02.private.json",
+  "externalSsoVerified": false,
+  "productionAuthenticationVerified": false
 }
