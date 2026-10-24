@@ -1,5 +1,5 @@
 {
-  "status": "ACCEPTED_BOUNDED_PRIVATE_SOURCE_AND_SCHEMA_GATES_NOT_RELEASE",
+  "status": "ACCEPTED_BOUNDED_PRIVATE_SOURCE_SCHEMA_AND_P33_NATIVE_GATES_NOT_RELEASE",
   "testedSource": "df3861bb35ed30a6697e2615741575291d40222a",
   "testCounts": {
     "domain": 1632,
@@ -81,15 +81,42 @@
     "oldRowsCatalogAclHistoryRolesPreserved": true,
     "resultSha256": "517777291700e26969ac3105fe107a03f4f03a5461517875e41a1972e997339a"
   },
+  "p33NativeHttp": {
+    "status": "PASS_PRIVATE_P33_PRINCIPAL_UNFUNDED_DRAFT_EDIT_ONLY",
+    "productSource": "df3861bb35ed30a6697e2615741575291d40222a",
+    "probeSource": "bd8c5f1e5e8ce9590040f9081733e5f22b2010de",
+    "httpRequests": 124,
+    "nativeResultSha256": "e0f7ede4be62e4faece5958167dc5a5003f8766e2f80aedfa765b5bfffaa2683",
+    "nativeRunResultSha256": "aba6357c12ea806066443cc716160b1a52a5925fced1ac56dbdfefa5c941f052",
+    "independentReadOnlyOwnerResultSha256": "4759c6ce2bd8787bd431b1dbd44d96ea13def4a7bc46c7841b8281e1ade5ede8",
+    "workerlessPrivateCoreActor": true,
+    "finitePrivateRoleAndPhysicalReadiness": true,
+    "syntheticPrivateHeaderAuthentication": true,
+    "draftEditReplayAndOriginalKeyRecovery": true,
+    "originalHttpResponseByteEqualityCheckedByProbe": true,
+    "independentStoredReceiptDigestChecked": true,
+    "independentOriginalHttpByteComparison": false,
+    "normalCookieBrowserAccepted": false,
+    "financePostingOrSupplierSendClaim": false,
+    "productionTouched": false
+  },
+  "finiteLoginPrivateAcl": {
+    "status": "PASS_PRIVATE_RESTORED_FINITE_LOGIN_ACL_ONLY",
+    "resultSha256": "272da6a02d698040a765950beaa1b9926d0f1d1728b74a9ed137090f8a407a25",
+    "realPrivateLoginAndAclVerified": true,
+    "coreAuthenticatedHttpProven": false,
+    "businessOperationsProven": false
+  },
   "productionTouched": false,
+  "positiveP33NativeHttpAccepted": true,
   "positiveP33HttpBrowserAccepted": false,
   "positiveP35HttpBrowserAccepted": false,
   "wholeProcurementModuleComplete": false,
   "remaining": [
     "Compile and verify concrete P32 RFQ / P35 contract review readiness deltas",
-    "P33 positive actual HTTP, independent owner reconciliation and normal-cookie UI",
+    "P33 normal-cookie UI and its independent owner reconciliation",
     "P35 populated rollback, actual API/Core workflow and original UI acceptance",
-    "Core finite LOGIN/runtime authentication proof and document scanning evidence",
+    "Core authenticated HTTP/runtime session proof and document scanning evidence; private finite LOGIN ACL alone is accepted",
     "Remaining commercial, return and payment integrations; release review and deployment"
   ]
 }
