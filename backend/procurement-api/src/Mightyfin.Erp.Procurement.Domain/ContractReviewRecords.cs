@@ -19,6 +19,8 @@ public sealed class ContractReviewSubmission : ProcurementRecord
     public int PolicyVersionNumber { get; init; }
     public string PolicyRulesSha256 { get; init; } = null!;
     public Guid CoreCaseId { get; init; }
+    public string AssignmentPinsJson { get; set; } = null!;
+    public string AssignmentPinsSha256 { get; set; } = null!;
     public string TermsJson { get; init; } = null!;
     public string TermsSha256 { get; init; } = null!;
     public DateTimeOffset SubmittedAt { get; init; }

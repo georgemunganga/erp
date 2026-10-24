@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -97,6 +98,20 @@ public static class ContractReviewCoreWorkflow
             approval.Stages.Add(stage);
         }
         ApprovalEngine.ValidateNewCase(approval);
+        var pins = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, caseId = approval.Id, submissionId = submission.Id,
+            stages = approval.Stages.OrderBy(x => x.Sequence).Select(x => new
+            {
+                x.Id, x.Sequence, x.Code, x.Mode, x.RequiredApprovals,
+                assignments = x.Assignments.OrderBy(a => a.AssigneeSubjectId, StringComparer.Ordinal)
+                    .Select(a => new { a.Id, a.AssigneeSubjectId,
+                        workerAliasId = people.Single(p => p.PrincipalId == a.AssigneeSubjectId).WorkerAliasId })
+                    .ToArray(),
+            }).ToArray(),
+        });
+        submission.AssignmentPinsJson = pins;
+        submission.AssignmentPinsSha256 = ProcurementEvidenceEncoding.Digest(pins);
         return new(submission, approval);
     }
 }

@@ -18,10 +18,19 @@ public sealed class ContractReviewCoreWorkflowTests
         Assert.Equal(f.Branch, result.Submission.ReviewBranchId);
         Assert.Equal(new[] { "Any", "All" }, result.Case.Stages.OrderBy(x => x.Sequence).Select(x => x.Mode));
         Assert.Equal(new[] { 1, 2 }, result.Case.Stages.OrderBy(x => x.Sequence).Select(x => x.RequiredApprovals));
+        var pins = ContractReviewAssignmentPins.Verify(result.Submission, result.Case, f.Policy);
+        Assert.Equal(3, pins.Count);
+        ContractReviewCoreHistory.VerifyPending(result.Submission, result.Case, pins, []);
         Assert.All(result.Case.Stages.SelectMany(x => x.Assignments), x => Assert.Equal("procurement-contract-review", x.PermissionKey));
         Assert.Equal("Draft", f.Contract.Status);
         Assert.Null(f.Version.SignedAt);
         Assert.Null(f.Version.SignedDocumentServiceId);
+        result.Case.Stages.Single(x => x.Sequence == 1).State = "Approved";
+        Assert.Throws<InvalidOperationException>(() => ContractReviewCoreHistory.VerifyPending(result.Submission,
+            result.Case, pins, []));
+        result.Case.Stages.Single(x => x.Sequence == 1).State = "Active";
+        result.Submission.AssignmentPinsJson = result.Submission.AssignmentPinsJson.Replace("LEGAL", "FINANCE", StringComparison.Ordinal);
+        Assert.Throws<InvalidOperationException>(() => ContractReviewAssignmentPins.Verify(result.Submission, result.Case, f.Policy));
     }
 
     [Fact]

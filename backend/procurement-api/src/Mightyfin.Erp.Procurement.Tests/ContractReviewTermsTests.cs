@@ -26,16 +26,22 @@ public sealed class ContractReviewTermsTests
         var submission = new ContractReviewSubmission { TenantId = tenant, LegalEntityId = company,
             ContractId = contract.Id, ContractVersionId = version.Id, ContractBusinessVersion = contract.Version,
             ContractVersionBusinessVersion = version.Version, SupplierId = contract.SupplierId,
+            CoreCaseId = Guid.CreateVersion7(),
             TermsJson = frozen.Json, TermsSha256 = frozen.Sha256 };
         ContractReviewTerms.VerifyCurrentDraft(submission, contract, version, [active, removed]);
         Assert.Contains("99999999999999.0001", frozen.Json);
         Assert.Contains("0.0001", frozen.Json);
 
+        contract.Status = "PendingReview"; version.Status = "PendingReview";
+        contract.Version++; version.Version++;
+        version.ApprovalInstanceRef = submission.CoreCaseId.ToString("D");
+        ContractReviewTerms.VerifyCurrentPending(submission, contract, version, [active, removed]);
+
         active.UnitPrice = 0.0002m;
-        Assert.Throws<InvalidOperationException>(() => ContractReviewTerms.VerifyCurrentDraft(submission, contract, version, [active, removed]));
+        Assert.Throws<InvalidOperationException>(() => ContractReviewTerms.VerifyCurrentPending(submission, contract, version, [active, removed]));
         active.UnitPrice = 0.0001m;
         removed.StatusReason = "Changed retained line";
-        Assert.Throws<InvalidOperationException>(() => ContractReviewTerms.VerifyCurrentDraft(submission, contract, version, [active, removed]));
+        Assert.Throws<InvalidOperationException>(() => ContractReviewTerms.VerifyCurrentPending(submission, contract, version, [active, removed]));
     }
 
     [Fact]

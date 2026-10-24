@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -17,12 +18,16 @@ public static partial class ProcurementContractReviewRoutes
     private sealed class Problem(string code, int status) : Exception(code) { internal int Status => status; }
     private sealed record Reply(string Body, int Status);
     public sealed record SubmitInput(long ExpectedContractVersion, Guid ReviewBranchId);
+    public sealed record DecisionInput(long ExpectedContractVersion, long ExpectedCaseVersion,
+        long ExpectedAssignmentVersion, string Action, string? Reason);
 
     public static void MapRoutes(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/contracts");
         group.MapPost("/{id:guid}/internal-review/submit", Submit)
             .RequireAuthorization("procurement-contract-submit");
+        group.MapPost("/{id:guid}/internal-review/assignments/{assignmentId:guid}/decide", Decide)
+            .RequireAuthorization("procurement-contract-review");
         group.MapGet("/internal-review/commands/{key:guid}", Recover)
             .RequireAuthorization("procurement-access");
     }
@@ -77,7 +82,8 @@ public static partial class ProcurementContractReviewRoutes
             throw new Problem("ContractReviewScopeDenied", 403);
         var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
             scope.LegalEntityId, scope.SubjectId, ct);
-        if (person is null || !person.Permissions.Contains(action)
+        if (person is null || person.CoreLinkedWorkerId != scope.CoreLinkedWorkerId
+            || !person.Permissions.Contains(action)
             || !person.OrganisationWide && !person.AllowedBranches.Contains(branchId)
             || !await core.WorkLocations.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
                 && x.LegalEntityId == scope.LegalEntityId && x.Id == branchId && !x.IsArchived, ct))
@@ -150,6 +156,7 @@ public static partial class ProcurementContractReviewRoutes
             var opened = ContractReviewCoreWorkflow.Open(contract, version, rates, policy,
                 input.ReviewBranchId, maker.PrincipalId, maker.CoreLinkedWorkerId, named, checked(count + 1), now);
             contract.Status = "PendingReview"; version.Status = "PendingReview";
+            version.ApprovalInstanceRef = opened.Case.Id.ToString("D");
             cases.AddCase(opened.Case);
             db.AddScoped(opened.Submission);
             var at = opened.Submission.SubmittedAt;
@@ -183,4 +190,103 @@ public static partial class ProcurementContractReviewRoutes
                 && x.CommandKey == key).Select(x => x.CommandSha256).SingleAsync(token), null, token)
             ?? throw new Problem("ContractReviewReceiptNotFound", 404);
     }, ct);
+
+    private static Task<IResult> Decide(Guid id, Guid assignmentId, DecisionInput input,
+        HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
+        => Run(http, scope, async (db, cases, core, token) =>
+        {
+            var key = Key(http);
+            var reason = string.IsNullOrWhiteSpace(input?.Reason) ? null : input.Reason.Trim();
+            if (input is null || input.ExpectedContractVersion < 1 || input.ExpectedCaseVersion < 1
+                || input.ExpectedAssignmentVersion < 1 || input.Action is not ("Approve" or "Return" or "Reject")
+                || input.Action != "Approve" && reason is null || reason?.Length > 2000)
+                throw new Problem("ContractReviewDecisionInputInvalid", 422);
+            var fingerprint = ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new
+            { schemaVersion = 1, operation = "Decide", id, assignmentId, actor = scope.SubjectId,
+                input.ExpectedContractVersion, input.ExpectedCaseVersion,
+                input.ExpectedAssignmentVersion, input.Action, reason }));
+            if (await Replay(db, core, scope, "Decide", key, fingerprint, id, token) is { } prior)
+                return prior;
+            var ownedAssignment = await cases.Assignments.AsNoTracking().Where(x => x.Id == assignmentId
+                && x.AssigneeSubjectId == scope.SubjectId).Select(x => new { x.CaseId }).SingleOrDefaultAsync(token);
+            if (ownedAssignment is null) throw new Problem("ContractReviewAssignmentNotFound", 404);
+            var submission = await db.ContractReviewSubmissions.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.ContractId == id && x.CoreCaseId == ownedAssignment.CaseId, token)
+                ?? throw new Problem("ContractReviewAssignmentNotFound", 404);
+            ProcurementPrincipalPeople.Person actor;
+            try { actor = await Actor(core, scope, "procurement-contract-review", submission.ReviewBranchId, token); }
+            catch (Problem) { throw new Problem("ContractReviewAssignmentNotFound", 404); }
+            var contract = await db.SupplierContracts.SingleOrDefaultAsync(x => x.Id == id, token)
+                ?? throw new Problem("ContractReviewAssignmentNotFound", 404);
+            var version = await db.SupplierContractVersions.SingleOrDefaultAsync(x => x.Id == submission.ContractVersionId
+                && x.SupplierContractId == id, token) ?? throw new Problem("ContractReviewSourceChanged", 409);
+            if (contract.Status != "PendingReview" || version.Status != "PendingReview"
+                || contract.Version != input.ExpectedContractVersion)
+                throw new Problem("ContractReviewSourceChanged", 409);
+            var rates = await db.ContractRates.AsNoTracking().Where(x => x.SupplierContractVersionId == version.Id)
+                .ToArrayAsync(token);
+            ContractReviewTerms.VerifyCurrentPending(submission, contract, version, rates);
+            var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == submission.PolicyVersionId, token)
+                ?? throw new Problem("ContractReviewPolicyMissing", 409);
+            await ProcurementPolicyDraftRoutes.ContractPolicyPublished(db, scope, policy, token,
+                OperationalPolicyPublicationMode.RetainedHistorical);
+            var workflow = await cases.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                .SingleOrDefaultAsync(x => x.Id == submission.CoreCaseId, token)
+                ?? throw new Problem("ContractReviewCaseMissing", 409);
+            var pins = ContractReviewAssignmentPins.Verify(submission, workflow, policy);
+            var retainedActor = pins.SingleOrDefault(x => x.AssignmentId == assignmentId
+                && x.PrincipalId == scope.SubjectId);
+            if (retainedActor is null || retainedActor.WorkerAliasId != actor.CoreLinkedWorkerId)
+                throw new Problem("ContractReviewReviewerBindingChanged", 409);
+            if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                    submission.MakerPrincipalId, submission.MakerWorkerAliasId,
+                    actor.PrincipalId, actor.CoreLinkedWorkerId, token))
+                throw new Problem("ContractReviewIndependentReviewerRequired", 403);
+            foreach (var peer in pins.Where(x => x.PrincipalId != actor.PrincipalId))
+                if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                        peer.PrincipalId, peer.WorkerAliasId,
+                        actor.PrincipalId, actor.CoreLinkedWorkerId, token))
+                    throw new Problem("ContractReviewIndependentReviewerRequired", 403);
+            var assignment = workflow.Stages.SelectMany(x => x.Assignments)
+                .SingleOrDefault(x => x.Id == assignmentId)
+                ?? throw new Problem("ContractReviewAssignmentNotFound", 404);
+            if (workflow.Version != input.ExpectedCaseVersion || assignment.Version != input.ExpectedAssignmentVersion)
+                throw new Problem("ContractReviewDecisionVersionChanged", 409);
+            var decisions = await cases.Decisions.Where(x => x.CaseId == workflow.Id).ToListAsync(token);
+            ContractReviewCoreHistory.VerifyPending(submission, workflow, pins, decisions);
+            var previousCount = decisions.Count;
+            var at = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
+            ApprovalEngine.Decide(workflow, assignment,
+                new ApprovalActor(actor.PrincipalId, scope.TenantId, scope.LegalEntityId, actor.Permissions),
+                input.Action, key.ToString("D"), reason, decisions, at);
+            if (decisions.Count != previousCount + 1)
+                throw new Problem("ContractReviewDecisionReceiptMissing", 409);
+            var coreDecision = decisions.Single(x => x.IdempotencyKey == key.ToString("D"));
+            cases.Decisions.Add(coreDecision);
+            var vote = new ContractReviewVote { TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                SubmissionId = submission.Id, ContractId = id, ReviewBranchId = submission.ReviewBranchId,
+                CoreCaseId = workflow.Id, CoreStageId = assignment.StageId,
+                CoreAssignmentId = assignment.Id, CoreDecisionId = coreDecision.Id,
+                ActorPrincipalId = actor.PrincipalId, ActorWorkerAliasId = actor.CoreLinkedWorkerId,
+                Action = input.Action, DecidedAt = at, CreatedAt = at, CreatedBy = actor.PrincipalId };
+            db.AddScoped(vote);
+            if (workflow.State is "Approved" or "Returned" or "Rejected")
+            { contract.Status = workflow.State; version.Status = workflow.State; }
+            var receipt = new ContractReviewCommandReceipt
+            {
+                TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                ContractId = id, SubmissionId = submission.Id, ReviewBranchId = submission.ReviewBranchId,
+                VoteId = vote.Id, Operation = "Decide", CommandKey = key,
+                ActorPrincipalId = actor.PrincipalId, CommandSha256 = fingerprint,
+                ResponseStatus = 200, ResultContractVersion = workflow.State == "Pending"
+                    ? contract.Version : checked(contract.Version + 1),
+                CompletedAt = at, CreatedAt = at, CreatedBy = actor.PrincipalId,
+            };
+            receipt.ResponseJson = ContractReviewReceiptProof.Response(receipt, contract.Status);
+            receipt.ResponseSha256 = ProcurementEvidenceEncoding.Digest(receipt.ResponseJson);
+            db.AddScoped(receipt);
+            await cases.SaveChangesAsync(token);
+            await db.SaveChangesAsync(token);
+            return new Reply(receipt.ResponseJson, 200);
+        }, ct);
 }

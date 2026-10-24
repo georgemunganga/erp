@@ -44,6 +44,7 @@ public sealed class ContractReviewPersistenceTests
             var opening = ContractReviewCoreWorkflow.Open(contract, version, rates, policy,
                 branch, actor.ToString("D"), null, [named], 1, now);
             contract.Status = "PendingReview"; version.Status = "PendingReview";
+            version.ApprovalInstanceRef = opening.Case.Id.ToString("D");
             db.AddScoped(opening.Submission);
             var ack = new ContractReviewCommandReceipt { TenantId = tenant, LegalEntityId = company,
                 ContractId = contract.Id, SubmissionId = opening.Submission.Id, ReviewBranchId = branch,

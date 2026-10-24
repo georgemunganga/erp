@@ -11,11 +11,18 @@ public static class ContractReviewTerms
 
     public static Frozen Capture(SupplierContract contract, SupplierContractVersion version,
         IReadOnlyCollection<ContractRate> rates)
+        => Build(contract, version, rates, contract.Version, version.Version, pending: false);
+
+    private static Frozen Build(SupplierContract contract, SupplierContractVersion version,
+        IReadOnlyCollection<ContractRate> rates, long frozenContractVersion, long frozenVersionVersion,
+        bool pending)
     {
         Need(contract.Id != Guid.Empty && version.Id != Guid.Empty && version.SupplierContractId == contract.Id
             && contract.TenantId == version.TenantId && contract.LegalEntityId == version.LegalEntityId
-            && contract.Status == "Draft" && version.Status == "Draft" && version.RevisionNumber == 1
-            && contract.Version > 0 && version.Version > 0 && contract.SupplierId != Guid.Empty
+            && (pending ? contract.Status == "PendingReview" && version.Status == "PendingReview"
+                : contract.Status == "Draft" && version.Status == "Draft")
+            && version.RevisionNumber == 1
+            && frozenContractVersion > 0 && frozenVersionVersion > 0 && contract.SupplierId != Guid.Empty
             && contract.OwnerSubjectId is { Length: > 0 }
             && contract.CeilingAmount == version.CeilingAmount
             && contract.EffectiveFrom == version.EffectiveFrom && contract.ExpiresOn == version.ExpiresOn
@@ -32,7 +39,7 @@ public static class ContractReviewTerms
         var json = JsonSerializer.Serialize(new
         {
             schemaVersion = 1, contractId = contract.Id, contractVersionId = version.Id,
-            contractVersion = contract.Version, versionVersion = version.Version,
+            contractVersion = frozenContractVersion, versionVersion = frozenVersionVersion,
             contract.Number, contract.SupplierId, contract.Title, contract.ContractType,
             contract.CurrencyCode, ceilingAmountExact = ProcurementEvidenceEncoding.Decimal(contract.CeilingAmount),
             contract.EffectiveFrom, contract.ExpiresOn, contract.RenewalNoticeOn,
@@ -53,6 +60,25 @@ public static class ContractReviewTerms
         Need(submission.ContractId == contract.Id && submission.ContractVersionId == version.Id
             && submission.ContractBusinessVersion == contract.Version
             && submission.ContractVersionBusinessVersion == version.Version
+            && submission.SupplierId == contract.SupplierId
+            && submission.TenantId == contract.TenantId && submission.LegalEntityId == contract.LegalEntityId
+            && submission.TermsJson == frozen.Json && submission.TermsSha256 == frozen.Sha256,
+            "ContractReviewTermsChanged");
+    }
+
+    /// <summary>Before each Core vote, revalidate that PendingReview still has
+    /// exactly the submitted commercial terms and only the Submit CAS increment.
+    /// A terminal decision changes status afterward in the same transaction.</summary>
+    public static void VerifyCurrentPending(ContractReviewSubmission submission, SupplierContract contract,
+        SupplierContractVersion version, IReadOnlyCollection<ContractRate> rates)
+    {
+        Need(contract.Version == checked(submission.ContractBusinessVersion + 1)
+            && version.Version == checked(submission.ContractVersionBusinessVersion + 1)
+            && version.ApprovalInstanceRef == submission.CoreCaseId.ToString("D"),
+            "ContractReviewTermsChanged");
+        var frozen = Build(contract, version, rates, submission.ContractBusinessVersion,
+            submission.ContractVersionBusinessVersion, pending: true);
+        Need(submission.ContractId == contract.Id && submission.ContractVersionId == version.Id
             && submission.SupplierId == contract.SupplierId
             && submission.TenantId == contract.TenantId && submission.LegalEntityId == contract.LegalEntityId
             && submission.TermsJson == frozen.Json && submission.TermsSha256 == frozen.Sha256,

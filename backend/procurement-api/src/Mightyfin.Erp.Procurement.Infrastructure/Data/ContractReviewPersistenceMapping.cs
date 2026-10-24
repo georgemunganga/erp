@@ -23,6 +23,8 @@ public sealed partial class ProcurementDbContext
         submission.Property(x => x.MakerPrincipalId).HasMaxLength(36).IsRequired();
         submission.Property(x => x.PolicyKey).HasMaxLength(100).IsRequired();
         submission.Property(x => x.PolicyRulesSha256).HasMaxLength(64).IsRequired();
+        submission.Property(x => x.AssignmentPinsSha256).HasMaxLength(64).IsRequired();
+        submission.Property(x => x.AssignmentPinsJson).HasColumnType("text").IsRequired();
         submission.Property(x => x.TermsSha256).HasMaxLength(64).IsRequired();
         submission.Property(x => x.TermsJson).HasColumnType("text").IsRequired();
         submission.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
@@ -60,6 +62,8 @@ public sealed partial class ProcurementDbContext
             AND maker_principal_id<>'00000000-0000-0000-0000-000000000000'
             AND (maker_worker_alias_id IS NULL OR maker_worker_alias_id<>'00000000-0000-0000-0000-000000000000'::uuid)
             AND policy_rules_sha256 IS NOT NULL AND policy_rules_sha256 ~ '^[0-9a-f]{64}$'
+            AND assignment_pins_sha256 IS NOT NULL AND assignment_pins_sha256 ~ '^[0-9a-f]{64}$'
+            AND assignment_pins_json IS NOT NULL AND length(assignment_pins_json)>2
             AND terms_sha256 IS NOT NULL AND terms_sha256 ~ '^[0-9a-f]{64}$'
             AND terms_json IS NOT NULL AND length(terms_json)>2
             AND isfinite(submitted_at) AND version=1 AND updated_at IS NULL AND updated_by IS NULL
@@ -133,6 +137,67 @@ public sealed partial class ProcurementDbContext
         var submissions = ChangeTracker.Entries<ContractReviewSubmission>().ToArray();
         var votes = ChangeTracker.Entries<ContractReviewVote>().ToArray();
         var receipts = ChangeTracker.Entries<ContractReviewCommandReceipt>().ToArray();
+        foreach (var contract in ChangeTracker.Entries<SupplierContract>().Where(x => x.State == EntityState.Modified))
+        {
+            var before = contract.OriginalValues.GetValue<string>(nameof(SupplierContract.Status));
+            var after = contract.Entity.Status;
+            if (before == "Draft" && after == "PendingReview")
+            {
+                if (submissions.Count(x => x.State == EntityState.Added && x.Entity.ContractId == contract.Entity.Id) != 1)
+                    throw new InvalidOperationException("ContractReviewSubmissionRequired");
+                if (!ContractCommercialSame(contract))
+                    throw new InvalidOperationException("ContractReviewTermsChangedDuringSubmission");
+            }
+            else if (before == "PendingReview")
+            {
+                if (after is not ("Approved" or "Returned" or "Rejected")
+                    || votes.Count(x => x.State == EntityState.Added && x.Entity.ContractId == contract.Entity.Id) != 1)
+                    throw new InvalidOperationException("ContractReviewTerminalVoteRequired");
+                if (!ContractCommercialSame(contract))
+                    throw new InvalidOperationException("ContractReviewTermsChangedDuringDecision");
+            }
+            else if (before is "Approved" or "Returned" or "Rejected"
+                || after is "PendingReview" or "Approved" or "Returned" or "Rejected")
+                throw new InvalidOperationException("ContractReviewTransitionInvalid");
+        }
+        foreach (var version in ChangeTracker.Entries<SupplierContractVersion>().Where(x => x.State == EntityState.Modified))
+        {
+            var before = version.OriginalValues.GetValue<string>(nameof(SupplierContractVersion.Status));
+            var after = version.Entity.Status;
+            if (before == "Draft" && after == "PendingReview")
+            {
+                if (submissions.Count(x => x.State == EntityState.Added
+                    && x.Entity.ContractVersionId == version.Entity.Id
+                    && x.Entity.ContractId == version.Entity.SupplierContractId
+                    && version.Entity.ApprovalInstanceRef == x.Entity.CoreCaseId.ToString("D")) != 1
+                    || version.OriginalValues.GetValue<string?>(nameof(SupplierContractVersion.ApprovalInstanceRef)) is not null)
+                    throw new InvalidOperationException("ContractReviewVersionSubmissionRequired");
+                if (!ContractVersionTermsSame(version))
+                    throw new InvalidOperationException("ContractReviewVersionTermsChanged");
+            }
+            else if (before == "PendingReview")
+            {
+                if (after is not ("Approved" or "Returned" or "Rejected")
+                    || votes.Count(x => x.State == EntityState.Added
+                        && x.Entity.ContractId == version.Entity.SupplierContractId) != 1)
+                    throw new InvalidOperationException("ContractReviewVersionVoteRequired");
+                if (version.Entity.ApprovalInstanceRef != version.OriginalValues.GetValue<string?>(nameof(SupplierContractVersion.ApprovalInstanceRef)))
+                    throw new InvalidOperationException("ContractReviewCasePointerChanged");
+                if (!ContractVersionTermsSame(version))
+                    throw new InvalidOperationException("ContractReviewVersionTermsChanged");
+            }
+            else if (before is "Approved" or "Returned" or "Rejected"
+                || after is "PendingReview" or "Approved" or "Returned" or "Rejected")
+                throw new InvalidOperationException("ContractReviewVersionTransitionInvalid");
+        }
+        foreach (var rate in ChangeTracker.Entries<ContractRate>().Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        {
+            var parent = ChangeTracker.Entries<SupplierContractVersion>()
+                .SingleOrDefault(x => x.Entity.Id == rate.Entity.SupplierContractVersionId)?.Entity;
+            var status = parent?.Status ?? SupplierContractVersions.AsNoTracking()
+                .Where(x => x.Id == rate.Entity.SupplierContractVersionId).Select(x => x.Status).SingleOrDefault();
+            if (status != "Draft") throw new InvalidOperationException("ContractReviewRateLocked");
+        }
         foreach (var entry in submissions.Cast<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry>()
             .Concat(votes).Concat(receipts))
             if (entry.State is EntityState.Modified or EntityState.Deleted)
@@ -152,6 +217,7 @@ public sealed partial class ProcurementDbContext
                 || contract.OriginalValues.GetValue<long>(nameof(SupplierContract.Version)) != row.ContractBusinessVersion
                 || version.OriginalValues.GetValue<long>(nameof(SupplierContractVersion.Version)) != row.ContractVersionBusinessVersion
                 || row.TermsSha256 != ProcurementEvidenceEncoding.Digest(row.TermsJson)
+                || row.AssignmentPinsSha256 != ProcurementEvidenceEncoding.Digest(row.AssignmentPinsJson)
                 || row.CreatedAt != row.SubmittedAt || row.CreatedBy != scope.SubjectId
                 || ProcurementEvidenceEncoding.DatabaseTimestamp(row.SubmittedAt) != row.SubmittedAt
                 || receipts.Count(x => x.State == EntityState.Added && x.Entity.SubmissionId == row.Id
@@ -196,5 +262,26 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("ContractReviewReceiptSameSaveInvalid");
             ContractReviewReceiptProof.Verify(row);
         }
+    }
+
+    private static bool ContractCommercialSame(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<SupplierContract> row)
+    {
+        var before = (SupplierContract)row.OriginalValues.ToObject(); var after = row.Entity;
+        return before.SupplierId == after.SupplierId && before.Number == after.Number
+            && before.Title == after.Title && before.ContractType == after.ContractType
+            && before.CurrencyCode == after.CurrencyCode && before.CeilingAmount == after.CeilingAmount
+            && before.EffectiveFrom == after.EffectiveFrom && before.ExpiresOn == after.ExpiresOn
+            && before.RenewalNoticeOn == after.RenewalNoticeOn && before.OwnerSubjectId == after.OwnerSubjectId
+            && before.SourcingAwardId == after.SourcingAwardId;
+    }
+
+    private static bool ContractVersionTermsSame(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<SupplierContractVersion> row)
+    {
+        var before = (SupplierContractVersion)row.OriginalValues.ToObject(); var after = row.Entity;
+        return before.SupplierContractId == after.SupplierContractId
+            && before.RevisionNumber == after.RevisionNumber && before.CeilingAmount == after.CeilingAmount
+            && before.EffectiveFrom == after.EffectiveFrom && before.ExpiresOn == after.ExpiresOn
+            && before.SignedDocumentServiceId == after.SignedDocumentServiceId
+            && before.SignedAt == after.SignedAt;
     }
 }

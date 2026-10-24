@@ -95,7 +95,8 @@ public static partial class ProcurementPolicyDraftRoutes
     }
 
     internal static async Task ContractPolicyPublished(ProcurementDbContext db,
-        ProcurementRequestScope scope, PolicyVersion policy, CancellationToken ct)
+        ProcurementRequestScope scope, PolicyVersion policy, CancellationToken ct,
+        OperationalPolicyPublicationMode mode = OperationalPolicyPublicationMode.CurrentPublished)
     {
         var origin = await ContractPolicyOrigin(db, scope, policy, ct);
         var publishedRows = await db.ContractReviewPolicyIdentityRecords.AsNoTracking()
@@ -107,7 +108,7 @@ public static partial class ProcurementPolicyDraftRoutes
             .Take(2).ToArrayAsync(ct);
         if (submittedRows.Length != 1) throw new InvalidOperationException("ContractReviewPolicySubmissionUnavailable");
         var submitted = ContractReviewPolicyIdentityStorage.Read(submittedRows[0]);
-        OperationalPolicyWorkerIdentity.VerifyPublication(policy, origin, submitted, published);
+        OperationalPolicyWorkerIdentity.VerifyPublication(policy, origin, submitted, published, mode);
     }
 
     private static async Task<ProcurementPrincipalPeople.Person> ContractPolicyActor(HrmDbContext core,
