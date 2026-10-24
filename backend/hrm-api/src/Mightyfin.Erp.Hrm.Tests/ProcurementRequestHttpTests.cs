@@ -3531,6 +3531,37 @@ public sealed partial class ProcurementRequestHttpTests
                 cancelledBody.GetProperty("version").GetInt64(), null, rate), "procurement_buyer")).StatusCode);
     }
 
+    [Fact]
+    public async Task Contract_header_and_list_expose_large_ceiling_without_binary_float_loss()
+    {
+        await using var fixture = await Fixture.Start();
+        var vendorResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/vendors", fixture.Owner,
+            new { legalName = "Exact Ceiling Ltd", displayName = "Exact Ceiling", countryCode = "ZM" });
+        Assert.Equal(HttpStatusCode.Created, vendorResponse.StatusCode);
+        var vendor = await vendorResponse.Content.ReadFromJsonAsync<JsonElement>();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
+        const decimal ceiling = 99_999_999_999_999.9999m;
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/contracts",
+            fixture.Owner, new ContractDraftInput(vendor.GetProperty("id").GetGuid(), "Exact ceiling",
+                "Framework", "ZMW", ceiling, null, null, null), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        const string exact = "99999999999999.9999";
+        Assert.Equal(exact, body.GetProperty("ceilingAmountExact").GetString());
+        var id = body.GetProperty("id").GetGuid();
+        var detail = await Send(fixture.Client, HttpMethod.Get,
+            $"/api/procurement/v1/contracts/{id}", fixture.Owner, role: "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+        Assert.Equal(exact, (await detail.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("ceilingAmountExact").GetString());
+        var listed = await Send(fixture.Client, HttpMethod.Get,
+            "/api/procurement/v1/contracts", fixture.Owner, role: "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
+        Assert.Equal(exact, (await listed.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("items")[0].GetProperty("ceilingAmountExact").GetString());
+    }
+
     private static ProcurementRequestRoutes.NewRequest Draft(string purpose) => new(
         purpose, null, null, null, null, null, null, null, null,
         [new ProcurementRequestRoutes.RequestLineInput(null, "Laptop", "each", 2, 100,
