@@ -18,7 +18,7 @@ public static partial class ProcurementPolicyDraftRoutes
                 var options = http.RequestServices.GetService<ProcurementContractReviewOptions>();
                 var readiness = http.RequestServices.GetService<IProcurementContractReviewSchemaReadiness>();
                 if (options is not { Enabled: true, ExecutionDatabaseConfigured: true } || readiness is null
-                    || !await readiness.CanRecordAsync(db, ct)) return false;
+                    || !await readiness.IsReadReadyAsync(db, ct)) return false;
                 _ = await ContractPolicyAuthor(db, organizationDb, scope, policy, ct);
             }
             if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)

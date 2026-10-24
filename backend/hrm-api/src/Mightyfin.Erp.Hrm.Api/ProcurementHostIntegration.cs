@@ -23,9 +23,9 @@ public static class ProcurementHostIntegration
         services.AddScoped<ProcurementRequestScope>();
         services.AddSingleton<IProcurementSpendingAuthorityIdentitySchemaReadiness, ProcurementSpendingAuthorityIdentitySchemaReadiness>();
         services.AddSingleton<IProcurementOperationalPolicyIdentitySchemaReadiness, ProcurementOperationalPolicyIdentitySchemaReadiness>();
-        // Contract review is source-held until its separate owning schema and
-        // finite execution role are captured; this provider never reports ready.
-        services.AddSingleton<IProcurementContractReviewSchemaReadiness, UnavailableProcurementContractReviewSchemaReadiness>();
+        // Default-off, with separate Record policy and Execution review contracts.
+        // Captured physical input alone cannot bypass either finite privilege contract.
+        services.AddScoped<IProcurementContractReviewSchemaReadiness, ProcurementContractReviewStoreReadiness>();
         services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness, ProcurementSourcingPolicyIdentitySchemaReadiness>();
         var executionConnection = configuration.GetConnectionString("ProcurementApprovalExecution");
         var contractReviewOptions = configuration.GetSection("Procurement:ContractReview")

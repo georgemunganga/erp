@@ -1,0 +1,16 @@
+{
+  "scope": "Actual private empty P35 owner schema roundtrip and captured physical definitions; no finite-role or HTTP claim.",
+  "sourceCommit": "df3861bb35ed30a6697e2615741575291d40222a",
+  "migrationId": "20261024224934_P35ContractInternalReview",
+  "counts": {
+    "Checks": 5,
+    "ForeignKeys": 12,
+    "ParentKeys": 1,
+    "PartialPredicates": 2
+  },
+  "files": {
+    "result.json": "517777291700e26969ac3105fe107a03f4f03a5461517875e41a1972e997339a",
+    "readiness-capture.post-up.private.json": "b242de1cf0fa7cd9212363a7f2cb6dd1d6fb3fdc0eeadf296f2583d025a1b11a",
+    "p35-up-repeat.private.json": "43f2b48a0aa128cd0f57fcd1ce15176490125e60a4629ffa39adac530664ab43"
+  }
+}
