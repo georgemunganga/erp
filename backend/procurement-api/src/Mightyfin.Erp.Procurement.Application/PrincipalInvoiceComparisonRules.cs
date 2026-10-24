@@ -213,9 +213,13 @@ public static class PrincipalInvoiceComparisonRules
                 + InvoiceMatchExact.RatioMoney(orderTax, line.Quantity, ordered, policy));
             if (!InvoiceMatchExact.Within(currentTax - expectedTax, expectedTax, rule.Tax))
                 Block("CurrentInvoiceTaxOutsideTolerance", group.First().Original.Id);
-            // Each original invoice line has its own rounded amount. Summing
-            // their exact saved results avoids re-rounding a combined quantity.
-            var expectedGross = group.Aggregate(BigInteger.Zero, (sum, line) => sum + line.Net) + expectedTax;
+            // Apply today's policy separately to each current line, but use
+            // the issued order rate as the comparison baseline. The invoice's
+            // own rounded net is the claim, not its own tolerance reference.
+            var expectedNet = group.Aggregate(BigInteger.Zero, (sum, line) => sum
+                + InvoiceMatchExact.ProductMoney(line.Quantity,
+                    InvoiceMatchExact.Units(order.UnitPrice), policy));
+            var expectedGross = expectedNet + expectedTax;
             if (!InvoiceMatchExact.Within(currentNet + currentTax - expectedGross, expectedGross, rule.Total))
                 Block("CurrentInvoiceTotalOutsideTolerance", group.First().Original.Id);
             // A separate source ceiling still prevents today's claim from

@@ -123,6 +123,29 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
     }
 
     [Fact]
+    public void Partial_order_price_variance_allowed_by_unit_rule_still_obeys_zero_total_tolerance()
+    {
+        var (invoice, original, baseIssued, input) = Fixture();
+        original.UnitPrice = 1.1m;
+        invoice.NetAmount = 1.1m; invoice.GrossAmount = 1.1m;
+        var issued = baseIssued with { Lines = [baseIssued.Lines[0] with { Quantity = 10 }] };
+        var zero = new InvoiceFieldTolerance(0, 0, InvoiceToleranceCombination.AllLimits);
+        var unitTolerance = new InvoiceFieldTolerance(.1m, 10m,
+            InvoiceToleranceCombination.AllLimits);
+        var policy = new InvoiceMatchingPolicy(Guid.NewGuid(), 2, invoice.TenantId,
+            invoice.LegalEntityId, invoice.BranchRef, "Published", "reviewed policy",
+            DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1), 2,
+            InvoiceMoneyRounding.ToEven,
+            [new InvoiceCategoryMatchRule("GOODS", "ZMW", InvoiceMatchingMethod.TwoWay,
+                null, zero, unitTolerance, zero, zero)]);
+        var result = CompareWithEmptyOwner(invoice, [original], issued, [input], policy);
+        Assert.False(result.CanClaim);
+        Assert.DoesNotContain(result.Blockers, x => x.Code == "UnitPriceOutsideTolerance");
+        Assert.Contains(result.Blockers, x => x.Code == "CurrentInvoiceTotalOutsideTolerance");
+        Assert.DoesNotContain(result.Blockers, x => x.Code == "CumulativeTotalOutsideTolerance");
+    }
+
+    [Fact]
     public void Issued_value_ceiling_uses_exact_eight_decimal_product_not_current_rounding()
     {
         var (invoice, original, baseIssued, input) = Fixture();
