@@ -1,0 +1,39 @@
+# MANUS-P35-UI-VERIFICATION-07 — Procurement UI source verification
+
+**Status:** Queued for an available Manus worker on separate non-production hardware. This is independent of `MANUS-CORE-BUILD-03`, `MANUS-CORE-DOCUMENT-SCANNER-04`, `MANUS-P33-UI-VERIFICATION-05`, and `MANUS-P35-BACKEND-VERIFICATION-06`. Do not interrupt their workers, checkouts, caches, or evidence. The coordinator reviews results before accepting or merging any source fix.
+
+## Exact source and ownership
+
+| Source | Pinned reference |
+| --- | --- |
+| ERP instructions | Published `georgemunganga/erp` `main` at `47c422982a4e701e1fc097422a2f0898b130ef89` or a later reviewed published descendant |
+| Existing Procurement UI | `georgemunganga/module-connect` draft [PR #71](https://github.com/georgemunganga/module-connect/pull/71), branch `codex/p35-contract-review-ui`, commit `ae3694740288c5442d8f60863a68fa598f322f3f` |
+| UI lockfile | `reference-ui/pnpm-lock.yaml` SHA-256 `fb34160759ca7b7942ab1e65c17fc07d518038bdef0abc763473223f6a98f3cc` at the pinned commit |
+| Held backend contract | ERP `codex/p35-contract-review-source` at `f3f1ec304cd2d70cd59182ae704f5d6f8bebb288`; this is source, not live P35 activation |
+| P32 schema context | Held genuine P32 source checkpoint `47bb6b11c9ac6f9d6b97e3df436f374126a70f0d`; generation does not prove production migration or API readiness |
+
+The frontend is the **existing** `module-connect/reference-ui` application with its shared ERP components, Greenwebb screen layout, and `src/platform` clients. Do not create another frontend or reconnect live routes to browser demo stores. Read UI `AGENTS.md`, `reference-ui/UI_COMPONENT_STANDARD.md`, ERP `AGENTS.md`, and `docs/engineering/GW-ENG-STD-001.md` before editing. Keep P30/P31/P33/P34/P35 capability defaults closed unless the real server enables them.
+
+## Hardware and tool gate
+
+Use a separate non-production host with **at least 8 GiB RAM and 4 GiB free disk** before installing or building. Record actual OS, CPU, RAM, disk headroom, source commit, lockfile hash, browser binary and tool versions. `reference-ui/package.json` requires Node `>=22.12.0`, pins `pnpm@11.25.0`, TypeScript `5.9.3`, Vite `7.1.9`, Vitest `3.2.4`, and Playwright `1.62.1`. Verify installed versions against the frozen lockfile; use `pnpm install --frozen-lockfile` in `reference-ui/`. Do not reuse an unverified global package cache or change the lockfile to make tests pass.
+
+Use one browser worker and no retries. Preserve first failures, trace files, command exit codes, test counts, and source hashes. Keep credentials, cookies, private request bodies, real business records, and production screenshots out of commits and public PR output. The coordinator's earlier constrained-host P33 typecheck exited 124 after 180 seconds without a TypeScript verdict; it is **unproven**, not a pass or a code failure. Task 05 retains that evidence.
+
+## Verification sequence
+
+1. Verify PR #71 still points at the pinned commit. Capture a clean source/lockfile manifest, package versions, and hardware before running anything. Work on a focused UI branch from that exact source. Leave the original imported layouts, ERP controls, shared shell, and existing route hierarchy intact.
+2. Run the complete `reference-ui` source gates: `pnpm run check`, `pnpm run build:staged`, and `pnpm run test`. Record exact commands, exit codes, elapsed time, discovered/executed/pass/fail/skip counts, and machine-readable Vitest/Node test results. A zero-test filter is not passing evidence. Validate that staged live-mode output contains the existing Procurement workspace, not a demo fallback.
+3. Run focused mocked Playwright cases with one Chromium worker, no retries, and machine-readable results. Include `tests/e2e/live-rfq-governed.spec.ts`, `live-principal-receiving.spec.ts`, `live-principal-order-draft.spec.ts`, `live-principal-order-draft-edit.spec.ts`, `live-principal-invoice-issues.spec.ts`, `live-principal-invoice-review.spec.ts`, `live-contract.spec.ts`, and `live-contract-review.spec.ts`. Add other relevant focused specs discovered at the pinned source. Preserve failures and traces. These mocks verify frontend behavior only; they are **not** actual API, PostgreSQL, Core policy, or production proof.
+4. Audit the browser console and rejected requests for render exceptions and unsupported actions. Confirm P35 assigned-review worklist and detail use the actual PascalCase assignment/source fields and frozen terms, while command acknowledgements use their mixed-case contract; P34 rates and P33 edits use exact decimal text through their existing transport adapters. Do not convert financial strings through JavaScript `Number` for an authoritative command. Check list/detail/editor loading, empty, denied, capability-off, wrong company/branch/account, and stale route ID behavior.
+5. Test permissions and recovery source paths. P35 submit, return/correction, and independent decision need the distinct server capability and current action/assignment; they do not sign or activate a contract. P34 rate changes require own Draft/version and an explicit fresh GET after an unknown result; the scoped tab marker must survive reload without persisting prices or request bodies. The P34 backend has no actor-owned rate command receipt, so GET review is not exact per-command proof. P33 Draft Edit keeps original source pins, version/CAS, current account scope and its actor-owned GET receipt; a lost POST must not trigger a second POST. Verify disabled paths do not send mutation requests, including direct URL access.
+6. Verify the imported UI remains recognizable: original contract and PO editor groups, detail sections/tabs, tables, action placement and ERP branding at desktop/mobile widths. Do not replace them with a shorter parallel page. Show unavailable signing, activation, supplier dispatch, bank/AP and award actions truthfully. Ordinary user labels must not print machine UUIDs, snapshot JSON, digests, credentials or private evidence.
+7. If a compiler, selector, test-fixture, or concrete client contract defect appears, preserve the first failed run and make the smallest source fix on the UI task branch. Add a focused regression, repeat the affected check and then the complete source gates. Do not weaken permission assertions, bypass backend readiness, invent API fields, change the backend, enable feature flags, or claim unrun checks. Refer larger business/domain issues to the coordinator.
+
+## Deliverables and limits
+
+Open a **draft UI PR targeting `codex/p35-contract-review-ui`** with focused source fixes only; do not merge it. Provide a progress file at `docs/collaboration/manus/p35-ui-verification-07-progress.md` in the ERP coordination PR or link it from the UI PR. Include source and lockfile SHAs, actual hardware/tool versions, every command and exit code, nonzero test counts, first failures, reruns, evidence hashes/paths, mocked-versus-actual distinctions, and unresolved contract gaps. Use JUnit/XML or another machine-readable reporter for Vitest and Playwright plus the Node test runner's structured output; check the installed reporter CLI options before invoking them. Keep protected traces outside Git.
+
+This task does **not** authorize backend SDK work, migrations, database access, real-cookie fixtures, identity or role changes, production deployment, supplier contact, contract activation, Finance posting, or feature activation. Real-cookie P30/P31 acceptance and any later P32–P35 runtime/owner proof remain coordinator-owned. A passing UI build or mocked browser suite does not make held P35 routes live.
+
+The coordinator accepts this task only after independently reviewing the source diff, exact verification evidence, restored layout, negative paths and the list of still-unproven runtime gates.
