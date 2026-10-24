@@ -35,8 +35,8 @@ public sealed class RfqCommercialDraftModelTests
             Assert.Equal(ValueGenerated.Never,entity.FindProperty("Id")!.ValueGenerated);
             Assert.All(entity.GetKeys(),key=>Assert.True(key.GetName()!.Length<=63));
             Assert.All(entity.GetIndexes(),index=>Assert.True(index.GetDatabaseName()!.Length<=63));
-            Assert.All(entity.GetForeignKeys(),key=>Assert.Equal(new[]{"TenantId","LegalEntityId"},
-                key.PrincipalKey.Properties.Take(2).Select(x=>x.Name)));
+            Assert.All(entity.GetForeignKeys(),key=>Assert.Equal(new[]{"TenantId","LegalEntityId","Id"},
+                key.PrincipalKey.Properties.Select(x=>x.Name)));
         }
         var original=model.FindEntityType(typeof(SourcingDraftEvidence))!;
         Assert.True(original.FindProperty(nameof(SourcingDraftEvidence.BranchRef))!.IsNullable);
