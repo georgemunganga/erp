@@ -40,11 +40,11 @@ internal static class ProcurementPrincipalCommercialSchemaInspection
             return true;
         }
         if (entityType == typeof(ContractReviewPolicyIdentityRecord) && indexName is not null
-            && ProcurementContractReviewSchemaCapture.ModelPredicates.TryGetValue(indexName, out var expectedModel))
+            && ProcurementContractReviewSchemaCapture.ModelPredicates.TryGetValue(indexName, out var contractModelPredicate))
         {
-            if (expectedModel != modelPredicate
-                || !ProcurementContractReviewSchemaCapture.PartialPredicates.TryGetValue(indexName, out var captured)) return false;
-            predicate = captured;
+            if (contractModelPredicate != modelPredicate
+                || !ProcurementContractReviewSchemaCapture.PartialPredicates.TryGetValue(indexName, out var contractCapturedPredicate)) return false;
+            predicate = contractCapturedPredicate;
             return true;
         }
         // PostgreSQL's canonical expression is an owning-schema contract.
