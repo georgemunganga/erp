@@ -5,10 +5,22 @@ import unittest
 from verify_p30_po_cookie_owner import Failed, canonical_json
 from verify_p30_rfq_cookie_owner import (CONTACT_PRODUCER_VECTOR, captured_body,
     contact_utc_offset, core_row, exact_decimal_text, fingerprint, rfq_canonical_json,
-    verify_source_progress)
+    stable_user_row, verify_source_progress)
 
 
 class RfqOwnerFingerprints(unittest.TestCase):
+    def test_login_fields_excluded_only_for_the_two_browser_actors(self):
+        buyer='11111111-1111-4111-8111-111111111111'
+        reviewer='22222222-2222-4222-8222-222222222222'
+        other='33333333-3333-4333-8333-333333333333'
+        fixture={'buyerPrincipalId':buyer,'reviewerPrincipalId':reviewer}
+        for person in (buyer,reviewer):
+            self.assertEqual(stable_user_row({'id':person,'last_login_at':'now',
+                'roles_csv':'buyer'},fixture),{'id':person,'roles_csv':'buyer'})
+        outsider={'id':other,'last_login_at':'now','roles_csv':'other'}
+        self.assertEqual(stable_user_row(outsider,fixture),outsider)
+        self.assertNotEqual(stable_user_row({**outsider,'failed_login_count':1},fixture),outsider)
+
     def test_core_pascal_case_preserves_all_fields_and_rejects_collision(self):
         value = {'Id':'11111111-1111-4111-8111-111111111111',
             'TenantId':'22222222-2222-4222-8222-222222222222',

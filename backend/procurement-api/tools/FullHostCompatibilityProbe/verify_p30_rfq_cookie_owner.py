@@ -33,6 +33,12 @@ TABLES = {"procurement.sourcing_events", "procurement.sourcing_lines",
 LOGIN = {"last_login_at", "failed_login_count", "locked_until", "updated_at", "version"}
 
 
+def stable_user_row(row, fixture):
+    require(isinstance(row, dict) and guid(row.get("id")), "LocalUserIdentityInvalid")
+    interactive = {fixture["buyerPrincipalId"], fixture["reviewerPrincipalId"]}
+    return {key:value for key,value in row.items() if key not in LOGIN} if row["id"] in interactive else row
+
+
 def core_row(row):
     """Preserve every EF Core approval column while giving the verifier one key shape."""
     require(isinstance(row, dict), "CoreApprovalRowInvalid")
@@ -218,7 +224,7 @@ ROLLBACK;""")
         for row in group:
             identity = row.get("id")
             require(guid(identity) and identity not in hashes[name], "OwningDuplicateId")
-            stable = {k:v for k,v in row.items() if k not in LOGIN} if name == "hrm.local_users" else row
+            stable = stable_user_row(row, fixture) if name == "hrm.local_users" else row
             hashes[name][identity] = digest(stable)
     def one(table, id):
         found = [x for x in rows[table] if x.get("id") == id]
