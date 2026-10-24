@@ -10,12 +10,13 @@ using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Finite, owning-transaction P32 physical admission. This is neither a
-/// current Core permission decision nor a commercial policy approval. Both are
-/// checked by the route and the shared Core workflow at action time.</summary>
+/// <summary>Finite, owning-transaction P32 owner admission for Draft and
+/// commercial evidence. Core Documents is checked at actual document-use
+/// purposes; an empty Draft does not use that store. Current Core permissions
+/// and commercial policy are checked by routes and shared workflow.</summary>
 public sealed class ProcurementRfqCommercialStoreReadiness(
     ProcurementRfqCommercialOptions options, IConfiguration configuration,
-    ProcurementRequestScope requestScope, IServiceProvider services,
+    IServiceProvider services,
     ProcurementPrincipalApprovalStoreReadiness principalStore,
     IProcurementSourcingDraftSchemaReadiness sourceDrafts,
     IProcurementPrincipalSourcingPublicationReadiness publication)
@@ -49,18 +50,11 @@ public sealed class ProcurementRfqCommercialStoreReadiness(
             if (string.IsNullOrWhiteSpace(execution)
                 || !InvoiceDocumentStoreBinding.SamePhysicalDatabase(
                     execution, owner.Database.GetDbConnection().ConnectionString)
-                || !InvoiceDocumentStoreBinding.SamePhysicalDatabase(
-                    configuration.GetConnectionString("CoreDocuments"), execution)
-                || services.GetService<CoreDocumentFeature>() is not { Enabled: true }
-                || services.GetService<IDocumentSchemaReadiness>() is not { } documents
-                || !await documents.IsReadyAsync(ct)
                 || !await sourceDrafts.IsReadyAsync(owner, false, ct)
                 // Commercial review reads immutable P30 publication evidence.
                 // It does not require an evaluator to hold P30 publish/PR-write rights.
                 || !await publication.IsReadyAsync(owner, false, ct)
                 || !await principalStore.CanReadWorkflowAsync(owner, ct)
-                || !await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(
-                    owner, requestScope, write, false, ct)
                 || services.GetService<IProcurementOperationalPolicyIdentitySchemaReadiness>() is not { } identity
                 || !await identity.IsReadyAsync(owner, ct)) return false;
 

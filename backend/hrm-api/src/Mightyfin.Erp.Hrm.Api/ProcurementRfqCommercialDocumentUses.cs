@@ -80,6 +80,12 @@ public static partial class ProcurementSourcingExecutionRoutes
             || plan.DocumentCount == 0 && plan.DocumentUseSetId is not null)
             throw new InvalidOperationException("RfqCommercialRetainedDocumentUseChanged");
         if (expected.Count == 0) return;
+        // Ordinary empty Draft/read paths need only the Procurement owner. A
+        // retained nonempty requirement set must still prove the physical Core
+        // document schema and finite purpose-read grants in this transaction.
+        if (!await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(
+                db, scope, false, false, ct))
+            throw new InvalidOperationException("RfqCommercialDocumentsUnavailable");
         if (documents.Database.CurrentTransaction is null || db.Database.CurrentTransaction is null
             || !ReferenceEquals(documents.Database.GetDbConnection(), db.Database.GetDbConnection())
             || !ReferenceEquals(documents.Database.CurrentTransaction.GetDbTransaction(),

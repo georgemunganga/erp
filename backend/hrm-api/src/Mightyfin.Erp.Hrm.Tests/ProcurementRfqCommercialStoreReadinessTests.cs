@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
 using Xunit;
 
@@ -5,6 +8,71 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementRfqCommercialStoreReadinessTests
 {
+    private sealed class SourceReady : IProcurementSourcingDraftSchemaReadiness
+    {
+        public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(true);
+    }
+    private sealed class DocumentReady(bool ready) : IDocumentSchemaReadiness
+    {
+        public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(ready);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task Document_command_preflight_denies_missing_feature_or_schema_readiness(
+        bool feature, bool schema)
+    {
+        const string execution = "Host=localhost;Database=private_review;Username=finite_execution";
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:ProcurementApprovalExecution"] = execution,
+            ["ConnectionStrings:CoreDocuments"] = execution,
+        }).Build();
+        using var services = new ServiceCollection()
+            .AddSingleton(new ProcurementSourcingDraftExecutionOptions
+                { Enabled = true, ExecutionDatabaseConfigured = true })
+            .AddSingleton<IProcurementSourcingDraftSchemaReadiness>(new SourceReady())
+            .AddSingleton(new CoreDocumentFeature(feature))
+            .AddSingleton<IDocumentSchemaReadiness>(new DocumentReady(schema))
+            .AddSingleton<IConfiguration>(config).BuildServiceProvider();
+        var http = new DefaultHttpContext { RequestServices = services };
+        var error = await Assert.ThrowsAsync<ProcurementSourcingExecutionRoutes.Problem>(() =>
+            ProcurementSourcingExecutionRoutes.RequireCommercialDocumentCommandFoundation(
+                http, null, CancellationToken.None));
+        Assert.Equal("RfqCommercialDocumentsUnavailable", error.Message);
+        Assert.Equal(503, error.Status);
+    }
+
+    [Fact]
+    public async Task Document_command_preflight_accepts_only_matching_configured_document_store()
+    {
+        const string execution = "Host=localhost;Database=private_review;Username=finite_execution";
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:ProcurementApprovalExecution"] = execution,
+            ["ConnectionStrings:CoreDocuments"] = execution,
+        }).Build();
+        using var services = new ServiceCollection()
+            .AddSingleton(new ProcurementSourcingDraftExecutionOptions
+                { Enabled = true, ExecutionDatabaseConfigured = true })
+            .AddSingleton<IProcurementSourcingDraftSchemaReadiness>(new SourceReady())
+            .AddSingleton(new CoreDocumentFeature(true))
+            .AddSingleton<IDocumentSchemaReadiness>(new DocumentReady(true))
+            .AddSingleton<IConfiguration>(config).BuildServiceProvider();
+        var http = new DefaultHttpContext { RequestServices = services };
+        // This proves only bounded preflight; owning-transaction physical grants
+        // are checked by the same method when a Procurement context is supplied.
+        await ProcurementSourcingExecutionRoutes.RequireCommercialDocumentCommandFoundation(
+            http, null, CancellationToken.None);
+        config["ConnectionStrings:CoreDocuments"] =
+            "Host=localhost;Database=other_store;Username=finite_execution";
+        var error = await Assert.ThrowsAsync<ProcurementSourcingExecutionRoutes.Problem>(() =>
+            ProcurementSourcingExecutionRoutes.RequireCommercialDocumentCommandFoundation(
+                http, null, CancellationToken.None));
+        Assert.Equal("RfqCommercialDocumentsUnavailable", error.Message);
+    }
+
     [Fact]
     public void Physical_capture_is_complete_and_retains_non_model_parent_links()
     {
@@ -70,10 +138,10 @@ public sealed class ProcurementRfqCommercialStoreReadinessTests
     public async Task Disabled_and_missing_owner_are_never_ready()
     {
         var unavailable = new ProcurementRfqCommercialStoreReadiness(new ProcurementRfqCommercialOptions(),
-            null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!);
         Assert.False(await unavailable.IsReadyAsync(null!, true, CancellationToken.None));
         var enabled = new ProcurementRfqCommercialStoreReadiness(new ProcurementRfqCommercialOptions { Enabled = true },
-            null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!);
         Assert.False(await enabled.IsReadyAsync(null!, true, CancellationToken.None));
     }
 }
