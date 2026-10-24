@@ -63,11 +63,13 @@ public sealed class ContractReviewPersistenceTests
     public async Task Bare_vote_without_original_ack_is_denied_before_save()
     {
         var actorId = Guid.CreateVersion7();
+        var company = Guid.CreateVersion7();
         await using var db = Db("contract-review-denied-" + Guid.CreateVersion7(),
-            Scope("synthetic-contract-review", Guid.CreateVersion7(), actorId));
+            Scope("synthetic-contract-review", company, actorId));
         var actor = actorId.ToString("D");
         var at = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
-        db.AddScoped(new ContractReviewVote { SubmissionId = Guid.CreateVersion7(), ContractId = Guid.CreateVersion7(),
+        db.AddScoped(new ContractReviewVote { TenantId = "synthetic-contract-review", LegalEntityId = company,
+            SubmissionId = Guid.CreateVersion7(), ContractId = Guid.CreateVersion7(),
             ReviewBranchId = Guid.CreateVersion7(), CoreCaseId = Guid.CreateVersion7(),
             CoreStageId = Guid.CreateVersion7(), CoreAssignmentId = Guid.CreateVersion7(),
             CoreDecisionId = Guid.CreateVersion7(), ActorPrincipalId = actor,
