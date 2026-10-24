@@ -66,7 +66,8 @@ public sealed class P32CommercialRoundRollbackGuardsTests
             nameof(PrincipalRfqCommercialOfferSubmissionRecord),nameof(PrincipalRfqCommercialRoundSealRecord),
             nameof(PrincipalRfqCommercialCommandReceipt),nameof(PrincipalRfqOfferOpeningRecord),
             nameof(PrincipalRfqOfferOpeningReceipt),nameof(PrincipalRfqCriterionAssessmentRecord),
-            nameof(PrincipalRfqCriterionAssessmentReceipt)};
+            nameof(PrincipalRfqCriterionAssessmentReceipt),
+            "RfqCommercialDraft","RfqPreparedPlan","RfqCommercialRound"};
         var auditArm=Regex.Match(sql,@"OR EXISTS \(SELECT 1 FROM procurement\.audit_events\s+WHERE record_type IN \((.*?)\)\)",RegexOptions.Singleline);
         Assert.True(auditArm.Success);
         var protectedAuditTypes=Regex.Matches(auditArm.Groups[1].Value,@"'([^']+)'")

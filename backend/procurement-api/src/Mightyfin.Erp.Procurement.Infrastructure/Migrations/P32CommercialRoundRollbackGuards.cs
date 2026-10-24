@@ -55,7 +55,8 @@ internal static class P32CommercialRoundRollbackGuards
                            'PrincipalRfqCommercialOfferSubmissionRecord','PrincipalRfqCommercialRoundSealRecord',
                            'PrincipalRfqCommercialCommandReceipt','PrincipalRfqOfferOpeningRecord',
                            'PrincipalRfqOfferOpeningReceipt','PrincipalRfqCriterionAssessmentRecord',
-                           'PrincipalRfqCriterionAssessmentReceipt'))
+                           'PrincipalRfqCriterionAssessmentReceipt',
+                           'RfqCommercialDraft','RfqPreparedPlan','RfqCommercialRound'))
             OR EXISTS (SELECT 1 FROM procurement.outbox_events
                        WHERE event_type IN ('sourcing.commercial_draft_changed.v1',
                            'sourcing.prepared_candidate_recorded.v1',
