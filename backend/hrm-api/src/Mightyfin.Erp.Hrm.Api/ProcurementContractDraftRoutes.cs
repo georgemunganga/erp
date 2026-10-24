@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -33,7 +34,10 @@ public static partial class ProcurementContractDraftRoutes
             .Select(x => new { x.Id, x.Number, x.SupplierId, x.Title, x.ContractType,
                 x.CurrencyCode, x.CeilingAmount, x.Status, x.ExpiresOn, x.Version })
             .ToListAsync(ct);
-        return Results.Ok(new { items, total, page = number, pageSize = size });
+        return Results.Ok(new { items = items.Select(x => new { x.Id, x.Number, x.SupplierId,
+                x.Title, x.ContractType, x.CurrencyCode, x.CeilingAmount,
+                ceilingAmountExact = Exact(x.CeilingAmount), x.Status, x.ExpiresOn, x.Version }).ToArray(),
+            total, page = number, pageSize = size });
     }
 
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db,
@@ -173,11 +177,15 @@ public static partial class ProcurementContractDraftRoutes
     private static object Detail(SupplierContract contract, SupplierContractVersion? version) => new
     {
         contract.Id, contract.Number, contract.SupplierId, contract.Title, contract.ContractType,
-        contract.CurrencyCode, contract.CeilingAmount, contract.EffectiveFrom, contract.ExpiresOn,
+        contract.CurrencyCode, contract.CeilingAmount, ceilingAmountExact = Exact(contract.CeilingAmount),
+        contract.EffectiveFrom, contract.ExpiresOn,
         contract.RenewalNoticeOn, contract.Status, contract.TerminationReason,
         contract.Version, contract.CreatedAt,
         draftVersion = version is null ? null : new { version.Id, version.RevisionNumber, version.Status, version.Version },
     };
+
+    private static string Exact(decimal amount) =>
+        amount.ToString("0.############################", CultureInfo.InvariantCulture);
 
     private static IResult Problem(string code, string message, int status) =>
         Results.Json(new { code, message }, statusCode: status);
