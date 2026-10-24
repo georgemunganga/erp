@@ -10,5 +10,9 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization("procurement-sourcing-commercial-configure");
         group.MapPost("/{id:guid}/commercial-prepare", CommercialPrepare)
             .RequireAuthorization("procurement-sourcing-commercial-configure");
+        group.MapGet("/commercial-rounds", CommercialRounds).RequireAuthorization();
+        group.MapGet("/commercial-rounds/{id:guid}", CommercialRound).RequireAuthorization();
+        group.MapGet("/commercial-round-commands/{operation}/{key:guid}", CommercialRoundRecovery)
+            .RequireAuthorization();
     }
 }
