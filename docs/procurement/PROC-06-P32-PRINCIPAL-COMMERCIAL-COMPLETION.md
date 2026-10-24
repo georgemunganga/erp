@@ -431,3 +431,45 @@ is prepared. P30 internal Published/Draft quotation bytes are not adopted as
 submitted or sealed bids. Current next milestone is independent review of this
 bounded composition, then central physical schema/runtime proof and a separately
 versioned governed commercial publication contract.
+
+### Sixth bounded slice — sealed manual offer protocol (source only)
+
+The next effect is a **separate** immutable submission from one verified P30
+manual quotation Draft. It requires a durable P32 commercial round whose
+published controls bind the prepared-plan ID and digest, the actual independent
+Core commercial publication case/approved decision, source RFQ/version, branch,
+comparison currency, exact open/close instants and supplier invitation set.
+P30's internal RFQ `Published` state and the `PreparedCandidate` response do
+not prove this round. Until that owned publication transition and genuine
+schema/readiness exist, submission and sealing stay unregistered/default off.
+
+For one invited supplier, an authorized internal recorder supplies the exact
+manual Draft ID and expected Draft revision/version, supplier-reported receipt
+instant, and a Core document version containing the original offer. The server
+uses its own UTC observation for entry/submission-window eligibility; reported
+receipt time is evidence only and never backdates a late submission. The owner
+loads the retained Draft version and current editable lines, verifies their
+canonical snapshot/receipt, invitation and supplier, current source/branch,
+original clean document version/hash and Core use pin. One serializable command
+then freezes exact offer lines and totals, original evidence and actor/optional
+worker alias into an append-only submitted version plus its original-key/body/
+response receipt. The old Draft rows are not relabeled as supplier-submitted.
+Same-key replay returns the original bytes after current actor/action/branch
+checks; changed body/key binding conflicts. Unknown outcome permits GET-only
+recovery. A correction requires an explicit successor submission; no overwrite.
+
+Closing uses trusted server time at/after the configured close instant. In the
+same transaction it locks the round and all its exact submitted versions,
+captures an ordered set digest/count and immutable close actor/receipt, then
+marks the round Closed by CAS. Broad reads still reveal no bid content. A
+separate named opening transition must verify that watermark and independent
+Core opening authority before any evaluator sees supplier prices or documents.
+No portal delivery, award, PO, AP, stock or Finance effect follows submission
+or close. Internal recorder identity never becomes supplier authentication.
+
+The first authored source increment is the exact submission/close transition
+contract and negative rule tests. Execution additionally needs mapped owned
+round/submission/seal/receipt rows, same-save guards, exact composite owner
+FKs, Core document use under one enlisted transaction, finite privilege and
+actual PostgreSQL/normal HTTP proof. It must not reuse the P30 Draft status,
+quotation snapshot encoder or existing publication approval as a shortcut.
