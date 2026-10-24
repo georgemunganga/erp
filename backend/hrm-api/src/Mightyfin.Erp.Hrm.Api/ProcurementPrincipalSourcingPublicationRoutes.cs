@@ -171,6 +171,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             var at = ProcurementEvidenceEncoding.DatabaseTimestamp(now)!.Value;
             var row = new SourcingPublicationOpening
             {
+                TenantId = ev.TenantId, LegalEntityId = ev.LegalEntityId,
                 SourcingEventId = ev.Id, EventVersionAtOpening = checked(ev.Version + 1),
                 PolicyVersionId = policy.Id, PolicyVersionNumber = policy.PolicyVersionNumber,
                 PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
@@ -187,6 +188,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 commandKey = key }, Json);
             db.AddScoped(new SourcingPublicationReceipt
             {
+                TenantId = ev.TenantId, LegalEntityId = ev.LegalEntityId,
                 SourcingEventId = ev.Id, OpeningId = row.Id, Operation = "Open", CommandKey = key,
                 ActorPrincipalId = actor.PrincipalId, ActorCoreLinkedWorkerId = actor.LinkedWorkerId,
                 CommandSha256 = fingerprint, ResponseJson = body,
@@ -401,6 +403,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             var at = ProcurementEvidenceEncoding.DatabaseTimestamp(now)!.Value;
             var link = new SourcingPublicationDecision
             {
+                TenantId = ev.TenantId, LegalEntityId = ev.LegalEntityId,
                 SourcingEventId = id, OpeningId = opening.Id, CoreApprovalCaseId = caseId,
                 CoreApprovalDecisionId = coreDecision.Id, CoreAssignmentId = assignment.Id,
                 Action = input.Action, CaseState = approval.State,
@@ -416,6 +419,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 financeReservationChanged = false, commandKey = key }, Json);
             db.AddScoped(new SourcingPublicationReceipt
             {
+                TenantId = ev.TenantId, LegalEntityId = ev.LegalEntityId,
                 SourcingEventId = id, OpeningId = opening.Id, DecisionId = link.Id,
                 Operation = "Decide", CommandKey = key, ActorPrincipalId = actor.PrincipalId,
                 ActorCoreLinkedWorkerId = actor.LinkedWorkerId,

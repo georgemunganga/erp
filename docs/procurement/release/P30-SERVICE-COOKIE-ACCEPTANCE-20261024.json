@@ -1,0 +1,64 @@
+{
+  "status": "ACCEPTED_PRIVATE_P30_SERVICE_NORMAL_COOKIE_AND_OWNER",
+  "dateUtc": "2026-10-24",
+  "productionTouched": false,
+  "privateDatabase": "proc_p30_http_po_service_cookie01",
+  "source": {
+    "acceptedApplication": "3942e1823bf87dbe201d16ef4feed24e8db34c4a",
+    "probeTool": "06473f82e3076a21d46b954455d8b14a1f28cabe",
+    "acceptedUiApplication": "7c575d2fd48ef724cfa4017d2520fa2df8838dd3",
+    "serviceUiProof": "1afe8e94163acc7ebb1a9fa59e2dc9f1b9aaca86",
+    "toolBuildResultSha256": "66290a87d3f6d85b11b966cdf01abe4dcb49d1f1a0dffefb4f59359ef1a7d741"
+  },
+  "native": {
+    "actualHttpRequests": 183,
+    "status": "PASS_PRIVATE_P30_PRINCIPAL_RECEIVING_MANUAL_FULFILMENT_ONLY",
+    "evidence": {
+      "privatePath": "/home/amizo/erp-backups/procurement-p30-actual-service-cookie-20261024_run01/result.private.json",
+      "sha256": "d4decd50715a448b73698820f307c917e7566b43ead7e487fbd3c605f8540074"
+    }
+  },
+  "browser": {
+    "normalLocalCookie": true,
+    "playwrightPassed": 1,
+    "retries": 0,
+    "durationSeconds": 42.3,
+    "businessResponsesMocked": false,
+    "identityHeadersInjected": false,
+    "bothSessionsRevoked": true,
+    "evidence": {
+      "privatePath": "/home/amizo/erp-backups/procurement-p30-actual-service-cookie-20261024_run01/p30-service-browser-result.private.json",
+      "sha256": "c0bba2fa33d7f0e754e77c4ebc44dcaa77c497bc30389884aa2a5a03f839bb66"
+    }
+  },
+  "independentOwner": {
+    "status": "PASS_P30_SERVICE_OWNER_FACTS",
+    "exactCertifiedQuantity": "0.5",
+    "exactCertifiedNetValue": "0.00005",
+    "nativeGoodsAndServiceHistoryUnchanged": true,
+    "twoRealSessionsRevoked": true,
+    "evidence": {
+      "privatePath": "/home/amizo/erp-backups/procurement-p30-actual-service-cookie-20261024_run01/p30-service-owner-after-browser.private.json",
+      "sha256": "a16edf38138b96494b674bf60ae846cbd520b80b8c1052b5b39a785a7460bad7"
+    }
+  },
+  "cohortBinding": {
+    "fixtureSha256": "f3b591a4d688832eede78732eb0dd0a7fdd3ca996fe2d93c24389819cde4db6f",
+    "transport": "normal-local-cookie-https-v1",
+    "reviewedPlan": {
+      "privatePath": "/home/amizo/erp-backups/procurement-p30-actual-service-cookie-20261024_run01/runtime-plan.REVIEWED.json",
+      "sha256": "fdd73600e0f911105b96933399d83728b44d985cf9fcc416a1f8e39e90efdfe1"
+    },
+    "allCompositeEvidenceHashesVerified": true,
+    "allFourProcessExitCodesZero": true,
+    "compositeResultSha256": "782e7dcaeea6ca68296a3886e4f0f76d9c22ad3fe35759ea8b7f706b75c3a32f"
+  },
+  "exclusions": [
+    "No production migration, role activation or deployment",
+    "No Finance/AP or bank posting",
+    "No Inventory or Asset ledger posting",
+    "No supplier dispatch",
+    "RFQ publication and quote browser acceptance are separate and remain unresolved",
+    "No whole Procurement module completion"
+  ]
+}

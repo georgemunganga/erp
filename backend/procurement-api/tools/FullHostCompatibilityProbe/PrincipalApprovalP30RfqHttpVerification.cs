@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Application;
 
@@ -23,6 +26,12 @@ internal static partial class PrincipalApprovalHttpVerification
         stage("P30RfqSyntheticCoreMasterSetup");
         await using (var core = fixture.Core())
         {
+            Need(!await core.UserBranchAssignments.AnyAsync(x => x.UserId == fixture.ConfigMaker
+                    || x.UserId == fixture.ConfigReviewer)
+                && await core.UserBranchAssignments.CountAsync(x => x.UserId == fixture.Buyer
+                    && x.LocationId == fixture.Branch) == 1
+                && !await core.Workers.AnyAsync(),
+                "Private SOURCING policy actors must be Core companywide, while the workerless buyer remains branch-confined.");
             // Synthetic Core roles are fixture master data. They do not seed a
             // policy, supplier decision, RFQ approval, contact or bid outcome.
             foreach (var (role, actions) in new[]
@@ -129,8 +138,81 @@ internal static partial class PrincipalApprovalHttpVerification
         var openBody = new { expectedEventVersion = original.GetProperty("version").GetInt64(),
             originalDraftFingerprint = original.GetProperty("originalDraftFingerprint").GetString(),
             supplierIds = suppliers.ToArray() };
-        var opened = await send(client, HttpMethod.Post, eventPath + "/principal-publication-reviews",
-            fixture.Buyer, openBody, HttpStatusCode.Created, openKey);
+        // This private probe captures only bounded internal invariant codes for
+        // this one request. The public API intentionally keeps its generic 409.
+        var openFailureCodes = new List<string>();
+        var openFailureSites = new List<object>();
+        EventHandler<FirstChanceExceptionEventArgs> onOpenFailure = (_, args) =>
+        {
+            var error = args.Exception;
+            var type = error.GetType().Name;
+            if (type is not ("InvalidOperationException" or "ArgumentException" or
+                "DbUpdateException" or "DbUpdateConcurrencyException" or
+                "InvalidCastException" or "OverflowException" or "PostgresException")) return;
+            var code = error.Message;
+            var internalCode = code.Length is >= 4 and <= 96 && Regex.IsMatch(code,
+                @"\A(?:Rfq|Sourcing|SharedCoreApproval|Approval)[A-Za-z0-9]{1,90}\z");
+            var category = type == "DbUpdateConcurrencyException" ? "Concurrency"
+                : type == "OverflowException" ? "Overflow"
+                : error is PostgresException pg && pg.SqlState.StartsWith("23", StringComparison.Ordinal)
+                    ? "DatabaseConstraint"
+                : type == "PostgresException" ? "DatabaseError"
+                : code.Contains("Collection was modified", StringComparison.OrdinalIgnoreCase)
+                ? "CollectionChanged"
+                : code.Contains("Sequence contains more than one", StringComparison.OrdinalIgnoreCase)
+                    ? "SequenceMultiple"
+                : code.Contains("Sequence contains no elements", StringComparison.OrdinalIgnoreCase)
+                    ? "SequenceEmpty"
+                : code.Contains("cannot be tracked", StringComparison.OrdinalIgnoreCase)
+                    ? "EfTracking"
+                : code.Contains("could not be translated", StringComparison.OrdinalIgnoreCase)
+                    ? "EfTranslation"
+                : internalCode ? "InternalCode" : "Other";
+            var declaring = error.TargetSite?.DeclaringType?.FullName;
+            var method = error.TargetSite?.Name;
+            var safeSite = declaring is { Length: <= 180 } &&
+                Regex.IsMatch(declaring, @"\A(?:System|Microsoft\.EntityFrameworkCore|Mightyfin\.Erp|Npgsql)[A-Za-z0-9_.+\x60]*\z")
+                && method is { Length: <= 100 } &&
+                Regex.IsMatch(method, @"\A[A-Za-z_][A-Za-z0-9_]*\z");
+            var sqlState = error is PostgresException postgres &&
+                Regex.IsMatch(postgres.SqlState, @"\A[A-Z0-9]{5}\z")
+                ? postgres.SqlState : null;
+            lock (openFailureCodes)
+            {
+                if (internalCode && openFailureCodes.Count < 8 &&
+                    !openFailureCodes.Any(x => string.Equals(x, code, StringComparison.Ordinal)))
+                    openFailureCodes.Add(code);
+                var site = new { type, category,
+                    declaringType = safeSite ? declaring : "Unclassified",
+                    method = safeSite ? method : "Unclassified", sqlState };
+                if (category != "Other" && openFailureSites.Count == 8)
+                {
+                    var ordinary = openFailureSites.FindIndex(x =>
+                        JsonSerializer.Serialize(x).Contains("\"category\":\"Other\"", StringComparison.Ordinal));
+                    if (ordinary >= 0) openFailureSites.RemoveAt(ordinary);
+                }
+                if (openFailureSites.Count < (category == "Other" ? 4 : 8)
+                    && !openFailureSites.Any(x =>
+                        string.Equals(JsonSerializer.Serialize(x), JsonSerializer.Serialize(site), StringComparison.Ordinal)))
+                    openFailureSites.Add(site);
+            }
+        };
+        JsonElement opened;
+        AppDomain.CurrentDomain.FirstChanceException += onOpenFailure;
+        try
+        {
+            opened = await send(client, HttpMethod.Post, eventPath + "/principal-publication-reviews",
+                fixture.Buyer, openBody, HttpStatusCode.Created, openKey);
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= onOpenFailure;
+            lock (openFailureCodes)
+            {
+                result["principalPublicationOpenInternalCodes"] = openFailureCodes.ToArray();
+                result["principalPublicationOpenFailureSites"] = openFailureSites.ToArray();
+            }
+        }
         Need(opened.GetProperty("status").GetString() == "PublicationReview"
             && opened.GetProperty("supplierDeliveryState").GetString() == "NotStarted",
             "Opening must retain an internal review, not supplier delivery.");
@@ -155,8 +237,29 @@ internal static partial class PrincipalApprovalHttpVerification
             expectedCaseVersion = task.GetProperty("caseVersion").GetInt64(),
             expectedAssignmentVersion = assignment.GetProperty("version").GetInt64(),
             action = "Approve", reason = "Independent internal publication only" };
-        var decided = await send(client, HttpMethod.Post, decisionPath, fixture.ConfigReviewer,
-            decisionBody, HttpStatusCode.OK, decisionKey);
+        // Reuse the same bounded classifier for exactly this one positive Decide
+        // request. Open's captured arrays above are immutable copies in result.
+        JsonElement decided;
+        lock (openFailureCodes)
+        {
+            openFailureCodes.Clear();
+            openFailureSites.Clear();
+        }
+        AppDomain.CurrentDomain.FirstChanceException += onOpenFailure;
+        try
+        {
+            decided = await send(client, HttpMethod.Post, decisionPath, fixture.ConfigReviewer,
+                decisionBody, HttpStatusCode.OK, decisionKey);
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= onOpenFailure;
+            lock (openFailureCodes)
+            {
+                result["principalPublicationDecisionInternalCodes"] = openFailureCodes.ToArray();
+                result["principalPublicationDecisionFailureSites"] = openFailureSites.ToArray();
+            }
+        }
         Need(decided.GetProperty("status").GetString() == "Published"
             && decided.GetProperty("supplierDeliveryState").GetString() == "ReadyForManualDelivery"
             && !decided.GetProperty("financeReservationChanged").GetBoolean(),
