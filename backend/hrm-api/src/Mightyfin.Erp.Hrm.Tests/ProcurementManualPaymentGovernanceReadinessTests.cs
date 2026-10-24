@@ -103,4 +103,17 @@ public sealed class ProcurementManualPaymentGovernanceReadinessTests
         Assert.False(new ProcurementManualPaymentOptions().Enabled);
         Assert.False(new ProcurementManualPaymentOptions().ExecutionDatabaseConfigured);
     }
+    [Fact]
+    public void Genuine_P30_catalog_retains_the_captured_P28_payment_fingerprint()
+    {
+        // Actual private PG17 RFQ05 capture, source 19faf916, history through
+        // 20261023234712. This regression records compatibility, not role proof.
+        const string captured = "a5e05163346be79ccaee5aa11093e377a9d0a5f86046311759698ca72435e29b";
+        Assert.Equal(captured, ProcurementManualPaymentGovernanceReadiness.ExpectedFingerprint);
+        Assert.Contains("('procurement','operational_policy_identity_evidence')",
+            ProcurementManualPaymentGovernanceReadiness.FingerprintSql);
+        Assert.Contains("pg_get_constraintdef(c.oid)", ProcurementManualPaymentGovernanceReadiness.FingerprintSql);
+        Assert.DoesNotContain("SOURCING_PUBLISH", ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition);
+    }
+
 }

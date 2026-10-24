@@ -1,0 +1,15 @@
+{
+  "status": "ACTUAL_PRIVATE_P30_FINGERPRINT_CAPTURE_NOT_ROLE_PROOF",
+  "captureResultPath": "/home/amizo/erp-backups/procurement-p30-payment-fingerprint-20261024_run02/result.private.json",
+  "captureResultSha256": "37e132a12941319a905c749c286d77bab8f4b929e68e1ca5c5c2a48152673413",
+  "sourceCommit": "19faf9163d73b51d00d579c053b202d89276692d",
+  "sourceFileSha256": "ff38460dd03b1813cae34d92a715660c0430f272f8bb2cdd178f06d649ae6873",
+  "querySha256": "c2a98e9448b74c2f54e878c94c6f44f81b5d8240aa6b12a0eef459b687f49487",
+  "latestProcurementMigration": "20261023234712_P30PrincipalCommercialAuthorityActions",
+  "fingerprint": "a5e05163346be79ccaee5aa11093e377a9d0a5f86046311759698ca72435e29b",
+  "sameAsOriginalP28Fingerprint": true,
+  "schemaOrDataMutated": false,
+  "roleProofClaim": false,
+  "testsForThisSourceChangeExecuted": false,
+  "correction": "P30 alters separate sourcing_policy_identity_evidence; no payment fingerprint profile is needed. Published speculative selector fc6f6aaa is explicitly reverted, not rewritten."
+}

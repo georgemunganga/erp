@@ -109,3 +109,21 @@ separately prove HRM column UPDATE, table ownership and elevated SET membership
 continue to refuse admission. Restore every injected fault inside the private
 rehearsal and retain unchanged owner/ACL/data evidence. No production role change,
 workflow activation, payment/Finance availability or runtime success is implied.
+
+Actual P30 fingerprint correction: root captured the unchanged `FingerprintSql` on
+the stable genuinely migrated private RFQ05 PostgreSQL17 database, with Procurement
+history through `20261023234712_P30PrincipalCommercialAuthorityActions`. It returned
+exactly the original `a5e05163346be79ccaee5aa11093e377a9d0a5f86046311759698ca72435e29b`.
+P30 changes the separate `sourcing_policy_identity_evidence` constraint; it does not
+widen `operational_policy_identity_evidence`. The speculative P30 profile commit
+`fc6f6aaa` has been explicitly reverted, preserving published history and the column
+fix. No new profile/hash, normalization or empty readiness hold is needed.
+
+Capture provenance is recorded in
+[the compatibility checkpoint](release/P30-PAYMENT-FINGERPRINT-COMPATIBILITY-20261024.json).
+It proves this physical catalog fingerprint only, not finite-role or business
+workflow success. Thirteen source/SQL-contract cases are now authored and unrun;
+the added regression retains the original full-catalog fingerprint and constraint
+coverage. A future P32 migration that actually changes this hashed owner contract
+must independently reassess P28 compatibility with actual PostgreSQL capture; this
+P30 correction does not anticipate or accept such future schema bytes.
