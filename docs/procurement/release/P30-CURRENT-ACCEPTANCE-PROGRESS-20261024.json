@@ -1,0 +1,46 @@
+{
+  "dateUtc": "2026-10-24",
+  "status": "IN_PROGRESS_NOT_PRODUCTION_RELEASE",
+  "productionBaseline": "P24",
+  "candidate": {
+    "sourceCommit": "c6e6f4b87e2a728082b746477a3b094c6478d39c",
+    "sourceTree": "93ca5e487c8d9c60370c94d6c5a748b1fcea8b3e",
+    "scope": "P30 source fixes for RFQ publication scope stamping and invitation batch persistence"
+  },
+  "cleanBackendBuild23": {
+    "status": "RUNNING_NOT_FINAL_ACCEPTANCE",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-clean-backend-build-20261024_run23",
+    "focusedHostPassed": 22,
+    "domainPassed": 1479,
+    "fullHostStatus": "RUNNING",
+    "distinctPublicationsStatus": "PENDING",
+    "finalResultVerified": false,
+    "databaseOrRuntimeProof": false
+  },
+  "rfqPublication": {
+    "status": "SOURCE_FIXES_PENDING_FRESH_COOKIE06",
+    "latestFailedActualAttempt": "cookie05: Decide returned HTTP 409 from a second-save invitation batch check; failure retained",
+    "sourceCorrections": [
+      "Opening, decision and receipt evidence bind tenant and company before persistence",
+      "A new Approved decision requires its exact fresh invitation set; a coordinator second save does not recreate invitations",
+      "A new invitation cannot reuse an already persisted Approved decision"
+    ],
+    "actualCookie06Passed": false,
+    "browserAndIndependentOwnerPassed": false
+  },
+  "serviceReceiving": {
+    "status": "ACCEPTED_PRIVATE_NORMAL_COOKIE_AND_OWNER",
+    "acceptanceDocument": "P30-SERVICE-COOKIE-ACCEPTANCE-20261024.json",
+    "nativeRequests": 183,
+    "normalCookieBrowserPassed": true,
+    "independentOwnerPassed": true
+  },
+  "remaining": [
+    "Verify final build23 Host suite, result and distinct publication manifests",
+    "Run fresh RFQ publication cookie06 with independent retained-owner review",
+    "Complete protected production migration, finite-role and deployment gates"
+  ],
+  "productionTouched": false,
+  "hostedCiAcceptanceClaim": false,
+  "wholeProcurementModuleComplete": false
+}
