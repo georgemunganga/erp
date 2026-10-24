@@ -55,7 +55,7 @@ function EntryTable() {
     window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
   function change(id: string, field: keyof AttendanceTimes, value: string) {
-    setDrafts(prev => ({ ...prev, [date]: { ...prev[date], [id]: { clockIn: "", clockOut: "", ...prev[date]?.[id], [field]: value } } }));
+    setDrafts(prev => ({ ...prev, [date]: { ...prev[date], [id]: { ...(prev[date]?.[id] ?? { clockIn: "", clockOut: "" }), [field]: value } } }));
     setError("");
   }
   async function save() {

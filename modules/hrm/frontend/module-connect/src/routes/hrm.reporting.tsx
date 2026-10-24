@@ -12,12 +12,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { realApi, useApi } from "@/platform/use-api";
+import { realApi, useApi, type ReportingLineDto } from "@/platform/use-api";
+import { useAuth } from "@/platform/auth";
 import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Async } from "@/platform/components/Async";
 import { ListPage } from "@/platform/components/ListPage";
 import { PageHeader } from "@/platform/components/PageHeader";
+import { StatusBadge } from "@/platform/components/StatusBadge";
 import type { ColumnDef } from "@/platform/components/ListPage";
 
 export const Route = createFileRoute("/hrm/reporting")({
@@ -30,19 +32,7 @@ export const Route = createFileRoute("/hrm/reporting")({
   component: ReportingPage,
 });
 
-interface ReportingLine {
-  workerId: string;
-  employeeNo: string;
-  fullName: string;
-  status: string;
-  orgUnitId: string;
-  orgUnitName: string;
-  managerId: string | null;
-  managerName: string | null;
-  grade: string;
-  jobTitle: string;
-  managerNamePath: string | null;
-}
+type ReportingLine = ReportingLineDto & { id: string };
 
 interface ReportingLineList {
   items: ReportingLine[];
@@ -199,9 +189,18 @@ function ChangeManagerDialog({
 }
 
 function ReportingPage() {
+  const { user } = useAuth();
+  const permitted = import.meta.env.VITE_USE_REAL_API !== "true" || user?.roles.some((role) => role === "hr_ops" || role === "hr_admin");
+  return <AppShell><AuthGate>{permitted ? <ReportingContent /> : <p role="alert">Reporting-line access is not assigned.</p>}</AuthGate></AppShell>;
+}
+
+function ReportingContent() {
   const [orgUnitId, setOrgUnitId] = useState<string | undefined>(undefined);
   const state = useApi<ReportingLineList>(
-    () => realApi.reportingLines(orgUnitId ? { orgUnitId } : {}),
+    async () => {
+      const result = await realApi.reportingLines(orgUnitId ? { orgUnitId } : {});
+      return { ...result, items: result.items.map((row) => ({ ...row, id: row.workerId })) };
+    },
     [orgUnitId],
   );
   const [dialogRows, setDialogRows] = useState<ReportingLine[] | null>(null);
@@ -216,7 +215,7 @@ function ReportingPage() {
             .map((r) => [r.orgUnitId, r.orgUnitName] as [string, string]),
         ),
       ).map(([id, name]) => ({ id, name }))
-    : unitOptions;
+    : [];
 
   const columns: ColumnDef<ReportingLine>[] = [
     {
@@ -285,8 +284,7 @@ function ReportingPage() {
   ];
 
   return (
-    <AppShell>
-      <AuthGate roles={["hr_ops", "hr_admin"]}>
+    <>
         <PageHeader
           eyebrow="Organisation"
           title="Reporting lines"
@@ -350,7 +348,6 @@ function ReportingPage() {
             }}
           />
         ) : null}
-      </AuthGate>
-    </AppShell>
+    </>
   );
 }

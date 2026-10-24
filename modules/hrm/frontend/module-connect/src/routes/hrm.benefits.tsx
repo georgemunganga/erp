@@ -1214,7 +1214,7 @@ function Benefits() {
                     <SelectContent>{activeTypes.map(t => <SelectItem key={text(t.code)} value={text(t.code)}>{text(t.name)} · claim</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                {selectedClaimType?.includeInPayroll && <div>
+                {Boolean(selectedClaimType?.includeInPayroll) && <div>
                   <Label htmlFor="claim-payroll-period">Payroll month</Label>
                   <FormSelect id="claim-payroll-period" className="block h-10 w-full rounded-md border bg-background px-2" value={claimPeriod} onChange={e => setClaimPeriod(e.target.value)} disabled={busy || payrollPeriods.loading}>
                     <option value="">Select payroll month...</option>
@@ -1306,7 +1306,7 @@ function Benefits() {
                             {text(row.employeeNo)}
                           </div>
                         </TableCell>
-                        <TableCell>{text(row.benefitTypeName)}{row.payPeriodId && <div className="text-xs text-muted-foreground">{payrollPeriods.data?.find(p => p.id === row.payPeriodId)?.periodLabel ?? "Payroll assignment"}</div>}</TableCell>
+                        <TableCell>{text(row.benefitTypeName)}{Boolean(row.payPeriodId) && <div className="text-xs text-muted-foreground">{payrollPeriods.data?.find(p => p.id === row.payPeriodId)?.periodLabel ?? "Payroll assignment"}</div>}</TableCell>
                         <TableCell className="text-right">
                           {money(row.amountClaimed)} {text(row.currency || "ZMW")}
                         </TableCell>
