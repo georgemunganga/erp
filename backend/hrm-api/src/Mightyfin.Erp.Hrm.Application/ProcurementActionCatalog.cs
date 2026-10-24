@@ -61,6 +61,13 @@ public static class ProcurementActionCatalog
             ["procurement-sourcing-cancel"] = [],
             // Explicit configured grant only; catalog registration adds no publication endpoint or limit.
             ["procurement-sourcing-publish"] = [],
+            // P32 commercial round, sealed manual offers and opening are distinct
+            // from P30 internal publication. No default role receives these actions.
+            ["procurement-sourcing-commercial-configure"] = [],
+            ["procurement-sourcing-commercial-approve"] = [],
+            ["procurement-sourcing-offer-submit"] = [],
+            ["procurement-sourcing-round-close"] = [],
+            ["procurement-sourcing-round-open"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
             // Payment recording/review is controlled by explicit Core grants. Registering
             // these actions neither activates a route nor grants ordinary roles authority.

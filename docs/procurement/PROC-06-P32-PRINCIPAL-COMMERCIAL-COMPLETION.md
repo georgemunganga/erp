@@ -473,3 +473,75 @@ round/submission/seal/receipt rows, same-save guards, exact composite owner
 FKs, Core document use under one enlisted transaction, finite privilege and
 actual PostgreSQL/normal HTTP proof. It must not reuse the P30 Draft status,
 quotation snapshot encoder or existing publication approval as a shortcut.
+
+### Seventh bounded slice — independent commercial-round approval contract
+
+This is the prerequisite to an accepting round, with the same 28-section
+sequence as sections 1–28 above. **Identification/purpose:** a distinct
+`SOURCING_COMMERCIAL_ROUND` policy and `sourcing_commercial_round` Core case
+approve a particular prepared-plan revision for supplier-response handling;
+they never approve an award. **Scope:** one legal entity, RFQ source and branch,
+one exact requirements/criteria pack, currency, original invited supplier
+set, UTC open/close instants, one named closer and explicitly named independent
+reviewers. No general role name or default amount threshold supplies an
+approver. **Related records:** P25 approved demand, P29/P30 retained RFQ and
+publication graph, P32 prepared candidate, Core approvals/documents and the
+existing published policy lifecycle.
+
+**Actors/entry/preconditions:** the current prepared-plan owner may request
+commercial review only with its own named action and branch reach; a separate
+configured current Core reviewer has `procurement-sourcing-commercial-approve`.
+The owner resolves the original P30 publication approved case, invitation set,
+source holds, prepared-plan/draft receipt, published P32 policy and Core
+document use before opening the case. The named closer must have current
+`procurement-sourcing-round-close` at the source branch. Current Core accounts
+need no HRMS worker link; known linked aliases remain a denial-only SOD check.
+
+**Workflow/states:** ReadyToReview → PendingCoreReview → ApprovedRound or
+Returned/Rejected. The prepared candidate itself remains immutable. A Core
+Approved state creates a new append-only P32 decision/effect and an accepting
+round only after exact case, assignment, actor, policy, prepared plan, supplier
+set and original source proofs are rebuilt. Return/Reject retain the case and
+reason; a corrected proposal needs a new prepared revision and new case.
+Sealed bids cannot start from Pending/Returned/Rejected. Closing is a later
+independent command and does not reveal content; opening/evaluation/award each
+need separate future authority.
+
+**Permissions/rules/data:** configuration editor, commercial review requester,
+commercial approver, manual-offer recorder and named closer are distinct Core
+actions with empty new-role grants. Current tenant/company/branch and named
+assignment filter before any count/read. Policy schema1 must explicitly say
+ManualSurrogateOnly, require an original scanned offer document, require exact
+UTC window and named approval/close principals. It may define multiple One/All
+stages with exact principal IDs; no inferred threshold, evaluator, minimum bid
+count, scoring formula or supplier portal actor. A reviewer cannot be the RFQ
+maker, prepared-plan maker, original PR maker/requester or the same known
+worker under another account. Freeze case/source version, prepared-plan ID/SHA,
+published policy ID/version/rules SHA, close/open instants, named supplier IDs,
+stage/assignment IDs, current alias observations, close principal/alias and
+original requirements use set/digest in immutable opening evidence. The final
+decision binds one real Core decision and a same-command result receipt.
+
+**UI/communications/documents:** use the existing RFQ detail approval task and
+original tabs; show plain Pending/Approved/Returned/Rejected and exact blocker
+reasons. No supplier notice or price disclosure follows this internal approval.
+Core owns retained requirement bytes/use pins. **Exceptions/integrations:**
+missing policy or published identity, altered current source/supplier audience,
+wrong branch, alias rebound, stale case, changed use pin, unavailable Core case
+or unknown command outcome all fail closed. Core ApprovalEngine owns votes; P32
+owns the exact commercial effect, receipt and audit/outbox declaration.
+
+**Audit/metrics/config/NFR:** preserve original case and business snapshot,
+current signer, reason, exact key/body/response hash, policy version and
+source/document digests; do not expose sealed prices. Counts distinguish
+pending cases from approved rounds. No policy defaults are shipped. Same-store
+serializable transaction, finite SQL roles, scoped list-before-count and
+actor-owned GET-only recovery are required. **Postcondition/failure:** only
+one genuinely approved round may accept submissions; unknown writes remain
+locked until exact receipt recovery. **Acceptance/tests/ownership/open:**
+source/owner tests must prove independently published policy, Core case/alias
+SOD, branch and supplier-set immutability, Return/Reject, stale CAS, duplicate
+key, lost-response recovery and zero effects on each denied branch. Genuine
+P32 DDL/readiness/private HTTP/browser gates remain outstanding. Business must
+configure reviewers, closer and windows; Finance and award authority stay
+outside this decision.
