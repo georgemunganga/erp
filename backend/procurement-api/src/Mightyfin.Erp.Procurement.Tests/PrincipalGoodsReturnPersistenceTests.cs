@@ -17,9 +17,11 @@ public sealed class PrincipalGoodsReturnPersistenceTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Draft_evidence_cannot_save_without_internal_event_and_verified_accepted_goods(bool addEvent)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Draft_evidence_cannot_save_without_exact_internal_event_and_verified_accepted_goods(
+        bool addEvent, bool correctPayload)
     {
         var actor = Guid.NewGuid().ToString("D"); var scope = new Scope("return-guard", Guid.NewGuid(), actor);
         var options = new DbContextOptionsBuilder<ProcurementDbContext>()
@@ -45,9 +47,11 @@ public sealed class PrincipalGoodsReturnPersistenceTests
             ResponseJson = response,
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(response), ResponseStatus = 201, ResultRevision = 1 });
         if (addEvent) db.AddScoped(new OutboxEvent { AggregateType = "PrincipalGoodsReturnDraft", AggregateId = head.Id,
-            EventType = "procurement.goods_return.draft_create.v1", IdempotencyKey = $"goods-return.draft.{key:N}.v1" });
+            EventType = "procurement.goods_return.draft_create.v1", IdempotencyKey = $"goods-return.draft.{key:N}.v1",
+            PayloadJson = PrincipalGoodsReturnRules.OutboxPayloadJson(head.Id, "Create", key, 1,
+                correctPayload ? actor : Guid.NewGuid().ToString("D")) });
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
-        Assert.Equal(addEvent ? "ReturnDraftAcceptedGoodsSourceRequired" : "ReturnDraftInternalEventRequired", failure.Message);
+        Assert.Equal(addEvent && correctPayload ? "ReturnDraftAcceptedGoodsSourceRequired" : "ReturnDraftInternalEventRequired", failure.Message);
         Assert.False(await db.PrincipalGoodsReturnDrafts.AsNoTracking().AnyAsync());
     }
 }

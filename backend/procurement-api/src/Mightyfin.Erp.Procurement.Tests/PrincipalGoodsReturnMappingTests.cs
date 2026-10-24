@@ -32,7 +32,11 @@ public sealed class PrincipalGoodsReturnMappingTests
             Assert.Equal("procurement", type.GetSchema());
             Assert.Contains(type.GetKeys(), key => key.Properties.Select(x => x.Name)
                 .SequenceEqual(new[] { "TenantId", "LegalEntityId", "Id" }));
+            Assert.All(type.GetKeys(), key => Assert.InRange(key.GetName()!.Length, 1, 63));
+            Assert.All(type.GetIndexes(), index => Assert.InRange(index.GetDatabaseName()!.Length, 1, 63));
+            Assert.All(type.GetForeignKeys(), foreign => Assert.InRange(foreign.GetConstraintName()!.Length, 1, 63));
         }
+        Assert.Contains(head.GetIndexes(), x => x.GetDatabaseName() == "ix_pgret_branch_created");
         Assert.Equal(new[] { nameof(PrincipalGoodsReturnDraft.SourceStateId), nameof(PrincipalGoodsReturnDraft.AcceptanceFactId),
             nameof(PrincipalGoodsReturnDraft.ReceiptId), nameof(PrincipalGoodsReturnDraft.PurchaseOrderLineId),
             nameof(PrincipalGoodsReturnDraft.IssuedVersionId) }.Order().ToArray(),

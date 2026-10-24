@@ -18,12 +18,14 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<PrincipalGoodsReturnRevision>(model, "principal_goods_return_revisions");
         ConfigureBase<PrincipalGoodsReturnCommandReceipt>(model, "principal_goods_return_receipts");
         var draft = model.Entity<PrincipalGoodsReturnDraft>();
+        draft.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_pgret_draft_scope");
         draft.Property(x => x.CreatorPrincipalId).HasMaxLength(36);
         draft.Property(x => x.SourceSha256).HasMaxLength(64);
         draft.Property(x => x.AcceptanceSha256).HasMaxLength(64);
         draft.Property(x => x.State).HasMaxLength(16);
         draft.Property(x => x.AcceptedFactQuantity).HasPrecision(18, 4);
-        draft.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.BranchId, x.CreatedAt });
+        draft.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.BranchId, x.CreatedAt })
+            .HasDatabaseName("ix_pgret_branch_created");
         ReturnLink<PrincipalGoodsReturnDraft, PrincipalReceivingSourceState>(model, nameof(PrincipalGoodsReturnDraft.SourceStateId), "fk_pgret_source");
         ReturnLink<PrincipalGoodsReturnDraft, PrincipalReceivingFact>(model, nameof(PrincipalGoodsReturnDraft.AcceptanceFactId), "fk_pgret_acceptance");
         ReturnLink<PrincipalGoodsReturnDraft, PrincipalReceivingDraftHead>(model, nameof(PrincipalGoodsReturnDraft.ReceiptId), "fk_pgret_receipt");
@@ -32,6 +34,7 @@ public sealed partial class ProcurementDbContext
         draft.ToTable(t => t.HasCheckConstraint("ck_pgret_draft", $"schema_version=1 AND revision>0 AND state IN ('Draft','Cancelled') AND branch_id<>'00000000-0000-0000-0000-000000000000'::uuid AND current_revision_id<>'00000000-0000-0000-0000-000000000000'::uuid AND source_sha256 IS NOT NULL AND source_sha256 ~ {ReturnHash} AND acceptance_sha256 IS NOT NULL AND acceptance_sha256 ~ {ReturnHash} AND accepted_fact_quantity>0 AND creator_principal_id IS NOT NULL AND creator_principal_id ~ {ReturnPrincipalUuid} AND creator_principal_id<>'00000000-0000-0000-0000-000000000000'"));
 
         var revision = model.Entity<PrincipalGoodsReturnRevision>();
+        revision.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_pgret_revision_scope");
         revision.Property(x => x.ActorPrincipalId).HasMaxLength(36);
         revision.Property(x => x.State).HasMaxLength(16);
         revision.Property(x => x.Reason).HasMaxLength(2000);
@@ -43,6 +46,7 @@ public sealed partial class ProcurementDbContext
         revision.ToTable(t => t.HasCheckConstraint("ck_pgret_revision", $"schema_version=1 AND revision>0 AND state IN ('Draft','Cancelled') AND quantity>0 AND reason IS NOT NULL AND length(btrim(reason))>0 AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND proposal_sha256 IS NOT NULL AND proposal_sha256 ~ {ReturnHash} AND actor_principal_id IS NOT NULL AND actor_principal_id ~ {ReturnPrincipalUuid} AND actor_principal_id<>'00000000-0000-0000-0000-000000000000'"));
 
         var receipt = model.Entity<PrincipalGoodsReturnCommandReceipt>();
+        receipt.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_pgret_receipt_scope");
         receipt.Property(x => x.Operation).HasMaxLength(12);
         receipt.Property(x => x.ActorPrincipalId).HasMaxLength(36);
         receipt.Property(x => x.RequestJson).HasColumnType("text");

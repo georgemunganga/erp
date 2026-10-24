@@ -50,10 +50,12 @@ public sealed partial class ProcurementDbContext
                 revision.ProposalSha256 != PrincipalGoodsReturnRules.Fingerprint(head.Id, revision.Revision,
                     revision.Quantity, revision.Reason, revision.EvidenceReference, revision.State))
                 throw new InvalidOperationException("ReturnDraftExactRevisionReceiptRequired");
-            if (!ChangeTracker.Entries<OutboxEvent>().Any(x => x.State == EntityState.Added &&
+            if (ChangeTracker.Entries<OutboxEvent>().Count(x => x.State == EntityState.Added &&
                 x.Entity.AggregateType == "PrincipalGoodsReturnDraft" && x.Entity.AggregateId == head.Id &&
                 x.Entity.EventType == $"procurement.goods_return.draft_{receipt.Operation.ToLowerInvariant()}.v1" &&
-                x.Entity.IdempotencyKey == $"goods-return.draft.{receipt.CommandKey:N}.v1"))
+                x.Entity.IdempotencyKey == $"goods-return.draft.{receipt.CommandKey:N}.v1" &&
+                x.Entity.PayloadJson == PrincipalGoodsReturnRules.OutboxPayloadJson(head.Id, receipt.Operation,
+                    receipt.CommandKey, head.Revision, scope.SubjectId)) != 1)
                 throw new InvalidOperationException("ReturnDraftInternalEventRequired");
             var source = PrincipalReceivingSourceStates.Local.SingleOrDefault(x => x.Id == head.SourceStateId);
             var fact = PrincipalReceivingFacts.Local.SingleOrDefault(x => x.Id == head.AcceptanceFactId);
@@ -73,14 +75,27 @@ public sealed partial class ProcurementDbContext
                 entry.OriginalValues.GetValue<string>(nameof(PrincipalGoodsReturnDraft.State)) != "Draft" ||
                 receipt.Operation != (head.State == "Cancelled" ? "Cancel" : "Revise") || receipt.ResponseStatus != 200)
                 throw new InvalidOperationException("ReturnDraftTransitionInvalid");
+            if (entry.State == EntityState.Modified && head.State == "Cancelled")
+            {
+                var prior = PrincipalGoodsReturnRevisions.Local.SingleOrDefault(x => x.DraftId == head.Id &&
+                    x.Revision == head.Revision - 1);
+                if (prior is null || !PrincipalGoodsReturnRules.CancellationPreservesPrior(prior, revision))
+                    throw new InvalidOperationException("ReturnDraftCancellationChangedProposal");
+            }
         }
         if (revisions.Any(x => !heads.Any(h => h.Entity.Id == x.DraftId)) ||
             receipts.Any(x => !heads.Any(h => h.Entity.Id == x.DraftId)))
             throw new InvalidOperationException("ReturnDraftOrphanEvidence");
-        if (ChangeTracker.Entries<OutboxEvent>().Any(x => x.State == EntityState.Added &&
-            x.Entity.AggregateType == "PrincipalGoodsReturnDraft" &&
-            !receipts.Any(r => r.DraftId == x.Entity.AggregateId &&
-                x.Entity.IdempotencyKey == $"goods-return.draft.{r.CommandKey:N}.v1")))
-            throw new InvalidOperationException("ReturnDraftOrphanEvent");
+        foreach (var eventRow in ChangeTracker.Entries<OutboxEvent>().Where(x => x.State == EntityState.Added &&
+            x.Entity.AggregateType == "PrincipalGoodsReturnDraft").Select(x => x.Entity))
+        {
+            var receipt = receipts.SingleOrDefault(r => r.DraftId == eventRow.AggregateId &&
+                eventRow.IdempotencyKey == $"goods-return.draft.{r.CommandKey:N}.v1");
+            if (receipt is null || eventRow.EventType !=
+                $"procurement.goods_return.draft_{receipt.Operation.ToLowerInvariant()}.v1" ||
+                eventRow.PayloadJson != PrincipalGoodsReturnRules.OutboxPayloadJson(receipt.DraftId,
+                    receipt.Operation, receipt.CommandKey, receipt.ResultRevision, receipt.ActorPrincipalId))
+                throw new InvalidOperationException("ReturnDraftOrphanEvent");
+        }
     }
 }

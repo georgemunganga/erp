@@ -71,4 +71,36 @@ public sealed class PrincipalGoodsReturnDraftRulesTests
             new PrincipalGoodsReturnCommandReceipt { Operation = "Create", RequestJson = valid,
                 RequestSha256 = new string('0', 64) }));
     }
+
+    [Fact]
+    public void Cancelling_a_draft_cannot_rewrite_quantity_or_evidence_even_with_a_valid_cancel_reason()
+    {
+        var draft = Guid.NewGuid();
+        var prior = new PrincipalGoodsReturnRevision { DraftId = draft, Revision = 2,
+            Quantity = 0.5m, EvidenceReference = "PHOTO-1", State = "Draft", Reason = "Damaged" };
+        var cancellation = new PrincipalGoodsReturnRevision { DraftId = draft, Revision = 3,
+            Quantity = 0.5m, EvidenceReference = "PHOTO-1", State = "Cancelled", Reason = "No longer needed" };
+        Assert.True(PrincipalGoodsReturnRules.CancellationPreservesPrior(prior, cancellation));
+        cancellation = new PrincipalGoodsReturnRevision { DraftId = draft, Revision = 3,
+            Quantity = 0.25m, EvidenceReference = "PHOTO-1", State = "Cancelled", Reason = "No longer needed" };
+        Assert.False(PrincipalGoodsReturnRules.CancellationPreservesPrior(prior, cancellation));
+        cancellation = new PrincipalGoodsReturnRevision { DraftId = draft, Revision = 3,
+            Quantity = 0.5m, EvidenceReference = "PHOTO-2", State = "Cancelled", Reason = "No longer needed" };
+        Assert.False(PrincipalGoodsReturnRules.CancellationPreservesPrior(prior, cancellation));
+    }
+
+    [Fact]
+    public void Internal_event_binds_actor_command_and_no_effect_claims()
+    {
+        var id = Guid.NewGuid(); var key = Guid.NewGuid(); var actor = Guid.NewGuid().ToString("D");
+        var payload = PrincipalGoodsReturnRules.OutboxPayloadJson(id, "Create", key, 1, actor);
+        Assert.Contains(actor, payload);
+        Assert.Contains(key.ToString("D"), payload);
+        Assert.Contains("\"approved\":false", payload);
+        Assert.Contains("\"dispatched\":false", payload);
+        Assert.Contains("\"stockChanged\":false", payload);
+        Assert.Contains("\"financeChanged\":false", payload);
+        Assert.NotEqual(payload, PrincipalGoodsReturnRules.OutboxPayloadJson(id, "Create", key, 2, actor));
+        Assert.NotEqual(payload, PrincipalGoodsReturnRules.OutboxPayloadJson(id, "Create", key, 1, Guid.NewGuid().ToString("D")));
+    }
 }

@@ -65,4 +65,17 @@ public static class PrincipalGoodsReturnRules
         catch (Exception error) when (error is JsonException or InvalidOperationException or KeyNotFoundException or
             ArgumentException or OverflowException) { return false; }
     }
+
+    public static bool CancellationPreservesPrior(PrincipalGoodsReturnRevision prior,
+        PrincipalGoodsReturnRevision cancellation) => prior.DraftId == cancellation.DraftId &&
+        prior.Revision + 1 == cancellation.Revision && prior.State == "Draft" &&
+        cancellation.State == "Cancelled" && prior.Quantity == cancellation.Quantity &&
+        prior.EvidenceReference == cancellation.EvidenceReference;
+
+    public static string OutboxPayloadJson(Guid draftId, string operation, Guid commandKey,
+        long revision, string actorPrincipalId) => JsonSerializer.Serialize(new
+        {
+            id = draftId, operation, commandKey, revision, actorPrincipalId,
+            approved = false, dispatched = false, stockChanged = false, financeChanged = false
+        }, Json);
 }

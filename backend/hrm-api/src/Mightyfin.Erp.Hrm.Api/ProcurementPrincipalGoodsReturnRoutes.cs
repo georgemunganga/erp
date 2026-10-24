@@ -97,6 +97,9 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 revisions[i].Quantity > head.AcceptedFactQuantity ||
                 (i < revisions.Length - 1 && revisions[i].State != "Draft"))
                 throw new Problem("ReturnDraftHistoryInvalid", 409);
+            if (revisions[i].State == "Cancelled" &&
+                (i == 0 || !PrincipalGoodsReturnRules.CancellationPreservesPrior(revisions[i - 1], revisions[i])))
+                throw new Problem("ReturnDraftHistoryInvalid", 409);
         }
         var receipts = await db.PrincipalGoodsReturnCommandReceipts.AsNoTracking()
             .Where(x => x.DraftId == id).ToArrayAsync(ct);
@@ -134,8 +137,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
         db.AddScoped(new OutboxEvent { AggregateType = "PrincipalGoodsReturnDraft", AggregateId = head.Id,
             EventType = $"procurement.goods_return.draft_{operation.ToLowerInvariant()}.v1",
             IdempotencyKey = $"goods-return.draft.{key:N}.v1",
-            PayloadJson = JsonSerializer.Serialize(new { head.Id, operation, commandKey = key, revision = head.Revision,
-                approved = false, dispatched = false, stockChanged = false, financeChanged = false }, Json) });
+            PayloadJson = PrincipalGoodsReturnRules.OutboxPayloadJson(head.Id, operation, key, head.Revision, actor) });
         return new(status, body);
     }
 
