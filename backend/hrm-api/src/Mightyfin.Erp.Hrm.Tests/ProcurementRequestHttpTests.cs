@@ -3562,6 +3562,31 @@ public sealed partial class ProcurementRequestHttpTests
             .GetProperty("items")[0].GetProperty("ceilingAmountExact").GetString());
     }
 
+    [Fact]
+    public async Task Contract_review_policy_validation_is_typed_preview_only()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_manager");
+        var named = Guid.NewGuid().ToString("D");
+        var json = $$"""{"schemaVersion":1,"transactionType":"SupplierContractReview","stages":[{"code":"LEGAL","mode":"All","principalIds":["{{named}}"]}]}""";
+        var response = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/configuration/policies/validate", fixture.Owner,
+            new ProcurementPolicyDraftRoutes.PolicyValidationRequest(json), "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(body.GetProperty("isValid").GetBoolean());
+        Assert.True(body.GetProperty("reviewConfigurationComplete").GetBoolean());
+        Assert.False(body.GetProperty("canPublish").GetBoolean());
+        Assert.False(body.GetProperty("isAuthority").GetBoolean());
+        var save = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/configuration/policies", fixture.Owner,
+            new ProcurementPolicyDraftRoutes.PolicyDraft(ProcurementContractReviewPolicyRules.PolicyKey,
+                DateTimeOffset.UtcNow.AddDays(3), null, json), "procurement_manager");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, save.StatusCode);
+        // The typed syntax preview cannot mint a policy while the genuine owner
+        // schema/readiness and finite execution roles are unavailable.
+    }
+
     private static ProcurementRequestRoutes.NewRequest Draft(string purpose) => new(
         purpose, null, null, null, null, null, null, null, null,
         [new ProcurementRequestRoutes.RequestLineInput(null, "Laptop", "each", 2, 100,
