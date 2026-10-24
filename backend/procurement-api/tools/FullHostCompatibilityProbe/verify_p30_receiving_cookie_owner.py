@@ -25,6 +25,9 @@ RECEIVING = ('principal_receiving_sources', 'principal_receiving_drafts',
 CHANGING = {f'procurement.{name}' for name in RECEIVING} | {
     'procurement.purchase_request_lines', 'procurement.purchase_order_lines',
     'procurement.audit_events', 'procurement.outbox_events'}
+SELECTED = CHANGING | {'procurement.principal_order_source_bindings',
+    'procurement.principal_order_issued_versions',
+    'procurement.principal_order_acknowledgments', 'procurement.policy_versions'}
 LOGIN_FIELDS = {'last_login_at', 'failed_login_count', 'locked_until', 'updated_at', 'version'}
 
 
@@ -122,7 +125,7 @@ ROLLBACK;""")
     names = [(item.get('schema'), item.get('name')) for item in tables]
     require(len(names) == len(set(names)) and all(re.fullmatch(r'[a-z_][a-z_0-9]*', schema or '')
         and re.fullmatch(r'[a-z_][a-z_0-9]*', table or '') for schema, table in names)
-        and CHANGING.issubset({'.'.join(pair) for pair in names}), 'OwnerTableCatalogChanged')
+        and SELECTED.issubset({'.'.join(pair) for pair in names}), 'OwnerTableCatalogChanged')
     sql = ['BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;']
     for schema, table in names:
         sql.append(f"SELECT jsonb_build_object('table','{schema}.{table}',"
@@ -137,12 +140,17 @@ ROLLBACK;""")
         require(item.get('table') == name and isinstance(item.get('rows'), list), 'OwnerSnapshotShape')
         groups[name] = item['rows']
     rows = {}
+    browser_actors = {fixture['receiverPrincipalId'], fixture['inspectorPrincipalId'],
+        fixture['acceptorPrincipalId']}
     for name, group in groups.items():
-        stable = lambda row: {key: value for key, value in row.items() if key not in LOGIN_FIELDS} if name == 'hrm.local_users' else row
+        def stable(row):
+            if name == 'hrm.local_users' and row.get('id') in browser_actors:
+                return {key: value for key, value in row.items() if key not in LOGIN_FIELDS}
+            return row
         rows[name] = {item.get('id', item.get('Id')): digest(stable(item)) for item in group}
         require(len(rows[name]) == len(group), 'DuplicateOwnerRowId')
     return {'schemaVersion': 3, 'database': database, 'system': SYSTEM, 'tableDigestRows': rows,
-        'selectedRows': {name: groups[name] for name in CHANGING},
+        'selectedRows': {name: groups[name] for name in SELECTED},
         'sessions': groups['hrm.local_sessions']}
 
 
@@ -221,10 +229,60 @@ def compare(fixture, before, after, browser, fixture_sha):
     source = new['principal_receiving_sources'][0]
     draft = new['principal_receiving_drafts'][0]
     bindings = new['principal_receiving_line_bindings']
+    binding = one(current_rows['procurement.principal_order_source_bindings'], 'id',
+        source.get('source_binding_id'))
+    issued = one(current_rows['procurement.principal_order_issued_versions'], 'id',
+        fixture['issuedVersionId'])
+    acknowledgment = one(current_rows['procurement.principal_order_acknowledgments'], 'id',
+        source.get('acknowledgment_id'))
+    require(source.get('source_json') and hashlib.sha256(source['source_json'].encode()).hexdigest()
+        == source.get('source_sha256'), 'RetainedReceivingSourceDigestInvalid')
+    try:
+        original_source = json.loads(source['source_json'], parse_float=decimal.Decimal)
+    except (ValueError, TypeError):
+        raise Failed('RetainedReceivingSourceMalformed') from None
+    commercial = original_source.get('Commercial')
+    require(isinstance(commercial, dict)
+        and original_source.get('SourceBindingId') == binding['id']
+        and original_source.get('OriginalDirectSourceSha256')
+            == source.get('original_source_sha256') == binding.get('original_direct_source_sha256')
+        and original_source.get('SubmissionId') == source.get('submission_id')
+        and original_source.get('FundingEvidenceId') == source.get('funding_evidence_id')
+        and original_source.get('SupplierAcknowledgmentId') == acknowledgment['id']
+        and original_source.get('Buyer', {}).get('PrincipalId') == binding.get('buyer_principal_id')
+        and original_source.get('Buyer', {}).get('WorkerAliasId') is None
+        and original_source.get('Requester', {}).get('WorkerAliasId') is None
+        and commercial.get('TenantId') == TENANT
+        and commercial.get('LegalEntityId') == fixture['companyId']
+        and commercial.get('BranchId') == fixture['branchId']
+        and commercial.get('PurchaseOrderId') == source.get('purchase_order_id')
+        and commercial.get('PurchaseOrderLineId') == fixture['issuedOrderLineId']
+        and commercial.get('PurchaseRequestLineId') == fixture['approvedRequestLineId']
+        and commercial.get('IssuedVersionId') == fixture['issuedVersionId']
+        and commercial.get('IssuedSnapshotSha256')
+            == source.get('issued_snapshot_sha256') == issued.get('commercial_snapshot_sha256')
+        and commercial.get('SourceEvidenceSha256') == source.get('original_source_sha256')
+        and commercial.get('IssuedRevision') == 1
+        and commercial.get('CategoryCode') == source.get('category_code')
+        and commercial.get('PurchaseType') == source.get('purchase_type') == 'GOODS'
+        and commercial.get('CurrencyCode') == source.get('currency_code') == 'ZMW'
+        and exact(commercial.get('AuthorizedQuantity')) == 1
+        and exact(commercial.get('NetUnitPrice')) == decimal.Decimal('0.0001')
+        and source.get('original_source_sha256') == issued.get('original_direct_source_sha256')
+        and acknowledgment.get('issued_version_id') == fixture['issuedVersionId']
+        and acknowledgment.get('purchase_order_id') == fixture['issuedOrderId']
+        and acknowledgment.get('outcome') == 'Accepted'
+        and acknowledgment.get('channel') == 'ManualRecord',
+        'RetainedCommercialSourcePinsInvalid')
     require(len({row.get('line_id') for row in bindings}) == 1
         and all(row.get('draft_id') == receipt_id
             and row.get('source_state_id') == source.get('id')
             and row.get('purchase_order_line_id') == fixture['issuedOrderLineId']
+            and row.get('purchase_order_id') == fixture['issuedOrderId']
+            and row.get('issued_version_id') == fixture['issuedVersionId']
+            and row.get('branch_id') == fixture['branchId']
+            and exact(row.get('quantity')) == 1
+            and exact(row.get('rejected_quantity')) == 0
             for row in bindings), 'RetainedDraftLineBindingsInvalid')
     line_id = bindings[0]['line_id']
     require(browser.get('inspectTargetLineId') == line_id
@@ -280,6 +338,53 @@ def compare(fixture, before, after, browser, fixture_sha):
         == row.get('payload_sha256') and row.get('sequence') == sequence
         for sequence, row in enumerate((facts['Observation'], facts['Inspection'],
             facts['Acceptance']), start=1)), 'OrderedFactPayloadDigestInvalid')
+    policy_ids = {row.get('policy_version_id') for row in facts.values()}
+    require(len(policy_ids) == 1, 'ReceivingPolicyChangedAcrossFacts')
+    policy = one(current_rows['procurement.policy_versions'], 'id', next(iter(policy_ids)))
+    require(policy.get('policy_key') == 'RECEIVING' and policy.get('state') == 'Published'
+        and policy.get('published_at') and policy.get('published_by'),
+        'IndependentReceivingPolicyPublicationMissing')
+    try:
+        policy_rules = json.loads(policy['rules_json'], parse_float=decimal.Decimal,
+            parse_int=decimal.Decimal)
+    except (ValueError, TypeError):
+        raise Failed('ReceivingPolicyRulesMalformed') from None
+    policy_sha = hashlib.sha256(canonical_json(policy_rules).encode()).hexdigest()
+    payloads = {}
+    for kind, row in facts.items():
+        try:
+            payload = json.loads(row['payload_json'], parse_float=decimal.Decimal)
+        except (ValueError, TypeError):
+            raise Failed('ReceivingFactPayloadMalformed') from None
+        operation = kinds[kind][0]
+        actor_field = {'Observation': 'Receiver', 'Inspection': 'Inspector',
+            'Acceptance': 'Actor'}[kind]
+        require(payload.get('Id') == row['id']
+            and payload.get('Source') == original_source
+            and payload.get('CommandKey') == command_keys[operation]
+            and payload.get('Sequence') == row['sequence']
+            and payload.get('PolicyVersionId') == policy['id']
+            and payload.get('PolicyRulesSha256') == policy_sha
+            and payload.get(actor_field, {}).get('PrincipalId') == expected[operation]
+            and payload.get(actor_field, {}).get('WorkerAliasId') is None
+            and payload.get('EvidenceReference') == bodies[operation.lower()]['evidenceReference'],
+            'ReceivingPayloadOriginalEvidenceChanged')
+        payloads[kind] = payload
+    require(payloads['Observation'].get('ReceiptId') == receipt_id
+        and payloads['Observation'].get('ReceiptLineId') == line_id
+        and payloads['Observation'].get('SiteId') == fixture['branchId']
+        and payloads['Observation'].get('DeliveryNoteReference') == create.get('deliveryNoteRef')
+        and exact(payloads['Observation'].get('ReceivedQuantity')) == 1
+        and exact(payloads['Observation'].get('InitiallyRejectedQuantity')) == 0
+        and payloads['Inspection'].get('ObservationId') == facts['Observation']['id']
+        and exact(payloads['Inspection'].get('InspectedQuantity')) == 1
+        and exact(payloads['Inspection'].get('QualifiedQuantity')) == 1
+        and payloads['Acceptance'].get('ObservationId') == facts['Observation']['id']
+        and payloads['Acceptance'].get('InspectionId') == facts['Inspection']['id']
+        and payloads['Acceptance'].get('AcceptanceRecordId') == line_id
+        and exact(payloads['Acceptance'].get('Quantity')) == 1
+        and exact(payloads['Acceptance'].get('NetAmount')) == decimal.Decimal('0.0001'),
+        'ReceivingPayloadOriginalPhysicalChainChanged')
     revisions = {row.get('command_key'): row for row in new['principal_receiving_revisions']}
     require(set(revisions) == {command_keys['Create'], command_keys['Record']}
         and revisions[command_keys['Create']].get('revision') == 1
@@ -290,6 +395,28 @@ def compare(fixture, before, after, browser, fixture_sha):
                 == row.get('snapshot_sha256') for row in revisions.values())
         and {row.get('draft_revision_id') for row in bindings}
             == {row['id'] for row in revisions.values()}, 'ExactDraftRevisionHistoryInvalid')
+    require(Counter(row.get('draft_revision_id') for row in bindings)
+        == Counter({row['id']: 1 for row in revisions.values()}),
+        'OneExactBindingPerRevisionRequired')
+    for operation, key in (('Create', command_keys['Create']), ('Record', command_keys['Record'])):
+        revision = revisions[key]
+        try:
+            snapshot = json.loads(revision['snapshot_json'], parse_float=decimal.Decimal)
+        except (ValueError, TypeError):
+            raise Failed('RetainedDraftSnapshotMalformed') from None
+        require(snapshot.get('Id') == receipt_id
+            and snapshot.get('Version') == (1 if operation == 'Create' else 2)
+            and snapshot.get('State') == ('Draft' if operation == 'Create' else 'Recorded')
+            and snapshot.get('PurchaseOrderId') == fixture['issuedOrderId']
+            and snapshot.get('IssuedVersionId') == fixture['issuedVersionId']
+            and snapshot.get('SiteId') == fixture['branchId']
+            and snapshot.get('Creator', {}).get('PrincipalId') == fixture['receiverPrincipalId']
+            and isinstance(snapshot.get('Lines'), list) and len(snapshot['Lines']) == 1
+            and snapshot['Lines'][0].get('Id') == line_id
+            and snapshot['Lines'][0].get('Source') == original_source
+            and exact(snapshot['Lines'][0].get('Quantity')) == 1
+            and exact(snapshot['Lines'][0].get('RejectedQuantity')) == 0,
+            'RetainedDraftSnapshotSourceChanged')
     expected_audit = Counter()
     def audit(actor, record_type, record_id, action='create'):
         expected_audit[(actor, record_type, record_id, action)] += 1
@@ -331,9 +458,20 @@ def compare(fixture, before, after, browser, fixture_sha):
                 and row.get('aggregate_id') == receipt_id
                 and row.get('idempotency_key') in {
                     'receiving.principal.' + key.replace('-', '') + '.v2' for key in keys}
-                and json.loads(row.get('payload_json', '{}')).get('financePostingPerformed') is False
-                and json.loads(row.get('payload_json', '{}')).get('stockPostingPerformed') is False
                 for row in added), 'OutboxDeclaredOnly')
+            for row in added:
+                operation = next(operation for operation, key in command_keys.items()
+                    if row['idempotency_key'] == 'receiving.principal.'
+                        + key.replace('-', '') + '.v2')
+                try:
+                    payload = json.loads(row['payload_json'])
+                except (ValueError, TypeError):
+                    raise Failed('OutboxPayloadMalformed') from None
+                require(payload == {'id': receipt_id, 'operation': operation,
+                    'commandKey': command_keys[operation],
+                    'revision': 1 if operation == 'Create' else 2,
+                    'financePostingPerformed': False, 'stockPostingPerformed': False},
+                    'ExactOutboxCommandPayloadChanged')
         else:
             require(Counter((row.get('actor_subject_id'), row.get('record_type'),
                 row.get('record_id'), row.get('action')) for row in added)
