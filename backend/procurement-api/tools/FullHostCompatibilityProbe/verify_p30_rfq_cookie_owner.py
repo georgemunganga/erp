@@ -145,18 +145,44 @@ CONTACT_PRODUCER_VECTOR = {"schemaVersion":2,"operation":"RecordManualContact",
 
 
 def contact_utc_offset(value):
-    require(isinstance(value, str) and value.endswith('Z'),
-        "CapturedContactTimeMustBeExplicitUtc")
+    # The browser uses Date.toISOString(): exactly three millisecond digits and Z.
+    # Do not adopt general ISO8601, offsets, or sub-millisecond evidence here.
+    require(isinstance(value, str) and re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z", value),
+        "CapturedContactTimeMustBeReviewedJsUtcMilliseconds")
     try:
-        observed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        observed = datetime.fromisoformat(value[:-1] + '+00:00')
     except ValueError:
         raise Failed("CapturedContactTimeInvalid") from None
     require(observed.tzinfo is not None and observed.utcoffset().total_seconds() == 0
-        and observed.microsecond == 0, "CapturedContactTimePrecisionUnreviewed")
-    # System.Text.Json writes a UTC DateTimeOffset (not DateTime) with its
-    # explicit +00:00 offset and omits zero fractional ticks. Other shapes
-    # fail closed until backed by a reviewed producer vector.
-    return observed.strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        and observed.microsecond % 1000 == 0, "CapturedContactTimePrecisionUnreviewed")
+    # System.Text.Json DateTimeOffset omits zero fractional ticks and trims only
+    # trailing fractional zeros, retaining the explicit UTC offset.
+    fraction = value[20:23].rstrip('0')
+    return value[:19] + ('.' + fraction if fraction else '') + '+00:00'
+
+
+def verify_captured_invitation(quote_body, contact, bid, version):
+    invitation = quote_body.get("invitationId")
+    require(guid(invitation) and contact.get("invitation_id") == invitation
+        and bid.get("invitation_id") == invitation
+        and version.get("supplier_bid_id") == bid.get("id"), "CapturedQuoteInvitationChanged")
+    raw = version.get("snapshot_json")
+    require(isinstance(raw, str) and len(raw) <= 500_000
+        and hashlib.sha256(raw.encode()).hexdigest() == version.get("snapshot_sha256"),
+        "CapturedQuoteSnapshotChanged")
+    def unique(pairs):
+        require(len({key for key, _ in pairs}) == len(pairs), "CapturedQuoteSnapshotAmbiguous")
+        return dict(pairs)
+    try:
+        snapshot = json.loads(raw, object_pairs_hook=unique)
+    except (ValueError, TypeError):
+        raise Failed("CapturedQuoteSnapshotInvalid") from None
+    # PrincipalManualQuotationSnapshot.Build uses default CLR property casing.
+    # The version table has no invitation_id column; its immutable snapshot does.
+    require(isinstance(snapshot, dict) and snapshot.get("schemaVersion") == 2
+        and snapshot.get("Id") == bid.get("id")
+        and snapshot.get("InvitationId") == invitation, "CapturedQuoteInvitationChanged")
 
 
 def boundary(fixture, proxy, fixture_hash, database):
@@ -400,9 +426,7 @@ def verify(before, after, fixture, browser, fixture_hash):
     require(contacts[0].get("command_sha256") == fingerprint(contact_value),
         "RFQManualContactFingerprintMismatch")
     quote_body = captured_body(browser, "quote", {"invitationId", "lines"})
-    require(quote_body["invitationId"] == quotes[0].get("invitation_id")
-        or quote_body["invitationId"] == contacts[0].get("invitation_id"),
-        "CapturedQuoteInvitationChanged")
+    verify_captured_invitation(quote_body, contacts[0], bids[0], quotes[0])
     quote_lines = quote_body["lines"]
     require(isinstance(quote_lines, list) and len(quote_lines) == 1
         and set(quote_lines[0]) == {"sourcingLineId","quantity","unitPrice",
