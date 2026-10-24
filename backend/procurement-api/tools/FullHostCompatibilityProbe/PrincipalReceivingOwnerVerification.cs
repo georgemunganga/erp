@@ -48,7 +48,8 @@ internal static partial class PrincipalApprovalHttpVerification
             await store.ReconcileCountersAsync(source.RequestLineId,default);
             var po=await db.PurchaseOrderLines.SingleAsync(x=>x.Id==source.OrderLineId);
             var pr=await db.PurchaseRequestLines.SingleAsync(x=>x.Id==source.RequestLineId);
-            Need(po.AcceptedQuantity==1m&&pr.AcceptedQuantity==1m&&pr.AllocatedQuantity==1m,
+            Need(po.AcceptedQuantity==1m&&pr.AcceptedQuantity==1m
+                &&pr.AllocatedQuantity==0m&&pr.OrderedQuantity==1m,
                 "Accepted counter conservation or original allocation changed on fresh owner reload.");
         }
         var events=await db.OutboxEvents.Where(x=>x.AggregateType=="PrincipalReceiving").ToArrayAsync();
