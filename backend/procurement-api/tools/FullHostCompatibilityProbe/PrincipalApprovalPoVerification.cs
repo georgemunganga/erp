@@ -213,6 +213,80 @@ internal static partial class PrincipalApprovalHttpVerification
         var submitted=await send(client,HttpMethod.Post,orderPath+"/principal-submit",fixture.Buyer,
             new{expectedOrderVersion=funding.GetProperty("version").GetInt64()},HttpStatusCode.Created,Guid.NewGuid());
         Need(submitted.GetProperty("status").GetString()=="PendingApproval","Real Core PO approval did not open.");
+
+        // The submission has independent same-company FKs to its order and funding evidence.
+        // Exercise a retained-history mismatch that those FKs alone cannot reject. This
+        // owner-only corruption is confined to the fresh private profile and always restored.
+        stage("P30MalformedRetainedSubmissionCannotCancelUnfundedDraft");
+        Need(fixture.PrincipalPoProfile
+            && System.Text.RegularExpressions.Regex.IsMatch(new NpgsqlConnectionStringBuilder(owner).Database,
+                "^proc_p30_http_po_[a-z0-9_]{1,40}$"),
+            "Retained-history corruption requires the exclusive private P30 PO database.");
+        var fourth=await CreateDraftAsync();var fourthId=fourth.Created.GetProperty("orderId").GetGuid();
+        Guid submissionId;
+        await using(var ownerRead=fixture.Procurement())
+        {
+            var retained=await ownerRead.PrincipalOrderSubmissions.AsNoTracking()
+                .SingleAsync(x=>x.PurchaseOrderId==orderId);
+            Need(await ownerRead.PrincipalOrderFundingEvidence.AsNoTracking()
+                .AnyAsync(x=>x.Id==retained.FundingEvidenceId&&x.PurchaseOrderId==orderId)
+                &&!await ownerRead.PrincipalOrderFundingEvidence.AsNoTracking()
+                    .AnyAsync(x=>x.PurchaseOrderId==fourthId),
+                "Malformed test requires a real funded submission and a separate unfunded draft.");
+            submissionId=retained.Id;
+        }
+        async Task<string> CancellationFootprintAsync()
+        {
+            await using var read=fixture.Procurement();
+            var candidate=await read.PurchaseOrders.AsNoTracking().SingleAsync(x=>x.Id==fourthId);
+            var requestLine=await read.PurchaseRequestLines.AsNoTracking().SingleAsync(x=>x.Id==lineId);
+            var allocation=await read.PurchaseRequestAllocations.AsNoTracking()
+                .Where(x=>x.PurchaseRequestLineId==lineId&&x.TargetType=="PurchaseOrder")
+                .OrderBy(x=>x.Id).Select(x=>new{x.Id,x.TargetId,x.Status,x.Quantity,x.Version,x.Reason,x.DecidedAt}).ToArrayAsync();
+            var receipts=await read.PrincipalOrderDraftReceipts.AsNoTracking()
+                .Where(x=>x.PurchaseOrderId==fourthId).OrderBy(x=>x.Id)
+                .Select(x=>new{x.Id,x.Operation,x.CommandKey}).ToArrayAsync();
+            var audits=await read.AuditEvents.AsNoTracking().Where(x=>x.RecordId==fourthId)
+                .OrderBy(x=>x.Id).Select(x=>new{x.Id,x.Action,x.ActorSubjectId,x.Version}).ToArrayAsync();
+            var events=await read.OutboxEvents.AsNoTracking().Where(x=>x.AggregateId==fourthId)
+                .OrderBy(x=>x.Id).Select(x=>new{x.Id,x.EventType,x.IdempotencyKey,x.Version}).ToArrayAsync();
+            return JsonSerializer.Serialize(new{candidate.Status,candidate.Version,candidate.ClosedAt,
+                requestLine.AllocatedQuantity,requestLine.Version,allocation,receipts,audits,events,
+                auditCount=await read.AuditEvents.CountAsync(),outboxCount=await read.OutboxEvents.CountAsync()});
+        }
+        await using(var ownerWrite=fixture.Procurement())
+        {
+            var redirected=false;
+            try
+            {
+                var rows=await ownerWrite.Database.ExecuteSqlInterpolatedAsync(
+                    $"UPDATE procurement.principal_order_submissions SET purchase_order_id={fourthId} WHERE id={submissionId} AND tenant_id={PrincipalApprovalFixture.Tenant} AND legal_entity_id={fixture.Company} AND purchase_order_id={orderId}");
+                Need(rows==1,"Private owner could not construct the redundant-order retained-history mismatch.");
+                redirected=true;
+                var before=await CancellationFootprintAsync();
+                await send(client,HttpMethod.Post,$"{PoRoot}/{fourthId}/principal-direct-cancel",fixture.Buyer,
+                    new{expectedOrderVersion=fourth.Detail.GetProperty("version").GetInt64(),
+                        originalDirectSourceSha256=fourth.Detail.GetProperty("originalDirectSourceSha256").GetString(),
+                        reason="Malformed retained submission must block release"},
+                    HttpStatusCode.Conflict,Guid.NewGuid());
+                Need(await CancellationFootprintAsync()==before,
+                    "Rejected malformed-history cancellation changed order, allocation, receipts or audit effects.");
+            }
+            finally
+            {
+                if(redirected)
+                    Need(await ownerWrite.Database.ExecuteSqlInterpolatedAsync(
+                        $"UPDATE procurement.principal_order_submissions SET purchase_order_id={orderId} WHERE id={submissionId} AND tenant_id={PrincipalApprovalFixture.Tenant} AND legal_entity_id={fixture.Company} AND purchase_order_id={fourthId}")==1,
+                        "Private owner must restore the exact original retained submission order ID.");
+            }
+        }
+        var fourthCancelled=await send(client,HttpMethod.Post,$"{PoRoot}/{fourthId}/principal-direct-cancel",fixture.Buyer,
+            new{expectedOrderVersion=fourth.Detail.GetProperty("version").GetInt64(),
+                originalDirectSourceSha256=fourth.Detail.GetProperty("originalDirectSourceSha256").GetString(),
+                reason="Private restored unfunded draft"},HttpStatusCode.OK,Guid.NewGuid());
+        Need(fourthCancelled.GetProperty("status").GetString()=="Cancelled",
+            "Restored retained submission must permit ordinary unfunded-draft cancellation.");
+
         var queue=await send(client,HttpMethod.Get,PoRoot+"/principal-assigned-reviews?page=1&pageSize=25",fixture.PoApprover);
         var task=queue.GetProperty("items").EnumerateArray().Single(x=>x.GetProperty("orderId").GetGuid()==orderId);
         var assignmentId=task.GetProperty("assignmentId").GetGuid();
@@ -243,22 +317,23 @@ internal static partial class PrincipalApprovalHttpVerification
 
         stage("P30IndependentOwnerReloadNoInventedEffects");
         await using var db=fixture.Procurement();await using var cases=fixture.Approvals();await using var coreProof=fixture.Core();
-        var orders=await db.PurchaseOrders.Where(x=>new[]{firstId,secondId,orderId}.Contains(x.Id)).ToArrayAsync();
+        var orders=await db.PurchaseOrders.Where(x=>new[]{firstId,secondId,fourthId,orderId}.Contains(x.Id)).ToArrayAsync();
         var allocations=await db.PurchaseRequestAllocations.Where(x=>x.PurchaseRequestLineId==lineId&&x.TargetType=="PurchaseOrder").ToArrayAsync();
         var original=await db.PurchaseRequestLines.SingleAsync(x=>x.Id==lineId);
-        var receipts=await db.PrincipalOrderDraftReceipts.Where(x=>new[]{firstId,secondId,orderId}.Contains(x.PurchaseOrderId)).ToArrayAsync();
+        var receipts=await db.PrincipalOrderDraftReceipts.Where(x=>new[]{firstId,secondId,fourthId,orderId}.Contains(x.PurchaseOrderId)).ToArrayAsync();
         var submission=await db.PrincipalOrderSubmissions.SingleAsync(x=>x.PurchaseOrderId==orderId);
         var caseRow=await cases.Cases.SingleAsync(x=>x.Id==submission.CoreApprovalCaseId);
-        Need(orders.Length==3&&orders.Count(x=>x.Status=="Cancelled")==2&&orders.Single(x=>x.Id==orderId).Status=="Issued"
-            &&allocations.Length==3&&allocations.Count(x=>x.Status=="Released")==2&&allocations.Count(x=>x.Status=="Ordered")==1
+        Need(orders.Length==4&&orders.Count(x=>x.Status=="Cancelled")==3&&orders.Single(x=>x.Id==orderId).Status=="Issued"
+            &&allocations.Length==4&&allocations.Count(x=>x.Status=="Released")==3&&allocations.Count(x=>x.Status=="Ordered")==1
             &&original.AllocatedQuantity==1m&&caseRow.State=="Approved"&&await db.PrincipalOrderFundingEvidence.CountAsync()==2
             &&await db.PrincipalOrderReleaseRequests.CountAsync()==1&&await db.PrincipalOrderReleaseConfirmations.CountAsync()==1
             &&await db.PrincipalOrderIssuedVersions.CountAsync()==1&&await db.PrincipalOrderAcknowledgments.CountAsync()==1
-            &&receipts.Count(x=>x.Operation=="Create")==3&&receipts.Select(x=>x.CommandKey).Distinct().Count()==receipts.Length
+            &&receipts.Count(x=>x.Operation=="Create")==4&&receipts.Select(x=>x.CommandKey).Distinct().Count()==receipts.Length
             &&!await coreProof.Workers.AnyAsync()&&!await db.FinanceInvoiceHandoffs.AnyAsync()&&!await db.FinancePaymentStatusRefs.AnyAsync(),
             "Reload did not retain exact cancelled/released/approved PO graph without Finance or employees.");
         result["principalOrder"]=new{status="PASS_PRIVATE_P30_PRINCIPAL_PO_INTERNAL_AND_MANUAL_EVIDENCE_ONLY",
             requestId,lineId,issuedOrderId=orderId,firstCancelledOrderId=firstId,secondReleasedOrderId=secondId,
+            malformedHistoryCancelledOrderId=fourthId,malformedHistoryCancelDeniedWithoutEffects=true,
             sourceAllocationRestoredBeforeIssue=true,independentCoreApproval=true,
             currentRecorderScopeRevocationDenied=true,actorOwnedCreateRecovery=true,
             externalFinancePosting=false,supplierSendPerformed=false,paymentExecuted=false};
