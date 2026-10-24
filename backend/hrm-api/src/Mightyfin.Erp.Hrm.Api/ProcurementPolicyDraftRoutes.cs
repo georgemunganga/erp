@@ -53,6 +53,13 @@ public static partial class ProcurementPolicyDraftRoutes
                 reviewConfigurationComplete = reviewIssues.Count == 0, reviewIssues,
                 canPublish = false, isAuthority = false });
         }
+        if (PrincipalRfqCommercialRoundPolicyRules.IsDocument(input.RulesJson))
+        {
+            var issues = PrincipalRfqCommercialRoundPolicyRules.Validate(input.RulesJson);
+            return Results.Ok(new { isValid = issues.Count == 0, issues,
+                reviewConfigurationComplete = issues.Count == 0,
+                canPublish = false, isAuthority = false });
+        }
         if (ManualPaymentReviewPolicyRules.IsDocument(input.RulesJson))
         {
             var draftIssues = ManualPaymentReviewPolicyRules.Validate(input.RulesJson, draft: true);
@@ -80,6 +87,7 @@ public static partial class ProcurementPolicyDraftRoutes
     internal static IReadOnlyList<PolicyRuleIssue> PublicationIssues(PolicyVersion policy) => policy.PolicyKey switch
     {
         ProcurementContractReviewPolicyRules.PolicyKey => ProcurementContractReviewPolicyRules.Validate(policy.RulesJson),
+        PrincipalRfqCommercialRoundPolicyRules.PolicyKey => PrincipalRfqCommercialRoundPolicyRules.Validate(policy.RulesJson),
         ManualPaymentReviewPolicyRules.PolicyKey => ManualPaymentReviewPolicyRules.Validate(policy.RulesJson),
         InvoiceRetainedUnitReview.ReviewPolicyKey => InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson)
             .Select(message => new PolicyRuleIssue("stages", message)).ToArray(),
@@ -98,6 +106,10 @@ public static partial class ProcurementPolicyDraftRoutes
         { policyId = policy.Id, isAuthority = false, canPublish = false,
             status = "ContractReviewRequiresNamedCoreAssignmentsAndRetainedTerms",
             issues = ProcurementContractReviewPolicyRules.Validate(policy.RulesJson) });
+        if (policy.PolicyKey == PrincipalRfqCommercialRoundPolicyRules.PolicyKey)
+            return Results.Ok(new { policyId = policy.Id, isAuthority = false,
+                status = "CommercialRoundRequiresPreparedPlanAndIndependentCoreCase",
+                issues = PrincipalRfqCommercialRoundPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
             status = "PaymentReviewRequiresInvoiceAndIndependentCase", issues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
@@ -121,7 +133,7 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var normalized = key?.Trim().ToUpperInvariant();
         if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING" or "MANUAL_PAYMENT_REVIEW"
-            or ProcurementContractReviewPolicyRules.PolicyKey))
+            or ProcurementContractReviewPolicyRules.PolicyKey or PrincipalRfqCommercialRoundPolicyRules.PolicyKey))
             return Problem("validation-failed", "Choose purchase requests, purchase orders, receiving, invoice matching or sourcing.", 422);
         var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
         if (normalized == ProcurementContractReviewPolicyRules.PolicyKey)
@@ -260,6 +272,9 @@ public static partial class ProcurementPolicyDraftRoutes
         var key = input.PolicyKey!.Trim().ToUpperInvariant();
         if (IsContractReviewPolicy(key) && ProcurementContractReviewPolicyRules.Validate(input.RulesJson, draft: true).Count != 0)
             return Problem("invalid-contract-review-draft", "Use named contract reviewers and an explicit stage mode.", 422);
+        if (await CommercialPolicyActor(key, organizationDb, scope,
+                PrincipalRfqCommercialRoundPolicyRules.RequestAction, ct) is { } commercialDenied)
+            return commercialDenied;
         if (key == SourcingPublicationPolicyRules.PolicyKey) await RequireSourcingIdentitySchema(http, db, ct);
         if (key == InvoiceRetainedUnitReview.ReviewPolicyKey && InvoiceUnitReviewPolicyRules.Validate(input.RulesJson!, true).Count != 0)
             return Problem("invalid-unit-review-draft", "Use the explicit original-unit review policy format.", 422);
@@ -330,6 +345,9 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (await CommercialPolicyActor(policy.PolicyKey, organizationDb, scope,
+                PrincipalRfqCommercialRoundPolicyRules.RequestAction, ct) is { } commercialDenied)
+            return commercialDenied;
         if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW") && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
             return Problem("receiving-authority-unavailable", "Your current account cannot configure receiving rules.", 403);
         if (policy.Version != input.Version)
@@ -438,6 +456,9 @@ public static partial class ProcurementPolicyDraftRoutes
             if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
             if (IsContractReviewPolicy(policy.PolicyKey))
                 _ = await ContractPolicyAuthor(db, organizationDb, scope, policy, ct);
+            if (await CommercialPolicyActor(policy.PolicyKey, organizationDb, scope,
+                    PrincipalRfqCommercialRoundPolicyRules.RequestAction, ct) is { } commercialDenied)
+                return commercialDenied;
             if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW")
                 && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
                 return Problem("receiving-authority-unavailable", "Your current account cannot configure receiving rules.", 403);
@@ -483,6 +504,9 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (await CommercialPolicyActor(policy.PolicyKey, organizationDb, scope,
+                PrincipalRfqCommercialRoundPolicyRules.RequestAction, ct) is { } commercialDenied)
+            return commercialDenied;
         if (policy.Version != input.Version)
             return Problem("version-conflict", "Refresh this policy draft before sending it for review.", 409);
         if (policy.State != "Draft")
@@ -543,6 +567,9 @@ public static partial class ProcurementPolicyDraftRoutes
                 transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
             if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+            if (await CommercialPolicyActor(policy.PolicyKey, organizationDb, scope,
+                    PrincipalRfqCommercialRoundPolicyRules.ApprovalAction, ct) is { } commercialDenied)
+                return commercialDenied;
             if (policy.Version != input.Version)
                 return Problem("version-conflict", "Refresh this policy before publication.", 409);
             if (policy.State != "PendingReview")
@@ -635,6 +662,9 @@ public static partial class ProcurementPolicyDraftRoutes
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
         if (IsContractReviewPolicy(policy.PolicyKey))
             _ = await ContractPolicyReviewer(db, organizationDb, scope, policy, ct);
+        if (await CommercialPolicyActor(policy.PolicyKey, organizationDb, scope,
+                PrincipalRfqCommercialRoundPolicyRules.ApprovalAction, ct) is { } commercialDenied)
+            return commercialDenied;
         if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
         {
             await RequireSourcingIdentitySchema(http, db, ct);
@@ -667,6 +697,9 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         if (policy.PolicyKey == ProcurementContractReviewPolicyRules.PolicyKey)
             return await CheckContractReviewCompanyRules(policy, organizationDb, scope, draft: false, ct: ct);
+        if (policy.PolicyKey == PrincipalRfqCommercialRoundPolicyRules.PolicyKey)
+            return await CheckCommercialCompanyRules(policy, organizationDb, scope,
+                receivingPermission, ct);
         if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey)
         {
             var paymentIssues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson);

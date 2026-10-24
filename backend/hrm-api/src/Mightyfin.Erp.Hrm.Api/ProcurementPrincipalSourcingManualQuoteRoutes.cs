@@ -310,6 +310,8 @@ public static partial class ProcurementSourcingExecutionRoutes
                 fingerprint, id, bidId, token) is { } replay) return replay;
             await RequirePrincipalSourcingKeyUnused(db, key, token);
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.supplier_bids WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={bidId} FOR UPDATE", token);
+            if (db.HasSealedCommercialOffer(bidId))
+                throw new Problem("RfqCommercialSealedQuoteImmutable", 409);
             var ev = await PrincipalOwnedEvent(db, core, scope, http, auth, actor,
                 "procurement-sourcing-submit", id, token);
             if (ev.Status != "Published") throw new Problem("SourcingNotInternallyPublished", 409);

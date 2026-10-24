@@ -150,46 +150,13 @@ public sealed class VersioningTests
 
     private static string ReadRoutesSource()
     {
-        var assembly = FindRoutesType().Assembly;
-        var path = assembly.Location;
-        // Resolve the source file next to the assembly (unit-test project
-        // references the Api project directly in dev builds).
-        var dir = System.IO.Path.GetDirectoryName(path)!;
-        var searched = new System.Collections.Generic.List<string>();
-        // Prefer the repo source file by walking up and taking the FIRST
-        // existing candidate that actually contains the versioned prefix.
-        var exact = System.IO.Path.Combine(dir, "src",
-            "Mightyfin.Erp.Hrm.Api", "ApiRoutesClean.cs");
-        if (System.IO.File.Exists(exact))
-        {
-            var content = System.IO.File.ReadAllText(exact);
-            if (content.Contains("HrmPrefix", System.StringComparison.Ordinal))
-                return content;
-        }
-        while (dir is not null)
-        {
-            var candidate = System.IO.Path.Combine(dir, "ApiRoutesClean.cs");
-            searched.Add(candidate);
-            if (System.IO.File.Exists(candidate))
-            {
-                var content = System.IO.File.ReadAllText(candidate);
-                if (content.Contains("HrmPrefix", System.StringComparison.Ordinal))
-                    return content;
-            }
-            candidate = System.IO.Path.Combine(dir, "src",
-                "Mightyfin.Erp.Hrm.Api", "ApiRoutesClean.cs");
-            searched.Add(candidate);
-            if (System.IO.File.Exists(candidate))
-            {
-                var content = System.IO.File.ReadAllText(candidate);
-                if (content.Contains("HrmPrefix", System.StringComparison.Ordinal))
-                    return content;
-            }
-            dir = System.IO.Path.GetDirectoryName(dir);
-        }
-        throw new InvalidOperationException(
-            "ApiRoutesClean.cs source not found; searched: " +
-            string.Join("; ", searched) + " from " + path);
+        // Bind the route source to the same build as these assertions. Test
+        // artifacts may be placed outside the checkout by UseArtifactsOutput.
+        using var stream = typeof(VersioningTests).Assembly.GetManifestResourceStream(
+            "Mightyfin.Erp.Hrm.Tests.Source.ApiRoutesClean.cs")
+            ?? throw new InvalidOperationException("Embedded API route source is missing.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 }
 
