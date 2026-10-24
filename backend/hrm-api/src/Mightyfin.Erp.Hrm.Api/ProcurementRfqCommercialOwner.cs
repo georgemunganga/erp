@@ -37,14 +37,15 @@ public static partial class ProcurementSourcingExecutionRoutes
             throw new InvalidOperationException("RfqCommercialOwningCoreTransactionRequired");
     }
     private static async Task<CommercialSource> LoadCommercialSource(ProcurementDbContext db,ApprovalDbContext cases,HrmDbContext core,
-        ProcurementRequestScope scope,HttpContext http,IAuthorizationService auth,Guid id,bool locks,CancellationToken ct)
+        ProcurementRequestScope scope,HttpContext http,IAuthorizationService auth,Guid id,bool locks,CancellationToken ct,
+        string permission = PrincipalRfqCommercialDraft.Permission)
     {
         RequireCommercialTransaction(db,core);
-        var actor=await PrincipalActor(core,scope,http,auth,PrincipalRfqCommercialDraft.Permission,null,false,ct);
+        var actor=await PrincipalActor(core,scope,http,auth,permission,null,false,ct);
         // Authorize exact current branch/owner before discovering source IDs/rows.
         var initial=await PrincipalOwned(db,actor).AsNoTracking().SingleOrDefaultAsync(x=>x.Id==id,ct)
             ??throw new Problem("SourcingNotFound",404);
-        actor=await PrincipalActor(core,scope,http,auth,PrincipalRfqCommercialDraft.Permission,initial.BranchRef,true,ct);
+        actor=await PrincipalActor(core,scope,http,auth,permission,initial.BranchRef,true,ct);
         if(locks)
         {
             var ids=await db.SourcingDemandBindings.AsNoTracking().Where(x=>x.SourcingEventId==id)
@@ -52,8 +53,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             foreach(var request in ids)await ProcurementApprovalExecutionLocks.LockRequestAsync(db,scope,request,ct);
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.sourcing_events WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE",ct);
         }
-        var ev=await PrincipalOwnedEvent(db,core,scope,http,auth,actor,PrincipalRfqCommercialDraft.Permission,id,ct);
-        actor=await PrincipalActor(core,scope,http,auth,PrincipalRfqCommercialDraft.Permission,ev.BranchRef,true,ct);
+        var ev=await PrincipalOwnedEvent(db,core,scope,http,auth,actor,permission,id,ct);
+        actor=await PrincipalActor(core,scope,http,auth,permission,ev.BranchRef,true,ct);
         var evidence=await db.SourcingDraftEvidenceRecords.SingleAsync(x=>x.Id==ev.SourceEvidenceId,ct);
         var bindings=await db.SourcingDemandBindings.Where(x=>x.SourcingEventId==id).OrderBy(x=>x.SourcingLineId).ToArrayAsync(ct);
         var original=GovernedPrincipalRfqRestoration.RestoreVerified(evidence,ev,bindings);
@@ -62,7 +63,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         foreach(var pin in original.Lines.OrderBy(x=>x.RequestId).ThenBy(x=>x.LineId))
         {
             var source=await ApprovedDemandSourceLoader.LoadRetainedAsync(db,cases,targetScope,pin.RequestId,pin.LineId,new(pin.SubmissionId,pin.OutcomeId,pin.MethodId),ct);
-            _=await PrincipalActor(core,scope,http,auth,PrincipalRfqCommercialDraft.Permission,source.Request.BranchRef,true,ct);
+            _=await PrincipalActor(core,scope,http,auth,permission,source.Request.BranchRef,true,ct);
             _=PurchaseDemandAllocationBalance.Evaluate(source.Request,source.Line,source.Allocations,source.AllocationOwners??[],scope.TenantId,scope.LegalEntityId);
             var hold=source.Allocations.SingleOrDefault(x=>x.Id==pin.AllocationId&&x.TargetType=="SourcingEvent"&&x.TargetId==id);
             if(hold is null||(source.AllocationOwners??[]).Count(x=>x.TargetType=="SourcingEvent"&&x.TargetId==id&&x.TargetLineId==pin.EventLineId&&x.PurchaseRequestLineId==pin.LineId)!=1

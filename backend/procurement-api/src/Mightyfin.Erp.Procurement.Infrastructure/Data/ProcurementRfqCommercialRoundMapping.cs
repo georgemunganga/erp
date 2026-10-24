@@ -406,11 +406,16 @@ public sealed partial class ProcurementDbContext
                         Database.GetDbConnection())
                     || !sharedApprovalInsertedDecisions.Contains(voteRecord.CoreDecisionId))
                     throw new InvalidOperationException("RfqCommercialCoreVoteNotEnlisted");
-                var coreDecision = sharedApprovalCore.Decisions.Local.SingleOrDefault(x => x.Id == voteRecord.CoreDecisionId)
-                    ?? sharedApprovalCore.Decisions.SingleOrDefault(x => x.Id == voteRecord.CoreDecisionId);
-                var coreCase = sharedApprovalCore.Cases.Local.SingleOrDefault(x => x.Id == voteRecord.CoreCaseId)
-                    ?? sharedApprovalCore.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments)
-                        .SingleOrDefault(x => x.Id == voteRecord.CoreCaseId);
+                sharedApprovalCore.ChangeTracker.DetectChanges();
+                if (sharedApprovalCore.ChangeTracker.HasChanges())
+                    throw new InvalidOperationException("RfqCommercialCoreVoteNotCommitted");
+                // The Core engine has already saved its real CAS result on this
+                // transaction. A caller-mutated Local graph cannot mint vote facts.
+                var coreDecision = sharedApprovalCore.Decisions.AsNoTracking()
+                    .SingleOrDefault(x => x.Id == voteRecord.CoreDecisionId);
+                var coreCase = sharedApprovalCore.Cases.AsNoTracking()
+                    .Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                    .SingleOrDefault(x => x.Id == voteRecord.CoreCaseId);
                 var prepared = PrincipalRfqPreparedPlans.AsNoTracking()
                     .SingleOrDefault(x => x.Id == opening.PreparedPlanId);
                 var assignment = coreCase?.Stages.SelectMany(x => x.Assignments)
@@ -468,6 +473,67 @@ public sealed partial class ProcurementDbContext
                     || ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) != opening.PolicyRulesSha256
                     || !OpeningPinsMatch(opening))
                     throw new InvalidOperationException("RfqCommercialOpeningOwnershipChanged");
+                if (sharedApprovalCore?.Database.CurrentTransaction is null
+                    || sharedApprovalTransaction is null
+                    || !ReferenceEquals(sharedApprovalTransaction, Database.CurrentTransaction?.GetDbTransaction())
+                    || !ReferenceEquals(sharedApprovalTransaction,
+                        sharedApprovalCore.Database.CurrentTransaction.GetDbTransaction())
+                    || !ReferenceEquals(sharedApprovalConnection, Database.GetDbConnection())
+                    || !ReferenceEquals(sharedApprovalConnection, sharedApprovalCore.Database.GetDbConnection()))
+                    throw new InvalidOperationException("RfqCommercialCoreOpeningNotEnlisted");
+                sharedApprovalCore.ChangeTracker.DetectChanges();
+                if (sharedApprovalCore.ChangeTracker.HasChanges())
+                    throw new InvalidOperationException("RfqCommercialCoreOpeningNotCommitted");
+                var coreCase = sharedApprovalCore.Cases.AsNoTracking()
+                    .Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                    .SingleOrDefault(x => x.Id == opening.CoreCaseId);
+                if (coreCase is null || coreCase.TenantId != opening.TenantId
+                    || coreCase.LegalEntityId != opening.LegalEntityId
+                    || coreCase.SourceModule != "procurement"
+                    || coreCase.SourceType != PrincipalRfqCommercialRoundCoreWorkflow.SourceType
+                    || coreCase.SourceId != opening.PreparedPlanId
+                    || coreCase.SourceVersion != prepared.DraftRevision
+                    || coreCase.PolicyVersionId != policy.Id
+                    || coreCase.PolicyVersionNumber != policy.PolicyVersionNumber
+                    || coreCase.MakerSubjectId != opening.ActorPrincipalId
+                    || coreCase.State != "Pending" || coreCase.Stages.Count == 0)
+                    throw new InvalidOperationException("RfqCommercialCoreOpeningChanged");
+                using var snapshot = JsonDocument.Parse(opening.SnapshotJson);
+                var pinnedSuppliers = snapshot.RootElement.GetProperty("supplierIds")
+                    .EnumerateArray().Select(x => x.GetGuid()).ToArray();
+                var invitations = SourcingInvitations.AsNoTracking()
+                    .Where(x => x.SourcingEventId == opening.SourcingEventId)
+                    .Select(x => new { x.SupplierId, x.Status }).ToArray();
+                if (pinnedSuppliers.Length is < 1 or > 100
+                    || pinnedSuppliers.Distinct().Count() != pinnedSuppliers.Length
+                    || invitations.Length != pinnedSuppliers.Length
+                    || invitations.Select(x => x.SupplierId).Distinct().Count() != invitations.Length
+                    || !invitations.Select(x => x.SupplierId).ToHashSet().SetEquals(pinnedSuppliers)
+                    || invitations.Any(x => x.Status is not ("ReadyForManualDelivery" or "ManualContactRecorded")))
+                    throw new InvalidOperationException("RfqCommercialSupplierAudienceChanged");
+                var pinnedStages = snapshot.RootElement.GetProperty("stages")
+                    .EnumerateArray().ToArray();
+                var currentStages = coreCase.Stages.OrderBy(x => x.Sequence).ToArray();
+                if (pinnedStages.Length != currentStages.Length
+                    || pinnedStages.Zip(currentStages).Any(pair =>
+                    {
+                        var pin = pair.First;
+                        var stage = pair.Second;
+                        var pins = pin.GetProperty("assignments").EnumerateArray().ToArray();
+                        return pin.GetProperty("Id").GetGuid() != stage.Id
+                            || pin.GetProperty("Sequence").GetInt32() != stage.Sequence
+                            || pin.GetProperty("Code").GetString() != stage.Code
+                            || pin.GetProperty("Mode").GetString() != stage.Mode
+                            || pin.GetProperty("RequiredApprovals").GetInt32() != stage.RequiredApprovals
+                            || stage.State != (stage.Sequence == 1 ? "Active" : "Waiting")
+                            || pins.Length != stage.Assignments.Count
+                            || pins.Any(a => !stage.Assignments.Any(current =>
+                                current.Id == a.GetProperty("Id").GetGuid()
+                                && current.AssigneeSubjectId == a.GetProperty("AssigneeSubjectId").GetString()
+                                && current.PermissionKey == a.GetProperty("PermissionKey").GetString()
+                                && current.State == "Pending"));
+                    }))
+                    throw new InvalidOperationException("RfqCommercialCoreOpeningChanged");
             }
             if (entry.Entity is PrincipalRfqCommercialOfferSubmissionRecord offer)
             {

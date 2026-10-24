@@ -625,3 +625,14 @@ until the actual same-transaction Core vote, vote evidence, optional terminal
 effect, original receipt and historical One/All replay are exercised against
 the generated migration. A source-only InMemory guard cannot establish the
 Core foreign-key and audit bundle.
+
+The held `POST /api/procurement/v1/sourcing/{eventId}/commercial-rounds`
+source route requires the original maker's current round-open action, event
+CAS, exact prepared Draft revision, genuine published P30 evidence, the
+current approved supplier audience, retained Core document-use pins, a
+published P32 operational-policy identity, current named reviewers/closer,
+and a new Core case in the same serializable owner transaction. Opening
+SaveGuard rereads the committed Core case and its exact assignments before
+accepting the Procurement opening/receipt. This route remains unavailable
+with the default-off option and unavailable P32 physical readiness; source
+authoring is not an actual HTTP or PostgreSQL acceptance result.

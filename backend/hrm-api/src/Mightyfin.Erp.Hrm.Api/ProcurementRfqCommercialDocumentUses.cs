@@ -41,6 +41,66 @@ public static partial class ProcurementSourcingExecutionRoutes
         }
     }
 
+    private sealed class RetainedRequirementsAccess(ProcurementRequestScope scope,
+        PrincipalRfqPreparedPlan plan, PrincipalRfqCommercialDraftHead head,
+        PrincipalRfqCommercialDraftRevision revision,
+        IReadOnlyDictionary<Guid, string> expected) : IDocumentUseAccess
+    {
+        public Task RequireAsync(DocumentOwner owner, DocumentUseReference reference,
+            DocumentUseOperation operation, IReadOnlyList<Guid> versionIds, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (scope.TenantId != plan.TenantId || scope.LegalEntityId != plan.LegalEntityId
+                || scope.SubjectId != plan.ActorPrincipalId
+                || plan.SourcingEventId != head.SourcingEventId
+                || plan.DraftRevisionId != revision.Id || plan.DocumentUseKey != revision.Id
+                || owner != new DocumentOwner("procurement", PrincipalRfqPrepublicationPlan.DocumentOwnerType,
+                    plan.SourcingEventId)
+                || reference != new DocumentUseReference(revision.Id, "procurement",
+                    PrincipalRfqPrepublicationPlan.DocumentSourceType, plan.SourcingEventId,
+                    revision.Revision, DocumentUseKind.Review)
+                || operation != DocumentUseOperation.Read
+                || versionIds.Count > 0 && !versionIds.Order().SequenceEqual(expected.Keys.Order()))
+                throw new UnauthorizedAccessException("RfqCommercialRetainedDocumentUseDenied");
+            return Task.CompletedTask;
+        }
+    }
+
+    private static async Task RequireRetainedCommercialRequirementsAsync(
+        ProcurementDbContext db, DocumentDbContext documents, ProcurementRequestScope scope,
+        PrincipalRfqPreparedPlan plan, PrincipalRfqCommercialDraftHead head,
+        PrincipalRfqCommercialDraftRevision revision, CancellationToken ct)
+    {
+        PrincipalRfqPreparedPlanEvidence.Verify(plan, head, revision);
+        var draft = PrincipalRfqCommercialDraft.Restore(head, revision);
+        var expected = draft.Requirements.ToDictionary(x => x.VersionId, x => x.Sha256);
+        if (expected.Count != plan.DocumentCount || expected.Count > 100
+            || plan.DocumentCount == 0 && plan.DocumentUseSetId is not null)
+            throw new InvalidOperationException("RfqCommercialRetainedDocumentUseChanged");
+        if (expected.Count == 0) return;
+        if (documents.Database.CurrentTransaction is null || db.Database.CurrentTransaction is null
+            || !ReferenceEquals(documents.Database.GetDbConnection(), db.Database.GetDbConnection())
+            || !ReferenceEquals(documents.Database.CurrentTransaction.GetDbTransaction(),
+                db.Database.CurrentTransaction.GetDbTransaction()))
+            throw new InvalidOperationException("RfqCommercialDocumentOwnerTransactionRequired");
+        var owner = new DocumentOwner("procurement", PrincipalRfqPrepublicationPlan.DocumentOwnerType,
+            plan.SourcingEventId);
+        var source = new DocumentUseReference(revision.Id, "procurement",
+            PrincipalRfqPrepublicationPlan.DocumentSourceType, plan.SourcingEventId,
+            revision.Revision, DocumentUseKind.Review);
+        var pins = await EfDocumentUsePinStore.ReadRetainedAsync(documents, scope,
+            new RetainedRequirementsAccess(scope, plan, head, revision, expected),
+            owner, source, ct);
+        var set = await documents.UseSets.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.Id == plan.DocumentUseSetId && x.OwnerId == plan.SourcingEventId
+            && x.TenantId == plan.TenantId && x.LegalEntityId == plan.LegalEntityId, ct);
+        if (set is null || set.SelectionDigest != plan.DocumentSelectionDigest
+            || set.SelectionCount != plan.DocumentCount || pins.Count != plan.DocumentCount
+            || pins.Any(x => !expected.TryGetValue(x.VersionId, out var sha)
+                || x.Sha256 != sha || x.OwnerId != plan.SourcingEventId))
+            throw new InvalidOperationException("RfqCommercialRetainedDocumentUseChanged");
+    }
+
     /// <summary>Future Prepare composition only, NOT called by ordinary Draft Save.
     /// Caller must use ExecuteWithSourcingDocumentsAsync, load source/current people,
     /// stage a successor owned revision+receipt and verify actual published controls.
