@@ -51,19 +51,18 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
             var entity = model.FindEntityType(type) ?? throw new InvalidOperationException("CommercialEntityMissing");
             return entity.GetSchema() + "." + entity.GetTableName();
         }
-        var inspected = kind == PrincipalCommercialStore.Receiving
-            ? types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray() : types;
-        var owned = types.Select(Table).Distinct(StringComparer.Ordinal).ToArray();
-        // PO cancellation checks retained receiving sources even when the receiving
-        // command capability is off. Require only SELECT here; owning receiving
-        // writes remain governed by the separate Receiving readiness contract.
-        // Unknown/mixed legacy receipt history is denied by receiving commands.
-        Type[] historyReads = kind switch
+        var inspected = kind switch
         {
-            PrincipalCommercialStore.Orders => [typeof(PrincipalReceivingSourceState)],
-            PrincipalCommercialStore.Receiving => [typeof(ReceivingSourceState), typeof(GoodsReceiptLine), typeof(ServiceAcceptance)],
-            _ => [],
+            PrincipalCommercialStore.Orders => types.Append(typeof(PrincipalReceivingSourceState)).ToArray(),
+            PrincipalCommercialStore.Receiving => types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray(),
+            _ => types,
         };
+        var owned = types.Select(Table).Distinct(StringComparer.Ordinal).ToArray();
+        // PO cancellation inspects the receiving-source physical shape even if
+        // receiving commands are off. Only SELECT is required: owned/write tables
+        // still come from Orders alone. Receiving additionally reads legacy history.
+        Type[] historyReads = kind == PrincipalCommercialStore.Receiving
+            ? [typeof(ReceivingSourceState), typeof(GoodsReceiptLine), typeof(ServiceAcceptance)] : [];
         var reads = Dependencies.Concat(inspected).Concat(historyReads).Select(Table).Distinct(StringComparer.Ordinal).ToArray();
         var mutable = (kind switch
         {

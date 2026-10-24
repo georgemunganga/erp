@@ -19,9 +19,10 @@ It then creates and independently approves a supplier master, PO-specific
 spending authority and PO rule through their normal routes.
 
 PO cancellation also reads retained `principal_receiving_sources` to veto a
-release after receiving has begun. The PO execution role and PO readiness
-therefore require SELECT on that table even in a PO-only cohort; they do not
-require receiving INSERT, UPDATE, or the receiving command capability.
+release after receiving has begun. PO readiness inspects that table's mapped
+columns, keys, checks, and foreign keys and requires SELECT in a PO-only
+cohort. It does not require receiving INSERT, UPDATE, or the receiving command
+capability.
 
 P30 checks the purpose-scoped source and supplier pickers, exact internal
 PO draft/reservation, same-key replay and actor-owned GET recovery, unfunded
