@@ -14,6 +14,7 @@ public static partial class ProcurementContractDraftRoutes
     private static void MapRateRoutes(RouteGroupBuilder group)
     {
         group.MapGet("/{id:guid}/rates", ListRates).RequireAuthorization("procurement-contract-read");
+        group.MapGet("/{id:guid}/rates/{rateId:guid}", GetRate).RequireAuthorization("procurement-contract-read");
         group.MapPost("/{id:guid}/rates", AddRate).RequireAuthorization("procurement-contract-edit");
         group.MapPut("/{id:guid}/rates/{rateId:guid}", UpdateRate).RequireAuthorization("procurement-contract-edit");
         group.MapPost("/{id:guid}/rates/{rateId:guid}/remove", RemoveRate).RequireAuthorization("procurement-contract-edit");
@@ -33,6 +34,21 @@ public static partial class ProcurementContractDraftRoutes
             .OrderBy(x => x.LineNumber).ThenBy(x => x.Id).ToListAsync(ct);
         return Results.Ok(new { contractId = id, contractVersion = owner.Version,
             draftVersionId = version.Id, items = rows.Select(x => RateDetail(x)).ToArray() });
+    }
+
+    private static async Task<IResult> GetRate(Guid id, Guid rateId, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
+        var owner = await db.SupplierContracts.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
+        if (owner is null) return Problem("not-found", "Contract not found.", 404);
+        var version = await db.SupplierContractVersions.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.SupplierContractId == id && x.RevisionNumber == 1, ct);
+        if (version is null) return Problem("contract-version-unavailable", "The draft version is unavailable.", 409);
+        var rate = await db.ContractRates.AsNoTracking().SingleOrDefaultAsync(x => x.Id == rateId
+            && x.SupplierContractVersionId == version.Id, ct);
+        return rate is null ? Problem("not-found", "Rate not found.", 404)
+            : Results.Ok(new { contractId = id, contractVersion = owner.Version, rate = RateDetail(rate) });
     }
 
     private static async Task<IResult> AddRate(Guid id, JsonElement body, ProcurementDbContext db,

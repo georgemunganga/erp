@@ -3479,6 +3479,14 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal("2.5", first.GetProperty("maximumQuantityExact").GetString());
         var rateId = first.GetProperty("id").GetGuid();
         var rateUrl = $"{url}/{rateId}";
+        Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, rateUrl,
+            fixture.Other, role: "procurement_buyer")).StatusCode);
+        var got = await Send(fixture.Client, HttpMethod.Get, rateUrl,
+            fixture.Owner, role: "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, got.StatusCode);
+        var gotBody = await got.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(rateId, gotBody.GetProperty("rate").GetProperty("id").GetGuid());
+        Assert.Equal("0.0001", gotBody.GetProperty("rate").GetProperty("unitPriceExact").GetString());
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, rateUrl,
             fixture.Owner, new ProcurementContractDraftRoutes.VersionedContractRateDraft(version,
                 first.GetProperty("version").GetInt64(), rate), "procurement_buyer")).StatusCode);
