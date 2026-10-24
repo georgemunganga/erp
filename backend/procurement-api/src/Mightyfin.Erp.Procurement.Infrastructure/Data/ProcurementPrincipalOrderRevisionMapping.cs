@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -144,9 +145,24 @@ public sealed partial class ProcurementDbContext
                 || !PrincipalOrderDraftReceipts.Local.Any(x=>x.PurchaseOrderId==order.Id
                     &&x.Operation=="Edit"&&x.CommandKey==revision.CommandKey&&x.ActorPrincipalId==scope.SubjectId
                     &&Entry(x).State==EntityState.Added)
+                || AuditEvents.Local.Count(x=>Entry(x).State==EntityState.Added
+                    &&PrincipalOrderRevisionCompanions.MatchesAudit(revision,x,scope.CorrelationId))!=1
+                || OutboxEvents.Local.Count(x=>Entry(x).State==EntityState.Added
+                    &&PrincipalOrderRevisionCompanions.MatchesOutbox(revision,x))!=1
                 )
                 throw new InvalidOperationException("PrincipalOrderDraftRevisionInvalid");
         }
+        foreach(var audit in AuditEvents.Local.Where(x=>Entry(x).State==EntityState.Added
+            &&x.RecordType=="PurchaseOrder"&&x.Action=="PrincipalOrderEdit"))
+            if(PrincipalOrderDraftCommercialRevisions.Local.Count(x=>Entry(x).State==EntityState.Added
+                &&PrincipalOrderRevisionCompanions.MatchesAudit(x,audit,scope.CorrelationId))!=1)
+                throw new InvalidOperationException("PrincipalOrderDraftRevisionAuditOrphan");
+        foreach(var outgoing in OutboxEvents.Local.Where(x=>Entry(x).State==EntityState.Added
+            &&x.AggregateType=="PurchaseOrder"
+            &&x.EventType=="purchase_order.internal_unfunded_draft_revised.v2"))
+            if(PrincipalOrderDraftCommercialRevisions.Local.Count(x=>Entry(x).State==EntityState.Added
+                &&PrincipalOrderRevisionCompanions.MatchesOutbox(x,outgoing))!=1)
+                throw new InvalidOperationException("PrincipalOrderDraftRevisionOutboxOrphan");
         foreach(var slice in ChangeTracker.Entries<PrincipalOrderEffectiveSourceSlice>()
             .Where(x=>x.State==EntityState.Added).Select(x=>x.Entity))
         {
@@ -190,5 +206,60 @@ public sealed partial class ProcurementDbContext
                     &&x.Operation=="Edit"&&Entry(x).State==EntityState.Added))
                 throw new InvalidOperationException("PrincipalOrderReservationEditRequiresRevision");
         }
+    }
+}
+
+public static class PrincipalOrderRevisionCompanions
+{
+    public static bool MatchesAudit(PrincipalOrderDraftCommercialRevision revision, AuditEvent audit,
+        string? correlationId)
+    {
+        if(audit.TenantId!=revision.TenantId||audit.LegalEntityId!=revision.LegalEntityId
+            ||audit.RecordType!="PurchaseOrder"||audit.RecordId!=revision.PurchaseOrderId
+            ||audit.Action!="PrincipalOrderEdit"||audit.ActorSubjectId!=revision.ActorPrincipalId
+            ||audit.CorrelationId!=correlationId||audit.ChangedFieldsJson is null)return false;
+        try
+        {
+            using var document=JsonDocument.Parse(audit.ChangedFieldsJson);
+            var root=document.RootElement;
+            if(!root.TryGetProperty("schemaVersion",out var schema)||schema.GetInt32()!=2
+                ||!root.TryGetProperty("commandKey",out var key)||key.GetGuid()!=revision.CommandKey
+                ||!root.TryGetProperty("detail",out var detail)
+                ||!detail.TryGetProperty("revisionNumber",out var number)
+                ||number.GetInt32()!=revision.RevisionNumber
+                ||!detail.TryGetProperty("effectiveSnapshotSha256",out var digest)
+                ||digest.GetString()!=revision.SnapshotSha256
+                ||!detail.TryGetProperty("reason",out var reason)
+                ||reason.GetString()!=revision.Reason)return false;
+            return true;
+        }
+        catch(JsonException){return false;}
+        catch(InvalidOperationException){return false;}
+        catch(FormatException){return false;}
+    }
+
+    public static bool MatchesOutbox(PrincipalOrderDraftCommercialRevision revision, OutboxEvent outgoing)
+    {
+        if(outgoing.TenantId!=revision.TenantId||outgoing.LegalEntityId!=revision.LegalEntityId
+            ||outgoing.AggregateType!="PurchaseOrder"||outgoing.AggregateId!=revision.PurchaseOrderId
+            ||outgoing.EventType!="purchase_order.internal_unfunded_draft_revised.v2"
+            ||outgoing.EventVersion!=1||outgoing.State!="Pending"
+            ||outgoing.IdempotencyKey!=$"po.principal.Edit.{revision.CommandKey:N}.v2")return false;
+        try
+        {
+            using var document=JsonDocument.Parse(outgoing.PayloadJson);
+            var root=document.RootElement;
+            return root.TryGetProperty("orderId",out var order)&&order.GetGuid()==revision.PurchaseOrderId
+                &&root.TryGetProperty("commandKey",out var key)&&key.GetGuid()==revision.CommandKey
+                &&root.TryGetProperty("internalVersionAuthorized",out var authorized)
+                &&authorized.ValueKind==JsonValueKind.False
+                &&root.TryGetProperty("supplierSendPerformed",out var sent)
+                &&sent.ValueKind==JsonValueKind.False
+                &&root.TryGetProperty("financeReservationChanged",out var finance)
+                &&finance.ValueKind==JsonValueKind.False;
+        }
+        catch(JsonException){return false;}
+        catch(InvalidOperationException){return false;}
+        catch(FormatException){return false;}
     }
 }
