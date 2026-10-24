@@ -24,6 +24,10 @@ public sealed partial class ProcurementRequestHttpTests
         var manager = await Send(f.Client, HttpMethod.Get, path, f.Other);
         Assert.Equal(HttpStatusCode.OK, manager.StatusCode);
         Assert.False((await manager.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("canEdit").GetBoolean());
+        await f.ConfigureCoreActions(f.Other, "procurement-access,procurement-vendor-read,procurement-vendor-manage,procurement-vendor-edit", "vendor_manager_with_edit");
+        var editor = await Send(f.Client, HttpMethod.Get, path, f.Other);
+        Assert.Equal(HttpStatusCode.OK, editor.StatusCode);
+        Assert.True((await editor.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("canEdit").GetBoolean());
         await f.ConfigureCoreActions(f.Owner, "procurement-access,procurement-vendor-read,procurement-vendor-create", "vendor_owner_without_edit");
         var owner = await Send(f.Client, HttpMethod.Get, path, f.Owner);
         Assert.Equal(HttpStatusCode.OK, owner.StatusCode);
