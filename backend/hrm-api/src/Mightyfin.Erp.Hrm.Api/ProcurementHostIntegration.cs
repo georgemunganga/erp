@@ -148,8 +148,7 @@ public static class ProcurementHostIntegration
         ProcurementSpendingAuthorityRoutes.MapRoutes(app);
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
-        if (app.Services.GetService<ProcurementContractReviewOptions>() is { Enabled: true })
-            ProcurementContractReviewRoutes.MapRoutes(app);
+        MapContractReviewRoutes(app);
         ProcurementRecurringPurchaseRoutes.MapRoutes(app);
         ProcurementManualPaymentRoutes.MapReadRoutes(app);
         ProcurementManualPaymentCommandRoutes.MapRoutes(app);
@@ -172,6 +171,14 @@ public static class ProcurementHostIntegration
         ProcurementReceivingRoutes.MapRoutes(app);
         ProcurementPrincipalReceivingRoutes.MapRoutes(app);
         MapMetadataRoute(app);
+    }
+
+    // One composition seam, shared by complete-host mapping and negative HTTP
+    // admission tests; the default-off condition is not reimplemented in fixtures.
+    internal static void MapContractReviewRoutes(WebApplication app)
+    {
+        if (app.Services.GetService<ProcurementContractReviewOptions>() is { Enabled: true })
+            ProcurementContractReviewRoutes.MapRoutes(app);
     }
 
     /// <summary>Maps module availability using the same checks as the complete host.</summary>
