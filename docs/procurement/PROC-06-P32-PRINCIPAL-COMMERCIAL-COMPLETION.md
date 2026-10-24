@@ -650,3 +650,32 @@ the retained Core case, complete decision history and P32 terminal digest;
 the original reviewer need not keep today's approval grant. Those later
 operations still require their own current actor/action/branch checks and
 cannot treat historical signer evidence as a current permission.
+
+### Held SubmitOffer and Close route source (24 October 2026)
+
+The conditional source route now accepts a manually captured supplier offer
+only after a retained Approved commercial Core case and matching P32 terminal
+vote/receipt are reconstructed. It rechecks the exact current source holds,
+invitation, approved supplier, current recorder and branch, quote Draft CAS,
+immutable quote revision and lines. The original quotation document must be
+an available scanned Core Document owned by that sourcing event. The same
+serializable command acquires a durable Core document use set/pin for that
+exact version and saves an append-only offer plus original actor-owned receipt.
+The recorder remains an **internal surrogate**, never a supplier portal login.
+
+The conditional Close source route requires the configured named closer's
+current action and branch, exact event/opening/offer-count CAS and the trusted
+server time at or after the closing instant. It reconstructs every committed
+offer, verifies each original command receipt and retained Core document use,
+and seals the exact submitted snapshot set. Closing does not expose sealed
+prices, record evaluation or select an award. Both routes retain original-key
+GET-only recovery and return a conflict when source, identity, proof or offer
+membership changed. The vote SaveGuard reads the **persisted** Core case,
+assignment and decision after Core Save; unsaved local version changes deny.
+
+These routes are **not runtime accepted**. Source is still behind the P32
+default-off option and unavailable eleven-family physical readiness. Genuine
+EF migration, exact Core-document use ownership/grants, finite P32 roles,
+actual PostgreSQL and normal-cookie HTTP cases, scanner availability, and
+sealed-read/evaluation/award stages remain release gates. No dispatch,
+Finance/AP/payment, award or PO effect is claimed.
