@@ -171,7 +171,12 @@ def verify(before, after, fixture, browser, fixture_hash):
         and ev[0].get("execution_version") == 2, "ExactlyOnePublishedBrowserRfq")
     allocations = added("procurement.purchase_request_allocations")
     require(len(allocations) == 1 and allocations[0].get("purchase_request_line_id") == fixture["approvedRequestLineId"]
-        and allocations[0].get("target_id") == event, "ExactlyOneBrowserReservation")
+        and allocations[0].get("purchase_request_id") == fixture["approvedRequestId"]
+        and allocations[0].get("target_type") == "SourcingEvent"
+        and allocations[0].get("target_id") == event
+        and allocations[0].get("status") == "Reserved"
+        and str(allocations[0].get("quantity")) in ("1", "1.0000"),
+        "ExactlyOneBrowserReservation")
     require(len(added("procurement.sourcing_lines")) == 1
         and len(added("procurement.sourcing_draft_evidence")) == 1
         and len(added("procurement.sourcing_demand_bindings")) == 1
@@ -186,6 +191,9 @@ def verify(before, after, fixture, browser, fixture_hash):
     require(len(opening) == len(decisions) == len(contacts) == len(quotes) == len(bids) == 1
         and len(invitations) == 2 and bids[0]["id"] == bid
         and all(x.get("sourcing_event_id") == event for x in opening+decisions+invitations+contacts+quotes+bids)
+        and opening[0].get("policy_version_id") == fixture["nativePolicyId"]
+        and opening[0].get("maker_principal_id") == fixture["buyerPrincipalId"]
+        and decisions[0].get("core_approval_case_id") == opening[0].get("core_approval_case_id")
         and {x.get("supplier_id") for x in invitations} == set(fixture["nativeSupplierIds"])
         and contacts[0].get("actor_principal_id") == fixture["buyerPrincipalId"]
         and decisions[0].get("actor_principal_id") == fixture["reviewerPrincipalId"]
