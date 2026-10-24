@@ -128,7 +128,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             if(order.Status!="Draft" || order.Version!=input.ExpectedOrderVersion
                 || order.OriginalDirectSourceSha256!=input.OriginalDirectSourceSha256
                 || order.FinanceCommitmentRef is not null
-                || await db.PrincipalOrderFundingEvidence.AnyAsync(x=>x.PurchaseOrderId==id,token))
+                || !await UnfundedCancellationCandidates(db,id).AnyAsync(token))
                 throw new Problem("OrderDraftChanged",409);
             var lines=await db.PurchaseOrderLines.Where(x=>x.PurchaseOrderId==id&&x.IsActive).ToArrayAsync(token);
             var bindings=await db.PrincipalOrderSourceBindings.Where(x=>x.PurchaseOrderId==id).ToArrayAsync(token);
@@ -180,4 +180,14 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             Record(db,scope,order,"Cancel",key,new{reason});
             return await Save(db,scope,order,"Cancel",key,fingerprint,token);
         },ct);
+
+    // A retained submission/issue/receipt must veto release even if an
+    // inconsistent row points at some other order's funding record. Generic
+    // FKs bind tenant/company/id, not the redundant purchase_order_id.
+    internal static IQueryable<PurchaseOrder> UnfundedCancellationCandidates(
+        ProcurementDbContext db,Guid id) => db.PurchaseOrders.Where(order=>order.Id==id
+            && !db.PrincipalOrderFundingEvidence.Any(x=>x.PurchaseOrderId==order.Id)
+            && !db.PrincipalOrderSubmissions.Any(x=>x.PurchaseOrderId==order.Id)
+            && !db.PrincipalOrderIssuedVersions.Any(x=>x.PurchaseOrderId==order.Id)
+            && !db.PrincipalReceivingSourceStates.Any(x=>x.PurchaseOrderId==order.Id));
 }

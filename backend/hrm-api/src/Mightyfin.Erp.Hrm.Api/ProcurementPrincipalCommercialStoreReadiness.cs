@@ -51,11 +51,16 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
             var entity = model.FindEntityType(type) ?? throw new InvalidOperationException("CommercialEntityMissing");
             return entity.GetSchema() + "." + entity.GetTableName();
         }
-        var inspected = kind == PrincipalCommercialStore.Receiving
-            ? types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray() : types;
+        var inspected = kind switch
+        {
+            PrincipalCommercialStore.Orders => types.Append(typeof(PrincipalReceivingSourceState)).ToArray(),
+            PrincipalCommercialStore.Receiving => types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray(),
+            _ => types,
+        };
         var owned = types.Select(Table).Distinct(StringComparer.Ordinal).ToArray();
-        // Unknown/mixed receipt history is deliberately denied by receiving commands.
-        // The physical contract must include those reads before advertising availability.
+        // PO cancellation inspects the receiving-source physical shape even if
+        // receiving commands are off. Only SELECT is required: owned/write tables
+        // still come from Orders alone. Receiving additionally reads legacy history.
         Type[] historyReads = kind == PrincipalCommercialStore.Receiving
             ? [typeof(ReceivingSourceState), typeof(GoodsReceiptLine), typeof(ServiceAcceptance)] : [];
         var reads = Dependencies.Concat(inspected).Concat(historyReads).Select(Table).Distinct(StringComparer.Ordinal).ToArray();
