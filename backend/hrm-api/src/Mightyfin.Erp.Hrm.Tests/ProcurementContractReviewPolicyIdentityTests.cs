@@ -29,6 +29,7 @@ public sealed class ProcurementContractReviewPolicyIdentityTests
             db.AddScoped(policy);
             var origin = OperationalPolicyWorkerIdentity.Capture(policy, "Created", author.ToString("D"),
                 null, 1, now, schemaVersion: 2);
+            Assert.Throws<InvalidOperationException>(() => OperationalPolicyIdentityStorage.ToRecord(origin));
             db.AddScoped(ContractReviewPolicyIdentityStorage.ToRecord(origin));
             await db.SaveChangesAsync();
             policyId = policy.Id;
