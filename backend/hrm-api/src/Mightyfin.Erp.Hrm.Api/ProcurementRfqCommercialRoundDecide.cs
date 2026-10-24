@@ -138,6 +138,8 @@ public static partial class ProcurementSourcingExecutionRoutes
                 throw new Problem("RfqCommercialPolicyChanged", 409);
             var original = await RequireCommercialReviewerIndependence(db, core, scope, source,
                 actor, token);
+            await RequireCommercialActingOfficerIndependence(db, core, scope,
+                original, opening, actor, token);
             await RequireCommercialSourceHolds(db, cases, scope, source,
                 original, actor, token);
             var decisions = await cases.Decisions.Where(x => x.CaseId == workflow.Id)

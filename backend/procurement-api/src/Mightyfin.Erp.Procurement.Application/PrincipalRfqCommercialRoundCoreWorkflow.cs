@@ -180,7 +180,9 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             {
                 x.Id, x.Sequence, x.Code, x.Mode, x.RequiredApprovals,
                 assignments = x.Assignments.OrderBy(a => a.AssigneeSubjectId)
-                    .Select(a => new { a.Id, a.AssigneeSubjectId, a.PermissionKey }),
+                    .Select(a => new { a.Id, a.AssigneeSubjectId, a.PermissionKey,
+                        WorkerAliasId = currentReviewers.Single(r =>
+                            r.PrincipalId == a.AssigneeSubjectId).LinkedWorkerId }),
             }),
         });
         return new(core, snapshot, ProcurementEvidenceEncoding.Digest(snapshot),

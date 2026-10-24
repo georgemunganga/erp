@@ -58,4 +58,35 @@ public sealed class ProcurementRfqCommercialCurrentAliasTests
             new Dictionary<Guid, Guid?>
                 { [maker] = null, [reviewer] = worker, [closer] = worker }));
     }
+
+    [Fact]
+    public void Later_votes_and_close_deny_current_or_retained_alias_of_other_named_officers()
+    {
+        var acting = Guid.NewGuid();
+        var otherReviewer = Guid.NewGuid();
+        var closer = Guid.NewGuid();
+        var worker = Guid.NewGuid();
+        var actor = new RfqPrincipalActor(acting.ToString("D"), worker,
+            "fixture", Guid.NewGuid(), null, new HashSet<Guid>(), true,
+            new HashSet<string>());
+        var others = new (string PrincipalId, Guid? OpeningAlias, Guid? VoteAlias)[]
+        {
+            (otherReviewer.ToString("D"), null, null),
+            (closer.ToString("D"), null, null),
+        };
+        Assert.True(ProcurementSourcingExecutionRoutes.CommercialActingOfficerIndependentNow(
+            actor, others, new Dictionary<Guid, Guid?>
+                { [acting] = worker, [otherReviewer] = null, [closer] = null }));
+        Assert.False(ProcurementSourcingExecutionRoutes.CommercialActingOfficerIndependentNow(
+            actor, others, new Dictionary<Guid, Guid?>
+                { [acting] = worker, [otherReviewer] = worker, [closer] = null }));
+        others[0] = (otherReviewer.ToString("D"), null, worker);
+        Assert.False(ProcurementSourcingExecutionRoutes.CommercialActingOfficerIndependentNow(
+            actor, others, new Dictionary<Guid, Guid?>
+                { [acting] = worker, [otherReviewer] = null, [closer] = null }));
+        others[0] = (otherReviewer.ToString("D"), null, null);
+        Assert.False(ProcurementSourcingExecutionRoutes.CommercialActingOfficerIndependentNow(
+            actor, others, new Dictionary<Guid, Guid?>
+                { [acting] = worker, [otherReviewer] = null, [closer] = worker }));
+    }
 }

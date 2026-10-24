@@ -65,8 +65,8 @@ public static partial class ProcurementSourcingExecutionRoutes
                 scope, opening, token);
             if (retained.Event.Version != input.ExpectedEventVersion)
                 throw new Problem("RfqCommercialSourceChanged", 409);
-            await RequireCommercialCurrentIndependence(core, scope,
-                retained.Original, [actor], token);
+            await RequireCommercialActingOfficerIndependence(db, core, scope,
+                retained.Original, opening, actor, token);
             await RequireCommercialSourceHolds(db, cases, scope,
                 retained.Event, retained.Original, actor, token);
             if (await db.PrincipalRfqCommercialRoundSeals.AsNoTracking()
