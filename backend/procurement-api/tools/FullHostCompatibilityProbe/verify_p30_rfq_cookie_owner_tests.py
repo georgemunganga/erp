@@ -4,10 +4,47 @@ import hashlib
 import unittest
 from verify_p30_po_cookie_owner import Failed, canonical_json
 from verify_p30_rfq_cookie_owner import (CONTACT_PRODUCER_VECTOR, captured_body,
-    contact_utc_offset, exact_decimal_text, fingerprint, rfq_canonical_json)
+    contact_utc_offset, core_row, exact_decimal_text, fingerprint, rfq_canonical_json,
+    verify_source_progress)
 
 
 class RfqOwnerFingerprints(unittest.TestCase):
+    def test_core_pascal_case_preserves_all_fields_and_rejects_collision(self):
+        value = {'Id':'11111111-1111-4111-8111-111111111111',
+            'TenantId':'22222222-2222-4222-8222-222222222222',
+            'ActorSubjectId':'33333333-3333-4333-8333-333333333333',
+            'State':'Approved','SHA256':'abc'}
+        normalized = core_row(value)
+        self.assertEqual(normalized['actor_subject_id'],value['ActorSubjectId'])
+        self.assertEqual(normalized['state'],'Approved')
+        self.assertEqual(len(normalized),len(value))
+        with self.assertRaises(Failed): core_row({**value,'id':value['Id']})
+        with self.assertRaises(Failed): core_row({'Id':None})
+
+    def test_exact_source_reservation_and_audit_progress(self):
+        buyer='11111111-1111-4111-8111-111111111111'
+        stamp='2026-10-24T10:00:00+00:00'
+        line={'id':'a','allocated_quantity':'1.0000','approved_quantity':'2.0000',
+            'ordered_quantity':'0.0000','accepted_quantity':'0.0000','route':'Approved',
+            'version':7,'created_at':stamp,'updated_at':None,'updated_by':None}
+        request={'id':'r','version':4,'created_at':stamp,'updated_at':None,'updated_by':None,
+            'status':'Approved'}
+        before={'source':line,'request':request}
+        next_stamp='2026-10-24T10:01:00+00:00'
+        after={'source':{**line,'allocated_quantity':'2.0000','route':'PendingSourcing',
+            'version':8,'updated_at':next_stamp,'updated_by':buyer},
+            'request':{**request,'version':5,'updated_at':next_stamp,'updated_by':buyer}}
+        verify_source_progress(before,after,buyer)
+        for mutation in (
+            {'source':{**after['source'],'updated_by':'other'}},
+            {'source':{**after['source'],'version':9}},
+            {'source':{**after['source'],'ordered_quantity':'1.0000'}},
+            {'source':{**after['source'],'allocated_quantity':'1.0000'}},
+            {'request':{**after['request'],'updated_at':stamp}},
+            {'request':{**after['request'],'status':'Cancelled'}}):
+            with self.subTest(mutation=mutation), self.assertRaises(Failed):
+                verify_source_progress(before,{**after,**mutation},buyer)
+
     def test_canonical_property_order_and_numeric_spellings(self):
         expected = hashlib.sha256(b'{"operation":"Create","quantity":"1","schemaVersion":2e0}').hexdigest()
         self.assertEqual(fingerprint({"schemaVersion":2,"operation":"Create","quantity":"1"}), expected)

@@ -25,10 +25,60 @@ TABLES = {"procurement.sourcing_events", "procurement.sourcing_lines",
     "procurement.sourcing_command_receipts", "procurement.sourcing_draft_evidence",
     "procurement.sourcing_demand_bindings", "procurement.supplier_bids", "procurement.supplier_bid_lines",
     "procurement.purchase_request_allocations", "procurement.purchase_request_lines",
-    "procurement.audit_events", "procurement.outbox_events", "hrm.local_sessions", "hrm.local_users"}
+    "procurement.purchase_requests",
+    "procurement.audit_events", "procurement.outbox_events", "hrm.local_sessions", "hrm.local_users",
+    "core_approval.cases", "core_approval.stages", "core_approval.assignments", "core_approval.decisions"}
 # Login may update these operational fields only. All assignment, action, branch,
 # password, active and role data remain part of the identity hash.
 LOGIN = {"last_login_at", "failed_login_count", "locked_until", "updated_at", "version"}
+
+
+def core_row(row):
+    """Preserve every EF Core approval column while giving the verifier one key shape."""
+    require(isinstance(row, dict), "CoreApprovalRowInvalid")
+    result = {}
+    for key, value in row.items():
+        require(isinstance(key, str) and key, "CoreApprovalColumnInvalid")
+        converted = re.sub(r'(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])', '_', key).lower()
+        require(converted not in result, "CoreApprovalColumnCollision")
+        result[converted] = value
+    require(guid(result.get("id")) and len(result) == len(row), "CoreApprovalIdentityInvalid")
+    return result
+
+
+def utc_stamp(value):
+    require(isinstance(value, str), "SourceAuditTimeInvalid")
+    try:
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        raise Failed("SourceAuditTimeInvalid") from None
+    require(parsed.tzinfo is not None and parsed.utcoffset().total_seconds() == 0,
+        "SourceAuditTimeInvalid")
+    return parsed
+
+
+def verify_source_progress(before, after, buyer):
+    """Only the real demand reservation and its stamp may advance."""
+    old_line, new_line = before["source"], after["source"]
+    old_request, new_request = before["request"], after["request"]
+    require(decimal.Decimal(str(old_line.get("allocated_quantity"))) == 1
+        and decimal.Decimal(str(new_line.get("allocated_quantity"))) == 2
+        and new_line.get("route") == "PendingSourcing"
+        and new_line.get("updated_by") == new_request.get("updated_by") == buyer
+        and new_line.get("version") == old_line.get("version") + 1
+        and new_request.get("version") == old_request.get("version") + 1,
+        "ApprovedSourceReservationProgressInvalid")
+    stamp = utc_stamp(new_line.get("updated_at"))
+    require(stamp == utc_stamp(new_request.get("updated_at"))
+        and stamp >= utc_stamp(old_line.get("updated_at") or old_line.get("created_at"))
+        and stamp >= utc_stamp(old_request.get("updated_at") or old_request.get("created_at")),
+        "ApprovedSourceAuditTimeInvalid")
+    for prior, current, allowed in ((old_line, new_line,
+            {"allocated_quantity", "route", "updated_by", "updated_at", "version"}),
+            (old_request, new_request, {"updated_by", "updated_at", "version"})):
+        require(prior.keys() == current.keys()
+            and all(current[key] == value for key, value in prior.items() if key not in allowed),
+            "ApprovedSourceBusinessFieldsChanged")
 
 
 def captured_body(browser, operation, expected):
@@ -159,7 +209,8 @@ ROLLBACK;""")
     for item, pair in zip(answer, names):
         name = ".".join(pair)
         require(item.get("table") == name and isinstance(item.get("rows"), list), "OwningSnapshotShape")
-        rows[name] = item["rows"]
+        rows[name] = ([core_row(row) for row in item["rows"]]
+            if name.startswith("core_approval.") else item["rows"])
     hashes = {}
     for name, group in rows.items():
         if name == "hrm.local_sessions": continue
@@ -174,17 +225,18 @@ ROLLBACK;""")
         require(len(found) == 1, "OriginalOwningRowMissing")
         return found[0]
     source = one("procurement.purchase_request_lines", fixture["approvedRequestLineId"])
+    request = one("procurement.purchase_requests", fixture["approvedRequestId"])
     native = one("procurement.sourcing_events", fixture["nativeEventId"])
     require(source.get("purchase_request_id") == fixture["approvedRequestId"]
         and str(source.get("approved_quantity")) in ("2", "2.0000")
-        and str(source.get("allocated_quantity")) in ("1", "1.0000")
         and str(source.get("ordered_quantity")) in ("0", "0.0000")
+        and str(source.get("accepted_quantity")) in ("0", "0.0000")
         and native.get("status") == "Published" and native.get("execution_version") == 2,
         "OriginalApprovedRfqSourceInvalid")
     sessions = {x["id"]: x for x in rows["hrm.local_sessions"]
         if x.get("local_user_id") in (fixture["buyerPrincipalId"],fixture["reviewerPrincipalId"])}
     return {"schemaVersion":3,"database":database,"system":SYSTEM,"hashes":hashes,
-        "source":source,"nativeEvent":native,"sessions":sessions,
+        "source":source,"request":request,"nativeEvent":native,"sessions":sessions,
         "selected":{name: rows[name] for name in TABLES if name != "hrm.local_users"}}
 
 
@@ -235,11 +287,14 @@ def verify(before, after, fixture, browser, fixture_hash):
     require(all(name in permitted_additions or set(new[name]) == set(original)
         for name, original in old.items()), "UnexpectedOwningTableAddedRows")
     require(after["nativeEvent"] == before["nativeEvent"], "NativeRfqChanged")
-    original_line = before["source"]; final_line = after["source"]
-    for field in original_line:
-        if field not in {"allocated_quantity", "version", "updated_at"}:
-            require(final_line.get(field) == original_line[field], "ApprovedSourceFieldsChanged")
-    require(str(final_line.get("allocated_quantity")) in ("2", "2.0000"), "ApprovedSourceConservation")
+    verify_source_progress(before, after, fixture["buyerPrincipalId"])
+    require(set(new["procurement.purchase_request_lines"]) == set(old["procurement.purchase_request_lines"])
+        and set(new["procurement.purchase_requests"]) == set(old["procurement.purchase_requests"])
+        and all(new["procurement.purchase_request_lines"][key] == value for key, value in
+            old["procurement.purchase_request_lines"].items() if key != fixture["approvedRequestLineId"])
+        and all(new["procurement.purchase_requests"][key] == value for key, value in
+            old["procurement.purchase_requests"].items() if key != fixture["approvedRequestId"]),
+        "OtherApprovedDemandChanged")
     def added(table):
         return [x for x in after["selected"][table] if x["id"] not in old[table]]
     ev = added("procurement.sourcing_events")
@@ -416,6 +471,8 @@ def main():
         if args.mode=="capture":
             output_path(baseline_path,fixture_path)
             facts=snapshot(args.container,args.database,fixture)
+            require(decimal.Decimal(str(facts["source"].get("allocated_quantity"))) == 1,
+                "PreBrowserSourceAllocationInvalid")
             require(not facts["sessions"],"PreBrowserSessionsMustBeAbsent")
             write(baseline_path,{"schemaVersion":3,"fixtureSha256":fixture_hash,
                 "challenge":fixture["challenge"],"facts":facts})
