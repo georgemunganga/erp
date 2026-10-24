@@ -300,8 +300,16 @@ public static partial class ProcurementContractReviewRoutes
                 { items = Array.Empty<object>(), total = 0, page = number, pageSize = size }), 200);
             // The own Core assignment, active stage, company and current allowed
             // branches are all applied in PostgreSQL before count or pagination.
-            var scoped = db.ContractReviewSubmissions.FromSqlInterpolated($"""
-                SELECT DISTINCT s.* FROM procurement.contract_review_submissions AS s
+            var visible = db.Database.SqlQuery<AssignedReviewRow>($"""
+                SELECT s.id AS "Id",s.contract_id AS "ContractId",s.core_case_id AS "CoreCaseId",
+                    a."Id" AS "AssignmentId",s.review_branch_id AS "ReviewBranchId",
+                    s.submitted_at AS "SubmittedAt",s.submission_number AS "SubmissionNumber",
+                    contract.number AS "Number",contract.title AS "Title",
+                    contract.currency_code AS "CurrencyCode",contract.version AS "Version"
+                FROM procurement.contract_review_submissions AS s
+                JOIN procurement.supplier_contracts AS contract ON contract.id=s.contract_id
+                    AND contract.tenant_id=s.tenant_id AND contract.legal_entity_id=s.legal_entity_id
+                    AND contract.status='PendingReview'
                 JOIN core_approval.cases AS c ON c."Id"=s.core_case_id
                     AND c."TenantId"=s.tenant_id AND c."LegalEntityId"=s.legal_entity_id
                     AND c."SourceModule"='procurement' AND c."SourceType"='SupplierContractReview'
@@ -311,21 +319,33 @@ public static partial class ProcurementContractReviewRoutes
                     AND a."AssigneeSubjectId"={scope.SubjectId} AND a."State"='Pending'
                     AND a."PermissionKey"='procurement-contract-review'
                 JOIN core_approval.stages AS st ON st."Id"=a."StageId"
-                    AND st."CaseId"=c."Id" AND st."State"='Active'
+                    AND st."CaseId"=c."Id" AND st."TenantId"=c."TenantId"
+                    AND st."LegalEntityId"=c."LegalEntityId" AND st."State"='Active'
                 WHERE s.tenant_id={scope.TenantId} AND s.legal_entity_id={scope.LegalEntityId}
                     AND s.review_branch_id=ANY({branches})
-                """).AsNoTracking();
-            var visible = from source in scoped
-                join contract in db.SupplierContracts.AsNoTracking() on source.ContractId equals contract.Id
-                where contract.Status == "PendingReview"
-                select new { source.Id, source.ContractId, source.CoreCaseId, source.ReviewBranchId,
-                    source.SubmittedAt, source.SubmissionNumber, contract.Number, contract.Title,
-                    contract.CurrencyCode, contract.Version };
+                """);
             var total = await visible.CountAsync(token);
-            var items = await visible.OrderByDescending(x => x.SubmittedAt).ThenByDescending(x => x.Id)
+            var items = await visible.OrderByDescending(x => x.SubmittedAt).ThenByDescending(x => x.Id).ThenBy(x => x.AssignmentId)
                 .Skip((number - 1) * size).Take(size).ToArrayAsync(token);
             return new Reply(JsonSerializer.Serialize(new { items, total, page = number, pageSize = size }), 200);
         }, ct);
+
+    // Unmapped query projection, not a new persisted entity. Each work item is
+    // the actor's exact Core assignment; submission IDs are never action IDs.
+    public sealed class AssignedReviewRow
+    {
+        public Guid Id { get; set; }
+        public Guid ContractId { get; set; }
+        public Guid CoreCaseId { get; set; }
+        public Guid AssignmentId { get; set; }
+        public Guid ReviewBranchId { get; set; }
+        public DateTimeOffset SubmittedAt { get; set; }
+        public int SubmissionNumber { get; set; }
+        public string Number { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string CurrencyCode { get; set; } = "";
+        public long Version { get; set; }
+    }
 
     private static Task<IResult> ReviewDetail(Guid id, Guid assignmentId, HttpContext http,
         ProcurementRequestScope scope, CancellationToken ct)
