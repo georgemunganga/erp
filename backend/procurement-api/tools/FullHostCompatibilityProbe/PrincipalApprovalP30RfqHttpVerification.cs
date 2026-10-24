@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
@@ -135,8 +137,34 @@ internal static partial class PrincipalApprovalHttpVerification
         var openBody = new { expectedEventVersion = original.GetProperty("version").GetInt64(),
             originalDraftFingerprint = original.GetProperty("originalDraftFingerprint").GetString(),
             supplierIds = suppliers.ToArray() };
-        var opened = await send(client, HttpMethod.Post, eventPath + "/principal-publication-reviews",
-            fixture.Buyer, openBody, HttpStatusCode.Created, openKey);
+        // This private probe captures only bounded internal invariant codes for
+        // this one request. The public API intentionally keeps its generic 409.
+        var openFailureCodes = new List<string>();
+        EventHandler<FirstChanceExceptionEventArgs> onOpenFailure = (_, args) =>
+        {
+            if (args.Exception is not InvalidOperationException) return;
+            var code = args.Exception.Message;
+            if (code.Length is < 4 or > 96 || !Regex.IsMatch(code,
+                    @"\A(?:Rfq|Sourcing|SharedCoreApproval|Approval)[A-Za-z0-9]{1,90}\z")) return;
+            lock (openFailureCodes)
+            {
+                if (openFailureCodes.Count < 8 && !openFailureCodes.Any(x => string.Equals(x, code, StringComparison.Ordinal)))
+                    openFailureCodes.Add(code);
+            }
+        };
+        JsonElement opened;
+        AppDomain.CurrentDomain.FirstChanceException += onOpenFailure;
+        try
+        {
+            opened = await send(client, HttpMethod.Post, eventPath + "/principal-publication-reviews",
+                fixture.Buyer, openBody, HttpStatusCode.Created, openKey);
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= onOpenFailure;
+            lock (openFailureCodes)
+                result["principalPublicationOpenInternalCodes"] = openFailureCodes.ToArray();
+        }
         Need(opened.GetProperty("status").GetString() == "PublicationReview"
             && opened.GetProperty("supplierDeliveryState").GetString() == "NotStarted",
             "Opening must retain an internal review, not supplier delivery.");
