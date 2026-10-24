@@ -348,7 +348,7 @@ internal static partial class PrincipalApprovalHttpVerification
             null, HttpStatusCode.Forbidden);
         await send(client, HttpMethod.Get,
             sourcing + "/principal-manual-quote-commands/" + quoteKey, fixture.ConfigMaker,
-            null, HttpStatusCode.Forbidden);
+            null, HttpStatusCode.NotFound);
         using (var offBranch = new HttpRequestMessage(HttpMethod.Get,
             eventPath + "/principal-publication"))
         {
