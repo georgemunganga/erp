@@ -323,7 +323,8 @@ internal static partial class PrincipalApprovalHttpVerification
             && !cancelled.GetProperty("supplierSubmitted").GetBoolean(),
             "Cancelled manual Draft cannot become a supplier bid submission.");
         var quoteRecovered = await send(client, HttpMethod.Get,
-            sourcing + "/principal-manual-quote-commands/" + quoteKey, fixture.Buyer);
+            sourcing + "/principal-manual-quote-commands/" + quoteKey, fixture.Buyer,
+            null, HttpStatusCode.Created);
         Need(quoteRecovered.GetRawText() == quote.GetRawText(),
             "Actor-owned quote receipt recovery changed historical Create bytes.");
 
@@ -347,7 +348,7 @@ internal static partial class PrincipalApprovalHttpVerification
             null, HttpStatusCode.Forbidden);
         await send(client, HttpMethod.Get,
             sourcing + "/principal-manual-quote-commands/" + quoteKey, fixture.ConfigMaker,
-            null, HttpStatusCode.Forbidden);
+            null, HttpStatusCode.NotFound);
         using (var offBranch = new HttpRequestMessage(HttpMethod.Get,
             eventPath + "/principal-publication"))
         {
