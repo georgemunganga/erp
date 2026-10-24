@@ -48,6 +48,13 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             && fk.Properties.Select(x => x.Name).Contains(nameof(PrincipalRfqCommercialOfferSubmissionRecord.SupplierId)));
         Assert.Contains(offer.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(SourcingInvitation)
             && fk.Properties.Select(x => x.Name).Contains(nameof(PrincipalRfqCommercialOfferSubmissionRecord.SupplierId)));
+        var retainedBid = model.FindEntityType(typeof(SupplierBid))!;
+        var nullableExact = retainedBid.GetIndexes().Single(x =>
+            x.GetDatabaseName() == "ux_p32_bid_exact_invitation");
+        Assert.True(nullableExact.IsUnique);
+        Assert.Null(nullableExact.GetFilter());
+        Assert.Contains(nullableExact.Properties, x => x.Name == nameof(SupplierBid.InvitationId)
+            && x.IsNullable);
     }
 
     [Fact]

@@ -596,3 +596,13 @@ Any direct SQL path must preserve the same exact owner and append-only bundle
 invariants; first Down must veto retained P32 evidence and linked shared
 policy/Core histories. The business still must approve reviewers, closer,
 windows and evaluation rules before runtime activation.
+
+The retained `SupplierBid.InvitationId` is nullable for older draft/portal
+rows. P32 leaves it nullable and adds a managed nonpartial unique index over
+tenant, company, bid, event, supplier and nullable invitation. The authored
+P32 migration companion adds the exact nonnull offer-to-bid invitation FK
+against that index; a new offer cannot match a legacy NULL invitation. Before
+enablement, actual PostgreSQL must prove a valid surrogate bid insert, a
+retained NULL legacy bid remaining readable, and same-company wrong
+invitation raw inserts rejected. The EF model or source tests alone do not
+establish this physical result.

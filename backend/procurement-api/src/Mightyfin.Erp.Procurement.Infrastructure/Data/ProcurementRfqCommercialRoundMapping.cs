@@ -84,6 +84,13 @@ public sealed partial class ProcurementDbContext
         model.Entity<SupplierBid>()
             .HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
                 x.SourcingEventId, x.SupplierId }).HasName("ak_p32_bid_event_supplier");
+        // InvitationId is nullable on retained legacy bids. A nonpartial unique
+        // index preserves those rows; the authored P32 FK accepts only a new
+        // offer's nonnull six-column exact match, never a legacy NULL match.
+        model.Entity<SupplierBid>()
+            .HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Id,
+                x.SourcingEventId, x.SupplierId, x.InvitationId })
+            .IsUnique().HasDatabaseName("ux_p32_bid_exact_invitation");
         model.Entity<SourcingInvitation>()
             .HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
                 x.SourcingEventId, x.SupplierId }).HasName("ak_p32_invite_event_supplier");
