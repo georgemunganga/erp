@@ -180,8 +180,12 @@ def verify_captured_invitation(quote_body, contact, bid, version):
         raise Failed("CapturedQuoteSnapshotInvalid") from None
     # PrincipalManualQuotationSnapshot.Build uses default CLR property casing.
     # The version table has no invitation_id column; its immutable snapshot does.
+    frozen = {"Id": "id", "SourcingEventId": "sourcing_event_id", "SupplierId": "supplier_id",
+        "InvitationId": "invitation_id", "Status": "status", "SourceChannel": "source_channel",
+        "CurrencyCode": "currency_code", "SurrogateEnteredBy": "surrogate_entered_by"}
     require(isinstance(snapshot, dict) and snapshot.get("schemaVersion") == 2
-        and snapshot.get("Id") == bid.get("id")
+        and all(isinstance(bid.get(column), str) and bid[column]
+            and snapshot.get(property) == bid[column] for property, column in frozen.items())
         and snapshot.get("InvitationId") == invitation, "CapturedQuoteInvitationChanged")
 
 

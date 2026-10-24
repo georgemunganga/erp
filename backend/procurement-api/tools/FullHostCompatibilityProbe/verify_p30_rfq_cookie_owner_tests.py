@@ -108,14 +108,23 @@ class RfqOwnerFingerprints(unittest.TestCase):
         invitation='11111111-1111-4111-8111-111111111111'
         bid_id='22222222-2222-4222-8222-222222222222'
         other='33333333-3333-4333-8333-333333333333'
-        raw=json.dumps({'schemaVersion':2,'Id':bid_id,'InvitationId':invitation})
+        fields={'schemaVersion':2,'Id':bid_id,'SourcingEventId':other,'SupplierId':invitation,
+            'InvitationId':invitation,'Status':'Draft','SourceChannel':'Manual','CurrencyCode':'ZMW',
+            'SurrogateEnteredBy':bid_id}
+        raw=json.dumps(fields)
         body={'invitationId':invitation};contact={'invitation_id':invitation}
-        bid={'id':bid_id,'invitation_id':invitation}
+        bid={'id':bid_id,'invitation_id':invitation,'sourcing_event_id':other,'supplier_id':invitation,
+            'status':'Draft','source_channel':'Manual','currency_code':'ZMW','surrogate_entered_by':bid_id}
         version={'supplier_bid_id':bid_id,'snapshot_json':raw,'snapshot_sha256':hashlib.sha256(raw.encode()).hexdigest()}
         verify_captured_invitation(body,contact,bid,version)
         for c,b,v in [({'invitation_id':other},bid,version),(contact,{**bid,'invitation_id':None},version),
             (contact,bid,{**version,'supplier_bid_id':other}),(contact,bid,{**version,'snapshot_sha256':'0'*64})]:
             with self.assertRaises(Failed):verify_captured_invitation(body,c,b,v)
+        # Correct self-hash does not authorize a different immutable owner graph.
+        for property in ['SourcingEventId','SupplierId','Status','SourceChannel','CurrencyCode','SurrogateEnteredBy']:
+            tampered=json.dumps({**fields,property:bid_id if property in ['SourcingEventId','SupplierId'] else 'changed'})
+            with self.subTest(property=property),self.assertRaises(Failed):verify_captured_invitation(body,contact,bid,
+                {**version,'snapshot_json':tampered,'snapshot_sha256':hashlib.sha256(tampered.encode()).hexdigest()})
         wrong=json.dumps({'schemaVersion':2,'Id':bid_id,'InvitationId':other})
         with self.assertRaises(Failed):verify_captured_invitation(body,contact,bid,
             {**version,'snapshot_json':wrong,'snapshot_sha256':hashlib.sha256(wrong.encode()).hexdigest()})
