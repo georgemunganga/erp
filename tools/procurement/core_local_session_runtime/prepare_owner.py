@@ -254,21 +254,33 @@ def main():
          'owner-write-receipt-not-readback-proof')
     # Owner SQL reads are independent of the app and assert the exact synthetic graph.
     q="""SELECT jsonb_build_object(
-      'users',(SELECT count(*) FROM hrm.local_users WHERE tenant_id='p30-core-session-01' AND id IN ('%s','%s')
-        AND worker_id IS NULL AND is_active AND NOT is_archived AND NOT must_change_password),
+      'all_user_rows',(SELECT count(*) FROM hrm.local_users WHERE tenant_id='p30-core-session-01'),
+      'all_role_rows',(SELECT count(*) FROM hrm.tenant_role_assignments WHERE tenant_id='p30-core-session-01'),
+      'users',(SELECT count(*) FROM hrm.local_users WHERE tenant_id='p30-core-session-01'
+        AND worker_id IS NULL AND is_active AND NOT is_archived AND NOT must_change_password
+        AND ((id='%s' AND email='%s' AND roles_csv='p30_core_granted_01')
+          OR (id='%s' AND email='%s' AND roles_csv='p30_core_ungranted_01'))
+        AND password_hash LIKE 'pbkdf2-sha256$210000$%%'),
       'assignments',(SELECT count(*) FROM hrm.hr_user_branch_assignments WHERE tenant_id='p30-core-session-01'
         AND user_id IN ('%s','%s') AND location_id='%s' AND NOT is_archived),
+      'distinct_assigned_users',(SELECT count(DISTINCT user_id) FROM hrm.hr_user_branch_assignments
+        WHERE tenant_id='p30-core-session-01' AND user_id IN ('%s','%s') AND location_id='%s' AND NOT is_archived),
       'companies',(SELECT count(*) FROM hrm.legal_entities WHERE tenant_id='p30-core-session-01'
         AND id IN ('%s','%s') AND NOT is_archived),
       'branches',(SELECT count(*) FROM hrm.work_locations WHERE tenant_id='p30-core-session-01'
-        AND id IN ('%s','%s') AND NOT is_archived),
+        AND NOT is_archived AND ((id='%s' AND legal_entity_id='%s')
+          OR (id='%s' AND legal_entity_id='%s'))),
       'granted',(SELECT permissions_csv FROM hrm.tenant_role_assignments WHERE tenant_id='p30-core-session-01'
         AND role_key='p30_core_granted_01' AND active AND NOT is_archived),
       'ungranted',(SELECT permissions_csv FROM hrm.tenant_role_assignments WHERE tenant_id='p30-core-session-01'
         AND role_key='p30_core_ungranted_01' AND active AND NOT is_archived))::text""" % (
-        actors[0]['Id'],actors[1]['Id'],actors[0]['Id'],actors[1]['Id'],IDs[1],IDs[0],IDs[2],IDs[1],IDs[3])
+        actors[0]['Id'],actors[0]['Email'],actors[1]['Id'],actors[1]['Email'],
+        actors[0]['Id'],actors[1]['Id'],IDs[1],actors[0]['Id'],actors[1]['Id'],IDs[1],
+        IDs[0],IDs[2],IDs[1],IDs[0],IDs[3],IDs[2])
     readback=json.loads(sql(TARGET,q))
-    need(readback=={'users':2,'assignments':2,'companies':2,'branches':2,
+    need(readback=={'all_user_rows':2,'all_role_rows':2,
+                    'users':2,'assignments':2,'distinct_assigned_users':2,
+                    'companies':2,'branches':2,
                     'granted':'procurement-access','ungranted':''},
          'independent-synthetic-Core-graph-readback-failed')
     need(json.loads(sql(SOURCE,files['dataSql'].read_bytes()))==json.loads(files['sourceData'].read_text()),
