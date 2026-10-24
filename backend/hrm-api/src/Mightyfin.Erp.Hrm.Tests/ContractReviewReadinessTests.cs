@@ -124,6 +124,7 @@ public sealed class ContractReviewReadinessTests
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         { ["Procurement:ContractReview:Enabled"] = setting }).Build();
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(config);
         ProcurementHostIntegration.AddServices(services, "Host=never-used.invalid;Database=contract-test", config);
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<ProcurementContractReviewOptions>();

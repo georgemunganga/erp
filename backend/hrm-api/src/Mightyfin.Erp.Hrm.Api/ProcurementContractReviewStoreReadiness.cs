@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
@@ -23,6 +24,21 @@ public sealed class ProcurementContractReviewStoreReadiness(ProcurementContractR
         CheckAsync(owner, ContractReviewStorePurpose.PolicyWrite, ct);
     public Task<bool> CanRecordAsync(ProcurementDbContext owner, CancellationToken ct) =>
         CheckAsync(owner, ContractReviewStorePurpose.ReviewWrite, ct);
+
+    // Availability uses the configured execution identity, never policy Record
+    // privileges. Each action still checks its current actor and owned record.
+    public async Task<bool> IsConfiguredAsync(CancellationToken ct)
+    {
+        if (!options.Enabled || !options.ExecutionDatabaseConfigured
+            || services.GetService<ProcurementApprovalExecutionOptions>() is not
+                { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }) return false;
+        try
+        {
+            return await services.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(
+                async (owner, cases, token) => await CanRecordAsync(owner, token), ct);
+        }
+        catch (Exception error) when (error is not OperationCanceledException) { return false; }
+    }
 
     private async Task<bool> CheckAsync(ProcurementDbContext owner, ContractReviewStorePurpose purpose, CancellationToken ct)
     {

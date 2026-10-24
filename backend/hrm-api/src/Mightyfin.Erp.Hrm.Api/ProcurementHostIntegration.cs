@@ -148,6 +148,7 @@ public static class ProcurementHostIntegration
         ProcurementSpendingAuthorityRoutes.MapRoutes(app);
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
+        ProcurementContractReviewRoutes.MapRoutes(app);
         ProcurementRecurringPurchaseRoutes.MapRoutes(app);
         ProcurementManualPaymentRoutes.MapReadRoutes(app);
         ProcurementManualPaymentCommandRoutes.MapRoutes(app);
@@ -236,6 +237,11 @@ public static class ProcurementHostIntegration
                         { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true };
                 var principalOrderDraftRevision = await PrincipalOrderRevisionCapability.ReadyAsync(
                     services, db, pending, principalDirectOrderDrafts, ct);
+                var contractInternalReview = !pending
+                    && services.GetService<ProcurementContractReviewOptions>() is
+                        { Enabled: true, ExecutionDatabaseConfigured: true }
+                    && services.GetService<IProcurementContractReviewSchemaReadiness>() is { } contractReviewReadiness
+                    && await contractReviewReadiness.IsConfiguredAsync(ct);
                 var principalReceivingOptions = services.GetService<ProcurementPrincipalReceivingOptions>();
                 var principalReceiving = !pending && principalReceivingOptions is
                         { Enabled: true, ExecutionDatabaseConfigured: true }
@@ -279,6 +285,7 @@ public static class ProcurementHostIntegration
                         configurationDraft = !pending,
                         contractDraft = !pending,
                         contractDraftRates = !pending,
+                        contractInternalReview,
                         recurringPurchaseDraft = !pending,
                         sourcingDraft = !pending,
                         // Separate future governed holds/releases from existing unlinked draft CRUD.

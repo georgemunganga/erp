@@ -21,6 +21,7 @@ public interface IProcurementContractReviewSchemaReadiness
     // Older compositions cannot accidentally admit policy writes through their
     // broader review-write stub. Owning implementations opt in explicitly.
     Task<bool> CanRecordPolicyAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(false);
+    Task<bool> IsConfiguredAsync(CancellationToken ct) => Task.FromResult(false);
 }
 
 public sealed class UnavailableProcurementContractReviewSchemaReadiness : IProcurementContractReviewSchemaReadiness
