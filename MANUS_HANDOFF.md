@@ -1,10 +1,10 @@
 # Manus ERP collaboration handoff
 
-**Queued isolated-hardware task (24 October):** [MANUS-CORE-DOCUMENT-SCANNER-04](docs/collaboration/manus/MANUS-CORE-DOCUMENT-SCANNER-04.md) verifies the existing Core scanner adapter on separate non-production hardware. It is available for the next allocation after the current Core frontend assignment, or a separately coordinated hardware worker. It does not replace `MANUS-CORE-BUILD-03`, assign held Procurement branches, enable document uploads, or authorize production changes. Read the task’s source pins, boundaries and evidence gates before pickup.
+**Ready independent hardware task (24 October):** [MANUS-CORE-DOCUMENT-SCANNER-04](docs/collaboration/manus/MANUS-CORE-DOCUMENT-SCANNER-04.md) is assigned for Manus pickup on adequate non-production hardware, in a separate branch/checkout from `MANUS-CORE-BUILD-03`. It verifies the existing Core scanner and permits focused protocol fixes supported by real results. It does not replace the frontend assignment, require held Procurement branches, activate uploads or authorize production changes. Claim it in a focused draft PR and its own progress file; the coordinator reviews and releases.
 
 **Accepted source checkpoint (23 October):** ERP PR #48 and UI PR #64 are merged on top of the payment, Core role and principal-approval milestones. Core users without employee links passed the RFQ draft create/read/replay/cancel workflow:65 actual private API requests,11 PostgreSQL constraint cases, a normal local-cookie Playwright create/reload/cancel/reload journey, independent retained-owner verification and both genuine downgrade vetoes. Failed attempts and the reviewed verifier capture compatibility are preserved in [P29 acceptance](docs/procurement/release/P29-ACCEPTANCE-20261023.json). This is source acceptance, not production deployment or whole-module completion. Production remains P24. P30 PO governance, RFQ publication/quotation drafts and receiving are coordinator-owned, still disabled pending combined schema/runtime/browser verification; they are not a new Manus assignment.
 
-**Updated:** 23 October 2026 (UTC)
+**Updated:** 24 October 2026 (UTC)
 **Primary project:** https://github.com/georgemunganga/erp
 **Milestone:** `MANUS-CORE-BUILD-03` — repair the shared ERP frontend TypeScript/build gate; vendor milestone accepted
 **Owner:** Manus / `Greenwebb`; primary agent reviews and releases
