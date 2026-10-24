@@ -19,6 +19,9 @@ internal static class PrincipalApprovalRuntimePrivileges
         var recordPassword=Convert.ToHexString(RandomNumberGenerator.GetBytes(32));var executionPassword=Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         await using var raw=new NpgsqlConnection(owner);await raw.OpenAsync();
         async Task Run(string text) {await using var command=new NpgsqlCommand(text,raw);await command.ExecuteNonQueryAsync();}
+        // Password-bearing fixture DDL must never enter server statement logs,
+        // including error context. These settings affect this owner session only.
+        await Run("SET log_statement='none'; SET log_min_error_statement='panic'");
         // Unique private fixture logins; no membership/ownership/superuser/schema creation.
         foreach(var (role,password) in new[]{(record,recordPassword),(execution,executionPassword)})
         {
