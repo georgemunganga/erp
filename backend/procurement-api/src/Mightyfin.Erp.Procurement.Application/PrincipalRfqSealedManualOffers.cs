@@ -162,7 +162,7 @@ public static class PrincipalRfqSealedManualOffers
             && x.EventId == round.EventId && Hash(x.SnapshotSha256)
             && x.SnapshotSha256 == ProcurementEvidenceEncoding.Digest(x.SnapshotJson)
             && round.ApprovedSupplierIds.Contains(x.SupplierId)
-            && SubmissionPinsMatch(x)
+            && SubmissionPinsMatch(x, round)
             && x.SubmittedAt >= round.OpensAt && x.SubmittedAt < round.ClosesAt)
             && submissions.Select(x => x.BidId).Distinct().Count() == submissions.Count
             && submissions.Select(x => x.SupplierId).Distinct().Count() == submissions.Count,
@@ -177,7 +177,8 @@ public static class PrincipalRfqSealedManualOffers
 
     private static bool Instant(DateTimeOffset value) => value != default
         && value.Offset == TimeSpan.Zero && value.UtcTicks % 10 == 0;
-    private static bool SubmissionPinsMatch(PrincipalRfqManualOfferSubmission offer)
+    private static bool SubmissionPinsMatch(PrincipalRfqManualOfferSubmission offer,
+        PrincipalRfqPublishedRoundProof round)
     {
         try
         {
@@ -192,6 +193,9 @@ public static class PrincipalRfqSealedManualOffers
                 && pin.GetProperty("draftRevision").GetInt32() == offer.DraftRevision
                 && pin.GetProperty("bidVersion").GetInt64() == offer.BidVersion
                 && pin.GetProperty("draftSnapshotSha256").GetString() == offer.DraftSnapshotSha256
+                && pin.GetProperty("preparedPlanId").GetGuid() == round.PreparedPlanId
+                && pin.GetProperty("preparedPlanSha256").GetString() == round.PreparedPlanSha256
+                && pin.GetProperty("currencyCode").GetString() == round.CurrencyCode
                 && pin.GetProperty("originalDocumentVersionId").GetGuid() == offer.OriginalDocumentVersionId
                 && pin.GetProperty("originalDocumentSha256").GetString() == offer.OriginalDocumentSha256
                 && pin.GetProperty("recorderPrincipalId").GetString() == offer.RecorderPrincipalId

@@ -85,4 +85,13 @@ public sealed class PrincipalRfqCommercialRoundPolicyTests
         Assert.Throws<InvalidOperationException>(() =>
             PrincipalRfqCommercialRoundPolicyRules.Parse(overlapping));
     }
+
+    [Fact]
+    public void Reviewer_reused_in_another_stage_cannot_pass_policy_publication()
+    {
+        var invalid = Rules().Replace("\"stages\":[", "\"stages\":[{\"code\":\"Second\",\"mode\":\"One\",\"principalIds\":[\""
+            + Reviewer + "\"]},", StringComparison.Ordinal);
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundPolicyRules.Parse(invalid));
+    }
 }

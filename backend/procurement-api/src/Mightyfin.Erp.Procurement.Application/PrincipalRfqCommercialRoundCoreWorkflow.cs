@@ -256,6 +256,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             && current.PolicyVersionId == policy.Id
             && current.PolicyVersionNumber == policy.PolicyVersionNumber
             && current.MakerSubjectId == prepared.ActorPrincipalId
+            && current.OpenedAt == opening.Case.OpenedAt
             && (current.State == "Approved"
                 ? !string.IsNullOrWhiteSpace(current.CompletionKey)
                     && current.CompletionKey == terminalDecision.IdempotencyKey
@@ -293,30 +294,8 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             && retainedTerminal.DecidedAt == terminalDecision.DecidedAt
             && decisions.Select(x => x.IdempotencyKey).Distinct(StringComparer.Ordinal).Count() == decisions.Count
             && decisions.Select(x => x.AssignmentId).Distinct().Count() == decisions.Count
-            && decisions.All(x => x.CaseId == current.Id && x.TenantId == current.TenantId
-                && x.LegalEntityId == current.LegalEntityId && !string.IsNullOrWhiteSpace(x.IdempotencyKey)
-                && currentStages.SelectMany(s => s.Assignments).Any(a => a.Id == x.AssignmentId
-                    && a.StageId == x.StageId && a.AssigneeSubjectId == x.ActorSubjectId)
-                && x.DecidedAt <= terminalDecision.DecidedAt)
-            && currentStages.SelectMany(s => s.Assignments).All(a =>
-            {
-                var vote = decisions.SingleOrDefault(d => d.AssignmentId == a.Id);
-                return a.State switch
-                {
-                    "Approved" => vote?.Action == "Approve",
-                    "Returned" => vote?.Action == "Return",
-                    "Rejected" => vote?.Action == "Reject",
-                    "Pending" or "Superseded" or "Cancelled" => vote is null,
-                    _ => false,
-                };
-            })
-            && currentStages.Where(s => s.State == "Approved").All(s =>
-                s.Assignments.Count(a => a.State == "Approved"
-                    && decisions.Count(d => d.AssignmentId == a.Id && d.Action == "Approve") == 1)
-                    >= s.RequiredApprovals
-                && s.Assignments.All(a => a.State != "Approved"
-                    || decisions.Count(d => d.AssignmentId == a.Id && d.Action == "Approve") == 1))
-            && currentStages.All(s => s.State != "Approved" || s.Assignments.All(a => a.State != "Pending")),
+            && CoreHistoryMatches(opening.Case.OpenedAt, current, currentStages,
+                decisions, terminalDecision),
             "RfqCommercialRoundReviewGraphChanged");
         var assignment = current.Stages.SelectMany(x => x.Assignments)
             .SingleOrDefault(x => x.Id == terminalDecision.AssignmentId);
@@ -359,5 +338,62 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
     private static void Need(bool okay, string code)
     {
         if (!okay) throw new InvalidOperationException(code);
+    }
+
+    private static bool CoreHistoryMatches(DateTimeOffset openedAt, ApprovalCase current,
+        IReadOnlyList<ApprovalStage> stages, IReadOnlyList<ApprovalDecision> decisions,
+        ApprovalDecision terminal)
+    {
+        if (openedAt == default || decisions.Count == 0
+            || decisions.Count(x => x.Action is "Return" or "Reject") > 1
+            || decisions.Any(x => x.CaseId != current.Id || x.TenantId != current.TenantId
+                || x.LegalEntityId != current.LegalEntityId
+                || string.IsNullOrWhiteSpace(x.IdempotencyKey)
+                || x.DecidedAt < openedAt || x.DecidedAt > terminal.DecidedAt)) return false;
+        var previousVoteAt = openedAt;
+        var terminalStage = stages.SingleOrDefault(x => x.Id == terminal.StageId);
+        if (terminalStage is null) return false;
+        foreach (var stage in stages)
+        {
+            var votes = decisions.Where(x => x.StageId == stage.Id).ToArray();
+            if (votes.Length > 0 && votes.Min(x => x.DecidedAt) < previousVoteAt) return false;
+            if (votes.Length > 0) previousVoteAt = votes.Max(x => x.DecidedAt);
+            if (votes.Any(v => !stage.Assignments.Any(a => a.Id == v.AssignmentId
+                    && a.AssigneeSubjectId == v.ActorSubjectId))) return false;
+            foreach (var assignment in stage.Assignments)
+            {
+                var vote = votes.SingleOrDefault(x => x.AssignmentId == assignment.Id);
+                var valid = assignment.State switch
+                {
+                    "Approved" => vote?.Action == "Approve",
+                    "Returned" => vote?.Action == "Return",
+                    "Rejected" => vote?.Action == "Reject",
+                    "Pending" or "Superseded" => vote is null,
+                    _ => false,
+                };
+                if (!valid) return false;
+            }
+            var approvals = votes.Count(x => x.Action == "Approve");
+            if (stage.State == "Approved")
+            {
+                if (approvals != stage.RequiredApprovals
+                    || stage.Assignments.Any(x => x.State is "Pending" or "Returned" or "Rejected")
+                    || stage.Mode == "All" && stage.Assignments.Any(x => x.State != "Approved")
+                    || stage.Mode == "Any" && stage.Assignments.Count(x => x.State == "Approved") != 1)
+                    return false;
+            }
+            else if (stage.Id == terminalStage.Id && current.State is ("Returned" or "Rejected"))
+            {
+                if (stage.State != current.State || votes.Count(x => x.Id == terminal.Id) != 1
+                    || stage.Assignments.Count(x => x.State == current.State) != 1) return false;
+            }
+            else if (stage.State != "Waiting" || votes.Length != 0) return false;
+            if (stage.Sequence < terminalStage.Sequence && stage.State != "Approved") return false;
+            if (stage.Sequence > terminalStage.Sequence && stage.State != "Waiting") return false;
+        }
+        return current.State == "Approved"
+            ? stages.All(x => x.State == "Approved") && terminalStage == stages[^1]
+            : current.State is ("Returned" or "Rejected")
+                && terminalStage.State == current.State;
     }
 }

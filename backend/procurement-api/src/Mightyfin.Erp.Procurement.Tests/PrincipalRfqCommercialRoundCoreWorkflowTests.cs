@@ -168,4 +168,79 @@ public sealed partial class PrincipalRfqPrepublicationPlanTests
             PrincipalRfqCommercialRoundCoreWorkflow.Finish(wrongCloser, f.Plan,
                 f.Event, f.Policy, opening.Case, [forged], forged, f.Reviewer, at));
     }
+
+    [Fact]
+    public void Real_two_stage_one_then_all_core_votes_obey_exact_quorum_and_order()
+    {
+        var f = CommercialRoundShape();
+        var people = Enumerable.Range(0, 4).Select(_ => f.Reviewer with
+        {
+            PrincipalId = Guid.NewGuid().ToString("D"),
+        }).ToArray();
+        f.Policy.RulesJson = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, identitySchemaVersion = 2,
+            policyKey = PrincipalRfqCommercialRoundPolicyRules.PolicyKey,
+            transactionType = PrincipalRfqCommercialRoundPolicyRules.TransactionType,
+            submissionMode = "ManualSurrogateOnly",
+            requireOriginalOfferDocument = true,
+            requireIndependentReview = true,
+            closingOfficerPrincipalId = f.Closer.PrincipalId,
+            stages = new[]
+            {
+                new { code = "Technical", mode = "One",
+                    principalIds = new[] { people[0].PrincipalId, people[1].PrincipalId } },
+                new { code = "Commercial", mode = "All",
+                    principalIds = new[] { people[2].PrincipalId, people[3].PrincipalId } },
+            },
+        });
+        var opening = PrincipalRfqCommercialRoundCoreWorkflow.Open(f.Plan,
+            f.Head, f.Revision, f.Event, f.Original, f.Policy,
+            people, f.Closer, [Guid.NewGuid()], f.At);
+        var stages = opening.Case.Stages.OrderBy(x => x.Sequence).ToArray();
+        var history = new List<ApprovalDecision>();
+        var at = f.At.AddMinutes(1);
+        foreach (var person in new[] { people[0], people[2], people[3] })
+        {
+            var assignment = stages.SelectMany(x => x.Assignments)
+                .Single(x => x.AssigneeSubjectId == person.PrincipalId);
+            ApprovalEngine.Decide(opening.Case, assignment,
+                new ApprovalActor(person.PrincipalId, f.Plan.TenantId,
+                    f.Plan.LegalEntityId, person.Permissions),
+                "Approve", Guid.NewGuid().ToString("D"), null, history, at);
+        }
+        var terminal = history.Last();
+        var result = PrincipalRfqCommercialRoundCoreWorkflow.Finish(opening,
+            f.Plan, f.Event, f.Policy, opening.Case, history, terminal,
+            people[3], at);
+        Assert.Equal("Approved", result.State);
+        Assert.Equal("Superseded", stages[0].Assignments.Single(x =>
+            x.AssigneeSubjectId == people[1].PrincipalId).State);
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundCoreWorkflow.Finish(opening,
+                f.Plan, f.Event, f.Policy, opening.Case, history.Skip(1).ToArray(),
+                terminal, people[3], at));
+        var firstVote = history[0];
+        firstVote.DecidedAt = at.AddSeconds(1);
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundCoreWorkflow.Finish(opening,
+                f.Plan, f.Event, f.Policy, opening.Case, history, terminal,
+                people[3], at));
+        firstVote.DecidedAt = at;
+        var other = stages[0].Assignments.Single(x =>
+            x.AssigneeSubjectId == people[1].PrincipalId);
+        other.State = "Approved";
+        history.Add(new ApprovalDecision
+        {
+            TenantId = f.Plan.TenantId, LegalEntityId = f.Plan.LegalEntityId,
+            CaseId = opening.Case.Id, StageId = stages[0].Id,
+            AssignmentId = other.Id, ActorSubjectId = other.AssigneeSubjectId,
+            Action = "Approve", IdempotencyKey = Guid.NewGuid().ToString("D"),
+            DecidedAt = at,
+        });
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundCoreWorkflow.Finish(opening,
+                f.Plan, f.Event, f.Policy, opening.Case, history, terminal,
+                people[3], at));
+    }
 }

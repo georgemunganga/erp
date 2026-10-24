@@ -98,6 +98,10 @@ public static class PrincipalRfqCommercialRoundPolicyRules
                     "RfqCommercialRoundDuplicateReviewer");
                 stages.Add(new(code, mode, Array.AsReadOnly(principals)));
             }
+            var allReviewers = stages.SelectMany(x => x.PrincipalIds).ToArray();
+            Need(allReviewers.Length <= 100
+                && allReviewers.Distinct(StringComparer.Ordinal).Count() == allReviewers.Length,
+                "RfqCommercialRoundReviewerSetInvalid");
             Need(!stages.SelectMany(x => x.PrincipalIds).Contains(closer, StringComparer.Ordinal),
                 "RfqCommercialRoundCloserMustBeIndependent");
             return new(1, 2, "ManualSurrogateOnly", true, true, closer,
