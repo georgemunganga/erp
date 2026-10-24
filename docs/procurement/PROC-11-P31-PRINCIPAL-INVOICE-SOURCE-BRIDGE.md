@@ -222,3 +222,22 @@ a new append-only mapping revision with explicit state/revision CAS while the
 old review and its decision history remain retained. Supplier
 credit/reversal history and AP handoff remain separate unfinished workflows;
 the current owner blocks unknown or mixed credit/legacy history.
+For a blocked comparison, replacement mapping requires the retained unit
+outcome Verified to correspond to a genuinely Approved Core case; the old
+assignment, vote, policy and pinned-document proof is rebuilt before creating
+the next version. A Returned or Rejected outcome retains its matching Core
+terminal state. No old review is silently reused for the new mapping.
+
+During additive rollout, manual invoice correction distinguishes exactly zero
+P31 tables from the complete thirteen-table owner. Any partial footprint
+blocks correction. Once a typed invoice state exists, legacy Map, Compare,
+original-unit decision, document retirement and legacy handoff evidence must
+not mutate that invoice; authorized legacy GET and historical receipt recovery
+remain readable. The typed workflow still has no Finance handoff command or AP
+posting authority. Its future validated handoff must use a separate typed
+source contract and the shared Finance boundary after independent proof.
+
+Before P31 migration admission, actual PostgreSQL negative cases must try
+NULL acceptance sequence with a non-NULL acceptance fact in both mapping and
+claim rows, and NULL owner evidence digest while exposure says Verified. Each
+must fail the genuine CHECK, with the prior row footprint unchanged.

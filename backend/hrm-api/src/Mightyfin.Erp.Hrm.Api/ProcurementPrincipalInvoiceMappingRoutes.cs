@@ -19,6 +19,13 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static class ProcurementPrincipalInvoiceMappingRoutes
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    internal static string PreviousCoreState(string terminalReviewState) => terminalReviewState switch
+    {
+        "Verified" => "Approved",
+        "Returned" => "Returned",
+        "Rejected" => "Rejected",
+        _ => throw new InvalidOperationException("PrincipalInvoicePreviousReviewOutcomeUnavailable")
+    };
     public sealed record MapInput(long InvoiceVersion, int ExpectedMappingRevision,
         long ExpectedStateVersion, Guid PurchaseOrderId, Guid PrincipalIssuedVersionId,
         PrincipalInvoiceMappingInputLine[] Lines);
@@ -100,12 +107,37 @@ public static class ProcurementPrincipalInvoiceMappingRoutes
                         && (state.State == "ComparisonBlocked" ? x.State == "Verified"
                             : x.State == "Returned" || x.State == "Rejected"), token)
                     ?? throw new InvalidOperationException("PrincipalInvoicePreviousReviewOutcomeRequired");
-                var coreCase = await cases.Cases.SingleOrDefaultAsync(x => x.Id == oldReview.CoreCaseId
+                var coreCase = await cases.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                    .SingleOrDefaultAsync(x => x.Id == oldReview.CoreCaseId
                     && x.SourceId == oldReview.Id
                     && x.SourceType == PrincipalInvoiceUnitReviewTransitions.SourceType, token);
-                if (coreCase is null || coreCase.State != oldOutcome.State
+                var expectedCoreState = PreviousCoreState(oldOutcome.State);
+                if (coreCase is null || coreCase.State != expectedCoreState
                     || coreCase.CompletedAt != oldOutcome.CompletedAt)
                     throw new InvalidOperationException("PrincipalInvoicePreviousCoreDecisionChanged");
+                if (oldOutcome.State == "Verified")
+                {
+                    var oldMapping = await db.PrincipalInvoiceMappingVersions.SingleAsync(x =>
+                        x.Id == oldMapId && x.SupplierInvoiceId == id, token);
+                    var pins = await db.PrincipalInvoiceUnitReviewAssignments.Where(x =>
+                        x.ReviewSourceId == oldReview.Id).ToArrayAsync(token);
+                    var attestations = await db.PrincipalInvoiceUnitReviewAttestations.Where(x =>
+                        x.ReviewSourceId == oldReview.Id).ToArrayAsync(token);
+                    var decisions = await cases.Decisions.Where(x => x.CaseId == coreCase.Id).ToArrayAsync(token);
+                    var matchingPolicy = await db.PolicyVersions.SingleAsync(x => x.Id == oldReview.MatchingPolicyId, token);
+                    var reviewPolicy = await db.PolicyVersions.SingleAsync(x => x.Id == oldReview.ReviewPolicyId, token);
+                    _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope,
+                        matchingPolicy, token, OperationalPolicyPublicationMode.RetainedHistorical);
+                    _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope,
+                        reviewPolicy, token, OperationalPolicyPublicationMode.RetainedHistorical);
+                    var opening = PrincipalInvoiceUnitReviewTransitions.Verify(oldReview, oldMapping, coreCase, pins);
+                    var hashes = await ProcurementPrincipalInvoiceExposureReader.CurrentDocumentHashes(db,
+                        scope, http.RequestServices, id,
+                        opening.Lines.Select(x => x.DocumentVersionId).Distinct().ToArray(), token);
+                    _ = PrincipalInvoiceUnitReviewTerminal.Verify(oldOutcome, oldReview, oldMapping,
+                        coreCase, pins, attestations, decisions, matchingPolicy, reviewPolicy, hashes,
+                        DateTimeOffset.UtcNow);
+                }
                 if (state.State == "ComparisonBlocked"
                     && !await db.PrincipalInvoiceDiscrepancies.AnyAsync(x =>
                         x.SupplierInvoiceId == id && x.MappingVersionId == oldMapId
