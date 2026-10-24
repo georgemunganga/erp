@@ -19,9 +19,13 @@ internal static class ProcurementPrincipalOrderDraftHistory
             .SingleOrDefaultAsync(x=>x.PurchaseOrderId==order.Id,ct);
         var revisions=await db.PrincipalOrderDraftCommercialRevisions.AsNoTracking()
             .Where(x=>x.PurchaseOrderId==order.Id).OrderBy(x=>x.RevisionNumber).ToArrayAsync(ct);
-        var receipts=await db.PrincipalOrderDraftReceipts.AsNoTracking()
-            .Where(x=>x.PurchaseOrderId==order.Id&&x.Operation=="Edit").ToArrayAsync(ct);
-        PrincipalOrderCommercialStates.VerifyReceipts(order,origin,revisions,receipts);
+        var allReceipts=await db.PrincipalOrderDraftReceipts.AsNoTracking()
+            .Where(x=>x.PurchaseOrderId==order.Id).ToArrayAsync(ct);
+        var creates=allReceipts.Where(x=>x.Operation=="Create").ToArray();
+        PrincipalOrderCommercialStates.VerifyCreateReceipt(order,
+            creates.Length==1?creates[0]:null);
+        PrincipalOrderCommercialStates.VerifyReceipts(order,origin,revisions,
+            allReceipts.Where(x=>x.Operation=="Edit").ToArray());
         if(origin is null)
         {
             if(revisions.Length!=0)throw new InvalidOperationException("PrincipalOrderDraftOriginMissing");

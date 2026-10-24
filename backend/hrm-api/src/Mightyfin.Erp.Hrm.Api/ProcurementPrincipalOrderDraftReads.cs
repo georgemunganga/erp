@@ -135,6 +135,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 .OrderBy(x=>x.LineNumber).ToArrayAsync(token);
             var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking().Where(x=>x.PurchaseOrderId==id).ToArrayAsync(token);
             var effective=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,token);
+            var origin=await db.PrincipalOrderCommercialOrigins.AsNoTracking()
+                .SingleOrDefaultAsync(x=>x.PurchaseOrderId==id,token);
+            var draftRevisions=await db.PrincipalOrderDraftCommercialRevisions.AsNoTracking()
+                .Where(x=>x.PurchaseOrderId==id).OrderBy(x=>x.RevisionNumber).ToArrayAsync(token);
             var ids=bindings.Select(x=>x.AllocationId).ToArray();
             var allocations=await db.PurchaseRequestAllocations.AsNoTracking().Where(x=>ids.Contains(x.Id)).ToArrayAsync(token);
             var release=await db.PrincipalOrderReleaseRequests.AsNoTracking()
@@ -157,6 +161,13 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 order.CurrencyCode,order.BranchRef,order.Status,order.Version,order.CreatedAt,
                 order.ShipToRef,order.BillToRef,order.PaymentTermRef,order.ExpectedDeliveryOn,
                 order.ClosureReason,order.OriginalDirectSourceSha256,
+                draftEditHistory=origin is null?null:new{
+                    originalSnapshotSha256=origin.SnapshotSha256,
+                    originalSnapshotJson=origin.SnapshotJson,
+                    origin.CaptureMode,
+                    revisions=draftRevisions.Select(x=>new{x.Id,x.RevisionNumber,x.Reason,
+                        x.ActorPrincipalId,x.RecordedAt,x.PreviousSnapshotSha256,
+                        x.SnapshotSha256,x.SnapshotJson,x.ResultOrderVersion}).ToArray()},
                 release=release is null?null:new{release.Id,release.OriginalStatus,release.Reason,
                     release.RequestedByPrincipalId,release.RequestedAt,
                     state=confirmation is null?"WaitingForExternalConfirmation":"ExternallyConfirmed"},

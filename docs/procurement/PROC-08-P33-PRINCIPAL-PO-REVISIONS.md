@@ -1,6 +1,6 @@
 # PROC-08/P33 Principal PO Draft Revisions and Issued Amendments
 
-**Status:** Source design for review; no endpoint, migration, permission, or capability is enabled by this document. **Date:** 23 October 2026. **Parent:** [PROC-08](PROC-08-PURCHASE-ORDERS-AND-AMENDMENTS.md).
+**Status:** Stage A source implementation for review, default off; no generated migration, permission grant, readiness registration, or live capability. **Date:** 24 October 2026. **Parent:** [PROC-08](PROC-08-PURCHASE-ORDERS-AND-AMENDMENTS.md).
 
 ## 1. Feature Identification
 
@@ -12,7 +12,9 @@ Let a Core authorized buyer correct a linked PO without losing its original appr
 
 ## 3. Scope and Exclusions
 
-Stage A is an **unfunded Draft** edit. Stage B is an **issued amendment proposal and independent approval**; it cannot become a normal in-place update. Neither stage executes a Finance transfer, dispatches to a supplier, changes Inventory, or treats PR approval as PO approval.
+Stage A edits only an **unfunded Draft**. The revised Draft can then use the existing independent manual funding, PO approval and internal issue path after its original and effective histories are verified. Stage B is an **issued amendment proposal and independent approval**; it cannot become a normal in-place update. Neither stage executes a Finance transfer, dispatches to a supplier, changes Inventory, or treats PR approval as PO approval.
+
+The bounded Stage A fields are description, quantity, unit price, tax, cost centre, project, line delivery date, ship-to, bill-to, payment term and order delivery date. Quantity remains positive and inside approved source conservation. Supplier, currency, source/line identity, line count and UOM cannot change. Each line's unit price, net value and tax remain at or below their prior effective values. This does not authorize an upward commercial commitment or an issued amendment.
 
 ## 4. Parent and Related Features
 
@@ -32,7 +34,7 @@ For Draft edit: status Draft, revision 0, no P30 funding or submission, exact cu
 
 ## 8. Workflow
 
-Draft: read current verified record → propose full draft and reason → lock PRs in stable order and PO → recheck current source/supplier/catalog and old graph → freeze the verified original commercial/source state if this is the first edit → compute exact delta → resize existing allocations atomically → append full proposed revision, receipt, audit and outbox → return current version. Issued: propose numbered delta against immutable issued version → independent financial adjustment and policy approval → freeze a new issued version → separately record manual supplier outcome.
+Draft: read current verified record → propose full draft and reason → lock PRs in stable order and PO → recheck current source/supplier/catalog and old graph → freeze the verified original commercial/source state if this is the first edit → compute exact delta → resize existing allocations atomically → append full proposed revision, receipt, audit and outbox → return current version. The current revised Draft may then be funded against its exact current gross; funding and approval do not reinterpret the immutable original source SHA. Issued: propose numbered delta against immutable issued version → independent financial adjustment and policy approval → freeze a new issued version → separately record manual supplier outcome.
 
 ## 9. Status and State Transitions
 
@@ -44,7 +46,7 @@ Draft edit requires current `procurement-po-edit`, original buyer, company and a
 
 ## 11. Business Rules
 
-`P33-001` original P30 source SHA never changes. `002` revision/receipt history is append only. `003` every source quantity delta preserves the PR aggregate and allocation ledger. `004` increased amount requires current funding and configured PO authority; no implicit tolerance. `005` a material issued change is independently approved and reissued. `006` already accepted/invoiced quantity cannot be reduced below its actual floor. `007` unconfirmed Finance release or adjustment blocks final transition. `008` no existing issued version is overwritten.
+`P33-001` original P30 source SHA never changes. `002` revision/receipt history is append only. `003` every source quantity delta preserves the PR aggregate and allocation ledger. `004` Stage A permits the same supplier, currency, line IDs, source line IDs and units; each line's unit price, net value and tax may stay level or decrease from its prior effective revision. An increase requires a later separately designed authority path; no implicit tolerance. `005` a material issued change is independently approved and reissued. `006` already accepted/invoiced quantity cannot be reduced below its actual floor. `007` unconfirmed Finance release or adjustment blocks final transition. `008` no existing issued version is overwritten.
 
 ## 12. Data Fields and Ownership
 
@@ -92,7 +94,7 @@ Serializable source/PO locking, bounded line count, exact decimal arithmetic, CA
 
 ## 23. Postconditions
 
-After Draft edit, one current draft revision and current allocations reconcile to PR balances; original source pin and earlier revisions are unchanged. After approved amendment, exactly one new issued version becomes current and the prior issued version remains readable.
+After Draft edit, one current draft revision and current allocations reconcile to PR balances; original source pin and earlier revisions are unchanged. Current manual funding, approval and internal issue use the verified effective commercial state while the immutable original pin remains available to receiving. After approved amendment, exactly one new issued version becomes current and the prior issued version remains readable.
 
 ## 24. Failure and Recovery
 
@@ -100,7 +102,7 @@ Any failed source, Finance, Core or database check rolls back all deltas and evi
 
 ## 25. Acceptance Criteria
 
-An authorized workerless buyer can edit an unfunded principal Draft and reload its full revision history. A second client using stale version or key/payload mismatch cannot overwrite it. Increased source quantity cannot exceed approved demand or funding. An issued amendment cannot affect its original issued record before its own independent approval.
+An authorized workerless buyer can edit an unfunded principal Draft and reload its full revision history, then an independent Finance actor can attest the exact revised gross and continue the existing PO approval/issue path. A second client using stale version or key/payload mismatch cannot overwrite it. A Stage A edit cannot raise any line's effective net value or tax. An issued amendment cannot affect its original issued record before its own independent approval.
 
 ## 26. Test Scenarios
 
@@ -120,8 +122,8 @@ Confirm who may propose an issued amendment, which changes are material, source 
 - P30 principal routes expose Create/list/detail/cancel and governed funding/approval/issue/acknowledgment, but no Edit or amendment endpoint. The principal editor currently displays a status message for an `/edit` ID rather than loading editable fields.
 - `PrincipalOrderDraftPins.Digest` currently hashes mutable PO header and line values against the original source binding. Therefore an in-place line/header edit would invalidate every existing principal read, funding, issued and receiving verifier. The original SHA must remain immutable while a separate current revision becomes authoritative. P30 first creation did not retain a full commercial Create body; a first edit can capture the original state only after the present hash and all source/binding/allocation facts verify.
 - `PrincipalOrderCommercialSnapshot.Capture` and the P30 governance/issued/receiving paths currently require commercial revision 1. `PurchaseOrderRevision` has before/after JSON but no principal source pins, command receipt, current Core decision or Finance adjustment binding. It cannot be treated as approved schema-2 amendment proof without a versioned contract.
-- The bounded first source checkpoint is **unfunded Draft revisions only**. Issued amendments need an explicit new issued-version graph, Finance adjustment owner, downstream receiving/invoice compatibility and a separate approval cycle. Neither path is ready to register or enable.
+- The bounded first source checkpoint edits only an **unfunded Draft**; after that edit, the existing independent funding/approval/issue path may use the verified current commercial state. Issued amendments need an explicit new issued-version graph, Finance adjustment owner, downstream receiving/invoice compatibility and a separate approval cycle. Neither path is ready to register or enable.
 
 ## Stage A source checkpoint (held, default off)
 
-The source implementation adds a separate `principal-direct-edit` command with actor-owned `Edit` receipt recovery. An existing P30 Draft acquires its immutable original commercial snapshot only after its original source digest verifies. Each edit retains the binding and Create receipt, then appends an effective revision and one source slice per unchanged line. The buyer may change descriptive fields and reduce or redistribute an unfunded line within its approved source quantity; the revised line base and tax cannot increase above the prior effective values. Funding of a revised Draft is blocked pending Stage B authority. Cancellation releases the effective current reservation. The revision option has no registered readiness provider or enabled default; a genuine migration, finite grants, mapped tests and private owner proof remain required before exposure.
+The source implementation adds a separate `principal-direct-edit` command with actor-owned `Edit` receipt recovery. An existing P30 Draft acquires its immutable original commercial snapshot only after its original source digest, source/allocation graph, and original Create receipt verify. Each edit retains the original binding and Create receipt, then appends an effective revision and one source slice per unchanged line. The buyer may change the bounded Stage A fields and resize an unfunded line within its approved source quantity; its unit price, net value and tax cannot increase above their prior effective values. Funding can attest the verified current revised gross; approval, issue, and receiving verify the immutable origin plus effective revision instead of treating mutable lines as the original source. Cancellation releases the effective current reservation. The revision option has no registered readiness provider or enabled default; a genuine migration, finite grants, mapped tests, UI adapter, and private owner proof remain required before exposure. Issued amendments remain unavailable.

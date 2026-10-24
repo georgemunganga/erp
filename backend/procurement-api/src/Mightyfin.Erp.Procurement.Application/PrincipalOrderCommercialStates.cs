@@ -76,7 +76,8 @@ public static class PrincipalOrderCommercialStates
             || origin.OriginalDirectSourceSha256 != current.OriginalDirectSourceSha256
             || origin.SnapshotSha256 != Digest(origin.SnapshotJson)
             || origin.CaptureMode is not ("Create" or "VerifiedFirstEdit")
-            || origin.CapturedAt == default || !ProcurementPrincipalEvidence.Canonical(origin.CapturedByPrincipalId))
+            || origin.CapturedAt == default || !ProcurementPrincipalEvidence.Canonical(origin.CapturedByPrincipalId)
+            || origin.CapturedByPrincipalId != current.BuyerSubjectId)
             throw new InvalidOperationException("PrincipalOrderOriginalCommercialInvalid");
         var (original, lines) = Restore(origin.SnapshotJson);
         PrincipalOrderDraftPins.Verify(original, lines, bindings);
@@ -86,6 +87,42 @@ public static class PrincipalOrderCommercialStates
             || original.BranchRef != current.BranchRef || original.CurrencyCode != current.CurrencyCode
             || original.Number != current.Number)
             throw new InvalidOperationException("PrincipalOrderOriginalCommercialInvalid");
+    }
+
+    /// <summary>The first controlled edit of a P30 row must start from its
+    /// persisted original Create result, not merely a currently plausible PO.</summary>
+    public static void VerifyCreateReceipt(PurchaseOrder order, PrincipalOrderDraftReceipt? receipt)
+    {
+        if (receipt is null || receipt.SchemaVersion != 2 || receipt.Operation != "Create"
+            || receipt.TenantId != order.TenantId || receipt.LegalEntityId != order.LegalEntityId
+            || receipt.PurchaseOrderId != order.Id || receipt.ActorPrincipalId != order.BuyerSubjectId
+            || receipt.CommandKey == Guid.Empty || receipt.CommandSha256 is not { Length: 64 }
+            || receipt.ResponseStatus != 201 || receipt.ResultVersion != 1
+            || receipt.CompletedAt == default || receipt.ResponseJson is null
+            || receipt.ResponseSha256 != Digest(receipt.ResponseJson))
+            throw new InvalidOperationException("PrincipalOrderOriginalCreateReceiptInvalid");
+        try
+        {
+            using var parsed = JsonDocument.Parse(receipt.ResponseJson);
+            var response = parsed.RootElement;
+            if (response.GetProperty("orderId").GetGuid() != order.Id
+                || response.GetProperty("number").GetString() != order.Number
+                || response.GetProperty("status").GetString() != "Draft"
+                || response.GetProperty("version").GetInt64() != 1
+                || response.GetProperty("originalDirectSourceSha256").GetString()
+                    != order.OriginalDirectSourceSha256
+                || response.GetProperty("commandKey").GetGuid() != receipt.CommandKey
+                || !response.GetProperty("recordedHistoricalResult").GetBoolean()
+                || !response.GetProperty("manualFundingOnly").GetBoolean()
+                || response.GetProperty("financeReservationChanged").GetBoolean()
+                || response.GetProperty("supplierSendPerformed").GetBoolean())
+                throw new InvalidOperationException("PrincipalOrderOriginalCreateReceiptInvalid");
+        }
+        catch (Exception error) when (error is JsonException or KeyNotFoundException
+            or InvalidOperationException or FormatException)
+        {
+            throw new InvalidOperationException("PrincipalOrderOriginalCreateReceiptInvalid", error);
+        }
     }
 
     public static void VerifyRevision(PurchaseOrder current, IReadOnlyCollection<PurchaseOrderLine> lines,
@@ -113,7 +150,8 @@ public static class PrincipalOrderCommercialStates
                 || revision.ResultOrderVersion != checked(revision.RevisionNumber + 1L)
                 || revision.RecordedAt == default
                 || string.IsNullOrWhiteSpace(revision.Reason)
-                || !ProcurementPrincipalEvidence.Canonical(revision.ActorPrincipalId))
+                || !ProcurementPrincipalEvidence.Canonical(revision.ActorPrincipalId)
+                || revision.ActorPrincipalId != current.BuyerSubjectId)
                 throw new InvalidOperationException("PrincipalOrderDraftRevisionInvalid");
             var (versionOrder, versionLines) = Restore(revision.SnapshotJson);
             if (versionOrder.Id != current.Id || versionOrder.Number != current.Number

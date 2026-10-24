@@ -33,6 +33,32 @@ public sealed class PrincipalOrderCommercialStatesTests
             EstimatedValue = 20, CurrencyCode = "ZMW" };
         order.OriginalDirectSourceSha256 = PrincipalOrderDraftPins.Digest(order, [line], [binding]);
         binding.OriginalDirectSourceSha256 = order.OriginalDirectSourceSha256;
+        var createKey = Guid.NewGuid();
+        var createBody = System.Text.Json.JsonSerializer.Serialize(new { orderId = order.Id,
+            order.Number, status = "Draft", version = 1L,
+            originalDirectSourceSha256 = order.OriginalDirectSourceSha256,
+            commandKey = createKey, recordedHistoricalResult = true,
+            manualFundingOnly = true, financeReservationChanged = false,
+            supplierSendPerformed = false },
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var createReceipt = new PrincipalOrderDraftReceipt { TenantId = order.TenantId,
+            LegalEntityId = order.LegalEntityId, PurchaseOrderId = order.Id,
+            Operation = "Create", CommandKey = createKey, ActorPrincipalId = actor,
+            CommandSha256 = Hash, ResponseJson = createBody,
+            ResponseSha256 = PrincipalOrderCommercialStates.Digest(createBody),
+            ResponseStatus = 201, ResultVersion = 1, CompletedAt = DateTimeOffset.UtcNow };
+        PrincipalOrderCommercialStates.VerifyCreateReceipt(order, createReceipt);
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalOrderCommercialStates.VerifyCreateReceipt(order, null));
+        var wrongBuyerOrigin = new PrincipalOrderCommercialOrigin {
+            TenantId = order.TenantId, LegalEntityId = order.LegalEntityId,
+            PurchaseOrderId = order.Id, OriginalDirectSourceSha256 = order.OriginalDirectSourceSha256,
+            SnapshotJson = PrincipalOrderCommercialStates.Capture(order, [line]),
+            SnapshotSha256 = PrincipalOrderCommercialStates.Digest(PrincipalOrderCommercialStates.Capture(order, [line])),
+            CapturedByPrincipalId = Guid.NewGuid().ToString("D"),
+            CapturedAt = DateTimeOffset.UtcNow, CaptureMode = "VerifiedFirstEdit" };
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalOrderCommercialStates.VerifyOrigin(wrongBuyerOrigin, order, [binding]));
         var original = PrincipalOrderCommercialStates.Capture(order, [line]);
         var origin = new PrincipalOrderCommercialOrigin { TenantId = order.TenantId,
             LegalEntityId = order.LegalEntityId, PurchaseOrderId = order.Id,
@@ -79,6 +105,29 @@ public sealed class PrincipalOrderCommercialStatesTests
             ResponseStatus = 200, ResultVersion = revision.ResultOrderVersion,
             CompletedAt = revision.RecordedAt.AddSeconds(1) };
         PrincipalOrderCommercialStates.VerifyReceipts(order, origin, [revision], [receipt]);
+        // Funding retains the Draft PO version and attests the revised current
+        // commercial facts; Submit/Issue advance state and version while both
+        // original and effective revision evidence remain verifiable.
+        var supplier = new Supplier { Id = order.SupplierId, TenantId = order.TenantId,
+            LegalEntityId = order.LegalEntityId, LegalName = "Supplier Legal",
+            DisplayName = "Supplier", CountryCode = "ZM" };
+        var fundedCommercial = PrincipalOrderCommercialSnapshot.Capture(order, [line], supplier, 1);
+        Assert.True(PrincipalOrderCommercialSnapshot.RetainedMatches(order, [line], fundedCommercial, 1));
+        order.Status = "PendingApproval";
+        order.Version = 3;
+        PrincipalOrderCommercialStates.VerifyRevision(order, [line], origin,
+            [revision], [slice], [binding], [allocation]);
+        PrincipalOrderCommercialStates.VerifyReceipts(order, origin, [revision], [receipt]);
+        order.Status = "Issued";
+        order.CurrentRevision = 1;
+        order.Version = 5;
+        PrincipalOrderCommercialStates.VerifyRevision(order, [line], origin,
+            [revision], [slice], [binding], [allocation]);
+        PrincipalOrderCommercialStates.VerifyReceipts(order, origin, [revision], [receipt]);
+        Assert.True(PrincipalOrderCommercialSnapshot.RetainedMatches(order, [line], fundedCommercial, 1));
+        order.Status = "Draft";
+        order.CurrentRevision = 0;
+        order.Version = 2;
         Assert.Throws<InvalidOperationException>(() => PrincipalOrderCommercialStates.VerifyReceipts(
             order, origin, [revision], []));
         Assert.Throws<InvalidOperationException>(() => PrincipalOrderCommercialStates.VerifyReceipts(
@@ -107,6 +156,7 @@ public sealed class PrincipalOrderCommercialStatesTests
             order, origin, [revision], [changedResponse]));
         Assert.Equal(2m, binding.Quantity);
         Assert.Equal(1m, allocation.Quantity);
+        PrincipalOrderCommercialStates.VerifyCreateReceipt(order, createReceipt);
         line.UnitPrice = 11;
         Assert.Throws<InvalidOperationException>(() => PrincipalOrderCommercialStates.VerifyRevision(
             order, [line], origin, [revision], [slice], [binding], [allocation]));

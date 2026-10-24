@@ -22,11 +22,15 @@ public sealed partial class ProcurementDbContext
         origin.Property(x=>x.SnapshotJson).HasColumnType("text");
         origin.Property(x=>x.CapturedByPrincipalId).HasMaxLength(36);
         origin.Property(x=>x.CaptureMode).HasMaxLength(20);
-        origin.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId}).IsUnique();
+        origin.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId}).IsUnique()
+            .HasDatabaseName("ux_po_draft_origin_order");
         origin.HasAlternateKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.Id})
             .HasName("ak_po_draft_origin_owner");
-        Link<PrincipalOrderCommercialOrigin,PurchaseOrder>(model,nameof(PrincipalOrderCommercialOrigin.PurchaseOrderId));
-        origin.ToTable(t=>t.HasCheckConstraint("ck_po_draft_origin",$"schema_version=1 AND capture_mode IN ('Create','VerifiedFirstEdit') AND original_direct_source_sha256 ~ '^[0-9a-f]{{64}}$' AND snapshot_sha256 ~ '^[0-9a-f]{{64}}$' AND captured_by_principal_id IS NOT NULL AND captured_by_principal_id ~ {uuid} AND captured_by_principal_id<>'00000000-0000-0000-0000-000000000000' AND captured_at IS NOT NULL"));
+        origin.HasOne<PurchaseOrder>().WithMany()
+            .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId})
+            .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.Id})
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_po_draft_origin_order");
+        origin.ToTable(t=>t.HasCheckConstraint("ck_po_draft_origin",$"schema_version=1 AND capture_mode IS NOT NULL AND capture_mode IN ('Create','VerifiedFirstEdit') AND original_direct_source_sha256 IS NOT NULL AND original_direct_source_sha256 ~ '^[0-9a-f]{{64}}$' AND snapshot_json IS NOT NULL AND snapshot_sha256 IS NOT NULL AND snapshot_sha256 ~ '^[0-9a-f]{{64}}$' AND captured_by_principal_id IS NOT NULL AND captured_by_principal_id ~ {uuid} AND captured_by_principal_id<>'00000000-0000-0000-0000-000000000000' AND captured_at IS NOT NULL"));
 
         var revision=model.Entity<PrincipalOrderDraftCommercialRevision>();
         revision.Property(x=>x.OriginalDirectSourceSha256).HasMaxLength(64);
@@ -36,11 +40,16 @@ public sealed partial class ProcurementDbContext
         revision.Property(x=>x.SnapshotJson).HasColumnType("text");
         revision.Property(x=>x.ActorPrincipalId).HasMaxLength(36);
         revision.Property(x=>x.Reason).HasMaxLength(1000);
-        revision.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.RevisionNumber}).IsUnique();
-        revision.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CommandKey}).IsUnique();
+        revision.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.RevisionNumber}).IsUnique()
+            .HasDatabaseName("ux_po_draft_revision_number");
+        revision.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CommandKey}).IsUnique()
+            .HasDatabaseName("ux_po_draft_revision_command");
         revision.HasAlternateKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.Id})
             .HasName("ak_po_draft_revision_owner");
-        Link<PrincipalOrderDraftCommercialRevision,PurchaseOrder>(model,nameof(PrincipalOrderDraftCommercialRevision.PurchaseOrderId));
+        revision.HasOne<PurchaseOrder>().WithMany()
+            .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId})
+            .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.Id})
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_po_draft_revision_order");
         revision.HasOne<PrincipalOrderCommercialOrigin>().WithMany()
             .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.OriginId})
             .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.Id})
@@ -49,7 +58,7 @@ public sealed partial class ProcurementDbContext
             .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.PreviousRevisionId})
             .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.Id})
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_po_draft_revision_previous_owner");
-        revision.ToTable(t=>t.HasCheckConstraint("ck_po_draft_revision",$"schema_version=1 AND revision_number>0 AND result_order_version=revision_number+1 AND length(reason)>0 AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND command_sha256 ~ '^[0-9a-f]{{64}}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{{64}}$' AND snapshot_sha256 ~ '^[0-9a-f]{{64}}$' AND ((revision_number=1 AND previous_revision_id IS NULL AND previous_snapshot_sha256 IS NULL) OR (revision_number>1 AND previous_revision_id IS NOT NULL AND previous_snapshot_sha256 ~ '^[0-9a-f]{{64}}$')) AND actor_principal_id IS NOT NULL AND actor_principal_id ~ {uuid} AND actor_principal_id<>'00000000-0000-0000-0000-000000000000' AND recorded_at IS NOT NULL"));
+        revision.ToTable(t=>t.HasCheckConstraint("ck_po_draft_revision",$"schema_version=1 AND revision_number>0 AND result_order_version=revision_number+1 AND reason IS NOT NULL AND length(reason)>0 AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND command_sha256 IS NOT NULL AND command_sha256 ~ '^[0-9a-f]{{64}}$' AND original_direct_source_sha256 IS NOT NULL AND original_direct_source_sha256 ~ '^[0-9a-f]{{64}}$' AND snapshot_json IS NOT NULL AND snapshot_sha256 IS NOT NULL AND snapshot_sha256 ~ '^[0-9a-f]{{64}}$' AND ((revision_number=1 AND previous_revision_id IS NULL AND previous_snapshot_sha256 IS NULL) OR (revision_number>1 AND previous_revision_id IS NOT NULL AND previous_snapshot_sha256 IS NOT NULL AND previous_snapshot_sha256 ~ '^[0-9a-f]{{64}}$')) AND actor_principal_id IS NOT NULL AND actor_principal_id ~ {uuid} AND actor_principal_id<>'00000000-0000-0000-0000-000000000000' AND recorded_at IS NOT NULL"));
 
         var slice=model.Entity<PrincipalOrderEffectiveSourceSlice>();
         slice.Property(x=>x.Quantity).HasPrecision(18,4);
@@ -57,9 +66,14 @@ public sealed partial class ProcurementDbContext
         slice.Property(x=>x.TaxAmount).HasPrecision(18,4);
         slice.Property(x=>x.EstimatedValue).HasPrecision(38,8);
         slice.Property(x=>x.CurrencyCode).HasMaxLength(3);
-        slice.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.RevisionId,x.SourceBindingId}).IsUnique();
-        slice.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.RevisionId,x.PurchaseOrderLineId}).IsUnique();
-        Link<PrincipalOrderEffectiveSourceSlice,PurchaseOrder>(model,nameof(PrincipalOrderEffectiveSourceSlice.PurchaseOrderId));
+        slice.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.RevisionId,x.SourceBindingId}).IsUnique()
+            .HasDatabaseName("ux_po_draft_slice_binding");
+        slice.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.RevisionId,x.PurchaseOrderLineId}).IsUnique()
+            .HasDatabaseName("ux_po_draft_slice_line");
+        slice.HasOne<PurchaseOrder>().WithMany()
+            .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId})
+            .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.Id})
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_po_draft_slice_order");
         slice.HasOne<PrincipalOrderDraftCommercialRevision>().WithMany()
             .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.RevisionId})
             .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.Id})
@@ -72,8 +86,11 @@ public sealed partial class ProcurementDbContext
             .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.PurchaseOrderLineId})
             .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.Id})
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_po_draft_slice_line_owner");
-        Link<PrincipalOrderEffectiveSourceSlice,PurchaseRequestAllocation>(model,nameof(PrincipalOrderEffectiveSourceSlice.AllocationId));
-        slice.ToTable(t=>t.HasCheckConstraint("ck_po_draft_slice","schema_version=1 AND quantity>0 AND unit_price>=0 AND tax_amount>=0 AND estimated_value=quantity*unit_price AND currency_code ~ '^[A-Z]{3}$'"));
+        slice.HasOne<PurchaseRequestAllocation>().WithMany()
+            .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.AllocationId})
+            .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.Id})
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_po_draft_slice_allocation");
+        slice.ToTable(t=>t.HasCheckConstraint("ck_po_draft_slice","schema_version=1 AND quantity>0 AND unit_price>=0 AND tax_amount>=0 AND estimated_value=quantity*unit_price AND currency_code IS NOT NULL AND currency_code ~ '^[A-Z]{3}$'"));
     }
 
     private void GuardPrincipalOrderRevision()

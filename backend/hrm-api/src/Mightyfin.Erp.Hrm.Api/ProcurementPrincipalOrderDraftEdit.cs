@@ -52,6 +52,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 || await db.PrincipalOrderIssuedVersions.AnyAsync(x => x.PurchaseOrderId == id, token)
                 || await db.PrincipalReceivingSourceStates.AnyAsync(x => x.PurchaseOrderId == id, token))
                 throw new Problem("OrderDraftRevisionRequiresUnfundedDraft", 409);
+            var supplier = await db.Suppliers.Include(x => x.Qualifications)
+                .SingleOrDefaultAsync(x => x.Id == order.SupplierId, token);
+            if (supplier is null || !SupplierEligibility.CanReceiveNewOrders(supplier, DateTimeOffset.UtcNow))
+                throw new Problem("OrderSupplierUnavailable", 409);
             var lines = await db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == id && x.IsActive)
                 .OrderBy(x => x.LineNumber).ToArrayAsync(token);
             var bindings = await db.PrincipalOrderSourceBindings.Where(x => x.PurchaseOrderId == id)
@@ -120,7 +124,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     || requested.UnitCode?.Trim().ToUpperInvariant() != line.UnitCode)
                     throw new Problem("OrderOriginalSourceUnavailable", 409);
                 ProcurementOrderDraftRoutes.ApplyLine(line, requested);
-                if (ExactDecimalArithmetic.Multiply(line.Quantity, line.UnitPrice) > before.EstimatedValue
+                if (line.UnitPrice > before.UnitPrice
+                    || ExactDecimalArithmetic.Multiply(line.Quantity, line.UnitPrice) > before.EstimatedValue
                     || line.TaxAmount > before.TaxAmount)
                     throw new Problem("OrderDraftUpwardCommitmentRequiresReapproval", 409);
                 if (await ProcurementCatalogClassificationBinding.CommercialIssue(db, order.SupplierId,
