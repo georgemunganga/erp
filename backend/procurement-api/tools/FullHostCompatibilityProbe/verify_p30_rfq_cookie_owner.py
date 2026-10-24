@@ -60,7 +60,25 @@ def exact_decimal_text(value):
 
 
 def fingerprint(value):
-    return hashlib.sha256(canonical_json(value).encode()).hexdigest()
+    return hashlib.sha256(rfq_canonical_json(value).encode()).hexdigest()
+
+
+def rfq_canonical_json(value):
+    """The reviewed PO command subset with the .NET default '+' escape.
+
+    PolicyJsonDigest writes string values with System.Text.Json's default
+    encoder, which emits the literal plus sign as ``\\u002B``. Keep this
+    correction local to RFQ evidence; the accepted PO owner is unchanged.
+    """
+    if isinstance(value, str):
+        return canonical_json(value).replace('+', r'\u002B')
+    if isinstance(value, list):
+        return '[' + ','.join(rfq_canonical_json(item) for item in value) + ']'
+    if isinstance(value, dict):
+        require(all(isinstance(key, str) for key in value), "CommandShapeInvalid")
+        return '{' + ','.join(rfq_canonical_json(key) + ':' + rfq_canonical_json(value[key])
+            for key in sorted(value)) + '}'
+    return canonical_json(value)
 
 
 CONTACT_PRODUCER_VECTOR = {"schemaVersion":2,"operation":"RecordManualContact",

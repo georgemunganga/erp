@@ -2,9 +2,9 @@
 import decimal
 import hashlib
 import unittest
-from verify_p30_po_cookie_owner import Failed
+from verify_p30_po_cookie_owner import Failed, canonical_json
 from verify_p30_rfq_cookie_owner import (CONTACT_PRODUCER_VECTOR, captured_body,
-    contact_utc_offset, exact_decimal_text, fingerprint)
+    contact_utc_offset, exact_decimal_text, fingerprint, rfq_canonical_json)
 
 
 class RfqOwnerFingerprints(unittest.TestCase):
@@ -36,7 +36,14 @@ class RfqOwnerFingerprints(unittest.TestCase):
 
     def test_contact_datetimeoffset_canonicalization_is_bounded(self):
         self.assertEqual(contact_utc_offset('2026-10-23T12:00:00.000Z'), '2026-10-23T12:00:00+00:00')
-        self.assertEqual(len(fingerprint(CONTACT_PRODUCER_VECTOR)), 64)
+        expected = (b'{"channel":"EmailOutsideSystem","eventId":"11111111-1111-4111-8111-111111111111",'
+            b'"invitationId":"22222222-2222-4222-8222-222222222222",'
+            b'"operation":"RecordManualContact","reference":"outside-ref",'
+            b'"reportedContactAt":"2026-10-23T12:00:00\\u002B00:00","schemaVersion":2e0}')
+        self.assertEqual(rfq_canonical_json(CONTACT_PRODUCER_VECTOR).encode(), expected)
+        self.assertEqual(fingerprint(CONTACT_PRODUCER_VECTOR), hashlib.sha256(expected).hexdigest())
+        self.assertNotEqual(fingerprint(CONTACT_PRODUCER_VECTOR),
+            hashlib.sha256(canonical_json(CONTACT_PRODUCER_VECTOR).encode()).hexdigest())
         with self.assertRaises(Failed): contact_utc_offset('2026-10-23T12:00:00')
         with self.assertRaises(Failed): contact_utc_offset('2026-10-23T12:00:00.001Z')
 
