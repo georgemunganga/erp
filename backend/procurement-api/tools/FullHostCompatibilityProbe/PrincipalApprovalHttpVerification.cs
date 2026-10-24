@@ -66,6 +66,7 @@ internal static partial class PrincipalApprovalHttpVerification
         var p30PoCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE");
         var p30ReceivingCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RECEIVING_NORMAL_COOKIE");
         var p30ServiceCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_SERVICE_NORMAL_COOKIE");
+        var p30RfqCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RFQ_NORMAL_COOKIE");
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
         Need(principalPoFlag is null or "1","Private P30 principal PO opt-in must be exactly1 or absent.");
         Need(publicationFlag is null or "1","Private P30 RFQ publication opt-in must be exactly1 or absent.");
@@ -74,6 +75,15 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(publicationFlag is null || database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
             && principalRfqFlag=="1" && principalPoFlag is null && p29CookieFlag is null,
             "P30 RFQ publication cannot combine with PO or cookie profiles.");
+        Need(p30RfqCookieFlag is null or "1","P30 RFQ normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30RfqCookieFlag is null || publicationFlag=="1" && principalRfqFlag=="1"
+            && database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+            && principalPoFlag is null && receivingFlag is null && p29CookieFlag is null
+            && p30PoCookieFlag is null && p30ReceivingCookieFlag is null
+            && matrixFlag is null && schemaFlag is null && accountFlag is null
+            && aliasFlag is null && localCookieFlag is null && downFamily is null
+            && exactBudgetFlag is null && legacyWorkerFlag is null,
+            "P30 RFQ browser requires its separate fresh publication cohort.");
         Need(!database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal) || principalPoFlag=="1",
             "P30 private database is exclusive to its explicit PO profile.");
         Need(principalPoFlag is null || database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
@@ -309,6 +319,8 @@ internal static partial class PrincipalApprovalHttpVerification
                     var p29=await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
                     if(publicationFlag=="1")
                         await VerifyP30RfqPublicationAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,rfqRules!);
+                    if(p30RfqCookieFlag=="1")
+                        await ServeP30RfqNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,result,Advance);
                     if(p29CookieFlag=="1")
                         await ServeP29NormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
                             p29.RequestId,p29.LineId,p29.EventId,result,Advance);
