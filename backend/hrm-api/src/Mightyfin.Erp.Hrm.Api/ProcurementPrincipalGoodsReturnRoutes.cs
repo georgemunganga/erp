@@ -149,10 +149,10 @@ public static partial class ProcurementPrincipalReceivingRoutes
         var row = await db.PrincipalGoodsReturnCommandReceipts.AsNoTracking()
             .SingleOrDefaultAsync(x => x.CommandKey == key, ct);
         if (row is null) return null;
-        if (row.Operation != operation || requestSha is not null && row.RequestSha256 != requestSha)
-            throw new Problem("ReturnCommandKeyConflict", 409);
         if (row.ActorPrincipalId != actor.PrincipalId || !actor.AllowedBranches.Contains(row.BranchId))
             throw new Problem("ReturnCommandNotFound", 404);
+        if (row.Operation != operation || requestSha is not null && row.RequestSha256 != requestSha)
+            throw new Problem("ReturnCommandKeyConflict", 409);
         _ = await ReturnHead(db, cases, scope, actor, row.DraftId, true, ct);
         return new(row.ResponseStatus, row.ResponseJson);
     }
