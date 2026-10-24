@@ -237,8 +237,29 @@ internal static partial class PrincipalApprovalHttpVerification
             expectedCaseVersion = task.GetProperty("caseVersion").GetInt64(),
             expectedAssignmentVersion = assignment.GetProperty("version").GetInt64(),
             action = "Approve", reason = "Independent internal publication only" };
-        var decided = await send(client, HttpMethod.Post, decisionPath, fixture.ConfigReviewer,
-            decisionBody, HttpStatusCode.OK, decisionKey);
+        // Reuse the same bounded classifier for exactly this one positive Decide
+        // request. Open's captured arrays above are immutable copies in result.
+        JsonElement decided;
+        lock (openFailureCodes)
+        {
+            openFailureCodes.Clear();
+            openFailureSites.Clear();
+        }
+        AppDomain.CurrentDomain.FirstChanceException += onOpenFailure;
+        try
+        {
+            decided = await send(client, HttpMethod.Post, decisionPath, fixture.ConfigReviewer,
+                decisionBody, HttpStatusCode.OK, decisionKey);
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= onOpenFailure;
+            lock (openFailureCodes)
+            {
+                result["principalPublicationDecisionInternalCodes"] = openFailureCodes.ToArray();
+                result["principalPublicationDecisionFailureSites"] = openFailureSites.ToArray();
+            }
+        }
         Need(decided.GetProperty("status").GetString() == "Published"
             && decided.GetProperty("supplierDeliveryState").GetString() == "ReadyForManualDelivery"
             && !decided.GetProperty("financeReservationChanged").GetBoolean(),
