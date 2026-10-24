@@ -84,6 +84,8 @@ public static class ProcurementVendorRoutes
             .SingleOrDefaultAsync(x => x.Id == id, ct);
         if (supplier is null) return Results.NotFound();
         var canManage = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded;
+        var canEdit = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-edit")).Succeeded
+            && (canManage || supplier.CreatedBy == scope.SubjectId) && CanEdit(supplier);
         var canApprove = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded;
         var canCaptureInvoice = (await authorization.AuthorizeAsync(http.User, "procurement-invoice-capture")).Succeeded;
         var canReview = canApprove && supplier.Status is ("Submitted" or "Suspended");
@@ -102,7 +104,7 @@ public static class ProcurementVendorRoutes
             && !IsOriginalProposer(supplier, scope) && supplier.StatusDecidedBy != scope.SubjectId;
         return Results.Ok(canManage || supplier.CreatedBy == scope.SubjectId || canReview
             ? ToDetail(supplier, canManage && !IsOriginalProposer(supplier, scope)
-                && supplier.Status == "Submitted", canDecide, canSuspend, canReactivate) : ToBasicDetail(supplier));
+                && supplier.Status == "Submitted", canDecide, canSuspend, canReactivate, canEdit) : ToBasicDetail(supplier));
     }
 
     private static async Task<IResult> CreateAsync(VendorDraftInput input, ProcurementDbContext db, HrmDbContext core,
@@ -773,7 +775,7 @@ public static class ProcurementVendorRoutes
                 || scope.WorkerId is { } actor && actor != Guid.Empty && proposer == actor);
 
     private static object ToDetail(Supplier x, bool canReturnForInformation, bool canDecide = false,
-        bool canSuspend = false, bool canReactivate = false) => new
+        bool canSuspend = false, bool canReactivate = false, bool canEdit = false) => new
     {
         x.Id, x.Number, x.LegalName, x.DisplayName, x.TradingName, x.CountryCode,
         x.RegistrationNumber, x.CompanyIdType, x.TaxIdentifierRef, x.Website,
@@ -782,7 +784,7 @@ public static class ProcurementVendorRoutes
         x.StatusReason, x.StatusDecidedAt, x.IsOrderable, x.PortalAccessState,
         CanReturnForInformation = canReturnForInformation,
         CanApprove = canDecide, CanReject = canDecide, CanSuspend = canSuspend,
-        CanReactivate = canReactivate,
+        CanReactivate = canReactivate, CanEdit = canEdit,
         x.Version, x.CreatedAt, x.UpdatedAt,
         contacts = x.Contacts.Where(c => c.IsActive).OrderByDescending(c => c.IsPrimary).ThenBy(c => c.Name)
             .Select(c => new { c.Id, c.Name, c.Salutation, c.FirstName, c.LastName,
@@ -806,6 +808,7 @@ public static class ProcurementVendorRoutes
     {
         x.Id, x.Number, x.DisplayName, x.CountryCode, x.SupplierType,
         x.CategoryCode, x.Status, x.IsOrderable, x.Version,
+        CanEdit = false,
     };
 
     private static async Task<bool> CanEditRecord(Supplier supplier, ProcurementRequestScope scope,
