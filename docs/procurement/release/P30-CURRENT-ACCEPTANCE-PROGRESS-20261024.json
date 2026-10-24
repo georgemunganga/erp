@@ -45,6 +45,17 @@
       "productionUiBuildPassed": true,
       "normalCookieBackendProofPending": true,
       "freshProofCohort": "cookie11"
+    },
+    "latestNativeCohort": "cookie11",
+    "latestBrowserFailure": {
+      "cohort": "cookie11",
+      "step": "manual-contact",
+      "reviewerApprovalPassed": true,
+      "bothSessionsRevoked": true,
+      "cause": "Browser test used a contact date before current RFQ approval; server time guard remains enforced.",
+      "nextCohort": "cookie12",
+      "nextAppSource": "bfaba93cb08f27fcefefc6ef6e33f5e96b02aaa8",
+      "nextUiVerification": "RUNNING_TYPECHECK_CONTRACT_AND_CONTACT_BROWSER_CHECKS"
     }
   },
   "serviceReceiving": {
@@ -88,8 +99,19 @@
   },
   "integratedBackendValidation": {
     "sourceCommit": "13c4479bb55dc1c7e8f47947172d3e1568e68897",
-    "status": "RUNNING_CURRENT_SOURCE_FULL_HOST_DOMAIN_AND_MODEL_CHECKS",
-    "privateEvidenceDirectory": "/home/amizo/erp-backups/procurement-p32-schema-validation-20261024_run08",
+    "status": "PASS_INTEGRATED_P32_FULL_HOST_DOMAIN_MODEL_SQL_SOURCE_ONLY",
+    "privateEvidenceDirectory": "/home/amizo/erp-backups/procurement-p32-schema-validation-20261024_run09",
+    "fullHostPassed": 1236,
+    "domainPassed": 1613,
+    "focusedHostPassed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "noPendingModelChanges": true,
+    "upDownSqlExported": true,
+    "databaseAppliedInThisRun": false,
+    "originalMemoryFailureRetained": true,
+    "cacheLineage": "Explicit reuse of retained failed08 partial compilation cache; not a clean fresh build",
+    "resultSha256": "5a51644f2c80030a44fcf6722a45006b5646117a20246fe792ebbbe5c45a168a",
     "productionTouched": false
   }
 }
