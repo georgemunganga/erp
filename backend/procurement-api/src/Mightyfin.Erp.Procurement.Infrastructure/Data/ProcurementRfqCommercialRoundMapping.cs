@@ -127,6 +127,8 @@ public sealed partial class ProcurementDbContext
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.OpeningId, x.SourcingEventId, x.BranchId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourcingEventId, x.BranchId })
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_vote_round_owner");
+        votes.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
+            x.OpeningId, x.SourcingEventId, x.BranchId }).HasName("ak_p32_vote_owner");
         votes.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.OpeningId,
             x.SourcingEventId, x.BranchId, x.CoreCaseId, x.CoreDecisionId,
             x.CoreAssignmentId, x.ActorPrincipalId }).HasName("ak_p32_vote_terminal_owner");
@@ -400,6 +402,8 @@ public sealed partial class ProcurementDbContext
                     || !ReferenceEquals(sharedApprovalCore.Database.GetDbConnection(), Database.GetDbConnection())
                     || !ReferenceEquals(sharedApprovalCore.Database.CurrentTransaction.GetDbTransaction(),
                         Database.CurrentTransaction?.GetDbTransaction())
+                    || !ReferenceEquals(sharedApprovalCore.Database.CurrentTransaction.GetDbTransaction().Connection,
+                        Database.GetDbConnection())
                     || !sharedApprovalInsertedDecisions.Contains(voteRecord.CoreDecisionId))
                     throw new InvalidOperationException("RfqCommercialCoreVoteNotEnlisted");
                 var coreDecision = sharedApprovalCore.Decisions.Local.SingleOrDefault(x => x.Id == voteRecord.CoreDecisionId)
