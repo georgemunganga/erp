@@ -73,7 +73,7 @@ Reuse Core uploader/scanner/version/owner-access and durable use pins. Submissio
 
 ## 17. Exceptions and Edge Cases
 
-Zero/one/many offers, no award, partial/split line award, withdrawn/suspended supplier, late offer, changed manual Draft, conflicting evidence, offboarded evaluator, same-worker account alias, reopened round, quantity consumed by another target, missing sealed original, malformed policy, unknown legacy evaluation and store outage. Preserve completed historical signer facts; currently acting/future assignees must reauthorize. Explicit current policy expiry can block new effects without making historical receipts unreadable. No fabricated zero allocations or acceptance.
+Zero/one/many offers, no award, partial/split line award, withdrawn/suspended supplier, late offer, changed manual Draft, conflicting evidence, offboarded evaluator, same-worker account alias, reopened round, quantity consumed by another target, missing sealed original, malformed policy, unknown legacy evaluation and store outage. Preserve completed historical signer facts; currently acting/future assignees must reauthorize. Policy expiry blocks opening a **new** round. An already opened Core review continues under its frozen published policy after that policy's effective window ends or it is superseded; each new vote still requires the current named Core assignment, action, company, branch and separation of duties. No separate suspension rule has been adopted, so expiry alone is not a retroactive veto. No fabricated zero allocations or acceptance.
 
 ## 18. Integrations, APIs, Events and Sandbox
 
@@ -679,3 +679,14 @@ EF migration, exact Core-document use ownership/grants, finite P32 roles,
 actual PostgreSQL and normal-cookie HTTP cases, scanner availability, and
 sealed-read/evaluation/award stages remain release gates. No dispatch,
 Finance/AP/payment, award or PO effect is claimed.
+
+An assigned-review detail is now authored as a held source route. It requires
+the actor's current named pending Core assignment and branch before returning
+the frozen prepared criteria and requirement count; the response contains no
+submitted supplier offer. Separate purpose-only Core document list/download
+routes enumerate just the retained requirement versions. Current scan state,
+hash, owner, same physical store and Core's download audit are rechecked.
+The download-specific finite event-append grant is distinct from ordinary
+read permission. These paths remain default-off and untested against actual
+Core document storage; no general sourcing read or supplier-offer permission
+is granted by them.

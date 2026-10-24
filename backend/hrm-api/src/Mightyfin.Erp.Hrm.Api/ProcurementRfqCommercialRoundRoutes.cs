@@ -24,6 +24,15 @@ public static partial class ProcurementSourcingExecutionRoutes
         group.MapGet("/commercial-rounds/{id:guid}", CommercialRound).RequireAuthorization();
         group.MapGet("/commercial-round-reviews/assigned", CommercialRoundAssigned)
             .RequireAuthorization(PrincipalRfqCommercialRoundPolicyRules.ApprovalAction);
+        group.MapGet("/commercial-round-reviews/{id:guid}/assignments/{assignmentId:guid}",
+            CommercialRoundReview).RequireAuthorization(
+                PrincipalRfqCommercialRoundPolicyRules.ApprovalAction);
+        group.MapGet("/commercial-round-reviews/{id:guid}/assignments/{assignmentId:guid}/documents",
+            CommercialRoundReviewDocuments).RequireAuthorization(
+                PrincipalRfqCommercialRoundPolicyRules.ApprovalAction);
+        group.MapGet("/commercial-round-reviews/{id:guid}/assignments/{assignmentId:guid}/documents/{versionId:guid}/download",
+            CommercialRoundReviewDocumentDownload).RequireAuthorization(
+                PrincipalRfqCommercialRoundPolicyRules.ApprovalAction);
         group.MapGet("/commercial-round-commands/{operation}/{key:guid}", CommercialRoundRecovery)
             .RequireAuthorization();
     }
