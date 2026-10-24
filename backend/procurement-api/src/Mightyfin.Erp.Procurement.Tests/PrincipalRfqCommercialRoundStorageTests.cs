@@ -55,6 +55,10 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             && fk.Properties.Any(x => x.Name == nameof(PrincipalRfqCommercialRoundDecisionRecord.TerminalVoteId)));
         Assert.Contains(receipt.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalRfqCommercialRoundVoteRecord)
             && fk.Properties.Any(x => x.Name == nameof(PrincipalRfqCommercialCommandReceipt.VoteTargetId)));
+        Assert.Contains(receipt.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalRfqCommercialRoundDecisionRecord)
+            && fk.Properties.Select(x => x.Name).Contains(nameof(PrincipalRfqCommercialCommandReceipt.DecisionTargetId))
+            && fk.Properties.Select(x => x.Name).Contains(nameof(PrincipalRfqCommercialCommandReceipt.VoteTargetId))
+            && fk.PrincipalKey.Properties.Select(x => x.Name).Contains(nameof(PrincipalRfqCommercialRoundDecisionRecord.TerminalVoteId)));
         Assert.Contains(offer.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(SupplierBid)
             && fk.Properties.Select(x => x.Name).Contains(nameof(PrincipalRfqCommercialOfferSubmissionRecord.SupplierId)));
         Assert.Contains(offer.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(SourcingInvitation)

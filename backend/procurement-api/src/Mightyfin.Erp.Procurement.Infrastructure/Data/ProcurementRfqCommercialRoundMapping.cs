@@ -140,6 +140,9 @@ public sealed partial class ProcurementDbContext
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_terminal_vote_owner");
         decisions.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.OpeningId, x.SourcingEventId, x.BranchId })
             .HasName("ak_p32_decision_owner");
+        decisions.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
+            x.TerminalVoteId, x.OpeningId, x.SourcingEventId, x.BranchId })
+            .HasName("ak_p32_decision_vote_owner");
         offers.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
             x.OpeningId, x.SourcingEventId, x.BranchId }).HasName("ak_p32_offer_owner");
         seals.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
@@ -163,9 +166,10 @@ public sealed partial class ProcurementDbContext
                 x.SourcingEventId, x.BranchId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_receipt_open_target");
         receipts.HasOne<PrincipalRfqCommercialRoundDecisionRecord>().WithMany()
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.DecisionTargetId,
-                x.OpeningId, x.SourcingEventId, x.BranchId })
+                x.VoteTargetId, x.OpeningId, x.SourcingEventId, x.BranchId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
-                x.OpeningId, x.SourcingEventId, x.BranchId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_receipt_decision_target");
+                x.TerminalVoteId, x.OpeningId, x.SourcingEventId, x.BranchId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_receipt_decision_vote");
         receipts.HasOne<PrincipalRfqCommercialRoundVoteRecord>().WithMany()
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.VoteTargetId,
                 x.OpeningId, x.SourcingEventId, x.BranchId })
@@ -393,6 +397,9 @@ public sealed partial class ProcurementDbContext
                     || sharedApprovalTransaction is null
                     || !ReferenceEquals(sharedApprovalTransaction, Database.CurrentTransaction?.GetDbTransaction())
                     || !ReferenceEquals(sharedApprovalConnection, Database.GetDbConnection())
+                    || !ReferenceEquals(sharedApprovalCore.Database.GetDbConnection(), Database.GetDbConnection())
+                    || !ReferenceEquals(sharedApprovalCore.Database.CurrentTransaction.GetDbTransaction(),
+                        Database.CurrentTransaction?.GetDbTransaction())
                     || !sharedApprovalInsertedDecisions.Contains(voteRecord.CoreDecisionId))
                     throw new InvalidOperationException("RfqCommercialCoreVoteNotEnlisted");
                 var coreDecision = sharedApprovalCore.Decisions.Local.SingleOrDefault(x => x.Id == voteRecord.CoreDecisionId)

@@ -579,7 +579,9 @@ invitation match event/supplier. Every Decide response targets its own vote;
 only a terminal vote may also point to the one terminal decision. The terminal
 decision points back to that vote by a one-way exact-owner FK, giving the
 insert order Core vote → Procurement vote → terminal effect → receipt without
-an EF ownership cycle. A Pending One/All-stage vote has an actor-owned original
+an EF ownership cycle. The optional receipt-to-terminal FK includes the vote
+ID, so an acknowledgement for vote A cannot name terminal decision B from
+the same round. A Pending One/All-stage vote has an actor-owned original
 response and GET-only recovery but grants no supplier offer authority. Typed
 receipt target FKs and same-save guards join each effect to the original
 command. Reads/replay still require current
