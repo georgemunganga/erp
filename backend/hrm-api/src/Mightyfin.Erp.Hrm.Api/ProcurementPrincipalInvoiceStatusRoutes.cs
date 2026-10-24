@@ -56,6 +56,16 @@ public static class ProcurementPrincipalInvoiceStatusRoutes
                 source.Order, source.Acceptances, source.AcceptanceSourceStates, normalized);
             var review = await db.PrincipalInvoiceUnitReviewSources.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.MappingVersionId == mapping.Id, token);
+            if (review is not null)
+            {
+                var workflow = await cases.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                    .SingleAsync(x => x.Id == review.CoreCaseId && x.SourceId == review.Id
+                        && x.SourceType == PrincipalInvoiceUnitReviewTransitions.SourceType, token);
+                var pins = await db.PrincipalInvoiceUnitReviewAssignments.AsNoTracking()
+                    .Where(x => x.ReviewSourceId == review.Id).ToArrayAsync(token);
+                var opening = PrincipalInvoiceUnitReviewTransitions.Verify(review, mapping, workflow, pins);
+                await ProcurementPrincipalInvoiceDocumentUses.RequireAsync(db, scope, review, opening, token);
+            }
             var outcome = review is null ? null : await db.PrincipalInvoiceUnitReviewOutcomes.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.ReviewSourceId == review.Id, token);
             var exposure = await db.PrincipalInvoiceExposureStates.AsNoTracking()

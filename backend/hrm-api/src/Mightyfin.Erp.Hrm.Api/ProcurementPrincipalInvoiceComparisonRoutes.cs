@@ -97,6 +97,7 @@ public static class ProcurementPrincipalInvoiceComparisonRoutes
             var snapshot = PrincipalInvoiceMappingEvidence.Verify(mapping, invoice, original,
                 source.Order, source.Acceptances, source.AcceptanceSourceStates, mapped);
             var opening = PrincipalInvoiceUnitReviewTransitions.Verify(review, mapping, workflow, pins);
+            await ProcurementPrincipalInvoiceDocumentUses.RequireAsync(db, scope, review, opening, token);
             var hashes = await ProcurementPrincipalInvoiceExposureReader.CurrentDocumentHashes(db, scope,
                 http.RequestServices, id, opening.Lines.Select(x => x.DocumentVersionId).Distinct().ToArray(), token);
             var verifiedUnits = PrincipalInvoiceUnitReviewTerminal.Verify(outcome, review, mapping,

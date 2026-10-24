@@ -118,6 +118,7 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
                     && x.SourceId == source.Id
                     && x.SourceType == PrincipalInvoiceUnitReviewTransitions.SourceType, token);
             var opening = PrincipalInvoiceUnitReviewTransitions.Verify(source, mapping, workflow, pins);
+            await ProcurementPrincipalInvoiceDocumentUses.RequireAsync(db, scope, source, opening, token);
             var originalLines = await db.SupplierInvoiceLines.AsNoTracking()
                 .Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive)
                 .OrderBy(x => x.LineNumber).ToArrayAsync(token);

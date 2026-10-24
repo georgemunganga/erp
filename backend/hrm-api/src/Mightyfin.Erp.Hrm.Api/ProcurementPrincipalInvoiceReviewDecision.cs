@@ -95,6 +95,7 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
             var pins = await db.PrincipalInvoiceUnitReviewAssignments.Where(x => x.ReviewSourceId == id)
                 .ToArrayAsync(token);
             var opening = PrincipalInvoiceUnitReviewTransitions.Verify(source, mapping, workflow, pins);
+            await ProcurementPrincipalInvoiceDocumentUses.RequireAsync(db, scope, source, opening, token);
             var matching = await db.PolicyVersions.SingleAsync(x => x.Id == source.MatchingPolicyId, token);
             var policy = await db.PolicyVersions.SingleAsync(x => x.Id == source.ReviewPolicyId, token);
             await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db, scope,

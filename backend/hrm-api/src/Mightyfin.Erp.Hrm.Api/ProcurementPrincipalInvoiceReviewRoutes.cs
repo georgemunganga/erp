@@ -49,7 +49,8 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
             return Results.Json(new { code = "PrincipalInvoiceReviewInputInvalid" }, statusCode: 422);
         var requestSha = ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(
             new { schemaVersion = 2, operation = "OpenReview", invoiceId = id, input }, Json));
-        return await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope, async (db, cases, core, auth, token) =>
+        return await ProcurementPrincipalInvoiceSourceRoutes.RunWithInvoiceDocuments(http, scope, id,
+            async (db, cases, core, auth, documents, documentFence, token) =>
         {
             if (!await ready.IsReadyAsync(db, token)) throw new InvalidOperationException("PrincipalInvoiceReviewSchemaUnavailable");
             var (invoice, branches) = await ProcurementPrincipalInvoiceSourceRoutes.Current(
@@ -109,6 +110,10 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
             var plan = PrincipalInvoiceUnitReviewTransitions.PrepareOpen(invoice, originals, state, mapping,
                 normalized, source.Order, source.Acceptances, source.AcceptanceSourceStates,
                 matching, review, maker, reviewers, hashes, now);
+            var opening = PrincipalInvoiceUnitReviewTransitions.Verify(plan.Source, mapping,
+                plan.Case, plan.Pins);
+            await ProcurementPrincipalInvoiceDocumentUses.RetainAsync(documents, documentFence,
+                scope, plan.Source, opening, hashes, token);
             cases.AddCase(plan.Case);
             await cases.SaveChangesAsync(token);
             db.AddScoped(plan.Source);

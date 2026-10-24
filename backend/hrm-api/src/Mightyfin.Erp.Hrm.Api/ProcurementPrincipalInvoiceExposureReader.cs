@@ -135,6 +135,7 @@ internal static class ProcurementPrincipalInvoiceExposureReader
             _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope,
                 reviewPolicy, ct, OperationalPolicyPublicationMode.RetainedHistorical);
             var opening = PrincipalInvoiceUnitReviewTransitions.Verify(review, mapping, caseRow, pins);
+            await ProcurementPrincipalInvoiceDocumentUses.RequireAsync(db, scope, review, opening, ct);
             var hashes = await CurrentDocumentHashes(db, scope, services, invoice.Id,
                 opening.Lines.Select(x => x.DocumentVersionId).Distinct().ToArray(), ct);
             _ = PrincipalInvoiceUnitReviewTerminal.Verify(reviewOutcome, review, mapping,

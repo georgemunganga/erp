@@ -59,6 +59,13 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
                 throw new InvalidOperationException("PrincipalInvoiceReviewReceiptChanged");
             var mapping = await db.PrincipalInvoiceMappingVersions.AsNoTracking().SingleAsync(x =>
                 x.Id == source.MappingVersionId && x.SupplierInvoiceId == source.SupplierInvoiceId, token);
+            var workflow = await cases.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                .SingleAsync(x => x.Id == source.CoreCaseId && x.SourceId == source.Id
+                    && x.SourceType == PrincipalInvoiceUnitReviewTransitions.SourceType, token);
+            var assignments = await db.PrincipalInvoiceUnitReviewAssignments.AsNoTracking()
+                .Where(x => x.ReviewSourceId == source.Id).ToArrayAsync(token);
+            var opening = PrincipalInvoiceUnitReviewTransitions.Verify(source, mapping, workflow, assignments);
+            await ProcurementPrincipalInvoiceDocumentUses.RequireAsync(db, scope, source, opening, token);
             if (response.GetProperty("invoiceVersion").GetInt64() != mapping.InvoiceVersion)
                 throw new InvalidOperationException("PrincipalInvoiceReviewReceiptVersionChanged");
             if (row.Operation == "OpenReview")

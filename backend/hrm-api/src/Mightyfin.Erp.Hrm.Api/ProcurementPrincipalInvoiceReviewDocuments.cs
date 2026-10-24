@@ -68,6 +68,7 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
             || source.OriginalInvoiceSha256 != InvoiceMappingEvidence.OriginalDigest(invoice, original))
             throw new InvalidOperationException("PrincipalInvoiceOriginalDocumentChanged");
         var retained = PrincipalInvoiceUnitReviewTransitions.Verify(source, mapping, workflow, pins);
+        await ProcurementPrincipalInvoiceDocumentUses.RequireAsync(db, scope, source, retained, token);
         var expected = new Dictionary<Guid, string>();
         foreach (var line in retained.Lines)
         {

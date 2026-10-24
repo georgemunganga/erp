@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
+using Mightyfin.Erp.Core.Documents.Infrastructure;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -59,6 +60,55 @@ public static class ProcurementPrincipalInvoiceSourceRoutes
         catch (OperationCanceledException) { throw; }
         catch (Exception error) when (error is Problem or InvalidOperationException or UnauthorizedAccessException
             or KeyNotFoundException or ArgumentException or JsonException or DbUpdateException
+            or Mightyfin.Erp.Core.Documents.Application.DocumentProblemException
+            || ProcurementPostgresFailures.IsStoreFailure(error))
+        {
+            var status = error is Problem p ? p.Status : error is UnauthorizedAccessException ? 403
+                : error is KeyNotFoundException ? 404
+                : ProcurementPostgresFailures.IsStoreFailure(error) ? 503 : 409;
+            return Results.Json(new { code = error is Problem ? error.Message : status == 503
+                ? "PrincipalInvoiceSourceUnavailable" : "PrincipalInvoiceSourceNeedsReview",
+                message = "Refresh this invoice and review its current access and source evidence. No comparison or payment was created." },
+                statusCode: status);
+        }
+    }
+
+    // P31 review opening must commit Core document use pins in the same
+    // serializable invoice transaction as its Core case and Procurement source.
+    internal static async Task<IResult> RunWithInvoiceDocuments(HttpContext http,
+        ProcurementRequestScope scope, Guid invoiceId,
+        Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService,
+            DocumentDbContext, Mightyfin.Erp.Core.Documents.Infrastructure.DocumentOwnerLifecycleFence,
+            CancellationToken, Task<object>> command, CancellationToken ct)
+    {
+        http.Response.Headers.CacheControl = "private, no-store";
+        try
+        {
+            var option = http.RequestServices.GetService<ProcurementPrincipalInvoiceSourceOptions>();
+            var matching = http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>();
+            var typed = http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>();
+            var orders = http.RequestServices.GetService<IProcurementPrincipalOrderDraftReadiness>();
+            var receiving = http.RequestServices.GetService<IProcurementPrincipalReceivingReadiness>();
+            if (invoiceId == Guid.Empty || option is not { Enabled: true } || matching is not { Enabled: true }
+                || typed is null || orders is null || receiving is null || !await typed.IsReadyAsync(ct))
+                throw new Problem("PrincipalInvoiceSourceUnavailable", 503);
+            var value = await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>()
+                .ExecuteWithInvoiceDocumentsAsync(invoiceId, async (db, cases, documents, fence, token) =>
+                {
+                    if (!await typed.IsReadyAsync(db, token)
+                        || !await orders.IsReadyAsync(db, false, token)
+                        || !await receiving.IsReadyAsync(db, false, token))
+                        throw new Problem("PrincipalInvoiceSourceUnavailable", 503);
+                    await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
+                    return await command(db, cases, core,
+                        http.RequestServices.GetRequiredService<IAuthorizationService>(), documents, fence, token);
+                }, ct);
+            return Results.Content(JsonSerializer.Serialize(value, Json), "application/json");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception error) when (error is Problem or InvalidOperationException or UnauthorizedAccessException
+            or KeyNotFoundException or ArgumentException or JsonException or DbUpdateException
+            or Mightyfin.Erp.Core.Documents.Application.DocumentProblemException
             || ProcurementPostgresFailures.IsStoreFailure(error))
         {
             var status = error is Problem p ? p.Status : error is UnauthorizedAccessException ? 403
