@@ -195,7 +195,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         Assert.Equal("RfqCommercialReceiptTargetRequired", SaveDecisionWithReceiptOpening(true));
     }
 
-    private static string SaveDecisionWithReceiptOpening(bool wrongOpening)
+    private static string SaveDecisionWithReceiptOpening(bool wrongOpening, bool malformedResponse = false)
     {
         var scope = new Scope();
         using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
@@ -233,7 +233,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             DecidedAt = decidedAt,
         };
         var key = Guid.NewGuid();
-        var response = JsonSerializer.Serialize(new
+        var validResponse = JsonSerializer.Serialize(new
         {
             schemaVersion = 1, operation = "Decide", commandKey = key,
             openingId = receiptRound, eventId, branchId = branch,
@@ -244,6 +244,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
                 assignmentVersion = vote.AssignmentVersion,
                 terminalDecisionId = decision.Id },
         });
+        var response = malformedResponse ? "{}" : validResponse;
         db.Add(new PrincipalRfqCommercialCommandReceipt
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
@@ -414,37 +415,11 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
     [Fact]
     public void Self_hashed_response_without_original_decision_facts_cannot_ack_it()
     {
-        var scope = new Scope();
-        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
-        var opening = new PrincipalRfqCommercialRoundOpeningRecord
-        {
-            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
-            BranchId = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
-            CoreCaseId = Guid.NewGuid(), SnapshotSha256 = new string('b', 64),
-            PolicyRulesSha256 = new string('c', 64),
-        };
-        db.Attach(opening);
-        var decision = new PrincipalRfqCommercialRoundDecisionRecord
-        {
-            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
-            OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
-            BranchId = opening.BranchId, CoreCaseId = opening.CoreCaseId,
-            OpeningSha256 = opening.SnapshotSha256, ActorPrincipalId = scope.SubjectId,
-        };
-        db.Add(decision);
-        db.Add(new PrincipalRfqCommercialCommandReceipt
-        {
-            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
-            OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
-            BranchId = opening.BranchId, Operation = "Decide",
-            DecisionTargetId = decision.Id, TargetId = decision.Id,
-            CommandKey = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
-            RequestSha256 = new string('a', 64), ResponseJson = "{}",
-            ResponseSha256 = ProcurementEvidenceEncoding.Digest("{}"),
-        });
+        // The same complete vote/decision fixture with a pinned response reaches
+        // the later Core-enlistment denial in the matching-opening control above.
+        // A self-hash of a body lacking those response facts cannot acknowledge it.
         Assert.Equal("RfqCommercialReceiptTargetRequired",
-            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+            SaveDecisionWithReceiptOpening(false, malformedResponse: true));
     }
 
     [Fact]
@@ -467,6 +442,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             {
                 TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
                 OpeningId = round, BranchId = branch, OfficerPrincipalId = scope.SubjectId,
+                SubmissionSetSha256 = new string('c', 64),
             };
             if (closeFirst) { db.Add(seal); db.Add(offer); }
             else { db.Add(offer); db.Add(seal); }
