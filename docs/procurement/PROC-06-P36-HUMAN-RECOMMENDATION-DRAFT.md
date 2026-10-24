@@ -1,7 +1,8 @@
 # PROC-06 P36 human recommendation Draft
 
-**Status:** source design and pure validation only. The P32 migration, runtime
-readiness, and private proof are prerequisites. This file does not activate a
+**Status:** source-only typed graph, guarded routes and authored tests, unrun.
+The P32 and P36 migrations, physical readiness and private proof are prerequisites.
+This file does not activate a
 recommendation, award, supplier message, purchase order, or Finance posting.
 
 ## 1–4. Purpose, owner, scope and trigger
@@ -46,8 +47,14 @@ snapshot or published migration is permitted.
 ## 13–24. Presentation, audit, integration and recovery
 
 The existing RFQ five-tab detail and opened-offer purpose reader remain the
-presentation basis. The API is a new purpose route under `commercial-rounds`
-for Create, Revise, own list/detail/history and original UUID-key GET recovery.
+presentation basis. The held API uses `POST /commercial-rounds/{roundId}/recommendation-drafts`
+for Create and full-replacement Revise. Create supplies `draftId:null`,
+`expectedRevision:0`, `expectedSnapshotSha256:null` and proposed `lines`;
+Revise supplies the own draft ID and exact previous revision and SHA. An
+empty line array removes proposals in a new revision without erasing history.
+Actor-owned list/detail/history and original UUID-key GET recovery are under
+the same round. Both the explicit Draft action and current opened-offer read
+action are required. The physical four-family readiness remains unavailable.
 The response is an actor-owned acknowledgement without competitor bodies.
 Writes use the existing serializable Procurement/Core transaction, scoped
 current actor, CAS, exact request fingerprint, same-save audit and a metadata-
@@ -63,6 +70,8 @@ currency, stale CAS, wrong actor/branch, same-key changed body, no allocation
 effects and retained history. Runtime acceptance later needs genuine additive
 migration Up/Down/Up, physical finite-role readiness, normal Core accounts,
 current alias revocation, actual opened-source and receipt proof, GET recovery
-after lost response, and owner reload. Submit, recommendation publication,
+after lost response, and owner reload. Genuine P36 DDL must add the four typed
+families, captured exact owner keys, 0/4 installation fence, finite role grants
+and a first retained-row Down veto. Submit, recommendation publication,
 ranking, mandatory-fail interpretation, tie breaking, award approval and PO
 conversion require separate adopted business policy and owner contracts.

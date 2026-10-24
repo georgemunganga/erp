@@ -10,6 +10,7 @@ namespace Mightyfin.Erp.Procurement.Application;
 public static class PrincipalRfqRecommendationDraft
 {
     public const string Action = "procurement-sourcing-recommend-draft";
+    public const string EventType = "sourcing.recommendation_draft_recorded.v1";
     public sealed record SourceLine(Guid SourcingLineId,string AuthorizedQuantityExact);
     public sealed record OfferLine(Guid OfferId,string OfferSha256,Guid SupplierId,
         Guid SourcingLineId,string OfferedQuantityExact,string CurrencyCode);
@@ -28,6 +29,9 @@ public static class PrincipalRfqRecommendationDraft
         Need(selections.Count <= 500 && opened.Count <= 500 && sources.Count is >0 and <=500
             && currency is {Length:3} && currency.All(x=>x is >= 'A' and <= 'Z'),
             "RfqRecommendationDraftSizeOrCurrencyInvalid");
+        Need(opened.Select(x=>(x.OfferId,x.SourcingLineId)).Distinct().Count()==opened.Count
+            && sources.Select(x=>x.SourcingLineId).Distinct().Count()==sources.Count,
+            "RfqRecommendationSourceDuplicate");
         var offers=opened.ToDictionary(x=>(x.OfferId,x.SourcingLineId));
         var authorized=sources.ToDictionary(x=>x.SourcingLineId,
             x=>Units(x.AuthorizedQuantityExact,4,14));
@@ -66,6 +70,7 @@ public static class PrincipalRfqRecommendationDraft
             unsealingId=head.UnsealingId,sealId=head.SealId,eventId=head.SourcingEventId,
             branchId=head.BranchId,approvedRoundSha256=head.ApprovedRoundSha256,
             openingSha256=head.OpeningSha256,offerSetSha256=head.OfferSetSha256,
+            preparedPlanId=head.PreparedPlanId,
             evaluationPlanRevisionId=head.EvaluationPlanRevisionId,
             evaluationDefinitionSha256=head.EvaluationDefinitionSha256,
             makerPrincipalId=head.MakerPrincipalId,revisionId=revision.Id,
@@ -74,6 +79,23 @@ public static class PrincipalRfqRecommendationDraft
             actorPrincipalId=revision.ActorPrincipalId,recordedAt=revision.RecordedAt,
             lines=lines.Select(x=>new{x.OfferId,x.OfferSha256,x.SupplierId,
                 x.SourcingLineId,x.QuantityExact,x.ProposedValueExact,x.CurrencyCode,x.Rationale})});
+
+    public static string Response(PrincipalRfqRecommendationDraftHead head,
+        PrincipalRfqRecommendationDraftRevision revision)
+        =>JsonSerializer.Serialize(new {draftId=head.Id,roundId=head.RoundId,
+            revisionId=revision.Id,revision=revision.Revision,state="Draft",
+            snapshotSha256=revision.SnapshotSha256,
+            awardCreatedByThisCommand=false,purchaseOrderCreatedByThisCommand=false});
+
+    public static string AuditPayload(PrincipalRfqRecommendationDraftRevision revision)
+        =>JsonSerializer.Serialize(new {revision.DraftId,revision.Id,revision.Revision,
+            revision.RoundId,revision.SnapshotSha256});
+
+    public static string EventPayload(PrincipalRfqRecommendationDraftRevision revision)
+        =>JsonSerializer.Serialize(new {draftId=revision.DraftId,
+            revisionId=revision.Id,revision=revision.Revision,
+            roundId=revision.RoundId,commandKey=revision.CommandKey,
+            awardCreatedByThisCommand=false,purchaseOrderCreatedByThisCommand=false});
 
     public static void VerifyChain(PrincipalRfqRecommendationDraftHead head,
         PrincipalRfqRecommendationDraftRevision current,

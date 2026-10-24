@@ -34,6 +34,14 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization(PrincipalRfqCriterionAssessmentStorage.Action);
         group.MapGet("/commercial-rounds/{id:guid}/assessment-commands/{key:guid}", CommercialCriterionAssessmentRecovery)
             .RequireAuthorization(PrincipalRfqCriterionAssessmentStorage.Action);
+        group.MapPost("/commercial-rounds/{id:guid}/recommendation-drafts", CommercialSaveRecommendation)
+            .RequireAuthorization(PrincipalRfqRecommendationDraft.Action);
+        group.MapGet("/commercial-rounds/{id:guid}/recommendation-drafts/own", CommercialOwnRecommendations)
+            .RequireAuthorization(PrincipalRfqRecommendationDraft.Action);
+        group.MapGet("/commercial-rounds/{id:guid}/recommendation-drafts/{draftId:guid}", CommercialRecommendationDetail)
+            .RequireAuthorization(PrincipalRfqRecommendationDraft.Action);
+        group.MapGet("/commercial-rounds/{id:guid}/recommendation-commands/{key:guid}", CommercialRecommendationRecovery)
+            .RequireAuthorization(PrincipalRfqRecommendationDraft.Action);
         group.MapGet("/commercial-rounds/{id:guid}/offers/{offerId:guid}/criteria/{criterionCode}/assessment-coverage",
             CommercialCriterionAssessmentCoverage)
             .RequireAuthorization(PrincipalRfqOfferOpeningControls.ReadAction);

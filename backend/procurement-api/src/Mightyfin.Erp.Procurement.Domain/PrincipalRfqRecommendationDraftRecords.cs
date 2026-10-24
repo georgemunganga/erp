@@ -13,6 +13,7 @@ public sealed class PrincipalRfqRecommendationDraftHead : ProcurementRecord
     public string ApprovedRoundSha256 { get; init; } = null!;
     public string OpeningSha256 { get; init; } = null!;
     public string OfferSetSha256 { get; init; } = null!;
+    public Guid PreparedPlanId { get; init; }
     public Guid EvaluationPlanRevisionId { get; init; }
     public string EvaluationDefinitionSha256 { get; init; } = null!;
     public string MakerPrincipalId { get; init; } = null!;
@@ -40,8 +41,8 @@ public sealed class PrincipalRfqRecommendationDraftRevision : ProcurementRecord
     public Guid CommandKey { get; init; }
     public string RequestSha256 { get; init; } = null!;
     public DateTimeOffset RecordedAt { get; init; }
-    public string SnapshotJson { get; init; } = null!;
-    public string SnapshotSha256 { get; init; } = null!;
+    public string SnapshotJson { get; set; } = null!;
+    public string SnapshotSha256 { get; set; } = null!;
 }
 
 public sealed class PrincipalRfqRecommendationDraftLine : ProcurementRecord
