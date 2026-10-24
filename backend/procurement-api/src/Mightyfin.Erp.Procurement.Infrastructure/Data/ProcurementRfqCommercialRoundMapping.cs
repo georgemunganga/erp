@@ -292,6 +292,10 @@ public sealed partial class ProcurementDbContext
                     }))
                     throw new InvalidOperationException("RfqCommercialReceiptTargetRequired");
             }
+            if (entry.Entity is not PrincipalRfqCommercialCommandReceipt
+                && addedReceipts.Count(receipt => receipt.TargetId == entry.Entity.Id
+                    && receipt.ActorPrincipalId == actor && receipt.BranchId == branch) != 1)
+                throw new InvalidOperationException("RfqCommercialSameSaveReceiptRequired");
             if (entry.Entity is PrincipalRfqCommercialRoundDecisionRecord decision)
             {
                 var opening = PrincipalRfqCommercialRoundOpenings.Local.SingleOrDefault(x => x.Id == decision.OpeningId)
@@ -302,9 +306,6 @@ public sealed partial class ProcurementDbContext
                     || opening.SnapshotSha256 != decision.OpeningSha256)
                     throw new InvalidOperationException("RfqCommercialDecisionOpeningChanged");
             }
-            else if (addedReceipts.Count(receipt => receipt.TargetId == entry.Entity.Id
-                && receipt.ActorPrincipalId == actor && receipt.BranchId == branch) != 1)
-                throw new InvalidOperationException("RfqCommercialSameSaveReceiptRequired");
             if (entry.Entity is PrincipalRfqCommercialRoundOpeningRecord opening)
             {
                 var prepared = PrincipalRfqPreparedPlans.AsNoTracking()

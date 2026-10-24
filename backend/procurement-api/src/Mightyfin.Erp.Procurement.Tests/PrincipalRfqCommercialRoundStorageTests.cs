@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -130,6 +131,74 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         });
         Assert.Equal("RfqCommercialReceiptTargetRequired",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+    }
+
+    [Fact]
+    public void Decision_without_its_own_same_save_receipt_cannot_persist()
+    {
+        var scope = new Scope();
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+        db.Add(new PrincipalRfqCommercialRoundDecisionRecord
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            OpeningId = Guid.NewGuid(), SourcingEventId = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
+        });
+        Assert.Equal("RfqCommercialSameSaveReceiptRequired",
+            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+    }
+
+    [Fact]
+    public void Decision_with_exact_same_save_receipt_passes_the_append_guard()
+    {
+        var scope = new Scope();
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+        var opening = new PrincipalRfqCommercialRoundOpeningRecord
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            SourcingEventId = Guid.NewGuid(), BranchId = Guid.NewGuid(),
+            CoreCaseId = Guid.NewGuid(), SnapshotSha256 = new string('b', 64),
+            ActorPrincipalId = scope.SubjectId,
+        };
+        // This source-only guard test models an already retained opening. The
+        // physical owner/FK graph is verified by the separate PostgreSQL gate.
+        db.Attach(opening);
+        var decision = new PrincipalRfqCommercialRoundDecisionRecord
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
+            BranchId = opening.BranchId, CoreCaseId = opening.CoreCaseId,
+            CoreDecisionId = Guid.NewGuid(), CoreAssignmentId = Guid.NewGuid(),
+            State = "Approved", ActorPrincipalId = scope.SubjectId,
+            OpeningSha256 = opening.SnapshotSha256,
+            CoreOutcomeSha256 = new string('c', 64),
+        };
+        db.Add(decision);
+        var key = Guid.NewGuid();
+        var response = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, operation = "Decide", commandKey = key,
+            openingId = opening.Id, eventId = opening.SourcingEventId,
+            branchId = opening.BranchId, targetId = decision.Id,
+            responseStatus = 200,
+            result = new { roundId = opening.Id, decisionId = decision.Id,
+                coreDecisionId = decision.CoreDecisionId,
+                outcomeSha256 = decision.CoreOutcomeSha256, state = decision.State },
+        });
+        db.Add(new PrincipalRfqCommercialCommandReceipt
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
+            BranchId = opening.BranchId, Operation = "Decide",
+            DecisionTargetId = decision.Id, TargetId = decision.Id,
+            CommandKey = key, ActorPrincipalId = scope.SubjectId,
+            RequestSha256 = new string('a', 64), ResponseJson = response,
+            ResponseSha256 = ProcurementEvidenceEncoding.Digest(response),
+            ResponseStatus = 200,
+        });
+        Assert.Equal(2, db.SaveChanges());
     }
 
     [Fact]
