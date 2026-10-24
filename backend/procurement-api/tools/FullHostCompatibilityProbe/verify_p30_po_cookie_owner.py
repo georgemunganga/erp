@@ -8,6 +8,7 @@ substitutes for the original owning rows queried here.
 """
 
 import argparse
+from collections import Counter
 import decimal
 import hashlib
 import json
@@ -465,10 +466,39 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
                 and response.get("supplierSendPerformed") is False
                 and response.get("financeReservationChanged") is False,
                 "StoredCommandResponseMismatch")
-    audit = [x for x in final["selectedRows"]["procurement.audit_events"] if x.get("record_id") == po]
+    new_audit_ids = set(after["procurement.audit_events"]) - set(before["procurement.audit_events"])
+    audit = [x for x in final["selectedRows"]["procurement.audit_events"] if x.get("id") in new_audit_ids]
+    business = [x for x in audit if x.get("record_id") == po
+        and x.get("action") in ("PrincipalOrderCreate", "PrincipalOrderCancel")]
+    require(len(business) == 2 and {x.get("action") for x in business}
+        == {"PrincipalOrderCreate", "PrincipalOrderCancel"}, "ExactBusinessAuditsRequired")
+    correlations = {}
+    for operation, key in (("Create", create_key), ("Cancel", cancel_key)):
+        row = next(x for x in business if x["action"] == "PrincipalOrder" + operation)
+        payload = json.loads(row["changed_fields_json"])
+        require(payload.get("schemaVersion") == 2 and payload.get("commandKey") == key
+            and isinstance(row.get("correlation_id"), str) and row["correlation_id"], "AuditCommandBinding")
+        correlations[operation] = row["correlation_id"]
+    require(len(set(correlations.values())) == 2, "DistinctCommandAuditCorrelationsRequired")
+    receipt_ids = {x["operation"]: x["id"] for x in receipts}
+    expected_audits = []
+    for operation, generic in (("Create", "create"), ("Cancel", "update")):
+        correlation = correlations[operation]
+        expected_audits += [("PurchaseOrder", "PrincipalOrder" + operation, po, correlation),
+            ("PurchaseOrder", generic, po, correlation),
+            ("PurchaseRequest", "update", fixture["approvedRequestId"], correlation),
+            ("PurchaseRequestLine", "update", fixture["approvedRequestLineId"], correlation),
+            ("PurchaseRequestAllocation", generic, allocation["id"], correlation),
+            ("PrincipalOrderDraftReceipt", "create", receipt_ids[operation], correlation)]
+        if operation == "Create":
+            expected_audits += [("PurchaseOrderLine", "create", line["id"], correlation),
+                ("PrincipalOrderSourceBinding", "create", pin["id"], correlation)]
+    require(Counter((x.get("record_type"), x.get("action"), x.get("record_id"), x.get("correlation_id"))
+            for x in audit) == Counter(expected_audits)
+        and all(x.get("tenant_id") == TENANT and x.get("legal_entity_id") == fixture["companyId"]
+            for x in audit), "ExactSharedAndBusinessAuditGraph")
     outbox = [x for x in final["selectedRows"]["procurement.outbox_events"] if x.get("aggregate_id") == po]
-    require(len(audit) == len(outbox) == 2
-            and {x.get("action") for x in audit} == {"PrincipalOrderCreate", "PrincipalOrderCancel"}
+    require(len(outbox) == 2
             and {x.get("event_type") for x in outbox} == {
                 "purchase_order.internal_draft_reserved.v2", "purchase_order.internal_draft_cancelled.v2"}
             and all(x.get("actor_subject_id") == fixture["buyerPrincipalId"] for x in audit)
