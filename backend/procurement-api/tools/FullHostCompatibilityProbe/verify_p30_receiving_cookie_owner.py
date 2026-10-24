@@ -263,6 +263,7 @@ def compare(fixture, before, after, browser, fixture_sha):
             == source.get('issued_snapshot_sha256') == issued.get('commercial_snapshot_sha256')
         and commercial.get('SourceEvidenceSha256') == source.get('original_source_sha256')
         and commercial.get('IssuedRevision') == 1
+        and commercial.get('Kind') == 1
         and commercial.get('CategoryCode') == source.get('category_code')
         and commercial.get('PurchaseType') == source.get('purchase_type') == 'GOODS'
         and commercial.get('CurrencyCode') == source.get('currency_code') == 'ZMW'
