@@ -23,11 +23,20 @@ public sealed class RfqCommercialDraftModelTests
         foreach(var type in new[]{typeof(PrincipalRfqCommercialDraftHead),typeof(PrincipalRfqCommercialDraftRevision),typeof(PrincipalRfqCommercialDraftReceipt),typeof(PrincipalRfqPreparedPlan),typeof(PrincipalRfqPreparationReceipt)})
         {
             var entity=model.FindEntityType(type)!;
-            Assert.All(entity.GetKeys(),key=>Assert.All(key.Properties,p=>Assert.Contains(p.Name,new[]{"TenantId","LegalEntityId","Id"})));
+            var ordinaryKeys=new[]{"Id","TenantId,LegalEntityId,Id"};
+            var preparedOwnershipKeys=new[]{
+                "TenantId,LegalEntityId,Id,SourcingEventId,BranchId,SnapshotSha256",
+                "TenantId,LegalEntityId,Id,SourcingEventId,BranchId,DraftRevisionId,EvaluationRulesSha256"};
+            Assert.All(entity.GetKeys(),key=>Assert.Contains(string.Join(",",key.Properties.Select(p=>p.Name)),
+                type==typeof(PrincipalRfqPreparedPlan)?ordinaryKeys.Concat(preparedOwnershipKeys):ordinaryKeys));
+            if(type==typeof(PrincipalRfqPreparedPlan))
+                Assert.All(preparedOwnershipKeys,tuple=>Assert.Contains(entity.GetKeys(),key=>
+                    string.Join(",",key.Properties.Select(p=>p.Name))==tuple));
             Assert.Equal(ValueGenerated.Never,entity.FindProperty("Id")!.ValueGenerated);
             Assert.All(entity.GetKeys(),key=>Assert.True(key.GetName()!.Length<=63));
             Assert.All(entity.GetIndexes(),index=>Assert.True(index.GetDatabaseName()!.Length<=63));
-            Assert.All(entity.GetForeignKeys(),key=>Assert.Equal(new[]{"TenantId","LegalEntityId","Id"},key.PrincipalKey.Properties.Select(x=>x.Name)));
+            Assert.All(entity.GetForeignKeys(),key=>Assert.Equal(new[]{"TenantId","LegalEntityId"},
+                key.PrincipalKey.Properties.Take(2).Select(x=>x.Name)));
         }
         var original=model.FindEntityType(typeof(SourcingDraftEvidence))!;
         Assert.True(original.FindProperty(nameof(SourcingDraftEvidence.BranchRef))!.IsNullable);
@@ -57,7 +66,8 @@ public sealed class RfqCommercialDraftModelTests
         var error=Assert.Throws<InvalidOperationException>(()=>db.SaveChanges());Assert.Equal("RfqCommercialDraftEvidenceAppendOnly",error.Message);
         db.ChangeTracker.Clear();db.Add(new PrincipalRfqCommercialDraftHead{TenantId="foreign",LegalEntityId=scope.LegalEntityId});
         error=Assert.Throws<InvalidOperationException>(()=>db.SaveChanges());Assert.Equal("RfqCommercialDraftScopeMismatch",error.Message);
-        db.ChangeTracker.Clear();var prepared=new PrincipalRfqPreparedPlan{TenantId=scope.TenantId,LegalEntityId=scope.LegalEntityId};
+        db.ChangeTracker.Clear();var prepared=new PrincipalRfqPreparedPlan{TenantId=scope.TenantId,LegalEntityId=scope.LegalEntityId,
+            SnapshotSha256=new string('a',64),EvaluationRulesSha256=new string('b',64)};
         db.Attach(prepared);db.Remove(prepared);
         error=Assert.Throws<InvalidOperationException>(()=>db.SaveChanges());Assert.Equal("RfqPreparationAppendOnly",error.Message);
     }

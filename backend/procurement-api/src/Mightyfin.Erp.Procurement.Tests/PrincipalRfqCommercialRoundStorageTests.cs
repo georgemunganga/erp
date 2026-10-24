@@ -149,9 +149,11 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             ActorPrincipalId = scope.SubjectId, BranchId = Guid.NewGuid(),
+            SnapshotJson = "original", SnapshotSha256 = new string('b', 64),
+            PolicyRulesSha256 = new string('c', 64),
         };
         db.Attach(opening);
-        db.Entry(opening).Property(x => x.SnapshotSha256).CurrentValue = new string('a', 64);
+        db.Entry(opening).Property(x => x.SnapshotJson).CurrentValue = "changed";
         Assert.Equal("RfqCommercialEvidenceAppendOnly",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
     }
@@ -166,6 +168,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             ActorPrincipalId = scope.SubjectId, BranchId = Guid.NewGuid(),
+            SnapshotSha256 = new string('b', 64), PolicyRulesSha256 = new string('c', 64),
         };
         db.Add(opening);
         Assert.Equal("RfqCommercialSameSaveReceiptRequired",
@@ -193,23 +196,42 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         var eventId = Guid.NewGuid();
         var expectedRound = Guid.NewGuid();
         var unrelatedRound = Guid.NewGuid();
+        var coreCase = Guid.NewGuid();
+        var coreDecision = Guid.NewGuid();
+        var coreAssignment = Guid.NewGuid();
+        var decidedAt = DateTimeOffset.UtcNow;
+        var vote = new PrincipalRfqCommercialRoundVoteRecord
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            OpeningId = expectedRound, SourcingEventId = eventId, BranchId = branch,
+            ActorPrincipalId = scope.SubjectId, CaseState = "Approved",
+            CoreCaseId = coreCase, CoreDecisionId = coreDecision,
+            CoreAssignmentId = coreAssignment, DecidedAt = decidedAt,
+        };
         var decision = new PrincipalRfqCommercialRoundDecisionRecord
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             OpeningId = expectedRound, SourcingEventId = eventId, BranchId = branch,
-            ActorPrincipalId = scope.SubjectId,
+            ActorPrincipalId = scope.SubjectId, State = "Approved",
+            TerminalVoteId = vote.Id, CoreCaseId = coreCase,
+            CoreDecisionId = coreDecision, CoreAssignmentId = coreAssignment,
+            DecidedAt = decidedAt,
         };
-        db.Add(decision);
         var response = "{}";
         db.Add(new PrincipalRfqCommercialCommandReceipt
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             OpeningId = unrelatedRound, SourcingEventId = eventId, BranchId = branch,
-            Operation = "Decide", DecisionTargetId = decision.Id, TargetId = decision.Id,
+            Operation = "Decide", DecisionTargetId = decision.Id, TargetId = vote.Id,
+            VoteTargetId = vote.Id,
             CommandKey = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
             RequestSha256 = new string('a', 64), ResponseJson = response,
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(response),
         });
+        // Check the mismatched receipt first; the terminal vote is otherwise a
+        // matching same-save decision, so its absence cannot mask this denial.
+        db.Add(vote);
+        db.Add(decision);
         Assert.Equal("RfqCommercialReceiptTargetRequired",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
     }
@@ -243,6 +265,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             SourcingEventId = Guid.NewGuid(), BranchId = Guid.NewGuid(),
             CoreCaseId = openingId, ActorPrincipalId = scope.SubjectId,
+            SnapshotSha256 = new string('b', 64), PolicyRulesSha256 = new string('c', 64),
         };
         db.Attach(opening);
         var vote = new PrincipalRfqCommercialRoundVoteRecord
@@ -303,6 +326,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             SupplierBidId = bid.Id, OpeningId = Guid.NewGuid(),
             SourcingEventId = bid.SourcingEventId, BranchId = Guid.NewGuid(),
             RecorderPrincipalId = scope.SubjectId,
+            SnapshotSha256 = new string('b', 64),
         });
         Assert.Equal("RfqCommercialSealedQuoteImmutable",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
@@ -319,6 +343,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             SourcingEventId = Guid.NewGuid(), BranchId = Guid.NewGuid(),
             CoreCaseId = Guid.NewGuid(), SnapshotSha256 = new string('b', 64),
+            PolicyRulesSha256 = new string('c', 64),
             ActorPrincipalId = scope.SubjectId,
         };
         // This source-only guard test models an already retained opening. The
@@ -372,6 +397,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             BranchId = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
             CoreCaseId = Guid.NewGuid(), SnapshotSha256 = new string('b', 64),
+            PolicyRulesSha256 = new string('c', 64),
         };
         db.Attach(opening);
         var decision = new PrincipalRfqCommercialRoundDecisionRecord
@@ -410,6 +436,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             {
                 TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
                 OpeningId = round, BranchId = branch, RecorderPrincipalId = scope.SubjectId,
+                SnapshotSha256 = new string('b', 64),
             };
             var seal = new PrincipalRfqCommercialRoundSealRecord
             {
