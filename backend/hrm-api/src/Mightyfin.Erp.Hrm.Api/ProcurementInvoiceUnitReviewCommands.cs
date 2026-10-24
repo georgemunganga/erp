@@ -12,6 +12,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var invoice = await Invoice(db, scope, id, token, true);
             var actor = await Actor(core, scope, http, auth, invoice.BranchRef, [InvoiceUnitReviewTransitions.RequestPermission], token);
             if (!actor.Permissions.Contains("procurement-invoice-read") || !(await auth.AuthorizeAsync(http.User, null, "procurement-invoice-read")).Succeeded) throw new UnauthorizedAccessException();
+            if (db.HasPrincipalInvoiceWorkflow(id)) throw new ReviewProblem("InvoicePrincipalWorkflowActive", 409);
             var key = Key(http); var request = new InvoiceUnitReviewRequest(1, "Open", key, id, null, null, input.InvoiceVersion, input.MappingRevision, null, null, null, Reason(input.Reason), null);
             if (await Replay(db, scope, request, invoice, actor.WorkerId, token) is { } replay) return replay;
             if (input.InvoiceVersion != invoice.Version || input.MappingRevision != invoice.MappingRevision) throw new ReviewProblem("InvoiceUnitReviewVersionChanged", 409);
@@ -50,6 +51,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         {
             var (source, invoice) = await Source(db, scope, id, true, token);
             var actor = await Actor(core, scope, http, auth, source.BranchRef, [InvoiceRetainedUnitReview.ReviewPermission], token);
+            if (db.HasPrincipalInvoiceWorkflow(invoice.Id)) throw new ReviewProblem("InvoicePrincipalWorkflowActive", 409);
             if (input.Action is not ("Approve" or "Return" or "Reject") || input.Action == "Approve" && input.Attestation != InvoiceUnitReviewCommands.OriginalUnitAttestation)
                 throw new ReviewProblem("InvoiceOriginalUnitAttestationRequired", 422);
             var key = Key(http); var request = new InvoiceUnitReviewRequest(1, "Decision", key, invoice.Id, source.Id, assignmentId,
