@@ -3578,6 +3578,13 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.True(body.GetProperty("reviewConfigurationComplete").GetBoolean());
         Assert.False(body.GetProperty("canPublish").GetBoolean());
         Assert.False(body.GetProperty("isAuthority").GetBoolean());
+        var save = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/configuration/policies", fixture.Owner,
+            new ProcurementPolicyDraftRoutes.PolicyDraft(ProcurementContractReviewPolicyRules.PolicyKey,
+                DateTimeOffset.UtcNow.AddDays(3), null, json), "procurement_manager");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, save.StatusCode);
+        // The typed syntax preview cannot mint a policy while the genuine owner
+        // schema/readiness and finite execution roles are unavailable.
     }
 
     private static ProcurementRequestRoutes.NewRequest Draft(string purpose) => new(

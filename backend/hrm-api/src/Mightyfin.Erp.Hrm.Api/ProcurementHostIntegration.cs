@@ -23,8 +23,15 @@ public static class ProcurementHostIntegration
         services.AddScoped<ProcurementRequestScope>();
         services.AddSingleton<IProcurementSpendingAuthorityIdentitySchemaReadiness, ProcurementSpendingAuthorityIdentitySchemaReadiness>();
         services.AddSingleton<IProcurementOperationalPolicyIdentitySchemaReadiness, ProcurementOperationalPolicyIdentitySchemaReadiness>();
+        // Contract review is source-held until its separate owning schema and
+        // finite execution role are captured; this provider never reports ready.
+        services.AddSingleton<IProcurementContractReviewSchemaReadiness, UnavailableProcurementContractReviewSchemaReadiness>();
         services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness, ProcurementSourcingPolicyIdentitySchemaReadiness>();
         var executionConnection = configuration.GetConnectionString("ProcurementApprovalExecution");
+        var contractReviewOptions = configuration.GetSection("Procurement:ContractReview")
+            .Get<ProcurementContractReviewOptions>() ?? new ProcurementContractReviewOptions();
+        contractReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(contractReviewOptions);
         var approvalOptions = configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
