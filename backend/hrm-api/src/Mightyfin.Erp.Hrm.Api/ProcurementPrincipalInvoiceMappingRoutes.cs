@@ -13,8 +13,8 @@ using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Separate schema-2 invoice mapping command. This route is unregistered
-/// and requires an actual P31 owning-store readiness implementation before use.
+/// <summary>Separate schema-2 invoice mapping command. The route is composed
+/// but remains unavailable until the actual P31 owner capture passes readiness.
 /// It does not approve an invoice, claim capacity or post to Finance.</summary>
 public static class ProcurementPrincipalInvoiceMappingRoutes
 {

@@ -11,8 +11,8 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Schema-2 source inspection only. Deliberately unregistered and
-/// disabled until genuine P30/P31 owner schema/finite-role checks and a separate
+/// <summary>Schema-2 source inspection only. The mapped route stays disabled
+/// until genuine P30/P31 owner schema/finite-role checks and a separate
 /// typed invoice mapping/claim path have passed. No POST and no Finance claims.</summary>
 public static class ProcurementPrincipalInvoiceSourceRoutes
 {

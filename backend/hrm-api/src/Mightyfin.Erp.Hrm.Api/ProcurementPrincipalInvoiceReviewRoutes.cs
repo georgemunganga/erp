@@ -7,8 +7,8 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Held schema-2 Core original-unit review. Deliberately not mapped by
-/// Program or the module host until P31 DDL, documents and finite roles pass.</summary>
+/// <summary>Schema-2 Core original-unit review. The mapped route remains
+/// unavailable until P31 DDL, documents and finite roles pass.</summary>
 public static partial class ProcurementPrincipalInvoiceReviewRoutes
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
