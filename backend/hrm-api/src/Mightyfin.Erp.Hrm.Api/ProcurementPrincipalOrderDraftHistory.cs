@@ -15,10 +15,9 @@ internal static class ProcurementPrincipalOrderDraftHistory
     internal sealed record Effective(decimal Quantity, decimal UnitPrice, decimal TaxAmount, decimal EstimatedValue);
     internal sealed record Verified(IReadOnlyDictionary<Guid, Effective> Effective, bool RevisionSchemaInstalled);
 
-    // The genuine P33 migration exists, but its PostgreSQL catalog fingerprint
-    // remains unavailable until captured. A physical three-table graph is
-    // unavailable. This keeps a partially installed or substituted graph from
-    // being mistaken for a safe empty revision history.
+    // The shared genuine PG17 capture binds the complete three-table catalog.
+    // A partial, substituted or changed graph cannot be mistaken for an empty
+    // revision history, even when new revision commands are disabled.
     internal static string? CapturedMigrationId => ProcurementPrincipalOrderRevisionSchemaCapture.Populated
         ? ProcurementPrincipalOrderRevisionSchemaCapture.MigrationId : null;
     internal static string? CapturedCatalogSha256 => ProcurementPrincipalOrderRevisionSchemaCapture.HistoryCatalogSha256;

@@ -11,7 +11,7 @@ public sealed class PrincipalOrderRevisionCompositionTests
     [InlineData(null, false)]
     [InlineData("false", false)]
     [InlineData("true", true)]
-    public async Task Host_binds_only_explicit_revision_option_but_uncaptured_store_remains_unavailable(
+    public async Task Host_binds_only_explicit_revision_option_without_implicit_execution_configuration(
         string? configured, bool enabled)
     {
         var values = new Dictionary<string, string?>();

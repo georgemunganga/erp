@@ -48,6 +48,26 @@ public sealed class PrincipalOrderRevisionReadinessContractTests
     }
 
     [Fact]
+    public void Genuine_new_profile_preserves_every_unchanged_old_literal_and_requires_parent_keys()
+    {
+        Assert.True(ProcurementPrincipalOrderRevisionSchemaCapture.Populated);
+        var old = ProcurementPrincipalOrderRevisionSchemaCapture.Select(false)!;
+        var current = ProcurementPrincipalOrderRevisionSchemaCapture.Select(true)!;
+        Assert.Equal(ProcurementPrincipalOrderRevisionSchemaCapture.MigrationId, current.MigrationId);
+        Assert.Same(ProcurementPrincipalOrderRevisionSchemaCapture.ParentKeys, current.ParentKeys);
+        Assert.Equal(old.Checks.Count + 3, current.Checks.Count);
+        foreach (var pair in old.Checks)
+        {
+            if (pair.Key == "procurement.principal_order_draft_receipts.ck_po_principal_receipt")
+            {
+                Assert.NotEqual(pair.Value, current.Checks[pair.Key]);
+                Assert.Contains("'Edit'", current.Checks[pair.Key]);
+            }
+            else Assert.Equal(pair.Value, current.Checks[pair.Key]);
+        }
+    }
+
+    [Fact]
     public void Retained_history_reads_do_not_require_append_rights_but_deny_mutation_and_owner_membership()
     {
         var read = ProcurementPrincipalOrderRevisionReadiness.HistoryPrivilegeClauses(false);
