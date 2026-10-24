@@ -548,9 +548,10 @@ outside this decision.
 
 ### Eighth bounded slice — retained commercial evidence owner proposal
 
-**Identification, purpose and scope:** the additive P32 owner proposes five
-append-only record families: round opening, terminal Core decision, manual
-offer submission, round seal and actor-owned command receipt. They preserve
+**Identification, purpose and scope:** the additive P32 owner proposes six
+append-only record families: round opening, every Core vote, the unique terminal
+Core decision, manual offer submission, round seal and actor-owned command
+receipt. They preserve
 commercial evidence for one published RFQ and branch; they do not alter the
 P30 sourcing publication, supplier bid Draft, Finance or award ledgers.
 **Parents, actors and entry:** a genuinely published prepared plan and P32
@@ -574,8 +575,14 @@ closer overlap before configuration can publish.
 **Ownership, fields, security and recovery:** exact tenant/company/event/
 branch keys link every new record; prepared plan SHA and operational policy
 identity fields bind opening to immutable parents, and supplier bid and
-invitation match event/supplier. Typed receipt target FKs and same-save guards
-join each effect to the original command. Reads/replay still require current
+invitation match event/supplier. Every Decide response targets its own vote;
+only a terminal vote may also point to the one terminal decision. The terminal
+decision points back to that vote by a one-way exact-owner FK, giving the
+insert order Core vote → Procurement vote → terminal effect → receipt without
+an EF ownership cycle. A Pending One/All-stage vote has an actor-owned original
+response and GET-only recovery but grants no supplier offer authority. Typed
+receipt target FKs and same-save guards join each effect to the original
+command. Reads/replay still require current
 Core action and branch checks before returning the original response; a
 receipt row alone grants nothing. No price appears in general sourcing lists.
 Opening and offer snapshots are self-hashed and re-bound to outer IDs. Core
@@ -606,3 +613,13 @@ enablement, actual PostgreSQL must prove a valid surrogate bid insert, a
 retained NULL legacy bid remaining readable, and same-company wrong
 invitation raw inserts rejected. The EF model or source tests alone do not
 establish this physical result.
+
+P32's six new owner tables follow the five already modeled commercial Draft
+and preparation families, making eleven P32-owned families in the eventual
+physical capture. Exact zero/six installation compatibility keeps old P30
+manual quote Drafts writable before the new tables exist; a partially applied
+six-table owner fails closed. The multi-stage Decide endpoint remains held
+until the actual same-transaction Core vote, vote evidence, optional terminal
+effect, original receipt and historical One/All replay are exercised against
+the generated migration. A source-only InMemory guard cannot establish the
+Core foreign-key and audit bundle.

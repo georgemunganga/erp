@@ -12,6 +12,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 public sealed partial class ProcurementDbContext
 {
     public DbSet<PrincipalRfqCommercialRoundOpeningRecord> PrincipalRfqCommercialRoundOpenings => Set<PrincipalRfqCommercialRoundOpeningRecord>();
+    public DbSet<PrincipalRfqCommercialRoundVoteRecord> PrincipalRfqCommercialRoundVotes => Set<PrincipalRfqCommercialRoundVoteRecord>();
     public DbSet<PrincipalRfqCommercialRoundDecisionRecord> PrincipalRfqCommercialRoundDecisions => Set<PrincipalRfqCommercialRoundDecisionRecord>();
     public DbSet<PrincipalRfqCommercialOfferSubmissionRecord> PrincipalRfqCommercialOfferSubmissions => Set<PrincipalRfqCommercialOfferSubmissionRecord>();
     public DbSet<PrincipalRfqCommercialRoundSealRecord> PrincipalRfqCommercialRoundSeals => Set<PrincipalRfqCommercialRoundSealRecord>();
@@ -20,16 +21,19 @@ public sealed partial class ProcurementDbContext
     private void ConfigureRfqCommercialRound(ModelBuilder model)
     {
         ConfigureP32Base<PrincipalRfqCommercialRoundOpeningRecord>(model, "principal_rfq_commercial_round_openings", "round");
+        ConfigureP32Base<PrincipalRfqCommercialRoundVoteRecord>(model, "principal_rfq_commercial_round_votes", "vote");
         ConfigureP32Base<PrincipalRfqCommercialRoundDecisionRecord>(model, "principal_rfq_commercial_round_decisions", "decision");
         ConfigureP32Base<PrincipalRfqCommercialOfferSubmissionRecord>(model, "principal_rfq_commercial_offer_submissions", "offer");
         ConfigureP32Base<PrincipalRfqCommercialRoundSealRecord>(model, "principal_rfq_commercial_round_seals", "seal");
         ConfigureP32Base<PrincipalRfqCommercialCommandReceipt>(model, "principal_rfq_commercial_command_receipts", "receipt");
         var openings = model.Entity<PrincipalRfqCommercialRoundOpeningRecord>();
+        var votes = model.Entity<PrincipalRfqCommercialRoundVoteRecord>();
         var decisions = model.Entity<PrincipalRfqCommercialRoundDecisionRecord>();
         var offers = model.Entity<PrincipalRfqCommercialOfferSubmissionRecord>();
         var seals = model.Entity<PrincipalRfqCommercialRoundSealRecord>();
         var receipts = model.Entity<PrincipalRfqCommercialCommandReceipt>();
         openings.Property(x => x.Id).ValueGeneratedNever();
+        votes.Property(x => x.Id).ValueGeneratedNever();
         decisions.Property(x => x.Id).ValueGeneratedNever();
         offers.Property(x => x.Id).ValueGeneratedNever();
         seals.Property(x => x.Id).ValueGeneratedNever();
@@ -38,9 +42,13 @@ public sealed partial class ProcurementDbContext
         openings.Property(x => x.CommercialPolicyKey).HasMaxLength(60);
         openings.Property(x => x.SnapshotJson).HasColumnType("text");
         openings.Property(x => x.ActorPrincipalId).HasMaxLength(36);
+        openings.Property(x => x.ClosingOfficerPrincipalId).HasMaxLength(36);
         openings.Property(x => x.PreparedPlanSha256).HasMaxLength(64);
         openings.Property(x => x.PolicyRulesSha256).HasMaxLength(64);
         openings.Property(x => x.SnapshotSha256).HasMaxLength(64);
+        votes.Property(x => x.Action).HasMaxLength(20);
+        votes.Property(x => x.CaseState).HasMaxLength(20);
+        votes.Property(x => x.ActorPrincipalId).HasMaxLength(36);
         decisions.Property(x => x.State).HasMaxLength(20);
         decisions.Property(x => x.ActorPrincipalId).HasMaxLength(36);
         decisions.Property(x => x.OpeningSha256).HasMaxLength(64);
@@ -115,6 +123,21 @@ public sealed partial class ProcurementDbContext
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.OpeningId, x.SourcingEventId, x.BranchId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourcingEventId, x.BranchId })
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_decision_round_owner");
+        votes.HasOne<PrincipalRfqCommercialRoundOpeningRecord>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.OpeningId, x.SourcingEventId, x.BranchId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourcingEventId, x.BranchId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_vote_round_owner");
+        votes.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.OpeningId,
+            x.SourcingEventId, x.BranchId, x.CoreCaseId, x.CoreDecisionId,
+            x.CoreAssignmentId, x.ActorPrincipalId }).HasName("ak_p32_vote_terminal_owner");
+        decisions.HasOne<PrincipalRfqCommercialRoundVoteRecord>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.TerminalVoteId, x.OpeningId,
+                x.SourcingEventId, x.BranchId, x.CoreCaseId, x.CoreDecisionId,
+                x.CoreAssignmentId, x.ActorPrincipalId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.OpeningId,
+                x.SourcingEventId, x.BranchId, x.CoreCaseId, x.CoreDecisionId,
+                x.CoreAssignmentId, x.ActorPrincipalId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_terminal_vote_owner");
         decisions.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.OpeningId, x.SourcingEventId, x.BranchId })
             .HasName("ak_p32_decision_owner");
         offers.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
@@ -143,6 +166,11 @@ public sealed partial class ProcurementDbContext
                 x.OpeningId, x.SourcingEventId, x.BranchId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
                 x.OpeningId, x.SourcingEventId, x.BranchId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_receipt_decision_target");
+        receipts.HasOne<PrincipalRfqCommercialRoundVoteRecord>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.VoteTargetId,
+                x.OpeningId, x.SourcingEventId, x.BranchId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
+                x.OpeningId, x.SourcingEventId, x.BranchId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_receipt_vote_target");
         receipts.HasOne<PrincipalRfqCommercialOfferSubmissionRecord>().WithMany()
             .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.OfferTargetId,
                 x.OpeningId, x.SourcingEventId, x.BranchId })
@@ -156,6 +184,8 @@ public sealed partial class ProcurementDbContext
         openings.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PreparedPlanId }).IsUnique().HasDatabaseName("ux_p32_round_plan");
         openings.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreCaseId }).IsUnique().HasDatabaseName("ux_p32_round_core_case");
         decisions.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.OpeningId }).IsUnique().HasDatabaseName("ux_p32_decision_round");
+        votes.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreDecisionId }).IsUnique().HasDatabaseName("ux_p32_vote_core_decision");
+        votes.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.OpeningId, x.CoreAssignmentId }).IsUnique().HasDatabaseName("ux_p32_vote_assignment");
         decisions.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreDecisionId }).IsUnique().HasDatabaseName("ux_p32_decision_core");
         offers.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.OpeningId, x.SupplierBidId }).IsUnique().HasDatabaseName("ux_p32_offer_bid");
         offers.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.OpeningId, x.SupplierId }).IsUnique().HasDatabaseName("ux_p32_offer_supplier");
@@ -165,11 +195,25 @@ public sealed partial class ProcurementDbContext
         const string canonical = " ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'";
         const string nz = " <> '00000000-0000-0000-0000-000000000000'::uuid";
         const string hash = " ~ '^[0-9a-f]{64}$'";
-        openings.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_opening", "schema_version=1 AND id"+nz+" AND commercial_policy_key='SOURCING_COMMERCIAL_ROUND' AND published_policy_identity_stage='Published' AND core_case_id=id AND event_version>0 AND sourcing_event_id"+nz+" AND prepared_plan_id"+nz+" AND commercial_policy_version_id"+nz+" AND published_policy_identity_id"+nz+" AND core_case_id"+nz+" AND branch_id"+nz+" AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id"+nz+") AND prepared_plan_sha256 IS NOT NULL AND prepared_plan_sha256"+hash+" AND policy_rules_sha256 IS NOT NULL AND policy_rules_sha256"+hash+" AND snapshot_sha256 IS NOT NULL AND snapshot_sha256"+hash+" AND opens_at<closes_at AND isfinite(opens_at) AND isfinite(closes_at)"));
-        decisions.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_decision", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND state IN ('Approved','Returned','Rejected') AND core_case_id"+nz+" AND core_decision_id"+nz+" AND core_assignment_id"+nz+" AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id"+nz+") AND opening_sha256 IS NOT NULL AND opening_sha256"+hash+" AND core_outcome_sha256 IS NOT NULL AND core_outcome_sha256"+hash+" AND isfinite(decided_at)"));
+        openings.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_opening", "schema_version=1 AND id"+nz+" AND commercial_policy_key='SOURCING_COMMERCIAL_ROUND' AND published_policy_identity_stage='Published' AND core_case_id=id AND event_version>0 AND sourcing_event_id"+nz+" AND prepared_plan_id"+nz+" AND commercial_policy_version_id"+nz+" AND published_policy_identity_id"+nz+" AND core_case_id"+nz+" AND branch_id"+nz+" AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id"+nz+") AND closing_officer_principal_id IS NOT NULL AND closing_officer_principal_id <> '00000000-0000-0000-0000-000000000000' AND closing_officer_principal_id"+canonical+" AND (closing_officer_worker_alias_id IS NULL OR closing_officer_worker_alias_id"+nz+") AND prepared_plan_sha256 IS NOT NULL AND prepared_plan_sha256"+hash+" AND policy_rules_sha256 IS NOT NULL AND policy_rules_sha256"+hash+" AND snapshot_sha256 IS NOT NULL AND snapshot_sha256"+hash+" AND opens_at<closes_at AND isfinite(opens_at) AND isfinite(closes_at)"));
+        votes.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_vote", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND core_case_id=opening_id AND core_decision_id"+nz+" AND core_assignment_id"+nz+" AND action IN ('Approve','Return','Reject') AND case_state IN ('Pending','Approved','Returned','Rejected') AND case_version>0 AND assignment_version>0 AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id"+nz+") AND isfinite(decided_at)"));
+        decisions.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_decision", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND terminal_vote_id"+nz+" AND state IN ('Approved','Returned','Rejected') AND core_case_id"+nz+" AND core_decision_id"+nz+" AND core_assignment_id"+nz+" AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id"+nz+") AND opening_sha256 IS NOT NULL AND opening_sha256"+hash+" AND core_outcome_sha256 IS NOT NULL AND core_outcome_sha256"+hash+" AND isfinite(decided_at)"));
         offers.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_offer", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND supplier_bid_id"+nz+" AND invitation_id"+nz+" AND supplier_id"+nz+" AND approved_decision_id"+nz+" AND draft_revision>0 AND bid_version>0 AND original_document_version_id"+nz+" AND original_document_sha256 IS NOT NULL AND original_document_sha256"+hash+" AND recorder_principal_id IS NOT NULL AND recorder_principal_id <> '00000000-0000-0000-0000-000000000000' AND recorder_principal_id"+canonical+" AND (recorder_worker_alias_id IS NULL OR recorder_worker_alias_id"+nz+") AND snapshot_sha256 IS NOT NULL AND snapshot_sha256"+hash+" AND reported_received_at<=submitted_at AND isfinite(reported_received_at) AND isfinite(submitted_at)"));
         seals.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_seal", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND approved_decision_id"+nz+" AND officer_principal_id IS NOT NULL AND officer_principal_id <> '00000000-0000-0000-0000-000000000000' AND officer_principal_id"+canonical+" AND (officer_worker_alias_id IS NULL OR officer_worker_alias_id"+nz+") AND submission_count BETWEEN 0 AND 500 AND submission_set_sha256 IS NOT NULL AND submission_set_sha256"+hash+" AND isfinite(closed_at)"));
-        receipts.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_receipt", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND command_key"+nz+" AND target_id IS NOT NULL AND target_id"+nz+" AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND request_sha256 IS NOT NULL AND request_sha256"+hash+" AND response_sha256 IS NOT NULL AND response_sha256"+hash+" AND isfinite(completed_at) AND ((operation='Open' AND opening_target_id IS NOT NULL AND opening_target_id=target_id AND decision_target_id IS NULL AND offer_target_id IS NULL AND seal_target_id IS NULL AND response_status=201) OR (operation='Decide' AND decision_target_id IS NOT NULL AND decision_target_id=target_id AND opening_target_id IS NULL AND offer_target_id IS NULL AND seal_target_id IS NULL AND response_status=200) OR (operation='SubmitOffer' AND offer_target_id IS NOT NULL AND offer_target_id=target_id AND opening_target_id IS NULL AND decision_target_id IS NULL AND seal_target_id IS NULL AND response_status=201) OR (operation='Close' AND seal_target_id IS NOT NULL AND seal_target_id=target_id AND opening_target_id IS NULL AND decision_target_id IS NULL AND offer_target_id IS NULL AND response_status=200))"));
+        receipts.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_receipt",
+            "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz
+            +" AND branch_id"+nz+" AND command_key"+nz+" AND target_id IS NOT NULL AND target_id"+nz
+            +" AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'"
+            +" AND actor_principal_id"+canonical+" AND request_sha256 IS NOT NULL AND request_sha256"+hash
+            +" AND response_sha256 IS NOT NULL AND response_sha256"+hash+" AND isfinite(completed_at)"
+            +" AND ((operation='Open' AND opening_target_id IS NOT NULL AND opening_target_id=target_id AND vote_target_id IS NULL"
+            +" AND decision_target_id IS NULL AND offer_target_id IS NULL AND seal_target_id IS NULL AND response_status=201)"
+            +" OR (operation='Decide' AND vote_target_id IS NOT NULL AND vote_target_id=target_id AND opening_target_id IS NULL"
+            +" AND offer_target_id IS NULL AND seal_target_id IS NULL AND response_status=200)"
+            +" OR (operation='SubmitOffer' AND offer_target_id IS NOT NULL AND offer_target_id=target_id AND opening_target_id IS NULL"
+            +" AND vote_target_id IS NULL AND decision_target_id IS NULL AND seal_target_id IS NULL AND response_status=201)"
+            +" OR (operation='Close' AND seal_target_id IS NOT NULL AND seal_target_id=target_id AND opening_target_id IS NULL"
+            +" AND vote_target_id IS NULL AND decision_target_id IS NULL AND offer_target_id IS NULL AND response_status=200))"));
     }
 
     private void ConfigureP32Base<T>(ModelBuilder model, string table, string shortName)
@@ -194,7 +238,8 @@ public sealed partial class ProcurementDbContext
             .Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
         var addedTargets = ChangeTracker.Entries<ProcurementRecord>()
             .Where(x => x.State == EntityState.Added && x.Entity is
-                PrincipalRfqCommercialRoundOpeningRecord or PrincipalRfqCommercialRoundDecisionRecord or
+                PrincipalRfqCommercialRoundOpeningRecord or PrincipalRfqCommercialRoundVoteRecord or
+                PrincipalRfqCommercialRoundDecisionRecord or
                 PrincipalRfqCommercialOfferSubmissionRecord or PrincipalRfqCommercialRoundSealRecord)
             .Select(x => x.Entity).ToArray();
         if (Database.IsNpgsql() && (addedTargets.Length > 0 || addedReceipts.Length > 0)
@@ -205,7 +250,8 @@ public sealed partial class ProcurementDbContext
                 .Any(offer => offer.OpeningId == seal.OpeningId)))
             throw new InvalidOperationException("RfqCommercialOfferSetNotCommitted");
         foreach (var entry in ChangeTracker.Entries<ProcurementRecord>().Where(x => x.Entity is
-            PrincipalRfqCommercialRoundOpeningRecord or PrincipalRfqCommercialRoundDecisionRecord or
+            PrincipalRfqCommercialRoundOpeningRecord or PrincipalRfqCommercialRoundVoteRecord or
+            PrincipalRfqCommercialRoundDecisionRecord or
             PrincipalRfqCommercialOfferSubmissionRecord or PrincipalRfqCommercialRoundSealRecord or
             PrincipalRfqCommercialCommandReceipt))
         {
@@ -215,6 +261,7 @@ public sealed partial class ProcurementDbContext
             var actor = entry.Entity switch
             {
                 PrincipalRfqCommercialRoundOpeningRecord row => row.ActorPrincipalId,
+                PrincipalRfqCommercialRoundVoteRecord row => row.ActorPrincipalId,
                 PrincipalRfqCommercialRoundDecisionRecord row => row.ActorPrincipalId,
                 PrincipalRfqCommercialOfferSubmissionRecord row => row.RecorderPrincipalId,
                 PrincipalRfqCommercialRoundSealRecord row => row.OfficerPrincipalId,
@@ -224,6 +271,7 @@ public sealed partial class ProcurementDbContext
             var branch = entry.Entity switch
             {
                 PrincipalRfqCommercialRoundOpeningRecord row => row.BranchId,
+                PrincipalRfqCommercialRoundVoteRecord row => row.BranchId,
                 PrincipalRfqCommercialRoundDecisionRecord row => row.BranchId,
                 PrincipalRfqCommercialOfferSubmissionRecord row => row.BranchId,
                 PrincipalRfqCommercialRoundSealRecord row => row.BranchId,
@@ -244,7 +292,7 @@ public sealed partial class ProcurementDbContext
                         && receipt.Operation == (target switch
                         {
                             PrincipalRfqCommercialRoundOpeningRecord => "Open",
-                            PrincipalRfqCommercialRoundDecisionRecord => "Decide",
+                            PrincipalRfqCommercialRoundVoteRecord => "Decide",
                             PrincipalRfqCommercialOfferSubmissionRecord => "SubmitOffer",
                             PrincipalRfqCommercialRoundSealRecord => "Close",
                             _ => string.Empty,
@@ -254,6 +302,7 @@ public sealed partial class ProcurementDbContext
                 var targetOpening = target switch
                 {
                     PrincipalRfqCommercialRoundOpeningRecord row => row.Id,
+                    PrincipalRfqCommercialRoundVoteRecord row => row.OpeningId,
                     PrincipalRfqCommercialRoundDecisionRecord row => row.OpeningId,
                     PrincipalRfqCommercialOfferSubmissionRecord row => row.OpeningId,
                     PrincipalRfqCommercialRoundSealRecord row => row.OpeningId,
@@ -262,6 +311,7 @@ public sealed partial class ProcurementDbContext
                 var targetEvent = target switch
                 {
                     PrincipalRfqCommercialRoundOpeningRecord row => row.SourcingEventId,
+                    PrincipalRfqCommercialRoundVoteRecord row => row.SourcingEventId,
                     PrincipalRfqCommercialRoundDecisionRecord row => row.SourcingEventId,
                     PrincipalRfqCommercialOfferSubmissionRecord row => row.SourcingEventId,
                     PrincipalRfqCommercialRoundSealRecord row => row.SourcingEventId,
@@ -270,6 +320,7 @@ public sealed partial class ProcurementDbContext
                 var targetBranch = target switch
                 {
                     PrincipalRfqCommercialRoundOpeningRecord row => row.BranchId,
+                    PrincipalRfqCommercialRoundVoteRecord row => row.BranchId,
                     PrincipalRfqCommercialRoundDecisionRecord row => row.BranchId,
                     PrincipalRfqCommercialOfferSubmissionRecord row => row.BranchId,
                     PrincipalRfqCommercialRoundSealRecord row => row.BranchId,
@@ -280,24 +331,48 @@ public sealed partial class ProcurementDbContext
                     || !ReceiptPinsMatch(receipt, target)
                     || (receipt.Operation switch
                     {
-                        "Open" => receipt.OpeningTargetId != targetId || receipt.DecisionTargetId is not null
+                        "Open" => receipt.OpeningTargetId != targetId || receipt.VoteTargetId is not null
+                            || receipt.DecisionTargetId is not null
                             || receipt.OfferTargetId is not null || receipt.SealTargetId is not null,
-                        "Decide" => receipt.DecisionTargetId != targetId || receipt.OpeningTargetId is not null
+                        "Decide" => receipt.VoteTargetId != targetId || receipt.OpeningTargetId is not null
                             || receipt.OfferTargetId is not null || receipt.SealTargetId is not null,
                         "SubmitOffer" => receipt.OfferTargetId != targetId || receipt.OpeningTargetId is not null
-                            || receipt.DecisionTargetId is not null || receipt.SealTargetId is not null,
+                            || receipt.VoteTargetId is not null || receipt.DecisionTargetId is not null
+                            || receipt.SealTargetId is not null,
                         "Close" => receipt.SealTargetId != targetId || receipt.OpeningTargetId is not null
-                            || receipt.DecisionTargetId is not null || receipt.OfferTargetId is not null,
+                            || receipt.VoteTargetId is not null || receipt.DecisionTargetId is not null
+                            || receipt.OfferTargetId is not null,
                         _ => true,
                     }))
                     throw new InvalidOperationException("RfqCommercialReceiptTargetRequired");
+                if (target is PrincipalRfqCommercialRoundVoteRecord vote)
+                {
+                    var terminal = addedTargets.OfType<PrincipalRfqCommercialRoundDecisionRecord>()
+                        .SingleOrDefault(x => x.TerminalVoteId == vote.Id);
+                    if (vote.CaseState == "Pending"
+                        ? terminal is not null || receipt.DecisionTargetId is not null
+                        : terminal is null || receipt.DecisionTargetId != terminal.Id
+                            || terminal.State != vote.CaseState
+                            || terminal.CoreDecisionId != vote.CoreDecisionId)
+                        throw new InvalidOperationException("RfqCommercialVoteTerminalBindingChanged");
+                }
             }
-            if (entry.Entity is not PrincipalRfqCommercialCommandReceipt
+            if (entry.Entity is not (PrincipalRfqCommercialCommandReceipt or PrincipalRfqCommercialRoundDecisionRecord)
                 && addedReceipts.Count(receipt => receipt.TargetId == entry.Entity.Id
                     && receipt.ActorPrincipalId == actor && receipt.BranchId == branch) != 1)
                 throw new InvalidOperationException("RfqCommercialSameSaveReceiptRequired");
             if (entry.Entity is PrincipalRfqCommercialRoundDecisionRecord decision)
             {
+                var vote = PrincipalRfqCommercialRoundVotes.Local.SingleOrDefault(x => x.Id == decision.TerminalVoteId);
+                if (vote is null || Entry(vote).State != EntityState.Added
+                    || vote.OpeningId != decision.OpeningId || vote.SourcingEventId != decision.SourcingEventId
+                    || vote.BranchId != decision.BranchId || vote.CoreCaseId != decision.CoreCaseId
+                    || vote.CoreDecisionId != decision.CoreDecisionId || vote.CoreAssignmentId != decision.CoreAssignmentId
+                    || vote.ActorPrincipalId != decision.ActorPrincipalId || vote.CaseState != decision.State
+                    || vote.DecidedAt != decision.DecidedAt
+                    || addedReceipts.Count(x => x.VoteTargetId == vote.Id
+                        && x.DecisionTargetId == decision.Id && x.CommandKey != Guid.Empty) != 1)
+                    throw new InvalidOperationException("RfqCommercialTerminalVoteRequired");
                 var opening = PrincipalRfqCommercialRoundOpenings.Local.SingleOrDefault(x => x.Id == decision.OpeningId)
                     ?? PrincipalRfqCommercialRoundOpenings.AsNoTracking().SingleOrDefault(x => x.Id == decision.OpeningId);
                 if (opening is null || opening.SourcingEventId != decision.SourcingEventId
@@ -305,6 +380,56 @@ public sealed partial class ProcurementDbContext
                     || opening.CoreCaseId != decision.CoreCaseId
                     || opening.SnapshotSha256 != decision.OpeningSha256)
                     throw new InvalidOperationException("RfqCommercialDecisionOpeningChanged");
+            }
+            if (entry.Entity is PrincipalRfqCommercialRoundVoteRecord voteRecord)
+            {
+                var opening = PrincipalRfqCommercialRoundOpenings.Local.SingleOrDefault(x => x.Id == voteRecord.OpeningId)
+                    ?? PrincipalRfqCommercialRoundOpenings.AsNoTracking().SingleOrDefault(x => x.Id == voteRecord.OpeningId);
+                var receipt = addedReceipts.SingleOrDefault(x => x.VoteTargetId == voteRecord.Id);
+                if (opening is null || opening.SourcingEventId != voteRecord.SourcingEventId
+                    || opening.BranchId != voteRecord.BranchId || opening.CoreCaseId != voteRecord.CoreCaseId
+                    || receipt is null || receipt.CommandKey == Guid.Empty
+                    || sharedApprovalCore?.Database.CurrentTransaction is null
+                    || sharedApprovalTransaction is null
+                    || !ReferenceEquals(sharedApprovalTransaction, Database.CurrentTransaction?.GetDbTransaction())
+                    || !ReferenceEquals(sharedApprovalConnection, Database.GetDbConnection())
+                    || !sharedApprovalInsertedDecisions.Contains(voteRecord.CoreDecisionId))
+                    throw new InvalidOperationException("RfqCommercialCoreVoteNotEnlisted");
+                var coreDecision = sharedApprovalCore.Decisions.Local.SingleOrDefault(x => x.Id == voteRecord.CoreDecisionId)
+                    ?? sharedApprovalCore.Decisions.SingleOrDefault(x => x.Id == voteRecord.CoreDecisionId);
+                var coreCase = sharedApprovalCore.Cases.Local.SingleOrDefault(x => x.Id == voteRecord.CoreCaseId)
+                    ?? sharedApprovalCore.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                        .SingleOrDefault(x => x.Id == voteRecord.CoreCaseId);
+                var prepared = PrincipalRfqPreparedPlans.AsNoTracking()
+                    .SingleOrDefault(x => x.Id == opening.PreparedPlanId);
+                var assignment = coreCase?.Stages.SelectMany(x => x.Assignments)
+                    .SingleOrDefault(x => x.Id == voteRecord.CoreAssignmentId);
+                if (coreDecision is null || coreCase is null || assignment is null || prepared is null
+                    || coreCase.TenantId != scope.TenantId || coreCase.LegalEntityId != scope.LegalEntityId
+                    || coreCase.SourceModule != "procurement"
+                    || coreCase.SourceType != PrincipalRfqCommercialRoundCoreWorkflow.SourceType
+                    || coreCase.SourceId != opening.PreparedPlanId || coreCase.Id != opening.Id
+                    || coreCase.SourceVersion != prepared.DraftRevision
+                    || prepared.SnapshotSha256 != opening.PreparedPlanSha256
+                    || coreCase.PolicyVersionId != opening.CommercialPolicyVersionId
+                    || coreCase.MakerSubjectId != opening.ActorPrincipalId
+                    || coreCase.State != voteRecord.CaseState || coreCase.Version != voteRecord.CaseVersion
+                    || coreDecision.CaseId != coreCase.Id || coreDecision.AssignmentId != assignment.Id
+                    || coreDecision.StageId != assignment.StageId
+                    || coreDecision.TenantId != scope.TenantId || coreDecision.LegalEntityId != scope.LegalEntityId
+                    || coreDecision.ActorSubjectId != voteRecord.ActorPrincipalId
+                    || coreDecision.Action != voteRecord.Action
+                    || coreDecision.IdempotencyKey != receipt.CommandKey.ToString("D")
+                    || ProcurementEvidenceEncoding.DatabaseTimestamp(coreDecision.DecidedAt) != voteRecord.DecidedAt
+                    || assignment.AssigneeSubjectId != voteRecord.ActorPrincipalId
+                    || assignment.CaseId != coreCase.Id
+                    || assignment.PermissionKey != PrincipalRfqCommercialRoundPolicyRules.ApprovalAction
+                    || assignment.Version != voteRecord.AssignmentVersion
+                    || (voteRecord.CaseState == "Pending"
+                        ? voteRecord.Action != "Approve" || assignment.State != "Approved"
+                        : voteRecord.Action != (voteRecord.CaseState switch
+                            { "Approved" => "Approve", "Returned" => "Return", "Rejected" => "Reject", _ => "Invalid" })))
+                    throw new InvalidOperationException("RfqCommercialCoreVoteChanged");
             }
             if (entry.Entity is PrincipalRfqCommercialRoundOpeningRecord opening)
             {
@@ -390,6 +515,10 @@ public sealed partial class ProcurementDbContext
                 && pin.GetProperty("policyVersionId").GetGuid() == opening.CommercialPolicyVersionId
                 && pin.GetProperty("policyKey").GetString() == opening.CommercialPolicyKey
                 && pin.GetProperty("policyRulesSha256").GetString() == opening.PolicyRulesSha256
+                && pin.GetProperty("closerPrincipalId").GetString() == opening.ClosingOfficerPrincipalId
+                && (pin.GetProperty("closerWorkerAliasId").ValueKind == JsonValueKind.Null
+                    ? opening.ClosingOfficerWorkerAliasId is null
+                    : pin.GetProperty("closerWorkerAliasId").GetGuid() == opening.ClosingOfficerWorkerAliasId)
                 && pin.GetProperty("coreCaseId").GetGuid() == opening.CoreCaseId
                 && pin.GetProperty("opensAt").GetDateTimeOffset() == opening.OpensAt
                 && pin.GetProperty("closesAt").GetDateTimeOffset() == opening.ClosesAt;
@@ -423,6 +552,15 @@ public sealed partial class ProcurementDbContext
                     && result.GetProperty("coreCaseId").GetGuid() == opening.CoreCaseId
                     && result.GetProperty("snapshotSha256").GetString() == opening.SnapshotSha256
                     && result.GetProperty("state").GetString() == "PendingCommercialReview",
+                PrincipalRfqCommercialRoundVoteRecord vote =>
+                    result.GetProperty("voteId").GetGuid() == vote.Id
+                    && result.GetProperty("coreDecisionId").GetGuid() == vote.CoreDecisionId
+                    && result.GetProperty("caseState").GetString() == vote.CaseState
+                    && result.GetProperty("caseVersion").GetInt64() == vote.CaseVersion
+                    && result.GetProperty("assignmentVersion").GetInt64() == vote.AssignmentVersion
+                    && (result.GetProperty("terminalDecisionId").ValueKind == JsonValueKind.Null
+                        ? receipt.DecisionTargetId is null
+                        : result.GetProperty("terminalDecisionId").GetGuid() == receipt.DecisionTargetId),
                 PrincipalRfqCommercialRoundDecisionRecord decision =>
                     result.GetProperty("decisionId").GetGuid() == decision.Id
                     && result.GetProperty("coreDecisionId").GetGuid() == decision.CoreDecisionId

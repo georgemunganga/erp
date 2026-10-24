@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Core.Approvals.Domain;
 
 namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 
@@ -51,6 +52,8 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
             EventVersion = source.Version, PreparedPlanSha256 = prepared.SnapshotSha256,
             PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
             ActorPrincipalId = actor.PrincipalId, ActorWorkerAliasId = actor.LinkedWorkerId,
+            ClosingOfficerPrincipalId = preparedOpening.ClosingOfficerPrincipalId,
+            ClosingOfficerWorkerAliasId = preparedOpening.ClosingOfficerWorkerAliasId,
             OpensAt = preparedOpening.OpensAt, ClosesAt = preparedOpening.ClosesAt,
             SnapshotJson = preparedOpening.SnapshotJson, SnapshotSha256 = preparedOpening.SnapshotSha256,
         };
@@ -61,40 +64,72 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
                 coreCaseId = row.CoreCaseId, snapshotSha256 = row.SnapshotSha256 });
     }
 
-    public PrincipalRfqCommercialCommandReceipt StageTerminal(
+    public PrincipalRfqCommercialCommandReceipt StageVote(
         PrincipalRfqCommercialRoundOpeningRecord opening,
-        PrincipalRfqCommercialRoundTerminal terminal, Guid coreAssignmentId,
-        RfqPrincipalActor actor, Guid commandKey, string requestSha256, DateTimeOffset decidedAt)
+        ApprovalCase coreCase, ApprovalDecision coreDecision, ApprovalAssignment assignment,
+        PrincipalRfqCommercialRoundTerminal? terminal, RfqPrincipalActor actor,
+        Guid commandKey, string requestSha256)
     {
         Enlisted(opening.BranchId);
         RequireActor(actor, opening.BranchId);
-        if (commandKey == Guid.Empty || !Hash(requestSha256) || !Hash(terminal.CoreOutcomeSha256)
-            || terminal.ActorPrincipalId != actor.PrincipalId
+        var decidedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(coreDecision.DecidedAt)!.Value;
+        if (commandKey == Guid.Empty || !Hash(requestSha256)
             || !actor.Permissions.Contains(PrincipalRfqCommercialRoundPolicyRules.ApprovalAction)
-            || coreAssignmentId == Guid.Empty || terminal.CoreDecisionId == Guid.Empty
-            || terminal.State is not ("Approved" or "Returned" or "Rejected")
-            || terminal.State == "Approved" && terminal.AcceptingRound is null
-            || terminal.State != "Approved" && terminal.AcceptingRound is not null
-            || terminal.AcceptingRound is { } round
-                && (terminal.State != "Approved" || round.RoundId != opening.Id
+            || coreCase.Id != opening.CoreCaseId || coreCase.SourceId != opening.PreparedPlanId
+            || coreCase.SourceType != PrincipalRfqCommercialRoundCoreWorkflow.SourceType
+            || coreCase.TenantId != opening.TenantId || coreCase.LegalEntityId != opening.LegalEntityId
+            || coreDecision.CaseId != coreCase.Id || coreDecision.AssignmentId != assignment.Id
+            || coreDecision.StageId != assignment.StageId || assignment.CaseId != coreCase.Id
+            || coreDecision.ActorSubjectId != actor.PrincipalId
+            || assignment.AssigneeSubjectId != actor.PrincipalId
+            || assignment.PermissionKey != PrincipalRfqCommercialRoundPolicyRules.ApprovalAction
+            || coreDecision.IdempotencyKey != commandKey.ToString("D")
+            || coreDecision.Action is not ("Approve" or "Return" or "Reject")
+            || coreCase.State is not ("Pending" or "Approved" or "Returned" or "Rejected")
+            || (coreCase.State == "Pending") != (terminal is null)
+            || coreCase.Version < 1 || assignment.Version < 1
+            || terminal is not null && (!Hash(terminal.CoreOutcomeSha256)
+                || terminal.CoreDecisionId != coreDecision.Id
+                || terminal.ActorPrincipalId != actor.PrincipalId
+                || terminal.State != coreCase.State
+                || terminal.State == "Approved" && terminal.AcceptingRound is null
+                || terminal.State != "Approved" && terminal.AcceptingRound is not null)
+            || terminal?.AcceptingRound is { } round
+                && (round.RoundId != opening.Id
                     || round.EventId != opening.SourcingEventId || round.BranchId != opening.BranchId
                     || round.ApprovalEvidenceSha256 != opening.SnapshotSha256))
-            throw new InvalidOperationException("RfqCommercialDecisionProofChanged");
-        var row = new PrincipalRfqCommercialRoundDecisionRecord
+            throw new InvalidOperationException("RfqCommercialVoteProofChanged");
+        var vote = new PrincipalRfqCommercialRoundVoteRecord
         {
             OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
             BranchId = opening.BranchId, CoreCaseId = opening.CoreCaseId,
-            CoreDecisionId = terminal.CoreDecisionId, CoreAssignmentId = coreAssignmentId,
-            State = terminal.State, ActorPrincipalId = actor.PrincipalId,
-            ActorWorkerAliasId = actor.LinkedWorkerId,
-            OpeningSha256 = opening.SnapshotSha256,
-            CoreOutcomeSha256 = terminal.CoreOutcomeSha256, DecidedAt = decidedAt,
+            CoreDecisionId = coreDecision.Id, CoreAssignmentId = assignment.Id,
+            Action = coreDecision.Action, CaseState = coreCase.State,
+            CaseVersion = coreCase.Version, AssignmentVersion = assignment.Version,
+            ActorPrincipalId = actor.PrincipalId, ActorWorkerAliasId = actor.LinkedWorkerId,
+            DecidedAt = decidedAt,
         };
-        db.AddScoped(row);
-        return Receipt("Decide", row.Id, opening.Id, opening.SourcingEventId,
+        db.AddScoped(vote);
+        PrincipalRfqCommercialRoundDecisionRecord? row = null;
+        if (terminal is not null)
+        {
+            row = new PrincipalRfqCommercialRoundDecisionRecord
+            {
+                OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
+                BranchId = opening.BranchId, CoreCaseId = opening.CoreCaseId,
+                CoreDecisionId = coreDecision.Id, CoreAssignmentId = assignment.Id,
+                TerminalVoteId = vote.Id, State = terminal.State,
+                ActorPrincipalId = actor.PrincipalId, ActorWorkerAliasId = actor.LinkedWorkerId,
+                OpeningSha256 = opening.SnapshotSha256,
+                CoreOutcomeSha256 = terminal.CoreOutcomeSha256, DecidedAt = decidedAt,
+            };
+            db.AddScoped(row);
+        }
+        return Receipt("Decide", vote.Id, opening.Id, opening.SourcingEventId,
             opening.BranchId, actor.PrincipalId, commandKey, requestSha256, 200,
-            new { roundId = opening.Id, decisionId = row.Id, state = row.State,
-                coreDecisionId = row.CoreDecisionId, outcomeSha256 = row.CoreOutcomeSha256 });
+            new { roundId = opening.Id, voteId = vote.Id, coreDecisionId = coreDecision.Id,
+                caseState = vote.CaseState, caseVersion = vote.CaseVersion,
+                assignmentVersion = vote.AssignmentVersion, terminalDecisionId = row?.Id }, row?.Id);
     }
 
     public PrincipalRfqCommercialCommandReceipt StageOffer(
@@ -219,7 +254,7 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
 
     private PrincipalRfqCommercialCommandReceipt Receipt(string operation, Guid targetId,
         Guid openingId, Guid eventId, Guid branch, string actor, Guid commandKey,
-        string requestSha256, int status, object response)
+        string requestSha256, int status, object response, Guid? terminalDecisionId = null)
     {
         var json = JsonSerializer.Serialize(new
         {
@@ -231,7 +266,8 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
             OpeningId = openingId, SourcingEventId = eventId, BranchId = branch,
             Operation = operation, TargetId = targetId, CommandKey = commandKey,
             OpeningTargetId = operation == "Open" ? targetId : null,
-            DecisionTargetId = operation == "Decide" ? targetId : null,
+            VoteTargetId = operation == "Decide" ? targetId : null,
+            DecisionTargetId = terminalDecisionId,
             OfferTargetId = operation == "SubmitOffer" ? targetId : null,
             SealTargetId = operation == "Close" ? targetId : null,
             ActorPrincipalId = actor, RequestSha256 = requestSha256,

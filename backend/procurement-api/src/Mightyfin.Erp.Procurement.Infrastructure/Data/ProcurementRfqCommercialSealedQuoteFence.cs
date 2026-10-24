@@ -8,6 +8,7 @@ internal static class ProcurementRfqCommercialSchema
     private const string CountSql = """
         SELECT count(*)::integer AS "Value" FROM pg_tables WHERE schemaname='procurement'
         AND tablename IN ('principal_rfq_commercial_round_openings',
+          'principal_rfq_commercial_round_votes',
           'principal_rfq_commercial_round_decisions',
           'principal_rfq_commercial_offer_submissions',
           'principal_rfq_commercial_round_seals',
@@ -23,7 +24,7 @@ internal static class ProcurementRfqCommercialSchema
     internal static bool Complete(int count) => count switch
     {
         0 => false, // Existing P30 quotation Drafts remain usable before P32.
-        5 => true,
+        6 => true,
         _ => throw new InvalidOperationException("RfqCommercialSchemaIncomplete"),
     };
 }

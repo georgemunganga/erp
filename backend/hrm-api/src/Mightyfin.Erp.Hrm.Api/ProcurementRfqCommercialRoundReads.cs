@@ -2,7 +2,9 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -31,18 +33,69 @@ public static partial class ProcurementSourcingExecutionRoutes
         throw new Problem("RfqCommercialReadDenied", 403);
     }
 
+    private sealed record CommercialVisibility(RfqPrincipalActor Actor, bool Maker,
+        bool Reviewer, bool Closer, Guid[] AssignedCaseIds);
+
+    private static async Task<CommercialVisibility> CommercialVisible(HrmDbContext core,
+        ApprovalDbContext cases, ProcurementRequestScope scope, HttpContext http,
+        IAuthorizationService auth, CancellationToken ct)
+    {
+        var actor = await CommercialReader(core, scope, http, auth, null, ct);
+        var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+            scope.LegalEntityId, actor.PrincipalId, ct)
+            ?? throw new Problem("RfqCommercialReadDenied", 403);
+        async Task<bool> Granted(string action) => person.Permissions.Contains(action)
+            && (await auth.AuthorizeAsync(http.User, action)).Succeeded;
+        var maker = await Granted("procurement-sourcing-commercial-configure")
+            || await Granted("procurement-sourcing-round-open")
+            || await Granted(PrincipalRfqSealedManualOffers.SubmitAction);
+        var reviewer = await Granted(PrincipalRfqCommercialRoundPolicyRules.ApprovalAction);
+        var closer = await Granted(PrincipalRfqSealedManualOffers.CloseAction);
+        Guid[] assigned = [];
+        if (reviewer)
+        {
+            assigned = await (from assignment in cases.Assignments.AsNoTracking()
+                join review in cases.Cases.AsNoTracking() on assignment.CaseId equals review.Id
+                where assignment.TenantId == scope.TenantId
+                    && assignment.LegalEntityId == scope.LegalEntityId
+                    && review.TenantId == scope.TenantId && review.LegalEntityId == scope.LegalEntityId
+                    && review.SourceModule == "procurement"
+                    && review.SourceType == PrincipalRfqCommercialRoundCoreWorkflow.SourceType
+                    && assignment.AssigneeSubjectId == actor.PrincipalId
+                    && assignment.PermissionKey == PrincipalRfqCommercialRoundPolicyRules.ApprovalAction
+                select review.Id).Distinct().Take(10001).ToArrayAsync(ct);
+            if (assigned.Length > 10000) throw new Problem("RfqCommercialReadScopeTooLarge", 503);
+        }
+        return new(actor, maker, reviewer, closer, assigned);
+    }
+
+    private static IQueryable<PrincipalRfqCommercialRoundOpeningRecord> VisibleRounds(
+        ProcurementDbContext db, ProcurementRequestScope scope, CommercialVisibility visibility)
+    {
+        var branches = visibility.Actor.Branches.ToArray();
+        var cases = visibility.AssignedCaseIds;
+        var principal = visibility.Actor.PrincipalId;
+        var organisationWide = visibility.Actor.OrganisationWide;
+        var maker = visibility.Maker;
+        var reviewer = visibility.Reviewer;
+        var closer = visibility.Closer;
+        return db.PrincipalRfqCommercialRoundOpenings.AsNoTracking()
+            .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && (organisationWide || branches.Contains(x.BranchId))
+                && (maker && x.ActorPrincipalId == principal
+                    || reviewer && cases.Contains(x.CoreCaseId)
+                    || closer && x.ClosingOfficerPrincipalId == principal));
+    }
+
     private static Task<IResult> CommercialRounds(HttpContext http,
         ProcurementRequestScope scope, int? offset, int? limit, CancellationToken ct)
-        => Run(http, scope, async (db, unusedCases, core, auth, token) =>
+        => Run(http, scope, async (db, cases, core, auth, token) =>
         {
             await RequireCommercial(http, db, false, token);
             if (offset is < 0 or > 100000 || limit is < 1 or > 50)
                 throw new Problem("RfqCommercialPageInvalid", 422);
-            var actor = await CommercialReader(core, scope, http, auth, null, token);
-            var branches = actor.Branches.ToArray();
-            var rows = db.PrincipalRfqCommercialRoundOpenings.AsNoTracking()
-                .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
-                    && (actor.OrganisationWide || branches.Contains(x.BranchId)));
+            var visibility = await CommercialVisible(core, cases, scope, http, auth, token);
+            var rows = VisibleRounds(db, scope, visibility);
             var total = await rows.CountAsync(token);
             var page = await rows.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
                 .Skip(offset ?? 0).Take(limit ?? 25)
@@ -55,15 +108,12 @@ public static partial class ProcurementSourcingExecutionRoutes
 
     private static Task<IResult> CommercialRound(Guid id, HttpContext http,
         ProcurementRequestScope scope, CancellationToken ct)
-        => Run(http, scope, async (db, unusedCases, core, auth, token) =>
+        => Run(http, scope, async (db, cases, core, auth, token) =>
         {
             await RequireCommercial(http, db, false, token);
             if (id == Guid.Empty) throw new Problem("RfqCommercialRoundNotFound", 404);
-            var actor = await CommercialReader(core, scope, http, auth, null, token);
-            var branches = actor.Branches.ToArray();
-            var opening = await db.PrincipalRfqCommercialRoundOpenings.AsNoTracking()
-                .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
-                    && (actor.OrganisationWide || branches.Contains(x.BranchId)))
+            var visibility = await CommercialVisible(core, cases, scope, http, auth, token);
+            var opening = await VisibleRounds(db, scope, visibility)
                 .SingleOrDefaultAsync(x => x.Id == id, token)
                 ?? throw new Problem("RfqCommercialRoundNotFound", 404);
             _ = await CommercialReader(core, scope, http, auth, opening.BranchId, token);

@@ -29,6 +29,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             .Options, new Scope());
         var model = db.GetService<IDesignTimeModel>().Model;
         foreach (var type in new[] { typeof(PrincipalRfqCommercialRoundOpeningRecord),
+                     typeof(PrincipalRfqCommercialRoundVoteRecord),
                      typeof(PrincipalRfqCommercialRoundDecisionRecord),
                      typeof(PrincipalRfqCommercialOfferSubmissionRecord),
                      typeof(PrincipalRfqCommercialRoundSealRecord),
@@ -45,6 +46,15 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         Assert.Contains(opening.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(OperationalPolicyIdentityRecord)
             && fk.Properties.Select(x => x.Name).Contains(nameof(PrincipalRfqCommercialRoundOpeningRecord.PolicyRulesSha256)));
         var offer = model.FindEntityType(typeof(PrincipalRfqCommercialOfferSubmissionRecord))!;
+        var vote = model.FindEntityType(typeof(PrincipalRfqCommercialRoundVoteRecord))!;
+        var terminal = model.FindEntityType(typeof(PrincipalRfqCommercialRoundDecisionRecord))!;
+        var receipt = model.FindEntityType(typeof(PrincipalRfqCommercialCommandReceipt))!;
+        Assert.Contains(vote.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalRfqCommercialRoundOpeningRecord)
+            && fk.Properties.Any(x => x.Name == nameof(PrincipalRfqCommercialRoundVoteRecord.BranchId)));
+        Assert.Contains(terminal.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalRfqCommercialRoundVoteRecord)
+            && fk.Properties.Any(x => x.Name == nameof(PrincipalRfqCommercialRoundDecisionRecord.TerminalVoteId)));
+        Assert.Contains(receipt.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalRfqCommercialRoundVoteRecord)
+            && fk.Properties.Any(x => x.Name == nameof(PrincipalRfqCommercialCommandReceipt.VoteTargetId)));
         Assert.Contains(offer.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(SupplierBid)
             && fk.Properties.Select(x => x.Name).Contains(nameof(PrincipalRfqCommercialOfferSubmissionRecord.SupplierId)));
         Assert.Contains(offer.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(SourcingInvitation)
@@ -145,7 +155,60 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             OpeningId = Guid.NewGuid(), SourcingEventId = Guid.NewGuid(),
             BranchId = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
         });
-        Assert.Equal("RfqCommercialSameSaveReceiptRequired",
+        Assert.Equal("RfqCommercialTerminalVoteRequired",
+            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+    }
+
+    [Fact]
+    public void Pending_vote_and_valid_original_ack_still_require_a_real_enlisted_core_decision()
+    {
+        var scope = new Scope();
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+        var openingId = Guid.NewGuid();
+        var opening = new PrincipalRfqCommercialRoundOpeningRecord
+        {
+            Id = openingId,
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            SourcingEventId = Guid.NewGuid(), BranchId = Guid.NewGuid(),
+            CoreCaseId = openingId, ActorPrincipalId = scope.SubjectId,
+        };
+        db.Attach(opening);
+        var vote = new PrincipalRfqCommercialRoundVoteRecord
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
+            BranchId = opening.BranchId, CoreCaseId = opening.Id,
+            CoreDecisionId = Guid.NewGuid(), CoreAssignmentId = Guid.NewGuid(),
+            Action = "Approve", CaseState = "Pending", CaseVersion = 2,
+            AssignmentVersion = 2, ActorPrincipalId = scope.SubjectId,
+        };
+        db.Add(vote);
+        var key = Guid.NewGuid();
+        var response = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, operation = "Decide", commandKey = key,
+            openingId = opening.Id, eventId = opening.SourcingEventId,
+            branchId = opening.BranchId, targetId = vote.Id,
+            responseStatus = 200,
+            result = new { roundId = opening.Id, voteId = vote.Id,
+                coreDecisionId = vote.CoreDecisionId, caseState = vote.CaseState,
+                caseVersion = vote.CaseVersion,
+                assignmentVersion = vote.AssignmentVersion,
+                terminalDecisionId = (Guid?)null },
+        });
+        db.Add(new PrincipalRfqCommercialCommandReceipt
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
+            BranchId = opening.BranchId, Operation = "Decide",
+            VoteTargetId = vote.Id, TargetId = vote.Id,
+            CommandKey = key, ActorPrincipalId = scope.SubjectId,
+            RequestSha256 = new string('a', 64), ResponseJson = response,
+            ResponseSha256 = ProcurementEvidenceEncoding.Digest(response),
+            ResponseStatus = 200,
+        });
+        Assert.Equal("RfqCommercialCoreVoteNotEnlisted",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
     }
 
@@ -175,7 +238,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
     }
 
     [Fact]
-    public void Decision_with_exact_same_save_receipt_passes_the_append_guard()
+    public void A_terminal_decision_cannot_use_a_receipt_targeting_it_instead_of_the_core_vote()
     {
         var scope = new Scope();
         using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
@@ -200,7 +263,6 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             OpeningSha256 = opening.SnapshotSha256,
             CoreOutcomeSha256 = new string('c', 64),
         };
-        db.Add(decision);
         var key = Guid.NewGuid();
         var response = JsonSerializer.Serialize(new
         {
@@ -223,15 +285,9 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(response),
             ResponseStatus = 200,
         });
-        Assert.Equal(4, db.SaveChanges());
-        var audits = db.AuditEvents.AsNoTracking()
-            .Where(x => x.RecordId == decision.Id || x.RecordId == db.PrincipalRfqCommercialCommandReceipts.Single().Id)
-            .ToArray();
-        Assert.Equal(2, audits.Length);
-        Assert.All(audits, audit => Assert.Equal(scope.SubjectId, audit.ActorSubjectId));
-        Assert.Contains(audits, audit => audit.RecordId == decision.Id && audit.RecordType == nameof(PrincipalRfqCommercialRoundDecisionRecord));
-        Assert.Contains(audits, audit => audit.RecordId == db.PrincipalRfqCommercialCommandReceipts.Single().Id
-            && audit.RecordType == nameof(PrincipalRfqCommercialCommandReceipt));
+        db.Add(decision);
+        Assert.Equal("RfqCommercialReceiptTargetRequired",
+            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
     }
 
     [Fact]

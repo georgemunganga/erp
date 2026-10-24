@@ -18,10 +18,32 @@ public sealed class PrincipalRfqCommercialRoundOpeningRecord : ProcurementRecord
     public string PolicyRulesSha256 { get; init; } = null!;
     public string ActorPrincipalId { get; init; } = null!;
     public Guid? ActorWorkerAliasId { get; init; }
+    public string ClosingOfficerPrincipalId { get; init; } = null!;
+    public Guid? ClosingOfficerWorkerAliasId { get; init; }
     public DateTimeOffset OpensAt { get; init; }
     public DateTimeOffset ClosesAt { get; init; }
     public string SnapshotJson { get; init; } = null!;
     public string SnapshotSha256 { get; init; } = null!;
+}
+
+/// <summary>One retained Core vote, including a Pending One/All-stage vote. The
+/// separate command receipt contains the original actor-owned HTTP result.</summary>
+public sealed class PrincipalRfqCommercialRoundVoteRecord : ProcurementRecord
+{
+    public int SchemaVersion { get; init; } = 1;
+    public Guid OpeningId { get; init; }
+    public Guid SourcingEventId { get; init; }
+    public Guid BranchId { get; init; }
+    public Guid CoreCaseId { get; init; }
+    public Guid CoreDecisionId { get; init; }
+    public Guid CoreAssignmentId { get; init; }
+    public string Action { get; init; } = null!;
+    public string CaseState { get; init; } = null!;
+    public long CaseVersion { get; init; }
+    public long AssignmentVersion { get; init; }
+    public string ActorPrincipalId { get; init; } = null!;
+    public Guid? ActorWorkerAliasId { get; init; }
+    public DateTimeOffset DecidedAt { get; init; }
 }
 
 /// <summary>One retained terminal Core decision. Approved is the sole state that
@@ -33,6 +55,7 @@ public sealed class PrincipalRfqCommercialRoundDecisionRecord : ProcurementRecor
     public Guid SourcingEventId { get; init; }
     public Guid CoreCaseId { get; init; }
     public Guid CoreDecisionId { get; init; }
+    public Guid TerminalVoteId { get; init; }
     public Guid CoreAssignmentId { get; init; }
     public Guid BranchId { get; init; }
     public string State { get; init; } = null!;
@@ -95,6 +118,7 @@ public sealed class PrincipalRfqCommercialCommandReceipt : ProcurementRecord
     public string ActorPrincipalId { get; init; } = null!;
     public Guid? TargetId { get; init; }
     public Guid? OpeningTargetId { get; init; }
+    public Guid? VoteTargetId { get; init; }
     public Guid? DecisionTargetId { get; init; }
     public Guid? OfferTargetId { get; init; }
     public Guid? SealTargetId { get; init; }
