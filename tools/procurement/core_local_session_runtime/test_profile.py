@@ -43,6 +43,14 @@ def example(catalog=None):
     return manifest,catalog
 
 class CoreProfileTests(unittest.TestCase):
+    def test_core_runtime_reuses_exact_private_socket_and_container_identity(self):
+        import run as runner
+        self.assertEqual(runner.PRIVATE_ID, SHARED.PRIVATE_CONTAINER_ID)
+        source=(HERE/'run.py').read_text()
+        self.assertIn("socket=foundation.exact_private_socket(plan['socketHostDirectory'])",source)
+        self.assertIn("pg['Id']==PRIVATE_ID",source)
+        self.assertIn("m.get('Destination')=='/var/run/postgresql' and m.get('RW') is True",source)
+
     def test_exact_mapped_profile_bounds_auth_writes_and_no_role_or_employee_writes(self):
         manifest,catalog=example();target=core_profile.core_targets(manifest,catalog,'proc_p30_core_session_20261024_01')
         self.assertFalse(target['table']);self.assertEqual({x[0] for x in target['schema']},{'hrm'})

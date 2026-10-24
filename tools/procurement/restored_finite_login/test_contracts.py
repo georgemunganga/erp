@@ -6,6 +6,8 @@ import os
 import pathlib
 import tempfile
 import unittest
+from unittest.mock import patch
+import contracts
 from contracts import names, validate_output, login_proof, verify_acl, grant_sql, first_local_scram, structural, SWITCH, validate_headroom, provision_sql, verify_container, MINIMUM_FREE_BYTES
 from run import admit
 
@@ -27,6 +29,22 @@ class TupleHelper:
     def tuples(value): return {k:{tuple(row) for row in rows} for k,rows in value.items()}
 
 class ContractsTests(unittest.TestCase):
+    def test_only_actual_private_postgres_socket_host_path_is_admitted(self):
+        if not (contracts.PRIVATE_SOCKET_HOST / '.s.PGSQL.5432').exists():
+            self.skipTest('Pinned private PostgreSQL socket is not running')
+        self.assertEqual(contracts.exact_private_socket(str(contracts.PRIVATE_SOCKET_HOST)),
+                         contracts.PRIVATE_SOCKET_HOST)
+        for bad in ('/tmp/private-pg-socket', '/home/amizo/erp-backups/fake-socket',
+                    str(contracts.PRIVATE_SOCKET_HOST.parent / 'other')):
+            with self.assertRaisesRegex(RuntimeError, 'Exact private PostgreSQL socket host path'):
+                contracts.exact_private_socket(bad)
+        with tempfile.TemporaryDirectory() as temp:
+            alias = pathlib.Path(temp) / 'socket'
+            alias.symlink_to(contracts.PRIVATE_SOCKET_HOST, target_is_directory=True)
+            with patch.object(contracts, 'PRIVATE_SOCKET_HOST', alias):
+                with self.assertRaisesRegex(RuntimeError, 'symlink ancestor'):
+                    contracts.exact_private_socket(alias)
+
     def test_names_do_not_adopt_source_or_nonbounded_names(self):
         self.assertEqual(names('proc_p30_login_20261024_02'),('p30_record_login_02','p30_execute_login_02'))
         for value in ['proc_p30_stageb_20261024_01','erp','proc_p30_login_20261024_2','proc_p30_login_20261024_02;DROP DATABASE erp']:

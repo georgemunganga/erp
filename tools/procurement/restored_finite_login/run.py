@@ -10,7 +10,7 @@ import re
 import secrets
 import shutil
 import subprocess
-from contracts import need, names, validate_output, login_proof, alias_targets, verify_acl, grant_sql, structural, first_local_scram, validate_headroom, provision_sql, verify_container
+from contracts import need, names, validate_output, login_proof, alias_targets, verify_acl, grant_sql, structural, first_local_scram, validate_headroom, provision_sql, verify_container, exact_private_socket, PRIVATE_CONTAINER_ID
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONTAINER = 'procurement-approval-rehearsal-postgres'
@@ -55,7 +55,8 @@ def admit(plan, path):
     roles = names(target)
     need(plan.get('authMethod') == 'scram-sha-256' and plan.get('loginRoles') == list(roles), 'Explicit SCRAM/alias contract required')
     need(plan.get('privateSystemIdentifier') == '7698678713374847009'
-         and plan.get('productionSystemIdentifier') == '7683513820537307167', 'Fixed distinct cluster identities required')
+         and plan.get('productionSystemIdentifier') == '7683513820537307167'
+         and plan.get('privateContainerId') == PRIVATE_CONTAINER_ID, 'Fixed distinct cluster identities required')
     need(set(plan.get('files', {})) == FILES, 'Exact mandatory input set required')
     files = {key: pinned(spec) for key, spec in plan['files'].items()}
     need(json.loads(files['stageBResult'].read_text())['status'] == 'PASS_PRIVATE_CLONE_FINITE_SESSION_ACL_ONLY'
@@ -63,11 +64,11 @@ def admit(plan, path):
     need(json.loads(files['stageAResult'].read_text())['status'] == 'PASS_READONLY_SUPPLEMENT_OF_FAILED_STAGE_A02', 'Accepted production-snapshot StageA supplement required')
     need(isinstance(plan.get('runtimeImage'),str) and re.fullmatch(r'sha256:[0-9a-f]{64}', plan['runtimeImage']), 'Immutable compiled runtime image required')
     publication = real_path(pathlib.Path(plan['publicationDirectory']))
-    socket = real_path(pathlib.Path(plan['socketHostDirectory']))
+    socket = exact_private_socket(plan['socketHostDirectory'])
     data = real_path(pathlib.Path(plan['privateDataHostDirectory']))
     need(data.is_dir() and plan['privateDataContainerDestination'] == '/var/lib/postgresql/data', 'Reviewed actual PostgreSQL data mount required')
-    need(publication.is_dir() and socket.is_dir() and str(publication).startswith('/home/amizo/erp-backups/')
-         and str(socket).startswith('/home/amizo/erp-backups/'), 'Protected publication/socket paths required')
+    need(publication.is_dir() and str(publication).startswith('/home/amizo/erp-backups/'),
+         'Protected publication path required')
     manifest = json.loads(files['runtimeManifest'].read_text())
     need(isinstance(manifest,dict) and manifest and 'FullHostCompatibilityProbe.dll' in manifest, 'Whole compiled publication manifest required')
     actual = {}
@@ -111,6 +112,7 @@ def main():
          and inspect['State']['Running'] and inspect['HostConfig']['NetworkMode'] == 'none'
          and not inspect['HostConfig'].get('PortBindings'), 'Private cluster container differs')
     need(any(m.get('Type') == 'bind' and m.get('Source') == str(socket) and m.get('Destination') == '/var/run/postgresql'
+             and m.get('RW') is True
              for m in inspect['Mounts']), 'Socket mount must belong to the exact private PostgreSQL container')
     need(any(m.get('Source') == str(data) and m.get('Destination') == plan['privateDataContainerDestination']
              for m in inspect['Mounts']), 'Headroom must cover the actual private PostgreSQL data mount')

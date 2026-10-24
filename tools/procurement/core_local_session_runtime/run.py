@@ -19,6 +19,7 @@ import core_profile
 HERE=Path(__file__).resolve().parent
 BACKUPS=Path('/home/amizo/erp-backups')
 PRIVATE='procurement-approval-rehearsal-postgres'
+PRIVATE_ID='10b7cb11af108c3a47ba557c0f903ac73439f88b060e7f7150c08c8fa99778fd'
 FOUNDATION=HERE.parent/'restored_finite_login/contracts.py'
 FOUNDATION_RUNNER=FOUNDATION.with_name('run.py')
 
@@ -60,7 +61,8 @@ def admit(plan,plan_path,expected):
     need(plan['runnerSha256']==sha(Path(__file__)) and plan['profileSha256']==sha(HERE/'core_profile.py')
         and plan['foundationSha256']==sha(FOUNDATION) and plan['foundationRunnerSha256']==sha(FOUNDATION_RUNNER)
         and plan['rendererSha256']==sha(HERE/'render.py') and plan['pureTestsSha256']==sha(HERE/'test_profile.py'),'reviewed-source-boundary-changed')
-    need(plan['privateContainer']==PRIVATE and plan['privateSystemIdentifier']=='7698678713374847009'
+    need(plan['privateContainer']==PRIVATE and plan['privateContainerId']==PRIVATE_ID
+        and plan['privateSystemIdentifier']=='7698678713374847009'
         and plan['productionSystemIdentifier']=='7683513820537307167','exact-private-cluster-required')
     need(isinstance(plan['runtimeImageId'],str) and re.fullmatch(r'sha256:[0-9a-f]{64}',plan['runtimeImageId']),'immutable-local-runtime-image-required')
     roles=core_profile.aliases(plan['database'])
@@ -108,8 +110,10 @@ def main():
         and pg['HostConfig']['NetworkMode']=='none' and not pg['HostConfig'].get('PortBindings'),'exact-private-PostgreSQL-container-required')
     runtime=json.loads(subprocess.check_output(['docker','image','inspect',plan['runtimeImageId']],timeout=20))[0]
     need(runtime['Id']==plan['runtimeImageId'],'exact-existing-runtime-image-required')
-    socket=Path(plan['socketHostDirectory'])
-    need(socket.resolve()==socket and socket.is_dir() and any(m.get('Source')==str(socket) and m.get('Destination')=='/var/run/postgresql' for m in pg['Mounts']),'exact-private-socket-mount-required')
+    socket=foundation.exact_private_socket(plan['socketHostDirectory'])
+    need(pg['Id']==PRIVATE_ID and any(m.get('Type')=='bind' and m.get('Source')==str(socket)
+        and m.get('Destination')=='/var/run/postgresql' and m.get('RW') is True
+        for m in pg['Mounts']),'exact-private-socket-mount-required')
     def read(text):
         result=subprocess.run(['docker','exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on -c lock_timeout=2s -c statement_timeout=90s -c max_parallel_workers_per_gather=0',PRIVATE,
             'psql','-XqAt','-U','postgres','-d',plan['database'],'-v','ON_ERROR_STOP=1','-f','-'],input=text,capture_output=True,timeout=120)

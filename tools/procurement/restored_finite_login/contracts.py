@@ -3,13 +3,32 @@ import copy
 import hashlib
 import pathlib
 import re
+import stat
 
 ROOT = pathlib.Path('/home/amizo/erp-backups')
+PRIVATE_CONTAINER_ID = '10b7cb11af108c3a47ba557c0f903ac73439f88b060e7f7150c08c8fa99778fd'
+PRIVATE_SOCKET_HOST = pathlib.Path('/home/amizo/procurement-approval-execution/artifacts/procurement-approval/socket')
 SWITCH = re.compile(r'\bSET\s+(?:(?:LOCAL|SESSION)\s+)?ROLE\b|\bSET\s+SESSION\s+AUTHORIZATION\b', re.I)
 
 def need(ok, code):
     if not ok:
         raise RuntimeError(code)
+
+def exact_private_socket(path):
+    """Admit only the existing socket bind of the pinned private PG container."""
+    path = pathlib.Path(path)
+    need(path == PRIVATE_SOCKET_HOST and path.is_absolute() and '..' not in path.parts,
+         'Exact private PostgreSQL socket host path required')
+    current = pathlib.Path('/')
+    for part in path.parts[1:]:
+        current /= part
+        need(not current.is_symlink(), 'Private socket path has a symlink ancestor')
+    need(path.is_dir(), 'Private PostgreSQL socket directory missing')
+    socket = path / '.s.PGSQL.5432'
+    try: mode = socket.lstat().st_mode
+    except OSError: raise RuntimeError('Private PostgreSQL socket missing') from None
+    need(stat.S_ISSOCK(mode), 'Private PostgreSQL socket is not a socket')
+    return path
 
 def names(database):
     need(isinstance(database, str) and re.fullmatch(r'proc_p30_login_20261024_[0-9]{2}', database), 'Fresh bounded LOGIN database required')
