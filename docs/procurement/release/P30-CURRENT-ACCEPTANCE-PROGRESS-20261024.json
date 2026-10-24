@@ -35,7 +35,17 @@
     "independentFinalOwnerPassed": false,
     "sourceDiagnosis": "UI gates publication review on source-conversion capability, which is correctly false for a reviewer granted publication permission only. Separate publication capability must govern list/detail access without granting creation.",
     "earlierFailedAttemptsRetained": true,
-    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-cookie-20261024_run10"
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-cookie-20261024_run10",
+    "sourceFix": {
+      "applicationCommit": "478a03dc4f43e11c0af96588b7fe0d14d564d4f4",
+      "integratedUiCommit": "55b73b90b34c1c0ec3b85e9dccf153e2ccb6d835",
+      "broaderParentMockBrowserPassed": 23,
+      "finalFocusedMockBrowserPassed": 7,
+      "typecheckPassed": true,
+      "productionUiBuildPassed": true,
+      "normalCookieBackendProofPending": true,
+      "freshProofCohort": "cookie11"
+    }
   },
   "serviceReceiving": {
     "status": "ACCEPTED_PRIVATE_NORMAL_COOKIE_AND_OWNER",
@@ -75,5 +85,11 @@
     "singleClean35CaseSuiteClaim": false,
     "actualBackendPersistenceClaim": false,
     "deployed": false
+  },
+  "integratedBackendValidation": {
+    "sourceCommit": "13c4479bb55dc1c7e8f47947172d3e1568e68897",
+    "status": "RUNNING_CURRENT_SOURCE_FULL_HOST_DOMAIN_AND_MODEL_CHECKS",
+    "privateEvidenceDirectory": "/home/amizo/erp-backups/procurement-p32-schema-validation-20261024_run08",
+    "productionTouched": false
   }
 }
