@@ -29,6 +29,16 @@ Finance AP/payment row or employee fixture. All external references in this
 cohort are visibly synthetic manual attestations; they are not Finance posting,
 supplier transmission, or payment proof.
 
+An additional, separate fresh `proc_p30_http_po_*` clone may set
+`P30_HTTP_VERIFY_RETAINED_HISTORY_CANCEL=1` alongside the PO opt-in. This
+exclusive owner-only negative cohort redirects a genuine submission's
+redundant order ID to another real unfunded draft while retaining the original
+funding reference. It requires the normal Cancel API to return 409 without
+reservation, receipt, audit, or outbox effects, restores the original ID in
+`finally`, and confirms ordinary cancellation afterward. This flag cannot be
+combined with normal-cookie serving, receiving, or RFQ cohorts. Without it,
+the original three-order PO graph and cookie-owner fixture remain unchanged.
+
 This is a source-only probe until the P30 migration, finite role manifest,
 readiness and metadata are integrated and the parent runs the serialized
 private PostgreSQL/HTTP rehearsal. Do not claim pass from authored code.

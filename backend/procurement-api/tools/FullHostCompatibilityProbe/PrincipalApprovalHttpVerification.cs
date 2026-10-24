@@ -52,6 +52,7 @@ internal static partial class PrincipalApprovalHttpVerification
         var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
         var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
         var receivingFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_RECEIVING");
+        var retainedPoCancelFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RETAINED_HISTORY_CANCEL");
         Need(receivingFlag is null or "1","P30 receiving opt-in must be exactly1 or absent.");
         Need(receivingFlag is null||principalPoFlag=="1","Receiving proof requires its fresh genuine principal PO profile.");
         var publicationFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
@@ -75,6 +76,12 @@ internal static partial class PrincipalApprovalHttpVerification
             "Principal PO needs its own new private database and no other optional cohort.");
         Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
         Need(p30PoCookieFlag is null or "1","P30 PO normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(retainedPoCancelFlag is null or "1","P30 retained-history cancellation opt-in must be exactly1 or absent.");
+        Need(retainedPoCancelFlag is null || principalPoFlag=="1"
+            && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && receivingFlag is null && p30PoCookieFlag is null && p29CookieFlag is null
+            && principalRfqFlag is null && publicationFlag is null,
+            "Retained-history cancellation requires a separate fresh private PO API cohort, without cookie or receiving phases.");
         Need(p30PoCookieFlag is null || principalPoFlag=="1" && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
             && p29CookieFlag is null && principalRfqFlag is null && publicationFlag is null && receivingFlag is null,
             "P30 PO normal-cookie serve requires its exclusive fresh private PO profile.");
