@@ -13,7 +13,7 @@ public sealed record PrincipalRfqPublishedRoundProof(Guid RoundId, Guid EventId,
     Guid CompanyId, Guid BranchId, string CurrencyCode, long EventVersion,
     DateTimeOffset OpensAt, DateTimeOffset ClosesAt,
     string ClosingOfficerPrincipalId, Guid? ClosingOfficerWorkerAliasId,
-    string State);
+    string State, IReadOnlyList<Guid> ApprovedSupplierIds);
 
 /// <summary>Exact immutable offer content prepared for an owned append-only
 /// submission. Supplier authentication is never inferred from recorder identity.</summary>
@@ -61,6 +61,9 @@ public static class PrincipalRfqSealedManualOffers
             && round.TenantId == source.TenantId && round.CompanyId == source.LegalEntityId
             && round.BranchId == source.BranchRef && round.CurrencyCode == source.CurrencyCode
             && round.CommercialCaseId != Guid.Empty && round.ApprovedDecisionId != Guid.Empty
+            && round.ApprovedSupplierIds is { Count: > 0 }
+            && round.ApprovedSupplierIds.Distinct().Count() == round.ApprovedSupplierIds.Count
+            && round.ApprovedSupplierIds.Contains(bid.SupplierId)
             && Hash(round.ApprovalEvidenceSha256) && source.Status == "Published"
             && prepared.SourcingEventId == source.Id && prepared.EventVersion > 0
             && prepared.TenantId == source.TenantId && prepared.LegalEntityId == source.LegalEntityId
@@ -140,7 +143,10 @@ public static class PrincipalRfqSealedManualOffers
         ArgumentNullException.ThrowIfNull(officer);
         Need(round.State == "Accepting" && round.RoundId != Guid.Empty
             && Instant(serverObservedAt) && Instant(round.ClosesAt)
-            && serverObservedAt >= round.ClosesAt && submissions.Count <= 500,
+            && serverObservedAt >= round.ClosesAt && submissions.Count <= 500
+            && round.ApprovedSupplierIds is { Count: > 0 }
+            && round.ApprovedSupplierIds.All(x => x != Guid.Empty)
+            && round.ApprovedSupplierIds.Distinct().Count() == round.ApprovedSupplierIds.Count,
             "RfqSealedRoundCannotClose");
         Need(ProcurementPrincipalEvidence.Canonical(officer.PrincipalId)
             && ProcurementPrincipalEvidence.OptionalWorker(officer.LinkedWorkerId)
@@ -155,6 +161,8 @@ public static class PrincipalRfqSealedManualOffers
         Need(submissions.All(x => x is not null && x.RoundId == round.RoundId
             && x.EventId == round.EventId && Hash(x.SnapshotSha256)
             && x.SnapshotSha256 == ProcurementEvidenceEncoding.Digest(x.SnapshotJson)
+            && round.ApprovedSupplierIds.Contains(x.SupplierId)
+            && SubmissionPinsMatch(x)
             && x.SubmittedAt >= round.OpensAt && x.SubmittedAt < round.ClosesAt)
             && submissions.Select(x => x.BidId).Distinct().Count() == submissions.Count
             && submissions.Select(x => x.SupplierId).Distinct().Count() == submissions.Count,
@@ -169,6 +177,35 @@ public static class PrincipalRfqSealedManualOffers
 
     private static bool Instant(DateTimeOffset value) => value != default
         && value.Offset == TimeSpan.Zero && value.UtcTicks % 10 == 0;
+    private static bool SubmissionPinsMatch(PrincipalRfqManualOfferSubmission offer)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(offer.SnapshotJson);
+            var pin = document.RootElement;
+            return pin.GetProperty("schemaVersion").GetInt32() == 1
+                && pin.GetProperty("roundId").GetGuid() == offer.RoundId
+                && pin.GetProperty("eventId").GetGuid() == offer.EventId
+                && pin.GetProperty("bidId").GetGuid() == offer.BidId
+                && pin.GetProperty("invitationId").GetGuid() == offer.InvitationId
+                && pin.GetProperty("supplierId").GetGuid() == offer.SupplierId
+                && pin.GetProperty("draftRevision").GetInt32() == offer.DraftRevision
+                && pin.GetProperty("bidVersion").GetInt64() == offer.BidVersion
+                && pin.GetProperty("draftSnapshotSha256").GetString() == offer.DraftSnapshotSha256
+                && pin.GetProperty("originalDocumentVersionId").GetGuid() == offer.OriginalDocumentVersionId
+                && pin.GetProperty("originalDocumentSha256").GetString() == offer.OriginalDocumentSha256
+                && pin.GetProperty("recorderPrincipalId").GetString() == offer.RecorderPrincipalId
+                && (pin.GetProperty("recorderWorkerAliasId").ValueKind == JsonValueKind.Null
+                    ? offer.RecorderWorkerAliasId is null
+                    : pin.GetProperty("recorderWorkerAliasId").GetGuid() == offer.RecorderWorkerAliasId)
+                && pin.GetProperty("reportedReceivedAt").GetDateTimeOffset() == offer.ReportedReceivedAt
+                && pin.GetProperty("submittedAt").GetDateTimeOffset() == offer.SubmittedAt
+                && pin.GetProperty("lines").ValueKind == JsonValueKind.Array
+                && pin.GetProperty("lines").GetArrayLength() > 0;
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException
+            or KeyNotFoundException or FormatException) { return false; }
+    }
     private static bool Hash(string? value) => value is { Length: 64 }
         && value.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
     private static void Need(bool condition, string code)

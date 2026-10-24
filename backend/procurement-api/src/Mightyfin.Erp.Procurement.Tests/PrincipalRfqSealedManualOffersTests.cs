@@ -33,7 +33,7 @@ public sealed class PrincipalRfqSealedManualOffersTests
         var round = new PrincipalRfqPublishedRoundProof(Guid.NewGuid(), eventId,
             prepared.Id, prepared.SnapshotSha256, Guid.NewGuid(), Guid.NewGuid(),
             new string('b', 64), tenant, company, branch, "USD", 1,
-            Opens, Closes, principal, null, "Accepting");
+            Opens, Closes, principal, null, "Accepting", [supplier]);
         var ev = new SourcingEvent
         {
             Id = eventId, TenantId = tenant, LegalEntityId = company,
@@ -161,5 +161,17 @@ public sealed class PrincipalRfqSealedManualOffersTests
         Assert.Equal("RfqSealedSubmissionSetChanged", Assert.Throws<InvalidOperationException>(
             () => PrincipalRfqSealedManualOffers.Close(f.Round,
                 [submitted with { SnapshotJson = "{}" }], f.Recorder, Closes)).Message);
+        Assert.Equal("RfqSealedSubmissionSetChanged", Assert.Throws<InvalidOperationException>(
+            () => PrincipalRfqSealedManualOffers.Close(f.Round,
+                [submitted with { SupplierId = Guid.NewGuid() }], f.Recorder, Closes)).Message);
+    }
+
+    [Fact]
+    public void Invitation_created_after_review_for_another_supplier_cannot_enter_round()
+    {
+        var f = New();
+        Assert.Equal("RfqSealedRoundPublicationRequired", Assert.Throws<InvalidOperationException>(
+            () => Submit(f with { Round = f.Round with { ApprovedSupplierIds = [Guid.NewGuid()] } },
+                Opens.AddMinutes(1))).Message);
     }
 }

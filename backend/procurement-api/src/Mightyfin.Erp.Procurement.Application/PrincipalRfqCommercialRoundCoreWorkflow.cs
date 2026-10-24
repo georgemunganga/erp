@@ -190,7 +190,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
     public static PrincipalRfqCommercialRoundTerminal Finish(
         PrincipalRfqCommercialRoundOpening opening, PrincipalRfqPreparedPlan prepared,
         SourcingEvent source, PolicyVersion policy, ApprovalCase current,
-        ApprovalDecision terminalDecision, RfqPrincipalActor signer,
+        IReadOnlyList<ApprovalDecision> decisions, ApprovalDecision terminalDecision, RfqPrincipalActor signer,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(opening);
@@ -198,6 +198,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(decisions);
         ArgumentNullException.ThrowIfNull(terminalDecision);
         ArgumentNullException.ThrowIfNull(signer);
         using var retained = JsonDocument.Parse(opening.SnapshotJson);
@@ -240,6 +241,9 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             && pin.GetProperty("opensAt").GetDateTimeOffset() == opening.OpensAt
             && pin.GetProperty("closesAt").GetDateTimeOffset() == opening.ClosesAt
             && pin.GetProperty("closerPrincipalId").GetString() == opening.ClosingOfficerPrincipalId
+            && (pin.GetProperty("closerWorkerAliasId").ValueKind == JsonValueKind.Null
+                ? opening.ClosingOfficerWorkerAliasId is null
+                : pin.GetProperty("closerWorkerAliasId").GetGuid() == opening.ClosingOfficerWorkerAliasId)
             && pin.GetProperty("supplierIds").EnumerateArray().Select(x => x.GetGuid())
                 .SequenceEqual(opening.SupplierIds)
             && current.Id == opening.Case.Id
@@ -252,6 +256,10 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             && current.PolicyVersionId == policy.Id
             && current.PolicyVersionNumber == policy.PolicyVersionNumber
             && current.MakerSubjectId == prepared.ActorPrincipalId
+            && (current.State == "Approved"
+                ? !string.IsNullOrWhiteSpace(current.CompletionKey)
+                    && current.CompletionKey == terminalDecision.IdempotencyKey
+                : current.CompletionKey is null)
             && source.Id == prepared.SourcingEventId
             && source.Status == "Published"
             && source.BranchRef == prepared.BranchId
@@ -259,6 +267,8 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             && source.LegalEntityId == prepared.LegalEntityId
             && current.Stages.Count == opening.Case.Stages.Count
             && terminalDecision.CaseId == current.Id
+            && terminalDecision.TenantId == current.TenantId
+            && terminalDecision.LegalEntityId == current.LegalEntityId
             && terminalDecision.ActorSubjectId == signer.PrincipalId
             && signer.Permissions.Contains(PrincipalRfqCommercialRoundPolicyRules.ApprovalAction)
             && signer.TenantId == prepared.TenantId
@@ -272,12 +282,53 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
                 == ProcurementEvidenceEncoding.DatabaseTimestamp(terminalDecision.DecidedAt)
             && current.CompletedAt <= now,
             "RfqCommercialRoundDecisionChanged");
+        Need(decisions.Count > 0
+            && decisions.Select(x => x.Id).Distinct().Count() == decisions.Count
+            && decisions.Any(x => x.Id == terminalDecision.Id)
+            && decisions.Single(x => x.Id == terminalDecision.Id) is { } retainedTerminal
+            && retainedTerminal.IdempotencyKey == terminalDecision.IdempotencyKey
+            && retainedTerminal.Action == terminalDecision.Action
+            && retainedTerminal.AssignmentId == terminalDecision.AssignmentId
+            && retainedTerminal.ActorSubjectId == terminalDecision.ActorSubjectId
+            && retainedTerminal.DecidedAt == terminalDecision.DecidedAt
+            && decisions.Select(x => x.IdempotencyKey).Distinct(StringComparer.Ordinal).Count() == decisions.Count
+            && decisions.Select(x => x.AssignmentId).Distinct().Count() == decisions.Count
+            && decisions.All(x => x.CaseId == current.Id && x.TenantId == current.TenantId
+                && x.LegalEntityId == current.LegalEntityId && !string.IsNullOrWhiteSpace(x.IdempotencyKey)
+                && currentStages.SelectMany(s => s.Assignments).Any(a => a.Id == x.AssignmentId
+                    && a.StageId == x.StageId && a.AssigneeSubjectId == x.ActorSubjectId)
+                && x.DecidedAt <= terminalDecision.DecidedAt)
+            && currentStages.SelectMany(s => s.Assignments).All(a =>
+            {
+                var vote = decisions.SingleOrDefault(d => d.AssignmentId == a.Id);
+                return a.State switch
+                {
+                    "Approved" => vote?.Action == "Approve",
+                    "Returned" => vote?.Action == "Return",
+                    "Rejected" => vote?.Action == "Reject",
+                    "Pending" or "Superseded" or "Cancelled" => vote is null,
+                    _ => false,
+                };
+            })
+            && currentStages.Where(s => s.State == "Approved").All(s =>
+                s.Assignments.Count(a => a.State == "Approved"
+                    && decisions.Count(d => d.AssignmentId == a.Id && d.Action == "Approve") == 1)
+                    >= s.RequiredApprovals
+                && s.Assignments.All(a => a.State != "Approved"
+                    || decisions.Count(d => d.AssignmentId == a.Id && d.Action == "Approve") == 1))
+            && currentStages.All(s => s.State != "Approved" || s.Assignments.All(a => a.State != "Pending")),
+            "RfqCommercialRoundReviewGraphChanged");
         var assignment = current.Stages.SelectMany(x => x.Assignments)
             .SingleOrDefault(x => x.Id == terminalDecision.AssignmentId);
         Need(assignment is not null && assignment.CaseId == current.Id
             && assignment.StageId == terminalDecision.StageId
             && assignment.AssigneeSubjectId == signer.PrincipalId
-            && assignment.PermissionKey == PrincipalRfqCommercialRoundPolicyRules.ApprovalAction,
+            && assignment.PermissionKey == PrincipalRfqCommercialRoundPolicyRules.ApprovalAction
+            && assignment.State == (terminalDecision.Action switch
+            {
+                "Approve" => "Approved", "Return" => "Returned", "Reject" => "Rejected",
+                _ => "Impossible",
+            }),
             "RfqCommercialRoundDecisionChanged");
         var state = terminalDecision.Action switch
         {
@@ -290,6 +341,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             return new(state, terminalDecision.Id, signer.PrincipalId,
                 terminalDecision.Reason, null);
         Need(current.Stages.All(x => x.State == "Approved")
+            && terminalDecision.StageId == currentStages[^1].Id
             && current.CompletedAt is { } completed
             && completed < opening.OpensAt
             && opening.OpensAt < opening.ClosesAt,
@@ -300,7 +352,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             prepared.TenantId, prepared.LegalEntityId, prepared.BranchId,
             source.CurrencyCode, source.Version, opening.OpensAt,
             opening.ClosesAt, opening.ClosingOfficerPrincipalId,
-            opening.ClosingOfficerWorkerAliasId, "Accepting");
+            opening.ClosingOfficerWorkerAliasId, "Accepting", opening.SupplierIds);
         return new("Approved", terminalDecision.Id, signer.PrincipalId, null, proof);
     }
 

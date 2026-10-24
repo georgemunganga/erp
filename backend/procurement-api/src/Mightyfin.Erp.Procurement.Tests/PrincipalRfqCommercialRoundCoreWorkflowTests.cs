@@ -111,33 +111,61 @@ public sealed partial class PrincipalRfqPrepublicationPlanTests
         var stage = opening.Case.Stages.Single();
         var assignment = stage.Assignments.Single();
         var at = f.At.AddMinutes(1);
-        stage.State = "Approved";
-        assignment.State = "Approved";
-        opening.Case.State = "Approved";
-        opening.Case.CompletedAt = at;
-        var decision = new ApprovalDecision
-        {
-            TenantId = f.Plan.TenantId, LegalEntityId = f.Plan.LegalEntityId,
-            CaseId = opening.Case.Id, StageId = stage.Id,
-            AssignmentId = assignment.Id, ActorSubjectId = f.Reviewer.PrincipalId,
-            Action = "Approve", DecidedAt = at,
-        };
+        var decisions = new List<ApprovalDecision>();
+        var actor = new ApprovalActor(f.Reviewer.PrincipalId, f.Plan.TenantId,
+            f.Plan.LegalEntityId, f.Reviewer.Permissions);
+        ApprovalEngine.Decide(opening.Case, assignment, actor, "Approve",
+            Guid.NewGuid().ToString("D"), null, decisions, at);
+        var decision = decisions.Single();
         var approved = PrincipalRfqCommercialRoundCoreWorkflow.Finish(
             opening, f.Plan, f.Event, f.Policy, opening.Case,
-            decision, f.Reviewer, at);
+            decisions, decision, f.Reviewer, at);
         Assert.Equal("Approved", approved.State);
         Assert.Equal(f.Plan.Id, approved.AcceptingRound!.PreparedPlanId);
         Assert.Equal(opening.SnapshotSha256,
             approved.AcceptingRound.ApprovalEvidenceSha256);
-        opening.Case.State = "Returned";
-        stage.State = "Returned";
-        assignment.State = "Returned";
-        decision.Action = "Return";
-        decision.Reason = "Correct controls";
+        var returnedOpening = PrincipalRfqCommercialRoundCoreWorkflow.Open(f.Plan,
+            f.Head, f.Revision, f.Event, f.Original, f.Policy,
+            [f.Reviewer], f.Closer, [Guid.NewGuid()], f.At);
+        var returnedAssignment = returnedOpening.Case.Stages.Single().Assignments.Single();
+        var returnedDecisions = new List<ApprovalDecision>();
+        ApprovalEngine.Decide(returnedOpening.Case, returnedAssignment, actor,
+            "Return", Guid.NewGuid().ToString("D"), "Correct controls", returnedDecisions, at);
         var returned = PrincipalRfqCommercialRoundCoreWorkflow.Finish(
-            opening, f.Plan, f.Event, f.Policy, opening.Case,
-            decision, f.Reviewer, at);
+            returnedOpening, f.Plan, f.Event, f.Policy, returnedOpening.Case,
+            returnedDecisions, returnedDecisions.Single(), f.Reviewer, at);
         Assert.Equal("Returned", returned.State);
         Assert.Null(returned.AcceptingRound);
+    }
+
+    [Fact]
+    public void Approved_label_without_all_core_votes_and_retained_closer_alias_denies()
+    {
+        var f = CommercialRoundShape();
+        var opening = PrincipalRfqCommercialRoundCoreWorkflow.Open(f.Plan,
+            f.Head, f.Revision, f.Event, f.Original, f.Policy,
+            [f.Reviewer], f.Closer, [Guid.NewGuid()], f.At);
+        var stage = opening.Case.Stages.Single();
+        var assignment = stage.Assignments.Single();
+        var at = f.At.AddMinutes(1);
+        opening.Case.State = "Approved";
+        opening.Case.CompletedAt = at;
+        opening.Case.CompletionKey = "completed";
+        stage.State = "Approved";
+        assignment.State = "Approved";
+        var forged = new ApprovalDecision
+        {
+            TenantId = f.Plan.TenantId, LegalEntityId = f.Plan.LegalEntityId,
+            CaseId = opening.Case.Id, StageId = stage.Id,
+            AssignmentId = assignment.Id, ActorSubjectId = f.Reviewer.PrincipalId,
+            Action = "Approve", IdempotencyKey = "completed", DecidedAt = at,
+        };
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundCoreWorkflow.Finish(opening, f.Plan,
+                f.Event, f.Policy, opening.Case, [], forged, f.Reviewer, at));
+        var wrongCloser = opening with { ClosingOfficerWorkerAliasId = Guid.NewGuid() };
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundCoreWorkflow.Finish(wrongCloser, f.Plan,
+                f.Event, f.Policy, opening.Case, [forged], forged, f.Reviewer, at));
     }
 }
