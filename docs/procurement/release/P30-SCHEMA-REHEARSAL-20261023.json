@@ -1,0 +1,39 @@
+{
+  "status": "SCHEMA_REHEARSAL_PASSED_RUNTIME_NOT_ACCEPTED",
+  "database": "proc_p30_ddl_20261023_01",
+  "sourceDatabase": "proc_p25_http_p29_20261023_cookie05",
+  "legacyTableCount": 195,
+  "newTables": 21,
+  "newTablesEmpty": true,
+  "retainedPrincipalRfqRows": 2,
+  "normalizedBusinessRowsUnchanged": true,
+  "downRestoredFullProcurementSchemaAndHistory": true,
+  "repeatUpUnchanged": true,
+  "checksCaptured": 26,
+  "exactOwnershipConstraints": 11,
+  "productionTouched": false,
+  "runtimeStarted": false,
+  "limits": "Owning DDL/schema and retained synthetic data only; finite roles, API, browser and populated P30 downgrade veto are separate gates",
+  "sqlHashes": {
+    "p30-up.sql": "a6dd32fe242a3abe1b3a55385c05500516c524af379eba113d4ad69030d11411",
+    "p30-down.sql": "6c0dd1eb4ed1dad256a59d3f1abde83c150fe464973eda1d47fd4ea7049b3684"
+  },
+  "genuineMigration": "20261023222748_P30PrincipalCommercialWorkflows",
+  "owningSchemaEvidence": "procurement-p30-owner-ddl-20261023_run02",
+  "failedAttemptsRetained": [
+    "procurement-p30-owner-ddl-20261023_run01: typed-json rollback guard error; transaction rolled back; corrected verifier resumed same isolated clone"
+  ],
+  "manifestSha256": {
+    "checks.json": "d987215ff1316a5f59181242e296ed385e515dc9f1b9160393c072855babe964",
+    "ownership-constraints.json": "d14bcb79bf870fa6fa03d9ed273f01948c2bba7467dba38643c9c2b9521c44f9"
+  },
+  "pending": [
+    "Full domain tests",
+    "Host tests and compilation",
+    "Finite-role actual HTTP PO, RFQ and receiving workflows",
+    "Original UI combined tests/build and Playwright",
+    "Populated P30 downgrade veto",
+    "Independent owner reconciliation",
+    "Production backup/migration/configuration/deployment/UAT"
+  ]
+}

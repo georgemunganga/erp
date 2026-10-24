@@ -1,0 +1,175 @@
+{
+  "status": "SOURCE_COVERAGE_AUDIT_NOT_PRODUCTION_ACCEPTANCE",
+  "date": "2026-10-24",
+  "erpSource": "ea3f07ee",
+  "uiSource": "7c575d2",
+  "basicDeleteSemantics": "Financial/history records use cancel/withdraw/deactivate rather than destructive deletion",
+  "features": [
+    {
+      "feature": "vendors",
+      "apiPrefix": "/api/procurement/v1/vendors",
+      "implementedOperations": [
+        "create",
+        "list/detail",
+        "update",
+        "withdraw/deactivate and governed status changes"
+      ],
+      "currentScope": "Persisted full vendor editor; action and record scoped",
+      "remaining": "Portal onboarding/diligence proof remains separate"
+    },
+    {
+      "feature": "items_catalog",
+      "apiPrefix": "/api/procurement/v1/items",
+      "implementedOperations": [
+        "create",
+        "list/detail",
+        "update",
+        "activate/deactivate",
+        "catalog publish/withdraw"
+      ],
+      "currentScope": "Persisted item/catalog controls",
+      "remaining": "Punchout remains unavailable"
+    },
+    {
+      "feature": "purchase_requests",
+      "apiPrefix": "/api/procurement/v1/requests",
+      "implementedOperations": [
+        "create",
+        "list/detail",
+        "update",
+        "submit/return/withdraw"
+      ],
+      "currentScope": "Persisted drafts; Core approvals/funding gated",
+      "remaining": "Approved source and current policy/funding evidence required for ordering"
+    },
+    {
+      "feature": "rfq",
+      "apiPrefix": "/api/procurement/v1/sourcing",
+      "implementedOperations": [
+        "draft create/read/update/cancel",
+        "approved-source conversion/recovery",
+        "publication review",
+        "manual contact",
+        "quotation draft/revisions"
+      ],
+      "currentScope": "Principal workflow gated by P29/P30 readiness",
+      "remaining": "P32 submission/sealing/evaluation/award not live"
+    },
+    {
+      "feature": "purchase_orders",
+      "apiPrefix": "/api/procurement/v1/orders",
+      "implementedOperations": [
+        "approved-source create/list/detail/cancel/recovery",
+        "manual funding evidence",
+        "Core approval",
+        "internal issue/manual acknowledgement",
+        "funding release"
+      ],
+      "currentScope": "P30 runtime acceptance pending; UI /procurement/workspace/purchase-orders retained",
+      "remaining": "P33 governed draft revisions held; no supplier dispatch or Finance posting"
+    },
+    {
+      "feature": "receiving",
+      "apiPrefix": "/api/procurement/v1/receiving",
+      "implementedOperations": [
+        "goods/service draft create/read/update/cancel",
+        "record/inspect/accept",
+        "purpose tasks/recovery"
+      ],
+      "currentScope": "Principal P30 capability default off pending runtime gates",
+      "remaining": "Returns/reversals and Inventory/Asset handoff remain"
+    },
+    {
+      "feature": "bills_inbox",
+      "apiPrefix": "/api/procurement/v1/invoices",
+      "implementedOperations": [
+        "manual received create/read/update/cancel",
+        "controlled document access"
+      ],
+      "currentScope": "Original manual intake persisted; typed P31 matching held",
+      "remaining": "Typed qualified claims, validation and Finance handoff unavailable"
+    },
+    {
+      "feature": "vendor_credits",
+      "apiPrefix": "/api/procurement/v1/vendor-credits",
+      "implementedOperations": [
+        "documentary draft create/read/update/cancel"
+      ],
+      "currentScope": "Persisted documentary drafts",
+      "remaining": "Finance owns application/refunds/AP balances"
+    },
+    {
+      "feature": "manual_payments",
+      "apiPrefix": "/api/procurement/v1/manual-payments",
+      "implementedOperations": [
+        "draft create/read/revise/cancel",
+        "submit/assigned review",
+        "record outside payment/confirm/dispute",
+        "scoped recovery"
+      ],
+      "currentScope": "Gated controlled manual evidence workflow; rollout pending",
+      "remaining": "Batch/bank execution/AP paid status not implemented"
+    },
+    {
+      "feature": "contracts",
+      "apiPrefix": "/api/procurement/v1/contracts",
+      "implementedOperations": [
+        "own draft create/read/update/cancel"
+      ],
+      "currentScope": "Persisted draft editor",
+      "remaining": "Governed signature/activation/utilization/releases/renewal remain"
+    },
+    {
+      "feature": "plans_recurring",
+      "apiPrefix": "/api/procurement/v1/plans; /api/procurement/v1/recurring-purchases",
+      "implementedOperations": [
+        "plan draft create/read/update/cancel",
+        "recurring commitment create/read/update/close"
+      ],
+      "currentScope": "Persisted draft/commitment editors",
+      "remaining": "Plan governance and Finance recurring invoice generation remain"
+    },
+    {
+      "feature": "supplier_portal",
+      "apiPrefix": null,
+      "implementedOperations": [],
+      "currentScope": "Unavailable; no supplier-scoped portal API activated",
+      "remaining": "External identity and supplier-record isolation plus purpose APIs required"
+    },
+    {
+      "feature": "module_settings",
+      "apiPrefix": "/api/procurement/v1/configuration",
+      "implementedOperations": [
+        "typed categories/methods/policies/authority drafts and reviews"
+      ],
+      "currentScope": "Typed live editors; unsupported tab shells truthful",
+      "remaining": "Other preferences need owned typed contracts; shared globals remain Core"
+    },
+    {
+      "feature": "budgets",
+      "apiPrefix": null,
+      "implementedOperations": [
+        "controlled budget evidence linked to request/order"
+      ],
+      "currentScope": "Finance remains authoritative; module not built",
+      "remaining": "No independent procurement budget ledger or fabricated availability"
+    },
+    {
+      "feature": "analytics_home",
+      "apiPrefix": null,
+      "implementedOperations": [
+        "scoped operational reads"
+      ],
+      "currentScope": "Read-only operational views",
+      "remaining": "Metric definitions/currency semantics and advanced analytics remain"
+    }
+  ],
+  "priority": [
+    "P30 fresh actual PO/RFQ/receiving, normal-cookie owner proof, downgrade vetoes and production rollout",
+    "P31 exact invoice ownership/matching/discrepancies and typed validated handoff",
+    "P32 sealed bids/evaluation/award and supplier isolation",
+    "P33 usable governed PO revisions, contracts, receipts corrections and remaining owned workflows"
+  ],
+  "wholeModuleComplete": false,
+  "productionDeploymentClaim": false
+}

@@ -33,7 +33,7 @@ public sealed partial class ProcurementDbContext
             .HasFilter("stage = 'Created'");
         b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId }, "ux_source_policy_identity_published").IsUnique().HasDatabaseName("ux_source_policy_identity_published")
             .HasFilter("stage = 'Published'");
-        b.ToTable(t => t.HasCheckConstraint("ck_source_policy_identity", "schema_version=1 AND id <> '00000000-0000-0000-0000-000000000000'::uuid AND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid AND policy_version_number>0 AND policy_record_version_at_action>0 AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND length(btrim(actor_principal_id))>0 AND rules_sha256 IS NOT NULL AND rules_sha256 ~ '^[0-9a-f]{64}$' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND isfinite(action_at) AND ((stage='Created' AND policy_record_version_at_action=1 AND created_evidence_id IS NULL AND created_evidence_stage IS NULL AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL) OR (stage='Submitted' AND created_evidence_id IS NOT NULL AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created' AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL) OR (stage='Published' AND created_evidence_id IS NOT NULL AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created' AND submitted_evidence_id IS NOT NULL AND submitted_evidence_stage IS NOT NULL AND submitted_evidence_stage='Submitted'))"));
+        b.ToTable(t => t.HasCheckConstraint("ck_source_policy_identity", "schema_version IN (1,2) AND id <> '00000000-0000-0000-0000-000000000000'::uuid AND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid AND policy_version_number>0 AND policy_record_version_at_action>0 AND actor_principal_id IS NOT NULL AND ((schema_version=1 AND actor_worker_id IS NOT NULL AND actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid AND length(btrim(actor_principal_id))>0) OR (schema_version=2 AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')) AND rules_sha256 IS NOT NULL AND rules_sha256 ~ '^[0-9a-f]{64}$' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND isfinite(action_at) AND ((stage='Created' AND policy_record_version_at_action=1 AND created_evidence_id IS NULL AND created_evidence_stage IS NULL AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL) OR (stage='Submitted' AND created_evidence_id IS NOT NULL AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created' AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL) OR (stage='Published' AND created_evidence_id IS NOT NULL AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created' AND submitted_evidence_id IS NOT NULL AND submitted_evidence_stage IS NOT NULL AND submitted_evidence_stage='Submitted'))"));
     }
 
     private void GuardSourcingPolicyIdentity()
@@ -48,6 +48,7 @@ public sealed partial class ProcurementDbContext
             if (row.TenantId != scope.TenantId || row.LegalEntityId != scope.LegalEntityId || row.ActorPrincipalId != scope.SubjectId
                 || policy.PolicyKey != SourcingPublicationPolicyRules.PolicyKey || row.PolicyVersionNumber != policy.PolicyVersionNumber
                 || row.RulesSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)
+                || row.SchemaVersion == 2 && row.ActorWorkerId != scope.CoreLinkedWorkerId
                 || row.PolicyRecordVersionAtAction != (owner.State == EntityState.Added ? 1 : checked(owner.OriginalValues.GetValue<long>(nameof(PolicyVersion.Version)) + 1)))
                 throw new InvalidOperationException("SourcingPolicyIdentityActionMismatch");
             if (row.Stage == "Created")
@@ -64,7 +65,9 @@ public sealed partial class ProcurementDbContext
                 {
                     if (oldState != "Draft" || policy.State != "PendingReview" || row.ActorPrincipalId != origin.ActorPrincipalId
                         || row.PolicyRecordVersionAtAction <= origin.PolicyRecordVersionAtAction || row.ActionAt < origin.ActionAt
-                        || row.ActorWorkerId != origin.ActorWorkerId || policy.ReviewRequestedBy != row.ActorPrincipalId
+                    || row.SchemaVersion != origin.SchemaVersion
+                    || !ProcurementPrincipalEvidence.WorkerBinding(origin.SchemaVersion, origin.ActorWorkerId, row.ActorWorkerId)
+                    || policy.ReviewRequestedBy != row.ActorPrincipalId
                         || ProcurementEvidenceEncoding.DatabaseTimestamp(policy.ReviewRequestedAt) != row.ActionAt)
                         throw new InvalidOperationException("SourcingPolicySubmittedIdentityMismatch");
                 }
@@ -73,9 +76,12 @@ public sealed partial class ProcurementDbContext
                     var submission = IdentityRow(row.SubmittedEvidenceId!.Value) ?? throw new InvalidOperationException("SourcingPolicySubmittedIdentityRequired");
                     SourcingPolicyIdentity.VerifySubmission(policy, origin, submission, false);
                     if (oldState != "PendingReview" || policy.State != "Published" || row.ActionAt < submission.ActionAt
-                        || row.ActorPrincipalId == origin.ActorPrincipalId
-                        || row.ActorPrincipalId == submission.ActorPrincipalId || row.ActorWorkerId == origin.ActorWorkerId
-                        || row.ActorWorkerId == submission.ActorWorkerId || policy.PublishedBy != row.ActorPrincipalId
+                        || row.SchemaVersion != origin.SchemaVersion
+                        || !ProcurementPrincipalEvidence.Independent(row.ActorPrincipalId, row.ActorWorkerId,
+                            origin.ActorPrincipalId, origin.ActorWorkerId)
+                        || !ProcurementPrincipalEvidence.Independent(row.ActorPrincipalId, row.ActorWorkerId,
+                            submission.ActorPrincipalId, submission.ActorWorkerId)
+                        || policy.PublishedBy != row.ActorPrincipalId
                         || ProcurementEvidenceEncoding.DatabaseTimestamp(policy.PublishedAt) != row.ActionAt)
                         throw new InvalidOperationException("SourcingPolicyIndependentReviewerRequired");
                 }
@@ -110,7 +116,7 @@ public sealed partial class ProcurementDbContext
             else if (oldState == "Draft" && policy.State == "Retired" && added.Length == 0)
             {
                 SourcingPolicyIdentity.RequireAuthor(policy, origin, scope.SubjectId,
-                    scope.WorkerId ?? throw new InvalidOperationException("SourcingPolicyOriginalAuthorRequired"));
+                    origin.SchemaVersion == 1 ? scope.WorkerId : scope.CoreLinkedWorkerId);
                 if (policy.ReviewRequestedAt is not null || policy.ReviewRequestedBy is not null || policy.ReviewReason is not null
                     || policy.PublishedAt is not null || policy.PublishedBy is not null || policy.PublicationReason is not null
                     || SourcingPolicyIdentityEvidenceRecords.Any(x => x.PolicyVersionId == policy.Id && x.Stage != "Created"))

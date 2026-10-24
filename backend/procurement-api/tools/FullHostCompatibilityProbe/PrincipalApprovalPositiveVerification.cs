@@ -13,7 +13,7 @@ internal static partial class PrincipalApprovalHttpVerification
     private static async Task VerifyPrivateManualApprovalAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,NpgsqlConnection ownerConnection,Dictionary<string,object?> result,
         Action<string> stage,PrincipalSend send,Action countExtraHttp,bool verifyAccountScopeAuthority,bool verifyRetainedAlias,
-        string? downFamily,bool competitiveSource=false)
+        string? downFamily,bool competitiveSource=false,bool directPurchaseSource=false)
     {
         // Separate opt-in phase AFTER the unavailable-provider negative control and Finance-unavailable denials.
         // Only existing manual-evidence configuration is enabled; no Finance owner is substituted.
@@ -61,18 +61,19 @@ internal static partial class PrincipalApprovalHttpVerification
             return;
         }
 
-        if(competitiveSource)
+        if(competitiveSource || directPurchaseSource)
         {
             // Policy review resolves named active methods. Establish this
             // independent reference through its real draft/activation routes
             // before submitting the competitive PR rule for review.
             const string methodRoot="/api/procurement/v1/configuration/methods";
             var method=await send(client,HttpMethod.Post,methodRoot,fixture.ConfigMaker,new {
-                code="COMPETITIVE",name="Private competitive buying",description="Synthetic internal RFQ source only",
-                policyVersionId=(Guid?)null,executionRoute="CompetitiveSourcing"},HttpStatusCode.Created);
+                code=directPurchaseSource?"DIRECT":"COMPETITIVE",name=directPurchaseSource?"Private direct buying":"Private competitive buying",
+                description=directPurchaseSource?"Synthetic internal direct PO source only":"Synthetic internal RFQ source only",
+                policyVersionId=(Guid?)null,executionRoute=directPurchaseSource?"DirectPurchase":"CompetitiveSourcing"},HttpStatusCode.Created);
             var activeMethod=await send(client,HttpMethod.Post,methodRoot+"/"+method.GetProperty("id").GetGuid()+"/activate",
                 fixture.ConfigReviewer,new {version=method.GetProperty("version").GetInt64(),reason="Independent private competitive method review"});
-            Need(activeMethod.GetProperty("status").GetString()=="Active","Actual competitive method activation failed.");
+            Need(activeMethod.GetProperty("status").GetString()=="Active","Actual buying method activation failed.");
         }
 
         stage("ActualPolicyCreateSubmitPublish");
@@ -89,7 +90,13 @@ internal static partial class PrincipalApprovalHttpVerification
             "categoryCodes":[],"purchaseTypes":[],"branchIds":[]},"result":{"budgetReservation":"Required","sourcingMethodCode":"COMPETITIVE",
             "minimumQuoteCount":2,"approvalStages":[{"code":"CUSTOM_CORE_REVIEW","assignee":"ProcurementManager","mode":"One"}]}}]}
             """;
-        var rules=competitiveSource?competitiveRules:directRules;
+        const string poDirectRules="""
+            {"schemaVersion":1,"transactionType":"PurchaseRequest","currencyCode":"ZMW","amountBasis":"EstimatedLineBase",
+            "rules":[{"code":"PRIVATE_CORE_PO_DIRECT","priority":0,"when":{"minimumAmountInclusive":null,"maximumAmountExclusive":null,
+            "categoryCodes":[],"purchaseTypes":[],"branchIds":[]},"result":{"budgetReservation":"Required","sourcingMethodCode":"DIRECT",
+            "minimumQuoteCount":0,"approvalStages":[{"code":"CUSTOM_CORE_REVIEW","assignee":"ProcurementManager","mode":"One"}]}}]}
+            """;
+        var rules=competitiveSource?competitiveRules:directPurchaseSource?poDirectRules:directRules;
         // Production publication requires a future start. Wait for that actual instant;
         // never rewrite a published policy or fabricate submission/evaluation timestamps.
         var effectiveFrom=DateTimeOffset.UtcNow.AddSeconds(30);
@@ -118,9 +125,12 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(activeCategory.GetProperty("status").GetString()=="Active","Actual independent category activation failed.");
 
         stage("ActualPrincipalSourceAndChecker2");
-        var created=await send(client,HttpMethod.Post,"/api/procurement/v1/requests",fixture.Maker,new {
-            purpose="Private manual evidence principal approval",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
-            lines=new[]{new {description="Exact Core principal source",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234",categoryCode}}},HttpStatusCode.Created);
+        object sourceInput=fixture.PrincipalReceivingProfile?new{
+            purpose="Private manual evidence principal receiving source",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
+            lines=new[]{new{description="Exact Core principal goods source",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234",categoryCode,purchaseType="GOODS"}}}:
+            new {purpose="Private manual evidence principal approval",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
+                lines=new[]{new {description="Exact Core principal source",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234",categoryCode}}};
+        var created=await send(client,HttpMethod.Post,"/api/procurement/v1/requests",fixture.Maker,sourceInput,HttpStatusCode.Created);
         var requestId=created.GetProperty("id").GetGuid();var path="/api/procurement/v1/requests/"+requestId;
         var submitted=await send(client,HttpMethod.Post,path+"/submit",fixture.Maker,new {version=created.GetProperty("version").GetInt64()},HttpStatusCode.OK);
         var checker=await send(client,HttpMethod.Post,path+"/budget-checks",fixture.Checker,new {

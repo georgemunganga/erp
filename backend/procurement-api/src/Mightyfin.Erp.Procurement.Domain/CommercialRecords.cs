@@ -56,6 +56,8 @@ public sealed class SupplierBid : ProcurementRecord
     public Guid SupplierId { get; set; }
     public Guid? InvitationId { get; set; }
     public int SubmissionVersion { get; set; } = 1;
+    // Internal editable Draft revision only; never presented as a supplier submission.
+    public int DraftRevision { get; set; }
     public string Status { get; set; } = "Draft";
     public string SourceChannel { get; set; } = "Portal";
     public string CurrencyCode { get; set; } = null!;
@@ -156,6 +158,10 @@ public sealed class ContractRate : ProcurementRecord
 
 public sealed class PurchaseOrder : ProcurementRecord
 {
+    // Zero is the unchanged worker-era order. Version 2 is an internal,
+    // Core-principal direct-purchase draft; it cannot enter worker execution.
+    public int PrincipalDraftSchemaVersion { get; set; }
+    public string? OriginalDirectSourceSha256 { get; set; }
     public long? SubmittedBusinessVersion { get; set; }
     public DateTimeOffset? SubmittedAt { get; set; }
     public string? ReturnReason { get; set; }

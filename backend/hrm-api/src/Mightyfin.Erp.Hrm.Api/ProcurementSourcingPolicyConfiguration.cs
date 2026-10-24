@@ -35,27 +35,50 @@ public static partial class ProcurementPolicyDraftRoutes
             return Results.Json(new { code = "invalid-sourcing-rules", message = "Correct the sourcing publication rules.", issues }, statusCode: 422);
         using var document = JsonDocument.Parse(policy.RulesJson);
         var root = document.RootElement;
+        var rulesSchema = root.GetProperty("schemaVersion").GetInt32();
         var currency = await core.LegalEntities.AsNoTracking().Where(x => x.TenantId == scope.TenantId
             && x.Id == scope.LegalEntityId && !x.IsArchived).Select(x => x.Currency).SingleOrDefaultAsync(ct);
         if (currency is null) return Problem("company-unavailable", "The selected company is unavailable.", 409);
         if (currency != root.GetProperty("currencyCode").GetString())
             return Problem("currency-mismatch", "Use the selected company's currency.", 422);
+        // A named reviewer may be invalid too, but the maker's current Core
+        // branch coverage is an access decision. Resolve it before looking up
+        // the reviewers so a confined maker cannot inspect their eligibility.
+        if (!await SourcingActorCoversRules(core, scope, policy.RulesJson, ct))
+            return Problem("sourcing-policy-scope", "Company-wide rules require company-wide configuration access.", 403);
         var rules = root.GetProperty("rules").EnumerateArray().ToArray();
         var principalIds = rules.SelectMany(x => x.GetProperty("result").GetProperty("approvalStages").EnumerateArray())
             .SelectMany(x => x.GetProperty("principalIds").EnumerateArray()).Select(x => x.GetString()!)
             .Distinct(StringComparer.Ordinal).ToArray();
         if (principalIds.Length > 100)
             return Problem("sourcing-reviewer-bound", "Use at most 100 distinct named reviewers in a policy version.", 422);
-        var accounts = new Dictionary<string, ProcurementAuthorityIdentity.CanonicalAccount>(StringComparer.Ordinal);
+        var retainedSchema = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
+            .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && x.PolicyVersionId == policy.Id && x.Stage == "Created")
+            .Select(x => (int?)x.SchemaVersion).SingleOrDefaultAsync(ct);
+        // Identity 2 may coexist with rules 1 in retained source histories.
+        // Preserve that protocol without rewriting evidence.
+        if (retainedSchema == 1 && rulesSchema != 1)
+            return Problem("sourcing-policy-schema-locked", "Start a new policy version to change the sourcing rules format.", 409);
+        var identitySchema = retainedSchema ?? rulesSchema;
+        var accounts = new Dictionary<string, ProcurementPrincipalPeople.Person>(StringComparer.Ordinal);
         foreach (var id in principalIds)
         {
-            var account = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, id, ct);
-            if (account is null || await ProcurementAuthorityIdentity.ResolveCanonicalWorkerAccountAsync(core, scope.TenantId,
-                    scope.LegalEntityId, account.WorkerId, ct) is not { } unique || unique.PrincipalId != id)
-                return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs one active canonical account in this company.", 422);
+            var account = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, id, ct);
+            // Schema 1 is retained configuration approval, not an RFQ publication
+            // grant. Operational publication independently checks current action.
+            if (account is null || identitySchema == 2 && !account.Permissions.Contains("procurement-sourcing-publish"))
+                return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs a current authorized Core account in this company.", 422);
+            if (identitySchema == 1 && (account.WorkerId is not { } currentWorker
+                || (await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
+                    scope.LegalEntityId, id, ct))?.WorkerId != currentWorker
+                || !await ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, DateTimeOffset.UtcNow)
+                    .AnyAsync(person => person.Id == Guid.Parse(id), ct)))
+                return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs an active canonical worker for this retained policy.", 422);
             accounts.Add(id, account);
         }
-        if (accounts.Values.Select(x => x.WorkerId).Distinct().Count() != accounts.Count)
+        var knownWorkers = accounts.Values.Select(x => x.CoreLinkedWorkerId).Where(x => x is not null).ToArray();
+        if (knownWorkers.Distinct().Count() != knownWorkers.Length)
             return Problem("sourcing-reviewer-unavailable", "Choose distinct current people, without account aliases.", 422);
         var userIds = principalIds.Select(Guid.Parse).Append(Guid.Parse(scope.SubjectId)).Distinct().ToArray();
         var assignments = await core.UserBranchAssignments.AsNoTracking().Where(x => userIds.Contains(x.UserId) && !x.IsArchived)

@@ -1,0 +1,137 @@
+{
+  "date": "2026-10-24",
+  "status": "IN_PROGRESS_NOT_PRODUCTION_RELEASE",
+  "lastAcceptedFullBackendTests": 1188,
+  "productionRemains": "P24",
+  "rfqPublicationAttempt05": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-20261024_run05",
+    "sourceCommit": "d09e38206048832531494b67920e7db69fb0a266",
+    "status": "FAILED_RETAINED",
+    "stage": "PrivateManualEvidenceHost",
+    "completedActualHttpRequests": 11,
+    "exceptionTypes": [
+      "System.Threading.Tasks.TaskCanceledException",
+      "System.IO.IOException"
+    ],
+    "cause": "Not yet established; protected retry will measure HTTP and readiness phases with bounded private-host diagnostic timeout",
+    "rfqAcceptanceClaim": false
+  },
+  "privateCaptureSqlAttempt05": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-capture-sql-private-20261024_run05",
+    "status": "FAILED_RETAINED",
+    "passedProjections": [
+      "catalog:191 tables/3464 columns",
+      "constraints:625 exact names/flags with nine pinned private restore renderings",
+      "indexes:759 exact",
+      "original ACL scope",
+      "database properties",
+      "migration history"
+    ],
+    "failedProjection": "dataHashesSql",
+    "cause": "PostgreSQL could not resize parallel-query shared memory segment: no space in private container shared memory",
+    "productionAccess": false,
+    "response": "Session-only serial-query successor06 passed all six captures; failed05 preserved"
+  },
+  "receivingBrowser": {
+    "status": "ATTEMPT01_TIMED_OUT_BEFORE_BROWSER",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-receiving-cookie-20261024_run01",
+    "nativeApiEarlierAccepted": 165,
+    "attempt01CompletedHttpRequests": 148,
+    "attempt01Stage": "P30GenuineServicePRAndIssuedSource",
+    "exitCode": 124,
+    "browserPassed": false,
+    "response": "Fresh pooled attempt02 prepared with explicit native plus browser budget; not run"
+  },
+  "invoiceSchemaValidation": {
+    "status": "FAILED_RETAINED",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p31-schema-validation-20261024_run01",
+    "domainPassed": 1485,
+    "domainFailed": 1,
+    "domainSkipped": 0,
+    "cause": "Inferred alternate-key name exceeded identifier limit; explicit short names fixed in held source",
+    "modelPending": false,
+    "focusedHostTestsRun": false,
+    "response": "Genuine additive constraint-name generation and repeat02 prepared, unrun"
+  },
+  "manusScannerTask": {
+    "status": "READY_ASSIGNED_PUBLISHED_DOCS_ONLY",
+    "pullRequest": 54,
+    "publishedErpMain": "a47966324c52b130868abc367dd2175500c4e247",
+    "scannerExecuted": false
+  },
+  "lastAcceptedFullBackendSource": "d09e38206048832531494b67920e7db69fb0a266",
+  "currentPaymentReadinessChange": "0e75f687_PENDING_REPEAT_TESTS",
+  "rfqPublicationAttempt06": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-20261024_run06",
+    "status": "FAILED_RETAINED",
+    "completedActualHttpRequests": 78,
+    "stage": "P30RfqSourcingPolicyApiLifecycle",
+    "cause": "Private fixture restricted its only sourcing policy rule to a branch; actual coverage correctly rejected missing unrestricted fallback with HTTP422",
+    "response": "Private fixture corrected in96f6cb8f; actual validator/coverage preflight passed in frozen build17; fresh RFQ07 running",
+    "rfqAcceptanceClaim": false
+  },
+  "rfqPublicationAttempt07": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-20261024_run07",
+    "status": "FAILED_RETAINED",
+    "frozenToolSource": "fc68f94662570890277c827a24a24a03db64053e",
+    "acceptedProductSource": "d09e38206048832531494b67920e7db69fb0a266",
+    "privateProductionStylePooling": true,
+    "maximumSeconds": 2400,
+    "performanceClaim": false,
+    "completedActualHttpRequests": 5,
+    "poolIsolationAndResetVerified": true,
+    "stage": "ActualProgramFiniteCreateSubmit",
+    "cause": "Actual PostgreSQL log reports cancelled NoCoreIdentityWritesSql during Create readiness; catch returned false and prior route persisted legacy schema0 instead of original principal identity",
+    "response": "Rejected source row retained; fail-closed503/no-write successor4a93fea7 committed and awaits fresh clean tests; no row adoption",
+    "rfqAcceptanceClaim": false
+  },
+  "privateCaptureSqlAttempt06": {
+    "status": "PASS_PRIVATE_CAPTURE_SQL_ONLY",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-capture-sql-private-20261024_run06",
+    "productionTouched": false,
+    "fullRestoreAccepted": false
+  },
+  "sameSnapshotBackup": {
+    "status": "SOURCE_SNAPSHOT_CAPTURED_RESTORE_UNVERIFIED",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-same-snapshot-20261024_run01",
+    "tables": 191,
+    "columns": 3464,
+    "rows": 5543,
+    "writersStopped": false,
+    "productionMutated": false
+  },
+  "privatePostgresResourceAdjustment": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-private-postgres-memory-20261024_run01",
+    "memoryBeforeBytes": 268435456,
+    "memoryAfterBytes": 536870912,
+    "combinedMemoryAndSwapBytes": 536870912,
+    "reason": "Measured private cgroup cap pressure, direct reclamation and major faults",
+    "postgresSettingsChanged": false,
+    "productionTouched": false,
+    "performanceAcceptanceClaim": false
+  },
+  "privateProbeOnlyBuild17": {
+    "source": "fc68f94662570890277c827a24a24a03db64053e",
+    "status": "BUILD_AND_ACTUAL_RFQ_POLICY_PREFLIGHT_PASSED_ONLY",
+    "unchangedAcceptedProductFiles": 475,
+    "totalFiles": 477,
+    "productRebuilt": false,
+    "rfqRuntimeAccepted": false
+  },
+  "safePrincipalCreationSuccessor": {
+    "commit": "4a93fea7",
+    "enabledUnavailableBehavior": "503 before AddScoped/Save; no silent legacy source",
+    "flagOffBehavior": "Existing basic draft CRUD preserved",
+    "testStatus": "AUTHORED_NOT_RUN"
+  },
+  "cleanBackendBuild18": {
+    "status": "PREPARED_UNRUN_PENDING_FINAL_SOURCE_PIN",
+    "sharedP31BinObjReused": false,
+    "planned": "Fresh offline artifact output; full domain+host tests; separate productionAPI/publisher and privateprobe publications"
+  },
+  "privateOwnerReference01": {
+    "status": "FAILED_PREFLIGHT_BEFORE_CREATE_OR_DDL",
+    "cause": "SELECT query delimiter missing before helper COMMIT",
+    "successor": "Separate corrected batched prep02 under review; no acceptance yet"
+  }
+}

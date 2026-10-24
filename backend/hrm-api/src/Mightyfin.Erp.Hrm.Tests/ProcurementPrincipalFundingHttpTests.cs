@@ -10,21 +10,36 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed partial class ProcurementRequestHttpTests
 {
     // Explicit synthetic mapped-route readiness only. This is not a production schema/role proof.
-    private sealed class PrincipalApprovalTestSchemaReadiness(bool ready):IProcurementPrincipalApprovalSchemaReadiness
+    private sealed class PrincipalApprovalTestSchemaReadiness(bool ready,bool simulateProviderTimeout=false):IProcurementPrincipalApprovalSchemaReadiness
     {
-        public Task<bool> IsReadyAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
+        public Task<bool> IsReadyAsync(ProcurementDbContext owner,CancellationToken ct)
+        {
+            try { if(simulateProviderTimeout) throw new TimeoutException(); return Task.FromResult(ready); }
+            catch(TimeoutException) { return Task.FromResult(false); }
+        }
         public Task<bool> CanRecordAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
         public Task<bool> CanExecuteAsync(ProcurementDbContext owner,CancellationToken ct)=>Task.FromResult(ready);
     }
 
     [Theory]
-    [InlineData(false,false,0)][InlineData(true,false,0)][InlineData(false,true,0)][InlineData(true,true,1)]
-    public async Task New_request_original_provenance_requires_explicit_activation_and_owned_successor_readiness(bool enabled,bool ready,int expected)
+    [InlineData(false,false,false,0)][InlineData(true,false,false,-1)]
+    [InlineData(false,true,false,0)][InlineData(true,true,false,1)]
+    [InlineData(true,true,true,-1)]
+    public async Task New_request_original_provenance_requires_explicit_activation_and_owned_successor_readiness(bool enabled,bool ready,bool timedOut,int expected)
     {
-        await using var f=await Fixture.Start(principalApprovalEnabled:enabled,principalApprovalSchema:ready);
+        await using var f=await Fixture.Start(principalApprovalEnabled:enabled,principalApprovalSchema:ready,
+            principalApprovalTimeout:timedOut);
         await f.ConfigurePrincipalRequester(f.Owner,false);
+        var before=await f.OriginalValueFootprint();
         var response=await SendJson(f.Client,HttpMethod.Post,PrincipalRequests,f.Owner,new {purpose="Explicit principal funding source",
             lines=new[]{new {description="Supplies",unitCode="each",requestedQuantity="1",estimatedUnitPrice="1.0001"}}});
+        if(expected<0)
+        {
+            Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);
+            Assert.Contains("principal-request-source-unavailable",await response.Content.ReadAsStringAsync());
+            Assert.Equal(before,await f.OriginalValueFootprint());
+            return;
+        }
         Assert.Equal(HttpStatusCode.Created,response.StatusCode);
         var body=await response.Content.ReadFromJsonAsync<JsonElement>();
         var stored=await f.PrincipalRequestStored(body.GetProperty("id").GetGuid());

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -14,17 +15,37 @@ internal static partial class PrincipalApprovalHttpVerification
     internal delegate Task<JsonElement> PrincipalSend(HttpClient client,HttpMethod method,string path,Guid actor,
         object? body=null,HttpStatusCode expected=HttpStatusCode.OK,Guid? commandKey=null);
     internal static void Need(bool condition,string controlledMessage) {if(!condition)throw new PrivatePrincipalProbeFailure(controlledMessage);}
+    private static bool PrivateCommercialDatabase(string database)
+    {
+        var po=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
+        var publication=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
+        return po=="1" && publication is null
+                && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$")
+            || publication=="1" && po is null
+                && Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ")=="1"
+                && Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE") is null
+                && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$");
+    }
+
     internal static async Task RunAsync()
     {
         var owner=Environment.GetEnvironmentVariable("P25_HTTP_OWNER_CONNECTION")??throw new InvalidOperationException("Explicit private owner connection required.");
         var connection=new NpgsqlConnectionStringBuilder(owner);
         var database=connection.Database ?? string.Empty;
         Need(connection.Host=="/authority-identity-private-socket"
-            && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$") && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
+            && (System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$")
+                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$")
+                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$"))
+            && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
         var resultPath=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??throw new InvalidOperationException("New protected result required.");
         Need(Path.IsPathFullyQualified(resultPath)&&!File.Exists(resultPath)&&Directory.Exists(Path.GetDirectoryName(resultPath)),"New result in existing protected directory required.");
+        var poolingFlag=Environment.GetEnvironmentVariable("P25_HTTP_PRODUCTION_POOLING");
+        Need(poolingFlag is null or "1","Private production-style pooling opt-in must be exactly1 or absent.");
+        Need(poolingFlag is null || !connection.Pooling,
+            "Owner seed/DDL connection must stay unpooled in the private pooling profile.");
         var result=new Dictionary<string,object?> { ["status"]="NOT_STARTED",["stage"]="Bootstrap",["productionTouched"]=false,["testAuthenticationOnly"]=true,
-            ["realIdentityProviderAuthentication"]=false,["externalFinanceAuthority"]=false,["manualEvidencePositiveWorkflow"]=false };
+            ["realIdentityProviderAuthentication"]=false,["externalFinanceAuthority"]=false,["manualEvidencePositiveWorkflow"]=false,
+            ["productionPoolingProfile"]=poolingFlag=="1",["poolIsolationAndResetVerified"]=false };
         var matrixFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_PRIVILEGE_MATRIX");
         Need(matrixFlag is null or "1","Private privilege matrix opt-in must be exactly1 or absent.");
         var schemaFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_SCHEMA_NEGATIVES");
@@ -35,12 +56,71 @@ internal static partial class PrincipalApprovalHttpVerification
         var exactBudgetFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_EXACT_BUDGET_WIRE");
         var legacyWorkerFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_LEGACY_WORKER_BRIDGE");
         var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
+        var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
+        var receivingFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_RECEIVING");
+        var retainedPoCancelFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RETAINED_HISTORY_CANCEL");
+        Need(receivingFlag is null or "1","P30 receiving opt-in must be exactly1 or absent.");
+        Need(receivingFlag is null||principalPoFlag=="1","Receiving proof requires its fresh genuine principal PO profile.");
+        var publicationFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
         var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
+        var p30PoCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE");
+        var p30ReceivingCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RECEIVING_NORMAL_COOKIE");
+        var p30ServiceCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_SERVICE_NORMAL_COOKIE");
+        var p30RfqCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RFQ_NORMAL_COOKIE");
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
+        Need(principalPoFlag is null or "1","Private P30 principal PO opt-in must be exactly1 or absent.");
+        Need(publicationFlag is null or "1","Private P30 RFQ publication opt-in must be exactly1 or absent.");
+        Need(!database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal) || publicationFlag=="1",
+            "P30 RFQ database requires its explicit publication profile.");
+        Need(publicationFlag is null || database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+            && principalRfqFlag=="1" && principalPoFlag is null && p29CookieFlag is null,
+            "P30 RFQ publication cannot combine with PO or cookie profiles.");
+        Need(p30RfqCookieFlag is null or "1","P30 RFQ normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30RfqCookieFlag is null || publicationFlag=="1" && principalRfqFlag=="1"
+            && database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+            && principalPoFlag is null && receivingFlag is null && p29CookieFlag is null
+            && p30PoCookieFlag is null && p30ReceivingCookieFlag is null
+            && matrixFlag is null && schemaFlag is null && accountFlag is null
+            && aliasFlag is null && localCookieFlag is null && downFamily is null
+            && exactBudgetFlag is null && legacyWorkerFlag is null,
+            "P30 RFQ browser requires its separate fresh publication cohort.");
+        Need(!database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal) || principalPoFlag=="1",
+            "P30 private database is exclusive to its explicit PO profile.");
+        Need(principalPoFlag is null || database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && principalRfqFlag is null && publicationFlag is null && matrixFlag is null && schemaFlag is null && accountFlag is null
+            && aliasFlag is null && localCookieFlag is null && downFamily is null && exactBudgetFlag is null
+            && legacyWorkerFlag is null && p29CookieFlag is null
+            && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
+            "Principal PO needs its own new private database and no other optional cohort.");
         Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
-        Need(p29CookieFlag is null || principalRfqFlag=="1",
+        Need(p30PoCookieFlag is null or "1","P30 PO normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30ReceivingCookieFlag is null or "1","P30 receiving normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30ServiceCookieFlag is null or "1","P30 service normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30ReceivingCookieFlag is null || principalPoFlag=="1" && receivingFlag=="1"
+            && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && p30PoCookieFlag is null && p30ServiceCookieFlag is null && p29CookieFlag is null && retainedPoCancelFlag is null
+            && principalRfqFlag is null && publicationFlag is null,
+            "P30 receiving normal-cookie serve needs its separate fresh PO and receiving cohort.");
+        Need(p30ServiceCookieFlag is null || principalPoFlag=="1" && receivingFlag=="1"
+            && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && p30PoCookieFlag is null && p30ReceivingCookieFlag is null && p29CookieFlag is null
+            && retainedPoCancelFlag is null && principalRfqFlag is null && publicationFlag is null,
+            "P30 service normal-cookie serve needs its exclusive fresh PO and receiving cohort.");
+        Need(retainedPoCancelFlag is null or "1","P30 retained-history cancellation opt-in must be exactly1 or absent.");
+        Need(retainedPoCancelFlag is null || principalPoFlag=="1"
+            && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && receivingFlag is null && p30PoCookieFlag is null && p30ReceivingCookieFlag is null && p30ServiceCookieFlag is null && p29CookieFlag is null
+            && principalRfqFlag is null && publicationFlag is null,
+            "Retained-history cancellation requires a separate fresh private PO API cohort, without cookie or receiving phases.");
+        Need(p30PoCookieFlag is null || principalPoFlag=="1" && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && p29CookieFlag is null && principalRfqFlag is null && publicationFlag is null && receivingFlag is null
+            && p30ReceivingCookieFlag is null && p30ServiceCookieFlag is null,
+            "P30 PO normal-cookie serve requires its exclusive fresh private PO profile.");
+        Need(p29CookieFlag is null || principalRfqFlag=="1" && publicationFlag is null,
             "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
-        Need(principalRfqFlag is null || database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
+        Need(principalRfqFlag is null || (database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
+                && publicationFlag is null || database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+                && publicationFlag=="1") && principalPoFlag is null
             && matrixFlag is null && schemaFlag is null && accountFlag is null && aliasFlag is null
             && localCookieFlag is null && downFamily is null && exactBudgetFlag is null && legacyWorkerFlag is null
             && Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is null
@@ -77,18 +157,35 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Normal local-cookie serve requires the original genuine base graph without other optional cohorts.");
         result["browserBuyerFixtureProfile"]=localCookieFlag=="1"?"PRIVATE_CONFIG_MAKER_POLICY_EVALUATION":"DISABLED";
-        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1");var stage="Bootstrap";var requests=0;
+        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1",principalPoFlag=="1",receivingFlag=="1");var stage="Bootstrap";var requests=0;
+        using var readinessTiming=new PrincipalApprovalProbeTiming();
+        var httpTiming=new List<object>();
+        var httpTimingDiscarded=0;
+        var rfqCheckpoint=publicationFlag=="1"?new PrincipalApprovalRfqCheckpoint(resultPath):null;
+        string? rfqRules=null;
         try
         {
+            if(publicationFlag=="1")
+            {
+                Advance("P30RfqPolicyPreflight");
+                rfqRules=BuildP30RfqSourcingRules(fixture.ConfigReviewer);
+                PreflightP30RfqSourcingRules(rfqRules);
+            }
             Advance("Bootstrap");
             await fixture.BootstrapAsync();
-            Advance("FiniteRoleProvision");var roles=await PrincipalApprovalRuntimePrivileges.CreateAsync(owner,fixture);
+            Advance("FiniteRoleProvision");var roles=await PrincipalApprovalRuntimePrivileges.CreateAsync(owner,fixture,poolingFlag=="1");
             await using var ownerConnection=new NpgsqlConnection(owner);await ownerConnection.OpenAsync();
             foreach(var (text,expected) in new[]{(roles.Record,roles.RecordRole),(roles.Execution,roles.ExecutionRole)})
             {
                 await using var runtime=new NpgsqlConnection(text);await runtime.OpenAsync();
                 await using var command=new NpgsqlCommand("SELECT current_user=session_user AND current_user=@expected AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",runtime);
                 command.Parameters.AddWithValue("expected",expected);Need(await command.ExecuteScalarAsync() is true,"Finite test role is not an actual distinct restricted LOGIN.");
+            }
+            if(poolingFlag=="1")
+            {
+                Advance("FiniteRolePoolIsolationAndReset");
+                await PrincipalApprovalPoolReset.VerifyAsync(roles);
+                result["poolIsolationAndResetVerified"]=true;
             }
             if(legacyWorkerFlag=="1")
             {
@@ -177,13 +274,53 @@ internal static partial class PrincipalApprovalHttpVerification
             result["currentCoreWorkerlessSourceVerified"]=true;result["negativeProviderControlVerified"]=true;result["fundingUnavailableNoEffectsVerified"]=true;
             result["positiveApprovalGraph"]=false;result["checker2Authority2Submission3Assignment2Acceptance"]="NOT_RUN_NEXT_CHECKPOINT";
             var positive=Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE");
-            if(positive is not null || principalRfqFlag=="1")
+            if(positive is not null || principalRfqFlag=="1" || principalPoFlag=="1")
             {
                 Need(positive is null or "1","Private manual evidence opt-in must be exactly1.");
-                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily,principalRfqFlag=="1");
+                await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily,principalRfqFlag=="1",principalPoFlag=="1");
+                if(principalPoFlag=="1")
+                {
+                    var issued=await VerifyPrincipalOrderAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
+                    if(receivingFlag=="1")await VerifyPrincipalReceivingAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
+                    if(p30ReceivingCookieFlag=="1")
+                    {
+                        Advance("P30ReceivingGenuineUnconsumedBrowserGoodsSource");
+                        PrincipalIssuedFixture browserGoods;
+                        await using (var setupHost=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,
+                            actualSchema:true,privateManualEvidence:true))
+                        {
+                            setupHost.PrepareEntryPointEnvironment();
+                            using var setupClient=setupHost.CreateClient(new(){AllowAutoRedirect=false});
+                            browserGoods=await CreateActualReceivingCookieGoodsSourceAsync(fixture,setupClient,Send,issued.SupplierId);
+                        }
+                        await ServeP30ReceivingNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            browserGoods,issued,result,Advance);
+                    }
+                    if(p30ServiceCookieFlag=="1")
+                    {
+                        Advance("P30ServiceGenuineUnconsumedBrowserSource");
+                        PrincipalIssuedFixture browserService;
+                        await using (var setupHost=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,
+                            actualSchema:true,privateManualEvidence:true))
+                        {
+                            setupHost.PrepareEntryPointEnvironment();
+                            using var setupClient=setupHost.CreateClient(new(){AllowAutoRedirect=false});
+                            browserService=await CreateActualReceivingServiceSourceAsync(fixture,setupClient,Send,issued.SupplierId,browser:true);
+                        }
+                        await ServeP30ServiceNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            browserService,issued,result,Advance);
+                    }
+                    if(p30PoCookieFlag=="1")
+                        await ServeP30PoNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            issued.RequestId,issued.RequestLineId,issued.SupplierId,issued.OrderId,result,Advance);
+                }
                 if(principalRfqFlag=="1")
                 {
                     var p29=await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
+                    if(publicationFlag=="1")
+                        await VerifyP30RfqPublicationAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,rfqRules!);
+                    if(p30RfqCookieFlag=="1")
+                        await ServeP30RfqNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,result,Advance);
                     if(p29CookieFlag=="1")
                         await ServeP29NormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
                             p29.RequestId,p29.LineId,p29.EventId,result,Advance);
@@ -203,6 +340,7 @@ internal static partial class PrincipalApprovalHttpVerification
             result["status"]="FAILED";result["exceptionType"]=error.GetType().FullName;
             result["failureCode"]=error is PrivatePrincipalProbeFailure known?known.SafeCode:"P25_Unclassified_SeeStageAndTypedCause";
             var cause=error.GetBaseException();result["underlyingExceptionType"]=cause.GetType().FullName;
+            result["exceptionTypeChain"]=ExceptionTypes(error);
             if(cause is PostgresException postgres)result["sqlState"]=postgres.SqlState;
             if(PrincipalRawStorageFailure is not null)result["rawStorageFailure"]=PrincipalRawStorageFailure;
             // Never export arbitrary exception messages, SQL, row payloads or connection configuration.
@@ -210,7 +348,11 @@ internal static partial class PrincipalApprovalHttpVerification
         }
         finally
         {
+            Checkpoint();
             result["stage"]=stage;result["actualHttpRequests"]=requests;
+            result["readinessPhaseTiming"]=readinessTiming.Snapshot();
+            result["httpTiming"]=httpTiming;
+            result["httpTimingDiscarded"]=httpTimingDiscarded;
             await File.WriteAllTextAsync(resultPath,JsonSerializer.Serialize(result,new JsonSerializerOptions{WriteIndented=true}));
             if(OperatingSystem.IsLinux())File.SetUnixFileMode(resultPath,UnixFileMode.UserRead|UnixFileMode.UserWrite);
         }
@@ -220,28 +362,67 @@ internal static partial class PrincipalApprovalHttpVerification
         {
             Need(System.Text.RegularExpressions.Regex.IsMatch(next,"^[A-Za-z][A-Za-z0-9]{0,79}$"),"Only controlled private stage names may be logged.");
             stage=next;Console.WriteLine("P25_STAGE "+next);
+            Checkpoint();
         }
+
+        void Checkpoint() => rfqCheckpoint?.Write(stage,requests,readinessTiming.Snapshot(),httpTiming.Count,httpTimingDiscarded);
 
         async Task<JsonElement> Send(HttpClient client,HttpMethod method,string path,Guid actor,object? body=null,HttpStatusCode expected=HttpStatusCode.OK,Guid? commandKey=null)
         {
             using var request=new HttpRequestMessage(method,path);request.Headers.Add("X-Private-P25-Subject",actor.ToString("D"));
             request.Headers.Add("X-Shell-Entity",fixture.Company.ToString("D"));request.Headers.Add("X-Shell-Location",fixture.Branch.ToString("D"));
             if(commandKey is not null)Need(commandKey!=Guid.Empty,"Explicit private command key cannot be empty.");
-            if(method==HttpMethod.Post)request.Headers.Add("Idempotency-Key",(commandKey??Guid.NewGuid()).ToString("D"));
+            if(method==HttpMethod.Post||method==HttpMethod.Put)request.Headers.Add("Idempotency-Key",(commandKey??Guid.NewGuid()).ToString("D"));
             if(body is not null)request.Content=JsonContent.Create(body);
-            using var response=await client.SendAsync(request);requests++;
-            var text=await response.Content.ReadAsStringAsync();
-            if(method==HttpMethod.Get&&path.Contains("/approval-commands/",StringComparison.Ordinal))
-                Need(response.Headers.CacheControl?.NoStore==true,"Every command acknowledgement response must be no-store.");
-            if(response.StatusCode!=expected)
+            var start=Stopwatch.GetTimestamp();
+            HttpResponseMessage response;
+            try { response=await client.SendAsync(request); }
+            catch(Exception error)
             {
-                string? code=null;
-                try {using var problem=JsonDocument.Parse(text);if(problem.RootElement.TryGetProperty("code",out var value)&&value.ValueKind==JsonValueKind.String
-                    && value.GetString() is {} candidate && System.Text.RegularExpressions.Regex.IsMatch(candidate,"^[A-Za-z0-9_-]{1,100}$"))code=candidate;} catch(JsonException){}
-                result["failedHttp"]=new {method=method.Method,path,expectedStatus=(int)expected,actualStatus=(int)response.StatusCode,code};
-                throw new PrivatePrincipalProbeFailure("Http_"+method.Method+"_Expected_"+(int)expected+"_Actual_"+(int)response.StatusCode+"_"+(code??"NoSafeProblemCode"));
+                RecordHttp(method,path,start,"Exception",null,error.GetType().Name);
+                throw;
             }
-            return string.IsNullOrWhiteSpace(text)?default:JsonDocument.Parse(text).RootElement.Clone();
+            using(response)
+            {
+                requests++;
+                RecordHttp(method,path,start,"Response",(int)response.StatusCode,null);
+                var text=await response.Content.ReadAsStringAsync();
+                if(method==HttpMethod.Get&&path.Contains("/approval-commands/",StringComparison.Ordinal))
+                    Need(response.Headers.CacheControl?.NoStore==true,"Every command acknowledgement response must be no-store.");
+                if(response.StatusCode!=expected)
+                {
+                    string? code=null;
+                    try {using var problem=JsonDocument.Parse(text);if(problem.RootElement.TryGetProperty("code",out var value)&&value.ValueKind==JsonValueKind.String
+                        && value.GetString() is {} candidate && System.Text.RegularExpressions.Regex.IsMatch(candidate,"^[A-Za-z0-9_-]{1,100}$"))code=candidate;} catch(JsonException){}
+                    result["failedHttp"]=new {method=method.Method,path,expectedStatus=(int)expected,actualStatus=(int)response.StatusCode,code};
+                    throw new PrivatePrincipalProbeFailure("Http_"+method.Method+"_Expected_"+(int)expected+"_Actual_"+(int)response.StatusCode+"_"+(code??"NoSafeProblemCode"));
+                }
+                return string.IsNullOrWhiteSpace(text)?default:JsonDocument.Parse(text).RootElement.Clone();
+            }
+        }
+
+        void RecordHttp(HttpMethod method,string path,long start,string outcome,int? status,string? errorType)
+        {
+            if(httpTiming.Count==256) {httpTimingDiscarded++;Checkpoint();return;}
+            var route=path switch
+            {
+                "/api/procurement/v1/meta"=>"meta",
+                _ when path.StartsWith("/api/procurement/v1/configuration/",StringComparison.Ordinal)=>"configuration",
+                _ when path.StartsWith("/api/procurement/v1/requests/",StringComparison.Ordinal)=>"requests",
+                _ when path.StartsWith("/api/procurement/v1/sourcing/",StringComparison.Ordinal)=>"sourcing",
+                _=>"other",
+            };
+            httpTiming.Add(new {stage,method=method.Method,route,outcome,status,errorType,
+                durationMilliseconds=Math.Round(Stopwatch.GetElapsedTime(start).TotalMilliseconds,3)});
+            Checkpoint();
+        }
+
+        static string[] ExceptionTypes(Exception error)
+        {
+            var types=new List<string>();
+            for(var current=error;current is not null&&types.Count<8;current=current.InnerException)
+                types.Add(current.GetType().FullName??current.GetType().Name);
+            return types.ToArray();
         }
     }
     // Shared owner-only verifier for this mode and the separately authored raw storage checks.

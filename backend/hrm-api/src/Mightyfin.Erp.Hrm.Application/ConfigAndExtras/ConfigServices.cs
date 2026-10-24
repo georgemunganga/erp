@@ -199,6 +199,7 @@ public interface IConfigRepository
     Task<RetentionRule?> GetRetentionRuleAsync(Guid id, CancellationToken ct);
     Task<RetentionRule> UpdateRetentionRuleAsync(RetentionRule rule, CancellationToken ct);
     Task<TenantRoleAssignment> CreateRoleAssignmentAsync(TenantRoleAssignment row, CancellationToken ct);
+    Task<TenantRoleAssignment> CreateRoleAfterSetupAsync(TenantRoleAssignment row, CancellationToken ct);
     Task DeleteRetentionRuleAsync(Guid id, CancellationToken ct);
 }
 

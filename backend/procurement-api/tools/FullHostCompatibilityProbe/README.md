@@ -381,3 +381,98 @@ and exact PostgreSQL17 sourcing readiness manifest are generated and captured.
 No test provider is substituted. The existing P25 non-P29 cohorts keep their
 previous roles, settings and purchase policy. No SDK/database run is claimed
 by this source commit.
+
+## P30 principal receiving private HTTP cohort — authored, not executed
+
+Opt in to the existing `--principal-approvals` command with **both**
+`P30_HTTP_VERIFY_PRINCIPAL_PO=1` and `P30_HTTP_VERIFY_PRINCIPAL_RECEIVING=1`.
+Use the existing private owner/result environment contract and a NEW empty
+`proc_p30_http_po_<unique>` database in the exact bounded PG17 Unix-socket
+cluster. The runner rejects other optional cohorts, reset/resume and production
+connections. Parent owns complete tool publication, runtime execution and the
+protected result path; no connection string belongs in shell history or docs.
+No SDK/HTTP/PostgreSQL execution has been performed for this new cohort.
+
+The cohort first runs the unchanged genuine principal PR/PO lifecycle, then
+publishes an explicit schema2 RECEIVING policy through independent real API
+review. All receiving actors are real active Core accounts with finite current
+actions and branch membership, **without employees**. Purpose-only inspectors,
+acceptors and service owners have no broad receipt read permission. Another
+branch actor must receive an empty count/page and 404 for the retained receipt;
+a principal not admitted to that selected branch receives 403.
+
+Goods are physically observed as 2 against issued quantity 1, independently
+qualified as 1.5, and accepted as 0.0001 plus 0.9999. The first positive product
+must persist as 0.00051234. A separate service request is created, independently
+funded under the existing explicitly labelled private manual-evidence policy,
+Core-approved, converted to a genuinely funded/Core-approved/issued PO and
+manually acknowledged. Two service certificates of 0.5 each use the current
+shared source cursor and retain 0.00005 each. Supplier Accepted acknowledgment
+is never treated as evidence of delivery. No stock, asset, AP, payment or
+external Finance posting is claimed or introduced.
+
+Assertions include exact command replay, original GET-only command recovery,
+stale draft CAS, other-actor command/draft ownership, independent inspection,
+physical/capacity separation, purpose privacy, full fresh owner ledger/counter
+reconciliation and exact same-command fact→receipt physical FK. Negative-only
+owner tests temporarily corrupt existing accepted counters and original receipt
+hashes, require read/write rejection without effects, restore exact originals
+in `finally`, and compare the complete Procurement footprint. The FK negative
+uses the genuine positive receipt inside a rolled-back owner transaction; no
+positive business row is fabricated and no constraint is disabled.
+
+Expected final owner graph: 2 source ledgers, 4 draft headers, 9 immutable
+revisions/line memberships, 6 facts, 12 unique command receipts and 12 explicit
+Procurement-only outbox declarations. Replays/rejections must add none. The
+private execution-role grants are limited to actual owned receiving writes,
+append-only evidence insertion and legacy history SELECT for completeness;
+this is runtime-role proof only when executed. Synthetic private header
+authentication is retained, so normal-cookie/OIDC integration and browser UI
+coverage remain separate gates. Managed commercial returns/reversal and stock
+or Finance owner handoff remain outside this positive-acceptance cohort.
+
+### Private readiness timing on cold hosts
+
+The private principal HTTP probe enables the existing
+`GreenWebb.Procurement.Readiness` phase-duration meter in its isolated host and
+records bounded phase aggregates in its protected result. It also records up to
+256 HTTP durations by controlled stage, method and route class, plus at most
+eight exception type names. Paths, IDs, request/response bodies, SQL, exception
+messages and connection settings are excluded. A failed HTTP attempt appears in
+`httpTiming` even when it does not increment the existing completed-request
+counter. Every private `PrincipalApprovalHost` factory client uses a bounded
+300-second HttpClient timeout, including a newly created RFQ publication host,
+to distinguish a cold readiness path from the previous default-client timeout.
+The separate normal-cookie network probe keeps its 15-second client timeout.
+Model-parity caching remains off; production configuration and readiness
+decisions are unchanged. This private diagnostic timeout is not a production
+latency target or SLA, and the timings do not prove that caching is appropriate
+for production.
+
+`P25_HTTP_PRODUCTION_POOLING=1` is a separate private transport opt-in. It
+keeps the existing finite record and execution role credentials and grants,
+sets their runtime connections to pooling with multiplexing and no-reset both
+disabled, and lets only the actual API Core/HRM connection use the same reset
+semantics. The owner fixture/DDL connection remains unchanged and unpooled.
+Before HTTP, each finite role must open as `current_user=session_user`, set a
+harmless `application_name` marker, close, and reopen the same backend with its
+original application name restored. The protected result records only whether
+this profile was enabled and whether both isolation/reset checks passed; it
+never records backend PIDs, connection strings or credentials. Without the
+opt-in the earlier unpooled proof is byte-for-byte behaviorally unchanged.
+Physical grants, schema readiness and all existing positive/negative HTTP
+cases still run. Pooling does not prove faster execution until a separately
+measured private comparison; no product data cache or readiness shortcut is
+enabled.
+
+The P30 RFQ private fixture uses one unrestricted `SOURCING` fallback rule;
+the production coverage validator rejected the former single branch-limited
+rule in RFQ06. `--preflight-p30-rfq-fixture` runs the actual application policy
+validator and coverage analyzer, including a branch-only negative control,
+before any database setup. The RFQ HTTP profile also writes a bounded
+`P25_HTTP_RESULT.checkpoint.json` in the same owner-only directory. It contains
+only a controlled stage, completed HTTP count, bounded HTTP timing counts and
+readiness phase aggregates. It is updated atomically and remains available if
+the outer process times out before its final result. Neither the preflight nor
+the checkpoint proves the subsequent HTTP journey; RFQ06's failed result is
+retained separately, and RFQ07 requires a fresh private database.

@@ -1712,6 +1712,25 @@ public sealed class ConfigRepository(HrmDbContext db) : IConfigRepository
     { await db.SaveChangesAsync(ct); return capability; }
     public async Task<TenantRoleAssignment> CreateRoleAssignmentAsync(TenantRoleAssignment row, CancellationToken ct)
     { db.TenantRoleAssignments.Add(row); await db.SaveChangesAsync(ct); return row; }
+    public async Task<TenantRoleAssignment> CreateRoleAfterSetupAsync(TenantRoleAssignment row, CancellationToken ct)
+    {
+        // A zero-master tenant is the legacy fallback state. Creating any master
+        // switches LocalIdentity to configured roles. Seeding legacy role tokens
+        // would also grant Procurement actions that the zero-master state does not
+        // grant, so this ordinary CRUD route must not bootstrap Core authority.
+        // Owner-controlled Core setup/repair must establish its complete baseline.
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+        var configured = await db.TenantRoleAssignments.AsNoTracking().ToListAsync(ct);
+        if (configured.Count == 0)
+            throw new DomainException("role-setup-required",
+                "Core role setup is missing for this tenant. Complete the authorized role setup or repair before creating a custom role.");
+        if (configured.Any(existing => existing.RoleKey.Equals(row.RoleKey, StringComparison.OrdinalIgnoreCase)))
+            throw new DomainException("role-key-taken", $"Role '{row.RoleKey}' already exists.");
+        db.TenantRoleAssignments.Add(row);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return row;
+    }
 
     // M28: jobs, tenant roles, retention rules
     public async Task<List<Job>> ListJobsAsync(CancellationToken ct) => await db.Jobs.ToListAsync(ct);

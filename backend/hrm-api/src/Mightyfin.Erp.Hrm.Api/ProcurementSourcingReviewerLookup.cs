@@ -16,6 +16,13 @@ public static partial class ProcurementPolicyDraftRoutes
         {
             if (!await ReceivingConfigurationActor(core, scope, "procurement-configuration-read", ct))
                 return Problem("sourcing-configuration-unavailable", "Your current account cannot select sourcing reviewers.", 403);
+            var viewer = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                scope.LegalEntityId, scope.SubjectId, ct);
+            if (viewer is null || viewer.CoreLinkedWorkerId != scope.CoreLinkedWorkerId
+                || !viewer.Permissions.Contains("procurement-configuration-read")
+                || scope.WorkLocationId is { } selectedBranch && !viewer.OrganisationWide
+                    && !viewer.AllowedBranches.Contains(selectedBranch))
+                return Problem("sourcing-configuration-unavailable", "Your current account cannot select sourcing reviewers.", 403);
             var text = (search ?? "").Trim().ToLowerInvariant();
             if (text.Length > 100)
                 return Problem("sourcing-reviewer-search-invalid", "Search by a name of up to 100 characters.", 422);
@@ -36,10 +43,22 @@ public static partial class ProcurementPolicyDraftRoutes
                     return Problem("sourcing-reviewer-selection-invalid", "Choose up to 25 distinct saved reviewers without a name search or another page.", 422);
                 selected = values.Select(Guid.Parse).ToArray();
             }
-            // Unlike spending-authority people lookup, there is no financial-action eligibility
-            // filter. Every identity/data boundary is in SQL before BOTH count and pagination.
-            var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, DateTimeOffset.UtcNow)
+            // Current Core people and company/branch scope are filtered in SQL before count
+            // and paging; final permission and known-alias checks repeat on policy save.
+            var query = ProcurementPrincipalPeople.Candidates(core, scope, DateTimeOffset.UtcNow)
                 .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
+            if (!viewer.OrganisationWide)
+            {
+                var allowed = viewer.AllowedBranches.ToArray();
+                query = query.Where(candidate =>
+                    !core.UserBranchAssignments.Any(a => a.TenantId == scope.TenantId
+                        && a.UserId == candidate.Id && !a.IsArchived)
+                    || core.UserBranchAssignments.Any(a => a.TenantId == scope.TenantId
+                        && a.UserId == candidate.Id && !a.IsArchived && allowed.Contains(a.LocationId)
+                        && core.WorkLocations.Any(site => site.TenantId == scope.TenantId
+                            && site.Id == a.LocationId && site.LegalEntityId == scope.LegalEntityId
+                            && !site.IsArchived)));
+            }
             if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
             var total = await query.CountAsync(ct);
             var page = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)

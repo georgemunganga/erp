@@ -59,7 +59,7 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
     [Fact]
     public void Manifest_preserves_actual_named_partial_predicates_and_null_guards()
     {
-        Assert.Equal("20261022052824_P21CanonicalGovernedProcurementFoundation", ProcurementSourcingPolicyIdentitySchemaReadiness.MigrationId);
+        Assert.Equal("20261023222748_P30PrincipalCommercialWorkflows", ProcurementSourcingPolicyIdentitySchemaReadiness.MigrationId);
         Assert.Equal("((stage)::text = 'Created'::text)", ProcurementSourcingPolicyIdentitySchemaReadiness.PartialPredicates["ux_source_policy_identity_created"]);
         Assert.Equal("((stage)::text = 'Published'::text)", ProcurementSourcingPolicyIdentitySchemaReadiness.PartialPredicates["ux_source_policy_identity_published"]);
         var definition = ProcurementSourcingPolicyIdentitySchemaReadiness.CheckDefinition;
@@ -67,6 +67,10 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
         Assert.Contains("(evidence_sha256 IS NOT NULL)", definition);
         Assert.Contains("(created_evidence_stage IS NOT NULL)", definition);
         Assert.Contains("(submitted_evidence_stage IS NOT NULL)", definition);
-        Assert.Contains("((schema_version = 1)", definition);
+        Assert.Contains("(schema_version = ANY (ARRAY[1, 2]))", definition);
+        Assert.Contains("((schema_version = 1) AND (actor_worker_id IS NOT NULL)", definition);
+        Assert.Contains("((schema_version = 2) AND ((actor_worker_id IS NULL) OR", definition);
+        Assert.Contains("(actor_principal_id IS NOT NULL)", definition);
+        Assert.Contains("((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text)", definition);
     }
 }
