@@ -72,6 +72,7 @@ public static class ProcurementActionCatalog
             ["procurement-sourcing-round-close"] = [],
             ["procurement-sourcing-offers-open"] = [],
             ["procurement-sourcing-opened-offer-read"] = [],
+            ["procurement-sourcing-evaluate"] = [],
             ["procurement-sourcing-round-open"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
             // Payment recording/review is controlled by explicit Core grants. Registering

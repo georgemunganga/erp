@@ -31,9 +31,10 @@ public sealed class P32CommercialRoundRollbackGuardsTests
             .Where(x => x is not null && (x.StartsWith("rfq_commercial_", StringComparison.Ordinal)
                 || x.StartsWith("rfq_prepared_", StringComparison.Ordinal)
                 || x.StartsWith("rfq_preparation_", StringComparison.Ordinal)
-                || x.StartsWith("principal_rfq_commercial_", StringComparison.Ordinal)))
+                || x.StartsWith("principal_rfq_commercial_", StringComparison.Ordinal)
+                || x.StartsWith("principal_rfq_criterion_", StringComparison.Ordinal)))
             .Cast<string>().ToHashSet(StringComparer.Ordinal);
-        Assert.Equal(13, owned.Count);
+        Assert.Equal(15, owned.Count);
         var sql = P32CommercialRoundRollbackGuards.BeforeDownSql;
         var locked = Regex.Matches(sql[..sql.IndexOf(" IN ACCESS EXCLUSIVE MODE", StringComparison.Ordinal)],
                 @"procurement\.([a-z_]+)")
@@ -47,6 +48,7 @@ public sealed class P32CommercialRoundRollbackGuardsTests
         Assert.Contains("procurement.outbox_events", sql);
         Assert.Contains("'PrincipalRfqOfferOpeningRecord'", sql);
         Assert.Contains("'PrincipalRfqOfferOpeningReceipt'", sql);
+        Assert.Contains("'PrincipalRfqCriterionAssessmentRecord'", sql);
         Assert.Contains("'sourcing.commercial_offers_opened.v1'", sql);
     }
 }

@@ -28,6 +28,12 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization(PrincipalRfqOfferOpeningControls.ReadAction);
         group.MapGet("/commercial-rounds/{id:guid}/opening-commands/{key:guid}", CommercialOfferOpeningRecovery)
             .RequireAuthorization(PrincipalRfqOfferOpeningControls.OpenAction);
+        group.MapPost("/commercial-rounds/{id:guid}/assessments", CommercialRecordCriterionAssessment)
+            .RequireAuthorization(PrincipalRfqCriterionAssessmentStorage.Action);
+        group.MapGet("/commercial-rounds/{id:guid}/assessments/own", CommercialOwnCriterionAssessments)
+            .RequireAuthorization(PrincipalRfqCriterionAssessmentStorage.Action);
+        group.MapGet("/commercial-rounds/{id:guid}/assessment-commands/{key:guid}", CommercialCriterionAssessmentRecovery)
+            .RequireAuthorization(PrincipalRfqCriterionAssessmentStorage.Action);
         group.MapGet("/commercial-rounds", CommercialRounds).RequireAuthorization();
         group.MapGet("/commercial-rounds/{id:guid}", CommercialRound).RequireAuthorization();
         group.MapGet("/commercial-round-reviews/assigned", CommercialRoundAssigned)

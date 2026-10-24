@@ -809,3 +809,36 @@ alias denials without employees, exact new owner tuples and append-only/same-sav
 failures, purpose document-action separation and metadata SQL confinement. All are
 source-only and unrun, with actual migration/physical/readiness/runtime gates still
 pending.
+
+### Held individual criterion assessments (source only)
+
+This increment covers only one named evaluator's observation of one criterion on
+one already opened, immutable manual offer. The frozen prepared revision supplies
+the criterion code, type, maximum, weight and evaluator membership; the opened
+round and original supplier document pin supply the source. The evaluator enters an
+exact score within a scored criterion's maximum **or** an explicit pass/fail value,
+and a required rationale. Zero score and failed compliance are recorded values.
+There is no inferred score, pass threshold, weighted aggregation, quorum, ranking,
+recommendation, award, PO or Finance effect.
+
+`POST /commercial-rounds/{id}/assessments` uses a server-verified Core evaluator,
+current company/branch and `procurement-sourcing-evaluate` action, retained
+opening/offer/document proof, frozen plan and current maker/requester/officer/
+recorder alias independence. A prior observation is corrected by a new immutable
+revision with exact expected prior revision and original idempotency key; old
+observations are never overwritten. Own assessment history and actor-owned command
+recovery have separate purpose routes. Other evaluators' observations and sealed
+supplier responses are excluded from these responses. Original supplier document
+version/hash is retained as source evidence; no arbitrary uploaded evaluator file
+is accepted by this increment.
+
+Two additive owner families hold observations and original acknowledgments with
+explicit scoped opening, offer, prepared-plan, prior-revision and receipt keys.
+P32 rollback veto now includes both families and their audit records. The distinct
+`CriterionAssessmentEnabled` option defaults false; no positive assessment
+readiness provider or schema capture is registered. The new action has an empty
+bootstrap grant. The 15-family model is **not** an installed migration: genuine EF
+generation, exact finite-role inspection, raw mixed-owner/NULL/precision tests,
+actual named Core evaluator HTTP proof, lost-ack recovery and restored UI binding
+remain required before activation. The original P32 opening/offer release holds
+remain in force.

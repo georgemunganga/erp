@@ -190,7 +190,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (scope.SubjectId != actor.PrincipalId || scope.TenantId != offer.TenantId
                 || scope.LegalEntityId != offer.LegalEntityId
                 || requiredAction is not (PrincipalRfqSealedManualOffers.CloseAction
-                    or PrincipalRfqOfferOpeningControls.OpenAction or PrincipalRfqOfferOpeningControls.ReadAction)
+                    or PrincipalRfqOfferOpeningControls.OpenAction or PrincipalRfqOfferOpeningControls.ReadAction
+                    or PrincipalRfqCriterionAssessmentStorage.Action)
                 || !actor.Permissions.Contains(requiredAction)
                 || (actor.SelectedBranchId is { } selected && selected != offer.BranchId)
                 || (!actor.OrganisationWide && !actor.Branches.Contains(offer.BranchId))
