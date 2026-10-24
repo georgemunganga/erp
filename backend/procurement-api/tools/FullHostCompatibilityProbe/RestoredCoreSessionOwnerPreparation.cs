@@ -89,10 +89,13 @@ internal static class RestoredCoreSessionOwnerPreparation
         await using var core = RestoredCoreLocalSessionVerification.ModelContext(connection, input.Tenant);
         Need(!core.Database.HasPendingModelChanges(), "GenuineCoreModelParityRequired");
         await using var transaction = await core.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        Need(!await core.LegalEntities.AnyAsync(x => x.TenantId == input.Tenant)
-            && !await core.LocalUsers.AnyAsync(x => x.TenantId == input.Tenant)
-            && !await core.TenantRoleAssignments.AnyAsync(x => x.TenantId == input.Tenant)
-            && !await core.LocalSessions.AnyAsync(x => x.TenantId == input.Tenant),
+        Need(!await core.LegalEntities.IgnoreQueryFilters().AnyAsync(x => x.TenantId == input.Tenant)
+            && !await core.WorkLocations.IgnoreQueryFilters().AnyAsync(x => x.TenantId == input.Tenant)
+            && !await core.LocalUsers.IgnoreQueryFilters().AnyAsync(x => x.TenantId == input.Tenant)
+            && !await core.TenantRoleAssignments.IgnoreQueryFilters().AnyAsync(x => x.TenantId == input.Tenant)
+            && !await core.UserBranchAssignments.IgnoreQueryFilters().AnyAsync(x => x.TenantId == input.Tenant)
+            && !await core.Workers.IgnoreQueryFilters().AnyAsync(x => x.TenantId == input.Tenant)
+            && !await core.LocalSessions.IgnoreQueryFilters().AnyAsync(x => x.TenantId == input.Tenant),
             "FreshSyntheticTenantOnlyNoAdoption");
         core.LegalEntities.AddRange(
             new LegalEntity { Id = input.CompanyId, Code = "P30_CORE_01",
