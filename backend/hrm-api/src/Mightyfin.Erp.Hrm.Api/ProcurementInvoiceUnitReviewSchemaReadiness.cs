@@ -53,8 +53,9 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
         var opened = false;
         try
         {
+            var applied = (await owner.Database.GetAppliedMigrationsAsync(ct)).ToArray();
             if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
-                || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
+                || !applied.Contains(MigrationId, StringComparer.Ordinal)) return false;
             if (owner.Database.GetDbConnection().State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
             await using var command = owner.Database.GetDbConnection().CreateCommand(); command.Transaction = owner.Database.CurrentTransaction?.GetDbTransaction(); command.CommandTimeout = 10;
             async Task<bool> True(string sql) { command.CommandText = sql; return await command.ExecuteScalarAsync(ct) is true; }
@@ -93,10 +94,9 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
                 if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
             }
             command.CommandText = CheckSql(StoreObjectIdentifier.Table("operational_policy_identity_evidence", "procurement"), "ck_operational_policy_identity");
-            var paymentInstalled = (await owner.Database.GetAppliedMigrationsAsync(ct))
-                .Contains(ProcurementManualPaymentGovernanceReadiness.MigrationId, StringComparer.Ordinal);
-            var expectedOperational = paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition : OperationalCheckDefinition;
-            if (await command.ExecuteScalarAsync(ct) is not string operational || operational != expectedOperational) return false;
+            var expectedOperational = ProcurementP32OperationalPolicyCatalog.SelectCheck(applied);
+            if (expectedOperational is null || await command.ExecuteScalarAsync(ct) is not string operational
+                || operational != expectedOperational) return false;
             if (!await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql)
                 || !await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
                 || !await True(CoreReadBoundarySql)) return false;
