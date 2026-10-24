@@ -1,7 +1,7 @@
 namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 
-/// <summary>Proposal for the future CENTRAL generated migration; no SQL executes
-/// from this class and no readiness/provider is registered. Exact same-parent
+/// <summary>Exact ownership companion installed by the P32 owning migration;
+/// this class does not execute SQL or register readiness/providers. Exact same-parent
 /// bindings use ordinary unique targets, never mutable EF alternate keys.</summary>
 public static class RfqCommercialDraftOwnershipConstraintSql
 {
@@ -22,5 +22,12 @@ public static class RfqCommercialDraftOwnershipConstraintSql
           FOREIGN KEY (tenant_id,legal_entity_id,id,revision,snapshot_sha256)
           REFERENCES procurement.rfq_commercial_revisions (tenant_id,legal_entity_id,draft_id,revision,snapshot_sha256)
           ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED;
+        """;
+    // Remove authored cross-table constraints before generated table/index drops.
+    public const string Remove = """
+        ALTER TABLE procurement.rfq_commercial_drafts DROP CONSTRAINT fk_pr32_exact_current_revision;
+        ALTER TABLE procurement.rfq_commercial_receipts DROP CONSTRAINT fk_pr32_exact_revision;
+        ALTER TABLE procurement.rfq_commercial_revisions DROP CONSTRAINT fk_pr32_exact_draft;
+        ALTER TABLE procurement.rfq_commercial_drafts DROP CONSTRAINT fk_pr32_exact_source;
         """;
 }

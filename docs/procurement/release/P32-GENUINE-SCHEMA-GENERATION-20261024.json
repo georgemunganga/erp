@@ -1,0 +1,33 @@
+{
+  "authoredMigrationBodySha256": "42c958a1b8b0688e23e0f7a9461e42a2e71291f5d259589632bbebf93805f917",
+  "authoredOwnershipConstraints": 9,
+  "checks": {
+    "finiteRoleReadiness": "PENDING",
+    "httpAndBrowser": "PENDING",
+    "infrastructureBuild": "PASS_0_ERRORS_10_WARNINGS_BEFORE_BODY_OVERLAY",
+    "modelParityAfterOverlay": "PENDING",
+    "officialEfGeneration": "PASS",
+    "overlayOperationsTest": "AUTHORED_UNRUN",
+    "populatedRetentionVeto": "PENDING",
+    "privatePostgreSqlRoundtrip": "PENDING",
+    "upDownSqlExports": "PENDING"
+  },
+  "designerAndSnapshotEditedByHand": false,
+  "downRetentionGuardFirst": true,
+  "legacySupplierBidInvitationNullableUnchanged": true,
+  "migrationId": "20261024182504_P32PrincipalCommercialEvidence",
+  "modelFamiliesAdded": 15,
+  "productionTouched": false,
+  "rawGenuineFileSha256": {
+    "20261024182504_P32PrincipalCommercialEvidence.Designer.cs": "c7fa268ba34155e8d5f0227a25237882eae4022bf0cdf85344413bc99de6abf7",
+    "20261024182504_P32PrincipalCommercialEvidence.cs": "14cc91b7d588cfef4f2de4b377a6e6dbf7b8bc0e587fc77951862892ff73f397",
+    "ProcurementDbContextModelSnapshot.cs": "5fbdb0918a9009af9bf4afb985e3e31dd86be6e2ab542beeb4db6ca91d1741fc"
+  },
+  "sdk": "10.0.400",
+  "sourceBeforeGeneration": "77889925925cfb9fb44c0e25d7b84ba51d7b04c5",
+  "sourceReviews": [
+    "root",
+    "pr_crud"
+  ],
+  "status": "GENUINE_EF_GENERATION_WITH_REVIEWED_BODY_OVERLAY_NOT_APPLIED"
+}

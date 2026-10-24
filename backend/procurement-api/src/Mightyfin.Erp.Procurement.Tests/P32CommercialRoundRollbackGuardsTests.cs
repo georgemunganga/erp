@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -85,4 +86,39 @@ public sealed class P32CommercialRoundRollbackGuardsTests
         Assert.Equal(5,protectedEvents.Count);
         Assert.Contains("ERRCODE = '55000'",sql,StringComparison.Ordinal);
     }
+    [Fact]
+    public void Genuine_migration_installs_exact_ownership_after_indexes_and_vetoes_before_any_drop()
+    {
+        var migration = new P32PrincipalCommercialEvidence();
+        var up = migration.UpOperations.ToArray();
+        var down = migration.DownOperations.ToArray();
+        Assert.Equal(15, up.OfType<CreateTableOperation>().Count());
+        Assert.Equal(P32CommercialRoundRollbackGuards.BeforeDownSql,
+            Assert.IsType<SqlOperation>(down[0]).Sql);
+        var installs = new[] { RfqCommercialDraftOwnershipConstraintSql.Install,
+            RfqPreparationOwnershipConstraintSql.Install,
+            PrincipalRfqCommercialOfferInvitationOwnershipSql.Install };
+        Assert.Equal(installs, up.TakeLast(3).Select(x => Assert.IsType<SqlOperation>(x).Sql));
+        var uniqueInvitation = Array.FindIndex(up, x => x is CreateIndexOperation index
+            && index.Name == "ux_p32_bid_exact_invitation" && index.IsUnique && index.Filter is null);
+        Assert.True(uniqueInvitation >= 0 && uniqueInvitation < up.Length - installs.Length);
+        Assert.Equal(new[] { PrincipalRfqCommercialOfferInvitationOwnershipSql.Remove,
+            RfqPreparationOwnershipConstraintSql.Remove,
+            RfqCommercialDraftOwnershipConstraintSql.Remove },
+            down.Skip(1).Take(3).Select(x => Assert.IsType<SqlOperation>(x).Sql));
+        var installedOwners = Regex.Matches(string.Join("\n", installs),
+                @"ALTER TABLE procurement\.([a-z0-9_]+)\s+ADD CONSTRAINT ([a-z0-9_]+)")
+            .Select(x => (x.Groups[1].Value, x.Groups[2].Value)).ToHashSet();
+        var removedOwners = Regex.Matches(string.Join("\n", down.Skip(1).Take(3)
+                .Cast<SqlOperation>().Select(x => x.Sql)),
+                @"ALTER TABLE procurement\.([a-z0-9_]+) DROP CONSTRAINT ([a-z0-9_]+);")
+            .Select(x => (x.Groups[1].Value, x.Groups[2].Value)).ToHashSet();
+        Assert.Equal(9, installedOwners.Count);
+        Assert.True(installedOwners.SetEquals(removedOwners));
+        Assert.IsType<DropTableOperation>(down[4]);
+        // Nullable historical invitations must survive this additive migration.
+        Assert.DoesNotContain(up, x => x is AlterColumnOperation column
+            && column.Table == "supplier_bids" && column.Name == "invitation_id");
+    }
+
 }
