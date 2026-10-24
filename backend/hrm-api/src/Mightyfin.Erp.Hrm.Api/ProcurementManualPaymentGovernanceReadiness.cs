@@ -75,6 +75,7 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             "NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",
             "NOT has_schema_privilege(current_user,'procurement','CREATE')",
             "NOT has_schema_privilege(current_user,'core_approval','CREATE')",
+            "NOT has_schema_privilege(current_user,'hrm','CREATE')",
             "has_schema_privilege(current_user,'hrm','USAGE')",
             ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql,
             ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
