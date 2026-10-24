@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -13,7 +15,8 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
 {
     private void Enlisted(Guid branch)
     {
-        if (!db.Database.IsNpgsql() || db.Database.CurrentTransaction is null)
+        if (!db.Database.IsNpgsql() || db.Database.CurrentTransaction is null
+            || db.Database.CurrentTransaction.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable)
             throw new InvalidOperationException("RfqCommercialOwnerTransactionRequired");
         if (scope.OrgUnitId is not null || branch == Guid.Empty
             || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches
@@ -113,6 +116,9 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
             || !OpeningAudienceContains(opening.SnapshotJson, submission.SupplierId)
             || submission.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(submission.SnapshotJson))
             throw new InvalidOperationException("RfqCommercialOfferProofChanged");
+        if (db.PrincipalRfqCommercialRoundSeals.AsNoTracking()
+            .Any(x => x.OpeningId == opening.Id))
+            throw new InvalidOperationException("RfqCommercialRoundAlreadyClosed");
         var row = new PrincipalRfqCommercialOfferSubmissionRecord
         {
             OpeningId = opening.Id, ApprovedDecisionId = approved.Id,
@@ -153,6 +159,9 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
             || seal.ActorWorkerAliasId != actor.LinkedWorkerId
             || seal.ClosedAt < opening.ClosesAt || !Hash(seal.SubmissionSetSha256))
             throw new InvalidOperationException("RfqCommercialSealProofChanged");
+        if (db.ChangeTracker.Entries<PrincipalRfqCommercialOfferSubmissionRecord>()
+            .Any(x => x.Entity.OpeningId == opening.Id && x.State != EntityState.Unchanged))
+            throw new InvalidOperationException("RfqCommercialOfferSetNotCommitted");
         var retainedOffers = await db.PrincipalRfqCommercialOfferSubmissions.AsNoTracking()
             .Where(x => x.OpeningId == opening.Id).OrderBy(x => x.SupplierBidId).ToArrayAsync(ct);
         var exactSet = JsonSerializer.Serialize(retainedOffers.Select(x => new
@@ -212,7 +221,11 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
         Guid openingId, Guid eventId, Guid branch, string actor, Guid commandKey,
         string requestSha256, int status, object response)
     {
-        var json = JsonSerializer.Serialize(response);
+        var json = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, operation, commandKey, openingId, eventId,
+            branchId = branch, targetId, responseStatus = status, result = response,
+        });
         var row = new PrincipalRfqCommercialCommandReceipt
         {
             OpeningId = openingId, SourcingEventId = eventId, BranchId = branch,

@@ -131,4 +131,66 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         Assert.Equal("RfqCommercialReceiptTargetRequired",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
     }
+
+    [Fact]
+    public void Self_hashed_response_without_original_decision_facts_cannot_ack_it()
+    {
+        var scope = new Scope();
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+        var opening = new PrincipalRfqCommercialRoundOpeningRecord
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            BranchId = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
+            CoreCaseId = Guid.NewGuid(), SnapshotSha256 = new string('b', 64),
+        };
+        db.Attach(opening);
+        var decision = new PrincipalRfqCommercialRoundDecisionRecord
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
+            BranchId = opening.BranchId, CoreCaseId = opening.CoreCaseId,
+            OpeningSha256 = opening.SnapshotSha256, ActorPrincipalId = scope.SubjectId,
+        };
+        db.Add(decision);
+        db.Add(new PrincipalRfqCommercialCommandReceipt
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            OpeningId = opening.Id, SourcingEventId = opening.SourcingEventId,
+            BranchId = opening.BranchId, Operation = "Decide",
+            DecisionTargetId = decision.Id, TargetId = decision.Id,
+            CommandKey = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
+            RequestSha256 = new string('a', 64), ResponseJson = "{}",
+            ResponseSha256 = ProcurementEvidenceEncoding.Digest("{}"),
+        });
+        Assert.Equal("RfqCommercialReceiptTargetRequired",
+            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+    }
+
+    [Fact]
+    public void Close_cannot_commit_a_new_offer_outside_its_retained_set_in_either_call_order()
+    {
+        foreach (var closeFirst in new[] { false, true })
+        {
+            var scope = new Scope();
+            using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+            var round = Guid.NewGuid();
+            var branch = Guid.NewGuid();
+            var offer = new PrincipalRfqCommercialOfferSubmissionRecord
+            {
+                TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                OpeningId = round, BranchId = branch, RecorderPrincipalId = scope.SubjectId,
+            };
+            var seal = new PrincipalRfqCommercialRoundSealRecord
+            {
+                TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                OpeningId = round, BranchId = branch, OfficerPrincipalId = scope.SubjectId,
+            };
+            if (closeFirst) { db.Add(seal); db.Add(offer); }
+            else { db.Add(offer); db.Add(seal); }
+            Assert.Equal("RfqCommercialOfferSetNotCommitted",
+                Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+        }
+    }
 }

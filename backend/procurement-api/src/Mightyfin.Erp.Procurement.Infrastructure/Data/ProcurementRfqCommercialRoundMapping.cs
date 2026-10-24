@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 using System.Text.Json;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -195,6 +197,13 @@ public sealed partial class ProcurementDbContext
                 PrincipalRfqCommercialRoundOpeningRecord or PrincipalRfqCommercialRoundDecisionRecord or
                 PrincipalRfqCommercialOfferSubmissionRecord or PrincipalRfqCommercialRoundSealRecord)
             .Select(x => x.Entity).ToArray();
+        if (Database.IsNpgsql() && (addedTargets.Length > 0 || addedReceipts.Length > 0)
+            && Database.CurrentTransaction?.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable)
+            throw new InvalidOperationException("RfqCommercialSerializableOwnerRequired");
+        if (addedTargets.OfType<PrincipalRfqCommercialRoundSealRecord>().Any(seal =>
+            addedTargets.OfType<PrincipalRfqCommercialOfferSubmissionRecord>()
+                .Any(offer => offer.OpeningId == seal.OpeningId)))
+            throw new InvalidOperationException("RfqCommercialOfferSetNotCommitted");
         foreach (var entry in ChangeTracker.Entries<ProcurementRecord>().Where(x => x.Entity is
             PrincipalRfqCommercialRoundOpeningRecord or PrincipalRfqCommercialRoundDecisionRecord or
             PrincipalRfqCommercialOfferSubmissionRecord or PrincipalRfqCommercialRoundSealRecord or
@@ -268,6 +277,7 @@ public sealed partial class ProcurementDbContext
                 };
                 if (receipt.OpeningId != targetOpening || receipt.SourcingEventId != targetEvent
                     || receipt.BranchId != targetBranch
+                    || !ReceiptPinsMatch(receipt, target)
                     || (receipt.Operation switch
                     {
                         "Open" => receipt.OpeningTargetId != targetId || receipt.DecisionTargetId is not null
@@ -281,6 +291,16 @@ public sealed partial class ProcurementDbContext
                         _ => true,
                     }))
                     throw new InvalidOperationException("RfqCommercialReceiptTargetRequired");
+            }
+            if (entry.Entity is PrincipalRfqCommercialRoundDecisionRecord decision)
+            {
+                var opening = PrincipalRfqCommercialRoundOpenings.Local.SingleOrDefault(x => x.Id == decision.OpeningId)
+                    ?? PrincipalRfqCommercialRoundOpenings.AsNoTracking().SingleOrDefault(x => x.Id == decision.OpeningId);
+                if (opening is null || opening.SourcingEventId != decision.SourcingEventId
+                    || opening.BranchId != decision.BranchId
+                    || opening.CoreCaseId != decision.CoreCaseId
+                    || opening.SnapshotSha256 != decision.OpeningSha256)
+                    throw new InvalidOperationException("RfqCommercialDecisionOpeningChanged");
             }
             else if (addedReceipts.Count(receipt => receipt.TargetId == entry.Entity.Id
                 && receipt.ActorPrincipalId == actor && receipt.BranchId == branch) != 1)
@@ -314,6 +334,9 @@ public sealed partial class ProcurementDbContext
             }
             if (entry.Entity is PrincipalRfqCommercialOfferSubmissionRecord offer)
             {
+                if (PrincipalRfqCommercialRoundSeals.AsNoTracking()
+                    .Any(x => x.OpeningId == offer.OpeningId))
+                    throw new InvalidOperationException("RfqCommercialRoundAlreadyClosed");
                 var decision = PrincipalRfqCommercialRoundDecisions.Local.SingleOrDefault(x => x.Id == offer.ApprovedDecisionId)
                     ?? PrincipalRfqCommercialRoundDecisions.AsNoTracking().SingleOrDefault(x => x.Id == offer.ApprovedDecisionId);
                 var bid = SupplierBids.AsNoTracking().SingleOrDefault(x => x.Id == offer.SupplierBidId);
@@ -334,6 +357,15 @@ public sealed partial class ProcurementDbContext
                 if (decision?.State != "Approved" || decision.OpeningId != seal.OpeningId
                     || decision.SourcingEventId != seal.SourcingEventId || decision.BranchId != seal.BranchId)
                     throw new InvalidOperationException("RfqCommercialApprovedRoundRequired");
+                var offers = PrincipalRfqCommercialOfferSubmissions.AsNoTracking()
+                    .Where(x => x.OpeningId == seal.OpeningId).OrderBy(x => x.SupplierBidId).ToArray();
+                var exactSet = JsonSerializer.Serialize(offers.Select(x => new
+                { BidId = x.SupplierBidId, x.SupplierId, x.SnapshotSha256 }));
+                if (offers.Length != seal.SubmissionCount
+                    || offers.Any(x => x.ApprovedDecisionId != decision.Id
+                        || x.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(x.SnapshotJson))
+                    || seal.SubmissionSetSha256 != ProcurementEvidenceEncoding.Digest(exactSet))
+                    throw new InvalidOperationException("RfqCommercialSubmissionSetChanged");
             }
         }
     }
@@ -360,6 +392,53 @@ public sealed partial class ProcurementDbContext
                 && pin.GetProperty("coreCaseId").GetGuid() == opening.CoreCaseId
                 && pin.GetProperty("opensAt").GetDateTimeOffset() == opening.OpensAt
                 && pin.GetProperty("closesAt").GetDateTimeOffset() == opening.ClosesAt;
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException
+            or KeyNotFoundException or FormatException) { return false; }
+    }
+
+    private static bool ReceiptPinsMatch(PrincipalRfqCommercialCommandReceipt receipt,
+        ProcurementRecord target)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(receipt.ResponseJson);
+            var pin = document.RootElement;
+            if (pin.GetProperty("schemaVersion").GetInt32() != 1
+                || pin.GetProperty("operation").GetString() != receipt.Operation
+                || pin.GetProperty("commandKey").GetGuid() != receipt.CommandKey
+                || pin.GetProperty("openingId").GetGuid() != receipt.OpeningId
+                || pin.GetProperty("eventId").GetGuid() != receipt.SourcingEventId
+                || pin.GetProperty("branchId").GetGuid() != receipt.BranchId
+                || pin.GetProperty("targetId").GetGuid() != receipt.TargetId
+                || pin.GetProperty("responseStatus").GetInt32() != receipt.ResponseStatus)
+                return false;
+            var result = pin.GetProperty("result");
+            if (result.GetProperty("roundId").GetGuid() != receipt.OpeningId) return false;
+            return target switch
+            {
+                PrincipalRfqCommercialRoundOpeningRecord opening =>
+                    result.GetProperty("eventId").GetGuid() == opening.SourcingEventId
+                    && result.GetProperty("coreCaseId").GetGuid() == opening.CoreCaseId
+                    && result.GetProperty("snapshotSha256").GetString() == opening.SnapshotSha256
+                    && result.GetProperty("state").GetString() == "PendingCommercialReview",
+                PrincipalRfqCommercialRoundDecisionRecord decision =>
+                    result.GetProperty("decisionId").GetGuid() == decision.Id
+                    && result.GetProperty("coreDecisionId").GetGuid() == decision.CoreDecisionId
+                    && result.GetProperty("outcomeSha256").GetString() == decision.CoreOutcomeSha256
+                    && result.GetProperty("state").GetString() == decision.State,
+                PrincipalRfqCommercialOfferSubmissionRecord offer =>
+                    result.GetProperty("offerId").GetGuid() == offer.Id
+                    && result.GetProperty("supplierId").GetGuid() == offer.SupplierId
+                    && result.GetProperty("submittedAt").GetDateTimeOffset() == offer.SubmittedAt
+                    && result.GetProperty("snapshotSha256").GetString() == offer.SnapshotSha256,
+                PrincipalRfqCommercialRoundSealRecord seal =>
+                    result.GetProperty("sealId").GetGuid() == seal.Id
+                    && result.GetProperty("state").GetString() == "Closed"
+                    && result.GetProperty("offerCount").GetInt32() == seal.SubmissionCount
+                    && result.GetProperty("submissionSetSha256").GetString() == seal.SubmissionSetSha256,
+                _ => false,
+            };
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException
             or KeyNotFoundException or FormatException) { return false; }
