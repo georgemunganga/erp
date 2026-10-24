@@ -382,7 +382,12 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
             and set(after["procurement.principal_order_source_bindings"]) - set(before["procurement.principal_order_source_bindings"]) == {pin["id"]}
             and set(after["procurement.purchase_request_allocations"]) - set(before["procurement.purchase_request_allocations"]) == {allocation["id"]},
             "UnexpectedCommercialSuccessors")
-    require(exact(baseline["sourceLine"]["allocated_quantity"]) == exact(final["sourceLine"]["allocated_quantity"]) == 1
+    require(exact(baseline["sourceLine"]["allocated_quantity"]) == exact(final["sourceLine"]["allocated_quantity"]) == 0
+            and exact(baseline["sourceLine"]["ordered_quantity"]) == exact(final["sourceLine"]["ordered_quantity"]) == 1
+            and exact(baseline["sourceLine"]["approved_quantity"]) == exact(final["sourceLine"]["approved_quantity"]) == 2
+            and exact(final["sourceLine"]["cancelled_quantity"]) == 0
+            and exact(final["sourceLine"]["approved_quantity"]) - exact(final["sourceLine"]["allocated_quantity"])
+                - exact(final["sourceLine"]["ordered_quantity"]) - exact(final["sourceLine"]["cancelled_quantity"]) == 1
             and exact(final["sourceLine"]["requested_quantity"]) == 2
             and final["sourceLine"]["version"] == baseline["sourceLine"]["version"] + 2,
             "ApprovedDemandNotRestored")
