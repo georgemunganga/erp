@@ -23,6 +23,17 @@ if (args.SequenceEqual(new[] { "--preflight-core-session-config" }))
     return;
 }
 
+if (args.SequenceEqual(new[] { "--prepare-core-session-owner-fixture" }))
+{
+    try { await RestoredCoreSessionOwnerPreparation.RunAsync(); }
+    catch (Exception)
+    {
+        Console.Error.WriteLine("Private Core owner preparation failed; retain protected fixture evidence for review.");
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
 if (args.SequenceEqual(new[] { "--core-local-session-manifest" }) || args.SequenceEqual(new[] { "--restored-core-local-session" }))
 {
     try
