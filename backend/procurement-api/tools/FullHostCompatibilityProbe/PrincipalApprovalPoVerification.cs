@@ -89,11 +89,23 @@ internal static partial class PrincipalApprovalHttpVerification
         stage("P30CurrentApprovedDirectSourceAndSupplierPurposeLookup");
         var sourcePage=await send(client,HttpMethod.Get,PoRoot+"/approved-principal-direct-sources?page=1&pageSize=25",fixture.Buyer);
         var source=sourcePage.GetProperty("items").EnumerateArray().Single(x=>x.GetProperty("purchaseRequestId").GetGuid()==requestId);
+        var lineId=source.GetProperty("purchaseRequestLineId").GetGuid();
+        await using(var sourceProof=fixture.Procurement())
+        {
+            var evaluation=await sourceProof.PolicyEvaluations.AsNoTracking()
+                .SingleAsync(x=>x.PurchaseRequestId==requestId);
+            using var decision=JsonDocument.Parse(evaluation.DecisionJson);
+            var lineDecision=decision.RootElement.GetProperty("lines").EnumerateArray()
+                .Single(x=>x.GetProperty("lineId").GetGuid()==lineId).GetProperty("decision");
+            Need(lineDecision.GetProperty("sourcingMethodCode").GetString()=="DIRECT"
+                &&lineDecision.GetProperty("minimumQuoteCount").ValueKind==JsonValueKind.Number
+                &&lineDecision.GetProperty("minimumQuoteCount").GetInt32()==0,
+                "Approved direct source must retain explicit zero required quotes; null does not authorize direct conversion.");
+        }
         Need(source.GetProperty("canSelect").GetBoolean()
             && source.GetProperty("availableQuantity").GetString()=="2"
             && source.GetProperty("approvedUnitEstimate").GetString()=="5.1234",
             "Approved direct source was not selectable with exact retained amount.");
-        var lineId=source.GetProperty("purchaseRequestLineId").GetGuid();
         var suppliers=await send(client,HttpMethod.Get,PoRoot+"/principal-direct-suppliers?page=1&pageSize=25",fixture.Buyer);
         Need(suppliers.GetProperty("previewOnly").GetBoolean()
             && suppliers.GetProperty("items").EnumerateArray().Any(x=>x.GetProperty("id").GetGuid()==supplierId),

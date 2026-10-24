@@ -94,7 +94,7 @@ internal static partial class PrincipalApprovalHttpVerification
             {"schemaVersion":1,"transactionType":"PurchaseRequest","currencyCode":"ZMW","amountBasis":"EstimatedLineBase",
             "rules":[{"code":"PRIVATE_CORE_PO_DIRECT","priority":0,"when":{"minimumAmountInclusive":null,"maximumAmountExclusive":null,
             "categoryCodes":[],"purchaseTypes":[],"branchIds":[]},"result":{"budgetReservation":"Required","sourcingMethodCode":"DIRECT",
-            "minimumQuoteCount":null,"approvalStages":[{"code":"CUSTOM_CORE_REVIEW","assignee":"ProcurementManager","mode":"One"}]}}]}
+            "minimumQuoteCount":0,"approvalStages":[{"code":"CUSTOM_CORE_REVIEW","assignee":"ProcurementManager","mode":"One"}]}}]}
             """;
         var rules=competitiveSource?competitiveRules:directPurchaseSource?poDirectRules:directRules;
         // Production publication requires a future start. Wait for that actual instant;
