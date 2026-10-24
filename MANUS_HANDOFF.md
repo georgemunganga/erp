@@ -1,5 +1,7 @@
 # Manus ERP collaboration handoff
 
+**Queued isolated-hardware task (24 October):** [MANUS-CORE-DOCUMENT-SCANNER-04](docs/collaboration/manus/MANUS-CORE-DOCUMENT-SCANNER-04.md) verifies the existing Core scanner adapter on separate non-production hardware. It is available for the next allocation after the current Core frontend assignment, or a separately coordinated hardware worker. It does not replace `MANUS-CORE-BUILD-03`, assign held Procurement branches, enable document uploads, or authorize production changes. Read the task’s source pins, boundaries and evidence gates before pickup.
+
 **Accepted source checkpoint (23 October):** ERP PR #48 and UI PR #64 are merged on top of the payment, Core role and principal-approval milestones. Core users without employee links passed the RFQ draft create/read/replay/cancel workflow:65 actual private API requests,11 PostgreSQL constraint cases, a normal local-cookie Playwright create/reload/cancel/reload journey, independent retained-owner verification and both genuine downgrade vetoes. Failed attempts and the reviewed verifier capture compatibility are preserved in [P29 acceptance](docs/procurement/release/P29-ACCEPTANCE-20261023.json). This is source acceptance, not production deployment or whole-module completion. Production remains P24. P30 PO governance, RFQ publication/quotation drafts and receiving are coordinator-owned, still disabled pending combined schema/runtime/browser verification; they are not a new Manus assignment.
 
 **Updated:** 23 October 2026 (UTC)
