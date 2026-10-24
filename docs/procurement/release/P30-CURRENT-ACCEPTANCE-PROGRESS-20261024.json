@@ -8,13 +8,19 @@
     "scope": "P30 source fixes for RFQ publication scope stamping and invitation batch persistence"
   },
   "cleanBackendBuild23": {
-    "status": "RUNNING_NOT_FINAL_ACCEPTANCE",
+    "status": "PASS_CLEAN_OFFLINE_BUILD_TESTS_AND_DISTINCT_PUBLICATIONS_SOURCE_ONLY",
     "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-clean-backend-build-20261024_run23",
+    "resultSha256": "b2f009b4b0ae2331e28095a6d78cff5e1551ad687763bb5c72a2b78933d0da41",
     "focusedHostPassed": 22,
     "domainPassed": 1479,
-    "fullHostStatus": "RUNNING",
-    "distinctPublicationsStatus": "PENDING",
-    "finalResultVerified": false,
+    "fullHostPassed": 1195,
+    "failed": 0,
+    "skipped": 0,
+    "publicationManifestSha256": {
+      "probe": "5f50ce5cd6868f6a43963a77e5a904735b96ca96b528922b361c710269d957bc",
+      "productionApi": "6008248c0aa5e6d7337529ce32a2b03a9f09307c1426dbb55d01e8886a8bf250",
+      "productionPublisher": "6008248c0aa5e6d7337529ce32a2b03a9f09307c1426dbb55d01e8886a8bf250"
+    },
     "databaseOrRuntimeProof": false
   },
   "rfqPublication": {
@@ -36,8 +42,7 @@
     "independentOwnerPassed": true
   },
   "remaining": [
-    "Verify final build23 Host suite, result and distinct publication manifests",
-    "Run fresh RFQ publication cookie06 with independent retained-owner review",
+    "Run fresh RFQ publication cookie06 and independent retained-owner review",
     "Complete protected production migration, finite-role and deployment gates"
   ],
   "productionTouched": false,
