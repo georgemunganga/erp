@@ -1,0 +1,78 @@
+{
+  "status": "PASS_PRIVATE_PO_API_BROWSER_OWNER_AND_DOWNGRADE_GATES",
+  "scope": "P30 principal purchase orders only; other P30 workflows and production release pending",
+  "date": "2026-10-24",
+  "compiledApiProbeSource": "2be6a8bdec70062eb7bec23d4dfda81d87f630ed",
+  "uiProductSource": "7c575d2fd48ef724cfa4017d2520fa2df8838dd3",
+  "actualHttpRequests": 105,
+  "normalSessionBrowserTestsPassed": 1,
+  "businessResponseMocks": false,
+  "privateIdentityHeadersInNormalSession": false,
+  "employeeRecordsCreated": 0,
+  "ownerChecks": {
+    "sourceAllocationRestored": true,
+    "originalThreeOrdersUnchanged": true,
+    "exactCreateCancelReceipts": true,
+    "exactCommandFingerprintsVerified": true,
+    "auditOutboxBound": true,
+    "realLocalSessionsRevoked": true
+  },
+  "ownerVerifierSourceSha256": "29d1ecae321d6e17a0be09073e7657e26149eee20ed30a84b9ec5d75d11cf5cf",
+  "ownerNegativeCases": [
+    {
+      "case": "native order changed",
+      "rejectedBy": "ExistingBusinessRowChanged"
+    },
+    {
+      "case": "original command fingerprint changed",
+      "rejectedBy": "PersistedCommandReceiptMismatch"
+    },
+    {
+      "case": "reserved quantity not restored",
+      "rejectedBy": "ApprovedDemandNotRestored"
+    },
+    {
+      "case": "extra unrecognized audit effect",
+      "rejectedBy": "ExactSharedAndBusinessAuditGraph"
+    },
+    {
+      "case": "actual login session not revoked",
+      "rejectedBy": "BuyerLocalSessionsNotRevoked"
+    }
+  ],
+  "populatedDowngradeVetoes": [
+    {
+      "migration": "authority",
+      "sqlState": "55000",
+      "rowsConstraintsAndMigrationHistoryUnchanged": true,
+      "sqlSha256": "6f49b937aaefd73e85807adba7023e5015df8e4e3b6a4c12ed01022ca8d78177"
+    },
+    {
+      "migration": "commercial",
+      "sqlState": "55000",
+      "rowsConstraintsAndMigrationHistoryUnchanged": true,
+      "sqlSha256": "99d329031ced32b4e1a1afa3e8ece4da323c8b02a99f549b8eb56a83de367350"
+    }
+  ],
+  "privateEvidence": "/home/amizo/erp-backups/procurement-p30-actual-po-20261024_run05",
+  "reviewStatus": "Independent final verifier source review pending",
+  "retainedAttempts": [
+    "privatePO01 authority identity purpose defect",
+    "privatePO02 explicit quote requirement missing in test policy",
+    "privatePO03 missing narrow branch-name column grant",
+    "privatePO04 stale reserved-versus-ordered assertion",
+    "run05 baseline decimal serialization and launch-setting errors preserved before any browser mutation",
+    "run05 strict snapshot/audit verifier assumptions corrected against actual owning model; all failed proof logs retained"
+  ],
+  "productionTouched": false,
+  "financePosting": false,
+  "bankPaymentExecution": false,
+  "supplierSendPerformed": false,
+  "remaining": [
+    "Independent final verifier source review",
+    "RFQ publication and receiving actual runtime gates",
+    "Malformed retained-history cancellation profile",
+    "Full protected P24-to-P30 backup/restore, finite-role/migration and API/publisher rehearsal",
+    "Production cutover and authenticated UAT"
+  ]
+}
