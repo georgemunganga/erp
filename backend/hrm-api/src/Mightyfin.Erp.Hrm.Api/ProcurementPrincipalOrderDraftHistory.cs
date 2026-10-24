@@ -22,11 +22,11 @@ internal static class ProcurementPrincipalOrderDraftHistory
     internal static readonly string? CapturedMigrationId = null;
     internal static readonly string? CapturedCatalogSha256 = null;
 
-    internal static bool Classify(int count, bool migrationApplied, bool catalogMatches)
-        => count switch
+    internal static bool Classify(int count, int regularCount, bool migrationApplied, bool catalogMatches)
+        => (count, regularCount) switch
         {
-            0 => false,
-            3 when migrationApplied && catalogMatches => true,
+            (0, 0) when !migrationApplied => false,
+            (3, 3) when migrationApplied && catalogMatches => true,
             _ => throw new InvalidOperationException("PrincipalOrderRevisionSchemaUnavailable")
         };
 
@@ -38,16 +38,29 @@ internal static class ProcurementPrincipalOrderDraftHistory
         command.Transaction = db.Database.CurrentTransaction.GetDbTransaction();
         command.CommandTimeout = 5;
         command.CommandText = """
-            SELECT count(*) FROM pg_catalog.pg_class c
+            SELECT count(*),count(*) FILTER (WHERE c.relkind='r') FROM pg_catalog.pg_class c
             JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-            WHERE n.nspname='procurement' AND c.relkind='r'
+            WHERE n.nspname='procurement'
               AND c.relname IN ('principal_order_commercial_origins',
                 'principal_order_draft_commercial_revisions',
                 'principal_order_effective_source_slices')
             """;
-        var count = Convert.ToInt32(await command.ExecuteScalarAsync(ct));
-        if (count == 0) return false;
-        if (count != 3 || CapturedMigrationId is null || CapturedCatalogSha256 is null)
+        int count, regular;
+        await using (var reader = await command.ExecuteReaderAsync(ct))
+        {
+            if (!await reader.ReadAsync(ct))
+                throw new InvalidOperationException("PrincipalOrderRevisionSchemaUnavailable");
+            count = Convert.ToInt32(reader.GetValue(0));
+            regular = Convert.ToInt32(reader.GetValue(1));
+        }
+        command.CommandText = """
+            SELECT EXISTS(SELECT 1 FROM procurement.__procurement_migrations
+              WHERE "MigrationId" LIKE '%P33%')
+            """;
+        var anyP33History = await command.ExecuteScalarAsync(ct) is true;
+        if (count == 0) return Classify(0, regular, anyP33History, false);
+        if (count != 3 || regular != 3 || CapturedMigrationId is null
+            || CapturedCatalogSha256 is null || !anyP33History)
             throw new InvalidOperationException("PrincipalOrderRevisionSchemaUnavailable");
         if (db.Database.HasPendingModelChanges()
             || (await db.Database.GetPendingMigrationsAsync(ct)).Any()
@@ -69,11 +82,13 @@ internal static class ProcurementPrincipalOrderDraftHistory
               SELECT jsonb_build_object(
                 'columns', (SELECT coalesce(jsonb_agg(jsonb_build_array(o.relname,a.attname,
                     pg_catalog.format_type(a.atttypid,a.atttypmod),a.attnotnull,
-                    a.attidentity,a.attgenerated) ORDER BY o.relname,a.attnum),'[]'::jsonb)
+                    a.attidentity,a.attgenerated,
+                    pg_catalog.pg_get_expr(d.adbin,d.adrelid)) ORDER BY o.relname,a.attnum),'[]'::jsonb)
                   FROM owned o JOIN pg_catalog.pg_attribute a ON a.attrelid=o.oid
+                  LEFT JOIN pg_catalog.pg_attrdef d ON d.adrelid=o.oid AND d.adnum=a.attnum
                   WHERE a.attnum>0 AND NOT a.attisdropped),
                 'constraints', (SELECT coalesce(jsonb_agg(jsonb_build_array(o.relname,k.conname,
-                    k.contype,k.convalidated,k.condeferrable,
+                    k.contype,k.convalidated,k.condeferrable,k.condeferred,
                     pg_catalog.pg_get_constraintdef(k.oid)) ORDER BY o.relname,k.conname),'[]'::jsonb)
                   FROM owned o JOIN pg_catalog.pg_constraint k ON k.conrelid=o.oid),
                 'indexes', (SELECT coalesce(jsonb_agg(jsonb_build_array(o.relname,i.relname,
@@ -86,7 +101,7 @@ internal static class ProcurementPrincipalOrderDraftHistory
         var shape = await command.ExecuteScalarAsync(ct) as string
             ?? throw new InvalidOperationException("PrincipalOrderRevisionSchemaUnavailable");
         var actual = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(shape))).ToLowerInvariant();
-        return Classify(count, true, string.Equals(actual, CapturedCatalogSha256,
+        return Classify(count, regular, true, string.Equals(actual, CapturedCatalogSha256,
             StringComparison.Ordinal));
     }
 
