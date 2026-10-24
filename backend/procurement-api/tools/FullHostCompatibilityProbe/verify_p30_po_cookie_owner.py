@@ -481,7 +481,7 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("capture", "verify"))
+    parser.add_argument("mode", choices=("capture", "verify", "check-baseline"))
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--proxy-receipt", type=Path, required=True)
     parser.add_argument("--baseline", type=Path, required=True)
@@ -494,7 +494,16 @@ def main():
         fixture, fixture_sha = protected(args.fixture)
         proxy, _ = protected(args.proxy_receipt)
         fixture_boundary(fixture, proxy, fixture_sha, args.database)
-        if args.mode == "capture":
+        if args.mode == "check-baseline":
+            baseline, _ = protected(args.baseline, 4_000_000)
+            require(baseline.get("schemaVersion") == 3
+                    and baseline.get("fixtureSha256") == fixture_sha
+                    and baseline.get("challenge") == fixture["challenge"], "OriginalBaselineBinding")
+            facts = owner_snapshot(args.container, args.database, fixture)
+            require(not facts["buyerSessionIds"] and facts == baseline.get("facts"),
+                    "OriginalPreBrowserBaselineChanged")
+            print("P30_PO_PRIVATE_PRE_BROWSER_BASELINE_UNCHANGED")
+        elif args.mode == "capture":
             output_path(args.baseline, args.fixture)
             facts = owner_snapshot(args.container, args.database, fixture)
             require(len(facts["buyerSessionIds"]) == 0, "BuyerSessionExistsBeforeBrowser")
