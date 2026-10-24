@@ -430,3 +430,49 @@ this is runtime-role proof only when executed. Synthetic private header
 authentication is retained, so normal-cookie/OIDC integration and browser UI
 coverage remain separate gates. Managed commercial returns/reversal and stock
 or Finance owner handoff remain outside this positive-acceptance cohort.
+
+### Private readiness timing on cold hosts
+
+The private principal HTTP probe enables the existing
+`GreenWebb.Procurement.Readiness` phase-duration meter in its isolated host and
+records bounded phase aggregates in its protected result. It also records up to
+256 HTTP durations by controlled stage, method and route class, plus at most
+eight exception type names. Paths, IDs, request/response bodies, SQL, exception
+messages and connection settings are excluded. A failed HTTP attempt appears in
+`httpTiming` even when it does not increment the existing completed-request
+counter. Every private `PrincipalApprovalHost` factory client uses a bounded
+300-second HttpClient timeout, including a newly created RFQ publication host,
+to distinguish a cold readiness path from the previous default-client timeout.
+The separate normal-cookie network probe keeps its 15-second client timeout.
+Model-parity caching remains off; production configuration and readiness
+decisions are unchanged. This private diagnostic timeout is not a production
+latency target or SLA, and the timings do not prove that caching is appropriate
+for production.
+
+`P25_HTTP_PRODUCTION_POOLING=1` is a separate private transport opt-in. It
+keeps the existing finite record and execution role credentials and grants,
+sets their runtime connections to pooling with multiplexing and no-reset both
+disabled, and lets only the actual API Core/HRM connection use the same reset
+semantics. The owner fixture/DDL connection remains unchanged and unpooled.
+Before HTTP, each finite role must open as `current_user=session_user`, set a
+harmless `application_name` marker, close, and reopen the same backend with its
+original application name restored. The protected result records only whether
+this profile was enabled and whether both isolation/reset checks passed; it
+never records backend PIDs, connection strings or credentials. Without the
+opt-in the earlier unpooled proof is byte-for-byte behaviorally unchanged.
+Physical grants, schema readiness and all existing positive/negative HTTP
+cases still run. Pooling does not prove faster execution until a separately
+measured private comparison; no product data cache or readiness shortcut is
+enabled.
+
+The P30 RFQ private fixture uses one unrestricted `SOURCING` fallback rule;
+the production coverage validator rejected the former single branch-limited
+rule in RFQ06. `--preflight-p30-rfq-fixture` runs the actual application policy
+validator and coverage analyzer, including a branch-only negative control,
+before any database setup. The RFQ HTTP profile also writes a bounded
+`P25_HTTP_RESULT.checkpoint.json` in the same owner-only directory. It contains
+only a controlled stage, completed HTTP count, bounded HTTP timing counts and
+readiness phase aggregates. It is updated atomically and remains available if
+the outer process times out before its final result. Neither the preflight nor
+the checkpoint proves the subsequent HTTP journey; RFQ06's failed result is
+retained separately, and RFQ07 requires a fresh private database.

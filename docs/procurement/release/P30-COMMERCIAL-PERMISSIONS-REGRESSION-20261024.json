@@ -1,0 +1,47 @@
+{
+  "status": "PASS_UPDATED_COMPLETE_HOST_AND_GENUINE_OWNER_SQL_EXPORT",
+  "date": "2026-10-24",
+  "sourceCommit": "d09e38206048832531494b67920e7db69fb0a266",
+  "completeHostTests": {
+    "passed": 1188,
+    "failed": 0,
+    "skipped": 0,
+    "trxSha256": "e4da932436554b30739a0a5a4e17db8386958251b3ff54a6ed90d68cac28f328"
+  },
+  "privatePublication": {
+    "files": 477,
+    "evidence": "/home/amizo/erp-backups/procurement-p30-combined-build-20261024_run15",
+    "fileManifestSha256": "8244e6c9df9a62567f0479390bc1f21725f2e58d0d91fa2d64cb4585fca2aa44"
+  },
+  "corePermissionFix": "Explicit procurement-sourcing-submit catalogue action, distinct publication grant, empty ordinary bootstrap grants; existing ERP admin legacy compatibility unchanged.",
+  "bothOwningModelsMatchLastMigration": true,
+  "genuineOwnerSqlExports": {
+    "00-hrm-timezone.sql": "3be45c99d5061306a826fb50a020bc4543d98aa7af8a811f6a14ed4a3f4cbd07",
+    "01-20261022161353_P25CorePrincipalRequestApproval.sql": "2ed7b6d2dc090adfed0fc712483aabb9bae5e5b06546a0831e72468df3e44fba",
+    "02-20261023125243_P27ManualPaymentRecords.sql": "4f2eac886b29929ed8e63aa223ecf450db0c9a2081842fcfd0f184b7cd781e96",
+    "03-20261023153226_P28ManualPaymentGovernance.sql": "239f88814fd2c816f71361c31c555f39e41bc63e8a9ed3441cf579626f275b55",
+    "04-20261023204131_P29CorePrincipalSourcingDrafts.sql": "5fdfa6080a2bda3d9c736c7fcd35744203fe79239d16278cb3d4ab05cad896b1",
+    "05-20261023213118_P29CanonicalPrincipalSourceGuids.sql": "dd3b2d357cfde998334aa6ced455cffb336e93fa00ac3f3d3b94338f618451f7",
+    "06-20261023222748_P30PrincipalCommercialWorkflows.sql": "a6dd32fe242a3abe1b3a55385c05500516c524af379eba113d4ad69030d11411",
+    "07-20261023234712_P30PrincipalCommercialAuthorityActions.sql": "9e30cf2f49cf7797e62f67dd0c2e0f143a40764af79622a8a237be9e2fe76fc5"
+  },
+  "ownerSqlEvidence": "/home/amizo/erp-backups/procurement-p30-owner-sql-20261024_run01",
+  "ownerSqlApplied": false,
+  "receivingActualApiRequestsPassed": 165,
+  "normalCookieReceivingAcceptance": false,
+  "rfqPublicationAcceptance": false,
+  "retainedRfqFailures": [
+    "RFQ02: canonical PostgreSQL partial-index predicate mismatch corrected",
+    "RFQ03: copied launcher DB selection caught before any API call",
+    "RFQ04: physical publication readiness passed; missing central permission key withheld capability after66 API requests"
+  ],
+  "currentPending": [
+    "RFQ05 actual publication/manual-quote lifecycle against frozen15",
+    "Normal-cookie receiving commands and independent owner proof",
+    "Malformed retained-history cancellation profile",
+    "Same-snapshot backup/capture and full-ACL upgrade/API/publisher rehearsal",
+    "Coordinated production rollout and authenticated UAT"
+  ],
+  "productionTouched": false,
+  "wholeModuleComplete": false
+}

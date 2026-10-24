@@ -1,6 +1,10 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Domain.Entities;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -15,14 +19,20 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
     // Verified equal on fresh down/up and retained native P27→P28 PostgreSQL rehearsals.
     // Physical column ordinals are not a named-column API contract; their attributes are.
     internal const string ExpectedFingerprint = "a5e05163346be79ccaee5aa11093e377a9d0a5f86046311759698ca72435e29b";
-    // These are the owning Core reads used by current principal/action resolution,
-    // optional worker aliases, company date and branch-scoped payment lookups.
-    // A finite execution role must be able to read each one individually.
-    internal static readonly string[] RequiredCoreReadTables =
-    [
-        "hrm.local_users", "hrm.tenant_role_assignments", "hrm.hr_user_branch_assignments",
-        "hrm.legal_entities", "hrm.work_locations", "hrm.workers", "hrm.org_units"
-    ];
+    // Reuse the accepted P25 identity projection, adding only the Core labels and
+    // company clock read by the actual payment pickers/detail/date provider.
+    // Model metadata is not a table SELECT grant; credentials are never projected.
+    internal static readonly IReadOnlyDictionary<Type, string[]> CoreReadProperties =
+        ProcurementPrincipalApprovalStoreReadiness.CoreIdentityReadProperties.ToDictionary(
+            pair => pair.Key, pair => pair.Value.Concat(pair.Key == typeof(LocalUser)
+                ? new[] { nameof(LocalUser.DisplayName) }
+                : pair.Key == typeof(WorkLocation)
+                    ? new[] { nameof(WorkLocation.Code), nameof(WorkLocation.Name) }
+                    : pair.Key == typeof(LegalEntity)
+                        ? new[] { nameof(LegalEntity.TimeZoneId) } : Array.Empty<string>())
+                .Distinct(StringComparer.Ordinal).ToArray());
+    private sealed record Tenant(string Value) : ITenantAccessor
+    { public string GetTenantId() => Value; }
     internal const string OperationalCheckDefinition = "CHECK (((schema_version = ANY (ARRAY[1, 2])) AND ((policy_key)::text = ANY ((ARRAY['RECEIVING'::character varying, 'INVOICE_MATCHING'::character varying, 'INVOICE_UNIT_REVIEW'::character varying, 'MANUAL_PAYMENT_REVIEW'::character varying])::text[])) AND (((policy_key)::text <> 'MANUAL_PAYMENT_REVIEW'::text) OR (schema_version = 2)) AND (id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_number > 0) AND (policy_record_version_at_action > 0) AND ((actor_worker_id IS NULL) OR (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((schema_version = 2) OR (actor_worker_id IS NOT NULL)) AND ((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND (rules_sha256 IS NOT NULL) AND ((rules_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (evidence_sha256 IS NOT NULL) AND ((evidence_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND isfinite(action_at) AND (created_at = action_at) AND ((created_by)::text = (actor_principal_id)::text) AND (version = 1) AND (updated_at IS NULL) AND (updated_by IS NULL) AND ((((stage)::text = 'Created'::text) AND (policy_record_version_at_action = 1) AND (created_evidence_id IS NULL) AND (created_evidence_stage IS NULL) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Submitted'::text) AND (policy_record_version_at_action > 1) AND (created_evidence_id IS NOT NULL) AND (created_evidence_id <> id) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Published'::text) AND (policy_record_version_at_action > 2) AND (created_evidence_id IS NOT NULL) AND (created_evidence_id <> id) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NOT NULL) AND (submitted_evidence_id <> id) AND (submitted_evidence_id <> created_evidence_id) AND (submitted_evidence_stage IS NOT NULL) AND ((submitted_evidence_stage)::text = 'Submitted'::text)))))";
 
     public async Task<bool> IsReadyAsync(CancellationToken ct)
@@ -39,7 +49,11 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
                 || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
             await using var command = db.Database.GetDbConnection().CreateCommand();
             command.Transaction = transaction.GetDbTransaction(); command.CommandTimeout = 10;
-            command.CommandText = PrivilegeSql();
+            // Metadata only: all privilege/catalog SQL remains on the original
+            // execution connection and its existing read-only transaction.
+            using var core = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+                .UseNpgsql(db.Database.GetDbConnection()).Options, new Tenant(scope.TenantId));
+            command.CommandText = PrivilegeSql(core.Model);
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
             command.CommandText = CoreOwnerSql;
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
@@ -55,7 +69,7 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
         }
     }
 
-    internal static string PrivilegeSql()
+    internal static string PrivilegeSql(IModel coreModel)
     {
         var clauses = new List<string> {
             "NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",
@@ -81,8 +95,7 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             "procurement.finance_payment_status_refs", "procurement.__procurement_migrations",
             "core_approval.\"__EFMigrationsHistory\"", "hrm.__hrm_migrations" })
             clauses.Add("has_table_privilege(current_user,'" + table + "','SELECT')");
-        foreach (var table in RequiredCoreReadTables)
-            clauses.Add("has_table_privilege(current_user,'" + table + "','SELECT')");
+        clauses.AddRange(CoreReadClauses(coreModel));
         // PostgreSQL invoice SELECT FOR UPDATE needs UPDATE on at least one column.
         clauses.Add("has_any_column_privilege(current_user,'procurement.supplier_invoices','UPDATE')");
         foreach (var action in new[] { "INSERT", "UPDATE", "DELETE", "TRUNCATE" })
@@ -91,6 +104,28 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             clauses.Add("NOT has_any_column_privilege(current_user,'procurement.finance_payment_status_refs','" + action + "')");
         clauses.Add("NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('procurement','core_approval') AND (pg_has_role(current_user,p.proowner,'MEMBER') OR pg_has_role(current_user,p.proowner,'SET')))");
         return "SELECT " + string.Join(" AND ", clauses);
+    }
+
+    internal static IReadOnlyList<string> CoreReadClauses(IModel model)
+    {
+        var clauses = new List<string>();
+        foreach (var (type, properties) in CoreReadProperties)
+        {
+            var entity = model.FindEntityType(type)
+                ?? throw new InvalidOperationException("PaymentCoreReadEntityMissing");
+            if (entity.GetSchema() != "hrm" || entity.GetTableName() is not { } name)
+                throw new InvalidOperationException("PaymentCoreReadOwnerUnsupported");
+            var table = StoreObjectIdentifier.Table(name, "hrm");
+            foreach (var property in properties)
+            {
+                var column = entity.FindProperty(property)?.GetColumnName(table)
+                    ?? throw new InvalidOperationException("PaymentCoreReadPropertyMissing");
+                clauses.Add("has_column_privilege(current_user,"
+                    + ProcurementSchemaInspectionSql.Literal("hrm." + name) + ","
+                    + ProcurementSchemaInspectionSql.Literal(column) + ",'SELECT')");
+            }
+        }
+        return clauses;
     }
 
     private static string AppendOnly(string table) =>

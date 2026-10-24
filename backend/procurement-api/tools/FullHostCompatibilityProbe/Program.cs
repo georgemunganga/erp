@@ -17,6 +17,21 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
 // Explicit private P25 acceptance is separate from the unchanged read-only smoke mode.
+if (args.SequenceEqual(new[] { "--preflight-p30-rfq-fixture" }))
+{
+    var rules = PrincipalApprovalHttpVerification.BuildP30RfqSourcingRules(
+        Guid.Parse("11111111-1111-4111-8111-111111111111"));
+    PrincipalApprovalHttpVerification.PreflightP30RfqSourcingRules(rules);
+    var branchOnly = rules.Replace("\"branchIds\":[]",
+        "\"branchIds\":[\"11111111-1111-4111-8111-111111111111\"]",
+        StringComparison.Ordinal);
+    if (branchOnly == rules ||
+        Mightyfin.Erp.Procurement.Application.SourcingPublicationPolicyRules
+            .AnalyzeCoverage(branchOnly).Count == 0)
+        throw new InvalidOperationException("Private RFQ fallback regression was not detected.");
+    Console.WriteLine("PASS_PRIVATE_P30_RFQ_POLICY_PREFLIGHT_ONLY");
+    return;
+}
 if (args.SequenceEqual(new[] { "--principal-approvals" }))
 {
     await PrincipalApprovalHttpVerification.RunAsync();

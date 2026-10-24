@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Application;
 
 internal static partial class PrincipalApprovalHttpVerification
 {
@@ -13,7 +14,7 @@ internal static partial class PrincipalApprovalHttpVerification
     private static async Task VerifyP30RfqPublicationAsync(PrincipalApprovalFixture fixture,
         string owner, PrincipalApprovalRuntimePrivileges.Connections roles,
         Dictionary<string, object?> result, Action<string> stage, PrincipalSend send,
-        Action countRequest)
+        Action countRequest, string rules)
     {
         Need(fixture.PrincipalRfqProfile && result.TryGetValue("positiveApprovalGraph", out var approved)
             && approved is true && result["positiveApprovalRequestId"] is Guid,
@@ -104,26 +105,6 @@ internal static partial class PrincipalApprovalHttpVerification
         }
 
         stage("P30RfqSourcingPolicyApiLifecycle");
-        var rules = JsonSerializer.Serialize(new
-        {
-            schemaVersion = 2, policyKey = "SOURCING", transactionType = "SourcingPublication",
-            action = "SourcingEvent.Publish", permission = "procurement-sourcing-publish",
-            currencyCode = "ZMW", amountBasis = "ApprovedLineBase",
-            rules = new[] { new { code = "PRIVATE_RFQ", priority = 0,
-                when = new { minimumAmountInclusive = (string?)null,
-                    maximumAmountExclusive = (string?)null, categoryCodes = Array.Empty<string>(),
-                    purchaseTypes = Array.Empty<string>(), branchIds = new[] { fixture.Branch } },
-                result = new { publication = new { minimumQuoteCount = 2,
-                    minimumInvitedSuppliers = 2, requirementsPackRequired = false,
-                    evaluationCriteriaRequired = false, closingDateRequired = false },
-                    approvalStages = new[] { new { code = "PRIVATE_REVIEW", assignee = "ProcurementManager",
-                        mode = "One", principalIds = new[] { fixture.ConfigReviewer.ToString("D") } } },
-                    audience = new { supplierLifecycle = "RecordedActiveDecision", categoryMode = "Ignore",
-                        qualificationTypes = Array.Empty<string>(), qualificationDocuments = "NotRequired",
-                        validThrough = "PreparationInstant", allowNoQualificationExpiry = false,
-                        allowOpenEndedSupplierValidity = false, contactSelection = "OneActiveSelected",
-                        contactRequiredFields = Array.Empty<string>() } } } }
-        });
         const string policyRoot = "/api/procurement/v1/configuration/policies";
         var effectiveFrom = DateTimeOffset.UtcNow.AddSeconds(30);
         var policy = await send(client, HttpMethod.Post, policyRoot, fixture.ConfigMaker,
@@ -324,5 +305,36 @@ internal static partial class PrincipalApprovalHttpVerification
         using var response = await client.SendAsync(request);
         Need(response.StatusCode == HttpStatusCode.OK, "Actual manual quotation PUT failed.");
         return JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
+    }
+
+    // PRIVATE FIXTURE: production SOURCING coverage requires one unrestricted
+    // fallback. A branch-specific rule alone is incomplete configuration.
+    internal static string BuildP30RfqSourcingRules(Guid reviewer) => JsonSerializer.Serialize(new
+        {
+            schemaVersion = 2, policyKey = "SOURCING", transactionType = "SourcingPublication",
+            action = "SourcingEvent.Publish", permission = "procurement-sourcing-publish",
+            currencyCode = "ZMW", amountBasis = "ApprovedLineBase",
+            rules = new[] { new { code = "PRIVATE_RFQ", priority = 0,
+                when = new { minimumAmountInclusive = (string?)null,
+                    maximumAmountExclusive = (string?)null, categoryCodes = Array.Empty<string>(),
+                    purchaseTypes = Array.Empty<string>(), branchIds = Array.Empty<Guid>() },
+                result = new { publication = new { minimumQuoteCount = 2,
+                    minimumInvitedSuppliers = 2, requirementsPackRequired = false,
+                    evaluationCriteriaRequired = false, closingDateRequired = false },
+                    approvalStages = new[] { new { code = "PRIVATE_REVIEW", assignee = "ProcurementManager",
+                        mode = "One", principalIds = new[] { reviewer.ToString("D") } } },
+                    audience = new { supplierLifecycle = "RecordedActiveDecision", categoryMode = "Ignore",
+                        qualificationTypes = Array.Empty<string>(), qualificationDocuments = "NotRequired",
+                        validThrough = "PreparationInstant", allowNoQualificationExpiry = false,
+                        allowOpenEndedSupplierValidity = false, contactSelection = "OneActiveSelected",
+                        contactRequiredFields = Array.Empty<string>() } } } }
+        });
+
+    internal static void PreflightP30RfqSourcingRules(string rules)
+    {
+        Need(SourcingPublicationPolicyRules.Validate(rules).Count == 0,
+            "PrivateSourcingPolicyValidationFailed");
+        Need(SourcingPublicationPolicyRules.AnalyzeCoverage(rules).Count == 0,
+            "PrivateSourcingPolicyCoverageFailed");
     }
 }

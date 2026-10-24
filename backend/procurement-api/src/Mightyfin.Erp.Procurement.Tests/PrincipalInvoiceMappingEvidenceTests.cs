@@ -96,6 +96,21 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
     }
 
     [Fact]
+    public void Malformed_typed_policy_with_null_rules_is_blocked_without_throwing()
+    {
+        var (invoice, original, issued, input) = Fixture();
+        var now = DateTimeOffset.UtcNow;
+        var policy = new InvoiceMatchingPolicy(Guid.NewGuid(), 1, invoice.TenantId,
+            invoice.LegalEntityId, invoice.BranchRef, "Published", "reviewed policy",
+            now.AddDays(-1), now.AddDays(1), 2, InvoiceMoneyRounding.ToEven, null!);
+
+        var result = CompareWithEmptyOwner(invoice, [original], issued, [input], policy);
+
+        Assert.False(result.CanClaim);
+        Assert.Contains(result.Blockers, x => x.Code == "PublishedInvoiceMatchingPolicyUnavailable");
+    }
+
+    [Fact]
     public void Split_original_lines_use_each_lines_current_rounding_and_tax_share()
     {
         var (invoice, first, baseIssued, firstLink) = Fixture();
