@@ -475,7 +475,10 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
     correlations = {}
     for operation, key in (("Create", create_key), ("Cancel", cancel_key)):
         row = next(x for x in business if x["action"] == "PrincipalOrder" + operation)
-        payload = json.loads(row["changed_fields_json"])
+        # PostgreSQL to_jsonb exposes this jsonb column as an object, not an
+        # encoded string. Require its actual owning-column representation.
+        payload = row["changed_fields_json"]
+        require(isinstance(payload, dict), "AuditCommandPayloadShape")
         require(payload.get("schemaVersion") == 2 and payload.get("commandKey") == key
             and isinstance(row.get("correlation_id"), str) and row["correlation_id"], "AuditCommandBinding")
         correlations[operation] = row["correlation_id"]
