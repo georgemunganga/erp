@@ -7,5 +7,6 @@
   <ItemGroup>
     <ProjectReference Include="../Mightyfin.Erp.Procurement.Domain/Mightyfin.Erp.Procurement.Domain.csproj" />
     <ProjectReference Include="../../../core-api/src/Mightyfin.Erp.Core.Approvals.Domain/Mightyfin.Erp.Core.Approvals.Domain.csproj" />
+    <ProjectReference Include="../../../core-api/src/Mightyfin.Erp.Core.Documents.Domain/Mightyfin.Erp.Core.Documents.Domain.csproj" />
   </ItemGroup>
 </Project>

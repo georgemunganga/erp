@@ -36,7 +36,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var lines=await db.PurchaseOrderLines.Where(x=>x.PurchaseOrderId==id&&x.IsActive)
             .OrderBy(x=>x.LineNumber).ToArrayAsync(ct);
         var bindings=await db.PrincipalOrderSourceBindings.Where(x=>x.PurchaseOrderId==id).ToArrayAsync(ct);
-        PrincipalOrderDraftPins.Verify(order,lines,bindings);
+        var effective=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,ct);
         if(bindings.Length is <1 or >100 || !requestIds.ToHashSet().SetEquals(bindings.Select(x=>x.PurchaseRequestId)))
             throw new Problem("OrderOriginalSourceUnavailable",409);
         var result=new List<PurchaseOrderSourceLine>();
@@ -49,7 +49,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var line=lines.SingleOrDefault(x=>x.Id==binding.PurchaseOrderLineId);
             var allocation=source.Allocations.SingleOrDefault(x=>x.Id==binding.AllocationId);
             if(line is null || allocation is null || allocation.TargetId!=id || allocation.TargetType!="PurchaseOrder"
-                || allocation.Quantity!=binding.Quantity || allocation.EstimatedValue!=binding.EstimatedValue
+                || !effective.TryGetValue(binding.Id,out var current)
+                || allocation.Quantity!=current.Quantity || allocation.EstimatedValue!=current.EstimatedValue
                 || allocation.CurrencyCode!=binding.CurrencyCode || source.Request.BranchRef!=binding.BranchId
                 || source.Submission.SnapshotSchemaVersion!=3 || source.Submission.FinanceIdentitySchemaVersion!=2
                 || source.Submission.RequestSnapshotSha256!=binding.RequestSnapshotSha256

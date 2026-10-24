@@ -79,6 +79,10 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         // as belonging to another company when attaching it to this context.
         if ((record is PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
                 or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt
+                or PrincipalInvoiceState or PrincipalInvoiceMappingVersion or PrincipalInvoiceMappingLine
+                or PrincipalInvoiceUnitReviewSource or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewAttestation or PrincipalInvoiceUnitReviewOutcome
+                or PrincipalInvoiceComparison or PrincipalInvoiceExposureState or PrincipalInvoiceClaim or PrincipalInvoiceCommandReceipt
+                or PrincipalInvoiceDiscrepancy or PrincipalInvoiceDiscrepancyAction
                 or OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
                 or ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt
@@ -535,13 +539,18 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureApprovalExecution(modelBuilder);
         ConfigurePurchaseOrderExecution(modelBuilder);
         ConfigurePrincipalOrderDraft(modelBuilder);
+        ConfigurePrincipalOrderRevision(modelBuilder);
         ConfigurePrincipalOrderGovernance(modelBuilder);
         ConfigurePrincipalReceiving(modelBuilder);
+        ConfigureRfqCommercialDraft(modelBuilder);
+        ConfigureRfqCommercialRound(modelBuilder);
+        ConfigureRfqPreparation(modelBuilder);
         ConfigureSourcingDraftExecution(modelBuilder);
         ConfigureSourcingPolicyIdentity(modelBuilder);
         ConfigureSourcingPublication(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
+        ConfigurePrincipalInvoiceMatching(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
         ConfigureManualPayments(modelBuilder);
         ConfigureManualPaymentGovernance(modelBuilder);
@@ -733,15 +742,22 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardApprovalExecution();
         GuardPurchaseOrderExecution();
         GuardPrincipalOrderDraft();
+        GuardPrincipalOrderRevision();
         GuardPrincipalOrderGovernance();
         GuardPrincipalReceiving();
+        GuardRfqCommercialDraft();
+        GuardSealedCommercialQuoteDrafts();
+        GuardRfqCommercialRound();
+        GuardRfqPreparation();
         GuardReceivingExecution();
+        GuardLegacyInvoiceAgainstPrincipalWorkflow();
         GuardInvoiceMatchingExecution();
         GuardSourcingDraftExecution();
         GuardSourcingPolicyIdentity();
         GuardSourcingPublicationEvidence();
         GuardOperationalPolicyIdentity();
         GuardInvoiceUnitReview();
+        GuardPrincipalInvoiceMatching();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();

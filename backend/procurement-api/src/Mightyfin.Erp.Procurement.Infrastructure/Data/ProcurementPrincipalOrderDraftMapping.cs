@@ -53,7 +53,7 @@ public sealed partial class ProcurementDbContext
         receipt.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.Operation,x.CommandKey}).IsUnique();
         Link<PrincipalOrderDraftReceipt,PurchaseOrder>(model,nameof(PrincipalOrderDraftReceipt.PurchaseOrderId));
         receipt.ToTable(t=>t.HasCheckConstraint("ck_po_principal_receipt",
-            "schema_version=2 AND operation IN ('Create','Cancel','Funding','Submit','Decide','Issue','Ack','ReleaseRequest','ReleaseConfirm') AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND actor_principal_id IS NOT NULL AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND command_sha256 ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' AND result_version>0 AND ((operation IN ('Create','Submit','Issue') AND response_status=201) OR (operation IN ('Cancel','Funding','Decide','Ack','ReleaseRequest','ReleaseConfirm') AND response_status=200))"));
+            "schema_version=2 AND operation IN ('Create','Edit','Cancel','Funding','Submit','Decide','Issue','Ack','ReleaseRequest','ReleaseConfirm') AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND actor_principal_id IS NOT NULL AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND command_sha256 ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' AND result_version>0 AND ((operation IN ('Create','Submit','Issue') AND response_status=201) OR (operation IN ('Edit','Cancel','Funding','Decide','Ack','ReleaseRequest','ReleaseConfirm') AND response_status=200))"));
     }
 
     private void GuardPrincipalOrderDraft()
@@ -65,6 +65,9 @@ public sealed partial class ProcurementDbContext
         {
             var order=entry.Entity;
             if(order.PrincipalDraftSchemaVersion!=2)continue;
+            var commercialEdit=entry.State==EntityState.Modified
+                && PrincipalOrderDraftReceipts.Local.Any(x=>x.PurchaseOrderId==order.Id
+                    &&x.Operation=="Edit"&&Entry(x).State==EntityState.Added);
             if((entry.State==EntityState.Added || entry.OriginalValues.GetValue<string>(nameof(PurchaseOrder.Status))=="Draft")
                     && order.BuyerSubjectId!=scope.SubjectId
                 || order.BranchRef is null || order.BranchRef==Guid.Empty
@@ -89,10 +92,10 @@ public sealed partial class ProcurementDbContext
                 || entry.OriginalValues.GetValue<Guid>(nameof(PurchaseOrder.SupplierId))!=order.SupplierId
                 || entry.OriginalValues.GetValue<Guid?>(nameof(PurchaseOrder.BranchRef))!=order.BranchRef
                 || entry.OriginalValues.GetValue<string>(nameof(PurchaseOrder.CurrencyCode))!=order.CurrencyCode
-                || entry.OriginalValues.GetValue<string?>(nameof(PurchaseOrder.ShipToRef))!=order.ShipToRef
-                || entry.OriginalValues.GetValue<string?>(nameof(PurchaseOrder.BillToRef))!=order.BillToRef
-                || entry.OriginalValues.GetValue<string?>(nameof(PurchaseOrder.PaymentTermRef))!=order.PaymentTermRef
-                || entry.OriginalValues.GetValue<DateOnly?>(nameof(PurchaseOrder.ExpectedDeliveryOn))!=order.ExpectedDeliveryOn
+                || !commercialEdit && entry.OriginalValues.GetValue<string?>(nameof(PurchaseOrder.ShipToRef))!=order.ShipToRef
+                || !commercialEdit && entry.OriginalValues.GetValue<string?>(nameof(PurchaseOrder.BillToRef))!=order.BillToRef
+                || !commercialEdit && entry.OriginalValues.GetValue<string?>(nameof(PurchaseOrder.PaymentTermRef))!=order.PaymentTermRef
+                || !commercialEdit && entry.OriginalValues.GetValue<DateOnly?>(nameof(PurchaseOrder.ExpectedDeliveryOn))!=order.ExpectedDeliveryOn
                 || !AllowedPrincipalOrderTransition(entry.OriginalValues.GetValue<string>(nameof(PurchaseOrder.Status)),order.Status,
                     order.Id,entry.OriginalValues.GetValue<int>(nameof(PurchaseOrder.CurrentRevision)),order.CurrentRevision)
                 || order.Status=="Cancelled" && (string.IsNullOrWhiteSpace(order.ClosureReason)||order.ClosedAt is null)))
@@ -115,11 +118,15 @@ public sealed partial class ProcurementDbContext
         {
             var order=PurchaseOrders.Local.SingleOrDefault(x=>x.Id==value.PurchaseOrderId);
             if(order is null || value.ActorPrincipalId!=scope.SubjectId
-                || value.Operation is "Create" or "Cancel" && order.BuyerSubjectId!=scope.SubjectId
+                || (value.Operation is "Create" or "Edit" or "Cancel") && order.BuyerSubjectId!=scope.SubjectId
                 || order.PrincipalDraftSchemaVersion!=2 || value.ResponseSha256!=ProcurementEvidenceEncoding.Digest(value.ResponseJson)
-                || value.Operation is not ("Create" or "Cancel" or "Funding" or "Submit" or "Decide" or "Issue" or "Ack"
+                || value.Operation is not ("Create" or "Edit" or "Cancel" or "Funding" or "Submit" or "Decide" or "Issue" or "Ack"
                     or "ReleaseRequest" or "ReleaseConfirm")
                 || value.Operation=="Create" && order.Status!="Draft"
+                || value.Operation=="Edit" && order.Status!="Draft"
+                || value.Operation=="Edit" && !PrincipalOrderDraftCommercialRevisions.Local.Any(x=>
+                    x.PurchaseOrderId==order.Id && x.CommandKey==value.CommandKey
+                    && Entry(x).State==EntityState.Added)
                 || value.Operation=="Cancel" && order.Status!="Cancelled"
                 || value.Operation=="Funding" && order.Status!="Draft"
                 || value.Operation=="Submit" && order.Status!="PendingApproval"
@@ -137,6 +144,8 @@ public sealed partial class ProcurementDbContext
             &&x.Operation==operation&&Entry(x).State==EntityState.Added);
         return (before,after) switch
         {
+            ("Draft","Draft")=>previousRevision==0&&revision==0&&Receipt("Edit")
+                &&!PrincipalOrderFundingEvidence.Local.Any(x=>x.PurchaseOrderId==orderId),
             ("Draft","Cancelled")=>previousRevision==0&&revision==0&&Receipt("Cancel")
                 &&!PrincipalOrderFundingEvidence.Local.Any(x=>x.PurchaseOrderId==orderId),
             ("Draft","PendingApproval")=>previousRevision==0&&revision==1&&Receipt("Submit")

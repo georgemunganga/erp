@@ -14,6 +14,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
+using Mightyfin.Erp.Core.Documents.Infrastructure;
+using Mightyfin.Erp.Core.Documents.Domain;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
@@ -23,16 +25,20 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
 internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false,
-    bool principalRfqProfile=false,bool principalPoProfile=false,bool principalReceivingProfile=false)
+    bool principalRfqProfile=false,bool principalPoProfile=false,bool principalReceivingProfile=false,
+    bool principalInvoiceProfile=false)
 {
     internal bool PrincipalRfqProfile=>principalRfqProfile;
     internal bool PrincipalPoProfile=>principalPoProfile;
     internal bool PrincipalReceivingProfile=>principalReceivingProfile;
+    internal bool PrincipalInvoiceProfile=>principalInvoiceProfile;
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
     internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid(),Buyer=Guid.NewGuid(),PoFinance=Guid.NewGuid(),PoApprover=Guid.NewGuid(),PoAck=Guid.NewGuid();
     internal readonly Guid Receiver=Guid.NewGuid(),ReceiverPeer=Guid.NewGuid(),Inspector=Guid.NewGuid(),Acceptor=Guid.NewGuid(),ServiceOwner=Guid.NewGuid(),ReceivingOutsider=Guid.NewGuid(),OtherReceivingBranch=Guid.NewGuid();
-    internal Guid[] Subjects=>principalReceivingProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer,PoFinance,PoApprover,PoAck,Receiver,ReceiverPeer,Inspector,Acceptor,ServiceOwner,ReceivingOutsider]
+    internal readonly Guid InvoiceMaker=Guid.NewGuid(),InvoiceReviewer=Guid.NewGuid(),InvoiceMatcher=Guid.NewGuid();
+    internal Guid[] Subjects=>principalInvoiceProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer,PoFinance,PoApprover,PoAck,Receiver,ReceiverPeer,Inspector,Acceptor,ServiceOwner,ReceivingOutsider,InvoiceMaker,InvoiceReviewer,InvoiceMatcher]
+        :principalReceivingProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer,PoFinance,PoApprover,PoAck,Receiver,ReceiverPeer,Inspector,Acceptor,ServiceOwner,ReceivingOutsider]
         :principalPoProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer,PoFinance,PoApprover,PoAck]
         :principalRfqProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer]
         :[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted];
@@ -79,6 +85,10 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                     (Acceptor,"p30_receiving_acceptor","procurement-access,procurement-receipt-accept"),
                     (ServiceOwner,"p30_receiving_service_owner","procurement-access,procurement-service-certify"),
                     (ReceivingOutsider,"p30_receiving_outsider","procurement-access,procurement-receipt-view,procurement-receipt-create")}
+                    :Array.Empty<(Guid,string,string)>()).Concat(principalInvoiceProfile?new[]{
+                    (InvoiceMaker,"p31_invoice_maker","procurement-access,procurement-invoice-capture,procurement-invoice-read,procurement-invoice-match,procurement-invoice-unit-review-request"),
+                    (InvoiceReviewer,"p31_invoice_reviewer","procurement-access,procurement-invoice-unit-review"),
+                    (InvoiceMatcher,"p31_invoice_matcher","procurement-access,procurement-invoice-read,procurement-invoice-match")}
                     :Array.Empty<(Guid,string,string)>());
             foreach(var (id,role,actions) in people)
             {
@@ -95,8 +105,18 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
         }
         await using(var approval=Approvals()) {PrincipalApprovalHttpVerification.Need(!approval.Database.HasPendingModelChanges(),"Core approval model drift.");await approval.Database.MigrateAsync();}
         await using(var procurement=Procurement()) {PrincipalApprovalHttpVerification.Need(!procurement.Database.HasPendingModelChanges(),"Procurement model drift.");await procurement.Database.MigrateAsync();}
+        if(principalInvoiceProfile)
+        {
+            await using var documents=new DocumentDbContext(new DbContextOptionsBuilder<DocumentDbContext>()
+                .UseNpgsql(owner,p=>p.MigrationsHistoryTable("__EFMigrationsHistory","core_document")).Options,
+                new PrincipalDocumentScope(Company,InvoiceMaker));
+            PrincipalApprovalHttpVerification.Need(!documents.Database.HasPendingModelChanges(),"Core document model drift.");
+            await documents.Database.MigrateAsync();
+        }
     }
     internal sealed class PrincipalTenant:ITenantAccessor {public string GetTenantId()=>Tenant;}
+    private sealed class PrincipalDocumentScope(Guid company,Guid actor):IDocumentScope
+    {public string TenantId=>Tenant;public Guid LegalEntityId=>company;public string SubjectId=>actor.ToString("D");}
     internal sealed class PrincipalScope(Guid company,Guid branch,Guid maker):Mightyfin.Erp.Procurement.Application.IProcurementScope,IApprovalScope
     {
         public string TenantId=>Tenant;public Guid LegalEntityId=>company;public string SubjectId=>maker.ToString("D");
@@ -131,6 +151,15 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:Orders:PrincipalExecutionEnabled"]="true";
         }
         if(fixture.PrincipalReceivingProfile)settings["Procurement:PrincipalReceiving:Enabled"]="true";
+        if(fixture.PrincipalInvoiceProfile)
+        {
+            settings["Procurement:PrincipalInvoiceSources:Enabled"]="true";
+            settings["Procurement:PrincipalInvoiceMatching:Enabled"]="true";
+            settings["ConnectionStrings:CoreDocuments"]=execution;
+            settings["CoreDocuments:Enabled"]="true";
+            settings["CoreDocuments:PrivateDirectory"]=PrincipalApprovalHttpVerification.P31DocumentDirectory();
+            settings["CoreDocuments:ScannerSocket"]=PrincipalApprovalHttpVerification.P31ScannerSocket();
+        }
         return settings;
     }
     internal void PrepareEntryPointEnvironment()

@@ -115,11 +115,13 @@ public static partial class ProcurementInvoiceMatchingRoutes
             var key=Key(http); var fingerprint=Fingerprint(new { schemaVersion=1,id,input });
             if(input.Lines is not { Length: >0 and <=200 }) throw new MatchingProblem("InvoiceMappingLinesRequired",422);
             var invoice=await Invoice(db,scope,id,token); var worker=await Actor(core,scope,http,auth,"procurement-invoice-capture",invoice.BranchRef,token);
+            if(db.HasPrincipalInvoiceWorkflow(id)) throw new MatchingProblem("InvoicePrincipalWorkflowActive",409);
             _=await Target(db,core,scope,http,auth,"procurement-invoice-capture",invoice,input.PurchaseOrderId,token);
             // Exact recovery rechecks both the actual invoice and target PO's current scope first.
             if(await Replay(db,scope,"InvoiceMapping",key,fingerprint,id,input.PurchaseOrderId,token) is { } replay) return replay;
             _=await ProcurementReceivingRoutes.InvoiceEvidence(db,cases,scope,input.PurchaseOrderId,input.IssuedVersionId,input.Lines,token,false);
             invoice=await Invoice(db,scope,id,token,true);
+            if(db.HasPrincipalInvoiceWorkflow(id)) throw new MatchingProblem("InvoicePrincipalWorkflowActive",409);
             if(invoice.Version!=input.Version || invoice.ActiveMatchClaimResultId is not null) throw new MatchingProblem("InvoiceMappingVersionOrActiveClaimChanged",409);
             var lines=await db.SupplierInvoiceLines.Where(x=>x.SupplierInvoiceId==id && x.IsActive).OrderBy(x=>x.LineNumber).ToArrayAsync(token);
             var mapping=InvoiceMappingEvidence.Create(invoice,lines,input.PurchaseOrderId,input.IssuedVersionId,input.Lines,scope.SubjectId,worker,Now(), identitySchemaVersion: 2);

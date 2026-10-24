@@ -1,0 +1,56 @@
+{
+  "applicationBeforeCapture": "8de60b4697789faac3f3959692fa70d1e331a881",
+  "date": "2026-10-24",
+  "docsSupportBeforeCapture": "9892cd8cdfe895be2c31eebff08f8a948b66d842",
+  "execution": "Root performed the bounded read-only private PG17 metadata capture after source review and five pure tests. Reviewer checked retained literal dictionaries, parent-key manifest, model Types and capture hashes; no second capture ran.",
+  "migrationId": "20261024055739_P31PrincipalInvoiceConstraintNames",
+  "next": [
+    "Recompile/test this source checkpoint; no model/migration change is intended",
+    "13 owner-only dependency-closure populated Down vetoes",
+    "Finite-role readiness positive/negative with exact columns, keys, CHECKs and FKs",
+    "Genuine document scanner and owned invoice HTTP/normal-cookie workflow"
+  ],
+  "observed": {
+    "canonicalCatalogAndHistoryMatchAcceptedOwnerAndPostRead": true,
+    "checkAndFkDefinitionsUnnormalized": true,
+    "checks": 13,
+    "mappedImmediateForeignKeys": 41,
+    "modelTypesUnchanged": true,
+    "noNewP31FunctionOrTriggerClaim": true,
+    "ownedFamilies": 13,
+    "renamedParentUniqueKeysAndIndexes": 3,
+    "tables": 231
+  },
+  "scope": {
+    "browserWorkflowProven": false,
+    "databaseMutated": false,
+    "featureFlagsEnabled": false,
+    "finiteReadinessProven": false,
+    "httpWorkflowProven": false,
+    "productionTouched": false,
+    "rolesGranted": false,
+    "scannerProven": false
+  },
+  "sha256": {
+    "captureResult": "2e913634534a43f4e583bf72db9a961bab4ed74d55771aaf9ae0486ba1aeff04",
+    "captureScript": "768842f05ae612c0669bd49aed5444373c53a61bacbbbfb7ac1fb7e99a81fc73",
+    "physicalMetadata": "28494c02538f231e533c44e15b4f78a94d70cf396f933d8bf5addc3a5156b15c",
+    "rawReadOnlyCapture": "c9e554ef48f70f344b38f3740d5a068ec8a71ec90fc66b8cc78f16bfa4538883",
+    "renderedCaptureClass": "5cfecebce7672d58d4503db6e3c031a1742efaa2e68853137e041d76d4b67d10",
+    "rootReviewedPlanBeforeLaterAuthorizationAnnotation": "3c810ad1a6a43e12a6b2a3eabf6c6527aa2902c00810f352f71a5c315ca0e0e0"
+  },
+  "sourceChanges": "Populate genuine physical capture constants only; current actor, scope, policy, Core document, finite-store checks and both default-off workflow flags are unchanged.",
+  "status": "GENUINE_PG17_PHYSICAL_CONSTANTS_APPLIED_RUNTIME_ACCEPTANCE_PENDING",
+  "tests": {
+    "capturePipelinePure": {
+      "passed": 5,
+      "scope": "Synthetic renderer/denial shape tests plus canonical-query reuse; not runtime readiness proof"
+    },
+    "existingHostDefaultOff": "Retained both false feature flag assertions; updated obsolete empty-capture assertion to reflect genuine metadata",
+    "newHostNegative": {
+      "authored": 1,
+      "executed": false,
+      "purpose": "Real capture constants cannot admit an uninspected non-PostgreSQL store"
+    }
+  }
+}
