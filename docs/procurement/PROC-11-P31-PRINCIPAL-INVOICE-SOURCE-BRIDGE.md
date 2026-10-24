@@ -255,3 +255,34 @@ rehearsed; an operator setting alone cannot make the feature ready. Read-only
 inspection/recovery requires SELECT; mutation additionally checks the owned
 append/mutable writes and Core case decision privileges. The independent
 current actor, branch, policy, source and document guards remain per command.
+
+### P31 migration and same-command pointer plan (source only)
+
+The mapped owner graph is directed; it has no reciprocal FK from a mapping or
+comparison back into `PrincipalInvoiceState`. Three nullable state pointers
+reference the new mapping, last comparison and active claim comparison. The
+authored `P31PrincipalInvoiceOwnershipGuards.InstallSql` makes only these
+three generated FKs initially deferred. EF still has to order inserts for the
+other parent/child links: Map adds mapping, mapping lines, optional exposure,
+state and receipt in one `SaveChanges`; Compare adds comparison, claims and
+receipt while updating state/exposure in one `SaveChanges`. Deferral cannot
+resolve a client-side EF dependency cycle. Genuine mapped same-command
+PostgreSQL Map/Compare tests must prove this schedule before readiness capture.
+
+The genuine P31 migration should create exactly the thirteen tables listed in
+`ProcurementPrincipalInvoiceSchemaCapture.Types`, their model checks, indexes,
+and mapped FKs, then apply the three authored pointer alterations. If EF also
+adds alternate unique keys to existing invoice line, PO line, issued-version,
+or receiving source/fact tables for composite parent ownership, inspect each
+addition against the exact `HasPrincipalKey` mapping; do not approve unrelated
+existing table column changes or drops as part of P31. Freeze the actual PG
+definitions and include `PointerManifestSql` in physical readiness rather
+than treating helper source as installed schema.
+
+`P31PrincipalInvoiceOwnershipGuards.BeforeDownSql` must be the first Down
+statement. It locks and checks all thirteen P31 tables and raises SQLSTATE
+`55000` if any has retained evidence. On a private clone, test each row family
+with its genuine prerequisite parent graph, require a failed Down and exact
+before/after footprint equality; then test an empty Down and repeat Up.
+These authored constants are not wired into a migration yet and do not claim
+runtime availability.
