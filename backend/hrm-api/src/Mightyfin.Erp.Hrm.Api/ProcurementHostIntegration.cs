@@ -51,6 +51,12 @@ public static class ProcurementHostIntegration
         services.AddSingleton(principalOrderOptions);
         // The actual provider stays closed until the owning migration, captured constraints and finite privileges match.
         services.AddScoped<IProcurementPrincipalOrderDraftReadiness, ProcurementPrincipalOrderDraftReadiness>();
+        var revisionOptions = configuration.GetSection("Procurement:PrincipalOrderDraftRevisions")
+            .Get<PrincipalOrderRevisionOptions>() ?? new PrincipalOrderRevisionOptions();
+        services.AddSingleton(revisionOptions);
+        // The owning-context provider stays false until the genuine capture and
+        // finite privileges match. A setting alone never admits revisions.
+        services.AddScoped<IPrincipalOrderRevisionReadiness, ProcurementPrincipalOrderRevisionReadiness>();
         var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
@@ -220,6 +226,8 @@ public static class ProcurementHostIntegration
                 var principalOrderGovernance = principalDirectOrderDrafts
                     && services.GetRequiredService<ProcurementOrderExecutionOptions>() is
                         { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true };
+                var principalOrderDraftRevision = await PrincipalOrderRevisionCapability.ReadyAsync(
+                    services, db, pending, principalDirectOrderDrafts, ct);
                 var principalReceivingOptions = services.GetService<ProcurementPrincipalReceivingOptions>();
                 var principalReceiving = !pending && principalReceivingOptions is
                         { Enabled: true, ExecutionDatabaseConfigured: true }
@@ -293,6 +301,7 @@ public static class ProcurementHostIntegration
                         orderDraft = !pending,
                         principalDirectOrderDrafts,
                         principalOrderGovernance,
+                        principalOrderDraftRevision,
                         principalReceiving,
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,

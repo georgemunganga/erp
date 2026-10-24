@@ -52,7 +52,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     .ToArrayAsync(token);
                 var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking()
                     .Where(x=>x.PurchaseOrderId==order.Id).ToArrayAsync(token);
-                PrincipalOrderDraftPins.Verify(order,lines,bindings);
+                _=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,token);
                 var issued=await db.PrincipalOrderIssuedVersions.AsNoTracking()
                     .SingleOrDefaultAsync(x=>x.PurchaseOrderId==order.Id,token);
                 if(view=="issue"&&issued is not null || view=="ack"&&(issued is null

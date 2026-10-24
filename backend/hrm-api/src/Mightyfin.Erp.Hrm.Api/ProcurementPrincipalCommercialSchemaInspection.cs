@@ -15,7 +15,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 internal static class ProcurementPrincipalCommercialSchemaInspection
 {
     internal sealed record Capture(string MigrationId, IReadOnlyDictionary<string, string> Checks,
-        IReadOnlyDictionary<string, string> OwnershipConstraints);
+        IReadOnlyDictionary<string, string> OwnershipConstraints,
+        IReadOnlyDictionary<string, string>? ParentKeys = null);
 
     private static readonly Capture P30 = new(ProcurementPrincipalCommercialSchemaCapture.MigrationId,
         ProcurementPrincipalCommercialSchemaCapture.Checks,
@@ -43,9 +44,24 @@ internal static class ProcurementPrincipalCommercialSchemaInspection
         return modelPredicate is null;
     }
 
-    internal static Task<bool> CheckAsync(ProcurementDbContext owner, Type[] types,
+    internal static async Task<bool> CheckAsync(ProcurementDbContext owner, Type[] types,
         string privilegeSql, IReadOnlySet<string> requiredOwnershipConstraints, CancellationToken ct, string? ownershipManifestSql = null)
-        => CheckAsync(owner, types, privilegeSql, requiredOwnershipConstraints, P30, ct, ownershipManifestSql);
+    {
+        try
+        {
+            if (!owner.Database.IsNpgsql()) return false;
+            var orderHistory = types.Any(type => type == typeof(PurchaseOrder)
+                || type == typeof(PurchaseOrderLine) || type == typeof(PrincipalOrderSourceBinding)
+                || type == typeof(PrincipalOrderDraftReceipt)
+                || ProcurementPrincipalOrderRevisionSchemaCapture.Types.Contains(type));
+            var p33Applied = orderHistory && (await owner.Database.GetAppliedMigrationsAsync(ct))
+                .Contains(ProcurementPrincipalOrderRevisionSchemaCapture.MigrationId, StringComparer.Ordinal);
+            var capture = orderHistory ? ProcurementPrincipalOrderRevisionSchemaCapture.Select(p33Applied) : P30;
+            return capture is not null && await CheckAsync(owner, types, privilegeSql,
+                requiredOwnershipConstraints, capture, ct, ownershipManifestSql);
+        }
+        catch (Exception error) when (error is not OperationCanceledException) { return false; }
+    }
 
     internal static async Task<bool> CheckAsync(ProcurementDbContext owner, Type[] types,
         string privilegeSql, IReadOnlySet<string> requiredOwnershipConstraints, Capture capture,
@@ -107,6 +123,16 @@ internal static class ProcurementPrincipalCommercialSchemaInspection
                         index.GetDatabaseName(), predicate))) return false;
                 }
             }
+            if (capture.ParentKeys is { } parentKeys)
+                foreach (var pair in parentKeys)
+                {
+                    var parts = pair.Key.Split('.');
+                    if (parts.Length != 3) return false;
+                    command.CommandText = "SELECT pg_get_constraintdef(oid,false) FROM pg_constraint WHERE conrelid="
+                        + Literal(parts[0] + "." + parts[1]) + "::regclass AND conname=" + Literal(parts[2])
+                        + " AND contype='u' AND convalidated AND conislocal AND NOT condeferrable AND NOT condeferred";
+                    if (await command.ExecuteScalarAsync(ct) is not string actual || actual != pair.Value) return false;
+                }
             foreach (var fullName in requiredOwnershipConstraints)
             {
                 var parts = fullName.Split('.');
