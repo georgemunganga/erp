@@ -50,7 +50,8 @@ internal static class P32CommercialRoundRollbackGuards
                        WHERE record_type IN ('PrincipalRfqOfferOpeningRecord','PrincipalRfqOfferOpeningReceipt',
                            'PrincipalRfqCriterionAssessmentRecord','PrincipalRfqCriterionAssessmentReceipt'))
             OR EXISTS (SELECT 1 FROM procurement.outbox_events
-                       WHERE event_type = 'sourcing.commercial_offers_opened.v1')
+                       WHERE event_type IN ('sourcing.commercial_offers_opened.v1',
+                           'sourcing.criterion_assessment_recorded.v1'))
             OR EXISTS (SELECT 1 FROM procurement.policy_versions
                        WHERE policy_key = 'SOURCING_COMMERCIAL_ROUND')
             OR EXISTS (SELECT 1 FROM procurement.operational_policy_identity_evidence

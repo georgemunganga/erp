@@ -836,7 +836,12 @@ is accepted by this increment.
 
 Two additive owner families hold observations and original acknowledgments with
 explicit scoped opening, offer, prepared-plan, prior-revision and receipt keys.
-P32 rollback veto now includes both families and their audit records. The distinct
+Every revision requires one exact same-save audit and one append-only
+`sourcing.criterion_assessment_recorded.v1` outbox companion. Its payload has only
+assessment, round, event and revision IDs; it carries no evaluator identity,
+score, pass/fail value, rationale, supplier price or document reference. This
+does not claim any notification consumer or external delivery. P32 rollback veto
+includes both families and orphan audit/outbox evidence. The distinct
 `CriterionAssessmentEnabled` option defaults false; no positive assessment
 readiness provider or schema capture is registered. The new action has an empty
 bootstrap grant. The 15-family model is **not** an installed migration: genuine EF

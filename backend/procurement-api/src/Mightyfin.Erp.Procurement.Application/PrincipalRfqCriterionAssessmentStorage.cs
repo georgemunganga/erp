@@ -6,6 +6,7 @@ namespace Mightyfin.Erp.Procurement.Application;
 public static class PrincipalRfqCriterionAssessmentStorage
 {
     public const string Action="procurement-sourcing-evaluate";
+    public const string EventType="sourcing.criterion_assessment_recorded.v1";
     public static string Snapshot(PrincipalRfqCriterionAssessmentRecord row) => JsonSerializer.Serialize(new
     {
         schemaVersion=1, roundId=row.RoundId, unsealingId=row.UnsealingId,
@@ -26,6 +27,14 @@ public static class PrincipalRfqCriterionAssessmentStorage
         revision=row.Revision, commandKey=row.CommandKey, snapshotSha256=row.SnapshotSha256,
         recordedAt=row.RecordedAt, evaluationComplete=false, awardMade=false,
     });
+    // Deliberately contains no evaluator identity, score, pass/fail, rationale,
+    // supplier name, quotation content or document reference.
+    public static string EventPayload(PrincipalRfqCriterionAssessmentRecord row) => JsonSerializer.Serialize(new
+    {
+        assessmentId=row.Id,roundId=row.RoundId,eventId=row.EventId,revision=row.Revision,
+    });
+    public static string AuditPayload(PrincipalRfqCriterionAssessmentRecord row) => JsonSerializer.Serialize(new
+    {row.RoundId,row.OfferId,row.CriterionCode,row.Revision,row.SnapshotSha256});
     public static void Verify(PrincipalRfqCriterionAssessmentRecord row,
         PrincipalRfqCommercialRoundOpeningRecord round,
         PrincipalRfqOfferOpeningRecord opening,
@@ -56,6 +65,7 @@ public static class PrincipalRfqCriterionAssessmentStorage
             || row.CommandKey==Guid.Empty || row.RequestSha256 is not {Length:64}
             || !row.RequestSha256.All(x=>x is >= '0' and <= '9' or >= 'a' and <= 'f')
             || row.RecordedAt<opening.OpenedAt || row.RecordedAt.Offset!=TimeSpan.Zero
+            || row.RecordedAt.UtcTicks%10!=0
             || row.Revision==1 && (row.PreviousAssessmentId is not null || row.PreviousRevision is not null)
             || row.Revision>1 && (row.PreviousAssessmentId is null || row.PreviousRevision!=row.Revision-1)
             || row.SnapshotJson!=Snapshot(row)
@@ -65,7 +75,9 @@ public static class PrincipalRfqCriterionAssessmentStorage
     public static void VerifyReceipt(PrincipalRfqCriterionAssessmentRecord row,
         PrincipalRfqCriterionAssessmentReceipt receipt)
     {
-        if(receipt.SchemaVersion!=1 || receipt.AssessmentId!=row.Id || receipt.RoundId!=row.RoundId
+        if(row.SnapshotJson!=Snapshot(row)
+            || row.SnapshotSha256!=ProcurementEvidenceEncoding.Digest(row.SnapshotJson)
+            || receipt.SchemaVersion!=1 || receipt.AssessmentId!=row.Id || receipt.RoundId!=row.RoundId
             || receipt.UnsealingId!=row.UnsealingId || receipt.OfferId!=row.OfferId
             || receipt.EventId!=row.EventId || receipt.BranchId!=row.BranchId
             || receipt.TenantId!=row.TenantId || receipt.LegalEntityId!=row.LegalEntityId

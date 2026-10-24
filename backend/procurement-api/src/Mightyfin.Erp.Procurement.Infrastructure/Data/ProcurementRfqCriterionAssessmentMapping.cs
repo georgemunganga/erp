@@ -120,7 +120,15 @@ public sealed partial class ProcurementDbContext
     {
         var entries=ChangeTracker.Entries<ProcurementRecord>().Where(x=>x.Entity is
             PrincipalRfqCriterionAssessmentRecord or PrincipalRfqCriterionAssessmentReceipt).ToArray();
-        if(entries.All(x=>x.State is EntityState.Unchanged or EntityState.Detached))return;
+        if(entries.All(x=>x.State is EntityState.Unchanged or EntityState.Detached))
+        {
+            if(ChangeTracker.Entries<OutboxEvent>().Any(x=>x.State==EntityState.Added
+                    && x.Entity.EventType==PrincipalRfqCriterionAssessmentStorage.EventType)
+                || ChangeTracker.Entries<AuditEvent>().Any(x=>x.State==EntityState.Added
+                    && x.Entity.RecordType==nameof(PrincipalRfqCriterionAssessmentRecord)))
+                throw new InvalidOperationException("RfqAssessmentSameSaveEffectsRequired");
+            return;
+        }
         if(Database.IsNpgsql() && Database.CurrentTransaction?.GetDbTransaction().IsolationLevel!=IsolationLevel.Serializable)
             throw new InvalidOperationException("RfqAssessmentOwnerTransactionRequired");
         if(entries.Any(x=>x.State!=EntityState.Added || x.Entity.TenantId!=scope.TenantId
@@ -128,12 +136,30 @@ public sealed partial class ProcurementDbContext
             throw new InvalidOperationException("RfqAssessmentAppendOnlyScopeRequired");
         var rows=entries.Select(x=>x.Entity).OfType<PrincipalRfqCriterionAssessmentRecord>().ToArray();
         var acks=entries.Select(x=>x.Entity).OfType<PrincipalRfqCriterionAssessmentReceipt>().ToArray();
+        var audits=ChangeTracker.Entries<AuditEvent>().Where(x=>x.State==EntityState.Added
+            && x.Entity.RecordType==nameof(PrincipalRfqCriterionAssessmentRecord))
+            .Select(x=>x.Entity).ToArray();
+        var events=ChangeTracker.Entries<OutboxEvent>().Where(x=>x.State==EntityState.Added
+            && x.Entity.EventType==PrincipalRfqCriterionAssessmentStorage.EventType)
+            .Select(x=>x.Entity).ToArray();
         if(rows.Length!=acks.Length)throw new InvalidOperationException("RfqAssessmentSameSaveReceiptRequired");
+        if(audits.Length!=rows.Length || events.Length!=rows.Length)
+            throw new InvalidOperationException("RfqAssessmentSameSaveEffectsRequired");
         foreach(var row in rows)
         {
             if(row.EvaluatorPrincipalId!=scope.SubjectId || row.EvaluatorWorkerAliasId!=scope.CoreLinkedWorkerId
                 || acks.Count(x=>x.AssessmentId==row.Id)!=1)
                 throw new InvalidOperationException("RfqAssessmentActorChanged");
+            if(audits.Count(x=>x.RecordId==row.Id && x.RecordType==nameof(PrincipalRfqCriterionAssessmentRecord)
+                    && x.Action=="RecordCriterionAssessment" && x.ActorSubjectId==scope.SubjectId
+                    && x.ChangedFieldsJson==PrincipalRfqCriterionAssessmentStorage.AuditPayload(row))!=1
+                || events.Count(x=>x.AggregateType==nameof(PrincipalRfqCriterionAssessmentRecord)
+                    && x.AggregateId==row.Id && x.EventVersion==1
+                    && x.IdempotencyKey==row.CommandKey.ToString("D")
+                    && x.PayloadJson==PrincipalRfqCriterionAssessmentStorage.EventPayload(row)
+                    && x.State=="Pending" && x.Attempts==0 && x.PublishedAt is null
+                    && x.NextAttemptAt is null)!=1)
+                throw new InvalidOperationException("RfqAssessmentSameSaveEffectsRequired");
             var round=PrincipalRfqCommercialRoundOpenings.AsNoTracking().Single(x=>x.Id==row.RoundId);
             var opened=PrincipalRfqOfferOpenings.AsNoTracking().Single(x=>x.Id==row.UnsealingId);
             var offer=PrincipalRfqCommercialOfferSubmissions.AsNoTracking().Single(x=>x.Id==row.OfferId);
@@ -158,10 +184,6 @@ public sealed partial class ProcurementDbContext
                     throw new InvalidOperationException("RfqAssessmentPreviousRevisionChanged");
             }
             PrincipalRfqCriterionAssessmentStorage.VerifyReceipt(row,acks.Single(x=>x.AssessmentId==row.Id));
-            if(ChangeTracker.Entries<AuditEvent>().Count(x=>x.State==EntityState.Added
-                && x.Entity.RecordType==nameof(PrincipalRfqCriterionAssessmentRecord)
-                && x.Entity.RecordId==row.Id && x.Entity.ActorSubjectId==scope.SubjectId)!=1)
-                throw new InvalidOperationException("RfqAssessmentSameSaveAuditRequired");
         }
     }
 }

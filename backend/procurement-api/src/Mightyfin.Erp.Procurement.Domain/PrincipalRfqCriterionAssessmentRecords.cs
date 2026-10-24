@@ -23,14 +23,14 @@ public sealed class PrincipalRfqCriterionAssessmentRecord : ProcurementRecord
     public int Revision { get; init; }
     public Guid? PreviousAssessmentId { get; init; }
     public int? PreviousRevision { get; init; }
-    public decimal? Score { get; init; }
+    public decimal? Score { get; set; }
     public bool? Passed { get; init; }
-    public string Rationale { get; init; } = null!;
+    public string Rationale { get; set; } = null!;
     public Guid OriginalDocumentVersionId { get; init; }
     public string OriginalDocumentSha256 { get; init; } = null!;
     public Guid CommandKey { get; init; }
     public string RequestSha256 { get; init; } = null!;
-    public DateTimeOffset RecordedAt { get; init; }
+    public DateTimeOffset RecordedAt { get; set; }
     public string SnapshotJson { get; set; } = null!;
     public string SnapshotSha256 { get; set; } = null!;
 }

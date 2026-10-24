@@ -50,5 +50,6 @@ public sealed class P32CommercialRoundRollbackGuardsTests
         Assert.Contains("'PrincipalRfqOfferOpeningReceipt'", sql);
         Assert.Contains("'PrincipalRfqCriterionAssessmentRecord'", sql);
         Assert.Contains("'sourcing.commercial_offers_opened.v1'", sql);
+        Assert.Contains("'sourcing.criterion_assessment_recorded.v1'", sql);
     }
 }

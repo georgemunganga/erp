@@ -146,8 +146,11 @@ public static partial class ProcurementSourcingExecutionRoutes
             db.AddScoped(row);db.AddScoped(ack);
             db.AddScoped(new AuditEvent {RecordType=nameof(PrincipalRfqCriterionAssessmentRecord),
                 RecordId=row.Id,Action="RecordCriterionAssessment",ActorSubjectId=actor.PrincipalId,
-                CorrelationId=scope.CorrelationId,ChangedFieldsJson=JsonSerializer.Serialize(new
-                    {row.RoundId,row.OfferId,row.CriterionCode,row.Revision,row.SnapshotSha256})});
+                CorrelationId=scope.CorrelationId,
+                ChangedFieldsJson=PrincipalRfqCriterionAssessmentStorage.AuditPayload(row)});
+            db.AddScoped(new OutboxEvent {EventType=PrincipalRfqCriterionAssessmentStorage.EventType,
+                AggregateType=nameof(PrincipalRfqCriterionAssessmentRecord),AggregateId=row.Id,
+                IdempotencyKey=key.ToString("D"),PayloadJson=PrincipalRfqCriterionAssessmentStorage.EventPayload(row)});
             await db.SaveChangesAsync(token);
             return new Reply(response,201);
         },ct);

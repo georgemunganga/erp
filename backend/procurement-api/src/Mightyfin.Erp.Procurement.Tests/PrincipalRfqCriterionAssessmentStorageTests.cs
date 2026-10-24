@@ -42,7 +42,8 @@ public sealed class PrincipalRfqCriterionAssessmentStorageTests
             OfferSha256=offer.SnapshotSha256,CriterionCode="TECH",Kind="Scored",
             EvaluatorPrincipalId=Actor,Revision=1,Score=0m,Rationale="Observed no compliance evidence",
             OriginalDocumentVersionId=document,OriginalDocumentSha256=docSha,
-            CommandKey=Guid.NewGuid(),RequestSha256=new string('c',64),RecordedAt=DateTimeOffset.UtcNow};
+            CommandKey=Guid.NewGuid(),RequestSha256=new string('c',64),
+            RecordedAt=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value};
         row.SnapshotJson=PrincipalRfqCriterionAssessmentStorage.Snapshot(row);
         row.SnapshotSha256=ProcurementEvidenceEncoding.Digest(row.SnapshotJson);
         var response=PrincipalRfqCriterionAssessmentStorage.Response(row);
@@ -68,6 +69,20 @@ public sealed class PrincipalRfqCriterionAssessmentStorageTests
         row.ApprovedRoundSha256=approvedHash;row.OpeningSha256=openingHash;
         row.SnapshotJson=PrincipalRfqCriterionAssessmentStorage.Snapshot(row);
         row.SnapshotSha256=ProcurementEvidenceEncoding.Digest(row.SnapshotJson);
+        row.Score=1m;
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCriterionAssessmentStorage.VerifyReceipt(row,ack));
+        row.Score=0m;
+        row.Rationale="Changed after acknowledgment";
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCriterionAssessmentStorage.VerifyReceipt(row,ack));
+        row.Rationale="Observed no compliance evidence";
+        row.RecordedAt=row.RecordedAt.AddTicks(1);
+        row.SnapshotJson=PrincipalRfqCriterionAssessmentStorage.Snapshot(row);
+        row.SnapshotSha256=ProcurementEvidenceEncoding.Digest(row.SnapshotJson);
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCriterionAssessmentStorage.Verify(
+            row,round,opening,offer,Definition()));
+        row.RecordedAt=row.RecordedAt.AddTicks(-1);
+        row.SnapshotJson=PrincipalRfqCriterionAssessmentStorage.Snapshot(row);
+        row.SnapshotSha256=ProcurementEvidenceEncoding.Digest(row.SnapshotJson);
         Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCriterionAssessmentStorage.Verify(row,
             round,opening,new PrincipalRfqCommercialOfferSubmissionRecord{Id=offer.Id,TenantId=offer.TenantId,
                 LegalEntityId=offer.LegalEntityId,OpeningId=offer.OpeningId,SourcingEventId=offer.SourcingEventId,
@@ -91,6 +106,38 @@ public sealed class PrincipalRfqCriterionAssessmentStorageTests
             Assert.Throws<InvalidOperationException>(()=>db.SaveChanges()).Message);
         db.ChangeTracker.Clear();db.Attach(row);db.Entry(row).Property(x=>x.Rationale).CurrentValue="Rewrite";
         Assert.Equal("RfqAssessmentAppendOnlyScopeRequired",
+            Assert.Throws<InvalidOperationException>(()=>db.SaveChanges()).Message);
+    }
+    [Fact]
+    public void Assessment_event_is_metadata_only_and_missing_or_mismatched_same_save_effect_is_denied()
+    {
+        var (row,ack,_,_,_)=Rows();
+        var payload=PrincipalRfqCriterionAssessmentStorage.EventPayload(row);
+        Assert.Contains(row.Id.ToString("D"),payload);
+        Assert.DoesNotContain(row.Rationale,payload,StringComparison.Ordinal);
+        Assert.DoesNotContain(row.OriginalDocumentVersionId.ToString("D"),payload,StringComparison.Ordinal);
+        Assert.DoesNotContain("Score",payload,StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Passed",payload,StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(row.EvaluatorPrincipalId,payload,StringComparison.Ordinal);
+        using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new Scope(row.TenantId,row.LegalEntityId,row.EvaluatorPrincipalId));
+        db.AddScoped(row);db.AddScoped(ack);
+        db.AddScoped(new AuditEvent{RecordType=nameof(PrincipalRfqCriterionAssessmentRecord),
+            RecordId=row.Id,Action="RecordCriterionAssessment",ActorSubjectId=row.EvaluatorPrincipalId,
+            ChangedFieldsJson=PrincipalRfqCriterionAssessmentStorage.AuditPayload(row)});
+        Assert.Equal("RfqAssessmentSameSaveEffectsRequired",
+            Assert.Throws<InvalidOperationException>(()=>db.SaveChanges()).Message);
+        db.AddScoped(new OutboxEvent{EventType=PrincipalRfqCriterionAssessmentStorage.EventType,
+            AggregateType=nameof(PrincipalRfqCriterionAssessmentRecord),AggregateId=row.Id,
+            IdempotencyKey=row.CommandKey.ToString("D"),PayloadJson="{}"});
+        Assert.Equal("RfqAssessmentSameSaveEffectsRequired",
+            Assert.Throws<InvalidOperationException>(()=>db.SaveChanges()).Message);
+        db.ChangeTracker.Clear();
+        db.AddScoped(new OutboxEvent{EventType=PrincipalRfqCriterionAssessmentStorage.EventType,
+            AggregateType=nameof(PrincipalRfqCriterionAssessmentRecord),AggregateId=row.Id,
+            IdempotencyKey=row.CommandKey.ToString("D"),PayloadJson=payload});
+        Assert.Equal("RfqAssessmentSameSaveEffectsRequired",
             Assert.Throws<InvalidOperationException>(()=>db.SaveChanges()).Message);
     }
     [Fact]
