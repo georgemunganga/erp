@@ -3,9 +3,9 @@
   "status": "IN_PROGRESS_NOT_PRODUCTION_RELEASE",
   "productionBaseline": "P24",
   "candidate": {
-    "sourceCommit": "c6e6f4b87e2a728082b746477a3b094c6478d39c",
-    "sourceTree": "93ca5e487c8d9c60370c94d6c5a748b1fcea8b3e",
-    "scope": "P30 source fixes for RFQ publication scope stamping and invitation batch persistence"
+    "sourceCommit": "f282a28e6aff9470449fbf3bb241ff408f479a95",
+    "sourceTree": "03bf1a2a6700fb01fd6188c5ec7873d5c172f34d",
+    "scope": "P30 publication evidence, canonical quotation decimals and server vendor edit eligibility"
   },
   "cleanBackendBuild23": {
     "status": "PASS_CLEAN_OFFLINE_BUILD_TESTS_AND_DISTINCT_PUBLICATIONS_SOURCE_ONLY",
@@ -21,20 +21,21 @@
       "productionApi": "6008248c0aa5e6d7337529ce32a2b03a9f09307c1426dbb55d01e8886a8bf250",
       "productionPublisher": "6008248c0aa5e6d7337529ce32a2b03a9f09307c1426dbb55d01e8886a8bf250"
     },
-    "databaseOrRuntimeProof": false
+    "databaseOrRuntimeProof": false,
+    "scope": "Parent source only; full Host count does not certify the current candidate."
   },
   "rfqPublication": {
-    "status": "RFQ06_FAILED_BEFORE_HTTP_RFQ07_RUNNING",
-    "latestFailedActualAttempt": "cookie06: Bootstrap failed before any HTTP request with PostgreSQL SQLSTATE 53100; private POSIX shared memory was full",
-    "sourceCorrections": [
-      "Opening, decision and receipt evidence bind tenant and company before persistence",
-      "A new Approved decision requires its exact fresh invitation set; a coordinator second save does not recreate invitations",
-      "A new invitation cannot reuse an already persisted Approved decision"
-    ],
-    "actualCookie06Passed": false,
-    "browserAndIndependentOwnerPassed": false,
-    "actualCookie07Passed": false,
-    "privateClusterOnlyResponse": "Changed private PostgreSQL dynamic_shared_memory_type to sysv and restarted the same private cluster; RFQ07 is a fresh actual cohort"
+    "status": "NATIVE96_PASSED_BROWSER_REVIEW_FAILED_NOT_ACCEPTED",
+    "productSourceCommit": "f282a28e6aff9470449fbf3bb241ff408f479a95",
+    "toolSourceCommit": "8d246341016dbba5402b58107f7268b0cce7a8ab",
+    "actualHttpRequests": 96,
+    "normalCookieBrowserPassed": false,
+    "failedBrowserStep": "independent-review",
+    "bothBrowserSessionsRevoked": true,
+    "independentFinalOwnerPassed": false,
+    "sourceDiagnosis": "UI gates publication review on source-conversion capability, which is correctly false for a reviewer granted publication permission only. Separate publication capability must govern list/detail access without granting creation.",
+    "earlierFailedAttemptsRetained": true,
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-cookie-20261024_run10"
   },
   "serviceReceiving": {
     "status": "ACCEPTED_PRIVATE_NORMAL_COOKIE_AND_OWNER",
@@ -44,10 +45,35 @@
     "independentOwnerPassed": true
   },
   "remaining": [
-    "Complete fresh RFQ publication cookie07 native, browser and independent retained-owner review",
-    "Complete protected production migration, finite-role and deployment gates"
+    "Fix reviewer-only UI access and prove denial of draft creation",
+    "Fresh RFQ native/browser/independent-owner composite acceptance",
+    "Current integrated P32 full Host/Domain/model compatibility tests",
+    "P31 document-scanning and invoice runtime acceptance; remaining commercial workflows",
+    "Protected finite-role, migration, deployment and post-deploy browser verification"
   ],
   "productionTouched": false,
   "hostedCiAcceptanceClaim": false,
-  "wholeProcurementModuleComplete": false
+  "wholeProcurementModuleComplete": false,
+  "backendBuild24Composite": {
+    "status": "PASS_SAME_SOURCE_COMPILED24_DOMAIN_AND_FOCUSED31_SUPPLEMENT_PUBLICATIONS_ONLY",
+    "sourceCommit": "f282a28e6aff9470449fbf3bb241ff408f479a95",
+    "domainPassed": 1481,
+    "focusedHostPassed": 31,
+    "fullCurrentHostSuitePassed": false,
+    "originalWrapperFailureRetained": true,
+    "correction": "The original focused filter omitted eight tests declared in a different partial class; a separate same-source compiled-test supplement passed all31 intended cases.",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-build24-focused-supplement-20261024_run01",
+    "resultSha256": "7bd693353703872a89c3c4bf40a5a0a21984be842860c3aa2f1555a29153e8a6"
+  },
+  "vendorUi": {
+    "integratedUiCommit": "1aa3e1f971a855e4add4e88d27bfa3f0b7c20f43",
+    "typecheckPassed": true,
+    "productionBuildPassed": true,
+    "mockBrowserCasesInitiallyPassed": 34,
+    "originalAmbiguousSelectorFailureRetained": true,
+    "correctedSingleCasePassed": true,
+    "singleClean35CaseSuiteClaim": false,
+    "actualBackendPersistenceClaim": false,
+    "deployed": false
+  }
 }
