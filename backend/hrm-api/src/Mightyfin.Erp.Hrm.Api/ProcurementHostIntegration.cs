@@ -72,12 +72,13 @@ public static class ProcurementHostIntegration
             .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
         services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
             ProcurementPrincipalSourcingPublicationReadiness>();
-        // P32 remains disabled until its generated owner schema, physical capture,
-        // finite role privileges, and Core document/approval dependencies pass.
+        // P32 stays default-off. Its owning-transaction provider requires the
+        // exact captured schema, finite role, Core document and case contract;
+        // configuration alone cannot admit a commercial round.
         services.AddSingleton(configuration.GetSection("Procurement:RfqCommercialRounds")
             .Get<ProcurementRfqCommercialOptions>() ?? new());
         services.AddScoped<IProcurementRfqCommercialReadiness,
-            UnavailableProcurementRfqCommercialReadiness>();
+            ProcurementRfqCommercialStoreReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
