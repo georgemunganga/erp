@@ -90,6 +90,36 @@ def verify_container(plan):
          and ('volume',plan['privateDataHostDirectory'],'/var/lib/postgresql/data',True) in mounts,
          'exact-private-PG-mounts-required')
 
+def verify_source(source,commit,tree_manifest_sha256,tracked_file_count):
+    """Admit every physical tracked blob from the reviewed clean commit, not a stale literal."""
+    need(isinstance(commit,str) and re.fullmatch(r'[0-9a-f]{40}',commit)
+         and isinstance(tree_manifest_sha256,str) and HEX.fullmatch(tree_manifest_sha256)
+         and type(tracked_file_count) is int and tracked_file_count>0,
+         'exact-reviewed-source-pins-required')
+    need(source.is_absolute() and source.resolve()==source and source.is_dir() and not source.is_symlink(),
+         'exact-source-directory-required')
+    def git(*args):return subprocess.check_output(['git',*args],cwd=source,text=True,timeout=30).strip()
+    need(git('rev-parse','--show-toplevel')==str(source) and git('rev-parse','HEAD')==commit
+         and git('rev-parse','--show-object-format')=='sha1'
+         and not git('status','--porcelain=v1','--untracked-files=all'),
+         'exact-clean-Core-source-required')
+    raw=subprocess.check_output(['git','ls-tree','-rz','HEAD'],cwd=source,timeout=30)
+    rows=[row for row in raw.split(b'\0') if row]
+    need(hashlib.sha256(raw).hexdigest()==tree_manifest_sha256 and len(rows)==tracked_file_count,
+         'exact-reviewed-source-tree-required')
+    for row in rows:
+        header,name=row.split(b'\t',1);mode,kind,object_id=header.decode().split()
+        path=source/name.decode()
+        need(kind=='blob' and mode in {'100644','100755','120000'},'source-tree-entry-unsupported')
+        if mode=='120000':
+            need(path.is_symlink(),'tracked-source-link-missing')
+            content=os.readlink(path).encode()
+        else:
+            need(path.is_file() and not path.is_symlink(),'tracked-source-file-missing')
+            content=path.read_bytes()
+        need(hashlib.sha1(b'blob '+str(len(content)).encode()+b'\0'+content).hexdigest()==object_id,
+             'tracked-source-byte-drift')
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--plan',type=Path,required=True)
     p.add_argument('--expected-plan-sha256',required=True);p.add_argument('--output',type=Path,required=True)
@@ -98,17 +128,16 @@ def main():
          os.getenv('P30_CORE_OWNER_PREPARE_EXECUTE')=='reviewed-private-only','explicit-private-review-required')
     plan_path=pin({'path':str(args.plan),'sha256':args.expected_plan_sha256});plan=json.loads(plan_path.read_text())
     need(plan['status']=='REVIEWED_PRIVATE_CORE_OWNER_PREPARATION_READY'
-         and plan['sourceCommit']=='4e78bb558ad5536e25ac61701ed38107bf51bed0'
+         and isinstance(plan['sourceCommit'],str) and re.fullmatch(r'[0-9a-f]{40}',plan['sourceCommit'])
          and plan['runnerSha256']==sha(Path(__file__)) and plan['profileSha256']==sha(HERE/'core_profile.py')
          and plan['foundationSha256']==sha(FOUNDATION)
          and plan['sourceDatabase']==SOURCE and plan['targetDatabase']==TARGET
          and plan['privateContainerId']==PRIVATE_ID and plan['privateSystemIdentifier']==SYSTEM_ID
          and plan['productionSystemIdentifier']=='7683513820537307167',
          'reviewed-private-Core-source-boundary-required')
-    source=Path(plan['sourcePath']);need(source==Path('/home/amizo/procurement-p30-core-session-owner-preparation')
-         and subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).strip()==plan['sourceCommit']
-         and not subprocess.check_output(['git','status','--porcelain=v1','--untracked-files=all'],cwd=source,text=True).strip(),
-         'exact-clean-Core-source-required')
+    source=Path(plan['sourcePath'])
+    need(source==Path(__file__).resolve().parents[3], 'runner-must-belong-to-reviewed-source')
+    verify_source(source,plan['sourceCommit'],plan['trackedTreeManifestSha256'],plan['trackedFileCount'])
     need(args.output==Path('/home/amizo/erp-backups/procurement-p30-core-owner-preparation-20261024_run01')
          and args.output.parent==BACKUPS and not args.output.exists() and not args.output.is_symlink(),
          'fresh-private-owner-evidence-required')
@@ -120,7 +149,8 @@ def main():
     need(set(plan['files'])==required,'closed-private-owner-input-set-required')
     files={name:pin(value) for name,value in plan['files'].items()}
     need(json.loads(files['stageBResult'].read_text())['status']=='PASS_PRIVATE_CLONE_FINITE_SESSION_ACL_ONLY'
-         and json.loads(files['compiledOverlayResult'].read_text())['status']=='PASS_PRIVATE_TOOL_ONLY_COMPILE_OVERLAY_NOT_EXECUTED',
+         and json.loads(files['compiledOverlayResult'].read_text())['status']=='PASS_PRIVATE_TOOL_ONLY_COMPILE_OVERLAY_NOT_EXECUTED'
+         and json.loads(files['compiledOverlayResult'].read_text())['sourceCommit']==plan['sourceCommit'],
          'accepted-private-stage-and-compiled-overlay-required')
     catalog=json.loads(files['sourceCatalog'].read_text());need(len(catalog['tables'])==218
         and len(catalog['columns'])==4097,'actual218-4097-Core-store-required')

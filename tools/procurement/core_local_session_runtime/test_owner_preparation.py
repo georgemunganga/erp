@@ -1,5 +1,7 @@
 """Pure admission and exact-role SQL checks; no Docker, SDK or database access."""
 import importlib.util
+import hashlib
+import tempfile
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -49,5 +51,36 @@ class OwnerPreparationSourceTests(unittest.TestCase):
         self.assertNotIn('log_statement=none',ordinary_command[4])
         self.assertNotIn('private',str(secret_command))
         self.assertIn(b'private',secret_input['input'])
+
+    def test_reviewed_source_commit_and_every_physical_blob_required(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data=b'fixture source\n'
+            oid=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+            raw=f'100644 blob {oid}\ttracked.cs\0'.encode()
+            commit='a'*40;digest=hashlib.sha256(raw).hexdigest()
+            replies={('--show-toplevel',):str(root),('HEAD',):commit,('--show-object-format',):'sha1'}
+            def git(command,**kwargs):
+                if command[1:3]==['ls-tree','-rz']:return raw
+                if command[1]=='status':return ''
+                return replies[tuple(command[2:])]
+            with patch.object(owner.subprocess,'check_output',side_effect=git):
+                with self.assertRaisesRegex(RuntimeError,'tracked-source-file-missing'):
+                    owner.verify_source(root,commit,digest,1)
+                (root/'tracked.cs').write_bytes(data)
+                owner.verify_source(root,commit,digest,1)
+                with self.assertRaisesRegex(RuntimeError,'exact-clean-Core-source-required'):
+                    owner.verify_source(root,'b'*40,digest,1)
+                with self.assertRaisesRegex(RuntimeError,'exact-reviewed-source-tree-required'):
+                    owner.verify_source(root,commit,'0'*64,1)
+                with self.assertRaisesRegex(RuntimeError,'exact-reviewed-source-tree-required'):
+                    owner.verify_source(root,commit,digest,2)
+                (root/'tracked.cs').write_bytes(data+b'drift')
+                with self.assertRaisesRegex(RuntimeError,'tracked-source-byte-drift'):
+                    owner.verify_source(root,commit,digest,1)
+    def test_malformed_source_pin_denies_without_subprocess(self):
+        with patch.object(owner.subprocess,'check_output') as called:
+            for commit in ('','A'*40,'a'*39,'a'*41):
+                with self.assertRaises(RuntimeError):owner.verify_source(Path('/never-used'),commit,'a'*64,1)
+            called.assert_not_called()
 
 if __name__=='__main__':unittest.main()
