@@ -51,4 +51,14 @@ public sealed class PrincipalRfqRecommendationDraftTests
         Assert.Throws<InvalidOperationException>(()=>PrincipalRfqRecommendationDraft.Validate(
             [new(First,Source,"0.5","1","Reason")],Offers,Sources,"USD"));
     }
+
+    [Fact]
+    public void Duplicate_offer_line_or_duplicated_source_projection_cannot_become_a_draft()
+    {
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqRecommendationDraft.Validate(
+            [new(First,Source,"0.2","1","Reason"),
+             new(First,Source,"0.2","1","Reason")],Offers,Sources,"ZMW"));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqRecommendationDraft.Validate(
+            [new(First,Source,"0.2","1","Reason")],Offers,[Sources[0],Sources[0]],"ZMW"));
+    }
 }

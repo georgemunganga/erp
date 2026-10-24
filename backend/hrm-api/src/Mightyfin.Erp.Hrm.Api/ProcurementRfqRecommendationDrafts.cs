@@ -240,6 +240,10 @@ public static partial class ProcurementSourcingExecutionRoutes
             .Where(x=>x.DraftId==head.Id).ToArrayAsync(ct);
         if(receipts.Length!=history.Length || lines.Length>500*history.Length)
             throw new Problem("RfqRecommendationHistoryChanged",409);
+        if(lines.Any(x=>x.DraftId!=head.Id ||!history.Any(r=>r.Id==x.RevisionId)
+            ||x.RoundId!=head.RoundId ||x.UnsealingId!=head.UnsealingId
+            ||x.SourcingEventId!=head.SourcingEventId ||x.BranchId!=head.BranchId))
+            throw new Problem("RfqRecommendationHistoryChanged",409);
         foreach(var revision in history)
         {
             var proposed=lines.Where(x=>x.RevisionId==revision.Id)
