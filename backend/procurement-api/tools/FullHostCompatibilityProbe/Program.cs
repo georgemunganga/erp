@@ -16,6 +16,28 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
+if (args.SequenceEqual(new[] { "--preflight-core-session-config" }))
+{
+    CoreLocalSessionConfigurationVerification.Verify();
+    Console.WriteLine("PASS_PRIVATE_CORE_SESSION_CONFIG_PREFLIGHT_ONLY");
+    return;
+}
+
+if (args.SequenceEqual(new[] { "--core-local-session-manifest" }) || args.SequenceEqual(new[] { "--restored-core-local-session" }))
+{
+    try
+    {
+        if(args[0]=="--core-local-session-manifest") await RestoredCoreLocalSessionVerification.DescribeAsync();
+        else await RestoredCoreLocalSessionVerification.RunAsync();
+    }
+    catch(Exception)
+    {
+        Console.Error.WriteLine("Private Core local-session verification failed; protected owner evidence required.");
+        Environment.ExitCode=1;
+    }
+    return;
+}
+
 if (args.SequenceEqual(new[] { "--restored-finite-login" }))
 {
     try { await RestoredFiniteLoginVerification.RunAsync(); }

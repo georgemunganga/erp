@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -14,7 +13,9 @@ public static class PrincipalManualQuotationSnapshot
             || bid.Status is not ("Draft" or "Cancelled") || bid.SourceChannel != "Manual"
             || lines.Count is < 1 or > 200 || lines.Select(x => x.SourcingLineId).Distinct().Count() != lines.Count)
             throw new InvalidOperationException("ManualQuotationSnapshotInvalid");
-        static string Exact(decimal value) => value.ToString(CultureInfo.InvariantCulture);
+        // PostgreSQL numeric(18,4) restores trailing zeroes that the input
+        // codec removes. Evidence must bind the exact value, not its scale.
+        static string Exact(decimal value) => ProcurementEvidenceEncoding.Decimal(value);
         return JsonSerializer.Serialize(new
         {
             schemaVersion = 2, bid.Id, bid.SourcingEventId, bid.SupplierId, bid.InvitationId,

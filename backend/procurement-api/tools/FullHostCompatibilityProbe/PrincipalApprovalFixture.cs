@@ -109,12 +109,18 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
     }
 }
 
-internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false,bool normalLocalAuthentication=false,bool principalExecutionEnabled=true):WebApplicationFactory<MonthlyLeaveAccrualWorker>
+internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false,bool normalLocalAuthentication=false,bool principalExecutionEnabled=true,
+    RestoredCoreSessionConnections? restoredCore=null):WebApplicationFactory<MonthlyLeaveAccrualWorker>
 {
     internal Dictionary<string,string?> Settings()
     {
-        var settings=OfflineHost.Settings(owner,PrincipalApprovalFixture.Tenant);
-        if(Environment.GetEnvironmentVariable("P25_HTTP_PRODUCTION_POOLING")=="1")
+        if(RestoredCoreSessionConnections.Selected&&restoredCore is null)
+            throw new InvalidOperationException("ExplicitFiniteCoreConnectionMissingNoOwnerFallback");
+        restoredCore?.RequireSelection(owner,record,execution,normalLocalAuthentication,actualSchema,
+            privateManualEvidence,principalExecutionEnabled,fixture.PrincipalRfqProfile||fixture.PrincipalPoProfile||fixture.PrincipalReceivingProfile);
+        var settings=OfflineHost.Settings(restoredCore is null?owner:restoredCore.Core,
+            restoredCore?.Tenant??PrincipalApprovalFixture.Tenant);
+        if(restoredCore is null&&Environment.GetEnvironmentVariable("P25_HTTP_PRODUCTION_POOLING")=="1")
             settings["ConnectionStrings:Hrm"]=PrincipalApprovalRuntimePrivileges.CoreRuntimeConnection(owner);
         // Probe-only timing; model parity caching stays at its default off value.
         settings["Procurement:ReadinessPerformance:DiagnosticsEnabled"]="true";
@@ -135,6 +141,14 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:Orders:PrincipalExecutionEnabled"]="true";
         }
         if(fixture.PrincipalReceivingProfile)settings["Procurement:PrincipalReceiving:Enabled"]="true";
+        if(restoredCore is not null)
+        {
+            settings["ConnectionStrings:Hrm"]=restoredCore.Core;
+            settings["ConnectionStrings:CoreDocuments"]=null;
+            settings["ERP:Database:MigrateOnStartup"]="false";
+            settings["HRM:MonthlyLeaveAccrualEnabled"]="false";
+            foreach(var key in RestoredCoreSessionConnections.DisabledFeatures)settings[key]="false";
+        }
         return settings;
     }
     internal void PrepareEntryPointEnvironment()
@@ -152,7 +166,11 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
     }
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Production");builder.ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(Settings()));
+        builder.UseEnvironment("Production");builder.ConfigureAppConfiguration((_,config)=>
+        {
+            config.AddInMemoryCollection(Settings());
+            if(restoredCore is not null)restoredCore.RequireConfiguration(config.Build(),record,execution);
+        });
         builder.ConfigureTestServices(services=>
         {
             foreach(var entry in services.Where(x=>x.ServiceType==typeof(IHostedService)&&x.ImplementationType==typeof(MonthlyLeaveAccrualWorker)).ToArray())services.Remove(entry);
