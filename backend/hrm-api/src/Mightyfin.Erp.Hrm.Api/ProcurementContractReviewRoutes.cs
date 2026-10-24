@@ -28,6 +28,10 @@ public static partial class ProcurementContractReviewRoutes
             .RequireAuthorization("procurement-contract-submit");
         group.MapPost("/{id:guid}/internal-review/assignments/{assignmentId:guid}/decide", Decide)
             .RequireAuthorization("procurement-contract-review");
+        group.MapGet("/internal-review/assigned", Assigned)
+            .RequireAuthorization("procurement-contract-review-read");
+        group.MapGet("/{id:guid}/internal-review/assignments/{assignmentId:guid}", ReviewDetail)
+            .RequireAuthorization("procurement-contract-review-read");
         group.MapGet("/internal-review/commands/{key:guid}", Recover)
             .RequireAuthorization("procurement-access");
     }
@@ -49,7 +53,10 @@ public static partial class ProcurementContractReviewRoutes
             var result = await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>()
                 .ExecuteAsync(async (db, cases, token) =>
                 {
-                    if (!await readiness.CanRecordAsync(db, token)) throw new Problem("ContractReviewUnavailable", 503);
+                    if (!(HttpMethods.IsGet(http.Request.Method)
+                        ? await readiness.IsReadReadyAsync(db, token)
+                        : await readiness.CanRecordAsync(db, token)))
+                        throw new Problem("ContractReviewUnavailable", 503);
                     await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                     return await work(db, cases, core, token);
                 }, ct);
@@ -190,6 +197,96 @@ public static partial class ProcurementContractReviewRoutes
                 && x.CommandKey == key).Select(x => x.CommandSha256).SingleAsync(token), null, token)
             ?? throw new Problem("ContractReviewReceiptNotFound", 404);
     }, ct);
+
+    private static Task<IResult> Assigned(int? page, int? pageSize, HttpContext http,
+        ProcurementRequestScope scope, CancellationToken ct)
+        => Run(http, scope, async (db, cases, core, token) =>
+        {
+            if (scope.PrincipalId?.ToString("D") != scope.SubjectId || scope.OrgUnitId is not null
+                || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
+                throw new Problem("ContractReviewScopeDenied", 403);
+            var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                scope.LegalEntityId, scope.SubjectId, token);
+            if (person is null || person.CoreLinkedWorkerId != scope.CoreLinkedWorkerId
+                || !person.Permissions.Contains("procurement-contract-review-read"))
+                throw new Problem("ContractReviewScopeDenied", 403);
+            var number = Math.Clamp(page ?? 1, 1, 100000);
+            var size = Math.Clamp(pageSize ?? 25, 1, 100);
+            var allowed = person.AllowedBranches.ToArray();
+            var branches = await core.WorkLocations.AsNoTracking().Where(x => x.TenantId == scope.TenantId
+                && x.LegalEntityId == scope.LegalEntityId && !x.IsArchived
+                && (person.OrganisationWide || allowed.Contains(x.Id))
+                && (scope.WorkLocationId == null || x.Id == scope.WorkLocationId))
+                .Select(x => x.Id).ToArrayAsync(token);
+            if (branches.Length == 0) return new Reply(JsonSerializer.Serialize(new
+                { items = Array.Empty<object>(), total = 0, page = number, pageSize = size }), 200);
+            // The own Core assignment, active stage, company and current allowed
+            // branches are all applied in PostgreSQL before count or pagination.
+            var scoped = db.ContractReviewSubmissions.FromSqlInterpolated($"""
+                SELECT DISTINCT s.* FROM procurement.contract_review_submissions AS s
+                JOIN core_approval.cases AS c ON c."Id"=s.core_case_id
+                    AND c."TenantId"=s.tenant_id AND c."LegalEntityId"=s.legal_entity_id
+                    AND c."SourceModule"='procurement' AND c."SourceType"='SupplierContractReview'
+                    AND c."SourceId"=s.id AND c."State"='Pending'
+                JOIN core_approval.assignments AS a ON a."CaseId"=c."Id"
+                    AND a."TenantId"=c."TenantId" AND a."LegalEntityId"=c."LegalEntityId"
+                    AND a."AssigneeSubjectId"={scope.SubjectId} AND a."State"='Pending'
+                    AND a."PermissionKey"='procurement-contract-review'
+                JOIN core_approval.stages AS st ON st."Id"=a."StageId"
+                    AND st."CaseId"=c."Id" AND st."State"='Active'
+                WHERE s.tenant_id={scope.TenantId} AND s.legal_entity_id={scope.LegalEntityId}
+                    AND s.review_branch_id=ANY({branches})
+                """).AsNoTracking();
+            var visible = from source in scoped
+                join contract in db.SupplierContracts.AsNoTracking() on source.ContractId equals contract.Id
+                where contract.Status == "PendingReview"
+                select new { source.Id, source.ContractId, source.CoreCaseId, source.ReviewBranchId,
+                    source.SubmittedAt, source.SubmissionNumber, contract.Number, contract.Title,
+                    contract.CurrencyCode, contract.Version };
+            var total = await visible.CountAsync(token);
+            var items = await visible.OrderByDescending(x => x.SubmittedAt).ThenByDescending(x => x.Id)
+                .Skip((number - 1) * size).Take(size).ToArrayAsync(token);
+            return new Reply(JsonSerializer.Serialize(new { items, total, page = number, pageSize = size }), 200);
+        }, ct);
+
+    private static Task<IResult> ReviewDetail(Guid id, Guid assignmentId, HttpContext http,
+        ProcurementRequestScope scope, CancellationToken ct)
+        => Run(http, scope, async (db, cases, core, token) =>
+        {
+            var own = await cases.Assignments.AsNoTracking().Where(x => x.Id == assignmentId
+                && x.AssigneeSubjectId == scope.SubjectId && x.State == "Pending")
+                .Select(x => new { x.CaseId, x.StageId, x.Version }).SingleOrDefaultAsync(token);
+            if (own is null) throw new Problem("ContractReviewAssignmentNotFound", 404);
+            var source = await db.ContractReviewSubmissions.AsNoTracking().SingleOrDefaultAsync(x => x.ContractId == id
+                && x.CoreCaseId == own.CaseId, token) ?? throw new Problem("ContractReviewAssignmentNotFound", 404);
+            try { _ = await Actor(core, scope, "procurement-contract-review-read", source.ReviewBranchId, token); }
+            catch (Problem) { throw new Problem("ContractReviewAssignmentNotFound", 404); }
+            var contract = await db.SupplierContracts.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id
+                && x.Status == "PendingReview", token) ?? throw new Problem("ContractReviewAssignmentNotFound", 404);
+            var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == source.PolicyVersionId, token)
+                ?? throw new Problem("ContractReviewSourceChanged", 409);
+            await ProcurementPolicyDraftRoutes.ContractPolicyPublished(db, scope, policy, token,
+                OperationalPolicyPublicationMode.RetainedHistorical);
+            var workflow = await cases.Cases.AsNoTracking().Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                .SingleOrDefaultAsync(x => x.Id == own.CaseId && x.State == "Pending", token)
+                ?? throw new Problem("ContractReviewAssignmentNotFound", 404);
+            var pins = ContractReviewAssignmentPins.Verify(source, workflow, policy);
+            if (!pins.Any(x => x.AssignmentId == assignmentId && x.PrincipalId == scope.SubjectId)
+                || !workflow.Stages.Any(x => x.Id == own.StageId && x.State == "Active"))
+                throw new Problem("ContractReviewAssignmentNotFound", 404);
+            var decisions = await cases.Decisions.AsNoTracking().Where(x => x.CaseId == workflow.Id).ToArrayAsync(token);
+            ContractReviewCoreHistory.VerifyPending(source, workflow, pins, decisions);
+            using var termsDocument = JsonDocument.Parse(source.TermsJson);
+            return new Reply(JsonSerializer.Serialize(new
+            {
+                source.Id, source.ContractId, source.CoreCaseId, source.ReviewBranchId,
+                source.SubmissionNumber, source.SubmittedAt, source.TermsSha256,
+                terms = termsDocument.RootElement.Clone(),
+                contract.Number, contract.Title, contract.SupplierId, contract.CurrencyCode,
+                contractVersion = contract.Version, caseVersion = workflow.Version,
+                assignmentVersion = own.Version, assignmentId,
+            }), 200);
+        }, ct);
 
     private static Task<IResult> Decide(Guid id, Guid assignmentId, DecisionInput input,
         HttpContext http, ProcurementRequestScope scope, CancellationToken ct)

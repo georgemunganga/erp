@@ -16,11 +16,13 @@ public sealed class ProcurementContractReviewOptions
 
 public interface IProcurementContractReviewSchemaReadiness
 {
+    Task<bool> IsReadReadyAsync(ProcurementDbContext owner, CancellationToken ct);
     Task<bool> CanRecordAsync(ProcurementDbContext owner, CancellationToken ct);
 }
 
 public sealed class UnavailableProcurementContractReviewSchemaReadiness : IProcurementContractReviewSchemaReadiness
 {
+    public Task<bool> IsReadReadyAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(false);
     public Task<bool> CanRecordAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(false);
 }
 
