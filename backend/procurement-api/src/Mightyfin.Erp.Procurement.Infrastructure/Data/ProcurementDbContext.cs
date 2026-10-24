@@ -542,6 +542,9 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigurePrincipalOrderRevision(modelBuilder);
         ConfigurePrincipalOrderGovernance(modelBuilder);
         ConfigurePrincipalReceiving(modelBuilder);
+        ConfigureRfqCommercialDraft(modelBuilder);
+        ConfigureRfqCommercialRound(modelBuilder);
+        ConfigureRfqPreparation(modelBuilder);
         ConfigureSourcingDraftExecution(modelBuilder);
         ConfigureSourcingPolicyIdentity(modelBuilder);
         ConfigureSourcingPublication(modelBuilder);
@@ -742,6 +745,10 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardPrincipalOrderRevision();
         GuardPrincipalOrderGovernance();
         GuardPrincipalReceiving();
+        GuardRfqCommercialDraft();
+        GuardSealedCommercialQuoteDrafts();
+        GuardRfqCommercialRound();
+        GuardRfqPreparation();
         GuardReceivingExecution();
         GuardLegacyInvoiceAgainstPrincipalWorkflow();
         GuardInvoiceMatchingExecution();
