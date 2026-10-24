@@ -1,0 +1,29 @@
+{
+  "status": "GENUINE_EF_GENERATION_SOURCE_REVIEW_RUNTIME_PENDING",
+  "date": "2026-10-24",
+  "migration": "20261024014732_P31PrincipalInvoiceMatching",
+  "sourceBeforeGeneration": "601a38d2a731ce95865aa39b48a4e1eb790286cc",
+  "newTables": 13,
+  "existingParentUniqueConstraints": 3,
+  "existingColumnChanges": 0,
+  "designerAndSnapshotUnchangedFromRawGeneration": true,
+  "rawGeneratedSha256": {
+    "ProcurementDbContextModelSnapshot.cs": "3710b2b59b7932cf590d0303305f58e2e029acc12366a48afa82bb14f08fb171",
+    "20261024014732_P31PrincipalInvoiceMatching.Designer.cs": "9e8f6b9326b28a40e56327f3d2bc2cb39867cad48e569ad806cd8d932f218507",
+    "20261024014732_P31PrincipalInvoiceMatching.cs": "234988afd979d9491897cdede8e34190d256accc282ebf5439a4417cbf5e98ac"
+  },
+  "authoredOverlay": "Down first statement invokes13-table ACCESS EXCLUSIVE retention guard; any retained row raises55000 before removal",
+  "privateEvidence": "/home/amizo/erp-backups/procurement-p31-schema-20261024_run02",
+  "firstAttempt": "run01 compile duplicate local variable; corrected601a38d2 before generation",
+  "readinessCapturePopulated": false,
+  "appliedToPrivateDatabase": false,
+  "productionTouched": false,
+  "remaining": [
+    "Rebuild with authored retention guard and has-pending-model-changes check",
+    "Actual private Up/Down/Up preserving P30 rows",
+    "Capture actual generated keys/CHECK/FK/index/columns into fail-closed readiness",
+    "All13 retained-family55000/no-effect proofs and mapped Map/Compare transaction save ordering",
+    "Backend authorization/replay/current-document/policy/exact-exposure tests",
+    "Existing UI contract, type, browser and normal-session integration acceptance"
+  ]
+}

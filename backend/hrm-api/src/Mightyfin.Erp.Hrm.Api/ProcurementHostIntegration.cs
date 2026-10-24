@@ -85,6 +85,13 @@ public static class ProcurementHostIntegration
         matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(matchingOptions);
         services.AddScoped<IProcurementInvoiceMatchingSchemaReadiness, ProcurementInvoiceMatchingSchemaReadiness>();
+        var principalInvoiceOptions = configuration.GetSection("Procurement:PrincipalInvoiceMatching")
+            .Get<ProcurementPrincipalInvoiceMatchingOptions>() ?? new();
+        services.AddSingleton(principalInvoiceOptions);
+        var principalInvoiceSourceOptions = configuration.GetSection("Procurement:PrincipalInvoiceSources")
+            .Get<ProcurementPrincipalInvoiceSourceOptions>() ?? new();
+        services.AddSingleton(principalInvoiceSourceOptions);
+        services.AddScoped<IProcurementPrincipalInvoiceSchemaReadiness, ProcurementPrincipalInvoiceStoreReadiness>();
         var unitReviewOptions = configuration.GetSection("Procurement:InvoiceUnitReview").Get<ProcurementInvoiceUnitReviewOptions>() ?? new();
         unitReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(unitReviewOptions);
@@ -136,6 +143,12 @@ public static class ProcurementHostIntegration
         ProcurementInvoiceIntakeRoutes.MapCreditRoutes(app);
         ProcurementInvoiceMatchingRoutes.MapRoutes(app);
         ProcurementInvoiceUnitReviewRoutes.MapRoutes(app);
+        ProcurementPrincipalInvoiceSourceRoutes.MapRoutes(app);
+        ProcurementPrincipalInvoiceMappingRoutes.MapRoutes(app);
+        ProcurementPrincipalInvoiceReviewRoutes.MapRoutes(app);
+        ProcurementPrincipalInvoiceComparisonRoutes.MapRoutes(app);
+        ProcurementPrincipalInvoiceDiscrepancyRoutes.MapRoutes(app);
+        ProcurementPrincipalInvoiceStatusRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
         ProcurementPrincipalOrderDraftRoutes.MapRoutes(app);
@@ -167,6 +180,11 @@ public static class ProcurementHostIntegration
                 var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
                     && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
                 var originalUnitReview = !pending && await ProcurementInvoiceUnitReviewCapability.ReadyAsync(services, ct);
+                var principalInvoiceMatching = !pending
+                    && services.GetService<ProcurementPrincipalInvoiceMatchingOptions>() is { Enabled: true }
+                    && services.GetService<ProcurementPrincipalInvoiceSourceOptions>() is { Enabled: true }
+                    && services.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is { } principalInvoiceReadiness
+                    && await principalInvoiceReadiness.IsReadyAsync(ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
                     ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
@@ -295,6 +313,7 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().ExecutionDatabaseConfigured
                             && await services.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(ct),
                         invoiceOriginalUnitReview = originalUnitReview, // Configured availability only; per-record policy/actor/document guards still apply.
+                        principalInvoiceMatching, // Separate default-off PO2 contract; never inferred from legacy comparison.
                         invoiceQualifiedClaims = false, // No authenticated complete Finance history owner is installed.
                         invoiceValidation = false,
                         financeHandoff = false,
