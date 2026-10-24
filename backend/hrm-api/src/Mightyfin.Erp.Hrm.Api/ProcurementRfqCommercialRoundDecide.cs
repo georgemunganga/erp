@@ -123,7 +123,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 await documents.Database.UseTransactionAsync(
                     db.Database.CurrentTransaction!.GetDbTransaction(), token);
                 await RequireRetainedCommercialRequirementsAsync(db, documents, scope,
-                    prepared, head, revision, token, currentAssignmentAuthorized: true);
+                    prepared, head, revision, token, currentPurposeAuthorized: true);
             }
             var policy = await db.PolicyVersions.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.Id == opening.CommercialPolicyVersionId

@@ -55,6 +55,7 @@ public sealed partial class ProcurementDbContext
         decisions.Property(x => x.CoreOutcomeSha256).HasMaxLength(64);
         offers.Property(x => x.RecorderPrincipalId).HasMaxLength(36);
         offers.Property(x => x.OriginalDocumentSha256).HasMaxLength(64);
+        offers.Property(x => x.OriginalDocumentSelectionDigest).HasMaxLength(64);
         offers.Property(x => x.SnapshotJson).HasColumnType("text");
         offers.Property(x => x.SnapshotSha256).HasMaxLength(64);
         seals.Property(x => x.OfficerPrincipalId).HasMaxLength(36);
@@ -204,7 +205,7 @@ public sealed partial class ProcurementDbContext
         openings.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_opening", "schema_version=1 AND id"+nz+" AND commercial_policy_key='SOURCING_COMMERCIAL_ROUND' AND published_policy_identity_stage='Published' AND core_case_id=id AND event_version>0 AND sourcing_event_id"+nz+" AND prepared_plan_id"+nz+" AND commercial_policy_version_id"+nz+" AND published_policy_identity_id"+nz+" AND core_case_id"+nz+" AND branch_id"+nz+" AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id"+nz+") AND closing_officer_principal_id IS NOT NULL AND closing_officer_principal_id <> '00000000-0000-0000-0000-000000000000' AND closing_officer_principal_id"+canonical+" AND (closing_officer_worker_alias_id IS NULL OR closing_officer_worker_alias_id"+nz+") AND prepared_plan_sha256 IS NOT NULL AND prepared_plan_sha256"+hash+" AND policy_rules_sha256 IS NOT NULL AND policy_rules_sha256"+hash+" AND snapshot_sha256 IS NOT NULL AND snapshot_sha256"+hash+" AND opens_at<closes_at AND isfinite(opens_at) AND isfinite(closes_at)"));
         votes.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_vote", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND core_case_id=opening_id AND core_decision_id"+nz+" AND core_assignment_id"+nz+" AND action IN ('Approve','Return','Reject') AND case_state IN ('Pending','Approved','Returned','Rejected') AND case_version>0 AND assignment_version>0 AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id"+nz+") AND isfinite(decided_at)"));
         decisions.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_decision", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND terminal_vote_id"+nz+" AND state IN ('Approved','Returned','Rejected') AND core_case_id"+nz+" AND core_decision_id"+nz+" AND core_assignment_id"+nz+" AND actor_principal_id IS NOT NULL AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND actor_principal_id"+canonical+" AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id"+nz+") AND opening_sha256 IS NOT NULL AND opening_sha256"+hash+" AND core_outcome_sha256 IS NOT NULL AND core_outcome_sha256"+hash+" AND isfinite(decided_at)"));
-        offers.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_offer", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND supplier_bid_id"+nz+" AND invitation_id"+nz+" AND supplier_id"+nz+" AND approved_decision_id"+nz+" AND draft_revision>0 AND bid_version>0 AND original_document_version_id"+nz+" AND original_document_sha256 IS NOT NULL AND original_document_sha256"+hash+" AND recorder_principal_id IS NOT NULL AND recorder_principal_id <> '00000000-0000-0000-0000-000000000000' AND recorder_principal_id"+canonical+" AND (recorder_worker_alias_id IS NULL OR recorder_worker_alias_id"+nz+") AND snapshot_sha256 IS NOT NULL AND snapshot_sha256"+hash+" AND reported_received_at<=submitted_at AND isfinite(reported_received_at) AND isfinite(submitted_at)"));
+        offers.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_offer", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND supplier_bid_id"+nz+" AND invitation_id"+nz+" AND supplier_id"+nz+" AND approved_decision_id"+nz+" AND draft_revision>0 AND bid_version>0 AND original_document_version_id"+nz+" AND original_document_sha256 IS NOT NULL AND original_document_sha256"+hash+" AND original_document_use_set_id"+nz+" AND original_document_selection_digest IS NOT NULL AND original_document_selection_digest"+hash+" AND recorder_principal_id IS NOT NULL AND recorder_principal_id <> '00000000-0000-0000-0000-000000000000' AND recorder_principal_id"+canonical+" AND (recorder_worker_alias_id IS NULL OR recorder_worker_alias_id"+nz+") AND snapshot_sha256 IS NOT NULL AND snapshot_sha256"+hash+" AND reported_received_at<=submitted_at AND isfinite(reported_received_at) AND isfinite(submitted_at)"));
         seals.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_seal", "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz+" AND branch_id"+nz+" AND approved_decision_id"+nz+" AND officer_principal_id IS NOT NULL AND officer_principal_id <> '00000000-0000-0000-0000-000000000000' AND officer_principal_id"+canonical+" AND (officer_worker_alias_id IS NULL OR officer_worker_alias_id"+nz+") AND submission_count BETWEEN 0 AND 500 AND submission_set_sha256 IS NOT NULL AND submission_set_sha256"+hash+" AND isfinite(closed_at)"));
         receipts.ToTable(t => t.HasCheckConstraint("ck_principal_rfq_commercial_receipt",
             "schema_version=1 AND id"+nz+" AND opening_id"+nz+" AND sourcing_event_id"+nz
@@ -545,6 +546,36 @@ public sealed partial class ProcurementDbContext
                     || invitation.SupplierId != offer.SupplierId
                     || offer.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(offer.SnapshotJson))
                     throw new InvalidOperationException("RfqCommercialApprovedRoundRequired");
+                var documents = rfqDocumentOwner;
+                if (documents?.Database.CurrentTransaction is null
+                    || !ReferenceEquals(documents.Database.GetDbConnection(), Database.GetDbConnection())
+                    || !ReferenceEquals(documents.Database.CurrentTransaction.GetDbTransaction(),
+                        Database.CurrentTransaction?.GetDbTransaction())
+                    || !rfqInsertedUseSets.Contains(offer.OriginalDocumentUseSetId))
+                    throw new InvalidOperationException("RfqCommercialOriginalDocumentUseRequired");
+                var set = documents.UseSets.Local.SingleOrDefault(x =>
+                    x.Id == offer.OriginalDocumentUseSetId);
+                var pins = documents.UsePins.Local.Where(x =>
+                    x.UseSetId == offer.OriginalDocumentUseSetId).ToArray();
+                var originalReceipt = addedReceipts.SingleOrDefault(x =>
+                    x.TargetId == offer.Id && x.Operation == "SubmitOffer");
+                if (set is null || originalReceipt is null || pins.Length != 1
+                    || set.TenantId != scope.TenantId || set.LegalEntityId != scope.LegalEntityId
+                    || set.OwnerModule != "procurement" || set.OwnerType != "sourcing_event"
+                    || set.OwnerId != offer.SourcingEventId
+                    || set.SourceModule != "procurement"
+                    || set.SourceRecordType != "sourcing_commercial_offer"
+                    || set.SourceRecordId != offer.SupplierBidId
+                    || set.SourceRevision != offer.DraftRevision
+                    || set.Kind != Mightyfin.Erp.Core.Documents.Domain.DocumentUseKind.Publication
+                    || set.UseKey != originalReceipt.CommandKey
+                    || set.CreatedBy != offer.RecorderPrincipalId
+                    || set.SelectionDigest != offer.OriginalDocumentSelectionDigest
+                    || set.SelectionCount != 1
+                    || pins[0].DocumentId == Guid.Empty
+                    || pins[0].VersionId != offer.OriginalDocumentVersionId
+                    || pins[0].Sha256 != offer.OriginalDocumentSha256)
+                    throw new InvalidOperationException("RfqCommercialOriginalDocumentUseChanged");
             }
             if (entry.Entity is PrincipalRfqCommercialRoundSealRecord seal)
             {

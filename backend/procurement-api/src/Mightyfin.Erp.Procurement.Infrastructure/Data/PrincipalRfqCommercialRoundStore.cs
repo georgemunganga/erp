@@ -136,7 +136,8 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
         PrincipalRfqCommercialRoundOpeningRecord opening,
         PrincipalRfqCommercialRoundDecisionRecord approved,
         PrincipalRfqManualOfferSubmission submission, RfqPrincipalActor actor,
-        Guid commandKey, string requestSha256)
+        Guid commandKey, string requestSha256,
+        Guid originalDocumentUseSetId, string originalDocumentSelectionDigest)
     {
         Enlisted(opening.BranchId);
         RequireActor(actor, opening.BranchId);
@@ -149,6 +150,8 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
             || submission.RecorderPrincipalId != actor.PrincipalId
             || submission.RecorderWorkerAliasId != actor.LinkedWorkerId
             || !OpeningAudienceContains(opening.SnapshotJson, submission.SupplierId)
+            || originalDocumentUseSetId == Guid.Empty
+            || !Hash(originalDocumentSelectionDigest)
             || submission.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(submission.SnapshotJson))
             throw new InvalidOperationException("RfqCommercialOfferProofChanged");
         if (db.PrincipalRfqCommercialRoundSeals.AsNoTracking()
@@ -163,6 +166,8 @@ public sealed class PrincipalRfqCommercialRoundStore(ProcurementDbContext db, IP
             BidVersion = submission.BidVersion,
             OriginalDocumentVersionId = submission.OriginalDocumentVersionId,
             OriginalDocumentSha256 = submission.OriginalDocumentSha256,
+            OriginalDocumentUseSetId = originalDocumentUseSetId,
+            OriginalDocumentSelectionDigest = originalDocumentSelectionDigest,
             RecorderPrincipalId = actor.PrincipalId,
             RecorderWorkerAliasId = actor.LinkedWorkerId,
             ReportedReceivedAt = submission.ReportedReceivedAt,

@@ -82,6 +82,8 @@ public sealed class PrincipalRfqCommercialOfferSubmissionRecord : ProcurementRec
     public long BidVersion { get; init; }
     public Guid OriginalDocumentVersionId { get; init; }
     public string OriginalDocumentSha256 { get; init; } = null!;
+    public Guid OriginalDocumentUseSetId { get; init; }
+    public string OriginalDocumentSelectionDigest { get; init; } = null!;
     public string RecorderPrincipalId { get; init; } = null!;
     public Guid? RecorderWorkerAliasId { get; init; }
     public DateTimeOffset ReportedReceivedAt { get; init; }
