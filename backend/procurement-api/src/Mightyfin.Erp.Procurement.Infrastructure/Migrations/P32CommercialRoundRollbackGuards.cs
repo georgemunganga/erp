@@ -47,10 +47,20 @@ internal static class P32CommercialRoundRollbackGuards
             OR EXISTS (SELECT 1 FROM procurement.principal_rfq_commercial_offer_openings)
             OR EXISTS (SELECT 1 FROM procurement.principal_rfq_commercial_offer_opening_receipts)
             OR EXISTS (SELECT 1 FROM procurement.audit_events
-                       WHERE record_type IN ('PrincipalRfqOfferOpeningRecord','PrincipalRfqOfferOpeningReceipt',
-                           'PrincipalRfqCriterionAssessmentRecord','PrincipalRfqCriterionAssessmentReceipt'))
+                       WHERE record_type IN (
+                           'PrincipalRfqCommercialDraftHead','PrincipalRfqCommercialDraftRevision',
+                           'PrincipalRfqCommercialDraftReceipt','PrincipalRfqPreparedPlan',
+                           'PrincipalRfqPreparationReceipt','PrincipalRfqCommercialRoundOpeningRecord',
+                           'PrincipalRfqCommercialRoundVoteRecord','PrincipalRfqCommercialRoundDecisionRecord',
+                           'PrincipalRfqCommercialOfferSubmissionRecord','PrincipalRfqCommercialRoundSealRecord',
+                           'PrincipalRfqCommercialCommandReceipt','PrincipalRfqOfferOpeningRecord',
+                           'PrincipalRfqOfferOpeningReceipt','PrincipalRfqCriterionAssessmentRecord',
+                           'PrincipalRfqCriterionAssessmentReceipt'))
             OR EXISTS (SELECT 1 FROM procurement.outbox_events
-                       WHERE event_type IN ('sourcing.commercial_offers_opened.v1',
+                       WHERE event_type IN ('sourcing.commercial_draft_changed.v1',
+                           'sourcing.prepared_candidate_recorded.v1',
+                           'sourcing.commercial_round_recorded.v1',
+                           'sourcing.commercial_offers_opened.v1',
                            'sourcing.criterion_assessment_recorded.v1'))
             OR EXISTS (SELECT 1 FROM procurement.policy_versions
                        WHERE policy_key = 'SOURCING_COMMERCIAL_ROUND')

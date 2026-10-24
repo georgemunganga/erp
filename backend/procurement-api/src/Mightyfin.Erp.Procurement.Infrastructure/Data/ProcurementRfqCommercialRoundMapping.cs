@@ -384,22 +384,22 @@ public sealed partial class ProcurementDbContext
                     || addedReceipts.Count(x => x.VoteTargetId == vote.Id
                         && x.DecisionTargetId == decision.Id && x.CommandKey != Guid.Empty) != 1)
                     throw new InvalidOperationException("RfqCommercialTerminalVoteRequired");
-                var opening = PrincipalRfqCommercialRoundOpenings.Local.SingleOrDefault(x => x.Id == decision.OpeningId)
+                var decisionOpening = PrincipalRfqCommercialRoundOpenings.Local.SingleOrDefault(x => x.Id == decision.OpeningId)
                     ?? PrincipalRfqCommercialRoundOpenings.AsNoTracking().SingleOrDefault(x => x.Id == decision.OpeningId);
-                if (opening is null || opening.SourcingEventId != decision.SourcingEventId
-                    || opening.BranchId != decision.BranchId
-                    || opening.CoreCaseId != decision.CoreCaseId
-                    || opening.SnapshotSha256 != decision.OpeningSha256)
+                if (decisionOpening is null || decisionOpening.SourcingEventId != decision.SourcingEventId
+                    || decisionOpening.BranchId != decision.BranchId
+                    || decisionOpening.CoreCaseId != decision.CoreCaseId
+                    || decisionOpening.SnapshotSha256 != decision.OpeningSha256)
                     throw new InvalidOperationException("RfqCommercialDecisionOpeningChanged");
             }
             if (entry.Entity is PrincipalRfqCommercialRoundVoteRecord voteRecord)
             {
-                var opening = PrincipalRfqCommercialRoundOpenings.Local.SingleOrDefault(x => x.Id == voteRecord.OpeningId)
+                var voteOpening = PrincipalRfqCommercialRoundOpenings.Local.SingleOrDefault(x => x.Id == voteRecord.OpeningId)
                     ?? PrincipalRfqCommercialRoundOpenings.AsNoTracking().SingleOrDefault(x => x.Id == voteRecord.OpeningId);
-                var receipt = addedReceipts.SingleOrDefault(x => x.VoteTargetId == voteRecord.Id);
-                if (opening is null || opening.SourcingEventId != voteRecord.SourcingEventId
-                    || opening.BranchId != voteRecord.BranchId || opening.CoreCaseId != voteRecord.CoreCaseId
-                    || receipt is null || receipt.CommandKey == Guid.Empty
+                var voteReceipt = addedReceipts.SingleOrDefault(x => x.VoteTargetId == voteRecord.Id);
+                if (voteOpening is null || voteOpening.SourcingEventId != voteRecord.SourcingEventId
+                    || voteOpening.BranchId != voteRecord.BranchId || voteOpening.CoreCaseId != voteRecord.CoreCaseId
+                    || voteReceipt is null || voteReceipt.CommandKey == Guid.Empty
                     || sharedApprovalCore?.Database.CurrentTransaction is null
                     || sharedApprovalTransaction is null
                     || !ReferenceEquals(sharedApprovalTransaction, Database.CurrentTransaction?.GetDbTransaction())
@@ -417,23 +417,23 @@ public sealed partial class ProcurementDbContext
                     sharedApprovalCore, voteRecord.CoreCaseId,
                     voteRecord.CoreDecisionId, voteRecord.CoreAssignmentId);
                 var prepared = PrincipalRfqPreparedPlans.AsNoTracking()
-                    .SingleOrDefault(x => x.Id == opening.PreparedPlanId);
+                    .SingleOrDefault(x => x.Id == voteOpening.PreparedPlanId);
                 if (coreDecision is null || coreCase is null || assignment is null || prepared is null
                     || coreCase.TenantId != scope.TenantId || coreCase.LegalEntityId != scope.LegalEntityId
                     || coreCase.SourceModule != "procurement"
                     || coreCase.SourceType != PrincipalRfqCommercialRoundCoreWorkflow.SourceType
-                    || coreCase.SourceId != opening.PreparedPlanId || coreCase.Id != opening.Id
+                    || coreCase.SourceId != voteOpening.PreparedPlanId || coreCase.Id != voteOpening.Id
                     || coreCase.SourceVersion != prepared.DraftRevision
-                    || prepared.SnapshotSha256 != opening.PreparedPlanSha256
-                    || coreCase.PolicyVersionId != opening.CommercialPolicyVersionId
-                    || coreCase.MakerSubjectId != opening.ActorPrincipalId
+                    || prepared.SnapshotSha256 != voteOpening.PreparedPlanSha256
+                    || coreCase.PolicyVersionId != voteOpening.CommercialPolicyVersionId
+                    || coreCase.MakerSubjectId != voteOpening.ActorPrincipalId
                     || coreCase.State != voteRecord.CaseState || coreCase.Version != voteRecord.CaseVersion
                     || coreDecision.CaseId != coreCase.Id || coreDecision.AssignmentId != assignment.Id
                     || coreDecision.StageId != assignment.StageId
                     || coreDecision.TenantId != scope.TenantId || coreDecision.LegalEntityId != scope.LegalEntityId
                     || coreDecision.ActorSubjectId != voteRecord.ActorPrincipalId
                     || coreDecision.Action != voteRecord.Action
-                    || coreDecision.IdempotencyKey != receipt.CommandKey.ToString("D")
+                    || coreDecision.IdempotencyKey != voteReceipt.CommandKey.ToString("D")
                     || ProcurementEvidenceEncoding.DatabaseTimestamp(coreDecision.DecidedAt) != voteRecord.DecidedAt
                     || assignment.AssigneeSubjectId != voteRecord.ActorPrincipalId
                     || assignment.CaseId != coreCase.Id
@@ -538,12 +538,12 @@ public sealed partial class ProcurementDbContext
                 if (PrincipalRfqCommercialRoundSeals.AsNoTracking()
                     .Any(x => x.OpeningId == offer.OpeningId))
                     throw new InvalidOperationException("RfqCommercialRoundAlreadyClosed");
-                var decision = PrincipalRfqCommercialRoundDecisions.Local.SingleOrDefault(x => x.Id == offer.ApprovedDecisionId)
+                var approvedOfferDecision = PrincipalRfqCommercialRoundDecisions.Local.SingleOrDefault(x => x.Id == offer.ApprovedDecisionId)
                     ?? PrincipalRfqCommercialRoundDecisions.AsNoTracking().SingleOrDefault(x => x.Id == offer.ApprovedDecisionId);
                 var bid = SupplierBids.AsNoTracking().SingleOrDefault(x => x.Id == offer.SupplierBidId);
                 var invitation = SourcingInvitations.AsNoTracking().SingleOrDefault(x => x.Id == offer.InvitationId);
-                if (decision?.State != "Approved" || decision.OpeningId != offer.OpeningId
-                    || decision.SourcingEventId != offer.SourcingEventId || decision.BranchId != offer.BranchId
+                if (approvedOfferDecision?.State != "Approved" || approvedOfferDecision.OpeningId != offer.OpeningId
+                    || approvedOfferDecision.SourcingEventId != offer.SourcingEventId || approvedOfferDecision.BranchId != offer.BranchId
                     || bid is null || bid.SourcingEventId != offer.SourcingEventId
                     || bid.SupplierId != offer.SupplierId || bid.InvitationId != offer.InvitationId
                     || invitation is null || invitation.SourcingEventId != offer.SourcingEventId
@@ -583,17 +583,17 @@ public sealed partial class ProcurementDbContext
             }
             if (entry.Entity is PrincipalRfqCommercialRoundSealRecord seal)
             {
-                var decision = PrincipalRfqCommercialRoundDecisions.Local.SingleOrDefault(x => x.Id == seal.ApprovedDecisionId)
+                var approvedSealDecision = PrincipalRfqCommercialRoundDecisions.Local.SingleOrDefault(x => x.Id == seal.ApprovedDecisionId)
                     ?? PrincipalRfqCommercialRoundDecisions.AsNoTracking().SingleOrDefault(x => x.Id == seal.ApprovedDecisionId);
-                if (decision?.State != "Approved" || decision.OpeningId != seal.OpeningId
-                    || decision.SourcingEventId != seal.SourcingEventId || decision.BranchId != seal.BranchId)
+                if (approvedSealDecision?.State != "Approved" || approvedSealDecision.OpeningId != seal.OpeningId
+                    || approvedSealDecision.SourcingEventId != seal.SourcingEventId || approvedSealDecision.BranchId != seal.BranchId)
                     throw new InvalidOperationException("RfqCommercialApprovedRoundRequired");
                 var offers = PrincipalRfqCommercialOfferSubmissions.AsNoTracking()
                     .Where(x => x.OpeningId == seal.OpeningId).OrderBy(x => x.SupplierBidId).ToArray();
                 var exactSet = JsonSerializer.Serialize(offers.Select(x => new
                 { BidId = x.SupplierBidId, x.SupplierId, x.SnapshotSha256 }));
                 if (offers.Length != seal.SubmissionCount
-                    || offers.Any(x => x.ApprovedDecisionId != decision.Id
+                    || offers.Any(x => x.ApprovedDecisionId != approvedSealDecision.Id
                         || x.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(x.SnapshotJson))
                     || seal.SubmissionSetSha256 != ProcurementEvidenceEncoding.Digest(exactSet))
                     throw new InvalidOperationException("RfqCommercialSubmissionSetChanged");

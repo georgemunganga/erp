@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Migrations;
 
@@ -51,5 +52,36 @@ public sealed class P32CommercialRoundRollbackGuardsTests
         Assert.Contains("'PrincipalRfqCriterionAssessmentRecord'", sql);
         Assert.Contains("'sourcing.commercial_offers_opened.v1'", sql);
         Assert.Contains("'sourcing.criterion_assessment_recorded.v1'", sql);
+    }
+
+    [Fact]
+    public void Down_veto_enumerates_every_owned_record_type_and_event_type_in_shared_history()
+    {
+        var sql=P32CommercialRoundRollbackGuards.BeforeDownSql;
+        var auditTypes=new[]{
+            nameof(PrincipalRfqCommercialDraftHead),nameof(PrincipalRfqCommercialDraftRevision),
+            nameof(PrincipalRfqCommercialDraftReceipt),nameof(PrincipalRfqPreparedPlan),
+            nameof(PrincipalRfqPreparationReceipt),nameof(PrincipalRfqCommercialRoundOpeningRecord),
+            nameof(PrincipalRfqCommercialRoundVoteRecord),nameof(PrincipalRfqCommercialRoundDecisionRecord),
+            nameof(PrincipalRfqCommercialOfferSubmissionRecord),nameof(PrincipalRfqCommercialRoundSealRecord),
+            nameof(PrincipalRfqCommercialCommandReceipt),nameof(PrincipalRfqOfferOpeningRecord),
+            nameof(PrincipalRfqOfferOpeningReceipt),nameof(PrincipalRfqCriterionAssessmentRecord),
+            nameof(PrincipalRfqCriterionAssessmentReceipt)};
+        var auditArm=Regex.Match(sql,@"OR EXISTS \(SELECT 1 FROM procurement\.audit_events\s+WHERE record_type IN \((.*?)\)\)",RegexOptions.Singleline);
+        Assert.True(auditArm.Success);
+        var protectedAuditTypes=Regex.Matches(auditArm.Groups[1].Value,@"'([^']+)'")
+            .Select(x=>x.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
+        Assert.Equal(auditTypes.Length,protectedAuditTypes.Count);
+        Assert.True(auditTypes.ToHashSet(StringComparer.Ordinal).SetEquals(protectedAuditTypes));
+        var outboxArm=Regex.Match(sql,@"OR EXISTS \(SELECT 1 FROM procurement\.outbox_events\s+WHERE event_type IN \((.*?)\)\)",RegexOptions.Singleline);
+        Assert.True(outboxArm.Success);
+        var protectedEvents=Regex.Matches(outboxArm.Groups[1].Value,@"'([^']+)'")
+            .Select(x=>x.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
+        Assert.True(new[]{"sourcing.commercial_draft_changed.v1",
+            "sourcing.prepared_candidate_recorded.v1","sourcing.commercial_round_recorded.v1",
+            "sourcing.commercial_offers_opened.v1","sourcing.criterion_assessment_recorded.v1"}
+            .ToHashSet(StringComparer.Ordinal).SetEquals(protectedEvents));
+        Assert.Equal(5,protectedEvents.Count);
+        Assert.Contains("ERRCODE = '55000'",sql,StringComparison.Ordinal);
     }
 }
