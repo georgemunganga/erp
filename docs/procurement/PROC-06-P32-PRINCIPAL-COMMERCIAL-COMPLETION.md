@@ -545,3 +545,54 @@ key, lost-response recovery and zero effects on each denied branch. Genuine
 P32 DDL/readiness/private HTTP/browser gates remain outstanding. Business must
 configure reviewers, closer and windows; Finance and award authority stay
 outside this decision.
+
+### Eighth bounded slice — retained commercial evidence owner proposal
+
+**Identification, purpose and scope:** the additive P32 owner proposes five
+append-only record families: round opening, terminal Core decision, manual
+offer submission, round seal and actor-owned command receipt. They preserve
+commercial evidence for one published RFQ and branch; they do not alter the
+P30 sourcing publication, supplier bid Draft, Finance or award ledgers.
+**Parents, actors and entry:** a genuinely published prepared plan and P32
+operational policy identity precede a distinct Core commercial case. The
+current requester, assigned reviewer, surrogate recorder and named closer
+execute their own scoped actions under an enlisted serializable transaction.
+Core identity does not depend on an HRMS worker; a known worker alias is a
+denial-only SOD signal.
+
+**Workflow, states and rules:** Open retains the exact plan/source/policy/case
+and frozen supplier set; Decide records one complete Approved, Returned or
+Rejected Core outcome. Only Approved plus server-observed open window permits
+SubmitOffer. SubmitOffer retains the original document version/hash, exact
+line snapshot and recorder without making that recorder a supplier identity.
+Close at/after the window seals the actual persisted offer set. Return/Reject
+cannot create accepting supplier authority. The Core history verifier checks
+each stage, assignment, exact One/All quorum, order, terminal decision and
+completion key. The published policy parser rejects repeated reviewers and
+closer overlap before configuration can publish.
+
+**Ownership, fields, security and recovery:** exact tenant/company/event/
+branch keys link every new record; prepared plan SHA and operational policy
+identity fields bind opening to immutable parents, and supplier bid and
+invitation match event/supplier. Typed receipt target FKs and same-save guards
+join each effect to the original command. Reads/replay still require current
+Core action and branch checks before returning the original response; a
+receipt row alone grants nothing. No price appears in general sourcing lists.
+Opening and offer snapshots are self-hashed and re-bound to outer IDs. Core
+document use must be enlisted with the business command, never inferred from
+an uploaded filename or a caller boolean.
+
+**Screens, notifications, exceptions and NFR:** existing RFQ detail/tasks keep
+the imported presentation and show pending review, returned reason, sealed
+offer count and close status only to scoped roles. Unknown outcomes require
+GET-only reconciliation; duplicate keys with different payloads conflict.
+The server uses its UTC observation for all windows. There is no supplier
+email, portal acknowledgment, scoring, award, PO, AP or payment effect here.
+**Acceptance, tests, dependencies and open decisions:** pure transition and
+EF-model/guard tests are authored but unrun. New model and store are source
+only: no generated migration, physical ownership capture, finite privileges,
+readiness implementation, endpoint registration or normal-cookie proof yet.
+Any direct SQL path must preserve the same exact owner and append-only bundle
+invariants; first Down must veto retained P32 evidence and linked shared
+policy/Core histories. The business still must approve reviewers, closer,
+windows and evaluation rules before runtime activation.

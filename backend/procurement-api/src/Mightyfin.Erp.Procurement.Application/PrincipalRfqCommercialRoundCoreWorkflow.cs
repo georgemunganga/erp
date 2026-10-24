@@ -12,7 +12,7 @@ public sealed record PrincipalRfqCommercialRoundOpening(ApprovalCase Case,
 
 public sealed record PrincipalRfqCommercialRoundTerminal(string State,
     Guid CoreDecisionId, string ActorPrincipalId, string? Reason,
-    PrincipalRfqPublishedRoundProof? AcceptingRound);
+    PrincipalRfqPublishedRoundProof? AcceptingRound, string CoreOutcomeSha256);
 
 /// <summary>A distinct Core review case for one prepared commercial plan.
 /// Pure transitions do not authenticate policy or Core database provenance;
@@ -169,6 +169,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             supplierIds = invitedSupplierIds.Order().ToArray(),
             requirementsUseSetId = prepared.DocumentUseSetId,
             requirementsDigest = prepared.DocumentSelectionDigest,
+            policyKey = PrincipalRfqCommercialRoundPolicyRules.PolicyKey,
             policyVersionId = policy.Id,
             policyVersionNumber = policy.PolicyVersionNumber,
             policyRulesSha256 = rules.RulesSha256,
@@ -235,6 +236,8 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             && pin.GetProperty("eventVersion").GetInt64() == source.Version
             && pin.GetProperty("coreCaseId").GetGuid() == current.Id
             && pin.GetProperty("policyVersionId").GetGuid() == policy.Id
+            && pin.GetProperty("policyKey").GetString()
+                == PrincipalRfqCommercialRoundPolicyRules.PolicyKey
             && pin.GetProperty("policyVersionNumber").GetInt32() == policy.PolicyVersionNumber
             && pin.GetProperty("policyRulesSha256").GetString()
                 == ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)
@@ -316,23 +319,41 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             "Reject" when current.State == "Rejected" => "Rejected",
             _ => throw new InvalidOperationException("RfqCommercialRoundDecisionChanged"),
         };
+        var outcome = JsonSerializer.Serialize(new
+        {
+            caseId = current.Id, current.State, current.CompletionKey,
+            completedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(current.CompletedAt),
+            stages = currentStages.Select(s => new
+            {
+                s.Id, s.Sequence, s.State,
+                assignments = s.Assignments.OrderBy(a => a.Id).Select(a => new
+                { a.Id, a.State, a.AssigneeSubjectId }),
+            }),
+            decisions = decisions.OrderBy(d => d.DecidedAt).ThenBy(d => d.Id).Select(d => new
+            { d.Id, d.StageId, d.AssignmentId, d.ActorSubjectId, d.Action,
+                d.IdempotencyKey, d.Reason,
+                decidedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(d.DecidedAt) }),
+        });
+        var outcomeSha = ProcurementEvidenceEncoding.Digest(outcome);
         if (state != "Approved")
             return new(state, terminalDecision.Id, signer.PrincipalId,
-                terminalDecision.Reason, null);
+                terminalDecision.Reason, null, outcomeSha);
         Need(current.Stages.All(x => x.State == "Approved")
             && terminalDecision.StageId == currentStages[^1].Id
             && current.CompletedAt is { } completed
             && completed < opening.OpensAt
             && opening.OpensAt < opening.ClosesAt,
             "RfqCommercialRoundApprovalTooLateOrIncomplete");
-        var proof = new PrincipalRfqPublishedRoundProof(Guid.CreateVersion7(), source.Id,
+        // The retained opening uses this same stable identifier. A retry or
+        // reload must never mint a second round identity for one Core case.
+        var proof = new PrincipalRfqPublishedRoundProof(current.Id, source.Id,
             prepared.Id, prepared.SnapshotSha256, current.Id,
             terminalDecision.Id, opening.SnapshotSha256,
             prepared.TenantId, prepared.LegalEntityId, prepared.BranchId,
             source.CurrencyCode, source.Version, opening.OpensAt,
             opening.ClosesAt, opening.ClosingOfficerPrincipalId,
             opening.ClosingOfficerWorkerAliasId, "Accepting", opening.SupplierIds);
-        return new("Approved", terminalDecision.Id, signer.PrincipalId, null, proof);
+        return new("Approved", terminalDecision.Id, signer.PrincipalId, null, proof, outcomeSha);
     }
 
     private static void Need(bool okay, string code)

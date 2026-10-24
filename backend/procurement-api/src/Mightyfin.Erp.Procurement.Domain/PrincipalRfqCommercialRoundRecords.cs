@@ -8,7 +8,9 @@ public sealed class PrincipalRfqCommercialRoundOpeningRecord : ProcurementRecord
     public Guid SourcingEventId { get; init; }
     public Guid PreparedPlanId { get; init; }
     public Guid CommercialPolicyVersionId { get; init; }
+    public string CommercialPolicyKey { get; init; } = "SOURCING_COMMERCIAL_ROUND";
     public Guid PublishedPolicyIdentityId { get; init; }
+    public string PublishedPolicyIdentityStage { get; init; } = "Published";
     public Guid CoreCaseId { get; init; }
     public Guid BranchId { get; init; }
     public long EventVersion { get; init; }
@@ -92,6 +94,10 @@ public sealed class PrincipalRfqCommercialCommandReceipt : ProcurementRecord
     public Guid CommandKey { get; init; }
     public string ActorPrincipalId { get; init; } = null!;
     public Guid? TargetId { get; init; }
+    public Guid? OpeningTargetId { get; init; }
+    public Guid? DecisionTargetId { get; init; }
+    public Guid? OfferTargetId { get; init; }
+    public Guid? SealTargetId { get; init; }
     public string RequestSha256 { get; init; } = null!;
     public string ResponseJson { get; init; } = null!;
     public string ResponseSha256 { get; init; } = null!;
