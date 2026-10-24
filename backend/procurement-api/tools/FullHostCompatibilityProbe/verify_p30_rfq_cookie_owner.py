@@ -63,6 +63,13 @@ def fingerprint(value):
     return hashlib.sha256(canonical_json(value).encode()).hexdigest()
 
 
+CONTACT_PRODUCER_VECTOR = {"schemaVersion":2,"operation":"RecordManualContact",
+    "eventId":"11111111-1111-4111-8111-111111111111",
+    "invitationId":"22222222-2222-4222-8222-222222222222",
+    "channel":"EmailOutsideSystem","reference":"outside-ref",
+    "reportedContactAt":"2026-10-23T12:00:00+00:00"}
+
+
 def contact_utc_offset(value):
     require(isinstance(value, str) and value.endswith('Z'),
         "CapturedContactTimeMustBeExplicitUtc")
@@ -89,7 +96,9 @@ def boundary(fixture, proxy, fixture_hash, database):
         and isinstance(fixture.get("nativeSupplierIds"), list)
         and len(set(fixture["nativeSupplierIds"])) == 2
         and all(guid(x) for x in fixture["nativeSupplierIds"])
-        and HEX.fullmatch(fixture.get("challenge", "")), "FixtureBoundary")
+        and HEX.fullmatch(fixture.get("challenge", ""))
+        and fixture.get("contactCanonicalProbeSha256") == fingerprint(CONTACT_PRODUCER_VECTOR),
+        "FixtureOrContactEncoderBoundary")
     require(proxy.get("schemaVersion") == 3 and proxy.get("transport") == "normal-local-cookie-https-v1"
         and proxy.get("database") == database and proxy.get("apiUrl") == fixture.get("apiUrl")
         and proxy.get("fixtureSha256") == fixture_hash

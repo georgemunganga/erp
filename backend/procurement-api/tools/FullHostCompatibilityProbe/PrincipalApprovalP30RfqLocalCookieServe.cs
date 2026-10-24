@@ -150,11 +150,22 @@ internal static partial class PrincipalApprovalHttpVerification
         }
         var challenge=Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var deadline=DateTimeOffset.UtcNow.AddMinutes(15);
+        // This hash comes from the same production canonical encoder used by
+        // the actual contact route. The independent Python owner verifier must
+        // match it before capturing a baseline or accepting browser evidence.
+        var contactCanonicalProbeSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(
+            new {schemaVersion=2,operation="RecordManualContact",
+                eventId=Guid.Parse("11111111-1111-4111-8111-111111111111"),
+                invitationId=Guid.Parse("22222222-2222-4222-8222-222222222222"),
+                channel="EmailOutsideSystem",reference="outside-ref",
+                reportedContactAt=new DateTimeOffset(2026,10,23,12,0,0,TimeSpan.Zero)},
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        Need(contactCanonicalProbeSha256.Length==64,"Actual contact canonical encoder unavailable.");
         var manifest=new {schemaVersion=3,controlPlaneOnly=true,apiUrl=url,database=ownerConnection.Database,
             tenantId=PrincipalApprovalFixture.Tenant,companyId=fixture.Company,branchId=fixture.Branch,
             buyerPrincipalId=fixture.Buyer,reviewerPrincipalId=fixture.ConfigReviewer,
             approvedRequestId,approvedRequestLineId,nativeEventId,nativePolicyId,nativeCaseId,nativeSupplierIds=nativeSuppliers,
-            syntheticCredentials=credentials,challenge,
+            syntheticCredentials=credentials,challenge,contactCanonicalProbeSha256,
             syntheticAccountsActivated=7,syntheticActivationMode="EXACT_NEW_PLACEHOLDER_CAS_ONLY",
             mustChangePasswordFrom=true,mustChangePasswordTo=false,passwordChangedAtNormalisedUtc=true,
             completionPath=P30RfqCookieCompletionPath,expiresAt=deadline,

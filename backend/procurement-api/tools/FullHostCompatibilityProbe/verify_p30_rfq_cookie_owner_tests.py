@@ -3,7 +3,8 @@ import decimal
 import hashlib
 import unittest
 from verify_p30_po_cookie_owner import Failed
-from verify_p30_rfq_cookie_owner import captured_body, contact_utc_offset, exact_decimal_text, fingerprint
+from verify_p30_rfq_cookie_owner import (CONTACT_PRODUCER_VECTOR, captured_body,
+    contact_utc_offset, exact_decimal_text, fingerprint)
 
 
 class RfqOwnerFingerprints(unittest.TestCase):
@@ -35,6 +36,7 @@ class RfqOwnerFingerprints(unittest.TestCase):
 
     def test_contact_datetimeoffset_canonicalization_is_bounded(self):
         self.assertEqual(contact_utc_offset('2026-10-23T12:00:00.000Z'), '2026-10-23T12:00:00+00:00')
+        self.assertEqual(len(fingerprint(CONTACT_PRODUCER_VECTOR)), 64)
         with self.assertRaises(Failed): contact_utc_offset('2026-10-23T12:00:00')
         with self.assertRaises(Failed): contact_utc_offset('2026-10-23T12:00:00.001Z')
 
