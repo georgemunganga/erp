@@ -137,6 +137,13 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
         Environment.SetEnvironmentVariable("ASPNETCORE_"+key,AppContext.BaseDirectory);
         foreach(var item in Settings())Environment.SetEnvironmentVariable(item.Key.Replace(":","__",StringComparison.Ordinal),item.Value);
     }
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        // Factory clients exercise the private cold host; browser/network clients
+        // keep their separate tighter bounds. This is not a production SLA.
+        client.Timeout=TimeSpan.FromSeconds(300);
+    }
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Production");builder.ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(Settings()));

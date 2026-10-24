@@ -440,9 +440,11 @@ records bounded phase aggregates in its protected result. It also records up to
 eight exception type names. Paths, IDs, request/response bodies, SQL, exception
 messages and connection settings are excluded. A failed HTTP attempt appears in
 `httpTiming` even when it does not increment the existing completed-request
-counter. The private manual-evidence host uses a bounded 300-second HttpClient
-timeout to distinguish a cold readiness path from the previous default-client
-timeout. Model-parity caching remains off; production configuration and
-readiness decisions are unchanged. These timings diagnose a failed private
-run; they do not prove that a longer timeout or caching is appropriate for
-production.
+counter. Every private `PrincipalApprovalHost` factory client uses a bounded
+300-second HttpClient timeout, including a newly created RFQ publication host,
+to distinguish a cold readiness path from the previous default-client timeout.
+The separate normal-cookie network probe keeps its 15-second client timeout.
+Model-parity caching remains off; production configuration and readiness
+decisions are unchanged. This private diagnostic timeout is not a production
+latency target or SLA, and the timings do not prove that caching is appropriate
+for production.
