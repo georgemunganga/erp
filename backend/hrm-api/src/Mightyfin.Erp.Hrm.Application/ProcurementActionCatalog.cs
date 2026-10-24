@@ -59,6 +59,9 @@ public static class ProcurementActionCatalog
             // Source reservations/releases require explicit Core grants; legacy draft rights do not imply them.
             ["procurement-sourcing-convert"] = [],
             ["procurement-sourcing-cancel"] = [],
+            // Preparing publication/contact/quotation evidence is separately granted
+            // from approving publication; draft edit rights imply neither action.
+            ["procurement-sourcing-submit"] = [],
             // Explicit configured grant only; catalog registration adds no publication endpoint or limit.
             ["procurement-sourcing-publish"] = [],
             // P32 commercial round, sealed manual offers and opening are distinct
