@@ -118,7 +118,23 @@ def query(container, database, sql):
         raise Failed("OwnerReadOnlyQueryFailed") from None
 
 
-def owner_snapshot(container, database, fixture):
+def native_orders_for_phase(orders, fixture, original_ids=None, successor=None):
+    if original_ids is None:
+        require(successor is None and len(orders) == 3, "ThreeNativeOrdersRequired")
+        native = orders
+    else:
+        ids = set(original_ids)
+        require(len(original_ids) == len(ids) == 3 and all(guid(x) for x in ids)
+                and guid(successor) and successor not in ids
+                and len(orders) == 4 and {x.get("id") for x in orders} == ids | {successor},
+                "ExactBrowserSuccessorRequired")
+        native = [x for x in orders if x.get("id") in ids]
+    require(any(x.get("id") == fixture["issuedOrderId"] and x.get("status") == "Issued"
+                for x in native), "OriginalIssuedOrderRequired")
+    return native
+
+
+def owner_snapshot(container, database, fixture, original_ids=None, successor=None):
     container_guard(container)
     head = query(container, database, """BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT jsonb_build_object('database',current_database(),
@@ -181,9 +197,8 @@ ROLLBACK;""")
             and request_row.get("branch_ref") == fixture["branchId"]
             and request_row.get("status") == "Approved"
             and line_row.get("purchase_request_id") == request, "ApprovedOwnerSourceInvalid")
-    originals = rows["procurement.purchase_orders"]
-    require(len(originals) == 3 and any(x.get("id") == fixture["issuedOrderId"]
-            and x.get("status") == "Issued" for x in originals), "ThreeNativeOrdersRequired")
+    originals = native_orders_for_phase(rows["procurement.purchase_orders"], fixture,
+        original_ids, successor)
     buyer_sessions = [x for x in rows["hrm.local_sessions"] if x.get("local_user_id") == buyer]
     # Full row hashes for every Procurement and Core Approval table establish
     # unchanged legacy and pre-existing principal business history.
@@ -521,7 +536,8 @@ def main():
             completion, _ = protected(Path(fixture["completionPath"]), 4096)
             require(completion == {"schemaVersion": 3, "challenge": fixture["challenge"],
                                    "status": "BrowserFinished"}, "ControlPlaneCompletionMismatch")
-            facts = owner_snapshot(args.container, args.database, fixture)
+            facts = owner_snapshot(args.container, args.database, fixture,
+                baseline["facts"]["nativeOrderIds"], browser.get("orderId"))
             result = final_check(fixture, baseline["facts"], facts, browser, fixture_sha)
             write(args.output, result)
             print("P30_PO_PRIVATE_OWNER_VERIFIED")
