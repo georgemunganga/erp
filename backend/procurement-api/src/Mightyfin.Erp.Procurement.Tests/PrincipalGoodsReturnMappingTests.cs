@@ -35,8 +35,8 @@ public sealed class PrincipalGoodsReturnMappingTests
         }
         Assert.Equal(new[] { nameof(PrincipalGoodsReturnDraft.SourceStateId), nameof(PrincipalGoodsReturnDraft.AcceptanceFactId),
             nameof(PrincipalGoodsReturnDraft.ReceiptId), nameof(PrincipalGoodsReturnDraft.PurchaseOrderLineId),
-            nameof(PrincipalGoodsReturnDraft.IssuedVersionId) }.Order(),
-            head.GetForeignKeys().Select(x => x.Properties[^1].Name).Order());
+            nameof(PrincipalGoodsReturnDraft.IssuedVersionId) }.Order().ToArray(),
+            head.GetForeignKeys().Select(x => x.Properties[^1].Name).Order().ToArray());
         Assert.Contains(revision.GetForeignKeys(), x => x.Properties[^1].Name == nameof(PrincipalGoodsReturnRevision.DraftId));
         Assert.Contains(receipt.GetForeignKeys(), x => x.Properties[^1].Name == nameof(PrincipalGoodsReturnCommandReceipt.DraftId));
     }
