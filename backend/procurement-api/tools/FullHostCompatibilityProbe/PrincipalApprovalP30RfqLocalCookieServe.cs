@@ -22,9 +22,10 @@ internal static partial class PrincipalApprovalHttpVerification
         Dictionary<string,object?> result,Action<string> progress,CancellationToken cancellationToken=default)
     {
         progress("P30RfqNormalLocalCookiePrivatePreparation");
-        Need(fixture.PrincipalRfqProfile&&result.TryGetValue("p30RfqPublication",out var accepted)&&accepted is not null,
+        object? accepted = null;
+        Need(fixture.PrincipalRfqProfile&&result.TryGetValue("p30RfqPublication",out accepted)&&accepted is not null,
             "P30 RFQ normal-cookie fixture requires completed native publication proof.");
-        var native=JsonSerializer.SerializeToElement(accepted,new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var native=JsonSerializer.SerializeToElement(accepted!,new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Need(native.GetProperty("status").GetString()=="PASS_PRIVATE_P30_RFQ_INTERNAL_PUBLICATION_ONLY",
             "P30 RFQ normal-cookie fixture requires accepted publication outcome.");
         var approvedRequestId=native.GetProperty("requestId").GetGuid();

@@ -7,12 +7,14 @@ This deliberately rejects any unrecognised changed owning row; a new application
 write shape needs a reviewed verifier change, never a broadened acceptance claim.
 """
 import argparse
+import decimal
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
 import re
 from verify_p30_po_cookie_owner import (SYSTEM, TENANT, IDENT, Failed, require, protected,
-    output_path, write, container_guard, query, digest, guid)
+    output_path, write, container_guard, query, digest, guid, canonical_json)
 
 DB = re.compile(r"proc_p30_http_rfq_[a-z0-9_]{1,40}\Z")
 HEX = re.compile(r"[0-9a-f]{64}\Z")
@@ -27,6 +29,53 @@ TABLES = {"procurement.sourcing_events", "procurement.sourcing_lines",
 # Login may update these operational fields only. All assignment, action, branch,
 # password, active and role data remain part of the identity hash.
 LOGIN = {"last_login_at", "failed_login_count", "locked_until", "updated_at", "version"}
+
+
+def captured_body(browser, operation, expected):
+    raw = browser[operation]["body"]
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            require(key not in value, "DuplicateCapturedCommandKey")
+            value[key] = item
+        return value
+    try:
+        body = json.loads(raw, parse_float=decimal.Decimal, parse_int=decimal.Decimal,
+            object_pairs_hook=unique)
+    except (ValueError, TypeError, decimal.InvalidOperation):
+        raise Failed("CapturedCommandBodyInvalid") from None
+    require(isinstance(body, dict) and set(body) == expected,
+        "CapturedCommandBodyUnexpected")
+    return body
+
+
+def exact_decimal_text(value):
+    try:
+        number = decimal.Decimal(value)
+    except (decimal.InvalidOperation, TypeError, ValueError):
+        raise Failed("CapturedQuantityInvalid") from None
+    require(number.is_finite() and number > 0 and number.as_tuple().exponent >= -4,
+        "CapturedQuantityInvalid")
+    return format(number.normalize(), 'f')
+
+
+def fingerprint(value):
+    return hashlib.sha256(canonical_json(value).encode()).hexdigest()
+
+
+def contact_utc_offset(value):
+    require(isinstance(value, str) and value.endswith('Z'),
+        "CapturedContactTimeMustBeExplicitUtc")
+    try:
+        observed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        raise Failed("CapturedContactTimeInvalid") from None
+    require(observed.tzinfo is not None and observed.utcoffset().total_seconds() == 0
+        and observed.microsecond == 0, "CapturedContactTimePrecisionUnreviewed")
+    # System.Text.Json writes a UTC DateTimeOffset (not DateTime) with its
+    # explicit +00:00 offset and omits zero fractional ticks. Other shapes
+    # fail closed until backed by a reviewed producer vector.
+    return observed.strftime('%Y-%m-%dT%H:%M:%S+00:00')
 
 
 def boundary(fixture, proxy, fixture_hash, database):
@@ -206,6 +255,78 @@ def verify(before, after, fixture, browser, fixture_hash):
         and {x.get("command_key") for x in receipts} == {browser["open"]["key"],browser["decide"]["key"]}
         and draft_receipts[0].get("command_key") == browser["create"]["key"],
         "OriginalCommandReceiptsRequired")
+    create_body = captured_body(browser, "create", {"title", "sources"})
+    sources = create_body["sources"]
+    require(isinstance(create_body["title"], str) and create_body["title"].strip() == create_body["title"]
+        and isinstance(sources, list) and len(sources) == 1
+        and set(sources[0]) == {"purchaseRequestId", "purchaseRequestLineId",
+            "expectedRequestVersion", "quantity"}
+        and sources[0]["purchaseRequestId"] == fixture["approvedRequestId"]
+        and sources[0]["purchaseRequestLineId"] == fixture["approvedRequestLineId"]
+        and exact_decimal_text(sources[0]["quantity"]) == "1", "CapturedApprovedDemandChanged")
+    create_value = {"schemaVersion":2,"operation":"Create","title":create_body["title"],
+        "sources":[{"purchaseRequestId":sources[0]["purchaseRequestId"],
+            "purchaseRequestLineId":sources[0]["purchaseRequestLineId"],
+            "expectedRequestVersion":sources[0]["expectedRequestVersion"],
+            "quantity":exact_decimal_text(sources[0]["quantity"])}]}
+    require(draft_receipts[0].get("command_fingerprint") == fingerprint(create_value),
+        "RFQCreateCommandFingerprintMismatch")
+    open_body = captured_body(browser, "open", {"expectedEventVersion",
+        "originalDraftFingerprint", "supplierIds"})
+    require(open_body["originalDraftFingerprint"] == ev[0].get("original_draft_fingerprint")
+        and isinstance(open_body["supplierIds"], list)
+        and set(open_body["supplierIds"]) == set(fixture["nativeSupplierIds"]),
+        "CapturedPublicationShortlistChanged")
+    open_value = {"schemaVersion":2,"operation":"OpenPublicationReview","id":event,
+        "expectedEventVersion":open_body["expectedEventVersion"],
+        "originalDraftFingerprint":open_body["originalDraftFingerprint"],
+        "supplierIds":sorted(open_body["supplierIds"])}
+    open_receipt = next(x for x in receipts if x.get("operation") == "Open")
+    require(open_receipt.get("command_sha256") == fingerprint(open_value),
+        "RFQPublicationOpenFingerprintMismatch")
+    decide_body = captured_body(browser, "decide", {"expectedEventVersion", "expectedCaseVersion",
+        "expectedAssignmentVersion", "action", "reason"})
+    require(decide_body["action"] == "Approve" and decide_body["reason"] == "",
+        "CapturedIndependentReviewChanged")
+    assignment = added("core_approval.assignments")
+    require(len(assignment) == 1, "OneIndependentReviewerAssignmentRequired")
+    decide_value = {"schemaVersion":2,"operation":"DecidePublicationReview", "id":event,
+        "caseId":opening[0]["core_approval_case_id"],"assignmentId":assignment[0]["id"],
+        "expectedEventVersion":decide_body["expectedEventVersion"],
+        "expectedCaseVersion":decide_body["expectedCaseVersion"],
+        "expectedAssignmentVersion":decide_body["expectedAssignmentVersion"],
+        "action":"Approve","reason":""}
+    decide_receipt = next(x for x in receipts if x.get("operation") == "Decide")
+    require(decide_receipt.get("command_sha256") == fingerprint(decide_value),
+        "RFQPublicationDecisionFingerprintMismatch")
+    contact_body = captured_body(browser, "contact", {"channel","reference","reportedContactAt"})
+    require(contact_body["channel"] == contacts[0].get("channel")
+        and contact_body["reference"] == contacts[0].get("reference")
+        and datetime.fromisoformat(contact_body["reportedContactAt"].replace("Z","+00:00")).astimezone(timezone.utc)
+            == datetime.fromisoformat(contacts[0]["reported_contact_at"].replace("Z","+00:00")).astimezone(timezone.utc),
+        "CapturedOutsideContactChanged")
+    contact_value = {"schemaVersion":2,"operation":"RecordManualContact",
+        "eventId":event,"invitationId":contacts[0]["invitation_id"],
+        "channel":contact_body["channel"],"reference":contact_body["reference"],
+        "reportedContactAt":contact_utc_offset(contact_body["reportedContactAt"])}
+    require(contacts[0].get("command_sha256") == fingerprint(contact_value),
+        "RFQManualContactFingerprintMismatch")
+    quote_body = captured_body(browser, "quote", {"invitationId", "lines"})
+    require(quote_body["invitationId"] == quotes[0].get("invitation_id")
+        or quote_body["invitationId"] == contacts[0].get("invitation_id"),
+        "CapturedQuoteInvitationChanged")
+    quote_lines = quote_body["lines"]
+    require(isinstance(quote_lines, list) and len(quote_lines) == 1
+        and set(quote_lines[0]) == {"sourcingLineId","quantity","unitPrice",
+            "taxAmount","deliveryAmount","leadTimeText","notes"}
+        and quote_lines[0]["sourcingLineId"] == added("procurement.sourcing_lines")[0]["id"],
+        "CapturedQuotationLinesChanged")
+    hydrated_quote = {**quote_lines[0], **{name:decimal.Decimal(quote_lines[0][name])
+        for name in ("quantity","unitPrice","taxAmount","deliveryAmount")}}
+    quote_value = {"schemaVersion":2,"operation":"CreateManualQuote","eventId":event,
+        "invitationId":quote_body["invitationId"],"lines":[hydrated_quote]}
+    require(quotes[0].get("command_sha256") == fingerprint(quote_value),
+        "RFQManualQuoteFingerprintMismatch")
     for row in receipts + draft_receipts:
         response = row.get("response_json")
         require(isinstance(response, str) and hashlib.sha256(response.encode()).hexdigest()
@@ -287,7 +408,7 @@ def main():
                 result=verify(baseline["facts"],final,fixture,browser,fixture_hash)
                 write(Path(args.output),result)
                 print("P30_RFQ_PRIVATE_OWNER_FACTS_VERIFIED")
-    except (Failed,KeyError,TypeError,ValueError) as error:
+    except (Failed,KeyError,TypeError,ValueError,decimal.InvalidOperation) as error:
         print("P30_RFQ_PRIVATE_OWNER_VERIFICATION_FAILED:"+(str(error) if isinstance(error,Failed) else "MalformedEvidence"),file=__import__('sys').stderr)
         raise SystemExit(1) from None
 if __name__=="__main__":main()
