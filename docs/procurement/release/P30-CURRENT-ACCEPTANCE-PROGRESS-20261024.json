@@ -24,15 +24,17 @@
     "databaseOrRuntimeProof": false
   },
   "rfqPublication": {
-    "status": "SOURCE_FIXES_PENDING_FRESH_COOKIE06",
-    "latestFailedActualAttempt": "cookie05: Decide returned HTTP 409 from a second-save invitation batch check; failure retained",
+    "status": "RFQ06_FAILED_BEFORE_HTTP_RFQ07_RUNNING",
+    "latestFailedActualAttempt": "cookie06: Bootstrap failed before any HTTP request with PostgreSQL SQLSTATE 53100; private POSIX shared memory was full",
     "sourceCorrections": [
       "Opening, decision and receipt evidence bind tenant and company before persistence",
       "A new Approved decision requires its exact fresh invitation set; a coordinator second save does not recreate invitations",
       "A new invitation cannot reuse an already persisted Approved decision"
     ],
     "actualCookie06Passed": false,
-    "browserAndIndependentOwnerPassed": false
+    "browserAndIndependentOwnerPassed": false,
+    "actualCookie07Passed": false,
+    "privateClusterOnlyResponse": "Changed private PostgreSQL dynamic_shared_memory_type to sysv and restarted the same private cluster; RFQ07 is a fresh actual cohort"
   },
   "serviceReceiving": {
     "status": "ACCEPTED_PRIVATE_NORMAL_COOKIE_AND_OWNER",
@@ -42,7 +44,7 @@
     "independentOwnerPassed": true
   },
   "remaining": [
-    "Run fresh RFQ publication cookie06 and independent retained-owner review",
+    "Complete fresh RFQ publication cookie07 native, browser and independent retained-owner review",
     "Complete protected production migration, finite-role and deployment gates"
   ],
   "productionTouched": false,
