@@ -51,8 +51,10 @@ internal static partial class PrincipalApprovalHttpVerification
             await using var executionStore = fixture.Procurement(roles.Execution);
             Need(await ready.IsReadyAsync(executionStore, default),
                 "Actual P30 publication schema and finite role are not ready.");
+            result["principalRfqPublicationPhysicalReadiness"] = true;
         }
         var meta = await send(client, HttpMethod.Get, "/api/procurement/v1/meta", fixture.Buyer);
+        result["principalRfqPublicationMetaCapabilities"] = meta.GetProperty("capabilities").Clone();
         Need(meta.GetProperty("capabilities").GetProperty("principalSourcingPublication").GetBoolean(),
             "P30 publication was not admitted by normal metadata.");
         const string sourcing = "/api/procurement/v1/sourcing";
