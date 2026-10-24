@@ -264,6 +264,7 @@ public static class ProcurementHostIntegration
                         planningDraft = !pending,
                         configurationDraft = !pending,
                         contractDraft = !pending,
+                        contractDraftRates = !pending,
                         recurringPurchaseDraft = !pending,
                         sourcingDraft = !pending,
                         // Separate future governed holds/releases from existing unlinked draft CRUD.
