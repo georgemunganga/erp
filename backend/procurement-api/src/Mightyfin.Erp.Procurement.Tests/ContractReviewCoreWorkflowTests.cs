@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -52,6 +53,31 @@ public sealed class ContractReviewCoreWorkflowTests
             ? x with { WorkerAliasId = linked } : x).ToArray();
         Assert.Throws<InvalidOperationException>(() => ContractReviewCoreWorkflow.Open(f.Contract,
             f.Version, [f.Rate], f.Policy, f.Branch, f.Maker, null, peerAlias, 1, f.Now));
+    }
+
+    [Fact]
+    public void Real_Core_One_then_All_votes_keep_prior_history_consistent()
+    {
+        var f = Fixture();
+        var opened = ContractReviewCoreWorkflow.Open(f.Contract, f.Version, [f.Rate], f.Policy,
+            f.Branch, f.Maker, null, f.Reviewers, 1, f.Now);
+        var pins = ContractReviewAssignmentPins.Verify(opened.Submission, opened.Case, f.Policy);
+        var decisions = new List<ApprovalDecision>();
+        var all = opened.Case.Stages.OrderBy(x => x.Sequence).ToArray();
+        void Decide(ApprovalAssignment assignment, int minute)
+        {
+            var actor = new ApprovalActor(assignment.AssigneeSubjectId, opened.Case.TenantId,
+                opened.Case.LegalEntityId, new HashSet<string> { ContractReviewCoreWorkflow.ReviewAction });
+            ApprovalEngine.Decide(opened.Case, assignment, actor, "Approve", Guid.CreateVersion7().ToString("D"),
+                null, decisions, ProcurementEvidenceEncoding.DatabaseTimestamp(f.Now.AddMinutes(minute))!.Value);
+        }
+        Decide(all[0].Assignments.Single(), 1);
+        ContractReviewCoreHistory.VerifyPending(opened.Submission, opened.Case, pins, decisions);
+        Decide(all[1].Assignments.First(), 2);
+        ContractReviewCoreHistory.VerifyPending(opened.Submission, opened.Case, pins, decisions);
+        Decide(all[1].Assignments.Last(), 3);
+        Assert.Equal("Approved", opened.Case.State);
+        Assert.Equal(3, decisions.Count);
     }
 
     private static (SupplierContract Contract, SupplierContractVersion Version, ContractRate Rate,

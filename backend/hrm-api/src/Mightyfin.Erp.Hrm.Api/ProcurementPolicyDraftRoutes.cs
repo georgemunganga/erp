@@ -415,19 +415,24 @@ public static partial class ProcurementPolicyDraftRoutes
     private static async Task<IResult> Retire(Guid id, DraftRetirement input,
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
+        string? key;
+        try { key = await db.PolicyVersions.AsNoTracking().Where(x => x.Id == id)
+            .Select(x => x.PolicyKey).SingleOrDefaultAsync(ct); }
+        catch (Exception error) when (error is not OperationCanceledException)
+        { return Problem("policy-storage-unavailable", "Policy storage is unavailable. No change was saved.", 503); }
+        return IsContractReviewPolicy(key)
+            ? await RunContractReviewPolicyMutation(id, db, scope, http, ct,
+                core => RetirePolicy(id, input, db, core, scope, http, ct))
+            : await RetirePolicy(id, input, db, organizationDb, scope, http, ct);
+    }
+
+    private static async Task<IResult> RetirePolicy(Guid id, DraftRetirement input,
+        ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
+    {
         IDbContextTransaction? transaction = null;
         try
         {
-            if (IsContractReviewPolicy(await db.PolicyVersions.AsNoTracking().Where(x => x.Id == id)
-                    .Select(x => x.PolicyKey).SingleOrDefaultAsync(ct)))
-            {
-                var options = http.RequestServices.GetService<ProcurementContractReviewOptions>();
-                var readiness = http.RequestServices.GetService<IProcurementContractReviewSchemaReadiness>();
-                if (options is not { Enabled: true, ExecutionDatabaseConfigured: true } || readiness is null
-                    || !await readiness.CanRecordAsync(db, ct))
-                    return Problem("contract-review-unavailable", "Contract review settings are not ready. No change was saved.", 503);
-            }
-            if (db.Database.IsRelational())
+            if (db.Database.IsRelational() && db.Database.CurrentTransaction is null)
                 transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
             if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
