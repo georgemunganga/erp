@@ -29,6 +29,24 @@ public static partial class ProcurementSourcingExecutionRoutes
         if(options is not{Enabled:true}||ready is null||!await ready.IsReadyAsync(db,write,ct))
             throw new Problem("RfqCommercialUnavailable",503);
     }
+
+    // Document-writing commands use the existing sourcing/document coordinator
+    // directly. They still require the same P29/P30 owner and Finance-checker
+    // prerequisites that Run enforces for non-document commands.
+    private static async Task RequireCommercialDocumentCommandFoundation(
+        HttpContext http, ProcurementDbContext? db, CancellationToken ct)
+    {
+        var options = http.RequestServices.GetRequiredService<ProcurementSourcingDraftExecutionOptions>();
+        var readiness = http.RequestServices
+            .GetRequiredService<IProcurementSourcingDraftSchemaReadiness>();
+        if (!options.Enabled || !options.ExecutionDatabaseConfigured
+            || db is null && !await readiness.IsReadyAsync(ct)
+            || db is not null && !await readiness.IsReadyAsync(db, true, ct))
+            throw new Problem("SourcingDraftExecutionUnavailable", 503);
+        if (db is not null && !await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(
+                db, http.RequestServices, false, ct))
+            throw new Problem("SourcingFinanceCheckerSchemaUnavailable", 503);
+    }
     private static void RequireCommercialTransaction(ProcurementDbContext db,HrmDbContext core)
     {
         if(!db.Database.IsNpgsql()||db.Database.CurrentTransaction is null||core.Database.CurrentTransaction is null

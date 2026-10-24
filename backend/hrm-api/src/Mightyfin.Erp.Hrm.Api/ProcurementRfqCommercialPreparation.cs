@@ -21,11 +21,13 @@ public static partial class ProcurementSourcingExecutionRoutes
         try
         {
             if(http.RequestServices.GetService<ProcurementRfqCommercialOptions>() is not{Enabled:true})throw new Problem("RfqCommercialUnavailable",503);
+            await RequireCommercialDocumentCommandFoundation(http,null,ct);
             if(input is null||id==Guid.Empty||input.ExpectedEventVersion<1||input.ExpectedDraftRevision<1)throw new Problem("RfqCommercialPreparationInputRequired",422);
             var key=Key(http);var fingerprint=Fingerprint(new{operation="PrepareCommercialCandidate",eventId=id,input.ExpectedEventVersion,input.ExpectedDraftRevision});
             var result=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteWithSourcingDocumentsAsync(id,
                 async(db,cases,documents,fence,token)=>
                 {
+                    await RequireCommercialDocumentCommandFoundation(http,db,token);
                     await RequireCommercial(http,db,true,token);
                     await using var core=await ProcurementApprovalExecutionLocks.CoreAsync(db,scope,token);
                     var auth=http.RequestServices.GetRequiredService<IAuthorizationService>();

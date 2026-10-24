@@ -25,6 +25,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (http.RequestServices.GetService<ProcurementRfqCommercialOptions>()
                     is not { Enabled: true })
                 throw new Problem("RfqCommercialUnavailable", 503);
+            await RequireCommercialDocumentCommandFoundation(http, null, ct);
             if (eventId == Guid.Empty || id == Guid.Empty || input is null || input.BidId == Guid.Empty
                 || input.ExpectedBidVersion < 1 || input.OriginalDocumentVersionId == Guid.Empty
                 || input.ReportedReceivedAt == default
@@ -38,6 +39,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 .ExecuteWithSourcingDocumentsAsync(eventId, async (db, cases, documents,
                     fence, token) =>
                 {
+                    await RequireCommercialDocumentCommandFoundation(http, db, token);
                     await RequireCommercial(http, db, true, token);
                     await using var core = await ProcurementApprovalExecutionLocks
                         .CoreAsync(db, scope, token);
