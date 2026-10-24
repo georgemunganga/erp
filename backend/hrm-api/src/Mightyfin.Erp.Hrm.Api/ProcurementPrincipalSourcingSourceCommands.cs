@@ -96,6 +96,12 @@ public static partial class ProcurementSourcingExecutionRoutes
             if(ev.Status!="Draft" || ev.Version!=input.ExpectedEventVersion
                 || ev.OriginalDraftFingerprint!=input.OriginalDraftFingerprint)
                 throw new Problem("SourcingDraftChanged",409);
+            // The original PR loader requires one selected branch for confined
+            // users. Bind it to this RFQ's branch only after the current Core
+            // actor and owned event have both been checked for that branch.
+            var currentActor=await PrincipalActor(core,scope,http,auth,
+                "procurement-sourcing-cancel",ev.BranchRef,true,token);
+            var sourceScope=PrincipalCancellationSourceScope(scope,currentActor,ev.BranchRef);
             var evidence=await db.SourcingDraftEvidenceRecords.SingleAsync(x=>x.Id==ev.SourceEvidenceId,token);
             var bindings=await db.SourcingDemandBindings.Where(x=>x.SourcingEventId==id)
                 .OrderBy(x=>x.PurchaseRequestLineId).ToArrayAsync(token);
@@ -107,7 +113,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             var sources=new List<ApprovedPurchaseSource>();
             foreach(var binding in bindings)
             {
-                var source=await ApprovedDemandSourceLoader.LoadRetainedAsync(db,cases,scope,binding.PurchaseRequestId,
+                var source=await ApprovedDemandSourceLoader.LoadRetainedAsync(db,cases,sourceScope,binding.PurchaseRequestId,
                     binding.PurchaseRequestLineId,new(binding.SubmissionId,binding.ApprovalOutcomeId,binding.MethodId),token);
                 _=await PrincipalActor(core,scope,http,auth,"procurement-sourcing-cancel",source.Request.BranchRef,true,token);
                 var line=lines.SingleOrDefault(x=>x.Id==binding.SourcingLineId)
@@ -133,6 +139,35 @@ public static partial class ProcurementSourcingExecutionRoutes
             PrincipalRecord(db,scope,ev,"DraftCancelled",key,new{reason});
             return await PrincipalSave(db,scope,ev,"Cancel",key,fingerprint,token);
         },ct);
+    }
+
+    // This adapter grants no branch. PrincipalActor has already resolved the
+    // current account and Core assignments for the exact owned RFQ target.
+    internal static IProcurementScope PrincipalCancellationSourceScope(
+        ProcurementRequestScope scope,RfqPrincipalActor actor,Guid? eventBranch)
+    {
+        if(eventBranch is not { } branch || branch==Guid.Empty || scope.OrgUnitId is not null
+            ||scope.IsConfined&&scope.WorkLocationId is null&&!scope.IsExplicitAllBranches
+            ||scope.WorkLocationId is { } selected&&selected!=branch
+            ||actor.TenantId!=scope.TenantId||actor.CompanyId!=scope.LegalEntityId
+            ||actor.PrincipalId!=scope.SubjectId||actor.SelectedBranchId!=scope.WorkLocationId
+            ||actor.Permissions is null||!actor.Permissions.Contains("procurement-sourcing-cancel")
+            ||!actor.OrganisationWide&&(actor.Branches is null||!actor.Branches.Contains(branch)))
+            throw new UnauthorizedAccessException("SourcingCancellationTargetBranchRequired");
+        return new CancellationSourceBranchScope(scope,branch);
+    }
+
+    private sealed record CancellationSourceBranchScope(ProcurementRequestScope Parent,Guid Branch):IProcurementScope
+    {
+        public string TenantId=>Parent.TenantId;
+        public Guid LegalEntityId=>Parent.LegalEntityId;
+        public Guid? WorkLocationId=>Branch;
+        public Guid? OrgUnitId=>Parent.OrgUnitId;
+        public bool IsConfined=>true;
+        public string SubjectId=>Parent.SubjectId;
+        public Guid? WorkerId=>Parent.WorkerId;
+        public Guid? CoreLinkedWorkerId=>Parent.CoreLinkedWorkerId;
+        public string? CorrelationId=>Parent.CorrelationId;
     }
 
     private static void PrincipalRecord(ProcurementDbContext db,ProcurementRequestScope scope,SourcingEvent ev,

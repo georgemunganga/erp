@@ -110,7 +110,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             if(await Replay(db,core,scope,http,auth,"procurement-po-approve","Decide",key,fingerprint,id,token) is { } prior)return prior;
             var load=await LoadGoverned(db,cases,core,scope,http,auth,"procurement-po-approve",id,token);
             var order=load.Order;var now=DateTimeOffset.UtcNow;
-            var pin=await db.PrincipalOrderAssignmentEvidence.SingleOrDefaultAsync(x=>x.CoreAssignmentId==assignmentId
+            var pin=await db.PrincipalOrderAssignments.SingleOrDefaultAsync(x=>x.CoreAssignmentId==assignmentId
                 &&x.PrincipalId==scope.SubjectId,token)??throw new Problem("OrderAssignmentNotFound",404);
             var submission=await db.PrincipalOrderSubmissions.SingleOrDefaultAsync(x=>x.Id==pin.SubmissionId
                 &&x.PurchaseOrderId==id,token)??throw new Problem("OrderSubmissionNotFound",409);
@@ -135,7 +135,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             await VerifySubmission(db,core,scope,http,load,submission,funding,policy,input.Action=="Approve",now,token);
             if(input.Action=="Approve")
             {
-                var pins=await db.PrincipalOrderAssignmentEvidence.Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
+                var pins=await db.PrincipalOrderAssignments.Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
                 var tasks=workflow.Stages.SelectMany(x=>x.Assignments).ToArray();
                 if(pins.Length!=tasks.Length || tasks.Any(x=>pins.Count(p=>p.CoreAssignmentId==x.Id
                     &&p.PrincipalId==x.AssigneeSubjectId&&p.CoreStageId==x.StageId)!=1))

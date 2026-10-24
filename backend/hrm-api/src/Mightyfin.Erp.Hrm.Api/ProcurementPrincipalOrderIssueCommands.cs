@@ -41,7 +41,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 || workflow.PolicyVersionNumber!=submission.PolicyVersionNumber)
                 throw new Problem("OrderCoreApprovalMissing",409);
             await VerifySubmission(db,core,scope,http,load,submission,funding,policy,true,now,token);
-            var pins=await db.PrincipalOrderAssignmentEvidence.Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
+            var pins=await db.PrincipalOrderAssignments.Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
             var tasks=workflow.Stages.SelectMany(x=>x.Assignments).ToArray();
             if(pins.Length!=tasks.Length || tasks.Any(x=>pins.Count(p=>p.CoreAssignmentId==x.Id
                 &&p.PrincipalId==x.AssigneeSubjectId&&p.CoreStageId==x.StageId)!=1))

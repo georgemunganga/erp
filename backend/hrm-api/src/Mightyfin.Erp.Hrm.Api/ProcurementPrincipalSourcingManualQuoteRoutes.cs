@@ -116,7 +116,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
-        return Run(http, scope, async (db, _, core, auth, token) =>
+        return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
@@ -196,7 +196,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
-        return Run(http, scope, async (db, _, core, auth, token) =>
+        return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
             var (actor, _) = await PrincipalQuoteEvent(db, core, scope, http, auth, id, token);
@@ -224,7 +224,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
-        return Run(http, scope, async (db, _, core, auth, token) =>
+        return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
             if (id == Guid.Empty || cursor is < 0 or > 1000000 || limit is < 1 or > 50)
@@ -254,7 +254,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
-        return Run(http, scope, async (db, _, core, auth, token) =>
+        return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
             if (revision < 1) throw new Problem("SourcingQuoteRevisionInvalid", 422);
@@ -293,7 +293,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
-        return Run(http, scope, async (db, _, core, auth, token) =>
+        return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
@@ -385,7 +385,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
-        return Run(http, scope, async (db, _, core, auth, token) =>
+        return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
             if (key == Guid.Empty) throw new Problem("SourcingCommandKeyRequired", 400);

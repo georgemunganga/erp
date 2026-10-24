@@ -51,11 +51,16 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
             var entity = model.FindEntityType(type) ?? throw new InvalidOperationException("CommercialEntityMissing");
             return entity.GetSchema() + "." + entity.GetTableName();
         }
-        var inspected = kind == PrincipalCommercialStore.Receiving
-            ? types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray() : types;
+        var inspected = kind switch
+        {
+            PrincipalCommercialStore.Orders => types.Append(typeof(PrincipalReceivingSourceState)).ToArray(),
+            PrincipalCommercialStore.Receiving => types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray(),
+            _ => types,
+        };
         var owned = types.Select(Table).Distinct(StringComparer.Ordinal).ToArray();
-        // Unknown/mixed receipt history is deliberately denied by receiving commands.
-        // The physical contract must include those reads before advertising availability.
+        // PO cancellation inspects the receiving-source physical shape even if
+        // receiving commands are off. Only SELECT is required: owned/write tables
+        // still come from Orders alone. Receiving additionally reads legacy history.
         Type[] historyReads = kind == PrincipalCommercialStore.Receiving
             ? [typeof(ReceivingSourceState), typeof(GoodsReceiptLine), typeof(ServiceAcceptance)] : [];
         var reads = Dependencies.Concat(inspected).Concat(historyReads).Select(Table).Distinct(StringComparer.Ordinal).ToArray();
@@ -68,6 +73,11 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         var append = owned.Where(x => !mutable.Contains(x))
             .Concat(["procurement.audit_events", "procurement.outbox_events"]).Distinct(StringComparer.Ordinal).ToArray();
         var clauses = reads.Select(x => "has_table_privilege(current_user," + Literal(x) + ",'SELECT')").ToList();
+        if (kind == PrincipalCommercialStore.Orders)
+            // PO detail, Finance detail, approval work and fulfilment read the
+            // branch label using the enlisted execution connection. The shared
+            // Core branch fence checks other columns but does not read Name.
+            clauses.Add("has_column_privilege(current_user,'hrm.work_locations','name','SELECT')");
         clauses.Add("NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))");
         clauses.Add("NOT has_schema_privilege(current_user,'procurement','CREATE')");
         clauses.Add("NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=ANY(" + Columns(reads)

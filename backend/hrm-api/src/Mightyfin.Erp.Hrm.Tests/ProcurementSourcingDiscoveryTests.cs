@@ -94,6 +94,41 @@ public sealed class ProcurementSourcingDiscoveryTests
         Assert.False(ProcurementSourcingExecutionRoutes.SameRequestSet([low,low],[low]));
     }
 
+    [Fact]
+    public void Principal_cancel_binds_only_a_current_core_authorized_target_branch_for_retained_sources()
+    {
+        var person=Guid.NewGuid();var company=Guid.NewGuid();var a=Guid.NewGuid();var b=Guid.NewGuid();var c=Guid.NewGuid();
+        var all=new ProcurementRequestScope();
+        all.Set("rfq-cancel",company,person.ToString("D"),null,null,true,"test",explicitAllBranches:true);
+        all.AssignPrincipal(person);
+        var actor=new RfqPrincipalActor(person.ToString("D"),null,"rfq-cancel",company,null,
+            new HashSet<Guid>{a,b},false,new HashSet<string>{"procurement-sourcing-cancel"});
+        var source=ProcurementSourcingExecutionRoutes.PrincipalCancellationSourceScope(all,actor,a);
+        Assert.Equal(a,source.WorkLocationId);
+        Assert.True(source.IsConfined);
+        Assert.False(source.IsExplicitAllBranches);
+        Assert.Equal(person.ToString("D"),source.SubjectId);
+        Assert.Null(source.WorkerId);
+        Assert.Throws<UnauthorizedAccessException>(()=>
+            ProcurementSourcingExecutionRoutes.PrincipalCancellationSourceScope(all,actor,c));
+
+        var selected=new ProcurementRequestScope();
+        selected.Set("rfq-cancel",company,person.ToString("D"),a,null,true,"test");
+        selected.AssignPrincipal(person);
+        var selectedActor=actor with {SelectedBranchId=a};
+        Assert.Equal(a,ProcurementSourcingExecutionRoutes.PrincipalCancellationSourceScope(selected,selectedActor,a).WorkLocationId);
+        Assert.Throws<UnauthorizedAccessException>(()=>
+            ProcurementSourcingExecutionRoutes.PrincipalCancellationSourceScope(selected,selectedActor,b));
+
+        var missingAll=new ProcurementRequestScope();
+        missingAll.Set("rfq-cancel",company,person.ToString("D"),null,null,true,"test");
+        missingAll.AssignPrincipal(person);
+        Assert.Throws<UnauthorizedAccessException>(()=>
+            ProcurementSourcingExecutionRoutes.PrincipalCancellationSourceScope(missingAll,actor,a));
+        Assert.Throws<UnauthorizedAccessException>(()=>
+            ProcurementSourcingExecutionRoutes.PrincipalCancellationSourceScope(all,actor with {CompanyId=Guid.NewGuid()},a));
+    }
+
     private static RfqCurrentActor Actor(Guid? selected, bool organisationWide, Guid[] branches)
         => new("person", Guid.NewGuid(), "tenant", Guid.NewGuid(), selected, branches.ToHashSet(), organisationWide,
             new HashSet<string> { "procurement-sourcing-convert" }, true, new HashSet<Guid>());

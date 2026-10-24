@@ -60,13 +60,47 @@ public sealed partial class SpendingAuthorityIdentityTests
         Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.RequireIndependentReviewer(g,c,s,principal,alias));
     }
     [Theory]
-    [InlineData("PurchaseOrder.Approve","procurement-order-approve")]
-    [InlineData("SourcingEvent.Publish","procurement-sourcing-publish")]
-    public void Principal_authority_successor_is_not_silently_reused_by_other_operational_families(string action,string permission)
+    [InlineData("PurchaseOrder.Approve", "procurement-po-approve")]
+    [InlineData("SourcingEvent.Publish", "procurement-sourcing-publish")]
+    public void Principal_authority_successors_retain_their_own_exact_registered_purpose(string action,string permission)
     {
-        var(_,created,_)=PrincipalPending();var changed=created with {Action=action,Permission=permission};
-        changed=changed with {EvidenceSha256=SpendingAuthorityIdentity.Digest(changed)};
-        Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.Verify(changed));
+        var grant=SpendingAuthorityConfiguration.CreateDraft("AUTH-SUCCESSOR",Recipient,
+            new("ZMW","ApprovedLineBase",100,Now.AddDays(-1),Now.AddDays(1),AllBranches:true,AllDepartments:true,AllCategories:true),
+            Actor(Maker,SpendingAuthorityConfiguration.ConfigurePermission),Now,[],action);
+        var created=SpendingAuthorityIdentity.CaptureCreation(grant,null,null,2);
+        SpendingAuthorityConfiguration.Submit(grant,grant.Version,Actor(Maker,SpendingAuthorityConfiguration.ConfigurePermission),Subject(),Now.AddMinutes(1));
+        var submitted=SpendingAuthorityIdentity.CaptureSubmission(grant,created,Maker,null,null);
+        SpendingAuthorityIdentity.RequireIndependentReviewer(grant,created,submitted,Reviewer,null);
+        Activate(grant);
+        var activated=SpendingAuthorityIdentity.CaptureActivation(grant,created,submitted,Reviewer,null,null);
+        SpendingAuthorityIdentity.VerifyActivation(grant,created,submitted,activated);
+        Assert.Equal(action,activated.Action);
+        Assert.Equal(permission,activated.Permission);
+        foreach (var wrong in new[] {
+            created with {Permission=SpendingAuthorityConfiguration.ApprovalPermission},
+            created with {Action=SpendingAuthorityConfiguration.ApprovalAction},
+            created with {Action="Unknown.Approve"},
+        })
+        {
+            var rehashed=wrong with {EvidenceSha256=SpendingAuthorityIdentity.Digest(wrong)};
+            Assert.Equal("AuthorityIdentityEvidenceInvalid",Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.Verify(rehashed)).Message);
+        }
+        var wrongBasis=SpendingAuthorityConfiguration.CreateDraft("AUTH-WRONG-BASIS",Recipient,
+            new("ZMW","EstimatedLineBase",100,Now.AddDays(-1),Now.AddDays(1),AllBranches:true,AllDepartments:true,AllCategories:true),
+            Actor(Maker,SpendingAuthorityConfiguration.ConfigurePermission),Now,[],action);
+        SpendingAuthorityIdentity.CaptureCreation(wrongBasis,null,null,2); // incomplete drafts remain editable
+        Assert.Equal("AuthorityFinancialTermsInvalid",Assert.Throws<InvalidOperationException>(()=>
+            SpendingAuthorityConfiguration.Submit(wrongBasis,wrongBasis.Version,
+                Actor(Maker,SpendingAuthorityConfiguration.ConfigurePermission),Subject(),Now.AddMinutes(3))).Message);
+    }
+
+    [Fact]
+    public void Legacy_schema_one_still_requires_workers_and_cannot_become_workerless_by_rehashing()
+    {
+        var(_,created,_)=Pending();
+        var workerless=created with {ActorWorkerId=null,RecipientWorkerId=null};
+        workerless=workerless with {EvidenceSha256=SpendingAuthorityIdentity.Digest(workerless)};
+        Assert.Equal("AuthorityIdentityEvidenceInvalid",Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.Verify(workerless)).Message);
     }
 
     [Fact]

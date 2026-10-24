@@ -51,8 +51,14 @@ internal static partial class PrincipalApprovalHttpVerification
         var legacyWorkerFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_LEGACY_WORKER_BRIDGE");
         var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
         var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
+        var receivingFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_RECEIVING");
+        var retainedPoCancelFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RETAINED_HISTORY_CANCEL");
+        Need(receivingFlag is null or "1","P30 receiving opt-in must be exactly1 or absent.");
+        Need(receivingFlag is null||principalPoFlag=="1","Receiving proof requires its fresh genuine principal PO profile.");
         var publicationFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
         var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
+        var p30PoCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE");
+        var p30ReceivingCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RECEIVING_NORMAL_COOKIE");
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
         Need(principalPoFlag is null or "1","Private P30 principal PO opt-in must be exactly1 or absent.");
         Need(publicationFlag is null or "1","Private P30 RFQ publication opt-in must be exactly1 or absent.");
@@ -70,6 +76,23 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Principal PO needs its own new private database and no other optional cohort.");
         Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30PoCookieFlag is null or "1","P30 PO normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30ReceivingCookieFlag is null or "1","P30 receiving normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30ReceivingCookieFlag is null || principalPoFlag=="1" && receivingFlag=="1"
+            && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && p30PoCookieFlag is null && p29CookieFlag is null && retainedPoCancelFlag is null
+            && principalRfqFlag is null && publicationFlag is null,
+            "P30 receiving normal-cookie serve needs its separate fresh PO and receiving cohort.");
+        Need(retainedPoCancelFlag is null or "1","P30 retained-history cancellation opt-in must be exactly1 or absent.");
+        Need(retainedPoCancelFlag is null || principalPoFlag=="1"
+            && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && receivingFlag is null && p30PoCookieFlag is null && p30ReceivingCookieFlag is null && p29CookieFlag is null
+            && principalRfqFlag is null && publicationFlag is null,
+            "Retained-history cancellation requires a separate fresh private PO API cohort, without cookie or receiving phases.");
+        Need(p30PoCookieFlag is null || principalPoFlag=="1" && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && p29CookieFlag is null && principalRfqFlag is null && publicationFlag is null && receivingFlag is null
+            && p30ReceivingCookieFlag is null,
+            "P30 PO normal-cookie serve requires its exclusive fresh private PO profile.");
         Need(p29CookieFlag is null || principalRfqFlag=="1" && publicationFlag is null,
             "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
         Need(principalRfqFlag is null || (database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
@@ -111,7 +134,7 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Normal local-cookie serve requires the original genuine base graph without other optional cohorts.");
         result["browserBuyerFixtureProfile"]=localCookieFlag=="1"?"PRIVATE_CONFIG_MAKER_POLICY_EVALUATION":"DISABLED";
-        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1",principalPoFlag=="1");var stage="Bootstrap";var requests=0;
+        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1",principalPoFlag=="1",receivingFlag=="1");var stage="Bootstrap";var requests=0;
         try
         {
             Advance("Bootstrap");
@@ -216,7 +239,27 @@ internal static partial class PrincipalApprovalHttpVerification
                 Need(positive is null or "1","Private manual evidence opt-in must be exactly1.");
                 await VerifyPrivateManualApprovalAsync(fixture,owner,roles,ownerConnection,result,Advance,Send,()=>requests++,accountFlag=="1",aliasFlag=="1",downFamily,principalRfqFlag=="1",principalPoFlag=="1");
                 if(principalPoFlag=="1")
-                    await VerifyPrincipalOrderAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
+                {
+                    var issued=await VerifyPrincipalOrderAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
+                    if(receivingFlag=="1")await VerifyPrincipalReceivingAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
+                    if(p30ReceivingCookieFlag=="1")
+                    {
+                        Advance("P30ReceivingGenuineUnconsumedBrowserGoodsSource");
+                        PrincipalIssuedFixture browserGoods;
+                        await using (var setupHost=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,
+                            actualSchema:true,privateManualEvidence:true))
+                        {
+                            setupHost.PrepareEntryPointEnvironment();
+                            using var setupClient=setupHost.CreateClient(new(){AllowAutoRedirect=false});
+                            browserGoods=await CreateActualReceivingCookieGoodsSourceAsync(fixture,setupClient,Send,issued.SupplierId);
+                        }
+                        await ServeP30ReceivingNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            browserGoods,issued,result,Advance);
+                    }
+                    if(p30PoCookieFlag=="1")
+                        await ServeP30PoNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            issued.RequestId,issued.RequestLineId,issued.SupplierId,issued.OrderId,result,Advance);
+                }
                 if(principalRfqFlag=="1")
                 {
                     var p29=await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
@@ -265,7 +308,7 @@ internal static partial class PrincipalApprovalHttpVerification
             using var request=new HttpRequestMessage(method,path);request.Headers.Add("X-Private-P25-Subject",actor.ToString("D"));
             request.Headers.Add("X-Shell-Entity",fixture.Company.ToString("D"));request.Headers.Add("X-Shell-Location",fixture.Branch.ToString("D"));
             if(commandKey is not null)Need(commandKey!=Guid.Empty,"Explicit private command key cannot be empty.");
-            if(method==HttpMethod.Post)request.Headers.Add("Idempotency-Key",(commandKey??Guid.NewGuid()).ToString("D"));
+            if(method==HttpMethod.Post||method==HttpMethod.Put)request.Headers.Add("Idempotency-Key",(commandKey??Guid.NewGuid()).ToString("D"));
             if(body is not null)request.Content=JsonContent.Create(body);
             using var response=await client.SendAsync(request);requests++;
             var text=await response.Content.ReadAsStringAsync();
