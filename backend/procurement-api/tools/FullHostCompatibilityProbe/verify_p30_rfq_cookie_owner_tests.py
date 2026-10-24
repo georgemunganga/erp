@@ -5,7 +5,7 @@ import unittest
 from verify_p30_po_cookie_owner import Failed, canonical_json
 from verify_p30_rfq_cookie_owner import (CONTACT_PRODUCER_VECTOR, captured_body,
     contact_utc_offset, core_row, exact_decimal_text, fingerprint, rfq_canonical_json,
-    stable_user_row, verify_source_progress)
+    stable_user_row, verify_source_progress, verify_captured_invitation)
 
 
 class RfqOwnerFingerprints(unittest.TestCase):
@@ -94,6 +94,39 @@ class RfqOwnerFingerprints(unittest.TestCase):
         self.assertNotEqual(fingerprint(CONTACT_PRODUCER_VECTOR),
             hashlib.sha256(canonical_json(CONTACT_PRODUCER_VECTOR).encode()).hexdigest())
         with self.assertRaises(Failed): contact_utc_offset('2026-10-23T12:00:00')
-        with self.assertRaises(Failed): contact_utc_offset('2026-10-23T12:00:00.001Z')
+        for milliseconds, fraction in [(0,''),(1,'.001'),(10,'.01'),(100,'.1'),(120,'.12'),(123,'.123'),(999,'.999')]:
+            self.assertEqual(contact_utc_offset(f'2026-10-23T12:00:00.{milliseconds:03d}Z'),
+                '2026-10-23T12:00:00'+fraction+'+00:00')
+        for value in ['2026-10-23T12:00:00Z','2026-10-23T12:00:00.1Z',
+            '2026-10-23T12:00:00.1230Z','2026-10-23T12:00:00.123456Z',
+            '2026-10-23T12:00:00.123+00:00','2026-10-23T12:00:00.123+02:00',
+            '2026-10-23T12:00:00.123z','2026-02-30T12:00:00.123Z',None]:
+            with self.subTest(value=value),self.assertRaises(Failed):contact_utc_offset(value)
+
+    def test_captured_contact_and_retained_quote_require_same_invitation(self):
+        import json
+        invitation='11111111-1111-4111-8111-111111111111'
+        bid_id='22222222-2222-4222-8222-222222222222'
+        other='33333333-3333-4333-8333-333333333333'
+        fields={'schemaVersion':2,'Id':bid_id,'SourcingEventId':other,'SupplierId':invitation,
+            'InvitationId':invitation,'Status':'Draft','SourceChannel':'Manual','CurrencyCode':'ZMW',
+            'SurrogateEnteredBy':bid_id}
+        raw=json.dumps(fields)
+        body={'invitationId':invitation};contact={'invitation_id':invitation}
+        bid={'id':bid_id,'invitation_id':invitation,'sourcing_event_id':other,'supplier_id':invitation,
+            'status':'Draft','source_channel':'Manual','currency_code':'ZMW','surrogate_entered_by':bid_id}
+        version={'supplier_bid_id':bid_id,'snapshot_json':raw,'snapshot_sha256':hashlib.sha256(raw.encode()).hexdigest()}
+        verify_captured_invitation(body,contact,bid,version)
+        for c,b,v in [({'invitation_id':other},bid,version),(contact,{**bid,'invitation_id':None},version),
+            (contact,bid,{**version,'supplier_bid_id':other}),(contact,bid,{**version,'snapshot_sha256':'0'*64})]:
+            with self.assertRaises(Failed):verify_captured_invitation(body,c,b,v)
+        # Correct self-hash does not authorize a different immutable owner graph.
+        for property in ['SourcingEventId','SupplierId','Status','SourceChannel','CurrencyCode','SurrogateEnteredBy']:
+            tampered=json.dumps({**fields,property:bid_id if property in ['SourcingEventId','SupplierId'] else 'changed'})
+            with self.subTest(property=property),self.assertRaises(Failed):verify_captured_invitation(body,contact,bid,
+                {**version,'snapshot_json':tampered,'snapshot_sha256':hashlib.sha256(tampered.encode()).hexdigest()})
+        wrong=json.dumps({'schemaVersion':2,'Id':bid_id,'InvitationId':other})
+        with self.assertRaises(Failed):verify_captured_invitation(body,contact,bid,
+            {**version,'snapshot_json':wrong,'snapshot_sha256':hashlib.sha256(wrong.encode()).hexdigest()})
 
 if __name__=='__main__': unittest.main()
