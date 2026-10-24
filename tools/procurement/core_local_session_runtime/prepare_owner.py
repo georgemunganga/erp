@@ -52,8 +52,13 @@ def save(path,data):
 
 def sql(database,statement,secret=False):
     need(database in {'postgres',SOURCE,TARGET},'fixed-private-database-allowlist')
-    cmd=['docker','exec','-i','-e','PGOPTIONS=-c lock_timeout=2s -c statement_timeout=90s '
-         '-c idle_in_transaction_session_timeout=10s -c max_parallel_workers_per_gather=0',
+    options='-c lock_timeout=2s -c statement_timeout=90s '
+    options+='-c idle_in_transaction_session_timeout=10s -c max_parallel_workers_per_gather=0'
+    if secret:
+        # Session startup settings apply BEFORE the first password-bearing SQL
+        # statement. The server's global logging configuration is untouched.
+        options+=' -c log_statement=none -c log_min_error_statement=panic'
+    cmd=['docker','exec','-i','-e','PGOPTIONS='+options,
          PRIVATE,'psql','-XqAt','-U','postgres','-d',database,'-v','ON_ERROR_STOP=1',
          '-v','VERBOSITY=sqlstate','-f','-']
     run=subprocess.run(cmd,input=statement if isinstance(statement,bytes) else statement.encode(),

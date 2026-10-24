@@ -2,6 +2,8 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 
 HERE=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('owner_prep',HERE/'prepare_owner.py')
@@ -31,5 +33,21 @@ class OwnerPreparationSourceTests(unittest.TestCase):
         self.assertNotEqual(owner.TARGET,owner.SOURCE)
         self.assertEqual(owner.core_profile.aliases(owner.TARGET),
             ('p30_core_session_login_01','p30_record_login_01','p30_execute_login_01'))
+
+    def test_secret_sql_sets_only_session_startup_logging_controls(self):
+        calls=[]
+        def record(command,**kwargs):
+            calls.append((command,kwargs))
+            return SimpleNamespace(returncode=0,stdout=b'',stderr=b'')
+        with patch.object(owner.subprocess,'run',side_effect=record):
+            owner.sql(owner.TARGET,'CREATE ROLE "fixture" PASSWORD \'private\';',secret=True)
+            owner.sql(owner.TARGET,'SELECT 1',secret=False)
+        secret_command,secret_input=calls[0]
+        ordinary_command,_=calls[1]
+        self.assertIn('log_statement=none',secret_command[4])
+        self.assertIn('log_min_error_statement=panic',secret_command[4])
+        self.assertNotIn('log_statement=none',ordinary_command[4])
+        self.assertNotIn('private',str(secret_command))
+        self.assertIn(b'private',secret_input['input'])
 
 if __name__=='__main__':unittest.main()
