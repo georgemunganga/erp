@@ -29,7 +29,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             // edit. LoadGoverned has verified the immutable original and every
             // effective revision; the attested amount below is the current
             // revised gross. Issued amendments remain a separate workflow.
-            if(await db.PrincipalOrderDraftCommercialRevisions.AnyAsync(x=>x.PurchaseOrderId==id,token)
+            if(await ProcurementPrincipalOrderDraftHistory.InstalledAsync(db,token)
+                && await db.PrincipalOrderDraftCommercialRevisions.AnyAsync(x=>x.PurchaseOrderId==id,token)
                 && (http.RequestServices.GetService<PrincipalOrderRevisionOptions>() is not { Enabled: true }
                     || http.RequestServices.GetService<IPrincipalOrderRevisionReadiness>() is not { } revisionReady
                     || !await revisionReady.IsReadyAsync(db,token)))

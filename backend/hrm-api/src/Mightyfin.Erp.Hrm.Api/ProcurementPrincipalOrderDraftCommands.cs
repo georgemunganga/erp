@@ -102,7 +102,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             }
             if(http.RequestServices.GetService<PrincipalOrderRevisionOptions>()?.Enabled==true)
             {
-                if(http.RequestServices.GetService<IPrincipalOrderRevisionReadiness>() is not { } revisionReady
+                if(!await ProcurementPrincipalOrderDraftHistory.InstalledAsync(db,token)
+                    || http.RequestServices.GetService<IPrincipalOrderRevisionReadiness>() is not { } revisionReady
                     || !await revisionReady.IsReadyAsync(db,token))
                     throw new Problem("OrderDraftRevisionUnavailable",503);
                 var original=PrincipalOrderCommercialStates.Capture(order,lines);

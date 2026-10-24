@@ -15,6 +15,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         {
             var key = Key(http);
             if (http.RequestServices.GetService<PrincipalOrderRevisionOptions>() is not { Enabled: true }
+                || !await ProcurementPrincipalOrderDraftHistory.InstalledAsync(db, token)
                 || http.RequestServices.GetService<IPrincipalOrderRevisionReadiness>() is not { } revisionReady
                 || !await revisionReady.IsReadyAsync(db, token))
                 throw new Problem("OrderDraftRevisionUnavailable", 503);

@@ -134,11 +134,15 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var lines=await db.PurchaseOrderLines.AsNoTracking().Where(x=>x.PurchaseOrderId==id&&x.IsActive)
                 .OrderBy(x=>x.LineNumber).ToArrayAsync(token);
             var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking().Where(x=>x.PurchaseOrderId==id).ToArrayAsync(token);
-            var effective=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,token);
-            var origin=await db.PrincipalOrderCommercialOrigins.AsNoTracking()
-                .SingleOrDefaultAsync(x=>x.PurchaseOrderId==id,token);
-            var draftRevisions=await db.PrincipalOrderDraftCommercialRevisions.AsNoTracking()
-                .Where(x=>x.PurchaseOrderId==id).OrderBy(x=>x.RevisionNumber).ToArrayAsync(token);
+            var history=await ProcurementPrincipalOrderDraftHistory.VerifyStatusAsync(db,order,lines,bindings,token);
+            var effective=history.Effective;
+            var origin=history.RevisionSchemaInstalled
+                ?await db.PrincipalOrderCommercialOrigins.AsNoTracking()
+                    .SingleOrDefaultAsync(x=>x.PurchaseOrderId==id,token):null;
+            var draftRevisions=history.RevisionSchemaInstalled
+                ?await db.PrincipalOrderDraftCommercialRevisions.AsNoTracking()
+                    .Where(x=>x.PurchaseOrderId==id).OrderBy(x=>x.RevisionNumber).ToArrayAsync(token)
+                :Array.Empty<PrincipalOrderDraftCommercialRevision>();
             var ids=bindings.Select(x=>x.AllocationId).ToArray();
             var allocations=await db.PurchaseRequestAllocations.AsNoTracking().Where(x=>ids.Contains(x.Id)).ToArrayAsync(token);
             var release=await db.PrincipalOrderReleaseRequests.AsNoTracking()
@@ -156,8 +160,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     &&a.Status==(order.Status=="Cancelled"?"Released"
                         :order.Status is "IssuePending" or "Issued" or "Disputed"?"Ordered":"Reserved"))!=1))
                 throw new Problem("OrderOriginalSourceUnavailable",409);
-            var revisionAvailable=await PrincipalOrderRevisionCapability.ReadyAsync(
-                http.RequestServices,db,false,true,token);
+            var revisionAvailable=history.RevisionSchemaInstalled
+                && await PrincipalOrderRevisionCapability.ReadyAsync(
+                    http.RequestServices,db,false,true,token);
             var canEditDraft=false;
             string? editUnavailableReason=revisionAvailable?null:"Draft editing is unavailable.";
             if(revisionAvailable)
