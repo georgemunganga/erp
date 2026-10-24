@@ -94,7 +94,7 @@ public static partial class ProcurementPolicyDraftRoutes
         return (origin, submitted);
     }
 
-    private static async Task ContractPolicyPublished(ProcurementDbContext db,
+    internal static async Task ContractPolicyPublished(ProcurementDbContext db,
         ProcurementRequestScope scope, PolicyVersion policy, CancellationToken ct)
     {
         var origin = await ContractPolicyOrigin(db, scope, policy, ct);
