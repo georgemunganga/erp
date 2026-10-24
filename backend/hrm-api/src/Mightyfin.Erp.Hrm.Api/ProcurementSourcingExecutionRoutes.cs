@@ -36,7 +36,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         group.MapGet("/command-receipts/{operation}/{key:guid}", Recover).RequireAuthorization("procurement-access");
         MapPrincipalSourceRoutes(group);
         MapPrincipalPublicationRoutes(group);
-        if (app.Services.GetRequiredService<ProcurementRfqCommercialOptions>().Enabled)
+        if (app.Services.GetService<ProcurementRfqCommercialOptions>() is { Enabled: true })
             MapCommercialRoundRoutes(group);
     }
     private static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
