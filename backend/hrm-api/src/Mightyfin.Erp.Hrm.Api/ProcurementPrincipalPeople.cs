@@ -48,11 +48,20 @@ internal static class ProcurementPrincipalPeople
         var firstId = Guid.ParseExact(first, "D"); var secondId = Guid.ParseExact(second, "D");
         var aliases = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == tenant && (x.Id == firstId || x.Id == secondId))
             .Select(x => new { x.Id, x.WorkerId }).ToArrayAsync(ct);
-        var firstAlias = aliases.SingleOrDefault(x => x.Id == firstId)?.WorkerId;
-        var secondAlias = aliases.SingleOrDefault(x => x.Id == secondId)?.WorkerId;
-        var firstKnown = new[] { firstRetainedWorker, firstAlias }.Where(x => x is not null && x != Guid.Empty).ToHashSet();
-        return !new[] { secondRetainedWorker, secondAlias }.Any(x => x is not null && x != Guid.Empty && firstKnown.Contains(x));
+        return IndependentWithCurrentAliases(first,firstRetainedWorker,second,secondRetainedWorker,aliases.ToDictionary(x=>x.Id,x=>x.WorkerId));
     }
+    // Same denial-only rule shared with bounded owner loaders which resolve ALL
+    // participant aliases in one actual scoped Core query. This grants no action.
+    internal static bool IndependentWithCurrentAliases(string first,Guid? firstRetainedWorker,string second,Guid? secondRetainedWorker,
+        IReadOnlyDictionary<Guid,Guid?> currentAliases)
+    {
+        if(!ProcurementPrincipalEvidence.Independent(first,firstRetainedWorker,second,secondRetainedWorker))return false;
+        currentAliases.TryGetValue(Guid.ParseExact(first,"D"),out var firstAlias);
+        currentAliases.TryGetValue(Guid.ParseExact(second,"D"),out var secondAlias);
+        var firstKnown=new[]{firstRetainedWorker,firstAlias}.Where(x=>x is not null&&x!=Guid.Empty).ToHashSet();
+        return !new[]{secondRetainedWorker,secondAlias}.Any(x=>x is not null&&x!=Guid.Empty&&firstKnown.Contains(x));
+    }
+
     internal static async Task<Person?> Resolve(HrmDbContext core, string tenant, Guid company,
         string principal, CancellationToken ct)
     {

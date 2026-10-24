@@ -59,6 +59,12 @@ public static class ProcurementHostIntegration
             .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
         services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
             ProcurementPrincipalSourcingPublicationReadiness>();
+        // P32 remains disabled until its generated owner schema, physical capture,
+        // finite role privileges, and Core document/approval dependencies pass.
+        services.AddSingleton(configuration.GetSection("Procurement:RfqCommercialRounds")
+            .Get<ProcurementRfqCommercialOptions>() ?? new());
+        services.AddScoped<IProcurementRfqCommercialReadiness,
+            UnavailableProcurementRfqCommercialReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
