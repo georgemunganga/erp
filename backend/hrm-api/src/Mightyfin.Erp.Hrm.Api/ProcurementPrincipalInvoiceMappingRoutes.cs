@@ -325,6 +325,8 @@ public interface IProcurementPrincipalInvoiceSchemaReadiness
 {
     Task<bool> IsReadyAsync(CancellationToken ct);
     Task<bool> IsReadReadyAsync(CancellationToken ct);
+    Task<bool> IsDownloadReadyAsync(CancellationToken ct);
     Task<bool> IsReadyAsync(ProcurementDbContext db, CancellationToken ct);
     Task<bool> IsReadReadyAsync(ProcurementDbContext db, CancellationToken ct);
+    Task<bool> IsDownloadReadyAsync(ProcurementDbContext db, CancellationToken ct);
 }

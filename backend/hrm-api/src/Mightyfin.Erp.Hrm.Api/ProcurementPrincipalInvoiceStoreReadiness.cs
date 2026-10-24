@@ -49,10 +49,13 @@ public sealed class ProcurementPrincipalInvoiceStoreReadiness(IConfiguration con
 {
     public Task<bool> IsReadyAsync(CancellationToken ct) => ConfiguredAsync(true, ct);
     public Task<bool> IsReadReadyAsync(CancellationToken ct) => ConfiguredAsync(false, ct);
+    public Task<bool> IsDownloadReadyAsync(CancellationToken ct) => ConfiguredAsync(false, ct, download: true);
     public Task<bool> IsReadyAsync(ProcurementDbContext db, CancellationToken ct) => CheckAsync(db, true, ct);
     public Task<bool> IsReadReadyAsync(ProcurementDbContext db, CancellationToken ct) => CheckAsync(db, false, ct);
+    public Task<bool> IsDownloadReadyAsync(ProcurementDbContext db, CancellationToken ct)
+        => CheckAsync(db, false, ct, download: true);
 
-    private async Task<bool> ConfiguredAsync(bool write, CancellationToken ct)
+    private async Task<bool> ConfiguredAsync(bool write, CancellationToken ct, bool download = false)
     {
         if (!ProcurementPrincipalInvoiceSchemaCapture.Populated) return false;
         var execution = configuration.GetConnectionString("ProcurementApprovalExecution");
@@ -65,19 +68,20 @@ public sealed class ProcurementPrincipalInvoiceStoreReadiness(IConfiguration con
         try
         {
             return await transaction.ExecuteAsync(async (db, unusedCases, token) =>
-                await CheckAsync(db, write, token), ct);
+                await CheckAsync(db, write, token, download), ct);
         }
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
     }
 
-    private async Task<bool> CheckAsync(ProcurementDbContext db, bool write, CancellationToken ct)
+    private async Task<bool> CheckAsync(ProcurementDbContext db, bool write, CancellationToken ct, bool download = false)
     {
         if (!ProcurementPrincipalInvoiceSchemaCapture.Populated || !db.Database.IsNpgsql()
             || db.Database.CurrentTransaction is null
             || !await orders.IsReadyAsync(db, false, ct)
             || !await receiving.IsReadyAsync(db, false, ct)
             || !await principalStore.CanReadWorkflowAsync(db, ct)
-            || !await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(db, requestScope, write, false, ct))
+            || !await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(
+                db, requestScope, write, false, ct, download))
             return false;
         var physical = db.GetService<IDesignTimeModel>().Model;
         var expectedChecks = ProcurementPrincipalInvoiceSchemaCapture.Types.SelectMany(type =>

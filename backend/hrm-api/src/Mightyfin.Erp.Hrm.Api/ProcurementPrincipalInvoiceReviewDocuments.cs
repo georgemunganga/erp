@@ -127,13 +127,13 @@ public static partial class ProcurementPrincipalInvoiceReviewRoutes
         http.Response.Headers.CacheControl = "private, no-store";
         if (http.RequestServices.GetService<ProcurementPrincipalInvoiceMatchingOptions>() is not { Enabled: true }
             || http.RequestServices.GetService<IProcurementPrincipalInvoiceSchemaReadiness>() is not { } ready
-            || !await ready.IsReadReadyAsync(ct))
+            || !await ready.IsDownloadReadyAsync(ct))
             return Results.Json(new { code = "PrincipalInvoiceReviewUnavailable" }, statusCode: 503);
         PrincipalDocumentAccess? granted = null;
         var result = await ProcurementPrincipalInvoiceSourceRoutes.Run(http, scope,
             async (db, cases, core, auth, token) =>
             {
-                if (!await ready.IsReadReadyAsync(db, token))
+                if (!await ready.IsDownloadReadyAsync(db, token))
                     throw new InvalidOperationException("PrincipalInvoiceReviewSchemaUnavailable");
                 var access = await CurrentReviewDocuments(db, cases, core, auth, http, scope, id, token);
                 if (!access.Hashes.ContainsKey(versionId)) throw new KeyNotFoundException();
