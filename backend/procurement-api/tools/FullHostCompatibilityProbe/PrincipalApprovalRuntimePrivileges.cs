@@ -11,6 +11,33 @@ using Npgsql;
 
 internal static class PrincipalApprovalRuntimePrivileges
 {
+    // This private P31 profile is the union needed by the real uploader/scanner,
+    // retained review and purpose download. It grants no retirement or content edits.
+    internal sealed record InvoiceGrant(string Relation, bool Insert, bool Update, string[] UpdateColumns);
+    internal static readonly InvoiceGrant[] PrincipalInvoiceGrants =
+    [
+        new("procurement.principal_invoice_states", true, true, []),
+        new("procurement.principal_invoice_mapping_lines", true, false, []),
+        new("procurement.principal_invoice_mappings", true, false, []),
+        new("procurement.principal_invoice_unit_reviews", true, false, []),
+        new("procurement.principal_invoice_review_assignments", true, false, []),
+        new("procurement.principal_invoice_review_attestations", true, false, []),
+        new("procurement.principal_invoice_review_outcomes", true, false, []),
+        new("procurement.principal_invoice_comparisons", true, false, []),
+        new("procurement.principal_invoice_exposure_states", true, true, []),
+        new("procurement.principal_invoice_claims", true, false, []),
+        new("procurement.principal_invoice_receipts", true, false, []),
+        new("procurement.principal_invoice_discrepancies", true, true, []),
+        new("procurement.principal_invoice_discrepancy_actions", true, false, []),
+        new("core_document.documents", true, false, []),
+        new("core_document.versions", true, false, ["ScanFailureCode", "ScanState", "ScanAttempts", "ScanLeaseId", "ScanStartedAt", "ScanLeaseExpiresAt", "Version"]),
+        new("core_document.scan_evidence", true, false, []),
+        new("core_document.record_events", true, false, []),
+        new("core_document.use_sets", true, false, []),
+        new("core_document.use_pins", true, false, []),
+        new("core_document.__EFMigrationsHistory", false, false, []),
+    ];
+
     internal sealed record Connections(string Record,string Execution,string RecordRole,string ExecutionRole);
     internal static async Task<Connections> CreateAsync(string owner,PrincipalApprovalFixture fixture,bool productionPooling=false)
     {
@@ -127,23 +154,17 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "invoice_match_results","invoice_match_allocations","goods_receipts","service_acceptances",
                 "policy_versions","audit_events","outbox_events","attachment_refs"})
                 await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
-            foreach(var table in new[]{"principal_invoice_states","principal_invoice_mapping_lines","principal_invoice_mappings",
-                "principal_invoice_unit_reviews","principal_invoice_review_assignments",
-                "principal_invoice_review_attestations","principal_invoice_review_outcomes","principal_invoice_comparisons",
-                "principal_invoice_exposure_states","principal_invoice_claims",
-                "principal_invoice_receipts","principal_invoice_discrepancies",
-                "principal_invoice_discrepancy_actions"})
-                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
-            foreach(var table in new[]{"principal_invoice_states","principal_invoice_exposure_states",
-                "principal_invoice_discrepancies"})
-                await Run("GRANT UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
-            // Core owns document content and its scan/use history. No document
-            // table DELETE/TRUNCATE, schema ownership or general user directory.
             await Run("GRANT USAGE ON SCHEMA core_document TO "+Q(execution));
-            foreach(var table in new[]{"documents","versions","scan_evidence","record_events","use_sets","use_pins"})
-                await Run("GRANT SELECT,INSERT ON core_document."+Q(table)+" TO "+Q(execution));
-            await Run("GRANT UPDATE ON core_document.documents,core_document.versions TO "+Q(execution));
-            await Run("GRANT SELECT ON core_document.\"__EFMigrationsHistory\" TO "+Q(execution));
+            foreach (var grant in PrincipalInvoiceGrants)
+            {
+                var parts = grant.Relation.Split('.');
+                var relation = Q(parts[0])+"."+Q(parts[1]);
+                await Run("GRANT SELECT"+(grant.Insert ? ",INSERT" : "")
+                    +(grant.Update ? ",UPDATE" : "")+" ON "+relation+" TO "+Q(execution));
+                if (grant.UpdateColumns.Length > 0)
+                    await Run("GRANT UPDATE ("+string.Join(',',grant.UpdateColumns.Select(Q))
+                        +") ON "+relation+" TO "+Q(execution));
+            }
         }
         await using var core=fixture.Core();var coreModel=core.GetService<IDesignTimeModel>().Model;
         // Explicit bounded read manifest for actual current-account/grant/branch/optional-manager queries.
@@ -173,6 +194,92 @@ internal static class PrincipalApprovalRuntimePrivileges
         return new(RuntimeConnection(owner,record,recordPassword,productionPooling),
             RuntimeConnection(owner,execution,executionPassword,productionPooling),record,execution);
     }
+    internal static async Task VerifyPrincipalInvoiceGrantsAsync(Connections roles)
+    {
+        await using var connection = new NpgsqlConnection(roles.Execution);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await using (var readOnly = new NpgsqlCommand("SET TRANSACTION READ ONLY", connection, transaction))
+            await readOnly.ExecuteNonQueryAsync();
+        await using (var identity = new NpgsqlCommand("""
+            SELECT current_user=@role AND session_user=@role
+              AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname=current_user
+                AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))
+              AND NOT EXISTS(SELECT 1 FROM pg_auth_members m JOIN pg_roles r
+                ON r.oid=m.member OR r.oid=m.roleid WHERE r.rolname=current_user)
+              AND has_schema_privilege(current_user,'procurement','USAGE')
+              AND NOT has_schema_privilege(current_user,'procurement','CREATE')
+              AND has_schema_privilege(current_user,'core_document','USAGE')
+              AND NOT has_schema_privilege(current_user,'core_document','CREATE')
+            """, connection, transaction))
+        {
+            identity.Parameters.AddWithValue("role",roles.ExecutionRole);
+            PrincipalApprovalHttpVerification.Need(await identity.ExecuteScalarAsync() is true,
+                "P31 must use its actual finite login with no memberships or Core document schema authority.");
+        }
+        foreach (var grant in PrincipalInvoiceGrants)
+        {
+            await using var command = new NpgsqlCommand("""
+                SELECT has_table_privilege(current_user,@relation,'SELECT')
+                  AND has_table_privilege(current_user,@relation,'INSERT')=@insert
+                  AND has_any_column_privilege(current_user,@relation,'INSERT')=@insert
+                  AND has_table_privilege(current_user,@relation,'UPDATE')=@update
+                  AND NOT has_table_privilege(current_user,@relation,'DELETE,TRUNCATE,TRIGGER,REFERENCES')
+                  AND NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=@relation::regclass
+                    AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))
+                  AND NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=@relation::regclass
+                    AND a.attnum>0 AND NOT a.attisdropped
+                    AND has_column_privilege(current_user,a.attrelid,a.attnum,'UPDATE')
+                      <> (@update OR a.attname=ANY(@columns)))
+                """, connection, transaction);
+            var relationParts=grant.Relation.Split('.');
+            command.Parameters.AddWithValue("relation",Q(relationParts[0])+"."+Q(relationParts[1]));
+            command.Parameters.AddWithValue("insert",grant.Insert);
+            command.Parameters.AddWithValue("update",grant.Update);
+            command.Parameters.AddWithValue("columns",grant.UpdateColumns);
+            PrincipalApprovalHttpVerification.Need(await command.ExecuteScalarAsync() is true,
+                "P31 effective table/column privileges differ from the finite owned operation matrix.");
+        }
+        await transaction.RollbackAsync();
+    }
+
+    internal static async Task VerifyPrincipalInvoiceGrantNegativesAsync(string owner,Connections roles)
+    {
+        // Private fixture ACL fault injection only; no records are changed and
+        // every committed role delta is exactly restored in finally.
+        await VerifyPrincipalInvoiceGrantsAsync(roles);
+        await using var connection=new NpgsqlConnection(owner);await connection.OpenAsync();
+        var before=await PrincipalApprovalHttpVerification.PrincipalFootprintAsync(connection);
+        async Task Change(string sql)
+        {await using var command=new NpgsqlCommand(sql,connection);await command.ExecuteNonQueryAsync();}
+        var role=Q(roles.ExecutionRole);
+        foreach (var fault in new[]
+        {
+            (Apply:"GRANT UPDATE ON core_document.versions TO "+role,
+             Restore:"REVOKE UPDATE ON core_document.versions FROM "+role),
+            (Apply:"REVOKE UPDATE (\"ScanState\") ON core_document.versions FROM "+role,
+             Restore:"GRANT UPDATE (\"ScanState\") ON core_document.versions TO "+role),
+            (Apply:"GRANT UPDATE ON core_document.scan_evidence TO "+role,
+             Restore:"REVOKE UPDATE ON core_document.scan_evidence FROM "+role),
+        })
+        {
+            await Change(fault.Apply);
+            try
+            {
+                var denied=false;
+                try { await VerifyPrincipalInvoiceGrantsAsync(roles); }
+                catch (PrivatePrincipalProbeFailure) { denied=true; }
+                PrincipalApprovalHttpVerification.Need(denied,
+                    "P31 finite matrix admitted immutable writes or a missing real scan cursor grant.");
+            }
+            finally { await Change(fault.Restore); }
+            await VerifyPrincipalInvoiceGrantsAsync(roles);
+            PrincipalApprovalHttpVerification.Need(
+                await PrincipalApprovalHttpVerification.PrincipalFootprintAsync(connection)==before,
+                "P31 finite grant fault did not restore all original records/schema/ACL/role state.");
+        }
+    }
+
     internal static string RuntimeConnection(string owner,string role,string password,bool productionPooling)
         => new NpgsqlConnectionStringBuilder(owner)
         {

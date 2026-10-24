@@ -19,11 +19,16 @@ internal static partial class PrincipalApprovalHttpVerification
     {
         Need(fixture.PrincipalInvoiceProfile && fixture.PrincipalPoProfile && fixture.PrincipalReceivingProfile,
             "P31 actual HTTP proof requires its exclusive PO and receiving cohort.");
+        stage("P31ExactFiniteDocumentGrantMatrixAndReversibleNegatives");
+        await PrincipalApprovalRuntimePrivileges.VerifyPrincipalInvoiceGrantNegativesAsync(owner,roles);
         stage("P31ActualNormalProviderAndFiniteDocumentReadiness");
         await using var host = new PrincipalApprovalHost(fixture, owner, roles.Record, roles.Execution,
             actualSchema: true, privateManualEvidence: true);
         host.PrepareEntryPointEnvironment();
         using var client = host.CreateClient(new() { AllowAutoRedirect = false });
+        Need(host.Services.GetRequiredService<Mightyfin.Erp.Core.Documents.Application.IDocumentScanner>()
+            is Mightyfin.Erp.Core.Documents.Infrastructure.ClamdDocumentScanner,
+            "P31 must use the actual Core ClamD adapter, never a readiness or scan-result substitute.");
         using (var services = host.Services.CreateScope())
         {
             var ready = services.ServiceProvider.GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>();
@@ -120,6 +125,7 @@ internal static partial class PrincipalApprovalHttpVerification
             && document.GetProperty("canDownload").GetBoolean()
             && document.GetProperty("sha256").GetString() == Convert.ToHexStringLower(SHA256.HashData(pdf)),
             "Real Core scanner did not approve exactly the uploaded original bytes.");
+        result["p31PersistedCoreScan"] = await VerifyP31PersistedScan(owner,fixture,invoiceId,versionId,pdf);
         var sourcePage = await send(client, HttpMethod.Get,
             invoicePath + "/principal-matching/sources?page=1&pageSize=25", fixture.InvoiceMaker);
         Need(sourcePage.GetProperty("items").EnumerateArray().Any(x =>
@@ -288,7 +294,39 @@ internal static partial class PrincipalApprovalHttpVerification
             var pin = await send(client, HttpMethod.Get, reviewPath + "/documents", fixture.InvoiceReviewer);
             Need(pin.GetProperty("items").EnumerateArray().Any(x => x.GetProperty("versionId").GetGuid() == versionId),
                 "Named reviewer could not inspect the retained original document version.");
+            if (map.GetProperty("mappingRevision").GetInt32()==1)
+            {
+                stage("P31SelectOnlyPurposeReadWithoutDownloadEventWrite");
+                await using var grantOwner=new Npgsql.NpgsqlConnection(owner);await grantOwner.OpenAsync();
+                var role=PrincipalApprovalRuntimePrivileges.Q(roles.ExecutionRole);
+                async Task EventGrant(string verb)
+                {
+                    await using var command=new Npgsql.NpgsqlCommand(verb+" INSERT ON core_document.record_events "
+                        +(verb=="REVOKE"?"FROM ":"TO ")+role,grantOwner);
+                    await command.ExecuteNonQueryAsync();
+                }
+                await EventGrant("REVOKE");
+                try
+                {
+                    using var services=host.Services.CreateScope();
+                    var ready=services.ServiceProvider.GetRequiredService<IProcurementPrincipalInvoiceSchemaReadiness>();
+                    Need(await ready.IsReadReadyAsync(default) && await ready.IsReadyAsync(default)
+                        && !await ready.IsDownloadReadyAsync(default),
+                        "Missing download audit INSERT did not preserve read/review admission and close download.");
+                    var before=await PrincipalFootprintAsync(grantOwner);
+                    await send(client,HttpMethod.Get,reviewPath+"/documents",fixture.InvoiceReviewer);
+                    await send(client,HttpMethod.Get,reviewPath+"/documents/"+versionId+"/download",
+                        fixture.InvoiceReviewer,null,HttpStatusCode.ServiceUnavailable);
+                    Need(before==await PrincipalFootprintAsync(grantOwner),
+                        "Unavailable purpose download changed document, review, audit or other owner facts.");
+                }
+                finally { await EventGrant("GRANT"); }
+                await PrincipalApprovalRuntimePrivileges.VerifyPrincipalInvoiceGrantsAsync(roles);
+            }
+            var eventsBefore=await P31DocumentEvents(owner,fixture);
+            var downloadBegan=DateTimeOffset.UtcNow;
             await DownloadP31Original(client, fixture, reviewPath + "/documents/" + versionId + "/download", pdf);
+            await VerifyP31DownloadEvent(owner,fixture,invoiceId,versionId,eventsBefore,downloadBegan);
             await send(client, HttpMethod.Get, invoicePath, fixture.InvoiceReviewer,
                 null, HttpStatusCode.Forbidden);
             var assignment = detail.GetProperty("assignments").EnumerateArray().Single();
@@ -382,6 +420,14 @@ internal static partial class PrincipalApprovalHttpVerification
             HttpStatusCode.OK, issueKey);
         Need(corrected.GetProperty("issueState").GetString() == "AwaitingCorrection",
             "The discrepancy did not retain its owned correction history.");
+        Need((await send(client,HttpMethod.Get,
+            invoicePath+"/principal-matching/exceptions/commands/"+issueKey,
+            fixture.InvoiceMatcher)).GetRawText()==corrected.GetRawText(),
+            "Discrepancy original-key GET recovery changed the retained action response.");
+        await send(client,HttpMethod.Get,invoicePath+"/principal-matching/exceptions/commands/"+issueKey,
+            fixture.InvoiceReviewer,null,HttpStatusCode.Forbidden);
+        await send(client,HttpMethod.Get,invoicePath+"/principal-matching/exceptions/commands/"+issueKey,
+            fixture.InvoiceMaker,null,HttpStatusCode.NotFound);
         var afterBlocked = await send(client, HttpMethod.Get, invoicePath + "/principal-matching/status",
             fixture.InvoiceMaker);
         Need(afterBlocked.GetProperty("state").GetString() == "ComparisonBlocked",
@@ -418,6 +464,8 @@ internal static partial class PrincipalApprovalHttpVerification
         result["p31InvoiceId"] = invoiceId;
         result["p31FirstBlockedThenExactClaimVerified"] = true;
         result["p31CoreDocumentRealScannerVerified"] = true;
+        result["p31PersistedDownloadAuditVerified"] = true;
+        result["p31FiniteDocumentGrantMatrixVerified"] = true;
         result["p31FinancePostingVerified"] = false;
         result["status"] = "PASS_PRIVATE_P31_TYPED_INVOICE_HTTP_ONLY_NO_FINANCE";
     }
