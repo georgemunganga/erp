@@ -153,7 +153,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 PreviousSnapshotSha256 = earlier.LastOrDefault()?.SnapshotSha256,
                 OriginalDirectSourceSha256 = order.OriginalDirectSourceSha256,
                 Reason = reason, ActorPrincipalId = scope.SubjectId,
-                CommandKey = key, RecordedAt = now,
+                CommandKey = key, CommandSha256 = fingerprint,
+                ResultOrderVersion = checked(order.Version + 1), RecordedAt = now,
                 SnapshotJson = snapshot, SnapshotSha256 = PrincipalOrderCommercialStates.Digest(snapshot)
             };
             db.AddScoped(next);

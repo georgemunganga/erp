@@ -31,6 +31,7 @@ public sealed partial class ProcurementDbContext
         var revision=model.Entity<PrincipalOrderDraftCommercialRevision>();
         revision.Property(x=>x.OriginalDirectSourceSha256).HasMaxLength(64);
         revision.Property(x=>x.SnapshotSha256).HasMaxLength(64);
+        revision.Property(x=>x.CommandSha256).HasMaxLength(64);
         revision.Property(x=>x.PreviousSnapshotSha256).HasMaxLength(64);
         revision.Property(x=>x.SnapshotJson).HasColumnType("text");
         revision.Property(x=>x.ActorPrincipalId).HasMaxLength(36);
@@ -48,7 +49,7 @@ public sealed partial class ProcurementDbContext
             .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.PreviousRevisionId})
             .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.PurchaseOrderId,x.Id})
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_po_draft_revision_previous_owner");
-        revision.ToTable(t=>t.HasCheckConstraint("ck_po_draft_revision",$"schema_version=1 AND revision_number>0 AND length(reason)>0 AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND original_direct_source_sha256 ~ '^[0-9a-f]{{64}}$' AND snapshot_sha256 ~ '^[0-9a-f]{{64}}$' AND ((revision_number=1 AND previous_revision_id IS NULL AND previous_snapshot_sha256 IS NULL) OR (revision_number>1 AND previous_revision_id IS NOT NULL AND previous_snapshot_sha256 ~ '^[0-9a-f]{{64}}$')) AND actor_principal_id IS NOT NULL AND actor_principal_id ~ {uuid} AND actor_principal_id<>'00000000-0000-0000-0000-000000000000' AND recorded_at IS NOT NULL"));
+        revision.ToTable(t=>t.HasCheckConstraint("ck_po_draft_revision",$"schema_version=1 AND revision_number>0 AND result_order_version=revision_number+1 AND length(reason)>0 AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND command_sha256 ~ '^[0-9a-f]{{64}}$' AND original_direct_source_sha256 ~ '^[0-9a-f]{{64}}$' AND snapshot_sha256 ~ '^[0-9a-f]{{64}}$' AND ((revision_number=1 AND previous_revision_id IS NULL AND previous_snapshot_sha256 IS NULL) OR (revision_number>1 AND previous_revision_id IS NOT NULL AND previous_snapshot_sha256 ~ '^[0-9a-f]{{64}}$')) AND actor_principal_id IS NOT NULL AND actor_principal_id ~ {uuid} AND actor_principal_id<>'00000000-0000-0000-0000-000000000000' AND recorded_at IS NOT NULL"));
 
         var slice=model.Entity<PrincipalOrderEffectiveSourceSlice>();
         slice.Property(x=>x.Quantity).HasPrecision(18,4);
@@ -117,6 +118,8 @@ public sealed partial class ProcurementDbContext
                 || PrincipalReceivingSourceStates.Any(x=>x.PurchaseOrderId==order.Id)
                 || PrincipalReceivingSourceStates.Local.Any(x=>x.PurchaseOrderId==order.Id)
                 || revision.ActorPrincipalId!=scope.SubjectId || revision.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
+                || revision.ResultOrderVersion!=checked(order.Version+1)
+                || revision.CommandSha256 is not {Length:64}
                 || revision.SnapshotSha256!=PrincipalOrderCommercialStates.Digest(revision.SnapshotJson)
                 || revision.SnapshotJson!=PrincipalOrderCommercialStates.Capture(order,lines)
                 || slices.Length!=lines.Length

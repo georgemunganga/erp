@@ -109,7 +109,9 @@ public static class PrincipalOrderCommercialStates
                 || revision.PreviousSnapshotSha256 != previousSha
                 || revision.OriginalDirectSourceSha256 != current.OriginalDirectSourceSha256
                 || revision.SnapshotSha256 != Digest(revision.SnapshotJson)
-                || revision.CommandKey == Guid.Empty || revision.RecordedAt == default
+                || revision.CommandKey == Guid.Empty || revision.CommandSha256 is not { Length: 64 }
+                || revision.ResultOrderVersion != checked(revision.RevisionNumber + 1L)
+                || revision.RecordedAt == default
                 || string.IsNullOrWhiteSpace(revision.Reason)
                 || !ProcurementPrincipalEvidence.Canonical(revision.ActorPrincipalId))
                 throw new InvalidOperationException("PrincipalOrderDraftRevisionInvalid");
@@ -148,6 +150,68 @@ public static class PrincipalOrderCommercialStates
                 || allocation.CurrencyCode != slice.CurrencyCode)
                 throw new InvalidOperationException("PrincipalOrderDraftAllocationChanged");
         }
+    }
+
+    /// <summary>Retained command proof for every effective edit. A same-save guard
+    /// alone cannot prove old receipts still exist after reload or cancellation.</summary>
+    public static void VerifyReceipts(PurchaseOrder current, PrincipalOrderCommercialOrigin? origin,
+        IReadOnlyList<PrincipalOrderDraftCommercialRevision> revisions,
+        IReadOnlyList<PrincipalOrderDraftReceipt> receipts)
+    {
+        if (origin is null)
+        {
+            if (revisions.Count != 0 || receipts.Count != 0)
+                throw new InvalidOperationException("PrincipalOrderDraftRevisionWithoutOrigin");
+            return;
+        }
+        if (origin.CaptureMode == "VerifiedFirstEdit" && revisions.Count == 0
+            || origin.CaptureMode == "Create" && revisions.Count == 0 && receipts.Count != 0
+            || revisions.Count != receipts.Count
+            || receipts.Select(x => x.CommandKey).Distinct().Count() != receipts.Count)
+            throw new InvalidOperationException("PrincipalOrderDraftReceiptSetChanged");
+        long lastVersion = 1;
+        foreach (var revision in revisions.OrderBy(x => x.RevisionNumber))
+        {
+            var receipt = receipts.SingleOrDefault(x => x.CommandKey == revision.CommandKey);
+            if (receipt is null || receipt.SchemaVersion != 2 || receipt.Operation != "Edit"
+                || receipt.TenantId != current.TenantId || receipt.LegalEntityId != current.LegalEntityId
+                || receipt.PurchaseOrderId != current.Id
+                || receipt.ActorPrincipalId != revision.ActorPrincipalId
+                || receipt.CommandSha256 != revision.CommandSha256
+                || receipt.ResponseStatus != 200
+                || receipt.ResultVersion != revision.ResultOrderVersion
+                || receipt.ResultVersion != checked(lastVersion + 1)
+                || receipt.ResultVersion != checked(revision.RevisionNumber + 1L)
+                || receipt.ResultVersion > current.Version
+                || receipt.CompletedAt < revision.RecordedAt
+                || receipt.ResponseSha256 != Digest(receipt.ResponseJson))
+                throw new InvalidOperationException("PrincipalOrderDraftReceiptChanged");
+            try
+            {
+                using var parsed = JsonDocument.Parse(receipt.ResponseJson);
+                var response = parsed.RootElement;
+                if (response.GetProperty("orderId").GetGuid() != current.Id
+                    || response.GetProperty("number").GetString() != current.Number
+                    || response.GetProperty("status").GetString() != "Draft"
+                    || response.GetProperty("version").GetInt64() != receipt.ResultVersion
+                    || response.GetProperty("originalDirectSourceSha256").GetString()
+                        != current.OriginalDirectSourceSha256
+                    || response.GetProperty("commandKey").GetGuid() != revision.CommandKey
+                    || !response.GetProperty("recordedHistoricalResult").GetBoolean()
+                    || !response.GetProperty("manualFundingOnly").GetBoolean()
+                    || response.GetProperty("financeReservationChanged").GetBoolean()
+                    || response.GetProperty("supplierSendPerformed").GetBoolean())
+                    throw new InvalidOperationException("PrincipalOrderDraftReceiptChanged");
+            }
+            catch (Exception error) when (error is JsonException or KeyNotFoundException
+                or InvalidOperationException or FormatException)
+            {
+                throw new InvalidOperationException("PrincipalOrderDraftReceiptChanged", error);
+            }
+            lastVersion = receipt.ResultVersion;
+        }
+        if (revisions.Count != 0 && current.Status == "Draft" && lastVersion != current.Version)
+            throw new InvalidOperationException("PrincipalOrderDraftReceiptVersionChanged");
     }
 
     private static decimal Exact(string value)

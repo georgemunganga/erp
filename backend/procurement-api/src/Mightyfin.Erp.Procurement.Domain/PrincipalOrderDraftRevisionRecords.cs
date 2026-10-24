@@ -29,6 +29,8 @@ public sealed class PrincipalOrderDraftCommercialRevision : ProcurementRecord
     public string Reason { get; init; } = null!;
     public string ActorPrincipalId { get; init; } = null!;
     public Guid CommandKey { get; init; }
+    public string CommandSha256 { get; init; } = null!;
+    public long ResultOrderVersion { get; init; }
     public DateTimeOffset RecordedAt { get; init; }
 }
 

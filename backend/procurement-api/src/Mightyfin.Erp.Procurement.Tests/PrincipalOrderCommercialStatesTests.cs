@@ -42,6 +42,7 @@ public sealed class PrincipalOrderCommercialStatesTests
             CaptureMode = "VerifiedFirstEdit" };
         line.Quantity = 1;
         line.Description = "Reduced";
+        order.Version = 2;
         var allocation = new PurchaseRequestAllocation { TenantId = order.TenantId,
             LegalEntityId = order.LegalEntityId, PurchaseRequestId = binding.PurchaseRequestId,
             PurchaseRequestLineId = sourceLine, TargetType = "PurchaseOrder", TargetId = order.Id,
@@ -53,6 +54,7 @@ public sealed class PrincipalOrderCommercialStatesTests
             RevisionNumber = 1, OriginalDirectSourceSha256 = order.OriginalDirectSourceSha256,
             SnapshotJson = current, SnapshotSha256 = PrincipalOrderCommercialStates.Digest(current),
             Reason = "Need fewer units", ActorPrincipalId = actor, CommandKey = Guid.NewGuid(),
+            CommandSha256 = Hash, ResultOrderVersion = 2,
             RecordedAt = DateTimeOffset.UtcNow };
         var slice = new PrincipalOrderEffectiveSourceSlice { TenantId = order.TenantId,
             LegalEntityId = order.LegalEntityId, PurchaseOrderId = order.Id, RevisionId = revision.Id,
@@ -62,6 +64,47 @@ public sealed class PrincipalOrderCommercialStatesTests
 
         PrincipalOrderCommercialStates.VerifyRevision(order, [line], origin,
             [revision], [slice], [binding], [allocation]);
+        var response = System.Text.Json.JsonSerializer.Serialize(new { orderId = order.Id,
+            order.Number, status = "Draft", version = 2L,
+            originalDirectSourceSha256 = order.OriginalDirectSourceSha256,
+            commandKey = revision.CommandKey, recordedHistoricalResult = true,
+            manualFundingOnly = true, financeReservationChanged = false,
+            supplierSendPerformed = false },
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var receipt = new PrincipalOrderDraftReceipt { TenantId = order.TenantId,
+            LegalEntityId = order.LegalEntityId, PurchaseOrderId = order.Id, Operation = "Edit",
+            CommandKey = revision.CommandKey, ActorPrincipalId = actor,
+            CommandSha256 = revision.CommandSha256, ResponseJson = response,
+            ResponseSha256 = PrincipalOrderCommercialStates.Digest(response),
+            ResponseStatus = 200, ResultVersion = revision.ResultOrderVersion,
+            CompletedAt = revision.RecordedAt.AddSeconds(1) };
+        PrincipalOrderCommercialStates.VerifyReceipts(order, origin, [revision], [receipt]);
+        Assert.Throws<InvalidOperationException>(() => PrincipalOrderCommercialStates.VerifyReceipts(
+            order, origin, [revision], []));
+        Assert.Throws<InvalidOperationException>(() => PrincipalOrderCommercialStates.VerifyReceipts(
+            order, origin, [], []));
+        var tampered = new PrincipalOrderDraftReceipt { TenantId = receipt.TenantId,
+            LegalEntityId = receipt.LegalEntityId, PurchaseOrderId = receipt.PurchaseOrderId,
+            Operation = receipt.Operation, CommandKey = receipt.CommandKey,
+            ActorPrincipalId = receipt.ActorPrincipalId, CommandSha256 = new string('b', 64),
+            ResponseJson = receipt.ResponseJson, ResponseSha256 = receipt.ResponseSha256,
+            ResponseStatus = receipt.ResponseStatus, ResultVersion = receipt.ResultVersion,
+            CompletedAt = receipt.CompletedAt };
+        Assert.Throws<InvalidOperationException>(() => PrincipalOrderCommercialStates.VerifyReceipts(
+            order, origin, [revision], [tampered]));
+        var changedBody = receipt.ResponseJson.Replace("\"status\":\"Draft\"",
+            "\"status\":\"Issued\"", StringComparison.Ordinal);
+        Assert.NotEqual(receipt.ResponseJson, changedBody);
+        var changedResponse = new PrincipalOrderDraftReceipt { TenantId = receipt.TenantId,
+            LegalEntityId = receipt.LegalEntityId, PurchaseOrderId = receipt.PurchaseOrderId,
+            Operation = receipt.Operation, CommandKey = receipt.CommandKey,
+            ActorPrincipalId = receipt.ActorPrincipalId, CommandSha256 = receipt.CommandSha256,
+            ResponseJson = changedBody,
+            ResponseSha256 = PrincipalOrderCommercialStates.Digest(changedBody),
+            ResponseStatus = receipt.ResponseStatus, ResultVersion = receipt.ResultVersion,
+            CompletedAt = receipt.CompletedAt };
+        Assert.Throws<InvalidOperationException>(() => PrincipalOrderCommercialStates.VerifyReceipts(
+            order, origin, [revision], [changedResponse]));
         Assert.Equal(2m, binding.Quantity);
         Assert.Equal(1m, allocation.Quantity);
         line.UnitPrice = 11;
