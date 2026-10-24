@@ -25,7 +25,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
         var group = app.MapGroup("/api/procurement/v1/returns/principal-drafts");
         group.MapGet("/eligible-goods", ReturnEligible).RequireAuthorization(ReturnCreate);
         group.MapGet("", ReturnList).RequireAuthorization(ReturnRead);
-        group.MapGet("/commands/{key:guid}", ReturnRecover).RequireAuthorization(ReturnRead);
+        group.MapGet("/commands/{key:guid}", ReturnRecover).RequireAuthorization("procurement-access");
         group.MapGet("/{id:guid}", ReturnDetail).RequireAuthorization(ReturnRead);
         group.MapPost("", ReturnCreateDraft).RequireAuthorization(ReturnCreate);
         group.MapPut("/{id:guid}", ReturnReviseDraft).RequireAuthorization(ReturnEdit);
@@ -271,7 +271,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
         }, ct);
 
     private static Task<IResult> ReturnRecover(Guid key, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => ReturnRun(http, scope, ReturnRead, async (db, cases, core, actor, token) =>
+        => ReturnRun(http, scope, "procurement-access", async (db, cases, core, actor, token) =>
         {
             var row = await db.PrincipalGoodsReturnCommandReceipts.AsNoTracking().SingleOrDefaultAsync(x => x.CommandKey == key, token)
                 ?? throw new Problem("ReturnCommandNotFound", 404);
