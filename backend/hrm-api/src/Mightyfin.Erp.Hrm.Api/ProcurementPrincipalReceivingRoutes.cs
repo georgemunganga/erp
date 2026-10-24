@@ -190,7 +190,14 @@ public static partial class ProcurementPrincipalReceivingRoutes
         string action;
         try{action=Action(operation);}
         catch(Problem){return Task.FromResult(Error("ReceivingCommandNotFound",404));}
-        return Run(http,scope,action,async(db,_,_,actor,token)=>await Replay(db,actor,operation,key,null,token)??throw new Problem("ReceivingCommandNotFound",404),ct);
+        return Run(http,scope,action,async(db,_,_,actor,token)=>
+        {
+            var recorded=await Replay(db,actor,operation,key,null,token)
+                ??throw new Problem("ReceivingCommandNotFound",404);
+            // GET acknowledges an existing result; the original body stays
+            // byte-identical. POST same-key replay retains its stored status.
+            return new Reply(StatusCodes.Status200OK,recorded.Body);
+        },ct);
     }
 }
 
