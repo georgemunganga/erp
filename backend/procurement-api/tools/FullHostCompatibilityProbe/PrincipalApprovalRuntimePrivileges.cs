@@ -113,6 +113,38 @@ internal static class PrincipalApprovalRuntimePrivileges
             foreach(var table in new[]{"receiving_source_states","goods_receipt_lines","service_acceptances"})
                 await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
         }
+        if(fixture.PrincipalInvoiceProfile)
+        {
+            // Intake remains a Procurement record command. Typed comparison,
+            // Core review and exact exposure are confined to the execution role.
+            foreach(var table in new[]{"supplier_invoices","supplier_invoice_lines","suppliers",
+                "supplier_qualifications","supplier_credit_note_refs","attachment_refs"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(record)+","+Q(execution));
+            foreach(var table in new[]{"supplier_invoices","supplier_invoice_lines"})
+                await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            await Run("GRANT INSERT ON procurement.attachment_refs TO "+Q(record));
+            foreach(var table in new[]{"supplier_invoices","supplier_invoice_lines","supplier_credit_note_refs",
+                "invoice_match_results","invoice_match_allocations","goods_receipts","service_acceptances",
+                "policy_versions","audit_events","outbox_events","attachment_refs"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"principal_invoice_states","principal_invoice_mapping_lines","principal_invoice_mappings",
+                "principal_invoice_unit_reviews","principal_invoice_review_assignments",
+                "principal_invoice_review_attestations","principal_invoice_review_outcomes","principal_invoice_comparisons",
+                "principal_invoice_exposure_states","principal_invoice_claims",
+                "principal_invoice_receipts","principal_invoice_discrepancies",
+                "principal_invoice_discrepancy_actions"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"principal_invoice_states","principal_invoice_exposure_states",
+                "principal_invoice_discrepancies"})
+                await Run("GRANT UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            // Core owns document content and its scan/use history. No document
+            // table DELETE/TRUNCATE, schema ownership or general user directory.
+            await Run("GRANT USAGE ON SCHEMA core_document TO "+Q(execution));
+            foreach(var table in new[]{"documents","versions","scan_evidence","record_events","use_sets","use_pins"})
+                await Run("GRANT SELECT,INSERT ON core_document."+Q(table)+" TO "+Q(execution));
+            await Run("GRANT UPDATE ON core_document.documents,core_document.versions TO "+Q(execution));
+            await Run("GRANT SELECT ON core_document.\"__EFMigrationsHistory\" TO "+Q(execution));
+        }
         await using var core=fixture.Core();var coreModel=core.GetService<IDesignTimeModel>().Model;
         // Explicit bounded read manifest for actual current-account/grant/branch/optional-manager queries.
         var reads=new Dictionary<Type,string[]> {
