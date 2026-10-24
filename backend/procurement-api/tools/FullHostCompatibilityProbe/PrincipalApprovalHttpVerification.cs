@@ -20,7 +20,7 @@ internal static partial class PrincipalApprovalHttpVerification
             && Path.IsPathFullyQualified(parent)
             && Path.GetFullPath(path).StartsWith(Path.GetFullPath(parent)+Path.DirectorySeparatorChar,StringComparison.Ordinal)
             && (File.GetAttributes(path)&FileAttributes.ReparsePoint)==0
-            && (Directory.GetUnixFileMode(path)&(UnixFileMode.GroupRead|UnixFileMode.GroupWrite|UnixFileMode.GroupExecute
+            && (File.GetUnixFileMode(path)&(UnixFileMode.GroupRead|UnixFileMode.GroupWrite|UnixFileMode.GroupExecute
                 |UnixFileMode.OtherRead|UnixFileMode.OtherWrite|UnixFileMode.OtherExecute))==0,
             "P31 requires an existing owner-private Core document directory.");
         return path;
