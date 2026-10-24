@@ -130,6 +130,9 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
     internal Dictionary<string,string?> Settings()
     {
         var settings=OfflineHost.Settings(owner,PrincipalApprovalFixture.Tenant);
+        // Probe-only timing; model parity caching stays at its default off value.
+        settings["Procurement:ReadinessPerformance:DiagnosticsEnabled"]="true";
+        settings["Procurement:ReadinessPerformance:ModelParityCacheEnabled"]="false";
         settings["ConnectionStrings:Procurement"]=record;settings["ConnectionStrings:ProcurementApprovalExecution"]=execution;
         settings["Procurement:Approvals:Enabled"]="true";settings["Procurement:Approvals:PrincipalExecutionEnabled"]=principalExecutionEnabled?"true":"false";
         if(fixture.PrincipalRfqProfile)
@@ -162,6 +165,13 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
         var key="TEST_CONTENTROOT_"+typeof(MonthlyLeaveAccrualWorker).Assembly.GetName().Name!.ToUpperInvariant().Replace('.','_');
         Environment.SetEnvironmentVariable("ASPNETCORE_"+key,AppContext.BaseDirectory);
         foreach(var item in Settings())Environment.SetEnvironmentVariable(item.Key.Replace(":","__",StringComparison.Ordinal),item.Value);
+    }
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        // Factory clients exercise the private cold host; browser/network clients
+        // keep their separate tighter bounds. This is not a production SLA.
+        client.Timeout=TimeSpan.FromSeconds(300);
     }
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

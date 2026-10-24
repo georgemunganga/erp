@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-24",
+  "status": "IN_PROGRESS_NOT_PRODUCTION_RELEASE",
+  "lastAcceptedFullBackendTests": 1188,
+  "productionRemains": "P24",
+  "rfqPublicationAttempt05": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-20261024_run05",
+    "sourceCommit": "d09e38206048832531494b67920e7db69fb0a266",
+    "status": "FAILED_RETAINED",
+    "stage": "PrivateManualEvidenceHost",
+    "completedActualHttpRequests": 11,
+    "exceptionTypes": [
+      "System.Threading.Tasks.TaskCanceledException",
+      "System.IO.IOException"
+    ],
+    "cause": "Not yet established; protected retry will measure HTTP and readiness phases with bounded private-host diagnostic timeout",
+    "rfqAcceptanceClaim": false
+  },
+  "privateCaptureSqlAttempt05": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-capture-sql-private-20261024_run05",
+    "status": "FAILED_RETAINED",
+    "passedProjections": [
+      "catalog:191 tables/3464 columns",
+      "constraints:625 exact names/flags with nine pinned private restore renderings",
+      "indexes:759 exact",
+      "original ACL scope",
+      "database properties",
+      "migration history"
+    ],
+    "failedProjection": "dataHashesSql",
+    "cause": "PostgreSQL could not resize parallel-query shared memory segment: no space in private container shared memory",
+    "productionAccess": false,
+    "response": "Session-only serial query successor prepared and pure-tested; not yet executed"
+  },
+  "receivingBrowser": {
+    "status": "PREPARED_NOT_RUN",
+    "nativeApiAlreadyAccepted": 165
+  },
+  "invoiceSchemaValidation": {
+    "status": "BUILD_RUNNING",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p31-schema-validation-20261024_run01"
+  },
+  "manusScannerTask": {
+    "status": "QUEUED_PUBLISHED_DOCS_ONLY",
+    "pullRequest": 53,
+    "publishedErpMain": "1657398e865245bc03ec39efbdf97766b0b9dd71",
+    "scannerExecuted": false
+  }
+}

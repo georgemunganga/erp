@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -176,6 +177,9 @@ internal static partial class PrincipalApprovalHttpVerification
             "Normal local-cookie serve requires the original genuine base graph without other optional cohorts.");
         result["browserBuyerFixtureProfile"]=localCookieFlag=="1"?"PRIVATE_CONFIG_MAKER_POLICY_EVALUATION":"DISABLED";
         var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1",principalPoFlag=="1",receivingFlag=="1",invoiceFlag=="1");var stage="Bootstrap";var requests=0;
+        using var readinessTiming=new PrincipalApprovalProbeTiming();
+        var httpTiming=new List<object>();
+        var httpTimingDiscarded=0;
         try
         {
             Advance("Bootstrap");
@@ -326,6 +330,7 @@ internal static partial class PrincipalApprovalHttpVerification
             result["status"]="FAILED";result["exceptionType"]=error.GetType().FullName;
             result["failureCode"]=error is PrivatePrincipalProbeFailure known?known.SafeCode:"P25_Unclassified_SeeStageAndTypedCause";
             var cause=error.GetBaseException();result["underlyingExceptionType"]=cause.GetType().FullName;
+            result["exceptionTypeChain"]=ExceptionTypes(error);
             if(cause is PostgresException postgres)result["sqlState"]=postgres.SqlState;
             if(PrincipalRawStorageFailure is not null)result["rawStorageFailure"]=PrincipalRawStorageFailure;
             // Never export arbitrary exception messages, SQL, row payloads or connection configuration.
@@ -334,6 +339,9 @@ internal static partial class PrincipalApprovalHttpVerification
         finally
         {
             result["stage"]=stage;result["actualHttpRequests"]=requests;
+            result["readinessPhaseTiming"]=readinessTiming.Snapshot();
+            result["httpTiming"]=httpTiming;
+            result["httpTimingDiscarded"]=httpTimingDiscarded;
             await File.WriteAllTextAsync(resultPath,JsonSerializer.Serialize(result,new JsonSerializerOptions{WriteIndented=true}));
             if(OperatingSystem.IsLinux())File.SetUnixFileMode(resultPath,UnixFileMode.UserRead|UnixFileMode.UserWrite);
         }
@@ -352,19 +360,54 @@ internal static partial class PrincipalApprovalHttpVerification
             if(commandKey is not null)Need(commandKey!=Guid.Empty,"Explicit private command key cannot be empty.");
             if(method==HttpMethod.Post||method==HttpMethod.Put)request.Headers.Add("Idempotency-Key",(commandKey??Guid.NewGuid()).ToString("D"));
             if(body is not null)request.Content=JsonContent.Create(body);
-            using var response=await client.SendAsync(request);requests++;
-            var text=await response.Content.ReadAsStringAsync();
-            if(method==HttpMethod.Get&&path.Contains("/approval-commands/",StringComparison.Ordinal))
-                Need(response.Headers.CacheControl?.NoStore==true,"Every command acknowledgement response must be no-store.");
-            if(response.StatusCode!=expected)
+            var start=Stopwatch.GetTimestamp();
+            HttpResponseMessage response;
+            try { response=await client.SendAsync(request); }
+            catch(Exception error)
             {
-                string? code=null;
-                try {using var problem=JsonDocument.Parse(text);if(problem.RootElement.TryGetProperty("code",out var value)&&value.ValueKind==JsonValueKind.String
-                    && value.GetString() is {} candidate && System.Text.RegularExpressions.Regex.IsMatch(candidate,"^[A-Za-z0-9_-]{1,100}$"))code=candidate;} catch(JsonException){}
-                result["failedHttp"]=new {method=method.Method,path,expectedStatus=(int)expected,actualStatus=(int)response.StatusCode,code};
-                throw new PrivatePrincipalProbeFailure("Http_"+method.Method+"_Expected_"+(int)expected+"_Actual_"+(int)response.StatusCode+"_"+(code??"NoSafeProblemCode"));
+                RecordHttp(method,path,start,"Exception",null,error.GetType().Name);
+                throw;
             }
-            return string.IsNullOrWhiteSpace(text)?default:JsonDocument.Parse(text).RootElement.Clone();
+            using(response)
+            {
+                requests++;
+                RecordHttp(method,path,start,"Response",(int)response.StatusCode,null);
+                var text=await response.Content.ReadAsStringAsync();
+                if(method==HttpMethod.Get&&path.Contains("/approval-commands/",StringComparison.Ordinal))
+                    Need(response.Headers.CacheControl?.NoStore==true,"Every command acknowledgement response must be no-store.");
+                if(response.StatusCode!=expected)
+                {
+                    string? code=null;
+                    try {using var problem=JsonDocument.Parse(text);if(problem.RootElement.TryGetProperty("code",out var value)&&value.ValueKind==JsonValueKind.String
+                        && value.GetString() is {} candidate && System.Text.RegularExpressions.Regex.IsMatch(candidate,"^[A-Za-z0-9_-]{1,100}$"))code=candidate;} catch(JsonException){}
+                    result["failedHttp"]=new {method=method.Method,path,expectedStatus=(int)expected,actualStatus=(int)response.StatusCode,code};
+                    throw new PrivatePrincipalProbeFailure("Http_"+method.Method+"_Expected_"+(int)expected+"_Actual_"+(int)response.StatusCode+"_"+(code??"NoSafeProblemCode"));
+                }
+                return string.IsNullOrWhiteSpace(text)?default:JsonDocument.Parse(text).RootElement.Clone();
+            }
+        }
+
+        void RecordHttp(HttpMethod method,string path,long start,string outcome,int? status,string? errorType)
+        {
+            if(httpTiming.Count==256) {httpTimingDiscarded++;return;}
+            var route=path switch
+            {
+                "/api/procurement/v1/meta"=>"meta",
+                _ when path.StartsWith("/api/procurement/v1/configuration/",StringComparison.Ordinal)=>"configuration",
+                _ when path.StartsWith("/api/procurement/v1/requests/",StringComparison.Ordinal)=>"requests",
+                _ when path.StartsWith("/api/procurement/v1/sourcing/",StringComparison.Ordinal)=>"sourcing",
+                _=>"other",
+            };
+            httpTiming.Add(new {stage,method=method.Method,route,outcome,status,errorType,
+                durationMilliseconds=Math.Round(Stopwatch.GetElapsedTime(start).TotalMilliseconds,3)});
+        }
+
+        static string[] ExceptionTypes(Exception error)
+        {
+            var types=new List<string>();
+            for(var current=error;current is not null&&types.Count<8;current=current.InnerException)
+                types.Add(current.GetType().FullName??current.GetType().Name);
+            return types.ToArray();
         }
     }
     // Shared owner-only verifier for this mode and the separately authored raw storage checks.
