@@ -44,6 +44,7 @@ internal static class RestoredCoreLocalSessionVerification
 
     internal static async Task RunAsync()
     {
+        CoreLocalSessionConfigurationVerification.Verify();
         const string path="/evidence/core-session-input.private.json";
         Need(RestoredCoreSessionConnections.Selected&&File.Exists(path)
             &&(File.GetAttributes(path)&FileAttributes.ReparsePoint)==0

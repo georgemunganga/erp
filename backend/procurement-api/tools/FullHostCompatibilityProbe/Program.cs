@@ -16,6 +16,13 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
+if (args.SequenceEqual(new[] { "--preflight-core-session-config" }))
+{
+    CoreLocalSessionConfigurationVerification.Verify();
+    Console.WriteLine("PASS_PRIVATE_CORE_SESSION_CONFIG_PREFLIGHT_ONLY");
+    return;
+}
+
 if (args.SequenceEqual(new[] { "--core-local-session-manifest" }) || args.SequenceEqual(new[] { "--restored-core-local-session" }))
 {
     try

@@ -36,7 +36,7 @@ Independent owner reconciliation must pin the original before snapshot and actua
 
 ## Source verification
 
-Nine Core pure tests pass, including use of the hash-pinned retained StageB generator on an explicitly synthetic mapped-profile fixture; fourteen inherited PR70 pure tests also pass. These do not claim an actual C# manifest capture or physical SQL execution. Python AST and diff checks pass. C# compilation, mapped manifest capture, finite grants/authentication, HTTP and owner reconciliation remain unrun.
+Ten Core pure tests pass, including use of the hash-pinned retained StageB generator on an explicitly synthetic mapped-profile fixture; fourteen inherited PR70 pure tests also pass. These do not claim an actual C# manifest capture or physical SQL execution. Python AST and diff checks pass. C# compilation, mapped manifest capture, finite grants/authentication, HTTP and owner reconciliation remain unrun.
 
 ```sh
 P30_REVIEWED_STAGE_B_PACKAGE=/absolute/accepted/stage-b-prep \
@@ -45,3 +45,5 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
 ```
 
 General HRM CRUD, account provisioning/reset links, full Core role deployment and the existing separate outbox publisher remain distinct Core-owned work. In particular, the shared HrmDbContext serves other HRM features; a minimal auth profile is not permission to promote a reduced role as whole-HRM production readiness.
+
+The selected-mode false list explicitly includes InvoiceUnitReview and ManualPayments. `--preflight-core-session-config` authors a no-DB/no-startup C# regression using the actual `RequireConfiguration`: baseline selected values are false, each late/inherited effective true is denied, and the unselected legacy mode retains its documented settings. That preflight is also called before the source HTTP cohort. It is authored but unrun without SDK; the Python source guard passed.

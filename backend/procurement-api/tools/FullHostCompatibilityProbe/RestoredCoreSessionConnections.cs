@@ -11,7 +11,7 @@ internal sealed record RestoredCoreSessionConnections(string Core,string Tenant)
      "Procurement:Orders:PrincipalExecutionEnabled","Procurement:PrincipalDirectOrderDrafts:Enabled",
      "Procurement:SourcingDrafts:Enabled","Procurement:SourcingDrafts:PrincipalSourceEnabled","Procurement:SourcingPublication:Enabled",
      "Procurement:PrincipalReceiving:Enabled","Procurement:Receiving:DraftsEnabled","Procurement:Receiving:PositiveExecutionEnabled",
-     "Procurement:InvoiceMatching:Enabled"];
+     "Procurement:InvoiceMatching:Enabled","Procurement:InvoiceUnitReview:Enabled","Procurement:ManualPayments:Enabled"];
     internal const string OptIn="P30_RESTORED_CORE_SESSION";
     internal static bool Selected=>Environment.GetEnvironmentVariable(OptIn)=="reviewed-private-only";
 

@@ -83,6 +83,21 @@ class CoreProfileTests(unittest.TestCase):
         self.assertIn('ownerAuditVerified=false',source);self.assertNotIn('BootstrapAsync()',source)
         self.assertNotIn('X-Private-P25-Subject',source);self.assertIn('workerId").ValueKind==JsonValueKind.Null',source)
 
+    def test_reviewed_operational_keys_have_actual_guard_preflight_and_legacy_mode_control(self):
+        guard=(ROOT/'backend/procurement-api/tools/FullHostCompatibilityProbe/RestoredCoreSessionConnections.cs').read_text()
+        proof=(ROOT/'backend/procurement-api/tools/FullHostCompatibilityProbe/CoreLocalSessionConfigurationVerification.cs').read_text()
+        for key in ['Procurement:InvoiceUnitReview:Enabled','Procurement:ManualPayments:Enabled']:
+            self.assertIn('"'+key+'"',guard.split('internal const string OptIn=')[0])
+            self.assertIn('"'+key+'"',proof)
+        self.assertIn('DisabledFeatures.Any(key=>configuration.GetValue<bool>(key))',guard)
+        self.assertIn('.AddInMemoryCollection(new Dictionary<string,string?> {[key]="true"})',proof)
+        self.assertIn('core.RequireConfiguration(configuration,record,execution)',proof)
+        self.assertIn('CoreSessionPrivateNonExecutingHostRequired',proof)
+        self.assertIn('UnselectedPrivateModeChanged',proof)
+        self.assertNotIn('.CreateClient(',proof);self.assertNotIn('.OpenAsync(',proof)
+        main=(ROOT/'backend/procurement-api/tools/FullHostCompatibilityProbe/RestoredCoreLocalSessionVerification.cs').read_text()
+        self.assertLess(main.index('CoreLocalSessionConfigurationVerification.Verify()'),main.index('host.CreateClient('))
+
     def test_core_runtime_container_identity_mount_and_swap_denials(self):
         values=['/pub','/socket','/input','/result'];row={'Id':'a'*64,'Image':'sha256:fixed','Name':'/core-run',
             'Config':{'Labels':{'p30.core-session.source':'source'}},
