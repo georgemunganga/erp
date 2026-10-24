@@ -7,7 +7,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Held typed P31 discrepancy worklist and corrective notes. A note or
 /// reassignment cannot create a claim, approve an invoice or post to Finance.</summary>
-public static class ProcurementPrincipalInvoiceDiscrepancyRoutes
+public static partial class ProcurementPrincipalInvoiceDiscrepancyRoutes
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public sealed record ActionInput(long ExpectedVersion, string Action,
@@ -18,6 +18,7 @@ public static class ProcurementPrincipalInvoiceDiscrepancyRoutes
         var root = app.MapGroup("/api/procurement/v1/invoices/{id:guid}/principal-matching/exceptions")
             .RequireAuthorization("procurement-invoice-read", "procurement-invoice-match");
         root.MapGet("", List);
+        root.MapGet("/{issueId:guid}/eligible-owners", EligibleOwners);
         root.MapPost("/{issueId:guid}/actions", Action);
         root.MapGet("/commands/{key:guid}", Recover);
     }
@@ -130,9 +131,7 @@ public static class ProcurementPrincipalInvoiceDiscrepancyRoutes
                     var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
                         scope.LegalEntityId, input.NewOwnerPrincipalId!, token)
                         ?? throw new InvalidOperationException("PrincipalInvoiceExceptionOwnerUnavailable");
-                    if (!person.Permissions.Contains("procurement-invoice-match")
-                        || !person.OrganisationWide && !person.AllowedBranches.Contains(issue.BranchId)
-                        || person.PrincipalId == issue.OwnerPrincipalId)
+                    if (!EligibleIssueOwner(person, issue.BranchId, issue.OwnerPrincipalId))
                         throw new InvalidOperationException("PrincipalInvoiceExceptionOwnerUnavailable");
                     target = person.PrincipalId;
                     issue.OwnerPrincipalId = person.PrincipalId;
