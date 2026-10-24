@@ -13,6 +13,27 @@ public sealed partial class ProcurementRequestHttpTests
 {
     private const string VendorProofActions = "procurement-access,procurement-vendor-create,procurement-vendor-read,procurement-vendor-edit,procurement-vendor-manage,procurement-vendor-approve,procurement-vendor-suspend";
 
+    [Fact]
+    public async Task Vendor_detail_edit_eligibility_requires_current_action_and_record_ownership()
+    {
+        await using var f = await Fixture.Start();
+        await f.ConfigureVendorProofPrincipals(workerless: true, alias: false);
+        var draft = await NewPrincipalVendor(f);
+        var id = draft.GetProperty("id").GetGuid(); var path = "/api/procurement/v1/vendors/" + id;
+        await f.ConfigureCoreActions(f.Other, "procurement-access,procurement-vendor-read,procurement-vendor-manage", "vendor_manage_only");
+        var manager = await Send(f.Client, HttpMethod.Get, path, f.Other);
+        Assert.Equal(HttpStatusCode.OK, manager.StatusCode);
+        Assert.False((await manager.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("canEdit").GetBoolean());
+        await f.ConfigureCoreActions(f.Owner, "procurement-access,procurement-vendor-read,procurement-vendor-create", "vendor_owner_without_edit");
+        var owner = await Send(f.Client, HttpMethod.Get, path, f.Owner);
+        Assert.Equal(HttpStatusCode.OK, owner.StatusCode);
+        Assert.False((await owner.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("canEdit").GetBoolean());
+        var before = await f.VendorPrincipalProofFootprint();
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(f.Client, HttpMethod.Put, path, f.Owner,
+            new { version = draft.GetProperty("version").GetInt64(), draft = PrincipalVendorDraft("unauthorized edit") })).StatusCode);
+        Assert.Equal(before, await f.VendorPrincipalProofFootprint());
+    }
+
     [Theory]
     [InlineData("return")][InlineData("approve")][InlineData("reject")][InlineData("qualification")]
     public async Task Distinct_Core_account_sharing_original_supplier_worker_cannot_review_own_persons_proposal(string operation)
@@ -74,7 +95,11 @@ public sealed partial class ProcurementRequestHttpTests
     {
         await using var f = await Fixture.Start(); await f.ConfigureVendorProofPrincipals(workerless: true, alias: false);
         var draft = await NewPrincipalVendor(f); var id = draft.GetProperty("id").GetGuid(); var path = "/api/procurement/v1/vendors/" + id;
+        var editable = await Send(f.Client, HttpMethod.Get, path, f.Owner);
+        Assert.True((await editable.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("canEdit").GetBoolean());
         var submitted = await SubmitPrincipalVendor(f, id, draft.GetProperty("version").GetInt64());
+        var held = await Send(f.Client, HttpMethod.Get, path, f.Owner);
+        Assert.False((await held.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("canEdit").GetBoolean());
         var selfBefore = await f.VendorPrincipalProofFootprint();
         Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(f.Client, HttpMethod.Post, path + "/approve", f.Owner,
             new { version = submitted.GetProperty("version").GetInt64(), reason = "Self forbidden even without workers", duplicatesReviewed = true })).StatusCode);
