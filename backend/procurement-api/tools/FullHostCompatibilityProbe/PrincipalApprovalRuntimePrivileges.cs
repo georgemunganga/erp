@@ -100,6 +100,15 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
                 "principal_order_release_requests","principal_order_release_confirmations"})
                 await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            if(Environment.GetEnvironmentVariable("P33_HTTP_VERIFY_PRINCIPAL_PO_EDIT")=="1")
+            {
+                // The separate P33 proof only adds its three immutable owned
+                // families. Parent PO, allocation and receipt writes keep the
+                // same finite P30 grants and current Core action checks.
+                foreach(var table in new[]{"principal_order_commercial_origins",
+                    "principal_order_draft_commercial_revisions","principal_order_effective_source_slices"})
+                    await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            }
         }
         if(fixture.PrincipalReceivingProfile)
         {

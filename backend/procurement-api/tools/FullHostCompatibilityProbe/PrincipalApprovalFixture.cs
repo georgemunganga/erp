@@ -153,6 +153,8 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:PrincipalDirectOrderDrafts:Enabled"]="true";
             settings["Procurement:Orders:Enabled"]="true";
             settings["Procurement:Orders:PrincipalExecutionEnabled"]="true";
+            if(Environment.GetEnvironmentVariable("P33_HTTP_VERIFY_PRINCIPAL_PO_EDIT")=="1")
+                settings["Procurement:PrincipalOrderDraftRevisions:Enabled"]="true";
         }
         if(fixture.PrincipalReceivingProfile)settings["Procurement:PrincipalReceiving:Enabled"]="true";
         if(fixture.PrincipalInvoiceProfile)
