@@ -75,7 +75,7 @@ public static class PrincipalInvoiceExposureEvidence
                 || exposure.OwnerReference != last.Comparison.OwnerReference
                 || exposure.OwnerWatermark != last.Comparison.OwnerWatermark
                 || exposure.OwnerEvidenceSha256 != lastEvidence.OwnerEvidenceSha256
-                || exposure.OwnerValidUntil is not { } until || until <= last.Comparison.ComparedAt)
+                || exposure.OwnerValidUntil is not { } cursorExpiry || cursorExpiry <= last.Comparison.ComparedAt)
                 throw new InvalidOperationException("PrincipalInvoiceExposureCursorChanged");
         }
         var consumption = new List<InvoiceMatchConsumption>();
