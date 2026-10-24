@@ -34,9 +34,9 @@ This example is documentation, not permission to run. Private cluster settings m
 
 ## Secret and execution boundary
 
-Secrets are generated only after admission and cloning, passed to private PostgreSQL through stdin, then stored in0600 structured input below a0700 directory. Secret-bearing SQL is not retained. The finite verifier has RO publication, RO input, RO socket directory, one RW result directory, no network, no owner connection, read-only root, bounded CPU/RAM/deadline and no Docker log driver. Its entrypoint is the existing tool, not the application host. Diagnostics are redacted even in protected coordinator logs; C# prints only a generic failure or scope-specific PASS. Wrong-password rejection is attempted before each successful Npgsql login. Both before and after proof, `session_user=current_user` is asserted.
+The minimum reviewed free-space reserve is1GiB+200MB on both evidence and the actual Docker-pinned PostgreSQL data filesystem, checked before Docker and again before cloning. Secrets are generated only after admission and cloning, passed to private PostgreSQL through stdin, then stored in0600 structured input below a0700 directory. Secret-bearing SQL is not retained. Its dedicated owner connection disables statement, error-statement, duration and transaction-sampling logging before beginning the password-bearing transaction; these session settings disappear when that psql connection exits, with no global setting change. The finite verifier has RO publication, RO input, RO socket directory, one RW result directory, no network, no owner connection, read-only root, bounded CPU/RAM/deadline and no Docker log driver. Its entrypoint is the existing tool, not the application host. Diagnostics are redacted even in protected coordinator logs; C# prints only a generic failure or scope-specific PASS. Wrong-password rejection is attempted before each successful Npgsql login. Both before and after proof, `session_user=current_user` is asserted.
 
-Failed clone/roles/container/evidence remain for diagnosis; only a timed-out verifier is stopped, never removed. Protected input remains credential material and requires normal operator-controlled retention. No credential appears in a shell argument, Docker environment or checked-in file.
+Failed clone/roles/container/evidence remain for diagnosis; only a timed-out verifier is stopped by its revalidated immutable created ID/image/labels/exact mounts/resources, never removed. Owner SQL has server statement/lock/idle-transaction timeouts; a CLI timeout still leaves the attempt failed with no resume, and the coordinator must inspect retained target/roles after server work settles. It is not a rollback/cleanup claim. Protected input remains credential material and requires normal operator-controlled retention. No credential appears in a shell argument, Docker environment or checked-in file.
 
 ## Author verification
 
@@ -47,7 +47,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
   -s tools/procurement/restored_finite_login -p 'test_*.py' -v
 ```
 
-Ten portable pure tests plus one optional source-only integration test exist. Set `P30_REVIEWED_STAGE_B_PACKAGE` to the retained accepted StageB05 preparation directory to regenerate the real reviewed218/4097 contract using pinned helper bytes. That optional test reads only files and never connects to PostgreSQL. Eleven tests passed locally with it enabled. C# compilation and real login/authentication/ACL/footprint execution are **unrun**.
+Thirteen portable pure tests plus one optional source-only integration test exist. Set `P30_REVIEWED_STAGE_B_PACKAGE` to the retained accepted StageB05 preparation directory to regenerate the real reviewed218/4097 contract using pinned helper bytes. That optional test reads only files and never connects to PostgreSQL. Fourteen tests passed locally with it enabled. C# compilation and real login/authentication/ACL/footprint execution are **unrun**.
 
 ## Exact next gap
 

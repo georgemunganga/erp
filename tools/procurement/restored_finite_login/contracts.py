@@ -107,3 +107,57 @@ def first_local_scram(rows, database, roles):
         need(found is not None and found['authMethod'] == 'scram-sha-256', 'First matching local rule must require SCRAM')
         selected.append(found['ruleNumber'])
     return selected
+
+MINIMUM_FREE_BYTES = 1_273_741_824  # 1 GiB reserve + 200 MB bounded clone/proof allowance.
+
+def validate_headroom(paths, minimum, disk_usage):
+    need(isinstance(minimum, int) and not isinstance(minimum, bool) and minimum >= MINIMUM_FREE_BYTES,
+         'Reviewed disk reserve cannot be reduced')
+    result = []
+    for path in paths:
+        free = disk_usage(path).free
+        need(free >= minimum, 'Insufficient private evidence/data filesystem headroom')
+        result.append({'path': str(path), 'freeBytes': free, 'minimumFreeBytes': minimum})
+    return result
+
+def provision_sql(database, passwords):
+    roles = names(database)
+    need(len(passwords) == 2 and all(isinstance(p, str) and re.fullmatch(r'[0-9a-f]{64}', p) for p in passwords),
+         'Two private random hexadecimal credentials required')
+    # Dedicated, disposable bootstrap psql connection only. Apply BEFORE BEGIN so
+    # transaction sampling cannot already have selected the password transaction.
+    # No global ALTER SYSTEM / HBA or inherited role settings are changed.
+    text = """SET log_statement='none';
+SET log_min_error_statement='panic';
+SET log_min_duration_statement=-1;
+SET log_min_duration_sample=-1;
+SET log_transaction_sample_rate=0;
+SET log_duration=off;
+BEGIN;
+SET LOCAL password_encryption='scram-sha-256';
+SET LOCAL statement_timeout='30s';
+SET LOCAL lock_timeout='2s';
+"""
+    for role, password in zip(roles, passwords):
+        text += 'CREATE ROLE "' + role + '" LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD \'' + password + "';\n"
+    return text + 'COMMIT;\n'
+
+def verify_container(value, identifier, image, name, mounts, plan_sha):
+    need(value['Id'] == identifier and value['Image'] == image and value['Name'] == '/' + name,
+         'Exact created verifier identity required')
+    config, host = value['Config'], value['HostConfig']
+    need(config.get('Labels', {}).get('erp.private-proof') == 'p30-restored-finite-login'
+         and config.get('Labels', {}).get('erp.reviewed-plan-sha256') == plan_sha,
+         'Verifier ownership labels differ')
+    need(host['NetworkMode'] == 'none' and host['ReadonlyRootfs'] and not host['Privileged']
+         and not host.get('PortBindings') and not host.get('CapAdd'), 'Isolated verifier configuration differs')
+    binds = [m for m in value['Mounts'] if m['Type'] == 'bind']
+    actual = {(m['Source'], m['Destination'], m['RW']) for m in binds}
+    other = [m for m in value['Mounts'] if m['Type'] != 'bind']
+    # Docker versions may also render the CLI --tmpfs in Mounts; HostConfig.Tmpfs
+    # remains the authoritative exact bounded declaration in both presentations.
+    need(len(binds) == len(mounts) and actual == set(mounts) and len(other) <= 1
+         and all(m['Type'] == 'tmpfs' and m['Destination'] == '/tmp' and m['RW'] for m in other)
+         and host.get('Tmpfs') == {'/tmp':'rw,nosuid,nodev,size=32m'}, 'Exact private verifier mounts required')
+    need(host.get('NanoCpus') == 1_000_000_000 and host.get('Memory') == host.get('MemorySwap') == 536_870_912
+         and host.get('PidsLimit') == 128, 'Bounded verifier resources differ')

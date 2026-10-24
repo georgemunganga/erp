@@ -8,8 +8,8 @@
   "privateImageSha256": null,
   "privateSystemIdentifier": "7698678713374847009",
   "productionSystemIdentifier": "7683513820537307167",
-  "runnerSha256": "7f574ce8e714433b5d7d9243a11629ba2887f379026bfc6f1ed6f81ff3c3f975",
-  "contractsSha256": "c808b1282ceeaf3a0fb9002c18af8fa02daf757611618a06fd5f2a7dcd525a0f",
+  "runnerSha256": "d65d31155de818fc0f86627ff51d8f9c1474d88cafd61db6f6c4dfed2db730ab",
+  "contractsSha256": "4f0583b4cad5b7a0be38979aa643e93fb24cfeba341b9c9a049229fda683e4bf",
   "authMethod": "scram-sha-256",
   "targetDatabase": null,
   "loginRoles": null,
@@ -39,5 +39,8 @@
     "httpProven": false,
     "publisherProven": false,
     "productionAccepted": false
-  }
+  },
+  "minimumFreeBytes": 1273741824,
+  "privateDataHostDirectory": null,
+  "privateDataContainerDestination": "/var/lib/postgresql/data"
 }

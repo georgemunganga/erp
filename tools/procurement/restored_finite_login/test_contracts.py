@@ -6,7 +6,7 @@ import os
 import pathlib
 import tempfile
 import unittest
-from contracts import names, validate_output, login_proof, verify_acl, grant_sql, first_local_scram, structural, SWITCH
+from contracts import names, validate_output, login_proof, verify_acl, grant_sql, first_local_scram, structural, SWITCH, validate_headroom, provision_sql, verify_container, MINIMUM_FREE_BYTES
 from run import admit
 
 class SourceHelper:
@@ -114,6 +114,43 @@ class ContractsTests(unittest.TestCase):
     def test_incomplete_plan_denied_before_any_external_operation(self):
         with self.assertRaisesRegex(RuntimeError,'Incomplete'):
             admit({'status':'INCOMPLETE'},pathlib.Path(__file__))
+
+class AdditionalAdmissionTests(unittest.TestCase):
+    def test_disk_reserve_for_each_actual_filesystem_cannot_reduce_floor(self):
+        from types import SimpleNamespace
+        good=lambda _:SimpleNamespace(free=MINIMUM_FREE_BYTES)
+        self.assertEqual(len(validate_headroom(['/evidence','/private-data'],MINIMUM_FREE_BYTES,good)),2)
+        with self.assertRaises(RuntimeError): validate_headroom(['/evidence'],MINIMUM_FREE_BYTES-1,good)
+        with self.assertRaises(RuntimeError): validate_headroom(['/evidence','/private-data'],MINIMUM_FREE_BYTES,
+            lambda p:SimpleNamespace(free=MINIMUM_FREE_BYTES-(p=='/private-data')))
+
+    def test_credential_statement_logging_disabled_before_password_transaction(self):
+        sql=provision_sql('proc_p30_login_20261024_02',['0'*64,'1'*64])
+        self.assertLess(sql.index("SET log_statement='none'"),sql.index('BEGIN;'))
+        self.assertLess(sql.index("SET log_min_error_statement='panic'"),sql.index('BEGIN;'))
+        for setting in ['log_min_duration_statement=-1','log_min_duration_sample=-1','log_transaction_sample_rate=0','log_duration=off']:
+            self.assertLess(sql.index(setting),sql.index('BEGIN;'))
+        self.assertEqual(sql.count('CREATE ROLE'),2);self.assertNotIn('ALTER SYSTEM',sql)
+        self.assertFalse(SWITCH.search(sql))
+        with self.assertRaises(RuntimeError): provision_sql('proc_p30_login_20261024_02',["bad';SQL",'1'*64])
+
+    def test_timeout_stop_requires_exact_created_identity_labels_mounts_resources(self):
+        mounts=[('/publication','/app',False),('/socket','/private-pg-socket',False),('/input','/evidence',False),('/result','/result',True)]
+        value={'Id':'a'*64,'Image':'sha256:'+'b'*64,'Name':'/proof',
+          'Config':{'Labels':{'erp.private-proof':'p30-restored-finite-login','erp.reviewed-plan-sha256':'c'*64}},
+          'HostConfig':{'NetworkMode':'none','ReadonlyRootfs':True,'Privileged':False,'PortBindings':{},'CapAdd':None,
+                        'Tmpfs':{'/tmp':'rw,nosuid,nodev,size=32m'},'NanoCpus':1_000_000_000,'Memory':536_870_912,'MemorySwap':536_870_912,'PidsLimit':128},
+          'Mounts':[{'Type':'bind','Source':s,'Destination':d,'RW':w} for s,d,w in mounts]}
+        verify_container(value,'a'*64,'sha256:'+'b'*64,'proof',mounts,'c'*64)
+        for key,bad in [('Id','d'*64),('Image','sha256:'+'d'*64),('Name','/other')]:
+            changed=copy.deepcopy(value);changed[key]=bad
+            with self.assertRaises(RuntimeError): verify_container(changed,'a'*64,'sha256:'+'b'*64,'proof',mounts,'c'*64)
+        changed=copy.deepcopy(value);changed['Mounts'][0]['RW']=True
+        with self.assertRaises(RuntimeError): verify_container(changed,'a'*64,'sha256:'+'b'*64,'proof',mounts,'c'*64)
+        changed=copy.deepcopy(value);changed['HostConfig']['MemorySwap']=-1
+        with self.assertRaises(RuntimeError): verify_container(changed,'a'*64,'sha256:'+'b'*64,'proof',mounts,'c'*64)
+        value['Mounts'].append({'Type':'tmpfs','Destination':'/tmp','RW':True})
+        verify_container(value,'a'*64,'sha256:'+'b'*64,'proof',mounts,'c'*64)
 
 class ReviewedActualStageBSourceTests(unittest.TestCase):
     @unittest.skipUnless(os.environ.get('P30_REVIEWED_STAGE_B_PACKAGE'),'Optional source-only review of retained private helpers')

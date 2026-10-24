@@ -49,13 +49,13 @@ Reuse the pinned StageB expected_targets and proof_sql generators. Translate onl
 Add one opt-in mode to the existing FullHostCompatibilityProbe before ordinary host startup. It opens real Npgsql connections with structured private credentials, verifies session_user=current_user and reads its own role metadata, then runs hash-bound proof SQL in rollback transactions. It starts no API.
 
 ## 17. Credential delivery
-Generate random32-byte private passwords only after admission. Provision through stdin, never CLI argv. Deliver structured finite input in a new0600 file below a0700 evidence directory, mounted read-only into the verifier. No secret output, connection-string logging or production environment inheritance. Redact generated passwords from protected subprocess diagnostics too.
+Generate random32-byte private passwords only after admission. Provision through stdin, never CLI argv. Deliver structured finite input in a new0600 file below a0700 evidence directory, mounted read-only into the verifier. No secret output, connection-string logging or production environment inheritance. Redact generated passwords from protected subprocess diagnostics too. The dedicated provisioning connection suppresses statement/error-statement/duration/transaction-sampling logging before its password-bearing transaction; no global PostgreSQL logging change occurs.
 
 ## 18. Persistence/transactions
 Clone accepted source with ownererp; no migrations. Provision new cluster-global aliases only when absent and capture their exact attributes. Direct ACL additions commit only on the clone. Proof statements roll back and no business rows may change. Original source role/data/catalog captures are rechecked.
 
 ## 19. Concurrency
-One coordinator serial window, idle source, fresh target/aliases/output, no force-disconnect. Snapshot/source identity must match accepted evidence before clone. A changed file, role, ACL or footprint aborts. Failed targets/aliases remain for review; do not recycle them.
+One coordinator serial window, idle source, fresh target/aliases/output, no force-disconnect. Require at least1GiB+200MB free on the actual pinned PostgreSQL data filesystem and evidence filesystem before Docker and before clone. A timed-out verifier can only be stopped by its revalidated immutable container ID/configuration, never a reused name. Snapshot/source identity must match accepted evidence before clone. A changed file, role, ACL or footprint aborts. Failed targets/aliases remain for review; do not recycle them.
 
 ## 20. Failure/recovery
 Explicit no-resume semantics. Retain redacted logs and the first failed stage. If authentication or ACLs fail, no HTTP/business acceptance follows. No automated role/database drop, grant repair, source rewriting or production retry.
