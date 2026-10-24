@@ -265,6 +265,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(P33PrincipalOrderDraftRevisionGuards.BeforeDownSql);
+
             migrationBuilder.DropTable(
                 name: "principal_order_effective_source_slices",
                 schema: "procurement");
