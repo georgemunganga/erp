@@ -15,9 +15,9 @@ public static partial class ProcurementPrincipalReceivingRoutes
     private const string ReturnRead = "procurement-return-read";
     private const string ReturnCreate = "procurement-return-create";
     private const string ReturnEdit = "procurement-return-edit";
-    private sealed record ReturnDraftInput(Guid AcceptanceFactId, string Quantity, string Reason, string? EvidenceReference);
-    private sealed record ReturnRevisionInput(long ExpectedRevision, string Quantity, string Reason, string? EvidenceReference);
-    private sealed record ReturnCancelInput(long ExpectedRevision, string Reason);
+    public sealed record ReturnDraftInput(Guid AcceptanceFactId, string Quantity, string Reason, string? EvidenceReference);
+    public sealed record ReturnRevisionInput(long ExpectedRevision, string Quantity, string Reason, string? EvidenceReference);
+    public sealed record ReturnCancelInput(long ExpectedRevision, string Reason);
 
     /// <summary>Only root activation after genuine P37 migration, finite ACL and real owner proof may call this.</summary>
     public static void MapReturnRoutes(WebApplication app)
