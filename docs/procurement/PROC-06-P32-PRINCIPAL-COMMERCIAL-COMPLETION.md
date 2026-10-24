@@ -636,3 +636,12 @@ SaveGuard rereads the committed Core case and its exact assignments before
 accepting the Procurement opening/receipt. This route remains unavailable
 with the default-off option and unavailable P32 physical readiness; source
 authoring is not an actual HTTP or PostgreSQL acceptance result.
+
+The held Decide route names the current Core assignment and requires exact
+case/assignment/event versions, current reviewer action/branch and maker-line
+independence, retained document pins, unchanged reserved PR allocations,
+published policy lineage and the full preceding P32 vote/receipt set. It
+locks source requests before the round and Core case. The real Core engine
+records each vote first; the same owner transaction then records a P32 vote,
+an actor-owned original response and, only for terminal Core outcomes, the
+unique terminal effect. A Pending vote cannot open the supplier window.

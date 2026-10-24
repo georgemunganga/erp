@@ -13,6 +13,9 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization("procurement-sourcing-commercial-configure");
         group.MapPost("/{id:guid}/commercial-rounds", CommercialOpen)
             .RequireAuthorization("procurement-sourcing-round-open");
+        group.MapPost("/commercial-rounds/{id:guid}/assignments/{assignmentId:guid}/decisions",
+            CommercialDecide).RequireAuthorization(
+                PrincipalRfqCommercialRoundPolicyRules.ApprovalAction);
         group.MapGet("/commercial-rounds", CommercialRounds).RequireAuthorization();
         group.MapGet("/commercial-rounds/{id:guid}", CommercialRound).RequireAuthorization();
         group.MapGet("/commercial-round-reviews/assigned", CommercialRoundAssigned)

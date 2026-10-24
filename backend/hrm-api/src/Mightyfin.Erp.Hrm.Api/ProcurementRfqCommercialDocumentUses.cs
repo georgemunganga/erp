@@ -44,14 +44,15 @@ public static partial class ProcurementSourcingExecutionRoutes
     private sealed class RetainedRequirementsAccess(ProcurementRequestScope scope,
         PrincipalRfqPreparedPlan plan, PrincipalRfqCommercialDraftHead head,
         PrincipalRfqCommercialDraftRevision revision,
-        IReadOnlyDictionary<Guid, string> expected) : IDocumentUseAccess
+        IReadOnlyDictionary<Guid, string> expected,
+        bool currentAssignmentAuthorized) : IDocumentUseAccess
     {
         public Task RequireAsync(DocumentOwner owner, DocumentUseReference reference,
             DocumentUseOperation operation, IReadOnlyList<Guid> versionIds, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             if (scope.TenantId != plan.TenantId || scope.LegalEntityId != plan.LegalEntityId
-                || scope.SubjectId != plan.ActorPrincipalId
+                || scope.SubjectId != plan.ActorPrincipalId && !currentAssignmentAuthorized
                 || plan.SourcingEventId != head.SourcingEventId
                 || plan.DraftRevisionId != revision.Id || plan.DocumentUseKey != revision.Id
                 || owner != new DocumentOwner("procurement", PrincipalRfqPrepublicationPlan.DocumentOwnerType,
@@ -69,7 +70,8 @@ public static partial class ProcurementSourcingExecutionRoutes
     private static async Task RequireRetainedCommercialRequirementsAsync(
         ProcurementDbContext db, DocumentDbContext documents, ProcurementRequestScope scope,
         PrincipalRfqPreparedPlan plan, PrincipalRfqCommercialDraftHead head,
-        PrincipalRfqCommercialDraftRevision revision, CancellationToken ct)
+        PrincipalRfqCommercialDraftRevision revision, CancellationToken ct,
+        bool currentAssignmentAuthorized = false)
     {
         PrincipalRfqPreparedPlanEvidence.Verify(plan, head, revision);
         var draft = PrincipalRfqCommercialDraft.Restore(head, revision);
@@ -89,7 +91,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             PrincipalRfqPrepublicationPlan.DocumentSourceType, plan.SourcingEventId,
             revision.Revision, DocumentUseKind.Review);
         var pins = await EfDocumentUsePinStore.ReadRetainedAsync(documents, scope,
-            new RetainedRequirementsAccess(scope, plan, head, revision, expected),
+            new RetainedRequirementsAccess(scope, plan, head, revision, expected,
+                currentAssignmentAuthorized),
             owner, source, ct);
         var set = await documents.UseSets.AsNoTracking().SingleOrDefaultAsync(x =>
             x.Id == plan.DocumentUseSetId && x.OwnerId == plan.SourcingEventId
