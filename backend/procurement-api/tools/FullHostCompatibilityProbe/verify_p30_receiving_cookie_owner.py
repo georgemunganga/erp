@@ -144,6 +144,10 @@ def compare(fixture, before, after, browser, fixture_sha):
     previous, current = before['tableDigestRows'], after['tableDigestRows']
     require(previous.keys() == current.keys(), 'OwningTableCatalogChanged')
     for name in previous:
+        if name == 'hrm.local_sessions':
+            require(all(current[name].get(id) == value for id, value in previous[name].items()),
+                'ExistingLocalSessionChanged')
+            continue
         if name not in CHANGING:
             require(previous[name] == current[name], 'ExistingBusinessOrCoreIdentityChanged')
         else:
