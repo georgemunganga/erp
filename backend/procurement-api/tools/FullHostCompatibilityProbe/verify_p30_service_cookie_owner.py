@@ -6,6 +6,7 @@ import decimal
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 from urllib.parse import urlparse
 from verify_p30_po_cookie_owner import DB, Failed, GUID, HEX, SYSTEM, TENANT, canonical_json, protected, output_path, write, require
@@ -22,6 +23,8 @@ def boundary(fixture, proxy, sha, database):
     require(all(isinstance(fixture.get(field), str) and GUID.fullmatch(fixture[field])
         and fixture[field] != '00000000-0000-0000-0000-000000000000' for field in fields)
         and len({fixture['issuedOrderId'],fixture['nativeGoodsOrderId'],fixture['nativeServiceOrderId']}) == 3
+        and isinstance(fixture.get('servicePeriodDate'),str)
+        and re.fullmatch(r'\d{4}-\d{2}-\d{2}',fixture['servicePeriodDate'])
         and HEX.fullmatch(fixture.get('challenge', '')), 'ServiceFixtureIdentifiers')
     require(proxy.get('schemaVersion') == 3 and proxy.get('transport') == 'normal-local-cookie-https-v1'
         and proxy.get('fixtureSha256') == sha and proxy.get('database') == database
@@ -67,8 +70,8 @@ def fingerprints(browser, fixture, service_id):
         and create['deliverableReference'] == 'PRIVATE_BROWSER_SERVICE_HALF'
         and exact(create['quantity']) == decimal.Decimal('0.5')
         and create['notes'] is None
-        and isinstance(create['periodFrom'], str) and create['periodFrom'] == create['periodTo']
-        and len(create['periodFrom']) == 10
+        and create['periodFrom'] == fixture['servicePeriodDate']
+        and create['periodTo'] == fixture['servicePeriodDate']
         and certify['evidenceReference'] == 'PRIVATE-REC:browser-service-half'
         and exact(certify['quantity']) == decimal.Decimal('0.5')
         and exact(certify['version']) == 1 and exact(certify['sourceVersion']) == 0,
@@ -197,6 +200,9 @@ def compare(fixture, before, after, browser, fixture_sha):
         and fact.get('actor_worker_alias_id') is None and fact.get('command_key') == keys[1]
         and fact.get('draft_id') == service_id and fact.get('source_state_id') == source['id']
         and fact.get('branch_id') == fixture['branchId']
+        and fact.get('sequence') == 1
+        and fact.get('draft_line_binding_id') == one(bindings,'draft_revision_id',
+            one(revisions,'revision',2)['id'])['id']
         and exact(fact.get('quantity')) == decimal.Decimal('0.5')
         and exact(fact.get('net_amount')) == decimal.Decimal('0.00005')
         and hashlib.sha256(fact.get('payload_json','').encode()).hexdigest() == fact.get('payload_sha256'),

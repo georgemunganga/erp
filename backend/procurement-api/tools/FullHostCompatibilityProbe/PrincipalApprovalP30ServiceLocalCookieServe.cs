@@ -131,12 +131,14 @@ internal static partial class PrincipalApprovalHttpVerification
         }
         var challenge=Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var deadline=DateTimeOffset.UtcNow.AddMinutes(15);
+        var servicePeriodDate=DateOnly.FromDateTime(DateTime.UtcNow);
         var manifest=new {schemaVersion=3,controlPlaneOnly=true,apiUrl=url,database=ownerConnection.Database,
             tenantId=PrincipalApprovalFixture.Tenant,companyId=fixture.Company,branchId=fixture.Branch,
             receiverPrincipalId=fixture.Receiver,serviceOwnerPrincipalId=fixture.ServiceOwner,
             approvedRequestId=browserService.RequestId,approvedRequestLineId=browserService.RequestLineId,
             supplierId=browserService.SupplierId,issuedOrderId=browserService.OrderId,issuedVersionId=browserService.IssuedId,
             issuedOrderLineId=browserService.OrderLineId,nativeGoodsOrderId=nativeGoods.OrderId,nativeServiceOrderId,
+            servicePeriodDate,
             syntheticCredentials=credentials,challenge,syntheticAccountsActivated=16,
             syntheticActivationMode="EXACT_NEW_PLACEHOLDER_CAS_ONLY",completionPath=P30ServiceCookieCompletionPath,
             expiresAt=deadline,secureCookieRequiresHttpsProxy=true,
