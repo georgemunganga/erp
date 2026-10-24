@@ -8,6 +8,7 @@ never creates business records or authenticates as an application user.
 import argparse
 from collections import Counter
 import decimal
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -16,7 +17,7 @@ import sys
 from urllib.parse import urlparse
 
 from verify_p30_po_cookie_owner import (DB, Failed, GUID, HEX, SYSTEM, TENANT,
-    container_guard, digest, output_path, protected, query, require, write)
+    canonical_json, container_guard, digest, output_path, protected, query, require, write)
 
 RECEIVING = ('principal_receiving_sources', 'principal_receiving_drafts',
     'principal_receiving_revisions', 'principal_receiving_line_bindings',
@@ -34,6 +35,48 @@ def exact(value):
         raise Failed('ExactAmountInvalid') from None
     require(answer.is_finite(), 'ExactAmountInvalid')
     return answer
+
+
+def typed_utc_instant(value):
+    """System.Text.Json DateTimeOffset writes a UTC offset and trims zeros."""
+    require(isinstance(value, str) and len(value) <= 40, 'ReceivedAtInvalid')
+    try:
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        raise Failed('ReceivedAtInvalid') from None
+    require(parsed.tzinfo is not None and parsed.utcoffset().total_seconds() == 0,
+        'ReceivedAtMustBeExplicitUtc')
+    # Python has microseconds; UI Date.toISOString sends milliseconds. The
+    # original instant is retained; no browser clock value is used as authority.
+    stamp = parsed.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+    fraction = f'{parsed.microsecond:06d}'.rstrip('0')
+    return stamp + ('.' + fraction if fraction else '') + '+00:00'
+
+
+def command_fingerprints(browser, fixture, receipt_id, line_id, bodies):
+    create = bodies['create']
+    require(set(create).issubset({'purchaseOrderId', 'issuedVersionId', 'siteId',
+        'receivedAt', 'deliveryNoteRef', 'notes', 'lines'})
+        and set(create['lines'][0]).issubset({'id', 'purchaseOrderLineId',
+            'receivedQuantity', 'rejectedQuantity'}), 'CreateInputFieldsUnexpected')
+    hydrated = {name: create.get(name) for name in ('purchaseOrderId', 'issuedVersionId',
+        'siteId', 'deliveryNoteRef', 'notes')}
+    hydrated['receivedAt'] = typed_utc_instant(create['receivedAt'])
+    hydrated['lines'] = [{name: create['lines'][0].get(name) for name in
+        ('id', 'purchaseOrderLineId', 'receivedQuantity', 'rejectedQuantity')}]
+    values = {'Create': {'operation': 'Create', 'kind': 'Goods', 'input': hydrated}}
+    for operation in ('Record', 'Inspect', 'Accept'):
+        raw = bodies[operation.lower()]
+        fields = ('version', 'evidenceReference') if operation == 'Record' else (
+            'version', 'sourceVersion', 'quantity', 'evidenceReference')
+        require(set(raw) == set(fields), 'ActionInputFieldsUnexpected')
+        payload = {'operation': operation, 'id': receipt_id,
+            'input': {field: raw[field] for field in fields}}
+        if operation != 'Record':
+            payload['lineId'] = line_id
+        values[operation] = payload
+    return {operation: hashlib.sha256(canonical_json(value).encode()).hexdigest()
+        for operation, value in values.items()}
 
 
 def boundary(fixture, proxy, fixture_sha, database):
@@ -177,6 +220,17 @@ def compare(fixture, before, after, browser, fixture_sha):
         'ExactNewReceivingRowGraph')
     source = new['principal_receiving_sources'][0]
     draft = new['principal_receiving_drafts'][0]
+    bindings = new['principal_receiving_line_bindings']
+    require(len({row.get('line_id') for row in bindings}) == 1
+        and all(row.get('draft_id') == receipt_id
+            and row.get('source_state_id') == source.get('id')
+            and row.get('purchase_order_line_id') == fixture['issuedOrderLineId']
+            for row in bindings), 'RetainedDraftLineBindingsInvalid')
+    line_id = bindings[0]['line_id']
+    require(browser.get('inspectTargetLineId') == line_id
+        and browser.get('acceptTargetLineId') == line_id,
+        'BrowserTargetLineChanged')
+    fingerprints = command_fingerprints(browser, fixture, receipt_id, line_id, bodies)
     require(source.get('purchase_order_id') == fixture['issuedOrderId']
         and source.get('purchase_order_line_id') == fixture['issuedOrderLineId']
         and source.get('issued_version_id') == fixture['issuedVersionId']
@@ -192,29 +246,87 @@ def compare(fixture, before, after, browser, fixture_sha):
         and draft.get('creator_worker_alias_id') is None, 'BrowserGoodsDraftInvalid')
     expected = {'Create': fixture['receiverPrincipalId'], 'Record': fixture['receiverPrincipalId'],
         'Inspect': fixture['inspectorPrincipalId'], 'Accept': fixture['acceptorPrincipalId']}
-    require({row.get('operation') for row in new['principal_receiving_receipts']} == set(expected)
-        and {row.get('command_key') for row in new['principal_receiving_receipts']} == set(keys)
-        and all(row.get('draft_id') == receipt_id and row.get('branch_id') == fixture['branchId']
-            and row.get('actor_principal_id') == expected[row['operation']]
-            and row.get('response_status') == (201 if row['operation'] == 'Create' else 200)
-            and HEX.fullmatch(row.get('request_sha256', ''))
-            and hashlib.sha256(row.get('response_json', '').encode()).hexdigest()
-                == row.get('response_sha256') for row in new['principal_receiving_receipts']),
-        'ExactCommandReceiptsInvalid')
-    require(Counter(row.get('kind') for row in new['principal_receiving_facts'])
-        == Counter({'Observation': 1, 'Inspection': 1, 'Acceptance': 1})
-        and {row.get('command_key') for row in new['principal_receiving_facts']}
-            == set(keys[1:])
-        and all(row.get('draft_id') == receipt_id and row.get('source_state_id') == source['id']
+    command_keys = dict(zip(expected, keys))
+    receipts = {row.get('operation'): row for row in new['principal_receiving_receipts']}
+    require(set(receipts) == set(expected) and len(receipts) == 4
+        and all(row.get('draft_id') == receipt_id
             and row.get('branch_id') == fixture['branchId']
-            and row.get('actor_worker_alias_id') is None for row in new['principal_receiving_facts']),
+            and row.get('command_key') == command_keys[operation]
+            and row.get('actor_principal_id') == expected[operation]
+            and row.get('response_status') == (201 if operation == 'Create' else 200)
+            and row.get('request_sha256') == fingerprints[operation]
+            and hashlib.sha256(row.get('response_json', '').encode()).hexdigest()
+                == row.get('response_sha256')
+            for operation, row in receipts.items()), 'ExactCommandReceiptsInvalid')
+    facts = {row.get('kind'): row for row in new['principal_receiving_facts']}
+    kinds = {'Observation': ('Record', decimal.Decimal(1), decimal.Decimal(0)),
+        'Inspection': ('Inspect', decimal.Decimal(1), decimal.Decimal(0)),
+        'Acceptance': ('Accept', decimal.Decimal(1), decimal.Decimal('0.0001'))}
+    require(set(facts) == set(kinds) and len(facts) == 3
+        and all(row.get('operation') == operation
+            and row.get('actor_principal_id') == expected[operation]
+            and row.get('command_key') == command_keys[operation]
+            and row.get('quantity') is not None and exact(row['quantity']) == quantity
+            and row.get('net_amount') is not None and exact(row['net_amount']) == amount
+            and row.get('draft_id') == receipt_id
+            and row.get('source_state_id') == source['id']
+            and row.get('branch_id') == fixture['branchId']
+            and row.get('actor_worker_alias_id') is None
+            and row.get('draft_line_binding_id') in {binding['id'] for binding in bindings}
+            for kind, row in facts.items()
+            for operation, quantity, amount in (kinds[kind],)),
         'ExactReceivingFactsInvalid')
+    require(all(hashlib.sha256(row.get('payload_json', '').encode()).hexdigest()
+        == row.get('payload_sha256') and row.get('sequence') == sequence
+        for sequence, row in enumerate((facts['Observation'], facts['Inspection'],
+            facts['Acceptance']), start=1)), 'OrderedFactPayloadDigestInvalid')
+    revisions = {row.get('command_key'): row for row in new['principal_receiving_revisions']}
+    require(set(revisions) == {command_keys['Create'], command_keys['Record']}
+        and revisions[command_keys['Create']].get('revision') == 1
+        and revisions[command_keys['Record']].get('revision') == 2
+        and all(row.get('actor_principal_id') == fixture['receiverPrincipalId']
+            and row.get('draft_id') == receipt_id
+            and hashlib.sha256(row.get('snapshot_json', '').encode()).hexdigest()
+                == row.get('snapshot_sha256') for row in revisions.values())
+        and {row.get('draft_revision_id') for row in bindings}
+            == {row['id'] for row in revisions.values()}, 'ExactDraftRevisionHistoryInvalid')
+    expected_audit = Counter()
+    def audit(actor, record_type, record_id, action='create'):
+        expected_audit[(actor, record_type, record_id, action)] += 1
+    receiver = fixture['receiverPrincipalId']
+    inspector = fixture['inspectorPrincipalId']
+    acceptor = fixture['acceptorPrincipalId']
+    audit(receiver, 'PrincipalReceivingSourceState', source['id'])
+    audit(receiver, 'PrincipalReceivingDraftHead', receipt_id)
+    for revision in revisions.values():
+        audit(receiver, 'PrincipalReceivingDraftRevision', revision['id'])
+    for binding in bindings:
+        audit(receiver, 'PrincipalReceivingDraftLineBinding', binding['id'])
+    audit(receiver, 'PrincipalReceivingCommandReceipt', receipts['Create']['id'])
+    audit(receiver, 'PrincipalReceivingSourceState', source['id'], 'update')
+    audit(receiver, 'PrincipalReceivingDraftHead', receipt_id, 'update')
+    audit(receiver, 'PrincipalReceivingFact', facts['Observation']['id'])
+    audit(receiver, 'PrincipalReceivingCommandReceipt', receipts['Record']['id'])
+    audit(inspector, 'PrincipalReceivingSourceState', source['id'], 'update')
+    audit(inspector, 'PrincipalReceivingFact', facts['Inspection']['id'])
+    audit(inspector, 'PrincipalReceivingCommandReceipt', receipts['Inspect']['id'])
+    audit(acceptor, 'PrincipalReceivingSourceState', source['id'], 'update')
+    audit(acceptor, 'PrincipalReceivingFact', facts['Acceptance']['id'])
+    audit(acceptor, 'PrincipalReceivingCommandReceipt', receipts['Accept']['id'])
+    audit(acceptor, 'PurchaseOrderLine', fixture['issuedOrderLineId'], 'update')
+    audit(acceptor, 'PurchaseRequestLine', fixture['approvedRequestLineId'], 'update')
     for name in ('audit_events', 'outbox_events'):
         table = 'procurement.' + name
         added = [row for row in current_rows[table] if row['id'] not in previous[table]]
         require(len(added) == 4 if name == 'outbox_events' else bool(added),
             'AuditOutboxMissingOrDuplicated')
         if name == 'outbox_events':
+            expected_events = {('receiving.principal.' + key.replace('-', '') + '.v2',
+                'procurement.fulfilment.accepted.v2' if operation == 'Accept'
+                else 'procurement.receiving.changed.v2')
+                for operation, key in command_keys.items()}
+            require({(row.get('idempotency_key'), row.get('event_type')) for row in added}
+                == expected_events, 'ExactReceivingOutboxCommands')
             require(all(row.get('aggregate_type') == 'PrincipalReceiving'
                 and row.get('aggregate_id') == receipt_id
                 and row.get('idempotency_key') in {
@@ -223,6 +335,39 @@ def compare(fixture, before, after, browser, fixture_sha):
                 and json.loads(row.get('payload_json', '{}')).get('stockPostingPerformed') is False
                 for row in added), 'OutboxDeclaredOnly')
         else:
+            require(Counter((row.get('actor_subject_id'), row.get('record_type'),
+                row.get('record_id'), row.get('action')) for row in added)
+                == expected_audit, 'ExactReceivingAuditGraph')
+            receipt_correlations = {operation: one(added, 'record_id', receipt['id']).get('correlation_id')
+                for operation, receipt in receipts.items()}
+            require(all(isinstance(value, str) and value for value in receipt_correlations.values())
+                and len(set(receipt_correlations.values())) == 4,
+                'DistinctReceivingCommandAuditCorrelations')
+            def audit_operation(row):
+                actor = row.get('actor_subject_id')
+                record = row.get('record_type')
+                record_id = row.get('record_id')
+                action = row.get('action')
+                if actor == inspector:
+                    return 'Inspect'
+                if actor == acceptor:
+                    return 'Accept'
+                if record == 'PrincipalReceivingCommandReceipt':
+                    return next(operation for operation, receipt in receipts.items()
+                        if receipt['id'] == record_id)
+                if record == 'PrincipalReceivingDraftRevision':
+                    revision_key = one(new['principal_receiving_revisions'], 'id', record_id)['command_key']
+                    return 'Create' if revision_key == command_keys['Create'] else 'Record'
+                if record == 'PrincipalReceivingDraftLineBinding':
+                    revision_id = one(bindings, 'id', record_id)['draft_revision_id']
+                    return 'Create' if revision_id == revisions[command_keys['Create']]['id'] else 'Record'
+                if record == 'PrincipalReceivingFact':
+                    return 'Record'
+                if record in ('PrincipalReceivingSourceState', 'PrincipalReceivingDraftHead'):
+                    return 'Create' if action == 'create' else 'Record'
+                raise Failed('UnknownReceivingAuditRecord')
+            require(all(row.get('correlation_id') == receipt_correlations[audit_operation(row)]
+                for row in added), 'AuditCommandCorrelationChanged')
             require(all(row.get('tenant_id') == TENANT
                 and row.get('legal_entity_id') == fixture['companyId']
                 and row.get('actor_subject_id') in {fixture['receiverPrincipalId'],
