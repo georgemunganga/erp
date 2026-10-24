@@ -39,8 +39,13 @@ internal static partial class PrincipalApprovalHttpVerification
             && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
         var resultPath=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??throw new InvalidOperationException("New protected result required.");
         Need(Path.IsPathFullyQualified(resultPath)&&!File.Exists(resultPath)&&Directory.Exists(Path.GetDirectoryName(resultPath)),"New result in existing protected directory required.");
+        var poolingFlag=Environment.GetEnvironmentVariable("P25_HTTP_PRODUCTION_POOLING");
+        Need(poolingFlag is null or "1","Private production-style pooling opt-in must be exactly1 or absent.");
+        Need(poolingFlag is null || !connection.Pooling,
+            "Owner seed/DDL connection must stay unpooled in the private pooling profile.");
         var result=new Dictionary<string,object?> { ["status"]="NOT_STARTED",["stage"]="Bootstrap",["productionTouched"]=false,["testAuthenticationOnly"]=true,
-            ["realIdentityProviderAuthentication"]=false,["externalFinanceAuthority"]=false,["manualEvidencePositiveWorkflow"]=false };
+            ["realIdentityProviderAuthentication"]=false,["externalFinanceAuthority"]=false,["manualEvidencePositiveWorkflow"]=false,
+            ["productionPoolingProfile"]=poolingFlag=="1",["poolIsolationAndResetVerified"]=false };
         var matrixFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_PRIVILEGE_MATRIX");
         Need(matrixFlag is null or "1","Private privilege matrix opt-in must be exactly1 or absent.");
         var schemaFlag=Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_SCHEMA_NEGATIVES");
@@ -151,13 +156,19 @@ internal static partial class PrincipalApprovalHttpVerification
             }
             Advance("Bootstrap");
             await fixture.BootstrapAsync();
-            Advance("FiniteRoleProvision");var roles=await PrincipalApprovalRuntimePrivileges.CreateAsync(owner,fixture);
+            Advance("FiniteRoleProvision");var roles=await PrincipalApprovalRuntimePrivileges.CreateAsync(owner,fixture,poolingFlag=="1");
             await using var ownerConnection=new NpgsqlConnection(owner);await ownerConnection.OpenAsync();
             foreach(var (text,expected) in new[]{(roles.Record,roles.RecordRole),(roles.Execution,roles.ExecutionRole)})
             {
                 await using var runtime=new NpgsqlConnection(text);await runtime.OpenAsync();
                 await using var command=new NpgsqlCommand("SELECT current_user=session_user AND current_user=@expected AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",runtime);
                 command.Parameters.AddWithValue("expected",expected);Need(await command.ExecuteScalarAsync() is true,"Finite test role is not an actual distinct restricted LOGIN.");
+            }
+            if(poolingFlag=="1")
+            {
+                Advance("FiniteRolePoolIsolationAndReset");
+                await PrincipalApprovalPoolReset.VerifyAsync(roles);
+                result["poolIsolationAndResetVerified"]=true;
             }
             if(legacyWorkerFlag=="1")
             {

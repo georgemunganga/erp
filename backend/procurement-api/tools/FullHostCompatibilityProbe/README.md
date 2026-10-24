@@ -449,6 +449,22 @@ decisions are unchanged. This private diagnostic timeout is not a production
 latency target or SLA, and the timings do not prove that caching is appropriate
 for production.
 
+`P25_HTTP_PRODUCTION_POOLING=1` is a separate private transport opt-in. It
+keeps the existing finite record and execution role credentials and grants,
+sets their runtime connections to pooling with multiplexing and no-reset both
+disabled, and lets only the actual API Core/HRM connection use the same reset
+semantics. The owner fixture/DDL connection remains unchanged and unpooled.
+Before HTTP, each finite role must open as `current_user=session_user`, set a
+harmless `application_name` marker, close, and reopen the same backend with its
+original application name restored. The protected result records only whether
+this profile was enabled and whether both isolation/reset checks passed; it
+never records backend PIDs, connection strings or credentials. Without the
+opt-in the earlier unpooled proof is byte-for-byte behaviorally unchanged.
+Physical grants, schema readiness and all existing positive/negative HTTP
+cases still run. Pooling does not prove faster execution until a separately
+measured private comparison; no product data cache or readiness shortcut is
+enabled.
+
 The P30 RFQ private fixture uses one unrestricted `SOURCING` fallback rule;
 the production coverage validator rejected the former single branch-limited
 rule in RFQ06. `--preflight-p30-rfq-fixture` runs the actual application policy

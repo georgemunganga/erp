@@ -110,6 +110,8 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
     internal Dictionary<string,string?> Settings()
     {
         var settings=OfflineHost.Settings(owner,PrincipalApprovalFixture.Tenant);
+        if(Environment.GetEnvironmentVariable("P25_HTTP_PRODUCTION_POOLING")=="1")
+            settings["ConnectionStrings:Hrm"]=PrincipalApprovalRuntimePrivileges.CoreRuntimeConnection(owner);
         // Probe-only timing; model parity caching stays at its default off value.
         settings["Procurement:ReadinessPerformance:DiagnosticsEnabled"]="true";
         settings["Procurement:ReadinessPerformance:ModelParityCacheEnabled"]="false";
