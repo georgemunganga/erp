@@ -188,21 +188,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             .Where(x => x.SourcingEventId == source.Id).ToArrayAsync(ct);
         var original = GovernedPrincipalRfqRestoration.RestoreVerified(evidence,
             source, bindings);
-        var participants = original.Lines.SelectMany(x => new[]
-            { (x.MakerPrincipalId, x.MakerWorkerAlias),
-              (x.RequesterPrincipalId, x.RequesterWorkerAlias) })
-            .Append((original.MakerPrincipalId, original.MakerWorkerAlias))
-            .Distinct().ToArray();
-        var ids = participants.Select(x => Guid.ParseExact(x.Item1, "D"))
-            .Append(Guid.ParseExact(reviewer.PrincipalId, "D"))
-            .Distinct().ToArray();
-        var aliases = await core.LocalUsers.IgnoreQueryFilters().AsNoTracking()
-            .Where(x => x.TenantId == scope.TenantId && ids.Contains(x.Id))
-            .Select(x => new { x.Id, x.WorkerId })
-            .ToDictionaryAsync(x => x.Id, x => x.WorkerId, ct);
-        if (participants.Any(x => !ProcurementPrincipalPeople.IndependentWithCurrentAliases(
-            reviewer.PrincipalId, reviewer.LinkedWorkerId, x.Item1, x.Item2, aliases)))
-            throw new Problem("RfqCommercialReviewerNotIndependent", 403);
+        await RequireCommercialCurrentIndependence(core, scope, original,
+            [reviewer], ct);
         return original;
     }
 

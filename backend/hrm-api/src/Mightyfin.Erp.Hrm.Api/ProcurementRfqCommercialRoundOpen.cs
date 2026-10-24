@@ -91,6 +91,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             var closer = await CurrentCommercialParticipant(core, scope,
                 rules.ClosingOfficerPrincipalId, prepared.BranchId,
                 PrincipalRfqSealedManualOffers.CloseAction, token);
+            await RequireCommercialCurrentIndependence(core, scope,
+                source.Original, reviewers.Append(closer).ToArray(), token);
             var opening = PrincipalRfqCommercialRoundCoreWorkflow.Open(prepared, head,
                 revision, source.Event, source.Original, policy, reviewers, closer,
                 supplierIds, now);

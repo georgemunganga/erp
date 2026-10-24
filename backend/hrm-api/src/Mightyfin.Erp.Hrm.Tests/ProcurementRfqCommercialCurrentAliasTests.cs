@@ -1,4 +1,5 @@
 using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Application;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -28,5 +29,33 @@ public sealed class ProcurementRfqCommercialCurrentAliasTests
         Assert.True(ProcurementPrincipalPeople.IndependentWithCurrentAliases(first.ToString("D"),null,second.ToString("D"),null,
             new Dictionary<Guid,Guid?>{{first,null},{second,null}}));
         Assert.False(ProcurementPrincipalPeople.IndependentWithCurrentAliases(first.ToString("D"),null,first.ToString("D"),null,new Dictionary<Guid,Guid?>()));
+    }
+
+    [Fact]
+    public void Opening_and_later_actions_deny_new_alias_link_from_original_maker_to_named_officer()
+    {
+        var maker = Guid.NewGuid();
+        var reviewer = Guid.NewGuid();
+        var closer = Guid.NewGuid();
+        var worker = Guid.NewGuid();
+        RfqPrincipalActor Officer(Guid id, Guid? alias) => new(id.ToString("D"), alias,
+            "fixture", Guid.NewGuid(), null, new HashSet<Guid>(), true,
+            new HashSet<string>());
+        var original = new (string PrincipalId, Guid? WorkerAlias)[]
+            { (maker.ToString("D"), null) };
+        var reviewers = new[] { Officer(reviewer, worker), Officer(closer, null) };
+        Assert.True(ProcurementSourcingExecutionRoutes.CommercialParticipantsIndependentNow(
+            original, reviewers, new Dictionary<Guid, Guid?>
+                { [maker] = null, [reviewer] = worker, [closer] = null }));
+        Assert.False(ProcurementSourcingExecutionRoutes.CommercialParticipantsIndependentNow(
+            original, reviewers, new Dictionary<Guid, Guid?>
+                { [maker] = worker, [reviewer] = worker, [closer] = null }));
+        Assert.False(ProcurementSourcingExecutionRoutes.CommercialParticipantsIndependentNow(
+            original, [Officer(closer, worker)], new Dictionary<Guid, Guid?>
+                { [maker] = worker, [closer] = worker }));
+        Assert.False(ProcurementSourcingExecutionRoutes.CommercialParticipantsIndependentNow(
+            original, [Officer(reviewer, null), Officer(closer, null)],
+            new Dictionary<Guid, Guid?>
+                { [maker] = null, [reviewer] = worker, [closer] = worker }));
     }
 }
