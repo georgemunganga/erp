@@ -1,6 +1,6 @@
 # P31 alternate-key names — generated correction and authored transport
 
-Status: source only; post-generation build, PostgreSQL and runtime acceptance pending.
+Status update: validation06 passed 1489 domain/model and14 focused invoice host tests with no model drift. The private empty-schema Up/Down/Up rehearsal passed; see [the bounded checkpoint](P31-PRIVATE-EMPTY-SCHEMA-ACCEPTANCE-20261024.json). Populated downgrade vetoes, physical readiness, finite HTTP, scanner and browser workflow acceptance remain pending. The narrative below preserves the generation-time record.
 
 The successful genuine EF command generated `20261024055739_P31PrincipalInvoiceConstraintNames`, its Designer, and the owning snapshot from source `7e01c2ba`. Generation evidence is protected under `procurement-p31-key-names-generation-20261024_run02`. The preceding 768 MiB compiler attempt failed with exit137; it is retained and was not a migration result. The successful serial SDK build used the original1500 MiB allowance and changed no database.
 
