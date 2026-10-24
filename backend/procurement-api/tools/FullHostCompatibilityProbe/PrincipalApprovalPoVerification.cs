@@ -94,8 +94,8 @@ internal static partial class PrincipalApprovalHttpVerification
         {
             var evaluation=await sourceProof.PolicyEvaluations.AsNoTracking()
                 .SingleAsync(x=>x.PurchaseRequestId==requestId);
-            using var decision=JsonDocument.Parse(evaluation.DecisionJson);
-            var lineDecision=decision.RootElement.GetProperty("lines").EnumerateArray()
+            using var sourceDecision=JsonDocument.Parse(evaluation.DecisionJson);
+            var lineDecision=sourceDecision.RootElement.GetProperty("lines").EnumerateArray()
                 .Single(x=>x.GetProperty("lineId").GetGuid()==lineId).GetProperty("decision");
             Need(lineDecision.GetProperty("sourcingMethodCode").GetString()=="DIRECT"
                 &&lineDecision.GetProperty("minimumQuoteCount").ValueKind==JsonValueKind.Number
@@ -267,7 +267,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 var events=await read.OutboxEvents.AsNoTracking().Where(x=>x.AggregateId==fourthId)
                     .OrderBy(x=>x.Id).Select(x=>new{x.Id,x.EventType,x.IdempotencyKey,x.Version}).ToArrayAsync();
                 return JsonSerializer.Serialize(new{candidate.Status,candidate.Version,candidate.ClosedAt,
-                    requestLine.AllocatedQuantity,requestLine.Version,allocation,receipts,audits,events,
+                    requestLine.AllocatedQuantity,requestLineVersion=requestLine.Version,allocation,receipts,audits,events,
                     auditCount=await read.AuditEvents.CountAsync(),outboxCount=await read.OutboxEvents.CountAsync()});
             }
             await using(var ownerWrite=fixture.Procurement())
