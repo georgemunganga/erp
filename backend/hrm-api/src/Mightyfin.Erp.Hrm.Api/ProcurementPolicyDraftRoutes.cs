@@ -45,6 +45,14 @@ public static partial class ProcurementPolicyDraftRoutes
 
     private static IResult ValidateRules(PolicyValidationRequest input)
     {
+        if (ProcurementContractReviewPolicyRules.IsDocument(input.RulesJson))
+        {
+            var draftIssues = ProcurementContractReviewPolicyRules.Validate(input.RulesJson, draft: true);
+            var reviewIssues = ProcurementContractReviewPolicyRules.Validate(input.RulesJson);
+            return Results.Ok(new { isValid = draftIssues.Count == 0, issues = draftIssues,
+                reviewConfigurationComplete = reviewIssues.Count == 0, reviewIssues,
+                canPublish = false, isAuthority = false });
+        }
         if (ManualPaymentReviewPolicyRules.IsDocument(input.RulesJson))
         {
             var draftIssues = ManualPaymentReviewPolicyRules.Validate(input.RulesJson, draft: true);

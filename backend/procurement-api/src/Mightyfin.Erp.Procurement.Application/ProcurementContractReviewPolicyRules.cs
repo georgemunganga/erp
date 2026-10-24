@@ -12,6 +12,19 @@ public static class ProcurementContractReviewPolicyRules
     public sealed record Stage(string Code, string Mode, IReadOnlyList<string> PrincipalIds);
     public sealed record Document(int SchemaVersion, IReadOnlyList<Stage> Stages);
 
+    public static bool IsDocument(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || Encoding.UTF8.GetByteCount(json) > 65536) return false;
+        try
+        {
+            using var parsed = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 16 });
+            return parsed.RootElement.ValueKind == JsonValueKind.Object
+                && parsed.RootElement.TryGetProperty("transactionType", out var kind)
+                && kind.ValueKind == JsonValueKind.String && kind.GetString() == TransactionType;
+        }
+        catch (JsonException) { return false; }
+    }
+
     public static IReadOnlyList<PolicyRuleIssue> Validate(string? json, bool draft = false)
     {
         try { _ = Parse(json, draft); return []; }
