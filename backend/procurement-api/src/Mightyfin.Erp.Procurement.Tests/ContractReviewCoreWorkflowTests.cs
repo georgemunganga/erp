@@ -63,6 +63,24 @@ public sealed class ContractReviewCoreWorkflowTests
             f.Branch, f.Maker, null, f.Reviewers, 1, f.Now);
         var pins = ContractReviewAssignmentPins.Verify(opened.Submission, opened.Case, f.Policy);
         var decisions = new List<ApprovalDecision>();
+        var votes = new List<ContractReviewVote>();
+        var receipts = new List<ContractReviewCommandReceipt>();
+        ContractReviewCommandReceipt Ack(string operation, Guid? voteId, Guid key, string actor,
+            DateTimeOffset at, string status)
+        {
+            var ack = new ContractReviewCommandReceipt { TenantId = opened.Submission.TenantId,
+                LegalEntityId = opened.Submission.LegalEntityId, ContractId = opened.Submission.ContractId,
+                SubmissionId = opened.Submission.Id, ReviewBranchId = opened.Submission.ReviewBranchId,
+                VoteId = voteId, Operation = operation, CommandKey = key, ActorPrincipalId = actor,
+                CommandSha256 = new string('a', 64), CompletedAt = at,
+                ResultContractVersion = opened.Submission.ContractBusinessVersion + 1,
+                ResponseStatus = operation == "Submit" ? 201 : 200 };
+            ack.ResponseJson = ContractReviewReceiptProof.Response(ack, status);
+            ack.ResponseSha256 = ProcurementEvidenceEncoding.Digest(ack.ResponseJson);
+            return ack;
+        }
+        receipts.Add(Ack("Submit", null, Guid.CreateVersion7(), f.Maker,
+            opened.Submission.SubmittedAt, "PendingReview"));
         var all = opened.Case.Stages.OrderBy(x => x.Sequence).ToArray();
         void Decide(ApprovalAssignment assignment, int minute)
         {
@@ -70,11 +88,40 @@ public sealed class ContractReviewCoreWorkflowTests
                 opened.Case.LegalEntityId, new HashSet<string> { ContractReviewCoreWorkflow.ReviewAction });
             ApprovalEngine.Decide(opened.Case, assignment, actor, "Approve", Guid.CreateVersion7().ToString("D"),
                 null, decisions, ProcurementEvidenceEncoding.DatabaseTimestamp(f.Now.AddMinutes(minute))!.Value);
+            var decision = decisions[^1];
+            var vote = new ContractReviewVote { TenantId = opened.Submission.TenantId,
+                LegalEntityId = opened.Submission.LegalEntityId, SubmissionId = opened.Submission.Id,
+                ContractId = opened.Submission.ContractId, ReviewBranchId = opened.Submission.ReviewBranchId,
+                CoreCaseId = opened.Case.Id, CoreStageId = decision.StageId,
+                CoreAssignmentId = decision.AssignmentId, CoreDecisionId = decision.Id,
+                ActorPrincipalId = decision.ActorSubjectId, Action = decision.Action,
+                DecidedAt = decision.DecidedAt };
+            votes.Add(vote);
+            receipts.Add(Ack("Decide", vote.Id, Guid.Parse(decision.IdempotencyKey),
+                decision.ActorSubjectId, decision.DecidedAt, "PendingReview"));
         }
         Decide(all[0].Assignments.Single(), 1);
-        ContractReviewCoreHistory.VerifyPending(opened.Submission, opened.Case, pins, decisions);
+        ContractReviewRetainedVotes.VerifyPending(opened.Submission, opened.Case, pins,
+            decisions, votes, receipts);
         Decide(all[1].Assignments.First(), 2);
-        ContractReviewCoreHistory.VerifyPending(opened.Submission, opened.Case, pins, decisions);
+        ContractReviewRetainedVotes.VerifyPending(opened.Submission, opened.Case, pins,
+            decisions, votes, receipts);
+        Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
+            opened.Submission, opened.Case, pins, decisions, votes.Skip(1).ToArray(), receipts));
+        Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
+            opened.Submission, opened.Case, pins, decisions, votes, receipts.Take(2).ToArray()));
+        var retainedActor = votes[0].ActorPrincipalId;
+        votes[0].ActorPrincipalId = f.Maker;
+        Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
+            opened.Submission, opened.Case, pins, decisions, votes, receipts));
+        votes[0].ActorPrincipalId = retainedActor;
+        var prior = receipts[1];
+        prior.ResponseJson += " ";
+        Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
+            opened.Submission, opened.Case, pins, decisions, votes, receipts));
+        prior.ResponseJson = prior.ResponseJson.TrimEnd();
+        ContractReviewRetainedVotes.VerifyPending(opened.Submission, opened.Case, pins,
+            decisions, votes, receipts);
         Decide(all[1].Assignments.Last(), 3);
         Assert.Equal("Approved", opened.Case.State);
         Assert.Equal(3, decisions.Count);

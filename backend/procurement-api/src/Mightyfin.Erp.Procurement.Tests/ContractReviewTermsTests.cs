@@ -29,6 +29,10 @@ public sealed class ContractReviewTermsTests
             CoreCaseId = Guid.CreateVersion7(),
             TermsJson = frozen.Json, TermsSha256 = frozen.Sha256 };
         ContractReviewTerms.VerifyCurrentDraft(submission, contract, version, [active, removed]);
+        ContractReviewTerms.VerifyRetainedSnapshot(submission);
+        submission.TermsJson = submission.TermsJson.Replace("Current exact rate", "Altered rate", StringComparison.Ordinal);
+        Assert.Throws<InvalidOperationException>(() => ContractReviewTerms.VerifyRetainedSnapshot(submission));
+        submission.TermsJson = frozen.Json;
         Assert.Contains("99999999999999.0001", frozen.Json);
         Assert.Contains("0.0001", frozen.Json);
 

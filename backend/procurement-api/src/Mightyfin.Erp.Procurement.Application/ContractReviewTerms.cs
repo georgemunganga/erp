@@ -9,6 +9,11 @@ public static class ContractReviewTerms
 {
     public sealed record Frozen(string Json, string Sha256);
 
+    public static void VerifyRetainedSnapshot(ContractReviewSubmission submission)
+        => Need(!string.IsNullOrWhiteSpace(submission.TermsJson)
+            && submission.TermsSha256 == ProcurementEvidenceEncoding.Digest(submission.TermsJson),
+            "ContractReviewTermsChanged");
+
     public static Frozen Capture(SupplierContract contract, SupplierContractVersion version,
         IReadOnlyCollection<ContractRate> rates)
         => Build(contract, version, rates, contract.Version, version.Version, "Draft");

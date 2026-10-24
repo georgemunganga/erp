@@ -373,7 +373,12 @@ public static partial class ProcurementContractReviewRoutes
                 || !workflow.Stages.Any(x => x.Id == own.StageId && x.State == "Active"))
                 throw new Problem("ContractReviewAssignmentNotFound", 404);
             var decisions = await cases.Decisions.AsNoTracking().Where(x => x.CaseId == workflow.Id).ToArrayAsync(token);
-            ContractReviewCoreHistory.VerifyPending(source, workflow, pins, decisions);
+            var votes = await db.ContractReviewVotes.AsNoTracking().Where(x => x.SubmissionId == source.Id)
+                .ToArrayAsync(token);
+            var receipts = await db.ContractReviewCommandReceipts.AsNoTracking()
+                .Where(x => x.SubmissionId == source.Id).ToArrayAsync(token);
+            ContractReviewRetainedVotes.VerifyPending(source, workflow, pins, decisions, votes, receipts);
+            ContractReviewTerms.VerifyRetainedSnapshot(source);
             using var termsDocument = JsonDocument.Parse(source.TermsJson);
             return new Reply(JsonSerializer.Serialize(new
             {
@@ -448,7 +453,12 @@ public static partial class ProcurementContractReviewRoutes
             if (workflow.Version != input.ExpectedCaseVersion || assignment.Version != input.ExpectedAssignmentVersion)
                 throw new Problem("ContractReviewDecisionVersionChanged", 409);
             var decisions = await cases.Decisions.Where(x => x.CaseId == workflow.Id).ToListAsync(token);
-            ContractReviewCoreHistory.VerifyPending(submission, workflow, pins, decisions);
+            var priorVotes = await db.ContractReviewVotes.AsNoTracking()
+                .Where(x => x.SubmissionId == submission.Id).ToArrayAsync(token);
+            var priorReceipts = await db.ContractReviewCommandReceipts.AsNoTracking()
+                .Where(x => x.SubmissionId == submission.Id).ToArrayAsync(token);
+            ContractReviewRetainedVotes.VerifyPending(submission, workflow, pins,
+                decisions, priorVotes, priorReceipts);
             var previousCount = decisions.Count;
             var at = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
             ApprovalEngine.Decide(workflow, assignment,

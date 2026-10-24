@@ -7,6 +7,16 @@ namespace Mightyfin.Erp.Procurement.Application;
 /// actor-owned acknowledgement. Core terminal state alone cannot reopen terms.</summary>
 public static class ContractReviewRetainedVotes
 {
+    public static void VerifyPending(ContractReviewSubmission source, ApprovalCase approval,
+        IReadOnlyList<ContractReviewAssignmentPins.Pin> pins,
+        IReadOnlyCollection<ApprovalDecision> decisions,
+        IReadOnlyCollection<ContractReviewVote> votes,
+        IReadOnlyCollection<ContractReviewCommandReceipt> receipts)
+    {
+        ContractReviewCoreHistory.VerifyPending(source, approval, pins, decisions);
+        Verify(source, decisions, votes, receipts);
+    }
+
     public static void Verify(ContractReviewSubmission source,
         IReadOnlyCollection<ApprovalDecision> decisions,
         IReadOnlyCollection<ContractReviewVote> votes,
