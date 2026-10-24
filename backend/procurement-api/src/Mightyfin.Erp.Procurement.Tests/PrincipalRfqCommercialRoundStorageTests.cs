@@ -198,7 +198,15 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(response),
             ResponseStatus = 200,
         });
-        Assert.Equal(2, db.SaveChanges());
+        Assert.Equal(4, db.SaveChanges());
+        var audits = db.AuditEvents.AsNoTracking()
+            .Where(x => x.RecordId == decision.Id || x.RecordId == db.PrincipalRfqCommercialCommandReceipts.Single().Id)
+            .ToArray();
+        Assert.Equal(2, audits.Length);
+        Assert.All(audits, audit => Assert.Equal(scope.SubjectId, audit.ActorSubjectId));
+        Assert.Contains(audits, audit => audit.RecordId == decision.Id && audit.RecordType == nameof(PrincipalRfqCommercialRoundDecisionRecord));
+        Assert.Contains(audits, audit => audit.RecordId == db.PrincipalRfqCommercialCommandReceipts.Single().Id
+            && audit.RecordType == nameof(PrincipalRfqCommercialCommandReceipt));
     }
 
     [Fact]
