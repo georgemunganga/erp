@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
@@ -70,6 +72,39 @@ public sealed class ContractReviewReadinessTests
         Assert.False(ProcurementPrincipalCommercialSchemaInspection.TryResolveIndexPredicate(
             typeof(Mightyfin.Erp.Procurement.Domain.ContractReviewPolicyIdentityRecord),
             "ux_p35_contract_policy_created", "stage = 'Published'", out _));
+    }
+
+    [Fact]
+    public void Actual_policy_model_resolves_all_three_unique_indexes_without_loosening_filtered_admission()
+    {
+        using var owner = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql("Host=never-used.invalid;Database=contract-model-not-opened").Options, new Scope());
+        var type = typeof(Mightyfin.Erp.Procurement.Domain.ContractReviewPolicyIdentityRecord);
+        var entity = owner.GetService<IDesignTimeModel>().Model.FindEntityType(type)!;
+        var indexes = entity.GetIndexes().Where(x => x.IsUnique).ToArray();
+        var expected = new Dictionary<string, string?>
+        {
+            ["ux_p35_contract_policy_revision"] = null,
+            ["ux_p35_contract_policy_created"] = "((stage)::text = 'Created'::text)",
+            ["ux_p35_contract_policy_published"] = "((stage)::text = 'Published'::text)"
+        };
+        Assert.Equal(3, indexes.Length);
+        Assert.True(expected.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(indexes.Select(x => x.GetDatabaseName()!)));
+        foreach (var index in indexes)
+        {
+            Assert.True(ProcurementPrincipalCommercialSchemaInspection.TryResolveIndexPredicate(
+                type, index.GetDatabaseName(), index.GetFilter(), out var actual));
+            Assert.Equal(expected[index.GetDatabaseName()!], actual);
+        }
+        Assert.False(ProcurementPrincipalCommercialSchemaInspection.TryResolveIndexPredicate(
+            type, "ux_p35_contract_policy_unknown", "stage = 'Created'", out _));
+        Assert.False(ProcurementPrincipalCommercialSchemaInspection.TryResolveIndexPredicate(
+            type, "ux_p35_contract_policy_revision", "stage = 'Created'", out _));
+        Assert.False(ProcurementPrincipalCommercialSchemaInspection.TryResolveIndexPredicate(
+            type, "ux_p35_contract_policy_created", null, out _));
+        Assert.False(ProcurementPrincipalCommercialSchemaInspection.TryResolveIndexPredicate(
+            type, "ux_p35_contract_policy_published", "stage = 'Created'", out _));
+        Assert.Equal(System.Data.ConnectionState.Closed, owner.Database.GetDbConnection().State);
     }
 
     [Fact]
