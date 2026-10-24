@@ -109,3 +109,20 @@ separately prove HRM column UPDATE, table ownership and elevated SET membership
 continue to refuse admission. Restore every injected fault inside the private
 rehearsal and retain unchanged owner/ACL/data evidence. No production role change,
 workflow activation, payment/Finance availability or runtime success is implied.
+
+P30 schema compatibility is a separate exact fingerprint profile. The existing P28
+fingerprint includes the entire operational identity CHECK; P30 commercial workflows
+add `SOURCING_PUBLISH` to that owning constraint, so accepting only the old hash would
+make payment governance unavailable on a valid P30 database. The source selector now
+requires the actual P28 migration and selects a distinct P30 profile when migration
+`20261023222748_P30PrincipalCommercialWorkflows` is present. It does not remove the
+constraint, normalize SQL, relax any other columns/functions/triggers, or accept the
+P28 fingerprint on a P30 history. Pending migrations/model checks remain unchanged.
+
+The P30 expected hash is intentionally empty until root captures this exact
+`FingerprintSql` on a stable genuinely migrated private P30 database and reviews the
+protected raw catalog provenance. Consequently this source checkpoint stays closed
+on P30, including after the column correction. Two additional authored cases prove
+history-specific selection and the empty-capture hold; they are unrun. On actual
+capture, replace the empty constant and its temporary hold assertion with the exact
+captured hash and positive/tamper cases, retaining P28/P30 cross-profile denials.

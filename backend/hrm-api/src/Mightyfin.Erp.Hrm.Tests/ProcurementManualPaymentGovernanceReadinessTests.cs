@@ -103,4 +103,28 @@ public sealed class ProcurementManualPaymentGovernanceReadinessTests
         Assert.False(new ProcurementManualPaymentOptions().Enabled);
         Assert.False(new ProcurementManualPaymentOptions().ExecutionDatabaseConfigured);
     }
+    [Fact]
+    public void P28_fingerprint_cannot_be_adopted_under_a_P30_migration_history()
+    {
+        var p28 = ProcurementManualPaymentGovernanceReadiness.MigrationId;
+        var p30 = ProcurementManualPaymentGovernanceReadiness.P30MigrationId;
+        var original = ProcurementManualPaymentGovernanceReadiness.ExpectedFingerprint;
+        Assert.True(ProcurementManualPaymentGovernanceReadiness.FingerprintMatches(original, [p28]));
+        Assert.False(ProcurementManualPaymentGovernanceReadiness.FingerprintMatches(original, [p28, p30]));
+        Assert.False(ProcurementManualPaymentGovernanceReadiness.FingerprintMatches(original, [p30]));
+        Assert.False(ProcurementManualPaymentGovernanceReadiness.FingerprintMatches(original, []));
+        Assert.False(ProcurementManualPaymentGovernanceReadiness.FingerprintMatches(new string('0', 64), [p28]));
+    }
+
+    [Fact]
+    public void Missing_actual_P30_fingerprint_never_reports_ready_or_falls_back()
+    {
+        // Deliberate source-stage hold, to be replaced by actual capture-bound
+        // positive/tamper assertions when the owner supplies the real PG bytes.
+        Assert.Empty(ProcurementManualPaymentGovernanceReadiness.P30ExpectedFingerprint);
+        Assert.False(ProcurementManualPaymentGovernanceReadiness.FingerprintMatches("",
+            [ProcurementManualPaymentGovernanceReadiness.MigrationId,
+             ProcurementManualPaymentGovernanceReadiness.P30MigrationId]));
+    }
+
 }

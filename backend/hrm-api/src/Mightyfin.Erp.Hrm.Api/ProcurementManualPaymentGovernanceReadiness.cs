@@ -19,6 +19,19 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
     // Verified equal on fresh down/up and retained native P27→P28 PostgreSQL rehearsals.
     // Physical column ordinals are not a named-column API contract; their attributes are.
     internal const string ExpectedFingerprint = "a5e05163346be79ccaee5aa11093e377a9d0a5f86046311759698ca72435e29b";
+    internal const string P30MigrationId = "20261023222748_P30PrincipalCommercialWorkflows";
+    // Filled only from protected actual PostgreSQL P30 FingerprintSql capture.
+    // Empty is deliberately unavailable, never a fallback to the P28 hash.
+    internal const string P30ExpectedFingerprint = "";
+
+    internal static bool FingerprintMatches(string actual, IReadOnlyCollection<string> applied)
+    {
+        if (!applied.Contains(MigrationId, StringComparer.Ordinal)) return false;
+        var expected = applied.Contains(P30MigrationId, StringComparer.Ordinal)
+            ? P30ExpectedFingerprint : ExpectedFingerprint;
+        return expected.Length == 64 && string.Equals(actual, expected, StringComparison.Ordinal);
+    }
+
     // Reuse the accepted P25 identity projection, adding only the Core labels and
     // company clock read by the actual payment pickers/detail/date provider.
     // Model metadata is not a table SELECT grant; credentials are never projected.
@@ -45,8 +58,9 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             if (db.Database.HasPendingModelChanges()) return false;
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
             await db.Database.ExecuteSqlRawAsync("SET LOCAL search_path=pg_catalog; SET LOCAL transaction_read_only=on; SET LOCAL statement_timeout='5s'", ct);
-            if ((await db.Database.GetPendingMigrationsAsync(ct)).Any()
-                || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
+            if ((await db.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
+            var applied = (await db.Database.GetAppliedMigrationsAsync(ct)).ToArray();
+            if (!applied.Contains(MigrationId, StringComparer.Ordinal)) return false;
             await using var command = db.Database.GetDbConnection().CreateCommand();
             command.Transaction = transaction.GetDbTransaction(); command.CommandTimeout = 10;
             // Metadata only: all privilege/catalog SQL remains on the original
@@ -58,7 +72,7 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             command.CommandText = CoreOwnerSql;
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
             command.CommandText = FingerprintSql;
-            return await command.ExecuteScalarAsync(ct) is string actual && actual == ExpectedFingerprint;
+            return await command.ExecuteScalarAsync(ct) is string actual && FingerprintMatches(actual, applied);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception error)
