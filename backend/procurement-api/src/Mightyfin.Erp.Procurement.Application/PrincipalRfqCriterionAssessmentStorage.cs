@@ -12,6 +12,7 @@ public static class PrincipalRfqCriterionAssessmentStorage
         offerId=row.OfferId, eventId=row.EventId, branchId=row.BranchId,
         preparedPlanId=row.PreparedPlanId, evaluationPlanRevisionId=row.EvaluationPlanRevisionId,
         evaluationDefinitionSha256=row.EvaluationDefinitionSha256,
+        approvedRoundSha256=row.ApprovedRoundSha256,
         openingSha256=row.OpeningSha256, offerSha256=row.OfferSha256,
         row.CriterionCode, row.Kind, row.EvaluatorPrincipalId, row.EvaluatorWorkerAliasId,
         row.Revision, row.PreviousAssessmentId, row.PreviousRevision,
@@ -26,6 +27,7 @@ public static class PrincipalRfqCriterionAssessmentStorage
         recordedAt=row.RecordedAt, evaluationComplete=false, awardMade=false,
     });
     public static void Verify(PrincipalRfqCriterionAssessmentRecord row,
+        PrincipalRfqCommercialRoundOpeningRecord round,
         PrincipalRfqOfferOpeningRecord opening,
         PrincipalRfqCommercialOfferSubmissionRecord offer,
         PrincipalRfqEvaluationPlanDefinition definition)
@@ -34,7 +36,12 @@ public static class PrincipalRfqCriterionAssessmentStorage
             row.CriterionCode,row.EvaluatorPrincipalId,row.Revision,
             row.Score?.ToString("0.0000",System.Globalization.CultureInfo.InvariantCulture),
             row.Passed,row.Rationale,row.OriginalDocumentVersionId,row.OriginalDocumentSha256);
-        if(row.SchemaVersion!=1 || row.TenantId!=opening.TenantId || row.LegalEntityId!=opening.LegalEntityId
+        if(row.SchemaVersion!=1 || row.TenantId!=round.TenantId || row.LegalEntityId!=round.LegalEntityId
+            || row.RoundId!=round.Id || row.EventId!=round.SourcingEventId
+            || row.BranchId!=round.BranchId || row.PreparedPlanId!=round.PreparedPlanId
+            || row.ApprovedRoundSha256!=round.SnapshotSha256
+            || opening.ApprovedRoundSha256!=round.SnapshotSha256
+            || row.TenantId!=opening.TenantId || row.LegalEntityId!=opening.LegalEntityId
             || row.RoundId!=opening.OpeningId || row.UnsealingId!=opening.Id
             || row.EventId!=opening.SourcingEventId || row.BranchId!=opening.BranchId
             || row.OpeningSha256!=opening.SnapshotSha256

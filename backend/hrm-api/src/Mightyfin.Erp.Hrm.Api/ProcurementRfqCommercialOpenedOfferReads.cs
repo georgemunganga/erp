@@ -25,27 +25,11 @@ public static partial class ProcurementSourcingExecutionRoutes
             var seal = await db.PrincipalRfqCommercialRoundSeals.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.Id == opened.SealId && x.OpeningId == id, token)
                 ?? throw new Problem("RfqOfferSealChanged", 409);
-            var original = await db.PrincipalRfqOfferOpeningReceipts.AsNoTracking()
-                .SingleOrDefaultAsync(x => x.UnsealingId == opened.Id, token)
-                ?? throw new Problem("RfqOfferOpeningReceiptChanged", 409);
-            PrincipalRfqOfferOpeningStorage.Verify(opened, round, seal);
-            PrincipalRfqOfferOpeningStorage.VerifyReceipt(opened, original);
             var retained = await LoadRetainedCommercialApproval(db, cases, scope, round, token);
             await RequireCommercialSourceHolds(db, cases, scope,
                 retained.Event, retained.Original, actor, token);
-            var recorders = await OpeningRecorders(db, id, token);
-            var (conflicts, aliases) = await OpeningConflicts(db, core, scope,
-                retained, recorders, actor, controls, token);
-            var closer = new RfqCommercialConflictParticipant(round.ClosingOfficerPrincipalId,
-                round.ClosingOfficerWorkerAliasId);
-            var openerConflicts = controls.AllowClosingOfficer ? conflicts : conflicts.Append(closer).ToArray();
-            // Old officer need not retain today's grant. Its retained AND current
-            // aliases still cannot become an original maker/reviewer/recorder.
-            PrincipalRfqOfferOpening.RequireRetainedIndependence(
-                new(opened.OfficerPrincipalId, opened.OfficerWorkerAliasId), openerConflicts, aliases);
-            PrincipalRfqOfferOpening.RequireActor(retained.Proof, controls, actor, aliases,
-                PrincipalRfqOfferOpeningControls.ReadAction, false);
-            PrincipalRfqOfferOpening.RequireIndependent(actor, conflicts.Append(closer).ToArray(), aliases);
+            await RequireRetainedOpenedOfferPurpose(db, core, scope, round, opened, seal,
+                retained, actor, controls, false, token);
             var offers = await RetainedOpeningOffers(http, db, scope, round, seal, actor,
                 PrincipalRfqOfferOpeningControls.ReadAction, token);
             if (PrincipalRfqSealedManualOffers.RetainedSetDigest(retained.Proof,
@@ -69,6 +53,36 @@ public static partial class ProcurementSourcingExecutionRoutes
                 evaluationAvailable = false, awardAvailable = false, purchaseOrderAvailable = false,
             }, Json));
         }, ct);
+
+    private static async Task RequireRetainedOpenedOfferPurpose(ProcurementDbContext db,
+        Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext core, ProcurementRequestScope scope,
+        PrincipalRfqCommercialRoundOpeningRecord round, PrincipalRfqOfferOpeningRecord opened,
+        PrincipalRfqCommercialRoundSealRecord seal, RetainedCommercialApproval retained,
+        RfqPrincipalActor actor, PrincipalRfqOfferOpeningControls controls,
+        bool separateFromOpener, CancellationToken ct)
+    {
+        var original = await db.PrincipalRfqOfferOpeningReceipts.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.UnsealingId == opened.Id, ct)
+            ?? throw new Problem("RfqOfferOpeningReceiptChanged", 409);
+        PrincipalRfqOfferOpeningStorage.Verify(opened, round, seal);
+        PrincipalRfqOfferOpeningStorage.VerifyReceipt(opened, original);
+        var recorders = await OpeningRecorders(db, round.Id, ct);
+        var (conflicts, aliases) = await OpeningConflicts(db, core, scope,
+            retained, recorders, actor, controls, ct);
+        var closer = new RfqCommercialConflictParticipant(round.ClosingOfficerPrincipalId,
+            round.ClosingOfficerWorkerAliasId);
+        var opener = new RfqCommercialConflictParticipant(opened.OfficerPrincipalId,
+            opened.OfficerWorkerAliasId);
+        var openerConflicts = controls.AllowClosingOfficer ? conflicts : conflicts.Append(closer).ToArray();
+        // Recheck the historical opener's retained and current aliases whenever
+        // an evaluator reads or writes against the already opened set.
+        PrincipalRfqOfferOpening.RequireRetainedIndependence(opener, openerConflicts, aliases);
+        PrincipalRfqOfferOpening.RequireActor(retained.Proof, controls, actor, aliases,
+            PrincipalRfqOfferOpeningControls.ReadAction, false);
+        PrincipalRfqOfferOpening.RequireIndependent(actor,
+            separateFromOpener ? conflicts.Append(closer).Append(opener).ToArray()
+                : conflicts.Append(closer).ToArray(), aliases);
+    }
 
     private static Task<IResult> CommercialOfferOpeningRecovery(Guid id, Guid key,
         HttpContext http, ProcurementRequestScope scope, CancellationToken ct)

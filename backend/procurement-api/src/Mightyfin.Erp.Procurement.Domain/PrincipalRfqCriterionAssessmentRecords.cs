@@ -13,7 +13,8 @@ public sealed class PrincipalRfqCriterionAssessmentRecord : ProcurementRecord
     public Guid PreparedPlanId { get; init; }
     public Guid EvaluationPlanRevisionId { get; init; }
     public string EvaluationDefinitionSha256 { get; init; } = null!;
-    public string OpeningSha256 { get; init; } = null!;
+    public string ApprovedRoundSha256 { get; set; } = null!;
+    public string OpeningSha256 { get; set; } = null!;
     public string OfferSha256 { get; init; } = null!;
     public string CriterionCode { get; init; } = null!;
     public string Kind { get; init; } = null!;

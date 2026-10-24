@@ -822,8 +822,10 @@ There is no inferred score, pass threshold, weighted aggregation, quorum, rankin
 recommendation, award, PO or Finance effect.
 
 `POST /commercial-rounds/{id}/assessments` uses a server-verified Core evaluator,
-current company/branch and `procurement-sourcing-evaluate` action, retained
-opening/offer/document proof, frozen plan and current maker/requester/officer/
+current company/branch, `procurement-sourcing-evaluate` and explicit opened-offer
+read actions, retained
+opening/offer/document proof, both distinct approved-round and offer-opening
+hashes, frozen plan and current maker/requester/officer/
 recorder alias independence. A prior observation is corrected by a new immutable
 revision with exact expected prior revision and original idempotency key; old
 observations are never overwritten. Own assessment history and actor-owned command

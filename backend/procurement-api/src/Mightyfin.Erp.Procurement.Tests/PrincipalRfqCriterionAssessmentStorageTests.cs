@@ -18,20 +18,27 @@ public sealed class PrincipalRfqCriterionAssessmentStorageTests
            "maximumScore":"10","weight":"1","evaluatorPrincipalIds":["{{Actor}}"]}]}
         """);
     private static (PrincipalRfqCriterionAssessmentRecord Row,PrincipalRfqCriterionAssessmentReceipt Ack,
+        PrincipalRfqCommercialRoundOpeningRecord Round,
         PrincipalRfqOfferOpeningRecord Opening,PrincipalRfqCommercialOfferSubmissionRecord Offer) Rows()
     {
         var company=Guid.NewGuid();var round=Guid.NewGuid();var ev=Guid.NewGuid();var branch=Guid.NewGuid();
         var document=Guid.NewGuid();var docSha=new string('d',64);var definition=Definition();
+        var plan=Guid.NewGuid();
+        var approved=new PrincipalRfqCommercialRoundOpeningRecord{Id=round,TenantId="fixture",
+            LegalEntityId=company,SourcingEventId=ev,BranchId=branch,PreparedPlanId=plan,
+            SnapshotSha256=new string('e',64)};
         var opening=new PrincipalRfqOfferOpeningRecord{TenantId="fixture",LegalEntityId=company,
             OpeningId=round,SourcingEventId=ev,BranchId=branch,
-            SnapshotSha256=new string('a',64),OpenedAt=DateTimeOffset.UtcNow.AddMinutes(-1)};
+            ApprovedRoundSha256=approved.SnapshotSha256,SnapshotSha256=new string('a',64),
+            OpenedAt=DateTimeOffset.UtcNow.AddMinutes(-1)};
         var offer=new PrincipalRfqCommercialOfferSubmissionRecord{TenantId="fixture",LegalEntityId=company,
             OpeningId=round,SourcingEventId=ev,BranchId=branch,
             SnapshotSha256=new string('b',64),OriginalDocumentVersionId=document,OriginalDocumentSha256=docSha};
         var row=new PrincipalRfqCriterionAssessmentRecord{TenantId="fixture",LegalEntityId=company,
             RoundId=round,UnsealingId=opening.Id,OfferId=offer.Id,EventId=ev,BranchId=branch,
-            PreparedPlanId=Guid.NewGuid(),EvaluationPlanRevisionId=Guid.NewGuid(),
-            EvaluationDefinitionSha256=definition.RulesSha256,OpeningSha256=opening.SnapshotSha256,
+            PreparedPlanId=plan,EvaluationPlanRevisionId=Guid.NewGuid(),
+            EvaluationDefinitionSha256=definition.RulesSha256,
+            ApprovedRoundSha256=approved.SnapshotSha256,OpeningSha256=opening.SnapshotSha256,
             OfferSha256=offer.SnapshotSha256,CriterionCode="TECH",Kind="Scored",
             EvaluatorPrincipalId=Actor,Revision=1,Score=0m,Rationale="Observed no compliance evidence",
             OriginalDocumentVersionId=document,OriginalDocumentSha256=docSha,
@@ -43,17 +50,26 @@ public sealed class PrincipalRfqCriterionAssessmentStorageTests
             AssessmentId=row.Id,RoundId=round,UnsealingId=opening.Id,OfferId=offer.Id,EventId=ev,
             BranchId=branch,ActorPrincipalId=Actor,CommandKey=row.CommandKey,RequestSha256=row.RequestSha256,
             ResponseJson=response,ResponseSha256=ProcurementEvidenceEncoding.Digest(response)};
-        return(row,ack,opening,offer);
+        return(row,ack,approved,opening,offer);
     }
     [Fact]
     public void Original_zero_score_and_ack_bind_one_offer_original_document_and_named_evaluator()
     {
-        var (row,ack,opening,offer)=Rows();
-        PrincipalRfqCriterionAssessmentStorage.Verify(row,opening,offer,Definition());
+        var (row,ack,round,opening,offer)=Rows();
+        PrincipalRfqCriterionAssessmentStorage.Verify(row,round,opening,offer,Definition());
         PrincipalRfqCriterionAssessmentStorage.VerifyReceipt(row,ack);
         Assert.Equal(0m,row.Score);
+        var approvedHash=row.ApprovedRoundSha256;var openingHash=row.OpeningSha256;
+        row.ApprovedRoundSha256=openingHash;row.OpeningSha256=approvedHash;
+        row.SnapshotJson=PrincipalRfqCriterionAssessmentStorage.Snapshot(row);
+        row.SnapshotSha256=ProcurementEvidenceEncoding.Digest(row.SnapshotJson);
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCriterionAssessmentStorage.Verify(
+            row,round,opening,offer,Definition()));
+        row.ApprovedRoundSha256=approvedHash;row.OpeningSha256=openingHash;
+        row.SnapshotJson=PrincipalRfqCriterionAssessmentStorage.Snapshot(row);
+        row.SnapshotSha256=ProcurementEvidenceEncoding.Digest(row.SnapshotJson);
         Assert.Throws<InvalidOperationException>(()=>PrincipalRfqCriterionAssessmentStorage.Verify(row,
-            opening,new PrincipalRfqCommercialOfferSubmissionRecord{Id=offer.Id,TenantId=offer.TenantId,
+            round,opening,new PrincipalRfqCommercialOfferSubmissionRecord{Id=offer.Id,TenantId=offer.TenantId,
                 LegalEntityId=offer.LegalEntityId,OpeningId=offer.OpeningId,SourcingEventId=offer.SourcingEventId,
                 BranchId=offer.BranchId,SnapshotSha256=offer.SnapshotSha256,
                 OriginalDocumentVersionId=Guid.NewGuid(),OriginalDocumentSha256=offer.OriginalDocumentSha256},Definition()));
@@ -67,7 +83,7 @@ public sealed class PrincipalRfqCriterionAssessmentStorageTests
     [Fact]
     public void Missing_same_save_ack_and_later_rewrite_are_denied()
     {
-        var (row,_,_,_)=Rows();var scope=new Scope(row.TenantId,row.LegalEntityId,row.EvaluatorPrincipalId);
+        var (row,_,_,_,_)=Rows();var scope=new Scope(row.TenantId,row.LegalEntityId,row.EvaluatorPrincipalId);
         using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,scope);
         db.AddScoped(row);
@@ -80,7 +96,7 @@ public sealed class PrincipalRfqCriterionAssessmentStorageTests
     [Fact]
     public void Physical_owner_keys_are_explicit_and_no_mutable_cursor_is_a_key()
     {
-        var (row,_,_,_)=Rows();
+        var (row,_,_,_,_)=Rows();
         using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseNpgsql("Host=never-used.invalid;Database=model_only").Options,
             new Scope(row.TenantId,row.LegalEntityId,row.EvaluatorPrincipalId));
@@ -100,5 +116,11 @@ public sealed class PrincipalRfqCriterionAssessmentStorageTests
         var assessment=model.FindEntityType(typeof(PrincipalRfqCriterionAssessmentRecord))!;
         Assert.Contains(assessment.GetForeignKeys(),x=>x.GetConstraintName()=="fk_p32_assess_offer"
             && x.Properties.Any(p=>p.Name=="OfferSha256"));
+        Assert.Contains(assessment.GetForeignKeys(),x=>x.GetConstraintName()=="fk_p32_assess_round"
+            && x.Properties.Any(p=>p.Name=="ApprovedRoundSha256")
+            && x.Properties.All(p=>p.Name!="OpeningSha256"));
+        Assert.Contains(assessment.GetForeignKeys(),x=>x.GetConstraintName()=="fk_p32_assess_opened"
+            && x.Properties.Any(p=>p.Name=="OpeningSha256")
+            && x.Properties.All(p=>p.Name!="ApprovedRoundSha256"));
     }
 }

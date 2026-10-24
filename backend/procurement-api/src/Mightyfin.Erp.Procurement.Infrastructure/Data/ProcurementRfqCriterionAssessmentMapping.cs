@@ -23,14 +23,14 @@ public sealed partial class ProcurementDbContext
         row.Property(x=>x.EvaluatorPrincipalId).HasMaxLength(36);ack.Property(x=>x.ActorPrincipalId).HasMaxLength(36);
         row.Property(x=>x.Rationale).HasMaxLength(2000);row.Property(x=>x.SnapshotJson).HasColumnType("text");
         ack.Property(x=>x.ResponseJson).HasColumnType("text");
-        foreach(var name in new[]{"EvaluationDefinitionSha256","OpeningSha256","OfferSha256","OriginalDocumentSha256","RequestSha256","SnapshotSha256"})
+        foreach(var name in new[]{"EvaluationDefinitionSha256","ApprovedRoundSha256","OpeningSha256","OfferSha256","OriginalDocumentSha256","RequestSha256","SnapshotSha256"})
             row.Property<string>(name).HasMaxLength(64);
         ack.Property(x=>x.RequestSha256).HasMaxLength(64);ack.Property(x=>x.ResponseSha256).HasMaxLength(64);
         model.Entity<PrincipalRfqCommercialRoundOpeningRecord>().HasAlternateKey(x=>new
             {x.TenantId,x.LegalEntityId,x.Id,x.PreparedPlanId,x.SourcingEventId,x.BranchId,x.SnapshotSha256})
             .HasName("ak_p32_assess_round");
         row.HasOne<PrincipalRfqCommercialRoundOpeningRecord>().WithMany().HasForeignKey(x=>new
-            {x.TenantId,x.LegalEntityId,x.RoundId,x.PreparedPlanId,x.EventId,x.BranchId,x.OpeningSha256})
+            {x.TenantId,x.LegalEntityId,x.RoundId,x.PreparedPlanId,x.EventId,x.BranchId,x.ApprovedRoundSha256})
             .HasPrincipalKey(x=>new
             {x.TenantId,x.LegalEntityId,x.Id,x.PreparedPlanId,x.SourcingEventId,x.BranchId,x.SnapshotSha256})
             .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_p32_assess_round");
@@ -98,6 +98,7 @@ public sealed partial class ProcurementDbContext
             +" AND ((kind='Scored' AND score IS NOT NULL AND score>=0 AND passed IS NULL)"
             +" OR (kind='PassFail' AND score IS NULL AND passed IS NOT NULL))"
             +" AND evaluation_definition_sha256 IS NOT NULL AND evaluation_definition_sha256"+sha
+            +" AND approved_round_sha256 IS NOT NULL AND approved_round_sha256"+sha
             +" AND opening_sha256 IS NOT NULL AND opening_sha256"+sha
             +" AND offer_sha256 IS NOT NULL AND offer_sha256"+sha
             +" AND original_document_sha256 IS NOT NULL AND original_document_sha256"+sha
@@ -133,6 +134,7 @@ public sealed partial class ProcurementDbContext
             if(row.EvaluatorPrincipalId!=scope.SubjectId || row.EvaluatorWorkerAliasId!=scope.CoreLinkedWorkerId
                 || acks.Count(x=>x.AssessmentId==row.Id)!=1)
                 throw new InvalidOperationException("RfqAssessmentActorChanged");
+            var round=PrincipalRfqCommercialRoundOpenings.AsNoTracking().Single(x=>x.Id==row.RoundId);
             var opened=PrincipalRfqOfferOpenings.AsNoTracking().Single(x=>x.Id==row.UnsealingId);
             var offer=PrincipalRfqCommercialOfferSubmissions.AsNoTracking().Single(x=>x.Id==row.OfferId);
             var plan=PrincipalRfqPreparedPlans.AsNoTracking().Single(x=>x.Id==row.PreparedPlanId);
@@ -146,7 +148,7 @@ public sealed partial class ProcurementDbContext
                 || input.EvaluationDefinitionJson is null)
                 throw new InvalidOperationException("RfqAssessmentFrozenPlanChanged");
             var definition=PrincipalRfqEvaluationPlanDefinition.Parse(input.EvaluationDefinitionJson);
-            PrincipalRfqCriterionAssessmentStorage.Verify(row,opened,offer,definition);
+            PrincipalRfqCriterionAssessmentStorage.Verify(row,round,opened,offer,definition);
             if(row.Revision>1)
             {
                 var prior=PrincipalRfqCriterionAssessments.AsNoTracking().Single(x=>x.Id==row.PreviousAssessmentId);

@@ -97,21 +97,13 @@ public static partial class ProcurementSourcingExecutionRoutes
                 ?? throw new Problem("RfqOffersNotOpened",409);
             var seal=await db.PrincipalRfqCommercialRoundSeals.AsNoTracking()
                 .SingleAsync(x=>x.Id==opened.SealId && x.OpeningId==id,token);
-            PrincipalRfqOfferOpeningStorage.Verify(opened,round,seal);
+            await RequireRetainedOpenedOfferPurpose(db,core,scope,round,opened,seal,
+                retained,actor,controls,true,token);
             var (definition,plan,revision)=await AssessmentPlan(db,round,token);
             var offer=(await RetainedOpeningOffers(http,db,scope,round,seal,actor,
                 PrincipalRfqCriterionAssessmentStorage.Action,token))
                 .SingleOrDefault(x=>x.Id==input.OfferId)
                 ?? throw new Problem("RfqOfferNotInOpenedSet",404);
-            // Current aliases of the original maker, requester, opening/closing
-            // officers and supplier-response recorders are denial-only SOD facts.
-            var recorders=await OpeningRecorders(db,id,token);
-            var (conflicts,aliases)=await OpeningConflicts(db,core,scope,retained,recorders,actor,controls,token);
-            PrincipalRfqOfferOpening.RequireIndependent(actor,
-                conflicts.Append(new RfqCommercialConflictParticipant(round.ClosingOfficerPrincipalId,
-                    round.ClosingOfficerWorkerAliasId))
-                    .Append(new RfqCommercialConflictParticipant(opened.OfficerPrincipalId,
-                        opened.OfficerWorkerAliasId)).ToArray(),aliases);
             var value=PrincipalRfqCriterionAssessmentRules.Validate(definition,
                 input.CriterionCode,actor.PrincipalId,checked(input.ExpectedPreviousRevision+1),
                 input.ScoreExact,input.Passed,input.Rationale,
@@ -128,7 +120,8 @@ public static partial class ProcurementSourcingExecutionRoutes
                 TenantId=scope.TenantId,LegalEntityId=scope.LegalEntityId,
                 RoundId=id,UnsealingId=opened.Id,OfferId=offer.Id,EventId=round.SourcingEventId,
                 BranchId=round.BranchId,PreparedPlanId=plan.Id,EvaluationPlanRevisionId=revision.Id,
-                EvaluationDefinitionSha256=definition.RulesSha256,OpeningSha256=opened.SnapshotSha256,
+                EvaluationDefinitionSha256=definition.RulesSha256,
+                ApprovedRoundSha256=round.SnapshotSha256,OpeningSha256=opened.SnapshotSha256,
                 OfferSha256=offer.SnapshotSha256,CriterionCode=value.CriterionCode,Kind=value.Kind,
                 EvaluatorPrincipalId=actor.PrincipalId,EvaluatorWorkerAliasId=actor.LinkedWorkerId,
                 Revision=value.Revision,PreviousAssessmentId=latest?.Id,PreviousRevision=latest?.Revision,
@@ -140,7 +133,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             };
             row.SnapshotJson=PrincipalRfqCriterionAssessmentStorage.Snapshot(row);
             row.SnapshotSha256=ProcurementEvidenceEncoding.Digest(row.SnapshotJson);
-            PrincipalRfqCriterionAssessmentStorage.Verify(row,opened,offer,definition);
+            PrincipalRfqCriterionAssessmentStorage.Verify(row,round,opened,offer,definition);
             var response=PrincipalRfqCriterionAssessmentStorage.Response(row);
             var ack=new PrincipalRfqCriterionAssessmentReceipt
             {
@@ -176,16 +169,10 @@ public static partial class ProcurementSourcingExecutionRoutes
                 ?? throw new Problem("RfqOffersNotOpened",404);
             var seal=await db.PrincipalRfqCommercialRoundSeals.AsNoTracking()
                 .SingleAsync(x=>x.Id==opened.SealId && x.OpeningId==id,token);
-            PrincipalRfqOfferOpeningStorage.Verify(opened,round,seal);
             var retained=await LoadRetainedCommercialApproval(db,cases,scope,round,token);
             await RequireCommercialSourceHolds(db,cases,scope,retained.Event,retained.Original,actor,token);
-            var recorders=await OpeningRecorders(db,id,token);
-            var (conflicts,aliases)=await OpeningConflicts(db,core,scope,retained,recorders,actor,controls,token);
-            PrincipalRfqOfferOpening.RequireIndependent(actor,
-                conflicts.Append(new RfqCommercialConflictParticipant(round.ClosingOfficerPrincipalId,
-                    round.ClosingOfficerWorkerAliasId))
-                    .Append(new RfqCommercialConflictParticipant(opened.OfficerPrincipalId,
-                        opened.OfficerWorkerAliasId)).ToArray(),aliases);
+            await RequireRetainedOpenedOfferPurpose(db,core,scope,round,opened,seal,
+                retained,actor,controls,true,token);
             var (definition,plan,revision)=await AssessmentPlan(db,round,token);
             var offers=(await RetainedOpeningOffers(http,db,scope,round,seal,actor,
                 PrincipalRfqCriterionAssessmentStorage.Action,token)).ToDictionary(x=>x.Id);
@@ -200,7 +187,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 if(row.PreparedPlanId!=plan.Id || row.EvaluationPlanRevisionId!=revision.Id
                     || !offers.TryGetValue(row.OfferId,out var offer))
                     throw new Problem("RfqAssessmentHistoryChanged",409);
-                PrincipalRfqCriterionAssessmentStorage.Verify(row,opened,offer,definition);
+                PrincipalRfqCriterionAssessmentStorage.Verify(row,round,opened,offer,definition);
                 var ack=await db.PrincipalRfqCriterionAssessmentReceipts.AsNoTracking()
                     .SingleAsync(x=>x.AssessmentId==row.Id,token);
                 PrincipalRfqCriterionAssessmentStorage.VerifyReceipt(row,ack);
