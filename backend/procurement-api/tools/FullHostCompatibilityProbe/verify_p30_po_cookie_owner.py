@@ -424,6 +424,8 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
             and exact(final["sourceLine"]["requested_quantity"]) == 2
             and final["sourceLine"]["version"] == baseline["sourceLine"]["version"] + 2,
             "ApprovedDemandNotRestored")
+    require(final["request"]["version"] == baseline["request"]["version"] + 2,
+            "ApprovedRequestCASProgression")
     for field in ("status", "approval_state", "branch_ref", "legal_entity_id"):
         require(final["request"].get(field) == baseline["request"].get(field), "ApprovedRequestChanged")
     for field in baseline["request"]:
