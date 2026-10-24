@@ -8,6 +8,7 @@ substitutes for the original owning rows queried here.
 """
 
 import argparse
+from collections import Counter
 import decimal
 import hashlib
 import json
@@ -67,11 +68,28 @@ def output_path(path, fixture):
             and not path.exists() and not path.is_symlink(), "NewPrivateOutputRequired")
 
 
+def exact_evidence_json(value):
+    """Keep PostgreSQL decimal values exact in protected owner snapshots."""
+    if isinstance(value, decimal.Decimal):
+        require(value.is_finite(), "OwnerEvidenceNumberInvalid")
+        return str(value)
+    if isinstance(value, dict):
+        require(all(isinstance(k, str) for k in value), "OwnerEvidenceKeyInvalid")
+        return "{" + ",".join(json.dumps(k, ensure_ascii=True) + ":"
+            + exact_evidence_json(value[k]) for k in sorted(value)) + "}"
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(exact_evidence_json(x) for x in value) + "]"
+    require(value is None or isinstance(value, (str, bool, int)), "OwnerEvidenceShapeInvalid")
+    return json.dumps(value, ensure_ascii=True, allow_nan=False)
+
+
 def write(path, value):
+    # Render before exclusive creation: unsupported values must not leave a
+    # partial baseline that could be mistaken for a complete owner snapshot.
+    encoded = exact_evidence_json(value) + "\n"
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        json.dump(value, stream, sort_keys=True, indent=2)
-        stream.write("\n")
+        stream.write(encoded)
     require(stat.S_IMODE(path.stat().st_mode) == 0o600, "OutputMode")
 
 
@@ -101,7 +119,23 @@ def query(container, database, sql):
         raise Failed("OwnerReadOnlyQueryFailed") from None
 
 
-def owner_snapshot(container, database, fixture):
+def native_orders_for_phase(orders, fixture, original_ids=None, successor=None):
+    if original_ids is None:
+        require(successor is None and len(orders) == 3, "ThreeNativeOrdersRequired")
+        native = orders
+    else:
+        ids = set(original_ids)
+        require(len(original_ids) == len(ids) == 3 and all(guid(x) for x in ids)
+                and guid(successor) and successor not in ids
+                and len(orders) == 4 and {x.get("id") for x in orders} == ids | {successor},
+                "ExactBrowserSuccessorRequired")
+        native = [x for x in orders if x.get("id") in ids]
+    require(any(x.get("id") == fixture["issuedOrderId"] and x.get("status") == "Issued"
+                for x in native), "OriginalIssuedOrderRequired")
+    return native
+
+
+def owner_snapshot(container, database, fixture, original_ids=None, successor=None):
     container_guard(container)
     head = query(container, database, """BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT jsonb_build_object('database',current_database(),
@@ -164,9 +198,8 @@ ROLLBACK;""")
             and request_row.get("branch_ref") == fixture["branchId"]
             and request_row.get("status") == "Approved"
             and line_row.get("purchase_request_id") == request, "ApprovedOwnerSourceInvalid")
-    originals = rows["procurement.purchase_orders"]
-    require(len(originals) == 3 and any(x.get("id") == fixture["issuedOrderId"]
-            and x.get("status") == "Issued" for x in originals), "ThreeNativeOrdersRequired")
+    originals = native_orders_for_phase(rows["procurement.purchase_orders"], fixture,
+        original_ids, successor)
     buyer_sessions = [x for x in rows["hrm.local_sessions"] if x.get("local_user_id") == buyer]
     # Full row hashes for every Procurement and Core Approval table establish
     # unchanged legacy and pre-existing principal business history.
@@ -382,10 +415,17 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
             and set(after["procurement.principal_order_source_bindings"]) - set(before["procurement.principal_order_source_bindings"]) == {pin["id"]}
             and set(after["procurement.purchase_request_allocations"]) - set(before["procurement.purchase_request_allocations"]) == {allocation["id"]},
             "UnexpectedCommercialSuccessors")
-    require(exact(baseline["sourceLine"]["allocated_quantity"]) == exact(final["sourceLine"]["allocated_quantity"]) == 1
+    require(exact(baseline["sourceLine"]["allocated_quantity"]) == exact(final["sourceLine"]["allocated_quantity"]) == 0
+            and exact(baseline["sourceLine"]["ordered_quantity"]) == exact(final["sourceLine"]["ordered_quantity"]) == 1
+            and exact(baseline["sourceLine"]["approved_quantity"]) == exact(final["sourceLine"]["approved_quantity"]) == 2
+            and exact(final["sourceLine"]["cancelled_quantity"]) == 0
+            and exact(final["sourceLine"]["approved_quantity"]) - exact(final["sourceLine"]["allocated_quantity"])
+                - exact(final["sourceLine"]["ordered_quantity"]) - exact(final["sourceLine"]["cancelled_quantity"]) == 1
             and exact(final["sourceLine"]["requested_quantity"]) == 2
             and final["sourceLine"]["version"] == baseline["sourceLine"]["version"] + 2,
             "ApprovedDemandNotRestored")
+    require(final["request"]["version"] == baseline["request"]["version"] + 2,
+            "ApprovedRequestCASProgression")
     for field in ("status", "approval_state", "branch_ref", "legal_entity_id"):
         require(final["request"].get(field) == baseline["request"].get(field), "ApprovedRequestChanged")
     for field in baseline["request"]:
@@ -428,10 +468,42 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
                 and response.get("supplierSendPerformed") is False
                 and response.get("financeReservationChanged") is False,
                 "StoredCommandResponseMismatch")
-    audit = [x for x in final["selectedRows"]["procurement.audit_events"] if x.get("record_id") == po]
+    new_audit_ids = set(after["procurement.audit_events"]) - set(before["procurement.audit_events"])
+    audit = [x for x in final["selectedRows"]["procurement.audit_events"] if x.get("id") in new_audit_ids]
+    business = [x for x in audit if x.get("record_id") == po
+        and x.get("action") in ("PrincipalOrderCreate", "PrincipalOrderCancel")]
+    require(len(business) == 2 and {x.get("action") for x in business}
+        == {"PrincipalOrderCreate", "PrincipalOrderCancel"}, "ExactBusinessAuditsRequired")
+    correlations = {}
+    for operation, key in (("Create", create_key), ("Cancel", cancel_key)):
+        row = next(x for x in business if x["action"] == "PrincipalOrder" + operation)
+        # PostgreSQL to_jsonb exposes this jsonb column as an object, not an
+        # encoded string. Require its actual owning-column representation.
+        payload = row["changed_fields_json"]
+        require(isinstance(payload, dict), "AuditCommandPayloadShape")
+        require(payload.get("schemaVersion") == 2 and payload.get("commandKey") == key
+            and isinstance(row.get("correlation_id"), str) and row["correlation_id"], "AuditCommandBinding")
+        correlations[operation] = row["correlation_id"]
+    require(len(set(correlations.values())) == 2, "DistinctCommandAuditCorrelationsRequired")
+    receipt_ids = {x["operation"]: x["id"] for x in receipts}
+    expected_audits = []
+    for operation, generic in (("Create", "create"), ("Cancel", "update")):
+        correlation = correlations[operation]
+        expected_audits += [("PurchaseOrder", "PrincipalOrder" + operation, po, correlation),
+            ("PurchaseOrder", generic, po, correlation),
+            ("PurchaseRequest", "update", fixture["approvedRequestId"], correlation),
+            ("PurchaseRequestLine", "update", fixture["approvedRequestLineId"], correlation),
+            ("PurchaseRequestAllocation", generic, allocation["id"], correlation),
+            ("PrincipalOrderDraftReceipt", "create", receipt_ids[operation], correlation)]
+        if operation == "Create":
+            expected_audits += [("PurchaseOrderLine", "create", line["id"], correlation),
+                ("PrincipalOrderSourceBinding", "create", pin["id"], correlation)]
+    require(Counter((x.get("record_type"), x.get("action"), x.get("record_id"), x.get("correlation_id"))
+            for x in audit) == Counter(expected_audits)
+        and all(x.get("tenant_id") == TENANT and x.get("legal_entity_id") == fixture["companyId"]
+            for x in audit), "ExactSharedAndBusinessAuditGraph")
     outbox = [x for x in final["selectedRows"]["procurement.outbox_events"] if x.get("aggregate_id") == po]
-    require(len(audit) == len(outbox) == 2
-            and {x.get("action") for x in audit} == {"PrincipalOrderCreate", "PrincipalOrderCancel"}
+    require(len(outbox) == 2
             and {x.get("event_type") for x in outbox} == {
                 "purchase_order.internal_draft_reserved.v2", "purchase_order.internal_draft_cancelled.v2"}
             and all(x.get("actor_subject_id") == fixture["buyerPrincipalId"] for x in audit)
@@ -459,7 +531,7 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("capture", "verify"))
+    parser.add_argument("mode", choices=("capture", "verify", "check-baseline"))
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--proxy-receipt", type=Path, required=True)
     parser.add_argument("--baseline", type=Path, required=True)
@@ -472,7 +544,16 @@ def main():
         fixture, fixture_sha = protected(args.fixture)
         proxy, _ = protected(args.proxy_receipt)
         fixture_boundary(fixture, proxy, fixture_sha, args.database)
-        if args.mode == "capture":
+        if args.mode == "check-baseline":
+            baseline, _ = protected(args.baseline, 4_000_000)
+            require(baseline.get("schemaVersion") == 3
+                    and baseline.get("fixtureSha256") == fixture_sha
+                    and baseline.get("challenge") == fixture["challenge"], "OriginalBaselineBinding")
+            facts = owner_snapshot(args.container, args.database, fixture)
+            require(not facts["buyerSessionIds"] and facts == baseline.get("facts"),
+                    "OriginalPreBrowserBaselineChanged")
+            print("P30_PO_PRIVATE_PRE_BROWSER_BASELINE_UNCHANGED")
+        elif args.mode == "capture":
             output_path(args.baseline, args.fixture)
             facts = owner_snapshot(args.container, args.database, fixture)
             require(len(facts["buyerSessionIds"]) == 0, "BuyerSessionExistsBeforeBrowser")
@@ -490,7 +571,8 @@ def main():
             completion, _ = protected(Path(fixture["completionPath"]), 4096)
             require(completion == {"schemaVersion": 3, "challenge": fixture["challenge"],
                                    "status": "BrowserFinished"}, "ControlPlaneCompletionMismatch")
-            facts = owner_snapshot(args.container, args.database, fixture)
+            facts = owner_snapshot(args.container, args.database, fixture,
+                baseline["facts"]["nativeOrderIds"], browser.get("orderId"))
             result = final_check(fixture, baseline["facts"], facts, browser, fixture_sha)
             write(args.output, result)
             print("P30_PO_PRIVATE_OWNER_VERIFIED")

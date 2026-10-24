@@ -56,3 +56,6 @@ obj/
 
 # Private HR/payroll audit records stay on the server, never in the public repo.
 docs/hrm/private/
+
+# Compiled caches from private Python verification tools.
+__pycache__/

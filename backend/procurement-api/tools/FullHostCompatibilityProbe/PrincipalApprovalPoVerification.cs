@@ -376,7 +376,10 @@ internal static partial class PrincipalApprovalHttpVerification
             &&allocations.Length==(retainedHistoryCancel?4:3)
             &&allocations.Count(x=>x.Status=="Released")== (retainedHistoryCancel?3:2)
             &&allocations.Count(x=>x.Status=="Ordered")==1
-            &&original.AllocatedQuantity==1m&&caseRow.State=="Approved"&&await db.PrincipalOrderFundingEvidence.CountAsync()==2
+            &&original.ApprovedQuantity==2m&&original.AllocatedQuantity==0m
+            &&original.OrderedQuantity==1m&&original.CancelledQuantity==0m
+            &&original.ApprovedQuantity-original.AllocatedQuantity-original.OrderedQuantity-original.CancelledQuantity==1m
+            &&caseRow.State=="Approved"&&await db.PrincipalOrderFundingEvidence.CountAsync()==2
             &&await db.PrincipalOrderReleaseRequests.CountAsync()==1&&await db.PrincipalOrderReleaseConfirmations.CountAsync()==1
             &&await db.PrincipalOrderIssuedVersions.CountAsync()==1&&await db.PrincipalOrderAcknowledgments.CountAsync()==1
             &&receipts.Count(x=>x.Operation=="Create")== (retainedHistoryCancel?4:3)

@@ -52,7 +52,9 @@ internal static partial class PrincipalApprovalHttpVerification
             var line=await db.PurchaseRequestLines.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==approvedRequestLineId
                 &&x.PurchaseRequestId==approvedRequestId,cancellationToken);
             Need(await db.PurchaseRequests.AnyAsync(x=>x.Id==approvedRequestId&&x.Status=="Approved",cancellationToken)
-                &&line is not null&&line.RequestedQuantity-line.AllocatedQuantity-line.CancelledQuantity==1m
+                &&line is not null&&line.ApprovedQuantity==2m
+                &&line.AllocatedQuantity==0m&&line.OrderedQuantity==1m&&line.CancelledQuantity==0m
+                &&line.ApprovedQuantity-line.AllocatedQuantity-line.OrderedQuantity-line.CancelledQuantity==1m
                 &&await db.Suppliers.AnyAsync(x=>x.Id==supplierId&&x.Status=="Active",cancellationToken)
                 &&await db.PurchaseOrders.AnyAsync(x=>x.Id==issuedOrderId&&x.Status=="Issued",cancellationToken),
                 "P30 browser must start with real approved remaining source, active supplier and completed internal issued order.");

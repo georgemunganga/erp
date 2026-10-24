@@ -48,8 +48,8 @@ internal static partial class PrincipalApprovalHttpVerification
             var ready = registration.ServiceProvider.GetRequiredService<IProcurementPrincipalSourcingPublicationReadiness>();
             Need(ready is not UnavailablePrincipalSourcingPublicationReadiness,
                 "P30 publication needs the actual owner-schema readiness provider.");
-            await using var ownerRead = fixture.Procurement(roles.Record);
-            Need(await ready.IsReadyAsync(ownerRead, default),
+            await using var executionStore = fixture.Procurement(roles.Execution);
+            Need(await ready.IsReadyAsync(executionStore, default),
                 "Actual P30 publication schema and finite role are not ready.");
         }
         var meta = await send(client, HttpMethod.Get, "/api/procurement/v1/meta", fixture.Buyer);
