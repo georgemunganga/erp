@@ -15,12 +15,12 @@ internal static class ProcurementPrincipalOrderDraftHistory
     internal sealed record Effective(decimal Quantity, decimal UnitPrice, decimal TaxAmount, decimal EstimatedValue);
     internal sealed record Verified(IReadOnlyDictionary<Guid, Effective> Effective, bool RevisionSchemaInstalled);
 
-    // The exact generated P33 migration and PostgreSQL catalog fingerprint have
-    // not been captured. Until they are pinned, a physical three-table graph is
-    // unavailable. This keeps a partially installed or substituted graph from
-    // being mistaken for a safe empty revision history.
-    internal static readonly string? CapturedMigrationId = null;
-    internal static readonly string? CapturedCatalogSha256 = null;
+    // The shared genuine PG17 capture binds the complete three-table catalog.
+    // A partial, substituted or changed graph cannot be mistaken for an empty
+    // revision history, even when new revision commands are disabled.
+    internal static string? CapturedMigrationId => ProcurementPrincipalOrderRevisionSchemaCapture.Populated
+        ? ProcurementPrincipalOrderRevisionSchemaCapture.MigrationId : null;
+    internal static string? CapturedCatalogSha256 => ProcurementPrincipalOrderRevisionSchemaCapture.HistoryCatalogSha256;
 
     internal static bool Classify(int count, int regularCount, bool migrationApplied, bool catalogMatches)
         => (count, regularCount) switch
@@ -59,12 +59,14 @@ internal static class ProcurementPrincipalOrderDraftHistory
             """;
         var anyP33History = await command.ExecuteScalarAsync(ct) is true;
         if (count == 0) return Classify(0, regular, anyP33History, false);
-        if (count != 3 || regular != 3 || CapturedMigrationId is null
-            || CapturedCatalogSha256 is null || !anyP33History)
+        var capturedMigrationId = CapturedMigrationId;
+        var capturedCatalogSha256 = CapturedCatalogSha256;
+        if (count != 3 || regular != 3 || capturedMigrationId is null
+            || capturedCatalogSha256 is null || !anyP33History)
             throw new InvalidOperationException("PrincipalOrderRevisionSchemaUnavailable");
         if (db.Database.HasPendingModelChanges()
             || (await db.Database.GetPendingMigrationsAsync(ct)).Any()
-            || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(CapturedMigrationId,
+            || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(capturedMigrationId,
                 StringComparer.Ordinal))
             throw new InvalidOperationException("PrincipalOrderRevisionSchemaUnavailable");
         // The exact digest is captured from genuine P33 Up. Names alone cannot
@@ -101,7 +103,7 @@ internal static class ProcurementPrincipalOrderDraftHistory
         var shape = await command.ExecuteScalarAsync(ct) as string
             ?? throw new InvalidOperationException("PrincipalOrderRevisionSchemaUnavailable");
         var actual = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(shape))).ToLowerInvariant();
-        return Classify(count, regular, true, string.Equals(actual, CapturedCatalogSha256,
+        return Classify(count, regular, true, string.Equals(actual, capturedCatalogSha256,
             StringComparison.Ordinal));
     }
 

@@ -177,8 +177,16 @@ public sealed class PrincipalOrderRevisionOptions
 
 public interface IPrincipalOrderRevisionReadiness
 {
+    Task<bool> IsReadyAsync(CancellationToken ct);
     Task<bool> IsReadyAsync(Mightyfin.Erp.Procurement.Infrastructure.Data.ProcurementDbContext owner,
         CancellationToken ct);
+}
+
+public sealed class UnavailablePrincipalOrderRevisionReadiness : IPrincipalOrderRevisionReadiness
+{
+    public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(false);
+    public Task<bool> IsReadyAsync(Mightyfin.Erp.Procurement.Infrastructure.Data.ProcurementDbContext owner,
+        CancellationToken ct) => Task.FromResult(false);
 }
 
 public static class PrincipalOrderRevisionCapability
@@ -196,5 +204,5 @@ public static class PrincipalOrderRevisionCapability
         => !pendingModelOrMigration && principalDraftReady
             && services.GetService<PrincipalOrderRevisionOptions>() is { Enabled: true }
             && services.GetService<IPrincipalOrderRevisionReadiness>() is { } readiness
-            && await readiness.IsReadyAsync(owner, ct);
+            && await readiness.IsReadyAsync(ct);
 }
