@@ -60,6 +60,7 @@ public static class ContractReviewCoreWorkflow
             SubmissionNumber = submissionNumber, ReviewBranchId = reviewBranchId,
             SupplierId = contract.SupplierId, MakerPrincipalId = makerPrincipalId,
             MakerWorkerAliasId = makerWorkerAliasId, PolicyVersionId = policy.Id,
+            PolicyKey = policy.PolicyKey,
             PolicyVersionNumber = policy.PolicyVersionNumber,
             PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
             CoreCaseId = approvalId,

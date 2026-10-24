@@ -21,7 +21,7 @@ public static class ContractReviewTerms
             && contract.EffectiveFrom == version.EffectiveFrom && contract.ExpiresOn == version.ExpiresOn
             && ExactDecimalJsonCodec.IsRepresentable(contract.CeilingAmount, 18, 4), "ContractReviewTermsInvalid");
         var ordered = rates.OrderBy(x => x.LineNumber).ThenBy(x => x.Id).ToArray();
-        Need(ordered.Length > 0 && ordered.All(x => x.Id != Guid.Empty && x.SupplierContractVersionId == version.Id
+        Need(ordered.Any(x => x.Status == "Active") && ordered.All(x => x.Id != Guid.Empty && x.SupplierContractVersionId == version.Id
             && x.TenantId == contract.TenantId && x.LegalEntityId == contract.LegalEntityId
             && x.LineNumber > 0 && x.Version > 0 && x.Description is { Length: > 0 }
             && x.UnitCode is { Length: > 0 } && (x.Status is "Active" or "Removed")

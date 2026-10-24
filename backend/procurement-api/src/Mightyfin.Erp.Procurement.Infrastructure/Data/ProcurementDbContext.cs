@@ -83,7 +83,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 or PrincipalInvoiceUnitReviewSource or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewAttestation or PrincipalInvoiceUnitReviewOutcome
                 or PrincipalInvoiceComparison or PrincipalInvoiceExposureState or PrincipalInvoiceClaim or PrincipalInvoiceCommandReceipt
                 or PrincipalInvoiceDiscrepancy or PrincipalInvoiceDiscrepancyAction
-                or OperationalPolicyIdentityRecord or ContractReviewPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
+                or OperationalPolicyIdentityRecord or ContractReviewPolicyIdentityRecord or ContractReviewSubmission or ContractReviewVote or ContractReviewCommandReceipt
+                or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
                 or ManualPaymentRequest or ManualPaymentDecision or ManualPaymentCommandReceipt
                 or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation
@@ -547,6 +548,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureSourcingPublication(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureContractReviewPolicyIdentity(modelBuilder);
+        ConfigureContractReviewPersistence(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigurePrincipalInvoiceMatching(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
@@ -751,6 +753,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardSourcingPublicationEvidence();
         GuardOperationalPolicyIdentity();
         GuardContractReviewPolicyIdentity();
+        GuardContractReviewPersistence();
         GuardInvoiceUnitReview();
         GuardPrincipalInvoiceMatching();
         var now = DateTimeOffset.UtcNow;
@@ -774,7 +777,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 if (!PreserveAuthorityCreationMetadata(entry.Entity)
                     && !PreserveOperationalPolicyCreationMetadata(entry.Entity)
                     && !PreserveContractReviewPolicyCreationMetadata(entry.Entity)
-                    && entry.Entity is not (ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation))
+                    && entry.Entity is not (ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation
+                        or ContractReviewSubmission or ContractReviewVote or ContractReviewCommandReceipt))
                 {
                     entry.Entity.CreatedAt = now;
                     entry.Entity.CreatedBy = scope.SubjectId;

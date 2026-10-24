@@ -15,6 +15,7 @@ public sealed class ContractReviewSubmission : ProcurementRecord
     public string MakerPrincipalId { get; init; } = null!;
     public Guid? MakerWorkerAliasId { get; init; }
     public Guid PolicyVersionId { get; init; }
+    public string PolicyKey { get; init; } = "SUPPLIER_CONTRACT_REVIEW";
     public int PolicyVersionNumber { get; init; }
     public string PolicyRulesSha256 { get; init; } = null!;
     public Guid CoreCaseId { get; init; }
@@ -52,8 +53,9 @@ public sealed class ContractReviewCommandReceipt : ProcurementRecord
     public Guid CommandKey { get; init; }
     public string ActorPrincipalId { get; init; } = null!;
     public string CommandSha256 { get; init; } = null!;
-    public string ResponseJson { get; init; } = null!;
-    public string ResponseSha256 { get; init; } = null!;
+    // Filled from the original command result before the append-only SaveChanges.
+    public string ResponseJson { get; set; } = null!;
+    public string ResponseSha256 { get; set; } = null!;
     public int ResponseStatus { get; init; }
     public long ResultContractVersion { get; init; }
     public DateTimeOffset CompletedAt { get; init; }
