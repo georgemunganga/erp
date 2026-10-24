@@ -1,14 +1,22 @@
 # MANUS-CORE-DOCUMENT-SCANNER-04 — isolated ClamAV scanner verification
 
-**Status:** Ready for Manus pickup — independent Core infrastructure milestone, assigned by the coordinator on 24 October 2026. Keep `MANUS-CORE-BUILD-03` and its owned files separate. Use a separate branch/checkout; this scope may proceed independently on adequate non-production hardware. Serialize heavy jobs on any shared host.
+**Status:** `READY_UNACKNOWLEDGED` — ready for an available Manus worker to claim. No implementation acknowledgment or scanner result has been observed in the checked published task/progress records or ERP PRs as of 24 October 2026. This records the coordinator’s evidence search; it does not establish whether work has started elsewhere. Keep `MANUS-CORE-BUILD-03` and its owned files separate. Use a separate branch/checkout on adequate non-production hardware and serialize heavy jobs on any shared host.
 
-**Starting point when assigned:** a fresh checkout of published ERP `main` at `1657398e865245bc03ec39efbdf97766b0b9dd71` or a later reviewed published descendant. Record the exact checkout SHA and the reviewed image digest. This document is additive; it does not authorize cherry-picking the coordinator's held Procurement/P30 branches or changing `MANUS_HANDOFF.md`.
+**Minimum published starting point:** a fresh checkout of published ERP `main` at `1657398e865245bc03ec39efbdf97766b0b9dd71` or a later reviewed published descendant. Record the exact checkout SHA and the reviewed image digest. This document is additive; it does not authorize cherry-picking the coordinator's held Procurement/P30 branches or changing `MANUS_HANDOFF.md`.
 
 **Outcome:** On separate non-production hardware, demonstrate that the existing `ClamdDocumentScanner` correctly handles a real official ClamAV daemon and current official signature databases through its Unix socket. Produce portable, independently reviewable evidence for a clean synthetic file, the official EICAR test file, failed scans, content integrity, definition freshness and definition changes. This is a Core document scanner adapter milestone. The actual Core Document HTTP/API activation and any Procurement invoice document release remain coordinator-owned follow-up gates.
 
 ## Ownership and pickup
 
 Claim this task in a focused draft ERP PR titled `MANUS-CORE-DOCUMENT-SCANNER-04` and record the exact published main SHA. Own the scanner harness, runbook and `docs/collaboration/manus/scanner-04-progress.md`. A focused adapter/protocol fix is allowed when actual results demonstrate a defect; preserve the public `IDocumentScanner` semantics and fail-closed behavior, add the relevant test and explain the change for independent review. Do not edit the current Core frontend assignment or shared handoff/status files. The coordinator reviews and merges; do not deploy or activate uploads.
+
+## P31 dependency and requested worker report
+
+This is the highest outstanding Core prerequisite for P31’s genuine positive invoice-document HTTP cohort. P31 now has independently reviewed private physical-schema evidence, but that cannot establish a real clean scan, fresh definitions, authorized download or invoice workflow acceptance. The coordinator continues P31 finite-grant, consumer, recovery and private owner verification independently; no held Procurement branch is needed to complete this Core task. The separate Core frontend build task does not need to finish before a scanner worker starts on separate hardware.
+
+An available worker should acknowledge pickup in a focused draft ERP PR and `scanner-04-progress.md`, then report the exact source SHA, official image digest, actual signature update/serial/time, private socket ownership/mode, configured limits, commands, first failures, structured real verdicts and protected evidence manifest. Link completed/unproven cases to the acceptance table below. Report an explicit hardware, image, update or socket blocker if execution cannot proceed. Do not mark a worker assigned/running or the task accepted from this status note, a task-queue merge, fake-socket unit tests, a cached historical scanner README or an unverified external claim.
+
+The worker’s real-daemon evidence remains subject to distinct review. The coordinator owns later Core Document HTTP composition and P31 execution; neither this task nor its results authorize production configuration, roles, data or uploads to change.
 
 ## Existing contract and boundaries
 
