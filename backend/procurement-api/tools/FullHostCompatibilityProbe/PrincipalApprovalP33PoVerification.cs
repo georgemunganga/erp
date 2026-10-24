@@ -8,7 +8,7 @@ internal static partial class PrincipalApprovalHttpVerification
     // Exclusive fresh private database. The accepted P30 proof finishes before
     // this starts, so its three-order owner assertion and original result stay
     // byte-for-byte the same when this profile is absent.
-    private static async Task VerifyPrincipalP33OrderEditAsync(PrincipalApprovalFixture fixture,string owner,
+    private static async Task<Guid> VerifyPrincipalP33OrderEditAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,Dictionary<string,object?> result,
         Action<string> stage,PrincipalSend send,Action countRequest,PrincipalIssuedFixture issued)
     {
@@ -190,5 +190,6 @@ internal static partial class PrincipalApprovalHttpVerification
             retainedOriginalSource=true,actorOwnedEditRecovery=true,sourceConservation=true,
             releasedEffectiveQuantity=true,externalFinancePosting=false,supplierSendPerformed=false};
         result["status"]="PASS_PRIVATE_P33_PRINCIPAL_UNFUNDED_DRAFT_EDIT_ONLY";
+        return orderId;
     }
 }

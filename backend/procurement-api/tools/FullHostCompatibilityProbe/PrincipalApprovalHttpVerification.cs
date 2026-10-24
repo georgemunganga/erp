@@ -88,6 +88,7 @@ internal static partial class PrincipalApprovalHttpVerification
         var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
         var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
         var p33EditFlag=Environment.GetEnvironmentVariable("P33_HTTP_VERIFY_PRINCIPAL_PO_EDIT");
+        var p33CookieFlag=Environment.GetEnvironmentVariable("P33_HTTP_SERVE_NORMAL_COOKIE");
         var receivingFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_RECEIVING");
         var invoiceFlag=Environment.GetEnvironmentVariable("P31_HTTP_VERIFY_PRINCIPAL_INVOICE");
         var retainedPoCancelFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RETAINED_HISTORY_CANCEL");
@@ -105,6 +106,18 @@ internal static partial class PrincipalApprovalHttpVerification
             "P33 edit requires its exclusive fresh principal PO cohort.");
         Need(!database.StartsWith("proc_p33_http_po_",StringComparison.Ordinal) || p33EditFlag=="1",
             "P33 private database requires its explicit edit proof profile.");
+        Need(p33CookieFlag is null or "1","P33 normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p33CookieFlag is null || p33EditFlag=="1" && principalPoFlag=="1"
+            && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p33_http_po_cookie_[a-z0-9_]{1,32}$")
+            && receivingFlag is null && invoiceFlag is null && retainedPoCancelFlag is null
+            && principalRfqFlag is null && Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RECEIVING_NORMAL_COOKIE") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_SERVICE_NORMAL_COOKIE") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RFQ_NORMAL_COOKIE") is null,
+            "P33 normal-cookie proof requires its own fresh native edit cohort.");
+        Need(!database.StartsWith("proc_p33_http_po_cookie_",StringComparison.Ordinal)||p33CookieFlag=="1",
+            "P33 cookie database requires the exclusive cookie serve flag.");
         Need(invoiceFlag is null || principalPoFlag=="1" && receivingFlag=="1"
             && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p31_http_[a-z0-9_]{1,40}$")
             && retainedPoCancelFlag is null
@@ -340,7 +353,9 @@ internal static partial class PrincipalApprovalHttpVerification
                 if(principalPoFlag=="1")
                 {
                     var issued=await VerifyPrincipalOrderAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
-                    if(p33EditFlag=="1")await VerifyPrincipalP33OrderEditAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
+                    var nativeP33EditOrderId=p33EditFlag=="1"
+                        ?await VerifyPrincipalP33OrderEditAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued)
+                        :Guid.Empty;
                     if(receivingFlag=="1")await VerifyPrincipalReceivingAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
                     if(invoiceFlag=="1")await VerifyPrincipalInvoiceAsync(fixture,owner,roles,result,Advance,Send,issued);
                     if(p30ReceivingCookieFlag=="1")
@@ -374,6 +389,10 @@ internal static partial class PrincipalApprovalHttpVerification
                     if(p30PoCookieFlag=="1")
                         await ServeP30PoNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
                             issued.RequestId,issued.RequestLineId,issued.SupplierId,issued.OrderId,result,Advance);
+                    if(p33CookieFlag=="1")
+                        await ServeP33PoNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            issued.RequestId,issued.RequestLineId,issued.SupplierId,issued.OrderId,
+                            nativeP33EditOrderId,result,Advance);
                 }
                 if(principalRfqFlag=="1")
                 {
