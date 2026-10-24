@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Procurement.Application;
@@ -375,9 +376,13 @@ public sealed partial class ProcurementDbContext
         foreach (var claim in added.OfType<PrincipalInvoiceClaim>())
         {
             var comparison = added.OfType<PrincipalInvoiceComparison>().SingleOrDefault(x => x.Id == claim.ComparisonId);
+            var exposure = PrincipalInvoiceExposureStates.Local.SingleOrDefault(x => x.Id == claim.ExposureStateId)
+                ?? PrincipalInvoiceExposureStates.SingleOrDefault(x => x.Id == claim.ExposureStateId);
+            var batch = added.OfType<PrincipalInvoiceClaim>().Where(x => x.ComparisonId == claim.ComparisonId).ToArray();
             var mappingLine = PrincipalInvoiceMappingLines.SingleOrDefault(x => x.MappingVersionId == claim.MappingVersionId
                 && x.SupplierInvoiceLineId == claim.SupplierInvoiceLineId);
             if (comparison is null || comparison.Outcome != "Compared"
+                || exposure is null || !ClaimBatchFollowsExposure(comparison, exposure, batch)
                 || claim.SupplierInvoiceId != comparison.SupplierInvoiceId
                 || claim.MappingVersionId != comparison.MappingVersionId
                 || claim.PurchaseOrderId != comparison.PurchaseOrderId
@@ -391,6 +396,12 @@ public sealed partial class ProcurementDbContext
                 || claim.PrincipalAcceptanceFactId.HasValue != claim.AcceptanceSequence.HasValue
                 || claim.Quantity <= 0 || claim.NetAmount < 0 || claim.TaxAmount < 0)
                 throw new InvalidOperationException("PrincipalInvoiceClaimAuthorityRequired");
+        }
+        foreach (var comparison in added.OfType<PrincipalInvoiceComparison>().Where(x => x.Outcome == "Compared"))
+        {
+            var batch = added.OfType<PrincipalInvoiceClaim>().Where(x => x.ComparisonId == comparison.Id).ToArray();
+            if (!ClaimBatchMatchesFrozenComparison(comparison, batch))
+                throw new InvalidOperationException("PrincipalInvoiceClaimBatchChanged");
         }
         foreach (var receipt in added.OfType<PrincipalInvoiceCommandReceipt>())
         {
@@ -497,4 +508,40 @@ public sealed partial class ProcurementDbContext
             }
         }
     }
+
+    internal static bool ClaimBatchMatchesFrozenComparison(PrincipalInvoiceComparison comparison,
+        IReadOnlyList<PrincipalInvoiceClaim> claims)
+    {
+        try
+        {
+            using var evidence = JsonDocument.Parse(comparison.EvidenceJson);
+            var expected = evidence.RootElement.GetProperty("lines")
+                .Deserialize<PrincipalInvoiceComparisonLine[]>(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            if (expected is null || expected.Length == 0 || expected.Length != claims.Count
+                || expected.Select(x => x.InvoiceLineId).Distinct().Count() != expected.Length
+                || claims.Select(x => x.SupplierInvoiceLineId).Distinct().Count() != claims.Count)
+                return false;
+            const NumberStyles numbers = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
+            foreach (var line in expected)
+            {
+                var claim = claims.SingleOrDefault(x => x.SupplierInvoiceLineId == line.InvoiceLineId);
+                if (claim is null || claim.PurchaseOrderLineId != line.PurchaseOrderLineId
+                    || claim.PrincipalAcceptanceFactId != line.PrincipalAcceptanceFactId
+                    || !decimal.TryParse(line.QuantityExact, numbers, CultureInfo.InvariantCulture, out var quantity)
+                    || !decimal.TryParse(line.NetExact, numbers, CultureInfo.InvariantCulture, out var net)
+                    || !decimal.TryParse(line.TaxExact, numbers, CultureInfo.InvariantCulture, out var tax)
+                    || claim.Quantity != quantity || claim.NetAmount != net || claim.TaxAmount != tax)
+                    return false;
+            }
+            return true;
+        }
+        catch (Exception error) when (error is JsonException or FormatException or InvalidOperationException)
+        { return false; }
+    }
+
+    internal static bool ClaimBatchFollowsExposure(PrincipalInvoiceComparison comparison,
+        PrincipalInvoiceExposureState exposure, IReadOnlyList<PrincipalInvoiceClaim> claims)
+        => comparison.ExposureStateId == exposure.Id && claims.Count > 0
+            && claims.All(x => x.ComparisonId == comparison.Id
+                && x.ExposureStateId == exposure.Id && x.ExposureSequence == exposure.Sequence);
 }
