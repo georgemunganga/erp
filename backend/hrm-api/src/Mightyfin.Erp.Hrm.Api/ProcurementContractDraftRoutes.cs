@@ -8,7 +8,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Commercial contract drafts only. Review, signature and activation need governed workflows.</summary>
-public static class ProcurementContractDraftRoutes
+public static partial class ProcurementContractDraftRoutes
 {
     public static void MapRoutes(WebApplication app)
     {
@@ -18,6 +18,7 @@ public static class ProcurementContractDraftRoutes
         group.MapPost("", Create).Accepts<ContractDraftInput>("application/json").RequireAuthorization("procurement-contract-create");
         group.MapPut("/{id:guid}", Update).Accepts<VersionedContractDraft>("application/json").RequireAuthorization("procurement-contract-edit");
         group.MapPost("/{id:guid}/cancel", Cancel).RequireAuthorization("procurement-contract-edit");
+        MapRateRoutes(group);
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope,

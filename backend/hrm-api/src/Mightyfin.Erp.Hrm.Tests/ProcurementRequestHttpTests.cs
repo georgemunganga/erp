@@ -3439,6 +3439,90 @@ public sealed partial class ProcurementRequestHttpTests
             .GetProperty("status").GetString());
     }
 
+    [Fact]
+    public async Task Contract_rates_are_owned_draft_only_and_advance_parent_version_once()
+    {
+        await using var fixture = await Fixture.Start();
+        var vendorResponse = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/vendors", fixture.Owner,
+            new { legalName = "Rates Supplier Ltd", displayName = "Rates Supplier", countryCode = "ZM" });
+        Assert.Equal(HttpStatusCode.Created, vendorResponse.StatusCode);
+        var vendor = await vendorResponse.Content.ReadFromJsonAsync<JsonElement>();
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
+        await fixture.ConfigureCoreRole(fixture.Other, "procurement_buyer");
+        var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/contracts",
+            fixture.Owner, new ContractDraftInput(vendor.GetProperty("id").GetGuid(), "Support", "Framework",
+                "ZMW", 100m, null, null, null), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var header = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = header.GetProperty("id").GetGuid();
+        var url = $"/api/procurement/v1/contracts/{id}/rates";
+        var version = header.GetProperty("version").GetInt64();
+        var rate = new ContractRateDraftInput(null, "Support", "month", 0.0001m, 2.5000m);
+        Assert.Equal(HttpStatusCode.NotFound, (await Send(fixture.Client, HttpMethod.Get, url,
+            fixture.Other, role: "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await SendJson(fixture.Client, HttpMethod.Post, url,
+            fixture.Other, new ProcurementContractDraftRoutes.VersionedContractRateDraft(version, null, rate),
+            "procurement_buyer")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "employee");
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, url,
+            fixture.Owner, new ProcurementContractDraftRoutes.VersionedContractRateDraft(version, null, rate),
+            "employee")).StatusCode);
+        await fixture.ConfigureCoreRole(fixture.Owner, "procurement_buyer");
+        var added = await SendJson(fixture.Client, HttpMethod.Post, url, fixture.Owner,
+            new ProcurementContractDraftRoutes.VersionedContractRateDraft(version, null, rate), "procurement_buyer");
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        var addedBody = await added.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(version + 1, addedBody.GetProperty("contractVersion").GetInt64());
+        var first = addedBody.GetProperty("rate");
+        Assert.Equal("0.0001", first.GetProperty("unitPriceExact").GetString());
+        Assert.Equal("2.5", first.GetProperty("maximumQuantityExact").GetString());
+        var rateId = first.GetProperty("id").GetGuid();
+        var rateUrl = $"{url}/{rateId}";
+        Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, rateUrl,
+            fixture.Owner, new ProcurementContractDraftRoutes.VersionedContractRateDraft(version,
+                first.GetProperty("version").GetInt64(), rate), "procurement_buyer")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(fixture.Client, HttpMethod.Post,
+            url, fixture.Owner, new { contractVersion = version + 1, rate = new
+            { description = "Bad precision", unitCode = "month", unitPrice = "1.00001" } },
+            "procurement_buyer")).StatusCode);
+        var revised = await SendJson(fixture.Client, HttpMethod.Put, rateUrl, fixture.Owner,
+            new ProcurementContractDraftRoutes.VersionedContractRateDraft(version + 1,
+                first.GetProperty("version").GetInt64(), rate with { UnitPrice = 1.25m }),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, revised.StatusCode);
+        var revisedBody = await revised.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(version + 2, revisedBody.GetProperty("contractVersion").GetInt64());
+        Assert.Equal("1.25", revisedBody.GetProperty("rate").GetProperty("unitPriceExact").GetString());
+        var list = await Send(fixture.Client, HttpMethod.Get, url, fixture.Owner, role: "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        var rates = await list.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Single(rates.GetProperty("items").EnumerateArray());
+        var removed = await SendJson(fixture.Client, HttpMethod.Post, $"{rateUrl}/remove", fixture.Owner,
+            new ProcurementContractDraftRoutes.ContractRateRemoval(version + 2,
+                revisedBody.GetProperty("rate").GetProperty("version").GetInt64(), "No longer offered"),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+        var removedBody = await removed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Removed", removedBody.GetProperty("rate").GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, rateUrl,
+            fixture.Owner, new ProcurementContractDraftRoutes.VersionedContractRateDraft(version + 3,
+                removedBody.GetProperty("rate").GetProperty("version").GetInt64(), rate),
+            "procurement_buyer")).StatusCode);
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftRateAdded"));
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftRateUpdated"));
+        Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftRateRemoved"));
+        var cancelled = await SendJson(fixture.Client, HttpMethod.Post,
+            $"/api/procurement/v1/contracts/{id}/cancel", fixture.Owner,
+            new ProcurementContractDraftRoutes.ContractCancel(version + 3, "Cancelled before review"),
+            "procurement_buyer");
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+        var cancelledBody = await cancelled.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Post, url,
+            fixture.Owner, new ProcurementContractDraftRoutes.VersionedContractRateDraft(
+                cancelledBody.GetProperty("version").GetInt64(), null, rate), "procurement_buyer")).StatusCode);
+    }
+
     private static ProcurementRequestRoutes.NewRequest Draft(string purpose) => new(
         purpose, null, null, null, null, null, null, null, null,
         [new ProcurementRequestRoutes.RequestLineInput(null, "Laptop", "each", 2, 100,
