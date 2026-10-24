@@ -18,16 +18,20 @@ public interface IProcurementContractReviewSchemaReadiness
 {
     Task<bool> IsReadReadyAsync(ProcurementDbContext owner, CancellationToken ct);
     Task<bool> CanRecordAsync(ProcurementDbContext owner, CancellationToken ct);
+    // Older compositions cannot accidentally admit policy writes through their
+    // broader review-write stub. Owning implementations opt in explicitly.
+    Task<bool> CanRecordPolicyAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(false);
 }
 
 public sealed class UnavailableProcurementContractReviewSchemaReadiness : IProcurementContractReviewSchemaReadiness
 {
     public Task<bool> IsReadReadyAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(false);
     public Task<bool> CanRecordAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(false);
+    public Task<bool> CanRecordPolicyAsync(ProcurementDbContext owner, CancellationToken ct) => Task.FromResult(false);
 }
 
 /// <summary>Uses the existing policy lifecycle and Core transaction; no contract policy
-/// write is possible until genuine P35 schema/finite-role admission replaces the unavailable provider.</summary>
+/// write is possible until the captured P35 schema and separate finite-role contract pass admission.</summary>
 public static partial class ProcurementPolicyDraftRoutes
 {
     private static bool IsContractReviewPolicy(string? key) => key == ProcurementContractReviewPolicyRules.PolicyKey;
@@ -45,7 +49,7 @@ public static partial class ProcurementPolicyDraftRoutes
             if (!db.Database.IsNpgsql() || db.Database.CurrentTransaction is not null)
                 return Problem("contract-review-unavailable", "Contract review settings are not ready. No change was saved.", 503);
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-            if (!await readiness.CanRecordAsync(db, ct))
+            if (!await readiness.CanRecordPolicyAsync(db, ct))
                 return Problem("contract-review-unavailable", "Contract review settings are not ready. No change was saved.", 503);
             if (id.HasValue)
             {
