@@ -194,6 +194,50 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
         IReadOnlyList<ApprovalDecision> decisions, ApprovalDecision terminalDecision, RfqPrincipalActor signer,
         DateTimeOffset now)
     {
+        ArgumentNullException.ThrowIfNull(signer);
+        return FinishCore(opening, prepared, source, policy, current, decisions,
+            terminalDecision, signer.PrincipalId, signer.LinkedWorkerId, signer, now);
+    }
+
+    /// <summary>Reconstruct a retained Approved result for a later commercial
+    /// operation. The caller must authenticate the current offer/close actor
+    /// separately; a historical reviewer never grants a current action.</summary>
+    public static PrincipalRfqPublishedRoundProof VerifyRetainedApproved(
+        PrincipalRfqCommercialRoundOpening opening, PrincipalRfqPreparedPlan prepared,
+        SourcingEvent source, PolicyVersion policy, ApprovalCase current,
+        IReadOnlyList<ApprovalDecision> decisions, ApprovalDecision terminalDecision,
+        PrincipalRfqCommercialRoundDecisionRecord retained, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(retained);
+        Need(retained.State == "Approved" && retained.TerminalVoteId != Guid.Empty
+            && retained.OpeningId == opening.Case.Id
+            && retained.CoreCaseId == current.Id
+            && retained.CoreDecisionId == terminalDecision.Id
+            && retained.CoreAssignmentId == terminalDecision.AssignmentId
+            && retained.SourcingEventId == source.Id
+            && retained.BranchId == prepared.BranchId
+            && retained.TenantId == prepared.TenantId
+            && retained.LegalEntityId == prepared.LegalEntityId
+            && retained.ActorPrincipalId == terminalDecision.ActorSubjectId
+            && retained.OpeningSha256 == opening.SnapshotSha256
+            && retained.DecidedAt == ProcurementEvidenceEncoding.DatabaseTimestamp(terminalDecision.DecidedAt),
+            "RfqCommercialRetainedApprovalChanged");
+        var result = FinishCore(opening, prepared, source, policy, current, decisions,
+            terminalDecision, retained.ActorPrincipalId,
+            retained.ActorWorkerAliasId, null, now);
+        Need(result.State == "Approved" && result.CoreOutcomeSha256 == retained.CoreOutcomeSha256
+            && result.AcceptingRound is not null,
+            "RfqCommercialRetainedApprovalChanged");
+        return result.AcceptingRound;
+    }
+
+    private static PrincipalRfqCommercialRoundTerminal FinishCore(
+        PrincipalRfqCommercialRoundOpening opening, PrincipalRfqPreparedPlan prepared,
+        SourcingEvent source, PolicyVersion policy, ApprovalCase current,
+        IReadOnlyList<ApprovalDecision> decisions, ApprovalDecision terminalDecision,
+        string signerPrincipalId, Guid? signerWorkerAliasId,
+        RfqPrincipalActor? currentSigner, DateTimeOffset now)
+    {
         ArgumentNullException.ThrowIfNull(opening);
         ArgumentNullException.ThrowIfNull(prepared);
         ArgumentNullException.ThrowIfNull(source);
@@ -201,7 +245,9 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(decisions);
         ArgumentNullException.ThrowIfNull(terminalDecision);
-        ArgumentNullException.ThrowIfNull(signer);
+        Need(ProcurementPrincipalEvidence.Canonical(signerPrincipalId)
+            && ProcurementPrincipalEvidence.OptionalWorker(signerWorkerAliasId),
+            "RfqCommercialRoundSignerInvalid");
         using var retained = JsonDocument.Parse(opening.SnapshotJson);
         var pin = retained.RootElement;
         var retainedStages = pin.GetProperty("stages").EnumerateArray().ToArray();
@@ -273,14 +319,17 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             && terminalDecision.CaseId == current.Id
             && terminalDecision.TenantId == current.TenantId
             && terminalDecision.LegalEntityId == current.LegalEntityId
-            && terminalDecision.ActorSubjectId == signer.PrincipalId
-            && signer.Permissions.Contains(PrincipalRfqCommercialRoundPolicyRules.ApprovalAction)
-            && signer.TenantId == prepared.TenantId
-            && signer.CompanyId == prepared.LegalEntityId
-            && (signer.SelectedBranchId is null || signer.SelectedBranchId == prepared.BranchId)
-            && (signer.OrganisationWide || signer.Branches.Contains(prepared.BranchId))
-            && ProcurementPrincipalEvidence.Independent(signer.PrincipalId,
-                signer.LinkedWorkerId, prepared.ActorPrincipalId,
+            && terminalDecision.ActorSubjectId == signerPrincipalId
+            && (currentSigner is null || currentSigner.Permissions.Contains(
+                    PrincipalRfqCommercialRoundPolicyRules.ApprovalAction)
+                && currentSigner.TenantId == prepared.TenantId
+                && currentSigner.CompanyId == prepared.LegalEntityId
+                && (currentSigner.SelectedBranchId is null
+                    || currentSigner.SelectedBranchId == prepared.BranchId)
+                && (currentSigner.OrganisationWide
+                    || currentSigner.Branches.Contains(prepared.BranchId)))
+            && ProcurementPrincipalEvidence.Independent(signerPrincipalId,
+                signerWorkerAliasId, prepared.ActorPrincipalId,
                 prepared.ActorWorkerAliasId)
             && ProcurementEvidenceEncoding.DatabaseTimestamp(current.CompletedAt)
                 == ProcurementEvidenceEncoding.DatabaseTimestamp(terminalDecision.DecidedAt)
@@ -304,7 +353,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             .SingleOrDefault(x => x.Id == terminalDecision.AssignmentId);
         Need(assignment is not null && assignment.CaseId == current.Id
             && assignment.StageId == terminalDecision.StageId
-            && assignment.AssigneeSubjectId == signer.PrincipalId
+            && assignment.AssigneeSubjectId == signerPrincipalId
             && assignment.PermissionKey == PrincipalRfqCommercialRoundPolicyRules.ApprovalAction
             && assignment.State == (terminalDecision.Action switch
             {
@@ -336,7 +385,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
         });
         var outcomeSha = ProcurementEvidenceEncoding.Digest(outcome);
         if (state != "Approved")
-            return new(state, terminalDecision.Id, signer.PrincipalId,
+            return new(state, terminalDecision.Id, signerPrincipalId,
                 terminalDecision.Reason, null, outcomeSha);
         Need(current.Stages.All(x => x.State == "Approved")
             && terminalDecision.StageId == currentStages[^1].Id
@@ -353,7 +402,7 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             source.CurrencyCode, source.Version, opening.OpensAt,
             opening.ClosesAt, opening.ClosingOfficerPrincipalId,
             opening.ClosingOfficerWorkerAliasId, "Accepting", opening.SupplierIds);
-        return new("Approved", terminalDecision.Id, signer.PrincipalId, null, proof, outcomeSha);
+        return new("Approved", terminalDecision.Id, signerPrincipalId, null, proof, outcomeSha);
     }
 
     private static void Need(bool okay, string code)

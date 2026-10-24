@@ -645,3 +645,8 @@ locks source requests before the round and Core case. The real Core engine
 records each vote first; the same owner transaction then records a P32 vote,
 an actor-owned original response and, only for terminal Core outcomes, the
 unique terminal effect. A Pending vote cannot open the supplier window.
+Later offer/close operations reconstruct the Approved historical result from
+the retained Core case, complete decision history and P32 terminal digest;
+the original reviewer need not keep today's approval grant. Those later
+operations still require their own current actor/action/branch checks and
+cannot treat historical signer evidence as a current permission.

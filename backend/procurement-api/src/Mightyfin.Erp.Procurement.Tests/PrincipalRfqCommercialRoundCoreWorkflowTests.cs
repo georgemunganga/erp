@@ -124,6 +124,42 @@ public sealed partial class PrincipalRfqPrepublicationPlanTests
         Assert.Equal(f.Plan.Id, approved.AcceptingRound!.PreparedPlanId);
         Assert.Equal(opening.SnapshotSha256,
             approved.AcceptingRound.ApprovalEvidenceSha256);
+        var retained = new PrincipalRfqCommercialRoundDecisionRecord
+        {
+            TenantId = f.Plan.TenantId, LegalEntityId = f.Plan.LegalEntityId,
+            OpeningId = opening.Case.Id, CoreCaseId = opening.Case.Id,
+            SourcingEventId = f.Event.Id, BranchId = f.Plan.BranchId,
+            CoreDecisionId = decision.Id, CoreAssignmentId = assignment.Id,
+            TerminalVoteId = Guid.NewGuid(),
+            State = "Approved", ActorPrincipalId = decision.ActorSubjectId,
+            ActorWorkerAliasId = f.Reviewer.LinkedWorkerId,
+            OpeningSha256 = opening.SnapshotSha256,
+            CoreOutcomeSha256 = approved.CoreOutcomeSha256,
+            DecidedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(decision.DecidedAt)!.Value,
+        };
+        var historical = PrincipalRfqCommercialRoundCoreWorkflow.VerifyRetainedApproved(
+            opening, f.Plan, f.Event, f.Policy, opening.Case,
+            decisions, decision, retained, at.AddMinutes(1));
+        Assert.Equal(approved.AcceptingRound.RoundId, historical.RoundId);
+        Assert.Equal(approved.AcceptingRound.ApprovedDecisionId, historical.ApprovedDecisionId);
+        var poisoned = new PrincipalRfqCommercialRoundDecisionRecord
+        {
+            TenantId = retained.TenantId, LegalEntityId = retained.LegalEntityId,
+            OpeningId = retained.OpeningId, CoreCaseId = retained.CoreCaseId,
+            SourcingEventId = retained.SourcingEventId, BranchId = retained.BranchId,
+            CoreDecisionId = retained.CoreDecisionId,
+            CoreAssignmentId = retained.CoreAssignmentId,
+            TerminalVoteId = retained.TerminalVoteId,
+            State = retained.State, ActorPrincipalId = retained.ActorPrincipalId,
+            ActorWorkerAliasId = retained.ActorWorkerAliasId,
+            OpeningSha256 = retained.OpeningSha256,
+            CoreOutcomeSha256 = new string('f', 64),
+            DecidedAt = retained.DecidedAt,
+        };
+        Assert.Equal("RfqCommercialRetainedApprovalChanged", Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundCoreWorkflow.VerifyRetainedApproved(
+                opening, f.Plan, f.Event, f.Policy, opening.Case,
+                decisions, decision, poisoned, at.AddMinutes(1))).Message);
         var returnedOpening = PrincipalRfqCommercialRoundCoreWorkflow.Open(f.Plan,
             f.Head, f.Revision, f.Event, f.Original, f.Policy,
             [f.Reviewer], f.Closer, [Guid.NewGuid()], f.At);
