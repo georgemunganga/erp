@@ -115,18 +115,20 @@ public sealed class ContractReviewCoreWorkflowTests
             opened.Submission, opened.Case, pins, decisions, votes.Skip(1).ToArray(), receipts));
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
             opened.Submission, opened.Case, pins, decisions, votes, receipts.Take(2).ToArray()));
-        var retainedActor = votes[0].ActorPrincipalId;
-        votes[0].ActorPrincipalId = f.Maker;
+        var originalVote = votes[0];
+        votes[0] = ContractReviewEvidenceFixture.Replace(originalVote,
+            nameof(ContractReviewVote.ActorPrincipalId), f.Maker);
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
             opened.Submission, opened.Case, pins, decisions, votes, receipts));
-        votes[0].ActorPrincipalId = retainedActor;
-        votes[0].ActorWorkerAliasId = null;
+        votes[0] = ContractReviewEvidenceFixture.Replace(originalVote,
+            nameof(ContractReviewVote.ActorWorkerAliasId), null);
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
             opened.Submission, opened.Case, pins, decisions, votes, receipts));
-        votes[0].ActorWorkerAliasId = Guid.CreateVersion7();
+        votes[0] = ContractReviewEvidenceFixture.Replace(originalVote,
+            nameof(ContractReviewVote.ActorWorkerAliasId), Guid.CreateVersion7());
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
             opened.Submission, opened.Case, pins, decisions, votes, receipts));
-        votes[0].ActorWorkerAliasId = linkedWorker;
+        votes[0] = originalVote;
         var prior = receipts[1];
         prior.ResponseJson += " ";
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
@@ -182,10 +184,10 @@ public sealed class ContractReviewCoreWorkflowTests
         ContractReviewRetainedVotes.Verify(opened.Submission, pins, decisions, [vote], [submitted, returned]);
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.Verify(
             opened.Submission, pins, decisions, [], [submitted, returned]));
-        vote.ActorWorkerAliasId = Guid.CreateVersion7();
+        var alteredVote = ContractReviewEvidenceFixture.Replace(vote,
+            nameof(ContractReviewVote.ActorWorkerAliasId), Guid.CreateVersion7());
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.Verify(
-            opened.Submission, pins, decisions, [vote], [submitted, returned]));
-        vote.ActorWorkerAliasId = null;
+            opened.Submission, pins, decisions, [alteredVote], [submitted, returned]));
         f.Contract.Status = "Returned"; f.Version.Status = "Returned";
         f.Contract.Version = checked(opened.Submission.ContractBusinessVersion + 2);
         f.Version.Version = checked(opened.Submission.ContractVersionBusinessVersion + 2);

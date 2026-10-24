@@ -30,9 +30,10 @@ public sealed class ContractReviewTermsTests
             TermsJson = frozen.Json, TermsSha256 = frozen.Sha256 };
         ContractReviewTerms.VerifyCurrentDraft(submission, contract, version, [active, removed]);
         ContractReviewTerms.VerifyRetainedSnapshot(submission);
-        submission.TermsJson = submission.TermsJson.Replace("Current exact rate", "Altered rate", StringComparison.Ordinal);
-        Assert.Throws<InvalidOperationException>(() => ContractReviewTerms.VerifyRetainedSnapshot(submission));
-        submission.TermsJson = frozen.Json;
+        var alteredSubmission = ContractReviewEvidenceFixture.Replace(submission,
+            nameof(ContractReviewSubmission.TermsJson),
+            submission.TermsJson.Replace("Current exact rate", "Altered rate", StringComparison.Ordinal));
+        Assert.Throws<InvalidOperationException>(() => ContractReviewTerms.VerifyRetainedSnapshot(alteredSubmission));
         Assert.Contains("99999999999999.0001", frozen.Json);
         Assert.Contains("0.0001", frozen.Json);
 
