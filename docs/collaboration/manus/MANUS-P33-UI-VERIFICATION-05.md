@@ -1,0 +1,37 @@
+# MANUS-P33-UI-VERIFICATION-05 — independent PO Draft Edit UI verification
+
+**Status:** Queued for an available Manus worker on separate hardware. This task is independent of `MANUS-CORE-BUILD-03` and `MANUS-CORE-DOCUMENT-SCANNER-04`; do not interrupt or reuse their checkouts, build caches, containers, or evidence directories. The coordinator reviews results and decides acceptance. This instruction PR does not itself assign production access or merge implementation.
+
+## Pinned starting points
+
+| Source | Exact reference |
+| --- | --- |
+| ERP instruction baseline | Published `georgemunganga/erp` `main` at `a47966324c52b130868abc367dd2175500c4e247` or a later reviewed published descendant |
+| Existing Procurement UI | `georgemunganga/module-connect`, branch `codex/p33-principal-po-draft-edit-ui`, commit `df0c96a781265645f4f7b50843566fcb5d01f8f5` |
+| UI parent | Existing P31 UI commit `adaf0dada245e3e68303bb81d4022bc0bc7890e1` |
+| Held backend contract | ERP branch `codex/p33-principal-po-draft-revision` at `476fe98c6a4e766447bd829caf57cdcf42e53b90` |
+| Feature contract | `docs/procurement/PROC-08-P33-PRINCIPAL-PO-REVISIONS.md` in the held P33 backend branch; the published baseline's `PROC-08-PURCHASE-ORDERS-AND-AMENDMENTS.md` remains the parent feature |
+
+The frontend is the **existing** ERP Procurement UI source in `module-connect/reference-ui`. There is no second UI application to build or import. Preserve its Greenwebb purchase order editor sections, detail tabs, toolbar, ERP component controls, and current worker/principal route separation. Follow `reference-ui/AGENTS.md`, `reference-ui/UI_COMPONENT_STANDARD.md`, and the ERP `GW-ENG-STD-001` Tier 3 standard. Do not modify the coordinator's frozen ERP P30/P31 source, Core assignments, or shared Manus handoff/status files.
+
+## Resource and scope gate
+
+Use a separate non-production host with at least **8 GiB RAM** and enough free disk for a clean dependency install, TypeScript, Vite and browser binaries (record actual pre/post headroom; do not start below 4 GiB free). Record OS, CPU, RAM, disk, Node, package manager, TypeScript, Vite and Playwright versions, and the exact UI commit/lockfile SHA before work. `reference-ui/package.json` requires Node `>=22.12.0` and pins `pnpm@11.25.0`, TypeScript `5.9.3`, Vite `7.1.9`, and Playwright `1.62.1`; verify installed versions against the exact lockfile rather than assuming a global cache is correct. Use a frozen lockfile. Keep concurrency bounded to one build or browser worker unless the host profile proves headroom.
+
+The coordinator's constrained-host check of `df0c96a` ran `NODE_OPTIONS=--max-old-space-size=512 timeout -k 5s 180s npm run check` under simultaneous backend SDK load and exited **124** with only `tsc --noEmit` in the log. It produced **no TypeScript pass and no diagnostic**. This is an unproven check, not a passing or failing code verdict. Protected coordinator record: `/home/amizo/erp-backups/procurement-p33-ui-typecheck-20261024_run01` (log SHA-256 `b6110bd7ed350bc220e984c176efba5f845bfb12df7445cc13ea19e211763785`). Do not overwrite it or extrapolate performance from it.
+
+## Work to verify and fix
+
+1. Confirm the held backend contract by source: optional `principalOrderDraftRevision` is false when options/readiness are absent; the per-record `canEditDraft` is advisory after current Core action/branch and retained Draft checks. Edit uses `POST /api/procurement/v1/orders/{id}/principal-direct-edit` with the saved version, original source SHA, reason, immutable source line IDs, and exact decimal draft. Unknown POST outcomes are reconciled by actor-owned `GET /principal-direct-command-receipts/Edit/{key}`. Do not imply this route is deployed or live until the coordinator accepts genuine P33 schema/readiness and runtime proof.
+2. On the pinned UI branch, install exact dependencies, run `npm run check`, `npm run build:staged`, `npm run test`, and focused mocked Playwright `tests/e2e/live-principal-order-draft-edit.spec.ts` with one browser worker. Record each exact command, source SHA, exit code, elapsed time, pass/fail/skip counts and first failure. A mocked browser pass proves adapter behavior only; it is **not** a real HTTP, PostgreSQL, Finance, supplier-send or production proof.
+3. Verify the original editor still shows approved request context, fixed vendor, order details, order lines, notes/attachments section and actions. Verify detail Overview, Items, Related, Comments and History tabs remain usable at desktop and mobile widths. The new Edit control appears only when both module capability and per-record eligibility permit it; direct URL access with the capability absent remains read-only. Save/close must not lose a pending command reference. Scope, route ID, account, company and branch changes must not let an old response or CAS version act on a different order.
+4. Exercise exact four-place quantity/price/tax transport, reduction, and blocked increases of quantity, unit price, line value or tax. Supplier, currency, UOM and source line switching must stay blocked. Confirm interrupted Edit sends **one** POST, retains only the scoped command locator, uses a GET to recover, and then reloads real detail/history. A 409 or uncertain response must not silently generate a new command key or claim an unsaved draft.
+5. Correct concrete source defects only within the existing UI and actual backend contract. In particular, the pinned UI currently renders raw `purchaseRequestId` in the editor's source summary and raw `actorPrincipalId` in History. Replace these with available human-readable references/labels or a truthful generic label; do not render raw UUIDs or snapshot JSON to ordinary users, fabricate names, or change stored provenance. Keep IDs in API payloads and audit. Preserve ERP components and the supplied layout; do not create a smaller parallel Live page or reconnect demo state.
+
+## Deliverables and evidence
+
+Open a **draft UI PR** targeting `codex/p33-principal-po-draft-edit-ui` with focused commits. If direct upstream write is unavailable, use an ordinary fork PR; do not force push or rewrite published Lovable history. Do not merge. Maintain a focused ERP progress file at `docs/collaboration/manus/p33-ui-verification-05-progress.md` on your task branch or in the instruction PR discussion, linking the UI PR. Include exact source/lockfile SHAs, hardware and tool versions, all commands/results/counts, any source fixes, mocked versus real distinctions, protected evidence hashes/paths and remaining blockers. Keep failed runs; do not overwrite or relabel them as passes.
+
+Do not commit credentials, cookies, private traces, production screenshots, real supplier data or unrestricted network logs. No database, backend SDK, migrations, permissions, Finance postings, production deployment or actual supplier dispatch is assigned. A real normal-cookie P33 browser journey requires a separately reviewed backend fixture and owner proof; leave it **unproven** here rather than mocking it into an acceptance claim.
+
+The coordinator accepts this milestone only after reviewing the focused UI PR, source parity, exact build/test results, negative-path evidence and the explicit list of unproven runtime gates. Existing Core work proceeds independently.
