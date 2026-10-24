@@ -189,17 +189,32 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
     [Fact]
     public void Same_branch_receipt_for_another_opening_cannot_ack_a_decision()
     {
+        // The matching-opening control must pass receipt validation and reach
+        // the Core enlistment guard. Only the receipt's opening pin changes.
+        Assert.Equal("RfqCommercialCoreVoteNotEnlisted", SaveDecisionWithReceiptOpening(false));
+        Assert.Equal("RfqCommercialReceiptTargetRequired", SaveDecisionWithReceiptOpening(true));
+    }
+
+    private static string SaveDecisionWithReceiptOpening(bool wrongOpening)
+    {
         var scope = new Scope();
         using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
         var branch = Guid.NewGuid();
         var eventId = Guid.NewGuid();
         var expectedRound = Guid.NewGuid();
-        var unrelatedRound = Guid.NewGuid();
+        var receiptRound = wrongOpening ? Guid.NewGuid() : expectedRound;
         var coreCase = Guid.NewGuid();
         var coreDecision = Guid.NewGuid();
         var coreAssignment = Guid.NewGuid();
         var decidedAt = DateTimeOffset.UtcNow;
+        db.Attach(new PrincipalRfqCommercialRoundOpeningRecord
+        {
+            Id = expectedRound, TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            SourcingEventId = eventId, BranchId = branch, CoreCaseId = coreCase,
+            ActorPrincipalId = scope.SubjectId, SnapshotSha256 = new string('b', 64),
+            PolicyRulesSha256 = new string('c', 64),
+        });
         var vote = new PrincipalRfqCommercialRoundVoteRecord
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
@@ -221,9 +236,9 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         var response = JsonSerializer.Serialize(new
         {
             schemaVersion = 1, operation = "Decide", commandKey = key,
-            openingId = unrelatedRound, eventId, branchId = branch,
+            openingId = receiptRound, eventId, branchId = branch,
             targetId = vote.Id, responseStatus = 200,
-            result = new { roundId = unrelatedRound, voteId = vote.Id,
+            result = new { roundId = receiptRound, voteId = vote.Id,
                 coreDecisionId = vote.CoreDecisionId, caseState = vote.CaseState,
                 caseVersion = vote.CaseVersion,
                 assignmentVersion = vote.AssignmentVersion,
@@ -232,7 +247,7 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
         db.Add(new PrincipalRfqCommercialCommandReceipt
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
-            OpeningId = unrelatedRound, SourcingEventId = eventId, BranchId = branch,
+            OpeningId = receiptRound, SourcingEventId = eventId, BranchId = branch,
             Operation = "Decide", DecisionTargetId = decision.Id, TargetId = vote.Id,
             VoteTargetId = vote.Id,
             CommandKey = key, ActorPrincipalId = scope.SubjectId,
@@ -240,12 +255,10 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(response),
             ResponseStatus = 200,
         });
-        // Check the mismatched receipt first; the terminal vote is otherwise a
-        // matching same-save decision, so its absence cannot mask this denial.
+        // Receipt is checked before the deliberately unenlisted Core vote.
         db.Add(vote);
         db.Add(decision);
-        Assert.Equal("RfqCommercialReceiptTargetRequired",
-            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+        return Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message;
     }
 
     [Fact]
