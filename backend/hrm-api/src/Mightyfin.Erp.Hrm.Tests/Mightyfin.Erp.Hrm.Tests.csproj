@@ -29,4 +29,9 @@
     <ProjectReference Include="..\Mightyfin.Erp.Hrm.Infrastructure\Mightyfin.Erp.Hrm.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../Mightyfin.Erp.Hrm.Api/ApiRoutesClean.cs"
+                      LogicalName="Mightyfin.Erp.Hrm.Tests.Source.ApiRoutesClean.cs" />
+  </ItemGroup>
+
 </Project>
