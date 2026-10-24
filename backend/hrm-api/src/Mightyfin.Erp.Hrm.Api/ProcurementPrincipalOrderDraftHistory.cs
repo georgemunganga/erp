@@ -117,11 +117,11 @@ internal static class ProcurementPrincipalOrderDraftHistory
         var installed = await InstalledAsync(db, ct);
         if (!installed)
         {
-            var creates = await db.PrincipalOrderDraftReceipts.AsNoTracking()
+            var legacyCreates = await db.PrincipalOrderDraftReceipts.AsNoTracking()
                 .Where(x => x.PurchaseOrderId == order.Id && x.Operation == "Create")
                 .Take(2).ToArrayAsync(ct);
             PrincipalOrderCommercialStates.VerifyCreateReceipt(order,
-                creates.Length == 1 ? creates[0] : null);
+                legacyCreates.Length == 1 ? legacyCreates[0] : null);
             PrincipalOrderDraftPins.Verify(order, lines, bindings);
             return new Verified(bindings.ToDictionary(x => x.Id, x => new Effective(x.Quantity,
                 x.ProposedUnitPrice, lines.Single(line => line.Id == x.PurchaseOrderLineId).TaxAmount,
