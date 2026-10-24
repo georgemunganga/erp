@@ -23,6 +23,7 @@ public sealed partial class ProcurementDbContext
         var invoiceIds = changed.Select(x => x.Entity switch
         {
             SupplierInvoice invoice when x.State != EntityState.Added => invoice.Id,
+            SupplierInvoiceLine line => line.SupplierInvoiceId,
             InvoiceMatchMappingVersion mapping => mapping.SupplierInvoiceId,
             InvoiceMatchResult result => result.SupplierInvoiceId,
             InvoiceMatchAllocation allocation => allocation.SupplierInvoiceId,

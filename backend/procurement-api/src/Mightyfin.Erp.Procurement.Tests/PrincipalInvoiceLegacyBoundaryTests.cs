@@ -35,6 +35,21 @@ public sealed class PrincipalInvoiceLegacyBoundaryTests
     }
 
     [Fact]
+    public async Task Existing_typed_state_rejects_original_invoice_line_mutation_without_header_mutation()
+    {
+        var company = Guid.NewGuid(); var invoiceId = Guid.NewGuid();
+        await using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new Scope("p31-original-fence", company, Guid.NewGuid().ToString("D")));
+        db.PrincipalInvoiceStates.Attach(new PrincipalInvoiceState { SupplierInvoiceId = invoiceId,
+            TenantId = "p31-original-fence", LegalEntityId = company, BranchId = Guid.NewGuid(),
+            SupplierId = Guid.NewGuid(), CurrencyCode = "ZMW", InvoiceVersion = 1 });
+        db.AddScoped(new SupplierInvoiceLine { SupplierInvoiceId = invoiceId, LineNumber = 1 });
+        Assert.Equal("PrincipalInvoiceLegacyWorkflowUnavailable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync())).Message);
+    }
+
+    [Fact]
     public void Frozen_comparison_requires_the_exact_complete_claim_line_set()
     {
         var invoiceLine = Guid.NewGuid(); var orderLine = Guid.NewGuid();
