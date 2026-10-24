@@ -30,20 +30,68 @@
     "failedProjection": "dataHashesSql",
     "cause": "PostgreSQL could not resize parallel-query shared memory segment: no space in private container shared memory",
     "productionAccess": false,
-    "response": "Session-only serial query successor prepared and pure-tested; not yet executed"
+    "response": "Session-only serial-query successor06 passed all six captures; failed05 preserved"
   },
   "receivingBrowser": {
-    "status": "PREPARED_NOT_RUN",
-    "nativeApiAlreadyAccepted": 165
+    "status": "ATTEMPT01_TIMED_OUT_BEFORE_BROWSER",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-receiving-cookie-20261024_run01",
+    "nativeApiEarlierAccepted": 165,
+    "attempt01CompletedHttpRequests": 148,
+    "attempt01Stage": "P30GenuineServicePRAndIssuedSource",
+    "exitCode": 124,
+    "browserPassed": false,
+    "response": "Fresh pooled attempt02 prepared with explicit native plus browser budget; not run"
   },
   "invoiceSchemaValidation": {
-    "status": "BUILD_RUNNING",
-    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p31-schema-validation-20261024_run01"
+    "status": "FAILED_RETAINED",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p31-schema-validation-20261024_run01",
+    "domainPassed": 1485,
+    "domainFailed": 1,
+    "domainSkipped": 0,
+    "cause": "Inferred alternate-key name exceeded identifier limit; explicit short names fixed in held source",
+    "modelPending": false,
+    "focusedHostTestsRun": false,
+    "response": "Genuine additive constraint-name generation and repeat02 prepared, unrun"
   },
   "manusScannerTask": {
-    "status": "QUEUED_PUBLISHED_DOCS_ONLY",
-    "pullRequest": 53,
-    "publishedErpMain": "1657398e865245bc03ec39efbdf97766b0b9dd71",
+    "status": "READY_ASSIGNED_PUBLISHED_DOCS_ONLY",
+    "pullRequest": 54,
+    "publishedErpMain": "a47966324c52b130868abc367dd2175500c4e247",
     "scannerExecuted": false
+  },
+  "lastAcceptedFullBackendSource": "d09e38206048832531494b67920e7db69fb0a266",
+  "currentPaymentReadinessChange": "0e75f687_PENDING_REPEAT_TESTS",
+  "rfqPublicationAttempt06": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-20261024_run06",
+    "status": "FAILED_RETAINED",
+    "completedActualHttpRequests": 78,
+    "stage": "P30RfqSourcingPolicyApiLifecycle",
+    "cause": "Private fixture restricted its only sourcing policy rule to a branch; actual coverage correctly rejected missing unrestricted fallback with HTTP422",
+    "response": "Private fixture corrected in96f6cb8f; actual validator/coverage preflight passed in frozen build17; fresh RFQ07 running",
+    "rfqAcceptanceClaim": false
+  },
+  "rfqPublicationAttempt07": {
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-actual-rfq-20261024_run07",
+    "status": "RUNNING_NOT_ACCEPTED",
+    "frozenToolSource": "fc68f94662570890277c827a24a24a03db64053e",
+    "acceptedProductSource": "d09e38206048832531494b67920e7db69fb0a266",
+    "privateProductionStylePooling": true,
+    "maximumSeconds": 2400,
+    "performanceClaim": false
+  },
+  "privateCaptureSqlAttempt06": {
+    "status": "PASS_PRIVATE_CAPTURE_SQL_ONLY",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-capture-sql-private-20261024_run06",
+    "productionTouched": false,
+    "fullRestoreAccepted": false
+  },
+  "sameSnapshotBackup": {
+    "status": "SOURCE_SNAPSHOT_CAPTURED_RESTORE_UNVERIFIED",
+    "evidenceDirectory": "/home/amizo/erp-backups/procurement-p30-same-snapshot-20261024_run01",
+    "tables": 191,
+    "columns": 3464,
+    "rows": 5543,
+    "writersStopped": false,
+    "productionMutated": false
   }
 }
