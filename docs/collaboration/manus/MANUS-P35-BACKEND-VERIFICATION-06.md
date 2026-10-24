@@ -7,7 +7,7 @@
 | Source | Pinned reference |
 | --- | --- |
 | Instruction repository | Published `georgemunganga/erp` `main` at `c6ae6f70facfbeb055e3aea992d435abbe58da09` or a later reviewed published descendant |
-| Source to verify | ERP branch `codex/p35-contract-review-source` at pushed commit `1878d9d788a676d29f76034c128ed4f8a7a211eb` |
+| Source to verify | ERP branch `codex/p35-contract-review-source` at pushed commit `f5cee78d57df4a0d22089b9a7b94fee844f27233` |
 | Prerequisites in that source | Ordinary P32, P33 and P34 source merges; no separate cherry-pick or guessed ancestor |
 | SDK | `backend/procurement-api/global.json` and `backend/hrm-api/global.json` specify `10.0.400`; record the actual installed SDK and pinned package cache/lock inputs |
 | Feature contracts | `docs/procurement/PROC-06-P32-PRINCIPAL-COMMERCIAL-COMPLETION.md`, `PROC-08-P33-PRINCIPAL-PO-REVISIONS.md`, `PROC-07-CONTRACTS-FRAMEWORKS-AND-RECURRING-COMMITMENTS.md`, and `docs/procurement/release/P35-CONTRACT-INTERNAL-REVIEW-DELTA.md` on the pinned source branch |
