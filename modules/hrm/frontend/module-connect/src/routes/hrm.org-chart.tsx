@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Building2, Users } from "lucide-react";
 import { realApi, useApi, type OrgChartNode } from "@/platform/use-api";
 import { useAuth } from "@/platform/auth";
+import { canManageHrmStructure } from "@/platform/entry-route";
 import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Async } from "@/platform/components/Async";
@@ -85,7 +86,7 @@ function UnitRow({ nodes }: { nodes: OrgChartNode[] }) {
 
 function OrgChartPage() {
   const { user } = useAuth();
-  const permitted = import.meta.env.VITE_USE_REAL_API !== "true" || user?.roles.some((role) => role === "hr_ops" || role === "hr_admin");
+  const permitted = import.meta.env.VITE_USE_REAL_API !== "true" || canManageHrmStructure(user?.roles ?? []);
   return <AppShell><AuthGate>{permitted ? <OrgChartContent /> : <p role="alert">Organisation chart access is not assigned.</p>}</AuthGate></AppShell>;
 }
 

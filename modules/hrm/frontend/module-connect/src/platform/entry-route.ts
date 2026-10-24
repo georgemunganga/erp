@@ -8,3 +8,8 @@ export function safeEntryPath(value: string | null | undefined): string {
 export function canManageCore(roles: string[]): boolean {
   return roles.some((role) => ["erp_admin", "hr_admin"].includes(role.toLowerCase()));
 }
+
+/** Structure screens retain their HR operations/admin gate across IdP role casing. */
+export function canManageHrmStructure(roles: string[]): boolean {
+  return roles.some((role) => ["hr_ops", "hr_admin"].includes(role.toLowerCase()));
+}

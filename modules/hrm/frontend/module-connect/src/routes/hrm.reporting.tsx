@@ -14,6 +14,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { realApi, useApi, type ReportingLineDto } from "@/platform/use-api";
 import { useAuth } from "@/platform/auth";
+import { canManageHrmStructure } from "@/platform/entry-route";
 import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Async } from "@/platform/components/Async";
@@ -190,7 +191,7 @@ function ChangeManagerDialog({
 
 function ReportingPage() {
   const { user } = useAuth();
-  const permitted = import.meta.env.VITE_USE_REAL_API !== "true" || user?.roles.some((role) => role === "hr_ops" || role === "hr_admin");
+  const permitted = import.meta.env.VITE_USE_REAL_API !== "true" || canManageHrmStructure(user?.roles ?? []);
   return <AppShell><AuthGate>{permitted ? <ReportingContent /> : <p role="alert">Reporting-line access is not assigned.</p>}</AuthGate></AppShell>;
 }
 
