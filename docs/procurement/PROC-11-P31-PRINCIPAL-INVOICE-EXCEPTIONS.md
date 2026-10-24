@@ -1,6 +1,6 @@
 # PROC-11 P31 — Principal invoice discrepancy and correction
 
-**Status:** held source design, 23 October 2026. It does not enable comparison, AP posting or payment. This is an additive schema-2 workflow; existing worker-era `InvoiceException` rows and keys remain unchanged.
+**Status (24 October 2026):** typed discrepancy and correction routes are source-authored behind default-off P31 readiness. The genuine thirteen-table migration is generated but not privately applied, captured or runtime verified. Positive comparison, AP posting and payment are not enabled. This is an additive schema-2 workflow; existing worker-era `InvoiceException` rows and keys remain unchanged.
 
 **Source checkpoint:** Typed discrepancy/action records, exact owner FKs, a known-blocker Compare path with no claim, scoped list/action/recovery routes and correction remap/retry are authored on an isolated branch. They are not registered. The genuine additive EF migration, database deferred guards, finite privileges, mapped tests and actual PostgreSQL/normal-cookie proof remain required. An unavailable owner or a failed source read still returns unavailable and does not fabricate a discrepancy or zero capacity.
 
@@ -57,6 +57,6 @@ Known mismatch creates a scoped owned issue and no claim; correction preserves p
 ## 26. Test Scenarios
 Positive mismatch→correction→new review→comparison; mismatch duplicate replay; changed owner/branch, missing source, stale version, changed document, insufficient credit history and concurrent claim; raw cross-owner FK/null/receipt tests plus actual PostgreSQL and normal-cookie UI proof.
 ## 27. Ownership / Dependencies
-Procurement owns issue and commercial correction. Core owns identity/approval/documents. Supplier credits and AP remain separate contracts. P30/P31 genuine migrations and runtime readiness are prerequisites.
+Procurement owns issue and commercial correction. Core owns identity, approval, original document bytes and retained document uses. Supplier credits and AP remain separate contracts. P30 readiness plus private P31 migration rehearsal, physical capture, finite privileges, genuine scanner and HTTP proof are prerequisites.
 ## 28. Open Decisions / Assumptions
 Specify exception owner matrix/SLA and authorized correction methods per company, and whether a credit correction requires Finance confirmation. Until configured and proven, the UI presents a blocker and no release-ready claim.

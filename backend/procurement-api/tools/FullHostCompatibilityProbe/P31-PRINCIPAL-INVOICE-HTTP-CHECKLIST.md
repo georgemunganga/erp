@@ -43,13 +43,40 @@ normal-cookie/browser evidence is still required for a UI release.
    inventory stock effects. Fresh owner-context reload validates every source,
    review, comparison, claim, discrepancy, receipt and Core decision.
 
-Current source checkpoints: the route journey and finite privilege manifest
-are authored but have not been compiled or executed. The P31 physical capture
-is still empty; the owner must capture the genuine generated 13-table DDL and
-rerun all readiness checks before this cohort can advance past its first
-stage. The private document directory must be an existing 0700 child of the
+Current source checkpoint, 24 October 2026: the route journey and finite
+privilege manifest are authored but P31 SDK, private PostgreSQL, normal HTTP
+and browser evidence have not run. Genuine EF migration
+`20261024014732_P31PrincipalInvoiceMatching` generated thirteen new tables,
+three existing-parent unique keys and no existing column changes; its first
+Down statement vetoes retained P31 data with SQLSTATE `55000`. It has not
+been privately applied or rehearsed. The P31 physical capture remains empty,
+so the normal provider and capability must remain unavailable even if options
+are set. Capture the actual CHECK/FK/index/privilege definitions and prove
+empty/partial/complete schema, all thirteen retained-family Down vetoes,
+same-command Map/Open/Compare ordering, and owner reload before advancing.
+The private document directory must be an existing 0700 child of the
 protected result directory. No scanner socket is installed on this host, so
-the entire positive cohort must remain held.
+the entire positive cohort remains held.
+
+Core Documents owns the original bytes, Available scan state, retained use
+set/pins and download audit. Open must acquire exact `use_sets`/`use_pins`
+through the existing Core owner service in the same enlisted serializable
+transaction as its P31 review source/case/receipt. Decision, comparison,
+purpose reads and recovery recheck those pins. Finite role admission must
+prove Core use-set/pin INSERT for Open; revoking either denies Open without
+partial effects. Ordinary read/recovery needs SELECT but no download-event
+INSERT. Purpose download needs separate append-only `core_document.record_events`
+INSERT and must prove its audit event without granting UPDATE/DELETE/TRUNCATE.
+The assigned reviewer needs only current purpose scope, not general invoice,
+PO, supplier or document administration rights.
+
+The positive typed flow is Received invoice → first mapped acceptance →
+independent original-unit review → blocked comparison with durable discrepancy
+and zero claim → correction request → new mapping revision using the later
+positive acceptance → new independent review → qualified exact claim. Preserve
+both review histories, discrepancy actions, exposure cursor and exact
+actor-owned recovery. This is a Procurement match and claim, not a Finance
+handoff, AP posting, bank transfer or payment status.
 
 The source fixture must refuse any phase it cannot execute genuinely. A
 private scanner socket must be supplied through `P31_HTTP_SCANNER_SOCKET` and

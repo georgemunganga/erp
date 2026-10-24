@@ -1,16 +1,16 @@
 # PROC-11 P31 — Principal PO and receiving invoice source bridge
 
-**Status:** integration audit and next bounded milestone; source only. P30 PO and principal receiving activation, their owning migrations and runtime evidence are prerequisites, not outcomes of this document. Audit source: `/home/amizo/procurement-p30-integrated-source` on 23 October 2026. Apply GW-ENG-STD-001 and the 28-section feature standard.
+**Status (24 October 2026):** additive P31 source and genuine EF migration authored; integration and runtime acceptance pending. The typed routes are registered behind two disabled-by-default options, and physical readiness remains false while its actual PostgreSQL capture is unpopulated. P30 issued-PO and principal receiving readiness remain prerequisites. Apply GW-ENG-STD-001 and the 28-section feature standard.
 
-**Source checkpoint after 563d8df5:** An isolated typed schema-2 model and an unregistered `POST /invoices/{id}/principal-matching/mappings` command now exist. The command requires current invoice and Core actor access, a genuine retained PO2/receiving read, available Core original document versions, a new P31 readiness provider, and one atomic mapping/state/receipt save. It returns `isUnitVerified=false`, `matchingAuthorityAvailable=false`, `canAllocate=false`, and `canPostToFinance=false`. The matching options default to disabled; no P31 provider, migration, Program registration, published policy or production capability is supplied by this checkpoint. The separate `GET .../commands/{key}` returns only the same actor's retained map response after current scope and action checks. Existing legacy invoice capture and matching routes are unchanged.
+**Current source checkpoint:** Separate schema-2 mapping, original-unit Core review, purpose-only document list/download, comparison, discrepancy/correction and actor-owned recovery routes are authored. Core principals can have no HRMS worker row. The published matching/review policies, exact retained PO2 and positive receiving facts, current branch/action scope, original invoice documents and Procurement-owned historical exposure must all verify before a qualified claim. Existing worker-era invoice routes and records remain distinct. These paths are source-authored, not yet validated by P31 SDK, private PostgreSQL, normal HTTP or browser gates.
 
-**Next owning steps:** Generate the additive Procurement migration from the actual combined P30 model and inspect all exact composite FKs, pointer ownership, nullable acceptance checks, append-only controls and downgrade veto against real PostgreSQL. Implement independent original-unit Core review with pinned document hashes and a separate purpose-only assigned reviewer reader; do not reuse P22's legacy mapping FK. Implement the source-wide authenticated exposure owner and complete legacy/principal credit/claim history under the same lock before a positive comparison; default owner remains unavailable. Only then may a typed `Compare` command create a claim and publish a capability. An unverified mapping is never an AP or payment status.
+**Genuine migration checkpoint:** `20261024014732_P31PrincipalInvoiceMatching` was generated from the combined model for thirteen new tables and three existing-parent unique keys, with no existing column change; its first Down statement vetoes retained P31 rows with SQLSTATE `55000`. The designer and snapshot match raw generation. The migration has **not** been applied or rehearsed on a private database, and its actual CHECK/FK/privilege capture is not populated. A generated file is not an installed schema or a ready capability. See `docs/procurement/release/P31-SCHEMA-GENERATION-20261024.json`.
 
-**Review transition source:** `PrincipalInvoiceUnitReviewTransitions` prepares a distinct `principal_invoice_original_unit_review` Core case from the exact P31 mapping, original document SHA pins and published P22 policy shape. It retains assignment principal and optional worker aliases, and the owning guard requires the same Core case graph and review receipt in the enlisted transaction. There is no registered review HTTP command or completion service yet; constructing a case plan does not verify original units. Existing P22 routes remain bound to legacy mappings.
+**Core document ownership:** Original invoice bytes, scan state, document versions and use pins belong to Core Documents. P31 Open uses the existing `EfDocumentUsePinStore` and `DocumentOwnerLifecycleFence` in the same serializable Core/Procurement transaction to acquire the exact `use_sets`/`use_pins` for the retained original-unit source. Decision, comparison, purpose reads and recovery recheck the retained version IDs and hashes. Open cannot succeed with missing, changed or unscanned originals or without finite append privileges for the Core use rows. Purpose download is separately admitted because Core appends a `record_events` download audit; ordinary read/recovery does not require that INSERT. No synthetic Clean scan verdict or document ownership copy is allowed.
 
-Each approving Core decision needs its own append-only `PrincipalInvoiceUnitReviewAttestation` with the exact `OriginalDocumentUnitsConfirmed` statement, source SHA, assignment, decision, reviewer and time. `PrincipalInvoiceUnitReviewTerminal` validates every vote against these rows and current Core document hashes before it can seal a `Verified` outcome. A maker's unit declaration or a bare Core Approved state is insufficient. Review HTTP write, purpose-scoped downloads and retention remain unregistered until the owner path is finished.
+**Positive acceptance hold:** The private P31 HTTP journey is authored but unrun. This host has no installed or running ClamAV daemon/socket; a genuine configured private scanner and normal Core upload/scan/use pipeline are required for the positive original-unit review. Do not substitute a synthetic Clean result. Qualified comparison, Finance handoff, AP posting and payment are not live claims.
 
-**P31 relational admission checks before activation:** EF uses composite immutable IDs to bind mapping→issued version and order, mapping line→same mapping/invoice line/PO line, review→same mapping and Core case pins, comparison→same mapping/review source/outcome/exposure, and claim→same comparison/invoice line/PO line/exposure/receiving source/acceptance fact sequence. The generated migration must be inspected against these exact keys; mutable supplier, currency, branch, quantities, versions and counters are intentionally *not* EF principal keys. The owner migration also needs deferred same-transaction checks for original invoice/company/branch/supplier/currency, source snapshot and Core case/final decision, as well as reciprocal receipt↔effect and append-only/history downgrade veto. In five independent owner-only PostgreSQL rollback transactions, try an otherwise valid mapping line linked to a different invoice line, a different PO line, a different issued version, a review outcome linked to another review source, and a claim linked to another comparison/receiving source or sequence. Each must fail with the expected constraint/SQLSTATE and leave the full pre/post footprint unchanged. Also test NULL attempts on optional acceptance pairs and cross-company UUIDs. Application guards alone are not the admission proof.
+**P31 relational admission checks before activation:** EF composite immutable IDs bind mapping→issued version/order, mapping line→same mapping/invoice line/PO line, review→same mapping and Core case pins, comparison→same mapping/review/outcome/exposure, and claim→same comparison/invoice line/PO line/exposure/receiving source/acceptance sequence. The directed state pointers do not currently justify a deferred-FK overlay; genuine same-command Map/Compare saves must prove EF ordering. Mutable counters and versions are not principal keys. Private PostgreSQL negative transactions must test mismatched owners, optional acceptance NULL pairs and Verified exposure with missing evidence digest, with unchanged before/after footprints. All thirteen retained row families must block Down before any drop. Application guards alone are not admission proof.
 
 ## Current contract and precise gap
 
@@ -36,7 +36,7 @@ Let an authorized Core user map a captured invoice to an actual schema-2 issued 
 
 ## 3. Scope and Exclusions
 
-First complete slice: scoped source and acceptance discovery, retained principal-source projection, typed mapping/claim references and P22 issued-source review compatibility, with fail-closed comparison. Exclude AP posting, tax ledger, supplier payment, bank execution, stock and asset entries, automatic receiving correction/return and unverified legacy adoption. If owner-history coverage cannot be provided, show the source and blocker but do not mint a matching claim.
+The authored typed slice covers scoped source and acceptance discovery, retained principal-source projection, mapping revisions, independent original-unit review, discrepancy/correction and comparison with complete Procurement-owned exposure. Exclude AP posting, tax ledger, supplier payment, bank execution, stock and asset entries, automatic receiving correction/return and unverified legacy adoption. If owner-history coverage cannot be provided, show the source and blocker but do not mint a matching claim.
 
 ## 4. Parent and Related Features
 
@@ -48,7 +48,7 @@ Invoice capturer, mapper/comparer, assigned original-unit reviewer and auditor a
 
 ## 6. Entry Points and Triggers
 
-Existing `/api/procurement/v1/invoices` CRUD, `/matching/sources`, `/matching/sources/{orderId}/lines/{lineId}/acceptances`, `/matching/mappings`, `/matching/compare`, `/unit-reviews` and `/finance-readiness`. Add version discrimination within these bounded source contracts, not a broad unscoped PO directory.
+Existing `/api/procurement/v1/invoices` CRUD and legacy matching/unit-review routes remain separately bound. P31 has typed `/principal-matching` source, mapping, review, comparison, discrepancy and actor-owned recovery routes, all gated by its own default-off options and physical readiness. Do not use an unscoped PO directory.
 
 ## 7. Preconditions
 
@@ -56,7 +56,7 @@ Actual P30/P31 schema/finite-role readiness and enabled capability; current publ
 
 ## 8. Workflow
 
-Capture invoice → search scoped PO2 lines (source fence before count/page) → inspect real positive acceptance references or explicit no-acceptance state → save immutable mapping revision → original-unit review where required → compare with complete source/owner evidence → show discrepancy or qualified Procurement claim. Preserve existing recovery and history endpoints. Matching and manual payment remain separate workflows.
+Capture invoice → search scoped PO2 lines (source fence before count/page) → inspect real positive acceptance references or explicit no-acceptance state → save immutable mapping revision → Open independent original-unit review while atomically acquiring Core document uses → assigned reviewer inspects pinned originals and decides → compare with complete source/owner evidence → show durable discrepancy or qualified Procurement claim. A blocked comparison can enter a documented correction request, revised mapping, new independent review and recompare; old mapping/review/issues stay retained. Preserve exact actor-owned recovery and history endpoints. Matching and manual payment remain separate workflows.
 
 ## 9. Status / State Transitions
 
@@ -72,7 +72,7 @@ Retained PO2 approval, funding, issue, supplier acknowledgment, source digest an
 
 ## 12. Data Fields and Ownership
 
-Keep `SupplierInvoice`/`SupplierInvoiceLine` as sole invoice originals. A proposed additive typed principal mapping source must retain schema discriminator, PO/issued/line/source-state IDs, positive acceptance fact ID, source/effect digest and ledger sequence; inspect existing `InvoiceMatchMappingVersion`, `InvoiceMatchAllocation`, `InvoiceMatchExposureState` FK/check/unique rules before selecting exact schema. Do not overload legacy receipt/service IDs. Procurement owns these commercial facts; Core owns people/documents; Finance owns AP/payment status.
+Keep `SupplierInvoice`/`SupplierInvoiceLine` as sole invoice originals. The additive P31 thirteen-table graph retains typed PO/issued/line/source-state IDs, positive acceptance fact ID, source/effect digest, exposure cursor and ledger sequence; the generated FK/CHECK ownership still requires actual PostgreSQL capture. Do not overload legacy receipt/service IDs. Procurement owns these commercial facts; Core owns people/documents and use pins; Finance owns AP/payment status.
 
 ## 13. Screens and Data Views
 
@@ -88,7 +88,7 @@ Existing invoice exception/assigned review notifications only after committed re
 
 ## 16. Documents and Attachments
 
-Reuse Core document version/hash ownership for original invoice units and P22 purpose-scoped pinned downloads. Receiving physical evidence references do not stand in for scanned original invoice lines.
+Reuse Core document version/hash ownership and the existing Core document use service. Open atomically acquires the exact retained use set/pins with its Core case and P31 effect in one enlisted serializable transaction. Purpose-only assigned reviewer list/download requires current assignment and pinned original versions; download appends a Core `record_events` audit and has a separate finite INSERT readiness check. Ordinary read/recovery does not require download write authority. Missing bytes, non-Available scan state, changed hash or lost pin blocks review/decision. Receiving physical evidence does not replace scanned original invoice lines.
 
 ## 17. Exceptions and Edge Cases
 
@@ -96,7 +96,7 @@ Mixed legacy/principal source IDs, stale issued or acceptance sequence, reversed
 
 ## 18. Integrations / APIs / Events / Sandbox
 
-Build a versioned internal source reader behind existing matching routes and an issued-only P22 reader. Use the same enlisted Procurement/Core transaction and explicit Postgres source locks in canonical order for mapping/compare; list discovery is read-only and fenced before paging. Existing compared event remains a Procurement fact with `canPostToFinance=false`. No new Finance handoff event until Finance owner contract and proof exist.
+The separate schema-2 routes use a versioned internal source reader; legacy P22 routes keep their original owner. Mapping, Open, decision and comparison use the enlisted Procurement/Core transaction and canonical source locks; list discovery is read-only and fenced before paging. The finite execution role needs SELECT for read/recovery, scoped append/mutable privileges for typed commands, and Core `use_sets`/`use_pins` INSERT for Open. Purpose download separately needs Core `record_events` INSERT; neither privilege grants a general document editor. Compared remains a Procurement fact with `canPostToFinance=false`. No Finance handoff event exists for typed P31.
 
 ## 19. Audit / Security / Privacy
 
@@ -116,7 +116,7 @@ Bound selector rows and complete retained ledger loads. Enforce pre-count scope,
 
 ## 23. Postconditions
 
-Successful comparison stores only a validated Procurement match/result/claim tied to original invoice and genuine source evidence. The current held P31 command denies a blocked comparison without a claim; a durable typed exception/history workflow is a separate required follow-up before full invoice UX acceptance. No AP, stock or payment side effect is inferred.
+Successful comparison stores only a validated Procurement match/result/claim tied to original invoice and genuine source evidence. A blocked comparison stores a durable typed discrepancy and zero claim; correction/remap/review/recompare retains prior history. No AP, stock or payment side effect is inferred.
 
 ## 24. Failure and Recovery
 
@@ -132,11 +132,11 @@ Author typed projection/precision and mixed-ID denial tests; mapped source-befor
 
 ## 27. Ownership / Dependencies
 
-P30 PO and P31 receiving source contracts must be reviewed and actually activated first. Invoice team owns only the versioned bridge/mapping and match; Core document/case services retain their authority. Procurement must prove complete typed commercial exposure itself; Finance owns AP/posting/payment. Parent owns generated migration and release gates.
+P30 PO and principal receiving source contracts require actual readiness. Invoice team owns the typed bridge/mapping, review source, discrepancies and match; Core document/case services retain their authority. Procurement must prove complete typed commercial exposure itself; Finance owns AP/posting/payment. The genuine P31 migration is generated, with private installation, physical capture, finite-role, HTTP and browser release gates still outstanding.
 
 ## 28. Open Decisions / Assumptions
 
-Decide the additive FK/unique/retention design for typed principal acceptance mapping after inspecting actual invoice schema and owner SQL, and whether a published category allows two-way principal services before acceptance. Decide the authenticated historical exposure owner interface for qualified claims. Confirm P30/P31 actual rollout and UI capability names only after real schema/role/HTTP proof. No AP or bank integration is assumed.
+Confirm the actual generated FK/CHECK/unique definitions and save ordering on private PostgreSQL, all thirteen retained-family Down vetoes, and whether a published category allows two-way principal services before acceptance. Complete the actual scanner and document-use acceptance, finite-role admission, current Core policy and normal HTTP/browser proof before enabling the existing default-off capability. No AP or bank integration is assumed.
 
 ### Source checkpoint: read bridge, not match activation
 
@@ -213,11 +213,11 @@ The exposure starts Unknown/sequence zero only in the same transaction as
 an exact principal mapping. A comparison may advance it to Verified only
 with a same-save compared claim and receipt. Retained claims must rebind to
 the frozen comparison lines and original invoice arithmetic; altered
-positive amounts cannot mint a new clean exposure watermark. Genuine P31
-migration, deferred SQL immutability/effect constraints, finite roles,
-readiness, actual PostgreSQL and normal HTTP proof have **not** run. The
-source is not mapped in the normal host and must stay unavailable until
-those gates pass. A returned or rejected Core review can now be followed by
+positive amounts cannot mint a new clean exposure watermark. The genuine P31
+migration is generated but not privately applied or captured. Finite roles,
+readiness, actual PostgreSQL, normal HTTP and browser proof have **not** run
+for P31. The routes are mapped in the normal host behind default-off options
+and fail-closed physical readiness. A returned or rejected Core review can now be followed by
 a new append-only mapping revision with explicit state/revision CAS while the
 old review and its decision history remain retained. Supplier
 credit/reversal history and AP handoff remain separate unfinished workflows;
@@ -247,10 +247,10 @@ default-off options: `Procurement:PrincipalInvoiceSources:Enabled` and
 `Procurement:PrincipalInvoiceMatching:Enabled`. Their readiness provider
 requires the actual P30 order and receiving read contracts, the shared Core
 case/document stores, the complete thirteen-table P31 owner and finite SQL
-role privileges. The P31 migration ID, PostgreSQL CHECK definitions and
-ownership manifest have intentionally empty capture values in source. This
+role privileges. The P31 PostgreSQL CHECK definitions and ownership manifest
+still have empty capture values in source. This
 means `principalInvoiceMatching` remains false and route requests return
-unavailable until the genuine migration is generated, captured, reviewed and
+unavailable until the generated migration is privately applied, captured, reviewed and
 rehearsed; an operator setting alone cannot make the feature ready. Read-only
 inspection/recovery requires SELECT; mutation additionally checks the owned
 append/mutable writes and Core case decision privileges. The independent
@@ -268,7 +268,7 @@ receipt while updating state/exposure in one `SaveChanges`. Deferral cannot
 resolve a client-side EF dependency cycle. Genuine mapped same-command
 PostgreSQL Map/Compare tests must prove this schedule before readiness capture.
 
-The genuine P31 migration should create exactly the thirteen tables listed in
+The generated P31 migration creates exactly the thirteen tables listed in
 `ProcurementPrincipalInvoiceSchemaCapture.Types`, their model checks, indexes,
 and mapped FKs. If EF also adds alternate unique keys to existing invoice line,
 PO line, issued-version,
@@ -278,10 +278,10 @@ existing table column changes or drops as part of P31. Freeze the actual PG
 definitions, including the three exact state pointers, in physical readiness.
 The source model alone is not an installed schema assertion.
 
-`P31PrincipalInvoiceOwnershipGuards.BeforeDownSql` must be the first Down
+`P31PrincipalInvoiceOwnershipGuards.BeforeDownSql` is the first Down
 statement. It locks and checks all thirteen P31 tables and raises SQLSTATE
 `55000` if any has retained evidence. On a private clone, test each row family
 with its genuine prerequisite parent graph, require a failed Down and exact
 before/after footprint equality; then test an empty Down and repeat Up.
-These authored constants are not wired into a migration yet and do not claim
-runtime availability.
+This generated and authored migration is not yet privately applied or captured
+and does not claim runtime availability.
