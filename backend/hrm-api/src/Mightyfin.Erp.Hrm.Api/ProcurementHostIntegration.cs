@@ -51,6 +51,12 @@ public static class ProcurementHostIntegration
         services.AddSingleton(principalOrderOptions);
         // The actual provider stays closed until the owning migration, captured constraints and finite privileges match.
         services.AddScoped<IProcurementPrincipalOrderDraftReadiness, ProcurementPrincipalOrderDraftReadiness>();
+        var revisionOptions = configuration.GetSection("Procurement:PrincipalOrderDraftRevisions")
+            .Get<PrincipalOrderRevisionOptions>() ?? new PrincipalOrderRevisionOptions();
+        services.AddSingleton(revisionOptions);
+        // Capture and finite-role proof are still pending. Even an explicit flag
+        // cannot substitute for the future owning-context physical inspector.
+        services.AddSingleton<IPrincipalOrderRevisionReadiness, UnavailablePrincipalOrderRevisionReadiness>();
         var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
