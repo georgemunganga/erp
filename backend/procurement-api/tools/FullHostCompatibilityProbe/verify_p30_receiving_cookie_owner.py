@@ -56,6 +56,24 @@ def typed_utc_instant(value):
     return stamp + ('.' + fraction if fraction else '') + '+00:00'
 
 
+def command_canonical_json(value):
+    # PolicyJsonDigest re-writes strings with Utf8JsonWriter's default encoder.
+    # The PO subset has no offset timestamps; Receiving adds the escaped plus.
+    return canonical_json(value).replace('+', r'\u002B')
+
+
+def stored_json_object(value, error_code):
+    # to_jsonb(row) retains a jsonb column as an object; text captures may
+    # retain its JSON spelling. Both must represent the same exact object.
+    if isinstance(value, str):
+        try:
+            value = json.loads(value, parse_float=decimal.Decimal, parse_int=decimal.Decimal)
+        except ValueError:
+            raise Failed(error_code) from None
+    require(isinstance(value, dict), error_code)
+    return value
+
+
 def command_fingerprints(browser, fixture, receipt_id, line_id, bodies):
     create = bodies['create']
     require(set(create).issubset({'purchaseOrderId', 'issuedVersionId', 'siteId',
@@ -78,7 +96,7 @@ def command_fingerprints(browser, fixture, receipt_id, line_id, bodies):
         if operation != 'Record':
             payload['lineId'] = line_id
         values[operation] = payload
-    return {operation: hashlib.sha256(canonical_json(value).encode()).hexdigest()
+    return {operation: hashlib.sha256(command_canonical_json(value).encode()).hexdigest()
         for operation, value in values.items()}
 
 
@@ -160,6 +178,33 @@ def one(rows, name, value):
     return found[0]
 
 
+def source_line_acceptance(old, new, acceptor):
+    require(exact(old['accepted_quantity']) == 0 and exact(new['accepted_quantity']) == 1,
+        'ExactAcceptedCounterMissing')
+    # Both counters are advanced in the acceptance SaveChanges transaction.
+    # Its ordinary audit metadata must identify that same accepting principal.
+    require(new.get('updated_by') == acceptor
+        and new.get('version') == old['version'] + 1,
+        'SourceLineAcceptanceAuditChanged')
+    require(isinstance(new.get('updated_at'), str), 'SourceLineAcceptanceTimeMissing')
+    updated = datetime.fromisoformat(new['updated_at'].replace('Z', '+00:00'))
+    require(updated.tzinfo is not None and updated.utcoffset().total_seconds() == 0,
+        'SourceLineAcceptanceTimeInvalid')
+    require(isinstance(old.get('created_at'), str), 'SourceLineCreationTimeMissing')
+    created = datetime.fromisoformat(old['created_at'].replace('Z', '+00:00'))
+    require(created.tzinfo is not None and updated >= created,
+        'SourceLineAcceptanceBeforeCreation')
+    if old.get('updated_at') is not None:
+        previous = datetime.fromisoformat(old['updated_at'].replace('Z', '+00:00'))
+        require(previous.tzinfo is not None and updated >= previous,
+            'SourceLineAcceptanceTimeReversed')
+    omitted = {'accepted_quantity', 'updated_at', 'updated_by', 'version'}
+    require({k: v for k, v in old.items() if k not in omitted}
+        == {k: v for k, v in new.items() if k not in omitted},
+        'SourceLineCommercialFieldsChanged')
+    return updated
+
+
 def compare(fixture, before, after, browser, fixture_sha):
     require(browser.get('status') == 'PASS_NORMAL_COOKIE_P30_RECEIVING_UI_ONLY'
         and browser.get('fixtureSha256') == fixture_sha
@@ -207,18 +252,16 @@ def compare(fixture, before, after, browser, fixture_sha):
                 require(all(current[name][id] == value for id, value in previous[name].items()),
                     'ExistingBusinessHistoryChanged')
     previous_rows, current_rows = before['selectedRows'], after['selectedRows']
+    source_updates = []
     for name, expected_id in (('purchase_request_lines', fixture['approvedRequestLineId']),
         ('purchase_order_lines', fixture['issuedOrderLineId'])):
         table = 'procurement.' + name
         old = one(previous_rows[table], 'id', expected_id)
         new = one(current_rows[table], 'id', expected_id)
-        require(exact(old['accepted_quantity']) == 0 and exact(new['accepted_quantity']) == 1,
-            'ExactAcceptedCounterMissing')
-        omitted = {'accepted_quantity', 'updated_at', 'version'}
-        require({k: v for k, v in old.items() if k not in omitted}
-            == {k: v for k, v in new.items() if k not in omitted}, 'SourceLineCommercialFieldsChanged')
+        source_updates.append(source_line_acceptance(old, new, fixture['acceptorPrincipalId']))
         require(all(current[table][id] == value for id, value in previous[table].items()
             if id != expected_id), 'OtherSourceLineChanged')
+    require(len(set(source_updates)) == 1, 'SourceCountersNotUpdatedTogether')
     new = {name: [row for row in current_rows['procurement.' + name]
         if row['id'] not in previous['procurement.' + name]] for name in RECEIVING}
     require({name: len(items) for name, items in new.items()} == {
@@ -345,11 +388,7 @@ def compare(fixture, before, after, browser, fixture_sha):
     require(policy.get('policy_key') == 'RECEIVING' and policy.get('state') == 'Published'
         and policy.get('published_at') and policy.get('published_by'),
         'IndependentReceivingPolicyPublicationMissing')
-    try:
-        policy_rules = json.loads(policy['rules_json'], parse_float=decimal.Decimal,
-            parse_int=decimal.Decimal)
-    except (ValueError, TypeError):
-        raise Failed('ReceivingPolicyRulesMalformed') from None
+    policy_rules = stored_json_object(policy['rules_json'], 'ReceivingPolicyRulesMalformed')
     policy_sha = hashlib.sha256(canonical_json(policy_rules).encode()).hexdigest()
     payloads = {}
     for kind, row in facts.items():
@@ -464,10 +503,7 @@ def compare(fixture, before, after, browser, fixture_sha):
                 operation = next(operation for operation, key in command_keys.items()
                     if row['idempotency_key'] == 'receiving.principal.'
                         + key.replace('-', '') + '.v2')
-                try:
-                    payload = json.loads(row['payload_json'])
-                except (ValueError, TypeError):
-                    raise Failed('OutboxPayloadMalformed') from None
+                payload = stored_json_object(row['payload_json'], 'OutboxPayloadMalformed')
                 require(payload == {'id': receipt_id, 'operation': operation,
                     'commandKey': command_keys[operation],
                     'revision': 1 if operation == 'Create' else 2,
