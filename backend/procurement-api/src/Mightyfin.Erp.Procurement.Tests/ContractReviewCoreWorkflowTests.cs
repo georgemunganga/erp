@@ -96,6 +96,33 @@ public sealed class ContractReviewCoreWorkflowTests
             "Return", Guid.CreateVersion7().ToString("D"), "Correct the rate", decisions,
             ProcurementEvidenceEncoding.DatabaseTimestamp(f.Now.AddMinutes(1))!.Value);
         ContractReviewCoreHistory.VerifyReturned(opened.Submission, opened.Case, pins, decisions);
+        var decision = Assert.Single(decisions);
+        var vote = new ContractReviewVote { TenantId = opened.Submission.TenantId,
+            LegalEntityId = opened.Submission.LegalEntityId, SubmissionId = opened.Submission.Id,
+            ContractId = opened.Submission.ContractId, ReviewBranchId = opened.Submission.ReviewBranchId,
+            CoreCaseId = opened.Case.Id, CoreStageId = decision.StageId,
+            CoreAssignmentId = decision.AssignmentId, CoreDecisionId = decision.Id,
+            ActorPrincipalId = decision.ActorSubjectId, Action = decision.Action,
+            DecidedAt = decision.DecidedAt };
+        ContractReviewCommandReceipt Ack(string operation, Guid? voteId, Guid key, string actor,
+            DateTimeOffset at, long resultVersion, int status, string contractStatus)
+        {
+            var ack = new ContractReviewCommandReceipt { ContractId = opened.Submission.ContractId,
+                SubmissionId = opened.Submission.Id, ReviewBranchId = opened.Submission.ReviewBranchId,
+                VoteId = voteId, Operation = operation, CommandKey = key,
+                ActorPrincipalId = actor, CommandSha256 = new string('a', 64),
+                CompletedAt = at, ResultContractVersion = resultVersion, ResponseStatus = status };
+            ack.ResponseJson = ContractReviewReceiptProof.Response(ack, contractStatus);
+            ack.ResponseSha256 = ProcurementEvidenceEncoding.Digest(ack.ResponseJson);
+            return ack;
+        }
+        var submitted = Ack("Submit", null, Guid.CreateVersion7(), f.Maker,
+            opened.Submission.SubmittedAt, opened.Submission.ContractBusinessVersion + 1, 201, "PendingReview");
+        var returned = Ack("Decide", vote.Id, Guid.Parse(decision.IdempotencyKey), decision.ActorSubjectId,
+            decision.DecidedAt, opened.Submission.ContractBusinessVersion + 2, 200, "Returned");
+        ContractReviewRetainedVotes.Verify(opened.Submission, decisions, [vote], [submitted, returned]);
+        Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.Verify(
+            opened.Submission, decisions, [], [submitted, returned]));
         f.Contract.Status = "Returned"; f.Version.Status = "Returned";
         f.Contract.Version = checked(opened.Submission.ContractBusinessVersion + 2);
         f.Version.Version = checked(opened.Submission.ContractVersionBusinessVersion + 2);

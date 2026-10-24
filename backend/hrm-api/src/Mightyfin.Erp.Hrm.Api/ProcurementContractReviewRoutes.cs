@@ -243,6 +243,11 @@ public static partial class ProcurementContractReviewRoutes
             var decisions = await cases.Decisions.AsNoTracking().Where(x => x.CaseId == workflow.Id)
                 .ToArrayAsync(token);
             ContractReviewCoreHistory.VerifyReturned(source, workflow, pins, decisions);
+            var votes = await db.ContractReviewVotes.AsNoTracking().Where(x => x.SubmissionId == source.Id)
+                .ToArrayAsync(token);
+            var priorReceipts = await db.ContractReviewCommandReceipts.AsNoTracking()
+                .Where(x => x.SubmissionId == source.Id).ToArrayAsync(token);
+            ContractReviewRetainedVotes.Verify(source, decisions, votes, priorReceipts);
             var at = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
             var correction = new ContractReviewCorrection
             {
