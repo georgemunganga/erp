@@ -110,6 +110,9 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
     internal Dictionary<string,string?> Settings()
     {
         var settings=OfflineHost.Settings(owner,PrincipalApprovalFixture.Tenant);
+        // Probe-only timing; model parity caching stays at its default off value.
+        settings["Procurement:ReadinessPerformance:DiagnosticsEnabled"]="true";
+        settings["Procurement:ReadinessPerformance:ModelParityCacheEnabled"]="false";
         settings["ConnectionStrings:Procurement"]=record;settings["ConnectionStrings:ProcurementApprovalExecution"]=execution;
         settings["Procurement:Approvals:Enabled"]="true";settings["Procurement:Approvals:PrincipalExecutionEnabled"]=principalExecutionEnabled?"true":"false";
         if(fixture.PrincipalRfqProfile)

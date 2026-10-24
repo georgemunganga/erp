@@ -30,6 +30,7 @@ internal static partial class PrincipalApprovalHttpVerification
         stage("PrivateManualEvidenceHost");
         await using var host=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,true,true);
         host.PrepareEntryPointEnvironment();using var client=host.CreateClient(new(){AllowAutoRedirect=false});
+        client.Timeout=TimeSpan.FromSeconds(300); // bounded private cold-host diagnostic; no production setting
         using(var registration=host.Services.CreateScope())
             Need(registration.ServiceProvider.GetRequiredService<IProcurementPrincipalApprovalSchemaReadiness>()
                 is ProcurementPrincipalApprovalStoreReadiness,

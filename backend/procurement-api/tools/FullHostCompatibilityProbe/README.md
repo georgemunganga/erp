@@ -430,3 +430,19 @@ this is runtime-role proof only when executed. Synthetic private header
 authentication is retained, so normal-cookie/OIDC integration and browser UI
 coverage remain separate gates. Managed commercial returns/reversal and stock
 or Finance owner handoff remain outside this positive-acceptance cohort.
+
+### Private readiness timing on cold hosts
+
+The private principal HTTP probe enables the existing
+`GreenWebb.Procurement.Readiness` phase-duration meter in its isolated host and
+records bounded phase aggregates in its protected result. It also records up to
+256 HTTP durations by controlled stage, method and route class, plus at most
+eight exception type names. Paths, IDs, request/response bodies, SQL, exception
+messages and connection settings are excluded. A failed HTTP attempt appears in
+`httpTiming` even when it does not increment the existing completed-request
+counter. The private manual-evidence host uses a bounded 300-second HttpClient
+timeout to distinguish a cold readiness path from the previous default-client
+timeout. Model-parity caching remains off; production configuration and
+readiness decisions are unchanged. These timings diagnose a failed private
+run; they do not prove that a longer timeout or caching is appropriate for
+production.
