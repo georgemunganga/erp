@@ -349,7 +349,11 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
             || decisions.Any(x => x.CaseId != current.Id || x.TenantId != current.TenantId
                 || x.LegalEntityId != current.LegalEntityId
                 || string.IsNullOrWhiteSpace(x.IdempotencyKey)
-                || x.DecidedAt < openedAt || x.DecidedAt > terminal.DecidedAt)) return false;
+                || x.DecidedAt < openedAt || x.DecidedAt > terminal.DecidedAt
+                || !stages.Any(s => s.Id == x.StageId
+                    && s.Assignments.Any(a => a.Id == x.AssignmentId
+                        && a.StageId == s.Id && a.CaseId == current.Id
+                        && a.AssigneeSubjectId == x.ActorSubjectId)))) return false;
         var previousVoteAt = openedAt;
         var terminalStage = stages.SingleOrDefault(x => x.Id == terminal.StageId);
         if (terminalStage is null) return false;

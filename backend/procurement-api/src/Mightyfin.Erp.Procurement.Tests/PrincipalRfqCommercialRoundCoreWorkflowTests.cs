@@ -214,6 +214,18 @@ public sealed partial class PrincipalRfqPrepublicationPlanTests
             f.Plan, f.Event, f.Policy, opening.Case, history, terminal,
             people[3], at);
         Assert.Equal("Approved", result.State);
+        var foreignStageVote = new ApprovalDecision
+        {
+            TenantId = f.Plan.TenantId, LegalEntityId = f.Plan.LegalEntityId,
+            CaseId = opening.Case.Id, StageId = Guid.NewGuid(),
+            AssignmentId = Guid.NewGuid(), ActorSubjectId = people[1].PrincipalId,
+            Action = "Approve", IdempotencyKey = Guid.NewGuid().ToString("D"),
+            DecidedAt = at,
+        };
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundCoreWorkflow.Finish(opening,
+                f.Plan, f.Event, f.Policy, opening.Case,
+                history.Append(foreignStageVote).ToArray(), terminal, people[3], at));
         Assert.Equal("Superseded", stages[0].Assignments.Single(x =>
             x.AssigneeSubjectId == people[1].PrincipalId).State);
         Assert.Throws<InvalidOperationException>(() =>
