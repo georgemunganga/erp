@@ -7,6 +7,7 @@ public static partial class ProcurementPrincipalInvoiceDiscrepancyRoutes
 {
     internal static bool EligibleIssueOwner(ProcurementPrincipalPeople.Person? person,
         Guid branchId, string currentOwner) => person is not null
+        && person.Permissions.Contains("procurement-invoice-read")
         && person.Permissions.Contains("procurement-invoice-match")
         && (person.OrganisationWide || person.AllowedBranches.Contains(branchId))
         && person.PrincipalId != currentOwner;
@@ -49,35 +50,51 @@ public static partial class ProcurementPrincipalInvoiceDiscrepancyRoutes
                         .Replace("_", "\\_") + "%";
                     query = query.Where(x => EF.Functions.ILike(x.DisplayName, pattern, "\\"));
                 }
-                // Filter current action and branch authority before returning a page
-                // or a count. This bounded directory cannot expose unrelated users.
-                var rows = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
-                    .Take(2049).Select(x => new { x.Id, x.DisplayName }).ToArrayAsync(token);
-                if (rows.Length > 2048)
-                    throw new InvalidOperationException("PrincipalInvoiceIssueOwnerLookupTooLarge");
-                var eligible = new List<(Guid Id, string Name)>();
-                foreach (var row in rows)
-                {
-                    var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
-                        scope.LegalEntityId, row.Id.ToString("D"), token);
-                    if (!EligibleIssueOwner(person, issue.BranchId, issue.OwnerPrincipalId)) continue;
-                    eligible.Add((row.Id, row.DisplayName));
-                }
-                var start = 0;
-                if (cursor is { } after)
-                {
-                    var position = eligible.FindIndex(x => x.Id == after);
-                    if (position < 0) throw new InvalidOperationException("PrincipalInvoiceIssueOwnerCursorChanged");
-                    start = position + 1;
-                }
+                // Scan small sorted batches and stop once the next eligible page
+                // is known. No unfiltered directory count or post-page permission
+                // filter can disclose denied people. A missing/revoked cursor fails
+                // closed, and the Assign command checks current authority again.
+                const int chunkSize = 64;
+                const int maximumScanned = 2048;
                 var size = limit ?? 25;
-                var page = eligible.Skip(start).Take(size).ToArray();
+                var results = new List<(Guid Id, string Name)>();
+                var cursorSeen = cursor is null;
+                var scanned = 0;
+                var exhausted = false;
+                while (scanned < maximumScanned)
+                {
+                    var take = Math.Min(chunkSize, maximumScanned - scanned);
+                    var rows = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
+                        .Skip(scanned).Take(take)
+                        .Select(x => new { x.Id, x.DisplayName }).ToArrayAsync(token);
+                    if (rows.Length == 0) { exhausted = true; break; }
+                    scanned += rows.Length;
+                    exhausted = rows.Length < take;
+                    foreach (var row in rows)
+                    {
+                        var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                            scope.LegalEntityId, row.Id.ToString("D"), token);
+                        if (!EligibleIssueOwner(person, issue.BranchId, issue.OwnerPrincipalId)) continue;
+                        if (!cursorSeen)
+                        {
+                            if (row.Id == cursor) cursorSeen = true;
+                            continue;
+                        }
+                        results.Add((row.Id, row.DisplayName));
+                        if (results.Count > size) break;
+                    }
+                    if (results.Count > size || exhausted) break;
+                }
+                if (results.Count <= size && !exhausted && scanned >= maximumScanned)
+                    throw new InvalidOperationException("PrincipalInvoiceIssueOwnerLookupTooLarge");
+                if (!cursorSeen) throw new InvalidOperationException("PrincipalInvoiceIssueOwnerCursorChanged");
+                var page = results.Take(size).ToArray();
                 return new
                 {
                     invoiceId = id, issueId, issueVersion = issue.Version,
                     items = page.Select(x => new { principalId = x.Id.ToString("D"), displayName = x.Name }).ToArray(),
-                    nextCursor = start + page.Length < eligible.Count ? page[^1].Id.ToString("D") : null,
-                    hasMore = start + page.Length < eligible.Count,
+                    nextCursor = results.Count > size ? page[^1].Id.ToString("D") : null,
+                    hasMore = results.Count > size,
                     isAuthority = false, sourceSchemaVersion = 2
                 };
             }, ct);
