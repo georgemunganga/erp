@@ -690,3 +690,37 @@ The download-specific finite event-append grant is distinct from ordinary
 read permission. These paths remain default-off and untested against actual
 Core document storage; no general sourcing read or supplier-offer permission
 is granted by them.
+
+### Additive sealed-opening policy contract (24 October 2026; held source)
+
+The existing commercial policy key remains `SOURCING_COMMERCIAL_ROUND`. Schema 1
+retains its exact existing fields/meaning and cannot authorize unsealing or opened
+content reads. Strict schema 2 additionally requires `offerOpening` with every field
+explicit: `officerPrincipalId`, `readerPrincipalIds` (1–100 distinct canonical Core
+principals), `allowClosingOfficer`, `delayAfterCloseSeconds` (integer 0–31536000,
+technical one-year maximum, no default), `reasonRequired`, and `referenceRequired`.
+Zero delay and false controls remain explicit choices. No policy is adopted by this
+source change. Missing/legacy controls leave unsealing unavailable. Opener cannot
+be a commercial approver; closer reuse is permitted only by the explicit flag and
+still cannot bypass maker/recorder/alias conflicts. Named readers also need the
+separate current `procurement-sourcing-opened-offer-read` action. Opener requires
+`procurement-sourcing-offers-open`; neither derives authority from close/read.
+
+The prepared source/evaluation/requirements pins remain immutable. For schema 2,
+the existing Core commercial approval snapshot additionally retains the exact
+opening controls and full policy digest; schema 1 snapshot generation is unchanged.
+The existing retained Core verifier checks those additional controls against the
+pinned policy when present. A pure unsealing transition validates that exact
+approved snapshot, same-parent closed seal, recomputed immutable offer-set digest,
+current-effective policy, server time, current explicit officer action/scope and
+current plus retained participant aliases. It emits a typed immutable opening
+proof, without changing source allocations, scoring offers, awarding a supplier
+or making a PO/Finance effect.
+
+These are authored pure contracts/tests, not installed persistence, endpoint,
+current Core identity resolution, document retention or runtime proof. Owning
+adapter/purpose-reader composition must resolve all current Core aliases (including
+historical makers/recorders/reviewers), bind retained document uses and original
+receipts, lock the source/round, persist opening and original-key receipt atomically,
+and require actual finite-role physical readiness. No UI, migration/designer,
+snapshot generation, provider registration or default-on setting is added.

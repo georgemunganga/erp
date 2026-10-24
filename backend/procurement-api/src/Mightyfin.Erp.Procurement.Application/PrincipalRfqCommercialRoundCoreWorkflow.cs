@@ -185,6 +185,14 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
                             r.PrincipalId == a.AssigneeSubjectId).LinkedWorkerId }),
             }),
         });
+        // Preserve all schema1 bytes. Schema2 binds the exact additional opening
+        // controls into the very snapshot approved by the existing Core case.
+        if (rules.OfferOpening is not null)
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse(snapshot)!.AsObject();
+            node.Add("offerOpening", System.Text.Json.Nodes.JsonNode.Parse(rules.OfferOpening.Snapshot()));
+            snapshot = node.ToJsonString();
+        }
         return new(core, snapshot, ProcurementEvidenceEncoding.Digest(snapshot),
             Array.AsReadOnly(invitedSupplierIds.Order().ToArray()),
             opens, closes, closer.PrincipalId, closer.LinkedWorkerId);
@@ -273,7 +281,9 @@ public static class PrincipalRfqCommercialRoundCoreWorkflow
                         && a.AssigneeSubjectId == x.GetProperty("AssigneeSubjectId").GetString()
                         && a.PermissionKey == x.GetProperty("PermissionKey").GetString()));
             }), "RfqCommercialRoundReviewGraphChanged");
-        Need(opening.SnapshotSha256 == ProcurementEvidenceEncoding.Digest(opening.SnapshotJson)
+        Need(PrincipalRfqOfferOpeningControls.MatchesRoundSnapshot(opening.SnapshotJson,
+                PrincipalRfqCommercialRoundPolicyRules.Parse(policy.RulesJson))
+            && opening.SnapshotSha256 == ProcurementEvidenceEncoding.Digest(opening.SnapshotJson)
             && pin.GetProperty("schemaVersion").GetInt32() == 1
             && pin.GetProperty("preparedPlanId").GetGuid() == prepared.Id
             && pin.GetProperty("preparedPlanSha256").GetString() == prepared.SnapshotSha256

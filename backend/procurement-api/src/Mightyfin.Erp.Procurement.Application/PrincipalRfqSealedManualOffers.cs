@@ -158,6 +158,18 @@ public static class PrincipalRfqSealedManualOffers
             && (officer.SelectedBranchId is null || officer.SelectedBranchId == round.BranchId)
             && (officer.OrganisationWide || officer.Branches.Contains(round.BranchId)),
             "RfqSealedRoundOfficerNotAuthorized");
+        var digest = RetainedSetDigest(round, submissions);
+        return new(round.RoundId, round.EventId, officer.PrincipalId,
+            officer.LinkedWorkerId, serverObservedAt, submissions.Count, digest);
+    }
+
+    public static string RetainedSetDigest(PrincipalRfqPublishedRoundProof round,
+        IReadOnlyList<PrincipalRfqManualOfferSubmission> submissions)
+    {
+        ArgumentNullException.ThrowIfNull(round);
+        ArgumentNullException.ThrowIfNull(submissions);
+        Need(submissions.Count <= 500 && round.ApprovedSupplierIds is { Count: > 0 },
+            "RfqSealedSubmissionSetChanged");
         Need(submissions.All(x => x is not null && x.RoundId == round.RoundId
             && x.EventId == round.EventId && Hash(x.SnapshotSha256)
             && x.SnapshotSha256 == ProcurementEvidenceEncoding.Digest(x.SnapshotJson)
@@ -170,9 +182,7 @@ public static class PrincipalRfqSealedManualOffers
         // This digest seals IDs and exact immutable snapshots, not just a count.
         var set = JsonSerializer.Serialize(submissions.OrderBy(x => x.BidId)
             .Select(x => new { x.BidId, x.SupplierId, x.SnapshotSha256 }));
-        return new(round.RoundId, round.EventId, officer.PrincipalId,
-            officer.LinkedWorkerId, serverObservedAt, submissions.Count,
-            ProcurementEvidenceEncoding.Digest(set));
+        return ProcurementEvidenceEncoding.Digest(set);
     }
 
     private static bool Instant(DateTimeOffset value) => value != default

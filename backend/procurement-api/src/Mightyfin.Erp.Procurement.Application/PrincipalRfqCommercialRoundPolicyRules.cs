@@ -10,7 +10,11 @@ public sealed record PrincipalRfqCommercialApprovalStage(string Code, string Mod
 public sealed record PrincipalRfqCommercialRoundPolicy(int SchemaVersion,
     int IdentitySchemaVersion, string SubmissionMode, bool RequireOriginalOfferDocument,
     bool RequireIndependentReview, string ClosingOfficerPrincipalId,
-    IReadOnlyList<PrincipalRfqCommercialApprovalStage> Stages, string RulesSha256);
+    IReadOnlyList<PrincipalRfqCommercialApprovalStage> Stages, string RulesSha256)
+{
+    // Absent for immutable schema1 policies. It never inherits closer authority.
+    public PrincipalRfqOfferOpeningControls? OfferOpening { get; init; }
+}
 
 /// <summary>Strict explicit controls for a distinct commercial review. A parsed
 /// document does not publish policy, prove Core authority or open a round.</summary>
@@ -53,10 +57,12 @@ public static class PrincipalRfqCommercialRoundPolicyRules
             var digest = ProcurementEvidenceEncoding.PolicyJsonDigest(json!);
             using var document = JsonDocument.Parse(json!, new JsonDocumentOptions { MaxDepth = 12 });
             var root = document.RootElement;
-            Only(root, "schemaVersion", "identitySchemaVersion", "policyKey",
+            var schema = root.GetProperty("schemaVersion").GetInt32();
+            var fields = new[] { "schemaVersion", "identitySchemaVersion", "policyKey",
                 "transactionType", "submissionMode", "requireOriginalOfferDocument",
-                "requireIndependentReview", "closingOfficerPrincipalId", "stages");
-            Need(root.GetProperty("schemaVersion").GetInt32() == 1
+                "requireIndependentReview", "closingOfficerPrincipalId", "stages" };
+            Only(root, schema == 2 ? fields.Append("offerOpening").ToArray() : fields);
+            Need(schema is 1 or 2
                 && root.GetProperty("identitySchemaVersion").GetInt32() == 2
                 && Text(root, "policyKey") == PolicyKey
                 && Text(root, "transactionType") == TransactionType
@@ -104,8 +110,14 @@ public static class PrincipalRfqCommercialRoundPolicyRules
                 "RfqCommercialRoundReviewerSetInvalid");
             Need(!stages.SelectMany(x => x.PrincipalIds).Contains(closer, StringComparer.Ordinal),
                 "RfqCommercialRoundCloserMustBeIndependent");
-            return new(1, 2, "ManualSurrogateOnly", true, true, closer,
-                stages.AsReadOnly(), digest);
+            var opening = schema == 2 ? PrincipalRfqOfferOpeningControls.Parse(
+                root.GetProperty("offerOpening")) : null;
+            if (opening is not null)
+                Need(!allReviewers.Contains(opening.OfficerPrincipalId, StringComparer.Ordinal)
+                    && (opening.AllowClosingOfficer || opening.OfficerPrincipalId != closer),
+                    "RfqCommercialRoundOpeningOfficerConflict");
+            return new(schema, 2, "ManualSurrogateOnly", true, true, closer,
+                stages.AsReadOnly(), digest) { OfferOpening = opening };
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException
             or ArgumentException or FormatException or OverflowException or KeyNotFoundException)
