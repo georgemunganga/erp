@@ -1,0 +1,95 @@
+{
+  "status": "ACCEPTED_BOUNDED_PRIVATE_SOURCE_AND_SCHEMA_GATES_NOT_RELEASE",
+  "testedSource": "df3861bb35ed30a6697e2615741575291d40222a",
+  "testCounts": {
+    "domain": 1632,
+    "focusDomain": 15,
+    "focusHost": 31,
+    "host": 1263
+  },
+  "testFailures": 0,
+  "testSkipped": 0,
+  "noPendingModelChanges": true,
+  "genuineP35UpDownSqlExported": true,
+  "actualCacheLineage": "Accepted P33 validation03 then failed P35 unified01 then failed P35 unified02 partial cache, explicitly inventoried before unified03; no clean-fresh-build claim",
+  "unifiedResultSha256": "820df8c1595a28f4133e3f152940917c9841dd55bcddcb5cab017cdf75631310",
+  "p33PopulatedDown": {
+    "status": "PASS_PRIVATE_P33_FOUR_PHYSICAL_RETAINED_DOWN_VETOES_ONLY",
+    "caseResults": [
+      {
+        "businessWorkflowProven": false,
+        "case": "origin",
+        "familyCounts": {
+          "EditReceipt": 0,
+          "origin": 1,
+          "revision": 0,
+          "slice": 0
+        },
+        "fullFootprintUnchanged": true,
+        "sqlState": "55000"
+      },
+      {
+        "businessWorkflowProven": false,
+        "case": "revision",
+        "familyCounts": {
+          "EditReceipt": 0,
+          "origin": 1,
+          "revision": 1,
+          "slice": 0
+        },
+        "fullFootprintUnchanged": true,
+        "sqlState": "55000"
+      },
+      {
+        "businessWorkflowProven": false,
+        "case": "slice",
+        "familyCounts": {
+          "EditReceipt": 0,
+          "origin": 1,
+          "revision": 1,
+          "slice": 1
+        },
+        "fullFootprintUnchanged": true,
+        "sqlState": "55000"
+      },
+      {
+        "businessWorkflowProven": false,
+        "case": "sharedEditReceipt",
+        "familyCounts": {
+          "EditReceipt": 1,
+          "origin": 0,
+          "revision": 0,
+          "slice": 0
+        },
+        "fullFootprintUnchanged": true,
+        "sqlState": "55000"
+      }
+    ],
+    "originalSourceUnchanged": true,
+    "fixtureKind": "Existing real P30 PO graph with synthetic FK/CHECK-valid P33 guard rows; physical rollback proof only",
+    "finiteErpOwnerProofClaim": false,
+    "resultSha256": "4e76495f5ee46cd450d7ee687d576de10cef178d3d8025541cfc15a785e7b0f6"
+  },
+  "p35EmptySchema": {
+    "status": "PASS_PRIVATE_EMPTY_P35_OWNER_SCHEMA_ROUNDTRIP",
+    "tableCounts": [
+      249,
+      254,
+      249,
+      254
+    ],
+    "oldRowsCatalogAclHistoryRolesPreserved": true,
+    "resultSha256": "517777291700e26969ac3105fe107a03f4f03a5461517875e41a1972e997339a"
+  },
+  "productionTouched": false,
+  "positiveP33HttpBrowserAccepted": false,
+  "positiveP35HttpBrowserAccepted": false,
+  "wholeProcurementModuleComplete": false,
+  "remaining": [
+    "Compile and verify concrete P32 RFQ / P35 contract review readiness deltas",
+    "P33 positive actual HTTP, independent owner reconciliation and normal-cookie UI",
+    "P35 populated rollback, actual API/Core workflow and original UI acceptance",
+    "Core finite LOGIN/runtime authentication proof and document scanning evidence",
+    "Remaining commercial, return and payment integrations; release review and deployment"
+  ]
+}
