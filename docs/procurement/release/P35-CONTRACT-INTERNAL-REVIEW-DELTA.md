@@ -1,0 +1,32 @@
+# P35 Supplier contract internal review — bounded feature delta
+
+Status: source design; no route, database migration, capability or signature authority is enabled. Parent: [PROC-07](../PROC-07-CONTRACTS-FRAMEWORKS-AND-RECURRING-COMMITMENTS.md).
+
+1. **Feature identification:** internal review of a supplier contract draft and its version-one rate terms.
+2. **Purpose and business outcome:** retain an independent, inspectable decision before any separately governed signature or activation.
+3. **Scope and exclusions:** Submit, named Core review, Return/Reject/Approve and read/recovery. No signature, Active status, PO release, payable or Finance balance.
+4. **Parent and related features:** PROC-07 O1/O2; supplier, Core approval, policy lifecycle and Core documents.
+5. **Actors:** owning submitter, explicitly named reviewers, configuration editor/publisher and scoped auditor. A worker link is optional alias metadata.
+6. **Entry points:** current contract detail Submit; assigned review worklist/detail; configuration policy editor. Existing draft and rate routes remain available only while Draft.
+7. **Preconditions:** selected Core company and explicit active `reviewBranchId`; owner has submit grant, current supplier, Draft header/version and full terms; exactly one independently published effective typed policy.
+8. **Workflow:** snapshot exact header, supplier, active/removed rate set and branch; open enlisted Core case; reviewers decide; terminal Approved means internal review only.
+9. **States:** Draft → PendingReview → Approved/Returned/Rejected. Returned correction requires an explicit new submission revision; old evidence remains.
+10. **Permissions and data scope:** new empty-bootstrap `procurement-contract-submit`, `procurement-contract-review-read`, `procurement-contract-review`; current company/branch/action and exact named assignment before worklist count or decision.
+11. **Business rules:** named stages use actual Core `Any` or `All` engine modes (configuration `One` maps to `Any`); no default stage, reviewer, threshold or spending grant. Reviewer must be independent of current and retained maker aliases.
+12. **Data fields and ownership:** Procurement owns immutable submission/decision/receipt pins; Core owns accounts, branch scope and case votes; Docs owns scanned bytes/use pins. New `reviewBranchId` is on submission, not the old company-owned contract header.
+13. **Screens and views:** extend the imported contract detail/editor and shared approval task layout; never replace them with a parallel simplified page.
+14. **User experience:** plain Submit/Return/Approve/Reject labels; Approved does not say signed or usable. Preserve unsaved draft inputs when a command outcome is unknown.
+15. **Notifications:** metadata only after verified commit; no supplier contact or signature notice inferred.
+16. **Documents:** review may inspect purpose-authorized draft attachments; signed-document evidence belongs to a later activation contract.
+17. **Exceptions:** missing/ambiguous policy, inactive supplier/branch, changed terms, revoked role/alias, lost response and stale case all fail closed.
+18. **Integrations/APIs/events/sandbox:** use `ProcurementApprovalTransaction` and existing Core case/assignment/decision engine; actor-owned command-key GET receipt recovery; no Finance/event consumer claim.
+19. **Audit/security/privacy:** full immutable source and policy digest, exact owner keys and same-save audit; task reads expose only current named assignment and authorized contract terms.
+20. **Reports/metrics:** Draft/PendingReview/Approved counts only from persisted scoped state; no active-contract utilization.
+21. **Configuration/localization:** typed `SUPPLIER_CONTRACT_REVIEW` schema 1 with ordered named principal stages; reuse existing independent policy draft/review/publish lifecycle. Configured principals and branch reach are rechecked at effect time.
+22. **Nonfunctional requirements:** serializable transaction across Procurement/Core, parent CAS, idempotent original response, no retry of uncertain write until GET-only recovery.
+23. **Postconditions:** reviewed terms stay immutable; approved review remains unsigned and unavailable for releases.
+24. **Failure/recovery:** unknown command remains locked to its original key; recovery checks actor, action, branch, target and exact receipt before surfacing prior result.
+25. **Acceptance criteria:** real Core accounts, no employee requirement, independent publisher and reviewers, own/foreign branch denial, terms mutation race, One/All case completion, exact response replay, no signature/activation side effect.
+26. **Test scenarios:** zero/ambiguous policy, duplicate/malformed principal, maker-reviewer linked alias, offboarded/revoked reviewer, return/resubmit, same-key changed body, lost Create/Submit response and no effects on denied scope.
+27. **Ownership/dependencies:** Procurement team implements policy binding and transaction records; Core approval/document owners retain their shared services. Genuine additive schema, finite role manifest, readiness and PostgreSQL/HTTP/browser proof precede activation.
+28. **Open decisions:** Legal/Finance stage owners, any mandatory signature or authorized substitute, clause templates, ceiling basis, contract branch use and later amendment/expiry/release rules need business configuration or separate implementation; none is defaulted here.

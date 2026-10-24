@@ -50,6 +50,10 @@ public static class ProcurementActionCatalog
             ["procurement-contract-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-contract-create"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-contract-edit"] = ["procurement_buyer", "procurement_manager"],
+            // Internal review remains separately configured; draft rights confer none of it.
+            ["procurement-contract-submit"] = [],
+            ["procurement-contract-review-read"] = [],
+            ["procurement-contract-review"] = [],
             ["procurement-recurring-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-recurring-create"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-recurring-edit"] = ["procurement_buyer", "procurement_manager"],
