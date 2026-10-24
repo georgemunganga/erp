@@ -7,19 +7,23 @@ internal static partial class PrincipalApprovalHttpVerification
     // A second genuinely approved request and issued PO, never a raw positive
     // receiving/source seed or a rewrite of the already-issued goods snapshot.
     private static async Task<PrincipalIssuedFixture> CreateActualReceivingServiceSourceAsync(
-        PrincipalApprovalFixture fixture,HttpClient client,PrincipalSend send,Guid supplierId)
+        PrincipalApprovalFixture fixture,HttpClient client,PrincipalSend send,Guid supplierId,bool browser=false)
     {
         const string requests="/api/procurement/v1/requests";
+        // The additional browser source is independent of the native service
+        // certificates. Distinct synthetic external references avoid treating
+        // those manual attestations as one shared Finance or supplier event.
+        var suffix=browser?"_BROWSER":"";
         var created=await send(client,HttpMethod.Post,requests,fixture.Maker,new{
-            purpose="Private completed service receiving source",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
+            purpose="Private completed service receiving source"+suffix,neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
             lines=new[]{new{description="Exact service half certificates",unitCode="each",requestedQuantity="1",estimatedUnitPrice="0.0001",categoryCode="PRIVATE_P25",purchaseType="SERVICE"}}},HttpStatusCode.Created);
         var requestId=created.GetProperty("id").GetGuid();var requestPath=requests+"/"+requestId;
         var submitted=await send(client,HttpMethod.Post,requestPath+"/submit",fixture.Maker,new{version=created.GetProperty("version").GetInt64()});
         await send(client,HttpMethod.Post,requestPath+"/budget-checks",fixture.Checker,new{
-            requestVersion=submitted.GetProperty("version").GetInt64(),financeCheckRef="PRIVATE_SERVICE_MANUAL_CHECK",
-            status="Available",checkedAmount="0.0001",currencyCode="ZMW",evidenceRef="private-fixture:service-manual-evidence",
+            requestVersion=submitted.GetProperty("version").GetInt64(),financeCheckRef="PRIVATE_SERVICE_MANUAL_CHECK"+suffix,
+            status="Available",checkedAmount="0.0001",currencyCode="ZMW",evidenceRef="private-fixture:service-manual-evidence"+suffix,
             decisionReason="Private manual attestation only; no external reservation verified",
-            reservationRef="PRIVATE_SERVICE_RECORDED_RESERVATION",reservationStatus="Confirmed"},HttpStatusCode.Created);
+            reservationRef="PRIVATE_SERVICE_RECORDED_RESERVATION"+suffix,reservationStatus="Confirmed"},HttpStatusCode.Created);
         var current=await send(client,HttpMethod.Get,requestPath,fixture.Maker);
         var opened=await send(client,HttpMethod.Post,requestPath+"/approval-cases",fixture.Maker,
             new{expectedRequestVersion=current.GetProperty("version").GetInt64()},HttpStatusCode.Created,Guid.NewGuid());
@@ -44,8 +48,8 @@ internal static partial class PrincipalApprovalHttpVerification
         var finance=await send(client,HttpMethod.Get,orderPath+"/principal-finance-detail",fixture.PoFinance);
         Need(finance.GetProperty("grossAmountExact").GetString()=="0.0001","Actual service commitment lost original precision.");
         var funded=await send(client,HttpMethod.Post,orderPath+"/principal-funding",fixture.PoFinance,new{
-            expectedOrderVersion=orderDetail.GetProperty("version").GetInt64(),manualCommitmentReference="PRIVATE_SERVICE_COMMITMENT",
-            externalEvidenceReference="PRIVATE_SERVICE_EXTERNAL_REFERENCE",currencyCode="ZMW",attestedGrossAmount=0.0001m,
+            expectedOrderVersion=orderDetail.GetProperty("version").GetInt64(),manualCommitmentReference="PRIVATE_SERVICE_COMMITMENT"+suffix,
+            externalEvidenceReference="PRIVATE_SERVICE_EXTERNAL_REFERENCE"+suffix,currencyCode="ZMW",attestedGrossAmount=0.0001m,
             sourceReservationReferences=finance.GetProperty("sourceReservationReferences").EnumerateArray().Select(x=>x.GetString()!).ToArray(),observedAt=DateTimeOffset.UtcNow},HttpStatusCode.OK,Guid.NewGuid());
         await send(client,HttpMethod.Post,orderPath+"/principal-submit",fixture.Buyer,new{expectedOrderVersion=funded.GetProperty("version").GetInt64()},HttpStatusCode.Created,Guid.NewGuid());
         var assigned=await send(client,HttpMethod.Get,PoRoot+"/principal-assigned-reviews?page=1&pageSize=25",fixture.PoApprover);
@@ -58,7 +62,7 @@ internal static partial class PrincipalApprovalHttpVerification
         var issuedId=ackView.GetProperty("issuedVersionId").GetGuid();
         var acknowledged=await send(client,HttpMethod.Post,orderPath+"/principal-acknowledgment",fixture.PoAck,new{
             expectedOrderVersion=issued.GetProperty("version").GetInt64(),issuedVersionId=issuedId,outcome="Accepted",channel="ManualRecord",
-            supplierReference="PRIVATE_SERVICE_MANUAL_ACK",evidenceReference="PRIVATE_SERVICE_SUPPLIER_REFERENCE",observedAt=DateTimeOffset.UtcNow},HttpStatusCode.OK,Guid.NewGuid());
+            supplierReference="PRIVATE_SERVICE_MANUAL_ACK"+suffix,evidenceReference="PRIVATE_SERVICE_SUPPLIER_REFERENCE"+suffix,observedAt=DateTimeOffset.UtcNow},HttpStatusCode.OK,Guid.NewGuid());
         Need(acknowledged.GetProperty("status").GetString()=="Issued"&&!acknowledged.GetProperty("supplierSendPerformed").GetBoolean(),
             "Manual service acknowledgment incorrectly claimed a supplier dispatch.");
         await using var db=fixture.Procurement();var line=await db.PurchaseOrderLines.SingleAsync(x=>x.PurchaseOrderId==orderId);
