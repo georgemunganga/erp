@@ -1,0 +1,31 @@
+{
+  "status": "GENUINE_EF_GENERATED_AND_INSTALLED_SOURCE_ONLY",
+  "migrationId": "20261024224934_P35ContractInternalReview",
+  "generationSource": "2ec824637f699352a47d41c5ebf9fb5792e1be31",
+  "genuineFilesSha256": {
+    "20261024224934_P35ContractInternalReview.Designer.cs": "a36be25ea620a085219d649c17b4c5be9fd0402bf003cd7c4ceb1b8680555516",
+    "20261024224934_P35ContractInternalReview.cs": "413bb52d76e32203933bd9af569cbebe69b6b0a48483adc6a08b3200311a9509",
+    "ProcurementDbContextModelSnapshot.cs": "112422f34b1262c96c50d6365cf16c9b7a531163689e7ed6f57f7eb15b932a00"
+  },
+  "newTables": [
+    "contract_review_policy_identity",
+    "contract_review_submissions",
+    "contract_review_corrections",
+    "contract_review_votes",
+    "contract_review_command_receipts"
+  ],
+  "foreignKeys": 12,
+  "checks": 5,
+  "retainedAlternateKey": "supplier_contract_versions.ak_p35_contract_version_owner",
+  "onlyChangedExistingSnapshotEntity": "SupplierContractVersion: additive alternate key",
+  "rawInstallCommit": "9ddd9f9a",
+  "separateDownGuardOverlayCommit": "46ac2cde",
+  "retainedEvidenceDowngradeGuard": "P35ContractReviewGuards.BeforeDownSql first in Down; ACCESS EXCLUSIVE five tables and55000 if any retained row",
+  "designerAndSnapshotHandEdited": false,
+  "fullHostDomainValidationPending": true,
+  "privateSchemaRoundtripPending": true,
+  "populatedDownVetoPending": true,
+  "runtimeAndBrowserPending": true,
+  "featureEnabled": false,
+  "productionTouched": false
+}
