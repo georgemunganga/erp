@@ -1,0 +1,9 @@
+# P32 RFQ commercial readiness source checkpoint
+
+The provider checks the execution connection inside the existing serializable Procurement/Core transaction. It requires the separate `Procurement:RfqCommercialRounds:Enabled` option, actual P25 Core approval read readiness, P29 source-draft read readiness, P30 publication read readiness, and the owning Core document-use schema. No employee or worker record is required for a current Core principal.
+
+The physical manifest pins the **15 new P32 tables**, all 15 exact PostgreSQL 17 CHECK definitions, nine authored ownership FKs, and three parent alternate keys. Its source is the private owner Up/Down/Up catalog capture `procurement-p32-private-schema-prep-20261024_run02/p32-up-first.private.json`, SHA-256 `d1f81e321a32db39ea3cda566d4fe0fa1771ba6526205ad278a2fccb08016774`, whose successful result is SHA-256 `a8856279163e0f63cf7b0697ae76f4bd1a3a7f03804f5a33dec5e59f88855696`. The separate P32 policy identity capture is retained in `procurement-p32-readiness-capture-prep-20261024_run01`; that result is SHA-256 `5a5496a90a50e76cba5349065a89706cf1b4e95f304debe48b5c8a242de42801`.
+
+Reads require SELECT for the exact P32 and retained parent tables. Writes additionally require P32 INSERT, draft-head UPDATE, shared Core case/stage/assignment transitions, append-only Core decision, and Procurement audit/outbox INSERT. Immutable P32 evidence, Core decisions, and audit/outbox reject any column UPDATE as well as DELETE/TRUNCATE. The provider rejects elevated or owner-connected identities and cannot grant a business action. The route still checks current Core permission, branch, aliases, policy, source, document purpose and idempotent receipts.
+
+This checkpoint does not activate the feature or prove finite grants in a live execution role. Host tests are authored but not run here. A separate physical role negative, real HTTP workflow, and independent owner readback remain required before release.
