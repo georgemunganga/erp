@@ -81,7 +81,7 @@ internal static class ProcurementPrincipalInvoiceExposureReader
         var goods = await db.GoodsReceipts.IgnoreQueryFilters().AsNoTracking()
             .CountAsync(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
                 && x.PurchaseOrderId == orderId, ct);
-        var services = await (from accepted in db.ServiceAcceptances.IgnoreQueryFilters().AsNoTracking()
+        var serviceReceiptCount = await (from accepted in db.ServiceAcceptances.IgnoreQueryFilters().AsNoTracking()
             join line in db.PurchaseOrderLines.IgnoreQueryFilters().AsNoTracking()
                 on new { accepted.TenantId, accepted.LegalEntityId, Id = accepted.PurchaseOrderLineId }
                 equals new { line.TenantId, line.LegalEntityId, line.Id }
@@ -145,7 +145,7 @@ internal static class ProcurementPrincipalInvoiceExposureReader
         }
         return PrincipalInvoiceExposureEvidence.Reconstruct(context, exposure, owned,
             claims.Length, legacyAllocations, legacyMatches, credits,
-            checked(goods + services), now);
+            checked(goods + serviceReceiptCount), now);
     }
 
     internal static async Task<IReadOnlyDictionary<Guid, string>> CurrentDocumentHashes(
