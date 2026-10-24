@@ -13,6 +13,14 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         try
         {
+            if (IsContractReviewPolicy(policy.PolicyKey))
+            {
+                var options = http.RequestServices.GetService<ProcurementContractReviewOptions>();
+                var readiness = http.RequestServices.GetService<IProcurementContractReviewSchemaReadiness>();
+                if (options is not { Enabled: true, ExecutionDatabaseConfigured: true } || readiness is null
+                    || !await readiness.CanRecordAsync(db, ct)) return false;
+                _ = await ContractPolicyAuthor(db, organizationDb, scope, policy, ct);
+            }
             if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
             {
                 await RequireSourcingIdentitySchema(http, db, ct);
@@ -30,6 +38,7 @@ public static partial class ProcurementPolicyDraftRoutes
         }
         catch (SourcingIdentityProblem) { return false; }
         catch (OperationalIdentityProblem) { return false; }
+        catch (InvalidOperationException error) when (error.Message.StartsWith("ContractReviewPolicy", StringComparison.Ordinal)) { return false; }
         catch (InvalidOperationException error) when (error.Message.StartsWith("OperationalPolicy", StringComparison.Ordinal)
             && !ProcurementPostgresFailures.IsStoreFailure(error)) { return false; }
     }

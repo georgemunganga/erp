@@ -47,6 +47,8 @@ public static partial class ProcurementPolicyDraftRoutes
         }
         catch (Exception error) when (error is not OperationCanceledException)
         { return Problem("policy-storage-unavailable", "Policy storage is unavailable. No change was saved.", 503); }
+        if (IsContractReviewPolicy(key))
+            return await RunContractReviewPolicyMutation(id, db, scope, http, ct, next);
         if (!IsOperationalIdentityPolicy(key)) return await next(originalCore);
         if (key == ManualPaymentReviewPolicyRules.PolicyKey
             && (http.RequestServices.GetService<IProcurementManualPaymentGovernanceReadiness>() is not { } payments

@@ -45,6 +45,14 @@ public static partial class ProcurementPolicyDraftRoutes
 
     private static IResult ValidateRules(PolicyValidationRequest input)
     {
+        if (ProcurementContractReviewPolicyRules.IsDocument(input.RulesJson))
+        {
+            var draftIssues = ProcurementContractReviewPolicyRules.Validate(input.RulesJson, draft: true);
+            var reviewIssues = ProcurementContractReviewPolicyRules.Validate(input.RulesJson);
+            return Results.Ok(new { isValid = draftIssues.Count == 0, issues = draftIssues,
+                reviewConfigurationComplete = reviewIssues.Count == 0, reviewIssues,
+                canPublish = false, isAuthority = false });
+        }
         if (PrincipalRfqCommercialRoundPolicyRules.IsDocument(input.RulesJson))
         {
             var issues = PrincipalRfqCommercialRoundPolicyRules.Validate(input.RulesJson);
@@ -78,6 +86,7 @@ public static partial class ProcurementPolicyDraftRoutes
 
     internal static IReadOnlyList<PolicyRuleIssue> PublicationIssues(PolicyVersion policy) => policy.PolicyKey switch
     {
+        ProcurementContractReviewPolicyRules.PolicyKey => ProcurementContractReviewPolicyRules.Validate(policy.RulesJson),
         PrincipalRfqCommercialRoundPolicyRules.PolicyKey => PrincipalRfqCommercialRoundPolicyRules.Validate(policy.RulesJson),
         ManualPaymentReviewPolicyRules.PolicyKey => ManualPaymentReviewPolicyRules.Validate(policy.RulesJson),
         InvoiceRetainedUnitReview.ReviewPolicyKey => InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson)
@@ -93,6 +102,10 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.PolicyKey == ProcurementContractReviewPolicyRules.PolicyKey) return Results.Ok(new
+        { policyId = policy.Id, isAuthority = false, canPublish = false,
+            status = "ContractReviewRequiresNamedCoreAssignmentsAndRetainedTerms",
+            issues = ProcurementContractReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == PrincipalRfqCommercialRoundPolicyRules.PolicyKey)
             return Results.Ok(new { policyId = policy.Id, isAuthority = false,
                 status = "CommercialRoundRequiresPreparedPlanAndIndependentCoreCase",
@@ -119,9 +132,29 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HttpContext http, CancellationToken ct)
     {
         var normalized = key?.Trim().ToUpperInvariant();
-        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING" or "MANUAL_PAYMENT_REVIEW" or PrincipalRfqCommercialRoundPolicyRules.PolicyKey))
+        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING" or "MANUAL_PAYMENT_REVIEW"
+            or ProcurementContractReviewPolicyRules.PolicyKey or PrincipalRfqCommercialRoundPolicyRules.PolicyKey))
             return Problem("validation-failed", "Choose purchase requests, purchase orders, receiving, invoice matching or sourcing.", 422);
         var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        if (normalized == ProcurementContractReviewPolicyRules.PolicyKey)
+        {
+            var options = http.RequestServices.GetService<ProcurementContractReviewOptions>();
+            var readiness = http.RequestServices.GetService<IProcurementContractReviewSchemaReadiness>();
+            if (options is not { Enabled: true, ExecutionDatabaseConfigured: true } || readiness is null
+                || !await readiness.CanRecordAsync(db, ct))
+                return Problem("contract-review-unavailable", "Contract review settings are not ready.", 503);
+            var policies = await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == normalized
+                    && x.State == "Published" && x.EffectiveFrom <= instant
+                    && (x.EffectiveTo == null || x.EffectiveTo > instant))
+                .OrderByDescending(x => x.PolicyVersionNumber).Take(2).ToArrayAsync(ct);
+            if (policies.Length != 1) return Results.Ok(new { status = policies.Length == 0 ? "MissingPolicy" : "AmbiguousPolicy",
+                isAuthority = false, policy = (object?)null, evaluatedAt = instant });
+            // The owned same-save provenance is inspected by the future contract
+            // review command adapter. Effective metadata alone grants no review.
+            return Results.Ok(new { status = "CandidateOnly", isAuthority = false,
+                policy = (object)new { Id = policies[0].Id, PolicyVersionNumber = policies[0].PolicyVersionNumber,
+                    EffectiveFrom = policies[0].EffectiveFrom, EffectiveTo = policies[0].EffectiveTo }, evaluatedAt = instant });
+        }
         if (normalized == SourcingPublicationPolicyRules.PolicyKey)
         {
             await RequireSourcingIdentitySchema(http, db, ct);
@@ -237,6 +270,8 @@ public static partial class ProcurementPolicyDraftRoutes
         var issue = Validate(input);
         if (issue is not null) return Problem("validation-failed", issue, 422);
         var key = input.PolicyKey!.Trim().ToUpperInvariant();
+        if (IsContractReviewPolicy(key) && ProcurementContractReviewPolicyRules.Validate(input.RulesJson, draft: true).Count != 0)
+            return Problem("invalid-contract-review-draft", "Use named contract reviewers and an explicit stage mode.", 422);
         if (await CommercialPolicyActor(key, organizationDb, scope,
                 PrincipalRfqCommercialRoundPolicyRules.RequestAction, ct) is { } commercialDenied)
             return commercialDenied;
@@ -254,6 +289,15 @@ public static partial class ProcurementPolicyDraftRoutes
             EffectiveTo = input.EffectiveTo?.ToUniversalTime(),
             RulesJson = input.RulesJson!.Trim(),
         };
+        ProcurementPrincipalPeople.Person? contractCreator = null;
+        if (IsContractReviewPolicy(key))
+        {
+            var contractIssue = await CheckContractReviewCompanyRules(policy, organizationDb, scope, draft: true, ct: ct);
+            if (contractIssue is not null) return contractIssue;
+            contractCreator = await ContractPolicyActor(organizationDb, scope, "procurement-configuration-edit", ct);
+            policy.CreatedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
+            policy.CreatedBy = contractCreator.PrincipalId;
+        }
         if (key == SourcingPublicationPolicyRules.PolicyKey)
         {
             var sourcingIssue = await CheckSourcingCompanyRules(policy, db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
@@ -268,6 +312,10 @@ public static partial class ProcurementPolicyDraftRoutes
             policy.CreatedAt = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
         }
         db.AddScoped(policy);
+        if (contractCreator is not null)
+            db.AddScoped(ContractReviewPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(
+                policy, "Created", contractCreator.PrincipalId, contractCreator.EvidenceWorker(2),
+                1, policy.CreatedAt, schemaVersion: 2)));
         if (key == SourcingPublicationPolicyRules.PolicyKey)
         {
             var actor = await SourcingCurrentActor(organizationDb, scope, "procurement-configuration-edit", ct);
@@ -310,6 +358,14 @@ public static partial class ProcurementPolicyDraftRoutes
         if (issue is not null) return Problem("validation-failed", issue, 422);
         if (!string.Equals(policy.PolicyKey, input.Draft.PolicyKey!.Trim(), StringComparison.OrdinalIgnoreCase))
             return Problem("key-locked", "A policy key cannot be changed. Start another draft.", 409);
+        if (IsContractReviewPolicy(policy.PolicyKey))
+        {
+            _ = await ContractPolicyAuthor(db, organizationDb, scope, policy, ct);
+            var contractIssue = await CheckContractReviewCompanyRules(new PolicyVersion
+                { RulesJson = input.Draft.RulesJson!, PolicyKey = policy.PolicyKey },
+                organizationDb, scope, draft: true, ct: ct);
+            if (contractIssue is not null) return contractIssue;
+        }
         if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
         {
             await RequireSourcingIdentitySchema(http, db, ct);
@@ -377,13 +433,29 @@ public static partial class ProcurementPolicyDraftRoutes
     private static async Task<IResult> Retire(Guid id, DraftRetirement input,
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
+        string? key;
+        try { key = await db.PolicyVersions.AsNoTracking().Where(x => x.Id == id)
+            .Select(x => x.PolicyKey).SingleOrDefaultAsync(ct); }
+        catch (Exception error) when (error is not OperationCanceledException)
+        { return Problem("policy-storage-unavailable", "Policy storage is unavailable. No change was saved.", 503); }
+        return IsContractReviewPolicy(key)
+            ? await RunContractReviewPolicyMutation(id, db, scope, http, ct,
+                core => RetirePolicy(id, input, db, core, scope, http, ct))
+            : await RetirePolicy(id, input, db, organizationDb, scope, http, ct);
+    }
+
+    private static async Task<IResult> RetirePolicy(Guid id, DraftRetirement input,
+        ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
+    {
         IDbContextTransaction? transaction = null;
         try
         {
-            if (db.Database.IsRelational())
+            if (db.Database.IsRelational() && db.Database.CurrentTransaction is null)
                 transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
             if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+            if (IsContractReviewPolicy(policy.PolicyKey))
+                _ = await ContractPolicyAuthor(db, organizationDb, scope, policy, ct);
             if (await CommercialPolicyActor(policy.PolicyKey, organizationDb, scope,
                     PrincipalRfqCommercialRoundPolicyRules.RequestAction, ct) is { } commercialDenied)
                 return commercialDenied;
@@ -408,6 +480,9 @@ public static partial class ProcurementPolicyDraftRoutes
                 return Problem("validation-failed", "Enter a retirement reason of up to 1,000 characters.", 422);
             if (!await RetirableDrafts(db).AnyAsync(x => x.Id == id, ct))
                 return Problem("policy-retained", "Only an unused draft with no review or publication history can be retired.", 409);
+            if (IsContractReviewPolicy(policy.PolicyKey) && await db.ContractReviewPolicyIdentityRecords
+                    .AnyAsync(x => x.PolicyVersionId == id && x.Stage != "Created", ct))
+                return Problem("policy-retained", "A policy with review history cannot be retired.", 409);
             policy.State = "Retired";
             AddAudit(db, policy, scope.SubjectId, "DraftRetired", input.Reason.Trim());
             await db.SaveChangesAsync(ct);
@@ -440,6 +515,9 @@ public static partial class ProcurementPolicyDraftRoutes
             return Problem("not-author", "Only the draft author can send it for review.", 403);
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return Problem("validation-failed", "Enter a review note of up to 1,000 characters.", 422);
+        ContractAuthor? contractAuthor = null;
+        if (IsContractReviewPolicy(policy.PolicyKey))
+            contractAuthor = await ContractPolicyAuthor(db, organizationDb, scope, policy, ct);
         (SourcingPolicyIdentityEvidence Origin, ProcurementPrincipalPeople.Person Actor)? sourcingAuthor = null;
         if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
         {
@@ -456,6 +534,11 @@ public static partial class ProcurementPolicyDraftRoutes
         policy.ReviewRequestedAt = DateTimeOffset.UtcNow;
         policy.ReviewRequestedBy = scope.SubjectId;
         policy.ReviewReason = input.Reason.Trim();
+        if (contractAuthor is not null)
+            db.AddScoped(ContractReviewPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(
+                policy, "Submitted", contractAuthor.Actor.PrincipalId,
+                contractAuthor.Actor.EvidenceWorker(2), checked(policy.Version + 1),
+                policy.ReviewRequestedAt.Value, contractAuthor.Created, schemaVersion: 2)));
         if (sourcingAuthor is { } author)
             db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Submitted", author.Actor.PrincipalId,
                 author.Actor.EvidenceWorker(author.Origin.SchemaVersion), checked(policy.Version + 1), policy.ReviewRequestedAt.Value,
@@ -499,6 +582,9 @@ public static partial class ProcurementPolicyDraftRoutes
                 return Problem("effective-date", "Choose a future start date in a new draft before publication.", 422);
             var referenceIssue = await CheckCompanyRules(policy, db, organizationDb, scope, ct, "procurement-configuration-approve");
             if (referenceIssue is not null) return referenceIssue;
+            ContractReviewer? contractReviewer = null;
+            if (IsContractReviewPolicy(policy.PolicyKey))
+                contractReviewer = await ContractPolicyReviewer(db, organizationDb, scope, policy, ct);
             (SourcingPolicyIdentityEvidence Origin, SourcingPolicyIdentityEvidence Submitted, ProcurementPrincipalPeople.Person Actor)? sourcingReviewer = null;
             if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
             {
@@ -530,6 +616,8 @@ public static partial class ProcurementPolicyDraftRoutes
                 // automatic supersession, or turn a known conflict into a save-time 500.
                 if (key == SourcingPublicationPolicyRules.PolicyKey)
                     await VerifySourcingPublishedPolicyIdentity(db, overlaps[0], ct);
+                if (IsContractReviewPolicy(key))
+                    await ContractPolicyPublished(db, scope, overlaps[0], ct);
                 if (IsOperationalIdentityPolicy(key))
                     _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope, overlaps[0], ct);
                 // Close the prior open-ended period in the same transaction. Its original
@@ -542,6 +630,11 @@ public static partial class ProcurementPolicyDraftRoutes
             policy.PublishedAt = DateTimeOffset.UtcNow;
             policy.PublishedBy = scope.SubjectId;
             policy.PublicationReason = input.Reason.Trim();
+            if (contractReviewer is not null)
+                db.AddScoped(ContractReviewPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(
+                    policy, "Published", contractReviewer.Actor.PrincipalId,
+                    contractReviewer.Actor.EvidenceWorker(2), checked(policy.Version + 1),
+                    policy.PublishedAt.Value, contractReviewer.Created, contractReviewer.Submitted, schemaVersion: 2)));
             if (sourcingReviewer is { } reviewer)
                 db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Published", reviewer.Actor.PrincipalId,
                     reviewer.Actor.EvidenceWorker(reviewer.Origin.SchemaVersion), checked(policy.Version + 1), policy.PublishedAt.Value,
@@ -567,6 +660,8 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (IsContractReviewPolicy(policy.PolicyKey))
+            _ = await ContractPolicyReviewer(db, organizationDb, scope, policy, ct);
         if (await CommercialPolicyActor(policy.PolicyKey, organizationDb, scope,
                 PrincipalRfqCommercialRoundPolicyRules.ApprovalAction, ct) is { } commercialDenied)
             return commercialDenied;
@@ -600,6 +695,8 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
         CancellationToken ct, string receivingPermission = "procurement-configuration-edit")
     {
+        if (policy.PolicyKey == ProcurementContractReviewPolicyRules.PolicyKey)
+            return await CheckContractReviewCompanyRules(policy, organizationDb, scope, draft: false, ct: ct);
         if (policy.PolicyKey == PrincipalRfqCommercialRoundPolicyRules.PolicyKey)
             return await CheckCommercialCompanyRules(policy, organizationDb, scope,
                 receivingPermission, ct);
