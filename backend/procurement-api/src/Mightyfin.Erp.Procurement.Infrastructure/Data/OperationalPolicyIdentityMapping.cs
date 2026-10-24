@@ -48,7 +48,7 @@ public sealed partial class ProcurementDbContext
         b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PolicyVersionId, x.PolicyKey }, "ux_operational_policy_identity_published")
             .IsUnique().HasDatabaseName("ux_operational_policy_identity_published").HasFilter("stage = 'Published'");
         b.ToTable(t => t.HasCheckConstraint("ck_operational_policy_identity", """
-            schema_version IN (1,2) AND policy_key IN ('RECEIVING','INVOICE_MATCHING','INVOICE_UNIT_REVIEW','MANUAL_PAYMENT_REVIEW') AND (policy_key <> 'MANUAL_PAYMENT_REVIEW' OR schema_version=2)
+            schema_version IN (1,2) AND policy_key IN ('RECEIVING','INVOICE_MATCHING','INVOICE_UNIT_REVIEW','MANUAL_PAYMENT_REVIEW','SOURCING_COMMERCIAL_ROUND') AND (policy_key NOT IN ('MANUAL_PAYMENT_REVIEW','SOURCING_COMMERCIAL_ROUND') OR schema_version=2)
             AND id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND policy_version_number>0 AND policy_record_version_at_action>0
@@ -242,7 +242,8 @@ public sealed partial class ProcurementDbContext
         if (rows.Length != 1) throw new InvalidOperationException("OperationalPolicyHistoricalIdentityMissing");
         return rows[0];
     }
-    private static bool OperationalIdentityPolicyKey(string key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "MANUAL_PAYMENT_REVIEW";
+    private static bool OperationalIdentityPolicyKey(string key) => key is "RECEIVING" or "INVOICE_MATCHING"
+        or "INVOICE_UNIT_REVIEW" or "MANUAL_PAYMENT_REVIEW" or PrincipalRfqCommercialRoundPolicyRules.PolicyKey;
     private bool PreserveOperationalPolicyCreationMetadata(ProcurementRecord row) => row is OperationalPolicyIdentityRecord
         || row is PolicyVersion policy && OperationalIdentityPolicyKey(policy.PolicyKey)
             && ChangeTracker.Entries<OperationalPolicyIdentityRecord>().Any(x => x.State == EntityState.Added

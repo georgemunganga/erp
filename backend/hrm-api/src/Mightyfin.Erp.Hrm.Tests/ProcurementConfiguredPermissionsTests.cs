@@ -17,6 +17,21 @@ public sealed class ProcurementConfiguredPermissionsTests
     }
 
     [Theory]
+    [InlineData("procurement-sourcing-commercial-configure")]
+    [InlineData("procurement-sourcing-commercial-approve")]
+    [InlineData("procurement-sourcing-offer-submit")]
+    [InlineData("procurement-sourcing-round-close")]
+    [InlineData("procurement-sourcing-round-open")]
+    public void P32_commercial_action_is_catalogued_without_any_bootstrap_grant(string action)
+    {
+        Assert.Empty(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.BootstrapGrants[action]);
+        Assert.Contains(action, JobsAdminServiceImpl.PermissionKeys);
+        Assert.DoesNotContain(action, Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.ForRole("procurement_manager"));
+        Assert.False(ProcurementPermissions.Allows(action,
+            [new Claim(ClaimTypes.Role, "procurement_manager")]));
+    }
+
+    [Theory]
     [InlineData("employee")][InlineData("manager")][InlineData("procurement_buyer")]
     [InlineData("procurement_manager")][InlineData("hr_admin")]
     public void Governed_sourcing_actions_have_no_ordinary_bootstrap_or_legacy_permission_alias(string role)
