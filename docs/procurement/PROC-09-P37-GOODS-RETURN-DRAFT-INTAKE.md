@@ -113,3 +113,13 @@ Procurement owns P37 Draft; P30 owns accepted goods and immutable source proof. 
 ## 28. Open Decisions and Assumptions
 
 Return submit/approval, reservation, physical carrier handoff, supplier notice, credit and replacement rules are separate future slices. No P37 Draft can be interpreted as approval or returned quantity.
+
+## Schema and activation proposal
+
+The genuine EF migration must add only three typed tables: `principal_goods_return_drafts`, `principal_goods_return_revisions`, and `principal_goods_return_receipts`. Composite tenant/entity/id foreign keys bind the head to the P30 receiving source, Acceptance fact, Goods receipt and issued PO line/version; revisions and command receipts bind to their head. The head's current revision ID and number also need an exact deferred same-transaction database check, because the new head and first revision are inserted together. Verify the actual generated migration and PostgreSQL catalog rather than hand editing its designer or snapshot.
+
+The first `Down` statement must raise SQLSTATE `55000` if **any** P37 head, revision or receipt exists, including cancelled drafts; only an empty P37 schema may downgrade. Runtime Record permissions must be finite: scoped SELECT on the three new tables and specific P30 read columns, INSERT on all three, UPDATE only mutable head revision/state/version/audit columns, with no DELETE/TRUNCATE and no supplier, Inventory or Finance write. The separate execution connection is required to have the same owner transaction and declared finite privileges. The route remains unregistered and `principalGoodsReturnDrafts=false` until actual migration, catalog/ACL capture, native workerless Core HTTP proof and independent owner readback pass. Its current source checkpoint is not a live capability.
+
+## Original UI reuse plan
+
+The imported Receiving detail already presents accepted Goods facts and source line context. Add an optional “Request return” action only when a future server detail candidate and P37 capability both permit it; use the existing editor shell, exact quantity control and detail tabs. Present the Draft in a scoped directory with reason and source links. Do not reinterpret the legacy `SupplierReturn` row or add local demo state. This UI adaptation follows backend acceptance and is outside this source checkpoint.
