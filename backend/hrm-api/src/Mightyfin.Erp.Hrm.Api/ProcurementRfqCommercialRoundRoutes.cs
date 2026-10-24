@@ -18,6 +18,8 @@ public static partial class ProcurementSourcingExecutionRoutes
                 PrincipalRfqCommercialRoundPolicyRules.ApprovalAction);
         group.MapPost("/{eventId:guid}/commercial-rounds/{id:guid}/offers", CommercialSubmitOffer)
             .RequireAuthorization(PrincipalRfqSealedManualOffers.SubmitAction);
+        group.MapPost("/commercial-rounds/{id:guid}/close", CommercialClose)
+            .RequireAuthorization(PrincipalRfqSealedManualOffers.CloseAction);
         group.MapGet("/commercial-rounds", CommercialRounds).RequireAuthorization();
         group.MapGet("/commercial-rounds/{id:guid}", CommercialRound).RequireAuthorization();
         group.MapGet("/commercial-round-reviews/assigned", CommercialRoundAssigned)

@@ -178,6 +178,64 @@ public static partial class ProcurementSourcingExecutionRoutes
         return (set.Id, set.SelectionDigest, row.version.Sha256);
     }
 
+    private sealed class RetainedOfferUseAccess(ProcurementRequestScope scope,
+        PrincipalRfqCommercialOfferSubmissionRecord offer, RfqPrincipalActor actor,
+        Guid useKey) : IDocumentUseAccess
+    {
+        public Task RequireAsync(DocumentOwner owner, DocumentUseReference source,
+            DocumentUseOperation operation, IReadOnlyList<Guid> versionIds,
+            CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (scope.SubjectId != actor.PrincipalId || scope.TenantId != offer.TenantId
+                || scope.LegalEntityId != offer.LegalEntityId
+                || !actor.Permissions.Contains(PrincipalRfqSealedManualOffers.CloseAction)
+                || (actor.SelectedBranchId is { } selected && selected != offer.BranchId)
+                || (!actor.OrganisationWide && !actor.Branches.Contains(offer.BranchId))
+                || owner != new DocumentOwner("procurement", "sourcing_event",
+                    offer.SourcingEventId)
+                || source != new DocumentUseReference(useKey, "procurement",
+                    "sourcing_commercial_offer", offer.SupplierBidId,
+                    offer.DraftRevision, DocumentUseKind.Publication)
+                || operation != DocumentUseOperation.Read
+                || versionIds.Count != 1 || versionIds[0] != offer.OriginalDocumentVersionId)
+                throw new UnauthorizedAccessException("RfqCommercialOfferDocumentReadDenied");
+            return Task.CompletedTask;
+        }
+    }
+
+    private static async Task RequireRetainedOfferOriginalUseAsync(
+        DocumentDbContext documents, ProcurementRequestScope scope,
+        PrincipalRfqCommercialOfferSubmissionRecord offer,
+        PrincipalRfqCommercialCommandReceipt originalReceipt,
+        RfqPrincipalActor actor, CancellationToken ct)
+    {
+        var owner = new DocumentOwner("procurement", "sourcing_event",
+            offer.SourcingEventId);
+        var source = new DocumentUseReference(originalReceipt.CommandKey, "procurement",
+            "sourcing_commercial_offer", offer.SupplierBidId,
+            offer.DraftRevision, DocumentUseKind.Publication);
+        var set = await documents.UseSets.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.Id == offer.OriginalDocumentUseSetId && x.TenantId == scope.TenantId
+            && x.LegalEntityId == scope.LegalEntityId, ct);
+        if (set is null || set.OwnerModule != owner.Module || set.OwnerType != owner.Type
+            || set.OwnerId != owner.Id || set.SourceModule != source.Module
+            || set.SourceRecordType != source.RecordType
+            || set.SourceRecordId != source.RecordId
+            || set.SourceRevision != source.Revision || set.UseKey != source.Key
+            || set.Kind != source.Kind || set.SelectionCount != 1
+            || set.SelectionDigest != offer.OriginalDocumentSelectionDigest
+            || set.CreatedBy != offer.RecorderPrincipalId)
+            throw new InvalidOperationException("RfqCommercialOfferOriginalUseChanged");
+        var pins = await EfDocumentUsePinStore.ReadRetainedAsync(documents, scope,
+            new RetainedOfferUseAccess(scope, offer, actor, originalReceipt.CommandKey),
+            owner, source, ct);
+        if (pins.Count != 1 || pins[0].OwnerId != offer.SourcingEventId
+            || pins[0].VersionId != offer.OriginalDocumentVersionId
+            || pins[0].Sha256 != offer.OriginalDocumentSha256)
+            throw new InvalidOperationException("RfqCommercialOfferOriginalUseChanged");
+    }
+
     /// <summary>Future Prepare composition only, NOT called by ordinary Draft Save.
     /// Caller must use ExecuteWithSourcingDocumentsAsync, load source/current people,
     /// stage a successor owned revision+receipt and verify actual published controls.
