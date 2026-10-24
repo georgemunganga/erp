@@ -577,7 +577,8 @@ public sealed partial class ProcurementDbContext
     {
         try
         {
-            if (opening.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(opening.SnapshotJson))
+            if (opening.SnapshotSha256 != ProcurementEvidenceEncoding.Digest(opening.SnapshotJson)
+                || ProcurementEvidenceEncoding.PolicyJsonDigest(opening.SnapshotJson).Length != 64)
                 return false;
             using var document = JsonDocument.Parse(opening.SnapshotJson);
             var pin = document.RootElement;
