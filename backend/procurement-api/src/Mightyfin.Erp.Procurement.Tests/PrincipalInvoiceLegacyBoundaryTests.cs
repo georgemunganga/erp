@@ -65,20 +65,35 @@ public sealed class PrincipalInvoiceLegacyBoundaryTests
             [new PrincipalInvoiceClaim { SupplierInvoiceLineId = invoiceLine, PurchaseOrderLineId = orderLine,
                 Quantity = 1m, NetAmount = 2.0002m, TaxAmount = 0.0001m }]));
         Assert.False(ProcurementDbContext.ClaimBatchMatchesFrozenComparison(comparison, [claim, claim]));
+        // decimal.TryParse silently rounds this lexeme to 1; the frozen wire
+        // value is more precise than the owned quantity and must fail closed.
+        var overpreciseComparison = new PrincipalInvoiceComparison { EvidenceJson =
+            JsonSerializer.Serialize(new { lines = new[] {
+                lines[0] with { QuantityExact = "1.00000000000000000000000000001" } } },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)) };
+        Assert.False(ProcurementDbContext.ClaimBatchMatchesFrozenComparison(overpreciseComparison, [claim]));
     }
 
     [Fact]
     public void A_new_claim_batch_must_use_the_actual_advanced_exposure_cursor()
     {
-        var exposure = new PrincipalInvoiceExposureState { Id = Guid.NewGuid(), Sequence = 3 };
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new Scope("p31-cursor", Guid.NewGuid(), Guid.NewGuid().ToString("D")));
+        var exposure = new PrincipalInvoiceExposureState { Id = Guid.NewGuid(), Sequence = 2 };
+        db.PrincipalInvoiceExposureStates.Attach(exposure);
         var comparison = new PrincipalInvoiceComparison { Id = Guid.NewGuid(), ExposureStateId = exposure.Id };
         var claim = new PrincipalInvoiceClaim { ComparisonId = comparison.Id,
             ExposureStateId = exposure.Id, ExposureSequence = 1 };
-        Assert.False(ProcurementDbContext.ClaimBatchFollowsExposure(comparison, exposure, [claim]));
+        Assert.False(ProcurementDbContext.ClaimBatchFollowsExposure(comparison, db.Entry(exposure), [claim]));
         claim = new PrincipalInvoiceClaim { ComparisonId = comparison.Id,
             ExposureStateId = exposure.Id, ExposureSequence = 3 };
-        Assert.True(ProcurementDbContext.ClaimBatchFollowsExposure(comparison, exposure, [claim]));
-        Assert.False(ProcurementDbContext.ClaimBatchFollowsExposure(comparison, exposure,
+        // A previously Verified but unchanged cursor cannot authorize another claim.
+        Assert.False(ProcurementDbContext.ClaimBatchFollowsExposure(comparison, db.Entry(exposure), [claim]));
+        exposure.Sequence = 3;
+        db.ChangeTracker.DetectChanges();
+        Assert.True(ProcurementDbContext.ClaimBatchFollowsExposure(comparison, db.Entry(exposure), [claim]));
+        Assert.False(ProcurementDbContext.ClaimBatchFollowsExposure(comparison, db.Entry(exposure),
             [claim, new PrincipalInvoiceClaim { ComparisonId = comparison.Id,
                 ExposureStateId = exposure.Id, ExposureSequence = 2 }]));
     }

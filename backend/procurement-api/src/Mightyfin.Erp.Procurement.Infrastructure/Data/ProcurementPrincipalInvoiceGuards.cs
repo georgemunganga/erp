@@ -1,6 +1,6 @@
 using System.Text.Json;
-using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -379,10 +379,11 @@ public sealed partial class ProcurementDbContext
             var exposure = PrincipalInvoiceExposureStates.Local.SingleOrDefault(x => x.Id == claim.ExposureStateId)
                 ?? PrincipalInvoiceExposureStates.SingleOrDefault(x => x.Id == claim.ExposureStateId);
             var batch = added.OfType<PrincipalInvoiceClaim>().Where(x => x.ComparisonId == claim.ComparisonId).ToArray();
+            var exposureEntry = exposure is null ? null : Entry(exposure);
             var mappingLine = PrincipalInvoiceMappingLines.SingleOrDefault(x => x.MappingVersionId == claim.MappingVersionId
                 && x.SupplierInvoiceLineId == claim.SupplierInvoiceLineId);
             if (comparison is null || comparison.Outcome != "Compared"
-                || exposure is null || !ClaimBatchFollowsExposure(comparison, exposure, batch)
+                || exposure is null || !ClaimBatchFollowsExposure(comparison, exposureEntry, batch)
                 || claim.SupplierInvoiceId != comparison.SupplierInvoiceId
                 || claim.MappingVersionId != comparison.MappingVersionId
                 || claim.PurchaseOrderId != comparison.PurchaseOrderId
@@ -521,16 +522,14 @@ public sealed partial class ProcurementDbContext
                 || expected.Select(x => x.InvoiceLineId).Distinct().Count() != expected.Length
                 || claims.Select(x => x.SupplierInvoiceLineId).Distinct().Count() != claims.Count)
                 return false;
-            const NumberStyles numbers = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
             foreach (var line in expected)
             {
                 var claim = claims.SingleOrDefault(x => x.SupplierInvoiceLineId == line.InvoiceLineId);
                 if (claim is null || claim.PurchaseOrderLineId != line.PurchaseOrderLineId
                     || claim.PrincipalAcceptanceFactId != line.PrincipalAcceptanceFactId
-                    || !decimal.TryParse(line.QuantityExact, numbers, CultureInfo.InvariantCulture, out var quantity)
-                    || !decimal.TryParse(line.NetExact, numbers, CultureInfo.InvariantCulture, out var net)
-                    || !decimal.TryParse(line.TaxExact, numbers, CultureInfo.InvariantCulture, out var tax)
-                    || claim.Quantity != quantity || claim.NetAmount != net || claim.TaxAmount != tax)
+                    || ExactDecimalJsonCodec.Parse(line.QuantityExact, 18, 4) != claim.Quantity
+                    || ExactDecimalJsonCodec.Parse(line.NetExact, 38, 8) != claim.NetAmount
+                    || ExactDecimalJsonCodec.Parse(line.TaxExact, 38, 8) != claim.TaxAmount)
                     return false;
             }
             return true;
@@ -540,8 +539,13 @@ public sealed partial class ProcurementDbContext
     }
 
     internal static bool ClaimBatchFollowsExposure(PrincipalInvoiceComparison comparison,
-        PrincipalInvoiceExposureState exposure, IReadOnlyList<PrincipalInvoiceClaim> claims)
-        => comparison.ExposureStateId == exposure.Id && claims.Count > 0
+        EntityEntry<PrincipalInvoiceExposureState>? exposureEntry,
+        IReadOnlyList<PrincipalInvoiceClaim> claims)
+        => exposureEntry is { State: EntityState.Modified }
+            && exposureEntry.Entity.Sequence == checked(exposureEntry.OriginalValues.GetValue<long>(
+                nameof(PrincipalInvoiceExposureState.Sequence)) + 1)
+            && comparison.ExposureStateId == exposureEntry.Entity.Id && claims.Count > 0
             && claims.All(x => x.ComparisonId == comparison.Id
-                && x.ExposureStateId == exposure.Id && x.ExposureSequence == exposure.Sequence);
+                && x.ExposureStateId == exposureEntry.Entity.Id
+                && x.ExposureSequence == exposureEntry.Entity.Sequence);
 }
