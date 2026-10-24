@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 1,
+  "status": "CONSOLIDATED_SOURCE_AND_ACCEPTANCE_SNAPSHOT_NOT_MODULE_COMPLETION",
+  "snapshotUtc": "2026-10-24T19:28:07+00:00",
+  "factsBasis": "Coordinator-reported checkpoint plus linked source, release records and retained clean22 result. Running work is not accepted evidence.",
+  "mainBaselineBeforeThisDocsChange": "e451a976063f6a5ccb60b86fd5eb22e790e04330",
+  "production": {
+    "schemaMilestone": "P24",
+    "changedByThisRecord": false,
+    "newDeploymentAuthorized": false
+  },
+  "moduleComplete": false,
+  "interpretation": {
+    "sourcePresent": "Authored routes/models/UI may exist without accepted runtime behavior.",
+    "privateAccepted": "Only the named private workflow and its pinned producer/application are accepted; not production deployment.",
+    "buildTestsPassed": "Build/test result does not substitute for real HTTP, cookie, scanner, owner or migration gates.",
+    "capabilityMarkers": "A marker or configuration flag is not proof that a whole workflow is implemented or accepted.",
+    "boundaries": "Core owns identity, organization, permissions, documents and approval execution. Procurement owns commercial decisions/evidence. Inventory, Assets and future Finance own their ledgers."
+  },
+  "milestones": [
+    {
+      "id": "P30",
+      "state": "PARTIALLY_ACCEPTED_PRIVATE_WORKFLOWS_RELEASE_HELD",
+      "pr": "https://github.com/georgemunganga/erp/pull/50",
+      "clean22": {
+        "source": "64c78212908dcb071c602f131088a3d010b91e1d",
+        "domainPassed": 1477,
+        "hostPassed": 1195,
+        "focusedHostPassed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "resultSha256": "b95ae499b28ee107370449d27ff5fb6bc21f05f44b509de52ac76fb8de859fe7",
+        "runtimeProof": false
+      },
+      "privateWorkflows": [
+        {
+          "workflow": "principal_purchase_order",
+          "state": "PASS_API_NORMAL_COOKIE_AND_OWNER",
+          "actualHttpRequests": 105,
+          "cookieTestsPassed": 1,
+          "employeeRecordsCreated": 0,
+          "compiledProbeSource": "2be6a8bdec70062eb7bec23d4dfda81d87f630ed",
+          "evidence": "https://github.com/georgemunganga/erp/blob/a7d98afc/docs/procurement/release/P30-PO-ACCEPTANCE-20261024.json"
+        },
+        {
+          "workflow": "goods_receiving",
+          "state": "PASS_NATIVE_NORMAL_COOKIE_AND_OWNER",
+          "nativeHttpRequests": 183,
+          "cookieTestsPassed": 1,
+          "applicationSource": "3942e1823bf87dbe201d16ef4feed24e8db34c4a",
+          "businessResponseMocks": false,
+          "browserIdentityHeaders": false,
+          "evidence": "https://github.com/georgemunganga/erp/blob/a7d98afc/docs/procurement/release/P30-RECEIVING-NORMAL-COOKIE-VERIFICATION-20261024.json"
+        },
+        {
+          "workflow": "service_completion",
+          "state": "PASS_NATIVE_NORMAL_COOKIE_AND_OWNER",
+          "nativeHttpRequests": 183,
+          "cookieTestsPassed": 1,
+          "cookieSeconds": 42.3,
+          "applicationSource": "3942e1823bf87dbe201d16ef4feed24e8db34c4a",
+          "exactQuantity": "0.5",
+          "exactNetValue": "0.00005",
+          "evidence": "https://github.com/georgemunganga/erp/blob/a7d98afc/docs/procurement/release/P30-SERVICE-COOKIE-ACCEPTANCE-20261024.json"
+        },
+        {
+          "workflow": "rfq_publication_and_manual_quote",
+          "state": "NOT_ACCEPTED",
+          "latestAttempt": "RFQ cookie04",
+          "observed": "Open passed; Decide request83 returned generic409. Cause/complete correction journey not accepted.",
+          "nextGate": "Diagnose actual retained failure, fix/review, then fresh full native/cookie/owner run. Preserve failed attempts."
+        }
+      ],
+      "sourceRoutes": [
+        "https://github.com/georgemunganga/erp/blob/64c78212908dcb071c602f131088a3d010b91e1d/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+        "https://github.com/georgemunganga/erp/blob/64c78212908dcb071c602f131088a3d010b91e1d/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+        "https://github.com/georgemunganga/erp/blob/64c78212908dcb071c602f131088a3d010b91e1d/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs"
+      ],
+      "scopeLimit": "The passing cookies use their recorded producer/application sources; clean22 is a separate newer build checkpoint. No supplier dispatch, Inventory/Asset posting or Finance posting is certified."
+    },
+    {
+      "id": "P31",
+      "state": "PRIVATE_EMPTY_SCHEMA_AND_PHYSICAL_CAPTURE_ACCEPTED_RUNTIME_HELD",
+      "pr": "https://github.com/georgemunganga/erp/pull/51",
+      "source": "0d9a980b3ae2d36cacc09855f0125416915721f5",
+      "schema": {
+        "newTables": 13,
+        "mappedForeignKeys": 41,
+        "checks": 13,
+        "parentAlternateKeys": 3,
+        "emptyUpDownUp": "PASS",
+        "populatedDownVeto": "PENDING"
+      },
+      "physicalCapture": "PASS_GENUINE_READ_ONLY_PG17_CAPTURE_CONSTANTS",
+      "captureEvidence": "https://github.com/georgemunganga/erp/blob/0d9a980b3ae2d36cacc09855f0125416915721f5/docs/procurement/release/P31-PHYSICAL-CAPTURE-20261024.json",
+      "documentProof": {
+        "pr": "https://github.com/georgemunganga/erp/pull/66",
+        "source": "33da27c0a7b3aa657e179d462bd1c0a0473d9d23",
+        "mergedIntoHeldP31": true,
+        "state": "SOURCE_ONLY_NOT_EXECUTED",
+        "actualScannerProven": false,
+        "finiteGrantMatrixExecuted": false
+      },
+      "sourceRoutes": [
+        "https://github.com/georgemunganga/erp/blob/0d9a980b3ae2d36cacc09855f0125416915721f5/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceSourceRoutes.cs",
+        "https://github.com/georgemunganga/erp/blob/0d9a980b3ae2d36cacc09855f0125416915721f5/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceReviewRoutes.cs",
+        "https://github.com/georgemunganga/erp/blob/0d9a980b3ae2d36cacc09855f0125416915721f5/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceReviewDocuments.cs",
+        "https://github.com/georgemunganga/erp/blob/0d9a980b3ae2d36cacc09855f0125416915721f5/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceComparisonRoutes.cs",
+        "https://github.com/georgemunganga/erp/blob/0d9a980b3ae2d36cacc09855f0125416915721f5/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceDiscrepancyRoutes.cs"
+      ],
+      "nextGates": [
+        "Compile/test the new capture and document-proof source",
+        "Owner-only13-family dependency-closure Down vetoes with unchanged full footprint",
+        "Actual finite-role readiness and document grant negatives",
+        "Real ClamAV/signature/socket evidence; no fake Clean",
+        "Genuine mapping/review/blocked correction/remap/qualified claim HTTP and normal-cookie UI/owner proof"
+      ],
+      "financeHandoff": "Unavailable; no AP posting or payment authorization is implied."
+    },
+    {
+      "id": "P32",
+      "state": "GENUINE_GENERATION_SOURCE_HELD_VALIDATION_IN_PROGRESS",
+      "pr": "https://github.com/georgemunganga/erp/pull/52",
+      "source": "40fd91a1255261ee9a03576f3b895e9d8e1d91c0",
+      "schema": {
+        "migrationId": "20261024182504_P32PrincipalCommercialEvidence",
+        "newFamilies": 15,
+        "designerAndSnapshotHandEdited": false,
+        "privateDatabaseApplied": false
+      },
+      "recordedPreparation": "Infrastructure build, model parity and genuine Up/Down exports passed before full validation; this does not prove private DDL/runtime.",
+      "fullValidation": {
+        "attempt01": "Failed due to missing Domain using; not accepted",
+        "fixSource": "40fd91a1255261ee9a03576f3b895e9d8e1d91c0",
+        "attempt02": "RUNNING_NOT_ACCEPTED_AT_COORDINATOR_CHECKPOINT"
+      },
+      "sourceRoutes": [
+        "https://github.com/georgemunganga/erp/blob/40fd91a1255261ee9a03576f3b895e9d8e1d91c0/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+        "https://github.com/georgemunganga/erp/blob/40fd91a1255261ee9a03576f3b895e9d8e1d91c0/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialOfferOpening.cs"
+      ],
+      "nextGates": [
+        "Finish actual full validation and review its retained result",
+        "Review genuine migration/overlays and private Up/Down/Up/retention proof",
+        "Finite authority/document/sealed offer/opening/assessment HTTP and purpose-read acceptance",
+        "Evaluation/award/PO adoption remain separately held"
+      ]
+    },
+    {
+      "id": "P33",
+      "state": "SOURCE_HELD_GENERATION_PROFILE_UNRUN",
+      "pr": "https://github.com/georgemunganga/erp/pull/55",
+      "source": "5c2496b922c1c03ea6319d368f6ea7907e8a992b",
+      "scope": "Controlled PO draft revision source; P32 snapshot prerequisite merged.",
+      "sourceRoute": "https://github.com/georgemunganga/erp/blob/5c2496b922c1c03ea6319d368f6ea7907e8a992b/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftEdit.cs",
+      "nextGates": [
+        "Run reviewed genuine generation profile",
+        "Review additive DDL/rollback and finite actual CRUD/recovery",
+        "Existing UI verification and normal-cookie owner persistence"
+      ]
+    },
+    {
+      "id": "P34",
+      "state": "SOURCE_HELD_NO_ACTUAL_TEST_ACCEPTANCE",
+      "pr": "https://github.com/georgemunganga/erp/pull/57",
+      "source": "9e67878398795dd49b50e78050262b2836eb7a9f",
+      "scope": "Contract draft rates CRUD/exact amounts; no activation or drawdown.",
+      "sourceRoute": "https://github.com/georgemunganga/erp/blob/9e67878398795dd49b50e78050262b2836eb7a9f/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractRateRoutes.cs",
+      "nextGates": [
+        "Compile/review exact rate boundary and CAS negatives",
+        "Actual finite draft rate CRUD/reload/owner proof",
+        "Contract activation remains separate"
+      ]
+    },
+    {
+      "id": "P35",
+      "state": "SOURCE_HELD_NO_ACTUAL_TEST_ACCEPTANCE",
+      "pr": "https://github.com/georgemunganga/erp/pull/58",
+      "source": "f3f1ec304cd2d70cd59182ae704f5d6f8bebb288",
+      "scope": "Typed internal contract review; not contract activation.",
+      "sourceRoute": "https://github.com/georgemunganga/erp/blob/f3f1ec304cd2d70cd59182ae704f5d6f8bebb288/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs",
+      "ui": {
+        "pr": "https://github.com/georgemunganga/module-connect/pull/71",
+        "source": "ae3694740288c5442d8f60863a68fa598f322f3f",
+        "state": "HELD_SOURCE_VERIFICATION_QUEUED"
+      },
+      "nextGates": [
+        "Independent source/build/unit/UI contract verification",
+        "Genuine schema/finite actual Core review and recovery proof",
+        "Existing full UI/cookie/owner acceptance; no invented activation authority"
+      ]
+    },
+    {
+      "id": "P36",
+      "state": "SOURCE_ONLY_RECOMMENDATION_DRAFTS",
+      "pr": "https://github.com/georgemunganga/erp/pull/62",
+      "source": "5279fe8ccfc815592f3187776ab79dcd90a1c3fc",
+      "sourceRoute": "https://github.com/georgemunganga/erp/blob/5279fe8ccfc815592f3187776ab79dcd90a1c3fc/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+      "scope": "Recommendation drafts are not approved awards or PO authority.",
+      "nextGates": [
+        "Independent model/source review and genuine generation if required",
+        "Typed assessment coverage and named current/retained authority proof",
+        "Actual draft CRUD/CAS/recovery/purpose reads; separate award workflow"
+      ]
+    },
+    {
+      "id": "P37",
+      "state": "DRAFT_SOURCE_PEER_REVIEWED_NO_DDL_OR_HTTP_ACCEPTANCE",
+      "pr": "https://github.com/georgemunganga/erp/pull/68",
+      "source": "3b4ce22d3ddd4ee17f068545bfa04c305e076dd1",
+      "sourceRoute": "https://github.com/georgemunganga/erp/blob/3b4ce22d3ddd4ee17f068545bfa04c305e076dd1/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalGoodsReturnRoutes.cs",
+      "scope": "Goods return draft intake only; no fulfilment, stock reversal, negative acceptance or Finance effect.",
+      "nextGates": [
+        "Genuine migration/rollback/readiness if model accepted",
+        "Finite actual draft create/read/revise/cancel/recovery and owner proof",
+        "Separate return fulfilment/reversal owner contracts before effects"
+      ]
+    }
+  ],
+  "coverageGaps": [
+    {
+      "area": "returns_fulfilment",
+      "sourcePresent": "P37 documentary draft intake only",
+      "acceptedEndToEnd": false,
+      "missing": "Physical return dispatch/receipt, actual owner acknowledgement, corrections and conserved negative/reversal ledger effects.",
+      "reference": "https://github.com/georgemunganga/erp/pull/68"
+    },
+    {
+      "area": "contract_activation_and_framework_drawdown",
+      "sourcePresent": "Contract drafts/rates and internal review source",
+      "acceptedEndToEnd": false,
+      "missing": "Explicit activation/expiry authority, effective immutable contract versions and governed drawdown/remaining commitment conservation.",
+      "references": [
+        "https://github.com/georgemunganga/erp/pull/57",
+        "https://github.com/georgemunganga/erp/pull/58"
+      ]
+    },
+    {
+      "area": "recurring_purchase_execution",
+      "sourcePresent": "Recurring commitment create/read/update/close",
+      "acceptedEndToEnd": false,
+      "missing": "Governed due occurrence execution, idempotent generated demand, current approval/funding and recovery evidence.",
+      "sourceRoute": "https://github.com/georgemunganga/erp/blob/64c78212908dcb071c602f131088a3d010b91e1d/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRecurringPurchaseRoutes.cs"
+    },
+    {
+      "area": "supplier_portal",
+      "sourcePresent": "Internal supplier master/contact and witnessed manual quotation source are not a portal",
+      "acceptedEndToEnd": false,
+      "missing": "External supplier identity/onboarding, invitations, authenticated submissions, sealed access and accepted message delivery."
+    },
+    {
+      "area": "batch_payments",
+      "sourcePresent": "Individual manual external-payment evidence/workflow exists",
+      "acceptedEndToEnd": false,
+      "missing": "Batch ownership/approval, per-item outcomes/recovery and real bank execution integration; no simulated Paid."
+    },
+    {
+      "area": "finance_ap",
+      "sourcePresent": "Commercial invoice evidence/claims and explicit handoff boundaries",
+      "acceptedEndToEnd": false,
+      "missing": "Future Finance-owned AP ledger, posting, allocations/balances, bank execution and acknowledged handoffs. Procurement must not duplicate that ledger."
+    },
+    {
+      "area": "manual_payments",
+      "sourcePresent": "Real persisted individual manual payment workflow",
+      "acceptedPrivateWorkflow": true,
+      "productionDeploymentClaim": false,
+      "scope": "Prior manual payment API/cookie/owner acceptance is retained; future Finance absence does not make manual payment capture a demo. It is not bank execution or AP posting.",
+      "reference": "https://github.com/georgemunganga/erp/pull/44",
+      "sourceRoute": "https://github.com/georgemunganga/erp/blob/64c78212908dcb071c602f131088a3d010b91e1d/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentRoutes.cs"
+    }
+  ],
+  "externalVerification": [
+    {
+      "task": "MANUS-CORE-DOCUMENT-SCANNER-04",
+      "status": "READY_UNACKNOWLEDGED",
+      "priority": "Highest outstanding Core prerequisite for genuine positive P31 document HTTP",
+      "workerRunningClaim": false,
+      "taskUrl": "https://github.com/georgemunganga/erp/blob/e451a976063f6a5ccb60b86fd5eb22e790e04330/docs/collaboration/manus/MANUS-CORE-DOCUMENT-SCANNER-04.md",
+      "required": "Worker PR/progress acknowledgement plus actual source/image/signature/socket/verdict evidence; independent review before acceptance."
+    },
+    {
+      "task": "MANUS-P35-UI-VERIFICATION-07",
+      "status": "QUEUED",
+      "workerRunningClaim": false,
+      "taskUrl": "https://github.com/georgemunganga/erp/blob/e451a976063f6a5ccb60b86fd5eb22e790e04330/docs/collaboration/manus/MANUS-P35-UI-VERIFICATION-07.md",
+      "uiPr": "https://github.com/georgemunganga/module-connect/pull/71",
+      "required": "Verify exact held UI source; mocked contracts do not establish actual API or production acceptance."
+    }
+  ],
+  "nextPriorityGates": [
+    "Resolve RFQ04 Decide409 and rerun fresh full cookie/owner journey",
+    "Finish/review P32 validation02 without promoting a running job",
+    "P31 real-scanner and finite-grant prerequisite proof",
+    "Complete migration/readiness/actual CRUD gates for held successors",
+    "Plan explicit remaining fulfilment/activation/execution/portal/Finance owner contracts"
+  ],
+  "publicationScope": {
+    "documentationOnly": true,
+    "applicationChanged": false,
+    "frozenP30P32WorktreesChanged": false,
+    "productionTouched": false,
+    "featureFlagsOrRolesChanged": false,
+    "newRuntimeTestsRunForThisRecord": false
+  }
+}
