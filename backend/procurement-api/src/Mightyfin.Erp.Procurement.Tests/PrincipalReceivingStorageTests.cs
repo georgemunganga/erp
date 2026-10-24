@@ -123,6 +123,7 @@ public sealed partial class PrincipalControlledReceivingTests
             0.0001m,"Persisted service acceptance",new(2026,10,22),new(2026,10,22),"REC:persisted",At);
         var payload=PrincipalReceivingStorageCodec.Encode(accepted);
         var fact=new PrincipalReceivingFact{Id=accepted.Id,TenantId=source.Commercial.TenantId,LegalEntityId=source.Commercial.LegalEntityId,
+            CreatedBy=accepted.Actor.PrincipalId,CreatedAt=At,
             SourceStateId=Guid.NewGuid(),DraftLineBindingId=Guid.NewGuid(),DraftId=accepted.AcceptanceRecordId,BranchId=source.Commercial.BranchId!.Value,
             Kind="Acceptance",Operation="Certify",Sequence=1,CommandKey=accepted.CommandKey,ActorPrincipalId=accepted.Actor.PrincipalId,
             PolicyVersionId=policy.Id,Quantity=accepted.Quantity,NetAmount=accepted.NetAmount,PayloadJson=payload,
@@ -135,6 +136,8 @@ public sealed partial class PrincipalControlledReceivingTests
         {
             // Insert a retained typed fact through a seed-only context sharing the
             // production model, then exercise the actual Procurement save guard.
+            // This context intentionally bypasses the production metadata stamper;
+            // seed the required original creator/time explicitly.
             var seedOptions=new DbContextOptionsBuilder<ReceivingFactSeedContext>()
                 .UseInMemoryDatabase(databaseName,databaseRoot).UseModel(modelContext.Model).Options;
             await using var seed=new ReceivingFactSeedContext(seedOptions);
@@ -169,6 +172,7 @@ public sealed partial class PrincipalControlledReceivingTests
             var retained=await db.PrincipalReceivingFacts.SingleAsync(x=>x.Id==fact.Id);
             Assert.Equal(1,retained.Sequence);Assert.Equal(0.0001m,retained.Quantity);
             Assert.Equal(payload,retained.PayloadJson);Assert.Equal(fact.PayloadSha256,retained.PayloadSha256);
+            Assert.Equal(accepted.Actor.PrincipalId,retained.CreatedBy);Assert.Equal(At,retained.CreatedAt);
         }
     }
 
