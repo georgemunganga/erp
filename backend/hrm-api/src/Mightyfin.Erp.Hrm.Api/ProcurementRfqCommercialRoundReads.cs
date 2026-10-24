@@ -76,11 +76,13 @@ public static partial class ProcurementSourcingExecutionRoutes
         var cases = visibility.AssignedCaseIds;
         var principal = visibility.Actor.PrincipalId;
         var organisationWide = visibility.Actor.OrganisationWide;
+        var selected = visibility.Actor.SelectedBranchId;
         var maker = visibility.Maker;
         var reviewer = visibility.Reviewer;
         var closer = visibility.Closer;
         return db.PrincipalRfqCommercialRoundOpenings.AsNoTracking()
             .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && (selected == null || x.BranchId == selected)
                 && (organisationWide || branches.Contains(x.BranchId))
                 && (maker && x.ActorPrincipalId == principal
                     || reviewer && cases.Contains(x.CoreCaseId)
