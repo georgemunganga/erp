@@ -148,7 +148,8 @@ public static class ProcurementHostIntegration
         ProcurementSpendingAuthorityRoutes.MapRoutes(app);
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
-        ProcurementContractReviewRoutes.MapRoutes(app);
+        if (app.Services.GetService<ProcurementContractReviewOptions>() is { Enabled: true })
+            ProcurementContractReviewRoutes.MapRoutes(app);
         ProcurementRecurringPurchaseRoutes.MapRoutes(app);
         ProcurementManualPaymentRoutes.MapReadRoutes(app);
         ProcurementManualPaymentCommandRoutes.MapRoutes(app);
