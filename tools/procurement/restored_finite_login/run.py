@@ -135,7 +135,10 @@ def main():
         with os.fdopen(fd,'wb') as stream: stream.write(raw)
     def sql(database, text, label):
         need(database in ('postgres', SOURCE, target), 'Private database allowlist')
-        run = subprocess.run(['docker','exec','-i','-e','PGOPTIONS=-c lock_timeout=2s -c statement_timeout=90s -c idle_in_transaction_session_timeout=10s -c max_parallel_workers_per_gather=0',
+        # Provisioning includes fresh private passwords. Keep those statements
+        # out of PostgreSQL logs even if a statement fails; this changes only
+        # this administrative connection, never the server configuration.
+        run = subprocess.run(['docker','exec','-i','-e','PGOPTIONS=-c log_statement=none -c log_min_error_statement=panic -c lock_timeout=2s -c statement_timeout=90s -c idle_in_transaction_session_timeout=10s -c max_parallel_workers_per_gather=0',
             CONTAINER,'psql','-X','-qAt','-U','postgres','-d',database,'-v','ON_ERROR_STOP=1','-v','VERBOSITY=sqlstate','-f','-'],
             input=text if isinstance(text,bytes) else text.encode(),capture_output=True,timeout=180)
         save(label+'-stdout',run.stdout); save(label+'-stderr',run.stderr)
