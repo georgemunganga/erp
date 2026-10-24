@@ -11,16 +11,15 @@ public static class ContractReviewTerms
 
     public static Frozen Capture(SupplierContract contract, SupplierContractVersion version,
         IReadOnlyCollection<ContractRate> rates)
-        => Build(contract, version, rates, contract.Version, version.Version, pending: false);
+        => Build(contract, version, rates, contract.Version, version.Version, "Draft");
 
     private static Frozen Build(SupplierContract contract, SupplierContractVersion version,
         IReadOnlyCollection<ContractRate> rates, long frozenContractVersion, long frozenVersionVersion,
-        bool pending)
+        string requiredStatus)
     {
         Need(contract.Id != Guid.Empty && version.Id != Guid.Empty && version.SupplierContractId == contract.Id
             && contract.TenantId == version.TenantId && contract.LegalEntityId == version.LegalEntityId
-            && (pending ? contract.Status == "PendingReview" && version.Status == "PendingReview"
-                : contract.Status == "Draft" && version.Status == "Draft")
+            && contract.Status == requiredStatus && version.Status == requiredStatus
             && version.RevisionNumber == 1
             && frozenContractVersion > 0 && frozenVersionVersion > 0 && contract.SupplierId != Guid.Empty
             && contract.OwnerSubjectId is { Length: > 0 }
@@ -77,7 +76,23 @@ public static class ContractReviewTerms
             && version.ApprovalInstanceRef == submission.CoreCaseId.ToString("D"),
             "ContractReviewTermsChanged");
         var frozen = Build(contract, version, rates, submission.ContractBusinessVersion,
-            submission.ContractVersionBusinessVersion, pending: true);
+            submission.ContractVersionBusinessVersion, "PendingReview");
+        Need(submission.ContractId == contract.Id && submission.ContractVersionId == version.Id
+            && submission.SupplierId == contract.SupplierId
+            && submission.TenantId == contract.TenantId && submission.LegalEntityId == contract.LegalEntityId
+            && submission.TermsJson == frozen.Json && submission.TermsSha256 == frozen.Sha256,
+            "ContractReviewTermsChanged");
+    }
+
+    public static void VerifyCurrentReturned(ContractReviewSubmission submission, SupplierContract contract,
+        SupplierContractVersion version, IReadOnlyCollection<ContractRate> rates)
+    {
+        Need(contract.Version == checked(submission.ContractBusinessVersion + 2)
+            && version.Version == checked(submission.ContractVersionBusinessVersion + 2)
+            && version.ApprovalInstanceRef == submission.CoreCaseId.ToString("D"),
+            "ContractReviewTermsChanged");
+        var frozen = Build(contract, version, rates, submission.ContractBusinessVersion,
+            submission.ContractVersionBusinessVersion, "Returned");
         Need(submission.ContractId == contract.Id && submission.ContractVersionId == version.Id
             && submission.SupplierId == contract.SupplierId
             && submission.TenantId == contract.TenantId && submission.LegalEntityId == contract.LegalEntityId

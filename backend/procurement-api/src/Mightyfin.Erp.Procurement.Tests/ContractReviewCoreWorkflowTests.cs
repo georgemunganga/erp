@@ -80,6 +80,41 @@ public sealed class ContractReviewCoreWorkflowTests
         Assert.Equal(3, decisions.Count);
     }
 
+    [Fact]
+    public void Genuine_Core_Return_allows_exact_old_terms_then_correction_and_resubmit_snapshot()
+    {
+        var f = Fixture();
+        var opened = ContractReviewCoreWorkflow.Open(f.Contract, f.Version, [f.Rate], f.Policy,
+            f.Branch, f.Maker, null, f.Reviewers, 1, f.Now);
+        var pins = ContractReviewAssignmentPins.Verify(opened.Submission, opened.Case, f.Policy);
+        var stage = opened.Case.Stages.OrderBy(x => x.Sequence).First();
+        var assignment = stage.Assignments.Single();
+        var decisions = new List<ApprovalDecision>();
+        ApprovalEngine.Decide(opened.Case, assignment,
+            new ApprovalActor(assignment.AssigneeSubjectId, opened.Case.TenantId,
+                opened.Case.LegalEntityId, new HashSet<string> { ContractReviewCoreWorkflow.ReviewAction }),
+            "Return", Guid.CreateVersion7().ToString("D"), "Correct the rate", decisions,
+            ProcurementEvidenceEncoding.DatabaseTimestamp(f.Now.AddMinutes(1))!.Value);
+        ContractReviewCoreHistory.VerifyReturned(opened.Submission, opened.Case, pins, decisions);
+        f.Contract.Status = "Returned"; f.Version.Status = "Returned";
+        f.Contract.Version = checked(opened.Submission.ContractBusinessVersion + 2);
+        f.Version.Version = checked(opened.Submission.ContractVersionBusinessVersion + 2);
+        f.Version.ApprovalInstanceRef = opened.Case.Id.ToString("D");
+        ContractReviewTerms.VerifyCurrentReturned(opened.Submission, f.Contract, f.Version, [f.Rate]);
+        f.Rate.UnitPrice = 11m;
+        Assert.Throws<InvalidOperationException>(() => ContractReviewTerms.VerifyCurrentReturned(
+            opened.Submission, f.Contract, f.Version, [f.Rate]));
+        f.Rate.UnitPrice = 10m;
+        f.Contract.Status = "Draft"; f.Version.Status = "Draft";
+        f.Version.ApprovalInstanceRef = null;
+        f.Contract.Version++; f.Version.Version++;
+        var next = ContractReviewCoreWorkflow.Open(f.Contract, f.Version, [f.Rate], f.Policy,
+            f.Branch, f.Maker, null, f.Reviewers, 2, f.Now.AddMinutes(2));
+        Assert.Equal(2, next.Submission.SubmissionNumber);
+        Assert.NotEqual(opened.Submission.Id, next.Submission.Id);
+        Assert.NotEqual(opened.Submission.TermsSha256, next.Submission.TermsSha256);
+    }
+
     private static (SupplierContract Contract, SupplierContractVersion Version, ContractRate Rate,
         PolicyVersion Policy, Guid Branch, string Maker, ContractReviewCurrentReviewer[] Reviewers,
         DateTimeOffset Now) Fixture()

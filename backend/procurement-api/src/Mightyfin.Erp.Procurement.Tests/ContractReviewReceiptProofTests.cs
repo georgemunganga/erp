@@ -39,4 +39,24 @@ public sealed class ContractReviewReceiptProofTests
         receipt.ResponseSha256 = ProcurementEvidenceEncoding.Digest(receipt.ResponseJson);
         Assert.Throws<InvalidOperationException>(() => ContractReviewReceiptProof.Verify(receipt));
     }
+
+    [Fact]
+    public void Correction_ack_requires_its_own_target_and_Draft_result()
+    {
+        var receipt = new ContractReviewCommandReceipt { ContractId = Guid.CreateVersion7(),
+            SubmissionId = Guid.CreateVersion7(), ReviewBranchId = Guid.CreateVersion7(),
+            CorrectionId = Guid.CreateVersion7(), Operation = "Correction", CommandKey = Guid.CreateVersion7(),
+            ActorPrincipalId = Guid.CreateVersion7().ToString("D"), CommandSha256 = new string('a', 64),
+            ResultContractVersion = 4, ResponseStatus = 200 };
+        receipt.ResponseJson = ContractReviewReceiptProof.Response(receipt, "Draft");
+        receipt.ResponseSha256 = ProcurementEvidenceEncoding.Digest(receipt.ResponseJson);
+        ContractReviewReceiptProof.Verify(receipt);
+        var other = new ContractReviewCommandReceipt { ContractId = receipt.ContractId,
+            SubmissionId = receipt.SubmissionId, ReviewBranchId = receipt.ReviewBranchId,
+            CorrectionId = Guid.CreateVersion7(), Operation = receipt.Operation, CommandKey = receipt.CommandKey,
+            ActorPrincipalId = receipt.ActorPrincipalId, CommandSha256 = receipt.CommandSha256,
+            ResultContractVersion = receipt.ResultContractVersion, ResponseStatus = receipt.ResponseStatus,
+            ResponseJson = receipt.ResponseJson, ResponseSha256 = receipt.ResponseSha256 };
+        Assert.Throws<InvalidOperationException>(() => ContractReviewReceiptProof.Verify(other));
+    }
 }

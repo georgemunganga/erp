@@ -78,6 +78,23 @@ public sealed class ContractReviewPersistenceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task Bare_correction_cannot_reopen_or_append_without_returned_parent_and_original_ack()
+    {
+        var actorId = Guid.CreateVersion7();
+        var company = Guid.CreateVersion7();
+        await using var db = Db("contract-correction-denied-" + Guid.CreateVersion7(),
+            Scope("synthetic-contract-review", company, actorId));
+        var at = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
+        db.AddScoped(new ContractReviewCorrection { TenantId = "synthetic-contract-review", LegalEntityId = company,
+            ContractId = Guid.CreateVersion7(), ContractVersionId = Guid.CreateVersion7(),
+            SubmissionId = Guid.CreateVersion7(), ReviewBranchId = Guid.CreateVersion7(),
+            CoreCaseId = Guid.CreateVersion7(), FromContractVersion = 3, ToContractVersion = 4,
+            ActorPrincipalId = actorId.ToString("D"), Reason = "Correct returned terms",
+            CorrectedAt = at, CreatedAt = at, CreatedBy = actorId.ToString("D") });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
+
     private static ProcurementRequestScope Scope(string tenant, Guid company, Guid actor)
     {
         var scope = new ProcurementRequestScope();

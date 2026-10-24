@@ -43,6 +43,24 @@ public sealed class ContractReviewVote : ProcurementRecord
     public DateTimeOffset DecidedAt { get; init; }
 }
 
+/// <summary>Immutable owner-requested correction after a genuine Core Return.
+/// The old submitted terms and votes remain unchanged; Draft is reopened only
+/// by this separately acknowledged transition.</summary>
+public sealed class ContractReviewCorrection : ProcurementRecord
+{
+    public Guid ContractId { get; init; }
+    public Guid ContractVersionId { get; init; }
+    public Guid SubmissionId { get; init; }
+    public Guid ReviewBranchId { get; init; }
+    public Guid CoreCaseId { get; init; }
+    public long FromContractVersion { get; init; }
+    public long ToContractVersion { get; init; }
+    public string ActorPrincipalId { get; init; } = null!;
+    public Guid? ActorWorkerAliasId { get; init; }
+    public string Reason { get; init; } = null!;
+    public DateTimeOffset CorrectedAt { get; init; }
+}
+
 /// <summary>Original actor-owned HTTP acknowledgement. Recovery must authorize the
 /// current actor, original action, company and branch before returning ResponseJson.</summary>
 public sealed class ContractReviewCommandReceipt : ProcurementRecord
@@ -51,6 +69,7 @@ public sealed class ContractReviewCommandReceipt : ProcurementRecord
     public Guid SubmissionId { get; init; }
     public Guid ReviewBranchId { get; init; }
     public Guid? VoteId { get; init; }
+    public Guid? CorrectionId { get; init; }
     public string Operation { get; init; } = null!;
     public Guid CommandKey { get; init; }
     public string ActorPrincipalId { get; init; } = null!;

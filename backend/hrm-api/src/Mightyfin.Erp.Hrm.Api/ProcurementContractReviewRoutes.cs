@@ -20,6 +20,7 @@ public static partial class ProcurementContractReviewRoutes
     public sealed record SubmitInput(long ExpectedContractVersion, Guid ReviewBranchId);
     public sealed record DecisionInput(long ExpectedContractVersion, long ExpectedCaseVersion,
         long ExpectedAssignmentVersion, string Action, string? Reason);
+    public sealed record CorrectionInput(long ExpectedContractVersion, string Reason);
 
     public static void MapRoutes(WebApplication app)
     {
@@ -28,6 +29,8 @@ public static partial class ProcurementContractReviewRoutes
             .RequireAuthorization("procurement-contract-submit");
         group.MapPost("/{id:guid}/internal-review/assignments/{assignmentId:guid}/decide", Decide)
             .RequireAuthorization("procurement-contract-review");
+        group.MapPost("/{id:guid}/internal-review/correct", Correct)
+            .RequireAuthorization("procurement-contract-submit");
         group.MapGet("/internal-review/assigned", Assigned)
             .RequireAuthorization("procurement-contract-review-read");
         group.MapGet("/{id:guid}/internal-review/assignments/{assignmentId:guid}", ReviewDetail)
@@ -108,7 +111,7 @@ public static partial class ProcurementContractReviewRoutes
         if (rows.Length == 0) return null;
         if (rows.Length != 1) throw new Problem("ContractReviewReceiptAmbiguous", 409);
         var receipt = rows[0];
-        _ = await Actor(core, scope, receipt.Operation == "Submit"
+        _ = await Actor(core, scope, receipt.Operation is "Submit" or "Correction"
             ? "procurement-contract-submit" : "procurement-contract-review", receipt.ReviewBranchId, ct);
         ContractReviewReceiptProof.Verify(receipt);
         if (receipt.Operation != operation || receipt.CommandSha256 != fingerprint
@@ -197,6 +200,76 @@ public static partial class ProcurementContractReviewRoutes
                 && x.CommandKey == key).Select(x => x.CommandSha256).SingleAsync(token), null, token)
             ?? throw new Problem("ContractReviewReceiptNotFound", 404);
     }, ct);
+
+    private static Task<IResult> Correct(Guid id, CorrectionInput input, HttpContext http,
+        ProcurementRequestScope scope, CancellationToken ct)
+        => Run(http, scope, async (db, cases, core, token) =>
+        {
+            var key = Key(http);
+            var reason = input?.Reason?.Trim();
+            if (input is null || input.ExpectedContractVersion < 1
+                || string.IsNullOrWhiteSpace(reason) || reason.Length > 2000)
+                throw new Problem("ContractReviewCorrectionInputInvalid", 422);
+            var fingerprint = ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new
+            { schemaVersion = 1, operation = "Correction", id, actor = scope.SubjectId,
+                input.ExpectedContractVersion, reason }));
+            if (await Replay(db, core, scope, "Correction", key, fingerprint, id, token) is { } prior)
+                return prior;
+            var contract = await db.SupplierContracts.SingleOrDefaultAsync(x => x.Id == id
+                && x.OwnerSubjectId == scope.SubjectId, token)
+                ?? throw new Problem("ContractReviewContractNotFound", 404);
+            if (contract.Status != "Returned" || contract.Version != input.ExpectedContractVersion)
+                throw new Problem("ContractReviewReturnedChanged", 409);
+            var source = await db.ContractReviewSubmissions.AsNoTracking()
+                .Where(x => x.ContractId == id).OrderByDescending(x => x.SubmissionNumber)
+                .FirstOrDefaultAsync(token) ?? throw new Problem("ContractReviewSubmissionMissing", 409);
+            var maker = await Actor(core, scope, "procurement-contract-submit", source.ReviewBranchId, token);
+            if (maker.PrincipalId != source.MakerPrincipalId || maker.CoreLinkedWorkerId != source.MakerWorkerAliasId
+                || await db.ContractReviewCorrections.AnyAsync(x => x.SubmissionId == source.Id, token))
+                throw new Problem("ContractReviewCorrectionAlreadyRecorded", 409);
+            var version = await db.SupplierContractVersions.SingleOrDefaultAsync(x => x.Id == source.ContractVersionId
+                && x.SupplierContractId == id, token) ?? throw new Problem("ContractReviewVersionMissing", 409);
+            var rates = await db.ContractRates.AsNoTracking().Where(x => x.SupplierContractVersionId == version.Id)
+                .ToArrayAsync(token);
+            ContractReviewTerms.VerifyCurrentReturned(source, contract, version, rates);
+            var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == source.PolicyVersionId, token)
+                ?? throw new Problem("ContractReviewPolicyMissing", 409);
+            await ProcurementPolicyDraftRoutes.ContractPolicyPublished(db, scope, policy, token,
+                OperationalPolicyPublicationMode.RetainedHistorical);
+            var workflow = await cases.Cases.AsNoTracking().Include(x => x.Stages).ThenInclude(x => x.Assignments)
+                .SingleOrDefaultAsync(x => x.Id == source.CoreCaseId, token)
+                ?? throw new Problem("ContractReviewCaseMissing", 409);
+            var pins = ContractReviewAssignmentPins.Verify(source, workflow, policy);
+            var decisions = await cases.Decisions.AsNoTracking().Where(x => x.CaseId == workflow.Id)
+                .ToArrayAsync(token);
+            ContractReviewCoreHistory.VerifyReturned(source, workflow, pins, decisions);
+            var at = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
+            var correction = new ContractReviewCorrection
+            {
+                TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                ContractId = id, ContractVersionId = version.Id, SubmissionId = source.Id,
+                ReviewBranchId = source.ReviewBranchId, CoreCaseId = source.CoreCaseId,
+                FromContractVersion = contract.Version, ToContractVersion = checked(contract.Version + 1),
+                ActorPrincipalId = maker.PrincipalId, ActorWorkerAliasId = maker.CoreLinkedWorkerId,
+                Reason = reason, CorrectedAt = at, CreatedAt = at, CreatedBy = scope.SubjectId,
+            };
+            contract.Status = "Draft"; version.Status = "Draft"; version.ApprovalInstanceRef = null;
+            db.AddScoped(correction);
+            var receipt = new ContractReviewCommandReceipt
+            {
+                TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+                ContractId = id, SubmissionId = source.Id, ReviewBranchId = source.ReviewBranchId,
+                CorrectionId = correction.Id, Operation = "Correction", CommandKey = key,
+                ActorPrincipalId = scope.SubjectId, CommandSha256 = fingerprint,
+                ResponseStatus = 200, ResultContractVersion = correction.ToContractVersion,
+                CompletedAt = at, CreatedAt = at, CreatedBy = scope.SubjectId,
+            };
+            receipt.ResponseJson = ContractReviewReceiptProof.Response(receipt, "Draft");
+            receipt.ResponseSha256 = ProcurementEvidenceEncoding.Digest(receipt.ResponseJson);
+            db.AddScoped(receipt);
+            await db.SaveChangesAsync(token);
+            return new Reply(receipt.ResponseJson, 200);
+        }, ct);
 
     private static Task<IResult> Assigned(int? page, int? pageSize, HttpContext http,
         ProcurementRequestScope scope, CancellationToken ct)
