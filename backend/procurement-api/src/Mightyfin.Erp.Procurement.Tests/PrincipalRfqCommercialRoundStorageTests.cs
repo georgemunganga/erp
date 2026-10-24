@@ -150,6 +150,31 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
     }
 
     [Fact]
+    public void A_same_save_sealed_offer_cannot_be_followed_by_a_quote_draft_edit()
+    {
+        var scope = new Scope();
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
+        var bid = new SupplierBid
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            SourcingEventId = Guid.NewGuid(), SupplierId = Guid.NewGuid(),
+            Status = "Draft", SourceChannel = "Manual", SurrogateEnteredBy = scope.SubjectId,
+        };
+        db.Attach(bid);
+        bid.Status = "Cancelled";
+        db.Add(new PrincipalRfqCommercialOfferSubmissionRecord
+        {
+            TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
+            SupplierBidId = bid.Id, OpeningId = Guid.NewGuid(),
+            SourcingEventId = bid.SourcingEventId, BranchId = Guid.NewGuid(),
+            RecorderPrincipalId = scope.SubjectId,
+        });
+        Assert.Equal("RfqCommercialSealedQuoteImmutable",
+            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+    }
+
+    [Fact]
     public void Decision_with_exact_same_save_receipt_passes_the_append_guard()
     {
         var scope = new Scope();

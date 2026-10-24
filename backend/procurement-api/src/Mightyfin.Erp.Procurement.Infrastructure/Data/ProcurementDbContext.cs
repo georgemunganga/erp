@@ -744,6 +744,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardPrincipalOrderGovernance();
         GuardPrincipalReceiving();
         GuardRfqCommercialDraft();
+        GuardSealedCommercialQuoteDrafts();
         GuardRfqCommercialRound();
         GuardRfqPreparation();
         GuardReceivingExecution();
