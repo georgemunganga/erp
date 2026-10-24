@@ -95,14 +95,17 @@ public sealed class ContractReviewPersistenceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
     }
 
-    private static ProcurementRequestScope Scope(string tenant, Guid company, Guid actor)
+    private sealed record TestScope(string TenantId, Guid LegalEntityId, string SubjectId) : IProcurementScope
     {
-        var scope = new ProcurementRequestScope();
-        scope.Set(tenant, company, actor.ToString("D"), null, null, false, "contract-review-test");
-        scope.AssignPrincipal(actor);
-        return scope;
+        public Guid? WorkLocationId => null;
+        public Guid? OrgUnitId => null;
+        public bool IsConfined => false;
+        public string? CorrelationId => "contract-review-test";
     }
 
-    private static ProcurementDbContext Db(string name, ProcurementRequestScope scope) => new(
+    private static TestScope Scope(string tenant, Guid company, Guid actor)
+        => new(tenant, company, actor.ToString("D"));
+
+    private static ProcurementDbContext Db(string name, IProcurementScope scope) => new(
         new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(name).Options, scope);
 }
