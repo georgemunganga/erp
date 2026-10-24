@@ -14,6 +14,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static class ProcurementPermissions
 {
     private static readonly IReadOnlyDictionary<string, string[]> RoleGrants = ProcurementActionCatalog.BootstrapGrants;
+    private static bool ExplicitReturnDraftGrant(string action) => action is
+        "procurement-return-read" or "procurement-return-create" or "procurement-return-edit";
     public const string ConfiguredClaim = "procurement_permissions_configured";
     public const string ActionClaim = "procurement_permission";
     // Legacy wire claim is stripped on current Core-principal requests; never emitted.
@@ -42,7 +44,7 @@ public static class ProcurementPermissions
             var legacySeed = string.Equals(row.PermissionsCsv.Trim(), row.RoleKey, StringComparison.OrdinalIgnoreCase);
             var actions = explicitActions.Length > 0 ? explicitActions : legacySeed
                 ? role.Equals("erp_admin", StringComparison.OrdinalIgnoreCase)
-                    ? RoleGrants.Keys.ToArray() : ProcurementActionCatalog.ForRole(role)
+                    ? RoleGrants.Keys.Where(action => !ExplicitReturnDraftGrant(action)).ToArray() : ProcurementActionCatalog.ForRole(role)
                 : [];
             foreach (var action in actions) grants.Add(action);
         }
@@ -70,6 +72,7 @@ public static class ProcurementPermissions
             return hasAccess && (policy == "procurement-access"
                 || claims.Any(x => x.Type == ActionClaim && x.Value == policy));
         }
+        if (ExplicitReturnDraftGrant(policy)) return false;
         return principal.IsRole("erp_admin") || principal.IsRole(roles);
     }
 

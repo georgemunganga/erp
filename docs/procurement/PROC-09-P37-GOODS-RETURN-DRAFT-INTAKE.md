@@ -40,7 +40,7 @@ Draft → Draft (revision), Draft → Cancelled. Cancelled is terminal and read 
 
 ## 10. Permissions and Data Scope
 
-Read and write are separate actions. Filter tenant, legal entity and active allowed Core branch before count, source lookup and response. Current action and branch are rechecked before replay. Creator owns revise/cancel; read is scoped by current action. No HR location or employee inference.
+`procurement-return-read`, `procurement-return-create` and `procurement-return-edit` are separate explicit Core actions with no ordinary role or legacy administrator bootstrap grant. Filter tenant, legal entity and active allowed Core branch before count, source lookup and response. Current action and branch are rechecked before replay. Creator owns revise/cancel; read is scoped by current action. No HR location or employee inference. Existing `procurement-return-dispatch` is separate future authority.
 
 ## 11. Business Rules
 
