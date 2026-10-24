@@ -6049,6 +6049,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
+                        .HasName("ak_pi_issued_order");
+
                     b.HasIndex("TenantId", "LegalEntityId", "FundingEvidenceId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "SubmissionId");
@@ -7226,6 +7229,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.HasAlternateKey("TenantId", "LegalEntityId", "Id")
                         .HasName("ak_prcv_fact_scope");
 
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "SourceStateId", "Sequence")
+                        .HasName("ak_pi_receiving_fact");
+
                     b.HasIndex("TenantId", "LegalEntityId", "DraftId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "DraftLineBindingId");
@@ -7391,6 +7397,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasAlternateKey("TenantId", "LegalEntityId", "Id")
                         .HasName("ak_prcv_source_scope");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId", "IssuedVersionId", "PurchaseOrderLineId")
+                        .HasName("ak_pi_receiving_source");
 
                     b.HasIndex("TenantId", "LegalEntityId", "AcknowledgmentId");
 
