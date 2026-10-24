@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Mightyfin.Erp.Procurement.Application;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -12,6 +13,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization("procurement-sourcing-commercial-configure");
         group.MapGet("/commercial-rounds", CommercialRounds).RequireAuthorization();
         group.MapGet("/commercial-rounds/{id:guid}", CommercialRound).RequireAuthorization();
+        group.MapGet("/commercial-round-reviews/assigned", CommercialRoundAssigned)
+            .RequireAuthorization(PrincipalRfqCommercialRoundPolicyRules.ApprovalAction);
         group.MapGet("/commercial-round-commands/{operation}/{key:guid}", CommercialRoundRecovery)
             .RequireAuthorization();
     }

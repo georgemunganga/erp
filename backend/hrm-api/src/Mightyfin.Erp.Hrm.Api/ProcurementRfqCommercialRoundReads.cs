@@ -133,6 +133,78 @@ public static partial class ProcurementSourcingExecutionRoutes
                 supplierDispatchConfirmed = false }, Json));
         }, ct);
 
+    // The Core assignment and the retained round branch are both fenced in SQL
+    // before count/page. A commercial read action alone is not a review task.
+    private static Task<IResult> CommercialRoundAssigned(int? offset, int? limit,
+        HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
+        => Run(http, scope, async (db, cases, core, auth, token) =>
+        {
+            await RequireCommercial(http, db, false, token);
+            if (offset is < 0 or > 100000 || limit is < 1 or > 50)
+                throw new Problem("RfqCommercialPageInvalid", 422);
+            var actor = await PrincipalActor(core, scope, http, auth,
+                PrincipalRfqCommercialRoundPolicyRules.ApprovalAction, null, false, token);
+            var branches = actor.Branches.ToArray();
+            var selected = actor.SelectedBranchId;
+            var workflow = cases.Cases.FromSqlInterpolated($"""
+                SELECT c.* FROM core_approval.cases c
+                JOIN procurement.principal_rfq_commercial_round_openings opening
+                  ON opening.core_case_id=c."Id" AND opening.tenant_id=c."TenantId"
+                  AND opening.legal_entity_id=c."LegalEntityId"
+                WHERE c."TenantId"={scope.TenantId} AND c."LegalEntityId"={scope.LegalEntityId}
+                  AND c."SourceModule"='procurement' AND c."SourceType"='sourcing_commercial_round'
+                  AND c."State"='Pending' AND opening.prepared_plan_id=c."SourceId"
+                  AND ({selected}::uuid IS NULL OR opening.branch_id={selected}::uuid)
+                  AND ({actor.OrganisationWide} OR opening.branch_id=ANY({branches}))
+                  AND EXISTS (
+                    SELECT 1 FROM core_approval.stages stage
+                    JOIN core_approval.assignments assignment
+                      ON assignment."StageId"=stage."Id"
+                      AND assignment."TenantId"=stage."TenantId"
+                      AND assignment."LegalEntityId"=stage."LegalEntityId"
+                    WHERE stage."CaseId"=c."Id" AND stage."TenantId"=c."TenantId"
+                      AND stage."LegalEntityId"=c."LegalEntityId"
+                      AND stage."State"='Active' AND assignment."State"='Pending'
+                      AND assignment."CaseId"=c."Id"
+                      AND assignment."AssigneeSubjectId"={actor.PrincipalId}
+                      AND assignment."PermissionKey"='procurement-sourcing-commercial-approve'
+                      AND assignment."DelegatedFromSubjectId" IS NULL)
+                """).AsNoTracking();
+            var total = await workflow.CountAsync(token);
+            var rows = await workflow.OrderBy(x => x.OpenedAt).ThenBy(x => x.Id)
+                .Skip(offset ?? 0).Take(limit ?? 25).Select(x => new { x.Id, x.Version,
+                    x.SourceId, x.OpenedAt }).ToArrayAsync(token);
+            var ids = rows.Select(x => x.Id).ToArray();
+            var openings = await db.PrincipalRfqCommercialRoundOpenings.AsNoTracking()
+                .Where(x => ids.Contains(x.CoreCaseId) && x.TenantId == scope.TenantId
+                    && x.LegalEntityId == scope.LegalEntityId)
+                .Select(x => new { x.Id, x.CoreCaseId, x.SourcingEventId, x.BranchId,
+                    x.OpensAt, x.ClosesAt }).ToArrayAsync(token);
+            if (openings.Length != rows.Length || rows.Any(x =>
+                openings.Count(y => y.CoreCaseId == x.Id && y.Id == x.Id) != 1))
+                throw new Problem("RfqCommercialReviewEvidenceNeedsReview", 409);
+            var pending = await cases.Assignments.AsNoTracking()
+                .Where(x => ids.Contains(x.CaseId) && x.TenantId == scope.TenantId
+                    && x.LegalEntityId == scope.LegalEntityId && x.AssigneeSubjectId == actor.PrincipalId
+                    && x.PermissionKey == PrincipalRfqCommercialRoundPolicyRules.ApprovalAction
+                    && x.State == "Pending" && x.DelegatedFromSubjectId == null)
+                .Select(x => new { x.Id, x.CaseId, x.Version, x.StageId })
+                .ToArrayAsync(token);
+            var items = rows.Select(row =>
+            {
+                var opening = openings.Single(x => x.CoreCaseId == row.Id);
+                var assignments = pending.Where(x => x.CaseId == row.Id).ToArray();
+                if (assignments.Length == 0) throw new Problem("RfqCommercialReviewEvidenceNeedsReview", 409);
+                return new { roundId = opening.Id, opening.SourcingEventId,
+                    opening.BranchId, opening.OpensAt, opening.ClosesAt,
+                    coreCaseId = row.Id, coreCaseVersion = row.Version,
+                    assignments };
+            }).ToArray();
+            return new Reply(JsonSerializer.Serialize(new
+            { items, total, offset = offset ?? 0, limit = limit ?? 25,
+                scope = "CurrentCoreAssignment" }, Json));
+        }, ct);
+
     private static Task<IResult> CommercialRoundRecovery(string operation, Guid key,
         HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => Run(http, scope, async (db, unusedCases, core, auth, token) =>
