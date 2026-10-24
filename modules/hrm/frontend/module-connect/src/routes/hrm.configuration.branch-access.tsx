@@ -51,7 +51,7 @@ export function BranchAccessPage() {
         title="Branch access"
         description={description}
         meta={<ScopeBadge />}
-        actions={
+        primaryAction={
           <Button size="sm" onClick={() => setAssigning(true)}>
             <Plus className="size-4" aria-hidden /> Assign branch
           </Button>
@@ -59,11 +59,7 @@ export function BranchAccessPage() {
       />
 
       <Async state={accessState} rows={6}>
-        {accessState.data ? (
-          <AccessTable data={accessState.data} reload={reload} />
-        ) : (
-          <EmptyState title="No branch access data" description="Could not load assignments." />
-        )}
+        {(data) => <AccessTable data={data} reload={reload} />}
       </Async>
 
       {assigning && accessState.data ? (
@@ -101,7 +97,7 @@ function AccessTable({
       <div className="rounded-lg border bg-card p-8">
         <EmptyState
           title="No confined HR staff"
-          description={
+          body={
             "No platform user has been assigned to a branch yet, which means every HR staff member " +
             "currently works organisation-wide. Assign a user below to confine them to a specific branch."
           }

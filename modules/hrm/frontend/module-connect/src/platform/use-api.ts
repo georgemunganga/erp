@@ -12,6 +12,20 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, hrmApi, type CompanyBranding, type CompanyBrandingUpdate } from "@/platform/api-client";
 import type { EducationRecord } from "@/mock/employeeprofile";
 
+export interface OrgChartNode {
+  id: string; code: string; name: string; unitType: string; status: string;
+  parentId: string | null; managerId: string | null; managerName: string | null;
+  managerJobTitle: string | null; headcount: number; legalEntityName: string | null;
+  children: OrgChartNode[];
+}
+
+export interface ReportingLineDto {
+  workerId: string; employeeNo: string; fullName: string; status: string;
+  orgUnitId: string | null; orgUnitName: string | null;
+  managerId: string | null; managerName: string | null;
+  grade: string | null; jobTitle: string | null; managerNamePath: string | null;
+}
+
 export interface ApiState<T> {
   data: T | null;
   loading: boolean;
@@ -963,9 +977,9 @@ export const realApi = {
     hrmApi.post<unknown>(`/hrm/recruitment/preboarding/${id}/activate`, null),
   /** M39: organization chart + reporting lines. */
   orgChart: () =>
-    hrmApi.get<{ asAt: string; roots: unknown[] }>("/hrm/org-chart"),
+    hrmApi.get<{ asAt: string; roots: OrgChartNode[] }>("/hrm/org-chart"),
   reportingLines: (params?: Record<string, unknown>) =>
-    hrmApi.get<{ items: unknown[]; total: number }>("/hrm/reporting-lines", params ?? {}),
+    hrmApi.get<{ items: ReportingLineDto[]; total: number }>("/hrm/reporting-lines", params ?? {}),
   updateReportingLines: (body: Record<string, unknown>) =>
     hrmApi.post<unknown>("/hrm/reporting-lines", body),
   /** M40: HR analytics dashboard — workforce, leave, payroll cost, performance,
@@ -1048,8 +1062,8 @@ export const realApi = {
   updateJob: (id: string, body: Record<string, unknown>) => hrmApi.patch<unknown>(`/hrm/admin/jobs/${id}`, body),
   closeJob: (id: string) => hrmApi.post<unknown>(`/hrm/admin/jobs/${id}/close`, null),
   roles: () => hrmApi.get<unknown[]>("/hrm/admin/roles"),
-  createRole: (body: Record<string, unknown>) => hrmApi.post<unknown>("/hrm/admin/roles", body),
-  updateRole: (roleKey: string, body: Record<string, unknown>) =>
+  createRole: (body: { roleKey: string; roleName: string; category: string; permissions: string[]; active: boolean }) => hrmApi.post<unknown>("/hrm/admin/roles", body),
+  updateRole: (roleKey: string, body: { roleName?: string; category?: string; permissions?: string[]; active?: boolean }) =>
     hrmApi.patch<unknown>(`/hrm/admin/roles/${roleKey}`, body),
   retentionRules: () => hrmApi.get<unknown[]>("/hrm/admin/retention-rules"),
   createRetentionRule: (body: Record<string, unknown>) =>
