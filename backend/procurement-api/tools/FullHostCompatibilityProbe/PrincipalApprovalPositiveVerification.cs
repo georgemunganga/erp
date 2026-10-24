@@ -125,9 +125,12 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(activeCategory.GetProperty("status").GetString()=="Active","Actual independent category activation failed.");
 
         stage("ActualPrincipalSourceAndChecker2");
-        var created=await send(client,HttpMethod.Post,"/api/procurement/v1/requests",fixture.Maker,new {
-            purpose="Private manual evidence principal approval",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
-            lines=new[]{new {description="Exact Core principal source",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234",categoryCode}}},HttpStatusCode.Created);
+        object sourceInput=fixture.PrincipalReceivingProfile?new{
+            purpose="Private manual evidence principal receiving source",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
+            lines=new[]{new{description="Exact Core principal goods source",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234",categoryCode,purchaseType="GOODS"}}}:
+            new {purpose="Private manual evidence principal approval",neededBy=DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),currencyCode="ZMW",
+                lines=new[]{new {description="Exact Core principal source",unitCode="each",requestedQuantity="2",estimatedUnitPrice="5.1234",categoryCode}}};
+        var created=await send(client,HttpMethod.Post,"/api/procurement/v1/requests",fixture.Maker,sourceInput,HttpStatusCode.Created);
         var requestId=created.GetProperty("id").GetGuid();var path="/api/procurement/v1/requests/"+requestId;
         var submitted=await send(client,HttpMethod.Post,path+"/submit",fixture.Maker,new {version=created.GetProperty("version").GetInt64()},HttpStatusCode.OK);
         var checker=await send(client,HttpMethod.Post,path+"/budget-checks",fixture.Checker,new {

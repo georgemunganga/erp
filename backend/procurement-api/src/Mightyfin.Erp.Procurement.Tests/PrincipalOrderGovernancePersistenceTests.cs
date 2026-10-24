@@ -42,7 +42,15 @@ public sealed class PrincipalOrderGovernancePersistenceTests
                 PurchaseOrderId=order.Id,PurchaseOrderLineId=line.Id,AllocationId=allocation.Id,
                 PurchaseRequestId=request,PurchaseRequestLineId=sourceLine,BuyerPrincipalId=buyer,
                 BranchId=order.BranchRef!.Value,CurrencyCode="ZMW",Quantity=1m,
-                ProposedUnitPrice=1m,EstimatedValue=1m};
+                ProposedUnitPrice=1m,EstimatedValue=1m,
+                MethodId=Guid.NewGuid(),MethodRevision=1,MethodCode="DIRECT",
+                RequestVersion=1,SubmittedBusinessVersion=1,SubmissionId=Guid.NewGuid(),
+                ApprovalOutcomeId=Guid.NewGuid(),CoreApprovalCaseId=Guid.NewGuid(),
+                CoreDecisionId=Guid.NewGuid(),FinanceSnapshotId=Guid.NewGuid(),
+                RequesterPrincipalId=Guid.NewGuid(),UnitEstimate=1m,
+                RequestSnapshotSha256=new string('a',64),PolicyDecisionSha256=new string('b',64),
+                PolicyRulesSha256=new string('c',64),FinanceSnapshotSha256=new string('d',64),
+                PrincipalIdentitySha256=new string('e',64)};
             order.OriginalDirectSourceSha256=PrincipalOrderDraftPins.Digest(order,[line],[binding]);
             binding.OriginalDirectSourceSha256=order.OriginalDirectSourceSha256;
             db.AddScoped(binding);
@@ -60,7 +68,7 @@ public sealed class PrincipalOrderGovernancePersistenceTests
                 OriginalDirectSourceSha256=order.OriginalDirectSourceSha256!,CommercialSnapshotJson=snapshot,
                 CommercialSnapshotSha256=ProcurementEvidenceEncoding.Digest(snapshot),
                 ManualCommitmentReference="EXT-1",ExternalEvidenceReference="DOC-1",
-                ApprovedManualPolicyReference="POL-1",CurrencyCode="ZMW",AttestedGrossAmount=1m,
+                ApprovedManualPolicyReference="POL-1",SourceReservationsJson="[]",CurrencyCode="ZMW",AttestedGrossAmount=1m,
                 RecordedByPrincipalId=recorder,ObservedAt=DateTimeOffset.UtcNow});
             await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
         }
@@ -71,14 +79,15 @@ public sealed class PrincipalOrderGovernancePersistenceTests
                 OriginalDirectSourceSha256=order.OriginalDirectSourceSha256!,CommercialSnapshotJson=snapshot,
                 CommercialSnapshotSha256=ProcurementEvidenceEncoding.Digest(snapshot),
                 ManualCommitmentReference="EXT-1",ExternalEvidenceReference="DOC-1",
-                ApprovedManualPolicyReference="POL-1",CurrencyCode="ZMW",AttestedGrossAmount=1m,
+                ApprovedManualPolicyReference="POL-1",SourceReservationsJson="[]",CurrencyCode="ZMW",AttestedGrossAmount=1m,
                 RecordedByPrincipalId=recorder,ObservedAt=DateTimeOffset.UtcNow});
             await db.SaveChangesAsync();
         }
         await using(var db=new ProcurementDbContext(options,new Scope(tenant,company,recorder)))
         {
             var funding=await db.PrincipalOrderFundingEvidence.SingleAsync();
-            funding.CurrencyCode="USD";
+            // Simulate a persistence-layer overwrite of an immutable public field.
+            db.Entry(funding).Property(x=>x.CurrencyCode).CurrentValue="USD";
             await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
         }
         await using(var db=new ProcurementDbContext(options,new Scope(tenant,company,buyer)))

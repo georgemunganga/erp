@@ -179,7 +179,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     private static Task<IResult> Review(Guid id,Guid assignmentId,HttpContext http,
         ProcurementRequestScope scope,CancellationToken ct)=>GovernedRead(http,scope,async(db,cases,core,auth,token)=>
     {
-        var pin=await db.PrincipalOrderAssignmentEvidence.AsNoTracking()
+        var pin=await db.PrincipalOrderAssignments.AsNoTracking()
             .SingleOrDefaultAsync(x=>x.CoreAssignmentId==assignmentId&&x.PrincipalId==scope.SubjectId,token)
             ??throw new Problem("OrderAssignmentNotFound",404);
         var submission=await db.PrincipalOrderSubmissions.AsNoTracking()

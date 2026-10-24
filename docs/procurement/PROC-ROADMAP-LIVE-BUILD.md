@@ -8,11 +8,26 @@
 The [Core dependency audit](PROC-CORE-DEPENDENCY-AUDIT.md) records which shared services can already be reused and which HRMS implementations are still module-specific.
 The [workflow reference trace](PROC-WORKFLOW-REFERENCE-TRACE.md) ties Zoho's help journeys to the child features and ERP ownership boundaries. Use ERPNext as a secondary public implementation example for complex data/control decisions.
 
-## Current baseline — 22 October 2026
+## Current source checkpoint — 23 October 2026
+
+Production remains the verified P23/P24 release. Source acceptance and deployment are separate gates.
+
+| Milestone | Published source / current work | Verification and remaining gates |
+|---|---|---|
+| Manual payments and Core scope (M2/P28) | ERP PR44, UI PR62 merged | Private payment/policy browser journeys and owner reconciliation passed; production migration/configuration/UAT pending. Manual confirmation is not bank execution or Finance posting. |
+| Core-principal requests and approvals (P25) | ERP PR45 merged | Workerless Core identities, actual approval and preservation/downgrade checks accepted; shared Core permissions remain authoritative. Production rollout pending. |
+| Core-principal RFQ drafts (P29) | ERP PR48, UI PR64 merged |65 actual private API requests,11 PostgreSQL constraint cases, real local-cookie browser create/reload/cancel/reload and independent owner checks accepted. Production rollout pending. |
+| PO governance, publication/quotation drafts and receiving (P30) | Coordinator-owned draft ERP PR50 and UI PR65 | Genuine21-table migration passed isolated Up/Down/Up preserving195 legacy business tables.1464 domain and484 UI unit tests passed. Corrective host runs passed119 checks and35 final compatibility checks, with prior failure evidence retained. Actual finite-role API/browser, populated downgrade veto and owner reconciliation remain release gates. |
+| Principal invoice source/review/matching (P31) | Isolated coordinator implementation; not activated | Separate PO2/acceptance ownership, exact composite FKs, shared Core unit review and Procurement-owned commercial exposure are being built. No legacy-FK substitution or Finance-posted status. Genuine migration, complete routes, existing UI binding and runtime tests required. |
+| Quotation submission, sealed rounds, evaluation and award (P32) | Isolated coordinator implementation; not activated | Freeze explicit commercial controls before publication; P30 Draft quotations are not submitted bids. Current source definitions are not execution authority. Persistence, transitions, shared Core award approval, UI and runtime proof remain. |
+
+Contracts/framework execution, portal participation, cross-module handoffs and advanced reporting retain their feature-specific acceptance gates below. No whole-module completion is claimed. Manus keeps its existing Core assignment; these coordinator milestones are not overlapping assignments. See MANUS_HANDOFF.md for published baselines.
+
+## Deployed baseline and historical planning — 22 October 2026
 
 The P23/P24 application and schema are deployed. The [live release acceptance](release/PROC-OPS-P23-P24-LIVE-ACCEPTANCE-20261022.md) records the exact application image, migration IDs, public UI assets, real-account browser results and independent database/audit reconciliation. Public vendor draft create/edit and recurring-purchase planning create/edit/close passed using a Core account with no employee link. These scoped results do not establish completion of the whole module.
 
-P25 is the next source milestone: Core-principal purchase requests, authority evidence and approval contracts. It remains a draft, default-off change under [PR 33](https://github.com/georgemunganga/erp/pull/33). Its source suites passed 1,253 domain and 586 host tests; isolated migration and subsequent runtime/workflow acceptance are separate gates. P25 has not been deployed. Existing worker-based sourcing, ordering and receiving consumers require an explicitly tested bridge before using the new principal contracts.
+At that earlier planning checkpoint, P25 was the next source milestone: Core-principal purchase requests, authority evidence and approval contracts. It was then a draft, default-off change under [PR 33](https://github.com/georgemunganga/erp/pull/33). Its source suites passed 1,253 domain and 586 host tests; isolated migration and subsequent runtime/workflow acceptance are separate gates. P25 has not been deployed. Existing worker-based sourcing, ordering and receiving consumers require an explicitly tested bridge before using the new principal contracts.
 
 **Finance ownership confirmed:** AP, accounting and payments belong to the future ERP Finance module, which has not been built. Procurement can store and validate its own records and prepare integration contracts. It must not manufacture budget reservations, posting IDs, payment status or a substitute finance ledger. Financial transitions remain unavailable until their owning service and acceptance evidence exist.
 

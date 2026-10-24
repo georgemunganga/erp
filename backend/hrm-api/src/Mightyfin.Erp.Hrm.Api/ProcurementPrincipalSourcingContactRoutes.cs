@@ -17,7 +17,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
-        return Run(http, scope, async (db, _, core, auth, token) =>
+        return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
@@ -99,7 +99,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
             return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
-        return Run(http, scope, async (db, _, core, auth, token) =>
+        return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
             if (key == Guid.Empty) throw new Problem("SourcingCommandKeyRequired", 400);

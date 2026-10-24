@@ -7,7 +7,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementPrincipalReceivingRoutes
 {
     private static Task<IResult> CreateGoods(ProcurementReceivingRoutes.ReceiptDraft input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,"procurement-receipt-create",async(db,cases,_,actor,token)=>
+        =>Run(http,scope,"procurement-receipt-create",async(db,cases,unusedCore,actor,token)=>
         {
             if(input is null)throw new Problem("ReceivingInputRequired",422);
             var key=Key(http);var hash=Fingerprint(new{operation="Create",kind="Goods",input});
@@ -27,7 +27,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var head=store.Stage(draft,key,actor.PrincipalId);return Complete(db,head,"Create",key,actor.PrincipalId,hash,201);
         },ct);
     private static Task<IResult> ReviseGoods(Guid id,ProcurementReceivingRoutes.VersionedReceipt input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,"procurement-receipt-edit",async(db,cases,_,actor,token)=>
+        =>Run(http,scope,"procurement-receipt-edit",async(db,cases,unusedCore,actor,token)=>
         {
             if(input is null)throw new Problem("ReceivingInputRequired",422);
             var key=Key(http);var hash=Fingerprint(new{operation="Revise",id,input});
@@ -50,7 +50,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             store.Stage(revised,key,actor.PrincipalId);return Complete(db,head,"Revise",key,actor.PrincipalId,hash);
         },ct);
     private static Task<IResult> CancelGoods(Guid id,ProcurementReceivingRoutes.CancelDraft input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,"procurement-receipt-edit",async(db,cases,_,actor,token)=>
+        =>Run(http,scope,"procurement-receipt-edit",async(db,cases,unusedCore,actor,token)=>
         {
             if(input is null)throw new Problem("ReceivingInputRequired",422);
             var key=Key(http);var hash=Fingerprint(new{operation="Cancel",id,input});
@@ -70,7 +70,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             return new Reply(200,System.Text.Json.JsonSerializer.Serialize(await DetailView(db,core,scope,http,head,actor,token),Json));
         },ct);
     private static Task<IResult> Record(Guid id,ProcurementReceivingRoutes.RecordReceipt input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,ControlledReceiving.RecordPermission,async(db,cases,_,actor,token)=>
+        =>Run(http,scope,ControlledReceiving.RecordPermission,async(db,cases,unusedCore,actor,token)=>
         {
             if(input is null)throw new Problem("ReceivingInputRequired",422);
             var key=Key(http);var hash=Fingerprint(new{operation="Record",id,input});

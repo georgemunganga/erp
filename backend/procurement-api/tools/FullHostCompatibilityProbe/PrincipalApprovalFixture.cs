@@ -23,14 +23,17 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
 internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false,
-    bool principalRfqProfile=false,bool principalPoProfile=false)
+    bool principalRfqProfile=false,bool principalPoProfile=false,bool principalReceivingProfile=false)
 {
     internal bool PrincipalRfqProfile=>principalRfqProfile;
     internal bool PrincipalPoProfile=>principalPoProfile;
+    internal bool PrincipalReceivingProfile=>principalReceivingProfile;
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
     internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid(),Buyer=Guid.NewGuid(),PoFinance=Guid.NewGuid(),PoApprover=Guid.NewGuid(),PoAck=Guid.NewGuid();
-    internal Guid[] Subjects=>principalPoProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer,PoFinance,PoApprover,PoAck]
+    internal readonly Guid Receiver=Guid.NewGuid(),ReceiverPeer=Guid.NewGuid(),Inspector=Guid.NewGuid(),Acceptor=Guid.NewGuid(),ServiceOwner=Guid.NewGuid(),ReceivingOutsider=Guid.NewGuid(),OtherReceivingBranch=Guid.NewGuid();
+    internal Guid[] Subjects=>principalReceivingProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer,PoFinance,PoApprover,PoAck,Receiver,ReceiverPeer,Inspector,Acceptor,ServiceOwner,ReceivingOutsider]
+        :principalPoProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer,PoFinance,PoApprover,PoAck]
         :principalRfqProfile?[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted,Buyer]
         :[Maker,Checker,Approver,ConfigMaker,ConfigReviewer,Ungranted];
     internal PrincipalScope Scope=>new(Company,Branch,Maker);
@@ -69,13 +72,21 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                     (PoApprover,"p30_po_approver","procurement-access,procurement-po-approve"),
                     (PoAck,"p30_po_ack","procurement-access,procurement-po-dispatch-confirm")}
                 :principalRfqProfile?new[]{(Buyer,"p29_rfq_buyer","procurement-access,procurement-sourcing-convert,procurement-sourcing-cancel")}
-                :Array.Empty<(Guid,string,string)>());
+                :Array.Empty<(Guid,string,string)>()).Concat(principalReceivingProfile?new[]{
+                    (Receiver,"p30_receiving_actor","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record,procurement-receipt-inspect,procurement-receipt-accept"),
+                    (ReceiverPeer,"p30_receiving_peer","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record"),
+                    (Inspector,"p30_receiving_inspector","procurement-access,procurement-receipt-inspect"),
+                    (Acceptor,"p30_receiving_acceptor","procurement-access,procurement-receipt-accept"),
+                    (ServiceOwner,"p30_receiving_service_owner","procurement-access,procurement-service-certify"),
+                    (ReceivingOutsider,"p30_receiving_outsider","procurement-access,procurement-receipt-view,procurement-receipt-create")}
+                    :Array.Empty<(Guid,string,string)>());
             foreach(var (id,role,actions) in people)
             {
                 core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey=role,RoleName="Private "+role,Category="system",PermissionsCsv=actions,Active=true});
                 core.LocalUsers.Add(new LocalUser {Id=id,WorkerId=null,Email=role+"@example.test",NormalizedEmail=role.ToUpperInvariant()+"@EXAMPLE.TEST",DisplayName=role,PasswordHash="private-no-real-login",RolesCsv=role,IsActive=true});
-                core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=id,LocationId=Branch});
+                core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=id,LocationId=principalReceivingProfile&&id==ReceivingOutsider?OtherReceivingBranch:Branch});
             }
+            if(principalReceivingProfile)core.WorkLocations.Add(new WorkLocation{Id=OtherReceivingBranch,Code="P30_RECEIVING_OTHER",Name="Other private receiving site",LegalEntityId=Company});
             if(legacyWorkerProfile)
                 core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey="procurement_manager",
                     RoleName="Private legacy manager category",Category="system",PermissionsCsv="procurement-access",Active=true});
@@ -114,6 +125,7 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:Orders:Enabled"]="true";
             settings["Procurement:Orders:PrincipalExecutionEnabled"]="true";
         }
+        if(fixture.PrincipalReceivingProfile)settings["Procurement:PrincipalReceiving:Enabled"]="true";
         return settings;
     }
     internal void PrepareEntryPointEnvironment()

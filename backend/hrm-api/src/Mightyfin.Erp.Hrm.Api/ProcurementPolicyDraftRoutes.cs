@@ -256,8 +256,16 @@ public static partial class ProcurementPolicyDraftRoutes
         if (key == SourcingPublicationPolicyRules.PolicyKey)
         {
             var actor = await SourcingCurrentActor(organizationDb, scope, "procurement-configuration-edit", ct);
+            using var sourcingRules = JsonDocument.Parse(policy.RulesJson);
+            var identitySchema = sourcingRules.RootElement.GetProperty("schemaVersion").GetInt32();
+            if (identitySchema == 1 && (actor.WorkerId is not { } worker
+                || (await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(organizationDb,
+                    scope.TenantId, scope.LegalEntityId, actor.PrincipalId, ct))?.WorkerId != worker
+                || !await ProcurementAuthorityIdentity.CanonicalPeopleQuery(organizationDb, scope, DateTimeOffset.UtcNow)
+                    .AnyAsync(person => person.Id == Guid.Parse(actor.PrincipalId), ct)))
+                return Problem("sourcing-policy-original-author-required", "A current canonical worker is required for this retained rules format.", 422);
             db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Created", actor.PrincipalId,
-                actor.EvidenceWorker(2), 1, DateTimeOffset.UtcNow, schemaVersion: 2));
+                actor.EvidenceWorker(identitySchema), 1, DateTimeOffset.UtcNow, schemaVersion: identitySchema));
         }
         if (operationalCreator is not null)
             db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Created",
@@ -288,6 +296,19 @@ public static partial class ProcurementPolicyDraftRoutes
         {
             await RequireSourcingIdentitySchema(http, db, ct);
             _ = await SourcingOriginalAuthor(db, organizationDb, scope, policy, ct);
+            // An invalid proposal is reported by the normal validator below.
+            // Read only valid JSON here so a malformed edit cannot become a 500.
+            if (SourcingPublicationPolicyRules.ValidateDraft(input.Draft.RulesJson!).Count == 0)
+            {
+                using var currentRules = JsonDocument.Parse(policy.RulesJson);
+                using var proposedRules = JsonDocument.Parse(input.Draft.RulesJson!);
+                if (currentRules.RootElement.TryGetProperty("schemaVersion", out var currentProtocol)
+                && currentProtocol.ValueKind == JsonValueKind.Number && currentProtocol.TryGetInt32(out var currentVersion)
+                && currentVersion == 2 && proposedRules.RootElement.TryGetProperty("schemaVersion", out var proposedProtocol)
+                && proposedProtocol.ValueKind == JsonValueKind.Number && proposedProtocol.TryGetInt32(out var proposedVersion)
+                && proposedVersion == 1)
+                    return Problem("sourcing-policy-schema-locked", "Start a new policy version to change the sourcing rules format.", 409);
+            }
             // Validate the proposed JSON before mutating the tracked draft.
             var sourcingIssue = await CheckSourcingCompanyRules(new PolicyVersion { Id = policy.Id, PolicyKey = policy.PolicyKey, RulesJson = input.Draft.RulesJson! },
                 db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
