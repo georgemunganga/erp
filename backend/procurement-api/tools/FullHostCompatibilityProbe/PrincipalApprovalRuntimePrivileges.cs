@@ -117,7 +117,9 @@ internal static class PrincipalApprovalRuntimePrivileges
         // Explicit bounded read manifest for actual current-account/grant/branch/optional-manager queries.
         var reads=new Dictionary<Type,string[]> {
             [typeof(LegalEntity)]=["Id","TenantId","IsArchived","Currency"],
-            [typeof(WorkLocation)]=["Id","TenantId","LegalEntityId","IsArchived"],
+            [typeof(WorkLocation)]=fixture.PrincipalPoProfile
+                ?new[]{"Id","TenantId","LegalEntityId","IsArchived","Name"}
+                :new[]{"Id","TenantId","LegalEntityId","IsArchived"},
             [typeof(OrgUnit)]=["Id","TenantId","LegalEntityId","IsArchived","Status","EffectiveFrom","EffectiveTo"],
             [typeof(Worker)]=["Id","TenantId","IsArchived","Status","LocationId","OrgUnitId","ManagerId"],
             [typeof(LocalUser)]=["Id","TenantId","WorkerId","RolesCsv","LockedUntil","IsActive","IsArchived"],

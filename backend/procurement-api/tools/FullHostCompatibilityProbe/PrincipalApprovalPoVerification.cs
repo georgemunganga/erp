@@ -31,6 +31,30 @@ internal static partial class PrincipalApprovalHttpVerification
                 && await readiness.IsReadyAsync(default),
                 "P30 real owning migration, finite grants and normal host readiness are required; no positive stub.");
         }
+        stage("P30BranchLabelReadGrantRequiredBeforeReady");
+        await using(var grantOwner=new NpgsqlConnection(owner))
+        {
+            await grantOwner.OpenAsync();
+            var role=PrincipalApprovalRuntimePrivileges.Q(roles.ExecutionRole);
+            async Task ChangeLabelRead(string verb)
+            {
+                await using var command=new NpgsqlCommand(verb+" SELECT (name) ON hrm.work_locations "+
+                    (verb=="REVOKE"?"FROM ":"TO ")+role,grantOwner);
+                await command.ExecuteNonQueryAsync();
+            }
+            await ChangeLabelRead("REVOKE");
+            try
+            {
+                using var denied=host.Services.CreateScope();
+                var readiness=denied.ServiceProvider.GetRequiredService<IProcurementPrincipalOrderDraftReadiness>();
+                Need(!await readiness.IsReadyAsync(default),
+                    "P30 must close before advertising PO detail when the finite role cannot read Core branch names.");
+            }
+            finally { await ChangeLabelRead("GRANT"); }
+        }
+        using(var restored=host.Services.CreateScope())
+            Need(await restored.ServiceProvider.GetRequiredService<IProcurementPrincipalOrderDraftReadiness>()
+                .IsReadyAsync(default),"P30 readiness did not recover after restoring the exact Core branch label grant.");
         var metadata=await send(client,HttpMethod.Get,"/api/procurement/v1/meta",fixture.Buyer);
         Need(metadata.GetProperty("capabilities").GetProperty("principalDirectOrderDrafts").GetBoolean(),
             "P30 genuine principal PO draft capability is unavailable.");

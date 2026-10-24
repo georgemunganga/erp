@@ -73,6 +73,11 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         var append = owned.Where(x => !mutable.Contains(x))
             .Concat(["procurement.audit_events", "procurement.outbox_events"]).Distinct(StringComparer.Ordinal).ToArray();
         var clauses = reads.Select(x => "has_table_privilege(current_user," + Literal(x) + ",'SELECT')").ToList();
+        if (kind == PrincipalCommercialStore.Orders)
+            // PO detail, Finance detail, approval work and fulfilment read the
+            // branch label using the enlisted execution connection. The shared
+            // Core branch fence checks other columns but does not read Name.
+            clauses.Add("has_column_privilege(current_user,'hrm.work_locations','name','SELECT')");
         clauses.Add("NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))");
         clauses.Add("NOT has_schema_privilege(current_user,'procurement','CREATE')");
         clauses.Add("NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=ANY(" + Columns(reads)

@@ -97,6 +97,12 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             || ProcurementPostgresFailures.IsStoreFailure(error))
         {
             var pg=ProcurementPostgresFailures.Postgres(error);
+            // Store exception text can contain row values. Keep support diagnostics
+            // to metadata only, consistent with the invoice matching endpoint.
+            if(error is not Problem && ProcurementPostgresFailures.IsStoreFailure(error))
+                http.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("Procurement.PrincipalOrders")
+                    .LogWarning("Purchase order store operation failed. TraceId: {TraceId}; ExceptionType: {ExceptionType}; SqlState: {SqlState}; Schema: {Schema}; Table: {Table}; Constraint: {Constraint}",
+                        http.TraceIdentifier,error.GetType().FullName,pg?.SqlState,pg?.SchemaName,pg?.TableName,pg?.ConstraintName);
             var status=error is Problem p?p.Status:ProcurementPostgresFailures.IsConcurrency(error)||pg?.SqlState=="23505"?409
                 :ProcurementPostgresFailures.IsStoreFailure(error)?503:error is UnauthorizedAccessException?403:409;
             return Error(error is Problem?error.Message:status==503?"OrderSaveUnconfirmed":"OrderSourceNeedsReview",status);
