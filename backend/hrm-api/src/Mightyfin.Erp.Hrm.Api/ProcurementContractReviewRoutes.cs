@@ -11,8 +11,8 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Held contract review commands. MapRoutes is deliberately not called
-/// until P35 schema, finite grants and actual Core transaction proof are captured.</summary>
+/// <summary>Contract review commands map only under explicit feature opt-in.
+/// Each request still requires captured schema, finite grants and the owning Core transaction.</summary>
 public static partial class ProcurementContractReviewRoutes
 {
     private sealed class Problem(string code, int status) : Exception(code) { internal int Status => status; }

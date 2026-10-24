@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -113,6 +114,7 @@ public sealed class ContractReviewReadinessTests
         IProcurementContractReviewSchemaReadiness legacy = new LegacyReadiness();
         Assert.True(await legacy.CanRecordAsync(null!, default));
         Assert.False(await legacy.CanRecordPolicyAsync(null!, default));
+        Assert.False(await legacy.IsConfiguredAsync(default));
     }
 
     [Theory]
@@ -135,6 +137,33 @@ public sealed class ContractReviewReadinessTests
         Assert.False(await readiness.IsReadReadyAsync(null!, default));
         Assert.False(await readiness.CanRecordPolicyAsync(null!, default));
         Assert.False(await readiness.CanRecordAsync(null!, default));
+    }
+
+    [Theory]
+    [InlineData(false, true, true, true, true, true)]
+    [InlineData(true, false, true, true, true, true)]
+    [InlineData(true, true, false, false, false, false)]
+    [InlineData(true, true, true, false, true, true)]
+    [InlineData(true, true, true, true, false, true)]
+    [InlineData(true, true, true, true, true, false)]
+    public async Task Configured_admission_rejects_invalid_options_before_resolving_execution(
+        bool enabled, bool configured, bool registerApprovalOptions, bool approvalsEnabled,
+        bool principalEnabled, bool approvalConfigured)
+    {
+        var services = new ServiceCollection();
+        if (registerApprovalOptions) services.AddSingleton(new ProcurementApprovalExecutionOptions
+        { Enabled = approvalsEnabled, PrincipalExecutionEnabled = principalEnabled, ExecutionDatabaseConfigured = approvalConfigured });
+        var resolutions = 0;
+        services.AddSingleton<ProcurementApprovalTransaction>(_ =>
+        {
+            resolutions++;
+            throw new InvalidOperationException("Execution must not be resolved for invalid configuration.");
+        });
+        using var provider = services.BuildServiceProvider();
+        var readiness = new ProcurementContractReviewStoreReadiness(new() { Enabled = enabled, ExecutionDatabaseConfigured = configured },
+            new ConfigurationBuilder().Build(), provider);
+        Assert.False(await readiness.IsConfiguredAsync(default));
+        Assert.Equal(0, resolutions);
     }
 
     [Fact]
