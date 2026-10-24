@@ -71,7 +71,10 @@ frozen criterion and original document pin. The two append-only assessment famil
 bring the held model to fifteen owned families. They neither aggregate a result nor
 select an award; `CriterionAssessmentEnabled` remains default false, the positive
 physical readiness provider is absent, and no genuine P32 migration or finite-role
-runtime proof exists. The imported RFQ UI has no assessment binding. The earlier
+runtime proof exists. A further held purpose read projects missing/current
+observations for one opened offer and frozen criterion to an explicitly named
+reader after retained proof; it exposes no scores, pass/fail results or winner.
+The imported RFQ UI has no assessment binding. The earlier
 eleven/thirteen-family counts and opening-only text above are historical checkpoints,
 superseded by this source inventory.
 

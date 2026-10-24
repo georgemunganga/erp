@@ -849,3 +849,29 @@ generation, exact finite-role inspection, raw mixed-owner/NULL/precision tests,
 actual named Core evaluator HTTP proof, lost-ack recovery and restored UI binding
 remain required before activation. The original P32 opening/offer release holds
 remain in force.
+
+### Held criterion-observation coverage read (source only)
+
+An additional purpose read, `GET /commercial-rounds/{id}/offers/{offerId}/criteria/{criterionCode}/assessment-coverage`,
+projects **presence** for the exact evaluator IDs named on one frozen criterion and
+one genuinely opened offer. It first requires current Core
+`procurement-sourcing-opened-offer-read`, selected/allowed branch, named policy
+reader membership, retained Core/source/opening/seal/offer/document proof and
+current/retained actor-alias independence. These checks run before any assessment
+count or payload read. Unknown, sealed, off-branch or nonmember sources remain
+unavailable. The response pins the offer set, definition and original offer hashes,
+then gives each named evaluator's missing/current assessment ID, revision and
+assessment digest. It contains no score, pass/fail value, rationale, rank, winner or
+commercial comparison. `comparisonAvailable`, `recommendationAvailable`,
+`awardAvailable` and `purchaseOrderAvailable` remain false.
+
+The source loader bounds one criterion to at most 64 named evaluators × 100
+immutable revisions, verifies every retained assessment against the frozen plan,
+opening and offer, verifies its original receipt and exact revision predecessor
+chain, and rejects unexpected evaluators or duplicates. A recorded zero score or
+failed pass/fail observation counts as *present*, never as a passing result.
+Observed-versus-required counts apply only to this one offer/criterion; they do
+not establish full round evaluation completion or award authority. The route is
+behind existing default-off P32 opening and assessment options and unregistered
+positive readiness. No migration, role grant, UI activation, business comparison
+rule or runtime acceptance is added by this read source.
