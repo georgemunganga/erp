@@ -4209,7 +4209,8 @@ public sealed partial class ProcurementRequestHttpTests
         }
 
         public static async Task<Fixture> Start(bool documents = false, bool matchingSchema = false, bool sourcingSchema = true,
-            bool principalApprovalEnabled = false, bool principalApprovalSchema = false)
+            bool principalApprovalEnabled = false, bool principalApprovalSchema = false,
+            bool principalApprovalTimeout = false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
@@ -4224,7 +4225,7 @@ public sealed partial class ProcurementRequestHttpTests
                 options.UseInMemoryDatabase("proc-drafts-" + databaseId, procurementStoreRoot));
             builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness());
             builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions {PrincipalExecutionEnabled=principalApprovalEnabled});
-            builder.Services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness>(new PrincipalApprovalTestSchemaReadiness(principalApprovalSchema));
+            builder.Services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness>(new PrincipalApprovalTestSchemaReadiness(principalApprovalSchema,principalApprovalTimeout));
             builder.Services.AddSingleton<SourcingPolicyIdentityTestReadiness>();
             if (sourcingSchema) builder.Services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness>(sp => sp.GetRequiredService<SourcingPolicyIdentityTestReadiness>());
             var documentRoot = documents ? Path.Combine(Path.GetTempPath(), "erp-http-documents-" + databaseId) : null;
