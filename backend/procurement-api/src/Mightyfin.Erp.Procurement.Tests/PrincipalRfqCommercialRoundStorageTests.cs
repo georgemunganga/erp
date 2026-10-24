@@ -217,16 +217,28 @@ public sealed class PrincipalRfqCommercialRoundStorageTests
             CoreDecisionId = coreDecision, CoreAssignmentId = coreAssignment,
             DecidedAt = decidedAt,
         };
-        var response = "{}";
+        var key = Guid.NewGuid();
+        var response = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, operation = "Decide", commandKey = key,
+            openingId = unrelatedRound, eventId, branchId = branch,
+            targetId = vote.Id, responseStatus = 200,
+            result = new { roundId = unrelatedRound, voteId = vote.Id,
+                coreDecisionId = vote.CoreDecisionId, caseState = vote.CaseState,
+                caseVersion = vote.CaseVersion,
+                assignmentVersion = vote.AssignmentVersion,
+                terminalDecisionId = decision.Id },
+        });
         db.Add(new PrincipalRfqCommercialCommandReceipt
         {
             TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
             OpeningId = unrelatedRound, SourcingEventId = eventId, BranchId = branch,
             Operation = "Decide", DecisionTargetId = decision.Id, TargetId = vote.Id,
             VoteTargetId = vote.Id,
-            CommandKey = Guid.NewGuid(), ActorPrincipalId = scope.SubjectId,
+            CommandKey = key, ActorPrincipalId = scope.SubjectId,
             RequestSha256 = new string('a', 64), ResponseJson = response,
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(response),
+            ResponseStatus = 200,
         });
         // Check the mismatched receipt first; the terminal vote is otherwise a
         // matching same-save decision, so its absence cannot mask this denial.
