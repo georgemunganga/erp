@@ -1,0 +1,35 @@
+{
+  "status": "PASS_PRIVATE_RECEIVING_ACTUAL_API_AND_OWNER_RELOAD",
+  "date": "2026-10-24",
+  "scope": "P30 goods and service fulfilment private API only; normal-cookie receiving browser and production release pending",
+  "compiledApiProbeSource": "7527a5a49057842046a6472845c11f69434ef2d0",
+  "actualHttpRequests": 165,
+  "selectedHostTestsPassed": 25,
+  "privateEvidence": "/home/amizo/erp-backups/procurement-p30-actual-receiving-20261024_run02",
+  "resultSha256": "ab2ecd83942253a69f7f5267b1ea2b324e9986aa5694182afceb18c97a804cb5",
+  "checks": {
+    "status": "PASS_PRIVATE_P30_PRINCIPAL_RECEIVING_MANUAL_FULFILMENT_ONLY",
+    "facts": 6,
+    "receipts": 12,
+    "immutableRevisions": 9,
+    "independentInspection": true,
+    "optionalEmployee": true,
+    "manualAcknowledgmentIsNotDelivery": true,
+    "physicalOverdeliveryRecorded": true,
+    "exactEightPlaceAcceptance": true,
+    "counterAndReceiptTamperDenied": true,
+    "originalGetRecovery": true,
+    "stockPostingPerformed": false,
+    "financePostingPerformed": false,
+    "productionVerified": false
+  },
+  "normalSessionReceivingBrowserPassed": false,
+  "retainedFailure": "procurement-p30-actual-receiving-20261024_run01: GET command recovery returned stored Create status201 instead of GET200; original body remained unchanged. Narrow route correction rerun successfully.",
+  "productionTouched": false,
+  "remaining": [
+    "Normal-session receiving browser commands and independent owner reconciliation",
+    "RFQ publication actual API cohort",
+    "Malformed retained-history cancellation cohort",
+    "Protected P24-to-P30 full-ACL upgrade/API/publisher rehearsal and coordinated production cutover"
+  ]
+}
