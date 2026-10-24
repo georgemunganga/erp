@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Application;
 
@@ -146,11 +147,17 @@ internal static partial class PrincipalApprovalHttpVerification
             var error = args.Exception;
             var type = error.GetType().Name;
             if (type is not ("InvalidOperationException" or "ArgumentException" or
-                "DbUpdateException" or "InvalidCastException")) return;
+                "DbUpdateException" or "DbUpdateConcurrencyException" or
+                "InvalidCastException" or "OverflowException" or "PostgresException")) return;
             var code = error.Message;
             var internalCode = code.Length is >= 4 and <= 96 && Regex.IsMatch(code,
                 @"\A(?:Rfq|Sourcing|SharedCoreApproval|Approval)[A-Za-z0-9]{1,90}\z");
-            var category = code.Contains("Collection was modified", StringComparison.OrdinalIgnoreCase)
+            var category = type == "DbUpdateConcurrencyException" ? "Concurrency"
+                : type == "OverflowException" ? "Overflow"
+                : error is PostgresException pg && pg.SqlState.StartsWith("23", StringComparison.Ordinal)
+                    ? "DatabaseConstraint"
+                : type == "PostgresException" ? "DatabaseError"
+                : code.Contains("Collection was modified", StringComparison.OrdinalIgnoreCase)
                 ? "CollectionChanged"
                 : code.Contains("Sequence contains more than one", StringComparison.OrdinalIgnoreCase)
                     ? "SequenceMultiple"
@@ -164,9 +171,12 @@ internal static partial class PrincipalApprovalHttpVerification
             var declaring = error.TargetSite?.DeclaringType?.FullName;
             var method = error.TargetSite?.Name;
             var safeSite = declaring is { Length: <= 180 } &&
-                Regex.IsMatch(declaring, @"\A(?:System|Microsoft\.EntityFrameworkCore|Mightyfin\.Erp)[A-Za-z0-9_.+\x60]*\z")
+                Regex.IsMatch(declaring, @"\A(?:System|Microsoft\.EntityFrameworkCore|Mightyfin\.Erp|Npgsql)[A-Za-z0-9_.+\x60]*\z")
                 && method is { Length: <= 100 } &&
                 Regex.IsMatch(method, @"\A[A-Za-z_][A-Za-z0-9_]*\z");
+            var sqlState = error is PostgresException postgres &&
+                Regex.IsMatch(postgres.SqlState, @"\A[A-Z0-9]{5}\z")
+                ? postgres.SqlState : null;
             lock (openFailureCodes)
             {
                 if (internalCode && openFailureCodes.Count < 8 &&
@@ -174,7 +184,7 @@ internal static partial class PrincipalApprovalHttpVerification
                     openFailureCodes.Add(code);
                 var site = new { type, category,
                     declaringType = safeSite ? declaring : "Unclassified",
-                    method = safeSite ? method : "Unclassified" };
+                    method = safeSite ? method : "Unclassified", sqlState };
                 if (category != "Other" && openFailureSites.Count == 8)
                 {
                     var ordinary = openFailureSites.FindIndex(x =>
