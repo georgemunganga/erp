@@ -176,7 +176,7 @@ def compare(fixture, before, after, browser, fixture_sha):
         and draft.get('creator_principal_id') == fixture['receiverPrincipalId']
         and draft.get('creator_worker_alias_id') is None and draft.get('revision') == 2,
         'ServiceDraftRetainedState')
-    require(len({row.get('line_id') for row in bindings}) == 1
+    require({row.get('line_id') for row in bindings} == {service_id}
         and all(row.get('draft_id') == service_id and row.get('source_state_id') == source['id']
             and row.get('purchase_order_line_id') == fixture['issuedOrderLineId']
             and row.get('purchase_order_id') == fixture['issuedOrderId']
@@ -217,6 +217,11 @@ def compare(fixture, before, after, browser, fixture_sha):
     except (ValueError,TypeError): raise Failed('ServicePolicyRulesMalformed') from None
     policy_sha=hashlib.sha256(canonical_json(policy_rules).encode()).hexdigest()
     require(payload.get('Id') == fact['id'] and payload.get('AcceptanceRecordId') == service_id
+        and payload.get('ObservationId') is None and payload.get('InspectionId') is None
+        and payload.get('DeliverableReference') == create['deliverableReference']
+        and payload.get('PeriodFrom') == create['periodFrom']
+        and payload.get('PeriodTo') == create['periodTo']
+        and payload.get('Sequence') == 1
         and payload.get('Quantity') is not None and exact(payload['Quantity']) == decimal.Decimal('0.5')
         and exact(payload.get('NetAmount')) == decimal.Decimal('0.00005')
         and payload.get('Actor',{}).get('PrincipalId') == fixture['serviceOwnerPrincipalId']
