@@ -17,6 +17,50 @@ public sealed class ProcurementRfqCommercialStoreReadinessTests
         public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(ready);
     }
 
+    [Fact]
+    public async Task Empty_prepare_foundation_needs_no_document_feature_store_or_schema()
+    {
+        using var services = new ServiceCollection()
+            .AddSingleton(new ProcurementSourcingDraftExecutionOptions
+                { Enabled = true, ExecutionDatabaseConfigured = true })
+            .AddSingleton<IProcurementSourcingDraftSchemaReadiness>(new SourceReady())
+            .BuildServiceProvider();
+        var http = new DefaultHttpContext { RequestServices = services };
+        await ProcurementSourcingExecutionRoutes.RequireCommercialCommandFoundation(
+            http, null, CancellationToken.None);
+        ProcurementSourcingExecutionRoutes.RequireCommercialPreparationDocumentRoute(0, false);
+        var stale = Assert.Throws<ProcurementSourcingExecutionRoutes.Problem>(() =>
+            ProcurementSourcingExecutionRoutes.RequireCommercialPreparationDocumentRoute(1, false));
+        Assert.Equal(409, stale.Status);
+        Assert.Equal("RfqCommercialDraftVersionChanged", stale.Message);
+    }
+
+    [Fact]
+    public async Task Nonempty_prepare_remains_document_gated_and_empty_route_cannot_acquire_document_owner()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:ProcurementApprovalExecution"] = "Host=localhost;Database=private_review;Username=finite_execution",
+            ["ConnectionStrings:CoreDocuments"] = "Host=localhost;Database=private_review;Username=finite_execution",
+        }).Build();
+        using var services = new ServiceCollection()
+            .AddSingleton(new ProcurementSourcingDraftExecutionOptions
+                { Enabled = true, ExecutionDatabaseConfigured = true })
+            .AddSingleton<IProcurementSourcingDraftSchemaReadiness>(new SourceReady())
+            .AddSingleton(new CoreDocumentFeature(false))
+            .AddSingleton<IDocumentSchemaReadiness>(new DocumentReady(false))
+            .AddSingleton<IConfiguration>(config).BuildServiceProvider();
+        var http = new DefaultHttpContext { RequestServices = services };
+        ProcurementSourcingExecutionRoutes.RequireCommercialPreparationDocumentRoute(1, true);
+        var missing = await Assert.ThrowsAsync<ProcurementSourcingExecutionRoutes.Problem>(() =>
+            ProcurementSourcingExecutionRoutes.RequireCommercialDocumentCommandFoundation(
+                http, null, CancellationToken.None));
+        Assert.Equal("RfqCommercialDocumentsUnavailable", missing.Message);
+        var wrongRoute = Assert.Throws<ProcurementSourcingExecutionRoutes.Problem>(() =>
+            ProcurementSourcingExecutionRoutes.RequireCommercialPreparationDocumentRoute(0, true));
+        Assert.Equal(409, wrongRoute.Status);
+    }
+
     [Theory]
     [InlineData(false, true)]
     [InlineData(true, false)]
