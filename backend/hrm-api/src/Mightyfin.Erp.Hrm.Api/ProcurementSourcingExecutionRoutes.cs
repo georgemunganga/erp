@@ -12,8 +12,9 @@ using Npgsql;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Governed internal draft holds only. Production schema readiness remains Unavailable.
-/// No publication, Core case, supplier dispatch, bid, award or Finance reservation is created.</summary>
+/// <summary>Governed sourcing execution. Principal publication and buyer-entered
+/// quotation Drafts have separate default-off readiness until owning schema is captured.
+/// No supplier dispatch, submitted bid, award or Finance reservation is created.</summary>
 public static partial class ProcurementSourcingExecutionRoutes
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -34,6 +35,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         group.MapGet("/{id:guid}/source-draft", Read).RequireAuthorization("procurement-access");
         group.MapGet("/command-receipts/{operation}/{key:guid}", Recover).RequireAuthorization("procurement-access");
         MapPrincipalSourceRoutes(group);
+        MapPrincipalPublicationRoutes(group);
     }
     private static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
         Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<Reply>> command, CancellationToken ct)
@@ -42,16 +44,20 @@ public static partial class ProcurementSourcingExecutionRoutes
         try
         {
             var options = http.RequestServices.GetRequiredService<ProcurementSourcingDraftExecutionOptions>();
+            var performance = http.RequestServices.GetService<IConfiguration>();
             if (!options.Enabled || !options.ExecutionDatabaseConfigured
-                || !await http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct))
+                || !await ProcurementModelParityDiagnostics.MeasureAsync(performance, "sourcing.configured-readiness",
+                    () => http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct)))
                 throw new Problem("SourcingDraftExecutionUnavailable", 503);
             if (scope.OrgUnitId is not null) throw new Problem("RfqDepartmentScopeUnsupported", 503);
             var result = await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async (db, cases, token) =>
             {
-                if (!await http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>()
-                        .IsReadyAsync(db, !HttpMethods.IsGet(http.Request.Method), token))
+                if (!await ProcurementModelParityDiagnostics.MeasureAsync(performance, "sourcing.owner-readiness",
+                    () => http.RequestServices.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>()
+                        .IsReadyAsync(db, !HttpMethods.IsGet(http.Request.Method), token)))
                     throw new Problem("SourcingDraftExecutionUnavailable", 503);
-                if(!await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db,http.RequestServices,false,token))
+                if(!await ProcurementModelParityDiagnostics.MeasureAsync(performance,"sourcing.finance-readiness",
+                    () => ProcurementFinanceCheckerSchemaGuard.ReadyAsync(db,http.RequestServices,false,token)))
                     throw new Problem("SourcingFinanceCheckerSchemaUnavailable",503);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 return await command(db, cases, core, http.RequestServices.GetRequiredService<IAuthorizationService>(), token);

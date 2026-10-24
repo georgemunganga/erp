@@ -117,7 +117,7 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
             PermissionsCsv = string.Join(',', NormalizePermissions(category, request.Permissions ?? [])),
             Active = request.Active,
         };
-        return ToRoleDto(await repo.CreateRoleAssignmentAsync(row, ct));
+        return ToRoleDto(await repo.CreateRoleAfterSetupAsync(row, ct));
     }
 
     public async Task<TenantRoleDto> UpdateRoleAsync(string roleKey, RoleUpdateRequest request, CancellationToken ct)

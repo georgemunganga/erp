@@ -1,0 +1,11 @@
+# P30 service receipt normal-cookie proof source
+
+Source-only, opt-in successor to the accepted native P30 receiving and Goods browser proof. No product API/domain/UI behavior is changed here.
+
+- `P30_HTTP_SERVE_SERVICE_NORMAL_COOKIE=1` is exclusive to a fresh private `proc_p30_http_po_*` cohort with genuine PO and principal receiving native verification. It cannot share the PO, Goods-cookie, RFQ or retained-cancel browser profile.
+- The existing native helper creates an additional approved SERVICE purchase request, exact Finance manual-attestation references, an independently reviewed and issued PO, and a manual supplier acknowledgment. The new source uses distinct synthetic reference suffixes and starts with zero service receipts. Native Goods and native two-half Service history are retained separately.
+- The private host checks actual P30 receiving readiness, rejects test-subject headers, activates only the sixteen new workerless synthetic placeholders through exact CAS, serves a 15-minute normal local-cookie listener and writes a new 0600 fixture. Lifecycle completion only closes the host; it is not business acceptance.
+- The existing imported Service completion editor and detail are exercised by `module-connect/reference-ui/tests/normal-cookie/p30-service-cookie.spec.ts`: Receiver saves a 0.5 Draft; independent ServiceOwner certifies it with manual evidence; Receiver reloads; both log out. The same-origin proxy adds no identity/branch headers or business mocks.
+- `verify_p30_service_cookie_owner.py` captures all Procurement/Core owning rows before login using the accepted broad snapshot helper and checks original native history unchanged after browser. It binds the two captured command keys/bodies to durable receipt request hashes, one 0.5 Acceptance fact, exact 0.00005 net, source/issued pins, PR/PO counters, revisions, audit/outbox and two revoked local sessions. It is read-only and denies unknown changes.
+
+No SDK, PostgreSQL, browser, runtime, migration, Finance, supplier-send or production job has been run from this source branch. The native/service browser and independent owner acceptance remain pending coordinator review and a fresh private cohort. Failed evidence is retained, never overwritten.

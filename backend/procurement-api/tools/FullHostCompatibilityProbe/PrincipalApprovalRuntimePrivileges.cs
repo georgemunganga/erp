@@ -12,7 +12,7 @@ using Npgsql;
 internal static class PrincipalApprovalRuntimePrivileges
 {
     internal sealed record Connections(string Record,string Execution,string RecordRole,string ExecutionRole);
-    internal static async Task<Connections> CreateAsync(string owner,PrincipalApprovalFixture fixture)
+    internal static async Task<Connections> CreateAsync(string owner,PrincipalApprovalFixture fixture,bool productionPooling=false)
     {
         var suffix=Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
         var record="p25_record_"+suffix;var execution="p25_execute_"+suffix;
@@ -64,11 +64,62 @@ internal static class PrincipalApprovalRuntimePrivileges
             foreach(var table in new[]{"sourcing_draft_evidence","sourcing_demand_bindings","sourcing_command_receipts"})
                 await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
         }
+        if(fixture.PrincipalRfqProfile && Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION")=="1")
+        {
+            foreach(var table in new[]{"suppliers","supplier_contacts","supplier_qualifications"})
+                await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            foreach(var table in new[]{"supplier_decisions","sourcing_policy_identity_evidence"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(record));
+            foreach(var table in new[]{"sourcing_publication_openings","sourcing_publication_decisions",
+                "sourcing_publication_receipts","sourcing_manual_contacts","sourcing_manual_quote_versions",
+                "sourcing_policy_identity_evidence"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"sourcing_invitations","supplier_bids","supplier_bid_lines"})
+                await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            await Run("GRANT SELECT ON procurement.supplier_qualifications TO "+Q(execution));
+        }
+        if(fixture.PrincipalPoProfile)
+        {
+            // P30 profile alone: vendor master setup uses the record role; the
+            // execution role may write only owned PO/source/receipt evidence.
+            foreach(var table in new[]{"suppliers","supplier_contacts","supplier_qualifications","procurement_methods"})
+                await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            await Run("GRANT SELECT,INSERT ON procurement.supplier_decisions TO "+Q(record));
+            foreach(var table in new[]{"suppliers","supplier_qualifications","procurement_methods","catalog_items","catalog_entries",
+                "purchase_orders","purchase_order_lines","principal_order_source_bindings","principal_order_draft_receipts",
+                "principal_order_funding_evidence","principal_order_submissions","principal_order_assignments",
+                "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
+                "principal_order_release_requests","principal_order_release_confirmations","purchase_request_allocations",
+                "purchase_request_approval_submissions","purchase_request_approval_outcomes","budget_check_snapshots",
+                "principal_receiving_sources"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"purchase_orders","purchase_order_lines","purchase_request_allocations"})
+                await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"principal_order_source_bindings","principal_order_draft_receipts",
+                "principal_order_funding_evidence","principal_order_submissions","principal_order_assignments",
+                "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
+                "principal_order_release_requests","principal_order_release_confirmations"})
+                await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
+        if(fixture.PrincipalReceivingProfile)
+        {
+            await Run("GRANT SELECT,INSERT ON procurement.operational_policy_identity_evidence TO "+Q(record));
+            await Run("GRANT SELECT ON procurement.operational_policy_identity_evidence TO "+Q(execution));
+            foreach(var table in new[]{"principal_receiving_sources","principal_receiving_drafts"})
+                await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"principal_receiving_facts","principal_receiving_revisions","principal_receiving_receipts","principal_receiving_line_bindings"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            // Read-only legacy completeness checks do not authorize legacy writes.
+            foreach(var table in new[]{"receiving_source_states","goods_receipt_lines","service_acceptances"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
         await using var core=fixture.Core();var coreModel=core.GetService<IDesignTimeModel>().Model;
         // Explicit bounded read manifest for actual current-account/grant/branch/optional-manager queries.
         var reads=new Dictionary<Type,string[]> {
             [typeof(LegalEntity)]=["Id","TenantId","IsArchived","Currency"],
-            [typeof(WorkLocation)]=["Id","TenantId","LegalEntityId","IsArchived"],
+            [typeof(WorkLocation)]=fixture.PrincipalPoProfile
+                ?new[]{"Id","TenantId","LegalEntityId","IsArchived","Name"}
+                :new[]{"Id","TenantId","LegalEntityId","IsArchived"},
             [typeof(OrgUnit)]=["Id","TenantId","LegalEntityId","IsArchived","Status","EffectiveFrom","EffectiveTo"],
             [typeof(Worker)]=["Id","TenantId","IsArchived","Status","LocationId","OrgUnitId","ManagerId"],
             [typeof(LocalUser)]=["Id","TenantId","WorkerId","RolesCsv","LockedUntil","IsActive","IsArchived"],
@@ -87,8 +138,20 @@ internal static class PrincipalApprovalRuntimePrivileges
         await Run("GRANT SELECT ON core_approval.\"__EFMigrationsHistory\" TO "+Q(record)+","+Q(execution));
         foreach(var table in new[]{"cases","stages","assignments"})await Run("GRANT INSERT,UPDATE ON core_approval."+Q(table)+" TO "+Q(execution));
         await Run("GRANT INSERT ON core_approval.decisions TO "+Q(execution));
-        string Connect(string role,string password)=>new NpgsqlConnectionStringBuilder(owner){Username=role,Password=password,Pooling=false,Multiplexing=false}.ConnectionString;
-        return new(Connect(record,recordPassword),Connect(execution,executionPassword),record,execution);
+        return new(RuntimeConnection(owner,record,recordPassword,productionPooling),
+            RuntimeConnection(owner,execution,executionPassword,productionPooling),record,execution);
     }
+    internal static string RuntimeConnection(string owner,string role,string password,bool productionPooling)
+        => new NpgsqlConnectionStringBuilder(owner)
+        {
+            Username=role,Password=password,Pooling=productionPooling,
+            Multiplexing=false,NoResetOnClose=false,
+        }.ConnectionString;
+
+    internal static string CoreRuntimeConnection(string owner)
+        => new NpgsqlConnectionStringBuilder(owner)
+        {
+            Pooling=true,Multiplexing=false,NoResetOnClose=false,
+        }.ConnectionString;
     internal static string Q(string value)=>'"'+value.Replace("\"","\"\"")+ '"';
 }

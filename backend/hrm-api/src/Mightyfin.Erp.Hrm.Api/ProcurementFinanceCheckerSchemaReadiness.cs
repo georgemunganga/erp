@@ -13,7 +13,8 @@ public interface IProcurementFinanceCheckerSchemaReadiness
 
 /// <summary>Read-only discovery on the actual caller's owning store/transaction. No configured
 /// connection fallback, write probe, identity backfill, or Core ownership duplication.</summary>
-public sealed class ProcurementFinanceCheckerSchemaReadiness : IProcurementFinanceCheckerSchemaReadiness
+public sealed class ProcurementFinanceCheckerSchemaReadiness(IConfiguration? performanceConfiguration = null)
+    : IProcurementFinanceCheckerSchemaReadiness
 {
     // Proposed literal pg_get_expr outputs. Parent must freeze/verify the actual PostgreSQL
     // generated definitions during migration rehearsal. An unsupported format fails CLOSED.
@@ -50,7 +51,9 @@ public sealed class ProcurementFinanceCheckerSchemaReadiness : IProcurementFinan
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
+            if (ProcurementModelParityDiagnostics.HasPendingModelChanges(owner, performanceConfiguration, "finance-checker.model-parity")
+                || await ProcurementModelParityDiagnostics.MeasureAsync(performanceConfiguration, "finance-checker.applied-migrations",
+                    async () => (await owner.Database.GetPendingMigrationsAsync(ct)).Any())) return false;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
             await using var command = connection.CreateCommand();

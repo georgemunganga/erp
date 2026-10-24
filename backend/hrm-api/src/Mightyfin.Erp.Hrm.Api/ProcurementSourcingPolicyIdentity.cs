@@ -34,25 +34,32 @@ public static partial class ProcurementPolicyDraftRoutes
         catch (InvalidOperationException) { throw IdentityConflict(); }
         return row;
     }
-    private static async Task<(SourcingPolicyIdentityEvidence Origin, ProcurementAuthorityIdentity.CanonicalAccount Actor)> SourcingOriginalAuthor(
+    private static async Task<(SourcingPolicyIdentityEvidence Origin, ProcurementPrincipalPeople.Person Actor)> SourcingOriginalAuthor(
         ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope, PolicyVersion policy, CancellationToken ct)
     {
         var origin = await SourcingOrigin(db, policy, ct);
         var actor = await SourcingCurrentActor(core, scope, "procurement-configuration-edit", ct);
-        try { SourcingPolicyIdentity.RequireAuthor(policy, origin, actor.PrincipalId, actor.WorkerId); }
-        catch (InvalidOperationException) { throw new SourcingIdentityProblem("sourcing-policy-original-author-required", "Only the original author, with the original worker identity, can edit or submit this sourcing policy.", 403); }
+        if (origin.SchemaVersion == 1 && (actor.WorkerId is not { } currentWorker
+            || (await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,
+                scope.TenantId, scope.LegalEntityId, actor.PrincipalId, ct))?.WorkerId != currentWorker))
+            throw new SourcingIdentityProblem("sourcing-policy-original-author-required", "The original current author is unavailable.", 403);
+        try { SourcingPolicyIdentity.RequireAuthor(policy, origin, actor.PrincipalId, actor.EvidenceWorker(origin.SchemaVersion)); }
+        catch (InvalidOperationException) { throw new SourcingIdentityProblem("sourcing-policy-original-author-required", "Only the original current author can edit or submit this sourcing policy.", 403); }
         return (origin, actor);
     }
-    private static async Task<ProcurementAuthorityIdentity.CanonicalAccount> SourcingCurrentActor(HrmDbContext core,
+    private static async Task<ProcurementPrincipalPeople.Person> SourcingCurrentActor(HrmDbContext core,
         ProcurementRequestScope scope, string permission, CancellationToken ct)
     {
         if (!await ReceivingConfigurationActor(core, scope, permission, ct))
             throw new SourcingIdentityProblem("sourcing-configuration-unavailable", "Your current account cannot perform this policy action.", 403);
-        return await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct)
-            ?? throw new SourcingIdentityProblem("sourcing-configuration-unavailable", "Your current account is unavailable.", 403);
+        var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
+        if (actor is null || scope.PrincipalId is not { } principal || actor.PrincipalId != principal.ToString("D")
+            || actor.CoreLinkedWorkerId != scope.CoreLinkedWorkerId || !actor.Permissions.Contains(permission))
+            throw new SourcingIdentityProblem("sourcing-configuration-unavailable", "Your current account is unavailable.", 403);
+        return actor;
     }
     private static async Task<(SourcingPolicyIdentityEvidence Origin, SourcingPolicyIdentityEvidence Submitted,
-        ProcurementAuthorityIdentity.CanonicalAccount Actor)> SourcingIndependentPolicyReviewer(ProcurementDbContext db, HrmDbContext core,
+        ProcurementPrincipalPeople.Person Actor)> SourcingIndependentPolicyReviewer(ProcurementDbContext db, HrmDbContext core,
         ProcurementRequestScope scope, PolicyVersion policy, CancellationToken ct)
     {
         var origin = await SourcingOrigin(db, policy, ct);
@@ -62,8 +69,17 @@ public static partial class ProcurementPolicyDraftRoutes
         try { SourcingPolicyIdentity.VerifySubmission(policy, origin, submitted); }
         catch (InvalidOperationException) { throw IdentityConflict(); }
         var actor = await SourcingCurrentActor(core, scope, "procurement-configuration-approve", ct);
-        try { SourcingPolicyIdentity.RequireIndependent(policy, origin, submitted, actor.PrincipalId, actor.WorkerId); }
+        if (origin.SchemaVersion == 1 && (actor.WorkerId is not { } currentWorker
+            || (await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core,
+                scope.TenantId, scope.LegalEntityId, actor.PrincipalId, ct))?.WorkerId != currentWorker))
+            throw new SourcingIdentityProblem("self-approval", "A current independent reviewer is required.", 403);
+        try { SourcingPolicyIdentity.RequireIndependent(policy, origin, submitted, actor.PrincipalId, actor.EvidenceWorker(origin.SchemaVersion)); }
         catch (InvalidOperationException) { throw new SourcingIdentityProblem("self-approval", "Another current person, independent of the original maker and submitter, must review this policy.", 403); }
+        if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, origin.ActorPrincipalId,
+                origin.ActorWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId, ct)
+            || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, submitted.ActorPrincipalId,
+                submitted.ActorWorkerId, actor.PrincipalId, actor.CoreLinkedWorkerId, ct))
+            throw new SourcingIdentityProblem("self-approval", "Another current person, independent of the original maker and submitter, must review this policy.", 403);
         return (origin, submitted, actor);
     }
     private static async Task VerifySourcingPublishedPolicyIdentity(ProcurementDbContext db, PolicyVersion policy, CancellationToken ct)

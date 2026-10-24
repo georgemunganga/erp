@@ -75,3 +75,55 @@ Implementation checkpoint (23 October 2026): merged PR #43 is the verified stora
 P28 source integrity guards require companion records on consequential transitions, exact source/Core linkage and publication lineage, append-only evidence, submitted-title immutability and retained-evidence downgrade veto. These supplement current server authorization; they do not make a database owner unable to alter Core records or authenticate a synthetic principal. The application must revalidate current Core authority, source pins and the trusted company clock. The private governance probe is distinct from the previously accepted P27 foundation probe; never relabel their source versions or claim a pure/synthetic store test proves HTTP authorization.
 
 The original Payments layout stays the UI contract. Initial live scope is one invoice per request; Title and notes remain draft fields, while payment date/method/reference are entered only when recording an already-made external payment. Unsupported payment account, multi-bill, batch bank execution and filename-only upload controls cannot claim persistence. No new UI is needed to simplify those contracts.
+
+### P28 finite Core column admission correction — 24 October 2026 (source only)
+
+This bounded correction reuses the accepted P25 Core identity read projection rather
+than requiring table-wide SELECT on seven HRM identity/organisation tables. It adds
+only the fields used by payment presentation and the owning Core date provider:
+`LocalUser.DisplayName` for assignee/history labels, `WorkLocation.Code/Name` for the
+branch picker, and `LegalEntity.TimeZoneId` for the persisted company clock.
+Canonical account/role/tenant/branch and optional worker-alias queries remain owned
+by the existing Core helpers; optional employment does not become a prerequisite.
+
+The owning HrmDbContext supplies model metadata on the existing execution connection;
+it performs no identity SELECT, opens no second connection and creates no independent
+transaction. Each mapped physical column is a separate required
+`has_column_privilege(...,'SELECT')` AND term, executed on the original read-only
+inspection transaction. Credential, email, salary and whole-table SELECT are not
+required by this projection. The HRM migration-history SELECT remains separate.
+No grants, role memberships, schema fingerprints, policies, flags or mutation guards
+are changed. Existing no-HRM-writes (including column grants), no ownership/elevated
+role assumptions and append-only Core/Procurement evidence checks still apply.
+
+Authored acceptance: twelve owning-model/SQL-contract cases cover the complete
+column-only projection, eight individual missing-column terms, exact reuse plus the
+four justified added fields, unchanged write/owner/elevated-role denials, and missing
+connection/default-off behavior. Existing mapped activation negatives remain intact.
+These cases are authored, not run. They establish no actual PostgreSQL role admission.
+
+Before release, the independent finite-role rehearsal must grant only the reviewed
+columns (no table SELECT), demonstrate successful physical admission with every
+other prerequisite satisfied, revoke one required column and observe refusal, then
+separately prove HRM column UPDATE, table ownership and elevated SET membership
+continue to refuse admission. Restore every injected fault inside the private
+rehearsal and retain unchanged owner/ACL/data evidence. No production role change,
+workflow activation, payment/Finance availability or runtime success is implied.
+
+Actual P30 fingerprint correction: root captured the unchanged `FingerprintSql` on
+the stable genuinely migrated private RFQ05 PostgreSQL17 database, with Procurement
+history through `20261023234712_P30PrincipalCommercialAuthorityActions`. It returned
+exactly the original `a5e05163346be79ccaee5aa11093e377a9d0a5f86046311759698ca72435e29b`.
+P30 changes the separate `sourcing_policy_identity_evidence` constraint; it does not
+widen `operational_policy_identity_evidence`. The speculative P30 profile commit
+`fc6f6aaa` has been explicitly reverted, preserving published history and the column
+fix. No new profile/hash, normalization or empty readiness hold is needed.
+
+Capture provenance is recorded in
+[the compatibility checkpoint](release/P30-PAYMENT-FINGERPRINT-COMPATIBILITY-20261024.json).
+It proves this physical catalog fingerprint only, not finite-role or business
+workflow success. Thirteen source/SQL-contract cases are now authored and unrun;
+the added regression retains the original full-catalog fingerprint and constraint
+coverage. A future P32 migration that actually changes this hashed owner contract
+must independently reassess P28 compatibility with actual PostgreSQL capture; this
+P30 correction does not anticipate or accept such future schema bytes.

@@ -1,0 +1,76 @@
+{
+  "status": "SOURCE_AUDITED_CUTOVER_PLAN_NOT_EXECUTED",
+  "date": "2026-10-24",
+  "scope": "Accepted P24 production to proposed P30 only; P31/P32/P33 excluded",
+  "productionBaseline": {
+    "lastProcurementMigration": "20261022144102_P24CorePrincipalRecurringPurchasePlanning",
+    "applicationTables": 191,
+    "writers": [
+      "erp-hrm-api",
+      "erp-hrm-outbox-publisher"
+    ],
+    "readOnlyEvidence": "procurement-p30-production-readonly-20261024_run01",
+    "writersModified": false
+  },
+  "procurementMigrationsInOrder": [
+    "20261022161353_P25CorePrincipalRequestApproval",
+    "20261023125243_P27ManualPaymentRecords",
+    "20261023153226_P28ManualPaymentGovernance",
+    "20261023204131_P29CorePrincipalSourcingDrafts",
+    "20261023213118_P29CanonicalPrincipalSourceGuids",
+    "20261023222748_P30PrincipalCommercialWorkflows",
+    "20261023234712_P30PrincipalCommercialAuthorityActions"
+  ],
+  "otherContextDependencies": {
+    "hrm": [
+      "20261023130726_CoreCompanyTimeZone"
+    ],
+    "coreApprovalExistingFoundation": "20261019183218_P01CoreApprovalFoundation"
+  },
+  "executionConnectionKey": "ConnectionStrings:ProcurementApprovalExecution",
+  "defaultOffSwitches": [
+    "Procurement:Approvals:Enabled",
+    "Procurement:Approvals:PrincipalExecutionEnabled",
+    "Procurement:ManualPayments:Enabled",
+    "Procurement:SourcingDrafts:Enabled",
+    "Procurement:SourcingDrafts:PrincipalSourceEnabled",
+    "Procurement:SourcingPublication:Enabled",
+    "Procurement:PrincipalDirectOrderDrafts:Enabled",
+    "Procurement:Orders:Enabled",
+    "Procurement:Orders:PrincipalExecutionEnabled",
+    "Procurement:PrincipalReceiving:Enabled"
+  ],
+  "businessConfigurationReferences": [
+    "Procurement:Approvals:ManualFinancePolicies",
+    "Procurement:Orders:ManualCommitmentPolicies",
+    "Procurement:Orders:ApprovedManualDispatchPolicyReference",
+    "Procurement:Orders:AllowedDeliveryChannels"
+  ],
+  "dataDefaults": "Current Core company, currency, timezone and authorized branch; never a hard-coded business threshold",
+  "finiteRoleRequirements": [
+    "Actual finite login; no schema owner/superuser/DDL/TRUNCATE/bypass role",
+    "Append-only evidence/audit/outbox has SELECT and required INSERT; no table or column UPDATE/DELETE/TRUNCATE",
+    "Mutable domain tables and Core cases/stages/assignments only explicitly required writes",
+    "Core branch Name column SELECT declared by PO readiness; actual revoke/restore must close/reopen availability",
+    "Manual payments cannot write Finance payment statuses; no bank execution"
+  ],
+  "gatesBeforeProduction": [
+    "Finish actual private PO/cookie/owner and populated Down vetoes",
+    "Run separate actual RFQ, receiving and malformed-history cancellation cohorts",
+    "Protected consistent live backup and fresh isolated restore preserving all current data/owners/ACLs/default ACLs",
+    "Apply exact genuine post-P24 HRM/Procurement Up privately, capture final schema and finite permissions",
+    "Verify both actual API and HRM-only publisher startup and unchanged existing module behavior",
+    "Freeze exact paired API/publisher/UI candidate and source/file manifests",
+    "Stop both existing writers only at coordinated cutover; verify no unknown writers",
+    "Take fresh writer-stopped database/document/key/static backups and verify recovery before live Up",
+    "Apply same verified genuine Up, reconcile history/schema/data/ACL and start verified candidates with reviewed configuration",
+    "Authenticated representative UAT plus denied scopes/readiness/assets/Core/HRM smoke checks"
+  ],
+  "recovery": "Forward recovery after accepted new writes. Never force retained-data Down veto, discard migration history, restore over accepted writes, or infer old-image compatibility.",
+  "externalClaims": {
+    "financePosting": false,
+    "bankPaymentExecution": false,
+    "supplierDelivery": false,
+    "productionDeployment": false
+  }
+}

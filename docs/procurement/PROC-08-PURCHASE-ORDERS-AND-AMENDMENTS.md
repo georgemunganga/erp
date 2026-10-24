@@ -115,3 +115,174 @@ Purchasing lead owns commercial process; Procurement owns PO; Finance owns commi
 ## 28. Open Decisions and Assumptions
 
 Confirm PO approval versus PR authority, direct buy, blanket PO launch, legal terms/templates, dispatch channel, amendment materiality, acknowledgment requirements and close/release rule. Owners: Procurement, Legal and Finance; resolve before implementation.
+
+## P30 delta — Core-principal direct PO draft (source only, 23 October 2026)
+
+This is the bounded draft successor to the retained worker PO flow. P29 and P25
+are prerequisites; P30 is not an issued PO, Finance commitment, or new buying
+policy. The existing `PROC-07` document concerns contracts, so this PO delta
+belongs here in `PROC-08`.
+
+1. **Identification:** `PROC-08/O1/P30`, direct-purchase approved-demand conversion.
+2. **Outcome:** a workerless Core buyer can reserve an approved direct-purchase
+   line in one internal PO draft and later release it without losing evidence.
+3. **Scope:** picker, create, owned read/list, cancel, and actor-owned command
+   recovery. Submission, Finance confirmation, approval, issue, dispatch,
+   amendment, receipt and payment remain unavailable for this evidence version.
+4. **Relations:** consumes current P25 Submission3, outcome, Core decision,
+   checker2, direct-purchase policy route and supplier eligibility; retains
+   the existing PR allocation ledger and PO/line masters.
+5. **Actors:** current Core buyer, separate original PR maker/checker/approver,
+   auditor. An HRMS worker link is optional alias metadata, not eligibility.
+6. **Entry:** buyer opens scoped approved direct sources or a source-backed PO
+   draft. No generic unlinked draft is converted implicitly.
+7. **Preconditions:** explicit company/current branch/action, approved source,
+   current manual checker authority, direct method with zero required quotes,
+   eligible supplier, exact currency/UOM and source quantity. Capability is off
+   until the genuine migration, finite role and integration acceptance exist.
+8. **Workflow:** read candidate → lock requests in stable order → revalidate
+   original/current source, supplier and amount → reserve linked quantities,
+   immutable source pin and Create receipt atomically → read → cancel with
+   reason/CAS and release exact quantity → Cancel receipt.
+9. **States:** `Draft → Cancelled`; no other transition for P30 records.
+10. **Permissions/scope:** separate `procurement-po-convert`, `-read`, `-edit`
+    grants and current Core company/branch scope on every read/write/recovery;
+    buyer sees own draft only. A stale HR link never widens authority.
+11. **Rules:** PR approval is source authority only, never PO approval. No
+    over-allocation, mixed company/currency/branch, inactive supplier, self-
+    asserted checker/worker or silent supplier substitution. Existing worker1
+    PO evidence keeps its original encoder and validity.
+12. **Data/owner:** Procurement owns a versioned original direct-source binding
+    per PO line, its current PO draft, allocation, audit, outbox and immutable
+    command receipt. Core owns user/branch/action; Finance owns commitments.
+13. **Views:** exact eligible source picker, owned draft/history and cancel
+    impact. No Finance or supplier-facing badge from an internal draft.
+14. **UX:** show approved versus proposed quantities and why a candidate needs
+    review; unknown write prompts read-only receipt recovery before retry.
+15. **Notifications:** none required for this bounded internal draft slice.
+16. **Documents:** no issued PO PDF or supplier dispatch document is generated.
+17. **Exceptions:** stale PR/PO CAS, concurrent RFQ/PO reservation, expired
+    checker policy, suspended supplier, changed branch/grant, mismatched receipt
+    key, missing retained source and failed database write all fail closed.
+18. **API/events:** versioned `/orders/principal-direct-*` endpoints and
+    internal draft/release events only; no Finance, AP or delivery event.
+19. **Audit/security:** original source IDs, policy/finance digests, actor,
+    reason, command key and old/new quantity remain reconstructable. Generic
+    draft edit/cancel cannot modify P30 source-controlled records.
+20. **Reports:** P30 drafts and released quantities may be counted as internal
+    demand work; they are not committed or paid spend.
+21. **Configuration:** dedicated default-off principal direct-source setting;
+    existing direct method/quote policy supplies business limits.
+22. **Non-functional:** serializable shared transaction, idempotent exact
+    response, source locks, decimal arithmetic and scoped paging.
+23. **Postconditions:** Create has one PO, one binding and reservation per
+    source line, and one command receipt;
+    Cancel has the same retained graph with released allocation and one new
+    receipt. The PR line counter reconciles after each command.
+24. **Recovery:** actor/current-action/current-branch scoped GET of recorded
+    receipt; no guessed replay or second command on unknown outcome.
+25. **Acceptance:** genuine workerless direct PR → Create/read/Cancel/recover;
+    competing reservation cannot exceed source; no downstream PO/Finance facts.
+26. **Tests:** pure source/binding invariants, mapped scope/CAS guards, actual
+    finite-role PostgreSQL/HTTP and real local-cookie browser after migration.
+27. **Dependencies/owners:** Procurement draft owner; P25/P29, Core and
+    supplier owner prerequisites. Root owns generated migration and release.
+28. **Open:** whether line-level edit and later principal PO approval/Finance
+    successor are authorized. They are excluded until separately specified.
+
+## P30 governed successor delta — Core-principal PO authority through manual acknowledgment
+
+This is a source specification for the successor after the internal draft slice
+above. It does not activate endpoints or reinterpret PR approval as PO approval.
+
+1. **Identification:** `PROC-08/O2/P30`, commercial approval and issue for an
+   original schema-2 direct PO draft. Worker-era commercial evidence stays schema 1.
+2. **Outcome:** current independent Core people can attest external commitment,
+   approve the PO under its own published policy and spending grant, freeze an
+   issued version, and record a witnessed supplier acknowledgment.
+3. **Scope:** Finance-reference recording, submit, assigned decisions, issue,
+   manual acknowledgment, funded-release request/independent confirmation and
+   actor-owned recovery. Payment, AP, bank posting, supplier messaging and
+   dispatch automation are outside this increment.
+4. **Relations:** P30 direct-source bindings, current PR Finance checker2,
+   `PURCHASE_ORDER` policy, PO-specific `PurchaseOrder.Approve` grants, shared
+   Core approval case/stage/assignment/decision and Procurement outbox/audit.
+5. **Actors:** original Core buyer, independent Finance recorder, explicitly
+   assigned independent PO approver, authorized issue actor, independent
+   acknowledgment recorder. HR worker links are optional denial-only aliases.
+6. **Entry:** only a verified P30 draft; no unlinked, RFQ or worker-era PO is
+   promoted by a principal command.
+7. **Preconditions:** current company/branch/actions, source allocation and
+   commercial snapshot, active supplier, one independently reviewed published
+   PO policy and one effective manual commitment configuration with an external
+   approval reference. The reference is an attestation of approval outside the
+   app, not in-app proof that Finance approved it. Governance must validate its
+   owner before activation. No configured PO-specific authority means no submission.
+8. **Workflow:** draft → independent commitment evidence → policy route and
+   Core case → current assigned decisions → approved → issue freeze → manually
+   observed supplier outcome. A funded draft or a returned/rejected case may
+   request external release, which holds source allocations in `ReleasePending`.
+   Only independent confirmation of the actual external release frees those
+   quantities and cancels this PO. Each command locks PO and source/case rows.
+9. **States:** `Draft → PendingApproval → Approved → IssuePending → Issued`.
+   `Returned` and `Rejected` remain terminal Core outcomes for this case;
+   `Draft`, `Returned` and `Rejected` with recorded funding can move to
+   `ReleasePending → Cancelled` after external release confirmation. Supplier
+   rejection yields `Disputed` and never silently cancels the commercial order.
+10. **Permissions/scope:** `procurement-po-finance-confirm`, `-submit`,
+    `-approve`, `-issue`, `-dispatch-confirm`, and `-read` stay separate. A role
+    grant is never a monetary limit; Core company/branch and exact assignment
+    scope are rechecked at every transition and receipt recovery.
+11. **Rules:** Finance evidence describes a human-verified external reference,
+    not a Finance ledger entry. PO policy and PO-specific spending authority
+    determine approvers. Buyer/PR requester/Finance recorder and approver
+    independence includes current and retained Core worker aliases.
+12. **Data/owner:** Procurement owns immutable commercial, Finance-reference,
+    authority, issue and acknowledgment evidence with version/hash pins; Core
+    owns case execution; Finance owns real commitment balances and payments.
+13. **Views:** current order details, recorded commitment (clearly manual),
+    assigned review detail, decision history, frozen version, observation and
+    pending/confirmed external release history.
+14. **UX:** each step states what is recorded and what remains unconfirmed;
+    issue authorization never displays a delivered badge.
+15. **Notifications:** Core task notification can follow the recorded case;
+    no automatic supplier notification in this increment.
+16. **Documents:** issued snapshot hash is retained. A manual acknowledgment
+    needs channel, observed date, external reference and evidence reference.
+17. **Exceptions:** changed policy, authority, account alias, supplier, source,
+    Finance reference, amount, branch or case state blocks progress. Unknown
+    outcome requires GET of the exact command receipt.
+18. **API/events:** distinct principal commands and schema-2 facts. Internal
+    issue event cannot be interpreted as a successful outbound delivery.
+19. **Audit/security:** same-key replay is actor/current-action scoped; old
+    worker encoders and receipt rows remain byte-stable. Append-only evidence
+    and no raw bank, personal or supplier portal credential exposure.
+20. **Reports:** pending PO approvals and issued versions may be counted;
+    manual references are not a payment or finance-ledger balance.
+21. **Configuration:** no default amount, approver or manual commitment
+    authority. Effective-dated published PO policy and explicit approved
+    Finance policy are mandatory.
+22. **Non-functional:** exact decimals, sorted locks, serializable transaction,
+    immutable snapshots, idempotent command receipts and finite-role readiness.
+23. **Postconditions:** Core decisions plus independently pinned Procurement
+    outcomes reconstruct who authorized the commercial version and what was
+    actually observed of supplier acknowledgment. Release request has no
+    allocation effect; release confirmation and allocation update share one
+    transaction and retain the original case/funding history.
+24. **Recovery:** receipt-only GET after uncertain write; no resubmission under
+    a new key until the prior outcome has been reconciled.
+25. **Acceptance:** workerless buyer/approver with valid PO grant can complete
+    internal approval; self/alias approval, borrowed PR grant, missing Finance
+    policy and suspended supplier fail closed; issue is not delivery. Funded
+    cancellation without a durable independent release confirmation cannot free
+    source demand, including when Core returns/rejects or supplier is suspended.
+26. **Tests:** pure invariants, mapped transaction/guard cases, exact P30
+    migration/finite-role PostgreSQL proof, normal-cookie HTTP and UI proof.
+27. **Ownership/dependencies:** Procurement and Core approval owners implement
+    the route; Finance confirms whether each external reference is valid.
+28. **Open:** Finance owner must verify the external approval reference and
+    manual commitment/release procedure before activation. In-place revision
+    and resubmission are deliberately unsupported for schema 2: after release
+    confirmation the buyer may start a new PO from re-available approved demand,
+    preserving this rejected/returned PO unchanged. Supplier dispute resolution,
+    channel controls and actual Finance release integration remain decisions.

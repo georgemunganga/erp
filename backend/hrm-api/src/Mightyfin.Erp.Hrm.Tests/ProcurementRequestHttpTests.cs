@@ -1537,36 +1537,39 @@ public sealed partial class ProcurementRequestHttpTests
     }
 
     [Fact]
-    public async Task Sourcing_reviewer_lookup_filters_canonical_company_identity_before_count_and_page_without_financial_eligibility()
+    public async Task Sourcing_reviewer_lookup_filters_current_core_company_scope_before_count_and_page_without_financial_eligibility()
     {
         await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
         const string path = "/api/procurement/v1/configuration/policies/lookups/sourcing-reviewers";
         var ids = new List<Guid>();
         foreach (var suffix in new[] { "A", "B", "C" }) ids.Add(await fixture.SeedSourcingLookupPerson("Lookup Visible " + suffix, "visible"));
         foreach (var kind in new[] { "foreign-company", "foreign-tenant", "inactive", "locked", "archived", "no-worker", "inactive-worker", "alias" })
-            await fixture.SeedSourcingLookupPerson("Lookup Hidden " + kind, kind);
+            await fixture.SeedSourcingLookupPerson("Lookup Candidate " + kind, kind);
         var before = await fixture.SourcingConfigurationFootprint();
         var found = new List<Guid>();
-        for (var offset = 0; offset < 3; offset++)
+        for (var offset = 0; offset < 7; offset++)
         {
             var response = await Send(fixture.Client, HttpMethod.Get, $"{path}?search=%20LoOkUp%20&offset={offset}&limit=1", fixture.Other, role: "procurement_manager");
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
             var page = await response.Content.ReadFromJsonAsync<JsonElement>();
-            Assert.Equal(3, page.GetProperty("total").GetInt32()); Assert.Equal(offset, page.GetProperty("offset").GetInt32());
+            Assert.Equal(7, page.GetProperty("total").GetInt32()); Assert.Equal(offset, page.GetProperty("offset").GetInt32());
             Assert.False(page.GetProperty("isAuthority").GetBoolean());
             var person = Assert.Single(page.GetProperty("items").EnumerateArray());
             Assert.Equal(new[] { "displayName", "principalId", "workerId" }, person.EnumerateObject().Select(x => x.Name).Order().ToArray());
-            Assert.NotEqual(Guid.Empty, person.GetProperty("workerId").GetGuid());
+            if (person.GetProperty("displayName").GetString() == "Lookup Candidate no-worker")
+                Assert.Equal(JsonValueKind.Null, person.GetProperty("workerId").ValueKind);
+            else Assert.NotEqual(Guid.Empty, person.GetProperty("workerId").GetGuid());
             found.Add(person.GetProperty("principalId").GetGuid());
-            if (offset < 2) Assert.Equal(offset + 1, page.GetProperty("nextOffset").GetInt32());
+            if (offset < 6) Assert.Equal(offset + 1, page.GetProperty("nextOffset").GetInt32());
             else Assert.Equal(JsonValueKind.Null, page.GetProperty("nextOffset").ValueKind);
         }
-        Assert.Equal(ids, found); Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+        Assert.All(ids, id => Assert.Contains(id, found));
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
         var empty = await Send(fixture.Client, HttpMethod.Get, path + "?search=no-such-person", fixture.Other, role: "procurement_manager");
         var none = await empty.Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal(0, none.GetProperty("total").GetInt32());
         Assert.Empty(none.GetProperty("items").EnumerateArray());
-        // All visible people have only the existing employee role; no publication or approval grant was seeded.
+        // Optional HR links do not remove active Core accounts from a non-authoritative name preview.
     }
 
     [Fact]
@@ -1623,6 +1626,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Sourcing_schema2_draft_preserves_unconfigured_choices_and_blocks_submit_without_effects()
     {
         await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        await fixture.ConfigureSourcingPublicationReviewer();
         const string path = "/api/procurement/v1/configuration/policies";
         var draft = SourcingAudiencePolicy(fixture.Owner, complete: false);
         var check = await SendJson(fixture.Client, HttpMethod.Post, path + "/validate", fixture.Other,
@@ -1634,6 +1638,7 @@ public sealed partial class ProcurementRequestHttpTests
         var response = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var saved = await response.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
+        Assert.Equal(2, Assert.Single(await fixture.SourcingIdentityRows(id)).SchemaVersion);
         var reloaded = await Send(fixture.Client, HttpMethod.Get, path + "/" + id, fixture.Other, role: "procurement_manager");
         var current = await reloaded.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(draft.RulesJson, current.GetProperty("rulesJson").GetString());
@@ -1669,12 +1674,19 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Completing_schema2_draft_preserves_original_identity_and_requires_independent_publication()
     {
         await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        await fixture.ConfigureSourcingPublicationReviewer();
         const string path = "/api/procurement/v1/configuration/policies";
         var draft = SourcingAudiencePolicy(fixture.Owner, complete: false);
         var response = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var saved = await response.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
         var original = Assert.Single(await fixture.SourcingIdentityRows(id)); var originalHash = original.EvidenceSha256;
+        Assert.Equal(2, original.SchemaVersion);
+        var incompatible = SourcingPolicy(fixture.Owner) with { EffectiveFrom = draft.EffectiveFrom, EffectiveTo = draft.EffectiveTo };
+        var unchanged = await fixture.SourcingConfigurationFootprint();
+        Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, path + "/" + id, fixture.Other,
+            new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(saved.GetProperty("version").GetInt64(), incompatible), "procurement_manager")).StatusCode);
+        Assert.Equal(unchanged, await fixture.SourcingConfigurationFootprint());
         var complete = SourcingAudiencePolicy(fixture.Owner, complete: true) with { EffectiveFrom = draft.EffectiveFrom, EffectiveTo = draft.EffectiveTo };
         response = await SendJson(fixture.Client, HttpMethod.Put, path + "/" + id, fixture.Other,
             new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(saved.GetProperty("version").GetInt64(), complete), "procurement_manager");
@@ -1723,6 +1735,7 @@ public sealed partial class ProcurementRequestHttpTests
             "procurement_manager", selectedLocation: location);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var saved = await created.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
+        Assert.Equal(1, Assert.Single(await fixture.SourcingIdentityRows(id)).SchemaVersion);
         var version = saved.GetProperty("version").GetInt64();
         var original = await fixture.SourcingConfigurationFootprint();
         var invalidDraft = draft with { RulesJson = draft.RulesJson!.Replace("ApprovedLineBase", "EstimatedLineBase", StringComparison.Ordinal) };
@@ -3647,6 +3660,11 @@ public sealed partial class ProcurementRequestHttpTests
                 RolesCsv = "employee", IsActive = kind != "inactive", IsArchived = kind == "archived",
                 LockedUntil = kind == "locked" ? DateTimeOffset.UtcNow.AddDays(1) : null };
             worker.SubjectId = account.Id.ToString(); core.Workers.Add(worker); core.LocalUsers.Add(account);
+            if (kind is "remote-branch" or "foreign-company")
+                core.UserBranchAssignments.Add(new HrUserBranchAssignment
+                {
+                    UserId = account.Id, LocationId = locationId
+                });
             if (kind == "alias") core.LocalUsers.Add(new LocalUser { WorkerId = worker.Id, DisplayName = displayName + " Alias",
                 Email = Guid.NewGuid() + "@example.test", NormalizedEmail = Guid.NewGuid() + "@EXAMPLE.TEST", PasswordHash = "synthetic-unused", RolesCsv = "employee" });
             await core.SaveChangesAsync(); return account.Id;
@@ -3707,6 +3725,8 @@ public sealed partial class ProcurementRequestHttpTests
             role.PermissionsCsv = "procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-configuration-approve";
             await core.SaveChangesAsync();
         }
+        public Task ConfigureSourcingPublicationReviewer() => ConfigureCoreActions(Owner,
+            "procurement-access,procurement-sourcing-publish", "sourcing_publication_reviewer");
         public async Task<Guid> SourcingBranch()
         {
             using var services = app.Services.CreateScope();
@@ -4189,7 +4209,8 @@ public sealed partial class ProcurementRequestHttpTests
         }
 
         public static async Task<Fixture> Start(bool documents = false, bool matchingSchema = false, bool sourcingSchema = true,
-            bool principalApprovalEnabled = false, bool principalApprovalSchema = false)
+            bool principalApprovalEnabled = false, bool principalApprovalSchema = false,
+            bool principalApprovalTimeout = false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
@@ -4204,7 +4225,7 @@ public sealed partial class ProcurementRequestHttpTests
                 options.UseInMemoryDatabase("proc-drafts-" + databaseId, procurementStoreRoot));
             builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness());
             builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions {PrincipalExecutionEnabled=principalApprovalEnabled});
-            builder.Services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness>(new PrincipalApprovalTestSchemaReadiness(principalApprovalSchema));
+            builder.Services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness>(new PrincipalApprovalTestSchemaReadiness(principalApprovalSchema,principalApprovalTimeout));
             builder.Services.AddSingleton<SourcingPolicyIdentityTestReadiness>();
             if (sourcingSchema) builder.Services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness>(sp => sp.GetRequiredService<SourcingPolicyIdentityTestReadiness>());
             var documentRoot = documents ? Path.Combine(Path.GetTempPath(), "erp-http-documents-" + databaseId) : null;

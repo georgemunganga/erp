@@ -8,10 +8,11 @@ namespace Mightyfin.Erp.Procurement.Application;
 public static class SourcingPolicyIdentity
 {
     public static SourcingPolicyIdentityEvidence Capture(PolicyVersion policy, string tenant, Guid company,
-        string stage, string principal, Guid worker, long recordVersion, DateTimeOffset at,
-        SourcingPolicyIdentityEvidence? created = null, SourcingPolicyIdentityEvidence? submitted = null)
+        string stage, string principal, Guid? worker, long recordVersion, DateTimeOffset at,
+        SourcingPolicyIdentityEvidence? created = null, SourcingPolicyIdentityEvidence? submitted = null,
+        int schemaVersion = 1)
     {
-        var row = new SourcingPolicyIdentityEvidence { TenantId = tenant, LegalEntityId = company,
+        var row = new SourcingPolicyIdentityEvidence { SchemaVersion = schemaVersion, TenantId = tenant, LegalEntityId = company,
             PolicyVersionId = policy.Id, PolicyVersionNumber = policy.PolicyVersionNumber, Stage = stage,
             ActorPrincipalId = principal, ActorWorkerId = worker, PolicyRecordVersionAtAction = recordVersion,
             ActionAt = (ProcurementEvidenceEncoding.DatabaseTimestamp(at) ?? throw new InvalidOperationException("SourcingPolicyIdentityTimeRequired")),
@@ -27,10 +28,11 @@ public static class SourcingPolicyIdentity
         row.SubmittedEvidenceId, row.SubmittedEvidenceStage }));
     public static void Verify(SourcingPolicyIdentityEvidence row)
     {
-        Require(row.SchemaVersion == 1 && row.Id != Guid.Empty && !string.IsNullOrWhiteSpace(row.TenantId) && row.LegalEntityId != Guid.Empty
+        Require(row.SchemaVersion is 1 or 2 && row.Id != Guid.Empty && !string.IsNullOrWhiteSpace(row.TenantId) && row.LegalEntityId != Guid.Empty
             && row.PolicyVersionId != Guid.Empty && row.PolicyVersionNumber > 0 && row.PolicyRecordVersionAtAction > 0
             && Guid.TryParse(row.ActorPrincipalId, out var principal) && principal != Guid.Empty && row.ActorPrincipalId == principal.ToString("D")
-            && row.ActorWorkerId != Guid.Empty && row.ActionAt != default
+            && ProcurementPrincipalEvidence.OptionalWorker(row.ActorWorkerId)
+            && (row.SchemaVersion == 2 || row.ActorWorkerId is not null) && row.ActionAt != default
             && row.ActionAt == ProcurementEvidenceEncoding.DatabaseTimestamp(row.ActionAt)
             && Hash(row.RulesSha256) && Hash(row.EvidenceSha256) && row.EvidenceSha256 == Digest(row), "SourcingPolicyIdentityInvalid");
         Require(row.Stage switch {
@@ -47,10 +49,12 @@ public static class SourcingPolicyIdentity
         VerifyOwned(policy, created);
         Require(created.Stage == "Created" && created.ActorPrincipalId == policy.CreatedBy, "SourcingPolicyOriginalMakerRequired");
     }
-    public static void RequireAuthor(PolicyVersion policy, SourcingPolicyIdentityEvidence created, string principal, Guid worker)
+    public static void RequireAuthor(PolicyVersion policy, SourcingPolicyIdentityEvidence created, string principal, Guid? worker)
     {
         VerifyOrigin(policy, created);
-        Require(created.ActorPrincipalId == principal && created.ActorWorkerId == worker, "SourcingPolicyOriginalAuthorRequired");
+        Require(created.ActorPrincipalId == principal
+            && ProcurementPrincipalEvidence.WorkerBinding(created.SchemaVersion, created.ActorWorkerId, worker),
+            "SourcingPolicyOriginalAuthorRequired");
     }
     public static void VerifySubmission(PolicyVersion policy, SourcingPolicyIdentityEvidence created,
         SourcingPolicyIdentityEvidence submitted, bool pendingState = true)
@@ -58,18 +62,22 @@ public static class SourcingPolicyIdentity
         VerifyOrigin(policy, created); VerifyOwned(policy, submitted);
         Require((!pendingState || policy.State == "PendingReview") && submitted.Stage == "Submitted"
             && submitted.CreatedEvidenceId == created.Id && submitted.ActorPrincipalId == created.ActorPrincipalId
-            && submitted.ActorWorkerId == created.ActorWorkerId && submitted.PolicyRecordVersionAtAction == policy.Version
+            && submitted.SchemaVersion == created.SchemaVersion
+            && ProcurementPrincipalEvidence.WorkerBinding(created.SchemaVersion, created.ActorWorkerId, submitted.ActorWorkerId)
+            && submitted.PolicyRecordVersionAtAction == policy.Version
             && submitted.PolicyRecordVersionAtAction > created.PolicyRecordVersionAtAction && submitted.ActionAt >= created.ActionAt
             && submitted.RulesSha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)
             && submitted.ActorPrincipalId == policy.ReviewRequestedBy && submitted.ActionAt == ProcurementEvidenceEncoding.DatabaseTimestamp(policy.ReviewRequestedAt),
             "SourcingPolicySubmittedIdentityMismatch");
     }
     public static void RequireIndependent(PolicyVersion policy, SourcingPolicyIdentityEvidence created,
-        SourcingPolicyIdentityEvidence submitted, string principal, Guid worker)
+        SourcingPolicyIdentityEvidence submitted, string principal, Guid? worker)
     {
         VerifySubmission(policy, created, submitted);
-        Require(worker != Guid.Empty && principal != created.ActorPrincipalId && principal != submitted.ActorPrincipalId
-            && worker != created.ActorWorkerId && worker != submitted.ActorWorkerId, "SourcingPolicyIndependentReviewerRequired");
+        Require((created.SchemaVersion == 2 || worker is not null)
+            && ProcurementPrincipalEvidence.Independent(principal, worker, created.ActorPrincipalId, created.ActorWorkerId)
+            && ProcurementPrincipalEvidence.Independent(principal, worker, submitted.ActorPrincipalId, submitted.ActorWorkerId),
+            "SourcingPolicyIndependentReviewerRequired");
     }
     public static void VerifyPublication(PolicyVersion policy, SourcingPolicyIdentityEvidence created,
         SourcingPolicyIdentityEvidence submitted, SourcingPolicyIdentityEvidence published)
@@ -77,11 +85,16 @@ public static class SourcingPolicyIdentity
         VerifyOrigin(policy, created); VerifyOwned(policy, submitted); VerifyOwned(policy, published);
         Require(policy.State == "Published" && submitted.Stage == "Submitted" && published.Stage == "Published"
             && submitted.CreatedEvidenceId == created.Id && published.CreatedEvidenceId == created.Id && published.SubmittedEvidenceId == submitted.Id
-            && submitted.ActorPrincipalId == created.ActorPrincipalId && submitted.ActorWorkerId == created.ActorWorkerId
+            && submitted.SchemaVersion == created.SchemaVersion && published.SchemaVersion == created.SchemaVersion
+            && submitted.ActorPrincipalId == created.ActorPrincipalId
+            && ProcurementPrincipalEvidence.WorkerBinding(created.SchemaVersion, created.ActorWorkerId, submitted.ActorWorkerId)
             && submitted.PolicyRecordVersionAtAction > created.PolicyRecordVersionAtAction
             && submitted.ActionAt >= created.ActionAt && published.ActionAt >= submitted.ActionAt
             && published.ActorPrincipalId != created.ActorPrincipalId && published.ActorPrincipalId != submitted.ActorPrincipalId
-            && published.ActorWorkerId != created.ActorWorkerId && published.ActorWorkerId != submitted.ActorWorkerId
+            && ProcurementPrincipalEvidence.Independent(published.ActorPrincipalId, published.ActorWorkerId,
+                created.ActorPrincipalId, created.ActorWorkerId)
+            && ProcurementPrincipalEvidence.Independent(published.ActorPrincipalId, published.ActorWorkerId,
+                submitted.ActorPrincipalId, submitted.ActorWorkerId)
             && published.PolicyRecordVersionAtAction == checked(submitted.PolicyRecordVersionAtAction + 1)
             && policy.Version >= published.PolicyRecordVersionAtAction
             && published.RulesSha256 == submitted.RulesSha256 && published.RulesSha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)

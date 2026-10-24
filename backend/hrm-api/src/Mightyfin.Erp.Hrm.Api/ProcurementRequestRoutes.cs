@@ -104,12 +104,15 @@ public static class ProcurementRequestRoutes
         };
         for (var i = 0; i < input.Lines!.Count; i++)
             request.Lines.Add(NewLine(request.Id, i + 1, input.Lines[i], request.CurrencyCode, catalogVersions, catalogItems));
-        // Basic CRUD remains usable when operational approval is unavailable. Only the
-        // actual successor schema may capture NEW original provenance; never adopt old rows.
+        // The explicitly enabled principal workflow must never create a legacy
+        // source if its physical owner is temporarily unavailable. Flag-off
+        // installations retain their existing draft CRUD contract.
         var approvalOptions=http.RequestServices.GetService<ProcurementApprovalExecutionOptions>();
-        if(approvalOptions is { PrincipalExecutionEnabled:true }
-            && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,false,ct))
+        if(approvalOptions is { PrincipalExecutionEnabled:true })
         {
+            if(!await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,false,ct))
+                return Error("principal-request-source-unavailable",
+                    "The request source is temporarily unavailable. Try again later.",503);
             request.TenantId=scope.TenantId;request.LegalEntityId=scope.LegalEntityId;request.CreatedBy=scope.SubjectId;
             PurchaseRequestPrincipalIdentity.CaptureNew(request,scope.SubjectId,scope.CoreLinkedWorkerId);
         }

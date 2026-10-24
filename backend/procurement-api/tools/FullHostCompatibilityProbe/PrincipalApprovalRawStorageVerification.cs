@@ -247,7 +247,7 @@ internal static partial class PrincipalApprovalHttpVerification
     {
         var parsed = new NpgsqlConnectionStringBuilder(owner.ConnectionString);
         RawNeed(owner.State == ConnectionState.Open && parsed.Host is { } host && host.StartsWith('/') && !host.Contains(',')
-            && parsed.Database is { } database && Regex.IsMatch(database, "^proc_p25_http_[a-z0-9_]+$")
+            && parsed.Database is { } database && (Regex.IsMatch(database, "^proc_p25_http_[a-z0-9_]+$") || PrivateCommercialDatabase(database))
             && parsed.Username == "postgres" && !string.IsNullOrWhiteSpace(tenant) && company != Guid.Empty,
             "Raw owner probes are private Unix-only test data, never finite/public/production authority.");
         await using var identity = new NpgsqlCommand("""

@@ -82,6 +82,7 @@ public sealed class ProcurementAdminVendorHttpTests
         Assert.Equal(active,list.GetProperty("items")[0].GetProperty("id").GetGuid());
         var detailResponse=await client.GetAsync($"/api/procurement/v1/vendors/{active}");Assert.Equal(HttpStatusCode.OK,detailResponse.StatusCode);
         var detail=await detailResponse.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal(active,detail.GetProperty("id").GetGuid());
+        Assert.False(detail.GetProperty("canEdit").GetBoolean());
         foreach(var flag in new[]{"canReturnForInformation","canApprove","canReject","canSuspend","canReactivate"})
             Assert.False(detail.GetProperty(flag).GetBoolean());
         Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/procurement/v1/vendors/{foreign}")).StatusCode);

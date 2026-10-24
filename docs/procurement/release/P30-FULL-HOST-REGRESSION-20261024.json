@@ -1,0 +1,21 @@
+{
+  "status": "PASS_COMPLETE_HOST_REGRESSION_SUITE",
+  "date": "2026-10-24",
+  "sourceCommit": "9a51500963033d1a9e8da14d0fea5b5ab9a87fb7",
+  "passed": 1185,
+  "failed": 0,
+  "skipped": 0,
+  "scope": "Complete Mightyfin.Erp.Hrm.Tests assembly including Core, HRM and Procurement; separate actual PostgreSQL/HTTP/browser and production gates remain",
+  "privateEvidence": "/home/amizo/erp-backups/procurement-p30-full-host-20261024_run01",
+  "trxSha256": "1e732372a1cd3da5f61297f1a95edbc680f205992868036fc9db80eb02e1ad28",
+  "focusedHostChecksPassed": 40,
+  "frozenPrivatePublication": "procurement-p30-combined-build-20261024_run14",
+  "publicationFiles": 477,
+  "receivingApiChecksPassed": 165,
+  "rfqPublicationFreshCohort": "procurement-p30-actual-rfq-20261024_run03: running, not accepted",
+  "retainedFailedAttempts": [
+    "RFQ02 canonical index predicate mismatch",
+    "combined13 tool-only browser source client-scope compile error after40 focused test passes"
+  ],
+  "productionTouched": false
+}
