@@ -26,6 +26,7 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
             if (string.IsNullOrWhiteSpace(connection)) return false;
             await using var owner = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
                 .UseNpgsql(connection, x => x.MigrationsHistoryTable("__procurement_migrations", "procurement")).Options, scope);
+            await using var transaction = await owner.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
             return await CheckAsync(owner, kind, true, ct);
         }
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
@@ -45,6 +46,16 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         if (!(write && kind != PrincipalCommercialStore.Receiving
             ? await principalStore.CanExecuteAsync(owner, ct)
             : await principalStore.CanReadWorkflowAsync(owner, ct))) return false;
+        var readsOrderHistory = kind is PrincipalCommercialStore.Orders or PrincipalCommercialStore.Receiving;
+        if (readsOrderHistory)
+        {
+            try
+            {
+                if (owner.Database.CurrentTransaction is null
+                    || !await ProcurementPrincipalOrderDraftHistory.InstalledAsync(owner, ct)) return false;
+            }
+            catch (Exception error) when (error is not OperationCanceledException) { return false; }
+        }
         var model = owner.Model;
         string Table(Type type)
         {
@@ -57,6 +68,7 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
             PrincipalCommercialStore.Receiving => types.Concat(ProcurementPrincipalCommercialSchemaCapture.Orders).Distinct().ToArray(),
             _ => types,
         };
+        if (readsOrderHistory) inspected = inspected.Concat(ProcurementPrincipalOrderRevisionSchemaCapture.Types).Distinct().ToArray();
         var owned = types.Select(Table).Distinct(StringComparer.Ordinal).ToArray();
         // PO cancellation inspects the receiving-source physical shape even if
         // receiving commands are off. Only SELECT is required: owned/write tables
@@ -73,6 +85,8 @@ internal sealed class ProcurementPrincipalCommercialStoreReadiness(IConfiguratio
         var append = owned.Where(x => !mutable.Contains(x))
             .Concat(["procurement.audit_events", "procurement.outbox_events"]).Distinct(StringComparer.Ordinal).ToArray();
         var clauses = reads.Select(x => "has_table_privilege(current_user," + Literal(x) + ",'SELECT')").ToList();
+        if (readsOrderHistory)
+            clauses.AddRange(ProcurementPrincipalOrderRevisionReadiness.HistoryPrivilegeClauses(false));
         if (kind == PrincipalCommercialStore.Orders)
             // PO detail, Finance detail, approval work and fulfilment read the
             // branch label using the enlisted execution connection. The shared

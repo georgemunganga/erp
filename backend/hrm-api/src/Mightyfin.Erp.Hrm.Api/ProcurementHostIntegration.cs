@@ -54,9 +54,9 @@ public static class ProcurementHostIntegration
         var revisionOptions = configuration.GetSection("Procurement:PrincipalOrderDraftRevisions")
             .Get<PrincipalOrderRevisionOptions>() ?? new PrincipalOrderRevisionOptions();
         services.AddSingleton(revisionOptions);
-        // Capture and finite-role proof are still pending. Even an explicit flag
-        // cannot substitute for the future owning-context physical inspector.
-        services.AddSingleton<IPrincipalOrderRevisionReadiness, UnavailablePrincipalOrderRevisionReadiness>();
+        // The owning-context provider stays false until the genuine capture and
+        // finite privileges match. A setting alone never admits revisions.
+        services.AddScoped<IPrincipalOrderRevisionReadiness, ProcurementPrincipalOrderRevisionReadiness>();
         var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);

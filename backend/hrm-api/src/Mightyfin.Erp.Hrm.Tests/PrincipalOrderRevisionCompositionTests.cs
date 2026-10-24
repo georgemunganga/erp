@@ -23,9 +23,9 @@ public sealed class PrincipalOrderRevisionCompositionTests
         using var provider = services.BuildServiceProvider();
         Assert.Equal(enabled, provider.GetRequiredService<PrincipalOrderRevisionOptions>().Enabled);
         var readiness = provider.GetRequiredService<IPrincipalOrderRevisionReadiness>();
-        Assert.IsType<UnavailablePrincipalOrderRevisionReadiness>(readiness);
-        // Null is deliberate: an unavailable implementation must not open or
-        // replace the caller's owning context, even with the setting enabled.
+        Assert.IsType<ProcurementPrincipalOrderRevisionReadiness>(readiness);
+        // A missing supplied owner or missing explicit execution connection
+        // cannot be replaced by a fallback, even with the setting enabled.
         Assert.False(await readiness.IsReadyAsync(null!, CancellationToken.None));
         Assert.False(await PrincipalOrderRevisionCapability.ReadyAsync(provider, null!, false, true,
             CancellationToken.None));
