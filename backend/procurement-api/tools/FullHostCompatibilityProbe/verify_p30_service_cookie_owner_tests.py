@@ -22,7 +22,7 @@ class ServiceOwnerEvidence(unittest.TestCase):
 
     def test_exact_create_and_certify_original_command_hashes(self):
         create_sha,certify_sha,created,certified=fingerprints(self.browser(),{'issuedOrderId':ORDER,
-            'issuedVersionId':ISSUED,'issuedOrderLineId':LINE},SERVICE)
+            'issuedVersionId':ISSUED,'issuedOrderLineId':LINE,'servicePeriodDate':'2026-10-24'},SERVICE)
         self.assertEqual(created,CREATE)
         self.assertEqual(certified,CERTIFY)
         self.assertEqual(create_sha,hashlib.sha256(canonical_json({'operation':'Create',
@@ -32,7 +32,8 @@ class ServiceOwnerEvidence(unittest.TestCase):
         self.assertNotEqual(create_sha,certify_sha)
 
     def test_changed_source_quantity_or_evidence_denied(self):
-        fixture={'issuedOrderId':ORDER,'issuedVersionId':ISSUED,'issuedOrderLineId':LINE}
+        fixture={'issuedOrderId':ORDER,'issuedVersionId':ISSUED,'issuedOrderLineId':LINE,
+            'servicePeriodDate':'2026-10-24'}
         for changed in ({**CREATE,'purchaseOrderLineId':SERVICE},
                         {**CREATE,'quantity':'1'}, {**CREATE,'notes':'hidden'}):
             with self.assertRaises(Failed): fingerprints(self.browser(create=changed),fixture,SERVICE)
