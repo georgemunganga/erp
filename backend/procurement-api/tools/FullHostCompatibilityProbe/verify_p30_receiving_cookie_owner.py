@@ -230,7 +230,11 @@ def compare(fixture, before, after, browser, fixture_sha):
                 for row in added), 'AuditActorOrScopeChanged')
     before_sessions = {row['id'] for row in before['sessions']}
     new_sessions = [row for row in after['sessions'] if row['id'] not in before_sessions]
-    require(len(new_sessions) >= 3 and all(row.get('revoked_at') is not None for row in new_sessions),
+    require(len(new_sessions) == 3
+        and Counter(row.get('local_user_id') for row in new_sessions)
+            == Counter((fixture['receiverPrincipalId'], fixture['inspectorPrincipalId'],
+                fixture['acceptorPrincipalId']))
+        and all(row.get('revoked_at') is not None for row in new_sessions),
         'NormalLocalSessionsNotRevoked')
     return {'schemaVersion': 3, 'status': 'PASS_P30_RECEIVING_OWNER_FACTS',
         'database': fixture['database'], 'system': SYSTEM, 'fixtureSha256': fixture_sha,
