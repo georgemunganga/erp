@@ -9,6 +9,7 @@ public sealed class PrincipalOrderRevisionCapabilityTests
 {
     private sealed class Ready(bool ready) : IPrincipalOrderRevisionReadiness
     {
+        public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(ready);
         public Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct)
             => Task.FromResult(ready);
     }

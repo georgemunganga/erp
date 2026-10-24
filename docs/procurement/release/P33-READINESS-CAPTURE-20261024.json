@@ -1,0 +1,37 @@
+{
+  "allComparedDefinitionsAndFlagsMatchRepeatCatalog": true,
+  "businessWorkflowProven": false,
+  "candidateSha256": "31195c84b67e3e64460a2cc59e6e2b55c6c46778d89cbaeee819c12f569f98bd",
+  "captureSha256": "cb18a958bb2feb9026142b2dbe8f150f3e4b43840fe6757e968e805109534a82",
+  "definitionNormalizationApplied": false,
+  "executedParentValidation": {
+    "currentReadinessDeltaTested": false,
+    "domainPassed": 1620,
+    "hostPassed": 1246,
+    "resultSha256": "cf82e2333c7acc8a385ba0deb09f7ec6dc9a964808861fb79feefd75ad1d3c24",
+    "sourceCommit": "1a9a7e079a46fa8adc1d2949aec58bf325ce7d39"
+  },
+  "finiteRolesProven": false,
+  "genuineMigrationId": "20261024221344_P33PrincipalOrderDraftRevisions",
+  "historyCaptureSha256": "a794180117dbdae605881155f0ae4e97338c4eef34458ffdf76767a4eef3d56c",
+  "historyCatalogSha256": "6e41bd83ce4ed1b7a714db922f7d889387c0d91353655fb54413505dc28a820e",
+  "historyQuerySqlSha256": "ffd3db1febb44ec6853a19e1469aa094ed0ac9599a1deb0646273273c9d786c7",
+  "newChecksPlusChangedReceipt": 4,
+  "oldP30ReceiptCaptureUnchanged": true,
+  "parentKeys": 2,
+  "populatedDownProven": false,
+  "productionTouched": false,
+  "repeatUpSha256": "bdbb6d6a5f496e1580c0006c372845adbbef882bf531c73c6adc0870f3b3166e",
+  "retainedEditReceiptDownVetoProven": false,
+  "schemaResultSha256": "d482b67a5125fd44d250fd81404b32f165d1518edca3f17510de678ad8bbe8ec",
+  "schemaRoundtrip": {
+    "beforeTables": 246,
+    "emptyDownTables": 246,
+    "mappedForeignKeys": 9,
+    "repeatUpTables": 249,
+    "retainedRowsAndAclUnchanged": true,
+    "upTables": 249
+  },
+  "sourceSchemaCommit": "1a9a7e079a46fa8adc1d2949aec58bf325ce7d39",
+  "status": "SOURCE_LITERALS_BYTE_EQUAL_TO_GENUINE_PG17_CAPTURE"
+}
