@@ -741,6 +741,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardPrincipalOrderGovernance();
         GuardPrincipalReceiving();
         GuardReceivingExecution();
+        GuardLegacyInvoiceAgainstPrincipalWorkflow();
         GuardInvoiceMatchingExecution();
         GuardSourcingDraftExecution();
         GuardSourcingPolicyIdentity();

@@ -19,6 +19,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             if(input.Reason?.Length>2000) throw new MatchingProblem("InvoiceComparisonReasonTooLong",422);
             var invoice=await Invoice(db,scope,id,token);
             var worker=await Actor(core,scope,http,auth,"procurement-invoice-match",invoice.BranchRef,token);
+            if(db.HasPrincipalInvoiceWorkflow(id)) throw new MatchingProblem("InvoicePrincipalWorkflowActive",409);
             var mapping=await db.InvoiceMatchMappingVersions.SingleOrDefaultAsync(x=>x.Id==input.MappingVersionId && x.SupplierInvoiceId==id,token)
                 ?? throw new MatchingProblem("InvoiceMappingNotFound",404);
             _=await Target(db,core,scope,http,auth,"procurement-invoice-match",invoice,mapping.PurchaseOrderId,token);
@@ -35,6 +36,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             }
             else await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.invoice_match_exposure_states WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={exposure.Id} FOR UPDATE",token);
             invoice=await Invoice(db,scope,id,token,true);
+            if(db.HasPrincipalInvoiceWorkflow(id)) throw new MatchingProblem("InvoicePrincipalWorkflowActive",409);
             if(invoice.Version!=input.Version || invoice.CurrentMappingVersionId!=mapping.Id || invoice.MappingRevision!=mapping.MappingRevision)
                 throw new MatchingProblem("InvoiceComparisonVersionChanged",409);
             if(invoice.ActiveMatchClaimResultId is not null) throw new MatchingProblem("InvoiceExistingClaimRequiresOwnerResolution",409);

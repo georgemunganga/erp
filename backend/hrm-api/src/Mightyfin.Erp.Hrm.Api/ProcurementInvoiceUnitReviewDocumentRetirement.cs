@@ -18,6 +18,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var actor = await Actor(core, scope, http, auth, invoice.BranchRef, [DocumentRetirementPermission], token);
             if (!actor.Permissions.Contains("procurement-invoice-read") || !(await auth.AuthorizeAsync(http.User, null, "procurement-invoice-read")).Succeeded)
                 throw new UnauthorizedAccessException();
+            if (db.HasPrincipalInvoiceWorkflow(id)) throw new ReviewProblem("InvoicePrincipalWorkflowActive", 409);
             if (documents is null) throw new ReviewProblem("InvoiceUnitReviewDocumentRetentionUnavailable", 503);
             var reason = Reason(input.Reason) ?? throw new ReviewProblem("DocumentRetirementReasonRequired", 422);
             if (reason.Length > 1000 || input.DocumentVersion <= 0) throw new ReviewProblem("DocumentRetirementInputInvalid", 422);
