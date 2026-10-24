@@ -33,7 +33,7 @@ public static class PrincipalGoodsReturnRules
     public static string ResponseJson(PrincipalGoodsReturnDraft head, PrincipalGoodsReturnRevision revision)
         => JsonSerializer.Serialize(new
         {
-            id = head.Id, status = head.State, version = head.Revision, branchId = head.BranchId,
+            id = head.Id, status = revision.State, version = revision.Revision, branchId = head.BranchId,
             receiptId = head.ReceiptId, acceptanceFactId = head.AcceptanceFactId,
             purchaseOrderId = head.PurchaseOrderId, purchaseOrderLineId = head.PurchaseOrderLineId,
             acceptedFactQuantityExact = head.AcceptedFactQuantity.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),

@@ -46,6 +46,10 @@ public sealed class PrincipalGoodsReturnDraftRulesTests
         Assert.Contains("\"stockChanged\":false", json);
         Assert.Contains("\"financeChanged\":false", json);
         Assert.DoesNotContain("returnedQuantity", json);
+        head.State = "Cancelled";
+        head.Revision = 2;
+        Assert.Contains("\"status\":\"Draft\"", PrincipalGoodsReturnRules.ResponseJson(head, revision));
+        Assert.Contains("\"version\":1", PrincipalGoodsReturnRules.ResponseJson(head, revision));
     }
 
     [Fact]

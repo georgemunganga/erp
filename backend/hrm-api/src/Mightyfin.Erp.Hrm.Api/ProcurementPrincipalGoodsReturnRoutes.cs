@@ -102,7 +102,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
             .Where(x => x.DraftId == id).ToArrayAsync(ct);
         if (receipts.Length != revisions.Length || revisions.Any(x => !receipts.Any(r => r.CommandKey == x.CommandKey &&
             r.ResultRevision == x.Revision && r.ActorPrincipalId == x.ActorPrincipalId &&
-            r.BranchId == head.BranchId && r.ResponseSha256 == ProcurementEvidenceEncoding.Digest(r.ResponseJson) &&
+            r.BranchId == head.BranchId && r.ResponseJson == PrincipalGoodsReturnRules.ResponseJson(head, x) &&
+            r.ResponseSha256 == ProcurementEvidenceEncoding.Digest(r.ResponseJson) &&
             PrincipalGoodsReturnRules.MatchesRequest(head, x, r) &&
             r.Operation == (x.Revision == 1 ? "Create" : x.State == "Cancelled" ? "Cancel" : "Revise"))))
             throw new Problem("ReturnDraftHistoryInvalid", 409);
