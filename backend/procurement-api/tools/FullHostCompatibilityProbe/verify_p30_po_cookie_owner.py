@@ -67,11 +67,28 @@ def output_path(path, fixture):
             and not path.exists() and not path.is_symlink(), "NewPrivateOutputRequired")
 
 
+def exact_evidence_json(value):
+    """Keep PostgreSQL decimal values exact in protected owner snapshots."""
+    if isinstance(value, decimal.Decimal):
+        require(value.is_finite(), "OwnerEvidenceNumberInvalid")
+        return str(value)
+    if isinstance(value, dict):
+        require(all(isinstance(k, str) for k in value), "OwnerEvidenceKeyInvalid")
+        return "{" + ",".join(json.dumps(k, ensure_ascii=True) + ":"
+            + exact_evidence_json(value[k]) for k in sorted(value)) + "}"
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(exact_evidence_json(x) for x in value) + "]"
+    require(value is None or isinstance(value, (str, bool, int)), "OwnerEvidenceShapeInvalid")
+    return json.dumps(value, ensure_ascii=True, allow_nan=False)
+
+
 def write(path, value):
+    # Render before exclusive creation: unsupported values must not leave a
+    # partial baseline that could be mistaken for a complete owner snapshot.
+    encoded = exact_evidence_json(value) + "\n"
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        json.dump(value, stream, sort_keys=True, indent=2)
-        stream.write("\n")
+        stream.write(encoded)
     require(stat.S_IMODE(path.stat().st_mode) == 0o600, "OutputMode")
 
 
