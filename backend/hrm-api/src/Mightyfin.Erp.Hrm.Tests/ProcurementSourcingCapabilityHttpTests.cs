@@ -85,6 +85,10 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         // absent actual P25 owning-store inspector. No Core account is inferred.
         Assert.False(capabilities.GetProperty("principalSourcingSourceDrafts").GetBoolean());
         Assert.Equal(!pending, capabilities.GetProperty("sourcingDraft").GetBoolean());
+        // Rates use the already-owned ContractRate table. They follow the same
+        // pending-migration fence as the existing contract draft API.
+        Assert.Equal(!pending, capabilities.GetProperty("contractDraft").GetBoolean());
+        Assert.Equal(!pending, capabilities.GetProperty("contractDraftRates").GetBoolean());
         Assert.False(capabilities.GetProperty("sourcing").GetBoolean());
         Assert.False(capabilities.GetProperty("orders").GetBoolean());
         Assert.False(capabilities.GetProperty("manualPaymentWorkflow").GetBoolean());
