@@ -59,8 +59,11 @@ public sealed class ContractReviewCoreWorkflowTests
     public void Real_Core_One_then_All_votes_keep_prior_history_consistent()
     {
         var f = Fixture();
+        var linkedWorker = Guid.CreateVersion7();
+        var reviewers = f.Reviewers.Select((reviewer, index) => index == 0
+            ? reviewer with { WorkerAliasId = linkedWorker } : reviewer).ToArray();
         var opened = ContractReviewCoreWorkflow.Open(f.Contract, f.Version, [f.Rate], f.Policy,
-            f.Branch, f.Maker, null, f.Reviewers, 1, f.Now);
+            f.Branch, f.Maker, null, reviewers, 1, f.Now);
         var pins = ContractReviewAssignmentPins.Verify(opened.Submission, opened.Case, f.Policy);
         var decisions = new List<ApprovalDecision>();
         var votes = new List<ContractReviewVote>();
@@ -94,7 +97,9 @@ public sealed class ContractReviewCoreWorkflowTests
                 ContractId = opened.Submission.ContractId, ReviewBranchId = opened.Submission.ReviewBranchId,
                 CoreCaseId = opened.Case.Id, CoreStageId = decision.StageId,
                 CoreAssignmentId = decision.AssignmentId, CoreDecisionId = decision.Id,
-                ActorPrincipalId = decision.ActorSubjectId, Action = decision.Action,
+                ActorPrincipalId = decision.ActorSubjectId,
+                ActorWorkerAliasId = pins.Single(x => x.AssignmentId == decision.AssignmentId).WorkerAliasId,
+                Action = decision.Action,
                 DecidedAt = decision.DecidedAt };
             votes.Add(vote);
             receipts.Add(Ack("Decide", vote.Id, Guid.Parse(decision.IdempotencyKey),
@@ -115,6 +120,13 @@ public sealed class ContractReviewCoreWorkflowTests
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
             opened.Submission, opened.Case, pins, decisions, votes, receipts));
         votes[0].ActorPrincipalId = retainedActor;
+        votes[0].ActorWorkerAliasId = null;
+        Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
+            opened.Submission, opened.Case, pins, decisions, votes, receipts));
+        votes[0].ActorWorkerAliasId = Guid.CreateVersion7();
+        Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
+            opened.Submission, opened.Case, pins, decisions, votes, receipts));
+        votes[0].ActorWorkerAliasId = linkedWorker;
         var prior = receipts[1];
         prior.ResponseJson += " ";
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.VerifyPending(
@@ -167,9 +179,13 @@ public sealed class ContractReviewCoreWorkflowTests
             opened.Submission.SubmittedAt, opened.Submission.ContractBusinessVersion + 1, 201, "PendingReview");
         var returned = Ack("Decide", vote.Id, Guid.Parse(decision.IdempotencyKey), decision.ActorSubjectId,
             decision.DecidedAt, opened.Submission.ContractBusinessVersion + 2, 200, "Returned");
-        ContractReviewRetainedVotes.Verify(opened.Submission, decisions, [vote], [submitted, returned]);
+        ContractReviewRetainedVotes.Verify(opened.Submission, pins, decisions, [vote], [submitted, returned]);
         Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.Verify(
-            opened.Submission, decisions, [], [submitted, returned]));
+            opened.Submission, pins, decisions, [], [submitted, returned]));
+        vote.ActorWorkerAliasId = Guid.CreateVersion7();
+        Assert.Throws<InvalidOperationException>(() => ContractReviewRetainedVotes.Verify(
+            opened.Submission, pins, decisions, [vote], [submitted, returned]));
+        vote.ActorWorkerAliasId = null;
         f.Contract.Status = "Returned"; f.Version.Status = "Returned";
         f.Contract.Version = checked(opened.Submission.ContractBusinessVersion + 2);
         f.Version.Version = checked(opened.Submission.ContractVersionBusinessVersion + 2);

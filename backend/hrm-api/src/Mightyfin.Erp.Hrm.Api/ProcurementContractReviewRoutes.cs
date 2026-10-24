@@ -247,7 +247,7 @@ public static partial class ProcurementContractReviewRoutes
                 .ToArrayAsync(token);
             var priorReceipts = await db.ContractReviewCommandReceipts.AsNoTracking()
                 .Where(x => x.SubmissionId == source.Id).ToArrayAsync(token);
-            ContractReviewRetainedVotes.Verify(source, decisions, votes, priorReceipts);
+            ContractReviewRetainedVotes.Verify(source, pins, decisions, votes, priorReceipts);
             var at = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
             var correction = new ContractReviewCorrection
             {

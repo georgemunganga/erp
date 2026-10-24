@@ -14,10 +14,11 @@ public static class ContractReviewRetainedVotes
         IReadOnlyCollection<ContractReviewCommandReceipt> receipts)
     {
         ContractReviewCoreHistory.VerifyPending(source, approval, pins, decisions);
-        Verify(source, decisions, votes, receipts);
+        Verify(source, pins, decisions, votes, receipts);
     }
 
     public static void Verify(ContractReviewSubmission source,
+        IReadOnlyList<ContractReviewAssignmentPins.Pin> pins,
         IReadOnlyCollection<ApprovalDecision> decisions,
         IReadOnlyCollection<ContractReviewVote> votes,
         IReadOnlyCollection<ContractReviewCommandReceipt> receipts)
@@ -35,10 +36,13 @@ public static class ContractReviewRetainedVotes
         foreach (var decision in decisions)
         {
             var vote = votes.SingleOrDefault(x => x.CoreDecisionId == decision.Id);
+            var retainedActor = pins.SingleOrDefault(x => x.AssignmentId == decision.AssignmentId);
             if (vote is null || vote.SubmissionId != source.Id || vote.ContractId != source.ContractId
                 || vote.ReviewBranchId != source.ReviewBranchId || vote.CoreCaseId != source.CoreCaseId
                 || vote.CoreStageId != decision.StageId || vote.CoreAssignmentId != decision.AssignmentId
                 || vote.ActorPrincipalId != decision.ActorSubjectId || vote.Action != decision.Action
+                || retainedActor is null || retainedActor.PrincipalId != vote.ActorPrincipalId
+                || retainedActor.WorkerAliasId != vote.ActorWorkerAliasId
                 || vote.DecidedAt != decision.DecidedAt)
                 throw new InvalidOperationException("ContractReviewRetainedVotesChanged");
             var receipt = receipts.SingleOrDefault(x => x.Operation == "Decide" && x.VoteId == vote.Id);
