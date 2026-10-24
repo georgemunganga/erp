@@ -58,7 +58,7 @@ public static partial class ProcurementPolicyDraftRoutes
         if (rules.OfferOpening is not null && scope.OrgUnitId is not null) return false;
         var required = rules.Stages.SelectMany(x => x.PrincipalIds).Select(x =>
             (Id: x, Action: PrincipalRfqCommercialRoundPolicyRules.ApprovalAction))
-            .Append((rules.ClosingOfficerPrincipalId, PrincipalRfqSealedManualOffers.CloseAction)).ToList();
+            .Append((Id: rules.ClosingOfficerPrincipalId, Action: PrincipalRfqSealedManualOffers.CloseAction)).ToList();
         if (rules.OfferOpening is { } opening)
         {
             required.Add((opening.OfficerPrincipalId, PrincipalRfqOfferOpeningControls.OpenAction));

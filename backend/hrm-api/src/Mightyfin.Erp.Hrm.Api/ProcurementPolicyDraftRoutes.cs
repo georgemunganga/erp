@@ -47,9 +47,9 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         if (PrincipalRfqCommercialRoundPolicyRules.IsDocument(input.RulesJson))
         {
-            var issues = PrincipalRfqCommercialRoundPolicyRules.Validate(input.RulesJson);
-            return Results.Ok(new { isValid = issues.Count == 0, issues,
-                reviewConfigurationComplete = issues.Count == 0,
+            var commercialIssues = PrincipalRfqCommercialRoundPolicyRules.Validate(input.RulesJson);
+            return Results.Ok(new { isValid = commercialIssues.Count == 0, issues = commercialIssues,
+                reviewConfigurationComplete = commercialIssues.Count == 0,
                 canPublish = false, isAuthority = false });
         }
         if (ManualPaymentReviewPolicyRules.IsDocument(input.RulesJson))
