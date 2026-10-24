@@ -349,11 +349,15 @@ public sealed partial class ProcurementDbContext
                 || invite.TenantId != scope.TenantId || invite.LegalEntityId != scope.LegalEntityId
                 || invite.Status != "ReadyForManualDelivery" || invite.SentAt is not null
                 || invite.ViewedAt is not null || invite.DeliveryRef is not null
-                || approval is null || supplier is null
+                || approval is null || Entry(approval).State != EntityState.Added || supplier is null
                 || !SupplierEligibility.CanReceiveNewOrders(supplier, approval.DecidedAt))
                 throw new InvalidOperationException("SourcingInvitationRequiresInternalPublication");
         }
-        foreach (var approved in SourcingPublicationDecisions.Local.Where(x => x.CaseState == "Approved"))
+        // A coordinator may save the same context again after the command saves.
+        // Validate the invitation batch only for a newly recorded terminal vote.
+        foreach (var approved in ChangeTracker.Entries<SourcingPublicationDecision>()
+            .Where(x => x.State == EntityState.Added && x.Entity.CaseState == "Approved")
+            .Select(x => x.Entity))
         {
             var opening = SourcingPublicationOpenings.Local.SingleOrDefault(x => x.Id == approved.OpeningId)
                 ?? SourcingPublicationOpenings.SingleOrDefault(x => x.Id == approved.OpeningId)

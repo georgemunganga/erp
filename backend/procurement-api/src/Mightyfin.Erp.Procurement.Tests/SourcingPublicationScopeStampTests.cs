@@ -55,6 +55,68 @@ public sealed class SourcingPublicationScopeStampTests
         Assert.Empty(db.ChangeTracker.Entries());
     }
 
+    [Fact]
+    public void A_previously_saved_publication_does_not_recreate_invitations_on_a_second_save()
+    {
+        var scope = new Scope();
+        using var db = Db(scope);
+        var opening = (SourcingPublicationOpening)Record("Opening", scope.TenantId, scope.LegalEntityId, scope.SubjectId);
+        opening.SnapshotJson = System.Text.Json.JsonSerializer.Serialize(new
+            { supplierIds = new[] { Guid.NewGuid(), Guid.NewGuid() } });
+        var decision = (SourcingPublicationDecision)Record("Decision", scope.TenantId, scope.LegalEntityId, scope.SubjectId);
+        decision.OpeningId = opening.Id;
+        decision.SourcingEventId = opening.SourcingEventId;
+        decision.CoreApprovalCaseId = opening.CoreApprovalCaseId;
+        // These represent already persisted records when the transaction
+        // coordinator performs its final save. No new decision is submitted.
+        db.Attach(opening);
+        db.Attach(decision);
+
+        Assert.Equal(0, db.SaveChanges());
+        Assert.All(db.ChangeTracker.Entries(), entry => Assert.Equal(EntityState.Unchanged, entry.State));
+        Assert.Empty(db.SourcingInvitations.Local);
+        Assert.Empty(db.AuditEvents.Local);
+        Assert.Empty(db.OutboxEvents.Local);
+    }
+
+    [Fact]
+    public void Historical_approval_cannot_recreate_the_complete_supplier_invitation_batch()
+    {
+        var scope = new Scope();
+        using var db = Db(scope);
+        var suppliers = Enumerable.Range(1, 2).Select(n => new Supplier
+        { Number = "SUP-" + n, LegalName = "Supplier " + n, DisplayName = "Supplier " + n,
+            CountryCode = "ZM", Status = "Active", IsOrderable = true }).ToArray();
+        foreach (var supplier in suppliers) db.AddScoped(supplier);
+        db.SaveChanges();
+        var auditBefore = db.AuditEvents.Count();
+        var outboxBefore = db.OutboxEvents.Count();
+        db.ChangeTracker.Clear();
+
+        var opening = (SourcingPublicationOpening)Record("Opening", scope.TenantId, scope.LegalEntityId, scope.SubjectId);
+        opening.SnapshotJson = System.Text.Json.JsonSerializer.Serialize(new
+            { supplierIds = suppliers.Select(x => x.Id).ToArray() });
+        var decision = (SourcingPublicationDecision)Record("Decision", scope.TenantId, scope.LegalEntityId, scope.SubjectId);
+        decision.OpeningId = opening.Id; decision.SourcingEventId = opening.SourcingEventId;
+        decision.CoreApprovalCaseId = opening.CoreApprovalCaseId;
+        var sourcing = new SourcingEvent { Id = opening.SourcingEventId, TenantId = scope.TenantId,
+            LegalEntityId = scope.LegalEntityId, Number = "RFQ-1", Title = "Existing approved quote request",
+            ExecutionVersion = 2, Status = "Published", CurrencyCode = "ZMW", Method = "RFQ",
+            SourceEvidenceId = Guid.NewGuid(), MethodId = Guid.NewGuid(), MethodRevision = 1,
+            OwnerSubjectId = scope.SubjectId, OriginalDraftFingerprint = new string('a', 64),
+            ApprovalInstanceRef = opening.CoreApprovalCaseId.ToString("D"), Version = 3 };
+        db.Attach(sourcing); db.Attach(opening); db.Attach(decision);
+        foreach (var supplier in suppliers)
+            db.AddScoped(new SourcingInvitation { SourcingEventId = sourcing.Id, SupplierId = supplier.Id,
+                Status = "ReadyForManualDelivery" });
+
+        var error = Assert.Throws<InvalidOperationException>(() => db.SaveChanges());
+        Assert.Equal("SourcingInvitationRequiresInternalPublication", error.Message);
+        Assert.Empty(db.SourcingInvitations.AsNoTracking());
+        Assert.Equal(auditBefore, db.AuditEvents.Count());
+        Assert.Equal(outboxBefore, db.OutboxEvents.Count());
+    }
+
     private static ProcurementDbContext Db(Scope scope) => new(
         new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
         scope);
