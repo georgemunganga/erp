@@ -140,16 +140,51 @@ internal static partial class PrincipalApprovalHttpVerification
         // This private probe captures only bounded internal invariant codes for
         // this one request. The public API intentionally keeps its generic 409.
         var openFailureCodes = new List<string>();
+        var openFailureSites = new List<object>();
         EventHandler<FirstChanceExceptionEventArgs> onOpenFailure = (_, args) =>
         {
-            if (args.Exception is not InvalidOperationException) return;
-            var code = args.Exception.Message;
-            if (code.Length is < 4 or > 96 || !Regex.IsMatch(code,
-                    @"\A(?:Rfq|Sourcing|SharedCoreApproval|Approval)[A-Za-z0-9]{1,90}\z")) return;
+            var error = args.Exception;
+            var type = error.GetType().Name;
+            if (type is not ("InvalidOperationException" or "ArgumentException" or
+                "DbUpdateException" or "InvalidCastException")) return;
+            var code = error.Message;
+            var internalCode = code.Length is >= 4 and <= 96 && Regex.IsMatch(code,
+                @"\A(?:Rfq|Sourcing|SharedCoreApproval|Approval)[A-Za-z0-9]{1,90}\z");
+            var category = code.Contains("Collection was modified", StringComparison.OrdinalIgnoreCase)
+                ? "CollectionChanged"
+                : code.Contains("Sequence contains more than one", StringComparison.OrdinalIgnoreCase)
+                    ? "SequenceMultiple"
+                : code.Contains("Sequence contains no elements", StringComparison.OrdinalIgnoreCase)
+                    ? "SequenceEmpty"
+                : code.Contains("cannot be tracked", StringComparison.OrdinalIgnoreCase)
+                    ? "EfTracking"
+                : code.Contains("could not be translated", StringComparison.OrdinalIgnoreCase)
+                    ? "EfTranslation"
+                : internalCode ? "InternalCode" : "Other";
+            var declaring = error.TargetSite?.DeclaringType?.FullName;
+            var method = error.TargetSite?.Name;
+            var safeSite = declaring is { Length: <= 180 } &&
+                Regex.IsMatch(declaring, @"\A(?:System|Microsoft\.EntityFrameworkCore|Mightyfin\.Erp)[A-Za-z0-9_.+\x60]*\z")
+                && method is { Length: <= 100 } &&
+                Regex.IsMatch(method, @"\A[A-Za-z_][A-Za-z0-9_]*\z");
             lock (openFailureCodes)
             {
-                if (openFailureCodes.Count < 8 && !openFailureCodes.Any(x => string.Equals(x, code, StringComparison.Ordinal)))
+                if (internalCode && openFailureCodes.Count < 8 &&
+                    !openFailureCodes.Any(x => string.Equals(x, code, StringComparison.Ordinal)))
                     openFailureCodes.Add(code);
+                var site = new { type, category,
+                    declaringType = safeSite ? declaring : "Unclassified",
+                    method = safeSite ? method : "Unclassified" };
+                if (category != "Other" && openFailureSites.Count == 8)
+                {
+                    var ordinary = openFailureSites.FindIndex(x =>
+                        JsonSerializer.Serialize(x).Contains("\"category\":\"Other\"", StringComparison.Ordinal));
+                    if (ordinary >= 0) openFailureSites.RemoveAt(ordinary);
+                }
+                if (openFailureSites.Count < (category == "Other" ? 4 : 8)
+                    && !openFailureSites.Any(x =>
+                        string.Equals(JsonSerializer.Serialize(x), JsonSerializer.Serialize(site), StringComparison.Ordinal)))
+                    openFailureSites.Add(site);
             }
         };
         JsonElement opened;
@@ -163,7 +198,10 @@ internal static partial class PrincipalApprovalHttpVerification
         {
             AppDomain.CurrentDomain.FirstChanceException -= onOpenFailure;
             lock (openFailureCodes)
+            {
                 result["principalPublicationOpenInternalCodes"] = openFailureCodes.ToArray();
+                result["principalPublicationOpenFailureSites"] = openFailureSites.ToArray();
+            }
         }
         Need(opened.GetProperty("status").GetString() == "PublicationReview"
             && opened.GetProperty("supplierDeliveryState").GetString() == "NotStarted",
