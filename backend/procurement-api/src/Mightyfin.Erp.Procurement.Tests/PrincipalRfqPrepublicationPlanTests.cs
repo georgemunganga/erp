@@ -6,7 +6,7 @@ namespace Mightyfin.Erp.Procurement.Tests;
 
 // Pure synthetic owned shapes only: these tests do not prove actual source/Core
 // database provenance, a durable document hold, a current account or publication.
-public sealed class PrincipalRfqPrepublicationPlanTests
+public sealed partial class PrincipalRfqPrepublicationPlanTests
 {
     private sealed record Fixture(SourcingEvent Event,SourcingDraftEvidence Evidence,SourcingDemandBinding Binding,
         PrincipalRfqEvaluationPlanDefinition Definition,PrincipalRfqPublishedPlanPolicy Policy,RfqPrincipalActor Evaluator,DocumentUseReference Use,

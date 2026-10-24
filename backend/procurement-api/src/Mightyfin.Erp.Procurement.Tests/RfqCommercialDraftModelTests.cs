@@ -20,7 +20,7 @@ public sealed class RfqCommercialDraftModelTests
         using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseNpgsql("Host=localhost;Database=model_only_not_opened;Username=none;Password=none").Options,new Scope());
         var model=db.GetService<IDesignTimeModel>().Model;
-        foreach(var type in new[]{typeof(PrincipalRfqCommercialDraftHead),typeof(PrincipalRfqCommercialDraftRevision),typeof(PrincipalRfqCommercialDraftReceipt)})
+        foreach(var type in new[]{typeof(PrincipalRfqCommercialDraftHead),typeof(PrincipalRfqCommercialDraftRevision),typeof(PrincipalRfqCommercialDraftReceipt),typeof(PrincipalRfqPreparedPlan),typeof(PrincipalRfqPreparationReceipt)})
         {
             var entity=model.FindEntityType(type)!;
             Assert.All(entity.GetKeys(),key=>Assert.All(key.Properties,p=>Assert.Contains(p.Name,new[]{"TenantId","LegalEntityId","Id"})));
@@ -42,6 +42,11 @@ public sealed class RfqCommercialDraftModelTests
         Assert.Contains("branch_ref,original_draft_fingerprint,payload_sha256",sql);
         Assert.Contains("branch_id,command_key,actor_principal_id,snapshot_sha256",sql);
         Assert.Contains("draft_id,revision,snapshot_sha256",sql);Assert.DoesNotContain("CASCADE",sql);
+        var preparation=RfqPreparationOwnershipConstraintSql.Install;
+        Assert.Equal(4,preparation.Split("ADD CONSTRAINT",StringSplitOptions.None).Length-1);
+        Assert.Equal(4,preparation.Split("DEFERRABLE INITIALLY DEFERRED",StringSplitOptions.None).Length-1);
+        Assert.Contains("published_stage,policy_rules_sha256,published_identity_sha256",preparation);
+        Assert.Contains("actor_principal_id,command_key,request_sha256",preparation);
     }
     [Fact]
     public void Scope_and_append_only_guards_reject_changes_without_querying_unknown_source()
@@ -52,5 +57,8 @@ public sealed class RfqCommercialDraftModelTests
         var error=Assert.Throws<InvalidOperationException>(()=>db.SaveChanges());Assert.Equal("RfqCommercialDraftEvidenceAppendOnly",error.Message);
         db.ChangeTracker.Clear();db.Add(new PrincipalRfqCommercialDraftHead{TenantId="foreign",LegalEntityId=scope.LegalEntityId});
         error=Assert.Throws<InvalidOperationException>(()=>db.SaveChanges());Assert.Equal("RfqCommercialDraftScopeMismatch",error.Message);
+        db.ChangeTracker.Clear();var prepared=new PrincipalRfqPreparedPlan{TenantId=scope.TenantId,LegalEntityId=scope.LegalEntityId};
+        db.Attach(prepared);db.Remove(prepared);
+        error=Assert.Throws<InvalidOperationException>(()=>db.SaveChanges());Assert.Equal("RfqPreparationAppendOnly",error.Message);
     }
 }

@@ -7,7 +7,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 /// <summary>Unregistered owner-enlisted primitive. The caller resolves live Core
 /// action/owner/branch and locks source rows BEFORE these reads. No policy, scan,
 /// autonomous transaction, Save/Commit or guessed readiness occurs here.</summary>
-public sealed class PrincipalRfqCommercialDraftStore(ProcurementDbContext db,IProcurementScope scope)
+public sealed partial class PrincipalRfqCommercialDraftStore(ProcurementDbContext db,IProcurementScope scope)
 {
     private void Enlisted()
     {if(!db.Database.IsNpgsql()||db.Database.CurrentTransaction is null)throw new InvalidOperationException("RfqCommercialDraftOwnerTransactionRequired");

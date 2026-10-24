@@ -149,6 +149,7 @@ public sealed class ProcurementApprovalTransaction
         await procurement.Database.UseTransactionAsync(transaction, ct);
         await approvals.Database.UseTransactionAsync(transaction, ct);
         procurement.BindSharedCoreApprovalContext(approvals);
+        if(documents is not null)procurement.BindRfqDocumentOwner(documents);
         if (manualPayments) procurement.RequireManualPaymentGovernance();
 
         var outcome = await command(procurement, approvals, documents, documentFence, ct);

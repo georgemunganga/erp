@@ -354,3 +354,80 @@ registration with empty bootstrap, finite grants, original-key GET endpoints,
 actual Core/document alias/race/rollback proofs and existing UI binding remain
 open gates. No boolean projection/clean scan/current helper or retained use itself
 is approval. No code here submits/seals/opens a bid, evaluates a score or awards.
+
+### Fifth bounded slice — durable prepared candidate and original receipt
+
+`CommercialPrepare` is now an **unmapped**, default-off owning composition. It
+requires real current actor/action/target branch before any original-key lookup;
+replay returns the exact original preparation response without current policy,
+scan or source-eligibility reevaluation. For a new command it locks original
+requests → event, verifies retained demand/complete allocation, checks both
+expected event and commercial Draft CAS, resolves all current evaluator/known
+maker aliases, and creates a successor immutable commercial revision with the
+same command's Draft receipt. It then acquires actual Core requirements uses
+under the existing pre-BEGIN sourcing owner fence and owning transaction.
+
+A missing definition/window/comparison configuration, independently published
+SOURCING policy/lineage, named current evaluator, required pack or clean selected
+scan blocks Prepare atomically. Original category/purchase type comes from the
+retained PR submission snapshot, not today's selected UI classification. An
+optional empty pack performs no document lookup/acquire/scanning. Ordinary Draft
+Save remains separate and needs none of these workflow prerequisites. Source
+PR holds/counters and RFQ status/version remain unchanged by preparation.
+
+Two additive append-only proposed tables are now included:
+`rfq_prepared_plans` and `rfq_preparation_receipts`. Prepared evidence references
+the exact successor commercial revision, source event/version/site, original
+actor/optional alias, independently published policy identity/rules, definition,
+window, criterion assignments and exact requirements pins. Its immutable storage
+envelope binds **both** the candidate snapshot and actual Core use-set ID/
+selection digest/count; self-consistency cannot ignore a changed use pointer.
+Receipt joins the exact original Draft command/key/body/actor and snapshot,
+returns `PreparedCandidate` with `canPublish:false`, and survives later Draft
+revisions. Parent RFQ, supplier bid, evaluation, award and Finance state are not
+changed. Owned audit/outbox declare only an internal prepared candidate.
+
+Four further exact deferred NO ACTION FK proposals bind prepared plan→same
+original revision/source/site/actor/snapshot, prepared plan→actual immutable
+Published identity/policy/rules/evidence SHA, receipt→that exact plan and
+receipt→same original Draft command/actor/key/body. All EF keys remain stable
+scoped identities; the new targets are ordinary immutable unique indexes. No
+Core tables/models/keys are copied. Core use-set IDs are explicit owner references
+verified by the actual shared context, not a cross-owner fake entity or arbitrary
+client flag. Total proposed P32 owned tables: five (three Draft, two preparation).
+All eight ownership overlays still require central genuine migration generation,
+physical PG17 capture/readiness and finite-role negative proofs.
+
+The existing transaction binds its actual enlisted Core Documents context to
+Procurement before callback execution. Save guards observe successful actual
+EF Core use-set INSERTs in this transaction (not a supplied boolean or updated
+row), require identical live connection/transaction, exact original owner/use/
+revision/actor and selection digest/count, then match every retained pin/document/
+version/hash/CAS/scan evidence ID against the immutable prepared snapshot. Empty
+optional packs require no Core use. Failed source/policy/plan/save or transaction
+commit rolls back both schemas. Managed guards deny preparation UPDATE/DELETE,
+orphan acknowledgements, adopted old commercial revisions or detached/fake
+Core use evidence. This is authored code, **not** runtime/locking proof.
+
+Four additional pure prepared-evidence/recovery/crossbinding cases and expanded
+Npgsql-model/managed append-only assertions are authored, unrun. They use clearly
+synthetic shapes and do not claim actual Core use acquisition or current account
+provenance. Required actual acceptance includes all-branch A/B vs C, current alias
+rebind (including previously null and archived makers), optional empty pack,
+required missing/failed scan, wrong owner/version/scan/use set, success→fresh
+owner reload, same-key original recovery/changed-body conflict, concurrent
+revision/preparation, whole-transaction rollback after Core flush, pool/lease
+cleanup and genuine used-evidence Down veto across all five tables plus uniquely
+linked audit/outbox/Core document use references. No source DB is deleted or
+history rewritten to achieve a downgrade.
+
+This closes the earlier *source* prepared-plan storage gap only. P32 still has
+no routes/service registrations/positive schema provider/capability or generated
+migration; genuine source compilation/tests/SQL/private runtime are pending.
+The current SOURCING policy does not adopt scored formulas, sealed offer rules,
+closing/opening authority or award approval. Those missing explicitly published
+controls block Publish/submission/seal/open/evaluation/award even when a candidate
+is prepared. P30 internal Published/Draft quotation bytes are not adopted as
+submitted or sealed bids. Current next milestone is independent review of this
+bounded composition, then central physical schema/runtime proof and a separately
+versioned governed commercial publication contract.
