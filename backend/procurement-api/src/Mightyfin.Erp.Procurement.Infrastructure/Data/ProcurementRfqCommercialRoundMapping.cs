@@ -406,20 +406,13 @@ public sealed partial class ProcurementDbContext
                         Database.GetDbConnection())
                     || !sharedApprovalInsertedDecisions.Contains(voteRecord.CoreDecisionId))
                     throw new InvalidOperationException("RfqCommercialCoreVoteNotEnlisted");
-                sharedApprovalCore.ChangeTracker.DetectChanges();
-                if (sharedApprovalCore.ChangeTracker.HasChanges())
-                    throw new InvalidOperationException("RfqCommercialCoreVoteNotCommitted");
-                // The Core engine has already saved its real CAS result on this
-                // transaction. A caller-mutated Local graph cannot mint vote facts.
-                var coreDecision = sharedApprovalCore.Decisions.AsNoTracking()
-                    .SingleOrDefault(x => x.Id == voteRecord.CoreDecisionId);
-                var coreCase = sharedApprovalCore.Cases.AsNoTracking()
-                    .Include(x => x.Stages).ThenInclude(x => x.Assignments)
-                    .SingleOrDefault(x => x.Id == voteRecord.CoreCaseId);
+                // Read the saved Core CAS result, never the caller's tracked graph.
+                // This also rejects an unsaved Local mutation after Core Save.
+                var (coreCase, coreDecision, assignment) = CommittedCommercialVote(
+                    sharedApprovalCore, voteRecord.CoreCaseId,
+                    voteRecord.CoreDecisionId, voteRecord.CoreAssignmentId);
                 var prepared = PrincipalRfqPreparedPlans.AsNoTracking()
                     .SingleOrDefault(x => x.Id == opening.PreparedPlanId);
-                var assignment = coreCase?.Stages.SelectMany(x => x.Assignments)
-                    .SingleOrDefault(x => x.Id == voteRecord.CoreAssignmentId);
                 if (coreDecision is null || coreCase is null || assignment is null || prepared is null
                     || coreCase.TenantId != scope.TenantId || coreCase.LegalEntityId != scope.LegalEntityId
                     || coreCase.SourceModule != "procurement"

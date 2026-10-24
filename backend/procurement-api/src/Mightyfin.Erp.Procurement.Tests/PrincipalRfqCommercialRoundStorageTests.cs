@@ -5,11 +5,78 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Core.Approvals.Domain;
+using Mightyfin.Erp.Core.Approvals.Infrastructure;
 
 namespace Mightyfin.Erp.Procurement.Tests;
 
 public sealed class PrincipalRfqCommercialRoundStorageTests
 {
+    private sealed record CoreScope(string TenantId, Guid LegalEntityId, string SubjectId)
+        : IApprovalScope;
+
+    [Fact]
+    public void Saved_core_vote_is_read_from_store_and_unsaved_local_case_or_assignment_cannot_ack_it()
+    {
+        var company = Guid.NewGuid();
+        var maker = Guid.NewGuid().ToString("D");
+        var reviewer = Guid.NewGuid().ToString("D");
+        var store = Guid.NewGuid().ToString("D");
+        using var core = new ApprovalDbContext(new DbContextOptionsBuilder<ApprovalDbContext>()
+            .UseInMemoryDatabase(store).Options, new CoreScope("fixture", company, reviewer));
+        var approvalCase = new ApprovalCase
+        {
+            TenantId = "fixture", LegalEntityId = company, MakerSubjectId = maker,
+            SourceModule = "procurement", SourceType = PrincipalRfqCommercialRoundCoreWorkflow.SourceType,
+            SourceId = Guid.NewGuid(), SourceVersion = 1, PolicyVersionId = Guid.NewGuid(),
+        };
+        var stage = new ApprovalStage
+        {
+            TenantId = "fixture", LegalEntityId = company, CaseId = approvalCase.Id,
+            Sequence = 1, Code = "CommercialReview", Mode = "All",
+            RequiredApprovals = 1, State = "Active",
+        };
+        var task = new ApprovalAssignment
+        {
+            TenantId = "fixture", LegalEntityId = company, CaseId = approvalCase.Id,
+            StageId = stage.Id, AssigneeSubjectId = reviewer,
+            PermissionKey = PrincipalRfqCommercialRoundPolicyRules.ApprovalAction,
+        };
+        stage.Assignments.Add(task);
+        approvalCase.Stages.Add(stage);
+        core.Cases.Add(approvalCase);
+        core.SaveChanges();
+        core.ChangeTracker.Clear();
+
+        var loaded = core.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments)
+            .Single(x => x.Id == approvalCase.Id);
+        var assigned = loaded.Stages.Single().Assignments.Single();
+        var votes = new List<ApprovalDecision>();
+        var commandKey = Guid.NewGuid().ToString("D");
+        Assert.True(ApprovalEngine.Decide(loaded, assigned,
+            new ApprovalActor(reviewer, "fixture", company,
+                new HashSet<string> { PrincipalRfqCommercialRoundPolicyRules.ApprovalAction }),
+            "Approve", commandKey, null, votes, DateTimeOffset.UtcNow).Recorded);
+        core.Decisions.Add(votes.Single());
+        core.SaveChanges();
+
+        var saved = ProcurementDbContext.CommittedCommercialVote(core, loaded.Id,
+            votes.Single().Id, assigned.Id);
+        Assert.Equal(loaded.Version, saved.Case!.Version);
+        Assert.Equal(assigned.Version, saved.Assignment!.Version);
+        Assert.Equal(commandKey, saved.Decision!.IdempotencyKey);
+
+        loaded.Version++;
+        Assert.Equal("RfqCommercialCoreVoteNotCommitted", Assert.Throws<InvalidOperationException>(() =>
+            ProcurementDbContext.CommittedCommercialVote(core, loaded.Id,
+                votes.Single().Id, assigned.Id)).Message);
+        loaded.Version--;
+        assigned.Version++;
+        Assert.Equal("RfqCommercialCoreVoteNotCommitted", Assert.Throws<InvalidOperationException>(() =>
+            ProcurementDbContext.CommittedCommercialVote(core, loaded.Id,
+                votes.Single().Id, assigned.Id)).Message);
+    }
+
     private sealed class Scope : IProcurementScope
     {
         public string TenantId => "fixture";
