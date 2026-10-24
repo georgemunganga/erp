@@ -1,0 +1,51 @@
+{
+  "status": "VERIFIED_PRIVATE_GOODS_BROWSER_AND_NATIVE_GOODS_SERVICE",
+  "date": "2026-10-24",
+  "applicationSourceCommit": "3942e1823bf87dbe201d16ef4feed24e8db34c4a",
+  "ownerVerifierCommit": "192836792df6f1d5dc88db4c6476445c24895f3c",
+  "acceptedBuild": "P30 clean build21",
+  "native": {
+    "actualHttpRequests": 183,
+    "status": "PASS_PRIVATE_P30_PRINCIPAL_RECEIVING_MANUAL_FULFILMENT_ONLY",
+    "coversGoodsAndServices": true
+  },
+  "browser": {
+    "passed": 1,
+    "failed": 0,
+    "retries": 0,
+    "authentication": "Normal local password and session cookie",
+    "journey": [
+      "Create goods receipt",
+      "Record goods delivery",
+      "Independent inspection",
+      "Independent acceptance",
+      "Reload and sign out"
+    ],
+    "mocksBusinessResponses": false,
+    "injectsIdentityHeaders": false,
+    "serviceBrowserVerified": false
+  },
+  "owner": {
+    "status": "PASS_P30_RECEIVING_OWNER_FACTS",
+    "freshReadOnlyRecheck": true,
+    "originalBaselinePreserved": true,
+    "allFourCommandFingerprintsVerified": true,
+    "acceptorAndSingleCounterVersionAdvanceVerified": true,
+    "commercialFieldsUnchanged": true,
+    "realSessionsRevoked": true,
+    "pureVerifierTests": 8
+  },
+  "retainedFailures": [
+    "Initial owner verifier omitted updated_by from constrained acceptance metadata",
+    "Initial command canonicalization omitted default .NET plus escaping for UTC offsets",
+    "Initial jsonb readers expected text instead of stored objects"
+  ],
+  "correctionScope": "Verification tool only; no API, schema, browser-business replay, or database correction",
+  "evidence": {
+    "compositeSha256": "96d71ecd687fa25e4163c8d620e21770296e717c4f4f6e1755fbe8ee9eaf3095",
+    "reviewedOwnerSha256": "2e5859391474e1d1c18cd866f5e75874e886b1629ef17ec5f7ee947b2347370c"
+  },
+  "productionDeployed": false,
+  "inventoryAssetOrFinancePostingProven": false,
+  "wholeProcurementModuleComplete": false
+}

@@ -45,8 +45,9 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             if (db.Database.HasPendingModelChanges()) return false;
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
             await db.Database.ExecuteSqlRawAsync("SET LOCAL search_path=pg_catalog; SET LOCAL transaction_read_only=on; SET LOCAL statement_timeout='5s'", ct);
+            var applied = (await db.Database.GetAppliedMigrationsAsync(ct)).ToArray();
             if ((await db.Database.GetPendingMigrationsAsync(ct)).Any()
-                || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
+                || !applied.Contains(MigrationId, StringComparer.Ordinal)) return false;
             await using var command = db.Database.GetDbConnection().CreateCommand();
             command.Transaction = transaction.GetDbTransaction(); command.CommandTimeout = 10;
             // Metadata only: all privilege/catalog SQL remains on the original
@@ -57,8 +58,10 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
             command.CommandText = CoreOwnerSql;
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
+            var expectedFingerprint = ProcurementP32OperationalPolicyCatalog.SelectManualPaymentFingerprint(applied);
+            if (expectedFingerprint is null) return false;
             command.CommandText = FingerprintSql;
-            return await command.ExecuteScalarAsync(ct) is string actual && actual == ExpectedFingerprint;
+            return await command.ExecuteScalarAsync(ct) is string actual && actual == expectedFingerprint;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception error)

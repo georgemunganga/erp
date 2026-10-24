@@ -94,7 +94,11 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
             {
                 core.TenantRoleAssignments.Add(new TenantRoleAssignment {RoleKey=role,RoleName="Private "+role,Category="system",PermissionsCsv=actions,Active=true});
                 core.LocalUsers.Add(new LocalUser {Id=id,WorkerId=null,Email=role+"@example.test",NormalizedEmail=role.ToUpperInvariant()+"@EXAMPLE.TEST",DisplayName=role,PasswordHash="private-no-real-login",RolesCsv=role,IsActive=true});
-                core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=id,LocationId=principalReceivingProfile&&id==ReceivingOutsider?OtherReceivingBranch:Branch});
+                // The SOURCING policy author/reviewer configure companywide rules.
+                // Their explicit Core scope is organization-wide in this private
+                // RFQ profile; a single branch assignment is a real policy denial.
+                if(!(principalRfqProfile && (id==ConfigMaker || id==ConfigReviewer)))
+                    core.UserBranchAssignments.Add(new HrUserBranchAssignment {UserId=id,LocationId=principalReceivingProfile&&id==ReceivingOutsider?OtherReceivingBranch:Branch});
             }
             if(principalReceivingProfile)core.WorkLocations.Add(new WorkLocation{Id=OtherReceivingBranch,Code="P30_RECEIVING_OTHER",Name="Other private receiving site",LegalEntityId=Company});
             if(legacyWorkerProfile)

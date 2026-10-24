@@ -104,6 +104,8 @@ internal static partial class PrincipalApprovalHttpVerification
         var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
         var p30PoCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE");
         var p30ReceivingCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RECEIVING_NORMAL_COOKIE");
+        var p30ServiceCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_SERVICE_NORMAL_COOKIE");
+        var p30RfqCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RFQ_NORMAL_COOKIE");
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
         Need(principalPoFlag is null or "1","Private P30 principal PO opt-in must be exactly1 or absent.");
         Need(publicationFlag is null or "1","Private P30 RFQ publication opt-in must be exactly1 or absent.");
@@ -112,6 +114,15 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(publicationFlag is null || database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
             && principalRfqFlag=="1" && principalPoFlag is null && p29CookieFlag is null,
             "P30 RFQ publication cannot combine with PO or cookie profiles.");
+        Need(p30RfqCookieFlag is null or "1","P30 RFQ normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30RfqCookieFlag is null || publicationFlag=="1" && principalRfqFlag=="1"
+            && database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+            && principalPoFlag is null && receivingFlag is null && p29CookieFlag is null
+            && p30PoCookieFlag is null && p30ReceivingCookieFlag is null
+            && matrixFlag is null && schemaFlag is null && accountFlag is null
+            && aliasFlag is null && localCookieFlag is null && downFamily is null
+            && exactBudgetFlag is null && legacyWorkerFlag is null,
+            "P30 RFQ browser requires its separate fresh publication cohort.");
         Need(!database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal) || principalPoFlag=="1",
             "P30 private database is exclusive to its explicit PO profile.");
         Need(principalPoFlag is null || (database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
@@ -125,20 +136,26 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(p29CookieFlag is null or "1","P29 normal-cookie serve opt-in must be exactly1 or absent.");
         Need(p30PoCookieFlag is null or "1","P30 PO normal-cookie serve opt-in must be exactly1 or absent.");
         Need(p30ReceivingCookieFlag is null or "1","P30 receiving normal-cookie serve opt-in must be exactly1 or absent.");
+        Need(p30ServiceCookieFlag is null or "1","P30 service normal-cookie serve opt-in must be exactly1 or absent.");
         Need(p30ReceivingCookieFlag is null || principalPoFlag=="1" && receivingFlag=="1"
             && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
-            && p30PoCookieFlag is null && p29CookieFlag is null && retainedPoCancelFlag is null
+            && p30PoCookieFlag is null && p30ServiceCookieFlag is null && p29CookieFlag is null && retainedPoCancelFlag is null
             && principalRfqFlag is null && publicationFlag is null,
             "P30 receiving normal-cookie serve needs its separate fresh PO and receiving cohort.");
+        Need(p30ServiceCookieFlag is null || principalPoFlag=="1" && receivingFlag=="1"
+            && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+            && p30PoCookieFlag is null && p30ReceivingCookieFlag is null && p29CookieFlag is null
+            && retainedPoCancelFlag is null && principalRfqFlag is null && publicationFlag is null,
+            "P30 service normal-cookie serve needs its exclusive fresh PO and receiving cohort.");
         Need(retainedPoCancelFlag is null or "1","P30 retained-history cancellation opt-in must be exactly1 or absent.");
         Need(retainedPoCancelFlag is null || principalPoFlag=="1"
             && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
-            && receivingFlag is null && p30PoCookieFlag is null && p30ReceivingCookieFlag is null && p29CookieFlag is null
+            && receivingFlag is null && p30PoCookieFlag is null && p30ReceivingCookieFlag is null && p30ServiceCookieFlag is null && p29CookieFlag is null
             && principalRfqFlag is null && publicationFlag is null,
             "Retained-history cancellation requires a separate fresh private PO API cohort, without cookie or receiving phases.");
         Need(p30PoCookieFlag is null || principalPoFlag=="1" && database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
             && p29CookieFlag is null && principalRfqFlag is null && publicationFlag is null && receivingFlag is null
-            && p30ReceivingCookieFlag is null,
+            && p30ReceivingCookieFlag is null && p30ServiceCookieFlag is null,
             "P30 PO normal-cookie serve requires its exclusive fresh private PO profile.");
         Need(p29CookieFlag is null || principalRfqFlag=="1" && publicationFlag is null,
             "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
@@ -321,6 +338,20 @@ internal static partial class PrincipalApprovalHttpVerification
                         await ServeP30ReceivingNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
                             browserGoods,issued,result,Advance);
                     }
+                    if(p30ServiceCookieFlag=="1")
+                    {
+                        Advance("P30ServiceGenuineUnconsumedBrowserSource");
+                        PrincipalIssuedFixture browserService;
+                        await using (var setupHost=new PrincipalApprovalHost(fixture,owner,roles.Record,roles.Execution,
+                            actualSchema:true,privateManualEvidence:true))
+                        {
+                            setupHost.PrepareEntryPointEnvironment();
+                            using var setupClient=setupHost.CreateClient(new(){AllowAutoRedirect=false});
+                            browserService=await CreateActualReceivingServiceSourceAsync(fixture,setupClient,Send,issued.SupplierId,browser:true);
+                        }
+                        await ServeP30ServiceNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            browserService,issued,result,Advance);
+                    }
                     if(p30PoCookieFlag=="1")
                         await ServeP30PoNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
                             issued.RequestId,issued.RequestLineId,issued.SupplierId,issued.OrderId,result,Advance);
@@ -330,6 +361,8 @@ internal static partial class PrincipalApprovalHttpVerification
                     var p29=await VerifyPrincipalRfqAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
                     if(publicationFlag=="1")
                         await VerifyP30RfqPublicationAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,rfqRules!);
+                    if(p30RfqCookieFlag=="1")
+                        await ServeP30RfqNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,result,Advance);
                     if(p29CookieFlag=="1")
                         await ServeP29NormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
                             p29.RequestId,p29.LineId,p29.EventId,result,Advance);
