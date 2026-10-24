@@ -32,6 +32,10 @@ public sealed class PrincipalInvoiceOwnershipModelTests
 
         Has<PrincipalInvoiceMappingVersion, PrincipalOrderIssuedVersion>("TenantId", "LegalEntityId",
             "PrincipalIssuedVersionId", "PurchaseOrderId");
+        Has<PrincipalInvoiceMappingLine, PrincipalReceivingSourceState>("TenantId", "LegalEntityId",
+            "PrincipalReceivingSourceStateId", "PurchaseOrderId", "PrincipalIssuedVersionId", "PurchaseOrderLineId");
+        Has<PrincipalInvoiceMappingLine, PrincipalReceivingFact>("TenantId", "LegalEntityId",
+            "PrincipalAcceptanceFactId", "PrincipalReceivingSourceStateId", "AcceptanceSequence");
         Has<PrincipalInvoiceMappingLine, PrincipalInvoiceMappingVersion>("TenantId", "LegalEntityId",
             "MappingVersionId", "SupplierInvoiceId", "PurchaseOrderId", "PrincipalIssuedVersionId");
         Has<PrincipalInvoiceMappingLine, SupplierInvoiceLine>("TenantId", "LegalEntityId",
@@ -58,6 +62,8 @@ public sealed class PrincipalInvoiceOwnershipModelTests
             "SupplierInvoiceId", "PurchaseOrderId", "PrincipalIssuedVersionId");
         Has<PrincipalInvoiceClaim, PrincipalReceivingFact>("TenantId", "LegalEntityId",
             "PrincipalAcceptanceFactId", "PrincipalReceivingSourceStateId", "AcceptanceSequence");
+        Has<PrincipalInvoiceClaim, PrincipalReceivingSourceState>("TenantId", "LegalEntityId",
+            "PrincipalReceivingSourceStateId", "PurchaseOrderId", "PrincipalIssuedVersionId", "PurchaseOrderLineId");
         Has<PrincipalInvoiceDiscrepancy, PrincipalInvoiceMappingVersion>("TenantId", "LegalEntityId",
             "MappingVersionId", "SupplierInvoiceId", "PurchaseOrderId", "PrincipalIssuedVersionId");
         Has<PrincipalInvoiceDiscrepancy, SupplierInvoiceLine>("TenantId", "LegalEntityId",
@@ -66,5 +72,26 @@ public sealed class PrincipalInvoiceOwnershipModelTests
             "DiscrepancyId", "SupplierInvoiceId", "MappingVersionId");
         Has<PrincipalInvoiceDiscrepancyAction, PrincipalInvoiceComparison>("TenantId", "LegalEntityId",
             "ResolvingComparisonId", "SupplierInvoiceId", "MappingVersionId");
+    }
+
+    [Fact]
+    public void P31_parent_alternate_keys_have_exact_short_names_and_unchanged_tuples()
+    {
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new Scope("p31-owner", Guid.NewGuid(), Guid.NewGuid().ToString("D")));
+        void Named<T>(string expected, params string[] fields) where T : ProcurementRecord
+        {
+            var entity = db.Model.FindEntityType(typeof(T))!;
+            var key = Assert.Single(entity.GetKeys().Where(x => !x.IsPrimaryKey()
+                && x.Properties.Select(p => p.Name).SequenceEqual(fields)));
+            Assert.Equal(expected, key.GetName());
+            Assert.True(expected.Length <= 63);
+        }
+        Named<PrincipalOrderIssuedVersion>("ak_pi_issued_order", "TenantId", "LegalEntityId", "Id", "PurchaseOrderId");
+        Named<PrincipalReceivingSourceState>("ak_pi_receiving_source", "TenantId", "LegalEntityId", "Id",
+            "PurchaseOrderId", "IssuedVersionId", "PurchaseOrderLineId");
+        Named<PrincipalReceivingFact>("ak_pi_receiving_fact", "TenantId", "LegalEntityId", "Id",
+            "SourceStateId", "Sequence");
     }
 }

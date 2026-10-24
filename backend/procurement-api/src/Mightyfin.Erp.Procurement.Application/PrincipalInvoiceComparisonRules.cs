@@ -73,7 +73,7 @@ public static class PrincipalInvoiceComparisonRules
             || policy.BranchRef is { } policyBranch && policyBranch != invoice.BranchRef
             || policy.EffectiveFrom > now || policy.EffectiveUntil is { } until && now >= until
             || policy.MoneyScale is < 0 or > 4 || !Enum.IsDefined(policy.Rounding)
-            || policy.Rules.Count == 0
+            || policy.Rules is null || policy.Rules.Count == 0
             || policy.Rules.Any(x => string.IsNullOrWhiteSpace(x.CategoryCode)
                 || x.CurrencyCode != invoice.CurrencyCode || !Enum.IsDefined(x.Method)
                 || x.Method == InvoiceMatchingMethod.ThreeWay && x.AcceptanceKind is null

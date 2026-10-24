@@ -35,6 +35,21 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<PrincipalInvoiceCommandReceipt>(model, "principal_invoice_receipts");
         ConfigurePrincipalInvoiceDiscrepancies(model);
 
+        // These existing P30 parent tuples are referenced by P31's exact
+        // invoice bindings. Explicit short names keep the owning keys stable
+        // within PostgreSQL's identifier limit; no parent tuple changes.
+        model.Entity<PrincipalOrderIssuedVersion>()
+            .HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId })
+            .HasName("ak_pi_issued_order");
+        model.Entity<PrincipalReceivingSourceState>()
+            .HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
+                x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId })
+            .HasName("ak_pi_receiving_source");
+        model.Entity<PrincipalReceivingFact>()
+            .HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id,
+                x.SourceStateId, x.Sequence })
+            .HasName("ak_pi_receiving_fact");
+
         const string uuid = "'00000000-0000-0000-0000-000000000000'::uuid";
         const string principal = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
         const string sha = "^[0-9a-f]{64}$";
