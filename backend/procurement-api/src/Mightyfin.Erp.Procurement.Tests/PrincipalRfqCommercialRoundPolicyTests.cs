@@ -77,4 +77,12 @@ public sealed class PrincipalRfqCommercialRoundPolicyTests
                 "\"schemaVersion\":1", "\"schemaVersion\":1,\"schemaVersion\":1",
                 StringComparison.Ordinal)));
     }
+
+    [Fact]
+    public void Named_closer_cannot_also_review_the_same_round()
+    {
+        var overlapping = Rules().Replace(Reviewer, Closer, StringComparison.Ordinal);
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalRfqCommercialRoundPolicyRules.Parse(overlapping));
+    }
 }

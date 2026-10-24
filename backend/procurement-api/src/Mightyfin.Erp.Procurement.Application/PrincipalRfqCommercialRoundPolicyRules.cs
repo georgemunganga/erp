@@ -21,6 +21,28 @@ public static class PrincipalRfqCommercialRoundPolicyRules
     public const string ApprovalAction = "procurement-sourcing-commercial-approve";
     public const string RequestAction = "procurement-sourcing-commercial-configure";
 
+    public static bool IsDocument(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || Encoding.UTF8.GetByteCount(json) > 32_768)
+            return false;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("transactionType", out var kind)
+                && kind.ValueKind == JsonValueKind.String
+                && kind.GetString() == TransactionType;
+        }
+        catch (JsonException) { return false; }
+    }
+
+    public static IReadOnlyList<PolicyRuleIssue> Validate(string? json)
+    {
+        try { _ = Parse(json); return []; }
+        catch (InvalidOperationException error)
+        { return [new PolicyRuleIssue("$", error.Message)]; }
+    }
+
     public static PrincipalRfqCommercialRoundPolicy Parse(string? json)
     {
         try
@@ -76,6 +98,8 @@ public static class PrincipalRfqCommercialRoundPolicyRules
                     "RfqCommercialRoundDuplicateReviewer");
                 stages.Add(new(code, mode, Array.AsReadOnly(principals)));
             }
+            Need(!stages.SelectMany(x => x.PrincipalIds).Contains(closer, StringComparer.Ordinal),
+                "RfqCommercialRoundCloserMustBeIndependent");
             return new(1, 2, "ManualSurrogateOnly", true, true, closer,
                 stages.AsReadOnly(), digest);
         }
