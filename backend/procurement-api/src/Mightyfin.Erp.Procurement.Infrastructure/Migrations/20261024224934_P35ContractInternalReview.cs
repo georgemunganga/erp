@@ -410,6 +410,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(P35ContractReviewGuards.BeforeDownSql);
+
             migrationBuilder.DropTable(
                 name: "contract_review_command_receipts",
                 schema: "procurement");
