@@ -1,0 +1,57 @@
+{
+  "status": "PASS_PRIVATE_P29_EXISTING_M0_M2_NORMAL_SESSION_COMPATIBILITY_NOT_PRODUCTION_OR_NEW_WORKFLOWS",
+  "source": "becd56fe0858305d15e32842d9a752bd8196de7e",
+  "productCompiledSource": "25d828213061c4738c857fe970d6d5c4a7434c92",
+  "uiSource": "092121409c3d032706b1ba0ca305a24c2d84ede7",
+  "apiPublisherImageNotPublishedByThisProbe": true,
+  "auditDeltas": {
+    "http": 6,
+    "browser": 2,
+    "revocation": 1
+  },
+  "oldAuditCountsPreserved": {
+    "http": 0,
+    "browser": 6,
+    "revocation": 8
+  },
+  "browserCases": 2,
+  "browserDurationSeconds": 8.9,
+  "browserDesktopVendorMobileItem": true,
+  "sameCookieRevocationDenied403": true,
+  "strictFiniteDirectLoginRoleIdentity": true,
+  "workerlessSyntheticUsers": 6,
+  "supplierRows": 10,
+  "itemRows": 10003,
+  "originalTablesUnchanged": 197,
+  "originalBaselineSha256": "bd714c53a1eb6c80b52f2020a8dcf6011fa6a54c882b00e2a6da24c1f1e0a3b4",
+  "originalAfterSha256": "c5ad9c17d91398603c2b98bc9536678a70aca91864e78ec3ad88ccab62c6e0da",
+  "receiptHashes": {
+    "fixture.READY.private.json": "a22af9f5574471e8511d228bd6bb6d0599da48277bddbc0d00c90a14d9af2938",
+    "initializer-exit.private.json": "baef76dfb62d18c206d274661b9b65adc1729cfe014658c2b1a42747ac247cde",
+    "result.private.json": "51dac043d4f2837e46ab733b02c93e002ba420aa68852a5aac180cafb2d9735d",
+    "browser-phase.private.json": "42d1ae7a532b9bb80f71168697d88084c9a00e55690f26a0f2e78c46c6f46ea0",
+    "browser-exit.private.json": "ff8ae5796bcef71911ff9c5c3eaea341819c471f669549e252b830106edd4305",
+    "browser-result.private.json.vendors": "458a4cc5bc8c1a3bd71599c670ccbc5044afc5dda015ea62e300b1a1105b8a72",
+    "browser-result.private.json.items": "09d0b9ab17776df55c388edd623534f14a30a39bb0bc1d306054873a1e7249f8",
+    "http.http-result.private.json": "e00a32bd35c50e8abd2746f99c00f6e4302e31149578366b5010ba9575812718",
+    "revocation.http-result.private.json": "67bcb792cffb385b73c732e441eb8ec69299ea837c31e55519a29948a37fdb7b",
+    "proxy-stop.private.json": "c9c7016361aeda458ccb264deffc01a11b8fb8284daac33dd817c800cee7bcfc",
+    "proxy-cli-exit.private.json": "7df811480f1652a7f9d41ddaf03e9c5ad992befe653bc62f5fb145cff2cab79b",
+    "http.owner-result.private.json": "9df95537bf75375278130651af492cb82465eaaa5e7034cbf62af73c2ab106db",
+    "browser.owner-result.private.json": "58cb2b22e91b415eb03109c48bf1105de3f949d8e8667ad7f16e375e7662987c",
+    "revocation.owner-result.private.json": "172545b859831ab7da222197059da94aacdc95f806efcb454ab358ad31c40a02"
+  },
+  "independentReadOnlyAgentReview": "invoice_evidence_review re-executed pure offline owner reconciliation: all9 CSV payloads+typed audit links, exact 6/2/1, keyed197original table equality; no SQL/API/process calls",
+  "failedBrowserAdmissionPreserved": "retained-browser-admission01: status-name mismatch rejected before browser; newrun_browser02 checks actual existing M2 owner oracle status; failed attempt unchanged",
+  "initialRuntimePlanSha256": "81339bcc251ba26aecb589dbf43a54c70aa397b372eb4316b6abd120e22fdcba",
+  "runtimeSuccessorPlanSha256": "5fe25aa7f118876c17674cb660b4eeb5bdf462a9027c9f9513fcacce5e36c363",
+  "nativeTerminalUnverifiedRemainsUnchanged": true,
+  "productionChanged": false,
+  "businessUatAccepted": false,
+  "remaining": [
+    "Current candidate26899aa8 adds independently reviewed but not yet compiled Core reset guard/shared status resolver; this proof does not certify that new source",
+    "Actual productionCore/HRM DB connector is superuser; runtime role separation and fullHRM/publisher grants/negative/recovery tests remain held",
+    "Genuine current candidate API publication, image parity, paired release and target DBowner upgrade remain pending",
+    "No newP29 transaction workflow/Finance/Inventory/Assets/Docs/scanner acceptance"
+  ]
+}

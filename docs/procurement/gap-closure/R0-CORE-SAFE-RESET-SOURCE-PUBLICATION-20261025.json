@@ -1,0 +1,25 @@
+{
+  "status": "PASS_SOURCE_AND_GENUINE_PUBLICATION_NOT_PRODUCTION_OR_CORE_ROLE_REMEDIATION",
+  "source": "26899aa80756e1c8266e4ddde1fe3b54dfd17002",
+  "resultSha256": "f00c2efe76965628374d7d09fe4f11c23d697798dbd8e8ad81954cd6da11f962",
+  "publicationManifestSha256": "65730cd4b1c15dcfea2951869af1980a03165907728c88e8d9a2090496b9c3b6",
+  "counts": {
+    "Mightyfin.Erp.Hrm.Tests": 1230,
+    "Mightyfin.Erp.Procurement.Tests": 1414,
+    "Mightyfin.Erp.Core.Approvals.Tests": 30
+  },
+  "publicationFileCount": 150,
+  "all13OwningDllPdbMatched": true,
+  "noEntityOrMigrationChanges": true,
+  "ordinarySetupReset": "Refuses before repository access; confirmedrequest503; malformedshape400; existingUIretained; controlledmaintenanceworkflow unimplemented",
+  "failedAttemptPreserved": "Run01 tmpfs defaultnoexec caused487SQLite native-load failures,743pass; exact source unchanged in correctedrun02; failedlogs/TRX/primaries retained",
+  "newPublisherStartupSourceOnly": [
+    "226cce31cb624fbd8524d512d94ac4b32bed94c9",
+    "d209335e3f4bef17553e9e7e9d011c01a4529974"
+  ],
+  "productionCoreSuperuserRiskRemediated": false,
+  "physicalAclMetadataSha256": "e85de72c633c1408d24d41d1cc94b03c55ab9c03f3326c6299151cc6be3c863c",
+  "coreRuntimeRolePlanOnly": true,
+  "productionChanged": false,
+  "businessUatAccepted": false
+}
