@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
@@ -105,9 +106,11 @@ internal static partial class PrincipalApprovalHttpVerification
                 "P33 PO normal host must use actual finite owned readiness, not a flag-only capability.");
             var edit=registration.ServiceProvider.GetRequiredService<PrincipalOrderRevisionOptions>();
             var editReady=registration.ServiceProvider.GetRequiredService<IPrincipalOrderRevisionReadiness>();
-            Need(edit.Enabled&&editReady is ProcurementPrincipalOrderRevisionReadiness
-                &&await editReady.IsReadyAsync(cancellationToken),
-                "P33 normal host must use captured finite revision readiness.");
+            // Revision readiness composes ProcurementApprovalTransaction, which requires
+            // the scope established by authenticated ProcurementScopeMiddleware. A bare
+            // DI scope cannot exercise it and is always an invalid negative control.
+            Need(edit.Enabled&&editReady is ProcurementPrincipalOrderRevisionReadiness,
+                "P33 normal host must register captured finite revision readiness.");
         }
         var schemes=host.Services.GetRequiredService<IAuthenticationSchemeProvider>();
         var all=await schemes.GetAllSchemesAsync();
@@ -122,6 +125,76 @@ internal static partial class PrincipalApprovalHttpVerification
             &&address.Scheme=="http"&&address.Host=="127.0.0.1"&&address.Port>0,
             "Only one ephemeral private loopback HTTP listener is supported.");
         var url=addresses![0];
+        var buyerCredential=credentials.Single(x=>x.PrincipalId==fixture.Buyer);
+        // The product session cookie is Secure. This private control-plane
+        // diagnostic replays that exact server-issued cookie only to the already
+        // verified HTTP loopback listener; browser cookie transport is proven
+        // independently through the HTTPS proxy.
+        using(var preflight=new HttpClient(new HttpClientHandler {AllowAutoRedirect=false,UseCookies=false})
+            {BaseAddress=new Uri(url),Timeout=TimeSpan.FromSeconds(90)})
+        {
+            using(var login=await preflight.PostAsJsonAsync("/api/hrm/auth/login",
+                new {email=buyerCredential.Email,password=buyerCredential.Password},cancellationToken))
+            {
+                Need(login.StatusCode==HttpStatusCode.OK,"P33 normal preflight requires genuine local login.");
+                Need(login.Headers.TryGetValues("Set-Cookie",out var setCookies),
+                    "P33 preflight requires a server-issued local session cookie.");
+                var sessions=setCookies!.Where(x=>x.StartsWith("hrm_session=",StringComparison.Ordinal)).ToArray();
+                Need(sessions.Length==1,"P33 preflight requires exactly one genuine local session cookie.");
+                var token=sessions[0]["hrm_session=".Length..].Split(';',2)[0];
+                Need(System.Text.RegularExpressions.Regex.IsMatch(token,"^[A-Za-z0-9_-]{43}$"),
+                    "P33 preflight received an invalid local session token.");
+                preflight.DefaultRequestHeaders.Add("Cookie","hrm_session="+token);
+            }
+            try
+            {
+                using(var contextRequest=new HttpRequestMessage(HttpMethod.Get,"/api/procurement/v1/context"))
+                {
+                    contextRequest.Headers.Add("X-Shell-Entity",fixture.Company.ToString("D"));
+                    contextRequest.Headers.Add("X-Shell-Location",fixture.Branch.ToString("D"));
+                    using var context=await preflight.SendAsync(contextRequest,cancellationToken);
+                    Need(context.StatusCode==HttpStatusCode.OK,"P33 preflight requires authenticated selected Core scope.");
+                    using var scoped=await JsonDocument.ParseAsync(await context.Content.ReadAsStreamAsync(cancellationToken),
+                        cancellationToken:cancellationToken);
+                    Need(scoped.RootElement.GetProperty("tenantId").GetString()==PrincipalApprovalFixture.Tenant
+                        &&scoped.RootElement.GetProperty("legalEntityId").GetGuid()==fixture.Company
+                        &&scoped.RootElement.GetProperty("principalId").GetGuid()==fixture.Buyer
+                        &&scoped.RootElement.GetProperty("workerId").ValueKind==JsonValueKind.Null,
+                        "P33 preflight must retain the actual workerless buyer Core scope.");
+                }
+                using(var metadataRequest=new HttpRequestMessage(HttpMethod.Get,"/api/procurement/v1/meta"))
+                {
+                    metadataRequest.Headers.Add("X-Shell-Entity",fixture.Company.ToString("D"));
+                    metadataRequest.Headers.Add("X-Shell-Location",fixture.Branch.ToString("D"));
+                    using var metadata=await preflight.SendAsync(metadataRequest,cancellationToken);
+                    Need(metadata.StatusCode==HttpStatusCode.OK,"P33 preflight requires actual scoped metadata.");
+                    using var body=await JsonDocument.ParseAsync(await metadata.Content.ReadAsStreamAsync(cancellationToken),
+                        cancellationToken:cancellationToken);
+                    Need(body.RootElement.GetProperty("capabilities").GetProperty("principalDirectOrderDrafts").GetBoolean()
+                        &&body.RootElement.GetProperty("capabilities").GetProperty("principalOrderDraftRevision").GetBoolean(),
+                        "P33 normal host must use captured finite revision readiness under authenticated Core scope.");
+                }
+            }
+            finally
+            {
+                using var logout=await preflight.PostAsync("/api/hrm/auth/logout",null,cancellationToken);
+                Need(logout.StatusCode==HttpStatusCode.OK,"P33 preflight local session must be revoked before browser baseline.");
+            }
+            using var signedOut=await preflight.GetAsync("/api/hrm/auth/me",cancellationToken);
+            Need(signedOut.StatusCode==HttpStatusCode.OK,"P33 preflight signed-out identity check failed.");
+            using(var identity=await JsonDocument.ParseAsync(await signedOut.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken:cancellationToken))
+                Need(identity.RootElement.GetProperty("authenticated").GetBoolean()==false,
+                    "P33 preflight session must no longer authenticate before browser baseline.");
+            using(var revokedRequest=new HttpRequestMessage(HttpMethod.Get,"/api/procurement/v1/context"))
+            {
+                revokedRequest.Headers.Add("X-Shell-Entity",fixture.Company.ToString("D"));
+                revokedRequest.Headers.Add("X-Shell-Location",fixture.Branch.ToString("D"));
+                using var revoked=await preflight.SendAsync(revokedRequest,cancellationToken);
+                Need(revoked.StatusCode==HttpStatusCode.Unauthorized,
+                    "P33 preflight cookie must not authorize Procurement after logout.");
+            }
+        }
         using(var anonymous=new HttpClient(new HttpClientHandler {AllowAutoRedirect=false,UseCookies=false}) {BaseAddress=new Uri(url),Timeout=TimeSpan.FromSeconds(15)})
         using(var request=new HttpRequestMessage(HttpMethod.Get,"/api/procurement/v1/context"))
         {
@@ -149,7 +222,8 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(File.GetUnixFileMode(P33PoCookieManifestPath)==(UnixFileMode.UserRead|UnixFileMode.UserWrite),"P33 credential manifest must be0600.");
         result["p33PoNormalLocalCookieControlPlane"]=new {status="LISTENING_CONTROL_PLANE_ONLY",
             syntheticCredentialsSeeded=10,syntheticAccountsActivated=10,realLocalSchemeSelected=true,
-            privateSubjectHandlerAbsent=true,privateSubjectHeaderRejected401=true,controlPlaneHttpRequests=1,
+            privateSubjectHandlerAbsent=true,privateSubjectHeaderRejected401=true,controlPlaneHttpRequests=7,
+            authenticatedScopedRevisionReadinessVerified=true,preflightLocalSessionRevoked=true,
             loopbackEphemeralListener=true,browserAcceptanceVerified=false,ownerCompletionVerified=false,
             productionTouched=false};
         progress("P33PoNormalCookieAwaitingProtectedBrowserCompletion");
@@ -175,7 +249,8 @@ internal static partial class PrincipalApprovalHttpVerification
         }
         result["p33PoNormalLocalCookieControlPlane"]=new {status="CONTROL_PLANE_COMPLETED_BROWSER_NOT_VERIFIED",
             syntheticCredentialsSeeded=10,syntheticAccountsActivated=10,realLocalSchemeSelected=true,
-            privateSubjectHandlerAbsent=true,privateSubjectHeaderRejected401=true,controlPlaneHttpRequests=1,
+            privateSubjectHandlerAbsent=true,privateSubjectHeaderRejected401=true,controlPlaneHttpRequests=7,
+            authenticatedScopedRevisionReadinessVerified=true,preflightLocalSessionRevoked=true,
             protectedLifecycleCompletionReceived=true,completionIsAcceptance=false,
             browserAcceptanceVerified=false,ownerCompletionVerified=false,productionTouched=false};
     }

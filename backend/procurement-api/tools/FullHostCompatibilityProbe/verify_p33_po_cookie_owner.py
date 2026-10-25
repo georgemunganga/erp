@@ -636,10 +636,16 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
                 and payload.get("financeReservationChanged") is False,
                 "OutboxPayloadChanged")
     # Browser logout is not inferred from context.close(). A separate owner
-    # check requires each newly created real local session to be revoked.
+    # check preserves the already revoked preflight session and requires exactly
+    # one newly created browser session, also revoked.
     old_sessions = set(baseline["buyerSessionIds"])
+    require(len(old_sessions) == 1 and len(baseline["buyerSessions"]) == 1
+            and baseline["buyerSessions"][0]["revokedAt"] is not None,
+            "PreflightLocalSessionNotRevokedAtBaseline")
+    require([x for x in final["buyerSessions"] if x["id"] in old_sessions]
+            == baseline["buyerSessions"], "PreflightLocalSessionChanged")
     new_sessions = [x for x in final["sessionRows"] if x["id"] not in old_sessions]
-    require(new_sessions and all(x.get("revoked_at") is not None for x in new_sessions),
+    require(len(new_sessions) == 1 and new_sessions[0].get("revoked_at") is not None,
             "BuyerLocalSessionsNotRevoked")
     return {"schemaVersion": 4, "status": "PASS_P33_PO_OWNER_FACTS",
         "database": fixture["database"], "system": SYSTEM,
