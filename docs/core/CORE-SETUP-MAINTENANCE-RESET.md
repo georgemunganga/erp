@@ -68,11 +68,11 @@ Existing documents and attachment references remain unchanged. No archive, expor
 
 ## 17. Exceptions and Edge Cases
 
-Anonymous/non-admin, confined admin and missing confirmation retain their existing denials. Correctly confirmed unconfined admin receives maintenance-required. Repeated calls have no data effect.
+Anonymous/non-admin and confined admin retain their existing denials; missing or wrong-shaped confirmation returns HTTP 400. Correctly confirmed unconfined admin receives maintenance-required. Repeated calls have no data effect.
 
 ## 18. Integrations, APIs, Events and Sandbox
 
-The existing POST route returns structured code `setup-maintenance-required` and HTTP 503 after its normal gates. No repository call, event, outbox message, external reset or command-line operation is part of this feature.
+The existing POST route returns structured code `setup-maintenance-required` and HTTP 503 after its normal gates. Non-object JSON or a non-string/missing confirmation returns `reset-not-confirmed` and HTTP 400. No repository call, event, outbox message, external reset or command-line operation is part of this feature.
 
 ## 19. Audit, Security and Privacy
 

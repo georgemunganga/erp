@@ -193,9 +193,10 @@ public static class Routes
             if (scope.IsConfined)
                 throw new DomainException("setup-confined", "Branch-confined HR cannot reset the organisation.");
             var body = await ReadBodyAsync<System.Text.Json.JsonElement>(http, ct);
-            if (body.ValueKind == System.Text.Json.JsonValueKind.Undefined
-                || body.TryGetProperty("confirm", out var confirm)
-                    is false || confirm.GetString() != "RESET")
+            if (body.ValueKind != System.Text.Json.JsonValueKind.Object
+                || !body.TryGetProperty("confirm", out var confirm)
+                || confirm.ValueKind != System.Text.Json.JsonValueKind.String
+                || confirm.GetString() != "RESET")
                 throw new DomainException("reset-not-confirmed",
                     "Reset is unavailable in this application. The confirmation value is RESET.");
             await svc.ResetAsync(ct);
