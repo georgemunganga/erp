@@ -42,6 +42,22 @@ public static class PrincipalGoodsReturnRules
             draftOnly = true, stockChanged = false, financeChanged = false, supplierNotified = false
         }, Json);
 
+    /// <summary>Revalidates the complete original acknowledgement, including its
+    /// transport status; a self-hashed body alone is not the original receipt.</summary>
+    public static bool MatchesReceipt(PrincipalGoodsReturnDraft head,
+        PrincipalGoodsReturnRevision revision, PrincipalGoodsReturnCommandReceipt receipt)
+    {
+        var operation = revision.Revision == 1 ? "Create" :
+            revision.State == "Cancelled" ? "Cancel" : "Revise";
+        return receipt.DraftId == head.Id && receipt.BranchId == head.BranchId &&
+            receipt.CommandKey == revision.CommandKey && receipt.ResultRevision == revision.Revision &&
+            receipt.ActorPrincipalId == revision.ActorPrincipalId && receipt.Operation == operation &&
+            receipt.ResponseStatus == (operation == "Create" ? 201 : 200) &&
+            receipt.ResponseJson == ResponseJson(head, revision) &&
+            receipt.ResponseSha256 == ProcurementEvidenceEncoding.Digest(receipt.ResponseJson) &&
+            MatchesRequest(head, revision, receipt);
+    }
+
     public static bool MatchesRequest(PrincipalGoodsReturnDraft head, PrincipalGoodsReturnRevision revision,
         PrincipalGoodsReturnCommandReceipt receipt)
     {

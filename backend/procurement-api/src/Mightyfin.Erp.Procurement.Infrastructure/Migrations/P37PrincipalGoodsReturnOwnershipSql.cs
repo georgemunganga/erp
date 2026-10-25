@@ -4,7 +4,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations;
 /// Authored physical owner overlay proposal for the future genuine P37 migration.
 /// It is deliberately uninstalled until the genuine EF scaffold, raw catalog capture,
 /// finite ACL and owner negative probes are reviewed. Run AfterUpSql only after EF
-/// creates all three P37 tables. Run BeforeDropSql only after the first-Down veto.
+/// creates all three P37 tables and the mapped exact receipt-to-revision command
+/// and receipt-to-head branch FKs. This overlay complements those modeled FKs;
+/// it must not replace or duplicate them. Run BeforeDropSql only after the first-Down veto.
 /// </summary>
 internal static class P37PrincipalGoodsReturnOwnershipSql
 {

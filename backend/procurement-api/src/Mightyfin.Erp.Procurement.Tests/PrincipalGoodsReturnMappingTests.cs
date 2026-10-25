@@ -42,6 +42,16 @@ public sealed class PrincipalGoodsReturnMappingTests
             nameof(PrincipalGoodsReturnDraft.IssuedVersionId) }.Order().ToArray(),
             head.GetForeignKeys().Select(x => x.Properties[^1].Name).Order().ToArray());
         Assert.Contains(revision.GetForeignKeys(), x => x.Properties[^1].Name == nameof(PrincipalGoodsReturnRevision.DraftId));
-        Assert.Contains(receipt.GetForeignKeys(), x => x.Properties[^1].Name == nameof(PrincipalGoodsReturnCommandReceipt.DraftId));
+        Assert.Contains(receipt.GetForeignKeys(), x => x.GetConstraintName() == "fk_pgret_receipt_draft" &&
+            x.Properties.Select(p => p.Name).SequenceEqual(new[] { "TenantId", "LegalEntityId", "DraftId", "BranchId" }));
+        var command = Assert.Single(receipt.GetForeignKeys(), x => x.GetConstraintName() == "fk_pgret_receipt_revision");
+        Assert.Equal(new[] { "TenantId", "LegalEntityId", "DraftId", "ResultRevision", "ActorPrincipalId", "CommandKey" },
+            command.Properties.Select(p => p.Name).ToArray());
+        Assert.Equal(new[] { "TenantId", "LegalEntityId", "DraftId", "Revision", "ActorPrincipalId", "CommandKey" },
+            command.PrincipalKey.Properties.Select(p => p.Name).ToArray());
+        Assert.Equal(typeof(PrincipalGoodsReturnRevision), command.PrincipalEntityType.ClrType);
+        Assert.Equal("ak_pgret_revision_command", command.PrincipalKey.GetName());
+        Assert.DoesNotContain(head.GetKeys().SelectMany(k => k.Properties),
+            p => p.Name is "Revision" or "CurrentRevisionId" or "State" or "Version");
     }
 }

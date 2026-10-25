@@ -103,4 +103,39 @@ public sealed class PrincipalGoodsReturnDraftRulesTests
         Assert.NotEqual(payload, PrincipalGoodsReturnRules.OutboxPayloadJson(id, "Create", key, 2, actor));
         Assert.NotEqual(payload, PrincipalGoodsReturnRules.OutboxPayloadJson(id, "Create", key, 1, Guid.NewGuid().ToString("D")));
     }
+    [Theory]
+    [InlineData("Create", 1, "Draft", 201)]
+    [InlineData("Revise", 2, "Draft", 200)]
+    [InlineData("Cancel", 2, "Cancelled", 200)]
+    public void Original_receipt_requires_exact_status_actor_branch_revision_and_command(
+        string operation, long number, string state, int expectedStatus)
+    {
+        var actor=Guid.NewGuid().ToString("D"); var key=Guid.NewGuid();
+        var head=new PrincipalGoodsReturnDraft { BranchId=Guid.NewGuid(), AcceptanceFactId=Guid.NewGuid(),
+            CreatorPrincipalId=actor, AcceptedFactQuantity=2m };
+        var revision=new PrincipalGoodsReturnRevision { DraftId=head.Id, Revision=number,
+            ActorPrincipalId=actor, CommandKey=key, Quantity=1m, Reason="Damaged", State=state };
+        var request=JsonSerializer.Serialize(new {operation,id=head.Id,input=new {
+            acceptanceFactId=head.AcceptanceFactId,expectedRevision=number-1,
+            quantity="1",reason="Damaged",evidenceReference=(string?)null }});
+        var response=PrincipalGoodsReturnRules.ResponseJson(head,revision);
+        PrincipalGoodsReturnCommandReceipt Ack(int status,Guid branch,string principal,Guid command,long result)
+            =>new() {DraftId=head.Id,BranchId=branch,ActorPrincipalId=principal,CommandKey=command,
+                Operation=operation,ResultRevision=result,ResponseStatus=status,RequestJson=request,
+                RequestSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(request),ResponseJson=response,
+                ResponseSha256=ProcurementEvidenceEncoding.Digest(response)};
+        Assert.True(PrincipalGoodsReturnRules.MatchesReceipt(head,revision,
+            Ack(expectedStatus,head.BranchId,actor,key,number)));
+        Assert.False(PrincipalGoodsReturnRules.MatchesReceipt(head,revision,
+            Ack(expectedStatus==201?200:201,head.BranchId,actor,key,number)));
+        Assert.False(PrincipalGoodsReturnRules.MatchesReceipt(head,revision,
+            Ack(expectedStatus,Guid.NewGuid(),actor,key,number)));
+        Assert.False(PrincipalGoodsReturnRules.MatchesReceipt(head,revision,
+            Ack(expectedStatus,head.BranchId,Guid.NewGuid().ToString("D"),key,number)));
+        Assert.False(PrincipalGoodsReturnRules.MatchesReceipt(head,revision,
+            Ack(expectedStatus,head.BranchId,actor,Guid.NewGuid(),number)));
+        Assert.False(PrincipalGoodsReturnRules.MatchesReceipt(head,revision,
+            Ack(expectedStatus,head.BranchId,actor,key,number+1)));
+    }
+
 }

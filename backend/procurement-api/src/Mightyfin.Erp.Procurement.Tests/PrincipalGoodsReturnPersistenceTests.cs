@@ -17,11 +17,14 @@ public sealed class PrincipalGoodsReturnPersistenceTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
+    [InlineData(false, false, "Pending", 0, false)]
+    [InlineData(true, false, "Pending", 0, false)]
+    [InlineData(true, true, "Pending", 0, false)]
+    [InlineData(true, true, "Published", 0, false)]
+    [InlineData(true, true, "Pending", 1, false)]
+    [InlineData(true, true, "Pending", 0, true)]
     public async Task Draft_evidence_cannot_save_without_exact_internal_event_and_verified_accepted_goods(
-        bool addEvent, bool correctPayload)
+        bool addEvent, bool correctPayload, string eventState, int attempts, bool published)
     {
         var actor = Guid.NewGuid().ToString("D"); var scope = new Scope("return-guard", Guid.NewGuid(), actor);
         var options = new DbContextOptionsBuilder<ProcurementDbContext>()
@@ -46,12 +49,14 @@ public sealed class PrincipalGoodsReturnPersistenceTests
             ActorPrincipalId = actor, RequestJson = request, RequestSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(request),
             ResponseJson = response,
             ResponseSha256 = ProcurementEvidenceEncoding.Digest(response), ResponseStatus = 201, ResultRevision = 1 });
-        if (addEvent) db.AddScoped(new OutboxEvent { AggregateType = "PrincipalGoodsReturnDraft", AggregateId = head.Id,
+        if (addEvent) db.AddScoped(new OutboxEvent { State = eventState, Attempts = attempts,
+            PublishedAt = published ? DateTimeOffset.UtcNow : null, AggregateType = "PrincipalGoodsReturnDraft", AggregateId = head.Id,
             EventType = "procurement.goods_return.draft_create.v1", IdempotencyKey = $"goods-return.draft.{key:N}.v1",
             PayloadJson = PrincipalGoodsReturnRules.OutboxPayloadJson(head.Id, "Create", key, 1,
                 correctPayload ? actor : Guid.NewGuid().ToString("D")) });
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
-        Assert.Equal(addEvent && correctPayload ? "ReturnDraftAcceptedGoodsSourceRequired" : "ReturnDraftInternalEventRequired", failure.Message);
+        Assert.Equal(addEvent && correctPayload && eventState == "Pending" && attempts == 0 && !published
+            ? "ReturnDraftAcceptedGoodsSourceRequired" : "ReturnDraftInternalEventRequired", failure.Message);
         Assert.False(await db.PrincipalGoodsReturnDrafts.AsNoTracking().AnyAsync());
     }
 }

@@ -42,7 +42,7 @@ public sealed partial class ProcurementDbContext
                 revision.CommandKey != receipt.CommandKey || receipt.ResultRevision != head.Revision ||
                 receipt.BranchId != head.BranchId || receipt.RequestSha256 !=
                     ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.RequestJson) ||
-                !PrincipalGoodsReturnRules.MatchesRequest(head, revision, receipt) ||
+                !PrincipalGoodsReturnRules.MatchesReceipt(head, revision, receipt) ||
                 receipt.ResponseJson != PrincipalGoodsReturnRules.ResponseJson(head, revision) ||
                 receipt.ResponseSha256 != ProcurementEvidenceEncoding.Digest(receipt.ResponseJson) ||
                 revision.Quantity <= 0 || revision.Quantity > head.AcceptedFactQuantity ||
@@ -52,6 +52,7 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("ReturnDraftExactRevisionReceiptRequired");
             if (ChangeTracker.Entries<OutboxEvent>().Count(x => x.State == EntityState.Added &&
                 x.Entity.AggregateType == "PrincipalGoodsReturnDraft" && x.Entity.AggregateId == head.Id &&
+                x.Entity.State == "Pending" && x.Entity.Attempts == 0 && x.Entity.PublishedAt == null &&
                 x.Entity.EventType == $"procurement.goods_return.draft_{receipt.Operation.ToLowerInvariant()}.v1" &&
                 x.Entity.IdempotencyKey == $"goods-return.draft.{receipt.CommandKey:N}.v1" &&
                 x.Entity.PayloadJson == PrincipalGoodsReturnRules.OutboxPayloadJson(head.Id, receipt.Operation,
@@ -91,7 +92,8 @@ public sealed partial class ProcurementDbContext
         {
             var receipt = receipts.SingleOrDefault(r => r.DraftId == eventRow.AggregateId &&
                 eventRow.IdempotencyKey == $"goods-return.draft.{r.CommandKey:N}.v1");
-            if (receipt is null || eventRow.EventType !=
+            if (receipt is null || eventRow.State != "Pending" || eventRow.Attempts != 0 ||
+                eventRow.PublishedAt is not null || eventRow.EventType !=
                 $"procurement.goods_return.draft_{receipt.Operation.ToLowerInvariant()}.v1" ||
                 eventRow.PayloadJson != PrincipalGoodsReturnRules.OutboxPayloadJson(receipt.DraftId,
                     receipt.Operation, receipt.CommandKey, receipt.ResultRevision, receipt.ActorPrincipalId))

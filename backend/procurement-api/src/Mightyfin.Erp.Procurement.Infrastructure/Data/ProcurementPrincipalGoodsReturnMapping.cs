@@ -19,6 +19,8 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<PrincipalGoodsReturnCommandReceipt>(model, "principal_goods_return_receipts");
         var draft = model.Entity<PrincipalGoodsReturnDraft>();
         draft.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_pgret_draft_scope");
+        draft.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.BranchId })
+            .HasName("ak_pgret_draft_branch");
         draft.Property(x => x.CreatorPrincipalId).HasMaxLength(36);
         draft.Property(x => x.SourceSha256).HasMaxLength(64);
         draft.Property(x => x.AcceptanceSha256).HasMaxLength(64);
@@ -35,6 +37,9 @@ public sealed partial class ProcurementDbContext
 
         var revision = model.Entity<PrincipalGoodsReturnRevision>();
         revision.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).HasName("ak_pgret_revision_scope");
+        // Immutable revision identity, never the mutable header cursor.
+        revision.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.DraftId,
+            x.Revision, x.ActorPrincipalId, x.CommandKey }).HasName("ak_pgret_revision_command");
         revision.Property(x => x.ActorPrincipalId).HasMaxLength(36);
         revision.Property(x => x.State).HasMaxLength(16);
         revision.Property(x => x.Reason).HasMaxLength(2000);
@@ -54,8 +59,17 @@ public sealed partial class ProcurementDbContext
         receipt.Property(x => x.ResponseSha256).HasMaxLength(64);
         receipt.Property(x => x.ResponseJson).HasColumnType("text");
         receipt.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique().HasDatabaseName("ux_pgret_command");
-        ReturnLink<PrincipalGoodsReturnCommandReceipt, PrincipalGoodsReturnDraft>(model, nameof(PrincipalGoodsReturnCommandReceipt.DraftId), "fk_pgret_receipt_draft");
-        receipt.ToTable(t => t.HasCheckConstraint("ck_pgret_receipt", $"schema_version=1 AND operation IN ('Create','Revise','Cancel') AND response_status IN (200,201) AND result_revision>0 AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND request_sha256 IS NOT NULL AND request_sha256 ~ {ReturnHash} AND response_sha256 IS NOT NULL AND response_sha256 ~ {ReturnHash} AND actor_principal_id IS NOT NULL AND actor_principal_id ~ {ReturnPrincipalUuid} AND actor_principal_id<>'00000000-0000-0000-0000-000000000000'"));
+        receipt.HasOne<PrincipalGoodsReturnDraft>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.DraftId, x.BranchId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.BranchId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pgret_receipt_draft");
+        receipt.HasOne<PrincipalGoodsReturnRevision>().WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.DraftId,
+                x.ResultRevision, x.ActorPrincipalId, x.CommandKey })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.DraftId,
+                x.Revision, x.ActorPrincipalId, x.CommandKey })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pgret_receipt_revision");
+        receipt.ToTable(t => t.HasCheckConstraint("ck_pgret_receipt", $"schema_version=1 AND operation IN ('Create','Revise','Cancel') AND ((operation='Create' AND response_status=201 AND result_revision=1) OR (operation IN ('Revise','Cancel') AND response_status=200 AND result_revision>1)) AND result_revision>0 AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND request_sha256 IS NOT NULL AND request_sha256 ~ {ReturnHash} AND response_sha256 IS NOT NULL AND response_sha256 ~ {ReturnHash} AND actor_principal_id IS NOT NULL AND actor_principal_id ~ {ReturnPrincipalUuid} AND actor_principal_id<>'00000000-0000-0000-0000-000000000000'"));
     }
 
     private static void ReturnLink<TChild, TParent>(ModelBuilder model, string foreignId, string name)

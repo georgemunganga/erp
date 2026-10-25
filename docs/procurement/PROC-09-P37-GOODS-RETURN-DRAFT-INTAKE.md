@@ -76,7 +76,12 @@ Versioned `/api/procurement/v1/returns/principal-drafts` list/detail/create/revi
 
 ## 19. Audit, Security and Privacy
 
-Persist exact actor principal, branch, command key, timestamp, reason and immutable source IDs/hashes. Never expose out-of-scope source existence, count or commercial payload. Retained revision and receipt lineage is verified on read and before write.
+Persist exact actor principal, branch, command key, timestamp, reason and immutable source IDs/hashes. Never expose out-of-scope source existence, count or commercial payload. Retained revision and receipt lineage is verified on read and before write,
+including the original Create 201 versus Revise/Cancel 200 response status.
+Each receipt physically binds the immutable revision's draft, revision number,
+actor and command key, and its branch binds the retained head. The keys exclude
+the mutable header cursor. New metadata events must be Pending, zero attempts
+and without a publication timestamp in the same save.
 
 ## 20. Reports, Dashboards and Metrics
 
@@ -116,10 +121,23 @@ Return submit/approval, reservation, physical carrier handoff, supplier notice, 
 
 ## Schema and activation proposal
 
-The genuine EF migration must add only three typed tables: `principal_goods_return_drafts`, `principal_goods_return_revisions`, and `principal_goods_return_receipts`. Basic tenant/entity/id foreign keys are in the model. Those independent keys are **insufficient** to prove a common P30 owner. The authored but uninstalled `P37PrincipalGoodsReturnOwnershipSql.AfterUpSql` adds exact composite keys and foreign keys binding head→source `(branch, PO, PO line, issued)`, head→Acceptance fact `(source, receipt, branch)`, and head→Goods receipt `(branch, PO, issued)`. It also adds a deferred exact current-revision/state foreign key because the head and first revision are inserted together. The genuine migration must invoke this overlay after generated table creation, capture the actual catalog definition, and run wrong-fact/receipt/PO-line raw SQL negatives. `BeforeDropSql` removes the P37 overlay only after the first-Down veto. No migration, designer or snapshot may be hand edited to claim these uninstalled constraints.
+The genuine EF migration must add only three typed tables: `principal_goods_return_drafts`, `principal_goods_return_revisions`, and `principal_goods_return_receipts`. Scoped source ID foreign keys and exact receipt-to-revision-command and
+receipt-to-head-branch foreign keys are in the model. The receipt CHECK also
+binds operation, original result revision and HTTP status. Those independent keys are **insufficient** to prove a common P30 owner. The authored but uninstalled `P37PrincipalGoodsReturnOwnershipSql.AfterUpSql` adds exact composite keys and foreign keys binding head→source `(branch, PO, PO line, issued)`, head→Acceptance fact `(source, receipt, branch)`, and head→Goods receipt `(branch, PO, issued)`. It also adds a deferred exact current-revision/state foreign key because the head and first revision are inserted together. The genuine migration must invoke this overlay after generated table creation, capture the actual catalog definition, and run wrong-fact/receipt/PO-line raw SQL negatives. `BeforeDropSql` removes the P37 overlay only after the first-Down veto. No migration, designer or snapshot may be hand edited to claim these uninstalled constraints.
 
 The first `Down` statement must raise SQLSTATE `55000` if **any** P37 head, revision or receipt exists, including cancelled drafts; only an empty P37 schema may downgrade. Runtime Record permissions must be finite: scoped SELECT on the three new tables and specific P30 read columns, INSERT on all three, UPDATE only mutable head revision/state/version/audit columns, with no DELETE/TRUNCATE and no supplier, Inventory or Finance write. The separate execution connection is required to have the same owner transaction and declared finite privileges. The route remains unregistered and `principalGoodsReturnDrafts=false` until actual migration, catalog/ACL capture, native workerless Core HTTP proof and independent owner readback pass. Its current source checkpoint is not a live capability.
 
 ## Original UI reuse plan
 
 The imported Receiving detail already presents accepted Goods facts and source line context. Add an optional “Request return” action only when a future server detail candidate and P37 capability both permit it; use the existing editor shell, exact quantity control and detail tabs. Present the Draft in a scoped directory with reason and source links. Do not reinterpret the legacy `SupplierReturn` row or add local demo state. This UI adaptation follows backend acceptance and is outside this source checkpoint.
+
+
+## Integration review correction (2026-10-25)
+
+The P35-based integration adds the exact immutable command receipt FKs,
+pristine new-event checks and retained original status validation before replay.
+Authored model/rules/persistence regressions cover wrong branch, actor, key,
+revision and response status, plus already-published/retried metadata events.
+These C# tests have not run. Generated migration, Designer and snapshot files
+remain unchanged; the official generation profile must bind this new source
+before execution. No readiness or runtime acceptance is claimed.
