@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Application;
 
 internal static partial class PrincipalApprovalHttpVerification
 {
