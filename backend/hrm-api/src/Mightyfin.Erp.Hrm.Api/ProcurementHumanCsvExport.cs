@@ -85,6 +85,7 @@ internal static class ProcurementHumanCsvExport
             }),
         });
         await db.SaveChangesAsync(ct);
+        http.Response.Headers.CacheControl = "no-store";
         http.Response.Headers["X-Export-Id"] = exportId.ToString("D");
         return Results.File(content, "text/csv; charset=utf-8", fileName);
     }

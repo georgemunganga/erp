@@ -78,7 +78,7 @@ No email, SMS, WhatsApp or external message. Feedback stays on the initiating pa
 
 ## 16. Documents & Attachments
 
-The generated attachment is CSV with UTF-8 BOM and a fixed safe filename such as vendors-YYYYMMDD.csv. It is not uploaded or persisted as a supplier document. No scanner dependency is introduced. Use the existing shared quote helper with unchanged defaults; Procurement forces quoted cells and protects dangerous spreadsheet-leading text before quoting. No stored master field is changed.
+The generated attachment is CSV with UTF-8 BOM and a fixed safe filename such as vendors-YYYYMMDD.csv. The response is marked `Cache-Control: no-store`. It is not uploaded or persisted as a supplier document. No scanner dependency is introduced. Use the existing shared quote helper with unchanged defaults; Procurement forces quoted cells and protects dangerous spreadsheet-leading text before quoting. No stored master field is changed.
 
 ## 17. Exceptions & Edge Cases
 
