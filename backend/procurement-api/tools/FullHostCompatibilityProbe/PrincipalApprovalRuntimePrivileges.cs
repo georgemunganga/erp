@@ -121,6 +121,25 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "principal_order_release_requests","principal_order_release_confirmations"})
                 await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
         }
+        if(fixture.PrincipalContractReviewProfile)
+        {
+            foreach(var table in new[]{"principal_order_commercial_origins",
+                "principal_order_draft_commercial_revisions","principal_order_effective_source_slices"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions","contract_rates",
+                "suppliers","policy_versions","audit_events","recurring_purchase_commitments",
+                "contract_review_policy_identity","contract_review_submissions","contract_review_votes",
+                "contract_review_corrections","contract_review_command_receipts"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(record)+","+Q(execution));
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions","contract_rates"})
+                await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            await Run("GRANT INSERT ON procurement.contract_review_policy_identity TO "+Q(record));
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions"})
+                await Run("GRANT UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"contract_review_submissions","contract_review_votes",
+                "contract_review_corrections","contract_review_command_receipts"})
+                await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
         if(fixture.PrincipalReceivingProfile)
         {
             await Run("GRANT SELECT,INSERT ON procurement.operational_policy_identity_evidence TO "+Q(record));

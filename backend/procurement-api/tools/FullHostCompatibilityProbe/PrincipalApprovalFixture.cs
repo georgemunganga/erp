@@ -26,13 +26,14 @@ using Npgsql;
 
 internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false,
     bool principalRfqProfile=false,bool principalPoProfile=false,bool principalReceivingProfile=false,
-    bool principalInvoiceProfile=false,bool principalGoodsReturnProfile=false)
+    bool principalInvoiceProfile=false,bool principalGoodsReturnProfile=false,bool principalContractReviewProfile=false)
 {
     internal bool PrincipalRfqProfile=>principalRfqProfile;
     internal bool PrincipalPoProfile=>principalPoProfile;
     internal bool PrincipalReceivingProfile=>principalReceivingProfile;
     internal bool PrincipalInvoiceProfile=>principalInvoiceProfile;
     internal bool PrincipalGoodsReturnProfile=>principalGoodsReturnProfile;
+    internal bool PrincipalContractReviewProfile=>principalContractReviewProfile;
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
     internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid(),Buyer=Guid.NewGuid(),PoFinance=Guid.NewGuid(),PoApprover=Guid.NewGuid(),PoAck=Guid.NewGuid();
@@ -67,14 +68,16 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                     +(legacyWorkerProfile?",procurement-authority-read,procurement-authority-configure":"")),
                 (Checker,"p25_checker","procurement-access,procurement-request-read,procurement-budget-check"
                     +(legacyWorkerProfile?",procurement-authority-read,procurement-authority-review":"")),
-                (Approver,"p25_custom_approver","procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide"),
+                (Approver,"p25_custom_approver","procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide"
+                    +(principalContractReviewProfile?",procurement-contract-review-read,procurement-contract-review":"")),
                 (ConfigMaker,"p25_config_maker","procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-authority-read,procurement-authority-configure"
                     +(principalPoProfile?",procurement-vendor-create,procurement-vendor-edit":"")
                     + (browserBuyerProfile ? ",procurement-policy-evaluate,procurement-request-read" : "")),
                 (ConfigReviewer,"p25_config_reviewer","procurement-access,procurement-configuration-read,procurement-configuration-approve,procurement-authority-read,procurement-authority-review"
                     +(principalPoProfile?",procurement-vendor-approve,procurement-po-finance-confirm":"")),
                 (Ungranted,"p25_ungranted","")}.Concat(principalPoProfile
-                ?new[]{(Buyer,"p30_po_buyer","procurement-access,procurement-po-convert,procurement-po-read,procurement-po-edit,procurement-po-submit,procurement-po-issue"),
+                ?new[]{(Buyer,"p30_po_buyer","procurement-access,procurement-po-convert,procurement-po-read,procurement-po-edit,procurement-po-submit,procurement-po-issue"
+                    +(principalContractReviewProfile?",procurement-contract-read,procurement-contract-create,procurement-contract-edit,procurement-contract-submit,procurement-contract-review-read,procurement-contract-review":"")),
                     (PoFinance,"p30_po_finance","procurement-access,procurement-po-finance-confirm"),
                     (PoApprover,"p30_po_approver","procurement-access,procurement-po-approve"),
                     (PoAck,"p30_po_ack","procurement-access,procurement-po-dispatch-confirm")}
@@ -160,6 +163,7 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:Orders:Enabled"]="true";
             settings["Procurement:Orders:PrincipalExecutionEnabled"]="true";
         }
+        if(fixture.PrincipalContractReviewProfile)settings["Procurement:ContractReview:Enabled"]="true";
         if(fixture.PrincipalReceivingProfile)settings["Procurement:PrincipalReceiving:Enabled"]="true";
         if(fixture.PrincipalGoodsReturnProfile)
             settings["Procurement:PrincipalGoodsReturnDrafts:Enabled"]="true";
