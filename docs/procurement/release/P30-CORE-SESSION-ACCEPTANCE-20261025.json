@@ -26,14 +26,14 @@
   "scopedPrivilegedActionEvents": 10,
   "catalogAndFiniteAclUnchangedAfterHttp": true,
   "originalSourceDataUnchanged": true,
-  "privateTargetedHbaRestored": false,
+  "privateTargetedHbaRestored": true,
   "browserAcceptanceClaim": false,
   "fullHrmCrudClaim": false,
   "productionAuthenticationClaim": false,
   "productionTouched": false,
   "remaining": [
-    "Restore only the five temporary private SCRAM HBA rules after reviewed proof",
     "Run the protected production restore, finite-role and API/publisher cutover gates",
     "Verify production authenticated UAT and separately held P31/P32/P33/P35 workflows"
-  ]
+  ],
+  "privateHbaRestoreResultSha256": "5a8c9660a0cd9124c233cbf616b66ee2c9b048fde66a4b30e4894691c4fd506a"
 }
