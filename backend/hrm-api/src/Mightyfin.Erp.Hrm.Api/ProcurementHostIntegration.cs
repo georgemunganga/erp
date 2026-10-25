@@ -99,6 +99,9 @@ public static class ProcurementHostIntegration
         principalReceivingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(principalReceivingOptions);
         services.AddScoped<IProcurementPrincipalReceivingReadiness, ProcurementPrincipalReceivingReadiness>();
+        // P37 remains opt-in. The concrete provider inspects its own captured
+        // schema and finite grants on the configured execution connection.
+        ProcurementPrincipalGoodsReturnComposition.AddFoundation(services, configuration);
         var matchingOptions = configuration.GetSection("Procurement:InvoiceMatching").Get<ProcurementInvoiceMatchingExecutionOptions>() ?? new();
         matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(matchingOptions);
@@ -174,6 +177,7 @@ public static class ProcurementHostIntegration
         ProcurementOrderExecutionRoutes.MapRoutes(app);
         ProcurementReceivingRoutes.MapRoutes(app);
         ProcurementPrincipalReceivingRoutes.MapRoutes(app);
+        ProcurementPrincipalReceivingRoutes.MapReturnRoutes(app);
         MapMetadataRoute(app);
     }
 
@@ -259,6 +263,8 @@ public static class ProcurementHostIntegration
                         { Enabled: true, ExecutionDatabaseConfigured: true }
                     && services.GetService<IProcurementPrincipalReceivingReadiness>() is { } receivingReadiness
                     && await receivingReadiness.IsReadyAsync(ct);
+                var principalGoodsReturnDrafts = await ProcurementPrincipalGoodsReturnComposition
+                    .ReadyAsync(services, pending, ct);
                 var publicationOptions = services.GetService<ProcurementPrincipalSourcingPublicationOptions>();
                 var principalSourcingPublication = sourcingSourceDrafts && publicationOptions is { Enabled: true }
                     && services.GetRequiredService<ProcurementApprovalExecutionOptions>() is
@@ -331,7 +337,7 @@ public static class ProcurementHostIntegration
                         principalOrderGovernance,
                         principalOrderDraftRevision,
                         principalReceiving,
-                        principalGoodsReturnDrafts = false, // P37 needs genuine owned schema, finite role and acceptance proof.
+                        principalGoodsReturnDrafts, // Availability only; each route rechecks actor, scope and retained source.
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
