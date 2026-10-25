@@ -23,8 +23,15 @@ public static class ProcurementHostIntegration
         services.AddScoped<ProcurementRequestScope>();
         services.AddSingleton<IProcurementSpendingAuthorityIdentitySchemaReadiness, ProcurementSpendingAuthorityIdentitySchemaReadiness>();
         services.AddSingleton<IProcurementOperationalPolicyIdentitySchemaReadiness, ProcurementOperationalPolicyIdentitySchemaReadiness>();
+        // Default-off, with separate Record policy and Execution review contracts.
+        // Captured physical input alone cannot bypass either finite privilege contract.
+        services.AddScoped<IProcurementContractReviewSchemaReadiness, ProcurementContractReviewStoreReadiness>();
         services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness, ProcurementSourcingPolicyIdentitySchemaReadiness>();
         var executionConnection = configuration.GetConnectionString("ProcurementApprovalExecution");
+        var contractReviewOptions = configuration.GetSection("Procurement:ContractReview")
+            .Get<ProcurementContractReviewOptions>() ?? new ProcurementContractReviewOptions();
+        contractReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(contractReviewOptions);
         var approvalOptions = configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
@@ -65,12 +72,13 @@ public static class ProcurementHostIntegration
             .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
         services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
             ProcurementPrincipalSourcingPublicationReadiness>();
-        // P32 remains disabled until its generated owner schema, physical capture,
-        // finite role privileges, and Core document/approval dependencies pass.
+        // P32 stays default-off. Its owning-transaction provider requires the
+        // exact captured schema, finite role, Core document and case contract;
+        // configuration alone cannot admit a commercial round.
         services.AddSingleton(configuration.GetSection("Procurement:RfqCommercialRounds")
             .Get<ProcurementRfqCommercialOptions>() ?? new());
         services.AddScoped<IProcurementRfqCommercialReadiness,
-            UnavailableProcurementRfqCommercialReadiness>();
+            ProcurementRfqCommercialStoreReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
@@ -140,6 +148,7 @@ public static class ProcurementHostIntegration
         ProcurementSpendingAuthorityRoutes.MapRoutes(app);
         ProcurementPolicyDraftRoutes.MapRoutes(app);
         ProcurementContractDraftRoutes.MapRoutes(app);
+        MapContractReviewRoutes(app);
         ProcurementRecurringPurchaseRoutes.MapRoutes(app);
         ProcurementManualPaymentRoutes.MapReadRoutes(app);
         ProcurementManualPaymentCommandRoutes.MapRoutes(app);
@@ -162,6 +171,14 @@ public static class ProcurementHostIntegration
         ProcurementReceivingRoutes.MapRoutes(app);
         ProcurementPrincipalReceivingRoutes.MapRoutes(app);
         MapMetadataRoute(app);
+    }
+
+    // One composition seam, shared by complete-host mapping and negative HTTP
+    // admission tests; the default-off condition is not reimplemented in fixtures.
+    internal static void MapContractReviewRoutes(WebApplication app)
+    {
+        if (app.Services.GetService<ProcurementContractReviewOptions>() is { Enabled: true })
+            ProcurementContractReviewRoutes.MapRoutes(app);
     }
 
     /// <summary>Maps module availability using the same checks as the complete host.</summary>
@@ -228,6 +245,11 @@ public static class ProcurementHostIntegration
                         { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true };
                 var principalOrderDraftRevision = await PrincipalOrderRevisionCapability.ReadyAsync(
                     services, db, pending, principalDirectOrderDrafts, ct);
+                var contractInternalReview = !pending
+                    && services.GetService<ProcurementContractReviewOptions>() is
+                        { Enabled: true, ExecutionDatabaseConfigured: true }
+                    && services.GetService<IProcurementContractReviewSchemaReadiness>() is { } contractReviewReadiness
+                    && await contractReviewReadiness.IsConfiguredAsync(ct);
                 var principalReceivingOptions = services.GetService<ProcurementPrincipalReceivingOptions>();
                 var principalReceiving = !pending && principalReceivingOptions is
                         { Enabled: true, ExecutionDatabaseConfigured: true }
@@ -270,6 +292,8 @@ public static class ProcurementHostIntegration
                         planningDraft = !pending,
                         configurationDraft = !pending,
                         contractDraft = !pending,
+                        contractDraftRates = !pending,
+                        contractInternalReview,
                         recurringPurchaseDraft = !pending,
                         sourcingDraft = !pending,
                         // Separate future governed holds/releases from existing unlinked draft CRUD.

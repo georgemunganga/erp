@@ -764,7 +764,7 @@ Held route contracts (under `/api/procurement/v1/sourcing`):
 
 `OfferOpeningEnabled` is an additional default-false option; existing commercial
 options and actual readiness are still mandatory. Two Core action catalog entries
-have empty bootstrap grants. This source adds no positive provider/host registration,
+have empty bootstrap grants. This opening increment added no positive provider/host registration,
 UI, migration/designer/snapshot, SQL execution or runtime acceptance. Existing Core
 use-read access permits only the exact stored version for its explicitly selected
 Close/OpenOffers/ReadOpenedOffers purpose; there is no fabricated close grant or
@@ -809,6 +809,23 @@ alias denials without employees, exact new owner tuples and append-only/same-sav
 failures, purpose document-action separation and metadata SQL confinement. All are
 source-only and unrun, with actual migration/physical/readiness/runtime gates still
 pending.
+
+### Captured P32 store readiness checkpoint (source only)
+
+The registered, default-off commercial store provider checks the actual P32
+15-family catalog, its 15 captured PostgreSQL CHECK definitions, nine authored
+owner FKs, three retained parent keys, finite grants, applied migration, current
+source/approved-workflow/publication readers and the same serializable owning
+Procurement transaction. This is physical admission, not a business permission or
+approval. An ordinary empty commercial Draft Save/read does not depend on Core
+Documents being enabled or installed. Prepare and manual offer submission use
+the shared document coordinator and require Core Documents feature/configuration,
+same physical database, current physical schema and finite document-use write
+grants. Retained nonempty requirement reads and opened-offer reads recheck the
+physical document store and purpose grants; empty requirement sets perform no
+document operation. Direct purpose downloads retain their separate download-event
+grant. No P32 route/capability is enabled by these source changes; mapped finite
+role and normal-cookie proof remain pending.
 
 ### Held individual criterion assessments (source only)
 

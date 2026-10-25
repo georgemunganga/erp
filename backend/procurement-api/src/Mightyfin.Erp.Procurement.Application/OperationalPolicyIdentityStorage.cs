@@ -9,6 +9,8 @@ public static class OperationalPolicyIdentityStorage
     public static OperationalPolicyIdentityRecord ToRecord(OperationalPolicyWorkerIdentityEvidence value)
     {
         OperationalPolicyWorkerIdentity.Verify(value);
+        if (value.PolicyKey == ProcurementContractReviewPolicyRules.PolicyKey)
+            throw new InvalidOperationException("OperationalPolicyIdentityOwnerMismatch");
         return new()
         {
             Id = value.Id, TenantId = value.TenantId, LegalEntityId = value.LegalEntityId,
@@ -26,6 +28,8 @@ public static class OperationalPolicyIdentityStorage
 
     public static OperationalPolicyWorkerIdentityEvidence Read(OperationalPolicyIdentityRecord row)
     {
+        if (row.PolicyKey == ProcurementContractReviewPolicyRules.PolicyKey)
+            throw new InvalidOperationException("OperationalPolicyIdentityOwnerMismatch");
         if (row.Version != 1 || row.UpdatedAt is not null || row.UpdatedBy is not null
             || row.CreatedAt != row.ActionAt || row.CreatedBy != row.ActorPrincipalId)
             throw new InvalidOperationException("OperationalPolicyIdentityStorageInvalid");
