@@ -253,6 +253,8 @@ export const hrmApi = {
       hrmApi.post<{ reset: boolean }>(`/hrm/auth/users/${id}/reset-password`, { newPassword }),
     sendPasswordLink: (id: string) =>
       hrmApi.post<{ sent: boolean }>(`/hrm/auth/users/${id}/send-password-link`, {}),
+    requestPasswordReset: (email: string) =>
+      hrmApi.post<{ requested: boolean }>("/hrm/auth/request-password-reset", { email }),
     setPassword: (token: string, newPassword: string) =>
       hrmApi.post<{ changed: boolean }>("/hrm/auth/set-password", { token, newPassword }),
   },

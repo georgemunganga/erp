@@ -50,7 +50,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       const value = branding[field];
       if (typeof value === "string") root.style.setProperty(token, value);
     }
-    document.title = `${branding.displayName} — HR workspace`;
+    document.title = `${branding.displayName} — ERP workspace`;
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (icon) icon.href = branding.faviconDataUri || "/favicon.svg";
   }, [branding, pathname]);

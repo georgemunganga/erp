@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, CircleDashed } from "lucide-react";
-import { AuthGate } from "@/platform/components/AuthGate";
+import { CoreAdminGate } from "@/platform/components/AuthGate";
 import { CoreShell } from "@/modules/core/CoreShell";
 import { findCoreSetting } from "@/modules/core/settings";
 
@@ -12,7 +12,7 @@ export const Route = createFileRoute("/core/settings/$slug")({
 function SettingDetail() {
   const { slug } = Route.useParams();
   const setting = findCoreSetting(slug);
-  return <AuthGate><CoreShell>
+  return <CoreAdminGate><CoreShell>
     <a href="/core" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><ArrowLeft className="size-4" /> All settings</a>
     {setting ? <div className="mx-auto max-w-3xl space-y-5">
       <div>
@@ -26,5 +26,5 @@ function SettingDetail() {
         <p className="mt-3 text-sm"><span className="font-medium">Managed by:</span> {setting.owner}</p>
       </section>
     </div> : <section className="rounded-xl border bg-surface p-6"><h1 className="text-xl font-semibold">Setting not found</h1><p className="mt-2 text-sm text-muted-foreground">Choose a setting from the directory.</p></section>}
-  </CoreShell></AuthGate>;
+  </CoreShell></CoreAdminGate>;
 }
