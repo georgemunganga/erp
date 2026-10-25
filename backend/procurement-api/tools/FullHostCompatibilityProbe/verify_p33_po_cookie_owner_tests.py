@@ -50,6 +50,24 @@ class BoundaryTests(unittest.TestCase):
         with self.assertRaises(owner.Failed):
             owner.exact('not-a-number')
 
+    def test_only_buyers_login_counters_are_excluded_from_core_identity_hash(self):
+        buyer, unrelated = key(7), key(8)
+        original = {'id': buyer, 'tenant_id': 'private', 'worker_id': None,
+                    'password_hash': 'synthetic', 'roles_csv': 'buyer',
+                    'last_login_at': None, 'failed_login_count': 0,
+                    'locked_until': None, 'updated_at': 'before', 'version': 1}
+        logged_in = dict(original, last_login_at='after', failed_login_count=1,
+                         updated_at='after', version=2)
+        self.assertEqual(owner.digest(owner.stable_local_user(original, buyer)),
+                         owner.digest(owner.stable_local_user(logged_in, buyer)))
+        self.assertNotEqual(owner.digest(owner.stable_local_user(original, unrelated)),
+                            owner.digest(owner.stable_local_user(logged_in, unrelated)))
+        for field, changed in [('roles_csv', 'admin'), ('worker_id', key(9)),
+                               ('password_hash', 'different'), ('tenant_id', 'other')]:
+            modified = dict(logged_in, **{field: changed})
+            self.assertNotEqual(owner.digest(owner.stable_local_user(original, buyer)),
+                                owner.digest(owner.stable_local_user(modified, buyer)))
+
     def test_three_command_fingerprints_bind_edit_version_original_and_exact_quantity(self):
         buyer, request, source, supplier, po, line = [key(n) for n in range(11, 17)]
         fixture = {'buyerPrincipalId': buyer, 'approvedRequestId': request,

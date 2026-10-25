@@ -47,6 +47,14 @@ def digest(value):
         separators=(",", ":"), default=str).encode()).hexdigest()
 
 
+def stable_local_user(row, buyer):
+    """Only the buyer's ordinary login counters may differ after browser auth."""
+    if row.get("id") != buyer:
+        return row
+    login_fields = {"last_login_at", "failed_login_count", "locked_until", "updated_at", "version"}
+    return {key: value for key, value in row.items() if key not in login_fields}
+
+
 def protected(path, limit=65536):
     require(path.is_absolute() and path.is_file() and not path.is_symlink()
             and path.resolve(strict=True) == path, "ProtectedInputMissing")
@@ -208,11 +216,10 @@ ROLLBACK;""")
     buyer_sessions = [x for x in rows["hrm.local_sessions"] if x.get("local_user_id") == buyer]
     # Full row hashes for every Procurement and Core Approval table establish
     # unchanged legacy and pre-existing principal business history.
-    login_fields = {"LastLoginAt", "FailedLoginCount", "LockedUntil", "UpdatedAt", "Version"}
     def stable(name, row):
         # Real login may update these operational fields. Its role, tenant,
         # branch, active flag, credential and other identity data remain pinned.
-        return {k: v for k, v in row.items() if k not in login_fields} if name == "hrm.local_users" and row.get("Id") == buyer else row
+        return stable_local_user(row, buyer) if name == "hrm.local_users" else row
     hashes = {name: {x.get("id", x.get("Id")): digest(stable(name, x)) for x in group} for name, group in rows.items()
         if name != "hrm.local_sessions"}
     require(all(len(value) == len(rows[name]) for name, value in hashes.items()), "DuplicateBusinessRowId")
