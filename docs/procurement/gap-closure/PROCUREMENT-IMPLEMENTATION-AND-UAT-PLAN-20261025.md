@@ -1,5 +1,7 @@
 # Procurement gap plan with supplied UI interaction trace
 
+Execution update: use the [ordered finish milestones](PROCUREMENT-FINISH-MILESTONES-20261025.md) and the JSON `executionRoadmap` for current dependencies, R0 schema promotion and completion checks. M0/M2 remain partially delivered; no UAT status changes are made.
+
 Implementation update: CORE-04 and AUD-04 have [verified source changes](../../core/CORE-ROLE-PERMISSION-CATALOG-SOURCE-20261025.md). Their compatible Core release is [deployed](../../core/CORE-ROLE-CATALOG-RELEASE-20261025.md); authenticated business UAT remains pending and the original UAT register is unchanged. Core settings navigation is deployed; HRM module settings-route alignment remains separate.
 
 ERP source `c38202e57afff83abbcdcbb05f95a27d38a8be26`; supplied UI `c370275e9242f447cade47bec31c2fb42aa75637`. Exactly 55 audit findings. Preview interactions are **not** ERP authority.
@@ -8,7 +10,7 @@ Each finding separates the original presentation intent, current live component,
 
 ## BE-01 — bulk/import/export/clone/delete/custom views (IMPLEMENT)
 
-- Implementation checkpoint: [Vendor and Item scoped CSV verification](../release/PROC-SCOPED-CSV-SOURCE-VERIFICATION-20261025.md). Backend 76 focused and 1,378 host tests pass. Real-cookie API, two actual live UI journeys, independent database/audit reconciliation and same-session permission revocation pass. A P24-compatible release and deployment remain pending. This is one slice; imports, selected export, clone/bulk and saved views are still open.
+- Implementation checkpoint: [Vendor and Item scoped CSV verification](../release/PROC-SCOPED-CSV-SOURCE-VERIFICATION-20261025.md). Backend 76 focused and 1,378 host tests pass. Real-cookie API, two actual live UI journeys, independent database/audit reconciliation and same-session permission revocation pass. The [P24-compatible slice is deployed](../release/P24-SCOPED-CSV-RELEASE-20261025.md), with 92 focused/1,057 compatible Host tests and three private real-browser cases. This is one slice; imports, selected export, clone/bulk and saved views are still open.
 - Original UI (PREVIEW_ONLY): `reference-ui/src/features/RecordList.tsx:179` — Export current/selected view. Uses locally filtered AppRecord rows and browser CSV; local delete at line 224 leaves linked records unchanged.
 - Original flow detail: `reference-ui/src/features/RecordList.tsx:224` — Delete operates on local AppRecord and leaves linked records unchanged.
 - Original flow detail: `reference-ui/src/features/Catalogs.tsx:435` — Vendor/item import maps rows into local demo records.
