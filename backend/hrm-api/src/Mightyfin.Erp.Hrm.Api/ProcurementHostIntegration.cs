@@ -282,7 +282,7 @@ public static class ProcurementHostIntegration
                     && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
                         || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
                 var principalRfqRecommendationDrafts = await ProcurementRfqRecommendationCapability
-                    .ReadyAsync(services, db, scope, http, pending, ct);
+                    .ReadyAsync(services, scope, http, pending, ct);
                 return Results.Ok(new
                 {
                     module = "procurement",

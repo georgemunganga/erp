@@ -1,4 +1,3 @@
-using System.Data;
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
@@ -27,37 +26,36 @@ public sealed class UnavailableProcurementRfqRecommendationDraftReadiness
 // its named reader, current aliases and retained source on every request.
 internal static class ProcurementRfqRecommendationCapability
 {
+    internal static bool HasCurrentActions(ProcurementPrincipalPeople.Person? person,Guid? branch)
+        =>person is not null
+            &&person.Permissions.Contains(PrincipalRfqRecommendationDraft.Action)
+            &&person.Permissions.Contains(PrincipalRfqOfferOpeningControls.ReadAction)
+            &&(branch is { } selected
+                ? person.OrganisationWide || person.AllowedBranches.Contains(selected)
+                : person.OrganisationWide || person.AllowedBranches.Count>0);
+
     internal static async Task<bool> ReadyAsync(IServiceProvider services,
-        ProcurementDbContext owner,ProcurementRequestScope scope,HttpContext http,
+        ProcurementRequestScope scope,HttpContext http,
         bool pending,CancellationToken ct)
     {
         if(pending || services.GetService<ProcurementRfqCommercialOptions>() is not
             {Enabled:true,OfferOpeningEnabled:true,RecommendationDraftEnabled:true}
-            || services.GetService<IProcurementRfqRecommendationDraftReadiness>() is not { } ready)
+            || services.GetService<ProcurementApprovalExecutionOptions>() is not
+                {Enabled:true,PrincipalExecutionEnabled:true,ExecutionDatabaseConfigured:true}
+            || services.GetService<IProcurementRfqRecommendationDraftReadiness>() is not
+                ProcurementRfqRecommendationStoreReadiness concrete)
             return false;
         var person=await ProcurementPrincipalPeople.Resolve(
             services.GetRequiredService<HrmDbContext>(),scope.TenantId,
             scope.LegalEntityId,scope.SubjectId,ct);
-        if(person is null || !person.Permissions.Contains(PrincipalRfqRecommendationDraft.Action)
-            || !person.Permissions.Contains(PrincipalRfqOfferOpeningControls.ReadAction)
-            || !(scope.WorkLocationId is { } branch
-                ? person.OrganisationWide || person.AllowedBranches.Contains(branch)
-                : person.OrganisationWide || person.AllowedBranches.Count>0)) return false;
+        if(!HasCurrentActions(person,scope.WorkLocationId)) return false;
         var auth=services.GetRequiredService<IAuthorizationService>();
         if(!(await auth.AuthorizeAsync(http.User,PrincipalRfqRecommendationDraft.Action)).Succeeded
             || !(await auth.AuthorizeAsync(http.User,PrincipalRfqOfferOpeningControls.ReadAction)).Succeeded)
             return false;
-        // The physical providers require the same owning serializable context
-        // as a real read. No schema or privilege result is cached in metadata.
-        try
-        {
-            await using var transaction=await owner.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,ct);
-            var available=await ready.IsReadyAsync(owner,false,ct);
-            await transaction.RollbackAsync(ct);
-            return available;
-        }
-        catch(Exception error) when(error is not OperationCanceledException) {return false;}
+        // Resolve the actual execution connection inside the concrete owner;
+        // the Record connection used by /meta may have different finite grants.
+        return await concrete.IsConfiguredAsync(ct);
     }
 }
 

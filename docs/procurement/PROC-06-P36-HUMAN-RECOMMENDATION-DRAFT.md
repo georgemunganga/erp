@@ -158,8 +158,10 @@ named-reader and retained offer checks remain in the command/query routes.
 The separate `principalRfqRecommendationDrafts` metadata flag is configured
 availability only. It defaults false and requires enabled P32/P36 options,
 no pending model, current Core Draft and opened-offer read actions/branch and
-the actual P32/P36 physical read providers within an owning serializable read
-transaction. It reveals no round, offer count or price. Routes recheck named
+the concrete P36 and P32 physical providers inside
+the finite execution role's owning serializable transaction, with no staged
+writes. The unrelated Record connection is not used for this readiness check.
+It reveals no round, offer count or price. Routes recheck named
 reader, source holds and retained proof for each request. Host activation and
 private runtime acceptance remain separate gates.
 
