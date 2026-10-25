@@ -27,16 +27,18 @@ internal static partial class PrincipalApprovalHttpVerification
         using(var scope=host.Services.CreateScope())
         {
             var actual=scope.ServiceProvider.GetService<IProcurementPrincipalGoodsReturnReadiness>();
-            Need(actual is ProcurementPrincipalGoodsReturnStoreReadiness
-                && await actual.IsConfiguredAsync(default),
-                "P37 normal Program composition and genuine physical/finite readiness required; no substituted provider.");
+            Need(actual is ProcurementPrincipalGoodsReturnStoreReadiness,
+                "P37 normal Program must register its concrete provider; no substituted provider.");
         }
         var context=await send(client,HttpMethod.Get,"/api/procurement/v1/context",fixture.Receiver);
         Need(context.GetProperty("workerId").ValueKind==JsonValueKind.Null,
             "P37 actor acquired a fabricated employee identity.");
         var metadata=await send(client,HttpMethod.Get,"/api/procurement/v1/meta",fixture.Receiver);
+        // The real execution transaction requires the request scope populated
+        // by middleware. An unrelated root DI scope cannot certify readiness.
         Need(metadata.GetProperty("capabilities").GetProperty("principalGoodsReturnDrafts").GetBoolean(),
             "P37 normal metadata did not advertise the actual configured owner readiness.");
+        result["p37ScopedMetadataReadinessVerified"]=true;
         Guid acceptedFact;JsonElement expectedLabels;
         await using(var db=fixture.Procurement())
         {

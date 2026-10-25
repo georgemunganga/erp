@@ -10,6 +10,15 @@ grants are unchanged. A new genuine tool build and fresh native cohort are still
 required. The failed database, logs and result remain preserved. Both flags and
 ordinary current actor admission remain required.
 
+Native02 passed165 actual HTTP observations through purchasing and receiving,
+then stopped at the probe's direct P37 readiness call outside HTTP middleware.
+That DI scope had no resolved Procurement identity, which the real execution
+transaction requires. The probe now checks concrete registration separately and
+requires availability through the real scoped `/meta` request. Read-only
+inspection found the P37 migration, captured constraints and finite grants
+present. Application readiness and authority checks remain unchanged; a fresh
+tool build and Native03 are required before claiming a P37 operation.
+
 ## Exclusive profile and prerequisite graph
 
 Set `P37_HTTP_VERIFY_GOODS_RETURN_DRAFTS=1` only with the existing real
