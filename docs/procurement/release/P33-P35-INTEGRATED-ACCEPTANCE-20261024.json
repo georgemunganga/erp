@@ -113,10 +113,41 @@
   "positiveP35HttpBrowserAccepted": false,
   "wholeProcurementModuleComplete": false,
   "remaining": [
-    "Compile and verify concrete P32 RFQ / P35 contract review readiness deltas",
+    "P32/P35 physical finite-role and actual mapped positive API evidence; SDK06 source compilation and authored tests passed, but no P35 business HTTP acceptance",
     "P33 normal-cookie UI and its independent owner reconciliation",
     "P35 populated rollback, actual API/Core workflow and original UI acceptance",
     "Core authenticated HTTP/runtime session proof and document scanning evidence; private finite LOGIN ACL alone is accepted",
     "Remaining commercial, return and payment integrations; release review and deployment"
-  ]
+  ],
+  "priorSourceValidation": {
+    "sourceCommit": "df3861bb35ed30a6697e2615741575291d40222a",
+    "testCounts": {
+      "domain": 1632,
+      "focusDomain": 15,
+      "focusHost": 31,
+      "host": 1263
+    },
+    "resultSha256": "820df8c1595a28f4133e3f152940917c9841dd55bcddcb5cab017cdf75631310",
+    "cacheLineage": "Accepted P33 validation03 then failed P35 unified01 then failed P35 unified02 partial cache, explicitly inventoried before unified03; no clean-fresh-build claim",
+    "scope": "Earlier accepted source/schema baseline; preserved historical evidence, not the current SDK06 result"
+  },
+  "currentSourceValidation": {
+    "status": "PASS_P35_UNIFIED_FULL_HOST_DOMAIN_MODEL_SQL_SOURCE_ONLY",
+    "sourceCommit": "f5ed339d91b24f7c374551552ec84fa87a8dad85",
+    "sourceTree": "7e2992dd4bda4ce5c509a8c0eac72511ea5f3325",
+    "resultSha256": "5075c34eca99f7a0b6eaf5c3c6b1e1b64ed3151f1aeb2403eb00d88a8aefc1d4",
+    "testCounts": {
+      "domain": 1632,
+      "focusDomain": 15,
+      "focusHost": 69,
+      "host": 1297
+    },
+    "failed": 0,
+    "skipped": 0,
+    "buildLineage": "Accepted prior source then retained failed SDK04 compile and SDK05 stale-reference test run; SDK06 forced full reference-graph Rebuild on the inventoried mutable cache, not a fresh clean build",
+    "immutableProductPublicationManifestSha256": "c9d63f0fb2de6ccc1e73c9b4c455cdfb94db6f833ac0c0c2e7e861e86c2eba64",
+    "productPublicationFileCount": 477,
+    "sourceOnly": true,
+    "actualP35BusinessHttpAccepted": false
+  }
 }
