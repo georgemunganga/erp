@@ -38,3 +38,5 @@ Earlier failed attempts are retained. These exposed a fixture namespace/table gr
 ## Remaining release gates
 
 The source uses the current Procurement model; it must not be deployed directly over the older live P24 schema. A compatible release or separately rehearsed schema rollout is still required. No production migrations, grants, feature flags or data were changed by this checkpoint. Imports, clone/bulk operations, selected-row export and saved views remain separate BE-01 work. The original UAT register remains unchanged.
+
+[PR93](https://github.com/georgemunganga/erp/pull/93) contains the bounded P24-compatible backport. Its separate verification is in progress. The inherited operational All-branch limitation is recorded in the [scope compatibility finding](../../core/KNOWN-P24-BRANCH-SCOPE-COMPATIBILITY-20261025.md); this export slice does not certify global operational aggregation.
