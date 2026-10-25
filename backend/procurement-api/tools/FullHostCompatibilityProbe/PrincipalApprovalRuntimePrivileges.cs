@@ -108,7 +108,10 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
                 "principal_order_release_requests","principal_order_release_confirmations","purchase_request_allocations",
                 "purchase_request_approval_submissions","purchase_request_approval_outcomes","budget_check_snapshots",
-                "principal_receiving_sources"})
+                // P30 readiness reads the retained P33 commercial history even
+                // when this cohort does not author a P33 revision.
+                "principal_receiving_sources","principal_order_commercial_origins",
+                "principal_order_draft_commercial_revisions","principal_order_effective_source_slices"})
                 await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
             foreach(var table in new[]{"purchase_orders","purchase_order_lines","purchase_request_allocations"})
                 await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));

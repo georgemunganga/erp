@@ -1,9 +1,14 @@
 # P37 Goods Return Draft private HTTP hook
 
-**State:** Source only, uncompiled and unrun. The accepted joint P36/P37 SDK04
-tests are not a P37 HTTP result. The merged lane includes actual captured P37 definitions and the accepted private
-finite ACL receipt, but this new product/tool integration has no C# or HTTP
-acceptance yet. Both flags and ordinary current actor admission remain required.
+**State:** The current API passed26 focused and1344 Host tests; its coherent
+API/tool publication passed. Native01 failed after47 HTTP observations at the
+predecessor P30 readiness gate, before any P37 operation. Independent read-only
+inspection found that the private PO fixture lacked SELECT on all three retained
+P33 order-history tables required by the existing P30 guard. The fixture now
+requests only those three reads for its PO profile; application guards and write
+grants are unchanged. A new genuine tool build and fresh native cohort are still
+required. The failed database, logs and result remain preserved. Both flags and
+ordinary current actor admission remain required.
 
 ## Exclusive profile and prerequisite graph
 
