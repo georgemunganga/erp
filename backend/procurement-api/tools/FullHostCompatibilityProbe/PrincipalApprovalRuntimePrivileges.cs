@@ -19,6 +19,8 @@ internal static class PrincipalApprovalRuntimePrivileges
         var recordPassword=Convert.ToHexString(RandomNumberGenerator.GetBytes(32));var executionPassword=Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         await using var raw=new NpgsqlConnection(owner);await raw.OpenAsync();
         async Task Run(string text) {await using var command=new NpgsqlCommand(text,raw);await command.ExecuteNonQueryAsync();}
+        // Existing reviewed bd8 fixture boundary: password-bearing owner DDL is never logged.
+        await Run("SET log_statement='none'; SET log_min_error_statement='panic'");
         // Unique private fixture logins; no membership/ownership/superuser/schema creation.
         foreach(var (role,password) in new[]{(record,recordPassword),(execution,executionPassword)})
         {
@@ -99,6 +101,29 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "principal_order_funding_evidence","principal_order_submissions","principal_order_assignments",
                 "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
                 "principal_order_release_requests","principal_order_release_confirmations"})
+                await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
+        if(fixture.PrincipalContractReviewProfile)
+        {
+            // The P33 migration is already present. Base PO source inspection
+            // reads its retained history even while revision commands remain off.
+            foreach(var table in new[]{"principal_order_commercial_origins",
+                "principal_order_draft_commercial_revisions","principal_order_effective_source_slices"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+            // Only the selected P35 private cohort. Policy Record cannot write
+            // Core cases, and review Execution cannot alter policy identity.
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions","contract_rates",
+                "suppliers","policy_versions","audit_events","recurring_purchase_commitments",
+                "contract_review_policy_identity","contract_review_submissions","contract_review_votes",
+                "contract_review_corrections","contract_review_command_receipts"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(record)+","+Q(execution));
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions","contract_rates"})
+                await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            await Run("GRANT INSERT ON procurement.contract_review_policy_identity TO "+Q(record));
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions"})
+                await Run("GRANT UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"contract_review_submissions","contract_review_votes",
+                "contract_review_corrections","contract_review_command_receipts"})
                 await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
         }
         if(fixture.PrincipalReceivingProfile)
