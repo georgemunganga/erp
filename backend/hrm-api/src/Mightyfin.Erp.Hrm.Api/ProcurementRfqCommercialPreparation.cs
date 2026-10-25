@@ -12,6 +12,12 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementSourcingExecutionRoutes
 {
     private sealed record CommercialPrepareInput(long ExpectedEventVersion,long ExpectedDraftRevision);
+    private sealed record CommercialPrepareRoute(bool HasRequirements, Reply? Replay);
+    internal static void RequireCommercialPreparationDocumentRoute(int requirementCount,bool hasDocumentOwner)
+    {
+        if(requirementCount<0||(requirementCount>0)!=hasDocumentOwner)
+            throw new Problem("RfqCommercialDraftVersionChanged",409);
+    }
     // Unmapped/default-off. Prepare creates immutable candidate/retention evidence,
     // not a Core approval case, Published event, submitted offer or usable award.
     private static async Task<IResult> CommercialPrepare(Guid id,CommercialPrepareInput input,HttpContext http,
@@ -21,13 +27,35 @@ public static partial class ProcurementSourcingExecutionRoutes
         try
         {
             if(http.RequestServices.GetService<ProcurementRfqCommercialOptions>() is not{Enabled:true})throw new Problem("RfqCommercialUnavailable",503);
-            await RequireCommercialDocumentCommandFoundation(http,null,ct);
             if(input is null||id==Guid.Empty||input.ExpectedEventVersion<1||input.ExpectedDraftRevision<1)throw new Problem("RfqCommercialPreparationInputRequired",422);
             var key=Key(http);var fingerprint=Fingerprint(new{operation="PrepareCommercialCandidate",eventId=id,input.ExpectedEventVersion,input.ExpectedDraftRevision});
-            var result=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteWithSourcingDocumentsAsync(id,
-                async(db,cases,documents,fence,token)=>
-                {
-                    await RequireCommercialDocumentCommandFoundation(http,db,token);
+            var transaction=http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>();
+            // Read only, current actor/scope fenced routing. The owning command
+            // rechecks the same revision under its lock; a concurrent selection
+            // change cannot cross from the no-document path into document use.
+            var route=await transaction.ExecuteAsync(async(db,cases,token)=>
+            {
+                await RequireCommercial(http,db,false,token);
+                await using var core=await ProcurementApprovalExecutionLocks.CoreAsync(db,scope,token);
+                var auth=http.RequestServices.GetRequiredService<IAuthorizationService>();
+                var actor=await PrincipalActor(core,scope,http,auth,PrincipalRfqCommercialDraft.Permission,null,false,token);
+                _=await PrincipalOwnedEvent(db,core,scope,http,auth,actor,PrincipalRfqCommercialDraft.Permission,id,token);
+                var store=new PrincipalRfqCommercialDraftStore(db,scope);
+                if(await store.RecoverPreparationAsync(id,key,fingerprint,token) is {} replay)
+                    return new CommercialPrepareRoute(false,new Reply(replay.ResponseJson,200));
+                var current=await store.LoadAsync(id,token);
+                return new CommercialPrepareRoute(
+                    PrincipalRfqCommercialDraft.Restore(current.Head,current.Revision).Requirements.Count>0,null);
+            },ct);
+            if(route.Replay is {} original)
+                return Results.Content(original.Body,"application/json",statusCode:original.Status);
+            if(route.HasRequirements)await RequireCommercialDocumentCommandFoundation(http,null,ct);
+
+            async Task<Reply> PrepareOwned(ProcurementDbContext db,ApprovalDbContext cases,
+                DocumentDbContext? documents,DocumentOwnerLifecycleFence? fence,CancellationToken token)
+            {
+                    if(route.HasRequirements)await RequireCommercialDocumentCommandFoundation(http,db,token);
+                    else await RequireCommercialCommandFoundation(http,db,token);
                     await RequireCommercial(http,db,true,token);
                     await using var core=await ProcurementApprovalExecutionLocks.CoreAsync(db,scope,token);
                     var auth=http.RequestServices.GetRequiredService<IAuthorizationService>();
@@ -41,6 +69,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     var current=await store.LoadAsync(id,token);
                     if(current.Head.Revision!=input.ExpectedDraftRevision)throw new Problem("RfqCommercialDraftVersionChanged",409);
                     var draft=PrincipalRfqCommercialDraft.Restore(current.Head,current.Revision);
+                    RequireCommercialPreparationDocumentRoute(draft.Requirements.Count,route.HasRequirements);
                     if(draft.EvaluationDefinitionJson is null||draft.OpensAt is null||draft.ClosesAt is null
                         ||draft.ComparisonCurrency is null||draft.CurrencyMode is null||draft.TaxMode is null)
                         throw new Problem("RfqCommercialControlsIncomplete",409);
@@ -51,7 +80,9 @@ public static partial class ProcurementSourcingExecutionRoutes
                     var draftCommand=store.Revise(source.Actor,key,fingerprint,current.Head,current.Revision,input.ExpectedDraftRevision,
                         source.Event,source.Evidence,source.Bindings,draft);
                     var revision=db.PrincipalRfqCommercialDraftRevisions.Local.Single(x=>x.Id==draftCommand.DraftRevisionId);
-                    var pins=await StageCommercialRequirementsForReview(db,core,documents,fence,scope,http,auth,current.Head,revision,token);
+                    var pins=route.HasRequirements
+                        ?await StageCommercialRequirementsForReview(db,core,documents!,fence!,scope,http,auth,current.Head,revision,token)
+                        :Array.Empty<DocumentUsePin>();
                     var at=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
                     var policy=await db.PolicyVersions.SingleOrDefaultAsync(x=>x.PolicyKey==SourcingPublicationPolicyRules.PolicyKey
                         &&x.State=="Published"&&x.EffectiveFrom<=at&&(x.EffectiveTo==null||at<x.EffectiveTo),token)
@@ -73,12 +104,16 @@ public static partial class ProcurementSourcingExecutionRoutes
                     var candidate=PrincipalRfqPrepublicationPlan.Prepare(source.Event,source.Evidence,source.Bindings,definition,controls,evaluators,pins,
                         input.ExpectedEventVersion,revision.Revision,reference,draft.OpensAt.Value,draft.ClosesAt.Value,at,
                         draft.ComparisonCurrency,draft.CurrencyMode,draft.TaxMode);
-                    var set=pins.Count==0?null:documents.UseSets.Local.Single(x=>x.UseKey==revision.Id);
+                    var set=pins.Count==0?null:documents!.UseSets.Local.Single(x=>x.UseKey==revision.Id);
                     var receipt=store.StagePreparation(candidate,controls,current.Head,revision,source.Actor,at,pins.Count,set?.Id,set?.SelectionDigest,draftCommand);
                     // Coordinator saves/commits all contexts. Missing controls or a
                     // later source/save failure rolls back the prior Core flush too.
                     return new Reply(receipt.ResponseJson,200);
-                },ct);
+            }
+            var result=route.HasRequirements
+                ?await transaction.ExecuteWithSourcingDocumentsAsync(id,
+                    (db,cases,documents,fence,token)=>PrepareOwned(db,cases,documents,fence,token),ct)
+                :await transaction.ExecuteAsync((db,cases,token)=>PrepareOwned(db,cases,null,null,token),ct);
             return Results.Content(result.Body,"application/json",statusCode:result.Status);
         }
         catch(Exception error) when(error is Problem or InvalidOperationException or ArgumentException or UnauthorizedAccessException

@@ -141,7 +141,7 @@ public static partial class ProcurementPolicyDraftRoutes
             var options = http.RequestServices.GetService<ProcurementContractReviewOptions>();
             var readiness = http.RequestServices.GetService<IProcurementContractReviewSchemaReadiness>();
             if (options is not { Enabled: true, ExecutionDatabaseConfigured: true } || readiness is null
-                || !await readiness.CanRecordAsync(db, ct))
+                || !await readiness.IsReadReadyAsync(db, ct))
                 return Problem("contract-review-unavailable", "Contract review settings are not ready.", 503);
             var policies = await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == normalized
                     && x.State == "Published" && x.EffectiveFrom <= instant

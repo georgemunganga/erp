@@ -1,0 +1,38 @@
+{
+  "status": "PASS_PRIVATE_P33_PRINCIPAL_UNFUNDED_DRAFT_EDIT_ONLY",
+  "testedProductSource": "df3861bb35ed30a6697e2615741575291d40222a",
+  "testedProbeSource": "bd8c5f1e5e8ce9590040f9081733e5f22b2010de",
+  "nativeHttpRequestCount": 124,
+  "nativeResultSha256": "e0f7ede4be62e4faece5958167dc5a5003f8766e2f80aedfa765b5bfffaa2683",
+  "nativeRunResultSha256": "aba6357c12ea806066443cc716160b1a52a5925fced1ac56dbdfefa5c941f052",
+  "independentReadOnlyOwnerResultSha256": "4759c6ce2bd8787bd431b1dbd44d96ea13def4a7bc46c7841b8281e1ade5ede8",
+  "scope": {
+    "privateFreshDatabase": true,
+    "syntheticCorePrincipalWithoutWorker": true,
+    "finitePrivateRoleAndPhysicalReadiness": true,
+    "approvedP25SourceAndP30OrderFixture": true,
+    "draftCreateEditReplayGetRecoveryAndCancel": true,
+    "downwardExactQuantityAndSourceRelease": true,
+    "independentOwnerAndCoreActorReconciliation": true,
+    "originalResponseByteEqualityCheckedInHttpProbe": true,
+    "storedReceiptSha256CheckedIndependently": true,
+    "independentOriginalResponseByteComparison": false,
+    "preRunBaselineHashComparison": false,
+    "normalCookieBrowserPassed": false,
+    "realCoreAuthenticatedHttpPassed": false,
+    "financePostingOrSupplierDispatchClaim": false,
+    "productionTouched": false
+  },
+  "relatedPrivateFiniteLogin": {
+    "status": "PASS_PRIVATE_RESTORED_FINITE_LOGIN_ACL_ONLY",
+    "resultSha256": "272da6a02d698040a765950beaa1b9926d0f1d1728b74a9ed137090f8a407a25",
+    "businessHttpOrCoreSessionProven": false
+  },
+  "remaining": [
+    "P33 normal-cookie UI and independent browser owner proof",
+    "Core authenticated HTTP and session under restored finite LOGIN roles",
+    "P35 populated rollback, positive contract review HTTP and existing UI proof",
+    "Release review and deployment"
+  ],
+  "wholeProcurementModuleComplete": false
+}

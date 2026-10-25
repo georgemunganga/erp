@@ -1,0 +1,153 @@
+{
+  "status": "ACCEPTED_BOUNDED_PRIVATE_SOURCE_SCHEMA_AND_P33_NATIVE_GATES_NOT_RELEASE",
+  "testedSource": "df3861bb35ed30a6697e2615741575291d40222a",
+  "testCounts": {
+    "domain": 1632,
+    "focusDomain": 15,
+    "focusHost": 31,
+    "host": 1263
+  },
+  "testFailures": 0,
+  "testSkipped": 0,
+  "noPendingModelChanges": true,
+  "genuineP35UpDownSqlExported": true,
+  "actualCacheLineage": "Accepted P33 validation03 then failed P35 unified01 then failed P35 unified02 partial cache, explicitly inventoried before unified03; no clean-fresh-build claim",
+  "unifiedResultSha256": "820df8c1595a28f4133e3f152940917c9841dd55bcddcb5cab017cdf75631310",
+  "p33PopulatedDown": {
+    "status": "PASS_PRIVATE_P33_FOUR_PHYSICAL_RETAINED_DOWN_VETOES_ONLY",
+    "caseResults": [
+      {
+        "businessWorkflowProven": false,
+        "case": "origin",
+        "familyCounts": {
+          "EditReceipt": 0,
+          "origin": 1,
+          "revision": 0,
+          "slice": 0
+        },
+        "fullFootprintUnchanged": true,
+        "sqlState": "55000"
+      },
+      {
+        "businessWorkflowProven": false,
+        "case": "revision",
+        "familyCounts": {
+          "EditReceipt": 0,
+          "origin": 1,
+          "revision": 1,
+          "slice": 0
+        },
+        "fullFootprintUnchanged": true,
+        "sqlState": "55000"
+      },
+      {
+        "businessWorkflowProven": false,
+        "case": "slice",
+        "familyCounts": {
+          "EditReceipt": 0,
+          "origin": 1,
+          "revision": 1,
+          "slice": 1
+        },
+        "fullFootprintUnchanged": true,
+        "sqlState": "55000"
+      },
+      {
+        "businessWorkflowProven": false,
+        "case": "sharedEditReceipt",
+        "familyCounts": {
+          "EditReceipt": 1,
+          "origin": 0,
+          "revision": 0,
+          "slice": 0
+        },
+        "fullFootprintUnchanged": true,
+        "sqlState": "55000"
+      }
+    ],
+    "originalSourceUnchanged": true,
+    "fixtureKind": "Existing real P30 PO graph with synthetic FK/CHECK-valid P33 guard rows; physical rollback proof only",
+    "finiteErpOwnerProofClaim": false,
+    "resultSha256": "4e76495f5ee46cd450d7ee687d576de10cef178d3d8025541cfc15a785e7b0f6"
+  },
+  "p35EmptySchema": {
+    "status": "PASS_PRIVATE_EMPTY_P35_OWNER_SCHEMA_ROUNDTRIP",
+    "tableCounts": [
+      249,
+      254,
+      249,
+      254
+    ],
+    "oldRowsCatalogAclHistoryRolesPreserved": true,
+    "resultSha256": "517777291700e26969ac3105fe107a03f4f03a5461517875e41a1972e997339a"
+  },
+  "p33NativeHttp": {
+    "status": "PASS_PRIVATE_P33_PRINCIPAL_UNFUNDED_DRAFT_EDIT_ONLY",
+    "productSource": "df3861bb35ed30a6697e2615741575291d40222a",
+    "probeSource": "bd8c5f1e5e8ce9590040f9081733e5f22b2010de",
+    "httpRequests": 124,
+    "nativeResultSha256": "e0f7ede4be62e4faece5958167dc5a5003f8766e2f80aedfa765b5bfffaa2683",
+    "nativeRunResultSha256": "aba6357c12ea806066443cc716160b1a52a5925fced1ac56dbdfefa5c941f052",
+    "independentReadOnlyOwnerResultSha256": "4759c6ce2bd8787bd431b1dbd44d96ea13def4a7bc46c7841b8281e1ade5ede8",
+    "workerlessPrivateCoreActor": true,
+    "finitePrivateRoleAndPhysicalReadiness": true,
+    "syntheticPrivateHeaderAuthentication": true,
+    "draftEditReplayAndOriginalKeyRecovery": true,
+    "originalHttpResponseByteEqualityCheckedByProbe": true,
+    "independentStoredReceiptDigestChecked": true,
+    "independentOriginalHttpByteComparison": false,
+    "normalCookieBrowserAccepted": false,
+    "financePostingOrSupplierSendClaim": false,
+    "productionTouched": false
+  },
+  "finiteLoginPrivateAcl": {
+    "status": "PASS_PRIVATE_RESTORED_FINITE_LOGIN_ACL_ONLY",
+    "resultSha256": "272da6a02d698040a765950beaa1b9926d0f1d1728b74a9ed137090f8a407a25",
+    "realPrivateLoginAndAclVerified": true,
+    "coreAuthenticatedHttpProven": false,
+    "businessOperationsProven": false
+  },
+  "productionTouched": false,
+  "positiveP33NativeHttpAccepted": true,
+  "positiveP33HttpBrowserAccepted": false,
+  "positiveP35HttpBrowserAccepted": false,
+  "wholeProcurementModuleComplete": false,
+  "remaining": [
+    "P32/P35 physical finite-role and actual mapped positive API evidence; SDK06 source compilation and authored tests passed, but no P35 business HTTP acceptance",
+    "P33 normal-cookie UI and its independent owner reconciliation",
+    "P35 populated rollback, actual API/Core workflow and original UI acceptance",
+    "Core authenticated HTTP/runtime session proof and document scanning evidence; private finite LOGIN ACL alone is accepted",
+    "Remaining commercial, return and payment integrations; release review and deployment"
+  ],
+  "priorSourceValidation": {
+    "sourceCommit": "df3861bb35ed30a6697e2615741575291d40222a",
+    "testCounts": {
+      "domain": 1632,
+      "focusDomain": 15,
+      "focusHost": 31,
+      "host": 1263
+    },
+    "resultSha256": "820df8c1595a28f4133e3f152940917c9841dd55bcddcb5cab017cdf75631310",
+    "cacheLineage": "Accepted P33 validation03 then failed P35 unified01 then failed P35 unified02 partial cache, explicitly inventoried before unified03; no clean-fresh-build claim",
+    "scope": "Earlier accepted source/schema baseline; preserved historical evidence, not the current SDK06 result"
+  },
+  "currentSourceValidation": {
+    "status": "PASS_P35_UNIFIED_FULL_HOST_DOMAIN_MODEL_SQL_SOURCE_ONLY",
+    "sourceCommit": "f5ed339d91b24f7c374551552ec84fa87a8dad85",
+    "sourceTree": "7e2992dd4bda4ce5c509a8c0eac72511ea5f3325",
+    "resultSha256": "5075c34eca99f7a0b6eaf5c3c6b1e1b64ed3151f1aeb2403eb00d88a8aefc1d4",
+    "testCounts": {
+      "domain": 1632,
+      "focusDomain": 15,
+      "focusHost": 69,
+      "host": 1297
+    },
+    "failed": 0,
+    "skipped": 0,
+    "buildLineage": "Accepted prior source then retained failed SDK04 compile and SDK05 stale-reference test run; SDK06 forced full reference-graph Rebuild on the inventoried mutable cache, not a fresh clean build",
+    "immutableProductPublicationManifestSha256": "c9d63f0fb2de6ccc1e73c9b4c455cdfb94db6f833ac0c0c2e7e861e86c2eba64",
+    "productPublicationFileCount": 477,
+    "sourceOnly": true,
+    "actualP35BusinessHttpAccepted": false
+  }
+}

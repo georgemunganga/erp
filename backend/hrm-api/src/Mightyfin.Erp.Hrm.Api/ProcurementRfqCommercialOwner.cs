@@ -2,14 +2,17 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
+using Mightyfin.Erp.Core.Documents.Infrastructure;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-// No MapRoutes, service registration or positive readiness provider in this slice.
+// Route registration and options remain default-off; the physical store provider
+// is separately registered and must pass its captured P32 owner checks.
 public sealed class ProcurementRfqCommercialOptions
 {
     public bool Enabled { get; set; }
@@ -38,7 +41,25 @@ public static partial class ProcurementSourcingExecutionRoutes
     // Document-writing commands use the existing sourcing/document coordinator
     // directly. They still require the same P29/P30 owner and Finance-checker
     // prerequisites that Run enforces for non-document commands.
-    private static async Task RequireCommercialDocumentCommandFoundation(
+    internal static async Task RequireCommercialDocumentCommandFoundation(
+        HttpContext http, ProcurementDbContext? db, CancellationToken ct)
+    {
+        await RequireCommercialCommandFoundation(http,db,ct);
+        var services = http.RequestServices;
+        var configuration = services.GetRequiredService<IConfiguration>();
+        if (services.GetService<CoreDocumentFeature>() is not { Enabled: true }
+            || !InvoiceDocumentStoreBinding.SamePhysicalDatabase(
+                configuration.GetConnectionString("CoreDocuments"),
+                configuration.GetConnectionString("ProcurementApprovalExecution"))
+            || services.GetService<IDocumentSchemaReadiness>() is not { } documents
+            || !await documents.IsReadyAsync(ct))
+            throw new Problem("RfqCommercialDocumentsUnavailable", 503);
+        if (db is not null)
+            await RequireCommercialDocumentReadiness(http, db, true, false, ct);
+    }
+    // An optional empty requirements set still needs the actual sourcing owner
+    // and Finance checker. It has no Core document use or owner lease.
+    internal static async Task RequireCommercialCommandFoundation(
         HttpContext http, ProcurementDbContext? db, CancellationToken ct)
     {
         var options = http.RequestServices.GetRequiredService<ProcurementSourcingDraftExecutionOptions>();
@@ -51,6 +72,23 @@ public static partial class ProcurementSourcingExecutionRoutes
         if (db is not null && !await ProcurementFinanceCheckerSchemaGuard.ReadyAsync(
                 db, http.RequestServices, false, ct))
             throw new Problem("SourcingFinanceCheckerSchemaUnavailable", 503);
+    }
+    private static async Task RequireCommercialDocumentReadiness(
+        HttpContext http, ProcurementDbContext db, bool write, bool download,
+        CancellationToken ct)
+    {
+        var services = http.RequestServices;
+        var configuration = services.GetRequiredService<IConfiguration>();
+        if (services.GetService<CoreDocumentFeature>() is not { Enabled: true }
+            || !InvoiceDocumentStoreBinding.SamePhysicalDatabase(
+                configuration.GetConnectionString("CoreDocuments"),
+                db.Database.GetDbConnection().ConnectionString)
+            || services.GetService<IDocumentSchemaReadiness>() is not { } documents
+            || !await documents.IsReadyAsync(ct)
+            || !await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(
+                db, services.GetRequiredService<ProcurementRequestScope>(), write,
+                false, ct, download))
+            throw new Problem("RfqCommercialDocumentsUnavailable", 503);
     }
     private static void RequireCommercialTransaction(ProcurementDbContext db,HrmDbContext core)
     {
