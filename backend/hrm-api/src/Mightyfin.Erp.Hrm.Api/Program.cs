@@ -253,14 +253,13 @@ builder.Services.AddSingleton(new ApiVersioning { CurrentVersion = 1 });
 
 var app = builder.Build();
 
-// ---------- Apply migrations at startup ----------
-// A dedicated "migrate" container can also launch the same binary with
-// --apply-migrations-only to run migrations before the API starts serving.
-// The API itself applies any pending migrations on startup as a safety net,
-// exactly like the Go ERP stack's migrate service + API pair.
+// ---------- Verify the owning Core/HRM schema before startup ----------
+// Production runtime accounts do not need DDL. The dedicated owner process keeps
+// --apply-migrations-only; development can still perform automatic initial setup.
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<HrmDbContext>().Database.Migrate();
+    await CoreSchemaStartup.EnsureAsync(scope.ServiceProvider.GetRequiredService<HrmDbContext>(), "Core/HRM",
+        CoreSchemaStartup.MayApplyMigrations(builder.Configuration, builder.Environment.IsDevelopment(), args));
 }
 if (args.Contains("--apply-migrations-only"))
 {
