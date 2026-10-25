@@ -618,6 +618,8 @@ export const realApi = {
   payrollPayGroups: () => hrmApi.get<unknown[]>("/hrm/payroll/pay-groups"),
   payrollPayGroupPeriods: (groupId: string) =>
     hrmApi.get<unknown[]>(`/hrm/payroll/pay-groups/${groupId}/periods`),
+  createPayrollPeriod: (groupId: string, month: string) =>
+    hrmApi.post<Record<string, unknown>>(`/hrm/payroll/pay-groups/${groupId}/periods`, { month }),
   createHistoricalPayrollPeriod: (body: Record<string, unknown>) =>
     hrmApi.post<Record<string, unknown>>("/hrm/payroll/historical-periods", body),
   payrollTaxSlabs: (taxYear: string) =>

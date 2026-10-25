@@ -147,7 +147,7 @@ function Totals({ run }: { run: PayRun }) {
     { label: "Gross pay", key: "gross", isMoney: true },
     { label: "Deductions", key: "deductions", isMoney: true },
     { label: "Net pay", key: "net", isMoney: true },
-    { label: "Employer cost (not deducted)", key: "employerCost", isMoney: true },
+    { label: "Total employer cost (gross + contributions)", key: "employerCost", isMoney: true },
   ];
 
   return (

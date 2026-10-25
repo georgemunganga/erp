@@ -34,8 +34,8 @@ import { realApi, useApi } from "@/platform/use-api";
 export const Route = createFileRoute("/hrm/payroll/salary-advances")({
   head: () => ({
     meta: [
-      { title: "Salary advances — Newworldcargo HRM" },
-      { name: "description", content: "Record salary advances and recover them through payroll deductions." },
+      { title: "Loans and salary advances — Newworldcargo HRM" },
+      { name: "description", content: "Record loans and salary advances with prior recoveries and future payroll deductions." },
     ],
   }),
   component: SalaryAdvancesPage,
@@ -45,6 +45,8 @@ type Row = Record<string, unknown>;
 type Form = {
   workerId: string;
   amount: string;
+  recordType: string;
+  openingRecoveredAmount: string;
   installmentAmount: string;
   currency: string;
   issueDate: string;
@@ -60,6 +62,8 @@ function emptyForm(): Form {
   return {
     workerId: "",
     amount: "",
+    recordType: "salary-advance",
+    openingRecoveredAmount: "0",
     installmentAmount: "",
     currency: "ZMW",
     issueDate: today,
@@ -120,9 +124,11 @@ function SalaryAdvancesPage() {
     setForm({
       workerId: text(row.workerId),
       amount: text(row.amount),
+      recordType: text(row.recordType) || "salary-advance",
+      openingRecoveredAmount: text(row.openingRecoveredAmount) || "0",
       installmentAmount: text(row.installmentAmount),
       currency: text(row.currency) || "ZMW",
-      issueDate: text(row.issueDate) || today,
+      issueDate: text(row.issueDate),
       deductionStartDate: text(row.deductionStartDate) || today,
       deductFromPayslip: Boolean(row.deductFromPayslip),
       reason: text(row.reason),
@@ -134,12 +140,13 @@ function SalaryAdvancesPage() {
   async function save() {
     const amount = Number(form.amount);
     const installment = Number(form.installmentAmount);
+    const openingRecovered = Number(form.openingRecoveredAmount);
     if (!form.workerId || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(installment) || installment <= 0) {
-      toast.error("Employee, advance amount and deduction amount are required.");
+      toast.error("Employee, original amount and deduction amount are required.");
       return;
     }
-    if (!editing && installment > amount) {
-      toast.error("Deduction amount cannot be more than the advance amount.");
+    if (!editing && (!Number.isFinite(openingRecovered) || openingRecovered < 0 || openingRecovered >= amount || installment > amount - openingRecovered)) {
+      toast.error("Opening recovery and deduction must fit within the original amount.");
       return;
     }
     setBusy(true);
@@ -152,20 +159,22 @@ function SalaryAdvancesPage() {
           reason: form.reason || null,
           reference: form.reference || null,
         });
-        toast.success("Salary advance updated");
+        toast.success("Record updated");
       } else {
         await realApi.createSalaryAdvance({
           workerId: form.workerId,
           amount,
+          recordType: form.recordType,
+          openingRecoveredAmount: openingRecovered,
           installmentAmount: installment,
           currency: form.currency || "ZMW",
-          issueDate: form.issueDate,
+          issueDate: form.issueDate || null,
           deductionStartDate: form.deductionStartDate,
           deductFromPayslip: form.deductFromPayslip,
           reason: form.reason || null,
           reference: form.reference || null,
         });
-        toast.success("Salary advance created");
+        toast.success("Record created");
       }
       setShowForm(false);
       setEditing(null);
@@ -202,13 +211,13 @@ function SalaryAdvancesPage() {
       <AppShell>
         <PageHeader
           eyebrow="Payroll & benefits"
-          title="Salary advances"
-          description="Record money advanced to an employee and choose whether payroll should recover it from future payslips."
+          title="Loans and salary advances"
+          description="Record original amounts, prior repayments and the balance to recover from future payslips."
           meta={<ScopeBadge />}
           primaryAction={
             <Button onClick={startCreate}>
               <Plus className="mr-2 size-4" aria-hidden />
-              Add advance
+              Add loan or advance
             </Button>
           }
         />
@@ -223,7 +232,7 @@ function SalaryAdvancesPage() {
             </Card>
             <Card className="shadow-none">
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Active advances</p>
+                <p className="text-xs text-muted-foreground">Active records</p>
                 <p className="mt-1 text-2xl font-semibold">{totals.active}</p>
               </CardContent>
             </Card>
@@ -238,11 +247,11 @@ function SalaryAdvancesPage() {
           {showForm ? (
             <Card className="shadow-none">
               <CardHeader>
-                <CardTitle className="text-base">{editing ? "Edit salary advance" : "Add salary advance"}</CardTitle>
+                <CardTitle className="text-base">{editing ? "Edit loan or advance" : "Add loan or advance"}</CardTitle>
                 <CardDescription>
                   {editing
-                    ? "You can change deduction settings while the advance is still active."
-                    : "The payslip toggle decides whether the payroll engine deducts this from future payroll runs."}
+                    ? "You can change future deduction settings while this record is active."
+                    : "For an existing loan, enter its original amount and repayments made before payroll starts collecting it here."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
@@ -265,13 +274,22 @@ function SalaryAdvancesPage() {
                 <Field label="Currency">
                   <Input value={form.currency} onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value.toUpperCase() }))} disabled={Boolean(editing)} />
                 </Field>
-                <Field label="Advance amount">
+                <Field label="Type">
+                  <Select value={form.recordType} onValueChange={(recordType) => setForm((current) => ({ ...current, recordType, issueDate: recordType === "loan" ? "" : current.issueDate || today }))} disabled={Boolean(editing)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="salary-advance">Salary advance</SelectItem><SelectItem value="loan">Loan</SelectItem></SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Original amount">
                   <Input type="number" min="0" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} disabled={Boolean(editing)} />
+                </Field>
+                <Field label="Recovered before tracking here">
+                  <Input type="number" min="0" step="0.01" value={form.openingRecoveredAmount} onChange={(event) => setForm((current) => ({ ...current, openingRecoveredAmount: event.target.value }))} disabled={Boolean(editing)} />
                 </Field>
                 <Field label="Amount deduction per payslip">
                   <Input type="number" min="0" step="0.01" value={form.installmentAmount} onChange={(event) => setForm((current) => ({ ...current, installmentAmount: event.target.value }))} />
                 </Field>
-                <Field label="Issue date">
+                <Field label={form.recordType === "loan" ? "Issue date (if known)" : "Issue date"}>
                   <Input type="date" value={form.issueDate} onChange={(event) => setForm((current) => ({ ...current, issueDate: event.target.value }))} disabled={Boolean(editing)} />
                 </Field>
                 <Field label="Start deducting from">
@@ -285,14 +303,14 @@ function SalaryAdvancesPage() {
                     checked={form.deductFromPayslip}
                     onCheckedChange={(checked) => setForm((current) => ({ ...current, deductFromPayslip: Boolean(checked) }))}
                   />
-                  Deduct this advance from payslip
+                  Deduct this record from payslip
                 </label>
                 <div className="md:col-span-2">
                   <Label>Reason or notes</Label>
                   <Textarea className="mt-2" value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} />
                 </div>
                 <div className="flex gap-2 md:col-span-2">
-                  <Button onClick={save} disabled={busy}>{editing ? "Save changes" : "Create advance"}</Button>
+                  <Button onClick={save} disabled={busy}>{editing ? "Save changes" : "Create record"}</Button>
                   <Button variant="outline" onClick={() => { setShowForm(false); setEditing(null); }} disabled={busy}>Cancel</Button>
                 </div>
               </CardContent>
@@ -304,9 +322,9 @@ function SalaryAdvancesPage() {
               <span>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <WalletCards className="size-4" aria-hidden />
-                  Advance list
+                  Loan and advance list
                 </CardTitle>
-                <CardDescription>Payroll deducts only active advances where payslip deduction is enabled.</CardDescription>
+                <CardDescription>Payroll deducts only active records where payslip deduction is enabled.</CardDescription>
               </span>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
@@ -324,7 +342,8 @@ function SalaryAdvancesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Employee</TableHead>
-                      <TableHead>Advance</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Original</TableHead>
                       <TableHead>Recovered</TableHead>
                       <TableHead>Remaining</TableHead>
                       <TableHead>Deduction</TableHead>
@@ -335,9 +354,9 @@ function SalaryAdvancesPage() {
                   </TableHeader>
                   <TableBody>
                     {advances.loading ? (
-                      <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">Loading advances...</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="py-10 text-center text-muted-foreground">Loading records...</TableCell></TableRow>
                     ) : rows.length === 0 ? (
-                      <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">No salary advances found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="py-10 text-center text-muted-foreground">No loans or salary advances found.</TableCell></TableRow>
                     ) : rows.map((row) => {
                       const active = text(row.status) === "active";
                       return (
@@ -346,6 +365,7 @@ function SalaryAdvancesPage() {
                             <div className="font-medium">{text(row.workerName)}</div>
                             <div className="text-xs text-muted-foreground">{text(row.employeeNo)}</div>
                           </TableCell>
+                          <TableCell>{text(row.recordType) === "loan" ? "Loan" : "Salary advance"}</TableCell>
                           <TableCell>{money(row.amount, text(row.currency) || "ZMW")}</TableCell>
                           <TableCell>{money(row.recoveredAmount, text(row.currency) || "ZMW")}</TableCell>
                           <TableCell>{money(row.remainingAmount, text(row.currency) || "ZMW")}</TableCell>
@@ -356,7 +376,11 @@ function SalaryAdvancesPage() {
                           <TableCell>
                             <Badge variant={active ? "default" : "outline"}>{text(row.status)}</Badge>
                           </TableCell>
-                          <TableCell>{text(row.reference) || text(row.reason) || "-"}</TableCell>
+                          <TableCell>
+                            <div>{text(row.reference) || "-"}</div>
+                            {row.issueDate ? <div className="text-xs text-muted-foreground">Issued {text(row.issueDate)}</div> : null}
+                            {row.reason ? <div className="max-w-72 text-xs text-muted-foreground" title={text(row.reason)}>{text(row.reason)}</div> : null}
+                          </TableCell>
                           <TableCell className="space-y-2 text-right">
                             <Button variant="outline" size="sm" onClick={() => startEdit(row)} disabled={!active || busy}>
                               <Edit className="mr-1 size-3.5" aria-hidden />

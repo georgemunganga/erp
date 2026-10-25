@@ -364,7 +364,9 @@ function PayslipPreviewDialog({
             Payslip preview for {employee.fullName}
           </DialogTitle>
           <DialogDescription>
-            {preview?.run?.status === "preview"
+            {preview?.status === "blocked" && !line
+              ? "No payslip amounts are available yet. Complete the employee payroll details listed below."
+              : preview?.run?.status === "preview"
               ? "Showing a simulation for the current pay period. This is not a released payslip."
               : preview?.run?.status === "released" || preview?.run?.status === "corrected"
                 ? "Showing the latest released or corrected payslip."
@@ -382,7 +384,7 @@ function PayslipPreviewDialog({
           </div>
         ) : (
           <div className="space-y-5">
-            <div className="grid gap-3 md:grid-cols-4">
+            {line ? <div className="grid gap-3 md:grid-cols-4">
               <div className="rounded-md border bg-surface p-3">
                 <div className="text-xs text-muted-foreground">Period</div>
                 <div className="mt-1 font-semibold">{preview?.run?.period || "Not calculated"}</div>
@@ -401,13 +403,13 @@ function PayslipPreviewDialog({
                 <div className="text-xs text-muted-foreground">Net pay</div>
                 <div className="mt-1 font-semibold">{line ? money(line.net, currency) : "—"}</div>
               </div>
-            </div>
+            </div> : null}
 
             {preview?.guardrails.length || profileWarnings.length ? (
               <div className="rounded-md border border-warning/40 bg-warning/10 p-4">
                 <div className="flex items-center gap-2 font-semibold text-warning">
                   <AlertTriangle className="size-4" aria-hidden />
-                  Guard rails
+                  What needs attention
                 </div>
                 <ul className="mt-2 list-inside list-disc space-y-1 text-sm">
                   {[...(preview?.guardrails ?? []), ...profileWarnings].map((item) => (

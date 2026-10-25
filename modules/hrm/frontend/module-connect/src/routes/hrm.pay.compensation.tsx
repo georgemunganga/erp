@@ -578,9 +578,9 @@ function CompensationPage() {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border bg-surface p-4">
-          <p className="text-xs text-muted-foreground">Pay profiles ready</p>
+          <p className="text-xs text-muted-foreground">Profiles with basic pay</p>
           <p className="mt-1 text-2xl font-semibold tabular">{readyWorkerCount}/{activeWorkerCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Active workers with a usable pay profile. Release checks are separate.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Active workers with a profile and positive Basic Pay. Payroll and release checks are separate.</p>
         </div>
         <div className="rounded-lg border bg-surface p-4">
           <p className="text-xs text-muted-foreground">Missing profile</p>
