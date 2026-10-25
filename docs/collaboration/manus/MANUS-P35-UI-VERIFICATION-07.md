@@ -7,7 +7,7 @@
 | Source | Pinned reference |
 | --- | --- |
 | ERP instructions | Published `georgemunganga/erp` `main` at `47c422982a4e701e1fc097422a2f0898b130ef89` or a later reviewed published descendant |
-| Existing Procurement UI | `georgemunganga/module-connect` draft [PR #71](https://github.com/georgemunganga/module-connect/pull/71), branch `codex/p35-contract-review-ui`, commit `ae3694740288c5442d8f60863a68fa598f322f3f` |
+| Existing Procurement UI | `georgemunganga/module-connect` draft [PR #71](https://github.com/georgemunganga/module-connect/pull/71), branch `codex/p35-contract-review-ui`, published head `5b37bc5cdef7d440d1448de838cef05e812c70f6`; tested application source `e077cccb7be5995e153f1937393255857fbd6ce8` plus a documentation-only receipt commit |
 | UI lockfile | `reference-ui/pnpm-lock.yaml` SHA-256 `fb34160759ca7b7942ab1e65c17fc07d518038bdef0abc763473223f6a98f3cc` at the pinned commit |
 | Held backend contract | ERP `codex/p35-contract-review-source` at `f3f1ec304cd2d70cd59182ae704f5d6f8bebb288`; this is source, not live P35 activation |
 | P32 schema context | Held genuine P32 source checkpoint `47bb6b11c9ac6f9d6b97e3df436f374126a70f0d`; generation does not prove production migration or API readiness |
@@ -22,7 +22,7 @@ Use one browser worker and no retries. Preserve first failures, trace files, com
 
 ## Verification sequence
 
-1. Verify PR #71 still points at the pinned commit. Capture a clean source/lockfile manifest, package versions, and hardware before running anything. Work on a focused UI branch from that exact source. Leave the original imported layouts, ERP controls, shared shell, and existing route hierarchy intact.
+1. Verify PR #71 still points at the pinned head or a coordinator-reviewed descendant. Capture a clean source/lockfile manifest, package versions, and hardware before running anything. Work on a focused UI branch from that exact source. Leave the original imported layouts, ERP controls, shared shell, and existing route hierarchy intact.
 2. Run the complete `reference-ui` source gates: `pnpm run check`, `pnpm run build:staged`, and `pnpm run test`. Record exact commands, exit codes, elapsed time, discovered/executed/pass/fail/skip counts, and machine-readable Vitest/Node test results. A zero-test filter is not passing evidence. Validate that staged live-mode output contains the existing Procurement workspace, not a demo fallback.
 3. Run focused mocked Playwright cases with one Chromium worker, no retries, and machine-readable results. Include `tests/e2e/live-rfq-governed.spec.ts`, `live-principal-receiving.spec.ts`, `live-principal-order-draft.spec.ts`, `live-principal-order-draft-edit.spec.ts`, `live-principal-invoice-issues.spec.ts`, `live-principal-invoice-review.spec.ts`, `live-contract.spec.ts`, and `live-contract-review.spec.ts`. Add other relevant focused specs discovered at the pinned source. Preserve failures and traces. These mocks verify frontend behavior only; they are **not** actual API, PostgreSQL, Core policy, or production proof.
 4. Audit the browser console and rejected requests for render exceptions and unsupported actions. Confirm P35 assigned-review worklist and detail use the actual PascalCase assignment/source fields and frozen terms, while command acknowledgements use their mixed-case contract; P34 rates and P33 edits use exact decimal text through their existing transport adapters. Do not convert financial strings through JavaScript `Number` for an authoritative command. Check list/detail/editor loading, empty, denied, capability-off, wrong company/branch/account, and stale route ID behavior.
@@ -37,3 +37,7 @@ Open a **draft UI PR targeting `codex/p35-contract-review-ui`** with focused sou
 This task does **not** authorize backend SDK work, migrations, database access, real-cookie fixtures, identity or role changes, production deployment, supplier contact, contract activation, Finance posting, or feature activation. Real-cookie P30/P31 acceptance and any later P32–P35 runtime/owner proof remain coordinator-owned. A passing UI build or mocked browser suite does not make held P35 routes live.
 
 The coordinator accepts this task only after independently reviewing the source diff, exact verification evidence, restored layout, negative paths and the list of still-unproven runtime gates.
+
+## Coordinator targeted checkpoint, 25 October 2026
+
+Before Manus pickup, the coordinator published a normal fast-forward of PR #71 to the head above. The protected offline UI06 run passed TypeScript typecheck, 19/19 focused unit contracts, 9/9 mocked Chromium cases with one worker and no retries, and a staged production build. Result SHA-256 `3379656ef78a866d2651c0f7832021045deaac82e89a5bfd2c927da3e5b68a8b`; staged-build result SHA-256 `53676db0aedd0917f3869967a0fd1d0ea68ac6883c3f2969529386980c6beef8`. The public evidence note is `module-connect/docs/PROC-P31-P35-UI-TARGETED-ACCEPTANCE-20261025.md`. Earlier runs 01–05 remain recorded failures. This is a bounded mock verification, not completion of the full Manus task, actual P35 API/browser-cookie proof, or deployment. Task status remains queued; no Manus pickup is inferred.
