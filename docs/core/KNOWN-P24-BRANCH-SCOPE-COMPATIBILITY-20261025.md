@@ -2,6 +2,10 @@
 
 Status: inherited behavior recorded; broader operational All-branch support remains open.
 
+## M0 request-list slice privately verified; release pending
+
+The [M0 private proof](../procurement/release/P24-M0-COMPANY-REQUEST-SCOPE-PRIVATE-VERIFICATION-20261025.md) records source `8fe23143` / UI `bc871e75`, 105 focused/1,070 Host tests, 85 UI units, 16 mocked browser cases and actual normal-cookie PostgreSQL HTTP plus two browser cases with independent owner reconciliation. All own-request reads use current permitted A+B before count/page; same-cookie B revocation removes B, selected-A CRUD remains valid, and explicit-All request writes deny without effects. Plans/contracts remain company/owner scoped. Deployment is pending for this slice; the e833 baseline described below remains distinct. Orders/receipts/invoices/dashboard aggregation and whole C01 acceptance stay open.
+
 ## First-use organisation choice: bounded compatibility deployed
 
 [PR93](https://github.com/georgemunganga/erp/pull/93) at `b3e190baedef2260bd270d5155b52b0da7ea3c81` backports the existing Core workspace context, named shared-session authorization and validate-only Core startup. The [P24 private acceptance](../procurement/release/P24-SCOPED-CSV-PRIVATE-VERIFICATION-20261025.md) records one actual browser with empty storage, current Core company/branch choices, server headquarters selection, Vendor access and logout, with identical owner snapshots and no export audit. This closes the bounded first-use/session compatibility issue in source and private verification. The [bounded P24 release](../procurement/release/P24-SCOPED-CSV-RELEASE-20261025.md) is now deployed on image `e8330656f4e9`, with healthy API, running publisher and anonymous Core/export 401 checks. Real production-account UAT remains unperformed; this does not close C01 operational All-branch aggregation.
