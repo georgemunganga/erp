@@ -1,0 +1,82 @@
+{
+  "status": "ACCEPTED_TARGETED_SOURCE_VALIDATION_NOT_P35_WORKFLOW_OR_RELEASE",
+  "dateUtc": "2026-10-25",
+  "sourceCommit": "521c986ceffcb11411751c68707f49d40d92c493",
+  "sourceTree": "96d98c81d15eaaf8a8f30f3a1ec526ca468857c7",
+  "sdk07": {
+    "status": "PASS_P35_SDK07_TARGETED_API_HOST_REBUILD_SOURCE_ONLY",
+    "resultSha256": "859b4edafa65c12846c8e207c5c346b277cf40b1c419d83c907d9d7f20271511",
+    "executedTests": {
+      "host": 1305,
+      "focusedHost": 77,
+      "failed": 0,
+      "skipped": 0
+    },
+    "domainRerunPerformed": false,
+    "acceptedUnchangedDomain": {
+      "passed": 1632,
+      "sourceCommit": "f5ed339d91b24f7c374551552ec84fa87a8dad85",
+      "sdk06ResultSha256": "5075c34eca99f7a0b6eaf5c3c6b1e1b64ed3151f1aeb2403eb00d88a8aefc1d4",
+      "sourceAndNonTargetReferenceBytesUnchanged": true
+    },
+    "modelSqlRerunPerformed": false,
+    "modelSqlSourceUnchanged": true,
+    "buildLineage": "Targeted API/Host rebuild on reviewed continuing cache; no fresh clean-build claim"
+  },
+  "immutablePublication": {
+    "status": "PASS_IMMUTABLE_SDK07_API_PUBLICATION_NOT_RUNTIME_ACCEPTANCE",
+    "resultSha256": "9e4ad8c6fb3376272b07a7439faf102cd8cff6953e3f368c084bcb5924f2baef",
+    "provenanceSha256": "842da108f1868e9995cc790f00525588395d65b1e484e8960bbf2a0c547c733f",
+    "manifestSha256": "ec1dde5fd31116e95d0b655290f0c39d9c2783f3683b4e718849145502fe2449",
+    "fileCount": 477,
+    "unchangedFilesFromSDK06": 474,
+    "changedFiles": [
+      "Mightyfin.Erp.Hrm.Api.deps.json",
+      "Mightyfin.Erp.Hrm.Api.dll",
+      "Mightyfin.Erp.Hrm.Api.pdb"
+    ],
+    "apiAssemblySha256": "19567fb0eadaba09989074afb19279dfa8323cea619b6ff64107f2ef00942175",
+    "hrmApplicationAssemblySha256": "4de3187d918030d904cdc7cf48f2cda329fc210e126bb0385bbc07bce380ffc6",
+    "runtimeExecuted": false
+  },
+  "p35NativeAttempt01": {
+    "status": "FAILED_RETAINED_NOT_P35_BUSINESS_ACCEPTANCE",
+    "actualHttpRequests": 105,
+    "productSource": "f5ed339d91b24f7c374551552ec84fa87a8dad85",
+    "toolSource": "9f352f1d2528461a1dfe631062d88a6d952d1ff0",
+    "failureCode": "P25_P35_requires_actual_captured_finite_review_admission",
+    "p35PolicyOrContractCallsPerformed": false,
+    "cause": "Exact Supplier-owned normalized-registration partial index was unsupported by the physical selector; finite privileges matched. Exact owner predicate support is now source-validated by SDK07.",
+    "nativeResultSha256": "55b0ddda8d4c50df16f483aff83ebb0475e8e60cb66698ee005aafd90eda8e2c",
+    "runnerResultSha256": "07112d2c25b871c079131778b61fa70732a65a2e658f1a05ffb10bfdc7092000",
+    "freshSuccessor02AcceptancePending": true
+  },
+  "p33CookieAttempt01": {
+    "status": "FAILED_RETAINED_BEFORE_COOKIE_FIXTURE_MANIFEST_AND_BROWSER",
+    "completedNativeHttpRequests": 124,
+    "failureCode": "P25_P33_normal_host_must_use_captured_finite_revision_readiness",
+    "cause": "Configured-readiness preflight had an unset authenticated scope in the private fixture.",
+    "nativeResultSha256": "01b2d0ca56a3794d7ce7a95294a5865458e45c431cf2b99cc5acb0dfe77048de",
+    "runnerResultSha256": "ad1fe0943b9e0c6fa604158e91dab6d3072558cbb899af14b8e291dacdf4ad14",
+    "browserExecuted": false,
+    "playwrightAcceptanceClaim": false,
+    "correctedToolSource": "e66be30a8590c0c5e9674313e603f068dbce6631",
+    "correctedToolCompileAndFreshBrowserPending": true,
+    "cookieFixtureManifestPublished": false,
+    "syntheticCredentialPreparationMayHaveOccurred": true
+  },
+  "corePrivateSessionAcceptance": {
+    "receipt": "P30-CORE-SESSION-ACCEPTANCE-20261025.json",
+    "status": "ACCEPTED_PRIVATE_CORE_LOCAL_SESSION_HTTP_AND_INDEPENDENT_OWNER_RECONCILIATION",
+    "actualHttpObservations": 38,
+    "privateHbaRestored": true,
+    "productionAuthenticationClaim": false
+  },
+  "claims": {
+    "actualP35PositiveHttpAccepted": false,
+    "actualP33CookieBrowserAccepted": false,
+    "allProcurementComplete": false,
+    "productionTouched": false,
+    "deploymentAuthorizedOrPerformed": false
+  }
+}

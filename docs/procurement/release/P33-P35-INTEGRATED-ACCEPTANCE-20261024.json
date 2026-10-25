@@ -1,17 +1,15 @@
 {
   "status": "ACCEPTED_BOUNDED_PRIVATE_SOURCE_SCHEMA_AND_P33_NATIVE_GATES_NOT_RELEASE",
-  "testedSource": "df3861bb35ed30a6697e2615741575291d40222a",
+  "testedSource": "521c986ceffcb11411751c68707f49d40d92c493",
   "testCounts": {
-    "domain": 1632,
-    "focusDomain": 15,
-    "focusHost": 31,
-    "host": 1263
+    "focusHost": 77,
+    "host": 1305
   },
   "testFailures": 0,
   "testSkipped": 0,
   "noPendingModelChanges": true,
   "genuineP35UpDownSqlExported": true,
-  "actualCacheLineage": "Accepted P33 validation03 then failed P35 unified01 then failed P35 unified02 partial cache, explicitly inventoried before unified03; no clean-fresh-build claim",
+  "actualCacheLineage": "Accepted unified03, retained failed SDK04/05, forced SDK06 full reference-graph Rebuild, then SDK07 targeted API/Host rebuild with unchanged non-target reference inventory; cache continuation, not a clean fresh build",
   "unifiedResultSha256": "820df8c1595a28f4133e3f152940917c9841dd55bcddcb5cab017cdf75631310",
   "p33PopulatedDown": {
     "status": "PASS_PRIVATE_P33_FOUR_PHYSICAL_RETAINED_DOWN_VETOES_ONLY",
@@ -113,11 +111,11 @@
   "positiveP35HttpBrowserAccepted": false,
   "wholeProcurementModuleComplete": false,
   "remaining": [
-    "P32/P35 physical finite-role and actual mapped positive API evidence; SDK06 source compilation and authored tests passed, but no P35 business HTTP acceptance",
-    "P33 normal-cookie UI and its independent owner reconciliation",
-    "P35 populated rollback, actual API/Core workflow and original UI acceptance",
-    "Core authenticated HTTP/runtime session proof and document scanning evidence; private finite LOGIN ACL alone is accepted",
-    "Remaining commercial, return and payment integrations; release review and deployment"
+    "P32/P35 actual finite-role positive workflow evidence; SDK07 source validation passed, P35 native01 failed before all P35 mutations and fresh02 is pending",
+    "P33 corrected private cookie fixture/tool compilation, fresh normal-cookie UI and independent owner reconciliation; failed01 ran no browser",
+    "P35 populated rollback, actual API/Core workflow, independent raw owner graph and original UI acceptance",
+    "Real Core document scanning and P31 consumer workflow evidence; private Core session38HTTP plus independent owner and original HBA restoration are already accepted separately",
+    "Production restore/finite-role/API/publisher cutover and authenticated UAT; remaining commercial, return and payment integrations"
   ],
   "priorSourceValidation": {
     "sourceCommit": "df3861bb35ed30a6697e2615741575291d40222a",
@@ -132,6 +130,33 @@
     "scope": "Earlier accepted source/schema baseline; preserved historical evidence, not the current SDK06 result"
   },
   "currentSourceValidation": {
+    "status": "PASS_P35_SDK07_TARGETED_API_HOST_REBUILD_SOURCE_ONLY",
+    "resultSha256": "859b4edafa65c12846c8e207c5c346b277cf40b1c419d83c907d9d7f20271511",
+    "executedTests": {
+      "host": 1305,
+      "focusedHost": 77,
+      "failed": 0,
+      "skipped": 0
+    },
+    "domainRerunPerformed": false,
+    "acceptedUnchangedDomain": {
+      "passed": 1632,
+      "sourceCommit": "f5ed339d91b24f7c374551552ec84fa87a8dad85",
+      "sdk06ResultSha256": "5075c34eca99f7a0b6eaf5c3c6b1e1b64ed3151f1aeb2403eb00d88a8aefc1d4",
+      "sourceAndNonTargetReferenceBytesUnchanged": true
+    },
+    "modelSqlRerunPerformed": false,
+    "modelSqlSourceUnchanged": true,
+    "buildLineage": "Targeted API/Host rebuild on reviewed continuing cache; no fresh clean-build claim",
+    "sourceCommit": "521c986ceffcb11411751c68707f49d40d92c493",
+    "sourceTree": "96d98c81d15eaaf8a8f30f3a1ec526ca468857c7",
+    "immutableProductPublicationManifestSha256": "ec1dde5fd31116e95d0b655290f0c39d9c2783f3683b4e718849145502fe2449",
+    "productPublicationFileCount": 477,
+    "sourceOnly": true,
+    "actualP35BusinessHttpAccepted": false,
+    "receipt": "P35-SDK07-SOURCE-ACCEPTANCE-20261025.json"
+  },
+  "priorFullReferenceGraphValidation": {
     "status": "PASS_P35_UNIFIED_FULL_HOST_DOMAIN_MODEL_SQL_SOURCE_ONLY",
     "sourceCommit": "f5ed339d91b24f7c374551552ec84fa87a8dad85",
     "sourceTree": "7e2992dd4bda4ce5c509a8c0eac72511ea5f3325",
@@ -149,5 +174,42 @@
     "productPublicationFileCount": 477,
     "sourceOnly": true,
     "actualP35BusinessHttpAccepted": false
-  }
+  },
+  "domainTestsCarriedFromSDK06NotRerun": 1632,
+  "modelSqlEvidenceCarriedUnchangedFromSDK06": true,
+  "unifiedResultScope": "Initial unified03 historical source result only; current targeted SDK07 has its separate receipt",
+  "p35NativeAttempt01": {
+    "status": "FAILED_RETAINED_NOT_P35_BUSINESS_ACCEPTANCE",
+    "actualHttpRequests": 105,
+    "productSource": "f5ed339d91b24f7c374551552ec84fa87a8dad85",
+    "toolSource": "9f352f1d2528461a1dfe631062d88a6d952d1ff0",
+    "failureCode": "P25_P35_requires_actual_captured_finite_review_admission",
+    "p35PolicyOrContractCallsPerformed": false,
+    "cause": "Exact Supplier-owned normalized-registration partial index was unsupported by the physical selector; finite privileges matched. Exact owner predicate support is now source-validated by SDK07.",
+    "nativeResultSha256": "55b0ddda8d4c50df16f483aff83ebb0475e8e60cb66698ee005aafd90eda8e2c",
+    "runnerResultSha256": "07112d2c25b871c079131778b61fa70732a65a2e658f1a05ffb10bfdc7092000",
+    "freshSuccessor02AcceptancePending": true
+  },
+  "p33CookieAttempt01": {
+    "status": "FAILED_RETAINED_BEFORE_COOKIE_FIXTURE_MANIFEST_AND_BROWSER",
+    "completedNativeHttpRequests": 124,
+    "failureCode": "P25_P33_normal_host_must_use_captured_finite_revision_readiness",
+    "cause": "Configured-readiness preflight had an unset authenticated scope in the private fixture.",
+    "nativeResultSha256": "01b2d0ca56a3794d7ce7a95294a5865458e45c431cf2b99cc5acb0dfe77048de",
+    "runnerResultSha256": "ad1fe0943b9e0c6fa604158e91dab6d3072558cbb899af14b8e291dacdf4ad14",
+    "browserExecuted": false,
+    "playwrightAcceptanceClaim": false,
+    "correctedToolSource": "e66be30a8590c0c5e9674313e603f068dbce6631",
+    "correctedToolCompileAndFreshBrowserPending": true,
+    "cookieFixtureManifestPublished": false,
+    "syntheticCredentialPreparationMayHaveOccurred": true
+  },
+  "corePrivateSessionAcceptance": {
+    "receipt": "P30-CORE-SESSION-ACCEPTANCE-20261025.json",
+    "status": "ACCEPTED_PRIVATE_CORE_LOCAL_SESSION_HTTP_AND_INDEPENDENT_OWNER_RECONCILIATION",
+    "actualHttpObservations": 38,
+    "privateHbaRestored": true,
+    "productionAuthenticationClaim": false
+  },
+  "initialUnified03CacheLineage": "Accepted P33 validation03 then failed P35 unified01 then failed P35 unified02 partial cache, explicitly inventoried before unified03; no clean-fresh-build claim"
 }
