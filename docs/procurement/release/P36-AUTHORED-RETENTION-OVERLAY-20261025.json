@@ -1,0 +1,16 @@
+{
+  "exactBodyEdits": [
+    "Down first operation: P36RecommendationDraftGuards.BeforeDownSql"
+  ],
+  "finalMigrationSha256": "0b540f6cedec54a0a3aa0712cbcdae51d608e0187f67abc4b4f27c40c8c64dd7",
+  "generatedMetadataChanged": false,
+  "migrationId": "20261025014631_P36HumanRecommendationDraft",
+  "physicalSqlExecuted": false,
+  "rawInstallCommit": "3c8648c1a75ab3843deca2410b0b7074c6ed4179",
+  "rawMigrationSha256": "ca2228f6279766a1884a850260e89fd92d29df0a11af6d011db94e3e5d76d71c",
+  "rollbackHelperSha256": "b861e631cdf0f71957fa1dbf8845272d1218be97ac7f92b883b86d04421cd507",
+  "sdkValidationExecuted": false,
+  "status": "AUTHORED_P36_FIRST_DOWN_OVERLAY_PENDING_DISTINCT_REVIEW",
+  "unchangedDesignerSha256": "87d95bd36f8536a215ad86a993f6bc686c05afca95a61c6f2e0414f92cf698f0",
+  "unchangedSnapshotSha256": "5782d8bab4c61193e6695e0e7e7586b11e1c5eb0bdb4e7f655c94bac039380c9"
+}

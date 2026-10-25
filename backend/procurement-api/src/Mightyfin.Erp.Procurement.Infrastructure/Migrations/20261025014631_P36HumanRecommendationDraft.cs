@@ -337,6 +337,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(P36RecommendationDraftGuards.BeforeDownSql);
+
             migrationBuilder.DropTable(
                 name: "principal_rfq_recommendation_lines",
                 schema: "procurement");

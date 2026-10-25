@@ -1,7 +1,7 @@
 # PROC-06 P36 human recommendation Draft
 
 **Status:** integrated source only; tests authored, not executed. P32 and P35
-have genuine migration baselines. P36 has no generated migration or physical
+have genuine migration baselines. P36 now has genuine EF metadata but no physical
 readiness capture. Its separate option defaults false and admission remains
 unavailable. No award or purchase-order authority is introduced.
 
@@ -177,3 +177,16 @@ Recommendation submission/publication, assessment completion, mandatory-fail
 interpretation, ties, independent award approval, supplier notification and PO
 conversion need separately adopted policy and owner contracts. This Draft is
 not an executable PO source. Production remains unchanged.
+
+
+## Genuine generation checkpoint (2026-10-25)
+
+Official generation02 from `9b5e0dcb` passed after failed01's two Application
+syntax tokens were corrected. Genuine `20261025014631_P36HumanRecommendationDraft`
+adds four tables, ten scoped FKs, four CHECKs, fourteen indexes and exactly
+three stable parent alternate keys. Raw Designer and snapshot are installed
+byte-identically. A separate authored change invokes the existing four-family
+retention veto as the first Down operation. Original raw output and failed01
+evidence remain untouched. SDK/model/SQL validation, physical roundtrip/capture,
+P32 parent-key readiness compatibility, finite grants and runtime are pending.
+The capability stays default off and this Draft is never award/PO authority.
