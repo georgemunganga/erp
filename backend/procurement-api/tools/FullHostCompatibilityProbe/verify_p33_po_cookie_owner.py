@@ -235,8 +235,7 @@ ROLLBACK;""")
             "procurement.principal_order_commercial_origins", "procurement.principal_order_draft_commercial_revisions",
             "procurement.principal_order_effective_source_slices",
             "procurement.purchase_request_allocations", "procurement.audit_events", "procurement.outbox_events")},
-        "sessionRows": [{"id": x["id"], "revoked_at": x.get("revoked_at"),
-            "expires_at": x.get("expires_at")} for x in buyer_sessions]}
+        "sessionRows": buyer_sessions}
 
 
 def fixture_boundary(fixture, proxy, fixture_sha, expected):
@@ -305,6 +304,9 @@ def browser_session_transition(baseline, final):
             "ExactlyOneNewBuyerBrowserSessionRequired")
     require([x for x in sessions if x.get("id") == old["id"]] == [old],
             "PreflightLocalSessionChanged")
+    require([x for x in rows if x.get("id") == old["id"]]
+            == [baseline["sessionRows"][0]],
+            "PreflightLocalSessionRowChanged")
     new = [x for x in sessions if x.get("id") != old["id"]]
     require(len(new) == 1 and guid(new[0].get("id")),
             "BuyerBrowserSessionIdentityInvalid")

@@ -77,7 +77,7 @@ class BoundaryTests(unittest.TestCase):
             return {'buyerSessionIds': [x['id'] for x in items],
                     'buyerSessions': items,
                     'sessionRows': [{'id': x['id'], 'revoked_at': x['revokedAt'],
-                        'expires_at': x['expiresAt']} for x in items]}
+                        'expires_at': x['expiresAt'], 'token_hash': 'original'} for x in items]}
         original = facts([session(preflight)])
         after = facts([session(preflight), session(browser,
             '2026-10-25T01:07:00+00:00')])
@@ -94,6 +94,10 @@ class BoundaryTests(unittest.TestCase):
                     facts([session(preflight), session(browser), session(key(33))])):
             with self.assertRaises(owner.Failed):
                 owner.browser_session_transition(original, bad)
+        changed_old_row = facts([session(preflight), session(browser)])
+        changed_old_row['sessionRows'][0]['token_hash'] = 'substituted'
+        with self.assertRaisesRegex(owner.Failed, 'PreflightLocalSessionRowChanged'):
+            owner.browser_session_transition(original, changed_old_row)
 
     def test_three_command_fingerprints_bind_edit_version_original_and_exact_quantity(self):
         buyer, request, source, supplier, po, line = [key(n) for n in range(11, 17)]
