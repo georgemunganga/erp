@@ -42,3 +42,12 @@ The adjacent JSON records exact migration-file SHA-256 values and common/new/rem
 6. Only after these gates, plan a reviewed paired API/publisher release and relevant UI change with monitoring, rollback and postdeploy smoke tests. Never run two incompatible model writers together.
 
 No new collaborator assignment or main merge is made here. Publish reviewed prerequisite merges and current ERP/UI main baselines before assigning the next task. Real scanner C04, policy decisions and external ledger adapters remain separately owned dependencies; pending ones must not block unrelated defined CRUD.
+
+## Reconciliation observations
+
+- Published main already owns shared sessions and schema startup. Its identity checks reject inactive/archived configured roles without reviving legacy CSV authority. Keep those stronger checks; copying the older deployed LocalIdentity file would regress them.
+- Core's branch choices need the deployed additive `type` field for headquarters-aware defaults.
+- The action catalog is derived from the current target registry, including newer payment actions plus explicit Vendor/Item exports. Do not pin the catalog to the old P24 action count or replace newer registry entries.
+- Preserve P29's reviewed company-wide manual-payment scope while adding the deployed master/request readers. Readiness, permission, amount, authority and business-state guards remain separate. A scope-only test does not authorize a payment.
+- Broader operational All behavior remains an M0 gap. This source checkpoint carries the deployed legacy concrete-branch fallback outside the reviewed All readers, together with the explicit request-write branch requirement; it does not declare all transaction routes company-wide.
+- The exact source inventory found no removed migration files and no changed common historical migration/Designer files. Only the target snapshot differs among common files, alongside the five new P25–P29 migrations and their guard helpers. Physical database/backup/restore/finite-role acceptance remains unexecuted.

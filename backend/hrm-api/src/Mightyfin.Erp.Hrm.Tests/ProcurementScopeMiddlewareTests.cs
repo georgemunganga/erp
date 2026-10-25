@@ -183,9 +183,34 @@ public sealed class ProcurementScopeMiddlewareTests
         db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "employee", RoleName = "Existing role", Active = true, PermissionsCsv = "procurement-access,procurement-vendor-read" });
         await db.SaveChangesAsync(); return (user, a, b, branch);
     }
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("POST")]
+    public async Task Existing_manual_payment_company_scope_keeps_current_permitted_branches(string method)
+    {
+        // Scope-only fixture. Real payment routes additionally enforce their
+        // named permissions, current policy, authority and business-state guards.
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id });
+        await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id);
+        http.Request.Path = "/api/procurement/v1/manual-payments";
+        http.Request.Method = method;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached);
+        Assert.True(scope.IsExplicitAllBranches);
+        Assert.Null(scope.WorkLocationId);
+        Assert.Equal(branch.Id, Assert.Single(scope.PermittedWorkLocationIds));
+    }
+
     private static (DefaultHttpContext, ProcurementRequestScope) Request(Guid user)
     {
         var http = new DefaultHttpContext(); http.Request.Path = "/api/procurement/v1/context"; http.Response.Body = new MemoryStream();
+        http.Request.Method = HttpMethods.Get;
         http.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("tenant", "tenant-a"), new Claim("sub", user.ToString()), new Claim(ClaimTypes.Role, "employee") }, "test"));
         return (http, new ProcurementRequestScope());
     }

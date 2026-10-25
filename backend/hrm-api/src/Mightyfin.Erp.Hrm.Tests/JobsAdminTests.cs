@@ -139,7 +139,7 @@ public sealed class JobsAdminTests
     }
 
     [Fact]
-    public async Task Role_readback_matches_session_grants_for_all_P24_row_shapes()
+    public async Task Role_readback_matches_session_grants_for_current_registry_row_shapes()
     {
         using var db = CreateContext();
         db.TenantRoleAssignments.AddRange(

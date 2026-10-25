@@ -98,7 +98,7 @@ public static class ProcurementActionCatalog
             ["procurement-po-dispatch-confirm"] = ["procurement_manager"],
         };
 
-    /// <summary>The deployed P24 role-row interpretation shared by session grants
+    /// <summary>The role-row interpretation shared by session grants
     /// and Core role readback. The only bootstrap trigger is an exact legacy seed.</summary>
     public static string[] ResolveConfiguredActionsForRole(string roleKey, string permissionsCsv)
     {
@@ -112,7 +112,7 @@ public static class ProcurementActionCatalog
         return actions.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
     }
 
-    /// <summary>Presentation metadata for the existing P24 actions only; no grants.</summary>
+    /// <summary>Presentation metadata for this host's registered actions; no grants.</summary>
     public static AdminAction[] AdminReadCatalog() => BootstrapGrants.Keys
         .Order(StringComparer.Ordinal)
         .Select(key => new AdminAction(key, GroupFor(key), LabelFor(key)))
@@ -136,6 +136,7 @@ public static class ProcurementActionCatalog
             "recurring" => "Recurring purchases",
             "sourcing" => "Sourcing and RFQs",
             "invoice" => "Invoices",
+            "payment" => "Payments",
             _ => "Other Procurement"
         };
     }

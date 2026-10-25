@@ -27,7 +27,13 @@ public sealed class CoreRolePermissionCatalogHttpTests
         Assert.Equal(1, body.GetProperty("schemaVersion").GetInt32());
         var actions = body.GetProperty("procurement").EnumerateArray().ToArray();
         var names = actions.Select(x => x.GetProperty("key").GetString()!).ToArray();
-        Assert.Equal(67, names.Length);
+        Assert.Equal(ProcurementActionCatalog.BootstrapGrants.Count, names.Length);
+        Assert.Contains("procurement-payment-confirm", names); // Retain the newer P29 action registry.
+        Assert.Contains("procurement-sourcing-publish", names);
+        Assert.Contains("procurement-vendor-export", names);
+        Assert.Contains("procurement-item-export", names);
+        Assert.Equal("Payments", actions.Single(x => x.GetProperty("key").GetString() == "procurement-payment-confirm")
+            .GetProperty("group").GetString());
         Assert.Equal(ProcurementActionCatalog.BootstrapGrants.Keys.Order(StringComparer.Ordinal), names);
         Assert.All(actions, x =>
         {
