@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "PASS_RECEIVING_BROWSE_API_HOST_AND_MOCKED_UI",
+  "productSource": "7e6a7fd95a57ee7e0b3bdb92d7718c6bf014d8a1",
+  "parentProductSource": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "backend": {
+    "privateEvidenceDirectory": "procurement-receiving-browse-sdk-prep-20261025_run02",
+    "hostPassed": 1360,
+    "focusedPassed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "containerExit": 0,
+    "oomKilled": false,
+    "domainPassedCarriedOnUnchangedInputs": 1670,
+    "domainRerun": false,
+    "pins": {
+      "plan.INCOMPLETE.json": "b43bdcab3a7888112df066c4facf47b4c19dd827755f834bc9d6d62f08f338df",
+      "backend-result.private.json": "ae7e8334aa78ba6945d7cf15f473db287145edb68af7545c7d9aaefdfacc4c5d",
+      "accepted-artifact-inventory.private.json": "9c21a2e94a39a78236d7d32b508d910b13b8fba12f9f2a3e81f9c8e1a2fc1806",
+      "accepted-source-inventory.private.json": "9b1385911b31e7e7595245a0b738f7c2dbb1e4cb1c403586b02a7476ae4d7578",
+      "non-target-artifact-proof.private.json": "ec47105d731652f6d038ba705c3b7019cf35affdf216526d41243928eb03d524",
+      "host-tests/receiving-browse-host.trx": "83ede01b47283082ef23ce6cd309b942ef9e4d5f15d393fcf6f149ed2559ca94",
+      "focus-host-tests/receiving-browse-focus-host.trx": "e15e35f9905881e494a275e9f55b3e6197787cb1e8c61ceba7b6c59e81e0e6c7"
+    }
+  },
+  "ui": {
+    "applicationSource": "3b1815b51f23b4942728e91a9a5427edf98712be",
+    "browserSpecSource": "4ffc24390deeea07af3b30630f8c0e19da99bb94",
+    "acceptanceCommit": "20825a3a329572197811894fbbd6d71bae2fdb33",
+    "typeScriptExit": 0,
+    "targetedUnitsPassed": 8,
+    "mockedChromiumPassed": 9,
+    "workers": 1,
+    "retries": 0,
+    "receipt": "https://github.com/georgemunganga/module-connect/blob/20825a3a329572197811894fbbd6d71bae2fdb33/docs/PROC-RECEIVING-BROWSE-UI-ACCEPTANCE-20261025.json"
+  },
+  "changes": [
+    "Validate newest/oldest directory sort server-side; reject unsupported sorts with422.",
+    "Keep issued-order and branch fences before count/page; deterministic CreatedAt/Id order.",
+    "Wire existing toolbar and pagination reset, preserve task and legacy behavior.",
+    "Use retained PO numbers and neutral delivery/task labels instead of UUID labels."
+  ],
+  "retainedFailures": {
+    "sdkRun01": "Admission rejected two harmless carried owner-reference files omitted by the runner allowlist. No source export, cache copy, SDK or container ran. Freshrun02 admits only those exact reference files and adds real-source-delta guard tests.",
+    "uiRun01": "8passed/1failed from partial accessible-name cell matching. Exact-cell locator correction; no application change.",
+    "sdkRun01ReceiptSha256": "98b65c7e9d5f78468b6365ade61bf67007c40488aa05c6e456e142f0f81ecefd"
+  },
+  "claimsNotEstablished": [
+    "Actual backend HTTP/owner proof specifically for the added sort query",
+    "New API publication, paired release or production deployment",
+    "Whole Procurement module completion"
+  ],
+  "schemaChanged": false,
+  "authorityChanged": false,
+  "productionTouched": false
+}
