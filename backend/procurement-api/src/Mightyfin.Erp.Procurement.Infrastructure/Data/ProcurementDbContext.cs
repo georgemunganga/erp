@@ -77,7 +77,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
-        if ((record is PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
+        if ((record is PrincipalGoodsReturnDraft or PrincipalGoodsReturnRevision or PrincipalGoodsReturnCommandReceipt
+                or PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
                 or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt
                 or PrincipalInvoiceState or PrincipalInvoiceMappingVersion or PrincipalInvoiceMappingLine
                 or PrincipalInvoiceUnitReviewSource or PrincipalInvoiceUnitReviewAssignment or PrincipalInvoiceUnitReviewAttestation or PrincipalInvoiceUnitReviewOutcome
@@ -543,6 +544,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigurePrincipalOrderRevision(modelBuilder);
         ConfigurePrincipalOrderGovernance(modelBuilder);
         ConfigurePrincipalReceiving(modelBuilder);
+        ConfigurePrincipalGoodsReturns(modelBuilder);
         ConfigureRfqCommercialDraft(modelBuilder);
         ConfigureRfqCommercialRound(modelBuilder);
         ConfigureRfqPreparation(modelBuilder);
@@ -748,6 +750,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardPrincipalOrderRevision();
         GuardPrincipalOrderGovernance();
         GuardPrincipalReceiving();
+        GuardPrincipalGoodsReturns();
         GuardRfqCommercialDraft();
         GuardSealedCommercialQuoteDrafts();
         GuardRfqCommercialRound();
