@@ -44,6 +44,15 @@ internal static partial class PrincipalApprovalHttpVerification
                 var current = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == role);
                 current.PermissionsCsv += "," + actions;
             }
+            if (Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT")=="1")
+            {
+                // Synthetic Core role master data only. No policy, Draft,
+                // approval case or commercial outcome is inserted here.
+                (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "p29_rfq_buyer"))
+                    .PermissionsCsv += ",procurement-sourcing-commercial-configure";
+                (await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "p25_config_reviewer"))
+                    .PermissionsCsv += ",procurement-sourcing-evaluate";
+            }
             await core.SaveChangesAsync();
             Need(!await core.Workers.AnyAsync(), "P30 RFQ must remain workerless.");
         }
@@ -132,6 +141,9 @@ internal static partial class PrincipalApprovalHttpVerification
         var wait = effectiveFrom - DateTimeOffset.UtcNow;
         Need(wait <= TimeSpan.FromSeconds(30), "Unexpected private sourcing policy activation wait.");
         if (wait > TimeSpan.Zero) await Task.Delay(wait + TimeSpan.FromMilliseconds(50));
+        if (Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT")=="1")
+            await VerifyP32CommercialDraftPreparationAsync(fixture,host,roles,result,stage,send,
+                client,eventId,original);
 
         stage("P30RfqPublicationOpenAndIndependentReview");
         var openKey = Guid.NewGuid();
@@ -393,7 +405,18 @@ internal static partial class PrincipalApprovalHttpVerification
             contactKey, quoteKey, revisedKey, cancelKey, suppliers = suppliers.ToArray(),
             coreWorkerless = true, supplierEmailSentBySystem = false, supplierBidSubmitted = false,
             awardCreated = false, orderCreated = false, financePostingCreated = false };
-        result["status"] = "PASS_PRIVATE_P30_RFQ_INTERNAL_PUBLICATION_ONLY";
+        if(Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT")=="1")
+        {
+            stage("P32PreparedCandidateRetainedAfterIndependentPublication");
+            await using var p32=fixture.Procurement(roles.Execution);
+            Need(result.ContainsKey("p32CommercialDraftPreparation")
+                && await p32.PrincipalRfqPreparedPlans.AsNoTracking().CountAsync(x=>x.SourcingEventId==eventId)==1
+                && await p32.PrincipalRfqCommercialRoundOpenings.AsNoTracking().CountAsync(x=>x.SourcingEventId==eventId)==0
+                && await p32.PrincipalRfqCommercialOfferSubmissions.AsNoTracking().CountAsync(x=>x.SourcingEventId==eventId)==0,
+                "P32 zero-document candidate must survive P30 publication without invented round or supplier offer.");
+            result["status"]="PASS_PRIVATE_P32_ZERO_DOCUMENT_PREPARED_CANDIDATE_ONLY";
+        }
+        else result["status"] = "PASS_PRIVATE_P30_RFQ_INTERNAL_PUBLICATION_ONLY";
     }
 
     private static async Task<JsonElement> QuotePutAsync(HttpClient client, string path,

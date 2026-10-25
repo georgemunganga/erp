@@ -41,6 +41,7 @@ internal static partial class PrincipalApprovalHttpVerification
     {
         var po=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
         var publication=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
+        var commercial=Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT");
         var invoice=Environment.GetEnvironmentVariable("P31_HTTP_VERIFY_PRINCIPAL_INVOICE");
         return po=="1" && publication is null
                 && (invoice=="1"
@@ -49,7 +50,9 @@ internal static partial class PrincipalApprovalHttpVerification
             || publication=="1" && po is null
                 && Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ")=="1"
                 && Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE") is null
-                && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$");
+                && (commercial=="1"
+                    ? System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p32_http_rfq_[a-z0-9_]{1,40}$")
+                    : System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$"));
     }
 
     internal static async Task RunAsync()
@@ -61,7 +64,8 @@ internal static partial class PrincipalApprovalHttpVerification
             && (System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$")
                 || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$")
                 || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p31_http_[a-z0-9_]{1,40}$")
-                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$"))
+                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$")
+                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p32_http_rfq_[a-z0-9_]{1,40}$"))
             && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
         var resultPath=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??throw new InvalidOperationException("New protected result required.");
         Need(Path.IsPathFullyQualified(resultPath)&&!File.Exists(resultPath)&&Directory.Exists(Path.GetDirectoryName(resultPath)),"New result in existing protected directory required.");
@@ -85,6 +89,7 @@ internal static partial class PrincipalApprovalHttpVerification
         var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
         var receivingFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_RECEIVING");
         var invoiceFlag=Environment.GetEnvironmentVariable("P31_HTTP_VERIFY_PRINCIPAL_INVOICE");
+        var commercialDraftFlag=Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT");
         var retainedPoCancelFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RETAINED_HISTORY_CANCEL");
         Need(receivingFlag is null or "1","P30 receiving opt-in must be exactly1 or absent.");
         Need(receivingFlag is null||principalPoFlag=="1","Receiving proof requires its fresh genuine principal PO profile.");
@@ -109,9 +114,17 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(principalRfqFlag is null or "1","Private P29 principal RFQ opt-in must be exactly1 or absent.");
         Need(principalPoFlag is null or "1","Private P30 principal PO opt-in must be exactly1 or absent.");
         Need(publicationFlag is null or "1","Private P30 RFQ publication opt-in must be exactly1 or absent.");
+        Need(commercialDraftFlag is null or "1","Private P32 commercial Draft opt-in must be exactly1 or absent.");
+        Need(commercialDraftFlag is null || publicationFlag=="1" && principalRfqFlag=="1"
+            && principalPoFlag is null && receivingFlag is null && invoiceFlag is null
+            && database.StartsWith("proc_p32_http_rfq_",StringComparison.Ordinal),
+            "P32 Draft proof requires its exclusive fresh P29/P30 RFQ source cohort.");
+        Need(!database.StartsWith("proc_p32_http_rfq_",StringComparison.Ordinal)||commercialDraftFlag=="1",
+            "P32 private database requires its explicit Draft opt-in.");
         Need(!database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal) || publicationFlag=="1",
             "P30 RFQ database requires its explicit publication profile.");
-        Need(publicationFlag is null || database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+        Need(publicationFlag is null || (database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
+            || commercialDraftFlag=="1" && database.StartsWith("proc_p32_http_rfq_",StringComparison.Ordinal))
             && principalRfqFlag=="1" && principalPoFlag is null && p29CookieFlag is null,
             "P30 RFQ publication cannot combine with PO or cookie profiles.");
         Need(p30RfqCookieFlag is null or "1","P30 RFQ normal-cookie serve opt-in must be exactly1 or absent.");
@@ -161,7 +174,8 @@ internal static partial class PrincipalApprovalHttpVerification
             "P29 normal-cookie serve requires its exclusive genuine principal RFQ profile.");
         Need(principalRfqFlag is null || (database.StartsWith("proc_p25_http_p29_",StringComparison.Ordinal)
                 && publicationFlag is null || database.StartsWith("proc_p30_http_rfq_",StringComparison.Ordinal)
-                && publicationFlag=="1") && principalPoFlag is null
+                && publicationFlag=="1" || database.StartsWith("proc_p32_http_rfq_",StringComparison.Ordinal)
+                && publicationFlag=="1" && commercialDraftFlag=="1") && principalPoFlag is null
             && matrixFlag is null && schemaFlag is null && accountFlag is null && aliasFlag is null
             && localCookieFlag is null && downFamily is null && exactBudgetFlag is null && legacyWorkerFlag is null
             && Environment.GetEnvironmentVariable("P25_HTTP_POSITIVE_MANUAL_EVIDENCE") is null

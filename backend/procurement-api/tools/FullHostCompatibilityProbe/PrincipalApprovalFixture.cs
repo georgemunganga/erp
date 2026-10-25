@@ -147,6 +147,8 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:SourcingDrafts:PrincipalSourceEnabled"]="true";
             if(Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION")=="1")
                 settings["Procurement:SourcingPublication:Enabled"]="true";
+            if(Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT")=="1")
+                settings["Procurement:RfqCommercialRounds:Enabled"]="true";
         }
         if(fixture.PrincipalPoProfile)
         {
