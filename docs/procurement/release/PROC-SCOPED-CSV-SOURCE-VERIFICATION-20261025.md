@@ -1,6 +1,6 @@
 # BE-01: Vendor and Item export source checkpoint
 
-Status: source verified; private database/cookie acceptance and deployment pending.
+Status: source and private database/cookie/browser acceptance verified; production-compatible backport and deployment pending.
 
 This closes the first implementation slice of BE-01, not the full finding. The existing imported Export menus now call scoped server CSV endpoints. All records and search results use the same visibility rules as the corresponding directories; selected-row export remains unavailable until it has a server contract. Page-only filters block search-result export rather than silently changing its meaning.
 
@@ -22,8 +22,19 @@ The APIs require the existing reader permission and a separate explicit export g
 
 Private evidence: `procurement-csv-exports-sdk-prep-20261025_run01` and `procurement-scoped-exports-ui-validation-20261025_run01` through `run10`, under the operator's existing ERP backup directory. Credentials and raw private artifacts are not committed.
 
-## Remaining release gates
+## Private integration acceptance
 
-Run the actual local-cookie API and browser journey against a fresh private PostgreSQL database with genuine migrations. Independently check owner-side record invariance, exact audit rows, stored Core role revocation, denied company/branch contexts, real 10,000/10,001-row queries and audit-INSERT denial. Compile the isolated fixture tool before execution.
+The genuine current API and separately compiled fixture tool ran against a fresh PostgreSQL 17 database with genuine Core and Procurement migrations. Six fictional Core users had no employee links. Core authentication and Procurement used separate finite database roles; a second host lacked audit INSERT permission.
+
+- Real-cookie HTTP acceptance passed with **13** new export audits independently reconciled to response identifiers, byte hashes, row counts, actors, company and branch context. Checks included company/branch denial, explicit-grant denial, list/export parity, fixed columns, formula protection, empty files, malformed filters, the actual 10,000/10,001-row boundary and audit-write failure returning 503 without a file.
+- The genuine live-mode UI build used Node 22.23.2 and `VITE_PROCUREMENT_LIVE_MODE=1`. Both actual Playwright journeys passed: Vendor export and Item limit rejection followed by a bounded search-result export. Independent before/after database snapshots found exactly **two** matching new audits and unchanged master records.
+- The same-cookie revocation test passed: one successful export, the exact synthetic Core role grant removed, then 403 using the same session. Its separate owner reconciliation found one export audit and precisely the expected role change.
+- All old audits remained unchanged. The fixture shut down through its protected completion path with exit 0; private proxies stopped. Production data, permissions and schema were unchanged.
+
+The private receipt is `procurement-csv-export-runtime-prep-20261025_run02/terminal-acceptance.private.json`. Product source is `86ed7277`, fixture source `65c656ec`, and UI source `7cf8f55f`; fixture changes were subsequently integrated without changing the accepted application source.
+
+Earlier failed attempts are retained. These exposed a fixture namespace/table grant error, an oversized negative-test query, a preview-mode UI build and duplicate test discovery. The initial live browser inspection also caused extra requests: Playwright 1.62.1 can refetch a response when `response.body()` uses its Chromium fallback. The corrected proof hashes the actual download stream and retains strict one-audit-per-download reconciliation. Final live artifact evidence is in UI validation `run11`; the earlier `run10` preview build is not a live-release artifact.
+
+## Remaining release gates
 
 The source uses the current Procurement model; it must not be deployed directly over the older live P24 schema. A compatible release or separately rehearsed schema rollout is still required. No production migrations, grants, feature flags or data were changed by this checkpoint. Imports, clone/bulk operations, selected-row export and saved views remain separate BE-01 work. The original UAT register remains unchanged.

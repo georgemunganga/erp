@@ -8,7 +8,7 @@ Each finding separates the original presentation intent, current live component,
 
 ## BE-01 — bulk/import/export/clone/delete/custom views (IMPLEMENT)
 
-- Implementation checkpoint: [Vendor and Item scoped CSV source verification](../release/PROC-SCOPED-CSV-SOURCE-VERIFICATION-20261025.md). Backend 76 focused and 1,378 host tests pass; UI checks pass. Real private database/cookie acceptance and deployment remain pending. This is one slice; imports, selected export, clone/bulk and saved views are still open.
+- Implementation checkpoint: [Vendor and Item scoped CSV verification](../release/PROC-SCOPED-CSV-SOURCE-VERIFICATION-20261025.md). Backend 76 focused and 1,378 host tests pass. Real-cookie API, two actual live UI journeys, independent database/audit reconciliation and same-session permission revocation pass. A P24-compatible release and deployment remain pending. This is one slice; imports, selected export, clone/bulk and saved views are still open.
 - Original UI (PREVIEW_ONLY): `reference-ui/src/features/RecordList.tsx:179` — Export current/selected view. Uses locally filtered AppRecord rows and browser CSV; local delete at line 224 leaves linked records unchanged.
 - Original flow detail: `reference-ui/src/features/RecordList.tsx:224` — Delete operates on local AppRecord and leaves linked records unchanged.
 - Original flow detail: `reference-ui/src/features/Catalogs.tsx:435` — Vendor/item import maps rows into local demo records.
