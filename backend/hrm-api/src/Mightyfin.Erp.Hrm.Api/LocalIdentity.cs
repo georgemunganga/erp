@@ -118,8 +118,8 @@ internal static class LocalIdentityRoutes
             g.MapGet("/capabilities", (IConfiguration config) => Results.Ok(AuthCapabilities(config))).AllowAnonymous().WithMetadata(new TimesheetAccess());
             g.MapPost("/login", LoginAsync).AllowAnonymous();
             g.MapGet("/me", MeAsync).AllowAnonymous().WithMetadata(new TimesheetAccess());
-            g.MapPost("/logout", LogoutAsync).RequireAuthorization().WithMetadata(new TimesheetAccess());
-            g.MapPost("/change-password", ChangePasswordAsync).RequireAuthorization().WithMetadata(new TimesheetAccess());
+            g.MapPost("/logout", LogoutAsync).RequireAuthorization(SharedSessionAuthorization.PolicyName).WithMetadata(new TimesheetAccess());
+            g.MapPost("/change-password", ChangePasswordAsync).RequireAuthorization(SharedSessionAuthorization.PolicyName).WithMetadata(new TimesheetAccess());
             g.MapPost("/set-password", CompletePasswordSetupAsync).AllowAnonymous();
             g.MapPost("/request-password-reset", RequestPasswordResetAsync)
                 .AllowAnonymous().RequireRateLimiting("password-reset-request");
