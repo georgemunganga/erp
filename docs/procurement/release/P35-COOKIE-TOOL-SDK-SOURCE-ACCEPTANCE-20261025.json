@@ -1,0 +1,138 @@
+{
+  "status": "ACCEPTED_PRIVATE_SOURCE_TOOL_COMPILE_AND_PUBLICATION_ONLY",
+  "date": "2026-10-25",
+  "publishedSourceBase": "28eba869b9e8583be760a6f2bd7e9134c3592bdc",
+  "productSourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "toolSourceCommit": "6e9fef2526d70c56ae457c6023845405464478fb",
+  "scope": "P35 normal local-cookie Tool source compiled and published over accepted current product/API bytes; private control-plane browser and independent owner acceptance are separate.",
+  "officialSdk": {
+    "exitCode": 0,
+    "oomKilled": false,
+    "toolCSharpSourceFiles": 47,
+    "toolTrackedFiles": 75,
+    "toolPublicationFiles": 477,
+    "carriedApiPublicationFiles": 150,
+    "currentOwningManagedRowsPinned": 40,
+    "productProjectsRebuilt": false,
+    "apiRepublished": false,
+    "networkAccess": false,
+    "parentHostPassed": 1358,
+    "parentFocusedPassed": 59,
+    "parentDomainPassedCarried": 1670,
+    "parentTestsRerunForThisTool": false
+  },
+  "retainedEarlierAttempt": {
+    "toolSourceCommit": "05733c51acaac97817427d3e0701a004e015ff3d",
+    "officialSdkRestoreBuildPublishExitCode": 0,
+    "originalPythonPostverification": "FAILED_NAME_ERROR_AFTER_SUCCESSFUL_SDK",
+    "readOnlySupplementStatus": "PASS_GENUINE_P35_COOKIE_TOOL_ONLY_SDK_PUBLISH_NOT_EXECUTED",
+    "correctedToolChange": "P35 buyer fixture gained only procurement-vendor-read for the imported supplier list/detail; no product authorization change."
+  },
+  "resourcePreservation": {
+    "receivingBrowseImmutableExactLinks": 928,
+    "receivingBrowsePhysicalAllocatedGainBytes": 195731456,
+    "coldArchivedPublishedCheckoutCopies": [
+      3,
+      4
+    ],
+    "coldArchiveBranchesAndCommitsRetained": true,
+    "oldToolBuildBin": {
+      "files": 477,
+      "publicationDuplicates": 475,
+      "uniqueGeneratedFilesProtected": 2,
+      "physicalRestoreProvenBeforeRetirement": true
+    },
+    "newToolBuildBin": {
+      "files": 477,
+      "publicationDuplicates": 475,
+      "uniqueGeneratedFilesProtected": 2,
+      "physicalRestoreProvenBeforeRetirement": true
+    },
+    "acceptedPublicationsAndRawEvidencePreserved": true,
+    "productionTouched": false
+  },
+  "gates": {
+    "p35CookieHttpAccepted": false,
+    "p35CookieBrowserAccepted": false,
+    "p35CookieIndependentOwnerAccepted": false,
+    "productApiDeployed": false,
+    "contractSignedOrActivated": false,
+    "financePosting": false
+  },
+  "evidence": {
+    "newTool": [
+      {
+        "artifact": "procurement-p35-cookie-tool-only-sdk-prep-20261025_run02/plan.INCOMPLETE.json",
+        "sha256": "d308ca3adb440a430d101adcd62f24ef4aa3e2072cc4f47b4bc60a81526e157d"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-only-sdk-prep-20261025_run02/exit.private.json",
+        "sha256": "bf928eb1994caa0132927faccc266811449e2797a57d081d8bb314d55cb69bb5"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-only-sdk-prep-20261025_run02/source-overlay.private.json",
+        "sha256": "796c5d7c1d19ccbca866953dbe0503dc8f16f9506dd8344268fc4b9e322ae3e8"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-only-sdk-prep-20261025_run02/result.private.json",
+        "sha256": "3cde5b536a9b148150fa5749b29081fbd530af0dfc7dab533b25906a38b83d39"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-only-sdk-prep-20261025_run02/provenance.private.json",
+        "sha256": "0cef657b39a4097e1939e89f3d477238b53c51acf3abd15deb2b0c0b59c90a63"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-only-sdk-prep-20261025_run02/publication-manifest.private.json",
+        "sha256": "f2f019dda249ba9941ff365f1a6955af3919190ef51226af15cc66397e07b687"
+      }
+    ],
+    "earlierToolAndReadOnlySupplement": [
+      {
+        "artifact": "procurement-p35-cookie-tool-only-sdk-prep-20261025_run01/exit.private.json",
+        "sha256": "854095952d1f05694166df2284d3cb8c6e1fbe74327710a69ffac7cce2ba3785"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-publication-verify-20261025_run01/plan.INCOMPLETE.json",
+        "sha256": "b1eda0d6b849bd840b8ceb71771b5eed721bd7a575e7dfa7c4b0d584ab236616"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-publication-verify-20261025_run01/result.private.json",
+        "sha256": "0eddc7d49c6f0396d402e80393a2882ed6a5b18e07131381deaf8f659987c2fc"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-publication-verify-20261025_run01/provenance.private.json",
+        "sha256": "1e8211716d27b3cfe5c2a674cf11a45477f345b4d919b792cbf0a3c5dedadc62"
+      }
+    ],
+    "resourceCleanup": [
+      {
+        "artifact": "procurement-receiving-browse-bin-dedup-prep-20261025_run01/after.private.json",
+        "sha256": "47a293d637ee28d06ceb5022c61cc45ce07e69ab3e7d3561406904629e7c78ab"
+      },
+      {
+        "artifact": "procurement-published-checkout-cold-archive-20261025_run01/result.private.json",
+        "sha256": "c96dc89734e91879de79f4cb5cf19b53f67acc66860d2acb1b17b9611bfb88e4"
+      },
+      {
+        "artifact": "procurement-published-checkout-cold-archive-20261025_run02/result.private.json",
+        "sha256": "cf3b85ca09c5eb464d2de841aecf2c6cc0be94317c62ed9bfde4c7ed363fe224"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-bin-retirement-20261025_run02/verified-restore.private.json",
+        "sha256": "a408f558c8a2368483f7c10c532f38026224343c1bdef5b0a909ee4e213f9087"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-bin-retirement-20261025_run02/after.private.json",
+        "sha256": "04ac553b0041cced8d39fc0318f0fa9de27c7b557a5b72834a6d0d72b458e015"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-bin-retirement-20261025_run03/verified-restore.private.json",
+        "sha256": "e7628a043d075ef957559b3765998a17ff3ebff3cf943168d166275327947580"
+      },
+      {
+        "artifact": "procurement-p35-cookie-tool-bin-retirement-20261025_run03/after.private.json",
+        "sha256": "e985c621f691183c555bda37ac4f17faced00f605171fb6142e8a85841693a26"
+      }
+    ]
+  }
+}
