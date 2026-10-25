@@ -38,9 +38,19 @@
   ],
   "ui": "UI cbe05a3 separately passed TypeScript,13 targeted units and11 mocked Chromium cases including hard reload/no-repeat-save; earlier baseline evidence remains independently attributed in module-connect docs/PROC-P37-RETURNS-UI-ACCEPTANCE-20261025.json",
   "remainingGates": [
-    "Official coherent current API and combined tool publication",
     "Fresh real P37 API cohort and independent read-only owner reconciliation",
     "Normal-session Returns browser and production rollout"
   ],
-  "productionTouched": false
+  "productionTouched": false,
+  "publication": {
+    "privateEvidenceDirectory": "/home/amizo/erp-backups/procurement-p37-return-publication-tool-sdk-prep-20261025_run01",
+    "planSha256": "43039c8ead52ba76e6b8d58a846cbe0cba748fa0844cff7f14cc684370471ad8",
+    "resultSha256": "70d71e2a46ac1c5a64bf512af805f9e731e0084d08bb208bdc9203bc0c8484d2",
+    "provenanceSha256": "53a0d0ec4fed501d13e90a8165a3a5696ed1fb08910911e79339504818d5a178",
+    "apiPublishedFiles": 150,
+    "apiManifestSha256": "544dc09e435ca3c21e830a19ef89b577c156137feda3f95e0befaf453cf0f98c",
+    "toolPublishedFiles": 477,
+    "toolManifestSha256": "f8ea8108575233d731909a8e581d5af98c3e39b7bc20879ee64cc6dde5e30b02",
+    "scope": "Official no-build API publication and genuine offline tool restore/build/publish; all owning managed products match accepted SDK03 under read-only project bins; publication is not runtime acceptance"
+  }
 }
