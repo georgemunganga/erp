@@ -106,5 +106,23 @@
     "executedSteps": 0,
     "annotation": "The job was not started because your account is locked due to a billing issue.",
     "localAcceptanceSeparate": true
+  },
+  "pullRequestMergeSuccessor": {
+    "erp": {
+      "number": 95,
+      "state": "MERGED",
+      "mergeCommit": "db1365f020dba346bc00647f1f3adab8458553e9",
+      "base": "codex/procurement-scoped-exports-p24-20261025"
+    },
+    "ui": {
+      "number": 81,
+      "state": "MERGED",
+      "mergeCommit": "44a577e894490dec779f7d477910553fb12c5839",
+      "base": "codex/procurement-scoped-exports-ui-20261025"
+    },
+    "adminBypass": false,
+    "deployedSourceUnchanged": true,
+    "mainChanged": false,
+    "priorOpenObservationRetained": true
   }
 }

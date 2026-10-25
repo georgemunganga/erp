@@ -11,3 +11,7 @@ No deployment DB/schema migration, role assignment or production business test w
 [ERP PR95](https://github.com/georgemunganga/erp/pull/95) and [UI PR81](https://github.com/georgemunganga/module-connect/pull/81) target their compatibility bases only. ERP main remains `cafcffd2f359b01b3b8649aa6d8a8475f8570e5a`; UI main remains `403bfdac505d593921a5bab1ba3388896205325f`. This receipt creates no new Manus assignment. Historical M0 and private proof receipts retain their original scope and time.
 
 Hosted ERP PR95 CI run `40233820622`, job/check `121291001080`, failed with zero steps: “The job was not started because your account is locked due to a billing issue.” This is separate from the accepted local official SDK and private runtime tests; hosted CI is not claimed green.
+
+## Merge metadata successor
+
+After the OPEN observation retained in the JSON, ERP PR95 merged normally as `db1365f020dba346bc00647f1f3adab8458553e9` into `codex/procurement-scoped-exports-p24-20261025`; UI PR81 merged as `44a577e894490dec779f7d477910553fb12c5839` into `codex/procurement-scoped-exports-ui-20261025`. No administrator bypass or main change occurred. Exact deployed product `cb18353d`, UI `09212140` and image `89375b15` remain unchanged. Completed head branches may be removed only after ancestor checks; compatibility bases, published objects and local proofs remain retained.
