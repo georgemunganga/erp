@@ -216,8 +216,16 @@ public sealed class PrincipalRfqAwardPersistenceTests
             DraftId = frozen.DraftId, Revision = frozen.Revision,
             RoundId = frozen.RoundId, UnsealingId = frozen.UnsealingId,
             SourcingEventId = frozen.SourcingEventId, BranchId = frozen.BranchId,
+            ActorPrincipalId = frozen.MakerPrincipalId, CommandKey = frozen.CommandKey,
+            RequestSha256 = frozen.RequestSha256, RecordedAt = frozen.SubmittedAt,
             SnapshotJson = frozen.SnapshotJson, SnapshotSha256 = frozen.SnapshotSha256,
         });
+        var source = db.ChangeTracker.Entries<PrincipalRfqRecommendationDraftRevision>().Single().Entity;
+        Assert.Equal(EntityState.Unchanged, db.Entry(source).State);
+        Assert.Equal(frozen.MakerPrincipalId, source.ActorPrincipalId);
+        Assert.Equal(frozen.CommandKey, source.CommandKey);
+        Assert.Equal(frozen.RequestSha256, source.RequestSha256);
+        Assert.Equal(frozen.SubmittedAt, source.RecordedAt);
     }
 
     private static void AddEffects(ProcurementDbContext db, PrincipalRfqAwardReviewSubmission review)
