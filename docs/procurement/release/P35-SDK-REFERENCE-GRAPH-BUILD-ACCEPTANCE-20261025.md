@@ -16,3 +16,11 @@
 4. Accept only an exit-zero run with complete source-before/source-after equality, current assembly inventory, test TRXs and exact pass/fail/skip counts. Keep failed attempts immutable. Publish from the accepted output graph only, then hash the entire publication; a tool-only overlay must separately prove that every product file is unchanged.
 
 Private SDK04 and SDK05 evidence is retained under `/home/amizo/erp-backups/procurement-p35-unified-source-validation-20261024_run04` and `..._run05`. The reviewed pending SDK06 preparation is `/home/amizo/erp-backups/procurement-p35-unified-source-validation-20261025_run06`. These local paths are evidence locations, not deployment targets.
+
+## Actual SDK06 closure
+
+The forced reference-graph rebuild at source `f5ed339d91b24f7c374551552ec84fa87a8dad85` passed **1,297 Host, 1,632 Domain, 69 focused Host and 15 focused Domain tests**, with no failures or skips. Its private result SHA-256 is `5075c34eca99f7a0b6eaf5c3c6b1e1b64ed3151f1aeb2403eb00d88a8aefc1d4`. This is a cache continuation from the preserved failed runs, explicitly rebuilt and inventoried; it is not described as a fresh clean build.
+
+Root froze an immutable 477-file Host product graph for later P33 tool-only compilation under `/home/amizo/erp-backups/procurement-p35-sdk06-native-publication-prep-20261025_run01`. Its complete publication manifest SHA-256 is `c9d63f0fb2de6ccc1e73c9b4c455cdfb94db6f833ac0c0c2e7e861e86c2eba64`, and provenance SHA-256 is `3fabe58955d57acf7b9a3f426a5329c88ec4b21e9d0178eface71ae5cbbeab09`. The current `Hrm.Application.dll` SHA-256 is `4de3187d918030d904cdc7cf48f2cda329fc210e126bb0385bbc07bce380ffc6`; the freeze helper checked all three P35 action keys against that assembly. This publication is a product base for a future tool overlay, not a P33 browser result or production deployment.
+
+SDK04 and SDK05 retain their original failure evidence. The P33 normal-cookie tool compile and browser acceptance remain separate pending gates.
