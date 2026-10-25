@@ -23,8 +23,8 @@ public interface ISetupService
     Task<string?> GetStepDataAsync(string stepKey, CancellationToken ct);
     Task CompleteStepAsync(string stepKey, string? dataJson, CancellationToken ct);
     Task FinishAsync(CancellationToken ct);
-    /// <summary>DESTRUCTIVE: wipes all tenant data so the system behaves like
-    /// a brand-new installation. Requires hr_admin + an explicit confirm body.</summary>
+    /// <summary>Ordinary application reset is unavailable. A controlled,
+    /// separately authorized maintenance procedure has not been implemented.</summary>
     Task ResetAsync(CancellationToken ct);
 }
 // ---------- Repository contract (infra implements) ----------
@@ -225,14 +225,9 @@ public sealed class SetupServiceImpl(
         await repo.FinishAsync(state, ct);
     }
 
-    public async Task ResetAsync(CancellationToken ct)
-    {
-        // Destructive by design: only top-level HR may trigger a wipe and they
-        // must POST an explicit confirmation body (the route handler enforces
-        // the exact string — a plain POST without confirm is rejected).
-        await repo.WipeAllDataAsync(ct);
-        await repo.SeedPendingStateAsync(ct);
-    }
+    public Task ResetAsync(CancellationToken ct) =>
+        throw new DomainException("setup-maintenance-required",
+            "Organisation reset is unavailable in the application. Contact an authorized maintenance operator.");
 
     // ================= M50 per-step writers =================
     // Each writer is idempotent where sensible (e.g. legal entity update,

@@ -184,9 +184,8 @@ public static class Routes
                 .GetRequiredService<Mightyfin.Erp.Hrm.Application.Integration.IIdentityProvisioningService>();
             return Results.Ok(await svc.ProvisionAdminsAsync(emails, ct));
         });
-        // DESTRUCTIVE — deliberate, guarded, explicit. Only hr_admin may call
-        // it and the body must contain { "confirm": "RESET" } verbatim; this
-        // keeps a stray POST from wiping an organisation by accident.
+        // Retained for client compatibility: role, scope and confirmation still
+        // gate the request, but SetupService refuses all ordinary web resets.
         g.MapPost("/reset", async (HttpContext http, ShellContext scope, Mightyfin.Erp.Hrm.Application.Setup.ISetupService svc, CancellationToken ct) =>
         {
             if (!WorkerPrincipal.FromClaims(http.User.Claims).IsRole("hr_admin"))
@@ -198,7 +197,7 @@ public static class Routes
                 || body.TryGetProperty("confirm", out var confirm)
                     is false || confirm.GetString() != "RESET")
                 throw new DomainException("reset-not-confirmed",
-                    "Reset the organisation only if you understand that ALL data will be permanently erased. Send {\"confirm\": \"RESET\"} to proceed.");
+                    "Reset is unavailable in this application. The confirmation value is RESET.");
             await svc.ResetAsync(ct);
             return Results.Ok(new { reset = true });
         });
