@@ -82,9 +82,20 @@ internal static class ProcurementCsvPrivateInitializer
             { email = x.Value.Email, password = x.Value.Password }));
         var credentialSha = Hash(await File.ReadAllBytesAsync(credentialsPath));
         await using var positive = new PrincipalApprovalHost(fixture, owner, roles.Record,
-            roles.Record, actualSchema: true, normalLocalAuthentication: true, csvExportOnly: true);
+            roles.Record, actualSchema: true, normalLocalAuthentication: true, csvExportOnly: true,
+            csvCoreConnection: roles.Core);
         await using var denied = new PrincipalApprovalHost(fixture, owner, roles.NoAudit,
-            roles.NoAudit, actualSchema: true, normalLocalAuthentication: true, csvExportOnly: true);
+            roles.NoAudit, actualSchema: true, normalLocalAuthentication: true, csvExportOnly: true,
+            csvCoreConnection: roles.Core);
+        foreach (var (host, record) in new[] { (positive, roles.Record), (denied, roles.NoAudit) })
+        {
+            var settings = host.Settings();
+            Need(settings["ConnectionStrings:Hrm"] == roles.Core
+                && settings["ConnectionStrings:Procurement"] == record
+                && settings["ConnectionStrings:ProcurementApprovalExecution"] == record
+                && settings["ConnectionStrings:Hrm"] != owner,
+                "Private CSV host must use finite Core and Record connections only.");
+        }
         positive.PrepareEntryPointEnvironment();
         positive.UseKestrel(options => options.Listen(IPAddress.Loopback, 0));
         positive.StartServer();
@@ -105,6 +116,7 @@ internal static class ProcurementCsvPrivateInitializer
             databaseName = Database, privatePgSystemIdentifier = SystemId,
             positiveApiUrl = positiveUrl, auditDeniedApiUrl = deniedUrl,
             finiteRecordRole = roles.RecordRole, finiteAuditDeniedRole = roles.NoAuditRole,
+            finiteCoreRole = roles.CoreRole,
             credentialsFile = new { path = credentialsPath, sha256 = credentialSha },
             companyAId = fixture.Company, companyBId = companyB,
             branchAId = fixture.Branch, branchBId = branchB, deniedBranchId = deniedBranch,
@@ -145,6 +157,10 @@ internal static class ProcurementCsvPrivateInitializer
             new WorkLocation { Id = branchB, Code = "BE01_A_B", Name = "Private B", LegalEntityId = fixture.Company },
             new WorkLocation { Id = deniedBranch, Code = "BE01_A_DENY", Name = "Private denied", LegalEntityId = fixture.Company },
             new WorkLocation { Id = companyBBranch, Code = "BE01_B_HQ", Name = "Private foreign HQ", Type = "headquarters", LegalEntityId = companyB });
+        // Public login branding is owned and sealed before finite Core runtime
+        // starts; a GET must not need an implicit INSERT on this table.
+        core.CompanyBrandings.Add(new CompanyBranding
+            { DisplayName = "Private BE01", CompanyName = "Private BE01 company" });
         var definitions = new (string Name, Guid Id, string Role, string Actions)[]
         {
             ("reader", fixture.Maker, "be01_reader", "procurement-access,procurement-vendor-read,procurement-vendor-export"),
@@ -267,13 +283,16 @@ internal static class ProcurementCsvPrivateInitializer
             .UseNpgsql(owner, n => n.MigrationsHistoryTable("__procurement_migrations", "procurement")).Options,
             scope);
 
-    private static async Task<(string Record, string NoAudit, string RecordRole, string NoAuditRole)> CreateFiniteRolesAsync(string owner)
+    private static async Task<(string Record, string NoAudit, string Core,
+        string RecordRole, string NoAuditRole, string CoreRole)> CreateFiniteRolesAsync(string owner)
     {
         var random = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8));
         var record = "be01_csv_record_" + random;
         var noAudit = "be01_csv_noaudit_" + random;
+        var core = "be01_csv_core_" + random;
         var recordPassword = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var noAuditPassword = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        var corePassword = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         await using var connection = new NpgsqlConnection(owner);
         await connection.OpenAsync();
         async Task Sql(string value)
@@ -282,7 +301,8 @@ internal static class ProcurementCsvPrivateInitializer
             await command.ExecuteNonQueryAsync();
         }
         await Sql("SET log_statement=none; SET log_min_error_statement=panic; SET log_duration=off; SET log_min_duration_statement=-1");
-        foreach (var (name, password) in new[] { (record, recordPassword), (noAudit, noAuditPassword) })
+        foreach (var (name, password) in new[] { (record, recordPassword), (noAudit, noAuditPassword),
+            (core, corePassword) })
         {
             await using (var exists = new NpgsqlCommand("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=@name)", connection))
             {
@@ -291,10 +311,20 @@ internal static class ProcurementCsvPrivateInitializer
             }
             await Sql("CREATE ROLE " + Quote(name) + " LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '" + password + "'");
             await Sql("GRANT CONNECT ON DATABASE " + Quote(Database) + " TO " + Quote(name));
+            if (name == core) continue;
             await Sql("GRANT USAGE ON SCHEMA procurement TO " + Quote(name));
             await Sql("GRANT SELECT ON procurement.suppliers,procurement.catalog_items,procurement.audit_events,procurement.__procurement_migrations TO " + Quote(name));
         }
         await Sql("GRANT INSERT ON procurement.audit_events TO " + Quote(record));
+        await Sql("GRANT USAGE ON SCHEMA hrm TO " + Quote(core));
+        await Sql("GRANT SELECT ON hrm.__hrm_migrations,hrm.local_users,hrm.local_sessions,"
+            + "hrm.tenant_role_assignments,hrm.user_branch_assignments,hrm.legal_entities,"
+            + "hrm.work_locations,hrm.org_units,hrm.workers,hrm.company_brandings,"
+            + "hrm.audit_entries TO " + Quote(core));
+        await Sql("GRANT UPDATE (failed_login_count,locked_until,last_login_at)"
+            + " ON hrm.local_users TO " + Quote(core));
+        await Sql("GRANT INSERT ON hrm.local_sessions,hrm.audit_entries TO " + Quote(core));
+        await Sql("GRANT UPDATE (last_seen_at,revoked_at) ON hrm.local_sessions TO " + Quote(core));
         await using (var privileges = new NpgsqlCommand(
             "SELECT has_table_privilege(@record,'procurement.audit_events','INSERT')"
             + " AND NOT has_table_privilege(@denied,'procurement.audit_events','INSERT')"
@@ -308,9 +338,23 @@ internal static class ProcurementCsvPrivateInitializer
             Need(await privileges.ExecuteScalarAsync() is true,
                 "BE-01 finite Record and audit-denied privilege split failed.");
         }
+        await using (var corePrivileges = new NpgsqlCommand(
+            "SELECT has_table_privilege(@core,'hrm.local_users','SELECT')"
+            + " AND has_column_privilege(@core,'hrm.local_users','last_login_at','UPDATE')"
+            + " AND has_table_privilege(@core,'hrm.local_sessions','INSERT')"
+            + " AND has_table_privilege(@core,'hrm.audit_entries','INSERT')"
+            + " AND NOT has_table_privilege(@core,'hrm.local_users','INSERT')"
+            + " AND NOT has_table_privilege(@core,'hrm.tenant_role_assignments','UPDATE')"
+            + " AND NOT has_table_privilege(@core,'procurement.audit_events','INSERT')", connection))
+        {
+            corePrivileges.Parameters.AddWithValue("core", core);
+            Need(await corePrivileges.ExecuteScalarAsync() is true,
+                "BE-01 finite Core login/session rights changed.");
+        }
         return (PrincipalApprovalRuntimePrivileges.RuntimeConnection(owner, record, recordPassword, false),
             PrincipalApprovalRuntimePrivileges.RuntimeConnection(owner, noAudit, noAuditPassword, false),
-            record, noAudit);
+            PrincipalApprovalRuntimePrivileges.RuntimeConnection(owner, core, corePassword, false),
+            record, noAudit, core);
     }
 
     private static string OnlyLoopbackUrl(PrincipalApprovalHost host)
