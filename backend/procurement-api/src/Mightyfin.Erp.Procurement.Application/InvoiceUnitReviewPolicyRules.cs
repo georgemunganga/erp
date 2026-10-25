@@ -141,13 +141,15 @@ public static class InvoiceUnitReviewPolicyRules
     /// <summary>Compare the freshly resolved owned policy projection with actual Core execution.
     /// This validates its shape; Core engine and retained verifier own decision/final-state semantics.</summary>
     public static void VerifyCaseGraph(Projection projection, ApprovalCase workflow,
-        IReadOnlyList<InvoiceUnitReviewAssignmentWorker> workers)
+        IReadOnlyList<InvoiceUnitReviewAssignmentWorker> workers,
+        string sourceType = InvoiceRetainedUnitReview.ReviewSourceType)
     {
-        Need(projection is not null && workflow is not null && workers is not null
+        Need(sourceType is InvoiceRetainedUnitReview.ReviewSourceType or PrincipalInvoiceUnitReviewTransitions.SourceType
+            && projection is not null && workflow is not null && workers is not null
             && workflow.TenantId == projection.TenantId && workflow.LegalEntityId == projection.LegalEntityId
             && workflow.PolicyVersionId == projection.PolicyId && workflow.PolicyVersionNumber == projection.PolicyVersion
             && workflow.MakerSubjectId == projection.MakerPrincipalId && workflow.SourceModule == "procurement"
-            && workflow.SourceType == InvoiceRetainedUnitReview.ReviewSourceType && workflow.Stages is not null
+            && workflow.SourceType == sourceType && workflow.Stages is not null
             && workflow.Stages.Count == projection.Stages.Count);
         var assignments = workflow.Stages.SelectMany(x => x.Assignments).ToArray();
         Need(assignments.Select(x => x.Id).Distinct().Count() == assignments.Length

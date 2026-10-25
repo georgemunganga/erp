@@ -12,6 +12,28 @@ using Npgsql;
 
 internal static partial class PrincipalApprovalHttpVerification
 {
+    internal static string P31DocumentDirectory()
+    {
+        var path=Environment.GetEnvironmentVariable("P31_HTTP_DOCUMENT_DIRECTORY")??string.Empty;
+        var receipt=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??string.Empty;
+        var parent=Path.GetDirectoryName(receipt)??string.Empty;
+        Need(Path.IsPathFullyQualified(path) && Directory.Exists(path)
+            && Path.IsPathFullyQualified(parent)
+            && Path.GetFullPath(path).StartsWith(Path.GetFullPath(parent)+Path.DirectorySeparatorChar,StringComparison.Ordinal)
+            && (File.GetAttributes(path)&FileAttributes.ReparsePoint)==0
+            && (File.GetUnixFileMode(path)&(UnixFileMode.GroupRead|UnixFileMode.GroupWrite|UnixFileMode.GroupExecute
+                |UnixFileMode.OtherRead|UnixFileMode.OtherWrite|UnixFileMode.OtherExecute))==0,
+            "P31 requires an existing owner-private Core document directory.");
+        return path;
+    }
+    internal static string P31ScannerSocket()
+    {
+        var path=Environment.GetEnvironmentVariable("P31_HTTP_SCANNER_SOCKET")??string.Empty;
+        Need(Path.IsPathFullyQualified(path) && File.Exists(path)
+            && (File.GetAttributes(path)&FileAttributes.ReparsePoint)==0,
+            "P31 requires an explicit available private scanner socket.");
+        return path;
+    }
     internal delegate Task<JsonElement> PrincipalSend(HttpClient client,HttpMethod method,string path,Guid actor,
         object? body=null,HttpStatusCode expected=HttpStatusCode.OK,Guid? commandKey=null);
     internal static void Need(bool condition,string controlledMessage) {if(!condition)throw new PrivatePrincipalProbeFailure(controlledMessage);}
@@ -19,8 +41,11 @@ internal static partial class PrincipalApprovalHttpVerification
     {
         var po=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
         var publication=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
+        var invoice=Environment.GetEnvironmentVariable("P31_HTTP_VERIFY_PRINCIPAL_INVOICE");
         return po=="1" && publication is null
-                && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$")
+                && (invoice=="1"
+                    ? System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p31_http_[a-z0-9_]{1,40}$")
+                    : System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$"))
             || publication=="1" && po is null
                 && Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ")=="1"
                 && Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE") is null
@@ -35,6 +60,7 @@ internal static partial class PrincipalApprovalHttpVerification
         Need(connection.Host=="/authority-identity-private-socket"
             && (System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p25_http_[a-z0-9_]{1,48}$")
                 || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_po_[a-z0-9_]{1,40}$")
+                || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p31_http_[a-z0-9_]{1,40}$")
                 || System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p30_http_rfq_[a-z0-9_]{1,40}$"))
             && !connection.Multiplexing,"Only bounded fresh private socket database supported.");
         var resultPath=Environment.GetEnvironmentVariable("P25_HTTP_RESULT")??throw new InvalidOperationException("New protected result required.");
@@ -58,9 +84,22 @@ internal static partial class PrincipalApprovalHttpVerification
         var principalRfqFlag=Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ");
         var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
         var receivingFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_RECEIVING");
+        var invoiceFlag=Environment.GetEnvironmentVariable("P31_HTTP_VERIFY_PRINCIPAL_INVOICE");
         var retainedPoCancelFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RETAINED_HISTORY_CANCEL");
         Need(receivingFlag is null or "1","P30 receiving opt-in must be exactly1 or absent.");
         Need(receivingFlag is null||principalPoFlag=="1","Receiving proof requires its fresh genuine principal PO profile.");
+        Need(invoiceFlag is null or "1","P31 invoice opt-in must be exactly1 or absent.");
+        Need(invoiceFlag is null || principalPoFlag=="1" && receivingFlag=="1"
+            && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p31_http_[a-z0-9_]{1,40}$")
+            && retainedPoCancelFlag is null
+            && Environment.GetEnvironmentVariable("P29_HTTP_VERIFY_PRINCIPAL_RFQ") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RECEIVING_NORMAL_COOKIE") is null,
+            "P31 needs its own fresh PO and receiving source cohort, without other optional proofs.");
+        Need(!database.StartsWith("proc_p31_http_",StringComparison.Ordinal) || invoiceFlag=="1",
+            "P31 private database requires its explicit invoice proof profile.");
+        if(invoiceFlag=="1") { _=P31DocumentDirectory();_=P31ScannerSocket(); }
         var publicationFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION");
         var p29CookieFlag=Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE");
         var p30PoCookieFlag=Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE");
@@ -86,7 +125,9 @@ internal static partial class PrincipalApprovalHttpVerification
             "P30 RFQ browser requires its separate fresh publication cohort.");
         Need(!database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal) || principalPoFlag=="1",
             "P30 private database is exclusive to its explicit PO profile.");
-        Need(principalPoFlag is null || database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+        Need(principalPoFlag is null || (database.StartsWith("proc_p30_http_po_",StringComparison.Ordinal)
+                && invoiceFlag is null || database.StartsWith("proc_p31_http_",StringComparison.Ordinal)
+                && invoiceFlag=="1")
             && principalRfqFlag is null && publicationFlag is null && matrixFlag is null && schemaFlag is null && accountFlag is null
             && aliasFlag is null && localCookieFlag is null && downFamily is null && exactBudgetFlag is null
             && legacyWorkerFlag is null && p29CookieFlag is null
@@ -157,7 +198,7 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P25_HTTP_VERIFY_RAW_GRAPH") is null,
             "Normal local-cookie serve requires the original genuine base graph without other optional cohorts.");
         result["browserBuyerFixtureProfile"]=localCookieFlag=="1"?"PRIVATE_CONFIG_MAKER_POLICY_EVALUATION":"DISABLED";
-        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1",principalPoFlag=="1",receivingFlag=="1");var stage="Bootstrap";var requests=0;
+        var fixture=new PrincipalApprovalFixture(owner,localCookieFlag=="1",legacyWorkerFlag=="1",principalRfqFlag=="1",principalPoFlag=="1",receivingFlag=="1",invoiceFlag=="1");var stage="Bootstrap";var requests=0;
         using var readinessTiming=new PrincipalApprovalProbeTiming();
         var httpTiming=new List<object>();
         var httpTimingDiscarded=0;
@@ -282,6 +323,7 @@ internal static partial class PrincipalApprovalHttpVerification
                 {
                     var issued=await VerifyPrincipalOrderAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
                     if(receivingFlag=="1")await VerifyPrincipalReceivingAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
+                    if(invoiceFlag=="1")await VerifyPrincipalInvoiceAsync(fixture,owner,roles,result,Advance,Send,issued);
                     if(p30ReceivingCookieFlag=="1")
                     {
                         Advance("P30ReceivingGenuineUnconsumedBrowserGoodsSource");

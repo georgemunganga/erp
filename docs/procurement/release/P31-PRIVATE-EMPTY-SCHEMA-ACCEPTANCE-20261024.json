@@ -1,0 +1,53 @@
+{
+  "applicationSource": "8de60b4697789faac3f3959692fa70d1e331a881",
+  "date": "2026-10-24",
+  "independentReview": "Retained capture equality and exact old-table parent-key definitions independently checked without DB calls. Root executed the private owning migration rehearsal.",
+  "migrationIds": [
+    "20261024014732_P31PrincipalInvoiceMatching",
+    "20261024055739_P31PrincipalInvoiceConstraintNames"
+  ],
+  "observations": {
+    "allNewFamiliesEmpty": true,
+    "baselineP30Tables": 218,
+    "canonicalTemplatePreserved": true,
+    "emptyDownRestoredCompleteCatalogRowsAclAndHistory": true,
+    "exactParentUniqueKeys": 3,
+    "newFamilies": 13,
+    "repeatUpExactlyEqualsFirstUp": true,
+    "upP31Tables": 231,
+    "validatedChecks": 13,
+    "validatedForeignKeys": 41
+  },
+  "privateCaptureSha256": {
+    "p30-before-p31.private.json": "ab422daca2144454a69d58c2f0b4e02d292ca66f62c94fbe01dd901a67babc85",
+    "p31-down-empty.private.json": "ab422daca2144454a69d58c2f0b4e02d292ca66f62c94fbe01dd901a67babc85",
+    "p31-up-first.private.json": "6fefa3fa88426741dee9a8915b25d630e1fd3b4b9f09d6e6302a50e823ccfdf9",
+    "p31-up-repeat.private.json": "6fefa3fa88426741dee9a8915b25d630e1fd3b4b9f09d6e6302a50e823ccfdf9"
+  },
+  "privateResultSha256": "eab9e23d94d078e600ac4a6d0a9d8300b22e3b1aa8090cd56adbe561bb77740c",
+  "remaining": [
+    "13 genuine populated-family Down-veto and unchanged-footprint proofs",
+    "Actual PG readiness capture and finite-role admission",
+    "Genuine mapped invoice review/comparison/discrepancy/document workflow",
+    "Existing full imported UI and normal-cookie acceptance"
+  ],
+  "scope": {
+    "finiteRuntimeRoleProven": false,
+    "httpWorkflowProven": false,
+    "normalCookieUiProven": false,
+    "populatedDownVetoProven": false,
+    "productionRestoreProven": false,
+    "productionTouched": false,
+    "scannerIntegrationProven": false
+  },
+  "sqlSha256": {
+    "down": "40956fcd5e95632dbec4d816c72daf300c4b6fea7ec2b3a96b0e8de2f58f7fd0",
+    "up": "29a00c259e0e203689acb3918491075922675f0eb16a979fc37e3feea8d7674e"
+  },
+  "status": "ACCEPTED_PRIVATE_EMPTY_OWNER_SCHEMA_ROUNDTRIP_ONLY",
+  "validation06": {
+    "domainTestsPassed": 1489,
+    "focusedInvoiceHostTestsPassed": 14,
+    "modelDrift": false
+  }
+}

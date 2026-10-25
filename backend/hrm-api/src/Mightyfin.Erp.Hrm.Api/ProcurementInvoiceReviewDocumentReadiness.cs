@@ -17,7 +17,7 @@ internal static class ProcurementInvoiceReviewDocumentReadiness
         ["ck_doc_use_set_shape"] = "CHECK (((\"SourceRevision\" > 0) AND (\"Kind\" = ANY (ARRAY[1, 2])) AND ((\"SelectionCount\" >= 1) AND (\"SelectionCount\" <= 100)) AND ((\"SelectionDigest\")::text ~ '^[0-9a-f]{64}$'::text)))",
     };
     internal static async Task<bool> ReadyAsync(ProcurementDbContext transaction, ProcurementRequestScope scope,
-        bool write, bool retire, CancellationToken ct)
+        bool write, bool retire, CancellationToken ct, bool download = false)
     {
         if (!transaction.Database.IsNpgsql() || transaction.Database.CurrentTransaction is null) return false;
         try
@@ -56,6 +56,9 @@ internal static class ProcurementInvoiceReviewDocumentReadiness
                     if (!await True($"SELECT has_table_privilege(current_user,{Literal(relation)},'INSERT')")) return false;
             }
             if (!await True("SELECT NOT has_schema_privilege(current_user,'core_document','CREATE') AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname='core_document' AND (pg_has_role(current_user,n.nspowner,'MEMBER') OR pg_has_role(current_user,n.nspowner,'SET')))")) return false;
+            // A purpose-scoped download appends DownloadAuthorized to the Core
+            // document event log. Ordinary read routes do not need this grant.
+            if (download && !await True("SELECT has_table_privilege(current_user,'core_document.record_events','INSERT')")) return false;
             if (retire)
             {
                 var entity = documents.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(Mightyfin.Erp.Core.Documents.Domain.CoreDocument))!;

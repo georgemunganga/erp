@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -87,7 +88,14 @@ public sealed partial class PrincipalReceivingPersistenceModelTests
             var entity=model.FindEntityType(type)!;Assert.Equal(ValueGenerated.Never,entity.FindProperty("Id")!.ValueGenerated);
             Assert.All(entity.GetKeys(),key=>Assert.True(key.GetName()!.Length<=63));
             Assert.All(entity.GetForeignKeys(),fk=>Assert.True(fk.GetConstraintName()!.Length<=63));
-            Assert.All(entity.GetKeys().SelectMany(key=>key.Properties),p=>Assert.DoesNotContain(p.Name,new[]{"Version","Sequence","Revision","State","SnapshotSha256","AcceptedQuantity","AcceptedNetAmount"}));
+            foreach(var key in entity.GetKeys())
+            {
+                var factSequenceKey=type==typeof(PrincipalReceivingFact) && key.GetName()=="ak_pi_receiving_fact"
+                    && key.Properties.Select(p=>p.Name).SequenceEqual(new[]{"TenantId","LegalEntityId","Id","SourceStateId","Sequence"});
+                Assert.All(key.Properties,p=>Assert.DoesNotContain(p.Name,
+                    factSequenceKey?new[]{"Version","Revision","State","SnapshotSha256","AcceptedQuantity","AcceptedNetAmount"}
+                        :new[]{"Version","Sequence","Revision","State","SnapshotSha256","AcceptedQuantity","AcceptedNetAmount"}));
+            }
         }
         Assert.Equal(38,model.FindEntityType(typeof(PrincipalReceivingFact))!.FindProperty("NetAmount")!.GetPrecision());
         Assert.Equal(8,model.FindEntityType(typeof(PrincipalReceivingFact))!.FindProperty("NetAmount")!.GetScale());
@@ -105,6 +113,69 @@ public sealed partial class PrincipalReceivingPersistenceModelTests
 
 public sealed partial class PrincipalControlledReceivingTests
 {
+    private sealed class ReceivingFactSeedContext(DbContextOptions<ReceivingFactSeedContext> options):DbContext(options) { }
+
+    [Fact]
+    public async Task Saved_receiving_fact_rejects_payload_and_sequence_changes_without_changing_stored_evidence()
+    {
+        var source=Source(ReceivingKind.Service);var policy=Policy(source);var ledger=Empty(source,policy);
+        var accepted=PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),Guid.NewGuid(),Guid.NewGuid(),0,
+            0.0001m,"Persisted service acceptance",new(2026,10,22),new(2026,10,22),"REC:persisted",At);
+        var payload=PrincipalReceivingStorageCodec.Encode(accepted);
+        var fact=new PrincipalReceivingFact{Id=accepted.Id,TenantId=source.Commercial.TenantId,LegalEntityId=source.Commercial.LegalEntityId,
+            CreatedBy=accepted.Actor.PrincipalId,CreatedAt=At,
+            SourceStateId=Guid.NewGuid(),DraftLineBindingId=Guid.NewGuid(),DraftId=accepted.AcceptanceRecordId,BranchId=source.Commercial.BranchId!.Value,
+            Kind="Acceptance",Operation="Certify",Sequence=1,CommandKey=accepted.CommandKey,ActorPrincipalId=accepted.Actor.PrincipalId,
+            PolicyVersionId=policy.Id,Quantity=accepted.Quantity,NetAmount=accepted.NetAmount,PayloadJson=payload,
+            PayloadSha256=ProcurementEvidenceEncoding.Digest(payload)};
+        var databaseName=Guid.NewGuid().ToString();var databaseRoot=new InMemoryDatabaseRoot();
+        var scope=new ReceivingStoreScope(fact.TenantId,fact.LegalEntityId,Inspector);
+        DbContextOptions<ProcurementDbContext> Options()=>new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(databaseName,databaseRoot).Options;
+        await using(var modelContext=new ProcurementDbContext(Options(),scope))
+        {
+            // Insert a retained typed fact through a seed-only context sharing the
+            // production model, then exercise the actual Procurement save guard.
+            // This context intentionally bypasses the production metadata stamper;
+            // seed the required original creator/time explicitly.
+            var seedOptions=new DbContextOptionsBuilder<ReceivingFactSeedContext>()
+                .UseInMemoryDatabase(databaseName,databaseRoot).UseModel(modelContext.Model).Options;
+            await using var seed=new ReceivingFactSeedContext(seedOptions);
+            seed.Set<PrincipalReceivingFact>().Add(fact);
+            await seed.SaveChangesAsync();
+        }
+        await using(var db=new ProcurementDbContext(Options(),scope))
+        {
+            var saved=await db.PrincipalReceivingFacts.SingleAsync(x=>x.Id==fact.Id);
+            db.Entry(saved).Property(nameof(PrincipalReceivingFact.Quantity)).CurrentValue=0.0002m;
+            var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
+            Assert.Equal("PrincipalReceivingEvidenceAppendOnly",error.Message);
+        }
+        await using(var db=new ProcurementDbContext(Options(),scope))
+        {
+            var saved=await db.PrincipalReceivingFacts.SingleAsync(x=>x.Id==fact.Id);
+            db.Entry(saved).Property(nameof(PrincipalReceivingFact.PayloadJson)).CurrentValue="{}";
+            var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
+            Assert.Equal("PrincipalReceivingEvidenceAppendOnly",error.Message);
+        }
+        await using(var db=new ProcurementDbContext(Options(),scope))
+        {
+            var saved=await db.PrincipalReceivingFacts.SingleAsync(x=>x.Id==fact.Id);
+            await Assert.ThrowsAnyAsync<InvalidOperationException>(async()=>
+            {
+                db.Entry(saved).Property(nameof(PrincipalReceivingFact.Sequence)).CurrentValue=2L;
+                await db.SaveChangesAsync();
+            });
+        }
+        await using(var db=new ProcurementDbContext(Options(),scope))
+        {
+            var retained=await db.PrincipalReceivingFacts.SingleAsync(x=>x.Id==fact.Id);
+            Assert.Equal(1,retained.Sequence);Assert.Equal(0.0001m,retained.Quantity);
+            Assert.Equal(payload,retained.PayloadJson);Assert.Equal(fact.PayloadSha256,retained.PayloadSha256);
+            Assert.Equal(accepted.Actor.PrincipalId,retained.CreatedBy);Assert.Equal(At,retained.CreatedAt);
+        }
+    }
+
     [Fact]
     public void Goods_acceptance_binds_its_receipt_head_while_retaining_the_original_line_target()
     {
