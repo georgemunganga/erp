@@ -6,7 +6,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 // Definitions MUST come from actual PostgreSQL capture; empty is unavailable.
 internal static class ProcurementPrincipalGoodsReturnSchemaCapture
 {
-    internal const string MigrationId = "20261025013416_P37PrincipalGoodsReturnDrafts";
+    internal const string MigrationId = "20261025020252_P37PrincipalGoodsReturnDrafts";
     internal static readonly Type[] Types = [typeof(PrincipalGoodsReturnDraft),
         typeof(PrincipalGoodsReturnRevision),typeof(PrincipalGoodsReturnCommandReceipt)];
     internal static readonly string[] Tables = ["procurement.principal_goods_return_drafts",
