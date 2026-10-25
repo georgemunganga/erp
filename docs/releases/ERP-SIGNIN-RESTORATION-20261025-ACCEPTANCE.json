@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-25",
+  "scope": "ERP shared sign-in restoration; isolated frontend release",
+  "releaseCommit": "0e53bd15595dda44e52299f8a7d3dcfd668d74f0",
+  "liveUrl": "https://erp.amizopower.co.zm/sign-in",
+  "build": "Vite production build04 passed",
+  "independentSourceReview": "Completed; redirect, domain, Core-vs-HRM and custom-role entry findings resolved",
+  "publicBrowserTests": {
+    "passed": 5,
+    "failed": 0,
+    "cases": [
+      "Company/Gmail/Outlook/Yahoo/custom domain selection and exact composed email",
+      "Mobile layout and selected-domain reset composition",
+      "Control-separated external return denied; ERP module selection and Core administrator entry",
+      "Custom-role Procurement launch and Core permission denial",
+      "Blank company domain preserves selector"
+    ],
+    "limitations": "Credential/reset responses are intercepted. These UI checks do not prove a real account login or email delivery; real public capabilities/branding GETs used."
+  },
+  "smoke": {
+    "signIn": 200,
+    "hrm": 200,
+    "procurementWorkspace": 200,
+    "apiLoginModeUnchanged": "local"
+  },
+  "privateEvidenceSha256": "9719bd49d9dc8fd0b12235636727b4f2813de6d997f09f65f76f9c24b81d4b29",
+  "originalDirtyWorkspaceUnchanged": true,
+  "backendSchemaAndRolesChanged": false,
+  "procurementStaticDeploymentChanged": false,
+  "rollback": "Previous root executable retained; remove only the 30-signin-release.conf service drop-in, daemon-reload and restart root frontend."
+}

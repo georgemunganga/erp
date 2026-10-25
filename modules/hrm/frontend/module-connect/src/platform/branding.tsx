@@ -96,7 +96,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       Inter: '"Inter", ui-sans-serif, system-ui, sans-serif',
     };
     root.style.setProperty("--erp-font-family", fonts[branding.fontFamily] ?? fonts.Montserrat);
-    document.title = `${branding.displayName} — ${pathname.startsWith("/core") ? "ERP Core" : "HR workspace"}`;
+    document.title = `${branding.displayName} — ${pathname.startsWith("/core") ? "ERP Core" : pathname === "/" || pathname === "/sign-in" ? "ERP workspace" : "HR workspace"}`;
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (icon) icon.href = branding.faviconDataUri || "/favicon.svg";
   }, [branding, pathname]);

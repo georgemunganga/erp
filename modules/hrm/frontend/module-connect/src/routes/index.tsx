@@ -4,7 +4,7 @@ import { modules } from "@/platform/modules";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { Button } from "@/components/ui/button";
-import { canAccessProcurement, hasHrmStaffRole, useAuth } from "@/platform/auth";
+import { hasHrmStaffRole, useAuth } from "@/platform/auth";
 import { canManageCore } from "@/platform/entry-route";
 import { SignIn } from "./sign-in";
 
@@ -48,7 +48,7 @@ function Entrance() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>
-            m.available && (m.id === "core" ? administrator : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? canAccessProcurement(roles) : true) ? (
+            m.available && (m.id === "core" ? administrator : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? authenticated || !real : true) ? (
               <a
                 key={m.id}
                 href={m.to}

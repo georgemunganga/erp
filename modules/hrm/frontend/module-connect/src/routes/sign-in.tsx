@@ -50,7 +50,7 @@ const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "
  *    drives the interactive redirect flow.
  *
  * Organisation credentials stay in the IdP. The secondary local-account form
- * is only for users HR explicitly created inside this HRMS because no shared
+ * is only for users created in the shared identity service because no shared
  * directory identity exists yet. The demo branch keeps the mock explorer.
  */
 export function SignIn() {
@@ -82,7 +82,7 @@ export function SignIn() {
   const returnTo = typeof window === "undefined"
     ? "/"
     : safeEntryPath(new URLSearchParams(window.location.search).get("returnTo"));
-  const selectedEmailDomain = emailDomain ?? branding?.companyDomain ?? "custom";
+  const selectedEmailDomain = emailDomain || branding?.companyDomain?.trim() || "custom";
   const emailDomainChoices = [branding?.companyDomain, "gmail.com", "outlook.com", "yahoo.com"]
     .filter((value): value is string => Boolean(value));
 
@@ -92,6 +92,9 @@ export function SignIn() {
   };
 
   const chooseEmailDomain = (domain: string) => {
+    // Radix form synchronization can emit an empty value while branding loads.
+    // It is not a user selection and must not hide the domain picker.
+    if (!domain) return;
     setEmailDomain(domain);
     if (domain === "custom") {
       setEmail((current) => current && !current.includes("@") ? `${current}@` : current);
@@ -225,9 +228,9 @@ export function SignIn() {
             <BrandIdentity onDark logoClassName="max-h-20 max-w-36 object-contain" nameClassName="text-xl font-semibold" />
           </div>
           <div className="max-w-md">
-            <h1 className="text-2xl font-semibold">Human resources</h1>
+            <h1 className="text-2xl font-semibold">ERP workspace</h1>
             <p className="mt-3 text-sm text-rail-muted">
-              One place for your profile, leave, attendance, pay and requests.
+              One sign-in for your assigned workspaces.
             </p>
           </div>
           <p className="text-xs text-rail-muted">Demonstration build — no real accounts.</p>
@@ -293,12 +296,12 @@ export function SignIn() {
             <>
               <h2 className="mt-6 text-xl font-semibold lg:mt-0">Set your account password</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Complete your local HRMS account setup. This one-time link expires after 24 hours.
+                Complete your ERP account setup. This one-time link expires after 24 hours.
               </p>
               {setupComplete ? (
                 <div className="mt-6 space-y-4">
                   <p className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary" role="status">
-                    Your password is ready. You can now sign in with your HRMS local account.
+                    Your password is ready. You can now sign in with your ERP account.
                   </p>
                   <Button className="w-full" onClick={() => window.location.assign("/sign-in")}>Continue to sign in</Button>
                 </div>
@@ -393,7 +396,7 @@ export function SignIn() {
             {localError ? <p className="text-sm text-destructive" role="alert">{localError}</p> : null}
 
             <Button type="submit" variant={organisationLogin ? "outline" : "default"} className="w-full" disabled={localBusy}>
-              {localBusy ? "Signing in…" : "Sign in with local account"}
+              {localBusy ? "Signing in…" : "Sign in"}
             </Button>
 
             {organisationLogin ? <div className="rounded-lg border border-warning/40 bg-warning-soft p-3">
