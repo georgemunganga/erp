@@ -52,7 +52,11 @@ public sealed class ProcurementRfqRecommendationReadinessTests
         var writer=ProcurementRfqRecommendationStoreReadiness.PrivilegeSql(owned,true);
         Assert.Contains("'procurement.principal_rfq_recommendation_drafts','SELECT'",reader);
         Assert.DoesNotContain("has_table_privilege(current_user,'procurement.principal_rfq_recommendation_drafts','INSERT')",reader);
-        Assert.Contains("'procurement.principal_rfq_recommendation_drafts','UPDATE'",writer);
+        foreach(var column in ProcurementRfqRecommendationStoreReadiness.HeadMutableColumns)
+            Assert.Contains("has_column_privilege(current_user,'procurement.principal_rfq_recommendation_drafts','"
+                +column+"','UPDATE')",writer);
+        Assert.DoesNotContain("has_table_privilege(current_user,'procurement.principal_rfq_recommendation_drafts','UPDATE')",writer);
+        Assert.Contains("NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid='procurement.principal_rfq_recommendation_drafts'::regclass",writer);
         Assert.Contains("'procurement.principal_rfq_recommendation_receipts','INSERT'",writer);
         Assert.Contains("NOT has_any_column_privilege(current_user,'procurement.principal_rfq_recommendation_revisions','UPDATE')",writer);
         Assert.Contains("NOT has_table_privilege(current_user,'procurement.principal_rfq_recommendation_lines','DELETE,TRUNCATE')",writer);
@@ -60,5 +64,17 @@ public sealed class ProcurementRfqRecommendationReadinessTests
         Assert.DoesNotContain("has_table_privilege(current_user,'core_approval.cases','INSERT')",writer);
         Assert.Throws<ArgumentException>(()=>ProcurementRfqRecommendationStoreReadiness.PrivilegeSql(
             ["procurement.principal_rfq_recommendation_drafts"],true));
+    }
+
+    [Fact]
+    public void Head_update_matrix_denies_missing_mutable_and_added_immutable_columns()
+    {
+        var allowed=ProcurementRfqRecommendationStoreReadiness.HeadMutableColumns;
+        Assert.Equal(6,allowed.Length);
+        Assert.True(ProcurementRfqRecommendationStoreReadiness.MatchesHeadUpdateColumns(allowed));
+        Assert.False(ProcurementRfqRecommendationStoreReadiness.MatchesHeadUpdateColumns(
+            allowed.Where(x=>x!="updated_by")));
+        Assert.False(ProcurementRfqRecommendationStoreReadiness.MatchesHeadUpdateColumns(
+            allowed.Append("source_envelope_sha256")));
     }
 }

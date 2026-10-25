@@ -18,6 +18,16 @@ public sealed class ProcurementRfqRecommendationStoreReadiness(
     IServiceProvider services,IProcurementRfqCommercialReadiness commercial)
     : IProcurementRfqRecommendationDraftReadiness
 {
+    // GuardPrincipalRfqRecommendationDraftHead permits exactly these cursor
+    // and ordinary record-audit columns to change. Use physical column ACLs;
+    // table-wide UPDATE would also admit immutable source and actor fields.
+    internal static readonly string[] HeadMutableColumns =
+        ["current_revision","current_revision_id","current_snapshot_sha256",
+         "updated_at","updated_by","version"];
+
+    internal static bool MatchesHeadUpdateColumns(IEnumerable<string> granted)
+        => granted.ToHashSet(StringComparer.Ordinal).SetEquals(HeadMutableColumns);
+
     public async Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct)
     {
         if(!options.Enabled || !options.OfferOpeningEnabled || !options.RecommendationDraftEnabled
@@ -85,11 +95,18 @@ public sealed class ProcurementRfqRecommendationStoreReadiness(
         }
         foreach(var table in append)
             clauses.Add("NOT has_any_column_privilege(current_user,"+Literal(table)+",'UPDATE')");
+        const string head="procurement.principal_rfq_recommendation_drafts";
+        clauses.Add("NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid="+Literal(head)
+            +"::regclass AND a.attnum>0 AND NOT a.attisdropped AND a.attname <> ALL(ARRAY["
+            +string.Join(',',HeadMutableColumns.Select(Literal))+"]::text[])"
+            +" AND has_column_privilege(current_user,a.attrelid,a.attname,'UPDATE'))");
         if(write)
         {
             foreach(var table in owned.Concat(["procurement.audit_events","procurement.outbox_events"]))
                 clauses.Add("has_table_privilege(current_user,"+Literal(table)+",'INSERT')");
-            clauses.Add("has_table_privilege(current_user,'procurement.principal_rfq_recommendation_drafts','UPDATE')");
+            foreach(var column in HeadMutableColumns)
+                clauses.Add("has_column_privilege(current_user,"+Literal(head)+","
+                    +Literal(column)+",'UPDATE')");
         }
         return "SELECT "+string.Join(" AND ",clauses);
     }
