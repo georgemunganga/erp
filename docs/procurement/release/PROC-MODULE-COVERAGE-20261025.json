@@ -3,8 +3,8 @@
   "documentId": "PROC-MODULE-COVERAGE-20261025",
   "dateUtc": "2026-10-25",
   "status": "SOURCE_UI_AND_NAMED_PRIVATE_EVIDENCE_SNAPSHOT_NOT_MODULE_COMPLETION",
-  "erpSourceBeforeThisDocsChange": "ae6d3a50e8cd9ab998d9db4ba2d072e9e84f097a",
-  "uiSource": "20f7e46eacb2a7dea733f9aa7bd0450ea982b34f",
+  "erpSourceBeforeThisDocsChange": "6f43cafc92e0d709044a33355527e12553f3a38c",
+  "uiSource": "bcd26bb3265156792e869538e21d95dba37a534a",
   "moduleComplete": false,
   "productionDeploymentClaim": false,
   "preservedPriorRecords": [
@@ -19,25 +19,26 @@
     "ownership": "Core owns identities, scope, permissions, approvals, audit, documents/scanning. Procurement owns commercial decisions/evidence. Finance, Inventory and Assets own external ledgers. Employee link remains optional where principal workflow supports it."
   },
   "currentBuildAndPublication": {
-    "receipt": "docs/procurement/release/P37-API-HOST-SOURCE-ACCEPTANCE-20261025.json",
-    "productSource": "188f1c53fcca625364974fd03ecb60d0b86781fb",
-    "combinedToolSource": "8197b549de94617593c977213fed9d160591c5ab",
-    "hostPassed": 1344,
-    "focusedHostPassed": 26,
+    "priorPublicReceipt": "docs/procurement/release/P37-API-HOST-SOURCE-ACCEPTANCE-20261025.json",
+    "productSource": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+    "hostPassed": 1358,
+    "focusedHostPassed": 59,
     "failed": 0,
     "skipped": 0,
-    "domain": "1670 carried byte-unchanged from accepted parent; not rerun in P37 SDK03",
+    "domain": "1670 carried from accepted joint SDK04 with unchanged Domain/Application/Infrastructure inputs; not rerun for product982",
     "apiPublishedFiles": 150,
     "toolPublishedFiles": 477,
+    "currentPrivateSdkResultSha256": "35b9a04c02e732c7e27f8fe9db83b10c6499a3f5edecd4c813d26c7472b8fef5",
+    "currentPrivatePublicationResultSha256": "60b2789506fedd92ab77c6b9a3f40777e9020dcc26cd88e804639ea49d47754d",
     "publicationRuntimeProof": false,
-    "retainedFailures": "SDK01 andSDK02 test-fixture failures and earlier runtime failures remain retained; no retry relabeling"
+    "retainedFailures": "Prior P37 native and SDK failures remain retained. Successful source, tests and publication do not convert a running native cohort into acceptance."
   },
   "currentRunningOrPending": {
-    "P37Native01": "FAILED_47_HTTP_P30RealFiniteReadinessOnly_BEFORE_ANY_P37_OPERATION",
-    "P37IndependentOwner": "NOT_RUN_AFTER_NATIVE01_FAILURE",
-    "P37Ui": "TypeScript+13targeted units+11mocked Chromium cases; actualBackend=false",
-    "scannerC04": "READY_UNACKNOWLEDGED; no external pickup/real scanner proof claimed",
-    "P37NextAttempt": "Private read-only diagnosis confirmed missing SELECT on three retained P33 order-history tables; branch-name SELECT is present. Tool-only correction9e3288b8 adds only those reads. Genuine tool rebuild and fresh Native02 remain pending."
+    "P37Native05": "RUNNING_AT_THIS_COVERAGE_CHECKPOINT; fresh private real HTTP is not accepted until terminal result and independent owner verification",
+    "P37IndependentOwner05": "INERT_SOURCE_PREP; no read-only owner result yet",
+    "P37Ui": "Published bcd26bb: TypeScript and 45 mocked browser cases passed; real P37 normal-cookie browser with current product remains unproved",
+    "P36Ui": "Published bcd26bb has real recommendation-source adapter and prior 14 targeted plus 2 preview mocked cases; this does not establish real recommendation HTTP acceptance",
+    "scannerC04": "READY_UNACKNOWLEDGED; no external pickup or real scanner proof claimed"
   },
   "metaCapabilityInventory": {
     "sourceFile": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
@@ -55,6 +56,7 @@
       "sourcingSourceDrafts",
       "principalSourcingSourceDrafts",
       "principalSourcingPublication",
+      "principalRfqRecommendationDrafts",
       "budgetEvidence",
       "budgetRecording",
       "principalApprovals",
@@ -86,7 +88,7 @@
       "financeHandoff",
       "supplierPortal"
     ],
-    "coverage": "Every current /meta capability key is assigned once below. P32/P36 source workflows without distinct capability are also listed; absence is explicit."
+    "coverage": "All 44 current /meta capability keys are assigned once below. P36 recommendation availability is a distinct default-off, current-readiness-and-authority capability; each round still rechecks named reader, branch and retained source. P32 source workflows without a distinct capability remain listed separately."
   },
   "capabilityGroups": [
     {
@@ -348,19 +350,27 @@
     },
     {
       "id": "recommendation_drafts_P36",
-      "capabilityKeys": [],
+      "capabilityKeys": [
+        "principalRfqRecommendationDrafts"
+      ],
       "ui": {
-        "retainedComponents": [],
-        "dataAdapter": "ABSENT_UI_ADAPTER",
+        "retainedComponents": [
+          "reference-ui/src/features/LiveRfqRecommendations.tsx",
+          "reference-ui/src/features/LiveSourcing.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_WITH_MOCKED_UI_TESTS",
         "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
       },
       "backend": {
         "sourceFiles": [
-          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs"
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqRecommendationDrafts.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqRecommendationStoreReadiness.cs"
         ],
         "persistedOperations": [
           "create/revise own Draft recommendation",
-          "purpose-safe own list/detail/original-key recovery after current recommend and named opened-offer-read authority"
+          "purpose-safe own list/detail/original-key recovery after current recommend and named opened-offer-read authority",
+          "verified recommendation-source GET returns frozen RFQ title and neutral line/offer ordinals; supplierLabel is null"
         ],
         "workflowScope": "DRAFT_ONLY_NO_AWARD"
       },
@@ -371,7 +381,7 @@
         }
       ],
       "remainingImplementationOrAcceptance": [
-        "No distinct /meta P36 capability or UI adapter. Add current purpose-safe availability metadata, bounded human labels and adapter in existing sourcing experience. Frozen source has RFQ title and line IDs; use presentation ordinals/title until owner-approved immutable labels exist. Do not look up mutable supplier names or display UUIDs as business labels. Recommendation is not submit/award/PO authority."
+        "Distinct /meta capability now exists and is default off until current physical and Core authority checks pass; actual round source and reads still require named opened-offer reader, current branch and retained proof. Existing RFQ layout has a recommendation list/editor adapter using verified title and neutral labels; it does not imply mutable supplier-name lookup, automatic ranking, award or PO authority. Prior 14 targeted and 2 preview mocked UI cases are not live HTTP/browser acceptance."
       ],
       "production": "No new deployment established by this record; production remains P24"
     },
@@ -521,7 +531,7 @@
         }
       ],
       "remainingImplementationOrAcceptance": [
-        "Native01 FAILED after47 HTTP at P30RealFiniteReadinessOnly before any P37 operation; owner did not run. Preserve failure; diagnose actual finite-role fixture reads, review a minimal tool-only correction, then a fresh native retry. UI20f lineage: TypeScript,13targeted units and11mocked Chromium cases; actualBackend=false. Normal-cookie real backend and production release remain."
+        "Native01 and later failed cohorts remain preserved as historical evidence. Source982 fixes the scoped receipt issue seen at the first Create in Native04; fresh Native05 is running, so no current real HTTP or independent owner acceptance is claimed. UI bcd26bb has TypeScript and mocked browser proof only. Normal-cookie real backend and production release remain."
       ],
       "production": "No new deployment established by this record; production remains P24"
     },
@@ -572,7 +582,7 @@
       },
       "privateEvidence": [],
       "remainingImplementationOrAcceptance": [
-        "Unprocessed own-original guards remain. Typed mapping/review/claims are separate; capture is not validated AP or a posted payable."
+        "Bill detail links to vendor credits and manual payments only when their distinct capabilities and read permissions are present; those routes retain their own authorizations. A related record or Received bill is not validated AP, Finance posting or a paid bill. Unprocessed own-original guards and typed mapping/review/claims remain separate."
       ],
       "production": "No new deployment established by this record; production remains P24"
     },
@@ -777,7 +787,7 @@
           "reference-ui/src/features/ContractDraftRates.tsx",
           "reference-ui/src/features/LiveContractReviews.tsx"
         ],
-        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "dataAdapter": "REAL_API_ADAPTER_WITH_DRAFT_CANCEL_AND_UNCERTAIN_REFRESH",
         "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
       },
       "backend": {
@@ -800,7 +810,7 @@
         }
       ],
       "remainingImplementationOrAcceptance": [
-        "Normal-session contract review and deployment pending. Owner proof had no unrelated pre-P35 baseline/audit companion acceptance; preserve stated limits."
+        "Existing contract detail exposes Draft-only cancel with a required reason, current edit permission, and a saved-record refresh after an uncertain response. This is source/UI binding, not signed/active authority. Normal-session contract review and deployment remain pending; retained private owner proof has its stated baseline limits."
       ],
       "production": "No new deployment established by this record; production remains P24"
     },
@@ -905,12 +915,12 @@
   "nextImplementableMilestones": [
     {
       "id": "P36_PURPOSE_SAFE_UI_BINDING",
-      "scope": "Add real purpose-safe metadata availability and bounded immutable/presentation labels, then bind existing sourcing UI; current recommend+opened-offer grants/named reader and retained proof before all replay/recovery.",
+      "scope": "Current source and UI now expose default-off purpose-safe recommendation availability, verified RFQ title and neutral labels in the existing sourcing layout. Next: actual real HTTP, independent owner and normal-session proof for the recommendation lifecycle; retain per-round named-reader and branch checks.",
       "notClaimed": "No automatic score/pass, approved award or executable PO source."
     },
     {
       "id": "P37_ACTUAL_AND_NORMAL_SESSION",
-      "scope": "Diagnose preserved Native01 finite-readiness failure, review minimal tool-only fixture correction, then fresh native/independent owner proof and normal-cookie Returns lifecycle. SDK/publication passes remain valid but do not establish real P37 acceptance."
+      "scope": "Native05 is running on product982 after prior failures; require terminal real HTTP and independent read-only owner05 before acceptance. Then prove normal-cookie Returns lifecycle and release boundaries. SDK/publication passes alone do not establish real P37 acceptance."
     },
     {
       "id": "CORE_SCANNER_C04_AND_P31",
