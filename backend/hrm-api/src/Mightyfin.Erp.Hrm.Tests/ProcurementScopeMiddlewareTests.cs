@@ -3,6 +3,7 @@ using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Domain.Entities;
@@ -57,6 +58,96 @@ public sealed class ProcurementScopeMiddlewareTests
         var (http, scope) = Request(user.Id); var reached = false;
         await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
         Assert.True(reached); Assert.Equal(user.Id, scope.PrincipalId); Assert.Null(scope.WorkerId);
+    }
+
+    [Fact]
+    public async Task Explicit_All_read_uses_only_current_Core_assignments_in_selected_company_and_never_authorizes_create()
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, foreignCompany, first) = await Seed(db);
+        var second = new WorkLocation { Code = "A2", Name = "Second", LegalEntityId = company.Id };
+        var foreign = new WorkLocation { Code = "B1", Name = "Foreign", LegalEntityId = foreignCompany.Id };
+        db.WorkLocations.AddRange(second, foreign);
+        db.UserBranchAssignments.AddRange(
+            new HrUserBranchAssignment { UserId = user.Id, LocationId = first.Id },
+            new HrUserBranchAssignment { UserId = user.Id, LocationId = second.Id });
+        await db.SaveChangesAsync();
+        var (read, scope) = Request(user.Id);
+        read.Request.Path = "/api/procurement/v1/requests";
+        read.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        read.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(read, scope, db);
+        Assert.True(reached);
+        Assert.True(scope.IsExplicitAllBranches);
+        Assert.Null(scope.WorkLocationId);
+        Assert.Equal(new[] { first.Id, second.Id }.Order(), scope.PermittedWorkLocationIds.Order());
+        Assert.DoesNotContain(foreign.Id, scope.PermittedWorkLocationIds);
+
+        var secondAssignment = await db.UserBranchAssignments.SingleAsync(x => x.UserId == user.Id && x.LocationId == second.Id);
+        secondAssignment.IsArchived = true;
+        await db.SaveChangesAsync();
+        var (afterRevocation, restrictedScope) = Request(user.Id);
+        afterRevocation.Request.Path = "/api/procurement/v1/requests";
+        afterRevocation.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        afterRevocation.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        await Middleware(_ => Task.CompletedTask).InvokeAsync(afterRevocation, restrictedScope, db);
+        Assert.Equal(new[] { first.Id }, restrictedScope.PermittedWorkLocationIds);
+
+        var (create, deniedScope) = Request(user.Id);
+        create.Request.Path = "/api/procurement/v1/requests";
+        create.Request.Method = "POST";
+        create.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        create.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(create, deniedScope, db);
+        Assert.False(reached);
+        Assert.Equal(400, create.Response.StatusCode);
+
+        var (master, masterScope) = Request(user.Id);
+        master.Request.Path = $"/api/procurement/v1/vendors/{Guid.NewGuid():D}/contacts";
+        master.Request.Method = "POST";
+        master.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        master.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(master, masterScope, db);
+        Assert.True(reached);
+
+        var (unknown, unknownScope) = Request(user.Id);
+        unknown.Request.Path = $"/api/procurement/v1/vendors/{Guid.NewGuid():D}/bank-data";
+        unknown.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        unknown.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(unknown, unknownScope, db);
+        Assert.False(reached);
+        Assert.Equal(400, unknown.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Omitted_branch_selects_unique_authorized_headquarters_or_requires_explicit_choice()
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, first) = await Seed(db);
+        var headquarters = new WorkLocation { Code = "HQ", Name = "Configured primary", Type = "headquarters",
+            LegalEntityId = company.Id };
+        db.WorkLocations.Add(headquarters);
+        db.UserBranchAssignments.AddRange(
+            new HrUserBranchAssignment { UserId = user.Id, LocationId = first.Id },
+            new HrUserBranchAssignment { UserId = user.Id, LocationId = headquarters.Id });
+        await db.SaveChangesAsync();
+        var (chosen, scope) = Request(user.Id);
+        chosen.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        await Middleware(_ => Task.CompletedTask).InvokeAsync(chosen, scope, db);
+        Assert.Equal(headquarters.Id, scope.WorkLocationId);
+
+        headquarters.Type = "branch";
+        await db.SaveChangesAsync();
+        var (ambiguous, unused) = Request(user.Id);
+        ambiguous.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(ambiguous, unused, db);
+        Assert.False(reached);
+        Assert.Equal(400, ambiguous.Response.StatusCode);
     }
 
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)
