@@ -15,7 +15,9 @@ internal static partial class PrincipalApprovalHttpVerification
 {
     private const string GoodsReturnRoot="/api/procurement/v1/returns/principal-drafts";
 
-    private static async Task VerifyPrincipalGoodsReturnAsync(PrincipalApprovalFixture fixture,string owner,
+    private sealed record P37GoodsReturnEvidence(Guid AcceptanceFactId,Guid NativeDraftId,Guid ReceiptId);
+
+    private static async Task<P37GoodsReturnEvidence> VerifyPrincipalGoodsReturnAsync(PrincipalApprovalFixture fixture,string owner,
         PrincipalApprovalRuntimePrivileges.Connections roles,Dictionary<string,object?> result,
         Action<string> stage,PrincipalSend send,Action countRequest,PrincipalIssuedFixture goods)
     {
@@ -179,6 +181,7 @@ internal static partial class PrincipalApprovalHttpVerification
             p30AndOtherBusinessRowsUnchanged=true,physicalReturnDispatched=false,
             stockPostingPerformed=false,financePostingPerformed=false,productionVerified=false};
         result["status"]="PASS_PRIVATE_P37_GOODS_RETURN_DRAFT_ONLY";
+        return new P37GoodsReturnEvidence(acceptedFact,id,detail.GetProperty("receiptId").GetGuid());
     }
 
     private static async Task RevokeReturnActionAndCheckAsync(PrincipalApprovalFixture fixture,
