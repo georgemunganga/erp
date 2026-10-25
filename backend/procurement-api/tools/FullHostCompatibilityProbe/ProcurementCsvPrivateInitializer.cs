@@ -95,7 +95,9 @@ internal static class ProcurementCsvPrivateInitializer
         var deniedUrl = OnlyLoopbackUrl(denied);
         Need(positiveUrl != deniedUrl, "Finite audit roles must use distinct loopback hosts.");
         var challenge = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        var deadline = DateTimeOffset.UtcNow.AddMinutes(15);
+        // The reviewed normal-cookie run includes large bounded CSV controls,
+        // independent owner captures and real UI clicks after native setup.
+        var deadline = DateTimeOffset.UtcNow.AddMinutes(30);
         await WritePrivateAsync(bootstrapPath, new
         {
             schemaVersion = 1, status = "PRIVATE_HOSTS_LISTENING_NOT_ACCEPTANCE",
