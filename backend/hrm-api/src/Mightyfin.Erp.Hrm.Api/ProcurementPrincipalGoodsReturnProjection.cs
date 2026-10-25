@@ -20,6 +20,18 @@ public static partial class ProcurementPrincipalReceivingRoutes
         int LineNumber, string Description, string UnitCode, string CurrencyCode,
         string DeliveryNoteReference, DateTimeOffset ReceivedAt);
 
+    // A Goods acceptance names the physical receipt LINE. The persisted fact's
+    // DraftId names its receipt HEADER, which is the return head's FK target.
+    internal static Guid? VerifiedReturnReceiptId(PrincipalReceivingSourceState state,
+        PrincipalReceivingFact fact, PrincipalReceivingAcceptance acceptance, PrincipalGoodsObservation observation)
+        => state.Kind == "Goods" && fact.Id == acceptance.Id && fact.SourceStateId == state.Id
+            && fact.BranchId == state.BranchId && fact.Kind == "Acceptance" && fact.Operation == "Accept"
+            && acceptance.ObservationId == observation.Id && acceptance.AcceptanceRecordId == observation.ReceiptLineId
+            && fact.DraftId == observation.ReceiptId && fact.DraftId != Guid.Empty
+            && observation.ReceiptLineId != Guid.Empty && fact.Quantity == acceptance.Quantity
+            && acceptance.Quantity > 0
+            ? fact.DraftId : null;
+
     // The only production caller receives Retained after SourceHistory has
     // verified issued commercial bytes, original PR/Core lineage and the entire
     // physical ledger. Supplier labels come from the original issued snapshot,

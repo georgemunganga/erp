@@ -17,6 +17,31 @@ public sealed class PrincipalGoodsReturnProjectionTests
     private static PrincipalReceivingActor Actor()=>new(Maker,null,Tenant,Company,
         new HashSet<Guid>{Branch},new HashSet<string>{"procurement-return-read","procurement-return-edit"});
 
+    [Theory]
+    [InlineData("valid")][InlineData("wrong-header")][InlineData("wrong-line")]
+    [InlineData("wrong-fact")][InlineData("wrong-observation")][InlineData("wrong-source")]
+    public void Goods_acceptance_binds_distinct_receipt_header_and_line_ids(string variant)
+    {
+        var sourceId=Guid.NewGuid();var headerId=Guid.NewGuid();var lineId=Guid.NewGuid();
+        var factId=Guid.NewGuid();var observationId=Guid.NewGuid();
+        Assert.NotEqual(headerId,lineId);
+        var source=new PrincipalReceivingSourceState{Id=sourceId,BranchId=Branch,Kind="Goods"};
+        var fact=new PrincipalReceivingFact{Id=factId,SourceStateId=sourceId,BranchId=Branch,
+            DraftId=variant=="wrong-header"?Guid.NewGuid():headerId,
+            Kind="Acceptance",Operation="Accept",Quantity=0.9999m};
+        var observation=new PrincipalGoodsObservation(observationId,headerId,lineId,null!,Branch,
+            1m,0m,new(Maker,null),"delivery","evidence",Guid.NewGuid(),new string('a',64),
+            Guid.NewGuid(),1,DateTimeOffset.UnixEpoch,DateTimeOffset.UnixEpoch);
+        var acceptance=new PrincipalReceivingAcceptance(variant=="wrong-fact"?Guid.NewGuid():factId,
+            variant=="wrong-line"?Guid.NewGuid():lineId,null!,
+            variant=="wrong-observation"?Guid.NewGuid():observationId,null,
+            0.9999m,0.9999m,new(Maker,null),Guid.NewGuid(),new string('a',64),
+            "accepted",null,null,null,Guid.NewGuid(),2,DateTimeOffset.UnixEpoch);
+        if(variant=="wrong-source")source=new PrincipalReceivingSourceState{Id=Guid.NewGuid(),BranchId=Branch,Kind="Goods"};
+        Assert.Equal(variant=="valid"?headerId:(Guid?)null,
+            Routes.VerifiedReturnReceiptId(source,fact,acceptance,observation));
+    }
+
     [Fact]
     public void Original_workerless_creator_with_current_edit_permission_gets_only_draft_actions()
         =>Assert.Equal(new[]{"Edit","Cancel"},Routes.ReturnAllowedActions(Head(),Actor(),true));

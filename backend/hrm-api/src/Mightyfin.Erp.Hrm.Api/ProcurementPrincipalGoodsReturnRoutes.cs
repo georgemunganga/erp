@@ -86,11 +86,9 @@ public static partial class ProcurementPrincipalReceivingRoutes
         var acceptance = loaded.Ledger.Acceptances.SingleOrDefault(x => x.Id == factId && x.ObservationId is not null)
             ?? throw new Problem("ReturnAcceptedGoodsRequired", 409);
         var factRow = db.PrincipalReceivingFacts.Local.Single(x => x.Id == factId);
-        if (loaded.State.Id != selected.Id || factRow.Kind != "Acceptance" || factRow.Operation != "Accept" ||
-            factRow.Quantity != acceptance.Quantity || factRow.DraftId != acceptance.AcceptanceRecordId ||
-            acceptance.Quantity <= 0)
-            throw new Problem("ReturnAcceptedGoodsRequired", 409);
         var observation = loaded.Ledger.Observations.Single(x => x.Id == acceptance.ObservationId);
+        if (loaded.State.Id != selected.Id || VerifiedReturnReceiptId(selected, factRow, acceptance, observation) is null)
+            throw new Problem("ReturnAcceptedGoodsRequired", 409);
         return (loaded.State, acceptance, factRow, VerifiedReturnLabels(loaded.Retained, observation));
     }
 
@@ -105,7 +103,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
         var source = await AcceptedGoods(db, cases, scope, actor, head.AcceptanceFactId, ct);
         if (source.State.Id != head.SourceStateId || source.State.SourceSha256 != head.SourceSha256 ||
             source.Fact.PayloadSha256 != head.AcceptanceSha256 || source.Acceptance.Quantity != head.AcceptedFactQuantity ||
-            source.Acceptance.AcceptanceRecordId != head.ReceiptId || source.State.PurchaseOrderId != head.PurchaseOrderId ||
+            source.Fact.DraftId != head.ReceiptId || source.State.PurchaseOrderId != head.PurchaseOrderId ||
             source.State.PurchaseOrderLineId != head.PurchaseOrderLineId || source.State.IssuedVersionId != head.IssuedVersionId)
             throw new Problem("ReturnOriginalSourceChanged", 409);
         var revisions = await db.PrincipalGoodsReturnRevisions.Where(x => x.DraftId == id).OrderBy(x => x.Revision).ToArrayAsync(ct);
@@ -185,7 +183,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             foreach (var id in ids.Take(25))
             {
                 var loaded = await AcceptedGoods(db, cases, scope, actor, id, token);
-                items.Add(new { acceptanceFactId = id, receiptId = loaded.Acceptance.AcceptanceRecordId,
+                items.Add(new { acceptanceFactId = id, receiptId = loaded.Fact.DraftId,
                     purchaseOrderId = loaded.State.PurchaseOrderId, purchaseOrderLineId = loaded.State.PurchaseOrderLineId,
                     branchId = loaded.State.BranchId, acceptedFactQuantityExact = Exact(loaded.Acceptance.Quantity),
                     labels = loaded.Labels });
@@ -231,7 +229,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 throw new Problem("ReturnDraftReasonRequired", 422);
             var head = new PrincipalGoodsReturnDraft { TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
                 BranchId = selected.State.BranchId, SourceStateId = selected.State.Id, AcceptanceFactId = selected.Fact.Id,
-                ReceiptId = selected.Acceptance.AcceptanceRecordId, PurchaseOrderId = selected.State.PurchaseOrderId,
+                ReceiptId = selected.Fact.DraftId, PurchaseOrderId = selected.State.PurchaseOrderId,
                 PurchaseOrderLineId = selected.State.PurchaseOrderLineId, IssuedVersionId = selected.State.IssuedVersionId,
                 SourceSha256 = selected.State.SourceSha256, AcceptanceSha256 = selected.Fact.PayloadSha256,
                 AcceptedFactQuantity = selected.Acceptance.Quantity, CreatorPrincipalId = actor.PrincipalId,
