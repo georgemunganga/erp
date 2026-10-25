@@ -339,10 +339,11 @@ internal static class ProcurementCsvPrivateInitializer
         await Sql("GRANT SELECT ON hrm.__hrm_migrations,hrm.local_users,hrm.local_sessions,"
             + "hrm.tenant_role_assignments,hrm.user_branch_assignments,hrm.legal_entities,"
             + "hrm.work_locations,hrm.org_units,hrm.workers,hrm.company_brandings,"
-            + "hrm.audit_entries TO " + Quote(core));
+            + "hrm.audit_entries,hrm.privileged_action_events TO " + Quote(core));
         await Sql("GRANT UPDATE (failed_login_count,locked_until,last_login_at)"
             + " ON hrm.local_users TO " + Quote(core));
-        await Sql("GRANT INSERT ON hrm.local_sessions,hrm.audit_entries TO " + Quote(core));
+        await Sql("GRANT INSERT ON hrm.local_sessions,hrm.audit_entries,"
+            + "hrm.privileged_action_events TO " + Quote(core));
         await Sql("GRANT UPDATE (last_seen_at,revoked_at) ON hrm.local_sessions TO " + Quote(core));
         await using (var privileges = new NpgsqlCommand(
             "SELECT has_table_privilege(@record,'procurement.audit_events','INSERT')"
@@ -362,6 +363,7 @@ internal static class ProcurementCsvPrivateInitializer
             + " AND has_column_privilege(@core,'hrm.local_users','last_login_at','UPDATE')"
             + " AND has_table_privilege(@core,'hrm.local_sessions','INSERT')"
             + " AND has_table_privilege(@core,'hrm.audit_entries','INSERT')"
+            + " AND has_table_privilege(@core,'hrm.privileged_action_events','INSERT')"
             + " AND NOT has_table_privilege(@core,'hrm.local_users','INSERT')"
             + " AND NOT has_table_privilege(@core,'hrm.tenant_role_assignments','UPDATE')"
             + " AND NOT has_table_privilege(@core,'procurement.audit_events','INSERT')", connection))
