@@ -1,0 +1,410 @@
+{
+  "project": "Zoho Books UI Reference & Prototype",
+  "scope": {
+    "edition": "Global",
+    "organization": "Same organization selected by the user; identity retained privately",
+    "separateFromProcurement": true
+  },
+  "readiness": {
+    "state": "dashboard-ready-confirmed",
+    "source": "explicit-user-message-and-authenticated-dashboard",
+    "lastReportedScreen": "Home Dashboard",
+    "observedInThisTask": true,
+    "authenticatedExplorationStarted": true,
+    "setupSubmissionAllowed": false
+  },
+  "constraints": {
+    "rawTenantReferencePublicationAllowed": false,
+    "websitePublicationAllowed": false,
+    "prototypeData": "fictional browser-local only",
+    "backendAllowed": false,
+    "authenticationAllowed": false,
+    "liveZohoApiAllowed": false,
+    "actualAccountingOperationsAllowed": false,
+    "tenantInspectionPreference": "non-mutating first",
+    "lowImpactSyntheticInteractionTestsAllowed": true,
+    "consequentialActionsRequireExactAuthorization": true,
+    "buttonBehaviorInventoryRequired": true,
+    "screenshotsLocalArchive": "not available; browser results showed blank Clean screenshot path"
+  },
+  "evidenceLabels": [
+    "public-doc-candidate",
+    "tenant-verified-read-only",
+    "blocked-by-safety-boundary",
+    "unverified",
+    "observed-unavailable",
+    "synthetic-demo",
+    "observed-interaction",
+    "observed-control-commit-not-executed"
+  ],
+  "canonicalFamilies": [
+    "dashboard",
+    "list",
+    "create-edit-form",
+    "record-detail",
+    "import-map-preview-wizard",
+    "confirmation-status-transition",
+    "allocation-matching",
+    "approval",
+    "email-public-link-customer-portal",
+    "payment-refund",
+    "pdf-template",
+    "settings",
+    "report",
+    "automation-integration-setup"
+  ],
+  "candidateDomains": [
+    {
+      "id": "sales",
+      "status": "partially-tenant-verified",
+      "tenantVerified": true
+    },
+    {
+      "id": "purchases",
+      "status": "partially-tenant-verified",
+      "tenantVerified": true
+    },
+    {
+      "id": "banking",
+      "status": "initial-state-tenant-verified",
+      "tenantVerified": true
+    },
+    {
+      "id": "accountant",
+      "status": "partially-tenant-verified",
+      "tenantVerified": true
+    },
+    {
+      "id": "itemsprojects",
+      "status": "partially-tenant-verified",
+      "tenantVerified": true
+    },
+    {
+      "id": "reportssettings",
+      "status": "partially-tenant-verified",
+      "tenantVerified": true
+    }
+  ],
+  "screens": [
+    {
+      "path": "#/home/dashboard",
+      "family": "dashboard",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/inventory/product/variantslist",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/inventory/product/variantslist/:id",
+      "family": "record-detail",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/invoices",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/invoices/new",
+      "family": "create-edit-form",
+      "evidence": "observed-control-commit-not-executed"
+    },
+    {
+      "path": "#/contacts",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/contacts/new",
+      "family": "create-edit-form",
+      "evidence": "observed-control-commit-not-executed"
+    },
+    {
+      "path": "#/quotes",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/quotes/new",
+      "family": "create-edit-form",
+      "evidence": "observed-control-commit-not-executed"
+    },
+    {
+      "path": "#/recurringinvoices",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/paymentsreceived",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/creditnotes",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/vendors",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/expenses",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/expenses/documents",
+      "family": "document-inbox",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/bills",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/bills/new",
+      "family": "create-edit-form",
+      "evidence": "observed-control-commit-not-executed"
+    },
+    {
+      "path": "#/purchaseorders",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/recurringbills",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/paymentsmade",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/vendorcredits",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/batchpayments",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/timesheet/projects",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/timesheet/alltimeentries",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/banking",
+      "family": "setup",
+      "evidence": "observed-control-commit-not-executed"
+    },
+    {
+      "path": "#/accountant/journals",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/accountant/journals/new",
+      "family": "create-edit-form",
+      "evidence": "observed-control-commit-not-executed"
+    },
+    {
+      "path": "#/accountant/chartofaccounts",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/accountant/budgets",
+      "family": "list",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/accountant/transactionlock",
+      "family": "settings",
+      "evidence": "observed-control-commit-not-executed"
+    },
+    {
+      "path": "#/reports",
+      "family": "report-index",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/reports/profitandloss",
+      "family": "report",
+      "evidence": "observed-interaction"
+    },
+    {
+      "path": "#/reports?report_group=favourites",
+      "family": "report-empty-state",
+      "evidence": "observed-interaction"
+    },
+    {
+      "path": "#/documents/inbox",
+      "family": "document-inbox",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/settings",
+      "family": "settings-index",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/settings/preferences",
+      "family": "settings",
+      "evidence": "observed-control-commit-not-executed"
+    },
+    {
+      "path": "#/settings/templates?template_group=invoice",
+      "family": "document-template-index",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/settings/automation/actions/alerts",
+      "family": "automation-action-index",
+      "evidence": "tenant-verified-read-only"
+    },
+    {
+      "path": "#/settings/automation/workflows",
+      "family": "automation-workflow-index",
+      "evidence": "tenant-verified-read-only"
+    }
+  ],
+  "unverifiedFamilies": [
+    "contact-persons-tab",
+    "import-mapping-preview",
+    "payment-refund-detail-and-allocation",
+    "bank-feed-connection-matching-and-reconciliation",
+    "approval-execution",
+    "external-email-and-portal-invitation",
+    "PDF-template-editing",
+    "tax-configuration",
+    "automation-workflow-editing",
+    "integration-connection",
+    "detailed-record-edit-and-delete"
+  ],
+  "testActions": [
+    {
+      "action": "open-and-cancel-blank-invoice-quote-customer-bill-journal-forms",
+      "evidence": "observed-control-commit-not-executed",
+      "tenantRecordCreated": false
+    },
+    {
+      "action": "open-and-cancel-empty-invoice-bulk-item-picker",
+      "evidence": "observed-interaction",
+      "itemSelected": false
+    },
+    {
+      "action": "copy-empty-customer-billing-address",
+      "evidence": "observed-interaction",
+      "tenantRecordChanged": false
+    },
+    {
+      "action": "test-profit-and-loss-table-chart-toggle-then-restore-table",
+      "evidence": "observed-interaction",
+      "reportDataExported": false
+    },
+    {
+      "action": "accidental-profit-and-loss-favorite-toggle-reversed-and-favorites-checked-empty",
+      "evidence": "observed-interaction",
+      "preferenceRestored": true
+    },
+    {
+      "action": "view-profit-and-loss-report",
+      "evidence": "tenant-verified-read-only",
+      "accessMetadataLastVisitedUpdated": true
+    },
+    {
+      "action": "view-invoice-template-index-and-automation-lists",
+      "evidence": "tenant-verified-read-only",
+      "settingsChanged": false
+    },
+    {
+      "action": "workflow-rules-result-screenshot-upload",
+      "evidence": "screenshot-upload-failed",
+      "settingsChanged": false
+    }
+  ],
+  "captures": [],
+  "captureStatus": "Browser results had no local screenshot paths; no raw screenshot files are archived.",
+  "prototypeScreens": [
+    "dashboard and responsive navigation",
+    "module lists, search/status filters, details and local edit/delete/status simulation",
+    "fictional customer/vendor forms and recurring invoice/bill profiles",
+    "report index and distinct fictional report detail views with table/chart toggle",
+    "general settings, invoice template library and automation list families",
+    "banking setup, documents inbox, chart of accounts and transaction locking previews"
+  ],
+  "workflowExpansion": {
+    "implementationStatus": "124-of-124-local-effects-pass; all-registered-browser-completions-exercised; localized-regressions-pass",
+    "domains": {
+      "Sales": 28,
+      "Purchases": 27,
+      "Banking": 16,
+      "Accountant": 14,
+      "Items & Projects": 17,
+      "Settings & Reports": 22
+    },
+    "registeredWorkflowCount": 124,
+    "persistentStore": "Browser localStorage only, fictional records and artifacts",
+    "testArtifacts": [
+      "docs/workflow-depth/README.md",
+      "docs/workflow-depth/workflow-inventory.md",
+      "docs/workflow-depth/workflow-inventory.json",
+      "docs/workflow-depth/engine-test-results.json",
+      "tests/fixtures/workflow-cases.json",
+      "tests/workflows.spec.ts",
+      "docs/workflow-depth/validation-summary.md"
+    ],
+    "tenantEvidenceIsSeparate": true,
+    "liveZohoWritesPerformed": false,
+    "screenshotArchiveState": "not available; tenant screenshots remain unarchived",
+    "simulationBoundary": "External sending, transfers, provider connections, approval, reconciliation, import into Zoho, and ledger posting are local simulations; no live Zoho accounting operation.",
+    "domainCounts": {
+      "Sales": 28,
+      "Purchases": 27,
+      "Banking": 16,
+      "Accountant": 14,
+      "Items & Projects": 17,
+      "Settings & Reports": 22
+    },
+    "operationalEffectCoverage": "Every registered workflow changed an operational synthetic local record or artifact and generated a receipt.",
+    "negativeChecks": [
+      "Payment above outstanding",
+      "Payment total mismatch",
+      "Mixed customer allocations",
+      "Duplicate allocations",
+      "Payment allocation does not match selected record",
+      "Quote conversion before acceptance",
+      "Unbalanced journal",
+      "Code-like criteria rejected",
+      "Automation non-match",
+      "Derived line total formula",
+      "Receipt Bill destination",
+      "Item import defaults and stock mapping"
+    ],
+    "browserValidation": {
+      "full128CaseRun": "128 passed",
+      "expanded129CaseRun": "128 passed; bank-account draft hydration failure corrected",
+      "postFixBankAccountRepeatedRuns": 10,
+      "postFixTargetedRegressionCases": 3,
+      "entire129SuiteRerunAfterLastFix": false,
+      "noOutboundHttpInPassingWorkflowTests": true
+    },
+    "routeCount": 53,
+    "strictTypecheckAndBuild": "passed",
+    "validationSummary": "docs/workflow-depth/validation-summary.md"
+  }
+}

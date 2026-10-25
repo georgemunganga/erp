@@ -1,0 +1,203 @@
+{
+  "routes": [
+    {
+      "path": "/accounting/workspace/",
+      "title": "Dashboard"
+    },
+    {
+      "path": "/accounting/workspace/items",
+      "title": "Items"
+    },
+    {
+      "path": "/accounting/workspace/customers",
+      "title": "Customers"
+    },
+    {
+      "path": "/accounting/workspace/quotes",
+      "title": "Quotes"
+    },
+    {
+      "path": "/accounting/workspace/invoices",
+      "title": "Invoices"
+    },
+    {
+      "path": "/accounting/workspace/recurring-invoices",
+      "title": "Recurring Invoices"
+    },
+    {
+      "path": "/accounting/workspace/payments-received",
+      "title": "Payments Received"
+    },
+    {
+      "path": "/accounting/workspace/credit-notes",
+      "title": "Credit Notes"
+    },
+    {
+      "path": "/accounting/workspace/vendors",
+      "title": "Vendors"
+    },
+    {
+      "path": "/accounting/workspace/expenses",
+      "title": "Expenses"
+    },
+    {
+      "path": "/accounting/workspace/bills",
+      "title": "Bills"
+    },
+    {
+      "path": "/accounting/workspace/purchase-orders",
+      "title": "Purchase Orders"
+    },
+    {
+      "path": "/accounting/workspace/recurring-bills",
+      "title": "Recurring Bills"
+    },
+    {
+      "path": "/accounting/workspace/payments-made",
+      "title": "Payments Made"
+    },
+    {
+      "path": "/accounting/workspace/vendor-credits",
+      "title": "Vendor Credits"
+    },
+    {
+      "path": "/accounting/workspace/batch-payments",
+      "title": "Batch Payments"
+    },
+    {
+      "path": "/accounting/workspace/projects",
+      "title": "Projects"
+    },
+    {
+      "path": "/accounting/workspace/timesheets",
+      "title": "Timesheets"
+    },
+    {
+      "path": "/accounting/workspace/journals",
+      "title": "Manual Journals"
+    },
+    {
+      "path": "/accounting/workspace/budgets",
+      "title": "Budgets"
+    },
+    {
+      "path": "/accounting/workspace/items/new",
+      "title": "Create Item"
+    },
+    {
+      "path": "/accounting/workspace/customers/new",
+      "title": "Create Customer"
+    },
+    {
+      "path": "/accounting/workspace/quotes/new",
+      "title": "Create Quote"
+    },
+    {
+      "path": "/accounting/workspace/invoices/new",
+      "title": "Create Invoice"
+    },
+    {
+      "path": "/accounting/workspace/recurring-invoices/new",
+      "title": "Create Recurring Invoice"
+    },
+    {
+      "path": "/accounting/workspace/credit-notes/new",
+      "title": "Create Credit Note"
+    },
+    {
+      "path": "/accounting/workspace/vendors/new",
+      "title": "Create Vendor"
+    },
+    {
+      "path": "/accounting/workspace/expenses/new",
+      "title": "Create Expense"
+    },
+    {
+      "path": "/accounting/workspace/bills/new",
+      "title": "Create Bill"
+    },
+    {
+      "path": "/accounting/workspace/purchase-orders/new",
+      "title": "Create Purchase Order"
+    },
+    {
+      "path": "/accounting/workspace/recurring-bills/new",
+      "title": "Create Recurring Bill"
+    },
+    {
+      "path": "/accounting/workspace/vendor-credits/new",
+      "title": "Create Vendor Credit"
+    },
+    {
+      "path": "/accounting/workspace/batch-payments/new",
+      "title": "Create Batch Payment"
+    },
+    {
+      "path": "/accounting/workspace/projects/new",
+      "title": "Create Project"
+    },
+    {
+      "path": "/accounting/workspace/timesheets/new",
+      "title": "Create Time Entry"
+    },
+    {
+      "path": "/accounting/workspace/journals/new",
+      "title": "Create Journal"
+    },
+    {
+      "path": "/accounting/workspace/budgets/new",
+      "title": "Create Budget"
+    },
+    {
+      "path": "/accounting/workspace/items/:itemId"
+    },
+    {
+      "path": "/accounting/workspace/records/:moduleKey/:recordId"
+    },
+    {
+      "path": "/accounting/workspace/workflows"
+    },
+    {
+      "path": "/accounting/workspace/workflows/:flowId"
+    },
+    {
+      "path": "/accounting/workspace/workflow-results/:receiptId"
+    },
+    {
+      "path": "/accounting/workspace/workflow-resources/:artifactId"
+    },
+    {
+      "path": "/accounting/workspace/banking"
+    },
+    {
+      "path": "/accounting/workspace/chart-of-accounts"
+    },
+    {
+      "path": "/accounting/workspace/transaction-locking"
+    },
+    {
+      "path": "/accounting/workspace/reports"
+    },
+    {
+      "path": "/accounting/workspace/reports/:reportSlug"
+    },
+    {
+      "path": "/accounting/workspace/documents"
+    },
+    {
+      "path": "/accounting/workspace/settings"
+    },
+    {
+      "path": "/accounting/workspace/settings/general"
+    },
+    {
+      "path": "/accounting/workspace/settings/templates"
+    },
+    {
+      "path": "/accounting/workspace/settings/automation"
+    }
+  ],
+  "module": "accounting",
+  "mode": "ui-preview",
+  "workspaceBase": "/accounting/workspace/"
+}

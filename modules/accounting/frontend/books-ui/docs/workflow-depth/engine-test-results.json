@@ -1,0 +1,27 @@
+{
+  "registered": 124,
+  "passed": 124,
+  "negativeChecks": [
+    "Payment above outstanding",
+    "Payment total mismatch",
+    "Mixed customer allocations",
+    "Duplicate allocations",
+    "Payment allocation does not match selected record",
+    "Quote conversion before acceptance",
+    "Unbalanced journal",
+    "Code-like criteria rejected",
+    "Automation non-match",
+    "Derived line total formula",
+    "Receipt Bill destination",
+    "Item import defaults and stock mapping"
+  ],
+  "failures": [],
+  "domainCounts": {
+    "Sales": 28,
+    "Purchases": 27,
+    "Banking": 16,
+    "Accountant": 14,
+    "Items & Projects": 17,
+    "Settings & Reports": 22
+  }
+}

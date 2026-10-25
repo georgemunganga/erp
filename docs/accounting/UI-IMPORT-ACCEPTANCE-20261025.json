@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-25",
+  "status": "ACCOUNTING_UI_PREVIEW_IMPORTED_TESTED_AND_DEPLOYED",
+  "uiOnly": true,
+  "sourceRepository": "https://github.com/Greenwebb/zoho-books-ui-reference",
+  "sourceCommit": "c3cb7a536b82bdc60683ad49e1b165cd58562afb",
+  "exactInitialImportCommit": "cb51fa9b",
+  "adaptedProductCommit": "e474b5f659c80451c0020c2d0477d0e8e3280d2d",
+  "rootEntryReleaseCommit": "716b7605ef574f20dc07490cb6401735211eb495",
+  "liveUrl": "https://erp.amizopower.co.zm/accounting/workspace/",
+  "ownership": "Core identity/organization/branding/shared controls; Procurement commercial masters; future Finance/accounting ledger. No duplicated backend.",
+  "verification": {
+    "strictApplicationAndTestTypecheck": "PASS",
+    "productionBuild": "PASS",
+    "localEnginePathsPassed": 124,
+    "localWorkflowBrowserCasesPassed": 129,
+    "finalBuiltErpIntegrationCasesPassed": 10,
+    "finalBuiltTargetedTableAndNavigationCasesPassed": 6,
+    "publicAccountingAssetBrowserCasesPassed": 10,
+    "publicEntryBrowserCasesPassed": 5,
+    "publicStaticFilesSha256Verified": 14,
+    "sourceDomainsEngineRegistryAndFixturePreserved": true,
+    "original69SourceGitBlobHashesVerified": true
+  },
+  "scopeLimits": [
+    "The129 original browser cases passed before final presentation-only overlays; final built targeted/table/mobile and10 ERP integration cases verify those changes. Workflow definitions, engine and124 fixtures remain unchanged.",
+    "Core GETs and login responses are intercepted in browser tests; no new real credential/Accounting backend acceptance is claimed.",
+    "All accounting transactions and workflow results are fictional browser-local previews, scoped by principal/company.",
+    "Existing Core sign-out is the only module network mutation. No financial, bank, mail or external-integration writer was added.",
+    "Backend/schema/accounts/roles/grants and Procurement static deployment were unchanged.",
+    "Procurement gap plan contains55 unexecuted UAT case groups; it is not completed UAT."
+  ],
+  "procurementPlan": {
+    "findings": 55,
+    "existingOriginalUiPreviewReferences": 40,
+    "operationsAbsentFromInspectedOriginalUi": 15,
+    "uatStatus": "NOT_EXECUTED",
+    "path": "docs/procurement/gap-closure/PROCUREMENT-IMPLEMENTATION-AND-UAT-PLAN-20261025.md"
+  },
+  "privateDeploymentResultSha256": "36006f7e32c753e95e67baabf0a0ea0e5d1c2552a07d8dc2873ac05c194581cc",
+  "rollback": "Restore retained Nginx configuration and root frontend service override from deployment01 backups; reload/restart frontend only. Prior root/UI releases remain retained.",
+  "retainedInitialFailure": {
+    "profile": "erp-browser01",
+    "passed": 7,
+    "failed": 1,
+    "reason": "Test expected an HRM menu link for an ERP-admin-only fixture; existing Core module-role rules require an HRM role. Corrected the test expectation; source did not gain an HRM bypass."
+  }
+}

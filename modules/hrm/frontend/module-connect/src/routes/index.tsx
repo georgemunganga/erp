@@ -48,7 +48,7 @@ function Entrance() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>
-            m.available && (m.id === "core" ? administrator : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? authenticated || !real : true) ? (
+            m.available && (m.id === "core" || m.id === "accounting" ? administrator : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? authenticated || !real : true) ? (
               <a
                 key={m.id}
                 href={m.to}
@@ -56,6 +56,7 @@ function Entrance() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-base font-semibold text-foreground">{m.label}</span>
+                  {m.preview ? <span className="text-xs text-muted-foreground">UI preview</span> : null}
                   <ArrowRight
                     className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
                     aria-hidden
