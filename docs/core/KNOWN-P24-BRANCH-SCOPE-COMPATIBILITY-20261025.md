@@ -2,6 +2,14 @@
 
 Status: inherited behavior recorded; broader operational All-branch support remains open.
 
+## First-use organisation choice on P24
+
+The current Procurement live shell requests `GET /api/core/v1/workspace-context` for authorised company and branch choices. P24 does not map that Core endpoint, so the shell falls back to HRM administrator company/location reads and the HRM shell. A workerless account with only Procurement grants cannot use those HRM administrator reads to populate a first-use chooser. With no previously saved canonical company and branch IDs, the live Procurement gate displays **Choose your branch** and does not load Vendor or Item records.
+
+For an account with previously saved canonical company and branch IDs, the shell can proceed through the P24 fallback. The separate `GET /api/procurement/v1/context` and `/meta` requests must still verify the current Core principal, `procurement-access`, company, permitted branch, schema and Vendor/Item capability; each list and export retains its own server permission and scope checks. Browser storage alone grants nothing. This saved-selection path is the bounded CSV export acceptance case, not acceptance of first-use organisation selection. The browser proof should distinguish the two cases and record actual responses rather than infer support from source.
+
+The next Core-owned compatibility step is to provide current, authorised company/branch choices and organisation defaults to Procurement-only accounts through the existing Core membership and scope rules. It must remain default-deny for unavailable or revoked choices. It must not give Procurement users HRM administrator roles, infer an employee home location, or invent a branch. This first-use chooser gap is separate from the C01 operational All-branch limitation below and from dashboard gap CORE-01.
+
 The P24 Procurement middleware resolves a concrete assigned/default branch when no branch identifier is supplied. It previously ignored `X-Shell-Branch-Scope: all`. The bounded CSV backport supports true All for the reviewed company-master reads, including Vendor/Item exports, while preserving the previous concrete-branch behavior for other operational routes. This avoids introducing new failures into existing CRUD or expanding a caller's data authority. It does not establish company-wide request, order, receipt, invoice or dashboard aggregation.
 
 This is organisation/data-scope capability **C01** in GW-ENG-STD-001, rather than a new procurement master or approval engine. Core remains owner of current company/branch assignments. Track dashboard acceptance under CORE-01 and organization-context acceptance under CORE-02 in the existing Procurement gap plan; its 55-finding baseline is unchanged.
