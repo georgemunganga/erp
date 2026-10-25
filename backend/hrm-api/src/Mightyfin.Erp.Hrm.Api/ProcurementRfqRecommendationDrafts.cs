@@ -8,8 +8,8 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-// Source-only, default-off successor. The P36 owner schema and finite grants
-// must be captured before this readiness interface can have a positive provider.
+// Source-only, default-off successor. The registered provider remains closed
+// until the genuine P36 physical catalog and finite grants are captured.
 public interface IProcurementRfqRecommendationDraftReadiness
 {
     Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct);

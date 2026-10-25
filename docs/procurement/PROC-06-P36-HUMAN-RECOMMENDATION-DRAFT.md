@@ -132,23 +132,28 @@ changed in this integration; a future adapter must be capability gated.
 
 ## 22. Configuration and readiness
 
-`RecommendationDraftEnabled` defaults false. Both commercial/opening options
-and an explicit four-family readiness provider are required; missing DI denies.
-No concrete P36 provider, host activation or metadata capability is supplied.
+`RecommendationDraftEnabled` defaults false. The scoped four-family provider is
+registered and checks the owning serializable transaction, configured finite
+Execution database, P32 opened-offer read readiness, exact P36 model and physical
+catalog, and only the P36 Draft write privileges. Its physical CHECK/FK/parent
+capture remains deliberately empty until independent PostgreSQL capture, so it
+returns unavailable even if the flag is set. Current Core purpose, branch,
+named-reader and retained offer checks remain in the command/query routes.
+There is no accepted host activation or metadata capability yet.
 
 ## 23. Migration and compatibility
 
-Official EF generation must use the integrated P35 snapshot as parent and add
-four families plus their exact stable parent keys. Preserve all published raw
-migrations/Designer/snapshot bytes until official generation. P32 physical model
-inspection must later support the exact P36 parent keys by migration lineage;
-do not ignore unexpected keys or invent captured hashes.
+The genuine migration adds four families and three stable P32 parent keys.
+The registered readiness provider requires their exact captured PostgreSQL
+definitions and the applied P36 migration; model names alone never suffice.
+Preserve the generated Designer and snapshot bytes. Do not invent captured
+CHECK or FK text, or ignore unexpected parent keys.
 
 ## 24. Rollback
 
 Authored `P36RecommendationDraftGuards.BeforeDownSql` locks all four families
-and vetoes any retained row with SQLSTATE 55000. It must be installed first in
-future genuine Down. It is not a schema installation or executed rollback proof.
+and vetoes any retained row with SQLSTATE 55000. It is installed first in the
+genuine Down; an executed rollback proof remains pending.
 
 ## 25. Source verification
 
