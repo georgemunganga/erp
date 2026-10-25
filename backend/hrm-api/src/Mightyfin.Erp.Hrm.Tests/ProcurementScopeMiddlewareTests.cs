@@ -106,6 +106,31 @@ public sealed class ProcurementScopeMiddlewareTests
     }
 
     [Theory]
+    [InlineData("/api/procurement/v1/vendors", "POST")]
+    [InlineData("/api/procurement/v1/items", "POST")]
+    [InlineData("/api/procurement/v1/requests", "GET")]
+    public async Task Valid_All_on_existing_operational_routes_keeps_the_original_concrete_branch(
+        string path, string method)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id });
+        await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id);
+        http.Request.Path = path;
+        http.Request.Method = method;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached);
+        Assert.False(scope.IsExplicitAllBranches);
+        Assert.Equal(branch.Id, scope.WorkLocationId);
+        Assert.Equal(company.Id, scope.LegalEntityId);
+        Assert.Empty(scope.PermittedWorkLocationIds);
+    }
+
+    [Theory]
     [InlineData("wrong", false)]
     [InlineData("all", true)]
     public async Task Invalid_or_coexisting_All_headers_are_rejected_before_route_execution(string header, bool addLocation)

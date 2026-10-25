@@ -330,14 +330,17 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var requestedEntityText = http.Request.Headers["X-Shell-Entity"].FirstOrDefault()?.Trim();
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
         var hasAllHeader = http.Request.Headers.ContainsKey("X-Shell-Branch-Scope");
-        var explicitAllBranches = hasAllHeader && http.Request.Headers["X-Shell-Branch-Scope"].Count == 1
+        var validAllHeader = hasAllHeader && http.Request.Headers["X-Shell-Branch-Scope"].Count == 1
             && string.Equals(http.Request.Headers["X-Shell-Branch-Scope"].ToString().Trim(), "all", StringComparison.OrdinalIgnoreCase);
-        if (hasAllHeader && (!explicitAllBranches || !AllCompanyMasterReadPath(http.Request.Path, http.Request.Method)
-            || string.IsNullOrWhiteSpace(requestedEntityText) || http.Request.Headers.ContainsKey("X-Shell-Location")))
+        if (hasAllHeader && (!validAllHeader || string.IsNullOrWhiteSpace(requestedEntityText)
+            || http.Request.Headers.ContainsKey("X-Shell-Location")))
         {
             await Deny(http, StatusCodes.Status400BadRequest, "Choose one valid company scope and branch selection.");
             return;
         }
+        // P24 operational routes retain their original concrete-branch behavior.
+        // Only the reviewed company-master GET set receives a true All scope.
+        var explicitAllBranches = validAllHeader && AllCompanyMasterReadPath(http.Request.Path, http.Request.Method);
         Guid? requestedEntity = null;
         Guid? requestedLocation = null;
         if (!string.IsNullOrEmpty(requestedEntityText))
