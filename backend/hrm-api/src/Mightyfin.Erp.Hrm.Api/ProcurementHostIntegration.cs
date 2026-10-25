@@ -294,6 +294,7 @@ public static class ProcurementHostIntegration
                         principalDirectOrderDrafts,
                         principalOrderGovernance,
                         principalReceiving,
+                        principalGoodsReturnDrafts = false, // P37 needs genuine owned schema, finite role and acceptance proof.
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
