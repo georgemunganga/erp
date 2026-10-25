@@ -41,8 +41,17 @@ internal static partial class PrincipalApprovalHttpVerification
                 evaluatorPrincipalIds=new[]{fixture.ConfigReviewer.ToString("D")}}}});
         Need(PrincipalRfqEvaluationPlanDefinition.Parse(definition).Criteria.Count==1,
             "P32 private named evaluator controls are invalid.");
-        var opensAt=DateTimeOffset.UtcNow.AddMinutes(10);
+        // The Draft snapshot is stored by PostgreSQL at microsecond precision.
+        // Keep the private fixture on the same exact clock used by the owner.
+        var opensAt=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value.AddMinutes(10);
         var closesAt=opensAt.AddMinutes(10);
+        var exactWindow=new PrincipalRfqCommercialDraftInput(definition,opensAt,closesAt,"ZMW",
+            "SameCurrencyOnly","OriginalSeparateComponents",[]);
+        _=PrincipalRfqCommercialDraft.ValidateInput(exactWindow,"ZMW",eventId);
+        var submicrosecondRejected=false;
+        try { _=PrincipalRfqCommercialDraft.ValidateInput(exactWindow with {OpensAt=opensAt.AddTicks(1)},"ZMW",eventId); }
+        catch (InvalidOperationException) { submicrosecondRejected=true; }
+        Need(submicrosecondRejected,"P32 commercial Draft accepted a non-microsecond private window.");
         var draftBody=new {expectedRevision=(long?)null,draft=new {
             evaluationDefinitionJson=definition,opensAt,closesAt,
             comparisonCurrency="ZMW",currencyMode="SameCurrencyOnly",
