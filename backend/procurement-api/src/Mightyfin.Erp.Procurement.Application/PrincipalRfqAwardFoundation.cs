@@ -36,10 +36,15 @@ public static class PrincipalRfqAwardFoundation
     public static string CommandBody(
         PrincipalRfqAwardSourceQualification.VerifiedSelection selection,
         Guid policyVersionId, Guid reviewBranchId)
-        =>JsonSerializer.Serialize(new {schemaVersion=1,draftId=selection.DraftId,
-            recommendationRevisionId=selection.RevisionId,
-            recommendationSha256=selection.RecommendationSha256,
-            expectedRevision=selection.Revision,policyVersionId,reviewBranchId});
+        =>CommandBody(selection.DraftId,selection.RevisionId,
+            selection.RecommendationSha256,selection.Revision,policyVersionId,reviewBranchId);
+
+    public static string CommandBody(Guid draftId,Guid recommendationRevisionId,
+        string recommendationSha256,int expectedRevision,
+        Guid policyVersionId,Guid reviewBranchId)
+        =>JsonSerializer.Serialize(new {schemaVersion=1,draftId,
+            recommendationRevisionId,recommendationSha256,
+            expectedRevision,policyVersionId,reviewBranchId});
 
     /// <summary>Only an explicitly published, exact policy document admits the
     /// full-offer-line candidate mode. Partial quantity pricing, discounts,
@@ -118,7 +123,7 @@ public static class PrincipalRfqAwardFoundation
             && policy.LegalEntityId==companyId && policy.PolicyKey==PolicyKey
             && policy.State=="Published" && policy.PolicyVersionNumber>0
             && policy.EffectiveFrom<=now
-            && (policy.EffectiveTo is null || policy.EffectiveTo>now),
+            && !(policy.EffectiveTo is { } until && until<=now),
             "RfqAwardSourceOrPolicyUnavailable");
         var rules=ParseRules(policy.RulesJson);
         Need(rules.ReviewBranchId==branchId,"RfqAwardPolicyBranchChanged");

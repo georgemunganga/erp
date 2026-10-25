@@ -48,7 +48,7 @@ Each selected offer/line must belong to the exact opened set, invited supplier, 
 
 ## 12. Data ownership
 
-New typed P38 submission, selected line, Core-case binding, final outcome/decision, actor receipt and immutable history own exact parent keys (tenant/company/round/opening/recommendation revision/source/offer). Existing generic award tables remain independent worker-era data. Use stable physical FK ownership and append-only guards; avoid mutable cursor values as principal keys.
+Keep the existing P36 Draft head and revision tables intact. Add an append-only P36 `PrincipalRfqRecommendationSubmission` that freezes one exact revision and pins the new P38 submission identity. New typed P38 review submission, selected line, Core-case binding, final outcome/decision and actor receipt own exact parent keys (tenant/company/round/opening/recommendation submission/revision/source/offer). Existing generic award tables remain independent worker-era data. Use stable physical FK ownership and append-only guards; avoid mutable cursor values as principal keys. The authored classes are currently unmapped; no table is installed or action is enabled.
 
 ## 13. Source and commercial evidence
 
@@ -96,7 +96,7 @@ Only a verified final Approved outcome yields a typed award source. NoAward and 
 
 ## 24. Failure and recovery
 
-Persist command, exact receipt, source effect, Core linkage, audit and outbox atomically. Changed body/key/target/actor conflicts. Unknown HTTP outcome blocks blind retry and permits scoped original-key GET. Down first vetoes any retained P38 facts, Core case, audit or outbox history before narrowing shared contracts.
+Persist command, exact receipt, source effect, Core linkage, audit and outbox atomically. Changed body/key/target/actor conflicts. Unknown HTTP outcome blocks blind retry and permits scoped original-key GET. A pending or approved P38 case blocks P36 Draft revision and cancellation. Core Return permits a new P36 revision and new submission/case after retained Core history verification; the former submission and response stay immutable. The pure `RequireDraftMutationAllowed` contract is not wired into the current Draft route, so it is a future activation gate rather than a current runtime claim. Down first vetoes any retained P36/P38 facts, Core case, audit or outbox history before narrowing shared contracts.
 
 ## 25. Acceptance criteria
 
@@ -108,7 +108,7 @@ Pure: full recommendation reconstruction; duplicate/missing/foreign lines; exact
 
 ## 27. Dependencies and release gates
 
-P36 currently supplies a Draft and no Submit/terminal recommendation. P38 additionally needs a published award policy, new Core actions, typed owned persistence, exact document/source loader, finite physical capture and actual API/browser proof. `PrincipalRfqAwardSourceQualification.VerifyCurrent` reconstructs the P36 current revision against the exact opened offer/source projections and requires its stored snapshot to match the canonical line set. `PrincipalRfqAwardFoundation` adds a pure versioned policy grammar, current named Core actor/branch and retained conflict checks, full-offer-line-only quantity and held-capacity checks, exact retained total against an explicitly configured ceiling, and original-key receipt verification. No allocation mode or monetary ceiling is supplied by default. These authored tests are unrun. The inputs are not a trusted storage adapter: the owning transaction must independently verify the submitted P36 revision, whole P32/P29/Core/document graph, original quote components, actual residual hold under locks, and the retained receipt. These prerequisites do not create an award, Core case, PO, route or persisted receipt.
+P36 currently supplies a Draft and no live Submit/terminal recommendation. P38 additionally needs a published award policy, new Core actions, typed owned persistence, exact document/source loader, finite physical capture and actual API/browser proof. `PrincipalRfqAwardSourceQualification.VerifyCurrent` reconstructs the P36 current revision against the exact opened offer/source projections and requires its stored snapshot to match the canonical line set. `PrincipalRfqAwardFoundation` adds a pure versioned policy grammar, current named Core actor/branch and retained conflict checks, full-offer-line-only quantity and held-capacity checks, exact retained total against an explicitly configured ceiling, and original-key receipt verification. `PrincipalRfqAwardReviewWorkflow.Prepare` now constructs typed P36/P38 freeze facts and a real Core `ApprovalCase` with named Any/All stages and assignments in memory; `RequireDraftMutationAllowed` describes pending/return/resubmit behavior. No allocation mode or monetary ceiling is supplied by default. These authored tests are unrun. The inputs are not a trusted storage adapter: the owning transaction must independently verify the submitted P36 revision, whole P32/P29/Core/document graph, original quote components, actual residual hold under locks, Core terminal history, and retained receipts. No mapping, SaveChanges guard, same-save audit/outbox, generated migration, endpoint, capability or action registration exists for these new facts. These prerequisites create no persisted award, PO or Finance effect.
 
 ## 28. Decisions and assumptions
 
