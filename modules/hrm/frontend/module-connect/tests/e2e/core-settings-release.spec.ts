@@ -38,7 +38,7 @@ async function mockCore(page: Page, user: typeof admin | null) {
 test("workerless Core administrator reaches each connected settings editor", async ({ page }) => {
   const unexpected = await mockCore(page, admin);
   for (const [path, heading] of [
-    ["/core/workspace/settings", "Core settings"],
+    ["/core/workspace/settings", "ERP Core settings"],
     ["/core/workspace/settings/branding", "Company branding"],
     ["/core/workspace/settings/users", "HRM user access"],
     ["/core/workspace/settings/organization", "Organisation setup"],
