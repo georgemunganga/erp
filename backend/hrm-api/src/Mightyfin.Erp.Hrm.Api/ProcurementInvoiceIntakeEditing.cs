@@ -25,6 +25,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
     private static IQueryable<SupplierInvoice> Visible(ProcurementDbContext db, ProcurementRequestScope scope)
     {
         var query = db.SupplierInvoices.AsNoTracking();
+        if (scope.OrgUnitId is not null) return query.Where(_ => false);
         if (scope.IsExplicitAllBranches)
         {
             var permitted = scope.PermittedWorkLocationIds.ToArray();

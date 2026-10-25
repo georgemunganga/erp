@@ -492,16 +492,16 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
                 || AllReadPath(http.Request.Path, "/api/procurement/v1/items")
                 || AllReadPath(http.Request.Path, "/api/procurement/v1/contracts")
                 || AllReadPath(http.Request.Path, "/api/procurement/v1/plans")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/configuration/categories")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/configuration/methods")
                 || string.Equals(http.Request.Path.Value, "/api/procurement/v1/catalog", StringComparison.OrdinalIgnoreCase)
                 || AllReadPath(http.Request.Path, "/api/procurement/v1/requests")
                 || AllReadPath(http.Request.Path, "/api/procurement/v1/orders")
                 || AllReadPath(http.Request.Path, "/api/procurement/v1/invoices"));
         // Supplier and item masters are company-owned; their existing commands do
         // not create a branch transaction or infer branch authority from this header.
-        var allCompanyMaster = http.Request.Path.StartsWithSegments("/api/procurement/v1/vendors")
-            || http.Request.Path.StartsWithSegments("/api/procurement/v1/items")
-            || http.Request.Path.StartsWithSegments("/api/procurement/v1/configuration/categories")
-            || http.Request.Path.StartsWithSegments("/api/procurement/v1/configuration/methods");
+        var allCompanyMaster = AllVendorMasterPath(http.Request.Path, http.Request.Method)
+            || AllItemMasterPath(http.Request.Path, http.Request.Method);
         if (http.Request.Headers.ContainsKey("X-Shell-Branch-Scope") && (!explicitAllBranches
             || !(string.Equals(http.Request.Path.Value, "/api/procurement/v1/context", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(http.Request.Path.Value, "/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase)
@@ -681,5 +681,53 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         if (string.Equals(path.Value, root, StringComparison.OrdinalIgnoreCase)) return true;
         return path.StartsWithSegments(root, out var remainder)
             && Guid.TryParse(remainder.Value?.Trim('/'), out var id) && id != Guid.Empty;
+    }
+
+    // Finite existing company-master routes. A future nested route must earn its
+    // own scope review instead of inheriting a prefix-wide All admission.
+    private static bool AllVendorMasterPath(PathString path, string method)
+    {
+        if (!path.StartsWithSegments("/api/procurement/v1/vendors", out var rest)) return false;
+        var parts = rest.Value?.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        if (parts.Length == 0) return HttpMethods.IsGet(method) || HttpMethods.IsPost(method);
+        if (!Guid.TryParse(parts[0], out var vendor) || vendor == Guid.Empty) return false;
+        if (parts.Length == 1) return HttpMethods.IsGet(method) || HttpMethods.IsPut(method);
+        if (parts.Length == 2)
+            return parts[1] switch
+            {
+                "open-orders" => HttpMethods.IsGet(method),
+                "submit" or "return" or "approve" or "reject" or "suspend" or "reactivate" or "withdraw"
+                    => HttpMethods.IsPost(method),
+                "contacts" or "sites" or "qualifications" => HttpMethods.IsPost(method),
+                _ => false
+            };
+        if (parts.Length >= 3 && (parts[1] == "contacts" || parts[1] == "sites" || parts[1] == "qualifications")
+            && Guid.TryParse(parts[2], out var child) && child != Guid.Empty)
+            return parts.Length == 3 && HttpMethods.IsPut(method)
+                || parts.Length == 4 && HttpMethods.IsPost(method)
+                    && (parts[3] == "remove" || parts[1] == "qualifications" && parts[3] == "review");
+        return false;
+    }
+
+    private static bool AllItemMasterPath(PathString path, string method)
+    {
+        if (!path.StartsWithSegments("/api/procurement/v1/items", out var rest)) return false;
+        var parts = rest.Value?.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        if (parts.Length == 0) return HttpMethods.IsGet(method) || HttpMethods.IsPost(method);
+        if (!Guid.TryParse(parts[0], out var item) || item == Guid.Empty) return false;
+        if (parts.Length == 1) return HttpMethods.IsGet(method) || HttpMethods.IsPut(method);
+        if (parts.Length == 2)
+            return parts[1] switch
+            {
+                "activate" or "deactivate" => HttpMethods.IsPost(method),
+                "catalog-entries" => HttpMethods.IsGet(method) || HttpMethods.IsPost(method),
+                _ => false
+            };
+        if (parts.Length >= 3 && parts[1] == "catalog-entries"
+            && Guid.TryParse(parts[2], out var entry) && entry != Guid.Empty)
+            return parts.Length == 3 && HttpMethods.IsPut(method)
+                || parts.Length == 4 && HttpMethods.IsPost(method)
+                    && (parts[3] == "publish" || parts[3] == "withdraw");
+        return false;
     }
 }

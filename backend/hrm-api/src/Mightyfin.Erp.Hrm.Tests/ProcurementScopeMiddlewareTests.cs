@@ -103,6 +103,24 @@ public sealed class ProcurementScopeMiddlewareTests
         await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(create, deniedScope, db);
         Assert.False(reached);
         Assert.Equal(400, create.Response.StatusCode);
+
+        var (master, masterScope) = Request(user.Id);
+        master.Request.Path = $"/api/procurement/v1/vendors/{Guid.NewGuid():D}/contacts";
+        master.Request.Method = "POST";
+        master.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        master.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(master, masterScope, db);
+        Assert.True(reached);
+
+        var (unknown, unknownScope) = Request(user.Id);
+        unknown.Request.Path = $"/api/procurement/v1/vendors/{Guid.NewGuid():D}/bank-data";
+        unknown.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        unknown.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(unknown, unknownScope, db);
+        Assert.False(reached);
+        Assert.Equal(400, unknown.Response.StatusCode);
     }
 
     [Fact]

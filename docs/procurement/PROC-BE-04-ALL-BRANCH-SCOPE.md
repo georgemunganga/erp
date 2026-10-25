@@ -52,7 +52,7 @@ Request, legacy order and invoice list/detail reads filter to permitted branch I
 
 ## 13. Company masters
 
-Supplier, item, catalog and category/method configuration masters remain company-scoped. Their authorized CRUD does not create a branch transaction; supplier open-order summaries filter branch facts before count.
+Supplier and item masters remain company-scoped, including their finite currently mapped child/status routes. Category and method configuration plus the published catalog are company-scoped reads. Supplier open-order summaries filter branch facts before count; the company-wide suspend guard still considers all obligations without exposing order identifiers from other branches.
 
 ## 14. Transaction creation
 
@@ -68,7 +68,7 @@ Shared Core document access remains governed by its existing owner and scope con
 
 ## 17. Errors
 
-Malformed, conflicting or unsupported All headers are rejected. Routes lacking a reviewed All read contract remain branch-required.
+Malformed, conflicting or unsupported All headers are rejected. The live gate keeps the shared header visible and prompts a branch for unsupported feature pages instead of opening a blank transaction page.
 
 ## 18. API contract
 
@@ -112,4 +112,4 @@ No schema change is introduced. The UI and backend source branches can be revert
 
 ## 28. Remaining route inventory
 
-All is source-enabled only on list/detail of vendors, items, catalog, configuration categories/methods, contracts, plans, requests, legacy orders and invoice intake, plus existing manual payments. All company-master vendor/item child commands remain authorized by their existing policies. RFQ, receiving, principal PO, credit, policy, reviewer queues, unsupported catalog subroutes, document and export routes need individual pre-count/current-Core review; they deliberately reject All. This is a bounded scope increment, not full Procurement All-route completion.
+All is source-enabled only on list/detail of vendors, items, catalog, configuration category/method reads, contracts, plans, requests, legacy orders and invoice intake, plus existing manual payments. All company-master vendor/item child commands remain authorized by their existing policies. RFQ, receiving, principal PO, credit, policy, reviewer queues, unsupported catalog subroutes, document and export routes need individual pre-count/current-Core review; they deliberately reject All. This is a bounded scope increment, not full Procurement All-route completion.
