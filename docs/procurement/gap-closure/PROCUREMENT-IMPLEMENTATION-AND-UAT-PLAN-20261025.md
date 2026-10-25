@@ -634,4 +634,4 @@ Accounting is imported separately as a UI-only preview. Its richer allocation, r
 
 ## UAT execution boundary
 
-The CSV contains55 unexecuted case groups, one per audit finding. Expand each into operation-specific happy, denied, invalid, stale/concurrent, retry and recovery cases with test data, screenshots/API evidence and business acceptance before claiming UAT. Existing cloned control handlers may be preview-only;15 inspected operations have no original control and need a compatible UI extension or the correct shared module, rather than a backend adapter alone.
+The CSV contains 55 unexecuted case groups, one per audit finding. Expand each into operation-specific happy, denied, invalid, stale/concurrent, retry and recovery cases with test data, screenshots/API evidence and business acceptance before claiming UAT. Existing cloned control handlers may be preview-only;15 inspected operations have no original control and need a compatible UI extension or the correct shared module, rather than a backend adapter alone.
