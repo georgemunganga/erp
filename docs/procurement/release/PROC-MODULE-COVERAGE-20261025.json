@@ -1,0 +1,953 @@
+{
+  "schemaVersion": 1,
+  "documentId": "PROC-MODULE-COVERAGE-20261025",
+  "dateUtc": "2026-10-25",
+  "status": "SOURCE_UI_AND_NAMED_PRIVATE_EVIDENCE_SNAPSHOT_NOT_MODULE_COMPLETION",
+  "erpSourceBeforeThisDocsChange": "ae6d3a50e8cd9ab998d9db4ba2d072e9e84f097a",
+  "uiSource": "20f7e46eacb2a7dea733f9aa7bd0450ea982b34f",
+  "moduleComplete": false,
+  "productionDeploymentClaim": false,
+  "preservedPriorRecords": [
+    "docs/procurement/release/PROCUREMENT-CRUD-COVERAGE-20261024.json",
+    "docs/procurement/release/PROCUREMENT-MILESTONE-COVERAGE-20261024.json"
+  ],
+  "interpretation": {
+    "draftCrud": "Persisted create/read/revise/cancel is distinct from approval, fulfilment or external posting. Retained records use cancel/withdraw/retire rather than destructive delete.",
+    "ui": "Provided layout/editors/tabs are retained; an adapter/capability flag is not proof of live backend acceptance.",
+    "privateProof": "Only named producer/product and workflow scope in linked receipts accepted; running work is NOT acceptance.",
+    "production": "P24 deployed baseline remains unchanged. Later schema/source/private proofs do not certify production rollout.",
+    "ownership": "Core owns identities, scope, permissions, approvals, audit, documents/scanning. Procurement owns commercial decisions/evidence. Finance, Inventory and Assets own external ledgers. Employee link remains optional where principal workflow supports it."
+  },
+  "currentBuildAndPublication": {
+    "receipt": "docs/procurement/release/P37-API-HOST-SOURCE-ACCEPTANCE-20261025.json",
+    "productSource": "188f1c53fcca625364974fd03ecb60d0b86781fb",
+    "combinedToolSource": "8197b549de94617593c977213fed9d160591c5ab",
+    "hostPassed": 1344,
+    "focusedHostPassed": 26,
+    "failed": 0,
+    "skipped": 0,
+    "domain": "1670 carried byte-unchanged from accepted parent; not rerun in P37 SDK03",
+    "apiPublishedFiles": 150,
+    "toolPublishedFiles": 477,
+    "publicationRuntimeProof": false,
+    "retainedFailures": "SDK01 andSDK02 test-fixture failures and earlier runtime failures remain retained; no retry relabeling"
+  },
+  "currentRunningOrPending": {
+    "P37Native01": "FAILED_47_HTTP_P30RealFiniteReadinessOnly_BEFORE_ANY_P37_OPERATION",
+    "P37IndependentOwner": "NOT_RUN_AFTER_NATIVE01_FAILURE",
+    "P37Ui": "TypeScript+13targeted units+11mocked Chromium cases; actualBackend=false",
+    "scannerC04": "READY_UNACKNOWLEDGED; no external pickup/real scanner proof claimed",
+    "P37NextAttempt": "Pending read-only finite privilege diagnosis, reviewed minimal tool-only fixture correction and fresh retry; no new acceptance"
+  },
+  "metaCapabilityInventory": {
+    "sourceFile": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
+    "keys": [
+      "vendorDraft",
+      "itemDraft",
+      "requestDraft",
+      "planningDraft",
+      "configurationDraft",
+      "contractDraft",
+      "contractDraftRates",
+      "contractInternalReview",
+      "recurringPurchaseDraft",
+      "sourcingDraft",
+      "sourcingSourceDrafts",
+      "principalSourcingSourceDrafts",
+      "principalSourcingPublication",
+      "budgetEvidence",
+      "budgetRecording",
+      "principalApprovals",
+      "approvals",
+      "sourcing",
+      "contracts",
+      "orders",
+      "orderDraft",
+      "principalDirectOrderDrafts",
+      "principalOrderGovernance",
+      "principalOrderDraftRevision",
+      "principalReceiving",
+      "principalGoodsReturnDrafts",
+      "receiving",
+      "receivingDrafts",
+      "receivingGoods",
+      "receivingInspection",
+      "receivingServices",
+      "receivingCorrections",
+      "invoiceIntake",
+      "vendorCreditDraft",
+      "manualPaymentWorkflow",
+      "invoiceDocuments",
+      "invoiceComparison",
+      "invoiceOriginalUnitReview",
+      "principalInvoiceMatching",
+      "invoiceQualifiedClaims",
+      "invoiceValidation",
+      "financeHandoff",
+      "supplierPortal"
+    ],
+    "coverage": "Every current /meta capability key is assigned once below. P32/P36 source workflows without distinct capability are also listed; absence is explicit."
+  },
+  "capabilityGroups": [
+    {
+      "id": "vendors",
+      "capabilityKeys": [
+        "vendorDraft"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveVendors.tsx",
+          "reference-ui/src/features/VendorEditorForm.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs"
+        ],
+        "persistedOperations": [
+          "create/list/detail/header update",
+          "sites/contacts/pending qualifications child CRUD",
+          "submit/return/revise/withdraw/status controls"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Supplier portal identity, complete diligence/document workflow and current-source normal-session release acceptance remain separate."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "items_and_catalog",
+      "capabilityKeys": [
+        "itemDraft"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveItems.tsx",
+          "reference-ui/src/features/LivePublishedCatalog.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs"
+        ],
+        "persistedOperations": [
+          "item draft create/list/detail/update/retire/activate",
+          "exact price rows/add/edit and independent catalog publish/withdraw"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Punchout/external catalog integration not implemented; no repeated new POST after unknown acknowledgement; current release/cookie checks remain feature-scoped."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "purchase_requests",
+      "capabilityKeys": [
+        "requestDraft",
+        "principalApprovals",
+        "approvals"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveRequests.tsx",
+          "reference-ui/src/features/LiveApprovals.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs"
+        ],
+        "persistedOperations": [
+          "own draft create/read/revise/withdraw",
+          "Core-principal submit/assigned approval/recovery with policy/funding evidence"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P29-ACCEPTANCE-20261023.json",
+          "acceptedScope": "P29 source acceptance builds on retained approved demand; this receipt is not a current entire request-suite rerun"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "Real Core permissions/scope and effective policy remain per-command; Finance budget evidence is not an ERP reservation. Principal and legacy approval contracts remain distinct."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "planning",
+      "capabilityKeys": [
+        "planningDraft"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LivePlans.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPlanRoutes.cs"
+        ],
+        "persistedOperations": [
+          "own draft create/list/detail/revise/cancel"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Plan approval, governed execution and downstream procurement generation are not established by draft CRUD."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "configuration",
+      "capabilityKeys": [
+        "configurationDraft"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveConfiguration.tsx",
+          "reference-ui/src/features/LivePolicies.tsx",
+          "reference-ui/src/features/LiveApprovalSettings.tsx",
+          "reference-ui/src/features/LiveSettingsShell.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementConfigurationRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPolicyDraftRoutes.cs"
+        ],
+        "persistedOperations": [
+          "categories/methods typed drafts and lifecycle controls",
+          "buying-policy and authority versioned configuration/review"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Only typed owned settings have persistence; remaining preference tabs must stay unavailable. Core owns identity/org/global settings. Policy CRUD is not authority to publish or transact."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "budget_evidence",
+      "capabilityKeys": [
+        "budgetEvidence",
+        "budgetRecording"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveBudgets.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementBudgetRoutes.cs"
+        ],
+        "persistedOperations": [
+          "scoped budget evidence read/capture against actual request/order sources"
+        ],
+        "workflowScope": "EVIDENCE_ONLY_NO_PROCUREMENT_BUDGET_LEDGER"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Finance budget/reservation ledger, authoritative available balances and automated commitment remain external owner work."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "rfq_drafts_and_publication",
+      "capabilityKeys": [
+        "sourcingDraft",
+        "sourcingSourceDrafts",
+        "principalSourcingSourceDrafts",
+        "principalSourcingPublication",
+        "sourcing"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveSourcing.tsx",
+          "reference-ui/src/features/PrincipalPublication.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementSourcingDraftRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingSourceRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingContactRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingManualQuoteRoutes.cs"
+        ],
+        "persistedOperations": [
+          "draft create/list/detail/revise/cancel",
+          "approved demand conversion and original-key recovery",
+          "internal Core publication review",
+          "witnessed manual contact and manual quotation draft/revisions"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P30-RFQ-COOKIE-ACCEPTANCE-20261024.json",
+          "acceptedScope": "Accepted private native/normal-cookie and independent owner journey at the recorded producer/product pins"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "General legacy sourcing capability remains false. Internal approval/manual contact does not claim supplier dispatch, supplier bid submission, sealed offer adoption or award."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "commercial_rounds_P32",
+      "capabilityKeys": [],
+      "ui": {
+        "retainedComponents": [],
+        "dataAdapter": "NO_COMPLETE_P32_COMMERCIAL_UI_ADAPTER",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialOfferOpening.cs"
+        ],
+        "persistedOperations": [
+          "commercial draft create/revise/read/recovery",
+          "prepared-plan and held governed round/opening/offers/assessment source"
+        ],
+        "workflowScope": "SOURCE_CONTROLS_EXIST_DEFAULT_OFF_ACCEPTANCE_BOUNDED"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P32-NATIVE-DRAFT-PREPARATION-ACCEPTANCE-20261025.json",
+          "acceptedScope": "100 actual HTTP observations plus independent owner: 1head,2revisions,2draft receipts,1zero-document prepared candidate; no commercial opening/offers"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "Only draft/zero-document Prepare has this actual positive acceptance. Document-backed Prepare, real publication/sealed submissions/opening/assessment, normal-cookie adapter and runtime scope denial proof remain. P30 manual quote bytes are never adopted as submitted sealed bids."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "recommendation_drafts_P36",
+      "capabilityKeys": [],
+      "ui": {
+        "retainedComponents": [],
+        "dataAdapter": "ABSENT_UI_ADAPTER",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs"
+        ],
+        "persistedOperations": [
+          "create/revise own Draft recommendation",
+          "purpose-safe own list/detail/original-key recovery after current recommend and named opened-offer-read authority"
+        ],
+        "workflowScope": "DRAFT_ONLY_NO_AWARD"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P36-P37-PRIVATE-OWNER-SCHEMA-20261025.json",
+          "acceptedScope": "Genuine schema/capture and rollback shape; not recommendation HTTP/UI acceptance"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "No distinct /meta P36 capability or UI adapter. Add current purpose-safe availability metadata, bounded human labels and adapter in existing sourcing experience. Frozen source has RFQ title and line IDs; use presentation ordinals/title until owner-approved immutable labels exist. Do not look up mutable supplier names or display UUIDs as business labels. Recommendation is not submit/award/PO authority."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "governed_award_P38",
+      "capabilityKeys": [],
+      "ui": {
+        "retainedComponents": [],
+        "dataAdapter": "NO_ACCEPTED_AWARD_ADAPTER",
+        "layoutPolicy": "Future binding must reuse the existing sourcing experience"
+      },
+      "backend": {
+        "sourceFiles": [],
+        "persistedOperations": [],
+        "workflowScope": "Separate held award source, not current ae6 module completion or executable PO authority"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Named current Core award approval/policy/independence; exact retained opening/assessment/recommendation source pins; genuine schema/rollback/finite API and existing UI binding; explicit downstream PO-source adoption. Do not infer an accepted award from a recommendation draft."
+      ],
+      "production": "No production award capability claimed"
+    },
+    {
+      "id": "order_drafts_governance_and_revisions",
+      "capabilityKeys": [
+        "orderDraft",
+        "principalDirectOrderDrafts",
+        "principalOrderGovernance",
+        "principalOrderDraftRevision",
+        "orders"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveOrders.tsx",
+          "reference-ui/src/features/LivePrincipalOrders.tsx",
+          "reference-ui/src/features/LivePrincipalOrderDetail.tsx",
+          "reference-ui/src/features/LivePrincipalOrderEditor.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementOrderDraftRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftEdit.cs"
+        ],
+        "persistedOperations": [
+          "approved-source draft create/list/detail/revise/cancel/recovery",
+          "manual funding evidence/Core approval/internal issue/manual acknowledgement",
+          "governed draft revision and retained slices"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P30-PO-ACCEPTANCE-20261024.json",
+          "acceptedScope": "Recorded private PO native/cookie/owner scope"
+        },
+        {
+          "receipt": "docs/procurement/release/P33-NORMAL-COOKIE-ACCEPTANCE-20261025.json",
+          "acceptedScope": "Recorded P33 governed PO revision normal-cookie and owner scope"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "No supplier dispatch or invented Finance posting. Issued-order amendment/close and externally executable awards/releases need their own owner contracts; accepted draft revision does not authorize issued commercial amendment."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "goods_service_and_inspection",
+      "capabilityKeys": [
+        "principalReceiving",
+        "receiving",
+        "receivingDrafts",
+        "receivingGoods",
+        "receivingInspection",
+        "receivingServices"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveReceiving.tsx",
+          "reference-ui/src/features/LiveReceivingEditor.tsx",
+          "reference-ui/src/features/ReceivingPresentation.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs"
+        ],
+        "persistedOperations": [
+          "goods/service drafts create/read/revise/cancel",
+          "observed goods receipt, independent inspection and acceptance",
+          "service completion certification, exact counters and recovery"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P30-RECEIVING-ACCEPTANCE-20261024.json",
+          "acceptedScope": "Recorded native goods/service lifecycle/counters"
+        },
+        {
+          "receipt": "docs/procurement/release/P30-SERVICE-COOKIE-ACCEPTANCE-20261024.json",
+          "acceptedScope": "Recorded normal-session service and independent owner proof"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "Legacy receiving=false remains distinct from principalReceiving. No stock/asset ledger duplication; acceptance handoff is not owner posting. Retained historical reads must survive current-policy changes without granting new authority."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "goods_return_drafts_P37",
+      "capabilityKeys": [
+        "principalGoodsReturnDrafts"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveGoodsReturns.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalGoodsReturnRoutes.cs"
+        ],
+        "persistedOperations": [
+          "verified accepted-goods source list",
+          "own draft create/list/detail/revise/cancel/original-key recovery",
+          "GET server actions and retained PO/supplier/line/physical observation labels"
+        ],
+        "workflowScope": "DRAFT_INTAKE_ONLY_NO_RETURN_FULFILMENT"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P37-API-HOST-SOURCE-ACCEPTANCE-20261025.json",
+          "acceptedScope": "SDK fullHost1344/focus26 and official API150/Tool477 publication only"
+        },
+        {
+          "receipt": "docs/procurement/release/P37-FINITE-ACL-ACCEPTANCE-20261025.json",
+          "acceptedScope": "Private finite SQL privileges only, not LOGIN/HTTP"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "Native01 FAILED after47 HTTP at P30RealFiniteReadinessOnly before any P37 operation; owner did not run. Preserve failure; diagnose actual finite-role fixture reads, review a minimal tool-only correction, then a fresh native retry. UI20f lineage: TypeScript,13targeted units and11mocked Chromium cases; actualBackend=false. Normal-cookie real backend and production release remain."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "receipt_corrections_and_return_fulfilment",
+      "capabilityKeys": [
+        "receivingCorrections"
+      ],
+      "ui": {
+        "retainedComponents": [],
+        "dataAdapter": "NO_LIVE_REVERSAL_ADAPTER",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [],
+        "persistedOperations": [
+          "No implemented stock/asset reversal or negative-acceptance ledger claimed"
+        ],
+        "workflowScope": "CAPABILITY_FALSE"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Commercial return authorization/dispatch, physical return completion, acceptance reversals and Inventory/Asset posting remain owned future implementation. P37 cancellation never reduces accepted counters."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "invoice_intake",
+      "capabilityKeys": [
+        "invoiceIntake"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveInvoices.tsx",
+          "reference-ui/src/features/LiveInbox.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceIntakeRoutes.cs"
+        ],
+        "persistedOperations": [
+          "manual Received original bill create/list/detail/update/cancel with exact amounts and CAS"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Unprocessed own-original guards remain. Typed mapping/review/claims are separate; capture is not validated AP or a posted payable."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "invoice_documents_and_review",
+      "capabilityKeys": [
+        "invoiceDocuments",
+        "invoiceOriginalUnitReview"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/InvoiceDocuments.tsx",
+          "reference-ui/src/features/InvoiceReview.tsx",
+          "reference-ui/src/features/InvoiceUnitReviewTasks.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceDocumentRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceUnitReviewRoutes.cs"
+        ],
+        "persistedOperations": [
+          "Core-owned document reference/upload/access integration and original unit-review source"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P31-PRIVATE-EMPTY-SCHEMA-ACCEPTANCE-20261024.json",
+          "acceptedScope": "Physical typed schema proof only; not live scan/download acceptance"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "Core Documents scanner task C04 remains external READY_UNACKNOWLEDGED, no worker pickup/results or real Clean/EICAR proof claimed. Real retained scan engine/definitions/hash/bytes/verdict and reviewer DownloadAuthorized event needed."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "principal_invoice_matching_P31",
+      "capabilityKeys": [
+        "principalInvoiceMatching",
+        "invoiceComparison"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/PrincipalInvoiceMatching.tsx",
+          "reference-ui/src/features/PrincipalInvoiceUnitReviewTasks.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceMappingRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceReviewRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceComparisonRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceDiscrepancyRoutes.cs"
+        ],
+        "persistedOperations": [
+          "typed retained PO2/acceptance map",
+          "Core unit review, compare, discrepancy/correction/remap and original-key recovery source"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P31-PRIVATE-EMPTY-SCHEMA-ACCEPTANCE-20261024.json",
+          "acceptedScope": "Genuine13-table/41FK/13CHECK/3parentAK empty schema and exact capture scope"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "Real scanner plus finite P31/CoreDocs grants and full blocked→correction→remap→qualified HTTP/cookie/owner graph remain. Legacy invoiceComparison does not advertise principal successor compatibility."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "invoice_validation_and_finance_handoff",
+      "capabilityKeys": [
+        "invoiceQualifiedClaims",
+        "invoiceValidation",
+        "financeHandoff"
+      ],
+      "ui": {
+        "retainedComponents": [],
+        "dataAdapter": "NO_EXECUTABLE_FINANCE_ADAPTER",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceFinanceReadinessRoutes.cs"
+        ],
+        "persistedOperations": [
+          "Readiness and typed boundary contracts only"
+        ],
+        "workflowScope": "UNAVAILABLE"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Capabilities remain false. Complete Finance history/qualified-claim handoff, AP posting and payment-status callback remain Finance-owned; no fabricated posting/reference."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "vendor_credits",
+      "capabilityKeys": [
+        "vendorCreditDraft"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveVendorCredits.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementCreditIntakeRoutes.cs"
+        ],
+        "persistedOperations": [
+          "invoice-linked documentary draft create/read/update/cancel",
+          "historical read-only signed/zero exact amounts"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Source vendor/currency derive actual bill; no available balance/refund/application/payment execution. Finance owns those effects."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "manual_payments",
+      "capabilityKeys": [
+        "manualPaymentWorkflow"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LivePayments.tsx",
+          "reference-ui/src/features/LiveManualPaymentSettings.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentCommandRoutes.cs"
+        ],
+        "persistedOperations": [
+          "draft create/read/revise/cancel, submit/assigned review",
+          "record outside payment, independent manual confirm/dispute/recovery"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/PROC-PAY-01-FOUNDATION-ACCEPTANCE-20261023.json",
+          "acceptedScope": "Named private manual-evidence workflow acceptance only"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "Already real controlled manual workflow; external Finance absence does not erase it. Confirmed Manually is not AP Paid, bank execution or batch processing. Current release/normal-cookie deployment gates remain."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "batch_payments",
+      "capabilityKeys": [],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/BatchPayments.tsx",
+          "reference-ui/src/features/BatchPaymentEditor.tsx"
+        ],
+        "dataAdapter": "NO_LIVE_BATCH_EXECUTION_ADAPTER",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [],
+        "persistedOperations": [
+          "Imported UI exists; no authoritative batch execution API claimed"
+        ],
+        "workflowScope": "UNIMPLEMENTED_OWNER_INTEGRATION"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "No live batch bank execution/Finance posting; keep imported/demo preview outside authoritative live mutation routes."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "contract_drafts_rates_and_internal_review",
+      "capabilityKeys": [
+        "contractDraft",
+        "contractDraftRates",
+        "contractInternalReview"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveContracts.tsx",
+          "reference-ui/src/features/ContractDraftRates.tsx",
+          "reference-ui/src/features/LiveContractReviews.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractRateRoutes.cs",
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs"
+        ],
+        "persistedOperations": [
+          "own draft create/read/revise/cancel and exact rates CRUD",
+          "policy maker/independent publication",
+          "Core submit/Return/correct/revise/resubmit/Approve and recovery"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [
+        {
+          "receipt": "docs/procurement/release/P35-NATIVE-INTERNAL-REVIEW-ACCEPTANCE-20261025.json",
+          "acceptedScope": "138 actual HTTP plus independent owner:2submissions/2Corecases/2votes/1correction/5receipts/3policy stages; no normal-cookie or activation claim"
+        }
+      ],
+      "remainingImplementationOrAcceptance": [
+        "Normal-session contract review and deployment pending. Owner proof had no unrelated pre-P35 baseline/audit companion acceptance; preserve stated limits."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "contract_activation_framework_and_utilisation",
+      "capabilityKeys": [
+        "contracts"
+      ],
+      "ui": {
+        "retainedComponents": [],
+        "dataAdapter": "NO_LIVE_ACTIVATION_ADAPTER",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [],
+        "persistedOperations": [
+          "No executable activation/signature/framework drawdown claimed"
+        ],
+        "workflowScope": "CAPABILITY_FALSE"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Implement explicit owner policy, signature/activation, amendments, ceilings/utilisation, framework release/drawdown/renewal; existing draft/internal approval must never imply Active."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "recurring_purchase_planning",
+      "capabilityKeys": [
+        "recurringPurchaseDraft"
+      ],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveRecurringPurchases.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [
+          "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRecurringPurchaseRoutes.cs"
+        ],
+        "persistedOperations": [
+          "draft/commitment create/read/revise/close"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Recurrence scheduling/execution, generated invoices/orders and Finance/AP integration are separate from saved recurring intent."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "supplier_portal",
+      "capabilityKeys": [
+        "supplierPortal"
+      ],
+      "ui": {
+        "retainedComponents": [],
+        "dataAdapter": "ABSENT_SUPPLIER_PORTAL_ADAPTER",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [],
+        "persistedOperations": [
+          "No supplier identity/purpose API activation"
+        ],
+        "workflowScope": "CAPABILITY_FALSE"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "External supplier identity, scoped invitations/submission/documents and sealed-bid isolation; no buyer surrogate entry masquerading as portal interaction."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    },
+    {
+      "id": "overview_inbox_analytics_and_collaboration",
+      "capabilityKeys": [],
+      "ui": {
+        "retainedComponents": [
+          "reference-ui/src/features/LiveOverview.tsx",
+          "reference-ui/src/features/LiveInbox.tsx"
+        ],
+        "dataAdapter": "REAL_API_ADAPTER_PRESENT",
+        "layoutPolicy": "Reuse provided ERP components/editor/tabs; no replacement design"
+      },
+      "backend": {
+        "sourceFiles": [],
+        "persistedOperations": [
+          "scoped operational projections and worklist presentation"
+        ],
+        "workflowScope": "FEATURE_SPECIFIC_GATES"
+      },
+      "privateEvidence": [],
+      "remainingImplementationOrAcceptance": [
+        "Advanced KPI/currency normalization, cross-module analytics, supplier performance/risk, comments/notifications and governed exports need explicit owner semantics/acceptance. A retained screen or count is not an implemented transactional workflow."
+      ],
+      "production": "No new deployment established by this record; production remains P24"
+    }
+  ],
+  "nextImplementableMilestones": [
+    {
+      "id": "P36_PURPOSE_SAFE_UI_BINDING",
+      "scope": "Add real purpose-safe metadata availability and bounded immutable/presentation labels, then bind existing sourcing UI; current recommend+opened-offer grants/named reader and retained proof before all replay/recovery.",
+      "notClaimed": "No automatic score/pass, approved award or executable PO source."
+    },
+    {
+      "id": "P37_ACTUAL_AND_NORMAL_SESSION",
+      "scope": "Diagnose preserved Native01 finite-readiness failure, review minimal tool-only fixture correction, then fresh native/independent owner proof and normal-cookie Returns lifecycle. SDK/publication passes remain valid but do not establish real P37 acceptance."
+    },
+    {
+      "id": "CORE_SCANNER_C04_AND_P31",
+      "scope": "External Core task must report real private scanner provenance/results via its PR. Then finite CoreDocs/P31 grants and full mapped-review/compare/correct/remap/qualified proof; no fake Clean."
+    },
+    {
+      "id": "P38_GOVERNED_AWARD",
+      "scope": "Continue held award source with explicit current Core policy/independence and original opened offers/assessments/recommendation pins; official schema and actual workflow proofs before PO adoption."
+    },
+    {
+      "id": "CONTRACT_ACTIVATION_FRAMEWORK",
+      "scope": "Implement signature/activation/ceiling consumption/amendment and framework drawdown under explicit owner contracts; internal Approved remains non-Active."
+    },
+    {
+      "id": "RELEASE_AND_EXTERNAL_OWNERS",
+      "scope": "Finite Core/Record/Execution separation, same-snapshot restore/ACL/current-session proof, full release UAT and production cutover remain distinct. External Finance/AP/bank and Inventory/Asset execution stay with owners; recurrence execution and supplier portal remain future work."
+    }
+  ],
+  "sharedFoundation": {
+    "receipt": "docs/procurement/release/P30-CORE-SESSION-ACCEPTANCE-20261025.json",
+    "scope": "Accepted private Core finite-login/auth HTTP38 observations with independent read-only owner and original private HBA restored; not general HRM CRUD or production authentication deployment.",
+    "controls": "Canonical Core principal and current role/branch grants; separate finite Record/Execution connections. No Procurement-owned employee/auth store or replacement workflow engine."
+  },
+  "p37RetainedFailure": {
+    "cohort": "Native01",
+    "status": "FAILED_PRIVATE_P37_NATIVE_HTTP",
+    "actualHttpRequests": 47,
+    "stage": "P30RealFiniteReadinessOnly",
+    "exitCode": 2,
+    "failureCode": "P25_P30_real_owning_migration_finite_grants_and_normal_host_readiness_are_required_no_positive_stub",
+    "p37OperationsExecuted": false,
+    "ownerExecuted": false,
+    "productOrProductionDefectEstablished": false,
+    "diagnosis": "Tool fixture may lack P33 retained-history reads and required Core branch-name SELECT; actual read-only privilege diagnosis is in progress. No broad grant or final cause accepted.",
+    "resultSha256": "8bfecdf94b37010a5e9ce8aa4333e6edc05dee8b34ea2d6e78341e1d097efb13",
+    "wrapperResultSha256": "2aad50a4619cc0d7e5cc6c4f98ca64d5aec2837b272f05022da29790d146637d",
+    "failureEvidencePreserved": true,
+    "sdkAndPublicationAcceptanceUnchanged": true
+  }
+}
