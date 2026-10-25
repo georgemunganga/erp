@@ -68,14 +68,14 @@ public sealed partial class ProcurementRequestHttpTests
             (HttpMethod.Put, PrincipalRequests + "/" + data.Visible[0]),
             (HttpMethod.Post, PrincipalRequests + "/" + data.Visible[0] + "/withdraw") })
         {
-            using var response = await fixture.SendAllRequests(method, path, New("Must select branch"));
+            using var response = await fixture.SendAllRequests(method, path, Draft("Must select branch"));
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal("invalid-scope", body.GetProperty("code").GetString());
         }
         Assert.Equal(before, await fixture.OriginalValueFootprint());
         using var created = await SendJson(fixture.Client, HttpMethod.Post, PrincipalRequests,
-            fixture.Owner, New("Selected branch still works"), selectedLocation: data.Second);
+            fixture.Owner, Draft("Selected branch still works"), selectedLocation: data.Second);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var draft = await created.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(data.Second, draft.GetProperty("branchRef").GetGuid());
