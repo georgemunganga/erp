@@ -4563,7 +4563,7 @@
   "originalUiTraceMethod": "Line anchors reference the preserved supplied presentation source. PREVIEW_ONLY means the interaction used local AppRecord/store or display-only state; NOT_PRESENT means no matching operation was found in the inspected preview component. Existing live counterparts are separate source and require their own evidence.",
   "acceptanceBoundary": "A traceable action plan, not completed UAT. Existing browser-local handlers illustrate intent only; shared Core/Finance ownership and backend authority remain binding. DECIDE items do not block unrelated already-defined CRUD work.",
   "executionRoadmap": {
-    "version": "1.2",
+    "version": "1.3",
     "updated": "2026-10-25",
     "status": "EXECUTING_NOT_UAT_ACCEPTANCE",
     "currentProduction": {
@@ -4971,6 +4971,20 @@
         "businessUatAccepted": false,
         "status": "SUPERSEDED_BY_M0_THEN_M2_RELEASES"
       }
-    ]
+    ],
+    "publishedSource": {
+      "erpMain": "a8f57a19cd90b61e3cb600cc336deaf383a4c745",
+      "erpPr": 96,
+      "uiMain": "403bfdac505d593921a5bab1ba3388896205325f",
+      "sourcePublicationEvidence": "docs/procurement/gap-closure/R0-CORE-SAFE-RESET-SOURCE-PUBLICATION-20261025.json",
+      "productionChanged": false,
+      "businessUatAccepted": false,
+      "holds": [
+        "Core production runtime least privilege remains unresolved",
+        "Publisher startup source review/build/runtime acceptance pending",
+        "UI later-feature ancestry not promoted to main",
+        "New workflow cohort and migration/API/publisher release require their own acceptance"
+      ]
+    }
   }
 }
