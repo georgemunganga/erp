@@ -27,6 +27,41 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed partial class ProcurementRequestHttpTests
 {
     [Fact]
+    public async Task Explicit_All_requests_count_only_currently_assigned_branches_before_paging_and_detail()
+    {
+        await using var fixture = await Fixture.Start();
+        var (a, b, c) = await fixture.AddThreeOwnerBranches();
+        var ids = new List<Guid>();
+        foreach (var branch in new[] { a, b, c })
+        {
+            var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/requests",
+                fixture.Owner, Draft("Branch bound"), selectedLocation: branch);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            ids.Add((await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
+        }
+        await fixture.ConfineOwnerTo(a, b);
+        using var all = new HttpRequestMessage(HttpMethod.Get, "/api/procurement/v1/requests?limit=1&offset=0");
+        all.Headers.Add("X-Test-User", fixture.Owner.ToString("D"));
+        all.Headers.Add("X-Shell-Entity", fixture.Company.ToString("D"));
+        all.Headers.Add("X-Shell-Branch-Scope", "all");
+        var page = await fixture.Client.SendAsync(all);
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        var list = await page.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, list.GetProperty("count").GetInt32());
+        Assert.Single(list.GetProperty("records").EnumerateArray());
+        using var hidden = new HttpRequestMessage(HttpMethod.Get, $"/api/procurement/v1/requests/{ids[2]}");
+        hidden.Headers.Add("X-Test-User", fixture.Owner.ToString("D"));
+        hidden.Headers.Add("X-Shell-Entity", fixture.Company.ToString("D"));
+        hidden.Headers.Add("X-Shell-Branch-Scope", "all");
+        Assert.Equal(HttpStatusCode.NotFound, (await fixture.Client.SendAsync(hidden)).StatusCode);
+        using var create = new HttpRequestMessage(HttpMethod.Post, "/api/procurement/v1/requests")
+        { Content = JsonContent.Create(Draft("No branch")) };
+        create.Headers.Add("X-Test-User", fixture.Owner.ToString("D"));
+        create.Headers.Add("X-Shell-Entity", fixture.Company.ToString("D"));
+        create.Headers.Add("X-Shell-Branch-Scope", "all");
+        Assert.Equal(HttpStatusCode.BadRequest, (await fixture.Client.SendAsync(create)).StatusCode);
+    }
+    [Fact]
     public async Task Funding_alias_is_denied_without_effects_and_independent_worker_survives_creator_offboarding()
     {
         await using var fixture = await Fixture.Start();
@@ -3702,10 +3737,33 @@ public sealed partial class ProcurementRequestHttpTests
             .Select(endpoint => endpoint.RoutePattern.RawText ?? "").ToArray();
         public HttpClient Client { get; } = app.GetTestClient();
         public Guid Owner { get; } = owner;
+        public Guid Company => company;
         public Guid Other { get; } = other;
         public Guid Reviewer { get; } = reviewer;
         public Guid Inactive { get; } = inactive;
         public Guid OtherCompany { get; } = otherCompany;
+
+        public async Task<(Guid A, Guid B, Guid C)> AddThreeOwnerBranches()
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var a = await core.WorkLocations.Where(x => x.LegalEntityId == company).Select(x => x.Id).SingleAsync();
+            var b = new WorkLocation { Code = "SCOPE-B", Name = "Second assigned", LegalEntityId = company };
+            var c = new WorkLocation { Code = "SCOPE-C", Name = "Unassigned", LegalEntityId = company };
+            core.WorkLocations.AddRange(b, c);
+            await core.SaveChangesAsync();
+            return (a, b.Id, c.Id);
+        }
+
+        public async Task ConfineOwnerTo(Guid a, Guid b)
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            core.UserBranchAssignments.AddRange(
+                new HrUserBranchAssignment { UserId = Owner, LocationId = a },
+                new HrUserBranchAssignment { UserId = Owner, LocationId = b });
+            await core.SaveChangesAsync();
+        }
 
         public async Task<long> AdvanceFundingMetadataRevision(Guid requestId)
         {

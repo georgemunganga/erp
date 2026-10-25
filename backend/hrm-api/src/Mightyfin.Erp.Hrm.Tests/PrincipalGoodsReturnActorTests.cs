@@ -73,6 +73,28 @@ public sealed class PrincipalGoodsReturnActorTests
     }
 
     [Fact]
+    public async Task Return_read_hints_drop_revoked_edit_even_when_the_old_edit_claim_remains()
+    {
+        await using var f=new Fixture();await f.Start();
+        var role=await f.Core.TenantRoleAssignments.SingleAsync();
+        role.PermissionsCsv="procurement-access,procurement-return-create,procurement-return-edit";
+        await f.Core.SaveChangesAsync();
+        var identity=Assert.IsType<ClaimsIdentity>(f.Http.User.Identity);
+        identity.AddClaim(new Claim(ProcurementPermissions.ActionClaim,"procurement-return-edit"));
+        var head=new Mightyfin.Erp.Procurement.Domain.PrincipalGoodsReturnDraft{
+            TenantId=Tenant,LegalEntityId=f.Company,BranchId=f.Branch,
+            CreatorPrincipalId=f.Principal.ToString("D")};
+        var actor=await f.Resolve(f.Scope(f.Branch));
+        Assert.Equal(new[]{"Edit","Cancel"},ProcurementPrincipalReceivingRoutes.ReturnAllowedActions(head,actor,true));
+        role.PermissionsCsv="procurement-access,procurement-return-create";
+        await f.Core.SaveChangesAsync();
+        actor=await f.Resolve(f.Scope(f.Branch));
+        Assert.Empty(ProcurementPrincipalReceivingRoutes.ReturnAllowedActions(head,actor,true));
+        Assert.True(identity.HasClaim(ProcurementPermissions.ActionClaim,"procurement-return-edit"));
+        Assert.Empty(await f.Core.Workers.ToArrayAsync());
+    }
+
+    [Fact]
     public async Task Current_return_permission_does_not_replace_the_required_authenticated_tenant()
     {
         await using var f=new Fixture();await f.Start();

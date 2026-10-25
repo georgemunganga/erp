@@ -1,0 +1,34 @@
+{
+  "status": "AUTHORED_SOURCE_PENDING_POST_OVERLAY_VALIDATION",
+  "sourceParent": "8b9cd719b5dd2e457fd4bc0c2a8f4793daee6850",
+  "genuineMigrationId": "20261025100650_P38PrincipalSupplierAwardReview",
+  "rawGeneration": {
+    "actualFocusedPassed": 25,
+    "actualDomainPassed": 1695,
+    "actualHostPassed": 1360,
+    "skippedOrFailedTests": 0,
+    "officialEfCommandExitedZero": true,
+    "originalRun04WrapperStatus": "FAILED_AFTER_GENERATION_ON_UNRECOGNIZED_OFFICIAL_BUILDHOST_FILES",
+    "readOnlySupplementStatus": "PASS_READONLY_RECONCILIATION_OF_FAILED_P38_RUN04_WRAPPER",
+    "readOnlySupplementResultSha256": "6f6a3a5233a53dfd65f699ce92d5689d366e4707751b1c185321e122b6cedf1e"
+  },
+  "rawGeneratedSha256": {
+    "bodyBeforeAuthoredDown": "42c5af525508eae87470f478e937f1bdf4ecf995a6362eade9221e3032e86d80",
+    "designerUnmodified": "dd29e2074cbcf1b3c8a1ef957eb9150dd0e1717acf924e0ae7edd39943df42b1",
+    "snapshotUnmodified": "c10e236698be5471145be732c55167ba5b2f8e5b64883ee42345406090dfdbb2"
+  },
+  "sourceOverlay": "Only the migration body Down gains an authored first-statement 55000 veto for five P38-owned tables and its audit/outbox companions; raw Up, Designer and Snapshot remain byte-exact.",
+  "scope": "Five new tables, five primary keys, nine alternate keys, five checks, nine restrictive foreign keys, eighteen indexes. No old-table Up mutation.",
+  "remainingGates": [
+    "compile and execute authored migration operation tests",
+    "official no-pending-model check and Up/Down SQL exports",
+    "private PostgreSQL empty Up/Down/Up and populated first-Down veto",
+    "authoritative retained offer and held-capacity adapter before award submission activation"
+  ],
+  "claimsExcluded": [
+    "migration application",
+    "API publication or runtime award acceptance",
+    "Core award decision or purchase order authority",
+    "production activation"
+  ]
+}

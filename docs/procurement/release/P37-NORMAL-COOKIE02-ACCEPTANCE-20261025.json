@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "documentId": "P37-NORMAL-COOKIE02-ACCEPTANCE-20261025",
+  "dateUtc": "2026-10-25",
+  "status": "PASS_PRIVATE_P37_COOKIE_BROWSER_AND_OWNER",
+  "developmentErpRoot": "4647fa2fb3ccee715ce13fa83bc63ad1121ecde4",
+  "productSource": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "compiledToolSource": "1bad418542ab3d138bacf76294c172208c3a14d4",
+  "uiApplicationStageSource": "c48b108c51503d8907bb2a192f03ffef3b8e873c",
+  "uiBrowserSpecSource": "62a3a3d53515be89ef4adb14327bfad9accedec2",
+  "publishedMainUnchanged": {
+    "erp": "cafcffd2f359b01b3b8649aa6d8a8475f8570e5a",
+    "ui": "403bfdac505d593921a5bab1ba3388896205325f"
+  },
+  "productionDeploymentClaim": false,
+  "moduleComplete": false,
+  "acceptedScope": {
+    "nativeHttpObservations": 193,
+    "normalCookiePlaywrightCasesPassed": 1,
+    "browserActions": "Real local password/session-cookie login; create, detail reload, edit/revise, persisted reload, cancel and logout through the existing Returns UI. No identity-header injection or mocked business responses.",
+    "browserSessionRevoked": true,
+    "ownerBefore": "Two byte-identical read-only captures before browser login: original Cancelled native draft has 1 head, 3 revisions, 3 receipts, 9 audit and 3 internal outbox rows.",
+    "ownerDelta": {
+      "additionalHeads": 1,
+      "additionalRevisions": 3,
+      "additionalCommandReceipts": 3,
+      "additionalAuditRows": 9,
+      "additionalInternalOutboxRows": 3,
+      "finalTotalHeads": 2,
+      "originalNativeGraphUnchanged": true,
+      "allNonP37ProcurementRowCountsAndHashesUnchanged": true,
+      "acceptedFactQuantityExact": "0.9999"
+    },
+    "sourceBindings": "Current creator/tenant/company/branch, verified accepted source and receipt header/line, three original command keys, CAS1\u21922\u21923 and exact quantity/reason/reference/receipt responses. Raw identifiers and rows remain private.",
+    "digestProof": "Raw response/source/fact SHA independently checked. Proposal SHA uses corrected faithful numeric encoding bound to actual .NET-persisted Native05 goldens, not Python integer JSON encoding."
+  },
+  "claimsNotEstablished": {
+    "standaloneP37OnlyRole": true,
+    "externalInventoryOrFinanceLedgerObservation": true,
+    "independentCoreSessionDatabaseObservation": true,
+    "independentOriginalHttpBodySha": true,
+    "completeStoredRequestCanonicalShaRecomputation": true,
+    "physicalReturnFulfilmentOrAcceptanceReversal": true,
+    "supplierDispatch": true,
+    "productionActivationOrDeployment": true
+  },
+  "controlPlane": "BrowserFinished marker, native wrapper and browser-phase receipts remain control-plane/owner-pending artifacts; only the final independent combined receipt establishes this bounded acceptance.",
+  "protectedEvidence": {
+    "cookiePlan": {
+      "artifact": "plan.INCOMPLETE.json",
+      "sha256": "20b37cf31d9f66344db824a812042fbe33e0b8a16497de443c79713f1efdfd71"
+    },
+    "nativeResult": {
+      "artifact": "result.private.json",
+      "sha256": "12d4933fe27e607d8104bd9f711e241812803c3a7a792237836898cda0e1fed1"
+    },
+    "nativeWrapper": {
+      "artifact": "native-run-result.private.json",
+      "sha256": "492d1401792de2432b3def1f5280a344443ae6d4035d7114b0f865d717b692c3"
+    },
+    "browserResult": {
+      "artifact": "p37-return-cookie-browser-result.private.json",
+      "sha256": "fc7dacbb05a53c337bfbdfe3d7d04e904f70f4be93150d9a85a84d821fb63c2f"
+    },
+    "browserLog": {
+      "artifact": "browser.log",
+      "sha256": "7cb931a998917e69346f8c687ee15d38d4051f697f50eac9b8b69cd090c23b23"
+    },
+    "browserExit": {
+      "artifact": "browser-exit-code.private.json",
+      "sha256": "eef0bd88eddf6a50f516848ef22cf37862cfd4c3d94720e0df5f42dea99c2461"
+    },
+    "browserPhase": {
+      "artifact": "browser-phase.private.json",
+      "sha256": "5032e14dea4896ee17bec457bc04ebf8c9fb60d28acdfc2e8d1f462635355b7a"
+    },
+    "combinedAcceptance": {
+      "artifact": "p37-return-cookie-browser-owner-result.private.json",
+      "sha256": "d2daad6a91129d2cd67fa253013b4502b2e8c77728f26db5258a0df479420a57"
+    },
+    "ownerBeforePhase": {
+      "artifact": "p37-owner-before-phase.private.json",
+      "sha256": "1e874cb4fa0b75c802748e4a8c7fb11a2d740f286f05be37169634aad28ecd8f"
+    },
+    "proxyReceipt": {
+      "artifact": "p37-return-cookie-proxy-receipt.private.json",
+      "sha256": "8679b5e247884d7f8eb4deac22b63fdb1553fb1ab21bc5695e5cb84081f4bb35"
+    },
+    "ownerBeforePlan": {
+      "artifact": "reviewed-owner-before-plan.private.json",
+      "sha256": "bf72f51e4f295dbd7a0066037bd9779c0a4bf4e9479ef17a5661ef43c9e8e894"
+    },
+    "ownerAfterPlan": {
+      "artifact": "plan.INCOMPLETE.json",
+      "sha256": "ffc5ea153b0c5296fd9fc8d5cf96acdf292f05d5bcbc1311cdaa6baf2d5e0ce4"
+    },
+    "ownerBaseline": {
+      "artifact": "baseline.private.json",
+      "sha256": "3e19fa41dbf17188c457087404451addb11b289df0566c5ad234a6f9ab0423da"
+    },
+    "ownerDelta": {
+      "artifact": "result.private.json",
+      "sha256": "ff38fcaede2d8b6dd13118e1f8765244d30351f18fe013fccf1dda1b0c7eeb28"
+    },
+    "ownerVerifierSource": {
+      "artifact": "verify.py",
+      "sha256": "abbf88d46c81c960d44291ce097eb2de99b189fa843f57fff82d43c212afbe3a"
+    },
+    "beforeCapture1": {
+      "artifact": "before-1.private.jsonl",
+      "sha256": "e8912de1d1fb6320496ed4a1b1784561d65fbe318fcf761b0463a159e80c1ee5"
+    },
+    "beforeCapture2": {
+      "artifact": "before-2.private.jsonl",
+      "sha256": "e8912de1d1fb6320496ed4a1b1784561d65fbe318fcf761b0463a159e80c1ee5"
+    },
+    "afterCapture1": {
+      "artifact": "after-1.private.jsonl",
+      "sha256": "1a6dac3645fb4982197c0ea7fc6cd99aab0aa2c41181d0f88ea1dd4771d48e42"
+    },
+    "afterCapture2": {
+      "artifact": "after-2.private.jsonl",
+      "sha256": "1a6dac3645fb4982197c0ea7fc6cd99aab0aa2c41181d0f88ea1dd4771d48e42"
+    }
+  },
+  "preservedFailure": {
+    "attempt": "Cookie01",
+    "outcome": "Real login/create/reload/revise PUT200 succeeded; browser failed because it reloaded the edit page before receipt GET/navigation settled. No owner-after acceptance is claimed.",
+    "correction": "Spec62a3 adds exact detail-URL wait after revise PUT before reload. Application C48 stage bytes unchanged; Cookie02 is a fresh database/container/cohort.",
+    "browserExitCode": 1,
+    "browserExitSha256": "bdc4fe56f48503365bcbe036aeacaec57006b2f47474a32575c837d60d9f7fa8",
+    "browserLogSha256": "26b63a3127a48a03a1530413768d201dd1c2387ab0d74cf620830606e0bf7b83",
+    "nativeWrapperSha256": "213e7b7c670983762299659db0bbafa3a039f686eb37ba831ca19a221a4c91a3",
+    "evidencePreserved": true
+  },
+  "relatedReceipts": [
+    "P37-NATIVE05-OWNER06-ACCEPTANCE-20261025.json",
+    "P37-COOKIE-TOOL03-SOURCE-ACCEPTANCE-20261025.json",
+    "P37-RECEIPT-SCOPE-SOURCE-ACCEPTANCE-20261025.json"
+  ]
+}

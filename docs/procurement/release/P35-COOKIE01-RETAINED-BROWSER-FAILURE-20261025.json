@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "RETAINED_FAILED_P35_COOKIE01_BROWSER_BEFORE_DRAFT",
+  "sources": {
+    "product": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+    "tool": "6e9fef2526d70c56ae457c6023845405464478fb",
+    "application": "dd177b510e2d1f751ed46729c206addb60f737d5",
+    "failedProof": "efd35069a673a8926590c15f422f37240aed979a",
+    "correctedProof": "f1bf6d027d1d7eaf5fcab7c10f860a9af827fe0d"
+  },
+  "nativeHttpPassed": 138,
+  "browserFailureStep": "create-draft",
+  "buyerLogoutVerified": true,
+  "reviewerLogoutVerified": true,
+  "diagnosis": "The proof fetched vendor detail before opening the contract page. That route eager-loads sites/attributes/categories; the finite contract fixture lacks those detail-table SELECT privileges. A read-only privilege diagnostic confirmed the dependency. The actual contract editor uses the scoped vendor summary list, so the corrected proof uses that same source without adding database grants or changing the product.",
+  "preservedEvidence": {
+    "plan.INCOMPLETE.json": "70ec34427c17421ced61f6543572f398985eccac48536f8ca90097f930415fa7",
+    "result.private.json": "ce846d3485f55e0985f959f76c84851ae32723012de707b0c9020b9c523e595c",
+    "native-run-result.private.json": "9736f6dc91f440d9e481c89db0dc8fb56136c83dcb3ca208888dfe407524470d",
+    "p35-contract-cookie-browser-result.private.json": "6460276d733909f836b3cbb56787217f2c50df6ae2aedcec1483f4e54f848d82",
+    "browser.log": "aad47fb38d95df9ebe12e9e26ac5e83dc376b8cb8b6459cdd62d83b8077fff28",
+    "vendor-detail-dependency-diagnosis.private.json": "16697c1a9e2cfe7932b30287a998574d50bde498ef9bb99a4d36caee956bace1"
+  },
+  "oldCohortReused": false,
+  "ownerAfterAccepted": false,
+  "browserAccepted": false,
+  "productionTouched": false
+}

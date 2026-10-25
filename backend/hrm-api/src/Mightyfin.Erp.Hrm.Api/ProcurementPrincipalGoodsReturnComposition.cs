@@ -1,9 +1,10 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-// Intentionally not called by the live composition yet. Wire this seam and route
-// mapping only after actual capture/finite-role proof and independent review.
+// Default-off composition; an explicit option alone cannot assert physical
+// readiness or grant a current principal any return action.
 internal static class ProcurementPrincipalGoodsReturnComposition
 {
     internal static void AddFoundation(IServiceCollection services,IConfiguration configuration)
@@ -16,5 +17,16 @@ internal static class ProcurementPrincipalGoodsReturnComposition
         services.AddSingleton(options);
         services.TryAddScoped<IProcurementPrincipalGoodsReturnReadiness,
             ProcurementPrincipalGoodsReturnStoreReadiness>();
+    }
+
+    internal static async Task<bool> ReadyAsync(IServiceProvider services,bool pending,CancellationToken ct)
+    {
+        if(pending || services.GetService<ProcurementPrincipalGoodsReturnOptions>() is not
+                { Enabled:true, ExecutionDatabaseConfigured:true }
+            || services.GetService<ProcurementApprovalExecutionOptions>() is not
+                { Enabled:true, PrincipalExecutionEnabled:true, ExecutionDatabaseConfigured:true }
+            || services.GetService<IProcurementPrincipalGoodsReturnReadiness>() is not
+                ProcurementPrincipalGoodsReturnStoreReadiness concrete) return false;
+        return await concrete.IsConfiguredAsync(ct);
     }
 }

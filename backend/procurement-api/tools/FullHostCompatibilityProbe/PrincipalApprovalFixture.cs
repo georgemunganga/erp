@@ -26,12 +26,14 @@ using Npgsql;
 
 internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false,
     bool principalRfqProfile=false,bool principalPoProfile=false,bool principalReceivingProfile=false,
-    bool principalInvoiceProfile=false)
+    bool principalInvoiceProfile=false,bool principalGoodsReturnProfile=false,bool principalContractReviewProfile=false)
 {
     internal bool PrincipalRfqProfile=>principalRfqProfile;
     internal bool PrincipalPoProfile=>principalPoProfile;
     internal bool PrincipalReceivingProfile=>principalReceivingProfile;
     internal bool PrincipalInvoiceProfile=>principalInvoiceProfile;
+    internal bool PrincipalGoodsReturnProfile=>principalGoodsReturnProfile;
+    internal bool PrincipalContractReviewProfile=>principalContractReviewProfile;
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
     internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid(),Buyer=Guid.NewGuid(),PoFinance=Guid.NewGuid(),PoApprover=Guid.NewGuid(),PoAck=Guid.NewGuid();
@@ -66,25 +68,30 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                     +(legacyWorkerProfile?",procurement-authority-read,procurement-authority-configure":"")),
                 (Checker,"p25_checker","procurement-access,procurement-request-read,procurement-budget-check"
                     +(legacyWorkerProfile?",procurement-authority-read,procurement-authority-review":"")),
-                (Approver,"p25_custom_approver","procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide"),
+                (Approver,"p25_custom_approver","procurement-access,procurement-request-read,procurement-approval-read,procurement-approval-decide"
+                    +(principalContractReviewProfile?",procurement-contract-review-read,procurement-contract-review":"")),
                 (ConfigMaker,"p25_config_maker","procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-authority-read,procurement-authority-configure"
                     +(principalPoProfile?",procurement-vendor-create,procurement-vendor-edit":"")
                     + (browserBuyerProfile ? ",procurement-policy-evaluate,procurement-request-read" : "")),
                 (ConfigReviewer,"p25_config_reviewer","procurement-access,procurement-configuration-read,procurement-configuration-approve,procurement-authority-read,procurement-authority-review"
                     +(principalPoProfile?",procurement-vendor-approve,procurement-po-finance-confirm":"")),
                 (Ungranted,"p25_ungranted","")}.Concat(principalPoProfile
-                ?new[]{(Buyer,"p30_po_buyer","procurement-access,procurement-po-convert,procurement-po-read,procurement-po-edit,procurement-po-submit,procurement-po-issue"),
+                ?new[]{(Buyer,"p30_po_buyer","procurement-access,procurement-po-convert,procurement-po-read,procurement-po-edit,procurement-po-submit,procurement-po-issue"
+                    +(principalContractReviewProfile?",procurement-vendor-read,procurement-contract-read,procurement-contract-create,procurement-contract-edit,procurement-contract-submit,procurement-contract-review-read,procurement-contract-review":"")),
                     (PoFinance,"p30_po_finance","procurement-access,procurement-po-finance-confirm"),
                     (PoApprover,"p30_po_approver","procurement-access,procurement-po-approve"),
                     (PoAck,"p30_po_ack","procurement-access,procurement-po-dispatch-confirm")}
                 :principalRfqProfile?new[]{(Buyer,"p29_rfq_buyer","procurement-access,procurement-sourcing-convert,procurement-sourcing-cancel")}
                 :Array.Empty<(Guid,string,string)>()).Concat(principalReceivingProfile?new[]{
-                    (Receiver,"p30_receiving_actor","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record,procurement-receipt-inspect,procurement-receipt-accept"),
-                    (ReceiverPeer,"p30_receiving_peer","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record"),
+                    (Receiver,"p30_receiving_actor","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record,procurement-receipt-inspect,procurement-receipt-accept"
+                        +(principalGoodsReturnProfile?",procurement-return-read,procurement-return-create,procurement-return-edit":"")),
+                    (ReceiverPeer,"p30_receiving_peer","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record"
+                        +(principalGoodsReturnProfile?",procurement-return-read,procurement-return-edit":"")),
                     (Inspector,"p30_receiving_inspector","procurement-access,procurement-receipt-inspect"),
                     (Acceptor,"p30_receiving_acceptor","procurement-access,procurement-receipt-accept"),
                     (ServiceOwner,"p30_receiving_service_owner","procurement-access,procurement-service-certify"),
-                    (ReceivingOutsider,"p30_receiving_outsider","procurement-access,procurement-receipt-view,procurement-receipt-create")}
+                    (ReceivingOutsider,"p30_receiving_outsider","procurement-access,procurement-receipt-view,procurement-receipt-create"
+                        +(principalGoodsReturnProfile?",procurement-return-read":""))}
                     :Array.Empty<(Guid,string,string)>()).Concat(principalInvoiceProfile?new[]{
                     (InvoiceMaker,"p31_invoice_maker","procurement-access,procurement-invoice-capture,procurement-invoice-read,procurement-invoice-match,procurement-invoice-unit-review-request"),
                     (InvoiceReviewer,"p31_invoice_reviewer","procurement-access,procurement-invoice-unit-review"),
@@ -147,6 +154,8 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:SourcingDrafts:PrincipalSourceEnabled"]="true";
             if(Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION")=="1")
                 settings["Procurement:SourcingPublication:Enabled"]="true";
+            if(Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT")=="1")
+                settings["Procurement:RfqCommercialRounds:Enabled"]="true";
         }
         if(fixture.PrincipalPoProfile)
         {
@@ -154,7 +163,10 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:Orders:Enabled"]="true";
             settings["Procurement:Orders:PrincipalExecutionEnabled"]="true";
         }
+        if(fixture.PrincipalContractReviewProfile)settings["Procurement:ContractReview:Enabled"]="true";
         if(fixture.PrincipalReceivingProfile)settings["Procurement:PrincipalReceiving:Enabled"]="true";
+        if(fixture.PrincipalGoodsReturnProfile)
+            settings["Procurement:PrincipalGoodsReturnDrafts:Enabled"]="true";
         if(fixture.PrincipalInvoiceProfile)
         {
             settings["Procurement:PrincipalInvoiceSources:Enabled"]="true";

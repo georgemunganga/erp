@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "PASS_EXACT_FIVE_REVERSIBLY_ARCHIVED",
+  "coldCheckouts": 5,
+  "fullPhysicalRestoreVerified": true,
+  "trackedAndIgnoredBytesPreserved": true,
+  "retainedGitHistory": true,
+  "replayRequirement": "Restore each exact source path, ignored files and metadata from its protected verified archive before historical replay. Preserve a regenerated Git worktree pointer.",
+  "acceptedSdkArtifactsRemoved": false,
+  "rawEvidenceRemoved": false,
+  "productionOrDatabaseChanged": false,
+  "evidenceSha256": {
+    "plan.INCOMPLETE.json": "ac38dfc167c366c7c6a468ee685c9af95e22e65edb3ed6b33ea9da0d0057057d",
+    "execute-reviewed.py": "8f61cd4b7ee155ef1a064400e97026034acba1563414648f19f2cb1ba68a9be9",
+    "physical-manifest.private.json": "750b2a2f4bcd15b00aedc13772868bee0466bb1a413808691117d8f6ba1130df",
+    "bundle.private.json": "edb9b9bc0776c646bb15e78f900a4a29af1e2651ddd472c4bfe5cec6048b1d67",
+    "net-benefit-before.private.json": "684333f7cf69cae6a55f82bdb0d88c8cc6b2e21b95184d0a076696cf89db50ce",
+    "result.private.json": "2a20e3a960609d933fd89fffee9b1ce879ff4fea16a1a7574507b702603bfec4"
+  }
+}

@@ -16,7 +16,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementPrincipalReceivingRoutes
 {
     private static readonly JsonSerializerOptions Json=new(JsonSerializerDefaults.Web);
-    private sealed record Reply(int Status,string Body);
+    internal sealed record Reply(int Status,string Body);
     private sealed class Problem(string code,int status):Exception(code){internal int Status=>status;}
     public static void MapRoutes(WebApplication app)
     {
@@ -118,7 +118,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
     {
         var result=await SourceHistory(db,cases,scope,actor,source,locks,ct);
         await ReconcileRequest(db,cases,scope,actor,source.Commercial.PurchaseRequestLineId,ct);
-        return result;
+        return (result.State,result.Ledger);
     }
     private static async Task ReconcileRequest(ProcurementDbContext db,ApprovalDbContext cases,ProcurementRequestScope scope,
         PrincipalReceivingActor actor,Guid requestLineId,CancellationToken ct)
@@ -134,7 +134,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
         }
         await new PrincipalReceivingStore(db).ReconcileCountersAsync(requestLineId,ct);
     }
-    private static async Task<(PrincipalReceivingSourceState State,PrincipalReceivingLedger Ledger)> SourceHistory(ProcurementDbContext db,
+    private static async Task<(PrincipalReceivingSourceState State,PrincipalReceivingLedger Ledger,
+        ProcurementPrincipalOrderRetainedIssued.Result Retained)> SourceHistory(ProcurementDbContext db,
         ApprovalDbContext cases,ProcurementRequestScope scope,PrincipalReceivingActor actor,PrincipalReceivingSource source,bool locks,CancellationToken ct)
     {
         var retained=await ProcurementPrincipalOrderRetainedIssued.LoadAsync(db,cases,scope,actor.AllowedBranches,
@@ -147,7 +148,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
         var store=new PrincipalReceivingStore(db);var state=await store.SourceAsync(source,ct);var ledger=await store.LedgerAsync(state,ct);
         foreach(var policy in ledger.RetainedPolicies)
             _=await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,scope,policy,ct,OperationalPolicyPublicationMode.RetainedHistorical);
-        return(state,ledger);
+        return(state,ledger,retained);
     }
     private static async Task<PrincipalReceivingSource> NewSource(ProcurementDbContext db,ApprovalDbContext cases,
         ProcurementRequestScope scope,HttpContext http,PrincipalReceivingActor actor,Guid order,Guid issued,Guid line,CancellationToken ct,bool lockSources=true)

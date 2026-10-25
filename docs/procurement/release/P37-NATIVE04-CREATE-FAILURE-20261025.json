@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "FAILED_PRIVATE_NATIVE04_RETURN_CREATE_NOT_ACCEPTED",
+  "productSource": "61422d5e58e66932d6c96eda3683209e75a2ecad",
+  "toolSource": "61422d5e58e66932d6c96eda3683209e75a2ecad",
+  "evidenceDirectory": "procurement-p37-return-native-http-prep-20261025_run04",
+  "planSha256": "38a5195ebdc8968bb9cbd75554dd5b73d547fa78b27a22faa0078a03a722efef",
+  "resultSha256": "3dbfb042e852b8eeb17da4cef6eea9a54f5c777d185002c6ac2f0765e086756f",
+  "runnerReceiptSha256": "6193f3ebab03f02d85e771fba62364042304d8882d1a153bba9206fcfc0614a2",
+  "actualHttpRequests": 169,
+  "lastStage": "P37RealGoodsReturnCreateReplayRecover",
+  "failure": {
+    "method": "POST",
+    "route": "/api/procurement/v1/returns/principal-drafts",
+    "expected": 201,
+    "actual": 409,
+    "code": "ReturnDraftNeedsReview"
+  },
+  "acceptedBeforeFailure": [
+    "Real scoped context and metadata readiness",
+    "P30 order and goods/service receiving prerequisites",
+    "Real accepted goods source and frozen display labels after header/line correction"
+  ],
+  "limits": {
+    "returnCreate": false,
+    "returnReplayReviseCancel": false,
+    "independentOwner": false,
+    "normalCookie": false,
+    "productionTouched": false
+  },
+  "retainedPriorFailures": [
+    "Native01",
+    "Native02",
+    "Native03"
+  ],
+  "next": "Diagnose retained Create/persistence failure without relaxing source, scope, revision, receipt or event guards; rerun corrected source in a fresh cohort. Owner04 remains unexecuted."
+}

@@ -27,7 +27,12 @@ public static class ProcurementOrderDraftRoutes
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
         var own = db.PurchaseOrders.AsNoTracking().Where(x => x.BuyerSubjectId == scope.SubjectId
             && x.PrincipalDraftSchemaVersion != 2);
-        if (scope.IsConfined)
+        if (scope.IsExplicitAllBranches)
+        {
+            var permitted = scope.PermittedWorkLocationIds.ToArray();
+            own = own.Where(x => x.BranchRef != null && permitted.Contains(x.BranchRef.Value));
+        }
+        else if (scope.IsConfined)
             own = own.Where(x => x.BranchRef == scope.WorkLocationId);
         var total = await own.CountAsync(ct);
         var rows = await own.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
@@ -42,10 +47,14 @@ public static class ProcurementOrderDraftRoutes
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        var order = await db.PurchaseOrders.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == id && x.BuyerSubjectId == scope.SubjectId
-                && x.PrincipalDraftSchemaVersion != 2
-                && (!scope.IsConfined || x.BranchRef == scope.WorkLocationId), ct);
+        var permitted = scope.PermittedWorkLocationIds.ToArray();
+        var visible = db.PurchaseOrders.AsNoTracking().Where(x => x.Id == id
+            && x.BuyerSubjectId == scope.SubjectId && x.PrincipalDraftSchemaVersion != 2);
+        if (scope.IsExplicitAllBranches)
+            visible = visible.Where(x => x.BranchRef != null && permitted.Contains(x.BranchRef.Value));
+        else if (scope.IsConfined)
+            visible = visible.Where(x => x.BranchRef == scope.WorkLocationId);
+        var order = await visible.SingleOrDefaultAsync(ct);
         if (order is null) return Problem("not-found", "Purchase order not found.", 404);
         var lines = await db.PurchaseOrderLines.AsNoTracking()
             .Where(x => x.PurchaseOrderId == id && x.IsActive).OrderBy(x => x.LineNumber).ToListAsync(ct);

@@ -73,4 +73,36 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
         Assert.Contains("(actor_principal_id IS NOT NULL)", definition);
         Assert.Contains("((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text)", definition);
     }
+
+    [Fact]
+    public void P32_published_source_index_requires_its_genuine_lineage_and_exact_mapped_set()
+    {
+        var p30 = ProcurementSourcingPolicyIdentitySchemaReadiness.MigrationId;
+        var p32 = ProcurementSourcingPolicyIdentitySchemaReadiness.P32MigrationId;
+        var four = new[] { "ux_source_policy_identity_revision", "ux_source_policy_identity_created",
+            "ux_source_policy_identity_published", "ux_pr32_published_identity_target" };
+        Assert.True(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactP32Indexes([p30, p32], four));
+        Assert.False(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactP32Indexes([p30], four));
+        Assert.False(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactP32Indexes([p32], four));
+        Assert.False(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactP32Indexes([p30, p32], four[..3]));
+        Assert.False(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactP32Indexes([p30, p32],
+            [..four[..3], "ux_unreviewed_identity_alias"]));
+        Assert.False(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactP32Indexes([p30, p32],
+            [..four[..3], four[2]]));
+        Assert.Equal("CREATE UNIQUE INDEX ux_pr32_published_identity_target ON procurement.sourcing_policy_identity_evidence USING btree (tenant_id, legal_entity_id, id, policy_version_id, stage, rules_sha256, evidence_sha256)",
+            ProcurementSourcingPolicyIdentitySchemaReadiness.P32PublishedIndexDefinition);
+        var keys = new[] { "PK_sourcing_policy_identity_evidence",
+            "AK_sourcing_policy_identity_evidence_tenant_id_legal_entity_id~",
+            "ak_source_policy_identity_parent" };
+        Assert.True(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactPhysicalUniqueIndexes(keys,
+            [..keys, ..four]));
+        Assert.False(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactPhysicalUniqueIndexes(keys,
+            [..keys, ..four[..3]]));
+        Assert.False(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactPhysicalUniqueIndexes(keys,
+            [..keys, ..four, "ux_unreviewed_identity_alias"]));
+        Assert.True(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactP32IndexDefinition(
+            ProcurementSourcingPolicyIdentitySchemaReadiness.P32PublishedIndexDefinition));
+        Assert.False(ProcurementSourcingPolicyIdentitySchemaReadiness.HasExactP32IndexDefinition(
+            ProcurementSourcingPolicyIdentitySchemaReadiness.P32PublishedIndexDefinition.Replace("USING btree", "USING hash", StringComparison.Ordinal)));
+    }
 }

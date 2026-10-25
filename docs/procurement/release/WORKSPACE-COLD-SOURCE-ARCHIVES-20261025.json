@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_18_VERIFIED_COLD_SOURCE_CHECKOUT_ARCHIVES",
+  "dateUtc": "2026-10-25",
+  "checkoutsArchived": 18,
+  "branchesDeleted": false,
+  "commitsDeleted": false,
+  "sourceArchivesPhysicalRestoreVerified": true,
+  "fullFileAndMetadataEqualityVerified": true,
+  "rawEvidenceRemoved": false,
+  "productionOrDatabaseChanged": false,
+  "replayRequirement": "Restore the original source path from its verified archive before replaying any historical profile that pins that path. Retained local branches and the verified thin bundle preserve Git history.",
+  "evidence": {
+    "plan.INCOMPLETE.json": "daaf7b8275bf8f2914999b595fb38d8024ab7fc0aab2da6d0a89aaafbebcc5be",
+    "source-hash-metadata.private.json": "86dec474141a6271c5581b3eb8ef812f5e1b68dc713b0f02a021cfde20523bbd",
+    "execute-reviewed.py": "544ec09fa3eb0614d451766ddc9f7c194831d03568a704b0c76a619aca1dab93",
+    "bundle-before.private.json": "e816628e64f941ae90a411ebc2da3d38a962b610c8d2579d868f1d38fd694853",
+    "result.private.json": "58a25da2f08aa09fec040ef2da0cc826f7fe4a54e28e13ba0e1a0f5c393f1c4b"
+  },
+  "perCheckoutReceipts": {
+    "procurement-approval-authority.after.private.json": "210f0e176caf9b124d5efe02a437b3d682499e5bf0be9f0c3522d394c1ddd98b",
+    "procurement-canonical-crud-probe.after.private.json": "5e2315526cd6d3db8d653ba9decb945ed042dd78e3f67b695c8a32784d491b00",
+    "procurement-canonical-finite-runner.after.private.json": "c264836a01043c255264d93d5e2233b9a59c52b2846c04efbe4abb0a620d5499",
+    "procurement-core-branch-fence.after.private.json": "a548c822c386a92c802cd9a8005096ad303869259b9417b19510c9fd3ccd9388",
+    "procurement-governed-crud-reconciliation.after.private.json": "cfdda0e6b85eb0738fb5e7a254dba94e980fd7a8e7e3336e9d802c3bdf6efa00",
+    "procurement-governed-workflow-probe.after.private.json": "8d8ad5f44e6c6fdecf69080b9ca931a1ae1f631e6da6d225993ca9a195f16fa2",
+    "procurement-manual-payment-assignee-lookup.after.private.json": "c0b9cdc15f3486543103686e579f76ac12849c25746faaf55606e4c8d4854b35",
+    "procurement-manual-payment-command-api.after.private.json": "1ecc4651055ba257d8e2e11e322b51ab44d5042fe4c6105fe6412ad65823660d",
+    "procurement-manual-payment-governance-probe.after.private.json": "99ca79eff057cd1098071e6c732dd637bacea4842e7cb021613bb3b5db87b4e3",
+    "procurement-manual-payment-http-probe.after.private.json": "73d35ca56af9adff0c10ce4025718209b4dd601f3fd78f9e1aa772a335ac2b88",
+    "procurement-manual-payment-reads.after.private.json": "c9056ea6b5428e1b8ec56f8da62b71ec6f6906fe13300c4a582a9cf08f8cec3b",
+    "procurement-manual-payment-review-policy.after.private.json": "7e9dabb8c8a34822670c798c9033f6d6ad1028cd01e2c38f71ce4e4e76fdbf83",
+    "procurement-order-exact-math.after.private.json": "69161d56caa19540476c4ad50f98463dfd0c9cfc90597188b1e34e45aca3a6f3",
+    "procurement-outcome-persistence.after.private.json": "08930e854a57dc3f405bd38b7db9614d93d531c90d9839c8fd52e07ce55faedf",
+    "procurement-p29-principal-rfq-source.after.private.json": "1c8f324d6bce2413cf8114d9c9886bb9051a66828c24587854b3c12ff26cb672",
+    "procurement-p30-sourcing-policy-readiness.after.private.json": "cb97283f8d6f10a57a157f402d083bf2a36be6efdda24d9d6f190440a5454de4",
+    "procurement-runtime-privilege.after.private.json": "5777ce8ca972f192c001d46b0b60dd6ea046bdfe090f1db2ad0ec27baa735cbc",
+    "procurement-sourcing-publication-contract.after.private.json": "d542f1b819b38217abb56abaaefd9322dcd2e1b855d177c464a4537d93b56abf"
+  }
+}

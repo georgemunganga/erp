@@ -78,6 +78,23 @@ internal static class PrincipalApprovalRuntimePrivileges
                 await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
             await Run("GRANT SELECT ON procurement.supplier_qualifications TO "+Q(execution));
         }
+        if(fixture.PrincipalRfqProfile && Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT")=="1")
+        {
+            // The exact P32 owner set is read by one finite Execution identity.
+            // Only the mutable Draft head may be updated; revisions, receipts,
+            // preparation and later evidence remain append-only.
+            foreach(var table in new[]{"principal_rfq_commercial_command_receipts",
+                "principal_rfq_commercial_offer_opening_receipts","principal_rfq_commercial_offer_openings",
+                "principal_rfq_commercial_offer_submissions","principal_rfq_commercial_round_decisions",
+                "principal_rfq_commercial_round_openings","principal_rfq_commercial_round_seals",
+                "principal_rfq_commercial_round_votes","principal_rfq_criterion_assessment_receipts",
+                "principal_rfq_criterion_assessments","rfq_commercial_drafts",
+                "rfq_commercial_receipts","rfq_commercial_revisions",
+                "rfq_preparation_receipts","rfq_prepared_plans"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            await Run("GRANT UPDATE ON procurement.rfq_commercial_drafts TO "+Q(execution));
+            await Run("GRANT SELECT ON procurement.operational_policy_identity_evidence TO "+Q(execution));
+        }
         if(fixture.PrincipalPoProfile)
         {
             // P30 profile alone: vendor master setup uses the record role; the
@@ -91,7 +108,10 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
                 "principal_order_release_requests","principal_order_release_confirmations","purchase_request_allocations",
                 "purchase_request_approval_submissions","purchase_request_approval_outcomes","budget_check_snapshots",
-                "principal_receiving_sources"})
+                // P30 readiness reads the retained P33 commercial history even
+                // when this cohort does not author a P33 revision.
+                "principal_receiving_sources","principal_order_commercial_origins",
+                "principal_order_draft_commercial_revisions","principal_order_effective_source_slices"})
                 await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
             foreach(var table in new[]{"purchase_orders","purchase_order_lines","purchase_request_allocations"})
                 await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
@@ -99,6 +119,25 @@ internal static class PrincipalApprovalRuntimePrivileges
                 "principal_order_funding_evidence","principal_order_submissions","principal_order_assignments",
                 "principal_order_decisions","principal_order_issued_versions","principal_order_acknowledgments",
                 "principal_order_release_requests","principal_order_release_confirmations"})
+                await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
+        if(fixture.PrincipalContractReviewProfile)
+        {
+            foreach(var table in new[]{"principal_order_commercial_origins",
+                "principal_order_draft_commercial_revisions","principal_order_effective_source_slices"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions","contract_rates",
+                "suppliers","policy_versions","audit_events","recurring_purchase_commitments",
+                "contract_review_policy_identity","contract_review_submissions","contract_review_votes",
+                "contract_review_corrections","contract_review_command_receipts"})
+                await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(record)+","+Q(execution));
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions","contract_rates"})
+                await Run("GRANT INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(record));
+            await Run("GRANT INSERT ON procurement.contract_review_policy_identity TO "+Q(record));
+            foreach(var table in new[]{"supplier_contracts","supplier_contract_versions"})
+                await Run("GRANT UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
+            foreach(var table in new[]{"contract_review_submissions","contract_review_votes",
+                "contract_review_corrections","contract_review_command_receipts"})
                 await Run("GRANT INSERT ON procurement."+Q(table)+" TO "+Q(execution));
         }
         if(fixture.PrincipalReceivingProfile)
@@ -112,6 +151,17 @@ internal static class PrincipalApprovalRuntimePrivileges
             // Read-only legacy completeness checks do not authorize legacy writes.
             foreach(var table in new[]{"receiving_source_states","goods_receipt_lines","service_acceptances"})
                 await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
+        }
+        if(fixture.PrincipalGoodsReturnProfile)
+        {
+            // The P30 goods acceptance is created by its existing finite role
+            // profile. P37 adds only its own Draft/receipt privileges here; a
+            // later independent role profile must prove P37 works with P30 READ.
+            foreach(var table in new[]{"principal_goods_return_drafts",
+                "principal_goods_return_revisions","principal_goods_return_receipts"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            await Run("GRANT UPDATE (revision,state,current_revision_id,version,updated_at,updated_by)"
+                +" ON procurement.principal_goods_return_drafts TO "+Q(execution));
         }
         if(fixture.PrincipalInvoiceProfile)
         {

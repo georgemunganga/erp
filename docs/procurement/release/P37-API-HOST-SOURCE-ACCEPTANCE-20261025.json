@@ -1,0 +1,56 @@
+{
+  "status": "ACCEPTED_P37_API_HOST_SOURCE_TESTS_ONLY",
+  "dateUtc": "2026-10-25",
+  "productSourceCommit": "188f1c53fcca625364974fd03ecb60d0b86781fb",
+  "combinedToolSourceCommit": "8197b549de94617593c977213fed9d160591c5ab",
+  "sdk": {
+    "privateEvidenceDirectory": "/home/amizo/erp-backups/procurement-p37-return-next-sdk-validation-prep-20261025_run03",
+    "planSha256": "bb5221554b62335a384b7a808f48716bdec8a0707c45650f96e17791f17cd3d0",
+    "resultSha256": "d3cb3f63765fa68a9d66697e4d35814c91894b075546e012c5f15e836de6c581",
+    "artifactInventorySha256": "b78c0a80185d3767d100e465fd7d7c4257659775f2b9051af1550c226890a6f4",
+    "nonTargetArtifactProofSha256": "ec47105d731652f6d038ba705c3b7019cf35affdf216526d41243928eb03d524",
+    "apiCompile": "PASS",
+    "hostCompile": "PASS",
+    "focusedHost": {
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0
+    },
+    "fullHost": {
+      "passed": 1344,
+      "failed": 0,
+      "skipped": 0
+    },
+    "domain": "1670 carried from unchanged accepted joint Domain/Application/Infrastructure/model/migration inputs; not rerun here"
+  },
+  "coverage": [
+    "Current Core edit revocation drops action hints despite stale claims",
+    "Original creator, Draft state and exact tenant/company/branch required for edit/cancel hints",
+    "Human labels bind verified original issued supplier/PO/accepted goods observation",
+    "Dynamic read hints never alter original write/recovery acknowledgement bytes",
+    "Real concrete provider, explicit default-off options and independent execution authority required for readiness",
+    "Existing branch-scope, P32 RFQ and P36 recommendation-readiness regressions"
+  ],
+  "retainedFailures": [
+    "SDK01 API and Host compiled; focused23 passed/3 failed because standalone test services omitted IConfiguration; full suite did not run",
+    "SDK02 API and Host compiled; focused23 passed/3 failed because standalone test services also omitted the transitive Core identity context; full suite did not run",
+    "SDK03 registers the same configuration and isolated real in-memory identity context used by established host tests; no application guard changed. All failed logs/TRX/results retained; original failed cache payloads have verified lossless archives."
+  ],
+  "ui": "UI cbe05a3 separately passed TypeScript,13 targeted units and11 mocked Chromium cases including hard reload/no-repeat-save; earlier baseline evidence remains independently attributed in module-connect docs/PROC-P37-RETURNS-UI-ACCEPTANCE-20261025.json",
+  "remainingGates": [
+    "Fresh real P37 API cohort and independent read-only owner reconciliation",
+    "Normal-session Returns browser and production rollout"
+  ],
+  "productionTouched": false,
+  "publication": {
+    "privateEvidenceDirectory": "/home/amizo/erp-backups/procurement-p37-return-publication-tool-sdk-prep-20261025_run01",
+    "planSha256": "43039c8ead52ba76e6b8d58a846cbe0cba748fa0844cff7f14cc684370471ad8",
+    "resultSha256": "70d71e2a46ac1c5a64bf512af805f9e731e0084d08bb208bdc9203bc0c8484d2",
+    "provenanceSha256": "53a0d0ec4fed501d13e90a8165a3a5696ed1fb08910911e79339504818d5a178",
+    "apiPublishedFiles": 150,
+    "apiManifestSha256": "544dc09e435ca3c21e830a19ef89b577c156137feda3f95e0befaf453cf0f98c",
+    "toolPublishedFiles": 477,
+    "toolManifestSha256": "f8ea8108575233d731909a8e581d5af98c3e39b7bc20879ee64cc6dde5e30b02",
+    "scope": "Official no-build API publication and genuine offline tool restore/build/publish; all owning managed products match accepted SDK03 under read-only project bins; publication is not runtime acceptance"
+  }
+}

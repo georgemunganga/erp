@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "PASS_REVIEWED_P38_COLD_RESUME",
+  "scope": "Exact failed02 generated artifacts/source and four inactive historical checkouts, preserved through full physical archives and verified restores.",
+  "stoppedOriginalContainerRetained": true,
+  "allBranchesAndCommitsRetained": true,
+  "originalFailedRunLogsTrxReceiptsRetained": true,
+  "priorArchiveAttempt": "Stopped before any retirement because identical Docker mounts appeared in different array orders. Root independently matched the original exact inspect hash by permuting only that unordered array.",
+  "replayRequirement": "Restore the original generated source/artifacts or historical checkout path from its protected archive before replaying a profile that pins that physical path.",
+  "productionOrDatabaseChanged": false,
+  "protectedEvidence": {
+    "successorPlan": "a129f6cb3075e8f3c72b6fc1e23b0af6dacc6902e53b77102c4f5c5435ab7594",
+    "successorExecutor": "ea030a14779f8ac4a3f80c3e7d09fc9dbe95e2a7045ddd649210951cbd9a42ed",
+    "actualResult": "54148915b3516e4ab8ff9fda6bcc79b3d2839da3afe0ac71ce72f6a49deef881",
+    "oldPlan": "8ff8e04ad282fbc707b9188658ba875060b9ce63d10ad7a73a7e310f851d8861",
+    "fullPhysicalManifest": "78fed0a379bd9c21fb1525a60c33c5bd7d1431ee9f39680ad1360fd2ec9fe709"
+  }
+}

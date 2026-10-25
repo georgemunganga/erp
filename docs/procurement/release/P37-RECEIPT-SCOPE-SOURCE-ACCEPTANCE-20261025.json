@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "status": "ACCEPTED_SCOPED_RECEIPT_SOURCE_TESTS_AND_GENUINE_PUBLICATION_ONLY",
+  "dateUtc": "2026-10-25",
+  "publishedBaseBeforeDocs": "6f43cafc92e0d709044a33355527e12553f3a38c",
+  "validatedProductSource": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "compiledToolSource": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "productionTouched": false,
+  "sourceFix": {
+    "commit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+    "api": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalGoodsReturnRoutes.cs",
+    "behavior": "ReturnComplete explicitly sets TenantId and LegalEntityId from the verified head before AddScoped tracks its immutable original command receipt. No source/ledger/CAS/event guard weakened.",
+    "hostSeam": "Internal ReturnComplete seam regression proves scoped receipt tracking and foreign-tenant rejection",
+    "test": "PrincipalGoodsReturnProjectionTests.Create_receipt_is_scoped_before_tracking_and_a_foreign_scope_is_denied",
+    "newHostCases": 1,
+    "domainApplicationInfrastructureModelMigrationPackageChanges": false
+  },
+  "sdk": {
+    "evidenceDirectory": "procurement-p37-return-scope-sdk-prep-20261025_run01",
+    "planSha256": "c32e2e8c26d3361cdbbaab8d92bebcca3580814d8e625efb8cad91690150c4ef",
+    "resultSha256": "35b9a04c02e732c7e27f8fe9db83b10c6499a3f5edecd4c813d26c7472b8fef5",
+    "artifactInventorySha256": "02c563eb62f335eeb7fe51517b9b90bb31cf750d6d8cf4e62867af4ec0795f08",
+    "sourceInventorySha256": "7ce15744e1b531c28bea16998822a4c2c72ff248a4432fd58dc422d4f541ae09",
+    "apiCompile": "PASS",
+    "hostCompile": "PASS",
+    "fullHost": {
+      "passed": 1358,
+      "failed": 0,
+      "skipped": 0
+    },
+    "focusedHost": {
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "P36": 26,
+      "P37": 33
+    },
+    "domain": "1670 CARRIED on byte-unchanged accepted Domain/Application/Infrastructure/model inputs; not rerun here",
+    "strategy": "Current API and Host genuine owning Rebuild with BuildProjectReferences=false, focused then full Host. Immutable parent/non-target artifacts verified; only existing reviewed assets-cache digest32-byte variant admitted.",
+    "parentNonTargetArtifactProofSha256": "ec47105d731652f6d038ba705c3b7019cf35affdf216526d41243928eb03d524",
+    "currentBeforeArtifactInventorySha256": "7259e78720bf727142bd34942794adc945600821b5bef362c8851236a55dbd03",
+    "currentNonTargetVerification": "Completed scope SDK runner verified unchanged non-target bytes against the accepted614 before graph and final accepted-artifact inventory. The parent proof supplies the bounded assets-cache digest exception; it is not a new scope-run proof file."
+  },
+  "genuinePublication": {
+    "evidenceDirectory": "procurement-p37-return-scope-publication-tool-sdk-prep-20261025_run02",
+    "planSha256": "5f11a4b0e08c0d555d279a1ee07913669906e8646846d44990aeca4c154b0765",
+    "resultSha256": "60b2789506fedd92ab77c6b9a3f40777e9020dcc26cd88e804639ea49d47754d",
+    "provenanceSha256": "1cade4af589b4a378baabf116d4601f10ab313ca9eccaf9f1ee399e376697748",
+    "apiFiles": 150,
+    "apiManifestSha256": "dc0a87a00199f63648701a54346726ddf760f59de2adea32279b9aee04c6da74",
+    "toolFiles": 477,
+    "toolManifestSha256": "21b9285f9008e8391b689363fcee4f1d53dffde46edcd70e0275adff3bcef7a3",
+    "scope": "New official current982 API no-build publication plus offline genuine Tool restore/build/publish against current owning managed products under read-only bin mounts and private obj copy; no handwritten deps or old614 API substitution",
+    "toolExecutedByPublication": false,
+    "databaseExecutedByPublication": false
+  },
+  "retainedPublicationAdmissionFailure": {
+    "evidenceDirectory": "procurement-p37-return-scope-publication-tool-sdk-prep-20261025_run01",
+    "status": "FAILED_RUN01_BEFORE_SDK_START_CONTAINER_LABEL_MISMATCH",
+    "planSha256": "0e88d1bfae9a384626f96ba700f473ad6689380a7dabcb1b266e721ff9af24d6",
+    "actualPreservedFailureMarker": {
+      "path": "procurement-p37-return-scope-publication-tool-sdk-prep-20261025_run02/failed-run01-admission.private.json",
+      "sha256": "54e3a97bf12cb6e4e5e774404b3ec8024bdc56ff1b7365b0f30ea89e1a71e67d"
+    },
+    "expectedLabelKey": "p37.tool.scope982",
+    "actualLabelKey": "p37.tool.current",
+    "containerState": "created_not_started",
+    "sdkStarted": false,
+    "absenceOfBuildLogsAndExecutionResultsVerifiedByMarker": true,
+    "scope": "Pre-start inspect denied mismatched wrapper label. Not an SDK compile/publish failure; no fabricated run01 result. Original created container/source/private obj preserved; fresh run02 genuinely published."
+  },
+  "retainedNative04": {
+    "receipt": "docs/procurement/release/P37-NATIVE04-CREATE-FAILURE-20261025.json",
+    "actualHttpRequests": 169,
+    "firstReturnCreate": {
+      "expected": 201,
+      "actual": 409,
+      "code": "ReturnDraftNeedsReview"
+    },
+    "cause": "New command receipt reached AddScoped without tenant/company stamps; native scoped-readiness and accepted-goods lookup had passed before first Create failed.",
+    "limits": "Failure remains unchanged; source repair/test acceptance does not retroactively turn Native04 into a positive proof."
+  },
+  "currentRuntimeHold": {
+    "cohort": "Native05",
+    "status": "RUNNING_NOT_ACCEPTED_AT_SNAPSHOT",
+    "reviewedPlanSha256": "7ca266c3439f1ce9376b149231c629990873361632b915999d3db12c3642e67f",
+    "positiveReturnLifecycleAccepted": false,
+    "independentOwnerAccepted": false,
+    "normalCookieAccepted": false,
+    "productionDeployed": false,
+    "wholeModuleComplete": false
+  },
+  "futureCookieHook": {
+    "source": "6f43cafc92e0d709044a33355527e12553f3a38c",
+    "status": "SOURCE_ONLY_UNCOMPILED_SEPARATE_TOOL_PROOF",
+    "scope": "Private normal-cookie control plane is newer than compiled Tool982; must receive genuine compile/publication and actual normal-session/browser/owner acceptance before any claim. It does not alter accepted Product982 test/publication pins."
+  },
+  "priorReceiptsPreserved": [
+    "docs/procurement/release/P36-P37-CURRENT-API-TOOL-ACCEPTANCE-20261025.json",
+    "docs/procurement/release/P37-API-HOST-SOURCE-ACCEPTANCE-20261025.json",
+    "docs/procurement/release/P37-NATIVE04-CREATE-FAILURE-20261025.json"
+  ],
+  "remainingGates": [
+    "Finish fresh Native05 against exact982 publication and independently reconcile owner facts; no pass assumed while running",
+    "Compile the separate6f43 cookie tool hook then actual normal-cookie Returns/browser/owner proof",
+    "Production same-snapshot migration/finite-role/current-session/UAT release, external Finance/Inventory/Asset operations remain separate"
+  ]
+}

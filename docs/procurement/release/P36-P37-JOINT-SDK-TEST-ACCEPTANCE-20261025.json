@@ -1,0 +1,43 @@
+{
+  "status": "ACCEPTED_SOURCE_TESTS_ONLY",
+  "dateUtc": "2026-10-25",
+  "sourceCommit": "7e167e4491cdb2cd65b9afefe94b01710bcd3c44",
+  "compiledProductSourceCommit": "a3c25d89dd291dbcd3d8201a3eaa3485795d3eb0",
+  "procedure": "Direct read-only VSTest against inventoried SDK03 compiled binaries; SDK04 did not execute MSBuild or publish an API.",
+  "privateEvidence": {
+    "directory": "/home/amizo/erp-backups/procurement-p36-p37-joint-sdk-validation-prep-20261025_run04",
+    "resultSha256": "7276ba946dc8aec26c1355edc99fc74c2c9a1c50e54558250cc39e59c09953c5",
+    "hostTrxSha256": "c438d31cdbdd836167f9bfcacda27c913b68b983fd25d466008c683fc580de3f",
+    "domainTrxSha256": "6cd8eb57ca5a3953dd52b757944bba7cbeb7ba04fa5533d3890937bb671cb6cf",
+    "focusedHostTrxSha256": "086fd05a13fd81a645c25470bef47b9ac7026003e4485a7f51c42eb3f5d32cd5",
+    "focusedDomainTrxSha256": "03b034be1548f2313309976fd367a0f94e72a9f6b481a75eac32a3bae230f9e6"
+  },
+  "actualSdk04": {
+    "exitCode": 0,
+    "host": { "passed": 1324, "failed": 0, "skipped": 0 },
+    "domain": { "passed": 1670, "failed": 0, "skipped": 0 },
+    "focusedHost": { "passed": 41, "failed": 0, "skipped": 0 },
+    "focusedDomain": { "passed": 38, "failed": 0, "skipped": 0 }
+  },
+  "carriedEvidenceNotRerunInSdk04": {
+    "source": "Actual SDK02 compiled product/model/SQL evidence, with product source unchanged through SDK03 and direct SDK04 VSTest.",
+    "modelNoPendingChanges": true,
+    "genuineSqlExportSha256": {
+      "p35-p36-up.sql": "3aef33f31ed8fe984f7bf4a16935fbdb3308302a47a372314af92ff2c3832fc3",
+      "p36-p35-down.sql": "f09e97197e0c1ecb2d473c033575e30d64ad36d8044c67eeda664f1aba2620aa",
+      "p36-p37-up.sql": "1a534556875547912372a0113640085f123ddd713e0ca31c731236e41f639cd6",
+      "p37-p36-down.sql": "baf2f94ba22772c63ff80534e49ce701796d574f11c01f6ab953358608f4f36b",
+      "p35-p37-combined-up.sql": "b62cade22afd796a9b163fee4e5fa32b96a6c181b1fe631c4d065067744601f6"
+    }
+  },
+  "retainedFailedAttempts": [
+    "SDK01: resource/OOM failure",
+    "SDK02: later tenant fixture failure; its completed model check and genuine SQL exports are retained separately",
+    "SDK03: metadata guard failure; its inventoried binaries were used by SDK04 only after unchanged-product verification"
+  ],
+  "notAccepted": [
+    "No P36/P37 PostgreSQL migration application, physical constraint capture, finite role verification or populated rollback proof",
+    "No P36/P37 positive API or browser cohort, current API publication, capability activation or production deployment",
+    "No award authority, return dispatch, stock adjustment, supplier credit or Finance posting"
+  ]
+}

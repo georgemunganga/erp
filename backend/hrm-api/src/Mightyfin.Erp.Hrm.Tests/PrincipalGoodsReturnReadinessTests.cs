@@ -1,10 +1,13 @@
 using System.Data;
 using System.Data.Common;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using Mightyfin.Erp.Procurement.Infrastructure.Migrations;
 
 namespace Mightyfin.Erp.Hrm.Tests;
@@ -13,6 +16,12 @@ namespace Mightyfin.Erp.Hrm.Tests;
 // admission, and synthetic definition strings are not physical capture evidence.
 public sealed class PrincipalGoodsReturnReadinessTests
 {
+    private sealed class ClaimingReadiness : IProcurementPrincipalGoodsReturnReadiness
+    {
+        public Task<bool> IsConfiguredAsync(CancellationToken ct)=>Task.FromResult(true);
+        public Task<bool> IsReadyAsync(ProcurementDbContext db,bool write,CancellationToken ct)=>Task.FromResult(true);
+    }
+
     private sealed class SourceReadiness : IProcurementPrincipalReceivingReadiness
     {
         internal bool? Write;
@@ -48,7 +57,7 @@ public sealed class PrincipalGoodsReturnReadinessTests
     }
 
     [Fact]
-    public async Task Explicit_feature_and_connection_still_deny_without_actual_capture()
+    public async Task Captured_feature_and_connection_still_deny_without_execution_foundation()
     {
         var configuration=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
         {
@@ -59,9 +68,58 @@ public sealed class PrincipalGoodsReturnReadinessTests
         services.AddSingleton<IProcurementPrincipalReceivingReadiness>(new SourceReadiness());
         ProcurementPrincipalGoodsReturnComposition.AddFoundation(services,configuration);
         using var provider=services.BuildServiceProvider();
-        Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
+        Assert.True(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
         Assert.False(await provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>().IsReadyAsync(null!,false,default));
         Assert.False(await provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>().IsConfiguredAsync(default));
+    }
+
+    [Theory]
+    [InlineData(false,false)]
+    [InlineData(true,false)]
+    [InlineData(true,true)]
+    public async Task Normal_host_capability_stays_closed_without_explicit_execution_authority(
+        bool enabled,bool executionConnection)
+    {
+        var values=new Dictionary<string,string?>
+        {
+            ["Procurement:PrincipalGoodsReturnDrafts:Enabled"]=enabled.ToString(),
+            ["Procurement:Approvals:Enabled"]="true",
+            ["Procurement:Approvals:PrincipalExecutionEnabled"]="false"
+        };
+        if(executionConnection)
+            values["ConnectionStrings:ProcurementApprovalExecution"]="Host=never-used.invalid;Database=private;Username=finite";
+        var config=new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var services=new ServiceCollection();
+        services.AddSingleton<IConfiguration>(config);
+        services.AddScoped<HrmDbContext>(_=>new HrmDbContext(
+            new DbContextOptionsBuilder<HrmDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new FixedTenantAccessor("return-readiness-only")));
+        ProcurementHostIntegration.AddServices(services,"Host=never-used.invalid;Database=record",config);
+        using var provider=services.BuildServiceProvider();using var scope=provider.CreateScope();
+        var options=scope.ServiceProvider.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>();
+        Assert.Equal(enabled,options.Enabled);
+        Assert.Equal(executionConnection,options.ExecutionDatabaseConfigured);
+        Assert.IsType<ProcurementPrincipalGoodsReturnStoreReadiness>(
+            scope.ServiceProvider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>());
+        // The third case has an execution string but no principal execution
+        // authority; no network connection is attempted by this test.
+        Assert.False(await ProcurementPrincipalGoodsReturnComposition.ReadyAsync(scope.ServiceProvider,false,default));
+    }
+
+    [Fact]
+    public async Task Capability_rejects_substituted_ready_provider_and_foreign_execution_database()
+    {
+        var services=new ServiceCollection();
+        services.AddSingleton(new ProcurementPrincipalGoodsReturnOptions { Enabled=true,ExecutionDatabaseConfigured=true });
+        services.AddSingleton(new ProcurementApprovalExecutionOptions
+            { Enabled=true,PrincipalExecutionEnabled=true,ExecutionDatabaseConfigured=true });
+        services.AddSingleton<IProcurementPrincipalGoodsReturnReadiness>(new ClaimingReadiness());
+        using var provider=services.BuildServiceProvider();
+        Assert.False(await ProcurementPrincipalGoodsReturnComposition.ReadyAsync(provider,false,default));
+        Assert.False(await ProcurementPrincipalGoodsReturnComposition.ReadyAsync(provider,true,default));
+        Assert.False(InvoiceDocumentStoreBinding.SamePhysicalDatabase(
+            "Host=private-socket;Database=return-source;Username=finite",
+            "Host=private-socket;Database=other-tenant;Username=finite"));
     }
 
     [Fact]
@@ -86,18 +144,17 @@ public sealed class PrincipalGoodsReturnReadinessTests
     [Fact]
     public void Complete_capture_requires_exact_all_owned_and_overlay_objects()
     {
-        static Dictionary<string,string> Fake(IReadOnlySet<string> names)=>names.ToDictionary(x=>x,_=>"shape-test-only");
-        var checks=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.CheckNames);
-        var foreign=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.ForeignNames);
-        var keys=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.OverlayKeyNames);
-        var indexes=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.IndexNames);
+        var checks=ProcurementPrincipalGoodsReturnSchemaCapture.Checks.ToDictionary(x=>x.Key,x=>x.Value);
+        var foreign=ProcurementPrincipalGoodsReturnSchemaCapture.ForeignDefinitions.ToDictionary(x=>x.Key,x=>x.Value);
+        var keys=ProcurementPrincipalGoodsReturnSchemaCapture.OverlayKeys.ToDictionary(x=>x.Key,x=>x.Value);
+        var indexes=ProcurementPrincipalGoodsReturnSchemaCapture.IndexDefinitions.ToDictionary(x=>x.Key,x=>x.Value);
         Assert.Equal(3,checks.Count);Assert.Equal(12,foreign.Count);Assert.Equal(4,keys.Count);Assert.Equal(19,indexes.Count);
         Assert.True(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
         indexes.Remove(indexes.Keys.First());
         Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
-        indexes=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.IndexNames);foreign[foreign.Keys.First()]="";
+        indexes=ProcurementPrincipalGoodsReturnSchemaCapture.IndexDefinitions.ToDictionary(x=>x.Key,x=>x.Value);foreign[foreign.Keys.First()]="";
         Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
-        Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
+        Assert.True(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
     }
 
     [Fact]

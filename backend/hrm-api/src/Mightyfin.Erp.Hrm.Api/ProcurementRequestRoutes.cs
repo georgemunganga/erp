@@ -553,7 +553,12 @@ public static class ProcurementRequestRoutes
         var requests = db.PurchaseRequests;
         if (scope.PrincipalId is null || scope.PrincipalId == Guid.Empty) return requests.Where(x => false);
         IQueryable<PurchaseRequest> scoped = requests;
-        if (scope.WorkLocationId.HasValue || scope.IsConfined)
+        if (scope.IsExplicitAllBranches)
+        {
+            var permitted = scope.PermittedWorkLocationIds.ToArray();
+            scoped = scoped.Where(x => x.BranchRef != null && permitted.Contains(x.BranchRef.Value));
+        }
+        else if (scope.WorkLocationId.HasValue || scope.IsConfined)
             scoped = scoped.Where(x => scope.WorkLocationId != null && x.BranchRef == scope.WorkLocationId);
         if (scope.OrgUnitId.HasValue) scoped = scoped.Where(x => x.DepartmentRef == scope.OrgUnitId);
         return scoped;

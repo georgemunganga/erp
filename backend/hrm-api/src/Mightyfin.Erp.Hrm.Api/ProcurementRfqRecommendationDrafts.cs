@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
@@ -19,6 +20,43 @@ public sealed class UnavailableProcurementRfqRecommendationDraftReadiness
 {
     public Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct)
         =>Task.FromResult(false);
+}
+
+// Metadata availability, not record authorization. The route still verifies
+// its named reader, current aliases and retained source on every request.
+internal static class ProcurementRfqRecommendationCapability
+{
+    internal static bool HasCurrentActions(ProcurementPrincipalPeople.Person? person,Guid? branch)
+        =>person is not null
+            &&person.Permissions.Contains(PrincipalRfqRecommendationDraft.Action)
+            &&person.Permissions.Contains(PrincipalRfqOfferOpeningControls.ReadAction)
+            &&(branch is { } selected
+                ? person.OrganisationWide || person.AllowedBranches.Contains(selected)
+                : person.OrganisationWide || person.AllowedBranches.Count>0);
+
+    internal static async Task<bool> ReadyAsync(IServiceProvider services,
+        ProcurementRequestScope scope,HttpContext http,
+        bool pending,CancellationToken ct)
+    {
+        if(pending || services.GetService<ProcurementRfqCommercialOptions>() is not
+            {Enabled:true,OfferOpeningEnabled:true,RecommendationDraftEnabled:true}
+            || services.GetService<ProcurementApprovalExecutionOptions>() is not
+                {Enabled:true,PrincipalExecutionEnabled:true,ExecutionDatabaseConfigured:true}
+            || services.GetService<IProcurementRfqRecommendationDraftReadiness>() is not
+                ProcurementRfqRecommendationStoreReadiness concrete)
+            return false;
+        var person=await ProcurementPrincipalPeople.Resolve(
+            services.GetRequiredService<HrmDbContext>(),scope.TenantId,
+            scope.LegalEntityId,scope.SubjectId,ct);
+        if(!HasCurrentActions(person,scope.WorkLocationId)) return false;
+        var auth=services.GetRequiredService<IAuthorizationService>();
+        if(!(await auth.AuthorizeAsync(http.User,PrincipalRfqRecommendationDraft.Action)).Succeeded
+            || !(await auth.AuthorizeAsync(http.User,PrincipalRfqOfferOpeningControls.ReadAction)).Succeeded)
+            return false;
+        // Resolve the actual execution connection inside the concrete owner;
+        // the Record connection used by /meta may have different finite grants.
+        return await concrete.IsConfiguredAsync(ct);
+    }
 }
 
 public static partial class ProcurementSourcingExecutionRoutes
@@ -41,7 +79,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     private static async Task<(PrincipalRfqCommercialRoundOpeningRecord Round,RfqPrincipalActor Actor,
         PrincipalRfqOfferOpeningRecord Opened,PrincipalRfqCommercialRoundSealRecord Seal,
         PrincipalRfqPreparedPlan Plan,PrincipalRfqCommercialDraftRevision PlanRevision,
-        PrincipalRfqCommercialOfferSubmissionRecord[] Offers)> RecommendationSource(
+        PrincipalRfqCommercialOfferSubmissionRecord[] Offers,RfqPrincipalDraft Original)> RecommendationSource(
         HttpContext http,ProcurementDbContext db,HrmDbContext core,
         Mightyfin.Erp.Core.Approvals.Infrastructure.ApprovalDbContext cases,
         Microsoft.AspNetCore.Authorization.IAuthorizationService auth,
@@ -73,7 +111,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         if(PrincipalRfqSealedManualOffers.RetainedSetDigest(retained.Proof,
                 offers.Select(OfferProof).ToArray())!=opened.OfferSetSha256)
             throw new Problem("RfqRecommendationOfferSetChanged",409);
-        return(round,actor,opened,seal,plan,revision,offers);
+        return(round,actor,opened,seal,plan,revision,offers,retained.Original);
     }
 
     internal static void RequireRecommendationNamedReader(
@@ -100,6 +138,48 @@ public static partial class ProcurementSourcingExecutionRoutes
         return rows.ToArray();
     }
 
+    // Projection accepts only fields supplied by the verified schema-2 RFQ
+    // envelope and retained offer set. It never consults mutable supplier data.
+    internal static string RecommendationSourceBody(Guid roundId,Guid unsealingId,
+        string verifiedTitle,IReadOnlyList<Guid> frozenLineIds,
+        IReadOnlyList<PrincipalRfqCommercialOfferSubmissionRecord> offers)
+    {
+        var labels=frozenLineIds.Select((lineId,index)=>new
+            {LineId=lineId,Label=$"Line {index+1}"})
+            .ToDictionary(x=>x.LineId,x=>x.Label);
+        var lines=RecommendationOfferLines(offers);
+        if(lines.Any(x=>!labels.ContainsKey(x.SourcingLineId)))
+            throw new Problem("RfqRecommendationSourceChanged",409);
+        var items=offers.Select((offer,index)=>new
+        {
+            offerId=offer.Id,offerSha256=offer.SnapshotSha256,
+            offerLabel=$"Offer {index+1}",supplierLabel=(string?)null,
+            lines=lines.Where(x=>x.OfferId==offer.Id).Select(x=>new
+            {sourceLineId=x.SourcingLineId,lineLabel=labels[x.SourcingLineId],
+                offeredQuantityExact=x.OfferedQuantityExact,x.CurrencyCode})
+        }).ToArray();
+        return JsonSerializer.Serialize(new
+        {roundId,unsealingId,rfqTitle=verifiedTitle,
+            sourceLines=frozenLineIds.Select((lineId,index)=>new
+            {sourceLineId=lineId,lineLabel=$"Line {index+1}"}),
+            offers=items,canSubmit=false,awardAvailable=false,
+            purchaseOrderAvailable=false},Json);
+    }
+
+    // Every source and offer passes current named-reader, retained receipt,
+    // alias and sealed-set checks before the projection sees any record.
+    private static Task<IResult> CommercialRecommendationSource(Guid id,
+        HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
+        =>Run(http,scope,async(db,cases,core,auth,token)=>
+        {
+            await RequireRecommendation(http,db,false,token);
+            if(id==Guid.Empty)throw new Problem("RfqRecommendationSourceNotFound",404);
+            var (_,_,opened,_,_,_,offers,original)=await RecommendationSource(
+                http,db,core,cases,auth,scope,id,false,token);
+            return new Reply(RecommendationSourceBody(id,opened.Id,original.Title,
+                original.Lines.Select(x=>x.EventLineId).ToArray(),offers));
+        },ct);
+
     private static Task<IResult> CommercialSaveRecommendation(Guid id,RecommendationInput? input,
         HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         =>Run(http,scope,async(db,cases,core,auth,token)=>
@@ -113,7 +193,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 throw new Problem("RfqRecommendationInputInvalid",422);
             // Replay is a current purpose read too: no receipt lookup or response
             // precedes named-reader, retained opening and current alias admission.
-            var (round,actor,opened,seal,plan,planRevision,offers)=await RecommendationSource(
+            var (round,actor,opened,seal,plan,planRevision,offers,_)=await RecommendationSource(
                 http,db,core,cases,auth,scope,id,true,token);
             var key=Key(http);
             var fingerprint=Fingerprint(new{operation="SaveRecommendationDraft",roundId=id,
@@ -278,7 +358,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             await RequireRecommendation(http,db,false,token);
             if(id==Guid.Empty ||offset is <0 or >100000 ||limit is <1 or >25)
                 throw new Problem("RfqRecommendationPageInvalid",422);
-            var (round,actor,opened,seal,plan,planRevision,_)=await RecommendationSource(
+            var (round,actor,opened,seal,plan,planRevision,_,_)=await RecommendationSource(
                 http,db,core,cases,auth,scope,id,false,token);
             var own=db.PrincipalRfqRecommendationDrafts.AsNoTracking().Where(x=>
                 x.RoundId==id &&x.TenantId==scope.TenantId &&x.LegalEntityId==scope.LegalEntityId
@@ -309,7 +389,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
             await RequireRecommendation(http,db,false,token);
-            var (round,actor,opened,seal,plan,planRevision,_)=await RecommendationSource(
+            var (round,actor,opened,seal,plan,planRevision,_,_)=await RecommendationSource(
                 http,db,core,cases,auth,scope,id,false,token);
             var head=await db.PrincipalRfqRecommendationDrafts.AsNoTracking()
                 .SingleOrDefaultAsync(x=>x.Id==draftId &&x.RoundId==id
@@ -338,7 +418,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
             await RequireRecommendation(http,db,false,token);
-            var (round,actor,_,_,_,_,_)=await RecommendationSource(
+            var (round,actor,_,_,_,_,_,_)=await RecommendationSource(
                 http,db,core,cases,auth,scope,id,false,token);
             var ack=await db.PrincipalRfqRecommendationDraftReceipts.AsNoTracking()
                 .SingleOrDefaultAsync(x=>x.RoundId==id &&x.BranchId==round.BranchId

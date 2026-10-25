@@ -25,6 +25,7 @@ An active Core principal with current Procurement return action and company/bran
 ## 6. Entry Points and Triggers
 
 Receiving detail can open a draft return for an accepted goods line. An authorized return directory can search eligible accepted facts within accessible branches.
+The return's `receiptId` is the retained Goods receiving **draft header** ID (`PrincipalReceivingFact.DraftId`), which is the physical FK target. The acceptance payload's `AcceptanceRecordId` is the distinct **receipt line** ID and must match the linked observation's `ReceiptLineId`; the observation's `ReceiptId` must match the fact's draft header. Eligible-source reads and return creation expose and retain the header ID after verifying both bindings.
 
 ## 7. Preconditions
 
@@ -173,10 +174,11 @@ three modeled return tables, exact three CHECKs, eight modeled plus four authore
 FKs, four authored owner keys, and all nineteen owned PK/AK/business/FK indexes.
 The current-revision FK must be deferred; the three source-owner FKs must remain
 immediate NoAction. Unknown extra owned indexes or changed definitions deny.
-All expected PostgreSQL definition dictionaries are EMPTY pending actual catalog
-capture, so the concrete provider remains unavailable even with options true.
-The independent migration ID is a source prerequisite only; root's joint P36/P37
-regeneration must supply its new genuine P37 ID and new actual capture first.
+The genuine joint migration `20261025020252_P37PrincipalGoodsReturnDrafts` now
+has an accepted private owner Up/Down/Up capture. Expected definition dictionaries
+are imported byte-exact from that capture, including all nineteen owned indexes.
+This does not establish finite-role or business runtime admission; see the joint
+private schema acceptance receipt for exact scope and remaining gates.
 
 The write matrix needs INSERT on the three P37 tables and append-only audit/outbox,
 and UPDATE only revision/state/current_revision_id/version/update stamps on the
@@ -194,3 +196,67 @@ transaction ownership/isolation, default flags/missing capture, exact capture
 keysets, immutable grant boundaries, current workerless Core authorization and
 revocation/branch/forged-alias denial. No SDK, PostgreSQL or browser job was run
 for this source checkpoint; real finite role, physical and HTTP proof remain.
+
+
+## Pre-UI read-projection addendum (sections 10, 12–14, 18–19, 22, 25–28)
+
+List/detail GET responses retain the existing `id`, `status`, `version`, scope/source IDs,
+exact quantities, reason/reference and no-effect flags. They additionally return
+`allowedActions: string[]`, with exactly `Edit` and `Cancel` only for the current
+stored Core principal who created a Draft, currently has `procurement-return-edit`,
+passes that HTTP authorization policy, and retains the same tenant/company/branch
+admission. Otherwise the array is empty. These are current UI hints, not authority:
+write callbacks continue their own current actor, original creator, state and CAS
+checks. Existing branch/actor admission precedes reads and paging.
+
+Eligible-goods rows and verified list/detail rows additionally return `labels`:
+`purchaseOrderNumber`, nullable `supplierDisplayName`, `lineNumber`, `description`,
+`unitCode`, `currencyCode`, `deliveryNoteReference`, and `receivedAt` (the actual
+observation time, not a fabricated acceptance or dispatch date). SourceHistory
+returns its already verified retained-issued graph alongside the verified ledger;
+no duplicate source loader, new table or current supplier/catalog eligibility query
+is introduced. Supplier display text comes verbatim from the original verified
+issued commercial snapshot, line text from its verified PO line and the physical
+note/time from the exact observation linked to the accepted fact. No fallback
+supplier name or receipt number is manufactured. Labels convey identification,
+not current return capacity, commercial approval or Inventory/Finance authority.
+
+Original write and GET-command-recovery acknowledgements remain frozen under
+`PrincipalGoodsReturnRules.ResponseJson`. Neither dynamic `allowedActions` nor
+labels are persisted in them, and their response hashes/versions remain unchanged.
+After any acknowledgement, UI must GET current detail before exposing a new edit.
+Unknown writes keep original body/key and use GET recovery; no blind replacement
+POST or inferred record ID is introduced.
+
+The supplied UI has no goods-return transaction screen. Future contextual Returns
+integration must reuse the existing Receiving toolbar/tabs/editor frame and shared
+ERP controls, with a separately reviewed absent-false owner-ready capability. This
+checkpoint does not register routes, enable flags, invent a Returns layout or wire
+preview settings/vendor-credit demo actions. Its added source tests cover action
+eligibility/scope/state, stored Core permission revocation despite a stale claim,
+verbatim source labels and unchanged original acknowledgements. Twelve added cases
+are authored but not executed here; fresh owning SDK/finite-role/runtime gates
+remain separate. There is no database model or migration change.
+
+
+## Integrated-next source checkpoint (uncompiled)
+
+This lane ordinarily merges the default-off composition/private native hook
+`51cd1ba7` with read projections `39cb74a0`. Normal Program registers the concrete
+provider and guarded routes; `PrincipalGoodsReturnDrafts:Enabled` remains false
+by default and availability metadata is false unless actual captured physical,
+finite execution and upstream source admission pass. Mapping does not grant an
+action or enable the feature. Existing root C2e SDK/runtime work is separate and
+unchanged.
+
+The private hook now compares GET list/detail using typed current fields and the
+new labels/actions, while comparing original receipt bytes only for write replay
+and GET command recovery. It requires empty actions for a same-branch noncreator
+who has Read/Edit and for the creator after Edit revocation with Read retained;
+the corresponding revise/recovery denials must not change persisted footprints.
+Cancelled GETs are read only. Labels are compared to retained issued supplier,
+PO-line and actual physical observation facts read from the owning private graph.
+The earlier captured schema/private finite SQL receipts remain narrowly scoped;
+this combined source, private hook, current authentication/HTTP and future UI
+still require actual execution/independent owner acceptance. No whole-module,
+production, dispatch, inventory, supplier-credit or Finance claim is made.

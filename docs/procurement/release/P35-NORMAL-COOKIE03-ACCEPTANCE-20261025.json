@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 1,
+  "documentId": "P35-NORMAL-COOKIE03-ACCEPTANCE-20261025",
+  "dateUtc": "2026-10-25",
+  "status": "PASS_PRIVATE_P35_COOKIE_E03_OWNER_CORE_AND_DOMAIN_AUDIT_SUPPLEMENT",
+  "scope": "PRIVATE_INTERNAL_CONTRACT_REVIEW_BROWSER_AND_SUPPLEMENTED_OWNER_ACCEPTANCE",
+  "backendProductSource": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "compiledToolSource": "6e9fef2526d70c56ae457c6023845405464478fb",
+  "uiApplicationAndProofSource": "1b5354194cadccbac74bebf8611ef185ae22a464",
+  "moduleComplete": false,
+  "productionDeploymentClaim": false,
+  "productionBaseline": "P24 unchanged",
+  "actualNativeHttpObservations": 138,
+  "actualNormalCookieBrowserCasesPassed": 1,
+  "browserWorkflow": "Independent buyer/reviewer real local password/session cookies; actual draft create, add exact rate, Submit, Return, Correction, title revise, resubmit, Approve, original-key GET recovery and both logout/session-revocation checks. Existing contract layout/UI, actual backend, no identity-header injection or business-response mocks.",
+  "ownedBrowserGraph": {
+    "contractsAdded": 1,
+    "contractVersionsAdded": 1,
+    "ratesAdded": 1,
+    "submissionsAdded": 2,
+    "coreCasesAdded": 2,
+    "votesAdded": 2,
+    "correctionsAdded": 1,
+    "originalReviewCommandReceiptsAdded": 5,
+    "newPolicyIdentityRows": 0,
+    "finalStatus": "Approved internal review",
+    "signedAt": null,
+    "signedDocumentRef": null,
+    "contractActivated": false,
+    "policyIdentityRowsUnchanged": 3
+  },
+  "ownerProof": {
+    "twoIdenticalBeforeCaptures": true,
+    "twoIdenticalOriginalAfterCaptures": true,
+    "twoIdenticalSupplement01ReadOnlyCaptures": true,
+    "successfulSupplement02NewQueries": false,
+    "nativeGraphUnchanged": true,
+    "allNonP35ProcurementRowsCountsAndHashesUnchanged": true,
+    "otherCoreBusinessRows": "Unchanged except exactly verified default branding bootstrap and two privileged logout events; auth/session effects separately attributed. No globally unchanged Core-data claim.",
+    "currentActorsAssignmentsScopeCasAndOriginalKeysVerified": true,
+    "immutableTermsAssignmentPinsResponseAndTypedCommandDigestsVerified": true,
+    "originalHttpBodyShaEquivalenceProven": false,
+    "genericOwnedAuditChecksPreserved": true
+  },
+  "verifiedCoreEffects": {
+    "defaultCompanyBrandingRowsAdded": 1,
+    "branding": "Exact Product982 defaults, tenant scope, no custom asset/color/name/update; creation bound between browser logins and contract creation. The owning public branding GET lazily creates the default when absent.",
+    "privilegedLogoutEventsAdded": 2,
+    "logout": "Exactly buyer/reviewer POST /api/hrm/auth/logout status200/succeeded, current role strings, no address hash, append-only rows and timestamps after actual session revocation.",
+    "newAuthAuditRows": 7,
+    "authAudit": "Two LocalUser update/system; two LocalSession create/system; two LocalSession update/respective actor; one CompanyBranding create/buyer. Exact full branding audit snapshot and raw digest match original capture.",
+    "newRevokedSessions": 2
+  },
+  "verifiedNamedDomainAuditEffects": {
+    "additionalNamedAuditRows": 3,
+    "actions": [
+      "DraftCreated",
+      "DraftRateAdded",
+      "DraftUpdated"
+    ],
+    "scope": "Exact Product982 before/after payloads bound to original captured browser bodies, retained contract/version/rate, buyer/scope/CAS/prices/timestamps. Generic EF parent/rate companions remain mandatory.",
+    "preSaveSemantics": "DraftCreated snapshot has default year0001 CreatedAt before SaveChanges; DraftUpdated before/after snapshots retain header5/draftVersion4 before save, while second submission owns header6/version4. These are actual owning route semantics, not guessed post-save values."
+  },
+  "retainedFailures": [
+    {
+      "attempt": "CookieE01",
+      "status": "FAILED_RETAIN_FIXTURE",
+      "scope": "Failed at create-draft before creating a browser contract: proof unnecessarily fetched vendor detail with ungranted child-table reads. Corrected proof uses the actual UI vendor-summary LIST; no product/grant change.",
+      "buyerAndReviewerLogoutVerified": true,
+      "ownerAfterAcceptance": false,
+      "artifacts": {
+        "p35-contract-cookie-browser-result.private.json": "6460276d733909f836b3cbb56787217f2c50df6ae2aedcec1483f4e54f848d82",
+        "browser-exit-code.private.json": "bdc4fe56f48503365bcbe036aeacaec57006b2f47474a32575c837d60d9f7fa8",
+        "native-run-result.private.json": "9736f6dc91f440d9e481c89db0dc8fb56136c83dcb3ca208888dfe407524470d",
+        "browser.log": "aad47fb38d95df9ebe12e9e26ac5e83dc376b8cb8b6459cdd62d83b8077fff28"
+      }
+    },
+    {
+      "attempt": "CookieE02",
+      "status": "FAILED_RETAIN_FIXTURE",
+      "scope": "Failed at submit after Draftv2 plus rate were persisted, with no new review submissions/receipts; actual Submit HTTP status was not retained. UI regression identified duplicate sibling keys/repeated rate GETs and child-rate/header-write coordination; accepted app/proof1b5354 corrects both. No specific409 is claimed.",
+      "buyerAndReviewerLogoutVerified": true,
+      "ownerAfterAcceptance": false,
+      "artifacts": {
+        "p35-contract-cookie-browser-result.private.json": "10bb56171279696bd933169bebab818b185ceaafb8dea65f93042c159c62db0a",
+        "browser-exit-code.private.json": "bdc4fe56f48503365bcbe036aeacaec57006b2f47474a32575c837d60d9f7fa8",
+        "native-run-result.private.json": "bb8136f6bff3f6a886b3edbdd9688669dfde3fd1f4d7e38713a1e42fa7f4c08a",
+        "browser.log": "dcfd91b11d1efb010bf55cfb6012b13611183fbacb9d2c41883b26beb6c6187d"
+      }
+    },
+    {
+      "attempt": "Original owner E03",
+      "status": "FAILED",
+      "failureCode": "UnrelatedProcurementOrCoreBusinessRowsChanged",
+      "effect": "Original verifier did not attribute Core lazy branding and logout request audits; its source/plan/full captures/failure log remain unchanged and failed.",
+      "failureLogSha256": "451890abe1a2c26d3a95df05e5a4c2900086c801c97f7565ca4140fe955a32fe"
+    },
+    {
+      "attempt": "Core-effects supplement01",
+      "status": "FAILED",
+      "failureCode": "UnattributedProcurementAuditDelta",
+      "effect": "Exact Core-effects checks passed, then generic audit assumption rejected three legitimate named draft domain audits. Its source/reviewed plan/two raw captures remain unchanged and failed.",
+      "reviewedPlanSha256": "69a8de5be4734ed84cfc4c5fcd0a748d7104b62744da6b495c62ffe38cb67d34",
+      "sourceSha256": "722484320dbdc9a28703fb53fa418ef466489ca2c622b41c3b02079bdfe89f80"
+    }
+  ],
+  "acceptanceComposition": "Only the new successful offline supplement02 result is accepted for the expanded explicit scope. No original owner result or original combined cookie wrapper is fabricated or relabelled. Native/browser and each failed/successful owner attempt retain separate evidence.",
+  "nativeNegatives": "The actual native138 suite and its original recorded assertions/results remain preserved. This receipt adds no invented negative-case counts or broader authority.",
+  "notEstablished": [
+    "Supplier or digital signature authority",
+    "Contract activation/framework execution or drawdown",
+    "External Finance/Inventory/Asset ledger effects or observation",
+    "General HRM CRUD or standalone finite Core runtime deployment",
+    "Original HTTP body-SHA byte equivalence",
+    "Production deployment or whole-module completion"
+  ],
+  "protectedEvidence": {
+    "after1": {
+      "artifact": "after-1.private.jsonl",
+      "sha256": "fbb2b174a7e1a5bc43286db8cd8f62ee15f4ee480368ac168f2dc3bd692af685"
+    },
+    "after2": {
+      "artifact": "after-2.private.jsonl",
+      "sha256": "fbb2b174a7e1a5bc43286db8cd8f62ee15f4ee480368ac168f2dc3bd692af685"
+    },
+    "backendReceipt": {
+      "artifact": "backend-container.private.json",
+      "sha256": "bf7fa10c0a9571f469f22d77b011b7244dec9348aef4c644fd92b35a22a77328"
+    },
+    "baseline": {
+      "artifact": "baseline.private.json",
+      "sha256": "459329c3b3f5c9d96f96b80197ccf93a6b9f26748c5b6ab952e8e7f608817c14"
+    },
+    "before1": {
+      "artifact": "before-1.private.jsonl",
+      "sha256": "ffd94613fc6ec38da3abbcb560ae89ebf7e17300bf08b66fba1f9c36970a7fe4"
+    },
+    "before2": {
+      "artifact": "before-2.private.jsonl",
+      "sha256": "ffd94613fc6ec38da3abbcb560ae89ebf7e17300bf08b66fba1f9c36970a7fe4"
+    },
+    "browserExit": {
+      "artifact": "browser-exit-code.private.json",
+      "sha256": "eef0bd88eddf6a50f516848ef22cf37862cfd4c3d94720e0df5f42dea99c2461"
+    },
+    "browserPhase": {
+      "artifact": "browser-phase.private.json",
+      "sha256": "cec712cac478254c3350bd7e275500871f6365c7c6235735a664786b9c3d4f3a"
+    },
+    "browserResult": {
+      "artifact": "p35-contract-cookie-browser-result.private.json",
+      "sha256": "9cc8c192f1824a96c1d8e2cb2d1d60153650183ca59dc2361345ed871989868a"
+    },
+    "cookiePlan": {
+      "artifact": "plan.INCOMPLETE.json",
+      "sha256": "d6d654bd2bfbf3a890b6184941bc63cadfaf15d11d256a2428580442570eed2a"
+    },
+    "fixture": {
+      "artifact": "p35-contract-review-cookie-fixture.private.json",
+      "sha256": "2ea7b423e33c29e5913e52f7efcd753aba5449d640fe60f9eec6aab5bd932e03"
+    },
+    "nativeResult": {
+      "artifact": "result.private.json",
+      "sha256": "5a23a51852026f57396586734911dae5f8630672989b92ee02ce69d271498914"
+    },
+    "nativeWrapper": {
+      "artifact": "native-run-result.private.json",
+      "sha256": "e8891e8d18a6aec2fcebf31fbd0f8374d9170f1570f4c1fac751708fedcb3ce3"
+    },
+    "ownerAfterPlan": {
+      "artifact": "plan.INCOMPLETE.json",
+      "sha256": "5328bce8b2399446c51e2618d652a6d8f4fae3d5ed95a0fc1f213a2bfcbbceff"
+    },
+    "ownerBeforePlan": {
+      "artifact": "reviewed-owner-before-plan.private.json",
+      "sha256": "2ae2fe8685e70b8afe36e2817c3e15e965b08eeb1ff04f1ce60c2b2f4d68f535"
+    },
+    "ownerFailureLog": {
+      "artifact": "owner-after.log",
+      "sha256": "451890abe1a2c26d3a95df05e5a4c2900086c801c97f7565ca4140fe955a32fe"
+    },
+    "ownerVerifier": {
+      "artifact": "verify.py",
+      "sha256": "f725a54aed1c3b978f84cdadb065774dba3e225ccc7c6fb6c76d832a679917cc"
+    },
+    "proxyReceipt": {
+      "artifact": "p35-contract-cookie-proxy-receipt.private.json",
+      "sha256": "72e3c5ea6846ae9a22b9760174bf264ae448d647a2fa3de2d7d2292206f2867e"
+    },
+    "retainedGraph": {
+      "artifact": "retained_graph.py",
+      "sha256": "97b68319f58330e1af1a93629d888b62efd8d66e6b5d7fd7d4433604a11de87d"
+    },
+    "supplement01Capture1": {
+      "artifact": "capture-1.private.jsonl",
+      "sha256": "1f1c24a7532747bcfe44827f365a3a5965618a8060bd99812d4612a435ed6cab"
+    },
+    "supplement01Capture2": {
+      "artifact": "capture-2.private.jsonl",
+      "sha256": "1f1c24a7532747bcfe44827f365a3a5965618a8060bd99812d4612a435ed6cab"
+    },
+    "supplement01Plan": {
+      "artifact": "plan.INCOMPLETE.json",
+      "sha256": "69a8de5be4734ed84cfc4c5fcd0a748d7104b62744da6b495c62ffe38cb67d34"
+    },
+    "supplement01Source": {
+      "artifact": "reconcile.py",
+      "sha256": "722484320dbdc9a28703fb53fa418ef466489ca2c622b41c3b02079bdfe89f80"
+    },
+    "supplement02Result": {
+      "artifact": "result.private.json",
+      "sha256": "4cf351246b8adabf87e0fbd25d9b2a0ef60eb78381278ab99d99f2cd4df55934"
+    },
+    "supplement02ReviewedPlan": {
+      "artifact": "plan.INCOMPLETE.json",
+      "sha256": "51e4d813f015e0a7c548e6b6671f0b42d55810a5c7267580330cad5ced808a2e"
+    },
+    "supplement02Source": {
+      "artifact": "reconcile.py",
+      "sha256": "6b55e18cf530287b424cc9a006a02464d59659e12becda5f8fff1bbc6739bf0b"
+    },
+    "browserLog": {
+      "artifact": "browser.log",
+      "sha256": "0e4d0a4946b0257e2bae9b78ef2db3c1bd6f9203459cc6a8721fec1d2ad76294"
+    },
+    "ownerBeforePhase": {
+      "artifact": "p35-owner-before-phase.private.json",
+      "sha256": "37742eb2f8cd581bfeb18fa0c289c77d9e28be9875ddb9bdc523286d7cbda1b9"
+    }
+  },
+  "owningSourceFiles": [
+    {
+      "artifact": "Program.cs",
+      "sha256": "c14629c6a20c907feb3af02251298d691acfd5185a5ddb4cc1a7cf4528a845f2",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "ApiRoutesClean.cs",
+      "sha256": "013b7bf8931f835ecc0b954ac17fcbc24409dc119c450e73c8803301a8c6aa55",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "LocalIdentity.cs",
+      "sha256": "b76894208f709b1fa096c869e718a803a5f00ab3b58ec486d7e00839f0273b05",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "CompanyBrandingService.cs",
+      "sha256": "e0f2f23f9d084ba726caca274d8e55934efca2abd5c1bf98a1ad27214f5b3819",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "HrmDbContext.cs",
+      "sha256": "385c7ecbec5c65caaa860f0bfc9cbfb467feb1a12e12b67ac2653de6b475aee5",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "Branding.cs",
+      "sha256": "13d02a0543e398887f32d50182ecfff34a45e107e8c562da227a5d0d67c3cc91",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "Base.cs",
+      "sha256": "b804c5ef897209fe40855a64b36fd0abe6b2bb3e0448438345091a5c54ac5dde",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "SecurityCompliance.cs",
+      "sha256": "26c78207ed4f5222acc1ce60805e3008ba054bdef2ffb130ba49817c8924aa1f",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "PayrollRuns.cs",
+      "sha256": "d9739a30dc464b67ef46aacbffabf8c502cbf6717bd8f577d422ae9cc01dd7f6",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "p35-contract-cookie.spec.ts",
+      "sha256": "b213e65a15000527e1e7d9e26b8f8d28516af599bb7761bde591ac54be37a178",
+      "sourceCommit": "1b5354194cadccbac74bebf8611ef185ae22a464"
+    },
+    {
+      "artifact": "ProcurementDraftAudit.cs",
+      "sha256": "f132f4c255efe9b146fc5d13cbd14302dcde974666082f2149efa4dd91d1e276",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "ProcurementContractDraftRoutes.cs",
+      "sha256": "8e0a12669cfaa46038ea00c370195becdfb2e1265cec885d3f85b73778d80239",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "ProcurementContractRateRoutes.cs",
+      "sha256": "e5725b862cbec84f6c89f19feae6d94272dceef8bfcb6f1ec7e92c2cd0fc5121",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "Records.cs",
+      "sha256": "c6fa1278db6ce5e7ecb00377f61cbe0925ec5a114c4e8f9b9ca0b5d05529e01b",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    },
+    {
+      "artifact": "ProcurementDbContext.cs",
+      "sha256": "8eb23af1c6aa145c65202cfca27c904fd6248901b0263d35c517abaf8c23cf93",
+      "sourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f"
+    }
+  ],
+  "relatedReceipts": [
+    "P35-NATIVE-INTERNAL-REVIEW-ACCEPTANCE-20261025.json",
+    "P37-NORMAL-COOKIE02-ACCEPTANCE-20261025.json"
+  ],
+  "reviewedMergeCheckpoints": {
+    "erpDevelopmentMerge": "ea2065ac30688f7f8a50195f3451df15b4125a44",
+    "uiDevelopmentMerge": "13efbaf6908408aa3dfb30c6b2fd2d263b5854fe",
+    "rootVerifiedToolDirectoryBytesEqualAcceptedTool6e": true,
+    "rootVerifiedFullUiTreeEqualAcceptedAppAndProof1b5354": true,
+    "uiPr77AlreadyMergedBySameAncestry": true,
+    "productPublicationRemains": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+    "freshCombinedPublicationOrDeploymentClaim": false,
+    "otherReceivingSourceAcceptance": "Separate verified7e source scope; no new combined publication is certified by this receipt."
+  }
+}

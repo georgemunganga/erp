@@ -46,7 +46,7 @@ interface AuthState {
   authenticated: boolean;
   /** True when the identity has an HRM role or shared ERP administration. */
   authorized: boolean;
-  /** True when the identity is assigned to any ERP module. */
+  /** Shared ERP entry requires identity; each module/API enforces its grants. */
   erpAuthorized: boolean;
   /** Map Keycloak realm roles to the shell's demo workspace role. */
   resolveRole: () => Role;
@@ -207,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticated = !USE_REAL || isSessionValid(session) || Boolean(localUser);
   const authorized = !USE_REAL || (authenticated && hasHrmStaffRole(user?.roles ?? []));
-  const erpAuthorized = !USE_REAL || (authenticated && hasErpModuleRole(user?.roles ?? []));
+  const erpAuthorized = !USE_REAL || authenticated;
 
   const signInInteractive = useCallback(() => {
     const path = PUBLIC_PATHS.has(window.location.pathname) ? "/hrm" : window.location.pathname;

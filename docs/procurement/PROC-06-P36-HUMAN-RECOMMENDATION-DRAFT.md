@@ -1,9 +1,10 @@
 # PROC-06 P36 human recommendation Draft
 
-**Status:** integrated source only; tests authored, not executed. P32 and P35
-have genuine migration baselines. P36 now has genuine EF metadata but no physical
-readiness capture. Its separate option defaults false and admission remains
-unavailable. No award or purchase-order authority is introduced.
+**Status:** integrated source and genuine EF metadata; joint source tests passed
+in [SDK04](release/P36-P37-JOINT-SDK-TEST-ACCEPTANCE-20261025.json). Physical
+readiness capture, PostgreSQL application and positive API proof remain open. Its
+separate option defaults false and admission remains unavailable. No award or
+purchase-order authority is introduced.
 
 ## 1. Business purpose
 
@@ -38,6 +39,9 @@ Supplier and evidence hashes are derived from retained records.
 Reload approved round, prepared evaluation definition, closing seal, original
 opening receipt and exact sealed offer set. Full current Core and branch checks
 precede discovery/counts and writes. Existing document holds remain authoritative.
+The read-only `GET /commercial-rounds/{roundId}/recommendation-source` uses this
+same proof before returning the verified original RFQ title, source-line and
+offer command IDs, exact offered quantities and neutral display ordinals.
 
 ## 7. Permissions
 
@@ -110,6 +114,13 @@ snapshots, line sets and original acknowledgements on recovery/read/revision.
 Own list/detail/history only, after current purpose and branch authorization.
 No competitor bodies or another evaluator's assessment enter receipt responses.
 Tenant/company/branch/owner predicates precede count/page.
+Recommendation source discovery also needs both current Draft and opened-offer
+read actions, frozen named-reader membership and retained opener independence.
+Its title comes from the verified original schema-2 RFQ envelope. Stable
+`Line 1`/`Offer 1` ordinals are presentation labels, not supplier identities.
+The frozen offer proof has no supplier name or business number, so
+`supplierLabel` is null. A true supplier label needs separately governed frozen
+identity evidence; mutable supplier master data and UUID display are not used.
 
 ## 19. Recovery
 
@@ -128,7 +139,9 @@ This command never changes allocations, supplier, stock, asset, PO or Finance.
 ## 21. Presentation
 
 Preserve the imported RFQ detail/tabs and existing ERP controls. No UI source is
-changed in this integration; a future adapter must be capability gated.
+changed in this integration; a future adapter must be capability gated. The
+read DTO separates opaque command IDs from human labels. Original POST and GET
+command acknowledgement bytes are unchanged.
 
 ## 22. Configuration and readiness
 
@@ -138,10 +151,19 @@ Execution database, P32 opened-offer read readiness, exact P36 model and physica
 catalog, and only the P36 Draft write privileges. The head needs UPDATE on its
 three revision cursor and three audit columns; immutable head columns, evidence
 families, audit and outbox reject UPDATE. Its physical CHECK/FK/parent
-capture remains deliberately empty until independent PostgreSQL capture, so it
-returns unavailable even if the flag is set. Current Core purpose, branch,
+capture now contains byte-exact definitions from the accepted joint private
+owner Up/Down/Up rehearsal. This establishes physical expected definitions only;
+current finite-role and runtime admission still must pass independently. Current Core purpose, branch,
 named-reader and retained offer checks remain in the command/query routes.
-There is no accepted host activation or metadata capability yet.
+The separate `principalRfqRecommendationDrafts` metadata flag is configured
+availability only. It defaults false and requires enabled P32/P36 options,
+no pending model, current Core Draft and opened-offer read actions/branch and
+the concrete P36 and P32 physical providers inside
+the finite execution role's owning serializable transaction, with no staged
+writes. The unrelated Record connection is not used for this readiness check.
+It reveals no round, offer count or price. Routes recheck named
+reader, source holds and retained proof for each request. Host activation and
+private runtime acceptance remain separate gates.
 
 ## 23. Migration and compatibility
 
@@ -177,6 +199,9 @@ Required: current Core accounts with optional employee, named reader/grant and
 alias revocation, actual retained opened offers, create/revise/stale CAS,
 original-key replay/recovery, exact audits/outbox and independent owner reload.
 Missing capability remains unavailable until accepted.
+Verify the recommendation-source title/ordinals after full purpose admission,
+denied reader and revoked alias zero-disclosure, exact meta off/partial/permission
+cases, and unchanged original command response bytes.
 
 ## 28. Open business decisions
 

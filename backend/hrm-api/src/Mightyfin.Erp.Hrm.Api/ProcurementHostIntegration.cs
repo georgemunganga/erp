@@ -99,6 +99,9 @@ public static class ProcurementHostIntegration
         principalReceivingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(principalReceivingOptions);
         services.AddScoped<IProcurementPrincipalReceivingReadiness, ProcurementPrincipalReceivingReadiness>();
+        // P37 remains opt-in. The concrete provider inspects its own captured
+        // schema and finite grants on the configured execution connection.
+        ProcurementPrincipalGoodsReturnComposition.AddFoundation(services, configuration);
         var matchingOptions = configuration.GetSection("Procurement:InvoiceMatching").Get<ProcurementInvoiceMatchingExecutionOptions>() ?? new();
         matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(matchingOptions);
@@ -174,6 +177,7 @@ public static class ProcurementHostIntegration
         ProcurementOrderExecutionRoutes.MapRoutes(app);
         ProcurementReceivingRoutes.MapRoutes(app);
         ProcurementPrincipalReceivingRoutes.MapRoutes(app);
+        ProcurementPrincipalReceivingRoutes.MapReturnRoutes(app);
         MapMetadataRoute(app);
     }
 
@@ -189,7 +193,7 @@ public static class ProcurementHostIntegration
     public static void MapMetadataRoute(WebApplication app)
     {
         app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
-            ProcurementDbContext db, IServiceProvider services, CancellationToken ct) =>
+            ProcurementDbContext db, IServiceProvider services, HttpContext http, CancellationToken ct) =>
         {
             try
             {
@@ -259,6 +263,8 @@ public static class ProcurementHostIntegration
                         { Enabled: true, ExecutionDatabaseConfigured: true }
                     && services.GetService<IProcurementPrincipalReceivingReadiness>() is { } receivingReadiness
                     && await receivingReadiness.IsReadyAsync(ct);
+                var principalGoodsReturnDrafts = await ProcurementPrincipalGoodsReturnComposition
+                    .ReadyAsync(services, pending, ct);
                 var publicationOptions = services.GetService<ProcurementPrincipalSourcingPublicationOptions>();
                 var principalSourcingPublication = sourcingSourceDrafts && publicationOptions is { Enabled: true }
                     && services.GetRequiredService<ProcurementApprovalExecutionOptions>() is
@@ -275,6 +281,8 @@ public static class ProcurementHostIntegration
                             || publicationPerson.AllowedBranches.Count > 0)
                     && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
                         || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
+                var principalRfqRecommendationDrafts = await ProcurementRfqRecommendationCapability
+                    .ReadyAsync(services, scope, http, pending, ct);
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -304,6 +312,7 @@ public static class ProcurementHostIntegration
                         sourcingSourceDrafts,
                         principalSourcingSourceDrafts,
                         principalSourcingPublication,
+                        principalRfqRecommendationDrafts, // Availability only; named-reader and retained proof remain per round.
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,
@@ -331,7 +340,7 @@ public static class ProcurementHostIntegration
                         principalOrderGovernance,
                         principalOrderDraftRevision,
                         principalReceiving,
-                        principalGoodsReturnDrafts = false, // P37 needs genuine owned schema, finite role and acceptance proof.
+                        principalGoodsReturnDrafts, // Availability only; each route rechecks actor, scope and retained source.
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
@@ -391,10 +400,12 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
     // Set only by middleware after validating an explicit company and current Core
     // branch assignments. A missing branch header alone never selects this scope.
     public bool IsExplicitAllBranches { get; private set; }
+    // Current Core assignment intersection for the selected company. Never supplied by a client.
+    public IReadOnlyList<Guid> PermittedWorkLocationIds { get; private set; } = [];
     public string? CorrelationId { get; private set; }
 
     public void Set(string tenant, Guid entity, string subject, Guid? location, Guid? orgUnit, bool confined, string correlation,
-        bool explicitAllBranches = false)
+        bool explicitAllBranches = false, IReadOnlyList<Guid>? permittedWorkLocationIds = null)
     {
         if (resolved || string.IsNullOrWhiteSpace(tenant) || entity == Guid.Empty || string.IsNullOrWhiteSpace(subject))
             throw new InvalidOperationException("A valid Procurement scope may be set only once.");
@@ -407,6 +418,7 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
         OrgUnitId = orgUnit;
         IsConfined = confined;
         IsExplicitAllBranches = explicitAllBranches;
+        PermittedWorkLocationIds = permittedWorkLocationIds?.Distinct().ToArray() ?? [];
         CorrelationId = correlation;
         resolved = true;
     }
@@ -484,9 +496,26 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
         var branchScope = http.Request.Headers["X-Shell-Branch-Scope"].ToString().Trim();
         var explicitAllBranches = branchScope.Equals("all", StringComparison.OrdinalIgnoreCase);
+        var allRead = HttpMethods.IsGet(http.Request.Method)
+            && (AllReadPath(http.Request.Path, "/api/procurement/v1/vendors")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/items")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/contracts")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/plans")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/configuration/categories")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/configuration/methods")
+                || string.Equals(http.Request.Path.Value, "/api/procurement/v1/catalog", StringComparison.OrdinalIgnoreCase)
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/requests")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/orders")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/invoices"));
+        // Supplier and item masters are company-owned; their existing commands do
+        // not create a branch transaction or infer branch authority from this header.
+        var allCompanyMaster = AllVendorMasterPath(http.Request.Path, http.Request.Method)
+            || AllItemMasterPath(http.Request.Path, http.Request.Method);
         if (http.Request.Headers.ContainsKey("X-Shell-Branch-Scope") && (!explicitAllBranches
             || !(string.Equals(http.Request.Path.Value, "/api/procurement/v1/context", StringComparison.OrdinalIgnoreCase)
-                || http.Request.Path.StartsWithSegments("/api/procurement/v1/manual-payments"))
+                || string.Equals(http.Request.Path.Value, "/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase)
+                || http.Request.Path.StartsWithSegments("/api/procurement/v1/manual-payments")
+                || allRead || allCompanyMaster)
             || string.IsNullOrWhiteSpace(requestedEntityText)
             || http.Request.Headers.ContainsKey("X-Shell-Location")))
         {
@@ -532,7 +561,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var assignedLocations = confined
             ? await db.WorkLocations.AsNoTracking()
                 .Where(x => x.TenantId == tenant && !x.IsArchived && assignedLocationIds.Contains(x.Id))
-                .Select(x => new { x.Id, x.LegalEntityId })
+                .Select(x => new { x.Id, x.LegalEntityId, x.Type })
                 .ToListAsync(http.RequestAborted)
             : [];
         if (confined && assignedLocations.Count == 0)
@@ -581,16 +610,30 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         }
         else if (confined)
         {
-            var first = assignedLocations
-                .Where(x => !requestedEntity.HasValue || x.LegalEntityId == requestedEntity.Value)
-                .OrderBy(x => x.Id).FirstOrDefault();
-            if (first is null)
+            var company = requestedEntity ?? legalEntities
+                .Where(x => assignedLocations.Any(location => location.LegalEntityId == x.Id))
+                .OrderByDescending(x => x.IsDefault).ThenBy(x => x.RegisteredName).ThenBy(x => x.Id)
+                .Select(x => (Guid?)x.Id).FirstOrDefault();
+            var permitted = assignedLocations.Where(x => x.LegalEntityId == company).ToArray();
+            if (permitted.Length == 0)
             {
                 await Deny(http, StatusCodes.Status403Forbidden, "You cannot use that company.");
                 return;
             }
-            if (!explicitAllBranches) effectiveLocation = first.Id;
-            entityFromLocation = first.LegalEntityId;
+            if (!explicitAllBranches)
+            {
+                var headquarters = permitted.Where(x => string.Equals(x.Type, "headquarters", StringComparison.OrdinalIgnoreCase)).ToArray();
+                var chosen = headquarters.Length == 1 ? headquarters[0]
+                    : permitted.Length == 1 ? permitted[0] : null;
+                if (chosen is null)
+                {
+                    await Deny(http, StatusCodes.Status400BadRequest,
+                        "Choose a branch or explicitly select All permitted branches.");
+                    return;
+                }
+                effectiveLocation = chosen.Id;
+            }
+            entityFromLocation = company;
         }
 
         if (requestedEntity.HasValue && !legalEntities.Any(x => x.Id == requestedEntity.Value))
@@ -618,8 +661,14 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             await Deny(http, StatusCodes.Status403Forbidden, "The selected company is unavailable.");
             return;
         }
+        Guid[] permittedLocations = explicitAllBranches
+            ? confined ? assignedLocations.Where(x => x.LegalEntityId == selectedEntity).Select(x => x.Id).ToArray()
+                : await db.WorkLocations.AsNoTracking().Where(x => x.TenantId == tenant && !x.IsArchived
+                    && x.LegalEntityId == selectedEntity).Select(x => x.Id).ToArrayAsync(http.RequestAborted)
+            : [];
         scope.Set(tenant, selectedEntity, principal.Id.ToString("D"), effectiveLocation, effectiveOrgUnit, confined,
-            http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier, explicitAllBranches);
+            http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier,
+            explicitAllBranches, permittedLocations);
         scope.AssignPrincipal(principal.Id, principal.WorkerId);
         // Optional projection for existing worker-pinned operational consumers.
         // No mapping, inactive HR profile or another-company home never grants or
@@ -634,5 +683,60 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         http.Response.StatusCode = status;
         await http.Response.WriteAsJsonAsync(new ApiError(status == 400 ? "invalid-scope" : "forbidden", message, []),
             http.RequestAborted);
+    }
+
+    private static bool AllReadPath(PathString path, string root)
+    {
+        if (string.Equals(path.Value, root, StringComparison.OrdinalIgnoreCase)) return true;
+        return path.StartsWithSegments(root, out var remainder)
+            && Guid.TryParse(remainder.Value?.Trim('/'), out var id) && id != Guid.Empty;
+    }
+
+    // Finite existing company-master routes. A future nested route must earn its
+    // own scope review instead of inheriting a prefix-wide All admission.
+    private static bool AllVendorMasterPath(PathString path, string method)
+    {
+        if (!path.StartsWithSegments("/api/procurement/v1/vendors", out var rest)) return false;
+        var parts = rest.Value?.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        if (parts.Length == 0) return HttpMethods.IsGet(method) || HttpMethods.IsPost(method);
+        if (!Guid.TryParse(parts[0], out var vendor) || vendor == Guid.Empty) return false;
+        if (parts.Length == 1) return HttpMethods.IsGet(method) || HttpMethods.IsPut(method);
+        if (parts.Length == 2)
+            return parts[1] switch
+            {
+                "open-orders" => HttpMethods.IsGet(method),
+                "submit" or "return" or "approve" or "reject" or "suspend" or "reactivate" or "withdraw"
+                    => HttpMethods.IsPost(method),
+                "contacts" or "sites" or "qualifications" => HttpMethods.IsPost(method),
+                _ => false
+            };
+        if (parts.Length >= 3 && (parts[1] == "contacts" || parts[1] == "sites" || parts[1] == "qualifications")
+            && Guid.TryParse(parts[2], out var child) && child != Guid.Empty)
+            return parts.Length == 3 && HttpMethods.IsPut(method)
+                || parts.Length == 4 && HttpMethods.IsPost(method)
+                    && (parts[3] == "remove" || parts[1] == "qualifications" && parts[3] == "review");
+        return false;
+    }
+
+    private static bool AllItemMasterPath(PathString path, string method)
+    {
+        if (!path.StartsWithSegments("/api/procurement/v1/items", out var rest)) return false;
+        var parts = rest.Value?.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        if (parts.Length == 0) return HttpMethods.IsGet(method) || HttpMethods.IsPost(method);
+        if (!Guid.TryParse(parts[0], out var item) || item == Guid.Empty) return false;
+        if (parts.Length == 1) return HttpMethods.IsGet(method) || HttpMethods.IsPut(method);
+        if (parts.Length == 2)
+            return parts[1] switch
+            {
+                "activate" or "deactivate" => HttpMethods.IsPost(method),
+                "catalog-entries" => HttpMethods.IsGet(method) || HttpMethods.IsPost(method),
+                _ => false
+            };
+        if (parts.Length >= 3 && parts[1] == "catalog-entries"
+            && Guid.TryParse(parts[2], out var entry) && entry != Guid.Empty)
+            return parts.Length == 3 && HttpMethods.IsPut(method)
+                || parts.Length == 4 && HttpMethods.IsPost(method)
+                    && (parts[3] == "publish" || parts[3] == "withdraw");
+        return false;
     }
 }
