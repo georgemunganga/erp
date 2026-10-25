@@ -11,6 +11,17 @@ public sealed record PrincipalRfqAwardReviewOpening(
     PrincipalRfqAwardReviewReceipt Receipt,
     ApprovalCase CoreCase);
 
+/// <summary>Inputs the eventual owning adapter must load under one transaction.
+/// Prepare rechecks them; construction of this record does not grant authority.</summary>
+public sealed record PrincipalRfqAwardReviewSourceGraph(
+    IReadOnlyList<PrincipalRfqRecommendationDraftRevision> History,
+    IReadOnlyList<PrincipalRfqRecommendationDraftLine> CurrentLines,
+    IReadOnlyList<PrincipalRfqRecommendationDraft.OfferLine> OpenedOfferLines,
+    IReadOnlyList<PrincipalRfqRecommendationDraft.SourceLine> ApprovedSourceLines,
+    IReadOnlyList<PrincipalRfqAwardFoundation.RetainedLine> RetainedLines,
+    PrincipalRfqAwardFoundation.CurrentPerson CurrentMaker,
+    IReadOnlyList<PrincipalRfqAwardFoundation.ExcludedParticipant> ExcludedParticipants);
+
 /// <summary>Pure P36 freeze and P38 Core-case construction. This is not an
 /// executable approval adapter: persisted source, complete Core history,
 /// capacity locks, audit/outbox, grants and schema are future requirements.</summary>
@@ -75,6 +86,7 @@ public static class PrincipalRfqAwardReviewWorkflow
 
     public static PrincipalRfqAwardReviewOpening Prepare(
         PrincipalRfqAwardCandidate candidate,
+        PrincipalRfqAwardReviewSourceGraph source,
         PrincipalRfqRecommendationDraftHead head,
         PrincipalRfqRecommendationDraftRevision revision,
         PolicyVersion policy,
@@ -86,10 +98,26 @@ public static class PrincipalRfqAwardReviewWorkflow
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(head);
         ArgumentNullException.ThrowIfNull(revision);
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(currentReviewers);
+        var rulesForSource = PrincipalRfqAwardFoundation.ParseRules(policy.RulesJson);
+        var verified = PrincipalRfqAwardSourceQualification.VerifyCurrent(head, revision,
+            source.History, source.CurrentLines, source.OpenedOfferLines,
+            source.ApprovedSourceLines, rulesForSource.CurrencyCode);
+        var commandBody = PrincipalRfqAwardFoundation.CommandBody(verified, policy.Id, head.BranchId);
+        var qualified = PrincipalRfqAwardFoundation.Qualify(verified, source.RetainedLines,
+            policy, source.CurrentMaker, currentReviewers, source.ExcludedParticipants,
+            candidate.SubmissionId, head.TenantId, head.LegalEntityId, head.BranchId,
+            candidate.CommandKey, commandBody, candidate.RequestSha256,
+            candidate.ExpectedRecommendationRevision, now);
+        Need(candidate.Lines is not null
+            && candidate.Lines.Count == qualified.Lines.Count
+            && candidate.Lines.SequenceEqual(qualified.Lines)
+            && (candidate with { Lines = qualified.Lines }) == qualified,
+            "RfqAwardQualifiedCandidateChanged");
         Need(now!=default && candidate.SubmissionId!=Guid.Empty
             && candidate.TenantId==head.TenantId
             && candidate.CompanyId==head.LegalEntityId

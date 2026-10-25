@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -218,11 +219,17 @@ public sealed partial class ProcurementDbContext
         var addedLines = lines.Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
         var addedReceipts = receipts.Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
         var audits = ChangeTracker.Entries<AuditEvent>().Where(x => x.State == EntityState.Added)
-            .Select(x => x.Entity).Where(x => x.RecordType == nameof(PrincipalRfqAwardReviewSubmission)).ToArray();
+            .Select(x => x.Entity).Where(x => x.RecordType == nameof(PrincipalRfqAwardReviewSubmission)
+                || x.Action == PrincipalRfqAwardReviewEffects.AuditAction).ToArray();
         var events = ChangeTracker.Entries<OutboxEvent>().Where(x => x.State == EntityState.Added)
-            .Select(x => x.Entity).Where(x => x.EventType == PrincipalRfqAwardReviewEffects.EventType).ToArray();
+            .Select(x => x.Entity).Where(x => x.EventType == PrincipalRfqAwardReviewEffects.EventType
+                || x.AggregateType == nameof(PrincipalRfqAwardReviewSubmission)).ToArray();
         if (addedFreezes.Length == 0 && addedReviews.Length == 0 && addedLines.Length == 0 && addedReceipts.Length == 0)
+        {
+            if (audits.Length != 0 || events.Length != 0)
+                throw new InvalidOperationException("RfqAwardSameSaveEffectsRequired");
             return; // Existing P36 Draft CRUD never queries an uninstalled P38 table.
+        }
         if (addedFreezes.Length != 1 || addedReviews.Length != 1 || addedReceipts.Length != 1 || addedLines.Length == 0)
             throw new InvalidOperationException("RfqAwardSubmissionBatchIncomplete");
         var frozen = addedFreezes[0];
@@ -281,11 +288,13 @@ public sealed partial class ProcurementDbContext
             || receipt.ResponseSha256 != ProcurementEvidenceEncoding.Digest(receipt.ResponseJson))
             throw new InvalidOperationException("RfqAwardReceiptMismatch");
         var payload = PrincipalRfqAwardReviewEffects.Payload(review);
-        if (audits.Length != 1 || audits[0].RecordId != review.Id
+        if (audits.Length != 1 || audits[0].RecordType != nameof(PrincipalRfqAwardReviewSubmission)
+            || audits[0].RecordId != review.Id
             || audits[0].ActorSubjectId != scope.SubjectId
             || audits[0].Action != PrincipalRfqAwardReviewEffects.AuditAction
             || audits[0].ChangedFieldsJson != payload
-            || events.Length != 1 || events[0].AggregateType != nameof(PrincipalRfqAwardReviewSubmission)
+            || events.Length != 1 || events[0].EventType != PrincipalRfqAwardReviewEffects.EventType
+            || events[0].AggregateType != nameof(PrincipalRfqAwardReviewSubmission)
             || events[0].AggregateId != review.Id || events[0].EventVersion != 1
             || events[0].PayloadJson != payload || events[0].IdempotencyKey != review.CommandKey.ToString("D"))
             throw new InvalidOperationException("RfqAwardSameSaveEffectsRequired");
@@ -294,7 +303,41 @@ public sealed partial class ProcurementDbContext
             || x.SourcingEventId != review.SourcingEventId || x.BranchId != review.BranchId
             || x.OfferId == Guid.Empty || x.SupplierId == Guid.Empty || x.SourcingLineId == Guid.Empty
             || x.CreatedAt != review.SubmittedAt)
-            || addedLines.Select(x => (x.OfferId, x.SourcingLineId)).Distinct().Count() != addedLines.Length)
+            || addedLines.Select(x => (x.OfferId, x.SourcingLineId)).Distinct().Count() != addedLines.Length
+            || !LinesMatchFrozenRecommendation(frozen.SnapshotJson, addedLines))
             throw new InvalidOperationException("RfqAwardLineSourceMismatch");
+        // The generic context has no enlisted retained offer, approved-source,
+        // or P29 held-capacity proof. Only a future owning transaction adapter
+        // may enable this insert after rechecking those facts before effects.
+        throw new InvalidOperationException("RfqAwardRetainedSourceAdapterUnavailable");
+    }
+
+    private static bool LinesMatchFrozenRecommendation(string snapshot,
+        IReadOnlyList<PrincipalRfqAwardReviewLine> lines)
+    {
+        try
+        {
+            using var parsed = JsonDocument.Parse(snapshot, new JsonDocumentOptions { MaxDepth = 32 });
+            if (!parsed.RootElement.TryGetProperty("lines", out var selected)
+                || selected.ValueKind != JsonValueKind.Array || selected.GetArrayLength() != lines.Count)
+                return false;
+            var original = selected.EnumerateArray().Select(x => (
+                OfferId: x.GetProperty("OfferId").GetGuid(),
+                OfferSha256: x.GetProperty("OfferSha256").GetString(),
+                SupplierId: x.GetProperty("SupplierId").GetGuid(),
+                SourcingLineId: x.GetProperty("SourcingLineId").GetGuid(),
+                QuantityExact: x.GetProperty("QuantityExact").GetString(),
+                CurrencyCode: x.GetProperty("CurrencyCode").GetString()))
+                .OrderBy(x => x.SourcingLineId).ThenBy(x => x.OfferId).ToArray();
+            var proposed = lines.Select(x => (x.OfferId, x.OfferSha256, x.SupplierId,
+                    x.SourcingLineId, x.QuantityExact, x.CurrencyCode))
+                .OrderBy(x => x.SourcingLineId).ThenBy(x => x.OfferId).ToArray();
+            return original.SequenceEqual(proposed);
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException
+            or FormatException or KeyNotFoundException)
+        {
+            return false;
+        }
     }
 }

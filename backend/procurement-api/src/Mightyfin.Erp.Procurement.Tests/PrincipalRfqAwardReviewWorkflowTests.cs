@@ -16,15 +16,15 @@ public sealed class PrincipalRfqAwardReviewWorkflowTests
         "{\"schemaVersion\":1,\"transactionType\":\"SupplierAward\",\"allocationMode\":\"FullOfferLineOnly\",\"reviewBranchId\":\"22222222-2222-4222-8222-222222222222\",\"currencyCode\":\"ZMW\",\"maximumAmountExact\":\"100\",\"stages\":[{\"code\":\"REVIEW\",\"mode\":\"All\",\"principalIds\":[\""+Reviewer+"\"]}]}";
 
     private sealed record Fixture(PrincipalRfqAwardCandidate Candidate,
+        PrincipalRfqAwardReviewSourceGraph Source,
         PrincipalRfqRecommendationDraftHead Head,
         PrincipalRfqRecommendationDraftRevision Revision,
         PolicyVersion Policy,
         PrincipalRfqAwardFoundation.CurrentPerson[] Reviewers);
 
-    private static Fixture Valid(int revisionNo=1,
-        PrincipalRfqRecommendationDraftHead? originalHead=null)
+    private static Fixture Valid(int revisionNo=1, Fixture? previous=null)
     {
-        var head=originalHead??new PrincipalRfqRecommendationDraftHead
+        var head=previous?.Head??new PrincipalRfqRecommendationDraftHead
         {
             TenantId="tenant-a",LegalEntityId=Company,
             RoundId=Guid.CreateVersion7(),UnsealingId=Guid.CreateVersion7(),
@@ -35,44 +35,68 @@ public sealed class PrincipalRfqAwardReviewWorkflowTests
             OfferSetSha256=new string('c',64),EvaluationDefinitionSha256=new string('d',64),
             MakerPrincipalId=Maker,
         };
-        var snapshot="{}";
-        var hash=ProcurementEvidenceEncoding.Digest(snapshot);
         var revision=new PrincipalRfqRecommendationDraftRevision
         {
             TenantId=head.TenantId,LegalEntityId=head.LegalEntityId,
             DraftId=head.Id,RoundId=head.RoundId,UnsealingId=head.UnsealingId,
             SourcingEventId=head.SourcingEventId,BranchId=head.BranchId,
             Revision=revisionNo,ActorPrincipalId=Maker,RecordedAt=Now,
-            SnapshotJson=snapshot,SnapshotSha256=hash,
+            PreviousRevisionId=previous?.Revision.Id,
+            PreviousSnapshotSha256=previous?.Revision.SnapshotSha256,
+            CommandKey=Guid.CreateVersion7(),RequestSha256=new string('f',64),
         };
+        var offerId=Guid.CreateVersion7();var supplierId=Guid.CreateVersion7();
+        var sourceLineId=Guid.CreateVersion7();var offerSha=new string('e',64);
+        var opened=new[]{new PrincipalRfqRecommendationDraft.OfferLine(offerId,offerSha,
+            supplierId,sourceLineId,"1","ZMW")};
+        var approved=new[]{new PrincipalRfqRecommendationDraft.SourceLine(sourceLineId,"1")};
+        var selected=new PrincipalRfqRecommendationDraft.Selection(offerId,sourceLineId,
+            "1","5.1234","Reviewed source");
+        var proposed=PrincipalRfqRecommendationDraft.Validate([selected],opened,approved,"ZMW");
+        revision.SnapshotJson=PrincipalRfqRecommendationDraft.Snapshot(head,revision,proposed);
+        revision.SnapshotSha256=ProcurementEvidenceEncoding.Digest(revision.SnapshotJson);
         head.CurrentRevision=revisionNo;head.CurrentRevisionId=revision.Id;
-        head.CurrentSnapshotSha256=hash;
+        head.CurrentSnapshotSha256=revision.SnapshotSha256;
+        var currentLine=new PrincipalRfqRecommendationDraftLine
+        {
+            TenantId=head.TenantId,LegalEntityId=head.LegalEntityId,DraftId=head.Id,
+            RevisionId=revision.Id,RoundId=head.RoundId,UnsealingId=head.UnsealingId,
+            SourcingEventId=head.SourcingEventId,BranchId=head.BranchId,
+            OfferId=offerId,OfferSha256=offerSha,SupplierId=supplierId,
+            SourcingLineId=sourceLineId,QuantityExact="1",ProposedValueExact="5.1234",
+            CurrencyCode="ZMW",Rationale="Reviewed source",
+        };
         var policy=new PolicyVersion
         {
             TenantId=head.TenantId,LegalEntityId=head.LegalEntityId,
             PolicyKey=PrincipalRfqAwardFoundation.PolicyKey,PolicyVersionNumber=1,
             State="Published",RulesJson=Rules,EffectiveFrom=Now.AddDays(-1),
         };
-        var line=new PrincipalRfqAwardCandidateLine(Guid.CreateVersion7(),new string('e',64),
-            Guid.CreateVersion7(),Guid.CreateVersion7(),"1","ZMW","5.1234");
-        var candidate=new PrincipalRfqAwardCandidate(Guid.CreateVersion7(),head.TenantId,
-            head.LegalEntityId,head.Id,revision.Id,hash,head.RoundId,head.UnsealingId,
-            policy.Id,ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
-            Maker,null,Branch,Guid.CreateVersion7(),
-            ProcurementEvidenceEncoding.Digest(PrincipalRfqAwardFoundation.CommandBody(
-                head.Id,revision.Id,hash,revisionNo,policy.Id,Branch)),revisionNo,
-            "ZMW","5.1234",[line]);
         var reviewers=new[]{new PrincipalRfqAwardFoundation.CurrentPerson(Reviewer,null,false,
             new HashSet<Guid>{Branch},new HashSet<string>{"procurement-access",
                 PrincipalRfqAwardFoundation.ReviewAction})};
-        return new(candidate,head,revision,policy,reviewers);
+        var maker=new PrincipalRfqAwardFoundation.CurrentPerson(Maker,null,false,
+            new HashSet<Guid>{Branch},new HashSet<string>{"procurement-access",
+                PrincipalRfqAwardFoundation.SubmitAction});
+        var history=previous is null ? new[]{revision} : new[]{previous.Revision,revision};
+        var source=new PrincipalRfqAwardReviewSourceGraph(history,[currentLine],opened,approved,
+            [new PrincipalRfqAwardFoundation.RetainedLine(offerId,offerSha,supplierId,
+                sourceLineId,"1","1","ZMW","5.1234")],maker,[]);
+        var verified=PrincipalRfqAwardSourceQualification.VerifyCurrent(head,revision,history,
+            [currentLine],opened,approved,"ZMW");
+        var body=PrincipalRfqAwardFoundation.CommandBody(verified,policy.Id,Branch);
+        var candidate=PrincipalRfqAwardFoundation.Qualify(verified,source.RetainedLines,
+            policy,maker,reviewers,[],Guid.CreateVersion7(),head.TenantId,head.LegalEntityId,
+            Branch,Guid.CreateVersion7(),body,ProcurementEvidenceEncoding.Digest(body),
+            revisionNo,Now);
+        return new(candidate,source,head,revision,policy,reviewers);
     }
 
     private static PrincipalRfqAwardReviewOpening Open(Fixture f,
         PrincipalRfqRecommendationSubmission? previous=null,
         PrincipalRfqAwardReviewOutcome? outcome=null,
         ApprovalCase? priorCase=null,ApprovalDecision? priorDecision=null)
-        =>PrincipalRfqAwardReviewWorkflow.Prepare(f.Candidate,f.Head,f.Revision,f.Policy,
+        =>PrincipalRfqAwardReviewWorkflow.Prepare(f.Candidate,f.Source,f.Head,f.Revision,f.Policy,
             f.Reviewers,previous,outcome,priorCase,priorDecision,Now);
 
     [Fact]
@@ -113,6 +137,23 @@ public sealed class PrincipalRfqAwardReviewWorkflowTests
     }
 
     [Fact]
+    public void Copied_candidate_cannot_substitute_selected_quantity_quote_or_total()
+    {
+        var f=Valid();
+        Assert.Equal("RfqAwardQualifiedCandidateChanged",Assert.Throws<InvalidOperationException>(
+            ()=>Open(f with {Candidate=f.Candidate with
+                {Lines=[f.Candidate.Lines[0] with {QuantityExact="2"}]}})).Message);
+        Assert.Equal("RfqAwardQualifiedCandidateChanged",Assert.Throws<InvalidOperationException>(
+            ()=>Open(f with {Candidate=f.Candidate with
+                {Lines=[f.Candidate.Lines[0] with {RetainedQuoteTotalExact="6"}],
+                    ProposedTotalExact="6"}})).Message);
+        Assert.Equal("RfqAwardQualifiedCandidateChanged",Assert.Throws<InvalidOperationException>(
+            ()=>Open(f with {Candidate=f.Candidate with {Lines=[]}})).Message);
+        Assert.Throws<InvalidOperationException>(()=>Open(f with {Source=f.Source with
+            {RetainedLines=[f.Source.RetainedLines[0] with {RemainingHeldQuantityExact="0.5"}]}}));
+    }
+
+    [Fact]
     public void Pending_submission_blocks_revision_and_cancel_even_for_own_Draft()
     {
         var f=Valid();var opened=Open(f);
@@ -144,7 +185,7 @@ public sealed class PrincipalRfqAwardReviewWorkflowTests
             opened.FrozenRecommendation,returned,opened.CoreCase,decision,"Revise");
         Assert.Throws<InvalidOperationException>(()=>Open(first,opened.FrozenRecommendation,
             returned,opened.CoreCase,decision));
-        var second=Valid(2,first.Head);
+        var second=Valid(2,first);
         var resubmitted=Open(second,opened.FrozenRecommendation,returned,opened.CoreCase,decision);
         Assert.Equal(2,resubmitted.CoreCase.SourceVersion);
         Assert.NotEqual(opened.CoreCase.Id,resubmitted.CoreCase.Id);

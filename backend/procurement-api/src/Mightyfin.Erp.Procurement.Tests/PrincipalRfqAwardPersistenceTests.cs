@@ -23,7 +23,7 @@ public sealed class PrincipalRfqAwardPersistenceTests
 
     private static (PrincipalRfqRecommendationSubmission Frozen,
         PrincipalRfqAwardReviewSubmission Review, PrincipalRfqAwardReviewLine Line,
-        PrincipalRfqAwardReviewReceipt Receipt) Batch(Guid company)
+        PrincipalRfqAwardReviewReceipt Receipt) Batch(Guid company, bool secondSelected = false)
     {
         var at = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
         var draft = Guid.NewGuid(); var revision = Guid.NewGuid();
@@ -31,7 +31,18 @@ public sealed class PrincipalRfqAwardPersistenceTests
         var eventId = Guid.NewGuid(); var branch = Guid.NewGuid();
         var key = Guid.NewGuid(); var requestSha = new string('a', 64);
         var reviewId = Guid.NewGuid();
-        var snapshot = "{\"source\":\"synthetic\"}";
+        var offerId = Guid.NewGuid(); var supplierId = Guid.NewGuid();
+        var sourceLineId = Guid.NewGuid(); var offerSha = new string('c', 64);
+        var selected = new[]
+        {
+            new { OfferId = offerId, OfferSha256 = offerSha, SupplierId = supplierId,
+                SourcingLineId = sourceLineId, QuantityExact = "1", CurrencyCode = "ZMW" },
+        };
+        if (secondSelected)
+            selected = selected.Append(new { OfferId = Guid.NewGuid(), OfferSha256 = offerSha,
+                SupplierId = supplierId, SourcingLineId = Guid.NewGuid(),
+                QuantityExact = "1", CurrencyCode = "ZMW" }).ToArray();
+        var snapshot = System.Text.Json.JsonSerializer.Serialize(new { lines = selected });
         var revisionSha = ProcurementEvidenceEncoding.Digest(snapshot);
         var frozen = new PrincipalRfqRecommendationSubmission
         {
@@ -61,8 +72,8 @@ public sealed class PrincipalRfqAwardPersistenceTests
         {
             TenantId = frozen.TenantId, LegalEntityId = company, SubmissionId = review.Id,
             RecommendationSubmissionId = frozen.Id, RoundId = round, UnsealingId = unsealing,
-            SourcingEventId = eventId, BranchId = branch, OfferId = Guid.NewGuid(),
-            OfferSha256 = new string('c', 64), SupplierId = Guid.NewGuid(), SourcingLineId = Guid.NewGuid(),
+            SourcingEventId = eventId, BranchId = branch, OfferId = offerId,
+            OfferSha256 = offerSha, SupplierId = supplierId, SourcingLineId = sourceLineId,
             QuantityExact = "1", CurrencyCode = "ZMW", RetainedQuoteTotalExact = "5.00000000",
             CreatedAt = at, CreatedBy = Actor,
         };
@@ -97,9 +108,37 @@ public sealed class PrincipalRfqAwardPersistenceTests
         Assert.Equal("RfqAwardSameSaveEffectsRequired",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
         AddEffects(db, review);
-        db.SaveChanges();
-        Assert.Single(db.PrincipalRfqRecommendationSubmissions);
-        Assert.Single(db.PrincipalRfqAwardReviewReceipts);
+        Assert.Equal("RfqAwardRetainedSourceAdapterUnavailable",
+            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+        Assert.Empty(db.PrincipalRfqRecommendationSubmissions);
+        Assert.Empty(db.PrincipalRfqAwardReviewReceipts);
+    }
+
+    [Fact]
+    public void Orphan_award_audit_or_outbox_is_denied_without_any_P38_fact()
+    {
+        using var auditDb = Db(Guid.NewGuid());
+        auditDb.AddScoped(new AuditEvent
+        {
+            RecordType = nameof(PrincipalRfqAwardReviewSubmission), RecordId = Guid.NewGuid(),
+            Action = PrincipalRfqAwardReviewEffects.AuditAction,
+            ActorSubjectId = Actor, ChangedFieldsJson = "{}",
+        });
+        Assert.Equal("RfqAwardSameSaveEffectsRequired",
+            Assert.Throws<InvalidOperationException>(() => auditDb.SaveChanges()).Message);
+        Assert.Empty(auditDb.AuditEvents);
+
+        using var outboxDb = Db(Guid.NewGuid());
+        outboxDb.AddScoped(new OutboxEvent
+        {
+            EventType = PrincipalRfqAwardReviewEffects.EventType,
+            AggregateType = nameof(PrincipalRfqAwardReviewSubmission),
+            AggregateId = Guid.NewGuid(), EventVersion = 1,
+            IdempotencyKey = Guid.NewGuid().ToString("D"), PayloadJson = "{}",
+        });
+        Assert.Equal("RfqAwardSameSaveEffectsRequired",
+            Assert.Throws<InvalidOperationException>(() => outboxDb.SaveChanges()).Message);
+        Assert.Empty(outboxDb.OutboxEvents);
     }
 
     [Fact]
@@ -113,11 +152,11 @@ public sealed class PrincipalRfqAwardPersistenceTests
         db.Entry(line).Property(x => x.SourcingEventId).CurrentValue = Guid.NewGuid();
         Assert.Equal("RfqAwardLineSourceMismatch",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
-        db.Entry(line).Property(x => x.SourcingEventId).CurrentValue = review.SourcingEventId;
-        db.SaveChanges();
-        db.Entry(receipt).Property(x => x.ResponseJson).CurrentValue = "{}";
+        using var updateDb = Db(company);
+        updateDb.Attach(receipt);
+        updateDb.Entry(receipt).Property(x => x.ResponseJson).CurrentValue = "{}";
         Assert.Equal("RfqAwardEvidenceAppendOnly",
-            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+            Assert.Throws<InvalidOperationException>(() => updateDb.SaveChanges()).Message);
     }
 
     [Fact]
@@ -131,6 +170,32 @@ public sealed class PrincipalRfqAwardPersistenceTests
         Assert.Equal("RfqAwardCurrentRecommendationRequired",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
         Assert.Empty(db.PrincipalRfqRecommendationSubmissions);
+    }
+
+    [Fact]
+    public void Altered_quantity_or_omitted_frozen_line_is_denied_before_any_P38_insert()
+    {
+        var company = Guid.NewGuid();
+        var changed = Batch(company);
+        using var quantityDb = Db(company);
+        TrackCurrentSource(quantityDb, changed.Frozen);
+        quantityDb.AddScoped(changed.Frozen); quantityDb.AddScoped(changed.Review);
+        quantityDb.AddScoped(changed.Line); quantityDb.AddScoped(changed.Receipt);
+        AddEffects(quantityDb, changed.Review);
+        quantityDb.Entry(changed.Line).Property(x => x.QuantityExact).CurrentValue = "2";
+        Assert.Equal("RfqAwardLineSourceMismatch",
+            Assert.Throws<InvalidOperationException>(() => quantityDb.SaveChanges()).Message);
+        Assert.Empty(quantityDb.PrincipalRfqAwardReviewLines);
+
+        var omitted = Batch(company, secondSelected: true);
+        using var omittedDb = Db(company);
+        TrackCurrentSource(omittedDb, omitted.Frozen);
+        omittedDb.AddScoped(omitted.Frozen); omittedDb.AddScoped(omitted.Review);
+        omittedDb.AddScoped(omitted.Line); omittedDb.AddScoped(omitted.Receipt);
+        AddEffects(omittedDb, omitted.Review);
+        Assert.Equal("RfqAwardLineSourceMismatch",
+            Assert.Throws<InvalidOperationException>(() => omittedDb.SaveChanges()).Message);
+        Assert.Empty(omittedDb.PrincipalRfqAwardReviewLines);
     }
 
     private static void TrackCurrentSource(ProcurementDbContext db,
