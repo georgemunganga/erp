@@ -21,7 +21,6 @@
     "resultSha256": "35b9a04c02e732c7e27f8fe9db83b10c6499a3f5edecd4c813d26c7472b8fef5",
     "artifactInventorySha256": "02c563eb62f335eeb7fe51517b9b90bb31cf750d6d8cf4e62867af4ec0795f08",
     "sourceInventorySha256": "7ce15744e1b531c28bea16998822a4c2c72ff248a4432fd58dc422d4f541ae09",
-    "nonTargetArtifactProofSha256": "ec47105d731652f6d038ba705c3b7019cf35affdf216526d41243928eb03d524",
     "apiCompile": "PASS",
     "hostCompile": "PASS",
     "fullHost": {
@@ -37,7 +36,10 @@
       "P37": 33
     },
     "domain": "1670 CARRIED on byte-unchanged accepted Domain/Application/Infrastructure/model inputs; not rerun here",
-    "strategy": "Current API and Host genuine owning Rebuild with BuildProjectReferences=false, focused then full Host. Immutable parent/non-target artifacts verified; only existing reviewed assets-cache digest32-byte variant admitted."
+    "strategy": "Current API and Host genuine owning Rebuild with BuildProjectReferences=false, focused then full Host. Immutable parent/non-target artifacts verified; only existing reviewed assets-cache digest32-byte variant admitted.",
+    "parentNonTargetArtifactProofSha256": "ec47105d731652f6d038ba705c3b7019cf35affdf216526d41243928eb03d524",
+    "currentBeforeArtifactInventorySha256": "7259e78720bf727142bd34942794adc945600821b5bef362c8851236a55dbd03",
+    "currentNonTargetVerification": "Completed scope SDK runner verified unchanged non-target bytes against the accepted614 before graph and final accepted-artifact inventory. The parent proof supplies the bounded assets-cache digest exception; it is not a new scope-run proof file."
   },
   "genuinePublication": {
     "evidenceDirectory": "procurement-p37-return-scope-publication-tool-sdk-prep-20261025_run02",
