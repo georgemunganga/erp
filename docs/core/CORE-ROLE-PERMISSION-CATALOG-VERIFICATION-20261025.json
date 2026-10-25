@@ -4,7 +4,7 @@
     "CORE-04",
     "AUD-04"
   ],
-  "status": "SOURCE_VERIFIED_RELEASE_PENDING",
+  "status": "SOURCE_VERIFIED_COMPATIBLE_RELEASE_DEPLOYED_UAT_PENDING",
   "catalogActions": 91,
   "verification": {
     "frontendTypeScript": "PASS",
@@ -49,8 +49,9 @@
   "releaseCompatibility": {
     "productionBase": "be5d87e3bfdc2b5d6d6be576ce321173e8c6b9f5",
     "productionActions": 67,
-    "backportSource": "1573331dab5f393ea87be7bd19df857c7e748760",
-    "backportExecuted": false
+    "backportSource": "7a37b4b968e28e3436b1b8062c1ba38970307135",
+    "backportExecuted": true
   },
-  "uat": "Authenticated production role CRUD/UAT remains pending; mocked browser and local backend tests do not constitute business sign-off."
+  "uat": "Authenticated production role CRUD/UAT remains pending; mocked browser and local backend tests do not constitute business sign-off.",
+  "releaseReceipt": "CORE-ROLE-CATALOG-RELEASE-20261025.json"
 }
