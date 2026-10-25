@@ -115,8 +115,8 @@ public sealed class JobsAdminTests
         var read = Assert.Single((await service.ListRolesAsync(default)).Where(x => x.RoleKey == "source_operator"));
         Assert.Equal(updated.Permissions, read.Permissions);
         var error = await Assert.ThrowsAsync<DomainException>(() => service.UpdateRoleAsync("source_operator",
-            new RoleUpdateRequest(Permissions: ["procurement-access", "procurement-sourcing-publish"]), default));
-        Assert.Equal("invalid-permissions", error.Code); // No publication action is introduced by this slice.
+            new RoleUpdateRequest(Permissions: ["procurement-access", "procurement-sourcing-unknown"]), default));
+        Assert.Equal("invalid-permissions", error.Code); // Reject actions outside the unchanged P24 catalog.
     }
 
     [Fact]
