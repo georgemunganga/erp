@@ -47,6 +47,14 @@ internal static class ProcurementPrincipalCommercialSchemaInspection
             predicate = contractCapturedPredicate;
             return true;
         }
+        if (entityType == typeof(Supplier) && indexName is not null
+            && ProcurementSupplierIndexCapture.ModelPredicates.TryGetValue(indexName, out var supplierModelPredicate))
+        {
+            if (supplierModelPredicate != modelPredicate
+                || !ProcurementSupplierIndexCapture.PartialPredicates.TryGetValue(indexName, out var supplierCapturedPredicate)) return false;
+            predicate = supplierCapturedPredicate;
+            return true;
+        }
         // PostgreSQL's canonical expression is an owning-schema contract.
         // Unknown filtered indexes need their own reviewed capture.
         return modelPredicate is null;

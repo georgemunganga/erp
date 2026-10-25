@@ -1,0 +1,25 @@
+{
+  "status": "ACTUAL_PRIVATE_FINITE_READONLY_CATALOG_CAPTURE_SOURCE_ONLY_FIX",
+  "sourceBaseline": "1ac040fffac8ea4b276d73e3897e44da2093fc22",
+  "inspectedTableCount": 38,
+  "filteredIndexCount": 5,
+  "supplierIndex": {
+    "index": "IX_suppliers_tenant_id_legal_entity_id_country_code_normalized~",
+    "table": "suppliers",
+    "unique": true,
+    "predicate": "(normalized_registration IS NOT NULL)",
+    "definition": "CREATE UNIQUE INDEX \"IX_suppliers_tenant_id_legal_entity_id_country_code_normalized~\" ON procurement.suppliers USING btree (tenant_id, legal_entity_id, country_code, normalized_registration) WHERE (normalized_registration IS NOT NULL)"
+  },
+  "metadataCaptureSha256": "d844d18f9861146b2b9997670bbca519792809d759458c3f5ca06d98fdc86012",
+  "rawStdoutSha256": "e8d389861038cd0cebef27c05d3c59aacc07376e8155aa4adf5237417097adb4",
+  "existingOwnerPredicatesAudited": [
+    "ux_p35_contract_policy_created",
+    "ux_p35_contract_policy_published",
+    "ux_operational_policy_identity_created",
+    "ux_operational_policy_identity_published"
+  ],
+  "databaseWrites": false,
+  "roleGrantsChanged": false,
+  "migrationRequired": false,
+  "newCSharpTestsExecuted": false
+}
