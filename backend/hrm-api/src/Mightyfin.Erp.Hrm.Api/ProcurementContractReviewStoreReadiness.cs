@@ -16,7 +16,7 @@ internal enum ContractReviewStorePurpose { Read, PolicyWrite, ReviewWrite }
 public sealed class ProcurementContractReviewStoreReadiness(ProcurementContractReviewOptions options,
     IConfiguration configuration, IServiceProvider services) : IProcurementContractReviewSchemaReadiness
 {
-    private static readonly Type[] Dependencies = [typeof(PolicyVersion), typeof(SupplierContract),
+    internal static readonly Type[] Dependencies = [typeof(PolicyVersion), typeof(SupplierContract),
         typeof(SupplierContractVersion), typeof(ContractRate), typeof(Supplier), typeof(AuditEvent)];
     public Task<bool> IsReadReadyAsync(ProcurementDbContext owner, CancellationToken ct) =>
         CheckAsync(owner, ContractReviewStorePurpose.Read, ct);

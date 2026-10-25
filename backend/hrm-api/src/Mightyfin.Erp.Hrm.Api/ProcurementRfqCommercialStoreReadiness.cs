@@ -23,7 +23,7 @@ public sealed class ProcurementRfqCommercialStoreReadiness(
     IProcurementPrincipalSourcingPublicationReadiness publication)
     : IProcurementRfqCommercialReadiness
 {
-    private static readonly Type[] Dependencies =
+    internal static readonly Type[] Dependencies =
     [
         typeof(SourcingEvent), typeof(SourcingLine), typeof(SourcingInvitation),
         typeof(SupplierBid), typeof(SupplierBidLine), typeof(SourcingDraftEvidence),
