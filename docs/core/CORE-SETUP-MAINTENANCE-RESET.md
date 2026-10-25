@@ -104,7 +104,7 @@ A confirmed unconfined administrator receives 503/code `setup-maintenance-requir
 
 ## 26. Test Scenarios
 
-Run mapped service no-repository-call tests, SQLite completed-setup/audit preservation, TestServer confirmed admin and ordinary denials, then a separate private real-cookie/database no-effects check before deployment. Source-authored tests are not runtime acceptance until executed.
+Run mapped service no-repository-call tests, SQLite completed-setup/audit preservation, and TestServer confirmed admin and ordinary denials using the same domain-code/status resolver as production. The isolated TestServer does not boot `Program.cs`; a separate private real-cookie/database no-effects check remains required before deployment. Source-authored tests are not runtime acceptance until executed.
 
 ## 27. Ownership and Dependencies
 

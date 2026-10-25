@@ -13,12 +13,25 @@ using Microsoft.Extensions.Options;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.Setup;
 using Mightyfin.Erp.Hrm.Domain.Entities;
+using Mightyfin.Erp.Hrm.Api;
 using HrmRoutes = Mightyfin.Erp.Hrm.Api.Routing.Routes;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class SetupMaintenanceResetHttpTests
 {
+    [Theory]
+    [InlineData("setup-maintenance-required", 503)]
+    [InlineData("reset-not-confirmed", 400)]
+    [InlineData("forbidden", 403)]
+    [InlineData("unauthorized", 401)]
+    [InlineData("not-found", 404)]
+    [InlineData("movement-not-allowed", 409)]
+    [InlineData("unit-close-backdated", 409)]
+    [InlineData("unknown-domain-code", 422)]
+    public void SharedProductionDomainStatusMappingPreservesExistingCases(string code, int status) =>
+        Assert.Equal(status, DomainExceptionHttpStatus.For(code));
+
     [Fact]
     public async Task ConfirmedUnconfinedAdministratorCannotResetOrReachRepository()
     {
@@ -91,21 +104,15 @@ public sealed class SetupMaintenanceResetHttpTests
             builder.Services.AddSingleton<ISetupRepository>(repository);
             builder.Services.AddScoped<ISetupService, SetupServiceImpl>();
             var app = builder.Build();
-            // The isolated TestServer exercises the production RegisterSetup route
-            // and real service, but maps errors locally; it does not bootstrap
-            // Program.cs or substitute for a full-host status-code check.
+            // The isolated TestServer exercises the production RegisterSetup route,
+            // real service and shared production status resolver. It does not
+            // bootstrap Program.cs or substitute for a full-host response check.
             app.Use(async (context, next) =>
             {
                 try { await next(context); }
                 catch (DomainException error)
                 {
-                    context.Response.StatusCode = error.Code switch
-                    {
-                        "setup-maintenance-required" => 503,
-                        "forbidden" => 403,
-                        "reset-not-confirmed" => 400,
-                        _ => 422
-                    };
+                    context.Response.StatusCode = DomainExceptionHttpStatus.For(error.Code);
                     await context.Response.WriteAsJsonAsync(new { code = error.Code });
                 }
             });
