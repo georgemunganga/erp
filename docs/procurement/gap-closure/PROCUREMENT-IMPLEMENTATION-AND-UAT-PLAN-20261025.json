@@ -226,11 +226,11 @@
           "repository": "module-connect",
           "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveRequests.tsx#L132"
         },
-        "intentAndLimit": "Submit, return and review controls exist; recall, forward, hold and processed states need explicit contracts.",
+        "intentAndLimit": "Pre-case Withdraw, Return and resubmit are source/UI present; opened-case recall, forward, hold and processed states need separate contracts.",
         "workspaceBase": "/procurement/workspace"
       },
       "currentBackend": {
-        "summary": "Request submit and shared Core review/decisions exist in source; version/source locks intentionally constrain recall and later modification.",
+        "summary": "Pre-case Withdraw, Return and resubmit exist; Core has a pending-case Cancel primitive, but Procurement has no active-case recall route, Cancelled outcome or Finance release path.",
         "evidence": [
           {
             "repository": "erp",
@@ -246,16 +246,17 @@
           }
         ]
       },
-      "gap": "Current Core-case transitions and source locks do not prove every manual status reversal or submitter-selected approver.",
-      "nextExecutableSlice": "Specify and add only authorized PR transitions through existing Core case history and locked source versions.",
-      "prerequisites": [],
-      "auditMilestoneHint": "Specify exact PR state machine/return and post-approval cancellation before adding routes.",
+      "gap": "Opened-case recall cannot be inferred from pre-case Withdraw or Core Cancel alone; current outcome CHECKs exclude Cancelled and Finance release must be independently confirmed before edit/resubmit.",
+      "nextExecutableSlice": "Implement the default-off pending-case recall draft: current maker and scope, no prior decision or downstream consumption, typed version/key recovery, atomic Core Cancel plus Procurement outcome/release request, then independent Finance release before edit/resubmit. Forward, Hold and Processed remain separate decisions.",
+      "prerequisites": ["Named Core permission/assignment decision, independent Finance release contract, genuine post-P38 migration and guarded Down"],
+      "auditMilestoneHint": "Use PROC-03 active-case recall draft; retain pre-case actions and exclude post-decision cancellation from v1.",
       "verification": {
-        "focusedTests": "Maker recall before/after decision, reassignment denial, return/resubmit, stale CAS and retained approval history.",
-        "acceptance": "Source and Core history tests for each proposed transition, current authority and retained effects."
+        "focusedTests": "Pre-case Withdraw/Return/resubmit subset; eligible maker recall, post-decision/downstream denial, revoked scope, stale CAS, lost-response replay, decision race, Finance release and retained-history rollback.",
+        "acceptance": "Require same-version API/UI/Core/Finance and owner evidence plus post-P38 schema Up/Down and populated veto; opened-case recall and UAT remain unaccepted."
       },
       "specPaths": [
-        "docs/procurement/PROC-03-APPROVAL-AND-BUDGET-CONTROL.md"
+        "docs/procurement/PROC-03-APPROVAL-AND-BUDGET-CONTROL.md",
+        "docs/procurement/PROC-03-PR-ACTIVE-CASE-RECALL.md"
       ],
       "launchScope": "selected operational launch workflows",
       "modeMeaning": "Primary next action; implementation still requires focused tests and deployment evidence before live claims.",

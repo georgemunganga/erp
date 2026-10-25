@@ -34,13 +34,13 @@ Each finding separates the original presentation intent, current live component,
 ## BE-03 — PR recall/forward/hold/processed/reapprove (IMPLEMENT)
 
 - Original UI (PREVIEW_ONLY): `reference-ui/src/features/RecordDetail.tsx:340` — Approve (demo) / Reject (demo). changeStatus updates local AppRecord.status and lastLocalAction; no Core case transition.
-- Current live counterpart: `reference-ui/src/features/LiveRequests.tsx:132` on `/requests, /approvals`. Submit, return and review controls exist; recall, forward, hold and processed states need explicit contracts.
-- Backend: Request submit and shared Core review/decisions exist in source; version/source locks intentionally constrain recall and later modification. Gap: Current Core-case transitions and source locks do not prove every manual status reversal or submitter-selected approver.
-- Next slice (Core approval + Procurement): Specify and add only authorized PR transitions through existing Core case history and locked source versions.
-- Prerequisites: None hard-linked in this audit.
-- Tests: Maker recall before/after decision, reassignment denial, return/resubmit, stale CAS and retained approval history.
-- Acceptance: Source and Core history tests for each proposed transition, current authority and retained effects.
-- Source: `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs:24`, `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs:42`
+- Current live counterpart: `reference-ui/src/features/LiveRequests.tsx:327-413` and `LiveApprovals.tsx:156-225` on `/requests, /approvals`. Pre-case Withdraw, Return and resubmit are source/UI present. The original demo action is not a Core transition.
+- Backend: `ProcurementRequestRoutes.cs:187-370` implements pre-case actions; `ApprovalEngine.cs:49-91` supplies Core cancellation, but no Procurement active-case recall route or `Cancelled` outcome/release path exists. The current outcome CHECK and Finance release path do not support it.
+- Next slice (Core approval + Procurement + Finance): Use the default-off [28-section active-case recall draft](../PROC-03-PR-ACTIVE-CASE-RECALL.md): current maker, pending case before any decision/downstream use, source/version/key locks, Core Cancel plus typed Procurement outcome and durable release request, then independent Finance release before edit/resubmit. Forward, Hold and manual Processed remain separate decisions.
+- Prerequisites: Resolve the named Core permission/assignment and Finance release contracts; generate a genuine migration after P38, with populated-history Down veto. Do not edit historical migrations or infer release from Core cancellation.
+- Tests: Existing pre-case subset; active-case eligible/denied, revoked scope, stale CAS, duplicate/lost response, decision race, retained case/source/budget effects, Finance outage and independent confirmation, UI server availability, owner no-effects checks and schema rollback.
+- Acceptance: No active-case recall or UAT claim until API, UI, Core, Finance and physical schema evidence is bound to one source/build; `NOT_EXECUTED` remains the UAT status.
+- Source: `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs:187-370`, `backend/core-api/src/Mightyfin.Erp.Core.Approvals.Domain/ApprovalEngine.cs:49-91`, `backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementApprovalOutcomeMapping.cs:31-65`
 
 ## BE-04 — PR attachments and scanner truth (INTEGRATE)
 
