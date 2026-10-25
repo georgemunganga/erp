@@ -61,6 +61,8 @@ Exit checks:
 
 ### M2 — Vendor/item completeness and shared data operations
 
+**Selected CSV private checkpoint (25 October):** [M2 selected-export verification](../release/P24-M2-SELECTED-CSV-PRIVATE-VERIFICATION-20261025.md) passed 116 focused/1,081 Host tests, 93 UI units/23 mocked browser cases and actual normal-cookie PostgreSQL HTTP/two real browser files with independent owner deltas6/2/1. Full fixed CSV bytes/cells bind typed owner-before rows; same-cookie explicit grant revocation denied403. This bounded selected-row slice is privately accepted, not deployed by that receipt. Whole M2, imports, batch/clone, saved views and business UAT remain open.
+
 Owner: Procurement master data and Core data-transfer services. Depends on: M0. Dependencies apply to the affected operation; a pending decision must not stop unrelated defined CRUD.
 
 - Exercise existing vendor/item/contact/site/qualification CRUD and lifecycle in the supplied forms; fix individual gaps before adding alternative forms.

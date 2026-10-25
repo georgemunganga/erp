@@ -35,6 +35,10 @@ The private receipt is `procurement-csv-export-runtime-prep-20261025_run02/termi
 
 Earlier failed attempts are retained. These exposed a fixture namespace/table grant error, an oversized negative-test query, a preview-mode UI build and duplicate test discovery. The initial live browser inspection also caused extra requests: Playwright 1.62.1 can refetch a response when `response.body()` uses its Chromium fallback. The corrected proof hashes the actual download stream and retains strict one-audit-per-download reconciliation. Final live artifact evidence is in UI validation `run11`; the earlier `run10` preview build is not a live-release artifact.
 
+## Selected-row export successor: privately verified, deployment pending
+
+The [M2 private successor](P24-M2-SELECTED-CSV-PRIVATE-VERIFICATION-20261025.md) now has a bounded selected-ID API/UI contract and actual normal-cookie PostgreSQL/browser/owner proof. It preserves existing All/search exports and verifies full fixed CSV cells/bytes for selected sets up to100; missing/invisible partial sets return no file/audit. This supersedes the source-only unavailability note for that child slice; it does not alter the historical receipts or claim an M2 deployment. Current production remains the separately recorded M0 release.
+
 ## Remaining release gates
 
 The source uses the current Procurement model; it must not be deployed directly over the older live P24 schema. The [bounded P24-compatible release](P24-SCOPED-CSV-RELEASE-20261025.md) is deployed; later model source still requires its own separately rehearsed schema rollout. No production migrations, grants, feature flags or data were changed by this checkpoint. Imports, clone/bulk operations, selected-row export and saved views remain separate BE-01 work. These technical checks do not mark any business UAT status as passed.
