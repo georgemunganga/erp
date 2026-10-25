@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "status": "ACCEPTED_CURRENT_API_HOST_TESTS_AND_GENUINE_PUBLICATION_ONLY",
+  "dateUtc": "2026-10-25",
+  "rootIntegrationBeforeThisDocsChange": "71c673ba046d81182df1d687118013468cc5f331",
+  "validatedProductSource": "61422d5e58e66932d6c96eda3683209e75a2ecad",
+  "compiledToolSource": "61422d5e58e66932d6c96eda3683209e75a2ecad",
+  "previousProductCheckpointPreserved": "docs/procurement/release/P37-API-HOST-SOURCE-ACCEPTANCE-20261025.json",
+  "sourceScope": {
+    "ordinaryMerges": [
+      "1ad6c7400d1796ba86887747dfe9e99816209964",
+      "15b50c8188af7a047b52233639884129d14ccbaa",
+      "4fd227693eecfa8966010b1cdd8e6d1590df0cf8"
+    ],
+    "baselineProduct": "188f1c53fcca625364974fd03ecb60d0b86781fb",
+    "changedFiles": 25,
+    "deltaSha256": "c1f2f3436740d9ee014d8c07cca0082db9253e690f13e0aa6f85f7de06e81d59",
+    "scope": "API/Host, private probe and Procurement docs only; no Domain/Application/Infrastructure/model/migration/project/package changes",
+    "toolCSharpFiles": 44,
+    "toolCSharpByteIdenticalToReviewed1ad": true
+  },
+  "sdk": {
+    "evidenceDirectory": "procurement-p36-p37-current-api-sdk-prep-20261025_run01",
+    "planSha256": "0065422318ecb190323799e53383c4ef3dc3bfa4d50e520ca2090067168b86b7",
+    "resultSha256": "1954a58739363483abc1881363c657577bd134282f12a1178c4e0d847841702c",
+    "artifactInventorySha256": "7259e78720bf727142bd34942794adc945600821b5bef362c8851236a55dbd03",
+    "sourceInventorySha256": "198606acdc501605f8385f4f5416998daa0ec06453ed32937ef085b52a655f06",
+    "strategy": "Actual owning API and Host Rebuild with BuildProjectReferences=false over private full copy of accepted graph, then focused and full Host VSTest. Source/API/Host newly compiled; unchanged transitive binaries strictly preserved.",
+    "apiCompile": "PASS",
+    "hostCompile": "PASS",
+    "focusedHost": {
+      "passed": 58,
+      "failed": 0,
+      "skipped": 0,
+      "P36": 26,
+      "P37": 32
+    },
+    "fullHost": {
+      "passed": 1357,
+      "failed": 0,
+      "skipped": 0
+    },
+    "newCases": {
+      "P36CapabilityAndProjection": 7,
+      "P37ReceiptHeaderAndLine": 6
+    },
+    "domain": "1670 carried from byte-unchanged accepted Domain/Application/Infrastructure/model inputs; no Domain rerun in this profile",
+    "nonTargetArtifactProofSha256": "ec47105d731652f6d038ba705c3b7019cf35affdf216526d41243928eb03d524",
+    "boundedMetadataException": "Only existing twelve reviewed .assets.cache keys may change resolver digest bytes8..39; length/header/payload and all other non-target bytes remain exact",
+    "runtimeOrDatabaseExecuted": false
+  },
+  "genuinePublication": {
+    "evidenceDirectory": "procurement-p36-p37-current-api-publication-tool-sdk-prep-20261025_run01",
+    "planSha256": "34ca36ddbb0bbf1542b8dcf452d5c43fa2f16f5e0a356feea31c736120ddd832",
+    "resultSha256": "7b37d2e5162fc47d92452a58a20bb578afa65afdc6a5c48c6f9bc06b09856447",
+    "provenanceSha256": "b28b1ea813ac1274adc5cc8c7b283cd5fec56378d1a8f88bb9bbf70e46f79c9e",
+    "apiFiles": 150,
+    "apiManifestSha256": "9d8725120ff1628a76ba5fd4968e0964a956ca85ba883448d1ffd44d9aa8730f",
+    "toolFiles": 477,
+    "toolManifestSha256": "37575145fece08d77f2d1e63b2857ce2e121569725dc6e60391bf6ceca4453e8",
+    "owningManagedRowsIndependentlyRechecked": 40,
+    "scope": "NEW official current614 API no-build/no-restore publication, then offline official Tool restore/build/publish against fifteen current read-only product bins and private obj copies. No handwritten dependency graph; all owning managed files byte-verified to current SDK products. Current Core.Documents.Domain dependency edge checked.",
+    "old188ApiCarried": false,
+    "toolExecuted": false,
+    "databaseExecuted": false
+  },
+  "sourceRegressionsAccepted": {
+    "P36": [
+      "Current concrete execution-provider availability; default-off/substitute-provider/execution-connection/current-grant/branch denial tests",
+      "Frozen RFQ title and neutral line/offer labels after existing named-reader, retained-opening/current+retained-alias admission; no mutable supplier lookup or automatic award"
+    ],
+    "P37": [
+      "Acceptance fact DraftId binds receipt header; AcceptanceRecordId binds receipt line, verified against retained observation/source",
+      "Six distinct-ID variants cover correct mapping and wrong header/line/fact/observation/source; dynamic GET hints remain separate from immutable acknowledgements"
+    ]
+  },
+  "retainedNativeFailures": [
+    {
+      "cohort": "P37Native01",
+      "actualHttpRequests": 47,
+      "stage": "P30RealFiniteReadinessOnly",
+      "scope": "Failed before P37; missing three retained P33 history SELECTs in tool fixture. Read-only diagnosis and later tool correction retained."
+    },
+    {
+      "cohort": "P37Native02",
+      "actualHttpRequests": 165,
+      "scope": "P30 PO/receiving passed, then invalid direct root-DI readiness probe lacked request middleware scope; later tool uses real scoped metadata HTTP."
+    },
+    {
+      "cohort": "P37Native03",
+      "actualHttpRequests": 168,
+      "scope": "Scoped context/meta200 and p37ScopedMetadataReadinessVerified=true, then eligible-source409 exposed actual header-versus-line bug. Product4fd correction now has source tests; no new positive P37 native acceptance yet."
+    }
+  ],
+  "acceptanceLimits": {
+    "p37PositiveNative": false,
+    "p37IndependentOwner": false,
+    "p37NormalCookie": false,
+    "p36RecommendationRuntime": false,
+    "uiCurrentBuild": "Separate UI validation is active at this snapshot; not certified by this backend/publication receipt",
+    "modelOrPhysicalSchemaRerun": "Not claimed for this source-only API/Host delta; prior schema/capture receipts retain their scopes",
+    "wholeModuleComplete": false,
+    "productionDeployed": false,
+    "financeInventoryOrAssetPosted": false
+  },
+  "nextGates": [
+    "Fresh P37Native04 against these actual current614 publications, independent read-only owner and real normal-session UI proof; preserve all previous failed cohorts",
+    "P36 purpose-safe existing UI binding plus actual opened-round/source/recommendation CAS/replay/recovery and current-grant/alias/scope-denial proof; Draft never means approved award or PO authority",
+    "Real Core scanner/P31 finite workflow gates, separate P38 award and contract-activation work, and production same-snapshot/finite-role/current-session/UAT release gates"
+  ]
+}
