@@ -1,6 +1,6 @@
 # P36/P37 offline physical-capture importer
 
-This tool renders candidate capture classes outside the repository only after a pinned actual successful joint owner roundtrip. It never connects to a database, edits application source, changes options, registers routes or grants permissions. The example plan is intentionally incomplete; no observed definitions have been populated.
+This tool renders candidate capture classes outside the repository only after a pinned actual successful joint owner roundtrip. It never connects to a database, edits application source, changes options, registers routes or grants permissions. The example plan preserves the original unexecuted placeholder-source admission. The accepted actual capture was subsequently imported using a separately pinned protected plan; the public joint schema receipt records its SHA. The checked-in source dictionaries are now populated, so the old example source hashes intentionally cannot be reused to overwrite them.
 
 The actual physical capture must equal the corresponding first-Up PostgreSQL catalog projections byte for byte. Names must match existing source inventories; P36 owned index names also derive from its pinned genuine migration PK/AK/CreateIndex operations. P37 must contain its exact 19-index inventory. Every FK/key must be validated, immediate except the explicitly deferred P37 current-revision owner FK. CHECK, FK, key and index strings are copied verbatim, without normalization. Missing, extra, mutated or incorrectly deferred objects fail before rendering.
 

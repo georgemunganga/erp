@@ -138,8 +138,9 @@ Execution database, P32 opened-offer read readiness, exact P36 model and physica
 catalog, and only the P36 Draft write privileges. The head needs UPDATE on its
 three revision cursor and three audit columns; immutable head columns, evidence
 families, audit and outbox reject UPDATE. Its physical CHECK/FK/parent
-capture remains deliberately empty until independent PostgreSQL capture, so it
-returns unavailable even if the flag is set. Current Core purpose, branch,
+capture now contains byte-exact definitions from the accepted joint private
+owner Up/Down/Up rehearsal. This establishes physical expected definitions only;
+current finite-role and runtime admission still must pass independently. Current Core purpose, branch,
 named-reader and retained offer checks remain in the command/query routes.
 There is no accepted host activation or metadata capability yet.
 

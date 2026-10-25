@@ -173,10 +173,11 @@ three modeled return tables, exact three CHECKs, eight modeled plus four authore
 FKs, four authored owner keys, and all nineteen owned PK/AK/business/FK indexes.
 The current-revision FK must be deferred; the three source-owner FKs must remain
 immediate NoAction. Unknown extra owned indexes or changed definitions deny.
-All expected PostgreSQL definition dictionaries are EMPTY pending actual catalog
-capture, so the concrete provider remains unavailable even with options true.
-The independent migration ID is a source prerequisite only; root's joint P36/P37
-regeneration must supply its new genuine P37 ID and new actual capture first.
+The genuine joint migration `20261025020252_P37PrincipalGoodsReturnDrafts` now
+has an accepted private owner Up/Down/Up capture. Expected definition dictionaries
+are imported byte-exact from that capture, including all nineteen owned indexes.
+This does not establish finite-role or business runtime admission; see the joint
+private schema acceptance receipt for exact scope and remaining gates.
 
 The write matrix needs INSERT on the three P37 tables and append-only audit/outbox,
 and UPDATE only revision/state/current_revision_id/version/update stamps on the

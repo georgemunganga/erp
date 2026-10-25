@@ -48,7 +48,7 @@ public sealed class PrincipalGoodsReturnReadinessTests
     }
 
     [Fact]
-    public async Task Explicit_feature_and_connection_still_deny_without_actual_capture()
+    public async Task Captured_feature_and_connection_still_deny_without_execution_foundation()
     {
         var configuration=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
         {
@@ -59,7 +59,7 @@ public sealed class PrincipalGoodsReturnReadinessTests
         services.AddSingleton<IProcurementPrincipalReceivingReadiness>(new SourceReadiness());
         ProcurementPrincipalGoodsReturnComposition.AddFoundation(services,configuration);
         using var provider=services.BuildServiceProvider();
-        Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
+        Assert.True(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
         Assert.False(await provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>().IsReadyAsync(null!,false,default));
         Assert.False(await provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>().IsConfiguredAsync(default));
     }
@@ -86,18 +86,17 @@ public sealed class PrincipalGoodsReturnReadinessTests
     [Fact]
     public void Complete_capture_requires_exact_all_owned_and_overlay_objects()
     {
-        static Dictionary<string,string> Fake(IReadOnlySet<string> names)=>names.ToDictionary(x=>x,_=>"shape-test-only");
-        var checks=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.CheckNames);
-        var foreign=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.ForeignNames);
-        var keys=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.OverlayKeyNames);
-        var indexes=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.IndexNames);
+        var checks=ProcurementPrincipalGoodsReturnSchemaCapture.Checks.ToDictionary(x=>x.Key,x=>x.Value);
+        var foreign=ProcurementPrincipalGoodsReturnSchemaCapture.ForeignDefinitions.ToDictionary(x=>x.Key,x=>x.Value);
+        var keys=ProcurementPrincipalGoodsReturnSchemaCapture.OverlayKeys.ToDictionary(x=>x.Key,x=>x.Value);
+        var indexes=ProcurementPrincipalGoodsReturnSchemaCapture.IndexDefinitions.ToDictionary(x=>x.Key,x=>x.Value);
         Assert.Equal(3,checks.Count);Assert.Equal(12,foreign.Count);Assert.Equal(4,keys.Count);Assert.Equal(19,indexes.Count);
         Assert.True(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
         indexes.Remove(indexes.Keys.First());
         Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
-        indexes=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.IndexNames);foreign[foreign.Keys.First()]="";
+        indexes=ProcurementPrincipalGoodsReturnSchemaCapture.IndexDefinitions.ToDictionary(x=>x.Key,x=>x.Value);foreign[foreign.Keys.First()]="";
         Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
-        Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
+        Assert.True(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
     }
 
     [Fact]

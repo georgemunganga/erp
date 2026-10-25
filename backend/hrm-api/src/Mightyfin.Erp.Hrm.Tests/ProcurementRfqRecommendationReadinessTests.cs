@@ -14,14 +14,14 @@ public sealed class ProcurementRfqRecommendationReadinessTests
     }
 
     [Fact]
-    public async Task Registered_provider_stays_closed_without_actual_P36_capture_even_when_option_is_on()
+    public async Task Captured_provider_stays_closed_without_actual_owner_and_execution_even_when_option_is_on()
     {
         using var services=new ServiceCollection().BuildServiceProvider();
         var provider=new ProcurementRfqRecommendationStoreReadiness(
             new ProcurementRfqCommercialOptions{Enabled=true,OfferOpeningEnabled=true,
                 RecommendationDraftEnabled=true},new ConfigurationBuilder().Build(),
             services,new CommercialReadiness());
-        Assert.False(ProcurementRfqRecommendationSchemaCapture.Populated);
+        Assert.True(ProcurementRfqRecommendationSchemaCapture.Populated);
         Assert.False(await provider.IsReadyAsync(null!,false,CancellationToken.None));
         Assert.False(await provider.IsReadyAsync(null!,true,CancellationToken.None));
     }
@@ -34,10 +34,18 @@ public sealed class ProcurementRfqRecommendationReadinessTests
         Assert.Equal(4,ProcurementRfqRecommendationSchemaCapture.CheckNames.Count);
         Assert.Equal(10,ProcurementRfqRecommendationSchemaCapture.ForeignNames.Count);
         Assert.Equal(3,ProcurementRfqRecommendationSchemaCapture.ParentNames.Count);
-        Assert.False(ProcurementRfqRecommendationSchemaCapture.Complete(
+        Assert.True(ProcurementRfqRecommendationSchemaCapture.Complete(
             ProcurementRfqRecommendationSchemaCapture.Checks,
             ProcurementRfqRecommendationSchemaCapture.ForeignKeys,
             ProcurementRfqRecommendationSchemaCapture.ParentKeys));
+        var missing = ProcurementRfqRecommendationSchemaCapture.Checks.ToDictionary(x=>x.Key,x=>x.Value);
+        missing.Remove(missing.Keys.First());
+        Assert.False(ProcurementRfqRecommendationSchemaCapture.Complete(missing,
+            ProcurementRfqRecommendationSchemaCapture.ForeignKeys,ProcurementRfqRecommendationSchemaCapture.ParentKeys));
+        var wrongForeign = ProcurementRfqRecommendationSchemaCapture.ForeignKeys.ToDictionary(x=>x.Key,x=>x.Value);
+        wrongForeign[wrongForeign.Keys.First()]="CHECK (not_a_foreign_key)";
+        Assert.False(ProcurementRfqRecommendationSchemaCapture.Complete(
+            ProcurementRfqRecommendationSchemaCapture.Checks,wrongForeign,ProcurementRfqRecommendationSchemaCapture.ParentKeys));
         var wrong=new HashSet<string>(ProcurementRfqRecommendationSchemaCapture.TableNames,
             StringComparer.Ordinal){"procurement.an_unreviewed_table"};
         Assert.False(ProcurementRfqRecommendationStoreReadiness.MatchesModelCatalog(

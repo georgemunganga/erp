@@ -1,0 +1,71 @@
+{
+  "businessWorkflowPositiveProven": false,
+  "dictionaryVerification": {
+    "p36.Checks": {
+      "byteExactDecodedStrings": true,
+      "entries": 4
+    },
+    "p36.ForeignKeys": {
+      "byteExactDecodedStrings": true,
+      "entries": 10
+    },
+    "p36.ParentKeys": {
+      "byteExactDecodedStrings": true,
+      "entries": 3
+    },
+    "p37.Checks": {
+      "byteExactDecodedStrings": true,
+      "entries": 3
+    },
+    "p37.ForeignDefinitions": {
+      "byteExactDecodedStrings": true,
+      "entries": 12
+    },
+    "p37.IndexDefinitions": {
+      "byteExactDecodedStrings": true,
+      "entries": 19
+    },
+    "p37.OverlayKeys": {
+      "byteExactDecodedStrings": true,
+      "entries": 4
+    }
+  },
+  "featureEnabled": false,
+  "finiteExecutionRolePositiveProven": false,
+  "globalRolesUnchanged": true,
+  "migrationIds": {
+    "p36": "20261025014631_P36HumanRecommendationDraft",
+    "p37": "20261025020252_P37PrincipalGoodsReturnDrafts"
+  },
+  "newCaptureCSharpTestsExecuted": false,
+  "offlineImportPlanSha256": "783aee27a42c148f7227e9b5b6bbfeb55fd3699f8504ec1c4ec7a2ff5fabdad6",
+  "onlyDeferredForeignKey": "fk_pgret_current_revision",
+  "physicalCaptureSha256": "7e104dd88c7bad08606b544ff6e37f4389459978c5a0caa26bbe1afba9752ed9",
+  "physicalForeignKeyFlagsVerified": true,
+  "preservedFailures": [
+    "Prior schema admission disk failures and original inert source profiles remain preserved"
+  ],
+  "productionTouched": false,
+  "pureImporterMutationTestsPassed": 9,
+  "remainingGates": [
+    "Fresh source validation after capture import",
+    "Finite least-privilege role positive/negative admission",
+    "Populated rollback veto evidence",
+    "Actual authorized runtime/UI workflow acceptance before activation"
+  ],
+  "reviewedExecutedPlanSha256": "2aff4f24da81790d4d17898aa494e244dfa8a0ffac077fee9441131e1044ca26",
+  "schemaResultSha256": "aa0f8ad1c2a5c3ad351bf2d7b894e474ff87bb809535db163e341a2033252a90",
+  "sdk04ResultSha256": "7276ba946dc8aec26c1355edc99fc74c2c9a1c50e54558250cc39e59c09953c5",
+  "sourceRowsAclHistoryUnchanged": true,
+  "status": "ACCEPTED_PRIVATE_OWNER_SCHEMA_ROUNDTRIP_ONLY",
+  "tableTransitions": [
+    253,
+    257,
+    260,
+    257,
+    253,
+    257,
+    260
+  ],
+  "validatedApplicationSource": "7e167e4491cdb2cd65b9afefe94b01710bcd3c44"
+}

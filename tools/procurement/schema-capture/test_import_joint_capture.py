@@ -1,5 +1,5 @@
 """Pure mutation tests; these synthetic strings are NOT PostgreSQL capture evidence."""
-import copy,json,unittest
+import copy,json,re,unittest
 from pathlib import Path
 import import_joint_capture as m
 class CaptureImportTests(unittest.TestCase):
@@ -17,7 +17,9 @@ class CaptureImportTests(unittest.TestCase):
             self.capture[phase]=m.canonical(self.snap[phase],phase,source)
     def test_source_inventories_and_empty_render(self):
         m.verify_capture(self.capture,self.snap,self.sources)
-        for phase in m.CLASSES:self.assertIn('unit_fixture',m.render(self.sources[phase],phase,self.capture[phase]))
+        for phase in m.CLASSES:
+            template=re.sub(r'new Dictionary<string,string>\(StringComparer.Ordinal\)\n    \{.*?\n    \};','new Dictionary<string,string>(StringComparer.Ordinal);',self.sources[phase],flags=re.S)
+            self.assertIn('unit_fixture',m.render(template,phase,self.capture[phase]))
     def test_missing_check(self):
         self.capture['p36']['checks'].pop(next(iter(self.capture['p36']['checks'])))
         with self.assertRaisesRegex(ValueError,'mismatch'):m.verify_capture(self.capture,self.snap,self.sources)
