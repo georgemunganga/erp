@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "RECORDED_LOCAL_ENGINEERING_WORKSPACE_MAINTENANCE",
+  "purpose": "Preserve disk reserve for isolated Procurement SDK regressions without changing deployed ERP or deleting installed dependencies/evidence.",
+  "operations": {
+    "mergedSourceCopies": {
+      "privateEvidenceDirectory": "procurement-merged-source-retirement-20261025_run04",
+      "receipt": "result.private.json",
+      "sha256": "59a9ca183d79e3384c1a69b663159bca87c63ec9db2a74b8a9fe2c23af0eb92e",
+      "measuredGainBytes": 54173696
+    },
+    "immutableManagedFiles": {
+      "privateEvidenceDirectory": "procurement-immutable-sdk-pub-dedup-prep-20261025_run01",
+      "receipt": "after.private.json",
+      "sha256": "c53bcd47a71733ea391110e7eee15d5d3c041159c6567bbee10d2ab0432b99e4",
+      "actualGainBytes": 265801728,
+      "relinkedFiles": 1382
+    },
+    "acceptedPublicationsRechecked": {
+      "privateEvidenceDirectory": "procurement-immutable-sdk-pub-dedup-prep-20261025_run01",
+      "receipt": "publication-after.private.json",
+      "sha256": "3ec18a832c3fc6e1f42527c579834cd8fa43cae612bff514d92a68c09c4f8c43"
+    },
+    "failedGeneratedCache": {
+      "privateEvidenceDirectory": "procurement-failed-joint-sdk01-cache-retirement-prep-20261025_run01",
+      "receipt": "retirement.private.json",
+      "sha256": "088a5367930820c9fd28d819571b4560721beeee31c792efeb21cd8b4100bcb8",
+      "netReclaimedBytes": 67194880
+    },
+    "verifiedFailedCacheArchive": {
+      "privateEvidenceDirectory": "procurement-failed-joint-sdk01-cache-retirement-prep-20261025_run01",
+      "receipt": "verified-archive.private.json",
+      "sha256": "388cb872d407aa054074f8c0b4a44b7a37959576203055e145fe0517ee0c1e5e",
+      "restoredAllFilesAndMetadata": true
+    },
+    "regenerableJavaScriptCache": {
+      "privateEvidenceDirectory": "procurement-regenerable-js-cache-cleanup-20261025_run03",
+      "receipt": "result.private.json",
+      "sha256": "a0cdf34c47e76fef8226f41c75ae7127a1edc4f44cee91a979b7cd5b4e547cd6",
+      "measuredGainBytes": 14004224
+    },
+    "completedPrivateProxy": {
+      "privateEvidenceDirectory": "procurement-completed-p29-proxy-cleanup-20261025_run01",
+      "receipt": "result.private.json",
+      "sha256": "abc3fc4aa5a780854dd21ee7dcfb21ccc1c3614c18aa9c92760e5ec996089ca8"
+    }
+  },
+  "limits": [
+    "All 1382 immutable managed relinks preserve full bytes and mode/UID/GID/mtime/xattrs; all eleven full accepted publication maps rechecked. No source/obj or unique file removed by dedup.",
+    "Thirteen clean merged remote-backed checkout copies removed by ordinary git worktree remove; branches/commit objects and hash-bound restoration instructions retained.",
+    "Only failed joint SDK01 generated source/artifacts archived after full physical restore and metadata comparison. Logs/results/TRX/container evidence remain. Historical replay requires archive restore.",
+    "Only inactive regenerable Node/Playwright/Vite caches cleared; installed packages, browser binaries, Frappe, PostgreSQL and raw evidence retained.",
+    "Two leftover private P29 browser-proxy processes stopped only after exact process identity and completed native/browser/owner exit0 checks. Accepted results unchanged.",
+    "No production migrations, data, access configuration, or service deployment."
+  ]
+}
