@@ -34,11 +34,11 @@
     "retainedFailures": "Prior P37 native and SDK failures remain retained. Successful source, tests and publication do not convert a running native cohort into acceptance."
   },
   "currentRunningOrPending": {
-    "P37Native05": "RUNNING_AT_THIS_COVERAGE_CHECKPOINT; fresh private real HTTP is not accepted until terminal result and independent owner verification",
-    "P37IndependentOwner05": "INERT_SOURCE_PREP; no read-only owner result yet",
     "P37Ui": "Published bcd26bb: TypeScript and 45 mocked browser cases passed; real P37 normal-cookie browser with current product remains unproved",
     "P36Ui": "Published bcd26bb has real recommendation-source adapter and prior 14 targeted plus 2 preview mocked cases; this does not establish real recommendation HTTP acceptance",
-    "scannerC04": "READY_UNACKNOWLEDGED; no external pickup or real scanner proof claimed"
+    "scannerC04": "READY_UNACKNOWLEDGED; no external pickup or real scanner proof claimed",
+    "P37Native05AndOwner06": "ACCEPTED_BOUNDED_PRIVATE_DRAFT_HTTP_AND_READ_ONLY_OWNER_GRAPH; 193 HTTP, 1 draft, 3 revisions, 3 command receipts, 9 audit and 3 outbox rows. Owner05 failed captures remain preserved.",
+    "P37Next": "Normal-cookie real backend, P37-only finite role and production deployment remain pending; no stock, Finance or supplier dispatch effect is implied."
   },
   "metaCapabilityInventory": {
     "sourceFile": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
@@ -528,10 +528,14 @@
         {
           "receipt": "docs/procurement/release/P37-FINITE-ACL-ACCEPTANCE-20261025.json",
           "acceptedScope": "Private finite SQL privileges only, not LOGIN/HTTP"
+        },
+        {
+          "receipt": "docs/procurement/release/P37-NATIVE05-OWNER06-ACCEPTANCE-20261025.json",
+          "acceptedScope": "193 private native HTTP requests plus two byte-identical read-only Owner06 captures: 1 draft, 3 revisions, 3 receipts, 9 audit, 3 outbox. Owner05 failed numeric-canonical verifier remains preserved; no cookie, P37-only role or deployment claim."
         }
       ],
       "remainingImplementationOrAcceptance": [
-        "Native01 and later failed cohorts remain preserved as historical evidence. Source982 fixes the scoped receipt issue seen at the first Create in Native04; fresh Native05 is running, so no current real HTTP or independent owner acceptance is claimed. UI bcd26bb has TypeScript and mocked browser proof only. Normal-cookie real backend and production release remain."
+        "Native05 and Owner06 now establish only the private draft Create/replay/recovery/Revise/Cancel and independent stored graph described in their receipt. Native01\u201304 and Owner05 retain their failed scopes. UI bcd26bb has TypeScript and mocked browser proof only. Real normal-cookie Returns flow, a narrow P37-only finite-role result and production release remain outstanding; no physical return, stock/Finance posting or supplier dispatch is claimed."
       ],
       "production": "No new deployment established by this record; production remains P24"
     },
@@ -920,7 +924,7 @@
     },
     {
       "id": "P37_ACTUAL_AND_NORMAL_SESSION",
-      "scope": "Native05 is running on product982 after prior failures; require terminal real HTTP and independent read-only owner05 before acceptance. Then prove normal-cookie Returns lifecycle and release boundaries. SDK/publication passes alone do not establish real P37 acceptance."
+      "scope": "Native05 193 private HTTP requests and Owner06 read-only graph now pass at draft-only scope. Next: real normal-cookie Returns lifecycle, narrow P37-only finite-role proof where required, and separate release review. Preserve Native01\u201304 and Owner05 failures."
     },
     {
       "id": "CORE_SCANNER_C04_AND_P31",
