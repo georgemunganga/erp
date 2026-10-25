@@ -2,6 +2,12 @@
 
 Authoritative instructions: [MANUS_HANDOFF.md](../../../MANUS_HANDOFF.md).
 
+## 25 October 2026 — P35 UI07 queued baseline refreshed
+
+- `MANUS-P35-UI-VERIFICATION-07` remains queued; no Manus pickup or full-task acceptance is recorded.
+- Existing UI [PR #71](https://github.com/georgemunganga/module-connect/pull/71) was fast-forwarded normally to `5b37bc5cdef7d440d1448de838cef05e812c70f6`. Its application source `e077cccb7be5995e153f1937393255857fbd6ce8` passed the coordinator's bounded offline typecheck, 19 unit contracts, nine mocked browser cases, and a staged build. The P35 UI07 task file carries exact result hashes and remaining full verification scope.
+- This changes the task's source pin only. No production deployment, live backend or scanner/Finance acceptance is implied.
+
 ## 21 October 2026 — coordination moved to ERP
 
 - Milestone: `MANUS-PROC-VENDOR-01`
