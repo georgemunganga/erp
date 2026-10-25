@@ -91,7 +91,8 @@ public static class ProcurementVendorRoutes
         IAuthorizationService authorization, HttpContext http, ILoggerFactory loggerFactory,
         string? search, string? status, CancellationToken ct)
     {
-        if (!ProcurementHumanCsvExport.ValidFilters(http.Request))
+        if (!ProcurementHumanCsvExport.ValidFilters(http.Request)
+            || !ProcurementHumanCsvExport.TrySelectedIds(http.Request, out var selected))
             return Results.BadRequest(new { code = "invalid-export-filter" });
         var logger = loggerFactory.CreateLogger("Procurement.VendorCsvExport");
         try
@@ -99,18 +100,21 @@ public static class ProcurementVendorRoutes
             if (!await ProcurementHumanCsvExport.NativeReaderReadyAsync(db, ct))
                 return ProcurementHumanCsvExport.Unavailable(http, logger, "export-reader-unavailable");
             var query = await VisibleQuery(db, scope, authorization, http, search, status);
+            if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
             var rows = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
                 .Select(x => new { x.Number, x.DisplayName, x.LegalName, x.CountryCode,
                     x.Status, x.IsOrderable, x.CreatedAt })
                 .Take(ProcurementHumanCsvExport.MaxRows + 1).ToListAsync(ct);
             if (ProcurementHumanCsvExport.ExceedsLimit(rows.Count))
                 return Results.UnprocessableEntity(new { code = "export-limit-exceeded" });
+            if (selected is not null && rows.Count != selected.Length)
+                return Results.NotFound(new { code = "selected-records-unavailable" });
             var data = ProcurementHumanCsvExport.Encode(
                 ["Vendor Number", "Display Name", "Legal Name", "Country Code", "Status", "Orderable", "Created At UTC"],
                 rows.Select(x => new[] { x.Number, x.DisplayName, x.LegalName, x.CountryCode,
                     x.Status, x.IsOrderable ? "true" : "false", x.CreatedAt.ToUniversalTime().ToString("O") }));
             return await ProcurementHumanCsvExport.CompleteAsync(db, scope, http, "SupplierCsvExport",
-                JsonSerializer.Serialize(new { search = search?.Trim() ?? "", status = status?.Trim() ?? "" }),
+                ProcurementHumanCsvExport.NormalizedFilter(search, status, selected),
                 rows.Count, data, $"vendors-{DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.csv", ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

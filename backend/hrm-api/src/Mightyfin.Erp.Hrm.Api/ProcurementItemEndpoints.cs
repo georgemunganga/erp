@@ -63,27 +63,32 @@ public static class ProcurementItemEndpoints
     private static async Task<IResult> Export(ProcurementDbContext db, ProcurementRequestScope scope,
         HttpContext http, ILoggerFactory loggerFactory, string? search, string? status, CancellationToken ct)
     {
-        if (!ProcurementHumanCsvExport.ValidFilters(http.Request))
+        if (!ProcurementHumanCsvExport.ValidFilters(http.Request)
+            || !ProcurementHumanCsvExport.TrySelectedIds(http.Request, out var selected))
             return Results.BadRequest(new { code = "invalid-export-filter" });
         var logger = loggerFactory.CreateLogger("Procurement.ItemCsvExport");
         try
         {
             if (!await ProcurementHumanCsvExport.NativeReaderReadyAsync(db, ct))
                 return ProcurementHumanCsvExport.Unavailable(http, logger, "export-reader-unavailable");
-            var rows = await ListQuery(db, search, status)
+            var query = ListQuery(db, search, status);
+            if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
+            var rows = await query
                 .OrderBy(x => x.Name).ThenBy(x => x.Code).ThenBy(x => x.Id)
                 .Select(x => new { x.Code, x.Name, x.Kind, x.CategoryCode, x.UnitCode,
                     x.Status, x.IsPurchasable, x.IsStockItem, x.IsAsset })
                 .Take(ProcurementHumanCsvExport.MaxRows + 1).ToListAsync(ct);
             if (ProcurementHumanCsvExport.ExceedsLimit(rows.Count))
                 return Results.UnprocessableEntity(new { code = "export-limit-exceeded" });
+            if (selected is not null && rows.Count != selected.Length)
+                return Results.NotFound(new { code = "selected-records-unavailable" });
             var data = ProcurementHumanCsvExport.Encode(
                 ["Item Code", "Name", "Kind", "Category Code", "Unit Code", "Status", "Purchasable", "Stock Item", "Asset"],
                 rows.Select(x => new[] { x.Code, x.Name, x.Kind, x.CategoryCode, x.UnitCode,
                     x.Status, x.IsPurchasable ? "true" : "false", x.IsStockItem ? "true" : "false",
                     x.IsAsset ? "true" : "false" }));
             return await ProcurementHumanCsvExport.CompleteAsync(db, scope, http, "CatalogItemCsvExport",
-                JsonSerializer.Serialize(new { search = search?.Trim() ?? "", status = status?.Trim() ?? "" }),
+                ProcurementHumanCsvExport.NormalizedFilter(search, status, selected),
                 rows.Count, data, $"items-{DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.csv", ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
