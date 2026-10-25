@@ -78,6 +78,23 @@ internal static class PrincipalApprovalRuntimePrivileges
                 await Run("GRANT SELECT,INSERT,UPDATE ON procurement."+Q(table)+" TO "+Q(execution));
             await Run("GRANT SELECT ON procurement.supplier_qualifications TO "+Q(execution));
         }
+        if(fixture.PrincipalRfqProfile && Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT")=="1")
+        {
+            // The exact P32 owner set is read by one finite Execution identity.
+            // Only the mutable Draft head may be updated; revisions, receipts,
+            // preparation and later evidence remain append-only.
+            foreach(var table in new[]{"principal_rfq_commercial_command_receipts",
+                "principal_rfq_commercial_offer_opening_receipts","principal_rfq_commercial_offer_openings",
+                "principal_rfq_commercial_offer_submissions","principal_rfq_commercial_round_decisions",
+                "principal_rfq_commercial_round_openings","principal_rfq_commercial_round_seals",
+                "principal_rfq_commercial_round_votes","principal_rfq_criterion_assessment_receipts",
+                "principal_rfq_criterion_assessments","rfq_commercial_drafts",
+                "rfq_commercial_receipts","rfq_commercial_revisions",
+                "rfq_preparation_receipts","rfq_prepared_plans"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            await Run("GRANT UPDATE ON procurement.rfq_commercial_drafts TO "+Q(execution));
+            await Run("GRANT SELECT ON procurement.operational_policy_identity_evidence TO "+Q(execution));
+        }
         if(fixture.PrincipalPoProfile)
         {
             // P30 profile alone: vendor master setup uses the record role; the
