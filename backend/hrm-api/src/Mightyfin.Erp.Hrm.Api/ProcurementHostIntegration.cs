@@ -391,10 +391,12 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
     // Set only by middleware after validating an explicit company and current Core
     // branch assignments. A missing branch header alone never selects this scope.
     public bool IsExplicitAllBranches { get; private set; }
+    // Current Core assignment intersection for the selected company. Never supplied by a client.
+    public IReadOnlyList<Guid> PermittedWorkLocationIds { get; private set; } = [];
     public string? CorrelationId { get; private set; }
 
     public void Set(string tenant, Guid entity, string subject, Guid? location, Guid? orgUnit, bool confined, string correlation,
-        bool explicitAllBranches = false)
+        bool explicitAllBranches = false, IReadOnlyList<Guid>? permittedWorkLocationIds = null)
     {
         if (resolved || string.IsNullOrWhiteSpace(tenant) || entity == Guid.Empty || string.IsNullOrWhiteSpace(subject))
             throw new InvalidOperationException("A valid Procurement scope may be set only once.");
@@ -407,6 +409,7 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
         OrgUnitId = orgUnit;
         IsConfined = confined;
         IsExplicitAllBranches = explicitAllBranches;
+        PermittedWorkLocationIds = permittedWorkLocationIds?.Distinct().ToArray() ?? [];
         CorrelationId = correlation;
         resolved = true;
     }
@@ -484,9 +487,26 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
         var branchScope = http.Request.Headers["X-Shell-Branch-Scope"].ToString().Trim();
         var explicitAllBranches = branchScope.Equals("all", StringComparison.OrdinalIgnoreCase);
+        var allRead = HttpMethods.IsGet(http.Request.Method)
+            && (AllReadPath(http.Request.Path, "/api/procurement/v1/vendors")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/items")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/contracts")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/plans")
+                || string.Equals(http.Request.Path.Value, "/api/procurement/v1/catalog", StringComparison.OrdinalIgnoreCase)
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/requests")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/orders")
+                || AllReadPath(http.Request.Path, "/api/procurement/v1/invoices"));
+        // Supplier and item masters are company-owned; their existing commands do
+        // not create a branch transaction or infer branch authority from this header.
+        var allCompanyMaster = http.Request.Path.StartsWithSegments("/api/procurement/v1/vendors")
+            || http.Request.Path.StartsWithSegments("/api/procurement/v1/items")
+            || http.Request.Path.StartsWithSegments("/api/procurement/v1/configuration/categories")
+            || http.Request.Path.StartsWithSegments("/api/procurement/v1/configuration/methods");
         if (http.Request.Headers.ContainsKey("X-Shell-Branch-Scope") && (!explicitAllBranches
             || !(string.Equals(http.Request.Path.Value, "/api/procurement/v1/context", StringComparison.OrdinalIgnoreCase)
-                || http.Request.Path.StartsWithSegments("/api/procurement/v1/manual-payments"))
+                || string.Equals(http.Request.Path.Value, "/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase)
+                || http.Request.Path.StartsWithSegments("/api/procurement/v1/manual-payments")
+                || allRead || allCompanyMaster)
             || string.IsNullOrWhiteSpace(requestedEntityText)
             || http.Request.Headers.ContainsKey("X-Shell-Location")))
         {
@@ -532,7 +552,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var assignedLocations = confined
             ? await db.WorkLocations.AsNoTracking()
                 .Where(x => x.TenantId == tenant && !x.IsArchived && assignedLocationIds.Contains(x.Id))
-                .Select(x => new { x.Id, x.LegalEntityId })
+                .Select(x => new { x.Id, x.LegalEntityId, x.Type })
                 .ToListAsync(http.RequestAborted)
             : [];
         if (confined && assignedLocations.Count == 0)
@@ -581,16 +601,30 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         }
         else if (confined)
         {
-            var first = assignedLocations
-                .Where(x => !requestedEntity.HasValue || x.LegalEntityId == requestedEntity.Value)
-                .OrderBy(x => x.Id).FirstOrDefault();
-            if (first is null)
+            var company = requestedEntity ?? legalEntities
+                .Where(x => assignedLocations.Any(location => location.LegalEntityId == x.Id))
+                .OrderByDescending(x => x.IsDefault).ThenBy(x => x.RegisteredName).ThenBy(x => x.Id)
+                .Select(x => (Guid?)x.Id).FirstOrDefault();
+            var permitted = assignedLocations.Where(x => x.LegalEntityId == company).ToArray();
+            if (permitted.Length == 0)
             {
                 await Deny(http, StatusCodes.Status403Forbidden, "You cannot use that company.");
                 return;
             }
-            if (!explicitAllBranches) effectiveLocation = first.Id;
-            entityFromLocation = first.LegalEntityId;
+            if (!explicitAllBranches)
+            {
+                var headquarters = permitted.Where(x => string.Equals(x.Type, "headquarters", StringComparison.OrdinalIgnoreCase)).ToArray();
+                var chosen = headquarters.Length == 1 ? headquarters[0]
+                    : permitted.Length == 1 ? permitted[0] : null;
+                if (chosen is null)
+                {
+                    await Deny(http, StatusCodes.Status400BadRequest,
+                        "Choose a branch or explicitly select All permitted branches.");
+                    return;
+                }
+                effectiveLocation = chosen.Id;
+            }
+            entityFromLocation = company;
         }
 
         if (requestedEntity.HasValue && !legalEntities.Any(x => x.Id == requestedEntity.Value))
@@ -618,8 +652,14 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             await Deny(http, StatusCodes.Status403Forbidden, "The selected company is unavailable.");
             return;
         }
+        Guid[] permittedLocations = explicitAllBranches
+            ? confined ? assignedLocations.Where(x => x.LegalEntityId == selectedEntity).Select(x => x.Id).ToArray()
+                : await db.WorkLocations.AsNoTracking().Where(x => x.TenantId == tenant && !x.IsArchived
+                    && x.LegalEntityId == selectedEntity).Select(x => x.Id).ToArrayAsync(http.RequestAborted)
+            : [];
         scope.Set(tenant, selectedEntity, principal.Id.ToString("D"), effectiveLocation, effectiveOrgUnit, confined,
-            http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier, explicitAllBranches);
+            http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier,
+            explicitAllBranches, permittedLocations);
         scope.AssignPrincipal(principal.Id, principal.WorkerId);
         // Optional projection for existing worker-pinned operational consumers.
         // No mapping, inactive HR profile or another-company home never grants or
@@ -634,5 +674,12 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         http.Response.StatusCode = status;
         await http.Response.WriteAsJsonAsync(new ApiError(status == 400 ? "invalid-scope" : "forbidden", message, []),
             http.RequestAborted);
+    }
+
+    private static bool AllReadPath(PathString path, string root)
+    {
+        if (string.Equals(path.Value, root, StringComparison.OrdinalIgnoreCase)) return true;
+        return path.StartsWithSegments(root, out var remainder)
+            && Guid.TryParse(remainder.Value?.Trim('/'), out var id) && id != Guid.Empty;
     }
 }

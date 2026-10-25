@@ -485,12 +485,19 @@ public static class ProcurementVendorRoutes
         { return Conflict("The vendor or its orders changed. Refresh before placing it on hold."); }
     }
 
-    private static async Task<IResult> OpenOrdersAsync(Guid id, ProcurementDbContext db,
+    private static async Task<IResult> OpenOrdersAsync(Guid id, ProcurementDbContext db, ProcurementRequestScope scope,
         CancellationToken ct)
     {
         if (!await db.Suppliers.AsNoTracking().AnyAsync(x => x.Id == id, ct))
             return Results.NotFound();
         var query = OpenOrders(db, id);
+        if (scope.IsExplicitAllBranches)
+        {
+            var permitted = scope.PermittedWorkLocationIds.ToArray();
+            query = query.Where(x => x.BranchRef != null && permitted.Contains(x.BranchRef.Value));
+        }
+        else if (scope.IsConfined)
+            query = query.Where(x => x.BranchRef == scope.WorkLocationId);
         var count = await query.CountAsync(ct);
         var items = await query.OrderBy(x => x.Number).ThenBy(x => x.Id).Take(100)
             .Select(x => new { x.Id, x.Number, x.Status, x.CurrencyCode, x.IssuedAt })
