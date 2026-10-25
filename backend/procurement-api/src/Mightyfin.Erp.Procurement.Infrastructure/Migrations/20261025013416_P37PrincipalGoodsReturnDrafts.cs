@@ -231,11 +231,15 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                 table: "principal_goods_return_revisions",
                 columns: new[] { "tenant_id", "legal_entity_id", "draft_id", "revision" },
                 unique: true);
+            migrationBuilder.Sql(P37PrincipalGoodsReturnOwnershipSql.AfterUpSql);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(P37PrincipalGoodsReturnRollbackGuards.BeforeDownSql);
+            migrationBuilder.Sql(P37PrincipalGoodsReturnOwnershipSql.BeforeDropSql);
+
             migrationBuilder.DropTable(
                 name: "principal_goods_return_receipts",
                 schema: "procurement");

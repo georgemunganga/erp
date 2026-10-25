@@ -141,3 +141,16 @@ revision and response status, plus already-published/retried metadata events.
 These C# tests have not run. Generated migration, Designer and snapshot files
 remain unchanged; the official generation profile must bind this new source
 before execution. No readiness or runtime acceptance is claimed.
+
+
+## Genuine generation checkpoint (2026-10-25)
+
+Official EF generated `20261025013416_P37PrincipalGoodsReturnDrafts` from
+`2d485b11`: three tables, eight mapped FKs, three CHECKs and ten explicit
+indexes; no existing model entity definitions changed. Genuine Designer and
+snapshot are installed byte-identically. A separate authored migration-body
+change calls the existing owner overlay last in Up, and first-Down retention
+veto then overlay teardown before generated drops. Raw generation artifacts
+remain immutable. See release generation/overlay JSON receipts. This is not
+compiled migration SQL, a PostgreSQL roundtrip or runtime readiness. Those
+gates remain pending; routes/capability stay unavailable.
