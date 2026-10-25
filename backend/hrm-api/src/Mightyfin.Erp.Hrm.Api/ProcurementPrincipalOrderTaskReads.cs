@@ -195,8 +195,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     || funding.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
                     || workflow.SourceId!=order.Id || workflow.PolicyVersionId!=submission.PolicyVersionId)
                     throw new Problem("OrderApprovalEvidenceChanged",409);
-                PrincipalOrderDraftPins.Verify(order,lines.Where(x=>x.PurchaseOrderId==order.Id).ToArray(),
-                    bindings.Where(x=>x.PurchaseOrderId==order.Id).ToArray());
+                _=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,
+                    lines.Where(x=>x.PurchaseOrderId==order.Id).ToArray(),
+                    bindings.Where(x=>x.PurchaseOrderId==order.Id).ToArray(),token);
                 items.Add(new{orderId=order.Id,order.Number,order.Status,order.Version,order.BranchRef,
                     order.SupplierId,order.CurrencyCode,assignmentId=task.Id,assignmentVersion=task.Version,
                     caseId=workflow.Id,caseVersion=workflow.Version,workflow.OpenedAt,

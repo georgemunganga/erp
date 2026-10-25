@@ -134,7 +134,15 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var lines=await db.PurchaseOrderLines.AsNoTracking().Where(x=>x.PurchaseOrderId==id&&x.IsActive)
                 .OrderBy(x=>x.LineNumber).ToArrayAsync(token);
             var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking().Where(x=>x.PurchaseOrderId==id).ToArrayAsync(token);
-            PrincipalOrderDraftPins.Verify(order,lines,bindings);
+            var history=await ProcurementPrincipalOrderDraftHistory.VerifyStatusAsync(db,order,lines,bindings,token);
+            var effective=history.Effective;
+            var origin=history.RevisionSchemaInstalled
+                ?await db.PrincipalOrderCommercialOrigins.AsNoTracking()
+                    .SingleOrDefaultAsync(x=>x.PurchaseOrderId==id,token):null;
+            var draftRevisions=history.RevisionSchemaInstalled
+                ?await db.PrincipalOrderDraftCommercialRevisions.AsNoTracking()
+                    .Where(x=>x.PurchaseOrderId==id).OrderBy(x=>x.RevisionNumber).ToArrayAsync(token)
+                :Array.Empty<PrincipalOrderDraftCommercialRevision>();
             var ids=bindings.Select(x=>x.AllocationId).ToArray();
             var allocations=await db.PurchaseRequestAllocations.AsNoTracking().Where(x=>ids.Contains(x.Id)).ToArrayAsync(token);
             var release=await db.PrincipalOrderReleaseRequests.AsNoTracking()
@@ -147,15 +155,53 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 .SingleOrDefaultAsync(x=>x.ReleaseRequestId==release.Id,token);
             if(allocations.Length!=bindings.Length || bindings.Any(x=>
                 allocations.Count(a=>a.Id==x.AllocationId&&a.TargetType=="PurchaseOrder"&&a.TargetId==id
-                    &&a.Quantity==x.Quantity&&a.EstimatedValue==x.EstimatedValue
+                    &&effective.TryGetValue(x.Id,out var current)
+                    &&a.Quantity==current.Quantity&&a.EstimatedValue==current.EstimatedValue
                     &&a.Status==(order.Status=="Cancelled"?"Released"
                         :order.Status is "IssuePending" or "Issued" or "Disputed"?"Ordered":"Reserved"))!=1))
                 throw new Problem("OrderOriginalSourceUnavailable",409);
+            var revisionAvailable=history.RevisionSchemaInstalled
+                && await PrincipalOrderRevisionCapability.ReadyAsync(
+                    http.RequestServices,db,false,true,token);
+            var canEditDraft=false;
+            string? editUnavailableReason=revisionAvailable?null:"Draft editing is unavailable.";
+            if(revisionAvailable)
+            {
+                if(!PrincipalOrderRevisionCapability.RetainedDraftEligible(order,
+                    await db.PrincipalOrderFundingEvidence.AsNoTracking().AnyAsync(x=>x.PurchaseOrderId==id,token),
+                    await db.PrincipalOrderSubmissions.AsNoTracking().AnyAsync(x=>x.PurchaseOrderId==id,token),
+                    await db.PrincipalOrderIssuedVersions.AsNoTracking().AnyAsync(x=>x.PurchaseOrderId==id,token),
+                    await db.PrincipalReceivingSourceStates.AsNoTracking().AnyAsync(x=>x.PurchaseOrderId==id,token)))
+                    editUnavailableReason="Only an unfunded internal draft can be edited.";
+                else
+                {
+                    try
+                    {
+                        _=await Actor(core,scope,http,auth,"procurement-po-edit",order.BranchRef,true,token);
+                        var supplier=await db.Suppliers.AsNoTracking().Include(x=>x.Qualifications)
+                            .SingleOrDefaultAsync(x=>x.Id==order.SupplierId,token);
+                        canEditDraft=supplier is not null
+                            &&SupplierEligibility.CanReceiveNewOrders(supplier,DateTimeOffset.UtcNow);
+                        if(!canEditDraft)editUnavailableReason="The supplier is unavailable for a new commitment.";
+                    }
+                    catch(Problem error) when(error.Status is 403 or 404)
+                    {
+                        editUnavailableReason="You cannot edit this order in the selected branch.";
+                    }
+                }
+            }
             return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.SupplierId,
                 labels.SupplierDisplayName,labels.BranchDisplayName,
                 order.CurrencyCode,order.BranchRef,order.Status,order.Version,order.CreatedAt,
                 order.ShipToRef,order.BillToRef,order.PaymentTermRef,order.ExpectedDeliveryOn,
                 order.ClosureReason,order.OriginalDirectSourceSha256,
+                draftEditHistory=origin is null?null:new{
+                    originalSnapshotSha256=origin.SnapshotSha256,
+                    originalSnapshotJson=origin.SnapshotJson,
+                    origin.CaptureMode,
+                    revisions=draftRevisions.Select(x=>new{x.Id,x.RevisionNumber,x.Reason,
+                        x.ActorPrincipalId,x.RecordedAt,x.PreviousSnapshotSha256,
+                        x.SnapshotSha256,x.SnapshotJson,x.ResultOrderVersion}).ToArray()},
                 release=release is null?null:new{release.Id,release.OriginalStatus,release.Reason,
                     release.RequestedByPrincipalId,release.RequestedAt,
                     state=confirmation is null?"WaitingForExternalConfirmation":"ExternallyConfirmed"},
@@ -173,6 +219,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     allocationStatus=allocations.Single(x=>x.Id==bindings.Single(b=>b.PurchaseOrderLineId==line.Id).AllocationId).Status}).ToArray(),
                 executionMode="PrincipalOrderV2",manualFundingOnly=true,
                 fundingRecorded,
+                canEditDraft,editUnavailableReason,
                 financeReservationChanged=false,supplierSendPerformed=false},Json));
         },ct);
 
@@ -204,7 +251,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             .OrderBy(x=>x.LineNumber).ToArrayAsync(token);
         var bindings=await db.PrincipalOrderSourceBindings.AsNoTracking().Where(x=>x.PurchaseOrderId==id)
             .ToArrayAsync(token);
-        PrincipalOrderDraftPins.Verify(order,lines,bindings);
+        _=await ProcurementPrincipalOrderDraftHistory.VerifyAsync(db,order,lines,bindings,ct);
         if(submission.CommercialSnapshotSha256!=ProcurementEvidenceEncoding.Digest(submission.CommercialSnapshotJson)
             || submission.CommercialSnapshotJson!=funding.CommercialSnapshotJson
             || submission.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
@@ -237,6 +284,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var action=operation switch
         {
             "Create"=>"procurement-po-convert",
+            "Edit"=>"procurement-po-edit",
             "Cancel"=>"procurement-po-edit",
             "Funding"=>"procurement-po-finance-confirm",
             "Submit"=>"procurement-po-submit",

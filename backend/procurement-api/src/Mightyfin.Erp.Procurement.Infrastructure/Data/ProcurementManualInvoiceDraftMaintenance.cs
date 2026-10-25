@@ -26,8 +26,11 @@ public sealed partial class ProcurementDbContext
         && !FinanceInvoiceHandoffs.Any(row => row.SupplierInvoiceId == invoice.Id)
         && !FinancePaymentStatusRefs.Any(row => row.SupplierInvoiceId == invoice.Id)
         && !SupplierCreditNoteRefs.Any(row => row.SupplierInvoiceId == invoice.Id));
-        return ProcurementManualPaymentSchema.Installed(this)
-            ? query.Where(invoice => !ManualPaymentRequests.Any(row => row.SupplierInvoiceId == invoice.Id)) : query;
+        if (ProcurementManualPaymentSchema.Installed(this))
+            query = query.Where(invoice => !ManualPaymentRequests.Any(row => row.SupplierInvoiceId == invoice.Id));
+        if (ProcurementPrincipalInvoiceSchema.Installed(this))
+            query = query.Where(invoice => !PrincipalInvoiceStates.Any(row => row.SupplierInvoiceId == invoice.Id));
+        return query;
     }
 
     private bool MayMaintainManualInvoice(Guid id)
@@ -37,6 +40,9 @@ public sealed partial class ProcurementDbContext
         var original = ManualInvoiceDrafts().SingleOrDefault(row => row.Id == id);
         if (original is null) return false;
         if (ProcurementManualPaymentSchema.Installed(this) && ManualPaymentRequests.IgnoreQueryFilters().Any(row =>
+            row.TenantId == original.TenantId && row.LegalEntityId == original.LegalEntityId
+            && row.SupplierInvoiceId == id)) return false;
+        if (ProcurementPrincipalInvoiceSchema.Installed(this) && PrincipalInvoiceStates.IgnoreQueryFilters().Any(row =>
             row.TenantId == original.TenantId && row.LegalEntityId == original.LegalEntityId
             && row.SupplierInvoiceId == id)) return false;
         var parent = ChangeTracker.Entries<SupplierInvoice>().SingleOrDefault(row => row.Entity.Id == id);
@@ -66,6 +72,7 @@ public sealed partial class ProcurementDbContext
             FinancePaymentStatusRef row => row.SupplierInvoiceId == id,
             SupplierCreditNoteRef row => row.SupplierInvoiceId == id,
             ManualPaymentRequest row => row.SupplierInvoiceId == id,
+            PrincipalInvoiceState row => row.SupplierInvoiceId == id,
             ProcurementAttachmentRef row => row.OwnerId == id,
             SupplierInvoiceLine row => row.SupplierInvoiceId == id
                 && (row.PurchaseOrderLineId != null || row.GoodsReceiptLineId != null || row.ServiceAcceptanceId != null),
