@@ -135,7 +135,9 @@ changed in this integration; a future adapter must be capability gated.
 `RecommendationDraftEnabled` defaults false. The scoped four-family provider is
 registered and checks the owning serializable transaction, configured finite
 Execution database, P32 opened-offer read readiness, exact P36 model and physical
-catalog, and only the P36 Draft write privileges. Its physical CHECK/FK/parent
+catalog, and only the P36 Draft write privileges. The head needs UPDATE on its
+three revision cursor and three audit columns; immutable head columns, evidence
+families, audit and outbox reject UPDATE. Its physical CHECK/FK/parent
 capture remains deliberately empty until independent PostgreSQL capture, so it
 returns unavailable even if the flag is set. Current Core purpose, branch,
 named-reader and retained offer checks remain in the command/query routes.
