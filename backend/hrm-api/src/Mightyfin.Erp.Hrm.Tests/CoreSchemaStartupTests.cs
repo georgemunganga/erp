@@ -69,4 +69,21 @@ public sealed class CoreSchemaStartupTests
     [InlineData("--run-outbox-publisher", "--apply-migrations-only")]
     public void Mixed_owner_and_publisher_flags_fail_before_any_startup_mode_is_selected(string first, string second)
         => Assert.Throws<InvalidOperationException>(() => CoreHostStartupPolicy.Parse([first, second]));
+
+    [Theory]
+    [InlineData("--run-outbox-publisher=true")]
+    [InlineData("--run-outbox-publisher-extra")]
+    [InlineData("--run-outboxpublisher")]
+    [InlineData("--Run-Outbox-Publisher")]
+    [InlineData("--apply-migrations-only=true")]
+    [InlineData("--apply-migrations-only-extra")]
+    [InlineData("--apply-migration-only")]
+    [InlineData("--Apply-Migrations-Only")]
+    public void Reserved_near_mode_flags_fail_closed_before_api_startup(string option)
+        => Assert.Throws<InvalidOperationException>(() => CoreHostStartupPolicy.Parse([option]));
+
+    [Fact]
+    public void Unrelated_host_options_do_not_change_api_mode()
+        => Assert.Equal(CoreHostMode.Api,
+            CoreHostStartupPolicy.Parse(["--urls=http://127.0.0.1:8080", "--environment=Development"]));
 }

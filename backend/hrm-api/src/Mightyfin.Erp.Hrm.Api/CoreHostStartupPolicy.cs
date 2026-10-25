@@ -7,8 +7,19 @@ public static class CoreHostStartupPolicy
 {
     public static CoreHostMode Parse(IEnumerable<string> arguments)
     {
-        var owner = arguments.Contains("--apply-migrations-only", StringComparer.Ordinal);
-        var publisher = arguments.Contains("--run-outbox-publisher", StringComparer.Ordinal);
+        const string ownerFlag = "--apply-migrations-only";
+        const string publisherFlag = "--run-outbox-publisher";
+        var options = arguments.ToArray();
+        foreach (var option in options)
+        {
+            if ((option.StartsWith("--apply-migration", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(option, ownerFlag, StringComparison.Ordinal))
+                || (option.StartsWith("--run-outbox", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(option, publisherFlag, StringComparison.Ordinal)))
+                throw new InvalidOperationException("A startup mode flag is invalid; use the exact supported option.");
+        }
+        var owner = options.Contains(ownerFlag, StringComparer.Ordinal);
+        var publisher = options.Contains(publisherFlag, StringComparer.Ordinal);
         if (owner && publisher)
             throw new InvalidOperationException("Migration-only and outbox-publisher modes are mutually exclusive.");
         return owner ? CoreHostMode.MigrationOwner : publisher ? CoreHostMode.OutboxPublisher : CoreHostMode.Api;
