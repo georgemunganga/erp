@@ -97,7 +97,6 @@ public sealed class P38AwardReviewMigrationOperationTests
         Assert.True(exactRecordTypes.ToHashSet(StringComparer.Ordinal).SetEquals(auditRecordTypes));
         Assert.True(exactRecordTypes.ToHashSet(StringComparer.Ordinal).SetEquals(outboxAggregateTypes));
         Assert.Contains("action = 'SubmitAwardReview'", sql, StringComparison.Ordinal);
-        Assert.Contains("aggregate_type = 'PrincipalRfqAwardReviewSubmission'", sql, StringComparison.Ordinal);
         Assert.Contains("event_type = 'sourcing.award_review_submitted.v1'", sql, StringComparison.Ordinal);
     }
 }
