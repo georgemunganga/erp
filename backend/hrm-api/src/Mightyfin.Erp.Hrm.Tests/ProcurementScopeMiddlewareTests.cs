@@ -108,7 +108,6 @@ public sealed class ProcurementScopeMiddlewareTests
     [Theory]
     [InlineData("/api/procurement/v1/vendors", "POST")]
     [InlineData("/api/procurement/v1/items", "POST")]
-    [InlineData("/api/procurement/v1/requests", "GET")]
     public async Task Valid_All_on_existing_operational_routes_keeps_the_original_concrete_branch(
         string path, string method)
     {
@@ -143,6 +142,35 @@ public sealed class ProcurementScopeMiddlewareTests
         if (addLocation) http.Request.Headers["X-Shell-Location"] = branch.Id.ToString();
         await Middleware(_ => throw new Exception("Invalid header reached route")).InvokeAsync(http, scope, db);
         Assert.Equal(400, http.Response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/procurement/v1/requests", true)]
+    [InlineData("/api/procurement/v1/requests/", true)]
+    [InlineData("/api/procurement/v1/plans", true)]
+    [InlineData("/api/procurement/v1/contracts", true)]
+    [InlineData("/api/procurement/v1/orders", false)]
+    [InlineData("/api/procurement/v1/requests/random-child", false)]
+    [InlineData("/api/procurement/v1/requestss", false)]
+    public void All_operational_reads_are_exact_collections_not_commands_or_children(string path, bool allowed)
+    {
+        Assert.Equal(allowed, ProcurementScopeMiddleware.AllOperationalListReadPath(path,"GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(path,"POST"));
+    }
+
+    [Theory]
+    [InlineData("/api/procurement/v1/requests")]
+    [InlineData("/api/procurement/v1/plans")]
+    [InlineData("/api/procurement/v1/contracts")]
+    public async Task Reviewed_All_collections_do_not_default_to_an_assigned_branch(string path)
+    {
+        await using var db=TestDbContextFactory.Create("tenant-a");var (user,company,_,branch)=await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId=user.Id, LocationId=branch.Id });await db.SaveChangesAsync();
+        var (http,scope)=Request(user.Id);http.Request.Path=path;
+        http.Request.Headers["X-Shell-Entity"]=company.Id.ToString();http.Request.Headers["X-Shell-Branch-Scope"]="all";
+        var reached=false;await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(http,scope,db);
+        Assert.True(reached);Assert.True(scope.IsExplicitAllBranches);Assert.Null(scope.WorkLocationId);
+        Assert.Equal(new[]{branch.Id},scope.PermittedWorkLocationIds);
     }
 
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)

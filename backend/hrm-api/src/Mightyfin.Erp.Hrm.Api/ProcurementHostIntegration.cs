@@ -338,9 +338,10 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             await Deny(http, StatusCodes.Status400BadRequest, "Choose one valid company scope and branch selection.");
             return;
         }
-        // P24 operational routes retain their original concrete-branch behavior.
-        // Only the reviewed company-master GET set receives a true All scope.
-        var explicitAllBranches = validAllHeader && AllCompanyMasterReadPath(http.Request.Path, http.Request.Method);
+        // All is admitted only by reviewed read contracts. Request lists fence
+        // branch-owned rows before count/page; plans/contracts are company-owned.
+        var explicitAllBranches = validAllHeader && (AllCompanyMasterReadPath(http.Request.Path, http.Request.Method)
+            || AllOperationalListReadPath(http.Request.Path, http.Request.Method));
         Guid? requestedEntity = null;
         Guid? requestedLocation = null;
         if (!string.IsNullOrEmpty(requestedEntityText))
@@ -360,6 +361,14 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
                 return;
             }
             requestedLocation = parsed;
+        }
+
+        // An explicit company-wide view must never silently post a request to
+        // an arbitrary assigned branch. Preserve legacy non-All commands.
+        if (validAllHeader && RequestWriteRequiresBranch(http.Request.Path, http.Request.Method))
+        {
+            await Deny(http, StatusCodes.Status400BadRequest, "Choose a permitted branch before changing a purchase request.");
+            return;
         }
 
         var legalEntities = await db.LegalEntities.AsNoTracking()
@@ -489,6 +498,21 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         await http.Response.WriteAsJsonAsync(new ApiError(status == 400 ? "invalid-scope" : "forbidden", message, []),
             http.RequestAborted);
     }
+
+    // These exact collections have reviewed All readers. Detail/review and
+    // mutation routes retain their separate branch requirements.
+    internal static bool AllOperationalListReadPath(PathString path, string method)
+    {
+        if (!HttpMethods.IsGet(method)) return false;
+        var value = path.Value?.TrimEnd('/');
+        return string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static bool RequestWriteRequiresBranch(PathString path, string method) =>
+        path.StartsWithSegments("/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+        && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method));
 
     // Only current company-master reads use explicit All in this P24 backport.
     // A future child or write route must receive its own scope review.
