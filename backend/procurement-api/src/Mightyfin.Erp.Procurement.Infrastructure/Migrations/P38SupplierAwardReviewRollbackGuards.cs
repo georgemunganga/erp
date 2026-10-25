@@ -20,10 +20,18 @@ internal static class P38SupplierAwardReviewRollbackGuards
             OR EXISTS (SELECT 1 FROM procurement.principal_rfq_award_review_outcomes)
             OR EXISTS (SELECT 1 FROM procurement.principal_rfq_award_review_receipts)
             OR EXISTS (SELECT 1 FROM procurement.audit_events
-                       WHERE record_type = 'PrincipalRfqAwardReviewSubmission'
+                       WHERE record_type IN ('PrincipalRfqRecommendationSubmission',
+                         'PrincipalRfqAwardReviewSubmission',
+                         'PrincipalRfqAwardReviewLine',
+                         'PrincipalRfqAwardReviewOutcome',
+                         'PrincipalRfqAwardReviewReceipt')
                           OR action = 'SubmitAwardReview')
             OR EXISTS (SELECT 1 FROM procurement.outbox_events
-                       WHERE aggregate_type = 'PrincipalRfqAwardReviewSubmission'
+                       WHERE aggregate_type IN ('PrincipalRfqRecommendationSubmission',
+                         'PrincipalRfqAwardReviewSubmission',
+                         'PrincipalRfqAwardReviewLine',
+                         'PrincipalRfqAwardReviewOutcome',
+                         'PrincipalRfqAwardReviewReceipt')
                           OR event_type = 'sourcing.award_review_submitted.v1') THEN
             RAISE EXCEPTION 'P38 supplier award review evidence prevents downgrade'
               USING ERRCODE = '55000';

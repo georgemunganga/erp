@@ -83,7 +83,19 @@ public sealed class P38AwardReviewMigrationOperationTests
         Assert.True(owned.SetEquals(locked));
         Assert.True(owned.SetEquals(vetoed));
         Assert.Contains("ERRCODE = '55000'", sql, StringComparison.Ordinal);
-        Assert.Contains("record_type = 'PrincipalRfqAwardReviewSubmission'", sql, StringComparison.Ordinal);
+        var exactRecordTypes = new[] { "PrincipalRfqRecommendationSubmission",
+            "PrincipalRfqAwardReviewSubmission", "PrincipalRfqAwardReviewLine",
+            "PrincipalRfqAwardReviewOutcome", "PrincipalRfqAwardReviewReceipt" };
+        var auditRecordTypes = Regex.Matches(sql[
+            sql.IndexOf("record_type IN", StringComparison.Ordinal)..
+                sql.IndexOf("OR action =", StringComparison.Ordinal)], @"'([A-Za-z]+)'")
+            .Select(x => x.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
+        var outboxAggregateTypes = Regex.Matches(sql[
+            sql.IndexOf("aggregate_type IN", StringComparison.Ordinal)..
+                sql.IndexOf("OR event_type =", StringComparison.Ordinal)], @"'([A-Za-z]+)'")
+            .Select(x => x.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
+        Assert.True(exactRecordTypes.ToHashSet(StringComparer.Ordinal).SetEquals(auditRecordTypes));
+        Assert.True(exactRecordTypes.ToHashSet(StringComparer.Ordinal).SetEquals(outboxAggregateTypes));
         Assert.Contains("action = 'SubmitAwardReview'", sql, StringComparison.Ordinal);
         Assert.Contains("aggregate_type = 'PrincipalRfqAwardReviewSubmission'", sql, StringComparison.Ordinal);
         Assert.Contains("event_type = 'sourcing.award_review_submitted.v1'", sql, StringComparison.Ordinal);
