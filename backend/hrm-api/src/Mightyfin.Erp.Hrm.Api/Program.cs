@@ -19,6 +19,8 @@ using Mightyfin.Erp.Hrm.Infrastructure;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Hrm.Application.Integration;
 
+// Reject contradictory process authority before configuring any database access.
+var startupMode = CoreHostStartupPolicy.Parse(args);
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------- Logging: structured JSON in production, console otherwise ----------
@@ -114,7 +116,7 @@ builder.Services.AddScoped<IWorkerResolver, WorkerResolver>();
 builder.Services.AddScoped<IWorkerLifecycleService, WorkerLifecycleServiceImpl>();
 builder.Services.AddScoped<ITimeRepository, TimeRepository>();
 builder.Services.AddScoped<ITimeService, TimeServiceImpl>();
-if (!args.Contains("--apply-migrations-only") && !args.Contains("--run-outbox-publisher")
+if (startupMode == CoreHostMode.Api
     && builder.Configuration.GetValue<bool>("HRM:MonthlyLeaveAccrualEnabled", true))
     builder.Services.AddHostedService<MonthlyLeaveAccrualWorker>();
 builder.Services.AddScoped<IWorkflowRepository, WorkflowRepository>();
@@ -261,24 +263,26 @@ var app = builder.Build();
 
 // ---------- Verify the owning Core/HRM schema before startup ----------
 // Production runtime accounts do not need DDL. The dedicated owner process keeps
-// --apply-migrations-only; development can still perform automatic initial setup.
+// --apply-migrations-only; ordinary development API startup retains its existing
+// configuration behavior. The publisher always verifies without applying DDL.
 using (var scope = app.Services.CreateScope())
 {
     await CoreSchemaStartup.EnsureAsync(scope.ServiceProvider.GetRequiredService<HrmDbContext>(), "Core/HRM",
-        CoreSchemaStartup.MayApplyMigrations(builder.Configuration, builder.Environment.IsDevelopment(), args));
+        CoreHostStartupPolicy.MayApplyCoreMigrations(startupMode, builder.Configuration,
+            builder.Environment.IsDevelopment(), args));
 }
-if (args.Contains("--apply-migrations-only"))
+if (startupMode == CoreHostMode.MigrationOwner)
 {
     Console.WriteLine("Migrations applied. Exiting.");
     return;
 }
-await LocalIdentityBootstrap.EnsureAsync(app.Services, builder.Configuration);
-
-if (args.Contains("--run-outbox-publisher"))
+if (startupMode == CoreHostMode.OutboxPublisher)
 {
     await RunOutboxPublisherAsync(app.Services, builder.Configuration);
     return;
 }
+if (CoreHostStartupPolicy.MayBootstrapLocalIdentity(startupMode))
+    await LocalIdentityBootstrap.EnsureAsync(app.Services, builder.Configuration);
 
 // ---------- Cross-cutting middleware ----------
 app.UseCors();
