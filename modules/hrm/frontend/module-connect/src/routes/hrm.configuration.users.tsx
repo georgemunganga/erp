@@ -262,7 +262,7 @@ export function UsersConfiguration() {
   };
 
   return (
-    <AuthGate>
+    <AuthGate module="erp">
       <ConfigurationShell>
         <PageHeader
           eyebrow="Configuration · Security"

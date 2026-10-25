@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SpeakUpRouteImport } from './routes/speak-up'
 import { Route as CoreIndexRouteImport } from './routes/core.index'
+import { Route as CoreBranchAccessRouteImport } from './routes/core.branch-access'
 import { Route as CoreBrandingRouteImport } from './routes/core.branding'
 import { Route as CoreOrganizationRouteImport } from './routes/core.organization'
 import { Route as CoreRolesRouteImport } from './routes/core.roles'
@@ -33,6 +34,8 @@ import { Route as HrmReportingRouteImport } from './routes/hrm.reporting'
 import { Route as HrmSelfServiceRouteImport } from './routes/hrm.self-service'
 import { Route as HrmSetupRouteImport } from './routes/hrm.setup'
 import { Route as CoreSettingsSlugRouteImport } from './routes/core.settings.$slug'
+import { Route as CoreUsersIdRouteImport } from './routes/core.users.$id'
+import { Route as CoreWorkspaceSettingsRouteImport } from './routes/core.workspace.settings'
 import { Route as HrmAttendanceIndexRouteImport } from './routes/hrm.attendance.index'
 import { Route as HrmAttendanceIdRouteImport } from './routes/hrm.attendance.$id'
 import { Route as HrmAttendanceClockRouteImport } from './routes/hrm.attendance.clock'
@@ -126,6 +129,7 @@ import { Route as HrmTimeTimesheetsRouteImport } from './routes/hrm.time.timeshe
 import { Route as HrmTimeToilRouteImport } from './routes/hrm.time.toil'
 import { Route as HrmTimeTravelRouteImport } from './routes/hrm.time.travel'
 import { Route as HrmTimeUtilisationRouteImport } from './routes/hrm.time.utilisation'
+import { Route as CoreWorkspaceSettingsSlugRouteImport } from './routes/core.workspace.settings.$slug'
 import { Route as HrmConfigurationUsersIdRouteImport } from './routes/hrm.configuration.users.$id'
 import { Route as HrmEmployeesIdEditRouteImport } from './routes/hrm.employees.$id.edit'
 import { Route as HrmLifecycleMovementsNewRouteImport } from './routes/hrm.lifecycle.movements.new'
@@ -142,6 +146,7 @@ import { Route as HrmTimeAttendanceBulkRouteImport } from './routes/hrm.time.att
 import { Route as HrmTimeAttendanceImportRouteImport } from './routes/hrm.time.attendance.import'
 import { Route as HrmTimeExpensesIndexRouteImport } from './routes/hrm.time.expenses.index'
 import { Route as HrmTimeExpensesNewRouteImport } from './routes/hrm.time.expenses.new'
+import { Route as CoreWorkspaceSettingsUsersIdRouteImport } from './routes/core.workspace.settings.users.$id'
 import { Route as HrmPayrollRunsIdEditRouteImport } from './routes/hrm.payroll.runs.$id.edit'
 
 const IndexRoute = IndexRouteImport.update({
@@ -162,6 +167,11 @@ const SpeakUpRoute = SpeakUpRouteImport.update({
 const CoreIndexRoute = CoreIndexRouteImport.update({
   id: '/core/',
   path: '/core/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoreBranchAccessRoute = CoreBranchAccessRouteImport.update({
+  id: '/core/branch-access',
+  path: '/core/branch-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CoreBrandingRoute = CoreBrandingRouteImport.update({
@@ -262,6 +272,16 @@ const HrmSetupRoute = HrmSetupRouteImport.update({
 const CoreSettingsSlugRoute = CoreSettingsSlugRouteImport.update({
   id: '/core/settings/$slug',
   path: '/core/settings/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoreUsersIdRoute = CoreUsersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => CoreUsersRoute,
+} as any)
+const CoreWorkspaceSettingsRoute = CoreWorkspaceSettingsRouteImport.update({
+  id: '/core/workspace/settings',
+  path: '/core/workspace/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HrmAttendanceIndexRoute = HrmAttendanceIndexRouteImport.update({
@@ -746,6 +766,12 @@ const HrmTimeUtilisationRoute = HrmTimeUtilisationRouteImport.update({
   path: '/hrm/time/utilisation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CoreWorkspaceSettingsSlugRoute =
+  CoreWorkspaceSettingsSlugRouteImport.update({
+    id: '/$slug',
+    path: '/$slug',
+    getParentRoute: () => CoreWorkspaceSettingsRoute,
+  } as any)
 const HrmConfigurationUsersIdRoute = HrmConfigurationUsersIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -831,6 +857,12 @@ const HrmTimeExpensesNewRoute = HrmTimeExpensesNewRouteImport.update({
   path: '/hrm/time/expenses/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CoreWorkspaceSettingsUsersIdRoute =
+  CoreWorkspaceSettingsUsersIdRouteImport.update({
+    id: '/users/$id',
+    path: '/users/$id',
+    getParentRoute: () => CoreWorkspaceSettingsRoute,
+  } as any)
 const HrmPayrollRunsIdEditRoute = HrmPayrollRunsIdEditRouteImport.update({
   id: '/edit',
   path: '/edit',
@@ -841,10 +873,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
   '/core/roles': typeof CoreRolesRoute
-  '/core/users': typeof CoreUsersRoute
+  '/core/users': typeof CoreUsersRouteWithChildren
   '/hrm/analytics': typeof HrmAnalyticsRoute
   '/hrm/approvals': typeof HrmApprovalsRoute
   '/hrm/benefits': typeof HrmBenefitsRoute
@@ -862,6 +895,8 @@ export interface FileRoutesByFullPath {
   '/core/': typeof CoreIndexRoute
   '/hrm/': typeof HrmIndexRoute
   '/core/settings/$slug': typeof CoreSettingsSlugRoute
+  '/core/users/$id': typeof CoreUsersIdRoute
+  '/core/workspace/settings': typeof CoreWorkspaceSettingsRouteWithChildren
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -955,6 +990,7 @@ export interface FileRoutesByFullPath {
   '/hrm/reports/': typeof HrmReportsIndexRoute
   '/hrm/requests/': typeof HrmRequestsIndexRoute
   '/hrm/talent/': typeof HrmTalentIndexRoute
+  '/core/workspace/settings/$slug': typeof CoreWorkspaceSettingsSlugRoute
   '/hrm/configuration/users/$id': typeof HrmConfigurationUsersIdRoute
   '/hrm/employees/$id/edit': typeof HrmEmployeesIdEditRoute
   '/hrm/lifecycle/movements/new': typeof HrmLifecycleMovementsNewRoute
@@ -971,16 +1007,18 @@ export interface FileRoutesByFullPath {
   '/hrm/time/attendance/import': typeof HrmTimeAttendanceImportRoute
   '/hrm/time/expenses/new': typeof HrmTimeExpensesNewRoute
   '/hrm/time/expenses/': typeof HrmTimeExpensesIndexRoute
+  '/core/workspace/settings/users/$id': typeof CoreWorkspaceSettingsUsersIdRoute
   '/hrm/payroll/runs/$id/edit': typeof HrmPayrollRunsIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
   '/core/roles': typeof CoreRolesRoute
-  '/core/users': typeof CoreUsersRoute
+  '/core/users': typeof CoreUsersRouteWithChildren
   '/hrm/analytics': typeof HrmAnalyticsRoute
   '/hrm/approvals': typeof HrmApprovalsRoute
   '/hrm/benefits': typeof HrmBenefitsRoute
@@ -998,6 +1036,8 @@ export interface FileRoutesByTo {
   '/core': typeof CoreIndexRoute
   '/hrm': typeof HrmIndexRoute
   '/core/settings/$slug': typeof CoreSettingsSlugRoute
+  '/core/users/$id': typeof CoreUsersIdRoute
+  '/core/workspace/settings': typeof CoreWorkspaceSettingsRouteWithChildren
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -1091,6 +1131,7 @@ export interface FileRoutesByTo {
   '/hrm/reports': typeof HrmReportsIndexRoute
   '/hrm/requests': typeof HrmRequestsIndexRoute
   '/hrm/talent': typeof HrmTalentIndexRoute
+  '/core/workspace/settings/$slug': typeof CoreWorkspaceSettingsSlugRoute
   '/hrm/configuration/users/$id': typeof HrmConfigurationUsersIdRoute
   '/hrm/employees/$id/edit': typeof HrmEmployeesIdEditRoute
   '/hrm/lifecycle/movements/new': typeof HrmLifecycleMovementsNewRoute
@@ -1107,6 +1148,7 @@ export interface FileRoutesByTo {
   '/hrm/time/attendance/import': typeof HrmTimeAttendanceImportRoute
   '/hrm/time/expenses/new': typeof HrmTimeExpensesNewRoute
   '/hrm/time/expenses': typeof HrmTimeExpensesIndexRoute
+  '/core/workspace/settings/users/$id': typeof CoreWorkspaceSettingsUsersIdRoute
   '/hrm/payroll/runs/$id/edit': typeof HrmPayrollRunsIdEditRoute
 }
 export interface FileRoutesById {
@@ -1114,10 +1156,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
   '/core/roles': typeof CoreRolesRoute
-  '/core/users': typeof CoreUsersRoute
+  '/core/users': typeof CoreUsersRouteWithChildren
   '/hrm/analytics': typeof HrmAnalyticsRoute
   '/hrm/approvals': typeof HrmApprovalsRoute
   '/hrm/benefits': typeof HrmBenefitsRoute
@@ -1135,6 +1178,8 @@ export interface FileRoutesById {
   '/core/': typeof CoreIndexRoute
   '/hrm/': typeof HrmIndexRoute
   '/core/settings/$slug': typeof CoreSettingsSlugRoute
+  '/core/users/$id': typeof CoreUsersIdRoute
+  '/core/workspace/settings': typeof CoreWorkspaceSettingsRouteWithChildren
   '/hrm/attendance/$id': typeof HrmAttendanceIdRoute
   '/hrm/attendance/clock': typeof HrmAttendanceClockRoute
   '/hrm/attendance/new': typeof HrmAttendanceNewRoute
@@ -1228,6 +1273,7 @@ export interface FileRoutesById {
   '/hrm/reports/': typeof HrmReportsIndexRoute
   '/hrm/requests/': typeof HrmRequestsIndexRoute
   '/hrm/talent/': typeof HrmTalentIndexRoute
+  '/core/workspace/settings/$slug': typeof CoreWorkspaceSettingsSlugRoute
   '/hrm/configuration/users/$id': typeof HrmConfigurationUsersIdRoute
   '/hrm/employees/$id/edit': typeof HrmEmployeesIdEditRoute
   '/hrm/lifecycle/movements/new': typeof HrmLifecycleMovementsNewRoute
@@ -1244,6 +1290,7 @@ export interface FileRoutesById {
   '/hrm/time/attendance/import': typeof HrmTimeAttendanceImportRoute
   '/hrm/time/expenses/new': typeof HrmTimeExpensesNewRoute
   '/hrm/time/expenses/': typeof HrmTimeExpensesIndexRoute
+  '/core/workspace/settings/users/$id': typeof CoreWorkspaceSettingsUsersIdRoute
   '/hrm/payroll/runs/$id/edit': typeof HrmPayrollRunsIdEditRoute
 }
 export interface FileRouteTypes {
@@ -1252,6 +1299,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/speak-up'
+    | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
     | '/core/roles'
@@ -1273,6 +1321,8 @@ export interface FileRouteTypes {
     | '/core/'
     | '/hrm/'
     | '/core/settings/$slug'
+    | '/core/users/$id'
+    | '/core/workspace/settings'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1366,6 +1416,7 @@ export interface FileRouteTypes {
     | '/hrm/reports/'
     | '/hrm/requests/'
     | '/hrm/talent/'
+    | '/core/workspace/settings/$slug'
     | '/hrm/configuration/users/$id'
     | '/hrm/employees/$id/edit'
     | '/hrm/lifecycle/movements/new'
@@ -1382,12 +1433,14 @@ export interface FileRouteTypes {
     | '/hrm/time/attendance/import'
     | '/hrm/time/expenses/new'
     | '/hrm/time/expenses/'
+    | '/core/workspace/settings/users/$id'
     | '/hrm/payroll/runs/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/sign-in'
     | '/speak-up'
+    | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
     | '/core/roles'
@@ -1409,6 +1462,8 @@ export interface FileRouteTypes {
     | '/core'
     | '/hrm'
     | '/core/settings/$slug'
+    | '/core/users/$id'
+    | '/core/workspace/settings'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1502,6 +1557,7 @@ export interface FileRouteTypes {
     | '/hrm/reports'
     | '/hrm/requests'
     | '/hrm/talent'
+    | '/core/workspace/settings/$slug'
     | '/hrm/configuration/users/$id'
     | '/hrm/employees/$id/edit'
     | '/hrm/lifecycle/movements/new'
@@ -1518,12 +1574,14 @@ export interface FileRouteTypes {
     | '/hrm/time/attendance/import'
     | '/hrm/time/expenses/new'
     | '/hrm/time/expenses'
+    | '/core/workspace/settings/users/$id'
     | '/hrm/payroll/runs/$id/edit'
   id:
     | '__root__'
     | '/'
     | '/sign-in'
     | '/speak-up'
+    | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
     | '/core/roles'
@@ -1545,6 +1603,8 @@ export interface FileRouteTypes {
     | '/core/'
     | '/hrm/'
     | '/core/settings/$slug'
+    | '/core/users/$id'
+    | '/core/workspace/settings'
     | '/hrm/attendance/$id'
     | '/hrm/attendance/clock'
     | '/hrm/attendance/new'
@@ -1638,6 +1698,7 @@ export interface FileRouteTypes {
     | '/hrm/reports/'
     | '/hrm/requests/'
     | '/hrm/talent/'
+    | '/core/workspace/settings/$slug'
     | '/hrm/configuration/users/$id'
     | '/hrm/employees/$id/edit'
     | '/hrm/lifecycle/movements/new'
@@ -1654,6 +1715,7 @@ export interface FileRouteTypes {
     | '/hrm/time/attendance/import'
     | '/hrm/time/expenses/new'
     | '/hrm/time/expenses/'
+    | '/core/workspace/settings/users/$id'
     | '/hrm/payroll/runs/$id/edit'
   fileRoutesById: FileRoutesById
 }
@@ -1661,10 +1723,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SignInRoute: typeof SignInRoute
   SpeakUpRoute: typeof SpeakUpRoute
+  CoreBranchAccessRoute: typeof CoreBranchAccessRoute
   CoreBrandingRoute: typeof CoreBrandingRoute
   CoreOrganizationRoute: typeof CoreOrganizationRoute
   CoreRolesRoute: typeof CoreRolesRoute
-  CoreUsersRoute: typeof CoreUsersRoute
+  CoreUsersRoute: typeof CoreUsersRouteWithChildren
   HrmAnalyticsRoute: typeof HrmAnalyticsRoute
   HrmApprovalsRoute: typeof HrmApprovalsRoute
   HrmBenefitsRoute: typeof HrmBenefitsRoute
@@ -1682,6 +1745,7 @@ export interface RootRouteChildren {
   CoreIndexRoute: typeof CoreIndexRoute
   HrmIndexRoute: typeof HrmIndexRoute
   CoreSettingsSlugRoute: typeof CoreSettingsSlugRoute
+  CoreWorkspaceSettingsRoute: typeof CoreWorkspaceSettingsRouteWithChildren
   HrmAttendanceIdRoute: typeof HrmAttendanceIdRoute
   HrmAttendanceClockRoute: typeof HrmAttendanceClockRoute
   HrmAttendanceNewRoute: typeof HrmAttendanceNewRoute
@@ -1809,6 +1873,13 @@ declare module '@tanstack/react-router' {
       path: '/core'
       fullPath: '/core/'
       preLoaderRoute: typeof CoreIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/core/branch-access': {
+      id: '/core/branch-access'
+      path: '/core/branch-access'
+      fullPath: '/core/branch-access'
+      preLoaderRoute: typeof CoreBranchAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/core/branding': {
@@ -1949,6 +2020,20 @@ declare module '@tanstack/react-router' {
       path: '/core/settings/$slug'
       fullPath: '/core/settings/$slug'
       preLoaderRoute: typeof CoreSettingsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/core/users/$id': {
+      id: '/core/users/$id'
+      path: '/$id'
+      fullPath: '/core/users/$id'
+      preLoaderRoute: typeof CoreUsersIdRouteImport
+      parentRoute: typeof CoreUsersRoute
+    }
+    '/core/workspace/settings': {
+      id: '/core/workspace/settings'
+      path: '/core/workspace/settings'
+      fullPath: '/core/workspace/settings'
+      preLoaderRoute: typeof CoreWorkspaceSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hrm/attendance/': {
@@ -2602,6 +2687,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HrmTimeUtilisationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/core/workspace/settings/$slug': {
+      id: '/core/workspace/settings/$slug'
+      path: '/$slug'
+      fullPath: '/core/workspace/settings/$slug'
+      preLoaderRoute: typeof CoreWorkspaceSettingsSlugRouteImport
+      parentRoute: typeof CoreWorkspaceSettingsRoute
+    }
     '/hrm/configuration/users/$id': {
       id: '/hrm/configuration/users/$id'
       path: '/$id'
@@ -2714,6 +2806,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HrmTimeExpensesNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/core/workspace/settings/users/$id': {
+      id: '/core/workspace/settings/users/$id'
+      path: '/users/$id'
+      fullPath: '/core/workspace/settings/users/$id'
+      preLoaderRoute: typeof CoreWorkspaceSettingsUsersIdRouteImport
+      parentRoute: typeof CoreWorkspaceSettingsRoute
+    }
     '/hrm/payroll/runs/$id/edit': {
       id: '/hrm/payroll/runs/$id/edit'
       path: '/edit'
@@ -2723,6 +2822,33 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface CoreUsersRouteChildren {
+  CoreUsersIdRoute: typeof CoreUsersIdRoute
+}
+
+const CoreUsersRouteChildren: CoreUsersRouteChildren = {
+  CoreUsersIdRoute: CoreUsersIdRoute,
+}
+
+const CoreUsersRouteWithChildren = CoreUsersRoute._addFileChildren(
+  CoreUsersRouteChildren,
+)
+
+interface CoreWorkspaceSettingsRouteChildren {
+  CoreWorkspaceSettingsSlugRoute: typeof CoreWorkspaceSettingsSlugRoute
+  CoreWorkspaceSettingsUsersIdRoute: typeof CoreWorkspaceSettingsUsersIdRoute
+}
+
+const CoreWorkspaceSettingsRouteChildren: CoreWorkspaceSettingsRouteChildren = {
+  CoreWorkspaceSettingsSlugRoute: CoreWorkspaceSettingsSlugRoute,
+  CoreWorkspaceSettingsUsersIdRoute: CoreWorkspaceSettingsUsersIdRoute,
+}
+
+const CoreWorkspaceSettingsRouteWithChildren =
+  CoreWorkspaceSettingsRoute._addFileChildren(
+    CoreWorkspaceSettingsRouteChildren,
+  )
 
 interface HrmConfigurationUsersRouteChildren {
   HrmConfigurationUsersIdRoute: typeof HrmConfigurationUsersIdRoute
@@ -2880,10 +3006,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SignInRoute: SignInRoute,
   SpeakUpRoute: SpeakUpRoute,
+  CoreBranchAccessRoute: CoreBranchAccessRoute,
   CoreBrandingRoute: CoreBrandingRoute,
   CoreOrganizationRoute: CoreOrganizationRoute,
   CoreRolesRoute: CoreRolesRoute,
-  CoreUsersRoute: CoreUsersRoute,
+  CoreUsersRoute: CoreUsersRouteWithChildren,
   HrmAnalyticsRoute: HrmAnalyticsRoute,
   HrmApprovalsRoute: HrmApprovalsRoute,
   HrmBenefitsRoute: HrmBenefitsRoute,
@@ -2901,6 +3028,7 @@ const rootRouteChildren: RootRouteChildren = {
   CoreIndexRoute: CoreIndexRoute,
   HrmIndexRoute: HrmIndexRoute,
   CoreSettingsSlugRoute: CoreSettingsSlugRoute,
+  CoreWorkspaceSettingsRoute: CoreWorkspaceSettingsRouteWithChildren,
   HrmAttendanceIdRoute: HrmAttendanceIdRoute,
   HrmAttendanceClockRoute: HrmAttendanceClockRoute,
   HrmAttendanceNewRoute: HrmAttendanceNewRoute,
@@ -3002,13 +3130,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

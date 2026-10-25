@@ -853,7 +853,7 @@ export function OrganisationConfig() {
   ];
 
   return (
-    <AuthGate>
+    <AuthGate module="erp">
       <ConfigurationShell>
       <PageHeader
         eyebrow="Configuration"
