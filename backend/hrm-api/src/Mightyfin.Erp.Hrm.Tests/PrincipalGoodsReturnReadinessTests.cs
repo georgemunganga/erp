@@ -88,6 +88,7 @@ public sealed class PrincipalGoodsReturnReadinessTests
             values["ConnectionStrings:ProcurementApprovalExecution"]="Host=never-used.invalid;Database=private;Username=finite";
         var config=new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var services=new ServiceCollection();
+        services.AddSingleton<IConfiguration>(config);
         ProcurementHostIntegration.AddServices(services,"Host=never-used.invalid;Database=record",config);
         using var provider=services.BuildServiceProvider();using var scope=provider.CreateScope();
         var options=scope.ServiceProvider.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>();
