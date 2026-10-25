@@ -37,7 +37,7 @@ public sealed class PrincipalGoodsReturnDraftRulesTests
     {
         var actor = Guid.NewGuid().ToString("D");
         var head = new PrincipalGoodsReturnDraft { CreatorPrincipalId = actor, AcceptedFactQuantity = 0.0001m };
-        var revision = new PrincipalGoodsReturnRevision { DraftId = head.Id, ActorPrincipalId = actor,
+        var revision = new PrincipalGoodsReturnRevision { DraftId = head.Id, Revision = 1, ActorPrincipalId = actor,
             Quantity = 0.0001m, Reason = "Damaged" };
         var json = PrincipalGoodsReturnRules.ResponseJson(head, revision);
         Assert.Contains("\"acceptedFactQuantityExact\":\"0.0001\"", json);
@@ -56,7 +56,7 @@ public sealed class PrincipalGoodsReturnDraftRulesTests
     public void Retained_command_request_must_match_typed_revision_not_just_its_own_hash()
     {
         var head = new PrincipalGoodsReturnDraft { AcceptanceFactId = Guid.NewGuid(), AcceptedFactQuantity = 2m };
-        var revision = new PrincipalGoodsReturnRevision { DraftId = head.Id, Quantity = 1m, Reason = "Damaged" };
+        var revision = new PrincipalGoodsReturnRevision { DraftId = head.Id, Revision = 1, Quantity = 1m, Reason = "Damaged" };
         string Body(string quantity) => JsonSerializer.Serialize(new { operation = "Create", input = new
         { acceptanceFactId = head.AcceptanceFactId, quantity, reason = "Damaged", evidenceReference = (string?)null } });
         var valid = Body("1");

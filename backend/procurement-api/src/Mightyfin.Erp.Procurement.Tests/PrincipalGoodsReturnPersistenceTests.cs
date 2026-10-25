@@ -17,14 +17,15 @@ public sealed class PrincipalGoodsReturnPersistenceTests
     }
 
     [Theory]
-    [InlineData(false, false, "Pending", 0, false)]
-    [InlineData(true, false, "Pending", 0, false)]
-    [InlineData(true, true, "Pending", 0, false)]
-    [InlineData(true, true, "Published", 0, false)]
-    [InlineData(true, true, "Pending", 1, false)]
-    [InlineData(true, true, "Pending", 0, true)]
+    [InlineData(false, false, "Pending", 0, false, 1)]
+    [InlineData(true, false, "Pending", 0, false, 1)]
+    [InlineData(true, true, "Pending", 0, false, 1)]
+    [InlineData(true, true, "Published", 0, false, 1)]
+    [InlineData(true, true, "Pending", 1, false, 1)]
+    [InlineData(true, true, "Pending", 0, true, 1)]
+    [InlineData(true, true, "Pending", 0, false, 0)]
     public async Task Draft_evidence_cannot_save_without_exact_internal_event_and_verified_accepted_goods(
-        bool addEvent, bool correctPayload, string eventState, int attempts, bool published)
+        bool addEvent, bool correctPayload, string eventState, int attempts, bool published, long initialRevision)
     {
         var actor = Guid.NewGuid().ToString("D"); var scope = new Scope("return-guard", Guid.NewGuid(), actor);
         var options = new DbContextOptionsBuilder<ProcurementDbContext>()
@@ -37,7 +38,7 @@ public sealed class PrincipalGoodsReturnPersistenceTests
             IssuedVersionId = Guid.NewGuid(), SourceSha256 = new string('a', 64), AcceptanceSha256 = new string('b', 64),
             AcceptedFactQuantity = 1m, CreatorPrincipalId = actor };
         var revision = new PrincipalGoodsReturnRevision { TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
-            DraftId = head.Id, CommandKey = key, ActorPrincipalId = actor, Quantity = 1m, Reason = "Damaged",
+            DraftId = head.Id, Revision = initialRevision, CommandKey = key, ActorPrincipalId = actor, Quantity = 1m, Reason = "Damaged",
             ProposalSha256 = PrincipalGoodsReturnRules.Fingerprint(head.Id, 1, 1m, "Damaged", null, "Draft") };
         head.CurrentRevisionId = revision.Id;
         var response = PrincipalGoodsReturnRules.ResponseJson(head, revision);
@@ -55,8 +56,9 @@ public sealed class PrincipalGoodsReturnPersistenceTests
             PayloadJson = PrincipalGoodsReturnRules.OutboxPayloadJson(head.Id, "Create", key, 1,
                 correctPayload ? actor : Guid.NewGuid().ToString("D")) });
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
-        Assert.Equal(addEvent && correctPayload && eventState == "Pending" && attempts == 0 && !published
-            ? "ReturnDraftAcceptedGoodsSourceRequired" : "ReturnDraftInternalEventRequired", failure.Message);
+        Assert.Equal(initialRevision == 0 ? "ReturnDraftExactRevisionReceiptRequired" :
+            addEvent && correctPayload && eventState == "Pending" && attempts == 0 && !published
+                ? "ReturnDraftAcceptedGoodsSourceRequired" : "ReturnDraftInternalEventRequired", failure.Message);
         Assert.False(await db.PrincipalGoodsReturnDrafts.AsNoTracking().AnyAsync());
     }
 }
