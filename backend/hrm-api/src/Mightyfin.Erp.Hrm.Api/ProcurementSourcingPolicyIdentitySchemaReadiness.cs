@@ -14,6 +14,13 @@ namespace Mightyfin.Erp.Hrm.Api;
 public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurementSourcingPolicyIdentitySchemaReadiness
 {
     internal const string MigrationId = "20261023222748_P30PrincipalCommercialWorkflows";
+    internal const string P32MigrationId = "20261024182504_P32PrincipalCommercialEvidence";
+    // Captured read-only from the genuine P32 Up in the private PostgreSQL 17
+    // owner store. P32 binds its prepared commercial source to this exact pin.
+    internal const string P32PublishedIndexName = "ux_pr32_published_identity_target";
+    internal const string P32PublishedIndexDefinition = "CREATE UNIQUE INDEX ux_pr32_published_identity_target ON procurement.sourcing_policy_identity_evidence USING btree (tenant_id, legal_entity_id, id, policy_version_id, stage, rules_sha256, evidence_sha256)";
+    internal static readonly HashSet<string> UniqueIndexNames = ["ux_source_policy_identity_revision",
+        "ux_source_policy_identity_created", "ux_source_policy_identity_published", P32PublishedIndexName];
     // Exact PostgreSQL17 check captured from the genuine P30 Up in
     // procurement-p30-owner-ddl-20261023_run02/checks.json. The unchanged
     // partial index predicates and three self/owner keys remain mandatory.
@@ -34,7 +41,8 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
         {
             if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
             var applied = await owner.Database.GetAppliedMigrationsAsync(ct);
-            if (!applied.Contains(MigrationId, StringComparer.Ordinal)) return false;
+            if (!applied.Contains(MigrationId, StringComparer.Ordinal)
+                || !applied.Contains(P32MigrationId, StringComparer.Ordinal)) return false;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
             await using var command = connection.CreateCommand();
@@ -76,8 +84,13 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
             foreach (var key in identity.GetKeys())
                 if (!await True(KeySql(table, key.Properties.Select(x => x.GetColumnName(table)!).ToArray(), key.GetName()!, key.IsPrimaryKey()))) return false;
             var unique = identity.GetIndexes().Where(x => x.IsUnique).ToArray();
-            if (unique.Length != 3 || !unique.Select(x => x.GetDatabaseName()).ToHashSet(StringComparer.Ordinal)
-                .SetEquals(["ux_source_policy_identity_revision", "ux_source_policy_identity_created", "ux_source_policy_identity_published"])) return false;
+            if (!HasExactP32Indexes(applied, unique.Select(x => x.GetDatabaseName()))) return false;
+            // The model and every mapped index must match, and no unrelated
+            // physical unique index may silently extend the retained source key.
+            command.CommandText = "SELECT COALESCE(array_agg(c.relname::text ORDER BY c.relname), ARRAY[]::text[]) "
+                + "FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE i.indrelid='procurement.sourcing_policy_identity_evidence'::regclass AND i.indisunique";
+            var physicalNames = (string[]?)await command.ExecuteScalarAsync(ct);
+            if (!HasExactPhysicalUniqueIndexes(identity.GetKeys().Select(x => x.GetName()!), physicalNames)) return false;
             foreach (var index in unique)
             {
                 var name = index.GetDatabaseName()!;
@@ -85,11 +98,38 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
                 if ((index.GetFilter() is null) != (predicate is null)) return false;
                 if (!await True(UniqueIndexSql(table, index.Properties.Select(x => x.GetColumnName(table)!).ToArray(), name, predicate))) return false;
             }
+            command.CommandText = "SELECT pg_get_indexdef(i.indexrelid) FROM pg_index i "
+                + "WHERE i.indrelid='procurement.sourcing_policy_identity_evidence'::regclass "
+                + "AND i.indexrelid='procurement.ux_pr32_published_identity_target'::regclass "
+                + "AND i.indisunique AND i.indisvalid AND i.indisready AND i.indislive "
+                + "AND i.indimmediate AND NOT i.indisprimary AND i.indpred IS NULL "
+                + "AND i.indexprs IS NULL AND i.indnkeyatts=i.indnatts";
+            if (!HasExactP32IndexDefinition(await command.ExecuteScalarAsync(ct) as string)) return false;
             return true;
         }
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
         finally { if (opened) await owner.Database.CloseConnectionAsync(); }
     }
+
+    internal static bool HasExactP32Indexes(IEnumerable<string> applied, IEnumerable<string?> modelNames)
+    {
+        var names = modelNames.ToArray();
+        return applied.Contains(MigrationId, StringComparer.Ordinal)
+            && applied.Contains(P32MigrationId, StringComparer.Ordinal)
+            && names.Length == UniqueIndexNames.Count
+            && names.All(x => x is not null)
+            && names.Select(x => x!).ToHashSet(StringComparer.Ordinal).SetEquals(UniqueIndexNames);
+    }
+
+    internal static bool HasExactPhysicalUniqueIndexes(IEnumerable<string> modelKeyNames, string[]? physicalNames)
+    {
+        var expected = modelKeyNames.Concat(UniqueIndexNames).ToHashSet(StringComparer.Ordinal);
+        return physicalNames is not null && physicalNames.Length == expected.Count
+            && physicalNames.ToHashSet(StringComparer.Ordinal).SetEquals(expected);
+    }
+
+    internal static bool HasExactP32IndexDefinition(string? actual)
+        => string.Equals(actual, P32PublishedIndexDefinition, StringComparison.Ordinal);
 
     internal static string PrivilegeSql
     {
