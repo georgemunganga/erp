@@ -4,6 +4,8 @@ namespace Mightyfin.Erp.Hrm.Application;
 /// assignments can replace these defaults with explicit Procurement actions.</summary>
 public static class ProcurementActionCatalog
 {
+    public sealed record AdminAction(string Key, string Group, string Label);
+
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
@@ -115,6 +117,61 @@ public static class ProcurementActionCatalog
             ["procurement-po-finance-confirm"] = ["finance_approver"],
             ["procurement-po-dispatch-confirm"] = ["procurement_manager"],
         };
+
+    /// <summary>The exact Core role-row interpretation shared by session grants and
+    /// role-admin readback. A role key grants bootstrap actions only when it is
+    /// the whole legacy seed value, never for an empty or unrelated CSV.</summary>
+    public static string[] ResolveConfiguredActionsForRole(string roleKey, string permissionsCsv)
+    {
+        var explicitActions = permissionsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(BootstrapGrants.ContainsKey).ToArray();
+        var legacySeed = string.Equals(permissionsCsv.Trim(), roleKey, StringComparison.OrdinalIgnoreCase);
+        var actions = explicitActions.Length > 0 ? explicitActions : legacySeed
+            ? roleKey.Equals("erp_admin", StringComparison.OrdinalIgnoreCase)
+                ? BootstrapGrants.Keys.Where(action => action is not
+                    ("procurement-return-read" or "procurement-return-create" or "procurement-return-edit")).ToArray()
+                : ForRole(roleKey)
+            : [];
+        return actions.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+    }
+
+    /// <summary>Display metadata only. Listing an action never grants it.</summary>
+    public static AdminAction[] AdminReadCatalog() => BootstrapGrants.Keys
+        .Order(StringComparer.Ordinal)
+        .Select(key => new AdminAction(key, GroupFor(key), LabelFor(key)))
+        .ToArray();
+
+    private static string GroupFor(string key)
+    {
+        if (key == "procurement-access") return "General";
+        var part = key["procurement-".Length..].Split('-')[0];
+        return part switch
+        {
+            "po" => "Purchase orders",
+            "vendor" => "Vendors",
+            "item" or "catalog" => "Items and catalog",
+            "request" or "policy" or "budget" => "Requests and policy",
+            "plan" => "Plans",
+            "receipt" or "service" or "return" => "Receiving and returns",
+            "authority" or "approval" => "Approvals and authority",
+            "configuration" => "Configuration",
+            "contract" => "Contracts",
+            "recurring" => "Recurring purchases",
+            "sourcing" => "Sourcing and RFQs",
+            "invoice" => "Invoices",
+            "payment" => "Payments",
+            _ => "Other Procurement"
+        };
+    }
+
+    private static string LabelFor(string key)
+    {
+        var words = key["procurement-".Length..].Split('-').Select(word => word switch
+        {
+            "po" => "PO", "rfq" => "RFQ", "api" => "API", _ => char.ToUpperInvariant(word[0]) + word[1..]
+        });
+        return string.Join(" ", words);
+    }
 
     public static string[] ForRole(string role) => BootstrapGrants
         .Where(x => x.Value.Contains(role, StringComparer.OrdinalIgnoreCase))

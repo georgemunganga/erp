@@ -152,10 +152,11 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
     {
         var stored = ParseCsv(row.PermissionsCsv);
         var permissions = row.Category == "procurement"
-            && !stored.Any(ProcurementActionCatalog.BootstrapGrants.ContainsKey)
-            ? ProcurementActionCatalog.ForRole(row.RoleKey)
-            : stored.DefaultIfEmpty(row.RoleKey).ToArray();
-        return new(row.Id, row.RoleKey, row.RoleName, row.Category, row.Active, permissions);
+            ? ProcurementActionCatalog.ResolveConfiguredActionsForRole(row.RoleKey, row.PermissionsCsv)
+            : stored.DefaultIfEmpty(row.RoleKey).ToArray(); // HRM/payroll/system projection is unchanged.
+        var effectiveProcurement = row.Active && !row.IsArchived
+            ? ProcurementActionCatalog.ResolveConfiguredActionsForRole(row.RoleKey, row.PermissionsCsv) : [];
+        return new(row.Id, row.RoleKey, row.RoleName, row.Category, row.Active, permissions, effectiveProcurement);
     }
 
     private static string NormalizeRoleKey(string? roleKey)

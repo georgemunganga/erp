@@ -240,6 +240,60 @@ public sealed class JobsAdminTests
     }
 
     [Fact]
+    public async Task Procurement_role_readback_matches_configured_session_actions_without_phantom_bootstrap()
+    {
+        using var db = CreateContext();
+        db.TenantRoleAssignments.AddRange(
+            new TenantRoleAssignment { RoleKey = "procurement_buyer", RoleName = "Empty buyer", Category = "procurement", PermissionsCsv = "", Active = true },
+            new TenantRoleAssignment { RoleKey = "buyer_unknown", RoleName = "Unknown", Category = "procurement", PermissionsCsv = "procurement-unknown", Active = true },
+            new TenantRoleAssignment { RoleKey = "buyer_hr_only", RoleName = "HR only", Category = "procurement", PermissionsCsv = "hr_admin", Active = true },
+            new TenantRoleAssignment { RoleKey = "manager", RoleName = "Legacy manager", Category = "procurement", PermissionsCsv = "manager", Active = true },
+            new TenantRoleAssignment { RoleKey = "custom_operator", RoleName = "Explicit", Category = "procurement",
+                PermissionsCsv = "procurement-access,procurement-sourcing-publish,Procurement-po-issue,unknown-action", Active = true },
+            new TenantRoleAssignment { RoleKey = "erp_admin", RoleName = "Legacy ERP admin", Category = "system", PermissionsCsv = "erp_admin", Active = true },
+            new TenantRoleAssignment { RoleKey = "disabled_buyer", RoleName = "Disabled", Category = "procurement",
+                PermissionsCsv = "procurement-access,procurement-vendor-read", Active = false },
+            new TenantRoleAssignment { RoleKey = "hr_only", RoleName = "HR projection", Category = "hrm", PermissionsCsv = "manager", Active = true });
+        await db.SaveChangesAsync();
+
+        var roles = await CreateService(db).ListRolesAsync(default);
+        foreach (var role in roles)
+            Assert.Equal(await ProcurementPermissions.ResolveConfiguredActionsAsync(db, role.RoleKey, default, TenantId),
+                role.EffectiveProcurementPermissions);
+        foreach (var key in new[] { "procurement_buyer", "buyer_unknown", "buyer_hr_only" })
+            Assert.Empty(Assert.Single(roles, x => x.RoleKey == key).Permissions);
+        Assert.Contains("procurement-request-read", Assert.Single(roles, x => x.RoleKey == "manager").Permissions);
+        Assert.Equal(["procurement-access", "procurement-sourcing-publish"],
+            Assert.Single(roles, x => x.RoleKey == "custom_operator").Permissions);
+        var admin = Assert.Single(roles, x => x.RoleKey == "erp_admin");
+        Assert.Equal(["erp_admin"], admin.Permissions); // Keep the system-role edit projection.
+        Assert.DoesNotContain("procurement-return-read", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-return-create", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-return-edit", admin.EffectiveProcurementPermissions);
+        Assert.Equal(88, admin.EffectiveProcurementPermissions.Length);
+        var disabled = Assert.Single(roles, x => x.RoleKey == "disabled_buyer");
+        Assert.Equal(["procurement-access", "procurement-vendor-read"], disabled.Permissions);
+        Assert.Empty(disabled.EffectiveProcurementPermissions);
+        Assert.Equal(["manager"], Assert.Single(roles, x => x.RoleKey == "hr_only").Permissions);
+    }
+
+    [Fact]
+    public async Task Updating_role_name_retains_explicit_procurement_actions_without_reintroducing_legacy_seed()
+    {
+        using var db = CreateContext();
+        db.TenantRoleAssignments.AddRange(
+            new TenantRoleAssignment { RoleKey = "hr_admin", RoleName = "Administrator", Category = "hrm", PermissionsCsv = "hr_admin", Active = true },
+            new TenantRoleAssignment { RoleKey = "custom_operator", RoleName = "Old name", Category = "procurement",
+                PermissionsCsv = "procurement-access,procurement-sourcing-publish", Active = true });
+        await db.SaveChangesAsync();
+        var before = await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "custom_operator", default, TenantId);
+        var updated = await CreateService(db).UpdateRoleAsync("custom_operator", new RoleUpdateRequest(RoleName: "New name"), default);
+        Assert.Equal(before, updated.Permissions);
+        Assert.Equal("procurement-access,procurement-sourcing-publish",
+            (await db.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "custom_operator")).PermissionsCsv);
+    }
+
+    [Fact]
     public async Task Core_role_admin_can_configure_procurement_actions()
     {
         using var db = CreateContext();

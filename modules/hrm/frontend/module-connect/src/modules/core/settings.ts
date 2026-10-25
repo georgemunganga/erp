@@ -27,7 +27,7 @@ export const coreSettingGroups: CoreSettingGroup[] = [
     description: "Who can sign in, what they can do, and where they can work.",
     items: [
       { label: "Users", path: "/core/workspace/settings/users", detail: "Organization identities and access", owner: "ERP Core" },
-      { label: "Roles", path: "/core/workspace/settings/roles", detail: "HRM permissions today; shared ERP roles are planned", owner: "ERP Core" },
+      { label: "Roles", path: "/core/workspace/settings/roles", detail: "Manage roles and permissions across ERP modules", owner: "ERP Core" },
       { label: "Branch Access", path: "/core/workspace/settings/branch-access", detail: "Assign users to permitted branches", owner: "ERP Core" },
     ],
   },
