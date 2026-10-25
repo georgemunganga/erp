@@ -1,0 +1,150 @@
+using System.Data;
+using System.Data.Common;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Migrations;
+
+namespace Mightyfin.Erp.Hrm.Tests;
+
+// Source contract/DI tests. Fake transaction objects never establish PostgreSQL
+// admission, and synthetic definition strings are not physical capture evidence.
+public sealed class PrincipalGoodsReturnReadinessTests
+{
+    private sealed class SourceReadiness : IProcurementPrincipalReceivingReadiness
+    {
+        internal bool? Write;
+        internal ProcurementDbContext? Owner;
+        public Task<bool> IsReadyAsync(CancellationToken ct)=>Task.FromResult(false);
+        public Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct)
+        { Owner=owner;Write=write;return Task.FromResult(false); }
+    }
+
+    [Fact]
+    public async Task Return_write_foundation_requests_only_source_read_on_supplied_owner()
+    {
+        var source=new SourceReadiness();
+        Assert.False(await ProcurementPrincipalGoodsReturnStoreReadiness.SourceReadReadyAsync(source,null!,default));
+        Assert.False(source.Write);Assert.Null(source.Owner);
+    }
+
+    [Fact]
+    public async Task Held_composition_defaults_off_and_never_trusts_configured_connection_boolean()
+    {
+        var configuration=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
+            { ["Procurement:PrincipalGoodsReturnDrafts:ExecutionDatabaseConfigured"]="true" }).Build();
+        var services=new ServiceCollection();services.AddSingleton<IConfiguration>(configuration);
+        services.AddSingleton<IProcurementPrincipalReceivingReadiness>(new SourceReadiness());
+        ProcurementPrincipalGoodsReturnComposition.AddFoundation(services,configuration);
+        using var provider=services.BuildServiceProvider();
+        var options=provider.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>();
+        Assert.False(options.Enabled);Assert.False(options.ExecutionDatabaseConfigured);
+        var ready=provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>();
+        Assert.IsType<ProcurementPrincipalGoodsReturnStoreReadiness>(ready);
+        Assert.False(await ready.IsConfiguredAsync(default));
+        Assert.False(await ready.IsReadyAsync(null!,true,default));
+    }
+
+    [Fact]
+    public async Task Explicit_feature_and_connection_still_deny_without_actual_capture()
+    {
+        var configuration=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
+        {
+            ["Procurement:PrincipalGoodsReturnDrafts:Enabled"]="true",
+            ["ConnectionStrings:ProcurementApprovalExecution"]="Host=never-used.invalid;Database=private;Username=finite",
+        }).Build();
+        var services=new ServiceCollection();services.AddSingleton<IConfiguration>(configuration);
+        services.AddSingleton<IProcurementPrincipalReceivingReadiness>(new SourceReadiness());
+        ProcurementPrincipalGoodsReturnComposition.AddFoundation(services,configuration);
+        using var provider=services.BuildServiceProvider();
+        Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
+        Assert.False(await provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>().IsReadyAsync(null!,false,default));
+        Assert.False(await provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>().IsConfiguredAsync(default));
+    }
+
+    [Fact]
+    public void Own_write_matrix_does_not_require_source_counter_or_Core_workflow_writes()
+    {
+        var sql=ProcurementPrincipalGoodsReturnStoreReadiness.PrivilegeSql(true);
+        foreach(var table in ProcurementPrincipalGoodsReturnSchemaCapture.Tables)
+            Assert.Contains("has_table_privilege(current_user,'"+table+"','INSERT')",sql);
+        Assert.Contains("has_column_privilege(current_user,'procurement.principal_goods_return_drafts','current_revision_id','UPDATE')",sql);
+        Assert.Contains("NOT has_any_column_privilege(current_user,'procurement.principal_goods_return_revisions','UPDATE')",sql);
+        Assert.Contains("NOT has_any_column_privilege(current_user,'procurement.principal_goods_return_receipts','UPDATE')",sql);
+        Assert.Contains("NOT(a.attname::text=ANY(",sql);
+        Assert.Contains("rolbypassrls",sql);Assert.Contains("pg_has_role",sql);
+        Assert.DoesNotContain("principal_receiving_",sql);
+        Assert.DoesNotContain("purchase_order_lines",sql);Assert.DoesNotContain("purchase_request_lines",sql);
+        Assert.DoesNotContain("core_approval",sql);
+        var read=ProcurementPrincipalGoodsReturnStoreReadiness.PrivilegeSql(false);
+        Assert.DoesNotContain(",'INSERT')",read);
+        Assert.DoesNotContain("has_column_privilege(current_user,'procurement.principal_goods_return_drafts'",read);
+    }
+
+    [Fact]
+    public void Complete_capture_requires_exact_all_owned_and_overlay_objects()
+    {
+        static Dictionary<string,string> Fake(IReadOnlySet<string> names)=>names.ToDictionary(x=>x,_=>"shape-test-only");
+        var checks=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.CheckNames);
+        var foreign=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.ForeignNames);
+        var keys=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.OverlayKeyNames);
+        var indexes=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.IndexNames);
+        Assert.Equal(3,checks.Count);Assert.Equal(12,foreign.Count);Assert.Equal(4,keys.Count);Assert.Equal(19,indexes.Count);
+        Assert.True(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
+        indexes.Remove(indexes.Keys.First());
+        Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
+        indexes=Fake(ProcurementPrincipalGoodsReturnSchemaCapture.IndexNames);foreign[foreign.Keys.First()]="";
+        Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Complete(checks,foreign,keys,indexes));
+        Assert.False(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
+    }
+
+    [Fact]
+    public void Capture_names_follow_actual_genuine_operations_and_deferred_current_owner_contract()
+    {
+        var ops=new P37PrincipalGoodsReturnDrafts().UpOperations;
+        var tables=ops.OfType<CreateTableOperation>().ToArray();
+        var generated=tables.SelectMany(t=>t.ForeignKeys.Select(f=>"procurement."+t.Name+"."+f.Name));
+        Assert.All(generated,n=>Assert.Contains(n,ProcurementPrincipalGoodsReturnSchemaCapture.ForeignNames));
+        var indexes=ops.OfType<CreateIndexOperation>().Select(i=>i.Name)
+            .Concat(tables.Select(t=>t.PrimaryKey!.Name))
+            .Concat(tables.SelectMany(t=>t.UniqueConstraints.Select(k=>k.Name)))
+            .Append("ak_pgret_current_revision").ToHashSet(StringComparer.Ordinal);
+        Assert.True(indexes.SetEquals(ProcurementPrincipalGoodsReturnSchemaCapture.IndexNames));
+        var manifest=ProcurementPrincipalGoodsReturnStoreReadiness.OwnershipManifestSql;
+        Assert.Contains("'fk_pgret_current_revision'",manifest);Assert.Contains("c.condeferrable=e.deferred",manifest);
+        Assert.Contains("c.condeferred=e.deferred",manifest);Assert.Contains("c.confdeltype='a'",manifest);
+    }
+
+    private sealed class Connection : DbConnection
+    {
+        [System.Diagnostics.CodeAnalysis.AllowNull]
+        public override string ConnectionString { get; set; }="";
+        public override string Database=>"never-opened";public override string DataSource=>"never-opened";
+        public override string ServerVersion=>"none";public override ConnectionState State=>ConnectionState.Closed;
+        public override void ChangeDatabase(string value)=>throw new InvalidOperationException("Uncalled");
+        public override void Close() { }
+        public override void Open()=>throw new InvalidOperationException("Uncalled");
+        protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)=>throw new InvalidOperationException("Uncalled");
+        protected override DbCommand CreateDbCommand()=>throw new InvalidOperationException("Uncalled");
+    }
+    private sealed class Transaction(DbConnection connection,IsolationLevel level) : DbTransaction
+    {
+        public override IsolationLevel IsolationLevel=>level;
+        protected override DbConnection DbConnection=>connection;
+        public override void Commit()=>throw new InvalidOperationException("Uncalled");
+        public override void Rollback()=>throw new InvalidOperationException("Uncalled");
+    }
+    [Fact]
+    public void Every_purpose_requires_the_actual_same_connection_serializable_transaction()
+    {
+        using var first=new Connection();using var second=new Connection();
+        using var serial=new Transaction(first,IsolationLevel.Serializable);
+        using var weak=new Transaction(first,IsolationLevel.ReadCommitted);
+        Assert.True(ProcurementPrincipalGoodsReturnStoreReadiness.OwnsSerializable(serial,first));
+        Assert.False(ProcurementPrincipalGoodsReturnStoreReadiness.OwnsSerializable(serial,second));
+        Assert.False(ProcurementPrincipalGoodsReturnStoreReadiness.OwnsSerializable(weak,first));
+        Assert.False(ProcurementPrincipalGoodsReturnStoreReadiness.OwnsSerializable(null,first));
+    }
+}

@@ -6,6 +6,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -32,20 +33,41 @@ public static partial class ProcurementPrincipalReceivingRoutes
         group.MapPost("/{id:guid}/cancel", ReturnCancelDraft).RequireAuthorization(ReturnEdit);
     }
 
-    private static Task<IResult> ReturnRun(HttpContext http, ProcurementRequestScope scope, string action,
+    private static async Task<IResult> ReturnRun(HttpContext http, ProcurementRequestScope scope, string action,
         Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, PrincipalReceivingActor, CancellationToken, Task<Reply>> operation,
         CancellationToken ct)
     {
-        var options = http.RequestServices.GetService<ProcurementPrincipalGoodsReturnOptions>();
-        var readiness = http.RequestServices.GetService<IProcurementPrincipalGoodsReturnReadiness>();
-        if (options is not { Enabled: true, ExecutionDatabaseConfigured: true } || readiness is null)
-            return Task.FromResult(Error("ReturnDraftUnavailable", 503));
-        return Run(http, scope, action, async (db, cases, core, actor, token) =>
+        http.Response.Headers.CacheControl="private, no-store";
+        try
         {
-            if (!await readiness.IsReadyAsync(db, !HttpMethods.IsGet(http.Request.Method), token))
-                throw new Problem("ReturnDraftUnavailable", 503);
-            return await operation(db, cases, core, actor, token);
-        }, ct);
+            var options=http.RequestServices.GetService<ProcurementPrincipalGoodsReturnOptions>();
+            var readiness=http.RequestServices.GetService<IProcurementPrincipalGoodsReturnReadiness>();
+            if(options is not {Enabled:true,ExecutionDatabaseConfigured:true} || readiness is null)
+                throw new Problem("ReturnDraftUnavailable",503);
+            // Own P37 writes do not mutate receiving/PO/PR counters. The concrete
+            // provider checks P30 SOURCE READ on this exact transaction and its
+            // separate return-write matrix. Existing Receiving Run stays unchanged.
+            var result=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(
+                async(db,cases,token)=>
+                {
+                    if(!await readiness.IsReadyAsync(db,!HttpMethods.IsGet(http.Request.Method),token))
+                        throw new Problem("ReturnDraftUnavailable",503);
+                    await using var core=await ProcurementApprovalExecutionLocks.CoreAsync(db,scope,token);
+                    var actor=await ProcurementPrincipalReceivingActor.CurrentAsync(core,scope,http,
+                        http.RequestServices.GetRequiredService<IAuthorizationService>(),action,token);
+                    return await operation(db,cases,core,actor,token);
+                },ct);
+            return Results.Content(result.Body,"application/json",statusCode:result.Status);
+        }
+        catch(OperationalPolicyPublicationProblem error) { return Error(error.Code,error.Status); }
+        catch(Exception error) when(error is Problem or InvalidOperationException or UnauthorizedAccessException
+            or KeyNotFoundException or ArgumentException or JsonException or DbUpdateException or OverflowException
+            || ProcurementPostgresFailures.IsStoreFailure(error))
+        {
+            var status=error is Problem problem?problem.Status:ProcurementPostgresFailures.IsConcurrency(error)?409:
+                ProcurementPostgresFailures.IsStoreFailure(error)?503:error is UnauthorizedAccessException?403:409;
+            return Error(error is Problem?error.Message:status==503?"ReturnDraftSaveUnconfirmed":"ReturnDraftNeedsReview",status);
+        }
     }
 
     private static async Task<(PrincipalReceivingSourceState State, PrincipalReceivingAcceptance Acceptance, PrincipalReceivingFact Fact)>
@@ -294,4 +316,5 @@ public sealed class ProcurementPrincipalGoodsReturnOptions
 public interface IProcurementPrincipalGoodsReturnReadiness
 {
     Task<bool> IsReadyAsync(ProcurementDbContext db, bool write, CancellationToken ct);
+    Task<bool> IsConfiguredAsync(CancellationToken ct) => Task.FromResult(false);
 }
