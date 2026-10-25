@@ -93,12 +93,14 @@ internal static partial class PrincipalApprovalHttpVerification
         var principalPoFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_PO");
         var receivingFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_PRINCIPAL_RECEIVING");
         var returnFlag=Environment.GetEnvironmentVariable("P37_HTTP_VERIFY_GOODS_RETURN_DRAFTS");
+        var p37ReturnCookieFlag=Environment.GetEnvironmentVariable("P37_HTTP_SERVE_GOODS_RETURN_NORMAL_COOKIE");
         var invoiceFlag=Environment.GetEnvironmentVariable("P31_HTTP_VERIFY_PRINCIPAL_INVOICE");
         var commercialDraftFlag=Environment.GetEnvironmentVariable("P32_HTTP_VERIFY_RFQ_COMMERCIAL_DRAFT");
         var retainedPoCancelFlag=Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RETAINED_HISTORY_CANCEL");
         Need(receivingFlag is null or "1","P30 receiving opt-in must be exactly1 or absent.");
         Need(receivingFlag is null||principalPoFlag=="1","Receiving proof requires its fresh genuine principal PO profile.");
         Need(returnFlag is null or "1","P37 return Draft opt-in must be exactly1 or absent.");
+        Need(p37ReturnCookieFlag is null or "1","P37 return normal-cookie serve opt-in must be exactly1 or absent.");
         Need(!database.StartsWith("proc_p37_http_return_",StringComparison.Ordinal) || returnFlag=="1",
             "P37 private database requires its explicit return Draft profile.");
         Need(returnFlag is null || principalPoFlag=="1" && receivingFlag=="1"
@@ -110,7 +112,19 @@ internal static partial class PrincipalApprovalHttpVerification
             && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RECEIVING_NORMAL_COOKIE") is null
             && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_SERVICE_NORMAL_COOKIE") is null
             && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RFQ_NORMAL_COOKIE") is null,
-            "P37 requires its own fresh PO/receiving cohort without browser or invoice profiles.");
+            "P37 requires its own fresh PO/receiving cohort without other browser or invoice profiles.");
+        Need(p37ReturnCookieFlag is null || returnFlag=="1" && principalPoFlag=="1" && receivingFlag=="1"
+            && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p37_http_return_[a-z0-9_]{1,30}$")
+            && invoiceFlag is null && retainedPoCancelFlag is null && principalRfqFlag is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_VERIFY_RFQ_PUBLICATION") is null
+            && Environment.GetEnvironmentVariable("P29_HTTP_SERVE_NORMAL_COOKIE") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_NORMAL_COOKIE") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RECEIVING_NORMAL_COOKIE") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_SERVICE_NORMAL_COOKIE") is null
+            && Environment.GetEnvironmentVariable("P30_HTTP_SERVE_RFQ_NORMAL_COOKIE") is null
+            && matrixFlag is null && schemaFlag is null && accountFlag is null && aliasFlag is null
+            && localCookieFlag is null && downFamily is null && exactBudgetFlag is null && legacyWorkerFlag is null,
+            "P37 normal-cookie serve requires its exclusive fresh accepted-Goods cohort.");
         Need(invoiceFlag is null or "1","P31 invoice opt-in must be exactly1 or absent.");
         Need(invoiceFlag is null || principalPoFlag=="1" && receivingFlag=="1"
             && System.Text.RegularExpressions.Regex.IsMatch(database,"^proc_p31_http_[a-z0-9_]{1,40}$")
@@ -356,7 +370,12 @@ internal static partial class PrincipalApprovalHttpVerification
                 {
                     var issued=await VerifyPrincipalOrderAsync(fixture,owner,roles,result,Advance,Send,()=>requests++);
                     if(receivingFlag=="1")await VerifyPrincipalReceivingAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
-                    if(returnFlag=="1")await VerifyPrincipalGoodsReturnAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
+                    if(returnFlag=="1")
+                    {
+                        var returnEvidence=await VerifyPrincipalGoodsReturnAsync(fixture,owner,roles,result,Advance,Send,()=>requests++,issued);
+                        if(p37ReturnCookieFlag=="1")await ServeP37GoodsReturnNormalLocalCookieAsync(fixture,owner,roles,ownerConnection,
+                            returnEvidence,result,Advance);
+                    }
                     if(invoiceFlag=="1")await VerifyPrincipalInvoiceAsync(fixture,owner,roles,result,Advance,Send,issued);
                     if(p30ReceivingCookieFlag=="1")
                     {
