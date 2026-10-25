@@ -31,6 +31,7 @@ public sealed class PrincipalRfqAwardReviewSubmission : ProcurementRecord
     public Guid RecommendationSubmissionId { get; init; }
     public Guid DraftId { get; init; }
     public Guid RecommendationRevisionId { get; init; }
+    public int RecommendationRevision { get; init; }
     public string RecommendationSha256 { get; init; } = null!;
     public Guid RoundId { get; init; }
     public Guid UnsealingId { get; init; }

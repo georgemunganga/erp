@@ -174,6 +174,7 @@ public static class PrincipalRfqAwardReviewWorkflow
             LegalEntityId=head.LegalEntityId,
             RecommendationSubmissionId=frozen.Id,DraftId=head.Id,
             RecommendationRevisionId=revision.Id,
+            RecommendationRevision=revision.Revision,
             RecommendationSha256=revision.SnapshotSha256,
             RoundId=head.RoundId,UnsealingId=head.UnsealingId,
             BranchId=head.BranchId,CoreCaseId=coreId,

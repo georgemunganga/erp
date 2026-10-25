@@ -130,18 +130,16 @@ public sealed class PrincipalRfqAwardReviewWorkflowTests
         var first=Valid();var opened=Open(first);
         var stage=Assert.Single(opened.CoreCase.Stages);
         var assignment=Assert.Single(stage.Assignments);
-        var decision=new ApprovalDecision {TenantId="tenant-a",LegalEntityId=Company,
-            CaseId=opened.CoreCase.Id,StageId=stage.Id,AssignmentId=assignment.Id,
-            Action="Return",ActorSubjectId=Reviewer};
-        opened.CoreCase.State="Returned";opened.CoreCase.CompletedAt=Now;
-        stage.State="Returned";assignment.State="Returned";
-        var returned=new PrincipalRfqAwardReviewOutcome
-        {
-            TenantId="tenant-a",LegalEntityId=Company,
-            SubmissionId=opened.Submission.Id,CoreCaseId=opened.CoreCase.Id,
-            TerminalDecisionId=decision.Id,CoreState="Returned",SourceOutcome="Returned",
-            RecordedAt=Now,
-        };
+        var decisions=new List<ApprovalDecision>();
+        ApprovalEngine.Decide(opened.CoreCase,assignment,
+            new ApprovalActor(Reviewer,"tenant-a",Company,
+                new HashSet<string>{PrincipalRfqAwardFoundation.ReviewAction}),
+            "Return",Guid.CreateVersion7().ToString("D"),"Correct the source",
+            decisions,Now.AddMinutes(1));
+        var decision=Assert.Single(decisions);
+        var returned=PrincipalRfqAwardCoreHistory.VerifyTerminal(opened.Submission,
+            opened.CoreCase,first.Policy,decisions);
+        Assert.Equal("Returned",returned.SourceOutcome);
         PrincipalRfqAwardReviewWorkflow.RequireDraftMutationAllowed(first.Head,
             opened.FrozenRecommendation,returned,opened.CoreCase,decision,"Revise");
         Assert.Throws<InvalidOperationException>(()=>Open(first,opened.FrozenRecommendation,
@@ -161,5 +159,33 @@ public sealed class PrincipalRfqAwardReviewWorkflowTests
             PrincipalRfqAwardReviewWorkflow.RequireDraftMutationAllowed(second.Head,
                 opened.FrozenRecommendation,approved,
                 opened.CoreCase,decision,"Revise"));
+    }
+
+    [Fact]
+    public void Core_approval_replay_records_only_pending_source_effect_not_a_fabricated_award()
+    {
+        var f=Valid();var opened=Open(f);
+        var assignment=Assert.Single(Assert.Single(opened.CoreCase.Stages).Assignments);
+        var decisions=new List<ApprovalDecision>();
+        ApprovalEngine.Decide(opened.CoreCase,assignment,
+            new ApprovalActor(Reviewer,"tenant-a",Company,
+                new HashSet<string>{PrincipalRfqAwardFoundation.ReviewAction}),
+            "Approve",Guid.CreateVersion7().ToString("D"),null,decisions,Now.AddMinutes(1));
+        var fact=PrincipalRfqAwardCoreHistory.VerifyTerminal(opened.Submission,
+            opened.CoreCase,f.Policy,decisions);
+        Assert.Equal("Approved",fact.CoreState);
+        Assert.Equal("CoreApprovedPendingAward",fact.SourceOutcome);
+        var originalPins=opened.Submission.AssignmentPinsJson;
+        opened.Submission.AssignmentPinsJson="{}";
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqAwardCoreHistory.VerifyTerminal(
+            opened.Submission,opened.CoreCase,f.Policy,decisions));
+        opened.Submission.AssignmentPinsJson=originalPins;
+        opened.CoreCase.State="Returned";
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqAwardCoreHistory.VerifyTerminal(
+            opened.Submission,opened.CoreCase,f.Policy,decisions));
+        opened.CoreCase.State="Approved";
+        decisions[0].ActorSubjectId=Maker;
+        Assert.Throws<InvalidOperationException>(()=>PrincipalRfqAwardCoreHistory.VerifyTerminal(
+            opened.Submission,opened.CoreCase,f.Policy,decisions));
     }
 }
