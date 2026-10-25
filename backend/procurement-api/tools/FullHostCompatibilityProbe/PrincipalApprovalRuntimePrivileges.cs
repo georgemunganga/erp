@@ -130,6 +130,17 @@ internal static class PrincipalApprovalRuntimePrivileges
             foreach(var table in new[]{"receiving_source_states","goods_receipt_lines","service_acceptances"})
                 await Run("GRANT SELECT ON procurement."+Q(table)+" TO "+Q(execution));
         }
+        if(fixture.PrincipalGoodsReturnProfile)
+        {
+            // The P30 goods acceptance is created by its existing finite role
+            // profile. P37 adds only its own Draft/receipt privileges here; a
+            // later independent role profile must prove P37 works with P30 READ.
+            foreach(var table in new[]{"principal_goods_return_drafts",
+                "principal_goods_return_revisions","principal_goods_return_receipts"})
+                await Run("GRANT SELECT,INSERT ON procurement."+Q(table)+" TO "+Q(execution));
+            await Run("GRANT UPDATE (revision,state,current_revision_id,version,updated_at,updated_by)"
+                +" ON procurement.principal_goods_return_drafts TO "+Q(execution));
+        }
         if(fixture.PrincipalInvoiceProfile)
         {
             // Intake remains a Procurement record command. Typed comparison,

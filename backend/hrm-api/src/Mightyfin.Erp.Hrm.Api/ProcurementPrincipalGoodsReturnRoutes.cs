@@ -10,7 +10,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Unregistered P37 draft-only adapter. No submit, supplier send or counter mutation.</summary>
+/// <summary>Default-off P37 draft-only adapter. No submit, supplier send or counter mutation.</summary>
 public static partial class ProcurementPrincipalReceivingRoutes
 {
     private const string ReturnRead = "procurement-return-read";
@@ -20,7 +20,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
     public sealed record ReturnRevisionInput(long ExpectedRevision, string Quantity, string Reason, string? EvidenceReference);
     public sealed record ReturnCancelInput(long ExpectedRevision, string Reason);
 
-    /// <summary>Only root activation after genuine P37 migration, finite ACL and real owner proof may call this.</summary>
+    /// <summary>Normal composition maps guarded routes; explicit options, real readiness and current action are checked per call.</summary>
     public static void MapReturnRoutes(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/returns/principal-drafts");
@@ -70,7 +70,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
         }
     }
 
-    private static async Task<(PrincipalReceivingSourceState State, PrincipalReceivingAcceptance Acceptance, PrincipalReceivingFact Fact)>
+    private static async Task<(PrincipalReceivingSourceState State, PrincipalReceivingAcceptance Acceptance, PrincipalReceivingFact Fact, ReturnSourceLabels Labels)>
         AcceptedGoods(ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
             PrincipalReceivingActor actor, Guid factId, CancellationToken ct)
     {
@@ -90,10 +90,11 @@ public static partial class ProcurementPrincipalReceivingRoutes
             factRow.Quantity != acceptance.Quantity || factRow.DraftId != acceptance.AcceptanceRecordId ||
             acceptance.Quantity <= 0)
             throw new Problem("ReturnAcceptedGoodsRequired", 409);
-        return (loaded.State, acceptance, factRow);
+        var observation = loaded.Ledger.Observations.Single(x => x.Id == acceptance.ObservationId);
+        return (loaded.State, acceptance, factRow, VerifiedReturnLabels(loaded.Retained, observation));
     }
 
-    private static async Task<(PrincipalGoodsReturnDraft Head, PrincipalGoodsReturnRevision Revision)> ReturnHead(
+    private static async Task<(PrincipalGoodsReturnDraft Head, PrincipalGoodsReturnRevision Revision, ReturnSourceLabels Labels)> ReturnHead(
         ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
         PrincipalReceivingActor actor, Guid id, bool creator, CancellationToken ct)
     {
@@ -128,18 +129,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
         if (receipts.Length != revisions.Length || revisions.Any(x => !receipts.Any(r =>
             PrincipalGoodsReturnRules.MatchesReceipt(head, x, r))))
             throw new Problem("ReturnDraftHistoryInvalid", 409);
-        return (head, revisions[^1]);
+        return (head, revisions[^1], source.Labels);
     }
-
-    private static object ReturnView(PrincipalGoodsReturnDraft head, PrincipalGoodsReturnRevision revision) => new
-    {
-        id = head.Id, status = head.State, version = head.Revision, branchId = head.BranchId,
-        receiptId = head.ReceiptId, acceptanceFactId = head.AcceptanceFactId,
-        purchaseOrderId = head.PurchaseOrderId, purchaseOrderLineId = head.PurchaseOrderLineId,
-        acceptedFactQuantityExact = Exact(head.AcceptedFactQuantity), quantityExact = Exact(revision.Quantity),
-        revision.Reason, revision.EvidenceReference,
-        draftOnly = true, stockChanged = false, financeChanged = false, supplierNotified = false
-    };
 
     private static Reply ReturnComplete(ProcurementDbContext db, PrincipalGoodsReturnDraft head,
         PrincipalGoodsReturnRevision revision, string operation, Guid key, string actor, string requestJson, int status)
@@ -196,7 +187,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
                 var loaded = await AcceptedGoods(db, cases, scope, actor, id, token);
                 items.Add(new { acceptanceFactId = id, receiptId = loaded.Acceptance.AcceptanceRecordId,
                     purchaseOrderId = loaded.State.PurchaseOrderId, purchaseOrderLineId = loaded.State.PurchaseOrderLineId,
-                    branchId = loaded.State.BranchId, acceptedFactQuantityExact = Exact(loaded.Acceptance.Quantity) });
+                    branchId = loaded.State.BranchId, acceptedFactQuantityExact = Exact(loaded.Acceptance.Quantity),
+                    labels = loaded.Labels });
             }
             return new Reply(200, JsonSerializer.Serialize(new { items, nextOffset = ids.Length > 25 ? offset + 25 : (int?)null,
                 hasMore = ids.Length > 25 }, Json));
@@ -206,12 +198,14 @@ public static partial class ProcurementPrincipalReceivingRoutes
         => ReturnRun(http, scope, ReturnRead, async (db, cases, _, actor, token) =>
         {
             if (offset is < 0 or > 10000) throw new Problem("ReturnDraftPageInvalid", 422);
+            var editAuthorized = (await http.RequestServices.GetRequiredService<IAuthorizationService>()
+                .AuthorizeAsync(http.User, ReturnEdit)).Succeeded;
             var branches = actor.AllowedBranches.ToArray();
             var ids = await db.PrincipalGoodsReturnDrafts.AsNoTracking().Where(x => branches.Contains(x.BranchId))
                 .OrderBy(x => x.Id).Select(x => x.Id).Skip(offset).Take(26).ToArrayAsync(token);
             var items = new List<object>();
             foreach (var id in ids.Take(25)) { var value = await ReturnHead(db, cases, scope, actor, id, false, token);
-                items.Add(ReturnView(value.Head, value.Revision)); }
+                items.Add(ReturnView(value.Head, value.Revision, actor, editAuthorized, value.Labels)); }
             return new Reply(200, JsonSerializer.Serialize(new { items, nextOffset = ids.Length > 25 ? offset + 25 : (int?)null,
                 hasMore = ids.Length > 25 }, Json));
         }, ct);
@@ -219,7 +213,9 @@ public static partial class ProcurementPrincipalReceivingRoutes
     private static Task<IResult> ReturnDetail(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => ReturnRun(http, scope, ReturnRead, async (db, cases, _, actor, token) =>
         { var value = await ReturnHead(db, cases, scope, actor, id, false, token);
-            return new Reply(200, JsonSerializer.Serialize(ReturnView(value.Head, value.Revision), Json)); }, ct);
+            var editAuthorized = (await http.RequestServices.GetRequiredService<IAuthorizationService>()
+                .AuthorizeAsync(http.User, ReturnEdit)).Succeeded;
+            return new Reply(200, JsonSerializer.Serialize(ReturnView(value.Head, value.Revision, actor, editAuthorized, value.Labels), Json)); }, ct);
 
     private static Task<IResult> ReturnCreateDraft(ReturnDraftInput input, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => ReturnRun(http, scope, ReturnCreate, async (db, cases, _, actor, token) =>
@@ -255,7 +251,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var key = Key(http); var request = JsonSerializer.Serialize(new { operation = "Revise", id, input }, Json);
             var hash = ProcurementEvidenceEncoding.PolicyJsonDigest(request);
             if (await ReturnReplay(db, cases, scope, actor, "Revise", key, hash, token) is { } replay) return replay;
-            var (head, _) = await ReturnHead(db, cases, scope, actor, id, true, token);
+            var (head, _, _) = await ReturnHead(db, cases, scope, actor, id, true, token);
             if (head.State != "Draft" || head.Revision != input.ExpectedRevision) throw new Problem("ReturnDraftChanged", 409);
             var quantity = ReturnQuantity(input.Quantity, head.AcceptedFactQuantity);
             var reason = input.Reason?.Trim();
@@ -277,7 +273,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var key = Key(http); var request = JsonSerializer.Serialize(new { operation = "Cancel", id, input }, Json);
             var hash = ProcurementEvidenceEncoding.PolicyJsonDigest(request);
             if (await ReturnReplay(db, cases, scope, actor, "Cancel", key, hash, token) is { } replay) return replay;
-            var (head, prior) = await ReturnHead(db, cases, scope, actor, id, true, token);
+            var (head, prior, _) = await ReturnHead(db, cases, scope, actor, id, true, token);
             if (head.State != "Draft" || head.Revision != input.ExpectedRevision) throw new Problem("ReturnDraftChanged", 409);
             var reason = input.Reason?.Trim();
             if (string.IsNullOrEmpty(reason) || reason.Length > 2000) throw new Problem("ReturnDraftReasonRequired", 422);

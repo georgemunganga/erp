@@ -1,0 +1,34 @@
+{
+  "status": "PASS_PRIVATE_P37_CLONE_ACL_REHEARSAL_ONLY",
+  "dateUtc": "2026-10-25",
+  "scope": "Fresh private PostgreSQL clone of the accepted P36/P37 260-table schema; existing nonowner finite Record and Execution identities; no application connection or business HTTP command.",
+  "evidence": {
+    "resultPath": "/home/amizo/erp-backups/procurement-p37-finite-acl-20261025_run04/result.private.json",
+    "resultSha256": "8725f0af39cef4ae6f58b21607d178b06dc4491945b4a721f931788411acdc8b",
+    "reviewedPlan": "/home/amizo/erp-backups/procurement-p37-finite-role-prep-20261025_run08/plan.ROOT-REVIEWED-v9.json",
+    "reviewedPlanSha256": "63e57f6ed9d42c776c8f7e64197491fbfeffc527b371bd8f687a94a18376e021"
+  },
+  "actual": {
+    "recordEffectivePrivilegeBooleans": { "true": 309, "false": 0 },
+    "executionEffectivePrivilegeBooleans": { "true": 311, "false": 0 },
+    "separateForbiddenDmlSqlstate42501": 7,
+    "sourceCatalogRowsAclHistoryUnchanged": true,
+    "cloneBusinessRowsUnchanged": true,
+    "globalRoleAttributesAndMembershipsUnchanged": true,
+    "productionTouched": false
+  },
+  "retainedAttempts": [
+    "run01: SQL identifier proof stopped on unquoted mixed-case Core migration-history relation; no privilege verdict",
+    "run02: Execution proof's only false was an HRM migration-history SELECT not used by P37's non-payment path; no ACL acceptance",
+    "run03: Record and Execution privilege Booleans passed and first forbidden DML returned 42501; stderr parser stopped before remaining negatives",
+    "v8: NULL relacl owner-default comparison issue caught in review before any run; no v8 clone",
+    "v9/run04: PostgreSQL owner defaults captured read-only; complete finite ACL rehearsal passed"
+  ],
+  "stillRequired": [
+    "Compile and publish the current source with ordinary default-off P37 service and route composition",
+    "Run actual P37 HTTP CRUD on a fresh isolated database with current Core principals and configured finite execution connection",
+    "Independent persisted-history and no-effects owner reconciliation for that HTTP cohort",
+    "Per-record current Core action and branch authorization; metadata capability is availability only",
+    "No return dispatch, Inventory posting, supplier credit, Finance posting or production activation is proven"
+  ]
+}
