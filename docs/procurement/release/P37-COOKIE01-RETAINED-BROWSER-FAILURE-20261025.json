@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "RETAINED_FAILED_PRIVATE_P37_COOKIE_BROWSER",
+  "productSourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "toolSourceCommit": "1bad418542ab3d138bacf76294c172208c3a14d4",
+  "attempt": {
+    "privateEvidenceDirectory": "procurement-p37-normal-cookie-prep-20261025_run01",
+    "planSha256": "ecbe4cf889babe8a54055f266f846cd872900a64c779ba1bdb47a9268bedd4d0",
+    "nativeWrapperSha256": "213e7b7c670983762299659db0bbafa3a039f686eb37ba831ca19a221a4c91a3",
+    "browserResultSha256": "48c9978813b3fd169f7b39ad6093780396f7cd3c0df35acbbfe66dd40bf8e7c7",
+    "nativeHttpRequests": 193,
+    "nativeControlPlaneCompleted": true,
+    "browserStatus": "FAILED_RETAIN_FIXTURE",
+    "browserFailedStep": "revise-draft",
+    "sessionRevoked": true
+  },
+  "observedScope": [
+    "Real local-cookie login and workerless current Core context succeeded",
+    "Browser created and reloaded a return draft",
+    "Revision PUT returned 200 and version 2 with exact proposed quantity",
+    "No browser cancellation or complete owner-after acceptance is established"
+  ],
+  "correction": {
+    "uiTestSourceCommit": "62a3a3d53515be89ef4adb14327bfad9accedec2",
+    "change": "Wait for exact detail URL after the revision response and receipt reconciliation before reloading; record separate wait/reload progress phases.",
+    "applicationChanged": false,
+    "diagnosis": "The preceding test reloaded immediately after PUT assertions before asynchronous detail reconciliation/navigation. The fresh attempt must verify this diagnosis.",
+    "newAttempt": "Fresh private cookie E02; no old credential, fixture, browser result or owner baseline reused."
+  },
+  "evidencePreserved": true,
+  "normalCookieAccepted": false,
+  "ownerAfterAccepted": false,
+  "productionTouched": false
+}
