@@ -89,11 +89,19 @@ Draft count and age may be reported after scope filtering. Draft quantities are 
 
 ## 21. Configuration and Localization
 
-P37 has its own default-off option/readiness. No default return authority or quantity tolerance. Exact decimal input accepts invariant API syntax and UI renders localized text without changing stored value.
+P37 has its own default-off `Procurement:PrincipalGoodsReturnDrafts` option/readiness.
+`ExecutionDatabaseConfigured` is derived from the explicit execution connection,
+never trusted from a business configuration value. No default return authority
+or quantity tolerance. Exact decimal input accepts invariant API syntax and UI renders localized text without changing stored value.
 
 ## 22. Non-Functional Requirements
 
-CAS and unique actor-owned command keys; one physical transaction for head/revision/receipt/audit. Page after scope filter. No duplicated receipt ledger.
+CAS and unique actor-owned command keys; one physical transaction for head/revision/receipt/audit.
+The P37 path uses the existing owning Serializable transaction, actual scoped
+Core authorization fence and current actor/branch resolver. Its provider requires
+P30 source READ on that exact owner plus P37-specific writes; a return Draft
+never needs receiving-fact INSERT or PO/PR/receiving-counter UPDATE. Existing P30
+Receiving command write guards are unchanged. Page after scope filter. No duplicated receipt ledger.
 
 ## 23. Postconditions
 
@@ -154,3 +162,35 @@ veto then overlay teardown before generated drops. Raw generation artifacts
 remain immutable. See release generation/overlay JSON receipts. This is not
 compiled migration SQL, a PostgreSQL roundtrip or runtime readiness. Those
 gates remain pending; routes/capability stay unavailable.
+
+
+## Own physical readiness implementation checkpoint (source only)
+
+The isolated `ProcurementPrincipalGoodsReturnStoreReadiness` verifies the actual
+same-connection Serializable transaction and configured physical execution store,
+then the existing P30 receiving SOURCE READ provider. It separately checks all
+three modeled return tables, exact three CHECKs, eight modeled plus four authored
+FKs, four authored owner keys, and all nineteen owned PK/AK/business/FK indexes.
+The current-revision FK must be deferred; the three source-owner FKs must remain
+immediate NoAction. Unknown extra owned indexes or changed definitions deny.
+All expected PostgreSQL definition dictionaries are EMPTY pending actual catalog
+capture, so the concrete provider remains unavailable even with options true.
+The independent migration ID is a source prerequisite only; root's joint P36/P37
+regeneration must supply its new genuine P37 ID and new actual capture first.
+
+The write matrix needs INSERT on the three P37 tables and append-only audit/outbox,
+and UPDATE only revision/state/current_revision_id/version/update stamps on the
+head. Revision, receipt, audit and outbox UPDATE (including column-only), all
+owned DELETE/TRUNCATE, table-owner membership, elevated roles and schema CREATE
+fail closed. Source read rights remain owned by P30/Core; this provider requires
+no source-counter DML and grants no role. Current business actions still resolve
+stored Core role/account/branch and optional aliases in the command callback;
+neither SQL readiness nor historical receipt ownership grants current authority.
+
+`ProcurementPrincipalGoodsReturnComposition.AddFoundation` is an uncalled future
+composition seam, not a live registration. Host routes and metadata remain
+unmapped/false. Authored tests cover source-read versus own-write purposes,
+transaction ownership/isolation, default flags/missing capture, exact capture
+keysets, immutable grant boundaries, current workerless Core authorization and
+revocation/branch/forged-alias denial. No SDK, PostgreSQL or browser job was run
+for this source checkpoint; real finite role, physical and HTTP proof remain.
