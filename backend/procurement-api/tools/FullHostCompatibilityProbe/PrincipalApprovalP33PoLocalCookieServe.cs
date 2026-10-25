@@ -141,7 +141,10 @@ internal static partial class PrincipalApprovalHttpVerification
                     "P33 preflight requires a server-issued local session cookie.");
                 var sessions=setCookies!.Where(x=>x.StartsWith("hrm_session=",StringComparison.Ordinal)).ToArray();
                 Need(sessions.Length==1,"P33 preflight requires exactly one genuine local session cookie.");
-                var token=sessions[0]["hrm_session=".Length..].Split(';',2)[0];
+                var cookieValue=sessions[0]["hrm_session=".Length..];
+                var separator=cookieValue.IndexOf(';');
+                Need(separator>0,"P33 preflight requires bounded local cookie attributes.");
+                var token=cookieValue[..separator];
                 Need(System.Text.RegularExpressions.Regex.IsMatch(token,"^[A-Za-z0-9_-]{43}$"),
                     "P33 preflight received an invalid local session token.");
                 preflight.DefaultRequestHeaders.Add("Cookie","hrm_session="+token);
