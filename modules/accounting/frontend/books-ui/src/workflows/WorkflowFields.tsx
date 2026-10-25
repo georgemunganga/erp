@@ -1,3 +1,4 @@
+import { Table as ErpTable } from "@amizopower/erp-ui";
 import { Input, Textarea, FormSelect, Switch } from "@amizopower/erp-ui";
 import { useMemo, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
@@ -130,7 +131,7 @@ function LinesField({ field, value, onChange, allValues }: { field: FlowField; v
   return (
     <div className="workflow-grid-wrap">
       <div className="workflow-grid-scroll">
-        <table className="workflow-grid" aria-label={`${field.label} editable lines`}>
+        <ErpTable bare className="workflow-grid" aria-label={`${field.label} editable lines`}>
           <thead><tr><th>Description</th><th>Quantity</th><th>Rate</th>{hasTax && <th>Tax rate %</th>}<th>Total</th><th><span className="sr-only">Remove line</span></th></tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={hasTax ? 6 : 5} className="workflow-grid-empty">Add a line to start building this transaction.</td></tr>}
@@ -146,7 +147,7 @@ function LinesField({ field, value, onChange, allValues }: { field: FlowField; v
               </tr>;
             })}
           </tbody>
-        </table>
+        </ErpTable>
       </div>
       <Button type="button" variant="secondary" size="sm" onClick={addRow}><Plus size={14} /> Add line</Button>
       <div className="workflow-totals" aria-label={`${field.label} totals`}>
@@ -171,7 +172,7 @@ function JournalLinesField({ field, value, onChange, resources }: { field: FlowF
 
   return <div className="workflow-grid-wrap">
     <div className="workflow-grid-scroll">
-      <table className="workflow-grid workflow-journal-grid" aria-label={`${field.label} journal grid`}>
+      <ErpTable bare className="workflow-grid workflow-journal-grid" aria-label={`${field.label} journal grid`}>
         <thead><tr><th>Account</th><th>Debit</th><th>Credit</th><th>Difference</th><th><span className="sr-only">Remove line</span></th></tr></thead>
         <tbody>
           {rows.length === 0 && <tr><td colSpan={5} className="workflow-grid-empty">Add debit and credit lines. The review step checks that they balance.</td></tr>}
@@ -183,7 +184,7 @@ function JournalLinesField({ field, value, onChange, resources }: { field: FlowF
             <td><button className="workflow-icon-button" type="button" aria-label={`Remove journal line ${index + 1}`} onClick={() => removeRow(index)}><Trash2 size={15} /></button></td>
           </tr>)}
         </tbody>
-      </table>
+      </ErpTable>
     </div>
     <Button type="button" variant="secondary" size="sm" onClick={addRow}><Plus size={14} /> Add journal line</Button>
     <div className="workflow-totals workflow-journal-totals" aria-label="Journal debit and credit totals"><span>Debits <strong>{formatAmount(debit)}</strong></span><span>Credits <strong>{formatAmount(credit)}</strong></span><span className={Math.abs(debit - credit) < 0.005 ? "workflow-balanced" : "workflow-unbalanced"}>{Math.abs(debit - credit) < 0.005 ? "Balanced" : `Difference ${formatAmount(Math.abs(debit - credit))}`}</span></div>
@@ -205,7 +206,7 @@ function AllocationField({ field, value, onChange, resources }: { field: FlowFie
       {options.length === 0 && <p className="workflow-muted">No matching records are available in this local workspace.</p>}
       {options.map((option) => <label className="workflow-check-row" key={option.id} data-resource-id={option.id}><Input type="checkbox" checked={selected.has(option.id)} onChange={() => toggle(option.id)} /> <span><strong>{option.name}</strong><small>{option.code ?? option.party ?? option.status} · Available {formatAmount(option.amount)}</small></span></label>)}
     </div>
-    {rows.length > 0 && <div className="workflow-grid-scroll"><table className="workflow-grid" aria-label={`${field.label} allocation amounts`}><thead><tr><th>Record</th><th>Amount</th></tr></thead><tbody>{rows.map((row, index) => { const option = options.find((item) => item.id === String(row.recordId ?? "")); return <tr key={`allocation-${index}`}><td>{option?.name ?? String(row.recordId ?? "Unknown record")}</td><td><Input aria-label={`Allocation amount for ${option?.name ?? String(row.recordId ?? "Unknown record")}`} type="number" min="0" step="0.01" value={String(row.amount ?? "")} onChange={(event) => updateAmount(String(row.recordId ?? ""), event.target.value)} /></td></tr>; })}</tbody></table></div>}
+    {rows.length > 0 && <div className="workflow-grid-scroll"><ErpTable bare className="workflow-grid" aria-label={`${field.label} allocation amounts`}><thead><tr><th>Record</th><th>Amount</th></tr></thead><tbody>{rows.map((row, index) => { const option = options.find((item) => item.id === String(row.recordId ?? "")); return <tr key={`allocation-${index}`}><td>{option?.name ?? String(row.recordId ?? "Unknown record")}</td><td><Input aria-label={`Allocation amount for ${option?.name ?? String(row.recordId ?? "Unknown record")}`} type="number" min="0" step="0.01" value={String(row.amount ?? "")} onChange={(event) => updateAmount(String(row.recordId ?? ""), event.target.value)} /></td></tr>; })}</tbody></ErpTable></div>}
     <div className="workflow-totals"><span>Allocated <strong>{formatAmount(allocated)}</strong></span></div>
   </div>;
 }
@@ -256,7 +257,7 @@ function CsvField({ field, value, onChange, mappingValue, onMappingChange }: { f
   const setMappingValue = (header: string, target: string) => onMappingChange?.(JSON.stringify({ ...mapping, [header]: target }));
   return <div className="workflow-csv"><Textarea aria-label={`${field.label} CSV text`} rows={7} value={text} placeholder={field.placeholder ?? "Paste CSV with a header row"} onChange={(event) => onChange(event.target.value)} />
     <div className="workflow-csv-actions"><Button type="button" variant="secondary" size="sm" onClick={() => onChange(sample)}>Use sample CSV</Button><span className="workflow-muted">Comma-separated values are parsed locally; formulas and code are never executed.</span></div>
-    {headers.length > 0 && <><div className="workflow-csv-map"><strong>Map columns</strong>{headers.map((header) => <label key={header}><span>{header}</span><FormSelect aria-label={`Map CSV column ${header}`} value={mapping[header] ?? header.toLowerCase().replace(/[^a-z]/g, "")} onChange={(event) => setMappingValue(header, event.target.value)}><option value="__skip__">Do not import</option>{(field.options ?? ["reference", "name", "party", "date", "amount", "description", "category", "email"]).map((target) => <option key={target} value={target}>{target}</option>)}</FormSelect></label>)}</div><div className="workflow-grid-scroll"><table className="workflow-grid workflow-csv-preview" aria-label="Parsed CSV preview"><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Column ${index + 1}`}</th>)}</tr></thead><tbody>{rows.slice(1, 6).map((row, rowIndex) => <tr key={`csv-row-${rowIndex}`}>{headers.map((_, columnIndex) => <td key={`csv-cell-${rowIndex}-${columnIndex}`}>{row[columnIndex] ?? ""}</td>)}</tr>)}</tbody></table></div><small className="workflow-muted">Previewing {Math.max(rows.length - 1, 0)} data row{rows.length - 1 === 1 ? "" : "s"}. Review the mapping before continuing.</small></>}
+    {headers.length > 0 && <><div className="workflow-csv-map"><strong>Map columns</strong>{headers.map((header) => <label key={header}><span>{header}</span><FormSelect aria-label={`Map CSV column ${header}`} value={mapping[header] ?? header.toLowerCase().replace(/[^a-z]/g, "")} onChange={(event) => setMappingValue(header, event.target.value)}><option value="__skip__">Do not import</option>{(field.options ?? ["reference", "name", "party", "date", "amount", "description", "category", "email"]).map((target) => <option key={target} value={target}>{target}</option>)}</FormSelect></label>)}</div><div className="workflow-grid-scroll"><ErpTable bare className="workflow-grid workflow-csv-preview" aria-label="Parsed CSV preview"><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Column ${index + 1}`}</th>)}</tr></thead><tbody>{rows.slice(1, 6).map((row, rowIndex) => <tr key={`csv-row-${rowIndex}`}>{headers.map((_, columnIndex) => <td key={`csv-cell-${rowIndex}-${columnIndex}`}>{row[columnIndex] ?? ""}</td>)}</tr>)}</tbody></ErpTable></div><small className="workflow-muted">Previewing {Math.max(rows.length - 1, 0)} data row{rows.length - 1 === 1 ? "" : "s"}. Review the mapping before continuing.</small></>}
   </div>;
 }
 

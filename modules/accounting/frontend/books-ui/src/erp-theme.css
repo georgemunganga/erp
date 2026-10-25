@@ -138,3 +138,5 @@ body { font-size: 1rem; }
 .erp-entry-logo { width: 100px; height: auto; animation: erp-logo-pulse 2s ease-in-out infinite; }
 @keyframes erp-logo-pulse { 50% { opacity: .5; } }
 @media (prefers-reduced-motion: reduce) { .erp-entry-logo { animation: none; } }
+
+.erp-accounting-shell .erp-record-table { font-size: .875rem; }

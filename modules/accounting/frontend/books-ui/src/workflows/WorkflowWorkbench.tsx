@@ -1,3 +1,4 @@
+import { Table as ErpTable } from "@amizopower/erp-ui";
 import { useErpAccounting } from "../platform/ErpAccountingContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ClipboardList, FileText, History, Pencil, Play, Search, Sparkles, Trash2 } from "lucide-react";
@@ -142,7 +143,7 @@ function ValueSummary({ field, value, resources }: { field: FlowField; value: Fl
     const keys = field.type === "lines" ? ["description", "quantity", "rate", "taxRate"] : field.type === "journal-lines" ? ["account", "debit", "credit"] : ["recordId", "amount"];
     const labels: Record<string, string> = { description: "Description", quantity: "Quantity", rate: "Rate", taxRate: "Tax rate", account: "Account", debit: "Debit", credit: "Credit", recordId: "Record", amount: "Amount" };
     const options = field.type === "journal-lines" ? resources("accounts") : resources(field.collection ?? "");
-    return <div className="workflow-summary-table-wrap"><table className="workflow-summary-table" aria-label={`${field.label} summary`}><thead><tr>{keys.filter((key) => rows.some((row) => row[key] !== undefined)).map((key) => <th key={key}>{labels[key]}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`summary-${rowIndex}`}>{keys.filter((key) => rows.some((item) => item[key] !== undefined)).map((key) => { const raw = row[key]; const option = (key === "account" || key === "recordId") ? options.find((item) => item.id === String(raw ?? "")) : undefined; return <td key={key}>{option?.name ?? (isAmountKey(key) && typeof raw === "number" ? formatAmount(raw) : String(raw ?? "—"))}</td>; })}</tr>)}</tbody></table></div>;
+    return <div className="workflow-summary-table-wrap"><ErpTable bare className="workflow-summary-table" aria-label={`${field.label} summary`}><thead><tr>{keys.filter((key) => rows.some((row) => row[key] !== undefined)).map((key) => <th key={key}>{labels[key]}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`summary-${rowIndex}`}>{keys.filter((key) => rows.some((item) => item[key] !== undefined)).map((key) => { const raw = row[key]; const option = (key === "account" || key === "recordId") ? options.find((item) => item.id === String(raw ?? "")) : undefined; return <td key={key}>{option?.name ?? (isAmountKey(key) && typeof raw === "number" ? formatAmount(raw) : String(raw ?? "—"))}</td>; })}</tr>)}</tbody></ErpTable></div>;
   }
   if (field.type === "record" && typeof value === "string") {
     const option = resources(field.collection ?? "").find((item) => item.id === value);
