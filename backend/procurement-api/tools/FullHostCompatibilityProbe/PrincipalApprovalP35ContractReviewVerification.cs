@@ -45,7 +45,7 @@ internal static partial class PrincipalApprovalHttpVerification
             stages=new[]{new {code="INTERNAL",mode="All",principalIds=new[]{fixture.Approver.ToString("D")}}}});
         Need(ProcurementContractReviewPolicyRules.Validate(rules,draft:false).Count==0,
             "P35 native rules must satisfy the actual typed contract before creation.");
-        var policyEffective=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow.AddMinutes(-5))!.Value;
+        var policyEffective=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow.AddSeconds(30))!.Value;
         var policy=await send(client,HttpMethod.Post,policies,fixture.ConfigMaker,new {policyKey="SUPPLIER_CONTRACT_REVIEW",
             effectiveFrom=policyEffective,effectiveTo=(DateTimeOffset?)null,rulesJson=rules},HttpStatusCode.Created);
         var policyId=policy.GetProperty("id").GetGuid();
@@ -56,6 +56,9 @@ internal static partial class PrincipalApprovalHttpVerification
         var published=await send(client,HttpMethod.Post,$"{policies}/{policyId}/publish",fixture.ConfigReviewer,
             new {version=pendingPolicy.GetProperty("version").GetInt64(),reason="Independent private contract policy publication"});
         Need(published.GetProperty("state").GetString()=="Published","Actual typed contract policy was not published.");
+        var policyWait=policyEffective-DateTimeOffset.UtcNow;
+        Need(policyWait<=TimeSpan.FromSeconds(30),"Unexpected private contract policy activation wait.");
+        if(policyWait>TimeSpan.Zero)await Task.Delay(policyWait+TimeSpan.FromMilliseconds(50));
         const string contracts="/api/procurement/v1/contracts";
         object Draft(string title)=>new {supplierId,title,contractType="Framework",currencyCode="ZMW",ceilingAmount="100.0001",
             effectiveFrom=DateOnly.FromDateTime(DateTime.UtcNow),expiresOn=DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),renewalNoticeOn=(DateOnly?)null};
