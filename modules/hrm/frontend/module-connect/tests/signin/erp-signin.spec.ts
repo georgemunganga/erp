@@ -84,7 +84,7 @@ test('successful sign-in returns to ERP module selection rather than HRM',async(
   await expect(accounting).toHaveAttribute('href','/accounting/workspace/');
   await expect(accounting).toContainText('UI preview');
   await page.getByRole('link').filter({hasText:'ERP Core'}).click();
-  await expect(page.getByRole('heading',{name:'Organization & Settings'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'ERP Core settings'})).toBeVisible();
   await expect(page.locator('body')).not.toContainText('HRM access not assigned');
 });
 

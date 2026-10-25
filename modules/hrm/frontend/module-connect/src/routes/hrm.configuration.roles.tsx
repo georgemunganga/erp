@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { FormSelect } from "@/components/ui/form-select";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Plus, Save, ShieldCheck, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +13,7 @@ import { PageHeader } from "@/platform/components/PageHeader";
 import { StatusBadge } from "@/platform/components/StatusBadge";
 import { realApi, useApi } from "@/platform/use-api";
 import { feedback } from "@/platform/feedback";
+import { permissionPatch, readProcurementRoleCatalog, type RolePermissionOption } from "@/platform/role-permission-catalog";
 
 export const Route = createFileRoute("/hrm/configuration/roles")({
   head: () => ({
@@ -23,11 +24,11 @@ export const Route = createFileRoute("/hrm/configuration/roles")({
       { property: "og:description", content: "Create HRMS roles and assign the permissions each role grants." },
     ],
   }),
-  component: RolesConfig,
+  component: () => <Navigate to="/core/workspace/settings/$slug" params={{ slug: "roles" }} replace />,
 });
 
 const description =
-  "Create tenant roles, decide which HRMS permissions each role grants, and switch roles on or off for new sessions.";
+  "Create company roles, choose their permissions, and manage access.";
 
 const permissionOptions = [
   { key: "timesheet_operator", label: "Timesheet operations", detail: "View, record and import attendance for employees. Overtime approval, payroll and administration require separate permissions." },
@@ -44,6 +45,7 @@ const categoryLabels: Record<string, string> = {
   hrm: "HR administration",
   payroll: "Payroll",
   system: "System",
+  procurement: "Procurement",
 };
 
 interface RoleRow {
@@ -53,6 +55,7 @@ interface RoleRow {
   category: string;
   active: boolean;
   permissions: string[];
+  effectiveProcurementPermissions: string[];
 }
 
 interface DraftRole {
@@ -67,7 +70,7 @@ const emptyDraft: DraftRole = {
   roleKey: "",
   roleName: "",
   category: "hrm",
-  permissions: ["employee"],
+  permissions: [],
   active: true,
 };
 
@@ -79,6 +82,8 @@ function normalizeRows(rows: unknown): RoleRow[] {
     category: String(r.category ?? "hrm"),
     active: Boolean(r.active ?? true),
     permissions: Array.isArray(r.permissions) ? r.permissions.map(String) : [],
+    effectiveProcurementPermissions: Array.isArray(r.effectiveProcurementPermissions)
+      ? r.effectiveProcurementPermissions.filter((key): key is string => typeof key === "string") : [],
   }));
 }
 
@@ -87,22 +92,29 @@ function togglePermission(values: string[], key: string, checked: boolean) {
   return Array.from(new Set(next));
 }
 
-function PermissionGrid({ values, onChange }: { values: string[]; onChange: (next: string[]) => void }) {
+function PermissionGrid({ values, onChange, options, disabled }: {
+  values: string[]; onChange: (next: string[]) => void;
+  options: RolePermissionOption[]; disabled: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const filter = query.trim().toLowerCase();
+  const groups = new Map<string, RolePermissionOption[]>();
+  for (const option of options) {
+    if (filter && !`${option.label} ${option.key} ${option.group}`.toLowerCase().includes(filter)) continue;
+    groups.set(option.group, [...(groups.get(option.group) ?? []), option]);
+  }
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {permissionOptions.map((permission) => (
-        <label key={permission.key} className="flex items-start gap-3 rounded-lg border bg-background p-3 text-sm">
-          <Checkbox
-            checked={values.includes(permission.key)}
-            onCheckedChange={(checked) => onChange(togglePermission(values, permission.key, checked === true))}
-            aria-label={permission.label}
-          />
-          <span className="min-w-0">
-            <span className="block font-medium">{permission.label}</span>
-            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{permission.detail}</span>
-          </span>
-        </label>
-      ))}
+    <div className="space-y-3">
+      <Input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search permissions" placeholder="Search permissions" className="max-w-sm" disabled={disabled} />
+      {!options.length && <p role="status" className="text-sm text-muted-foreground">Permission choices are unavailable. Existing grants are retained; permission changes are closed.</p>}
+      {options.length > 0 && !groups.size && <p className="text-sm text-muted-foreground">No permissions match this search.</p>}
+      {[...groups].map(([group, entries]) => <section key={group} aria-label={`${group} permissions`} className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group}</h3>
+        <div className="grid gap-2 sm:grid-cols-2">{entries.map((permission) => <label key={permission.key} className="flex items-start gap-3 rounded-lg border bg-background p-3 text-sm">
+          <Switch checked={values.includes(permission.key)} onCheckedChange={(checked) => onChange(togglePermission(values, permission.key, checked))} aria-label={permission.label} disabled={disabled} />
+          <span className="min-w-0"><span className="block font-medium">{permission.label}</span>{permission.detail && <span className="mt-0.5 block text-xs text-muted-foreground">{permission.detail}</span>}<code className="mt-0.5 block text-xs text-muted-foreground">{permission.key}</code></span>
+        </label>)}</div>
+      </section>)}
     </div>
   );
 }
@@ -113,9 +125,26 @@ export function RolesConfig() {
   const [editing, setEditing] = useState<Record<string, DraftRole>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const state = useApi(() => realApi.roles(), [tick]);
+  const catalogState = useApi(() => realApi.rolePermissionCatalog());
+  let procurementOptions: RolePermissionOption[] = [];
+  let catalogUnavailable = Boolean(catalogState.error || catalogState.degraded);
+  if (catalogState.data !== null) {
+    try { procurementOptions = readProcurementRoleCatalog(catalogState.data).procurement; }
+    catch { catalogUnavailable = true; }
+  }
+  const procurementReady = !catalogState.loading && !catalogUnavailable && procurementOptions.length > 0;
+  const optionsFor = (category: string): RolePermissionOption[] => category === "procurement"
+    ? procurementOptions : permissionOptions.map((option) => ({ ...option, group: "HR administration" }));
+  const validSelection = (category: string, values: string[]) => values.length > 0
+    && (category !== "procurement" || procurementReady)
+    && values.every((key) => optionsFor(category).some((option) => option.key === key));
 
   const createRole = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!validSelection(draft.category, draft.permissions)) {
+      feedback.blocked("Cannot create role", "Choose supported permissions from the available catalog.");
+      return;
+    }
     setSaving("new");
     try {
       await realApi.createRole(draft);
@@ -129,7 +158,13 @@ export function RolesConfig() {
     }
   };
 
-  const saveRole = async (role: RoleRow, patch: Partial<DraftRole>) => {
+  const saveRole = async (role: RoleRow, draftRole: DraftRole) => {
+    const patch = permissionPatch(role, draftRole);
+    if (!Object.keys(patch).length) return;
+    if (patch.permissions && !validSelection(draftRole.category, patch.permissions)) {
+      feedback.blocked("Cannot change permissions", "Choose supported permissions from the available catalog.");
+      return;
+    }
     setSaving(role.roleKey);
     try {
       await realApi.updateRole(role.roleKey, patch);
@@ -148,9 +183,14 @@ export function RolesConfig() {
   };
 
   return (
-    <AuthGate>
+    <AuthGate module="erp">
       <ConfigurationShell>
         <PageHeader eyebrow="Configuration" title="Roles and permissions" description={description} />
+        {catalogState.loading && <p role="status" className="mb-4 rounded-lg border bg-surface p-3 text-sm">Loading Procurement permissions…</p>}
+        {!catalogState.loading && !procurementReady && <p role="status" className="mb-4 rounded-lg border border-warning/40 bg-warning-soft p-3 text-sm">
+          Procurement permission choices are unavailable. Existing roles can still be viewed, but Procurement grants cannot be changed until the server catalog loads.
+          <Button variant="outline" size="sm" className="ml-3" onClick={catalogState.reload}>Retry catalog</Button>
+        </p>}
         <Async state={state}>
           {(rows) => {
             const roleRows = normalizeRows(rows);
@@ -190,14 +230,14 @@ export function RolesConfig() {
                       </div>
                       <div>
                         <Label htmlFor="role-category">Category</Label>
-                        <select id="role-category" className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draft.category} onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value }))}>
+                        <FormSelect id="role-category" className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draft.category} onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value, permissions: [] }))}>
                           {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                        </select>
+                        </FormSelect>
                       </div>
                     </div>
-                    <PermissionGrid values={draft.permissions} onChange={(permissions) => setDraft((d) => ({ ...d, permissions }))} />
+                    <PermissionGrid options={optionsFor(draft.category)} disabled={draft.category === "procurement" && !procurementReady} values={draft.permissions} onChange={(permissions) => setDraft((d) => ({ ...d, permissions }))} />
                     <div className="flex justify-end">
-                      <Button type="submit" disabled={saving === "new" || draft.permissions.length === 0}>
+                      <Button type="submit" disabled={saving === "new" || !validSelection(draft.category, draft.permissions)}>
                         <Plus className="size-4" aria-hidden /> {saving === "new" ? "Creating..." : "Create role"}
                       </Button>
                     </div>
@@ -210,14 +250,12 @@ export function RolesConfig() {
                       roleKey: role.roleKey,
                       roleName: role.roleName,
                       category: role.category,
-                      permissions: role.permissions.length ? role.permissions : [role.roleKey],
+                      permissions: role.permissions,
                       active: role.active,
                     };
-                    const dirty =
-                      draftRole.roleName !== role.roleName ||
-                      draftRole.category !== role.category ||
-                      draftRole.active !== role.active ||
-                      draftRole.permissions.join(",") !== role.permissions.join(",");
+                    const patch = permissionPatch(role, draftRole);
+                    const dirty = Object.keys(patch).length > 0;
+                    const permissionChangeValid = !patch.permissions || validSelection(draftRole.category, patch.permissions);
                     return (
                       <section key={role.roleKey} className="rounded-lg border bg-surface p-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -231,16 +269,21 @@ export function RolesConfig() {
                               </div>
                               <div className="max-w-xs">
                                 <Label className="text-xs text-muted-foreground">Category</Label>
-                                <select className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draftRole.category} onChange={(event) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, category: event.target.value } }))} aria-label={`Category for ${role.roleKey}`}>
+                                <FormSelect className="mt-1 flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draftRole.category} onChange={(event) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, category: event.target.value, permissions: [] } }))} aria-label={`Category for ${role.roleKey}`}>
                                   {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                                </select>
+                                </FormSelect>
                               </div>
-                              <PermissionGrid values={draftRole.permissions} onChange={(permissions) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, permissions } }))} />
+                              {role.category !== "procurement" && role.effectiveProcurementPermissions.length > 0 && <details className="text-sm text-muted-foreground">
+                                <summary>Effective Procurement actions: {role.effectiveProcurementPermissions.length} (read only)</summary>
+                                <p className="mt-1">These actions come from the server's existing role rules. Editing this role's name or status does not change them.</p>
+                                <ul className="mt-2 list-inside list-disc">{role.effectiveProcurementPermissions.map((key) => <li key={key}><code>{key}</code></li>)}</ul>
+                              </details>}
+                              <PermissionGrid options={optionsFor(draftRole.category)} disabled={draftRole.category === "procurement" && !procurementReady} values={draftRole.permissions} onChange={(permissions) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, permissions } }))} />
                             </div>
                           </div>
                           <div className="flex items-center justify-end gap-3 lg:min-w-56">
                             <Switch checked={draftRole.active} onCheckedChange={(active) => setEditing((current) => ({ ...current, [role.roleKey]: { ...draftRole, active } }))} aria-label={`Toggle ${role.roleName}`} />
-                            <Button size="sm" disabled={!dirty || saving === role.roleKey || draftRole.permissions.length === 0} onClick={() => void saveRole(role, draftRole)}>
+                            <Button size="sm" disabled={!dirty || saving === role.roleKey || !permissionChangeValid} onClick={() => void saveRole(role, draftRole)}>
                               <Save className="size-4" aria-hidden /> {saving === role.roleKey ? "Saving..." : "Save"}
                             </Button>
                           </div>

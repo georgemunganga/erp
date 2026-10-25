@@ -193,7 +193,7 @@ export function BrandingPage() {
     }
   }
 
-  return <AuthGate><ConfigurationShell>
+  return <AuthGate module="erp"><ConfigurationShell>
     <Link to="/core" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
       <ChevronLeft className="size-3.5" aria-hidden /> All configuration
     </Link>
