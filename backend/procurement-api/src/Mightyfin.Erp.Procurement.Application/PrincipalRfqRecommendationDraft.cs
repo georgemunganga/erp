@@ -129,9 +129,9 @@ public static class PrincipalRfqRecommendationDraft
             && text.Count(x=>x=='.')<=1 && text.All(x=>x is >= '0' and <= '9' or '.')
             && text[0]!='.' && text[^1]!='.',"RfqRecommendationExactDecimalInvalid");
         var parts=text.Split('.');
-        Need(parts[0].Length is >0 && <=30 && parts[0].Length<=integerDigits
+        Need(parts[0].Length is >0 and <=30 && parts[0].Length<=integerDigits
             && (parts[0].Length==1 || parts[0][0]!='0')
-            && (parts.Length==1 || parts[1].Length is >0 && <=8 && parts[1].Length<=scale),
+            && (parts.Length==1 || parts[1].Length is >0 and <=8 && parts[1].Length<=scale),
             "RfqRecommendationExactDecimalInvalid");
         return BigInteger.Parse(parts[0],NumberStyles.None,CultureInfo.InvariantCulture)
             *BigInteger.Pow(10,scale)
