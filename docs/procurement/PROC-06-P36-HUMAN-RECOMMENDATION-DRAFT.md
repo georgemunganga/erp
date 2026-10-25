@@ -1,9 +1,10 @@
 # PROC-06 P36 human recommendation Draft
 
-**Status:** integrated source only; tests authored, not executed. P32 and P35
-have genuine migration baselines. P36 now has genuine EF metadata but no physical
-readiness capture. Its separate option defaults false and admission remains
-unavailable. No award or purchase-order authority is introduced.
+**Status:** integrated source and genuine EF metadata; joint source tests passed
+in [SDK04](release/P36-P37-JOINT-SDK-TEST-ACCEPTANCE-20261025.json). Physical
+readiness capture, PostgreSQL application and positive API proof remain open. Its
+separate option defaults false and admission remains unavailable. No award or
+purchase-order authority is introduced.
 
 ## 1. Business purpose
 
