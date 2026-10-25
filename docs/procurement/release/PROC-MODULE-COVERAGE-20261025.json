@@ -3,8 +3,8 @@
   "documentId": "PROC-MODULE-COVERAGE-20261025",
   "dateUtc": "2026-10-25",
   "status": "SOURCE_UI_AND_NAMED_PRIVATE_EVIDENCE_SNAPSHOT_NOT_MODULE_COMPLETION",
-  "erpSourceBeforeThisDocsChange": "4647fa2fb3ccee715ce13fa83bc63ad1121ecde4",
-  "uiSource": "62a3a3d53515be89ef4adb14327bfad9accedec2",
+  "erpSourceBeforeThisDocsChange": "eca8162d9b716cd2085fe34364abd865780d5ec5",
+  "uiSource": "dd177b510e2d1f751ed46729c206addb60f737d5",
   "moduleComplete": false,
   "productionDeploymentClaim": false,
   "preservedPriorRecords": [
@@ -31,7 +31,8 @@
     "currentPrivateSdkResultSha256": "35b9a04c02e732c7e27f8fe9db83b10c6499a3f5edecd4c813d26c7472b8fef5",
     "currentPrivatePublicationResultSha256": "60b2789506fedd92ab77c6b9a3f40777e9020dcc26cd88e804639ea49d47754d",
     "publicationRuntimeProof": false,
-    "retainedFailures": "Prior P37 native and SDK failures remain retained. Successful source, tests and publication do not convert a running native cohort into acceptance."
+    "retainedFailures": "Prior P37 native and SDK failures remain retained. Successful source, tests and publication do not convert a running native cohort into acceptance.",
+    "note": "Product982 remains the accepted published API/Tool input; latest receiving7e source build is recorded separately and has not been published."
   },
   "currentRunningOrPending": {
     "P37Ui": "ACCEPTED Cookie02 real local-cookie Returns create/reload/revise/reload/cancel/logout plus independent owner delta; AppC48 unchanged, spec62a3; Cookie01 timing failure retained.",
@@ -39,7 +40,9 @@
     "scannerC04": "READY_UNACKNOWLEDGED; no external pickup or real scanner proof claimed",
     "P37Native05AndOwner06": "ACCEPTED_BOUNDED_PRIVATE_DRAFT_HTTP_AND_READ_ONLY_OWNER_GRAPH; 193 HTTP, 1 draft, 3 revisions, 3 command receipts, 9 audit and 3 outbox rows. Owner05 failed captures remain preserved.",
     "P37Next": "Narrow P37-only finite-role and production release remain pending; physical return fulfilment, external posting and supplier dispatch are not established.",
-    "P37Cookie02": "ACCEPTED bounded private native193 + one normal-cookie browser + independent owner before/after; see docs/procurement/release/P37-NORMAL-COOKIE02-ACCEPTANCE-20261025.json"
+    "P37Cookie02": "ACCEPTED bounded private native193 + one normal-cookie browser + independent owner before/after; see docs/procurement/release/P37-NORMAL-COOKIE02-ACCEPTANCE-20261025.json",
+    "receivingDirectory": "Merged source + TypeScript/8units/9mockedbrowser acceptance,1360Host/5focus. New sort-query HTTP, publication and production remain separate.",
+    "P35NormalCookie": "Draft ERP PR85 and UI PR77 contain source-only transport/browser proof. No SDK/browser/owner execution or activation claim."
   },
   "metaCapabilityInventory": {
     "sourceFile": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
@@ -491,6 +494,10 @@
         {
           "receipt": "docs/procurement/release/P30-SERVICE-COOKIE-ACCEPTANCE-20261024.json",
           "acceptedScope": "Recorded normal-session service and independent owner proof"
+        },
+        {
+          "receipt": "docs/procurement/release/RECEIVING-BROWSE-ACCEPTANCE-20261025.json",
+          "acceptedScope": "1360Host/5focused and types/8units/9mockedbrowser receiving directory sort/labels; not actual new-sort HTTP or production."
         }
       ],
       "remainingImplementationOrAcceptance": [
@@ -968,5 +975,17 @@
     "wrapperResultSha256": "2aad50a4619cc0d7e5cc6c4f98ca64d5aec2837b272f05022da29790d146637d",
     "failureEvidencePreserved": true,
     "sdkAndPublicationAcceptanceUnchanged": true
+  },
+  "latestSourceBuild": {
+    "receipt": "docs/procurement/release/RECEIVING-BROWSE-ACCEPTANCE-20261025.json",
+    "productSource": "7e6a7fd95a57ee7e0b3bdb92d7718c6bf014d8a1",
+    "hostPassed": 1360,
+    "focusedHostPassed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "domainPassedCarried": 1670,
+    "domainRerun": false,
+    "apiPublished": false,
+    "productionDeployed": false
   }
 }
