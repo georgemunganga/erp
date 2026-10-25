@@ -1,8 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Role } from "@/mock/types";
-import { useRoleGate } from "@/platform/app-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AppShell } from "@/platform/components/AppShell";
 import { Async } from "@/platform/components/Async";
 import { PageHeader } from "@/platform/components/PageHeader";
 import { ScopeBadge } from "@/platform/components/ScopeBadge";
@@ -39,28 +36,10 @@ export const Route = createFileRoute("/hrm/configuration/branch-access")({
       { property: "og:title", content: "Branch access — Newworldcargo HRM" },
     ],
   }),
-  component: () => {
-    const mayAct = useRoleGate()(["hr_admin"] as Role[]);
-    return (
-      <AppShell>
-        {mayAct ? <BranchAccessPage /> : <ForbiddenHint />}
-      </AppShell>
-    );
-  },
+  component: () => <Navigate to="/core/workspace/settings/$slug" params={{ slug: "branch-access" }} replace />,
 });
 
-function ForbiddenHint() {
-  return (
-    <div className="mx-auto max-w-5xl px-4 py-10 md:px-8">
-      <EmptyState
-        title="Access restricted"
-        description="Branch access management is limited to hr_admin users."
-      />
-    </div>
-  );
-}
-
-function BranchAccessPage() {
+export function BranchAccessPage() {
   const accessState = useApi(() => realApi.branchAccess());
   const [assigning, setAssigning] = useState(false);
 
@@ -72,7 +51,7 @@ function BranchAccessPage() {
         title="Branch access"
         description={description}
         meta={<ScopeBadge />}
-        actions={
+        primaryAction={
           <Button size="sm" onClick={() => setAssigning(true)}>
             <Plus className="size-4" aria-hidden /> Assign branch
           </Button>
@@ -80,11 +59,7 @@ function BranchAccessPage() {
       />
 
       <Async state={accessState} rows={6}>
-        {accessState.data ? (
-          <AccessTable data={accessState.data} reload={reload} />
-        ) : (
-          <EmptyState title="No branch access data" description="Could not load assignments." />
-        )}
+        {(data) => <AccessTable data={data} reload={reload} />}
       </Async>
 
       {assigning && accessState.data ? (
@@ -122,7 +97,7 @@ function AccessTable({
       <div className="rounded-lg border bg-card p-8">
         <EmptyState
           title="No confined HR staff"
-          description={
+          body={
             "No platform user has been assigned to a branch yet, which means every HR staff member " +
             "currently works organisation-wide. Assign a user below to confine them to a specific branch."
           }
