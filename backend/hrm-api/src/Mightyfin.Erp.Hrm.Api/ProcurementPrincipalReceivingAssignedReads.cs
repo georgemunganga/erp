@@ -130,17 +130,22 @@ public static partial class ProcurementPrincipalReceivingRoutes
             }
             return new Reply(200,System.Text.Json.JsonSerializer.Serialize(new{records,total,offset=start,limit=size,purposeOnly=true,executionVersion=2,isAuthority=false},Json));
         },ct);
-    private static Task<IResult> Worklist(string? kind,string? status,int? offset,int? limit,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
+    internal static bool SupportedWorklistSort(string? sort)=>sort is null or "newest" or "oldest";
+    internal static IOrderedQueryable<PrincipalReceivingDraftHead> OrderWorklist(IQueryable<PrincipalReceivingDraftHead> headers,string? sort)
+        =>sort=="oldest"?headers.OrderBy(x=>x.CreatedAt).ThenBy(x=>x.Id)
+            :headers.OrderByDescending(x=>x.CreatedAt).ThenBy(x=>x.Id);
+    private static Task<IResult> Worklist(string? kind,string? status,string? sort,int? offset,int? limit,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         =>Run(http,scope,"procurement-receipt-view",async(db,cases,_,actor,token)=>
         {
-            if(kind is not(null or "Goods" or "Service") || status is not(null or "Draft" or "Recorded" or "Certified" or "Cancelled"))
+            if(kind is not(null or "Goods" or "Service") || status is not(null or "Draft" or "Recorded" or "Certified" or "Cancelled")
+                || !SupportedWorklistSort(sort))
                 throw new Problem("ReceivingFilterUnsupported",422);
             var start=Math.Clamp(offset??0,0,100_000);var size=Math.Clamp(limit??10,1,10);
             var query=BoundDraftLines(db,scope,actor);
             if(kind is not null)query=query.Where(x=>x.Head.Kind==kind);
             if(status is not null)query=query.Where(x=>x.Head.State==status);
             var headers=query.Select(x=>x.Head).Distinct();var total=await headers.CountAsync(token);
-            var page=await headers.OrderByDescending(x=>x.CreatedAt).ThenBy(x=>x.Id).Skip(start).Take(size).ToArrayAsync(token);
+            var page=await OrderWorklist(headers,sort).Skip(start).Take(size).ToArrayAsync(token);
             var records=new List<object>();
             foreach(var candidate in page)
             {

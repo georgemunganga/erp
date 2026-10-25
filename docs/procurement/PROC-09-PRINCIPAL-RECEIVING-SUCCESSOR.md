@@ -276,6 +276,15 @@ requiring today's operational policy or old signers' employment. It makes no
 current balance/action/readiness claim. Existing head detail/recovery remain the
 owned history and original-result surfaces.
 
+The principal directory accepts only `sort=newest|oldest`, defaulting to newest.
+Both orders use the immutable head creation time and head ID as a stable tie
+breaker, after the existing branch and issued-source scope and before paging.
+Unsupported sort values fail with 422. The screen labels a draft as a delivery
+or service rather than treating its internal UUID as a receipt number; the
+retained issued PO number is the human order reference. Task queues retain their
+separate purpose and order. Search, exports and a separate receipt-number scheme
+remain unavailable pending their own scoped contracts.
+
 Purpose-only GET queues are `/receiving/principal-inspection-tasks`,
 `principal-acceptance-tasks`, and `principal-service-tasks`; details are
 `/receipts/{id}/principal-inspection-task`, `principal-acceptance-task`, and
