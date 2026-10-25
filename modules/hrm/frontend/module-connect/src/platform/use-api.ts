@@ -1062,6 +1062,7 @@ export const realApi = {
   updateJob: (id: string, body: Record<string, unknown>) => hrmApi.patch<unknown>(`/hrm/admin/jobs/${id}`, body),
   closeJob: (id: string) => hrmApi.post<unknown>(`/hrm/admin/jobs/${id}/close`, null),
   roles: () => hrmApi.get<unknown[]>("/hrm/admin/roles"),
+  rolePermissionCatalog: () => hrmApi.get<unknown>("/core/v1/role-permissions"),
   createRole: (body: { roleKey: string; roleName: string; category: string; permissions: string[]; active: boolean }) => hrmApi.post<unknown>("/hrm/admin/roles", body),
   updateRole: (roleKey: string, body: { roleName?: string; category?: string; permissions?: string[]; active?: boolean }) =>
     hrmApi.patch<unknown>(`/hrm/admin/roles/${roleKey}`, body),

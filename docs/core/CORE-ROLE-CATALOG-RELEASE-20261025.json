@@ -1,0 +1,81 @@
+{
+  "status": "DEPLOYED_CORE_PERMISSION_CATALOG_AND_CORE_SETTINGS_ROUTES",
+  "date": "2026-10-25",
+  "backendVerifiedSource": "7a37b4b968e28e3436b1b8062c1ba38970307135",
+  "backendCompiledProductSource": "1573331dab5f393ea87be7bd19df857c7e748760",
+  "frontendSource": "0d4cf1d7b76368db4b34f657550c330b06cbc9cf",
+  "candidateImageId": "sha256:3a6ba254b9d642ff2d25fced66729e6ab0528002e27f3bd81e4327a82377afc0",
+  "previousImageId": "sha256:f768eea40d381429c4546218916142da34d2bdcf29db6b6b27810fd3c54a067d",
+  "productionCatalogActions": 67,
+  "canonicalDevelopmentCatalogActions": 91,
+  "noNewPermissionGrants": true,
+  "databaseMigrationsExecuted": false,
+  "featureFlagsChanged": false,
+  "publishedFiles": 150,
+  "changedPublishedFiles": [
+    "Mightyfin.Erp.Hrm.Api.dll",
+    "Mightyfin.Erp.Hrm.Api.pdb",
+    "Mightyfin.Erp.Hrm.Application.dll",
+    "Mightyfin.Erp.Hrm.Application.pdb"
+  ],
+  "unchangedModelsAndOtherPublishedBytes": true,
+  "checks": {
+    "developmentHostPassed": 1364,
+    "releaseFocusedBackendPassed": 10,
+    "releaseHostOriginalPassed": 1006,
+    "releaseHostOriginalFailedSourceLayoutChecks": 3,
+    "releaseSameCaseSourceFixtureRerunPassed": 3,
+    "releaseHostCompositePassed": 1009,
+    "singlePassingFullReleaseHostRun": false,
+    "localMockedBrowserPassed": 17,
+    "deployedPublicMockedBrowserPassed": 17,
+    "realPublicRouteSmokePassed": 12,
+    "realApiHealthy": true,
+    "realPublisherRunningWithoutRestart": true,
+    "businessRecordsMutatedByTests": false
+  },
+  "typescript": {
+    "canonicalSource": "PASS",
+    "releaseChangedFiles": "PASS",
+    "releaseFullProject": "23 unchanged legacy HRM errors; not a full TypeScript pass"
+  },
+  "firstCutover": {
+    "outcome": "AUTOMATIC_ROLLBACK_SUCCEEDED",
+    "cause": "Frontend readiness checked before listener started",
+    "correction": "Bounded readiness retry; 404 fails immediately",
+    "finalRetry": "SUCCEEDED"
+  },
+  "remainingAcceptance": "Real-account role create/update and branch/data-scope business UAT remain pending. Other Procurement gaps and HRM settings-route rollout remain separate.",
+  "evidence": [
+    {
+      "directory": "core04-p24-versioning-readonly-supplement-prep-20261025_run01",
+      "file": "result.private.json",
+      "sha256": "c6db6d1d71c8781eee84c9428596c28f2dbb22d95148047084290b4cffb36df3"
+    },
+    {
+      "directory": "core04-p24-backport-publication-prep-20261025_run01",
+      "file": "result.private.json",
+      "sha256": "2583aec8d4fb3c15a195948ee174a983963c744acd8909fd0d3bb496c415f0e0"
+    },
+    {
+      "directory": "core-role-catalog-paired-cutover-prep-20261025_run02",
+      "file": "state.private.json",
+      "sha256": "c8191eaa7e586b9b686880d403b11eaf9dea729f8b02907a3d801f20e80581af"
+    },
+    {
+      "directory": "core-role-catalog-paired-cutover-prep-20261025_run02",
+      "file": "public-runtime-smoke.private.json",
+      "sha256": "8efe68ca76a33686d30ac09963549662f7fde5749f0759a9838d739d0c6aaf32"
+    },
+    {
+      "directory": "core-catalog-public-browser-20261025_run01",
+      "file": "result.private.json",
+      "sha256": "403ba9172eb04a242e6c69fd2825d726d63bee6acdbc10ad57074ca9d3a0d1b1"
+    },
+    {
+      "directory": "core04-procurement-role-catalog-sdk-prep-20261025_run01",
+      "file": "cache-archive.private.json",
+      "sha256": "0fab8b5e9f79f45120c1160cad618a8c0992894f45b77db8e4e77d3732755362"
+    }
+  ]
+}
