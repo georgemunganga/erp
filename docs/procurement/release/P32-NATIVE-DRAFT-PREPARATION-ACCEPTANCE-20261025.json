@@ -1,0 +1,50 @@
+{
+  "status": "ACCEPTED_PRIVATE_P32_DRAFT_AND_ZERO_DOCUMENT_PREPARATION_ONLY",
+  "dateUtc": "2026-10-25",
+  "productSourceCommit": "c2e2a927c9930436db9b36e1bc73c9fb29d279eb",
+  "toolSourceCommit": "933ded357ed96b4e8c268cc67d076670222f94ed",
+  "genuineToolSdk": {
+    "directory": "/home/amizo/erp-backups/procurement-p32-commercial-native-tool-sdk-prep-20261025_run04",
+    "resultSha256": "428fb46ca561582815fe19d7feaeebf775b3d497091a5e958518298fec6fc1e2",
+    "publicationManifestSha256": "bb35505afb355524ea5a24a90a12b3c7bfce941de7be72245b7f248b21badc41",
+    "publishedFiles": 477,
+    "scope": "Official offline SDK restore/build/publish; all current product bin mounts read-only; generated current dependency graph, not handwritten"
+  },
+  "native": {
+    "directory": "/home/amizo/erp-backups/procurement-p32-commercial-native-http-prep-20261025_run03",
+    "planSha256": "a0cb549f4dc488e25a74bd2e120f3769714cd23c4becb9c9e8c1de4052da3930",
+    "resultSha256": "99582fcc79ca872c5ee30ac6043b96190f31578d4b5735ff3529c8009d679091",
+    "wrapperResultSha256": "bef3b5e711026c3b3f6df6e4f5402fbd45ddc715c9f1e6c1a54d9b162424198b",
+    "actualHttpRequests": 100,
+    "exitCode": 0,
+    "scope": "Real scoped HTTP create/revise/replay/recovery and zero-document PreparedCandidate; original P30 publication graph independently exercised"
+  },
+  "independentOwner": {
+    "directory": "/home/amizo/erp-backups/procurement-p32-commercial-owner-prep-20261025_run03",
+    "planSha256": "99056652573586284b69a75855fd550419f986a8c8840bc96f2d41dc9569e9f9",
+    "resultSha256": "f3c4cc8d046e9880194c7de4badd58c13a497d419e566241e34cd166318c3865",
+    "draftRevisions": 2,
+    "draftReceipts": 2,
+    "preparedPlans": 1,
+    "preparationReceipts": 1,
+    "commercialOpenings": 0,
+    "commercialOffers": 0,
+    "readOnlyObservationsEqual": true,
+    "rawResponseShaIndependentlyRecomputed": true,
+    "requestShaEvidence": "SHAPE_AND_RETAINED_LINKS_ONLY_NO_CAPTURED_ORIGINAL_REQUEST_BODIES",
+    "preparedPolicyJsonShaIndependentlyRecomputed": false,
+    "unrelatedBusinessRowsUnchangedProven": false
+  },
+  "retainedFailures": [
+    "Native01: policy identity readiness expected three indexes instead of the genuine P32 fourth; product guard corrected and source tested",
+    "Native02: test window used sub-microsecond UTC ticks; corrected tool uses the shared database timestamp helper and preflight validates exact input before HTTP",
+    "All failed databases, raw logs and result receipts are retained; duplicate build payloads have verified lossless restoration maps"
+  ],
+  "remainingGates": [
+    "Normal-session P32 browser integration",
+    "Real scanned document evidence and commercial publication/opening/bids before downstream recommendation/award flows",
+    "Production migration/configuration/deployment and UAT"
+  ],
+  "productionTouched": false,
+  "financeOrInventoryEffectsProven": false
+}
