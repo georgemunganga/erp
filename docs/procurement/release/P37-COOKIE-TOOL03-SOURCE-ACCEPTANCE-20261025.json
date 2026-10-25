@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "ACCEPTED_PRIVATE_P37_COOKIE_TOOL_BUILD_ONLY",
+  "toolSourceCommit": "1bad418542ab3d138bacf76294c172208c3a14d4",
+  "unchangedProductSourceCommit": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "run03": {
+    "privateEvidenceDirectory": "procurement-p37-return-cookie-tool-only-sdk-prep-20261025_run03",
+    "reviewedPlanSha256": "0e1759a5211ba22fc7ee9f2bd05f1eca01105c839bc7b090fb257d454bed4c88",
+    "resultSha256": "34c76d6d32ce383c481ead805edb4d4d2c7bfecce14a7046ca7f42da62f79f9f",
+    "provenanceSha256": "691da30ea428f49431abcca749e6ef5e1d838132fb80f95e266fa7c5c26f9443",
+    "toolPublicationManifestSha256": "9a115553cdbf5576a3e89a43f0a2074ce9e92648c4522b35b221cd6d9095c3fe",
+    "containerExitCode": 0,
+    "containerOOMKilled": false,
+    "compiledToolCSharpFiles": 45,
+    "publishedToolFiles": 477,
+    "apiPublicationFilesCarriedUnchanged": 150,
+    "apiPublicationManifestSha256": "dc0a87a00199f63648701a54346726ddf760f59de2adea32279b9aee04c6da74",
+    "priorProductHostPassedCarried": 1358,
+    "priorProductFocusedHostPassedCarried": 59,
+    "databaseExecuted": false,
+    "toolExecuted": false,
+    "productionTouched": false
+  },
+  "retainedRun02Failure": {
+    "privateEvidenceDirectory": "procurement-p37-return-cookie-tool-only-sdk-prep-20261025_run02",
+    "status": "FAILED_GENUINE_TOOL_COMPILE_CS0103",
+    "compilerError": "CS0103: ProcurementEvidenceEncoding was missing its Procurement.Application using in the new private cookie serve file",
+    "failedToolSourceCommit": "6f43cafc92e0d709044a33355527e12553f3a38c",
+    "correctiveChange": "The Tool03 source adds only using Mightyfin.Erp.Procurement.Application to that C# file; application and other product source bytes are unchanged.",
+    "evidencePreserved": true
+  },
+  "earlierToolPreparation": "The original Tool01 profile was inert; it was not an attempted build.",
+  "limits": {
+    "normalCookieBrowserAccepted": false,
+    "newOwnerReconciliationAccepted": false,
+    "newPrivateBusinessRuntimeAccepted": false,
+    "productionDeploymentAccepted": false,
+    "currentUIPrivateViteBuild": "Separate staged UI evidence; not part of this Tool build receipt"
+  }
+}
