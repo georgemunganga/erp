@@ -27,7 +27,7 @@ public sealed class CoreRolePermissionCatalogHttpTests
         Assert.Equal(1, body.GetProperty("schemaVersion").GetInt32());
         var actions = body.GetProperty("procurement").EnumerateArray().ToArray();
         var names = actions.Select(x => x.GetProperty("key").GetString()!).ToArray();
-        Assert.Equal(67, names.Length);
+        Assert.Equal(69, names.Length);
         Assert.Equal(ProcurementActionCatalog.BootstrapGrants.Keys.Order(StringComparer.Ordinal), names);
         Assert.All(actions, x =>
         {

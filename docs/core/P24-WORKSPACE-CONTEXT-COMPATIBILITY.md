@@ -1,0 +1,9 @@
+# P24 Core workspace choices for Procurement first use
+
+This P24 compatibility backport maps the existing Core `GET /api/core/v1/workspace-context` route. It lets an authenticated Core account, including a workerless Procurement account, obtain its current company and branch choices without HRM administrator access. The route reads the existing local account, legal entities, work locations and user branch assignments; it does not create a grant, branch, employee or schema object.
+
+The route requires a current active, unlocked account in the authenticated tenant. Declared branch assignments confine choices to active assigned branches and their active companies. An inactive assignment does not become organisation-wide access. An account with no assignments retains the existing Core tenant-wide choice rule. The response is uncached and contains no employee record. HRM's default workforce policy remains unchanged; the route uses its own authenticated tenant policy.
+
+Choosing a company or branch remains separate from Procurement admission. `/api/procurement/v1/context`, `/meta`, and each Vendor or Item action still check the current principal, permissions, company, branch and schema. The existing UI may choose a default branch only when exactly one permitted branch or one permitted headquarters is returned. It must not infer a branch from an employee profile or an unverified browser value.
+
+Mapped route tests cover workerless assigned access, inactive and locked accounts, tenant isolation, stale assignments and the existing no-assignment rule. Actual normal-cookie first-use browser acceptance and current permission/assignment revocation remain release gates; this source change alone does not claim them. The bounded CSV export and operational All-branch limitations are tracked separately.

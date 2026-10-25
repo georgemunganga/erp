@@ -234,18 +234,26 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
     // Retained response compatibility only. System users are never narrowed by HR linkage.
     public bool AdminViewOnly => false;
     public bool IsConfined { get; private set; }
+    // Current Core assignment intersection for a deliberate company-master All read.
+    public bool IsExplicitAllBranches { get; private set; }
+    public IReadOnlyList<Guid> PermittedWorkLocationIds { get; private set; } = [];
     public string? CorrelationId { get; private set; }
 
-    public void Set(string tenant, Guid entity, string subject, Guid? location, Guid? orgUnit, bool confined, string correlation)
+    public void Set(string tenant, Guid entity, string subject, Guid? location, Guid? orgUnit, bool confined, string correlation,
+        bool explicitAllBranches = false, IReadOnlyList<Guid>? permittedWorkLocationIds = null)
     {
         if (resolved || string.IsNullOrWhiteSpace(tenant) || entity == Guid.Empty || string.IsNullOrWhiteSpace(subject))
             throw new InvalidOperationException("A valid Procurement scope may be set only once.");
+        if (explicitAllBranches && (location is not null || orgUnit is not null))
+            throw new InvalidOperationException("All branches cannot also select a branch or unit.");
         tenantId = tenant;
         legalEntityId = entity;
         subjectId = subject;
         WorkLocationId = location;
         OrgUnitId = orgUnit;
         IsConfined = confined;
+        IsExplicitAllBranches = explicitAllBranches;
+        PermittedWorkLocationIds = permittedWorkLocationIds?.Distinct().ToArray() ?? [];
         CorrelationId = correlation;
         resolved = true;
     }
@@ -321,6 +329,19 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
 
         var requestedEntityText = http.Request.Headers["X-Shell-Entity"].FirstOrDefault()?.Trim();
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
+        var hasAllHeader = http.Request.Headers.ContainsKey("X-Shell-Branch-Scope");
+        var validAllHeader = hasAllHeader && http.Request.Headers["X-Shell-Branch-Scope"].Count == 1
+            && string.Equals(http.Request.Headers["X-Shell-Branch-Scope"].ToString().Trim(), "all", StringComparison.OrdinalIgnoreCase);
+        if (hasAllHeader && (!validAllHeader || string.IsNullOrWhiteSpace(requestedEntityText)
+            || http.Request.Headers.ContainsKey("X-Shell-Location")))
+        {
+            await Deny(http, StatusCodes.Status400BadRequest, "Choose one valid company scope and branch selection.");
+            return;
+        }
+        // All is admitted only by reviewed read contracts. Request lists fence
+        // branch-owned rows before count/page; plans/contracts are company-owned.
+        var explicitAllBranches = validAllHeader && (AllCompanyMasterReadPath(http.Request.Path, http.Request.Method)
+            || AllOperationalListReadPath(http.Request.Path, http.Request.Method));
         Guid? requestedEntity = null;
         Guid? requestedLocation = null;
         if (!string.IsNullOrEmpty(requestedEntityText))
@@ -340,6 +361,14 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
                 return;
             }
             requestedLocation = parsed;
+        }
+
+        // An explicit company-wide view must never silently post a request to
+        // an arbitrary assigned branch. Preserve legacy non-All commands.
+        if (validAllHeader && RequestWriteRequiresBranch(http.Request.Path, http.Request.Method))
+        {
+            await Deny(http, StatusCodes.Status400BadRequest, "Choose a permitted branch before changing a purchase request.");
+            return;
         }
 
         var legalEntities = await db.LegalEntities.AsNoTracking()
@@ -407,7 +436,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
                 return;
             }
         }
-        else if (confined)
+        else if (confined && !explicitAllBranches)
         {
             var first = assignedLocations
                 .Where(x => !requestedEntity.HasValue || x.LegalEntityId == requestedEntity.Value)
@@ -446,8 +475,14 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             await Deny(http, StatusCodes.Status403Forbidden, "The selected company is unavailable.");
             return;
         }
+        Guid[] permittedLocations = explicitAllBranches
+            ? confined ? assignedLocations.Where(x => x.LegalEntityId == selectedEntity).Select(x => x.Id).ToArray()
+                : await db.WorkLocations.AsNoTracking().Where(x => x.TenantId == tenant && !x.IsArchived
+                    && x.LegalEntityId == selectedEntity).Select(x => x.Id).ToArrayAsync(http.RequestAborted)
+            : [];
         scope.Set(tenant, selectedEntity, principal.Id.ToString("D"), effectiveLocation, effectiveOrgUnit, confined,
-            http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier);
+            http.Response.Headers["X-Request-Id"].FirstOrDefault() ?? http.TraceIdentifier,
+            explicitAllBranches, permittedLocations);
         scope.AssignPrincipal(principal.Id, principal.WorkerId);
         // Optional projection for existing worker-pinned operational consumers.
         // No mapping, inactive HR profile or another-company home never grants or
@@ -462,5 +497,38 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         http.Response.StatusCode = status;
         await http.Response.WriteAsJsonAsync(new ApiError(status == 400 ? "invalid-scope" : "forbidden", message, []),
             http.RequestAborted);
+    }
+
+    // These exact collections have reviewed All readers. Detail/review and
+    // mutation routes retain their separate branch requirements.
+    internal static bool AllOperationalListReadPath(PathString path, string method)
+    {
+        if (!HttpMethods.IsGet(method)) return false;
+        var value = path.Value?.TrimEnd('/');
+        return string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static bool RequestWriteRequiresBranch(PathString path, string method) =>
+        path.StartsWithSegments("/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+        && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method));
+
+    // Only current company-master reads use explicit All in this P24 backport.
+    // A future child or write route must receive its own scope review.
+    internal static bool AllCompanyMasterReadPath(PathString path, string method)
+    {
+        if (!HttpMethods.IsGet(method)) return false;
+        if (string.Equals(path.Value, "/api/procurement/v1/context", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(path.Value, "/api/procurement/v1/meta", StringComparison.OrdinalIgnoreCase)) return true;
+        foreach (var root in new[] { "/api/procurement/v1/vendors", "/api/procurement/v1/items" })
+        {
+            if (string.Equals(path.Value, root, StringComparison.OrdinalIgnoreCase)) return true;
+            if (!path.StartsWithSegments(root, out var rest)) continue;
+            var part = rest.Value?.Trim('/');
+            if (string.Equals(part, "export", StringComparison.OrdinalIgnoreCase)
+                || Guid.TryParse(part, out var id) && id != Guid.Empty) return true;
+        }
+        return false;
     }
 }

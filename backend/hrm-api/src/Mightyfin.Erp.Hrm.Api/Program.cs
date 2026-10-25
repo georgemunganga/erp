@@ -91,6 +91,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient("keycloak-admin");
 builder.Services.AddScoped<IIdentityProvisioningService, IdentityProvisioningService>();
 builder.Services.AddScoped<ITenantAccessor, PrincipalTenantAccessor>();
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 // M44 branch scoping: per-request work scope (entity + branch) resolved from
 // X-Shell-Location / X-Shell-Entity headers before any handler runs.
 builder.Services.AddScoped<ShellContext>();
@@ -225,9 +226,11 @@ builder.Services.AddAuthorization(options =>
         .RequireAuthenticatedUser()
         .RequireAssertion(context => HrmStaffAccess.IsStaff(context.User.Claims))
         .Build();
+    Mightyfin.Erp.Hrm.Api.SharedSessionAuthorization.AddPolicy(options);
     options.AddPolicy("hrm-admin", policy => policy.RequireAuthenticatedUser()
         .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole("hr_admin", "erp_admin")));
     Mightyfin.Erp.Hrm.Api.ProcurementPermissions.AddPolicies(options);
+    Mightyfin.Erp.Hrm.Api.CoreWorkspaceContextRoutes.AddPolicy(options);
 });
 
 // ---------- Health: readiness probes the database ----------
@@ -253,14 +256,13 @@ builder.Services.AddSingleton(new ApiVersioning { CurrentVersion = 1 });
 
 var app = builder.Build();
 
-// ---------- Apply migrations at startup ----------
-// A dedicated "migrate" container can also launch the same binary with
-// --apply-migrations-only to run migrations before the API starts serving.
-// The API itself applies any pending migrations on startup as a safety net,
-// exactly like the Go ERP stack's migrate service + API pair.
+// ---------- Verify the owning Core/HRM schema before startup ----------
+// Production runtime accounts do not need DDL. The dedicated owner process keeps
+// --apply-migrations-only; development can still perform automatic initial setup.
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<HrmDbContext>().Database.Migrate();
+    await Mightyfin.Erp.Hrm.Api.CoreSchemaStartup.EnsureAsync(scope.ServiceProvider.GetRequiredService<HrmDbContext>(), "Core/HRM",
+        Mightyfin.Erp.Hrm.Api.CoreSchemaStartup.MayApplyMigrations(builder.Configuration, builder.Environment.IsDevelopment(), args));
 }
 if (args.Contains("--apply-migrations-only"))
 {
@@ -442,6 +444,7 @@ Routes.HrmPrefix = $"/api/v{versioning.CurrentVersion}/hrm";
 Routes.RegisterAll(app);
 Routes.HrmPrefix = "/api/hrm"; // legacy prefix, kept for existing clients
 Routes.RegisterAll(app);
+Mightyfin.Erp.Hrm.Api.CoreWorkspaceContextRoutes.MapRoutes(app);
 Mightyfin.Erp.Hrm.Api.CoreRolePermissionCatalogRoutes.MapRoutes(app);
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
     Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.MapRoutes(app);
