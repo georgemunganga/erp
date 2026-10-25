@@ -52,4 +52,43 @@ public sealed class ProcurementPrincipalReceivingAssignedReadTests
         Assert.Contains("branch_id",sql);Assert.Contains("category_code",sql);Assert.Contains("purchase_type",sql);
         Assert.Contains("core_approval.cases",sql);Assert.Contains("LIMIT",sql);Assert.Contains("OFFSET",sql);
     }
+    [Fact]
+    public void Principal_directory_orders_scoped_heads_before_paging_with_stable_ties()
+    {
+        var earlier=new DateTimeOffset(2026,10,24,9,0,0,TimeSpan.Zero);
+        var later=earlier.AddMinutes(1);
+        var a=new PrincipalReceivingDraftHead{Id=Guid.Parse("00000000-0000-4000-8000-000000000001"),BranchId=Branch,CreatedAt=earlier};
+        var b=new PrincipalReceivingDraftHead{Id=Guid.Parse("00000000-0000-4000-8000-000000000002"),BranchId=Branch,CreatedAt=later};
+        var c=new PrincipalReceivingDraftHead{Id=Guid.Parse("00000000-0000-4000-8000-000000000003"),BranchId=Branch,CreatedAt=later};
+        var denied=new PrincipalReceivingDraftHead{Id=Guid.Parse("00000000-0000-4000-8000-000000000004"),BranchId=Guid.NewGuid(),CreatedAt=later.AddHours(1)};
+        var scoped=new[]{c,denied,a,b}.AsQueryable().Where(x=>x.BranchId==Branch);
+        Assert.Equal(3,scoped.Count());
+        Assert.Equal(new[]{b.Id,c.Id,a.Id},ProcurementPrincipalReceivingRoutes.OrderWorklist(scoped,"newest").Select(x=>x.Id));
+        Assert.Equal(new[]{a.Id,b.Id,c.Id},ProcurementPrincipalReceivingRoutes.OrderWorklist(scoped,"oldest").Select(x=>x.Id));
+        Assert.Equal(new[]{c.Id,a.Id},ProcurementPrincipalReceivingRoutes.OrderWorklist(scoped,"newest").Skip(1).Take(2).Select(x=>x.Id));
+        Assert.Equal(new[]{b.Id,c.Id,a.Id},ProcurementPrincipalReceivingRoutes.OrderWorklist(scoped,null).Select(x=>x.Id));
+        Assert.False(ProcurementPrincipalReceivingRoutes.SupportedWorklistSort("number"));
+        Assert.False(ProcurementPrincipalReceivingRoutes.SupportedWorklistSort("oldest;drop"));
+    }
+    [Fact]
+    public void Principal_directory_sql_orders_after_existing_issued_and_branch_scope()
+    {
+        var principal=Guid.NewGuid();var company=Guid.NewGuid();var scope=new ProcurementRequestScope();
+        scope.Set("receiving-order-sql",company,principal.ToString("D"),Branch,null,true,"fixture");scope.AssignPrincipal(principal);
+        using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseNpgsql("Host=127.0.0.1;Port=1;Database=never_open;Username=fixture").Options,scope);
+        var actor=new PrincipalReceivingActor(principal.ToString("D"),null,scope.TenantId,company,new HashSet<Guid>{Branch},new HashSet<string>{ControlledReceiving.InspectPermission});
+        var scoped=ProcurementPrincipalReceivingRoutes.BoundDraftLines(db,scope,actor).Select(x=>x.Head).Distinct();
+        var newest=ProcurementPrincipalReceivingRoutes.OrderWorklist(scoped,"newest").Skip(2).Take(5).ToQueryString();
+        var oldest=ProcurementPrincipalReceivingRoutes.OrderWorklist(scoped,"oldest").Skip(2).Take(5).ToQueryString();
+        foreach(var sql in new[]{newest,oldest})
+        {
+            Assert.Contains("principal_order_source_bindings",sql);
+            Assert.Contains("branch_id",sql);
+            Assert.Contains("ORDER BY",sql);
+            Assert.Contains("LIMIT",sql);
+            Assert.Contains("OFFSET",sql);
+        }
+        Assert.Contains("DESC",newest);
+        Assert.DoesNotContain("DESC",oldest);
+    }
 }
