@@ -1,6 +1,8 @@
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -38,7 +40,10 @@ internal static class ProcurementCsvPrivateInitializer
         var credentialsPath = Path.Combine(evidence, "be01-csv-credentials.private.json");
         var bootstrapPath = Path.Combine(evidence, "be01-csv-bootstrap.private.json");
         var completionPath = Path.Combine(evidence, "be01-csv-completion.private.json");
-        Need(!File.Exists(credentialsPath) && !File.Exists(bootstrapPath) && !File.Exists(completionPath),
+        var revokeRequestPath = Path.Combine(evidence, "be01-csv-revoke-request.private.json");
+        var revokeReceiptPath = Path.Combine(evidence, "be01-csv-revoke-receipt.private.json");
+        Need(!File.Exists(credentialsPath) && !File.Exists(bootstrapPath) && !File.Exists(completionPath)
+            && !File.Exists(revokeRequestPath) && !File.Exists(revokeReceiptPath),
             "Fresh BE-01 evidence paths required.");
         await using (var connection = new NpgsqlConnection(maintenance))
         {
@@ -125,11 +130,25 @@ internal static class ProcurementCsvPrivateInitializer
                   roleKey = x.Value.RoleKey,
                   currentActions = x.Value.Actions.Split(',', StringSplitOptions.RemoveEmptyEntries) }),
             datasets = dataset, challenge, completionPath, expiresAt = deadline,
+            revocationRequestPath = revokeRequestPath, revocationReceiptPath = revokeReceiptPath,
+            revocationRoleKey = "be01_reader",
+            revocationExpectedPermissionsSha256 = Hash(Encoding.UTF8.GetBytes(actors["reader"].Actions)),
+            revocationNewPermissionsSha256 = Hash(Encoding.UTF8.GetBytes(RemoveExportAction(actors["reader"].Actions))),
             employeeFixtureCount = 0, productionTouched = false,
             browserUiVerified = false, ownerVerified = false
         });
+        var revocationProcessed = false;
         while (!File.Exists(completionPath) && DateTimeOffset.UtcNow < deadline)
+        {
+            if (File.Exists(revokeRequestPath))
+            {
+                Need(!revocationProcessed, "Only one synthetic Core revocation is supported.");
+                await ApplyPrivateRevocationAsync(fixture, actors["reader"],
+                    revokeRequestPath, revokeReceiptPath);
+                revocationProcessed = true;
+            }
             await Task.Delay(250);
+        }
         Need(File.Exists(completionPath) && DateTimeOffset.UtcNow < deadline
             && (File.GetAttributes(completionPath) & FileAttributes.ReparsePoint) == 0
             && File.GetUnixFileMode(completionPath) == PrivateFile
@@ -376,6 +395,50 @@ internal static class ProcurementCsvPrivateInitializer
     }
 
     private static string Hash(byte[] value) => Convert.ToHexStringLower(SHA256.HashData(value));
+    private static string RemoveExportAction(string csv) => string.Join(',',
+        csv.Split(',', StringSplitOptions.None).Where(x => x != "procurement-vendor-export"));
+
+    private static async Task ApplyPrivateRevocationAsync(PrincipalApprovalFixture fixture, Actor reader,
+        string requestPath, string receiptPath)
+    {
+        Need((File.GetAttributes(requestPath) & FileAttributes.ReparsePoint) == 0
+            && File.GetUnixFileMode(requestPath) == PrivateFile
+            && new FileInfo(requestPath).Length is > 0 and < 4096
+            && !File.Exists(receiptPath), "Protected one-time Core revocation request required.");
+        var request = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(requestPath));
+        Need(request.ValueKind == JsonValueKind.Object && request.EnumerateObject().Count() == 5
+            && request.GetProperty("schemaVersion").GetInt32() == 1
+            && request.GetProperty("principalId").GetGuid() == reader.PrincipalId
+            && request.GetProperty("action").GetString() == "procurement-vendor-export",
+            "Unexpected synthetic Core revocation target.");
+        var challenge = request.GetProperty("challenge").GetString() ?? "";
+        var oldHash = Hash(Encoding.UTF8.GetBytes(reader.Actions));
+        var next = RemoveExportAction(reader.Actions);
+        var nextHash = Hash(Encoding.UTF8.GetBytes(next));
+        Need(Regex.IsMatch(challenge, "^[a-f0-9]{64}$")
+            && request.GetProperty("expectedPermissionsSha256").GetString() == oldHash
+            && next != reader.Actions, "Exact original synthetic grant required.");
+        await using var core = fixture.Core();
+        var role = await core.TenantRoleAssignments.AsNoTracking().SingleAsync(x =>
+            x.TenantId == PrincipalApprovalFixture.Tenant && x.RoleKey == reader.RoleKey
+            && x.Active && !x.IsArchived);
+        Need(role.PermissionsCsv == reader.Actions, "Synthetic Core role changed before CAS.");
+        var updated = await core.TenantRoleAssignments.Where(x => x.Id == role.Id
+            && x.TenantId == PrincipalApprovalFixture.Tenant
+            && x.RoleKey == reader.RoleKey && x.PermissionsCsv == reader.Actions
+            && x.Active && !x.IsArchived).ExecuteUpdateAsync(set => set
+                .SetProperty(x => x.PermissionsCsv, next)
+                .SetProperty(x => x.UpdatedAt, (DateTimeOffset?)DateTimeOffset.UtcNow)
+                .SetProperty(x => x.UpdatedBy, "BE01_PRIVATE_REVOKE"));
+        Need(updated == 1, "Single synthetic Core grant CAS failed.");
+        await WritePrivateAsync(receiptPath, new
+        {
+            schemaVersion = 1, challenge, principalId = reader.PrincipalId,
+            action = "procurement-vendor-export", oldPermissionsSha256 = oldHash,
+            newPermissionsSha256 = nextHash, status = "CURRENT_CORE_ROLE_CAS_REVOKED"
+        });
+    }
+
     private static string Quote(string name) => "\"" + name.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
     private static void Need(bool condition, string message) => PrincipalApprovalHttpVerification.Need(condition, message);
     private sealed record Actor(Guid PrincipalId, string Email, string Password,
