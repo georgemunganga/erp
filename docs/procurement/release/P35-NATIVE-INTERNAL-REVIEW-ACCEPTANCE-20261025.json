@@ -50,6 +50,10 @@
     {
       "artifact": "procurement-p35-native-probe-only-prep-20261025_run04/result.private.json",
       "sha256": "872dd14b49414733afa85ae6dc73a98c4ea4729b5b54469fcad7f7bce0fcbb3b"
+    },
+    {
+      "artifact": "procurement-p35-populated-down-prep-20261025_run04/result.json",
+      "sha256": "4f37fcef8e13ed7cbb9471738dfd8b7512b330eac5dd41de0c5a89896a2d02a7"
     }
   ],
   "retainedFailures": [
@@ -71,7 +75,6 @@
     }
   ],
   "remaining": [
-    "Populated rollback-veto proof",
     "Normal-session contract-review browser proof",
     "Production migration, finite-role configuration, release and UAT",
     "Signature and activation are separate capabilities"
@@ -80,5 +83,15 @@
     "whole Procurement completion",
     "Finance posting or payment execution",
     "contract signature or activation"
-  ]
+  ],
+  "populatedRollback": {
+    "status": "PASS_PRIVATE_P35_POPULATED_GRAPH_DOWN_VETO_ONLY",
+    "sqlState": "55000",
+    "sourceAndCloneCatalogRowsAclHistoryUnchanged": true,
+    "clusterRolesUnchanged": true,
+    "onePopulatedGraphOnly": true,
+    "fiveIsolatedFamilyGuardsProven": false,
+    "expectedNativeTableCount": 253,
+    "documentedOwnerReferenceDifference": "Only hrm.legacy_frappe_records absent; full current native snapshot and roles matched pinned baseline."
+  }
 }
