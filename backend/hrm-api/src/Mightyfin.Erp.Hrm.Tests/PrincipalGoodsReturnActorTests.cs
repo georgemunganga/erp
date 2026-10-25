@@ -30,6 +30,7 @@ public sealed class PrincipalGoodsReturnActorTests
             services.AddAuthorization(ProcurementPermissions.AddPolicies);
             Services=services.BuildServiceProvider();Http.RequestServices=Services;
             Http.User=new ClaimsPrincipal(new ClaimsIdentity(new[] {
+                new Claim("tenant",Tenant),
                 new Claim(ClaimTypes.NameIdentifier,Principal.ToString("D")),
                 new Claim(ClaimTypes.Role,"p37_finite"),
                 new Claim(ProcurementPermissions.ConfiguredClaim,"true"),
@@ -68,6 +69,15 @@ public sealed class PrincipalGoodsReturnActorTests
         Assert.Empty(await f.Core.Workers.ToArrayAsync());
         (await f.Core.TenantRoleAssignments.SingleAsync()).PermissionsCsv="procurement-access";
         await f.Core.SaveChangesAsync();
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>f.Resolve(f.Scope(f.Branch)));
+    }
+
+    [Fact]
+    public async Task Current_return_permission_does_not_replace_the_required_authenticated_tenant()
+    {
+        await using var f=new Fixture();await f.Start();
+        var identity=Assert.IsType<ClaimsIdentity>(f.Http.User.Identity);
+        identity.RemoveClaim(Assert.Single(identity.FindAll("tenant")));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>f.Resolve(f.Scope(f.Branch)));
     }
 
