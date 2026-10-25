@@ -61,6 +61,7 @@ public static class ProcurementPermissions
             return hasAccess && (policy == "procurement-access"
                 || claims.Any(x => x.Type == ActionClaim && x.Value == policy));
         }
+        if (ProcurementActionCatalog.RequiresExplicitConfiguredGrant(policy)) return false;
         return principal.IsRole("erp_admin") || principal.IsRole(roles);
     }
 
