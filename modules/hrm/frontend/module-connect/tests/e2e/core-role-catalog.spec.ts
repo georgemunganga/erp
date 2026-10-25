@@ -71,7 +71,8 @@ test("new Procurement role receives only explicitly chosen advanced actions", as
   await expect(page.getByRole("heading", { name: "Roles and permissions" })).toBeVisible();
   await page.getByLabel("Role key").fill("buyer_reviewer");
   await page.getByLabel("Role name").fill("Buyer reviewer");
-  await page.getByLabel("Category", { exact: true }).first().selectOption("procurement");
+  await page.getByRole("combobox", { name: "Category", exact: true }).click();
+  await page.getByRole("option", { name: "Procurement" }).click();
   await expect(page.getByRole("button", { name: "Create role" })).toBeDisabled();
   await page.getByRole("switch", { name: "Record manual payment" }).click();
   await page.getByRole("switch", { name: "Edit draft purchase order" }).click();
@@ -111,7 +112,8 @@ test("category change clears prior grants and requires an explicit choice", asyn
     permissions: ["employee"] };
   const writes = await mockRoles(page, [role]);
   await page.goto("/core/workspace/settings/roles");
-  await page.getByRole("combobox", { name: "Category for assistant" }).selectOption("procurement");
+  await page.getByRole("combobox", { name: "Category for assistant" }).click();
+  await page.getByRole("option", { name: "Procurement" }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
   await page.getByRole("switch", { name: "Record manual payment" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -140,7 +142,8 @@ test("empty effective role permissions never bootstrap a grant during readback o
   await expect(page.getByRole("switch", { name: "Procurement access" })).toHaveCount(2);
   for (const grant of await page.getByRole("switch", { name: "Procurement access" }).all()) await expect(grant).not.toBeChecked();
   await page.getByRole("textbox", { name: "Name for custom_buyer" }).fill("Renamed buyer");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("textbox", { name: "Name for custom_buyer" })
+    .locator("xpath=ancestor::section[1]").getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0].body).toEqual({ roleName: "Renamed buyer" });
 });

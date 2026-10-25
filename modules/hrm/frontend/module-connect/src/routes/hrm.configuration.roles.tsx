@@ -186,7 +186,8 @@ export function RolesConfig() {
     <AuthGate module="erp">
       <ConfigurationShell>
         <PageHeader eyebrow="Configuration" title="Roles and permissions" description={description} />
-        {!procurementReady && <p role="status" className="mb-4 rounded-lg border border-warning/40 bg-warning-soft p-3 text-sm">
+        {catalogState.loading && <p role="status" className="mb-4 rounded-lg border bg-surface p-3 text-sm">Loading Procurement permissions…</p>}
+        {!catalogState.loading && !procurementReady && <p role="status" className="mb-4 rounded-lg border border-warning/40 bg-warning-soft p-3 text-sm">
           Procurement permission choices are unavailable. Existing roles can still be viewed, but Procurement grants cannot be changed until the server catalog loads.
           <Button variant="outline" size="sm" className="ml-3" onClick={catalogState.reload}>Retry catalog</Button>
         </p>}
