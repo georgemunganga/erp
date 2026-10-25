@@ -29,6 +29,16 @@ public sealed partial class ProcurementDbContext
         line.HasKey(x => x.Id).HasName("pk_p38_review_line");
         receipt.HasKey(x => x.Id).HasName("pk_p38_review_receipt");
         outcome.HasKey(x => x.Id).HasName("pk_p38_review_outcome");
+        freeze.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+            .HasName("ak_p38_rec_sub_scope");
+        review.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+            .HasName("ak_p38_review_sub_scope");
+        line.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+            .HasName("ak_p38_line_scope");
+        receipt.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+            .HasName("ak_p38_receipt_scope");
+        outcome.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+            .HasName("ak_p38_outcome_scope");
         freeze.Property(x => x.Id).ValueGeneratedNever();
         review.Property(x => x.Id).ValueGeneratedNever();
         line.Property(x => x.Id).ValueGeneratedNever();

@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -179,5 +181,31 @@ public sealed class PrincipalRfqAwardPersistenceTests
             fk.PrincipalEntityType.ClrType == typeof(PrincipalRfqAwardReviewSubmission)
             && fk.Properties.Select(p => p.Name).Contains("CommandKey")
             && fk.Properties.Select(p => p.Name).Contains("RequestSha256"));
+    }
+
+    [Fact]
+    public void Every_new_owner_family_has_short_stable_keys_indexes_and_foreign_keys()
+    {
+        using var db = new ProcurementDbContext(
+            new DbContextOptionsBuilder<ProcurementDbContext>()
+                .UseNpgsql("Host=never-used.invalid;Database=model_only").Options,
+            new Scope("synthetic-award", Guid.NewGuid(), Actor));
+        var model = db.GetService<IDesignTimeModel>().Model;
+        foreach (var type in new[] { typeof(PrincipalRfqRecommendationSubmission),
+            typeof(PrincipalRfqAwardReviewSubmission), typeof(PrincipalRfqAwardReviewLine),
+            typeof(PrincipalRfqAwardReviewReceipt), typeof(PrincipalRfqAwardReviewOutcome) })
+        {
+            var entity = model.FindEntityType(type)!;
+            Assert.Equal(ValueGenerated.Never, entity.FindProperty(nameof(ProcurementRecord.Id))!.ValueGenerated);
+            Assert.All(entity.GetKeys(), key => Assert.InRange(key.GetName()!.Length, 1, 63));
+            Assert.All(entity.GetIndexes(), index => Assert.InRange(index.GetDatabaseName()!.Length, 1, 63));
+            Assert.All(entity.GetForeignKeys(), foreign =>
+            {
+                Assert.InRange(foreign.GetConstraintName()!.Length, 1, 63);
+                Assert.Equal(DeleteBehavior.Restrict, foreign.DeleteBehavior);
+            });
+            Assert.DoesNotContain(entity.GetKeys().SelectMany(key => key.Properties),
+                property => property.Name == nameof(ProcurementRecord.Version));
+        }
     }
 }
