@@ -1,0 +1,200 @@
+{
+  "routes": [
+    {
+      "path": "/",
+      "title": "Dashboard"
+    },
+    {
+      "path": "/items",
+      "title": "Items"
+    },
+    {
+      "path": "/customers",
+      "title": "Customers"
+    },
+    {
+      "path": "/quotes",
+      "title": "Quotes"
+    },
+    {
+      "path": "/invoices",
+      "title": "Invoices"
+    },
+    {
+      "path": "/recurring-invoices",
+      "title": "Recurring Invoices"
+    },
+    {
+      "path": "/payments-received",
+      "title": "Payments Received"
+    },
+    {
+      "path": "/credit-notes",
+      "title": "Credit Notes"
+    },
+    {
+      "path": "/vendors",
+      "title": "Vendors"
+    },
+    {
+      "path": "/expenses",
+      "title": "Expenses"
+    },
+    {
+      "path": "/bills",
+      "title": "Bills"
+    },
+    {
+      "path": "/purchase-orders",
+      "title": "Purchase Orders"
+    },
+    {
+      "path": "/recurring-bills",
+      "title": "Recurring Bills"
+    },
+    {
+      "path": "/payments-made",
+      "title": "Payments Made"
+    },
+    {
+      "path": "/vendor-credits",
+      "title": "Vendor Credits"
+    },
+    {
+      "path": "/batch-payments",
+      "title": "Batch Payments"
+    },
+    {
+      "path": "/projects",
+      "title": "Projects"
+    },
+    {
+      "path": "/timesheets",
+      "title": "Timesheets"
+    },
+    {
+      "path": "/journals",
+      "title": "Manual Journals"
+    },
+    {
+      "path": "/budgets",
+      "title": "Budgets"
+    },
+    {
+      "path": "/items/new",
+      "title": "Create Item"
+    },
+    {
+      "path": "/customers/new",
+      "title": "Create Customer"
+    },
+    {
+      "path": "/quotes/new",
+      "title": "Create Quote"
+    },
+    {
+      "path": "/invoices/new",
+      "title": "Create Invoice"
+    },
+    {
+      "path": "/recurring-invoices/new",
+      "title": "Create Recurring Invoice"
+    },
+    {
+      "path": "/credit-notes/new",
+      "title": "Create Credit Note"
+    },
+    {
+      "path": "/vendors/new",
+      "title": "Create Vendor"
+    },
+    {
+      "path": "/expenses/new",
+      "title": "Create Expense"
+    },
+    {
+      "path": "/bills/new",
+      "title": "Create Bill"
+    },
+    {
+      "path": "/purchase-orders/new",
+      "title": "Create Purchase Order"
+    },
+    {
+      "path": "/recurring-bills/new",
+      "title": "Create Recurring Bill"
+    },
+    {
+      "path": "/vendor-credits/new",
+      "title": "Create Vendor Credit"
+    },
+    {
+      "path": "/batch-payments/new",
+      "title": "Create Batch Payment"
+    },
+    {
+      "path": "/projects/new",
+      "title": "Create Project"
+    },
+    {
+      "path": "/timesheets/new",
+      "title": "Create Time Entry"
+    },
+    {
+      "path": "/journals/new",
+      "title": "Create Journal"
+    },
+    {
+      "path": "/budgets/new",
+      "title": "Create Budget"
+    },
+    {
+      "path": "/items/:itemId"
+    },
+    {
+      "path": "/records/:moduleKey/:recordId"
+    },
+    {
+      "path": "/workflows"
+    },
+    {
+      "path": "/workflows/:flowId"
+    },
+    {
+      "path": "/workflow-results/:receiptId"
+    },
+    {
+      "path": "/workflow-resources/:artifactId"
+    },
+    {
+      "path": "/banking"
+    },
+    {
+      "path": "/chart-of-accounts"
+    },
+    {
+      "path": "/transaction-locking"
+    },
+    {
+      "path": "/reports"
+    },
+    {
+      "path": "/reports/:reportSlug"
+    },
+    {
+      "path": "/documents"
+    },
+    {
+      "path": "/settings"
+    },
+    {
+      "path": "/settings/general"
+    },
+    {
+      "path": "/settings/templates"
+    },
+    {
+      "path": "/settings/automation"
+    }
+  ]
+}
