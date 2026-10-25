@@ -86,6 +86,7 @@ public sealed class PrincipalRfqAwardPersistenceTests
             LegalEntityId = Guid.NewGuid() };
         Assert.Equal("Pinned approval evidence is outside the authenticated scope.",
             Assert.Throws<InvalidOperationException>(() => db.AddScoped(alien)).Message);
+        TrackCurrentSource(db, frozen);
         db.AddScoped(frozen); db.AddScoped(review); db.AddScoped(line);
         Assert.Equal("RfqAwardSubmissionBatchIncomplete",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
@@ -104,6 +105,7 @@ public sealed class PrincipalRfqAwardPersistenceTests
     {
         var company = Guid.NewGuid(); var (frozen, review, line, receipt) = Batch(company);
         using var db = Db(company);
+        TrackCurrentSource(db, frozen);
         db.AddScoped(frozen); db.AddScoped(review); db.AddScoped(line); db.AddScoped(receipt);
         AddEffects(db, review);
         db.Entry(line).Property(x => x.SourcingEventId).CurrentValue = Guid.NewGuid();
@@ -114,6 +116,41 @@ public sealed class PrincipalRfqAwardPersistenceTests
         db.Entry(receipt).Property(x => x.ResponseJson).CurrentValue = "{}";
         Assert.Equal("RfqAwardEvidenceAppendOnly",
             Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+    }
+
+    [Fact]
+    public void Stale_draft_cursor_cannot_be_frozen_even_with_a_self_hashed_revision()
+    {
+        var company = Guid.NewGuid(); var (frozen, review, line, receipt) = Batch(company);
+        using var db = Db(company);
+        TrackCurrentSource(db, frozen, stale: true);
+        db.AddScoped(frozen); db.AddScoped(review); db.AddScoped(line); db.AddScoped(receipt);
+        AddEffects(db, review);
+        Assert.Equal("RfqAwardCurrentRecommendationRequired",
+            Assert.Throws<InvalidOperationException>(() => db.SaveChanges()).Message);
+        Assert.Empty(db.PrincipalRfqRecommendationSubmissions);
+    }
+
+    private static void TrackCurrentSource(ProcurementDbContext db,
+        PrincipalRfqRecommendationSubmission frozen, bool stale = false)
+    {
+        db.Attach(new PrincipalRfqRecommendationDraftHead
+        {
+            Id = frozen.DraftId, TenantId = frozen.TenantId, LegalEntityId = frozen.LegalEntityId,
+            RoundId = frozen.RoundId, UnsealingId = frozen.UnsealingId,
+            SourcingEventId = frozen.SourcingEventId, BranchId = frozen.BranchId,
+            MakerPrincipalId = frozen.MakerPrincipalId, CurrentRevision = frozen.Revision,
+            CurrentRevisionId = stale ? Guid.NewGuid() : frozen.RevisionId,
+            CurrentSnapshotSha256 = frozen.RevisionSha256,
+        });
+        db.Attach(new PrincipalRfqRecommendationDraftRevision
+        {
+            Id = frozen.RevisionId, TenantId = frozen.TenantId, LegalEntityId = frozen.LegalEntityId,
+            DraftId = frozen.DraftId, Revision = frozen.Revision,
+            RoundId = frozen.RoundId, UnsealingId = frozen.UnsealingId,
+            SourcingEventId = frozen.SourcingEventId, BranchId = frozen.BranchId,
+            SnapshotJson = frozen.SnapshotJson, SnapshotSha256 = frozen.SnapshotSha256,
+        });
     }
 
     private static void AddEffects(ProcurementDbContext db, PrincipalRfqAwardReviewSubmission review)

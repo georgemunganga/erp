@@ -246,6 +246,22 @@ public sealed partial class ProcurementDbContext
             || frozen.CreatedAt != frozen.SubmittedAt || review.CreatedAt != review.SubmittedAt
             || ProcurementEvidenceEncoding.DatabaseTimestamp(frozen.SubmittedAt) != frozen.SubmittedAt)
             throw new InvalidOperationException("RfqAwardFrozenSourceMismatch");
+        var head = ChangeTracker.Entries<PrincipalRfqRecommendationDraftHead>()
+            .SingleOrDefault(x => x.Entity.Id == frozen.DraftId);
+        var revision = ChangeTracker.Entries<PrincipalRfqRecommendationDraftRevision>()
+            .SingleOrDefault(x => x.Entity.Id == frozen.RevisionId);
+        if (head is null || revision is null
+            || head.State != EntityState.Unchanged || revision.State != EntityState.Unchanged
+            || head.Entity.CurrentRevisionId != frozen.RevisionId
+            || head.Entity.CurrentRevision != frozen.Revision
+            || head.Entity.CurrentSnapshotSha256 != frozen.RevisionSha256
+            || head.Entity.RoundId != frozen.RoundId || head.Entity.UnsealingId != frozen.UnsealingId
+            || head.Entity.SourcingEventId != frozen.SourcingEventId || head.Entity.BranchId != frozen.BranchId
+            || head.Entity.MakerPrincipalId != frozen.MakerPrincipalId
+            || revision.Entity.DraftId != frozen.DraftId || revision.Entity.Revision != frozen.Revision
+            || revision.Entity.SnapshotSha256 != frozen.RevisionSha256
+            || revision.Entity.SnapshotJson != frozen.SnapshotJson)
+            throw new InvalidOperationException("RfqAwardCurrentRecommendationRequired");
         if (receipt.SubmissionId != review.Id || receipt.RecommendationSubmissionId != frozen.Id
             || receipt.RoundId != review.RoundId || receipt.SourcingEventId != review.SourcingEventId
             || receipt.BranchId != review.BranchId || receipt.ActorPrincipalId != scope.SubjectId
