@@ -33,7 +33,7 @@
   "productionTouched": false,
   "wholeProcurementModuleComplete": false,
   "remaining": [
-    "Production-restored finite LOGIN/Core runtime and cutover verification",
+    "Production finite-role cutover verification remains; isolated private Core local session HTTP and independent owner reconciliation passed separately on 2026-10-25",
     "P31 document scanning and invoice runtime acceptance",
     "P32 positive commercial workflow runtime",
     "P33 draft revision schema/runtime",
