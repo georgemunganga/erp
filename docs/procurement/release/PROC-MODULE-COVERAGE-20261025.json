@@ -37,7 +37,7 @@
     "P37IndependentOwner": "NOT_RUN_AFTER_NATIVE01_FAILURE",
     "P37Ui": "TypeScript+13targeted units+11mocked Chromium cases; actualBackend=false",
     "scannerC04": "READY_UNACKNOWLEDGED; no external pickup/real scanner proof claimed",
-    "P37NextAttempt": "Pending read-only finite privilege diagnosis, reviewed minimal tool-only fixture correction and fresh retry; no new acceptance"
+    "P37NextAttempt": "Private read-only diagnosis confirmed missing SELECT on three retained P33 order-history tables; branch-name SELECT is present. Tool-only correction9e3288b8 adds only those reads. Genuine tool rebuild and fresh Native02 remain pending."
   },
   "metaCapabilityInventory": {
     "sourceFile": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
@@ -646,7 +646,7 @@
         }
       ],
       "remainingImplementationOrAcceptance": [
-        "Real scanner plus finite P31/CoreDocs grants and full blocked→correction→remap→qualified HTTP/cookie/owner graph remain. Legacy invoiceComparison does not advertise principal successor compatibility."
+        "Real scanner plus finite P31/CoreDocs grants and full blocked\u2192correction\u2192remap\u2192qualified HTTP/cookie/owner graph remain. Legacy invoiceComparison does not advertise principal successor compatibility."
       ],
       "production": "No new deployment established by this record; production remains P24"
     },
@@ -944,7 +944,7 @@
     "p37OperationsExecuted": false,
     "ownerExecuted": false,
     "productOrProductionDefectEstablished": false,
-    "diagnosis": "Tool fixture may lack P33 retained-history reads and required Core branch-name SELECT; actual read-only privilege diagnosis is in progress. No broad grant or final cause accepted.",
+    "diagnosis": "Confirmed by independent private READ ONLY query: all three required P33 order-history SELECT grants absent; Core branch-name SELECT present. Tool-only9e3288b8 restores exactly those history reads; no product guard changed. Diagnosis receipt26cec8de54576b81fdbadabd6265c96c5092e203423e45c35a6853263d19b378.",
     "resultSha256": "8bfecdf94b37010a5e9ce8aa4333e6edc05dee8b34ea2d6e78341e1d097efb13",
     "wrapperResultSha256": "2aad50a4619cc0d7e5cc6c4f98ca64d5aec2837b272f05022da29790d146637d",
     "failureEvidencePreserved": true,
