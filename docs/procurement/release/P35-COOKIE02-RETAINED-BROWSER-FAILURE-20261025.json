@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "RETAINED_FAILED_P35_COOKIE02_BROWSER_AT_SUBMIT",
+  "sources": {
+    "product": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+    "tool": "6e9fef2526d70c56ae457c6023845405464478fb",
+    "application": "dd177b510e2d1f751ed46729c206addb60f737d5",
+    "proof": "f1bf6d027d1d7eaf5fcab7c10f860a9af827fe0d"
+  },
+  "nativeHttpPassed": 138,
+  "browserFailureStep": "submit",
+  "buyerLogoutVerified": true,
+  "reviewerLogoutVerified": true,
+  "retainedBrowserWork": "Contract draft and rate were created. Independent read-only inspection found Draft version 2 with no review submissions or review receipts.",
+  "submitHttpStatusCaptured": false,
+  "diagnosis": "A mocked browser regression separately reproduced parent Submit remaining available during rate reconciliation. Further UI testing exposed identical React sibling keys on rate and review panels, causing repeated refreshes after coordination state updates. Correction remains subject to full mocked and fresh real-cookie verification.",
+  "preservedEvidence": {
+    "plan.INCOMPLETE.json": "eaab86170e86972da2ed5b8188a77e85327aa262e4f542b1ff8404e7f45153e2",
+    "native-run-result.private.json": "bb8136f6bff3f6a886b3edbdd9688669dfde3fd1f4d7e38713a1e42fa7f4c08a",
+    "p35-contract-cookie-browser-result.private.json": "10bb56171279696bd933169bebab818b185ceaafb8dea65f93042c159c62db0a",
+    "browser.log": "dcfd91b11d1efb010bf55cfb6012b13611183fbacb9d2c41883b26beb6c6187d",
+    "browser-exit-code.private.json": "bdc4fe56f48503365bcbe036aeacaec57006b2f47474a32575c837d60d9f7fa8",
+    "p35-owner-before-phase.private.json": "7ea5f02597457573e482d8ef28a89e6a1fcf5c3da9aaf7b15166240382de7bcb"
+  },
+  "oldCohortReused": false,
+  "ownerAfterAccepted": false,
+  "browserAccepted": false,
+  "productionTouched": false
+}
