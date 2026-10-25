@@ -157,7 +157,8 @@ public sealed class ProcurementScopeMiddlewareTests
     }
     private static (DefaultHttpContext, ProcurementRequestScope) Request(Guid user)
     {
-        var http = new DefaultHttpContext(); http.Request.Path = "/api/procurement/v1/context"; http.Response.Body = new MemoryStream();
+        var http = new DefaultHttpContext(); http.Request.Path = "/api/procurement/v1/context";
+        http.Request.Method = "GET"; http.Response.Body = new MemoryStream();
         http.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("tenant", "tenant-a"), new Claim("sub", user.ToString()), new Claim(ClaimTypes.Role, "employee") }, "test"));
         return (http, new ProcurementRequestScope());
     }
