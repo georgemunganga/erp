@@ -76,7 +76,7 @@ test('successful sign-in returns to ERP module selection rather than HRM',async(
   await page.getByLabel('Email address',{exact:true}).fill('ui-test@example.org');
   await page.getByLabel('Password',{exact:true}).fill('NotARealPassword123');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await expect(page).toHaveURL(/:\d+\/$/);
+  await expect(page).toHaveURL(new URL('/',process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3302').href);
   await expect(page.getByRole('heading',{name:'Choose a module'})).toBeVisible();
   await expect(page.getByRole('link').filter({hasText:'Procurement'})).toBeVisible();
   await expect(page.getByRole('link').filter({hasText:'ERP Core'})).toBeVisible();
