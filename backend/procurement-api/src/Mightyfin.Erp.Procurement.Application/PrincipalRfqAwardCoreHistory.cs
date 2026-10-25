@@ -8,7 +8,27 @@ namespace Mightyfin.Erp.Procurement.Application;
 /// status field alone never proves an award or permits Draft correction.</summary>
 public static class PrincipalRfqAwardCoreHistory
 {
+    // Existing public terminal contract: a pending case still denies with the
+    // same source error, and terminal decisions use the same replay path.
     public static PrincipalRfqAwardReviewOutcome VerifyTerminal(
+        PrincipalRfqAwardReviewSubmission source,ApprovalCase actual,
+        PolicyVersion policy,IReadOnlyCollection<ApprovalDecision> historicalDecisions)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(actual);
+        ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(historicalDecisions);
+        Need((actual.State is "Returned" or "Rejected" or "Approved")
+            && actual.CompletedAt is not null
+            && historicalDecisions.Count is >0 and <=128,
+            "RfqAwardCoreTerminalSourceChanged");
+        return VerifyRetained(source,actual,policy,historicalDecisions)!;
+    }
+
+    /// <summary>Pure replay of an unfinished or terminal Core graph. A null
+    /// result means a verified Pending case, never a released source hold.
+    /// Callers still must load the complete actual Core graph in one transaction.</summary>
+    public static PrincipalRfqAwardReviewOutcome? VerifyRetained(
         PrincipalRfqAwardReviewSubmission source,ApprovalCase actual,
         PolicyVersion policy,IReadOnlyCollection<ApprovalDecision> historicalDecisions)
     {
@@ -35,9 +55,12 @@ public static class PrincipalRfqAwardCoreHistory
             && policy.PolicyVersionNumber==source.PolicyVersionNumber
             && source.PolicyRulesSha256==ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)
             && source.AssignmentPinsSha256==ProcurementEvidenceEncoding.Digest(source.AssignmentPinsJson)
-            && (actual.State is "Returned" or "Rejected" or "Approved")
-            && actual.CompletedAt is not null
-            && historicalDecisions.Count is >0 and <=128,
+            && (actual.State=="Pending" && actual.CompletedAt is null
+                    && actual.CompletionKey is null
+                || (actual.State is "Returned" or "Rejected" or "Approved")
+                    && actual.CompletedAt is not null)
+            && historicalDecisions.Count<=128
+            && (actual.State=="Pending" || historicalDecisions.Count>0),
             "RfqAwardCoreTerminalSourceChanged");
         var stages=actual.Stages.OrderBy(x=>x.Sequence).ToArray();
         Need(stages.Length is >0 and <=16
@@ -125,6 +148,7 @@ public static class PrincipalRfqAwardCoreHistory
                 && original.Assignments.All(assignment=>copy.Stages.Single(x=>x.Id==original.Id)
                     .Assignments.Single(x=>x.Id==assignment.Id).State==assignment.State)),
             "RfqAwardCoreTerminalReplayChanged");
+        if(actual.State=="Pending")return null;
         var terminal=ordered[^1];
         Need(actual.State switch
         {
