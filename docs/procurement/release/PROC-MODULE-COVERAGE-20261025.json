@@ -33,10 +33,11 @@
     "retainedFailures": "SDK01 andSDK02 test-fixture failures and earlier runtime failures remain retained; no retry relabeling"
   },
   "currentRunningOrPending": {
-    "P37Native01": "ACTIVE_NOT_ACCEPTED_AT_SNAPSHOT",
-    "P37IndependentOwner": "PENDING",
+    "P37Native01": "FAILED_47_HTTP_P30RealFiniteReadinessOnly_BEFORE_ANY_P37_OPERATION",
+    "P37IndependentOwner": "NOT_RUN_AFTER_NATIVE01_FAILURE",
     "P37Ui": "TypeScript+13targeted units+11mocked Chromium cases; actualBackend=false",
-    "scannerC04": "READY_UNACKNOWLEDGED; no external pickup/real scanner proof claimed"
+    "scannerC04": "READY_UNACKNOWLEDGED; no external pickup/real scanner proof claimed",
+    "P37NextAttempt": "Pending read-only finite privilege diagnosis, reviewed minimal tool-only fixture correction and fresh retry; no new acceptance"
   },
   "metaCapabilityInventory": {
     "sourceFile": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
@@ -520,7 +521,7 @@
         }
       ],
       "remainingImplementationOrAcceptance": [
-        "Native01 is ACTIVE_NOT_ACCEPTED at this snapshot; independent owner pending. UI20f lineage: TypeScript,13targeted units and11mocked Chromium cases; actualBackend=false. Normal-cookie real backend, production release and current finite-role runtime proof remain."
+        "Native01 FAILED after47 HTTP at P30RealFiniteReadinessOnly before any P37 operation; owner did not run. Preserve failure; diagnose actual finite-role fixture reads, review a minimal tool-only correction, then a fresh native retry. UI20f lineage: TypeScript,13targeted units and11mocked Chromium cases; actualBackend=false. Normal-cookie real backend and production release remain."
       ],
       "production": "No new deployment established by this record; production remains P24"
     },
@@ -909,7 +910,7 @@
     },
     {
       "id": "P37_ACTUAL_AND_NORMAL_SESSION",
-      "scope": "Finish active native cohort, independent owner proof, fresh normal-cookie Returns lifecycle and same-source deployment rehearsals; do not accept active Native01."
+      "scope": "Diagnose preserved Native01 finite-readiness failure, review minimal tool-only fixture correction, then fresh native/independent owner proof and normal-cookie Returns lifecycle. SDK/publication passes remain valid but do not establish real P37 acceptance."
     },
     {
       "id": "CORE_SCANNER_C04_AND_P31",
@@ -932,5 +933,21 @@
     "receipt": "docs/procurement/release/P30-CORE-SESSION-ACCEPTANCE-20261025.json",
     "scope": "Accepted private Core finite-login/auth HTTP38 observations with independent read-only owner and original private HBA restored; not general HRM CRUD or production authentication deployment.",
     "controls": "Canonical Core principal and current role/branch grants; separate finite Record/Execution connections. No Procurement-owned employee/auth store or replacement workflow engine."
+  },
+  "p37RetainedFailure": {
+    "cohort": "Native01",
+    "status": "FAILED_PRIVATE_P37_NATIVE_HTTP",
+    "actualHttpRequests": 47,
+    "stage": "P30RealFiniteReadinessOnly",
+    "exitCode": 2,
+    "failureCode": "P25_P30_real_owning_migration_finite_grants_and_normal_host_readiness_are_required_no_positive_stub",
+    "p37OperationsExecuted": false,
+    "ownerExecuted": false,
+    "productOrProductionDefectEstablished": false,
+    "diagnosis": "Tool fixture may lack P33 retained-history reads and required Core branch-name SELECT; actual read-only privilege diagnosis is in progress. No broad grant or final cause accepted.",
+    "resultSha256": "8bfecdf94b37010a5e9ce8aa4333e6edc05dee8b34ea2d6e78341e1d097efb13",
+    "wrapperResultSha256": "2aad50a4619cc0d7e5cc6c4f98ca64d5aec2837b272f05022da29790d146637d",
+    "failureEvidencePreserved": true,
+    "sdkAndPublicationAcceptanceUnchanged": true
   }
 }
