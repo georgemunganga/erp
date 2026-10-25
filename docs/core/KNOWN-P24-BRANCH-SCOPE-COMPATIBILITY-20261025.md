@@ -2,9 +2,9 @@
 
 Status: inherited behavior recorded; broader operational All-branch support remains open.
 
-## First-use organisation choice: source-fixed and privately verified, deployment pending
+## First-use organisation choice: bounded compatibility deployed
 
-[PR93](https://github.com/georgemunganga/erp/pull/93) at `b3e190baedef2260bd270d5155b52b0da7ea3c81` backports the existing Core workspace context, named shared-session authorization and validate-only Core startup. The [P24 private acceptance](../procurement/release/P24-SCOPED-CSV-PRIVATE-VERIFICATION-20261025.md) records one actual browser with empty storage, current Core company/branch choices, server headquarters selection, Vendor access and logout, with identical owner snapshots and no export audit. This closes the bounded first-use/session compatibility issue in source and private verification. Production deployment is pending; it does not close C01 operational All-branch aggregation.
+[PR93](https://github.com/georgemunganga/erp/pull/93) at `b3e190baedef2260bd270d5155b52b0da7ea3c81` backports the existing Core workspace context, named shared-session authorization and validate-only Core startup. The [P24 private acceptance](../procurement/release/P24-SCOPED-CSV-PRIVATE-VERIFICATION-20261025.md) records one actual browser with empty storage, current Core company/branch choices, server headquarters selection, Vendor access and logout, with identical owner snapshots and no export audit. This closes the bounded first-use/session compatibility issue in source and private verification. The [bounded P24 release](../procurement/release/P24-SCOPED-CSV-RELEASE-20261025.md) is now deployed on image `e8330656f4e9`, with healthy API, running publisher and anonymous Core/export 401 checks. Real production-account UAT remains unperformed; this does not close C01 operational All-branch aggregation.
 
 ### Preserved deployed-baseline finding before the backport
 

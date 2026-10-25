@@ -1,6 +1,6 @@
 # BE-01: Vendor and Item export source checkpoint
 
-Status: source and private database/cookie/browser acceptance verified; P24-compatible backport privately verified; deployment pending.
+Status: source and private database/cookie/browser acceptance verified; bounded P24-compatible backport deployed. See the [release receipt](P24-SCOPED-CSV-RELEASE-20261025.md); production-user business UAT remains unperformed.
 
 This closes the first implementation slice of BE-01, not the full finding. The existing imported Export menus now call scoped server CSV endpoints. All records and search results use the same visibility rules as the corresponding directories; selected-row export remains unavailable until it has a server contract. Page-only filters block search-result export rather than silently changing its meaning.
 
@@ -37,6 +37,6 @@ Earlier failed attempts are retained. These exposed a fixture namespace/table gr
 
 ## Remaining release gates
 
-The source uses the current Procurement model; it must not be deployed directly over the older live P24 schema. A compatible release or separately rehearsed schema rollout is still required. No production migrations, grants, feature flags or data were changed by this checkpoint. Imports, clone/bulk operations, selected-row export and saved views remain separate BE-01 work. These technical checks do not mark any business UAT status as passed.
+The source uses the current Procurement model; it must not be deployed directly over the older live P24 schema. The [bounded P24-compatible release](P24-SCOPED-CSV-RELEASE-20261025.md) is deployed; later model source still requires its own separately rehearsed schema rollout. No production migrations, grants, feature flags or data were changed by this checkpoint. Imports, clone/bulk operations, selected-row export and saved views remain separate BE-01 work. These technical checks do not mark any business UAT status as passed.
 
-[PR93](https://github.com/georgemunganga/erp/pull/93) contains the bounded P24-compatible backport. Its [separate P24 private verification](P24-SCOPED-CSV-PRIVATE-VERIFICATION-20261025.md) passed 92 focused/1,057 Host tests, 13 real-cookie HTTP exports, first-use Core choice with zero owner delta, two browser exports and same-cookie revocation with independent owner reconciliation. Deployment remains pending. The inherited operational All-branch limitation is recorded in the [scope compatibility finding](../../core/KNOWN-P24-BRANCH-SCOPE-COMPATIBILITY-20261025.md); this export slice does not certify global operational aggregation.
+[PR93](https://github.com/georgemunganga/erp/pull/93) contains the bounded P24-compatible backport. Its [separate P24 private verification](P24-SCOPED-CSV-PRIVATE-VERIFICATION-20261025.md) passed 92 focused/1,057 Host tests, 13 real-cookie HTTP exports, first-use Core choice with zero owner delta, two browser exports and same-cookie revocation with independent owner reconciliation. The bounded P24 source is now deployed; real production-user CRUD/business UAT remains unperformed. The inherited operational All-branch limitation is recorded in the [scope compatibility finding](../../core/KNOWN-P24-BRANCH-SCOPE-COMPATIBILITY-20261025.md); this export slice does not certify global operational aggregation.

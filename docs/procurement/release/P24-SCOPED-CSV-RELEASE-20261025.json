@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "status": "DEPLOYED_P24_SCOPED_EXPORTS_AND_CORE_ACCOUNT_COMPATIBILITY",
+  "preparedUtc": "2026-10-25T17:42:19.426268+00:00",
+  "productSourceCommit": "b3e190baedef2260bd270d5155b52b0da7ea3c81",
+  "uiSourceCommit": "7cf8f55ff2d17e219c7e4985b2b635f80ee5b407",
+  "candidateImageId": "sha256:e8330656f4e91f72a4f9cc04ecd0e0e827e1d73fb34c3b95915d3259ce3f0d30",
+  "previousImageRetained": "sha256:3a6ba254b9d642ff2d25fced66729e6ab0528002e27f3bd81e4327a82377afc0",
+  "apiAndPublisher": [
+    {
+      "name": "erp-hrm-api",
+      "imageMatches": true,
+      "running": true,
+      "restarts": 0,
+      "health": "healthy",
+      "coreSchemaStartup": "validate-only"
+    },
+    {
+      "name": "erp-hrm-outbox-publisher",
+      "imageMatches": true,
+      "running": true,
+      "restarts": 0,
+      "health": null,
+      "coreSchemaStartup": "validate-only"
+    }
+  ],
+  "reviewedPlanSha256": "4b571bb6f50dbdd63b8249f8c2aebf87f3648edd4194c1e8d4dddf253425046f",
+  "actualImageFilesVerified": 150,
+  "backendFocusedTestsPassed": 92,
+  "backendHostTestsPassed": 1057,
+  "privateNormalCookiePostgresHttpExportAudits": 13,
+  "privateRealBrowserCasesPassed": 3,
+  "firstUseProcurementExportAuditDelta": 0,
+  "privateBrowserExportAudits": 2,
+  "sameCookieRevocationExportAuditDelta": 1,
+  "procurementMastersUnchangedInPrivateAcceptance": true,
+  "nginxOnlyProcurementWorkspaceAliasChanged": true,
+  "rootCoreAndAccountingRoutesSmoke200": true,
+  "anonymousCoreContextAndExportRoutes401": true,
+  "oldAndNewHashedAssetsSmoke200": true,
+  "noDeploymentMigrationsOrPermissionAssignments": true,
+  "realProductionUserCrudUatPerformed": false,
+  "businessUatAccepted": false,
+  "wholeProcurementGapRegisterClosed": false,
+  "remainingBe01": [
+    "imports",
+    "selected-row export",
+    "cloning and batch operations",
+    "saved views"
+  ],
+  "remainingCore": [
+    "operational All-branch aggregation outside company-master reads"
+  ]
+}
