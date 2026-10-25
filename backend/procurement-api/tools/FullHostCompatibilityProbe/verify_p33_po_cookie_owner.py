@@ -277,6 +277,46 @@ def utc(value):
     return parsed.astimezone(timezone.utc)
 
 
+def revoked_preflight_session(facts):
+    """Require the one real local-cookie diagnostic session, already revoked."""
+    ids = facts.get("buyerSessionIds")
+    sessions = facts.get("buyerSessions")
+    rows = facts.get("sessionRows")
+    require(isinstance(ids, list) and isinstance(sessions, list) and isinstance(rows, list)
+            and len(ids) == len(sessions) == len(rows) == 1,
+            "ExactlyOnePreflightBuyerSessionRequired")
+    session, row = sessions[0], rows[0]
+    require(guid(ids[0]) and session.get("id") == row.get("id") == ids[0]
+            and session.get("revokedAt") == row.get("revoked_at")
+            and session.get("expiresAt") == row.get("expires_at"),
+            "PreflightBuyerSessionIdentityChanged")
+    revoked = utc(session.get("revokedAt"))
+    expires = utc(session.get("expiresAt"))
+    require(revoked <= expires, "PreflightBuyerSessionInvalid")
+    return session
+
+
+def browser_session_transition(baseline, final):
+    old = revoked_preflight_session(baseline)
+    sessions = final.get("buyerSessions")
+    rows = final.get("sessionRows")
+    require(isinstance(sessions, list) and isinstance(rows, list)
+            and len(sessions) == len(rows) == 2,
+            "ExactlyOneNewBuyerBrowserSessionRequired")
+    require([x for x in sessions if x.get("id") == old["id"]] == [old],
+            "PreflightLocalSessionChanged")
+    new = [x for x in sessions if x.get("id") != old["id"]]
+    require(len(new) == 1 and guid(new[0].get("id")),
+            "BuyerBrowserSessionIdentityInvalid")
+    matching = [x for x in rows if x.get("id") == new[0]["id"]]
+    require(len(matching) == 1
+            and matching[0].get("revoked_at") == new[0].get("revokedAt")
+            and matching[0].get("expires_at") == new[0].get("expiresAt"),
+            "BuyerBrowserSessionRowsChanged")
+    require(utc(new[0].get("revokedAt")) <= utc(new[0].get("expiresAt")),
+            "BuyerLocalSessionsNotRevoked")
+
+
 def canonical_json(value):
     """The bounded System.Text.Json/PolicyJsonDigest v2 command subset.
 
@@ -638,15 +678,7 @@ def final_check(fixture, baseline, final, browser, fixture_sha):
     # Browser logout is not inferred from context.close(). A separate owner
     # check preserves the already revoked preflight session and requires exactly
     # one newly created browser session, also revoked.
-    old_sessions = set(baseline["buyerSessionIds"])
-    require(len(old_sessions) == 1 and len(baseline["buyerSessions"]) == 1
-            and baseline["buyerSessions"][0]["revokedAt"] is not None,
-            "PreflightLocalSessionNotRevokedAtBaseline")
-    require([x for x in final["buyerSessions"] if x["id"] in old_sessions]
-            == baseline["buyerSessions"], "PreflightLocalSessionChanged")
-    new_sessions = [x for x in final["sessionRows"] if x["id"] not in old_sessions]
-    require(len(new_sessions) == 1 and new_sessions[0].get("revoked_at") is not None,
-            "BuyerLocalSessionsNotRevoked")
+    browser_session_transition(baseline, final)
     return {"schemaVersion": 4, "status": "PASS_P33_PO_OWNER_FACTS",
         "database": fixture["database"], "system": SYSTEM,
         "fixtureSha256": fixture_sha, "orderId": po,
@@ -677,13 +709,14 @@ def main():
                     and baseline.get("fixtureSha256") == fixture_sha
                     and baseline.get("challenge") == fixture["challenge"], "OriginalBaselineBinding")
             facts = owner_snapshot(args.container, args.database, fixture)
-            require(not facts["buyerSessionIds"] and facts == baseline.get("facts"),
+            revoked_preflight_session(facts)
+            require(facts == baseline.get("facts"),
                     "OriginalPreBrowserBaselineChanged")
             print("P33_PO_PRIVATE_PRE_BROWSER_BASELINE_UNCHANGED")
         elif args.mode == "capture":
             output_path(args.baseline, args.fixture)
             facts = owner_snapshot(args.container, args.database, fixture)
-            require(len(facts["buyerSessionIds"]) == 0, "BuyerSessionExistsBeforeBrowser")
+            revoked_preflight_session(facts)
             write(args.baseline, {"schemaVersion": 4, "fixtureSha256": fixture_sha,
                 "challenge": fixture["challenge"], "facts": facts})
             print("P33_PO_PRIVATE_BASELINE_CAPTURED")

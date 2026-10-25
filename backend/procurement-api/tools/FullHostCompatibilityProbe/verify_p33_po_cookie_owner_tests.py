@@ -68,6 +68,33 @@ class BoundaryTests(unittest.TestCase):
             self.assertNotEqual(owner.digest(owner.stable_local_user(original, buyer)),
                                 owner.digest(owner.stable_local_user(modified, buyer)))
 
+    def test_exact_revoked_preflight_and_one_revoked_browser_session(self):
+        preflight, browser = key(31), key(32)
+        def session(identity, revoked='2026-10-25T01:01:00+00:00'):
+            return {'id': identity, 'revokedAt': revoked,
+                    'expiresAt': '2026-10-25T02:00:00+00:00'}
+        def facts(items):
+            return {'buyerSessionIds': [x['id'] for x in items],
+                    'buyerSessions': items,
+                    'sessionRows': [{'id': x['id'], 'revoked_at': x['revokedAt'],
+                        'expires_at': x['expiresAt']} for x in items]}
+        original = facts([session(preflight)])
+        after = facts([session(preflight), session(browser,
+            '2026-10-25T01:07:00+00:00')])
+        self.assertEqual(owner.revoked_preflight_session(original)['id'], preflight)
+        self.assertIsNone(owner.browser_session_transition(original, after))
+        for bad in (facts([]), facts([session(preflight), session(browser)]),
+                    facts([session(preflight, None)]),
+                    facts([session(preflight, '2026-10-25T03:00:00+00:00')])):
+            with self.assertRaises(owner.Failed):
+                owner.revoked_preflight_session(bad)
+        for bad in (facts([session(preflight)]),
+                    facts([session(preflight), session(browser, None)]),
+                    facts([session(preflight, '2026-10-25T01:05:00+00:00'), session(browser)]),
+                    facts([session(preflight), session(browser), session(key(33))])):
+            with self.assertRaises(owner.Failed):
+                owner.browser_session_transition(original, bad)
+
     def test_three_command_fingerprints_bind_edit_version_original_and_exact_quantity(self):
         buyer, request, source, supplier, po, line = [key(n) for n in range(11, 17)]
         fixture = {'buyerPrincipalId': buyer, 'approvedRequestId': request,
