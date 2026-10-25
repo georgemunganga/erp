@@ -25,6 +25,7 @@ An active Core principal with current Procurement return action and company/bran
 ## 6. Entry Points and Triggers
 
 Receiving detail can open a draft return for an accepted goods line. An authorized return directory can search eligible accepted facts within accessible branches.
+The return's `receiptId` is the retained Goods receiving **draft header** ID (`PrincipalReceivingFact.DraftId`), which is the physical FK target. The acceptance payload's `AcceptanceRecordId` is the distinct **receipt line** ID and must match the linked observation's `ReceiptLineId`; the observation's `ReceiptId` must match the fact's draft header. Eligible-source reads and return creation expose and retain the header ID after verifying both bindings.
 
 ## 7. Preconditions
 
