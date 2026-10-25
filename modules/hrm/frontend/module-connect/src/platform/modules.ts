@@ -14,7 +14,7 @@ export interface ErpModule {
 export const modules: ErpModule[] = [
   { id: "hrm", label: "Human resources", description: "People, time, payroll and HR administration.", available: true, to: "/hrm" },
   { id: "finance", label: "Finance", description: "General ledger, payables, receivables, fixed assets.", available: false, to: "/finance" },
-  { id: "procurement", label: "Procurement", description: "Requests, suppliers, sourcing, orders and invoices (UI demo).", available: true, to: "/procurement" },
+  { id: "procurement", label: "Procurement", description: "Requests, suppliers, sourcing, orders and invoices.", available: true, to: "/procurement" },
   { id: "inventory", label: "Inventory", description: "Stock, warehousing and movements.", available: false, to: "/inventory" },
   { id: "accounting", label: "Accounting", description: "Accounting interface preview: sales, payables, banking, journals and reports.", available: true, to: "/accounting/workspace/", preview: true },
   { id: "core", label: "ERP Core", description: "Organization, company identity, users and shared settings.", available: true, to: "/core" },
