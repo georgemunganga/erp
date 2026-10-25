@@ -16,6 +16,18 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Npgsql;
 
+if (args.SequenceEqual(new[] { "--restored-finite-login" }))
+{
+    try { await RestoredFiniteLoginVerification.RunAsync(); }
+    catch (Exception)
+    {
+        // Never echo connection strings, generated passwords, SQL or provider diagnostics.
+        Console.Error.WriteLine("Private restored finite-login verification failed; protected coordinator evidence required.");
+        Environment.ExitCode=1;
+    }
+    return;
+}
+
 // Explicit private P25 acceptance is separate from the unchanged read-only smoke mode.
 if (args.SequenceEqual(new[] { "--preflight-p30-rfq-fixture" }))
 {
