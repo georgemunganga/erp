@@ -3,8 +3,8 @@
   "documentId": "PROC-MODULE-COVERAGE-20261025",
   "dateUtc": "2026-10-25",
   "status": "SOURCE_UI_AND_NAMED_PRIVATE_EVIDENCE_SNAPSHOT_NOT_MODULE_COMPLETION",
-  "erpSourceBeforeThisDocsChange": "6f43cafc92e0d709044a33355527e12553f3a38c",
-  "uiSource": "bcd26bb3265156792e869538e21d95dba37a534a",
+  "erpSourceBeforeThisDocsChange": "4647fa2fb3ccee715ce13fa83bc63ad1121ecde4",
+  "uiSource": "62a3a3d53515be89ef4adb14327bfad9accedec2",
   "moduleComplete": false,
   "productionDeploymentClaim": false,
   "preservedPriorRecords": [
@@ -34,11 +34,12 @@
     "retainedFailures": "Prior P37 native and SDK failures remain retained. Successful source, tests and publication do not convert a running native cohort into acceptance."
   },
   "currentRunningOrPending": {
-    "P37Ui": "Published bcd26bb: TypeScript and 45 mocked browser cases passed; real P37 normal-cookie browser with current product remains unproved",
+    "P37Ui": "ACCEPTED Cookie02 real local-cookie Returns create/reload/revise/reload/cancel/logout plus independent owner delta; AppC48 unchanged, spec62a3; Cookie01 timing failure retained.",
     "P36Ui": "Published bcd26bb has real recommendation-source adapter and prior 14 targeted plus 2 preview mocked cases; this does not establish real recommendation HTTP acceptance",
     "scannerC04": "READY_UNACKNOWLEDGED; no external pickup or real scanner proof claimed",
     "P37Native05AndOwner06": "ACCEPTED_BOUNDED_PRIVATE_DRAFT_HTTP_AND_READ_ONLY_OWNER_GRAPH; 193 HTTP, 1 draft, 3 revisions, 3 command receipts, 9 audit and 3 outbox rows. Owner05 failed captures remain preserved.",
-    "P37Next": "Normal-cookie real backend, P37-only finite role and production deployment remain pending; no stock, Finance or supplier dispatch effect is implied."
+    "P37Next": "Narrow P37-only finite-role and production release remain pending; physical return fulfilment, external posting and supplier dispatch are not established.",
+    "P37Cookie02": "ACCEPTED bounded private native193 + one normal-cookie browser + independent owner before/after; see docs/procurement/release/P37-NORMAL-COOKIE02-ACCEPTANCE-20261025.json"
   },
   "metaCapabilityInventory": {
     "sourceFile": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
@@ -532,10 +533,14 @@
         {
           "receipt": "docs/procurement/release/P37-NATIVE05-OWNER06-ACCEPTANCE-20261025.json",
           "acceptedScope": "193 private native HTTP requests plus two byte-identical read-only Owner06 captures: 1 draft, 3 revisions, 3 receipts, 9 audit, 3 outbox. Owner05 failed numeric-canonical verifier remains preserved; no cookie, P37-only role or deployment claim."
+        },
+        {
+          "receipt": "docs/procurement/release/P37-NORMAL-COOKIE02-ACCEPTANCE-20261025.json",
+          "acceptedScope": "Native193 + real cookie browser1 + independent before/after owner: +1 draft/+3 revisions/+3 receipts/+9 audit/+3 internal outbox; original native graph and all nonP37 Procurement row counts/hash unchanged. Cookie01 failed timing attempt retained."
         }
       ],
       "remainingImplementationOrAcceptance": [
-        "Native05 and Owner06 now establish only the private draft Create/replay/recovery/Revise/Cancel and independent stored graph described in their receipt. Native01\u201304 and Owner05 retain their failed scopes. UI bcd26bb has TypeScript and mocked browser proof only. Real normal-cookie Returns flow, a narrow P37-only finite-role result and production release remain outstanding; no physical return, stock/Finance posting or supplier dispatch is claimed."
+        "Draft-only private native/cookie/owner proof accepted. Narrow P37-only finite role, fulfilment, acceptance reversal, external Inventory/Finance posting, supplier dispatch and production release remain distinct unproved gates."
       ],
       "production": "No new deployment established by this record; production remains P24"
     },
@@ -924,7 +929,7 @@
     },
     {
       "id": "P37_ACTUAL_AND_NORMAL_SESSION",
-      "scope": "Native05 193 private HTTP requests and Owner06 read-only graph now pass at draft-only scope. Next: real normal-cookie Returns lifecycle, narrow P37-only finite-role proof where required, and separate release review. Preserve Native01\u201304 and Owner05 failures."
+      "scope": "Cookie02 now passes real local-cookie lifecycle/logout and independent before/after owner on native193 cohort. Next: narrow P37-only finite-role proof where required and separate production release review. Preserve Cookie01 and earlier failed evidence; no return fulfilment or external posting claim."
     },
     {
       "id": "CORE_SCANNER_C04_AND_P31",
