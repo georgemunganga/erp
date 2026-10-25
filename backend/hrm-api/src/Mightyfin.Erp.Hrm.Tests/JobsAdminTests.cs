@@ -270,6 +270,8 @@ public sealed class JobsAdminTests
         Assert.DoesNotContain("procurement-return-read", admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-return-create", admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-return-edit", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-vendor-export", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-item-export", admin.EffectiveProcurementPermissions);
         Assert.Equal(88, admin.EffectiveProcurementPermissions.Length);
         var disabled = Assert.Single(roles, x => x.RoleKey == "disabled_buyer");
         Assert.Equal(["procurement-access", "procurement-vendor-read"], disabled.Permissions);

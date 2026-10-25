@@ -699,6 +699,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         if (!path.StartsWithSegments("/api/procurement/v1/vendors", out var rest)) return false;
         var parts = rest.Value?.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
         if (parts.Length == 0) return HttpMethods.IsGet(method) || HttpMethods.IsPost(method);
+        if (parts.Length == 1 && parts[0] == "export") return HttpMethods.IsGet(method);
         if (!Guid.TryParse(parts[0], out var vendor) || vendor == Guid.Empty) return false;
         if (parts.Length == 1) return HttpMethods.IsGet(method) || HttpMethods.IsPut(method);
         if (parts.Length == 2)
@@ -723,6 +724,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         if (!path.StartsWithSegments("/api/procurement/v1/items", out var rest)) return false;
         var parts = rest.Value?.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
         if (parts.Length == 0) return HttpMethods.IsGet(method) || HttpMethods.IsPost(method);
+        if (parts.Length == 1 && parts[0] == "export") return HttpMethods.IsGet(method);
         if (!Guid.TryParse(parts[0], out var item) || item == Guid.Empty) return false;
         if (parts.Length == 1) return HttpMethods.IsGet(method) || HttpMethods.IsPut(method);
         if (parts.Length == 2)

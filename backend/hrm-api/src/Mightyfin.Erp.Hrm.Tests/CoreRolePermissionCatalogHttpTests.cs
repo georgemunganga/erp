@@ -27,13 +27,17 @@ public sealed class CoreRolePermissionCatalogHttpTests
         Assert.Equal(1, body.GetProperty("schemaVersion").GetInt32());
         var actions = body.GetProperty("procurement").EnumerateArray().ToArray();
         var names = actions.Select(x => x.GetProperty("key").GetString()!).ToArray();
-        Assert.Equal(91, names.Length);
+        Assert.Equal(93, names.Length);
         Assert.Equal(ProcurementActionCatalog.BootstrapGrants.Keys.Order(StringComparer.Ordinal), names);
         Assert.All(actions, x =>
         {
             Assert.False(string.IsNullOrWhiteSpace(x.GetProperty("group").GetString()));
             Assert.False(string.IsNullOrWhiteSpace(x.GetProperty("label").GetString()));
         });
+        Assert.Equal("Export vendors", actions.Single(x => x.GetProperty("key").GetString() == "procurement-vendor-export")
+            .GetProperty("label").GetString());
+        Assert.Equal("Export items", actions.Single(x => x.GetProperty("key").GetString() == "procurement-item-export")
+            .GetProperty("label").GetString());
         Assert.DoesNotContain("permissionsCsv", body.GetRawText(), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("roleKey", body.GetRawText(), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(HttpStatusCode.OK, (await fixture.Get("erp_admin")).StatusCode);

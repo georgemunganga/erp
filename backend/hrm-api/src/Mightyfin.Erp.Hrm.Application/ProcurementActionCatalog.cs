@@ -6,11 +6,18 @@ public static class ProcurementActionCatalog
 {
     public sealed record AdminAction(string Key, string Group, string Label);
 
+    /// <summary>Actions requiring an exact configured Core grant, including for
+    /// the legacy ERP-admin seed and pre-configuration claim fallback.</summary>
+    public static bool RequiresExplicitConfiguredGrant(string action) => action is
+        "procurement-return-read" or "procurement-return-create" or "procurement-return-edit"
+            or "procurement-vendor-export" or "procurement-item-export";
+
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
             ["procurement-access"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor", "finance_approver"],
             ["procurement-vendor-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor"],
+            ["procurement-vendor-export"] = [], // Explicit Core grant; no legacy ERP-admin bootstrap.
             ["procurement-vendor-create"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-manage"] = ["procurement_buyer", "procurement_manager", "supplier_admin"],
@@ -18,6 +25,7 @@ public static class ProcurementActionCatalog
             ["procurement-vendor-suspend"] = ["procurement_manager"],
             ["procurement-item-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-item-manage"] = ["procurement_buyer", "procurement_manager"],
+            ["procurement-item-export"] = [], // Managed drafts only; not the employee catalog.
             ["procurement-item-approve"] = ["procurement_manager"],
             ["procurement-catalog-approve"] = ["procurement_manager"],
             ["procurement-request-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
@@ -128,8 +136,7 @@ public static class ProcurementActionCatalog
         var legacySeed = string.Equals(permissionsCsv.Trim(), roleKey, StringComparison.OrdinalIgnoreCase);
         var actions = explicitActions.Length > 0 ? explicitActions : legacySeed
             ? roleKey.Equals("erp_admin", StringComparison.OrdinalIgnoreCase)
-                ? BootstrapGrants.Keys.Where(action => action is not
-                    ("procurement-return-read" or "procurement-return-create" or "procurement-return-edit")).ToArray()
+                ? BootstrapGrants.Keys.Where(action => !RequiresExplicitConfiguredGrant(action)).ToArray()
                 : ForRole(roleKey)
             : [];
         return actions.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
@@ -166,6 +173,8 @@ public static class ProcurementActionCatalog
 
     private static string LabelFor(string key)
     {
+        if (key == "procurement-vendor-export") return "Export vendors";
+        if (key == "procurement-item-export") return "Export items";
         var words = key["procurement-".Length..].Split('-').Select(word => word switch
         {
             "po" => "PO", "rfq" => "RFQ", "api" => "API", _ => char.ToUpperInvariant(word[0]) + word[1..]
