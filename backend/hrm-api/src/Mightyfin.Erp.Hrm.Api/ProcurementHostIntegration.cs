@@ -363,18 +363,21 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var requestedEntityText = http.Request.Headers["X-Shell-Entity"].FirstOrDefault()?.Trim();
         var requestedLocationText = http.Request.Headers["X-Shell-Location"].FirstOrDefault()?.Trim();
         var hasAllHeader = http.Request.Headers.ContainsKey("X-Shell-Branch-Scope");
-        var explicitAllBranches = hasAllHeader && http.Request.Headers["X-Shell-Branch-Scope"].Count == 1
+        var validAllHeader = hasAllHeader && http.Request.Headers["X-Shell-Branch-Scope"].Count == 1
             && string.Equals(http.Request.Headers["X-Shell-Branch-Scope"].ToString().Trim(), "all", StringComparison.OrdinalIgnoreCase);
-        // Retain the existing P29 company-ledger contract for manual payments
-        // alongside the reviewed company-master readers from the live release.
-        var supportsAll = AllCompanyMasterReadPath(http.Request.Path, http.Request.Method)
-            || http.Request.Path.StartsWithSegments("/api/procurement/v1/manual-payments", StringComparison.OrdinalIgnoreCase);
-        if (hasAllHeader && (!explicitAllBranches || !supportsAll
+        if (hasAllHeader && (!validAllHeader
             || string.IsNullOrWhiteSpace(requestedEntityText) || http.Request.Headers.ContainsKey("X-Shell-Location")))
         {
             await Deny(http, StatusCodes.Status400BadRequest, "Choose one valid company scope and branch selection.");
             return;
         }
+        // All is admitted only by reviewed read contracts. Request lists fence
+        // branch-owned rows before count/page; plans/contracts are company-owned.
+        var explicitAllBranches = validAllHeader && (AllCompanyMasterReadPath(http.Request.Path, http.Request.Method)
+            || AllOperationalListReadPath(http.Request.Path, http.Request.Method)
+            // Existing P29 payment records are company-ledger scoped, including
+            // their reviewed commands. Do not narrow them to a selected branch.
+            || http.Request.Path.StartsWithSegments("/api/procurement/v1/manual-payments", StringComparison.OrdinalIgnoreCase));
         Guid? requestedEntity = null;
         Guid? requestedLocation = null;
         if (!string.IsNullOrEmpty(requestedEntityText))
@@ -394,6 +397,14 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
                 return;
             }
             requestedLocation = parsed;
+        }
+
+        // An explicit company-wide view must never silently post a request to
+        // an arbitrary assigned branch. Preserve legacy non-All commands.
+        if (validAllHeader && RequestWriteRequiresBranch(http.Request.Path, http.Request.Method))
+        {
+            await Deny(http, StatusCodes.Status400BadRequest, "Choose a permitted branch before changing a purchase request.");
+            return;
         }
 
         var legalEntities = await db.LegalEntities.AsNoTracking()
@@ -523,6 +534,21 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         await http.Response.WriteAsJsonAsync(new ApiError(status == 400 ? "invalid-scope" : "forbidden", message, []),
             http.RequestAborted);
     }
+
+    // These exact collections have reviewed All readers. Detail/review and
+    // mutation routes retain their separate branch requirements.
+    internal static bool AllOperationalListReadPath(PathString path, string method)
+    {
+        if (!HttpMethods.IsGet(method)) return false;
+        var value = path.Value?.TrimEnd('/');
+        return string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static bool RequestWriteRequiresBranch(PathString path, string method) =>
+        path.StartsWithSegments("/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+        && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method));
 
     // Only current company-master reads use explicit All in this P24 backport.
     // A future child or write route must receive its own scope review.
