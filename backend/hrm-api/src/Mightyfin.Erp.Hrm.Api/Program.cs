@@ -91,6 +91,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient("keycloak-admin");
 builder.Services.AddScoped<IIdentityProvisioningService, IdentityProvisioningService>();
 builder.Services.AddScoped<ITenantAccessor, PrincipalTenantAccessor>();
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 // M44 branch scoping: per-request work scope (entity + branch) resolved from
 // X-Shell-Location / X-Shell-Entity headers before any handler runs.
 builder.Services.AddScoped<ShellContext>();
@@ -229,6 +230,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("hrm-admin", policy => policy.RequireAuthenticatedUser()
         .RequireAssertion(context => WorkerPrincipal.FromClaims(context.User.Claims).IsRole("hr_admin", "erp_admin")));
     Mightyfin.Erp.Hrm.Api.ProcurementPermissions.AddPolicies(options);
+    Mightyfin.Erp.Hrm.Api.CoreWorkspaceContextRoutes.AddPolicy(options);
 });
 
 // ---------- Health: readiness probes the database ----------
@@ -442,6 +444,7 @@ Routes.HrmPrefix = $"/api/v{versioning.CurrentVersion}/hrm";
 Routes.RegisterAll(app);
 Routes.HrmPrefix = "/api/hrm"; // legacy prefix, kept for existing clients
 Routes.RegisterAll(app);
+Mightyfin.Erp.Hrm.Api.CoreWorkspaceContextRoutes.MapRoutes(app);
 Mightyfin.Erp.Hrm.Api.CoreRolePermissionCatalogRoutes.MapRoutes(app);
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
     Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.MapRoutes(app);
