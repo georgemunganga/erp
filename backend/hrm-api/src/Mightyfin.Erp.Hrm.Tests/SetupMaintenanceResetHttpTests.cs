@@ -35,9 +35,26 @@ public sealed class SetupMaintenanceResetHttpTests
     {
         await using var fixture = await Fixture.Start();
         using var missing = await fixture.Post("hr_admin", "OTHER");
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, missing.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
         using var nonAdmin = await fixture.Post("employee", "RESET");
         Assert.Equal(HttpStatusCode.Forbidden, nonAdmin.StatusCode);
+        Assert.Equal(0, fixture.Repository.Calls);
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("[]")]
+    [InlineData("123")]
+    [InlineData("{\"confirm\":123}")]
+    [InlineData("{\"confirm\":{}}")]
+    [InlineData("{\"confirm\":null}")]
+    public async Task NonObjectOrNonStringConfirmationIsBadRequestWithoutRepositoryAccess(string json)
+    {
+        await using var fixture = await Fixture.Start();
+        using var response = await fixture.PostRaw("hr_admin", json);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("reset-not-confirmed", body.GetProperty("code").GetString());
         Assert.Equal(0, fixture.Repository.Calls);
     }
 
@@ -54,6 +71,14 @@ public sealed class SetupMaintenanceResetHttpTests
             return await client.SendAsync(request);
         }
 
+        public async Task<HttpResponseMessage> PostRaw(string role, string json)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/hrm/setup/reset")
+            { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") };
+            request.Headers.Add("X-Test-Role", role);
+            return await client.SendAsync(request);
+        }
+
         public static async Task<Fixture> Start()
         {
             var repository = new RepositoryTrap();
@@ -66,6 +91,9 @@ public sealed class SetupMaintenanceResetHttpTests
             builder.Services.AddSingleton<ISetupRepository>(repository);
             builder.Services.AddScoped<ISetupService, SetupServiceImpl>();
             var app = builder.Build();
+            // The isolated TestServer exercises the production RegisterSetup route
+            // and real service, but maps errors locally; it does not bootstrap
+            // Program.cs or substitute for a full-host status-code check.
             app.Use(async (context, next) =>
             {
                 try { await next(context); }
@@ -75,6 +103,7 @@ public sealed class SetupMaintenanceResetHttpTests
                     {
                         "setup-maintenance-required" => 503,
                         "forbidden" => 403,
+                        "reset-not-confirmed" => 400,
                         _ => 422
                     };
                     await context.Response.WriteAsJsonAsync(new { code = error.Code });

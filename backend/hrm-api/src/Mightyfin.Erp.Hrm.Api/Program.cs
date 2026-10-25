@@ -345,6 +345,7 @@ app.Use(async (ctx, next) =>
             var code = ex.Code switch
         {
             "forbidden" => StatusCodes.Status403Forbidden,
+            "reset-not-confirmed" => StatusCodes.Status400BadRequest,
             "setup-maintenance-required" => StatusCodes.Status503ServiceUnavailable,
             "unauthorized" => StatusCodes.Status401Unauthorized,
             "not-found" or "worker-not-found" or "payroll-run-not-found" or "candidate-not-found" or "pay-period-not-found" or "letter-not-found" or "hr-request-not-found" => StatusCodes.Status404NotFound,
