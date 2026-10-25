@@ -37,6 +37,11 @@ if (args.SequenceEqual(new[] { "--principal-approvals" }))
     await PrincipalApprovalHttpVerification.RunAsync();
     return;
 }
+if (args.SequenceEqual(new[] { "--private-csv-export-owner" }))
+{
+    await ProcurementCsvPrivateInitializer.RunAsync();
+    return;
+}
 
 // This tool never creates a database. The reviewed launcher must create a NEW clone of the
 // retained canonical private restored backup and run this binary in --network none.
