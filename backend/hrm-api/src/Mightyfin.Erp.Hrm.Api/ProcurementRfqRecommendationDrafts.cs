@@ -57,8 +57,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         var retained=await LoadRetainedCommercialApproval(db,cases,scope,round,ct);
         await RequireCommercialSourceHolds(db,cases,scope,retained.Event,retained.Original,actor,ct);
         var (_,controls)=await OpeningPolicy(db,scope,round,ct,currentEffects:false);
-        if(!controls.ReaderPrincipalIds.Contains(actor.PrincipalId,StringComparer.Ordinal))
-            throw new Problem("RfqRecommendationReaderDenied",403);
+        RequireRecommendationNamedReader(controls,actor.PrincipalId);
         var opened=await db.PrincipalRfqOfferOpenings.AsNoTracking()
             .SingleOrDefaultAsync(x=>x.OpeningId==roundId,ct)
             ??throw new Problem("RfqOffersNotOpened",409);
@@ -75,6 +74,13 @@ public static partial class ProcurementSourcingExecutionRoutes
                 offers.Select(OfferProof).ToArray())!=opened.OfferSetSha256)
             throw new Problem("RfqRecommendationOfferSetChanged",409);
         return(round,actor,opened,seal,plan,revision,offers);
+    }
+
+    internal static void RequireRecommendationNamedReader(
+        PrincipalRfqOfferOpeningControls controls,string principalId)
+    {
+        if(!controls.ReaderPrincipalIds.Contains(principalId,StringComparer.Ordinal))
+            throw new Problem("RfqRecommendationReaderDenied",403);
     }
 
     private static PrincipalRfqRecommendationDraft.OfferLine[] RecommendationOfferLines(
@@ -105,16 +111,16 @@ public static partial class ProcurementSourcingExecutionRoutes
                 || input.DraftId is not null && (input.DraftId==Guid.Empty
                     || input.ExpectedRevision==0 || input.ExpectedSnapshotSha256 is not {Length:64}))
                 throw new Problem("RfqRecommendationInputInvalid",422);
-            var (authorizedRound,authorizedActor)=await OfferOpeningTarget(db,core,scope,http,auth,
-                id,PrincipalRfqRecommendationDraft.Action,token);
-            _=await PrincipalActor(core,scope,http,auth,
-                PrincipalRfqOfferOpeningControls.ReadAction,authorizedRound.BranchId,true,token);
+            // Replay is a current purpose read too: no receipt lookup or response
+            // precedes named-reader, retained opening and current alias admission.
+            var (round,actor,opened,seal,plan,planRevision,offers)=await RecommendationSource(
+                http,db,core,cases,auth,scope,id,true,token);
             var key=Key(http);
             var fingerprint=Fingerprint(new{operation="SaveRecommendationDraft",roundId=id,
                 input.DraftId,input.ExpectedRevision,input.ExpectedSnapshotSha256,input.Lines});
             await LockPrincipalSourcingCommandKey(db,key,token);
             var prior=await db.PrincipalRfqRecommendationDraftReceipts.AsNoTracking()
-                .SingleOrDefaultAsync(x=>x.ActorPrincipalId==authorizedActor.PrincipalId && x.CommandKey==key
+                .SingleOrDefaultAsync(x=>x.ActorPrincipalId==actor.PrincipalId && x.CommandKey==key
                     &&x.TenantId==scope.TenantId &&x.LegalEntityId==scope.LegalEntityId,token);
             if(prior is not null)
             {
@@ -123,15 +129,13 @@ public static partial class ProcurementSourcingExecutionRoutes
                 var priorRevision=await db.PrincipalRfqRecommendationDraftRevisions.AsNoTracking()
                     .SingleAsync(x=>x.Id==prior.RevisionId,token);
                 var priorHead=await db.PrincipalRfqRecommendationDrafts.AsNoTracking()
-                    .SingleAsync(x=>x.Id==prior.DraftId &&x.MakerPrincipalId==authorizedActor.PrincipalId,token);
+                    .SingleAsync(x=>x.Id==prior.DraftId &&x.MakerPrincipalId==actor.PrincipalId,token);
                 _=await VerifiedRecommendation(db,priorHead,token);
                 if(prior.ResponseJson!=PrincipalRfqRecommendationDraft.Response(priorHead,priorRevision)
                     ||prior.ResponseSha256!=ProcurementEvidenceEncoding.Digest(prior.ResponseJson))
                     throw new Problem("RfqRecommendationReceiptChanged",409);
                 return new Reply(prior.ResponseJson,201);
             }
-            var (round,actor,opened,seal,plan,planRevision,offers)=await RecommendationSource(
-                http,db,core,cases,auth,scope,id,true,token);
             var currency=await db.SourcingEvents.AsNoTracking().Where(x=>
                 x.Id==round.SourcingEventId &&x.BranchRef==round.BranchId
                 &&x.TenantId==scope.TenantId &&x.LegalEntityId==scope.LegalEntityId)
@@ -334,10 +338,8 @@ public static partial class ProcurementSourcingExecutionRoutes
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
             await RequireRecommendation(http,db,false,token);
-            var (round,actor)=await OfferOpeningTarget(db,core,scope,http,auth,
-                id,PrincipalRfqRecommendationDraft.Action,token);
-            _=await PrincipalActor(core,scope,http,auth,
-                PrincipalRfqOfferOpeningControls.ReadAction,round.BranchId,true,token);
+            var (round,actor,_,_,_,_,_)=await RecommendationSource(
+                http,db,core,cases,auth,scope,id,false,token);
             var ack=await db.PrincipalRfqRecommendationDraftReceipts.AsNoTracking()
                 .SingleOrDefaultAsync(x=>x.RoundId==id &&x.BranchId==round.BranchId
                     &&x.TenantId==scope.TenantId &&x.LegalEntityId==scope.LegalEntityId

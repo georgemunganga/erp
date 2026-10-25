@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Application;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -25,4 +26,22 @@ public sealed class ProcurementRfqCriterionAssessmentAdmissionTests
         Assert.False(await provider.IsReadyAsync(null!,false,CancellationToken.None));
         Assert.False(await provider.IsReadyAsync(null!,true,CancellationToken.None));
     }
+    [Fact]
+    public void Recommendation_receipt_purpose_does_not_survive_removed_named_reader()
+    {
+        var reader=Guid.NewGuid().ToString("D");
+        var other=Guid.NewGuid().ToString("D");
+        var controls=new PrincipalRfqOfferOpeningControls(other,[reader],false,0,false,false);
+        ProcurementSourcingExecutionRoutes.RequireRecommendationNamedReader(controls,reader);
+        // The same original receipt owner and action are insufficient once the
+        // supplied verified reader set excludes that principal. This pure gate
+        // does not mutate policy or attest a real HTTP/PostgreSQL recovery.
+        var removed=controls with {ReaderPrincipalIds=[other]};
+        var error=Assert.Throws<ProcurementSourcingExecutionRoutes.Problem>(()=>
+            ProcurementSourcingExecutionRoutes.RequireRecommendationNamedReader(removed,reader));
+        Assert.Equal(403,error.Status);
+        Assert.Equal("RfqRecommendationReaderDenied",error.Message);
+        Assert.Equal(new[]{reader},controls.ReaderPrincipalIds);
+    }
+
 }

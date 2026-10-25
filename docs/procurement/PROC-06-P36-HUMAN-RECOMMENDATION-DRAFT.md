@@ -114,7 +114,9 @@ Tenant/company/branch/owner predicates precede count/page.
 ## 19. Recovery
 
 GET `/commercial-rounds/{roundId}/recommendation-commands/{key}` returns the
-original actor-owned acknowledgement after verifying stored history. Transport
+original actor-owned acknowledgement only after the same current named-reader,
+retained-opening and alias-purpose admission used for new writes, then verifying
+stored history. POST replay uses that same admission before receipt lookup. Transport
 uncertainty requires GET reconciliation, never a guessed second POST.
 
 ## 20. Audit and integration
