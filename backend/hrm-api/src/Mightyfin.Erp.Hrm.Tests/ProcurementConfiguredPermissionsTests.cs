@@ -6,6 +6,33 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementConfiguredPermissionsTests
 {
+    [Fact]
+    public async Task Csv_export_actions_are_explicit_independent_grants_even_for_legacy_ERP_admin()
+    {
+        const string vendor = "procurement-vendor-export", item = "procurement-item-export";
+        foreach (var action in new[] { vendor, item })
+        {
+            Assert.Empty(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.BootstrapGrants[action]);
+            Assert.DoesNotContain(action, Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.ForRole("procurement_manager"));
+            Assert.DoesNotContain(action, Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog
+                .ResolveConfiguredActionsForRole("erp_admin", "erp_admin"));
+            Assert.False(ProcurementPermissions.Allows(action, [new Claim(ClaimTypes.Role, "erp_admin")]));
+            Assert.Contains(action, JobsAdminServiceImpl.PermissionKeys);
+        }
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var row = new TenantRoleAssignment { RoleKey = "exporter", RoleName = "Exporter", Category = "procurement",
+            PermissionsCsv = "procurement-access,procurement-vendor-read," + vendor, Active = true };
+        db.TenantRoleAssignments.Add(row); await db.SaveChangesAsync();
+        var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "exporter", default);
+        var claims = new[] { new Claim(ClaimTypes.Role, "exporter"), new Claim(ProcurementPermissions.ConfiguredClaim, "true") }
+            .Concat(actions.Select(x => new Claim(ProcurementPermissions.ActionClaim, x))).ToArray();
+        Assert.True(ProcurementPermissions.Allows(vendor, claims));
+        Assert.False(ProcurementPermissions.Allows(item, claims));
+        Assert.True(ProcurementPermissions.Allows("procurement-vendor-read", claims));
+        Assert.False(ProcurementPermissions.Allows("procurement-item-manage", claims));
+        row.PermissionsCsv = "procurement-access,procurement-vendor-read"; await db.SaveChangesAsync();
+        Assert.DoesNotContain(vendor, await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "exporter", default));
+    }
     [Theory]
     [InlineData("employee")][InlineData("manager")][InlineData("procurement_buyer")]
     [InlineData("procurement_manager")][InlineData("hr_admin")]

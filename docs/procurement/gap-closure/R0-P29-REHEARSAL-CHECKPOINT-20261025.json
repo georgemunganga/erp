@@ -1,0 +1,115 @@
+{
+  "status": "PRIVATE_SOURCE_AND_MIGRATION_CHECKPOINT_PASSED_RUNTIME_AND_RELEASE_PENDING",
+  "erpPr": "https://github.com/georgemunganga/erp/pull/96",
+  "source": "becd56fe0858305d15e32842d9a752bd8196de7e",
+  "productCompiledSource": "25d828213061c4738c857fe970d6d5c4a7434c92",
+  "publishedMainUnchanged": true,
+  "productionUnchanged": true,
+  "uiUnchanged": true,
+  "initialBuildSetupFailure": "SDK01 missing Core.Persistence compiler reference, before tests; preserved",
+  "sdk02": {
+    "productProjectsCompiled": 13,
+    "testProjectsCompiled": 3,
+    "host": {
+      "total": 1212,
+      "passed": 1211,
+      "failed": 1,
+      "skipped": 0
+    },
+    "failure": "JobsAdminTests stale P24 count67 vs current legacy permissions75",
+    "remainingSuitesNotRunDueToFailFast": true
+  },
+  "sdk03": {
+    "status": "ALL_THREE_FULL_SUITES_PASSED",
+    "onlySourceChangeSinceProductBuild": "JobsAdminTests assertion uses current catalog minus two explicitly granted exports; retained payment/sourcing checks",
+    "genuineParentArtifactFilesReadOnly": 1349,
+    "sourceFilesPinned": 949,
+    "productionFilesChanged": false,
+    "counts": {
+      "Mightyfin.Erp.Hrm.Tests": 1212,
+      "Mightyfin.Erp.Procurement.Tests": 1414,
+      "Mightyfin.Erp.Core.Approvals.Tests": 30
+    },
+    "failed": 0,
+    "skipped": 0,
+    "resultSha256": "aae47befd8ddc4103cd3de55ac9a7ef0fcc0d2a0cc10734ce66506c7b93dd4ab",
+    "acceptedArtifactManifestSha256": "d3cb6895ace4760f069910aba7adb17b593fe3e75f86bd7a632078ecaeec87d5",
+    "cachedCompiledHostTestDllPdbReversiblyArchivedAfterAcceptance": true
+  },
+  "actualProductionHistories": {
+    "core": 55,
+    "procurement": 21,
+    "approvals": 1,
+    "documentsHistoryPresent": false,
+    "coreTimeZoneColumnPresent": false,
+    "metadataEvidenceSha256": "711e39ee123bb79f5e287a43180f718ef1ea64fd17d1ede5b5e142327a3a6dff"
+  },
+  "pendingMigrations": {
+    "core": [
+      "20261023130726_CoreCompanyTimeZone"
+    ],
+    "procurement": [
+      "20261022161353_P25CorePrincipalRequestApproval",
+      "20261023125243_P27ManualPaymentRecords",
+      "20261023153226_P28ManualPaymentGovernance",
+      "20261023204131_P29CorePrincipalSourcingDrafts",
+      "20261023213118_P29CanonicalPrincipalSourceGuids"
+    ],
+    "documents": [
+      "20261020060744_P01CoreDocumentFoundation",
+      "20261020063543_P02CoreDocumentUploadRecovery",
+      "20261021080548_P03DocumentUseRetention"
+    ]
+  },
+  "protectedBackup": {
+    "bytes": 6136197,
+    "sha256": "7228a2967ba3010e3f39e5b8d07fb88b0578da22123535dbd8762f39e498f76c",
+    "archiveTocVerified": true,
+    "sourceVsRestoredRowsIndependentlyReconciled": false,
+    "serverGlobalRolesIncluded": false
+  },
+  "privateRestore": {
+    "status": "PASSED",
+    "receiptSha256": "404777e5ae333889d12794738bcc292462ba579cf5224221aa37cb22a660ccd5",
+    "productionAclsCertified": false,
+    "baselineOriginalColumnTableProjections": 191,
+    "baselineFingerprintSha256": "d8c6b0bbf206dc4294b42e6afc58b36eb9c0c868e737308dcba0399b3e9574a3",
+    "forwardMigrationsExecuted": true,
+    "pendingCore": 0,
+    "pendingProcurement": 0,
+    "pendingApprovals": 0,
+    "pendingDocuments": 3,
+    "exactEfOwnedMappedColumnsMatched": 3622,
+    "originalProjectionTables": 191,
+    "exactlyUnchangedOriginalColumnProjections": 189,
+    "historyTableAppends": {
+      "core": 1,
+      "procurement": 5
+    },
+    "afterFingerprintSha256": "bf5900e8cbd105cd02d6344aaff6fe3b6c14605262734582de48d74ca9fd3685",
+    "coreDownGuardRejectedAndRolledBack": true,
+    "privateAggregateSha256": "7a11bbaa81950788fdf35ddb3bedb2193c7ff9b700d6c6670b0537dc2eb9202f",
+    "sourceVsRestoredRowsIndependentlyReconciled": false,
+    "populatedLegacyAwardOrderReceiptInvoiceApprovalUpgradeProven": false,
+    "originalProcurementRowsByNonEmptyTable": {
+      "suppliers": 1,
+      "recurring_purchase_commitments": 1,
+      "purchase_requests": 1,
+      "purchase_request_lines": 1,
+      "audit_events": 12
+    }
+  },
+  "holds": [
+    "Actual restored source has one supplier/request/recurring commitment and twelve audits; populated legacy award/order/invoice/approval upgrades not proven",
+    "Restricted runtime roles, actual normal-session UI/API acceptance and recovery/fix-forward evidence remain required",
+    "Shared Documents and actual scanner acceptance remain separately held; no Clean or attachment readiness claim",
+    "No new collaborator assignment; publish reviewed main prerequisite merges first",
+    "Hosted PR96 check did not start because account billing is locked; this is distinct from local SDK test results"
+  ],
+  "privatePhaseReceiptSha256": {
+    "inspect": "9f9de61b148f8aae68e89d4460c3064e5b26ad5c2e45097d5999871510b234e3",
+    "forward": "f16667576c00a0ee73feed02b7e512d5fe374d99655360e0e4fc5e1084a4ff35",
+    "core-down-guard": "fd43459d6dfb2fc443a49ae5ad1b4aeca6355f365c61733686abdd2444081a8a",
+    "catalog": "d4daf38dd18dcaf5f3ea9b25496faacf10b80388f7db942e2a6252dff35e910d"
+  }
+}

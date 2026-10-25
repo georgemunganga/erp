@@ -342,17 +342,7 @@ app.Use(async (ctx, next) =>
     }
     catch (DomainException ex)
     {
-            var code = ex.Code switch
-        {
-            "forbidden" => StatusCodes.Status403Forbidden,
-            "unauthorized" => StatusCodes.Status401Unauthorized,
-            "not-found" or "worker-not-found" or "payroll-run-not-found" or "candidate-not-found" or "pay-period-not-found" or "letter-not-found" or "hr-request-not-found" => StatusCodes.Status404NotFound,
-            "conflict" or "employee-no-exists" or "run-already-exists" or "movement-not-allowed" or "offboarding-blocked" => StatusCodes.Status409Conflict,
-            "legal-entity-code-taken" or "location-code-taken" or "org-unit-code-taken" or "leave-type-code-taken"
-                or "unit-close-backdated" => StatusCodes.Status409Conflict,
-            _ => StatusCodes.Status422UnprocessableEntity,
-        };
-        ctx.Response.StatusCode = code;
+        ctx.Response.StatusCode = DomainExceptionHttpStatus.For(ex.Code);
         ctx.Response.ContentType = "application/json";
         await ctx.Response.WriteAsJsonAsync(new ApiError(ex.Code, ex.Message, []));
     }
@@ -448,6 +438,7 @@ Routes.RegisterAll(app);
 Routes.HrmPrefix = "/api/hrm"; // legacy prefix, kept for existing clients
 Routes.RegisterAll(app);
 Mightyfin.Erp.Hrm.Api.CoreWorkspaceContextRoutes.MapRoutes(app);
+Mightyfin.Erp.Hrm.Api.CoreRolePermissionCatalogRoutes.MapRoutes(app);
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
     Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.MapRoutes(app);
 

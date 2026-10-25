@@ -59,6 +59,120 @@ public sealed class ProcurementScopeMiddlewareTests
         Assert.True(reached); Assert.Equal(user.Id, scope.PrincipalId); Assert.Null(scope.WorkerId);
     }
 
+    [Theory]
+    [InlineData("/api/procurement/v1/context", true)]
+    [InlineData("/api/procurement/v1/meta", true)]
+    [InlineData("/api/procurement/v1/vendors", true)]
+    [InlineData("/api/procurement/v1/vendors/export", true)]
+    [InlineData("/api/procurement/v1/items", true)]
+    [InlineData("/api/procurement/v1/items/export", true)]
+    [InlineData("/api/procurement/v1/orders", false)]
+    [InlineData("/api/procurement/v1/vendors/random-child", false)]
+    public void All_scope_has_an_exact_company_master_read_allowlist(string path, bool allowed)
+    {
+        Assert.Equal(allowed, ProcurementScopeMiddleware.AllCompanyMasterReadPath(path, "GET"));
+        Assert.False(ProcurementScopeMiddleware.AllCompanyMasterReadPath(path, "POST"));
+    }
+
+    [Fact]
+    public async Task Explicit_All_uses_current_Core_branch_intersection_without_defaulting_to_first_branch()
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, other, first) = await Seed(db);
+        var second = new WorkLocation { Code = "A2", Name = "Other permitted", LegalEntityId = company.Id };
+        var foreign = new WorkLocation { Code = "B2", Name = "Foreign", LegalEntityId = other.Id };
+        db.WorkLocations.AddRange(second, foreign);
+        db.UserBranchAssignments.AddRange(new HrUserBranchAssignment { UserId = user.Id, LocationId = first.Id },
+            new HrUserBranchAssignment { UserId = user.Id, LocationId = second.Id });
+        await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id);
+        http.Request.Path = "/api/procurement/v1/vendors/export";
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached);
+        Assert.True(scope.IsExplicitAllBranches);
+        Assert.Null(scope.WorkLocationId);
+        Assert.Equal(new[] { first.Id, second.Id }.OrderBy(x => x), scope.PermittedWorkLocationIds.OrderBy(x => x));
+        Assert.DoesNotContain(foreign.Id, scope.PermittedWorkLocationIds);
+        Assert.NotNull(await ProcurementContextRoutes.BuildAsync(db, scope, http.User.Claims));
+
+        var (badCompany, badScope) = Request(user.Id);
+        badCompany.Request.Headers["X-Shell-Entity"] = other.Id.ToString();
+        badCompany.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        await Middleware(_ => throw new Exception("Foreign company reached route")).InvokeAsync(badCompany, badScope, db);
+        Assert.Equal(403, badCompany.Response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/procurement/v1/vendors", "POST")]
+    [InlineData("/api/procurement/v1/items", "POST")]
+    public async Task Valid_All_on_existing_operational_routes_keeps_the_original_concrete_branch(
+        string path, string method)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id });
+        await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id);
+        http.Request.Path = path;
+        http.Request.Method = method;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached);
+        Assert.False(scope.IsExplicitAllBranches);
+        Assert.Equal(branch.Id, scope.WorkLocationId);
+        Assert.Equal(company.Id, scope.LegalEntityId);
+        Assert.Empty(scope.PermittedWorkLocationIds);
+    }
+
+    [Theory]
+    [InlineData("wrong", false)]
+    [InlineData("all", true)]
+    public async Task Invalid_or_coexisting_All_headers_are_rejected_before_route_execution(string header, bool addLocation)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        var (http, scope) = Request(user.Id);
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = header;
+        if (addLocation) http.Request.Headers["X-Shell-Location"] = branch.Id.ToString();
+        await Middleware(_ => throw new Exception("Invalid header reached route")).InvokeAsync(http, scope, db);
+        Assert.Equal(400, http.Response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/procurement/v1/requests", true)]
+    [InlineData("/api/procurement/v1/requests/", true)]
+    [InlineData("/api/procurement/v1/plans", true)]
+    [InlineData("/api/procurement/v1/contracts", true)]
+    [InlineData("/api/procurement/v1/orders", false)]
+    [InlineData("/api/procurement/v1/requests/random-child", false)]
+    [InlineData("/api/procurement/v1/requestss", false)]
+    public void All_operational_reads_are_exact_collections_not_commands_or_children(string path, bool allowed)
+    {
+        Assert.Equal(allowed, ProcurementScopeMiddleware.AllOperationalListReadPath(path,"GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(path,"POST"));
+    }
+
+    [Theory]
+    [InlineData("/api/procurement/v1/requests")]
+    [InlineData("/api/procurement/v1/plans")]
+    [InlineData("/api/procurement/v1/contracts")]
+    public async Task Reviewed_All_collections_do_not_default_to_an_assigned_branch(string path)
+    {
+        await using var db=TestDbContextFactory.Create("tenant-a");var (user,company,_,branch)=await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId=user.Id, LocationId=branch.Id });await db.SaveChangesAsync();
+        var (http,scope)=Request(user.Id);http.Request.Path=path;
+        http.Request.Headers["X-Shell-Entity"]=company.Id.ToString();http.Request.Headers["X-Shell-Branch-Scope"]="all";
+        var reached=false;await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(http,scope,db);
+        Assert.True(reached);Assert.True(scope.IsExplicitAllBranches);Assert.Null(scope.WorkLocationId);
+        Assert.Equal(new[]{branch.Id},scope.PermittedWorkLocationIds);
+    }
+
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)
     {
         var a = new LegalEntity { Code = "A", RegisteredName = "A", IsDefault = true };
@@ -69,9 +183,34 @@ public sealed class ProcurementScopeMiddlewareTests
         db.TenantRoleAssignments.Add(new TenantRoleAssignment { RoleKey = "employee", RoleName = "Existing role", Active = true, PermissionsCsv = "procurement-access,procurement-vendor-read" });
         await db.SaveChangesAsync(); return (user, a, b, branch);
     }
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("POST")]
+    public async Task Existing_manual_payment_company_scope_keeps_current_permitted_branches(string method)
+    {
+        // Scope-only fixture. Real payment routes additionally enforce their
+        // named permissions, current policy, authority and business-state guards.
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id });
+        await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id);
+        http.Request.Path = "/api/procurement/v1/manual-payments";
+        http.Request.Method = method;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached);
+        Assert.True(scope.IsExplicitAllBranches);
+        Assert.Null(scope.WorkLocationId);
+        Assert.Equal(branch.Id, Assert.Single(scope.PermittedWorkLocationIds));
+    }
+
     private static (DefaultHttpContext, ProcurementRequestScope) Request(Guid user)
     {
         var http = new DefaultHttpContext(); http.Request.Path = "/api/procurement/v1/context"; http.Response.Body = new MemoryStream();
+        http.Request.Method = HttpMethods.Get;
         http.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("tenant", "tenant-a"), new Claim("sub", user.ToString()), new Claim(ClaimTypes.Role, "employee") }, "test"));
         return (http, new ProcurementRequestScope());
     }

@@ -53,7 +53,7 @@ public static class CoreWorkspaceContextRoutes
         var companyChoices = await companies.OrderByDescending(x => x.IsDefault).ThenBy(x => x.RegisteredName)
             .ThenBy(x => x.Id).Select(x => new { x.Id, x.Code, x.RegisteredName, x.Currency, x.IsDefault }).ToArrayAsync(ct);
         var branchChoices = await branches.OrderBy(x => x.Name).ThenBy(x => x.Id)
-            .Select(x => new { x.Id, x.Code, x.Name, x.LegalEntityId }).ToArrayAsync(ct);
+            .Select(x => new { x.Id, x.Code, x.Name, x.LegalEntityId, x.Type }).ToArrayAsync(ct);
         return Results.Ok(new { schemaVersion = 1, tenantId = tenant, principalId = principal,
             organisationWide, companies = companyChoices, branches = branchChoices });
     }

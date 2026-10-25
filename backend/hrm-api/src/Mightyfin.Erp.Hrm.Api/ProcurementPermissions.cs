@@ -29,22 +29,13 @@ public static class ProcurementPermissions
             .Where(r => r.Active && !r.IsArchived && assigned.Contains(r.RoleKey)
                 && (tenantId == null || r.TenantId == tenantId))
             .Select(r => new { r.RoleKey, r.PermissionsCsv }).ToListAsync(ct);
-        var known = RoleGrants.Keys.ToHashSet(StringComparer.Ordinal);
         var grants = new HashSet<string>(StringComparer.Ordinal);
         foreach (var role in assigned)
         {
             var row = configured.FirstOrDefault(r => r.RoleKey.Equals(role, StringComparison.OrdinalIgnoreCase));
             if (row is null) continue;
-            var explicitActions = row.PermissionsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(known.Contains).ToArray();
-            // Only the exact intentional legacy seed token opts into bootstrap
-            // compatibility. Empty, HR-only or unknown action sets mean no module grants.
-            var legacySeed = string.Equals(row.PermissionsCsv.Trim(), row.RoleKey, StringComparison.OrdinalIgnoreCase);
-            var actions = explicitActions.Length > 0 ? explicitActions : legacySeed
-                ? role.Equals("erp_admin", StringComparison.OrdinalIgnoreCase)
-                    ? RoleGrants.Keys.ToArray() : ProcurementActionCatalog.ForRole(role)
-                : [];
-            foreach (var action in actions) grants.Add(action);
+            foreach (var action in ProcurementActionCatalog.ResolveConfiguredActionsForRole(role, row.PermissionsCsv))
+                grants.Add(action);
         }
         return grants.Order(StringComparer.Ordinal).ToArray();
     }
@@ -70,6 +61,7 @@ public static class ProcurementPermissions
             return hasAccess && (policy == "procurement-access"
                 || claims.Any(x => x.Type == ActionClaim && x.Value == policy));
         }
+        if (ProcurementActionCatalog.RequiresExplicitConfiguredGrant(policy)) return false;
         return principal.IsRole("erp_admin") || principal.IsRole(roles);
     }
 

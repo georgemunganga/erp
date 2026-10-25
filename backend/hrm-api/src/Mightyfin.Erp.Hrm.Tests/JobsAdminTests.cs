@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure;
@@ -135,6 +136,65 @@ public sealed class JobsAdminTests
         var error = await Assert.ThrowsAsync<DomainException>(() => service.UpdateRoleAsync("source_operator",
             new RoleUpdateRequest(Permissions: ["procurement-access", "procurement-sourcing-unregistered"]), default));
         Assert.Equal("invalid-permissions", error.Code);
+    }
+
+    [Fact]
+    public async Task Role_readback_matches_session_grants_for_current_registry_row_shapes()
+    {
+        using var db = CreateContext();
+        db.TenantRoleAssignments.AddRange(
+            new TenantRoleAssignment { RoleKey = "procurement_buyer", RoleName = "Empty buyer", Category = "procurement", PermissionsCsv = "", Active = true },
+            new TenantRoleAssignment { RoleKey = "buyer_unknown", RoleName = "Unknown", Category = "procurement", PermissionsCsv = "procurement-unknown", Active = true },
+            new TenantRoleAssignment { RoleKey = "buyer_hr_only", RoleName = "HR only", Category = "procurement", PermissionsCsv = "hr_admin", Active = true },
+            new TenantRoleAssignment { RoleKey = "manager", RoleName = "Legacy manager", Category = "procurement", PermissionsCsv = "manager", Active = true },
+            new TenantRoleAssignment { RoleKey = "custom_operator", RoleName = "Explicit", Category = "procurement",
+                PermissionsCsv = "procurement-access,procurement-sourcing-convert,Procurement-po-issue,unknown-action", Active = true },
+            new TenantRoleAssignment { RoleKey = "erp_admin", RoleName = "Legacy ERP admin", Category = "system", PermissionsCsv = "erp_admin", Active = true },
+            new TenantRoleAssignment { RoleKey = "disabled_buyer", RoleName = "Disabled", Category = "procurement",
+                PermissionsCsv = "procurement-access,procurement-vendor-read", Active = false },
+            new TenantRoleAssignment { RoleKey = "hr_only", RoleName = "HR projection", Category = "hrm", PermissionsCsv = "manager", Active = true });
+        await db.SaveChangesAsync();
+
+        var roles = await CreateService(db).ListRolesAsync(default);
+        foreach (var role in roles)
+            Assert.Equal(await ProcurementPermissions.ResolveConfiguredActionsAsync(db, role.RoleKey, default, TenantId),
+                role.EffectiveProcurementPermissions);
+        foreach (var key in new[] { "procurement_buyer", "buyer_unknown", "buyer_hr_only" })
+            Assert.Empty(Assert.Single(roles, x => x.RoleKey == key).Permissions);
+        Assert.Contains("procurement-request-read", Assert.Single(roles, x => x.RoleKey == "manager").Permissions);
+        Assert.Equal(["procurement-access", "procurement-sourcing-convert"],
+            Assert.Single(roles, x => x.RoleKey == "custom_operator").Permissions);
+        var admin = Assert.Single(roles, x => x.RoleKey == "erp_admin");
+        Assert.Equal(["erp_admin"], admin.Permissions); // HRM/system edit projection is unchanged.
+        var expectedLegacyAdmin = ProcurementActionCatalog.AdminReadCatalog().Select(action => action.Key)
+            .Except(["procurement-vendor-export", "procurement-item-export"])
+            .Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(expectedLegacyAdmin, admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-vendor-export", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-item-export", admin.EffectiveProcurementPermissions);
+        Assert.Contains("procurement-payment-confirm", admin.EffectiveProcurementPermissions);
+        Assert.Contains("procurement-sourcing-publish", admin.EffectiveProcurementPermissions);
+        var disabled = Assert.Single(roles, x => x.RoleKey == "disabled_buyer");
+        Assert.Equal(["procurement-access", "procurement-vendor-read"], disabled.Permissions);
+        Assert.Empty(disabled.EffectiveProcurementPermissions);
+        Assert.Equal(["manager"], Assert.Single(roles, x => x.RoleKey == "hr_only").Permissions);
+    }
+
+    [Fact]
+    public async Task Renaming_role_preserves_explicit_actions_without_legacy_seed()
+    {
+        using var db = CreateContext();
+        db.TenantRoleAssignments.AddRange(
+            new TenantRoleAssignment { RoleKey = "hr_admin", RoleName = "Administrator", Category = "hrm", PermissionsCsv = "hr_admin", Active = true },
+            new TenantRoleAssignment { RoleKey = "custom_operator", RoleName = "Old name", Category = "procurement",
+                PermissionsCsv = "procurement-access,procurement-sourcing-convert", Active = true });
+        await db.SaveChangesAsync();
+        var before = await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "custom_operator", default, TenantId);
+        var updated = await CreateService(db).UpdateRoleAsync("custom_operator", new RoleUpdateRequest(RoleName: "New name"), default);
+        Assert.Equal(before, updated.Permissions);
+        Assert.Equal(before, updated.EffectiveProcurementPermissions);
+        Assert.Equal("procurement-access,procurement-sourcing-convert",
+            (await db.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "custom_operator")).PermissionsCsv);
     }
 
     [Fact]

@@ -2,14 +2,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.Setup;
+using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
 /// <summary>M49: first-time setup wizard — step gating, finish rules, the
-/// destructive start-afresh reset, and the legacy-tenant no-gate behaviour,
+/// safe refusal of web reset, and the legacy-tenant no-gate behaviour,
 /// over SQLite in-memory with a fixed tenant (same harness as the rest of the
 /// test suite; the InMemory provider misbehaves with Guid-V7 keys).</summary>
 public class SetupWizardTests
@@ -81,9 +84,9 @@ public class SetupWizardTests
     }
 
     [Fact]
-    public async Task FinishRefusesSecondCallAndResetRestarts()
+    public async Task FinishRefusesSecondCallAndResetPreservesCompletedDataAndAudit()
     {
-        var (svc, _) = Build();
+        var (svc, ctx) = Build();
         await svc.CompleteStepAsync("organisation", null, CancellationToken.None);
         await svc.CompleteStepAsync("structure", null, CancellationToken.None);
         await svc.CompleteStepAsync("employment", null, CancellationToken.None);
@@ -97,11 +100,64 @@ public class SetupWizardTests
         // re-seed a pending state.
         await Assert.ThrowsAsync<DomainException>(() =>
             svc.FinishAsync(CancellationToken.None));
-        // Reset wipes the tenant's data and leaves a fresh pending state.
-        await svc.ResetAsync(CancellationToken.None);
+        var audit = new AuditEntry
+        {
+            TenantId = "m49-test", EntityType = "SetupState", EntityId = "finished",
+            Action = "complete", ActorSubjectId = "setup-admin"
+        };
+        ctx.AuditEntries.Add(audit);
+        await ctx.SaveChangesAsync();
+        var before = await ctx.SetupStepRecords.AsNoTracking().CountAsync();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => svc.ResetAsync(CancellationToken.None));
+        Assert.Equal("setup-maintenance-required", error.Code);
         var after = await svc.GetStateAsync(CancellationToken.None);
-        Assert.Equal("pending", after.Status);
-        Assert.Empty(after.CompletedSteps);
+        Assert.Equal("complete", after.Status);
+        Assert.Equal(before, await ctx.SetupStepRecords.AsNoTracking().CountAsync());
+        Assert.Equal(before, after.CompletedSteps.Count);
+        Assert.NotNull(await ctx.AuditEntries.AsNoTracking().SingleOrDefaultAsync(x => x.Id == audit.Id));
+    }
+
+    [Fact]
+    public async Task ResetRefusesBeforeAnyRepositoryReadWipeOrSeed()
+    {
+        var repo = new ResetCallTrap();
+        var service = new SetupServiceImpl(repo);
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.ResetAsync(CancellationToken.None));
+        Assert.Equal("setup-maintenance-required", error.Code);
+        Assert.Equal(0, repo.Calls);
+    }
+
+    [Fact]
+    public async Task ResetCannotEraseAnotherTenantInTheSameDatabase()
+    {
+        await using var connection = new SqliteConnection("Data Source=setup-reset-isolation-" + Guid.NewGuid() + ";Mode=Memory;Cache=Shared");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<HrmDbContext>().UseSqlite(connection).Options;
+        await using var first = new HrmDbContext(options, new FixedTenantAccessor("tenant-a"));
+        await first.Database.EnsureCreatedAsync();
+        await using var other = new HrmDbContext(options, new FixedTenantAccessor("tenant-b"));
+        var retained = new SetupState { Status = "complete", TenantId = "tenant-b" };
+        other.SetupStates.Add(retained);
+        await other.SaveChangesAsync();
+
+        var service = new SetupServiceImpl(new SetupRepository(first));
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.ResetAsync(CancellationToken.None));
+        Assert.Equal("setup-maintenance-required", error.Code);
+        Assert.Equal("complete", (await other.SetupStates.AsNoTracking().SingleAsync(x => x.Id == retained.Id)).Status);
+    }
+
+    private sealed class ResetCallTrap : ISetupRepository
+    {
+        public int Calls { get; private set; }
+        private T Unexpected<T>() { Calls++; throw new InvalidOperationException("Reset reached the repository."); }
+        public Task<SetupState?> GetStateAsync(CancellationToken ct) => Unexpected<Task<SetupState?>>();
+        public Task<IReadOnlySet<string>> CompletedStepKeysAsync(CancellationToken ct) => Unexpected<Task<IReadOnlySet<string>>>();
+        public Task<string?> DataForStepAsync(string stepKey, CancellationToken ct) => Unexpected<Task<string?>>();
+        public Task CompleteStepAsync(string stepKey, string? dataJson, CancellationToken ct) => Unexpected<Task>();
+        public Task FinishAsync(SetupState state, CancellationToken ct) => Unexpected<Task>();
+        public Task WipeAllDataAsync(CancellationToken ct) => Unexpected<Task>();
+        public Task<SetupState> SeedPendingStateAsync(CancellationToken ct) => Unexpected<Task<SetupState>>();
     }
 
     [Fact]

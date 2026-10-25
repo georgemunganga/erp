@@ -40,7 +40,7 @@ public static class ProcurementRequestRoutes
             .Skip(skip).Take(take)
             .Select(x => new RequestSummary(x.Id, x.Number, x.Purpose, x.Status, x.CurrencyCode,
                 x.NeededBy, x.CreatedAt, x.Version,
-                x.Lines.Count(line => line.ApprovalStatus != "Cancelled")))
+                x.Lines.Count(line => line.ApprovalStatus != "Cancelled"), x.BranchRef))
             .ToListAsync(ct);
         return Results.Ok(new { records, count, limit = take, offset = skip });
     }
@@ -550,7 +550,16 @@ public static class ProcurementRequestRoutes
         var requests = db.PurchaseRequests;
         if (scope.PrincipalId is null || scope.PrincipalId == Guid.Empty) return requests.Where(x => false);
         IQueryable<PurchaseRequest> scoped = requests;
-        if (scope.WorkLocationId.HasValue || scope.IsConfined)
+        if (scope.IsExplicitAllBranches)
+        {
+            var permitted = scope.PermittedWorkLocationIds.ToArray();
+            // Retain existing company-wide authority for legacy own requests
+            // without a branch. Confined users never inherit those records.
+            var companyWide = !scope.IsConfined;
+            scoped = scoped.Where(x => x.BranchRef.HasValue
+                ? permitted.Contains(x.BranchRef.Value) : companyWide);
+        }
+        else if (scope.WorkLocationId.HasValue || scope.IsConfined)
             scoped = scoped.Where(x => scope.WorkLocationId != null && x.BranchRef == scope.WorkLocationId);
         if (scope.OrgUnitId.HasValue) scoped = scoped.Where(x => x.DepartmentRef == scope.OrgUnitId);
         return scoped;
@@ -561,7 +570,7 @@ public static class ProcurementRequestRoutes
         Results.Json(new ApiError(code, message, []), statusCode: status);
 
     public sealed record RequestSummary(Guid Id, string Number, string Purpose, string Status,
-        string CurrencyCode, DateOnly? NeededBy, DateTimeOffset CreatedAt, long Version, int LineCount);
+        string CurrencyCode, DateOnly? NeededBy, DateTimeOffset CreatedAt, long Version, int LineCount, Guid? BranchRef = null);
     public record NewRequest(string? Purpose, string? CurrencyCode, DateOnly? NeededBy,
         string? CostCenterRef, string? ProjectRef, string? DeliveryLocationRef,
         string? DeliveryAddressText, string? FundingSourceRef, string? NotesToApprover,
