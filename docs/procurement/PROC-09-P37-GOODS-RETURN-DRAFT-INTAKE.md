@@ -195,3 +195,44 @@ transaction ownership/isolation, default flags/missing capture, exact capture
 keysets, immutable grant boundaries, current workerless Core authorization and
 revocation/branch/forged-alias denial. No SDK, PostgreSQL or browser job was run
 for this source checkpoint; real finite role, physical and HTTP proof remain.
+
+
+## Pre-UI read-projection addendum (sections 10, 12–14, 18–19, 22, 25–28)
+
+List/detail GET responses retain the existing `id`, `status`, `version`, scope/source IDs,
+exact quantities, reason/reference and no-effect flags. They additionally return
+`allowedActions: string[]`, with exactly `Edit` and `Cancel` only for the current
+stored Core principal who created a Draft, currently has `procurement-return-edit`,
+passes that HTTP authorization policy, and retains the same tenant/company/branch
+admission. Otherwise the array is empty. These are current UI hints, not authority:
+write callbacks continue their own current actor, original creator, state and CAS
+checks. Existing branch/actor admission precedes reads and paging.
+
+Eligible-goods rows and verified list/detail rows additionally return `labels`:
+`purchaseOrderNumber`, nullable `supplierDisplayName`, `lineNumber`, `description`,
+`unitCode`, `currencyCode`, `deliveryNoteReference`, and `receivedAt` (the actual
+observation time, not a fabricated acceptance or dispatch date). SourceHistory
+returns its already verified retained-issued graph alongside the verified ledger;
+no duplicate source loader, new table or current supplier/catalog eligibility query
+is introduced. Supplier display text comes verbatim from the original verified
+issued commercial snapshot, line text from its verified PO line and the physical
+note/time from the exact observation linked to the accepted fact. No fallback
+supplier name or receipt number is manufactured. Labels convey identification,
+not current return capacity, commercial approval or Inventory/Finance authority.
+
+Original write and GET-command-recovery acknowledgements remain frozen under
+`PrincipalGoodsReturnRules.ResponseJson`. Neither dynamic `allowedActions` nor
+labels are persisted in them, and their response hashes/versions remain unchanged.
+After any acknowledgement, UI must GET current detail before exposing a new edit.
+Unknown writes keep original body/key and use GET recovery; no blind replacement
+POST or inferred record ID is introduced.
+
+The supplied UI has no goods-return transaction screen. Future contextual Returns
+integration must reuse the existing Receiving toolbar/tabs/editor frame and shared
+ERP controls, with a separately reviewed absent-false owner-ready capability. This
+checkpoint does not register routes, enable flags, invent a Returns layout or wire
+preview settings/vendor-credit demo actions. Its added source tests cover action
+eligibility/scope/state, stored Core permission revocation despite a stale claim,
+verbatim source labels and unchanged original acknowledgements. Twelve added cases
+are authored but not executed here; fresh owning SDK/finite-role/runtime gates
+remain separate. There is no database model or migration change.
