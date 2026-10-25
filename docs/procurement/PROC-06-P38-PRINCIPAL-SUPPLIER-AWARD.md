@@ -108,7 +108,7 @@ Pure: full recommendation reconstruction; duplicate/missing/foreign lines; exact
 
 ## 27. Dependencies and release gates
 
-P36 currently supplies a Draft and no Submit/terminal recommendation. P38 additionally needs a published award policy, new Core actions, typed owned persistence, exact document/source loader, finite physical capture and actual API/browser proof. The bounded first implementation verifies a retained P36 revision and line set as a prerequisite; it does not mark an award or register routes. Later implementation must close these gates rather than label the verifier a ready award service.
+P36 currently supplies a Draft and no Submit/terminal recommendation. P38 additionally needs a published award policy, new Core actions, typed owned persistence, exact document/source loader, finite physical capture and actual API/browser proof. The bounded first implementation, `PrincipalRfqAwardSourceQualification.VerifyCurrent`, reconstructs the P36 current revision against the exact opened offer/source projections and requires its stored snapshot to match the canonical line set. Five authored pure tests cover a valid exact selection, missing/duplicate lines, substituted supplier/offer digest, excessive quantity and a self-hashed substitute snapshot/cross-company row. These tests are unrun. The verifier is a prerequisite; it does not attest price components, mark an award or register routes. The owning adapter must additionally load and verify the whole retained P36/P32/source/Core/document graph. Later implementation must close these gates rather than label the verifier a ready award service.
 
 ## 28. Decisions and assumptions
 
